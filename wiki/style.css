@@ -207,7 +207,13 @@ body {
   flex: 1;
   min-width: 0;
   padding: 48px 64px;
-  max-width: calc(var(--content-max) + 128px);
+  display: grid;
+  justify-content: center;
+  align-content: start;
+}
+
+.main-content > * {
+  width: min(100%, var(--content-max));
 }
 
 /* ─── Hero ──────────────────────────────────────────────────────────────── */
@@ -913,7 +919,11 @@ tr:hover td {
     display: none;
   }
   .main-content {
+    display: block;
     padding: 32px 24px;
+  }
+  .main-content > * {
+    width: auto;
   }
   .hero h1 {
     font-size: 32px;

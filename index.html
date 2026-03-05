@@ -241,13 +241,16 @@
           </p>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph LR CC["Claude Code\nSession"]:::cc -->|"hooks fire on\ntool use / stop"|
-              HH["hook-handler.js\n(stdin → HTTP)"]:::mid HH -->|"HTTP POST\n/api/hooks/event"|
-              SRV["Express Server\n+ SQLite"]:::mid SRV -->|"WebSocket\nbroadcast"| UI["React
-              Dashboard\n(browser)"]:::ui classDef cc fill:#6366f1,stroke:#818cf8,color:#fff
-              classDef mid fill:#1a1a2b,stroke:#2e2e48,color:#e2e2f0 classDef ui
-              fill:#10b981,stroke:#34d399,color:#fff
+              graph LR
+                CC["Claude Code\nSession"]:::cc -->|"hooks fire on\ntool use / stop"| HH["hook-handler.js\n(stdin → HTTP)"]:::mid
+                HH -->|"HTTP POST\n/api/hooks/event"| SRV["Express Server\n+ SQLite"]:::mid
+                SRV -->|"WebSocket\nbroadcast"| UI["React Dashboard\n(browser)"]:::ui
+
+                classDef cc fill:#6366f1,stroke:#818cf8,color:#fff
+                classDef mid fill:#1a1a2b,stroke:#2e2e48,color:#e2e2f0
+                classDef ui fill:#10b981,stroke:#34d399,color:#fff
             </div>
             <p class="diagram-label">End-to-end data pipeline from Claude Code to the browser</p>
           </div>
@@ -702,17 +705,66 @@ npm run dev
           </p>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph TB subgraph Claude["Claude Code Process"] CC[Claude Code CLI] H1[PreToolUse
-              Hook] H2[PostToolUse Hook] H3[Stop Hook] H4[SubagentStop Hook] H5[Notification Hook]
-              CC --> H1 & H2 & H3 & H4 & H5 end subgraph Hook["Hook Layer"] HH["hook-handler.js"] H1
-              & H2 & H3 & H4 & H5 -->|stdin JSON| HH end subgraph Server["Server Process — port
-              4820"] direction TB EX[Express App] HR[/api/hooks] SR[/api/sessions] AR[/api/agents]
-              AN[/api/analytics] DB[(SQLite WAL)] WSS[WebSocket Server] EX --> HR & SR & AR & AN HR
-              -->|transaction| DB SR & AR & AN --> DB HR -->|broadcast| WSS end subgraph
-              Client["Browser"] direction TB APP[React App] WS_C[WS Client] EB[Event Bus]
-              PAGES[Dashboard / Kanban /\nSessions / Analytics] APP --> WS_C --> EB --> PAGES PAGES
-              -->|fetch| EX end HH -->|"POST /api/hooks/event"| HR WSS -->|push| WS_C
+              graph TB
+                subgraph Claude["Claude Code Process"]
+                  CC["Claude Code CLI"]
+                  H1["PreToolUse Hook"]
+                  H2["PostToolUse Hook"]
+                  H3["Stop Hook"]
+                  H4["SubagentStop Hook"]
+                  H5["Notification Hook"]
+                  CC --> H1
+                  CC --> H2
+                  CC --> H3
+                  CC --> H4
+                  CC --> H5
+                end
+
+                subgraph Hook["Hook Layer"]
+                  HH["hook-handler.js"]
+                end
+
+                subgraph Server["Server Process — port 4820"]
+                  direction TB
+                  EX["Express App"]
+                  HR["/api/hooks"]
+                  SR["/api/sessions"]
+                  AR["/api/agents"]
+                  AN["/api/analytics"]
+                  DB[("SQLite WAL")]
+                  WSS["WebSocket Server"]
+                  EX --> HR
+                  EX --> SR
+                  EX --> AR
+                  EX --> AN
+                  HR -->|transaction| DB
+                  SR --> DB
+                  AR --> DB
+                  AN --> DB
+                  HR -->|broadcast| WSS
+                end
+
+                subgraph Client["Browser"]
+                  direction TB
+                  APP["React App"]
+                  WS_C["WS Client"]
+                  EB["Event Bus"]
+                  PAGES["Dashboard / Kanban /\nSessions / Analytics"]
+                  APP --> WS_C
+                  WS_C --> EB
+                  EB --> PAGES
+                end
+
+                H1 -->|stdin JSON| HH
+                H2 -->|stdin JSON| HH
+                H3 -->|stdin JSON| HH
+                H4 -->|stdin JSON| HH
+                H5 -->|stdin JSON| HH
+                HH -->|"POST /api/hooks/event"| HR
+                WSS -->|push| WS_C
+                PAGES -->|fetch| EX
             </div>
             <p class="diagram-label">
               Full system architecture — Claude Code process → Hook Layer → Server → Browser
@@ -721,23 +773,36 @@ npm run dev
 
           <h3>Agent State Machine</h3>
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              stateDiagram-v2 [*] --> idle : Agent created idle --> connected : Session established
-              connected --> working : Tool use started (PreToolUse) working --> connected : Tool use
-              finished (PostToolUse) working --> working : Different tool started connected -->
-              completed : Session ended (Stop) working --> completed : Session ended (Stop) working
-              --> error : Error occurred idle --> completed : Session ended completed --> [*] error
-              --> [*]
+              stateDiagram-v2
+                [*] --> idle: Agent created
+                idle --> connected: Session established
+                connected --> working: Tool use started (PreToolUse)
+                working --> connected: Tool use finished (PostToolUse)
+                working --> working: Different tool started
+                connected --> completed: Session ended (Stop)
+                working --> completed: Session ended (Stop)
+                working --> error: Error occurred
+                idle --> completed: Session ended
+                completed --> [*]
+                error --> [*]
             </div>
             <p class="diagram-label">Agent status transitions driven by hook events</p>
           </div>
 
           <h3>Session State Machine</h3>
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              stateDiagram-v2 [*] --> active : First hook event received active --> completed : Stop
-              hook (normal exit) active --> error : Stop hook (error exit) active --> abandoned : No
-              activity timeout completed --> [*] error --> [*] abandoned --> [*]
+              stateDiagram-v2
+                [*] --> active: First hook event received
+                active --> completed: Stop hook (normal exit)
+                active --> error: Stop hook (error exit)
+                active --> abandoned: No activity timeout
+                completed --> [*]
+                error --> [*]
+                abandoned --> [*]
             </div>
             <p class="diagram-label">Session status lifecycle</p>
           </div>
@@ -750,18 +815,30 @@ npm run dev
 
           <h3>Event Ingestion Pipeline</h3>
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram participant CC as Claude Code participant HH as hook-handler.js
-              participant API as POST /api/hooks/event participant TX as SQLite Transaction
-              participant WS as WebSocket.broadcast() participant UI as React Client CC->>HH: stdin:
-              {"session_id":"abc","tool_name":"Bash",...} Note over HH: Reads stdin to EOF,<br />parses
-              JSON, wraps with hook_type HH->>API: POST {"hook_type":"PreToolUse","data":{...}}
-              API->>TX: BEGIN TRANSACTION TX->>TX: ensureSession(session_id) Note over TX: Creates
-              session + main agent<br />on first contact TX->>TX: process by hook_type Note over TX:
-              PreToolUse → agent working<br />PostToolUse → agent connected<br />Stop → all
-              completed + token usage TX->>TX: insertEvent(...) TX->>TX: COMMIT API->>WS:
-              broadcast("agent_updated", agent) API->>WS: broadcast("new_event", event) WS->>UI:
-              {"type":"agent_updated","data":{...}} UI->>UI: eventBus.publish → page re-renders
+              sequenceDiagram
+                participant CC as Claude Code
+                participant HH as hook-handler.js
+                participant API as POST /api/hooks/event
+                participant TX as SQLite Transaction
+                participant WS as WebSocket.broadcast()
+                participant UI as React Client
+
+                CC->>HH: stdin JSON payload
+                Note over HH: Reads stdin to EOF<br/>Parses JSON and adds hook_type
+                HH->>API: POST {"hook_type":"PreToolUse","data":{...}}
+                API->>TX: BEGIN TRANSACTION
+                TX->>TX: ensureSession(session_id)
+                Note over TX: Creates session + main agent<br/>on first contact
+                TX->>TX: process by hook_type
+                Note over TX: PreToolUse -> agent working<br/>PostToolUse -> agent connected<br/>Stop -> all completed + token usage
+                TX->>TX: insertEvent(...)
+                TX->>TX: COMMIT
+                API->>WS: broadcast("agent_updated", agent)
+                API->>WS: broadcast("new_event", event)
+                WS->>UI: {"type":"agent_updated","data":{...}}
+                UI->>UI: eventBus.publish -> page re-renders
             </div>
             <p class="diagram-label">
               Complete event ingestion from hook fire to browser re-render
@@ -770,15 +847,29 @@ npm run dev
 
           <h3>Client Data Loading Pattern</h3>
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram participant Page as React Page participant API as api.ts participant
-              Server as Express participant EB as eventBus participant WS as WebSocket Note over
-              Page: Component mounts Page->>API: load() via useEffect API->>Server: GET
-              /api/sessions (or agents, events, stats) Server-->>API: JSON response API-->>Page:
-              setState(data) Note over Page: Subscribes to live updates Page->>EB:
-              eventBus.subscribe(handler) loop Real-time updates WS->>EB: eventBus.publish(msg)
-              EB->>Page: handler(msg) Page->>Page: reload or optimistic update end Note over Page:
-              Component unmounts Page->>EB: unsubscribe()
+              sequenceDiagram
+                participant Page as React Page
+                participant API as api.ts
+                participant Server as Express
+                participant EB as eventBus
+                participant WS as WebSocket
+
+                Note over Page: Component mounts
+                Page->>API: load() via useEffect
+                API->>Server: GET /api/sessions (or agents, events, stats)
+                Server-->>API: JSON response
+                API-->>Page: setState(data)
+                Note over Page: Subscribes to live updates
+                Page->>EB: eventBus.subscribe(handler)
+                loop Real-time updates
+                  WS->>EB: eventBus.publish(msg)
+                  EB->>Page: handler(msg)
+                  Page->>Page: reload or optimistic update
+                end
+                Note over Page: Component unmounts
+                Page->>EB: unsubscribe()
             </div>
             <p class="diagram-label">Initial load + WebSocket subscription lifecycle</p>
           </div>
@@ -790,15 +881,36 @@ npm run dev
           <h2>Server Architecture</h2>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph TD INDEX[server/index.js<br />Express app + HTTP server] DB[server/db.js<br />SQLite
-              + prepared statements] WS[server/websocket.js<br />WS server + heartbeat]
-              HOOKS[routes/hooks.js<br />Hook event processing] SESSIONS[routes/sessions.js<br />Session
-              CRUD] AGENTS[routes/agents.js<br />Agent CRUD] EVENTS[routes/events.js<br />Event
-              listing] STATS[routes/stats.js<br />Aggregate queries]
-              ANALYTICS[routes/analytics.js<br />Analytics metrics] INDEX --> DB & WS INDEX -->
-              HOOKS & SESSIONS & AGENTS & EVENTS & STATS & ANALYTICS HOOKS --> DB & WS SESSIONS -->
-              DB & WS AGENTS --> DB & WS EVENTS --> DB STATS --> DB ANALYTICS --> DB
+              graph TD
+                INDEX["server/index.js<br/>Express app + HTTP server"]
+                DB["server/db.js<br/>SQLite + prepared statements"]
+                WS["server/websocket.js<br/>WS server + heartbeat"]
+                HOOKS["routes/hooks.js<br/>Hook event processing"]
+                SESSIONS["routes/sessions.js<br/>Session CRUD"]
+                AGENTS["routes/agents.js<br/>Agent CRUD"]
+                EVENTS["routes/events.js<br/>Event listing"]
+                STATS["routes/stats.js<br/>Aggregate queries"]
+                ANALYTICS["routes/analytics.js<br/>Analytics metrics"]
+
+                INDEX --> DB
+                INDEX --> WS
+                INDEX --> HOOKS
+                INDEX --> SESSIONS
+                INDEX --> AGENTS
+                INDEX --> EVENTS
+                INDEX --> STATS
+                INDEX --> ANALYTICS
+                HOOKS --> DB
+                HOOKS --> WS
+                SESSIONS --> DB
+                SESSIONS --> WS
+                AGENTS --> DB
+                AGENTS --> WS
+                EVENTS --> DB
+                STATS --> DB
+                ANALYTICS --> DB
             </div>
             <p class="diagram-label">Server module dependency graph</p>
           </div>
@@ -886,15 +998,37 @@ npm run dev
           <h2>Client Architecture</h2>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph TD APP["App.tsx — Router + WebSocket"]:::root LAYOUT["Layout.tsx — Sidebar +
-              Outlet"] SIDEBAR["Sidebar.tsx — Nav + Connection Status"] APP --> LAYOUT LAYOUT -->
-              SIDEBAR LAYOUT --> DASH["Dashboard.tsx"] LAYOUT --> KANBAN["KanbanBoard.tsx"] LAYOUT
-              --> SESS["Sessions.tsx"] LAYOUT --> DETAIL["SessionDetail.tsx"] LAYOUT -->
-              ACTIVITY["ActivityFeed.tsx"] LAYOUT --> ANALYTICS["Analytics.tsx"] DASH -->
-              SC["StatCard x4"] DASH --> AC["AgentCard list"] KANBAN --> COL["Column
-              x5\n(idle/connected/working/completed/error)"] COL --> AC2["AgentCard list"] classDef
-              root fill:#6366f1,stroke:#818cf8,color:#fff
+              graph TD
+                APP["App.tsx — Router + WebSocket"]:::root
+                LAYOUT["Layout.tsx — Sidebar + Outlet"]
+                SIDEBAR["Sidebar.tsx — Nav + Connection Status"]
+                DASH["Dashboard.tsx"]
+                KANBAN["KanbanBoard.tsx"]
+                SESS["Sessions.tsx"]
+                DETAIL["SessionDetail.tsx"]
+                ACTIVITY["ActivityFeed.tsx"]
+                ANALYTICS["Analytics.tsx"]
+                SC["StatCard x4"]
+                AC["AgentCard list"]
+                COL["Column x5\n(idle/connected/working/completed/error)"]
+                AC2["AgentCard list"]
+
+                APP --> LAYOUT
+                LAYOUT --> SIDEBAR
+                LAYOUT --> DASH
+                LAYOUT --> KANBAN
+                LAYOUT --> SESS
+                LAYOUT --> DETAIL
+                LAYOUT --> ACTIVITY
+                LAYOUT --> ANALYTICS
+                DASH --> SC
+                DASH --> AC
+                KANBAN --> COL
+                COL --> AC2
+
+                classDef root fill:#6366f1,stroke:#818cf8,color:#fff
             </div>
             <p class="diagram-label">React component tree</p>
           </div>
@@ -986,14 +1120,35 @@ npm run dev
           </p>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph TD REST["REST API\n(initial load)"]:::source WSM["WebSocket Messages\n(real-time
-              updates)"]:::source EB["eventBus\n(Set-based pub/sub)"]:::bus REST --> US1 & US2 & US3
-              & US4 & US5 & US6 WSM --> EB EB --> US1["useState\nDashboard"] EB -->
-              US2["useState\nKanbanBoard"] EB --> US3["useState\nSessions"] EB -->
-              US4["useState\nSessionDetail"] EB --> US5["useState\nActivityFeed"] EB -->
-              US6["useState\nAnalytics"] classDef source fill:#6366f1,stroke:#818cf8,color:#fff
-              classDef bus fill:#f59e0b,stroke:#fbbf24,color:#000
+              graph TD
+                REST["REST API\n(initial load)"]:::source
+                WSM["WebSocket Messages\n(real-time updates)"]:::source
+                EB["eventBus\n(Set-based pub/sub)"]:::bus
+                US1["useState\nDashboard"]
+                US2["useState\nKanbanBoard"]
+                US3["useState\nSessions"]
+                US4["useState\nSessionDetail"]
+                US5["useState\nActivityFeed"]
+                US6["useState\nAnalytics"]
+
+                REST --> US1
+                REST --> US2
+                REST --> US3
+                REST --> US4
+                REST --> US5
+                REST --> US6
+                WSM --> EB
+                EB --> US1
+                EB --> US2
+                EB --> US3
+                EB --> US4
+                EB --> US5
+                EB --> US6
+
+                classDef source fill:#6366f1,stroke:#818cf8,color:#fff
+                classDef bus fill:#f59e0b,stroke:#fbbf24,color:#000
             </div>
             <p class="diagram-label">
               Each page pulls initial data from REST then subscribes to eventBus for live updates
@@ -1021,23 +1176,59 @@ npm run dev
           <h2>Database Design</h2>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              erDiagram sessions ||--o{ agents : "has" sessions ||--o{ events : "has" sessions
-              ||--o| token_usage : "tracks" agents ||--o{ events : "generates" agents ||--o{ agents
-              : "spawns (subagents)" sessions { TEXT id PK "UUID" TEXT name "Human-readable label"
-              TEXT status "active|completed|error|abandoned" TEXT cwd "Working directory path" TEXT
-              model "Claude model ID" TEXT started_at "ISO 8601" TEXT ended_at "ISO 8601 or NULL"
-              TEXT metadata "JSON blob" } agents { TEXT id PK "UUID or session_id-main" TEXT
-              session_id FK TEXT name "Display name" TEXT type "main|subagent" TEXT subagent_type
-              "Explore|general-purpose|etc" TEXT status "idle|connected|working|completed|error"
-              TEXT task "Current task description" TEXT current_tool "Active tool or NULL" TEXT
-              started_at "ISO 8601" TEXT ended_at "ISO 8601 or NULL" TEXT parent_agent_id FK
-              "References agents.id" TEXT metadata "JSON blob" } events { INTEGER id PK
-              "Auto-increment" TEXT session_id FK TEXT agent_id FK TEXT event_type
-              "PreToolUse|PostToolUse|Stop|etc" TEXT tool_name "Tool that fired the event" TEXT
-              summary "Human-readable summary" TEXT data "Full event JSON" TEXT created_at "ISO
-              8601" } token_usage { TEXT session_id PK FK INTEGER input_tokens INTEGER output_tokens
-              INTEGER cache_read_tokens INTEGER cache_write_tokens }
+              erDiagram
+                sessions ||--o{ agents : has
+                sessions ||--o{ events : has
+                sessions ||--o| token_usage : tracks
+                agents ||--o{ events : generates
+                agents ||--o{ agents : spawns_subagents
+
+                sessions {
+                  TEXT id PK "UUID"
+                  TEXT name "Human-readable label"
+                  TEXT status "active|completed|error|abandoned"
+                  TEXT cwd "Working directory path"
+                  TEXT model "Claude model ID"
+                  TEXT started_at "ISO 8601"
+                  TEXT ended_at "ISO 8601 or NULL"
+                  TEXT metadata "JSON blob"
+                }
+
+                agents {
+                  TEXT id PK "UUID or session_id-main"
+                  TEXT session_id FK
+                  TEXT name "Display name"
+                  TEXT type "main|subagent"
+                  TEXT subagent_type "Explore|general-purpose|etc"
+                  TEXT status "idle|connected|working|completed|error"
+                  TEXT task "Current task description"
+                  TEXT current_tool "Active tool or NULL"
+                  TEXT started_at "ISO 8601"
+                  TEXT ended_at "ISO 8601 or NULL"
+                  TEXT parent_agent_id FK "References agents.id"
+                  TEXT metadata "JSON blob"
+                }
+
+                events {
+                  INTEGER id PK "Auto-increment"
+                  TEXT session_id FK
+                  TEXT agent_id FK
+                  TEXT event_type "PreToolUse|PostToolUse|Stop|etc"
+                  TEXT tool_name "Tool that fired the event"
+                  TEXT summary "Human-readable summary"
+                  TEXT data "Full event JSON"
+                  TEXT created_at "ISO 8601"
+                }
+
+                token_usage {
+                  TEXT session_id PK FK
+                  INTEGER input_tokens
+                  INTEGER output_tokens
+                  INTEGER cache_read_tokens
+                  INTEGER cache_write_tokens
+                }
             </div>
             <p class="diagram-label">Entity Relationship Diagram — SQLite schema</p>
           </div>
@@ -1298,10 +1489,15 @@ npm run dev
 }</code></pre>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              stateDiagram-v2 [*] --> Connecting : Component mounts Connecting --> Connected :
-              onopen Connected --> Closed : onclose / onerror Closed --> Connecting : setTimeout
-              2000ms Connected --> [*] : Component unmounts Closed --> [*] : Component unmounts
+              stateDiagram-v2
+                [*] --> Connecting: Component mounts
+                Connecting --> Connected: onopen
+                Connected --> Closed: onclose / onerror
+                Closed --> Connecting: setTimeout 2000ms
+                Connected --> [*]: Component unmounts
+                Closed --> [*]: Component unmounts
             </div>
             <p class="diagram-label">Client WebSocket auto-reconnect state machine</p>
           </div>
@@ -1321,13 +1517,20 @@ npm run dev
           </p>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              flowchart TD START[Claude Code fires hook] --> STDIN[Read stdin to EOF] STDIN -->
-              PARSE{Parse JSON?} PARSE -->|Success| POST["POST to 127.0.0.1:4820\n/api/hooks/event"]
-              PARSE -->|Failure| WRAP["Wrap raw input as\n{\"raw\": \"...\"}"] WRAP --> POST POST
-              --> RESP{Response?} RESP -->|200| EXIT0[exit 0] RESP -->|Error| EXIT0 RESP -->|Timeout
-              3s| DESTROY[Destroy request] DESTROY --> EXIT0 SAFETY["Safety net: setTimeout 5s"] -->
-              EXIT0
+              flowchart TD
+                START[Claude Code fires hook] --> STDIN[Read stdin to EOF]
+                STDIN --> PARSE{Parse JSON?}
+                PARSE -->|Success| POST["POST to 127.0.0.1:4820\n/api/hooks/event"]
+                PARSE -->|Failure| WRAP["Wrap raw input as\n{\"raw\": \"...\"}"]
+                WRAP --> POST
+                POST --> RESP{Response?}
+                RESP -->|200| EXIT0[exit 0]
+                RESP -->|Error| EXIT0
+                RESP -->|Timeout 3s| DESTROY[Destroy request]
+                DESTROY --> EXIT0
+                SAFETY["Safety net: setTimeout 5s"] --> EXIT0
             </div>
             <p class="diagram-label">
               hook-handler.js flow — always exits 0, never blocks Claude Code
@@ -1336,15 +1539,23 @@ npm run dev
 
           <h3>Hook Installation Flow</h3>
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              flowchart TD START[Server startup or npm run install-hooks] -->
-              READ{"~/.claude/settings.json\nexists?"} READ -->|Yes| PARSE[Parse JSON] READ -->|No|
-              EMPTY[Start with empty object] PARSE --> CHECK EMPTY --> CHECK[Ensure hooks section
-              exists] CHECK --> LOOP["For each hook type:\nPreToolUse, PostToolUse,\nStop,
-              SubagentStop, Notification"] LOOP --> EXISTS{"Our hook\nalready installed?"} EXISTS
-              -->|Yes| UPDATE[Update command path] EXISTS -->|No| APPEND[Append to array] UPDATE -->
-              NEXT APPEND --> NEXT{More hook types?} NEXT -->|Yes| LOOP NEXT -->|No| WRITE["Write
-              settings.json\n(preserves all other hooks)"] WRITE --> DONE[Done]
+              flowchart TD
+                START[Server startup or npm run install-hooks] --> READ{"~/.claude/settings.json\nexists?"}
+                READ -->|Yes| PARSE[Parse JSON]
+                READ -->|No| EMPTY[Start with empty object]
+                PARSE --> CHECK[Ensure hooks section exists]
+                EMPTY --> CHECK
+                CHECK --> LOOP["For each hook type:\nPreToolUse, PostToolUse,\nStop, SubagentStop, Notification"]
+                LOOP --> EXISTS{"Our hook\nalready installed?"}
+                EXISTS -->|Yes| UPDATE[Update command path]
+                EXISTS -->|No| APPEND[Append to array]
+                UPDATE --> NEXT{More hook types?}
+                APPEND --> NEXT
+                NEXT -->|Yes| LOOP
+                NEXT -->|No| WRITE["Write settings.json\n(preserves all other hooks)"]
+                WRITE --> DONE[Done]
             </div>
             <p class="diagram-label">
               Hook installation is idempotent — safe to run multiple times
@@ -1413,12 +1624,21 @@ npm run dev
           </div>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram participant CC as Claude Code participant SH as statusline-command.sh
-              participant PY as statusline.py participant GIT as git CLI CC->>SH: stdin (JSON
-              payload) SH->>PY: Pipes stdin through (PYTHONUTF8=1) PY->>PY: Parse JSON — model, cwd,
-              context_window PY->>GIT: git symbolic-ref --short HEAD GIT-->>PY: Branch name PY->>PY:
-              Build ANSI-colored segments PY-->>CC: stdout (formatted statusline)
+              sequenceDiagram
+                participant CC as Claude Code
+                participant SH as statusline-command.sh
+                participant PY as statusline.py
+                participant GIT as git CLI
+
+                CC->>SH: stdin (JSON payload)
+                SH->>PY: Pipe stdin through (PYTHONUTF8=1)
+                PY->>PY: Parse JSON (model, cwd, context_window)
+                PY->>GIT: git symbolic-ref --short HEAD
+                GIT-->>PY: Branch name
+                PY->>PY: Build ANSI-colored segments
+                PY-->>CC: stdout (formatted statusline)
             </div>
             <p class="diagram-label">
               Statusline rendering pipeline — invoked on each Claude Code update
@@ -1456,14 +1676,30 @@ npm run dev
           <h2>Deployment Modes</h2>
 
           <div class="diagram-wrap">
+            <!-- prettier-ignore -->
             <div class="mermaid">
-              graph LR subgraph dev["Development — 2 processes"] D_CMD["npm run
-              dev\n(concurrently)"] --> D_SRV["node --watch server/index.js\nport 4820 —
-              auto-restart"] D_CMD --> D_VITE["vite dev server\nport 5173 — HMR"]
-              D_BROWSER["Browser"] --> D_VITE D_VITE -->|"proxy /api + /ws"| D_SRV end subgraph
-              prod["Production — 1 process"] P_BUILD["npm run build\n(tsc + vite build)"] -->
-              P_DIST["client/dist/\nstatic files"] P_START["npm start"] --> P_SRV["node
-              server/index.js\nport 4820 — serves dist"] P_BROWSER["Browser"] --> P_SRV end
+              graph LR
+                subgraph dev["Development — 2 processes"]
+                  D_CMD["npm run dev\n(concurrently)"]
+                  D_SRV["node --watch server/index.js\nport 4820 — auto-restart"]
+                  D_VITE["vite dev server\nport 5173 — HMR"]
+                  D_BROWSER["Browser"]
+                  D_CMD --> D_SRV
+                  D_CMD --> D_VITE
+                  D_BROWSER --> D_VITE
+                  D_VITE -->|"proxy /api + /ws"| D_SRV
+                end
+
+                subgraph prod["Production — 1 process"]
+                  P_BUILD["npm run build\n(tsc + vite build)"]
+                  P_DIST["client/dist/\nstatic files"]
+                  P_START["npm start"]
+                  P_SRV["node server/index.js\nport 4820 — serves dist"]
+                  P_BROWSER["Browser"]
+                  P_BUILD --> P_DIST
+                  P_START --> P_SRV
+                  P_BROWSER --> P_SRV
+                end
             </div>
             <p class="diagram-label">Development vs production deployment topology</p>
           </div>
