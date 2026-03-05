@@ -85,6 +85,7 @@
 
       body {
         --sidebar-current: var(--sidebar-expanded);
+        overflow-x: hidden;
       }
 
       body.sidebar-collapsed {
@@ -105,6 +106,7 @@
       .main-content {
         margin-left: var(--sidebar-current) !important;
         width: calc(100% - var(--sidebar-current));
+        overflow-x: clip;
         transition:
           margin-left 0.2s ease,
           width 0.2s ease;
@@ -257,6 +259,7 @@
         color: var(--text-muted, #8888aa);
         text-decoration: none;
         font-size: 13px;
+        overflow-wrap: anywhere;
       }
 
       .footer-col-links a:hover {
@@ -277,8 +280,8 @@
         }
 
         .diagram-wrap .mermaid svg {
-          width: 108%;
-          max-width: 108%;
+          width: 100%;
+          max-width: 100%;
         }
 
         body:not(.sidebar-collapsed) .sidebar {
