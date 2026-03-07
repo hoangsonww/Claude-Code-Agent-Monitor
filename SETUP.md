@@ -70,6 +70,16 @@ To remove all sessions, agents, events, and token usage (useful after running se
 npm run clear-data
 ```
 
+### Data management via Settings page
+
+The Settings page (`/settings`) provides a UI for:
+
+- **Model Pricing** — view and edit per-model cost rates, reset to defaults, add custom models
+- **Hook Configuration** — check which hooks are installed and reinstall them
+- **Data Export** — download all sessions, agents, events, and pricing as a JSON file
+- **Session Cleanup** — abandon stale active sessions after N hours, purge old completed sessions after N days
+- **Clear All Data** — remove all sessions, agents, events, and token usage
+
 ### Seed demo data
 
 To populate the dashboard with sample sessions, agents, and events for UI exploration:
@@ -91,6 +101,7 @@ npm run seed
 | `install-hooks` | `npm run install-hooks` | Write Claude Code hooks to `~/.claude/settings.json` |
 | `clear-data` | `npm run clear-data` | Delete all data from the database |
 | `seed` | `npm run seed` | Insert demo sessions/agents/events |
+| `import-history` | `npm run import-history` | Import legacy sessions from `~/.claude/` (also runs on startup) |
 | `test` | `npm test` | Run all server and client tests |
 | `test:server` | `npm run test:server` | Run server integration tests only |
 | `test:client` | `npm run test:client` | Run client unit tests only |

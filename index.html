@@ -374,6 +374,7 @@
           <a href="#statusline" class="nav-link"
             ><span class="nav-icon">◈</span>Statusline Utility</a
           >
+          <a href="#settings-page" class="nav-link"><span class="nav-icon">◈</span>Settings Page</a>
 
           <div class="nav-section">Ops & Reference</div>
           <a href="#deployment" class="nav-link"><span class="nav-icon">◈</span>Deployment Modes</a>
@@ -609,6 +610,22 @@
               <p>
                 Correctly tracks backgrounded subagents without premature completion. Sessions stay
                 active until the last subagent finishes.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-amber">$</div>
+              <h3>Cost Tracking</h3>
+              <p>
+                Per-model cost estimation with configurable pricing rules. View total and per-session
+                cost breakdowns based on input, output, and cache token rates.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-indigo">⚙</div>
+              <h3>Settings &amp; Management</h3>
+              <p>
+                Model pricing editor, hook configuration status, JSON data export, session cleanup
+                (abandon stale, purge old), and system information dashboard.
               </p>
             </div>
           </div>
@@ -1146,6 +1163,8 @@ npm run dev
                 EVENTS["routes/events.js<br/>Event listing"]
                 STATS["routes/stats.js<br/>Aggregate queries"]
                 ANALYTICS["routes/analytics.js<br/>Analytics metrics"]
+                PRICING["routes/pricing.js<br/>Pricing CRUD + cost calc"]
+                SETTINGS_R["routes/settings.js<br/>System info + data mgmt"]
 
                 INDEX --> DB
                 INDEX --> WS
@@ -1155,6 +1174,8 @@ npm run dev
                 INDEX --> EVENTS
                 INDEX --> STATS
                 INDEX --> ANALYTICS
+                INDEX --> PRICING
+                INDEX --> SETTINGS_R
                 HOOKS --> DB
                 HOOKS --> WS
                 SESSIONS --> DB
@@ -1164,6 +1185,8 @@ npm run dev
                 EVENTS --> DB
                 STATS --> DB
                 ANALYTICS --> DB
+                PRICING --> DB
+                SETTINGS_R --> DB
             </div>
             <p class="diagram-label">Server module dependency graph</p>
           </div>
@@ -1240,6 +1263,21 @@ npm run dev
                     session.
                   </td>
                 </tr>
+                <tr>
+                  <td><code>routes/pricing.js</code></td>
+                  <td>
+                    Model pricing CRUD (list, upsert, delete). Per-session and global cost
+                    calculation with pattern-based model matching and specificity sorting.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>routes/settings.js</code></td>
+                  <td>
+                    System info (DB size, row counts, hook status, server uptime). Data export as
+                    JSON. Session cleanup (abandon stale active sessions, purge old completed
+                    sessions). Clear all data. Reset pricing to defaults. Reinstall hooks.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1263,6 +1301,7 @@ npm run dev
                 DETAIL["SessionDetail.tsx"]
                 ACTIVITY["ActivityFeed.tsx"]
                 ANALYTICS["Analytics.tsx"]
+                SETTINGS_P["Settings.tsx"]
                 SC["StatCard x4"]
                 AC["AgentCard list"]
                 COL["Column x5\n(idle/connected/working/completed/error)"]
@@ -1276,6 +1315,7 @@ npm run dev
                 LAYOUT --> DETAIL
                 LAYOUT --> ACTIVITY
                 LAYOUT --> ANALYTICS
+                LAYOUT --> SETTINGS_P
                 DASH --> SC
                 DASH --> AC
                 KANBAN --> COL
@@ -1312,6 +1352,12 @@ npm run dev
               <span class="route-path">/analytics</span>
               <span class="route-desc"
                 >Analytics — token usage, heatmap, tool charts, donut charts</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="route-path">/settings</span>
+              <span class="route-desc"
+                >Settings — model pricing, hook status, data export, session cleanup</span
               >
             </div>
           </div>
@@ -1385,6 +1431,7 @@ npm run dev
                 US4["useState\nSessionDetail"]
                 US5["useState\nActivityFeed"]
                 US6["useState\nAnalytics"]
+                US7["useState\nSettings"]
 
                 REST --> US1
                 REST --> US2
@@ -1392,6 +1439,7 @@ npm run dev
                 REST --> US4
                 REST --> US5
                 REST --> US6
+                REST --> US7
                 WSM --> EB
                 EB --> US1
                 EB --> US2
@@ -1399,6 +1447,7 @@ npm run dev
                 EB --> US4
                 EB --> US5
                 EB --> US6
+                EB --> US7
 
                 classDef source fill:#6366f1,stroke:#818cf8,color:#fff
                 classDef bus fill:#f59e0b,stroke:#fbbf24,color:#000
@@ -1432,7 +1481,7 @@ npm run dev
               erDiagram
                 sessions ||--o{ agents : has
                 sessions ||--o{ events : has
-                sessions ||--|| token_usage : tracks
+                sessions ||--o{ token_usage : tracks
                 agents ||--o{ events : generates
                 agents ||--o{ agents : spawns_subagents
 
@@ -1474,11 +1523,22 @@ npm run dev
                 }
 
                 token_usage {
-                  TEXT session_id PK "References sessions.id"
+                  TEXT session_id PK "Composite PK with model"
+                  TEXT model PK "Model identifier"
                   INTEGER input_tokens
                   INTEGER output_tokens
                   INTEGER cache_read_tokens
                   INTEGER cache_write_tokens
+                }
+
+                model_pricing {
+                  TEXT model_pattern PK "SQL LIKE pattern"
+                  TEXT display_name "Human-readable name"
+                  REAL input_per_mtok "USD per million input tokens"
+                  REAL output_per_mtok "USD per million output tokens"
+                  REAL cache_read_per_mtok "USD per million cache read tokens"
+                  REAL cache_write_per_mtok "USD per million cache write tokens"
+                  TEXT updated_at "ISO 8601"
                 }
             </div>
             <p class="diagram-label">Entity Relationship Diagram — SQLite schema</p>
@@ -1680,6 +1740,71 @@ npm run dev
               <span class="route-path">/api/hooks/event</span>
               <span class="route-desc"
                 >Receive and process a Claude Code hook event (called by hook-handler.js)</span
+              >
+            </div>
+          </div>
+
+          <h3>Pricing</h3>
+          <div class="route-list">
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/pricing</span>
+              <span class="route-desc">List all model pricing rules</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-put">PUT</span>
+              <span class="route-path">/api/pricing</span>
+              <span class="route-desc">Create or update a pricing rule</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-delete">DELETE</span>
+              <span class="route-path">/api/pricing/:pattern</span>
+              <span class="route-desc">Delete a pricing rule</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/pricing/cost</span>
+              <span class="route-desc">Total cost across all sessions</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/pricing/cost/:sessionId</span>
+              <span class="route-desc">Cost breakdown for a specific session</span>
+            </div>
+          </div>
+
+          <h3>Settings</h3>
+          <div class="route-list">
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/settings/info</span>
+              <span class="route-desc">System info, DB stats, hook installation status</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/settings/clear-data</span>
+              <span class="route-desc">Delete all sessions, agents, events, token usage</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/settings/reinstall-hooks</span>
+              <span class="route-desc">Reinstall Claude Code hooks</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/settings/reset-pricing</span>
+              <span class="route-desc">Reset pricing rules to defaults</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/settings/export</span>
+              <span class="route-desc">Export all data as JSON download</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/settings/cleanup</span>
+              <span class="route-desc"
+                >Abandon stale sessions (by hours), purge old data (by days)</span
               >
             </div>
           </div>
@@ -1912,6 +2037,73 @@ npm run dev
                 The statusline uses only Python 3.6+ stdlib (<code>sys</code>, <code>json</code>,
                 <code>os</code>, <code>subprocess</code>). It fails silently on empty input or JSON
                 errors and never blocks Claude Code.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── Settings Page ──────────────────────────────────────────────── -->
+        <section id="settings-page">
+          <div class="section-label">◈ Integrations</div>
+          <h2>Settings Page</h2>
+          <p>
+            The <code>/settings</code> route provides a comprehensive management interface with
+            five sections:
+          </p>
+
+          <div class="feature-grid">
+            <div class="feature-card">
+              <div class="feature-icon ic-amber">$</div>
+              <h3>Model Pricing</h3>
+              <p>
+                Editable table of per-model pricing rules. Each Claude model variant has its own
+                explicit pattern (e.g., <code>claude-opus-4-6%</code>). Rates cover input, output,
+                cache read, and cache write tokens. Reset to defaults or add custom models.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-emerald">⊞</div>
+              <h3>Hook Configuration</h3>
+              <p>
+                Shows per-hook installation status (PreToolUse, PostToolUse, Stop, SubagentStop,
+                Notification). One-click reinstall if hooks are missing or outdated.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-cyan">▦</div>
+              <h3>Data Management</h3>
+              <p>
+                View database row counts and size. Session cleanup: abandon stale active sessions
+                after N hours, purge old completed sessions after N days. Danger zone: clear all
+                data with confirmation.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-violet">◎</div>
+              <h3>Data Export</h3>
+              <p>
+                Download all sessions, agents, events, token usage, and pricing rules as a single
+                JSON file for backup or analysis.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-blue">⚡</div>
+              <h3>System Info</h3>
+              <p>
+                Server uptime, Node.js version, platform, active WebSocket connections. At-a-glance
+                health monitoring for the dashboard itself.
+              </p>
+            </div>
+          </div>
+
+          <div class="callout callout-info">
+            <div class="callout-icon">ℹ</div>
+            <div class="callout-body">
+              <strong>Per-model pricing — no catch-all grouping</strong>
+              <p>
+                Each Claude model variant (e.g., Opus 4.6 vs Opus 4.1) has its own explicit pricing
+                pattern because different model versions have different rates. The cost engine uses
+                specificity sorting — longer patterns match before shorter ones.
               </p>
             </div>
           </div>

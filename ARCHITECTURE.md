@@ -210,16 +210,20 @@ graph TD
     AGENTS[routes/agents.js<br/>Agent CRUD]
     EVENTS[routes/events.js<br/>Event listing]
     STATS[routes/stats.js<br/>Aggregate queries]
+    PRICING[routes/pricing.js<br/>Cost calculation + pricing CRUD]
+    SETTINGS[routes/settings.js<br/>System info + data management]
 
     INDEX --> DB
     INDEX --> WS
-    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS
+    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS & PRICING & SETTINGS
 
     HOOKS --> DB & WS
     SESSIONS --> DB & WS
     AGENTS --> DB & WS
     EVENTS --> DB
     STATS --> DB & WS
+    PRICING --> DB
+    SETTINGS --> DB
 
     style INDEX fill:#6366f1,stroke:#818cf8,color:#fff
     style DB fill:#003B57,stroke:#005f8a,color:#fff
@@ -238,6 +242,9 @@ graph TD
 | `routes/agents.js`    | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`                                                                          |
 | `routes/events.js`    | Read-only event listing with session_id filter and pagination                                                                                    |
 | `routes/stats.js`     | Single aggregate query returning total/active counts + status distributions                                                                      |
+| `routes/analytics.js` | Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution |
+| `routes/pricing.js`  | Model pricing CRUD (list/upsert/delete), per-session and global cost calculation with pattern-based model matching |
+| `routes/settings.js` | System info (DB size, hook status, server uptime), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks |
 
 ### Request Processing
 
@@ -251,6 +258,8 @@ flowchart LR
     ROUTER -->|/api/agents| AGENTS[agents.js]
     ROUTER -->|/api/events| EVENTS[events.js]
     ROUTER -->|/api/stats| STATS[stats.js]
+    ROUTER -->|/api/pricing| PRICING[pricing.js]
+    ROUTER -->|/api/settings| SETTINGS[settings.js]
     ROUTER -->|/api/health| HEALTH[Health Check]
     ROUTER -->|"* (prod)"| STATIC[Static Files<br/>client/dist]
 
@@ -259,6 +268,8 @@ flowchart LR
     AGENTS --> DB
     EVENTS --> DB
     STATS --> DB
+    PRICING --> DB
+    SETTINGS --> DB
 
     HOOKS --> WS[WebSocket<br/>Broadcast]
     SESSIONS --> WS
@@ -281,10 +292,11 @@ graph TD
     SESS["Sessions.tsx"]
     DETAIL["SessionDetail.tsx"]
     ACTIVITY["ActivityFeed.tsx"]
+    SETTINGS_P["Settings.tsx"]
 
     APP --> LAYOUT
     LAYOUT --> SIDEBAR
-    LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY
+    LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & SETTINGS_P
 
     DASH --> SC1["StatCard x4"]
     DASH --> AC1["AgentCard[]"]
@@ -326,12 +338,16 @@ graph TD
         S[Sessions]
         SD[SessionDetail]
         AF[ActivityFeed]
+        SET[Settings]
     end
 
     APP --> D & K & S & SD & AF
     D & K & S & SD & AF --> API
     D & K & S & SD & AF --> EB
     D & K & S & SD & AF --> FMT
+    SET --> API
+    SET --> EB
+    SET --> FMT
     API --> TYPES
 
     subgraph Components
@@ -376,6 +392,7 @@ graph LR
 | `/sessions`     | Sessions      | `GET /api/sessions`                                    |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` (includes agents + events)     |
 | `/activity`     | ActivityFeed  | `GET /api/events?limit=100`                            |
+| `/settings`     | Settings      | `GET /api/settings/info`, `GET /api/pricing`, `GET /api/pricing/cost` |
 
 ---
 
@@ -387,6 +404,7 @@ graph LR
 erDiagram
     sessions ||--o{ agents : has
     sessions ||--o{ events : has
+    sessions ||--o{ token_usage : tracks
     agents ||--o{ events : generates
     agents ||--o{ agents : spawns
 
@@ -425,6 +443,25 @@ erDiagram
         TEXT summary "Human-readable summary"
         TEXT data "Full event JSON"
         TEXT created_at "ISO 8601"
+    }
+
+    token_usage {
+        TEXT session_id PK "FK to sessions + part of composite PK"
+        TEXT model PK "Model identifier + part of composite PK"
+        INTEGER input_tokens
+        INTEGER output_tokens
+        INTEGER cache_read_tokens
+        INTEGER cache_write_tokens
+    }
+
+    model_pricing {
+        TEXT model_pattern PK "SQL LIKE pattern e.g. claude-opus-4-6%"
+        TEXT display_name "Human-readable name"
+        REAL input_per_mtok "Cost per million input tokens"
+        REAL output_per_mtok "Cost per million output tokens"
+        REAL cache_read_per_mtok "Cost per million cache read tokens"
+        REAL cache_write_per_mtok "Cost per million cache write tokens"
+        TEXT updated_at "ISO 8601"
     }
 ```
 
@@ -616,11 +653,12 @@ graph TD
         US3["useState<br/>Sessions"]
         US4["useState<br/>SessionDetail"]
         US5["useState<br/>ActivityFeed"]
+        US7["useState<br/>Settings"]
     end
 
-    REST --> US1 & US2 & US3 & US4 & US5
+    REST --> US1 & US2 & US3 & US4 & US5 & US7
     WSM --> EB
-    EB --> US1 & US2 & US3 & US4 & US5
+    EB --> US1 & US2 & US3 & US4 & US5 & US7
 ```
 
 **Why no Redux / Zustand / Context:**

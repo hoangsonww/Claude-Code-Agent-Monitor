@@ -74,6 +74,7 @@ After starting a Claude Code session, you should see:
 - **Agent Board** — a `Main Agent` card in the `Connected` column
 - **Activity Feed** — events streaming in as Claude Code uses tools
 - **Dashboard** — stats updating in real-time
+- **Settings page** — model pricing rules, hook configuration status, data export and cleanup tools
 
 If nothing appears after 30 seconds, see [SETUP.md](./SETUP.md#troubleshooting).
 
@@ -108,6 +109,10 @@ Open **http://localhost:4820** in your browser.
 
 <p align="center">
   <img src="images/analytics.png" alt="Analytics Overview" width="100%">
+</p>
+
+<p align="center">
+  <img src="images/settings.png" alt="Settings Overview" width="100%">
 </p>
 
 ---
