@@ -10,3 +10,4 @@ client/package-lock.json
 .vs/
 *.md
 index.html
+*.yml

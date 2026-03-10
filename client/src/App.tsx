@@ -9,6 +9,7 @@ import { ActivityFeed } from "./pages/ActivityFeed";
 import { Analytics } from "./pages/Analytics";
 import { Settings } from "./pages/Settings";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { useNotifications } from "./hooks/useNotifications";
 import { eventBus } from "./lib/eventBus";
 import type { WSMessage } from "./lib/types";
 
@@ -18,6 +19,7 @@ export default function App() {
   }, []);
 
   const { connected } = useWebSocket(onMessage);
+  useNotifications();
 
   return (
     <BrowserRouter>

@@ -17,8 +17,25 @@ import {
   Server,
   Bell,
   BellOff,
+  BellRing,
   FileDown,
   Eraser,
+  Play,
+  Zap,
+  AlertCircle,
+  GitBranch,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  Clock,
+  Cpu,
+  Globe,
+  Wifi,
+  Activity,
+  Users,
+  Layers,
+  Coins,
+  BarChart3,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { ModelPricing } from "../lib/types";
@@ -692,52 +709,118 @@ export function Settings() {
           Browser notifications for important events. Requires permission.
         </p>
 
-        <div className="card p-5 space-y-4">
+        <div className="card p-5 space-y-5">
+          {/* Master toggle + permission status */}
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <Toggle
-              checked={notifPrefs.enabled}
-              onChange={(v) => {
-                if (v && "Notification" in window && Notification.permission !== "granted") {
-                  requestNotifPermission();
-                } else {
-                  updateNotifPrefs({ enabled: v });
-                }
-              }}
-              label="Enable Browser Notifications"
-              description={
-                "Notification" in window
-                  ? `Permission: ${Notification.permission}`
-                  : "Not supported in this browser"
-              }
-            />
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                  notifPrefs.enabled
+                    ? "bg-blue-500/10 border border-blue-500/20"
+                    : "bg-surface-2 border border-border"
+                }`}
+              >
+                {notifPrefs.enabled ? (
+                  <BellRing className="w-5 h-5 text-blue-400" />
+                ) : (
+                  <BellOff className="w-5 h-5 text-gray-500" />
+                )}
+              </div>
+              <Toggle
+                checked={notifPrefs.enabled}
+                onChange={(v) => {
+                  if (v && "Notification" in window && Notification.permission !== "granted") {
+                    requestNotifPermission();
+                  } else {
+                    updateNotifPrefs({ enabled: v });
+                  }
+                }}
+                label="Enable Browser Notifications"
+              />
+            </div>
+            {"Notification" in window && (
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                  Notification.permission === "granted"
+                    ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                    : Notification.permission === "denied"
+                      ? "text-red-400 bg-red-500/10 border border-red-500/20"
+                      : "text-amber-400 bg-amber-500/10 border border-amber-500/20"
+                }`}
+              >
+                {Notification.permission === "granted" ? (
+                  <ShieldCheck className="w-3 h-3" />
+                ) : Notification.permission === "denied" ? (
+                  <ShieldX className="w-3 h-3" />
+                ) : (
+                  <ShieldAlert className="w-3 h-3" />
+                )}
+                {Notification.permission === "granted"
+                  ? "Permission granted"
+                  : Notification.permission === "denied"
+                    ? "Permission blocked"
+                    : "Permission required"}
+              </span>
+            )}
           </div>
 
+          {/* Event toggles */}
           {notifPrefs.enabled && (
-            <div className="space-y-3 pt-3 border-t border-border">
+            <div className="space-y-3 pt-4 border-t border-border">
               <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
                 Notify me when...
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Toggle
-                  checked={notifPrefs.onNewSession}
-                  onChange={(v) => updateNotifPrefs({ onNewSession: v })}
-                  label="New session starts"
-                />
-                <Toggle
-                  checked={notifPrefs.onSessionComplete}
-                  onChange={(v) => updateNotifPrefs({ onSessionComplete: v })}
-                  label="Session completes"
-                />
-                <Toggle
-                  checked={notifPrefs.onSessionError}
-                  onChange={(v) => updateNotifPrefs({ onSessionError: v })}
-                  label="Session errors"
-                />
-                <Toggle
-                  checked={notifPrefs.onSubagentSpawn}
-                  onChange={(v) => updateNotifPrefs({ onSubagentSpawn: v })}
-                  label="Subagent spawned"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                  <Play className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <Toggle
+                    checked={notifPrefs.onNewSession}
+                    onChange={(v) => updateNotifPrefs({ onNewSession: v })}
+                    label="New session starts"
+                  />
+                </div>
+                <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                  <CheckCircle className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                  <Toggle
+                    checked={notifPrefs.onSessionComplete}
+                    onChange={(v) => updateNotifPrefs({ onSessionComplete: v })}
+                    label="Session completes"
+                  />
+                </div>
+                <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <Toggle
+                    checked={notifPrefs.onSessionError}
+                    onChange={(v) => updateNotifPrefs({ onSessionError: v })}
+                    label="Session errors"
+                  />
+                </div>
+                <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                  <GitBranch className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <Toggle
+                    checked={notifPrefs.onSubagentSpawn}
+                    onChange={(v) => updateNotifPrefs({ onSubagentSpawn: v })}
+                    label="Subagent spawned"
+                  />
+                </div>
+              </div>
+
+              {/* Test notification */}
+              <div className="pt-3 border-t border-border">
+                <button
+                  onClick={() => {
+                    if ("Notification" in window && Notification.permission === "granted") {
+                      new Notification("Agent Monitor", {
+                        body: "Notifications are working!",
+                        icon: "/favicon.ico",
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-surface-4 border border-border transition-colors"
+                >
+                  <Zap className="w-3 h-3" />
+                  Send Test Notification
+                </button>
               </div>
             </div>
           )}
@@ -745,7 +828,7 @@ export function Settings() {
           {!notifPrefs.enabled && (
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <BellOff className="w-3.5 h-3.5" />
-              Notifications are disabled
+              Notifications are disabled — enable to get alerts for session events
             </div>
           )}
         </div>
@@ -760,42 +843,79 @@ export function Settings() {
         <p className="text-xs text-gray-500 mb-4">Database info, import/export, and cleanup.</p>
 
         {sysInfo && (
-          <div className="card p-5 space-y-5">
-            {/* DB stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {Object.entries(sysInfo.db.counts).map(([table, count]) => (
-                <div key={table} className="bg-surface-2 rounded-lg px-3 py-2.5">
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
-                    {table.replace(/_/g, " ")}
-                  </p>
-                  <p className="text-lg font-semibold text-gray-200 mt-0.5">
-                    {count.toLocaleString()}
+          <div className="space-y-4">
+            {/* DB stats grid */}
+            <div className="card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+                  Database Overview
+                </p>
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-600 font-mono bg-surface-2 px-2.5 py-1 rounded-md">
+                  <HardDrive className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-[300px]">{sysInfo.db.path}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {(() => {
+                  const tableIcons: Record<string, React.ReactNode> = {
+                    sessions: <Layers className="w-4 h-4 text-blue-400" />,
+                    agents: <Users className="w-4 h-4 text-emerald-400" />,
+                    events: <Activity className="w-4 h-4 text-violet-400" />,
+                    token_usage: <Coins className="w-4 h-4 text-amber-400" />,
+                    model_pricing: <BarChart3 className="w-4 h-4 text-cyan-400" />,
+                  };
+                  const tableColors: Record<string, string> = {
+                    sessions: "border-blue-500/20",
+                    agents: "border-emerald-500/20",
+                    events: "border-violet-500/20",
+                    token_usage: "border-amber-500/20",
+                    model_pricing: "border-cyan-500/20",
+                  };
+                  return Object.entries(sysInfo.db.counts).map(([table, count]) => (
+                    <div
+                      key={table}
+                      className={`bg-surface-2 rounded-lg px-3 py-3 border-l-2 ${tableColors[table] || "border-gray-500/20"}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {tableIcons[table] || <Database className="w-4 h-4 text-gray-500" />}
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                          {table.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                      <p className="text-xl font-semibold text-gray-200">
+                        {count.toLocaleString()}
+                      </p>
+                    </div>
+                  ));
+                })()}
+                <div className="bg-surface-2 rounded-lg px-3 py-3 border-l-2 border-indigo-500/20">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <HardDrive className="w-4 h-4 text-indigo-400" />
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider">DB Size</p>
+                  </div>
+                  <p className="text-xl font-semibold text-gray-200">
+                    {formatBytes(sysInfo.db.size)}
                   </p>
                 </div>
-              ))}
-              <div className="bg-surface-2 rounded-lg px-3 py-2.5">
-                <p className="text-[11px] text-gray-500 uppercase tracking-wider">DB Size</p>
-                <p className="text-lg font-semibold text-gray-200 mt-0.5">
-                  {formatBytes(sysInfo.db.size)}
-                </p>
               </div>
             </div>
 
-            <p className="text-[11px] text-gray-600 font-mono truncate">
-              <HardDrive className="w-3 h-3 inline mr-1 relative -top-px" />
-              {sysInfo.db.path}
-            </p>
-
             {/* Session Cleanup */}
-            <div className="pt-3 border-t border-border space-y-3">
-              <p className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
-                <Eraser className="w-3.5 h-3.5 text-gray-500" />
-                Session Cleanup
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="card p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Eraser className="w-4 h-4 text-amber-400" />
+                </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
+                  <p className="text-sm font-medium text-gray-300">Session Cleanup</p>
+                  <p className="text-xs text-gray-500">Abandon stale sessions and purge old data</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-surface-2 rounded-lg px-4 py-3">
+                  <label className="text-xs text-gray-400 block mb-2">
                     Abandon stale active sessions older than
                   </label>
                   <div className="flex items-center gap-2">
@@ -809,8 +929,8 @@ export function Settings() {
                     <span className="text-xs text-gray-500">hours</span>
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
+                <div className="bg-surface-2 rounded-lg px-4 py-3">
+                  <label className="text-xs text-gray-400 block mb-2">
                     Purge completed/errored sessions older than
                   </label>
                   <div className="flex items-center gap-2">
@@ -849,33 +969,42 @@ export function Settings() {
             </div>
 
             {/* Danger zone */}
-            <div className="pt-3 border-t border-red-500/20 space-y-3">
-              <p className="text-xs text-red-400/80 font-medium flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Danger Zone
-              </p>
+            <div className="card p-5 space-y-4 border-red-500/10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-red-400">Danger Zone</p>
+                  <p className="text-xs text-gray-500">
+                    Irreversible actions that delete data permanently
+                  </p>
+                </div>
+              </div>
 
               {confirmAction === "clear" ? (
-                <div className="flex items-center gap-2">
+                <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3">
                   <span className="text-xs text-amber-400">
                     This will delete all sessions, agents, events, and token data. Are you sure?
                   </span>
-                  <button
-                    onClick={handleClearData}
-                    disabled={actionLoading !== null}
-                    className="text-xs px-3 py-1.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                  >
-                    {actionLoading === "clear" ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin inline mr-1" />
-                    ) : null}
-                    Yes, Clear All
-                  </button>
-                  <button
-                    onClick={() => setConfirmAction(null)}
-                    className="text-xs px-3 py-1.5 rounded-md text-gray-400 hover:bg-surface-4 transition-colors"
-                  >
-                    Cancel
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleClearData}
+                      disabled={actionLoading !== null}
+                      className="text-xs px-3 py-1.5 rounded-md bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                    >
+                      {actionLoading === "clear" ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin inline mr-1" />
+                      ) : null}
+                      Yes, Clear All
+                    </button>
+                    <button
+                      onClick={() => setConfirmAction(null)}
+                      className="text-xs px-3 py-1.5 rounded-md text-gray-400 hover:bg-surface-4 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -904,30 +1033,38 @@ export function Settings() {
           <p className="text-xs text-gray-500 mb-4">Server runtime information.</p>
 
           <div className="card p-5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wider">Uptime</p>
-                <p className="text-sm font-medium text-gray-300 mt-0.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-surface-2 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Clock className="w-4 h-4 text-blue-400" />
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">Uptime</p>
+                </div>
+                <p className="text-sm font-semibold text-gray-200">
                   {formatUptime(sysInfo.server.uptime)}
                 </p>
               </div>
-              <div>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wider">Node.js</p>
-                <p className="text-sm font-medium text-gray-300 font-mono mt-0.5">
+              <div className="bg-surface-2 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Cpu className="w-4 h-4 text-emerald-400" />
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">Node.js</p>
+                </div>
+                <p className="text-sm font-semibold text-gray-200 font-mono">
                   {sysInfo.server.node_version}
                 </p>
               </div>
-              <div>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wider">Platform</p>
-                <p className="text-sm font-medium text-gray-300 mt-0.5">
-                  {sysInfo.server.platform}
-                </p>
+              <div className="bg-surface-2 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Globe className="w-4 h-4 text-violet-400" />
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">Platform</p>
+                </div>
+                <p className="text-sm font-semibold text-gray-200">{sysInfo.server.platform}</p>
               </div>
-              <div>
-                <p className="text-[11px] text-gray-500 uppercase tracking-wider">
-                  WebSocket Clients
-                </p>
-                <p className="text-sm font-medium text-gray-300 mt-0.5">
+              <div className="bg-surface-2 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Wifi className="w-4 h-4 text-amber-400" />
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">WS Clients</p>
+                </div>
+                <p className="text-sm font-semibold text-gray-200">
                   {sysInfo.server.ws_connections}
                 </p>
               </div>
