@@ -505,7 +505,7 @@ describe("Hook Event Processing", () => {
     assert.equal(mainAgents.length, 1, "Should have exactly one main agent");
   });
 
-  it("should not mark working subagents as completed on Stop", async () => {
+  it("should complete all agents including subagents on Stop", async () => {
     // Spawn a subagent
     await post("/api/hooks/event", {
       hook_type: "PreToolUse",
@@ -516,7 +516,7 @@ describe("Hook Event Processing", () => {
       },
     });
 
-    // Stop fires (main turn ends) while subagent is still working
+    // Stop fires — all agents (including subagents) should be completed
     await post("/api/hooks/event", {
       hook_type: "Stop",
       data: { session_id: "hook-sess-bg", stop_reason: "end_turn" },
@@ -524,52 +524,54 @@ describe("Hook Event Processing", () => {
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-bg");
     const subagent = agentsRes.body.agents.find((a) => a.type === "subagent");
-    assert.equal(subagent.status, "working", "Subagent should still be working");
+    assert.equal(subagent.status, "completed", "Subagent should be completed on Stop");
+    assert.ok(subagent.ended_at, "Subagent should have ended_at timestamp");
 
     const mainAgent = agentsRes.body.agents.find((a) => a.type === "main");
-    assert.equal(mainAgent.status, "idle", "Main agent should be idle while subagents run");
+    assert.equal(mainAgent.status, "completed", "Main agent should be completed");
 
     const sessRes = await fetch("/api/sessions/hook-sess-bg");
-    assert.equal(sessRes.body.session.status, "active", "Session should stay active");
+    assert.equal(sessRes.body.session.status, "completed", "Session should be completed");
   });
 
-  it("should NOT mark subagent completed on PostToolUse for Agent tool (backgrounded)", async () => {
-    // PostToolUse for Agent fires immediately when backgrounded — not when work finishes
+  it("should NOT mark subagent completed on PostToolUse for Agent tool", async () => {
+    // Fresh session: spawn a subagent, then PostToolUse fires immediately (backgrounded)
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: "hook-sess-bg2",
+        tool_name: "Agent",
+        tool_input: { prompt: "Analyze code", description: "BG-analyzer-2" },
+      },
+    });
     await post("/api/hooks/event", {
       hook_type: "PostToolUse",
       data: {
-        session_id: "hook-sess-bg",
+        session_id: "hook-sess-bg2",
         tool_name: "Agent",
-        tool_input: { description: "BG-analyzer" },
+        tool_input: { description: "BG-analyzer-2" },
       },
     });
 
-    const agentsRes = await fetch("/api/agents?session_id=hook-sess-bg");
+    const agentsRes = await fetch("/api/agents?session_id=hook-sess-bg2");
     const subagent = agentsRes.body.agents.find((a) => a.type === "subagent");
     assert.equal(subagent.status, "working", "Subagent should still be working after PostToolUse");
-
-    const sessRes = await fetch("/api/sessions/hook-sess-bg");
-    assert.equal(sessRes.body.session.status, "active", "Session should stay active");
   });
 
-  it("should complete subagent and auto-complete session on SubagentStop", async () => {
+  it("should complete subagent on SubagentStop before session Stop", async () => {
     // SubagentStop fires when the background agent actually finishes
     await post("/api/hooks/event", {
       hook_type: "SubagentStop",
-      data: { session_id: "hook-sess-bg", description: "BG-analyzer" },
+      data: { session_id: "hook-sess-bg2", description: "BG-analyzer-2" },
     });
 
-    const agentsRes = await fetch("/api/agents?session_id=hook-sess-bg");
+    const agentsRes = await fetch("/api/agents?session_id=hook-sess-bg2");
     const subagent = agentsRes.body.agents.find((a) => a.type === "subagent");
     assert.equal(subagent.status, "completed", "Subagent should be completed after SubagentStop");
     assert.ok(subagent.ended_at, "Subagent should have ended_at timestamp");
-
-    // Session should auto-complete since all subagents are now done
-    const sessRes = await fetch("/api/sessions/hook-sess-bg");
-    assert.equal(sessRes.body.session.status, "completed", "Session should auto-complete");
   });
 
-  it("should not flicker main agent status when idle with active subagents", async () => {
+  it("should not flicker completed agent status on subsequent tool events", async () => {
     // Create session with active subagent
     await post("/api/hooks/event", {
       hook_type: "PreToolUse",
@@ -579,28 +581,18 @@ describe("Hook Event Processing", () => {
         tool_input: { prompt: "Do work", description: "Worker" },
       },
     });
-    // Stop to set main agent to idle
+    // Stop completes all agents
     await post("/api/hooks/event", {
       hook_type: "Stop",
       data: { session_id: "hook-sess-flicker", stop_reason: "end_turn" },
     });
 
-    // Subagent uses tools — these should NOT change main agent status
-    await post("/api/hooks/event", {
-      hook_type: "PreToolUse",
-      data: { session_id: "hook-sess-flicker", tool_name: "Read" },
-    });
-    const agents1 = await fetch("/api/agents?session_id=hook-sess-flicker");
-    const main1 = agents1.body.agents.find((a) => a.type === "main");
-    assert.equal(main1.status, "idle", "Main should stay idle during subagent tool use");
+    const agents0 = await fetch("/api/agents?session_id=hook-sess-flicker");
+    const main0 = agents0.body.agents.find((a) => a.type === "main");
+    assert.equal(main0.status, "completed", "Main should be completed after Stop");
 
-    await post("/api/hooks/event", {
-      hook_type: "PostToolUse",
-      data: { session_id: "hook-sess-flicker", tool_name: "Read" },
-    });
-    const agents2 = await fetch("/api/agents?session_id=hook-sess-flicker");
-    const main2 = agents2.body.agents.find((a) => a.type === "main");
-    assert.equal(main2.status, "idle", "Main should stay idle after subagent tool completion");
+    const sub0 = agents0.body.agents.find((a) => a.type === "subagent");
+    assert.equal(sub0.status, "completed", "Subagent should be completed after Stop");
   });
 
   it("should record events in the events table", async () => {

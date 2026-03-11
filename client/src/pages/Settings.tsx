@@ -101,7 +101,9 @@ interface SystemInfo {
 }
 
 function formatTimestamp(iso: string): string {
-  const d = new Date(iso + (iso.endsWith("Z") ? "" : "Z"));
+  const normalized =
+    /[Zz]$/.test(iso) || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso.replace(" ", "T") + "Z";
+  const d = new Date(normalized);
   return d.toLocaleString(undefined, {
     year: "numeric",
     month: "short",

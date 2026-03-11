@@ -20,7 +20,7 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','completed','error','abandoned')),
     cwd TEXT,
     model TEXT,
-    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     ended_at TEXT,
     metadata TEXT
   );
@@ -34,7 +34,7 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle','connected','working','completed','error')),
     task TEXT,
     current_tool TEXT,
-    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     ended_at TEXT,
     parent_agent_id TEXT,
     metadata TEXT,
@@ -50,7 +50,7 @@ db.exec(`
     tool_name TEXT,
     summary TEXT,
     data TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE SET NULL
   );
@@ -73,7 +73,7 @@ db.exec(`
     output_per_mtok REAL NOT NULL DEFAULT 0,
     cache_read_per_mtok REAL NOT NULL DEFAULT 0,
     cache_write_per_mtok REAL NOT NULL DEFAULT 0,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
   CREATE INDEX IF NOT EXISTS idx_agents_session ON agents(session_id);
@@ -149,6 +149,17 @@ try {
   db.pragma("foreign_keys = ON");
 }
 
+// Startup cleanup: complete orphaned agents on finished sessions
+db.prepare(
+  `
+  UPDATE agents SET
+    status = 'completed',
+    ended_at = COALESCE(ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  WHERE status IN ('working', 'connected', 'idle')
+    AND session_id IN (SELECT id FROM sessions WHERE status IN ('completed', 'error', 'abandoned'))
+`
+).run();
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -158,7 +169,7 @@ const stmts = {
     "SELECT s.*, COUNT(a.id) as agent_count FROM sessions s LEFT JOIN agents a ON a.session_id = s.id WHERE s.status = ? GROUP BY s.id ORDER BY s.started_at DESC LIMIT ? OFFSET ?"
   ),
   insertSession: db.prepare(
-    "INSERT INTO sessions (id, name, status, cwd, model, started_at, metadata) VALUES (?, ?, ?, ?, ?, datetime('now'), ?)"
+    "INSERT INTO sessions (id, name, status, cwd, model, started_at, metadata) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?)"
   ),
   updateSession: db.prepare(
     "UPDATE sessions SET name = COALESCE(?, name), status = COALESCE(?, status), ended_at = COALESCE(?, ended_at), metadata = COALESCE(?, metadata) WHERE id = ?"
@@ -173,14 +184,14 @@ const stmts = {
     "SELECT * FROM agents WHERE status = ? ORDER BY started_at DESC LIMIT ? OFFSET ?"
   ),
   insertAgent: db.prepare(
-    "INSERT INTO agents (id, session_id, name, type, subagent_type, status, task, started_at, parent_agent_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)"
+    "INSERT INTO agents (id, session_id, name, type, subagent_type, status, task, started_at, parent_agent_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?, ?)"
   ),
   updateAgent: db.prepare(
     "UPDATE agents SET name = COALESCE(?, name), status = COALESCE(?, status), task = COALESCE(?, task), current_tool = ?, ended_at = COALESCE(?, ended_at), metadata = COALESCE(?, metadata) WHERE id = ?"
   ),
 
   insertEvent: db.prepare(
-    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
+    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
   ),
   listEvents: db.prepare("SELECT * FROM events ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"),
   listEventsBySession: db.prepare(
@@ -189,7 +200,7 @@ const stmts = {
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
   countEventsToday: db.prepare(
-    "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', 'start of day')"
+    "SELECT COUNT(*) as count FROM events WHERE created_at >= strftime('%Y-%m-%dT00:00:00.000Z', 'now', 'start of day')"
   ),
 
   stats: db.prepare(`
@@ -238,14 +249,14 @@ const stmts = {
   getPricing: db.prepare("SELECT * FROM model_pricing WHERE model_pattern = ?"),
   upsertPricing: db.prepare(`
     INSERT INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     ON CONFLICT(model_pattern) DO UPDATE SET
       display_name = excluded.display_name,
       input_per_mtok = excluded.input_per_mtok,
       output_per_mtok = excluded.output_per_mtok,
       cache_read_per_mtok = excluded.cache_read_per_mtok,
       cache_write_per_mtok = excluded.cache_write_per_mtok,
-      updated_at = datetime('now')
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `),
   deletePricing: db.prepare("DELETE FROM model_pricing WHERE model_pattern = ?"),
   matchPricing: db.prepare(

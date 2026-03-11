@@ -188,11 +188,11 @@ router.post("/cleanup", (req, res) => {
 
     for (const row of stale) {
       db.prepare(
-        "UPDATE sessions SET status = 'abandoned', ended_at = datetime('now') WHERE id = ?"
+        "UPDATE sessions SET status = 'abandoned', ended_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
       ).run(row.id);
       // Also complete any lingering agents
       db.prepare(
-        "UPDATE agents SET status = 'completed', ended_at = datetime('now') WHERE session_id = ? AND status IN ('idle','connected','working')"
+        "UPDATE agents SET status = 'completed', ended_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE session_id = ? AND status IN ('idle','connected','working')"
       ).run(row.id);
     }
     result.abandoned = stale.length;

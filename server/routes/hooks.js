@@ -121,9 +121,9 @@ const processEvent = db.transaction((hookType, data) => {
         summary = `Subagent spawned: ${subName}`;
       }
 
-      // Update main agent status — but only if it's not idle (waiting for subagents).
-      // When main agent is idle, tool calls are from subagents, not the main agent.
-      if (mainAgent && mainAgent.status !== "idle") {
+      // Update main agent status — but only if it's actively running.
+      // Skip if idle (waiting for subagents) or already completed.
+      if (mainAgent && (mainAgent.status === "working" || mainAgent.status === "connected")) {
         stmts.updateAgent.run(null, "working", null, toolName, null, null, mainAgentId);
         broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
@@ -137,10 +137,9 @@ const processEvent = db.transaction((hookType, data) => {
       // backgrounded — it does NOT mean the subagent finished its work.
       // Subagent completion is handled by SubagentStop, not here.
 
-      // Don't change main agent status — keep it "working" for the entire turn.
-      // Only clear current_tool to show the tool finished.
-      // Status transitions happen at Stop (→ completed/idle), not here.
-      if (mainAgent && mainAgent.status !== "idle") {
+      // Only clear current_tool on the main agent if it's actively working.
+      // Skip if idle (waiting for subagents) or already completed.
+      if (mainAgent && mainAgent.status === "working") {
         stmts.updateAgent.run(null, null, null, null, null, null, mainAgentId);
         broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
@@ -151,36 +150,20 @@ const processEvent = db.transaction((hookType, data) => {
       summary = `Session ended: ${data.stop_reason || "completed"}`;
       const endStatus = data.stop_reason === "error" ? "error" : "completed";
 
-      // End agents in this session, but skip working subagents (they're still running in background)
+      // Complete all agents in this session — including subagents.
+      // When Stop fires the main process is done; any subagents that haven't
+      // sent SubagentStop are orphaned and should not stay "working".
       const agents = stmts.listAgentsBySession.all(sessionId);
-      const hasActiveSubagents = agents.some(
-        (a) => a.type === "subagent" && a.status === "working"
-      );
+      const now = new Date().toISOString();
       for (const agent of agents) {
-        if (agent.type === "subagent" && agent.status === "working") {
-          continue; // Don't mark running subagents as completed
-        }
         if (agent.status === "working" || agent.status === "connected" || agent.status === "idle") {
-          stmts.updateAgent.run(
-            null,
-            hasActiveSubagents && agent.type === "main" ? "idle" : "completed",
-            null,
-            null,
-            hasActiveSubagents && agent.type === "main" ? null : new Date().toISOString(),
-            null,
-            agent.id
-          );
+          stmts.updateAgent.run(null, "completed", null, null, now, null, agent.id);
           broadcast("agent_updated", stmts.getAgent.get(agent.id));
         }
       }
 
-      // Don't end session if subagents are still running
-      if (hasActiveSubagents) {
-        broadcast("session_updated", stmts.getSession.get(sessionId));
-      } else {
-        stmts.updateSession.run(null, endStatus, new Date().toISOString(), null, sessionId);
-        broadcast("session_updated", stmts.getSession.get(sessionId));
-      }
+      stmts.updateSession.run(null, endStatus, now, null, sessionId);
+      broadcast("session_updated", stmts.getSession.get(sessionId));
       break;
     }
 
@@ -226,7 +209,7 @@ const processEvent = db.transaction((hookType, data) => {
         agentId = matchingSub.id;
         summary = `Subagent completed: ${matchingSub.name}`;
 
-        // If all subagents done, complete the session
+        // If all subagents done and main isn't working, complete the session
         const remainingWorking = subagents.filter(
           (a) => a.type === "subagent" && a.status === "working" && a.id !== matchingSub.id
         );
@@ -235,7 +218,24 @@ const processEvent = db.transaction((hookType, data) => {
           if (session && session.status === "active") {
             const currentMain = getMainAgent(sessionId);
             if (!currentMain || currentMain.status !== "working") {
-              stmts.updateSession.run(null, "completed", new Date().toISOString(), null, sessionId);
+              const completedAt = new Date().toISOString();
+              // Complete the main agent too if it's idle/connected
+              if (
+                currentMain &&
+                (currentMain.status === "idle" || currentMain.status === "connected")
+              ) {
+                stmts.updateAgent.run(
+                  null,
+                  "completed",
+                  null,
+                  null,
+                  completedAt,
+                  null,
+                  currentMain.id
+                );
+                broadcast("agent_updated", stmts.getAgent.get(currentMain.id));
+              }
+              stmts.updateSession.run(null, "completed", completedAt, null, sessionId);
               broadcast("session_updated", stmts.getSession.get(sessionId));
             }
           }

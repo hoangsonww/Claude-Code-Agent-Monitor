@@ -1,10 +1,26 @@
+/**
+ * Parse a timestamp string into a Date, normalizing UTC.
+ * SQLite datetime('now') returns 'YYYY-MM-DD HH:MM:SS' (no timezone).
+ * JS treats that as local time, causing offset bugs. This ensures
+ * timestamps without a timezone indicator are treated as UTC.
+ */
+function parseDate(iso: string): Date {
+  // Already has timezone info (Z or +/- offset) — parse directly
+  if (/[Zz]$/.test(iso) || /[+-]\d{2}:\d{2}$/.test(iso)) {
+    return new Date(iso);
+  }
+  // No timezone — treat as UTC by appending Z
+  // Handle both 'YYYY-MM-DD HH:MM:SS' and 'YYYY-MM-DDTHH:MM:SS' formats
+  return new Date(iso.replace(" ", "T") + "Z");
+}
+
 export function formatTime(iso: string): string {
-  const d = new Date(iso);
+  const d = parseDate(iso);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export function formatDateTime(iso: string): string {
-  const d = new Date(iso);
+  const d = parseDate(iso);
   return d.toLocaleString([], {
     month: "short",
     day: "numeric",
@@ -14,7 +30,7 @@ export function formatDateTime(iso: string): string {
 }
 
 export function formatDuration(start: string, end: string): string {
-  const ms = new Date(end).getTime() - new Date(start).getTime();
+  const ms = parseDate(end).getTime() - parseDate(start).getTime();
   return formatMs(ms);
 }
 
@@ -31,7 +47,7 @@ export function formatMs(ms: number): string {
 }
 
 export function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
+  const ms = Date.now() - parseDate(iso).getTime();
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
