@@ -51,6 +51,7 @@ This starts two processes concurrently:
 
 Open **http://localhost:5173** in your browser.
 
+> [!TIP]
 > On first startup the server automatically writes the Claude Code hook configuration to `~/.claude/settings.json`. No manual hook installation step is needed.
 
 ---

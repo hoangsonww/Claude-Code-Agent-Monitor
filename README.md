@@ -205,6 +205,8 @@ Creates 8 sample sessions, 23 agents, and 106 events so you can explore the UI i
 
 ## How It Works
 
+The dashboard integrates with Claude Code via its native hook system to provide real-time monitoring of agent activity. Here's an overview of the architecture and data flow:
+
 ```mermaid
 sequenceDiagram
     participant CC as Claude Code
@@ -291,6 +293,9 @@ flowchart LR
     style PR fill:#6366f1,stroke:#818cf8,color:#fff
     style RESULT fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+> [!IMPORTANT]
+> The cost calculation flow is based on token usage and model pricing rules. Ensure your pricing rules are up-to-date to reflect accurate costs. Update the model pricing table via the Settings page to maintain accurate cost tracking - the dashboard does not automatically fetch pricing updates from external sources. Once you set the pricing rules, the dashboard applies them retroactively to all sessions for consistent cost reporting.
 
 ---
 
