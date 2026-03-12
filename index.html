@@ -105,7 +105,8 @@
 
       .main-content {
         margin-left: var(--sidebar-current) !important;
-        width: calc(100% - var(--sidebar-current));
+        width: calc(100vw - var(--sidebar-current)) !important;
+        max-width: calc(100vw - var(--sidebar-current)) !important;
         overflow-x: clip;
         transition:
           margin-left 0.2s ease,
@@ -266,7 +267,7 @@
         color: var(--text, #e2e2f0);
       }
 
-      @media (max-width: 900px) {
+      @media (max-width: 1250px) {
         .sidebar {
           display: flex !important;
           z-index: 200;
@@ -276,7 +277,8 @@
           display: block;
           padding: 32px 16px;
           margin-left: var(--sidebar-collapsed) !important;
-          width: calc(100% - var(--sidebar-collapsed));
+          width: calc(100vw - var(--sidebar-collapsed)) !important;
+          max-width: calc(100vw - var(--sidebar-collapsed)) !important;
         }
 
         .diagram-wrap .mermaid svg {
@@ -2544,28 +2546,36 @@ npm run install-hooks</code></pre>
         if (!btn) return;
 
         const key = "wiki-sidebar-collapsed";
-        const mobileQuery = window.matchMedia("(max-width: 900px)");
+        const COLLAPSE_WIDTH = 1460;
+
+        function shouldAutoCollapse() {
+          return window.innerWidth <= COLLAPSE_WIDTH;
+        }
 
         function applyCollapsed(collapsed) {
           document.body.classList.toggle("sidebar-collapsed", collapsed);
           btn.setAttribute("aria-expanded", String(!collapsed));
           btn.textContent = collapsed ? "›" : "‹";
           if (scrim) {
-            scrim.setAttribute("aria-hidden", String(collapsed || !mobileQuery.matches));
+            var isMobile = window.innerWidth <= 1250;
+            scrim.setAttribute("aria-hidden", String(collapsed || !isMobile));
           }
         }
 
-        const saved = localStorage.getItem(key);
-        if (saved === null) {
-          applyCollapsed(mobileQuery.matches);
+        // On load: auto-collapse if narrow, otherwise respect saved preference
+        if (shouldAutoCollapse()) {
+          applyCollapsed(true);
         } else {
+          var saved = localStorage.getItem(key);
           applyCollapsed(saved === "1");
         }
 
         btn.addEventListener("click", function () {
-          const next = !document.body.classList.contains("sidebar-collapsed");
+          var next = !document.body.classList.contains("sidebar-collapsed");
           applyCollapsed(next);
-          localStorage.setItem(key, next ? "1" : "0");
+          if (!shouldAutoCollapse()) {
+            localStorage.setItem(key, next ? "1" : "0");
+          }
         });
 
         if (scrim) {
@@ -2575,8 +2585,10 @@ npm run install-hooks</code></pre>
           });
         }
 
-        mobileQuery.addEventListener("change", function () {
-          applyCollapsed(document.body.classList.contains("sidebar-collapsed"));
+        window.addEventListener("resize", function () {
+          if (shouldAutoCollapse()) {
+            applyCollapsed(true);
+          }
         });
       })();
     </script>
