@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { formatMs, formatDuration, timeAgo, truncate } from "../format";
+import { formatMs, formatDuration, timeAgo, truncate, fmt, fmtCost } from "../format";
 
 describe("formatMs", () => {
   it("should return 0s for negative values", () => {
@@ -104,5 +104,45 @@ describe("truncate", () => {
 
   it("should handle empty string", () => {
     expect(truncate("", 5)).toBe("");
+  });
+});
+
+describe("fmt", () => {
+  it("should return raw number below 1000", () => {
+    expect(fmt(0)).toBe("0");
+    expect(fmt(999)).toBe("999");
+  });
+
+  it("should format thousands with K suffix", () => {
+    expect(fmt(1000)).toBe("1.0K");
+    expect(fmt(1957)).toBe("2.0K");
+    expect(fmt(21986)).toBe("22.0K");
+  });
+
+  it("should format millions with M suffix", () => {
+    expect(fmt(1_000_000)).toBe("1.0M");
+    expect(fmt(1_009_500_000)).toBe("1.0B");
+  });
+
+  it("should format billions with B suffix", () => {
+    expect(fmt(1_000_000_000)).toBe("1.0B");
+    expect(fmt(2_500_000_000)).toBe("2.5B");
+  });
+});
+
+describe("fmtCost", () => {
+  it("should format small costs with dollar sign", () => {
+    expect(fmtCost(0)).toBe("$0.00");
+    expect(fmtCost(833.97)).toBe("$833.97");
+    expect(fmtCost(999.99)).toBe("$999.99");
+  });
+
+  it("should format thousands with K suffix", () => {
+    expect(fmtCost(1000)).toBe("$1.00K");
+    expect(fmtCost(2500.5)).toBe("$2.50K");
+  });
+
+  it("should format millions with M suffix", () => {
+    expect(fmtCost(1_000_000)).toBe("$1.00M");
   });
 });

@@ -1,40 +1,10 @@
 import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
-import { RefreshCw, Download, Zap, Bot, FolderOpen, Cpu, DollarSign } from "lucide-react";
+import { RefreshCw, Download, Zap, Bot, FolderOpen, Cpu, DollarSign, Clock } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
-import { formatDateTime } from "../lib/format";
+import { fmt, fmtCost } from "../lib/format";
+import { Tip } from "../components/Tip";
 import type { Analytics as AnalyticsData, CostResult } from "../lib/types";
-
-function fmt(n: number): string {
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-function fmtCost(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(2)}K`;
-  return `$${n.toFixed(2)}`;
-}
-
-function Tip({ raw, children }: { raw: string; children: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span
-      className="relative inline-block cursor-default"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
-      {children}
-      {show && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-xs font-mono text-gray-100 bg-gray-800 border border-gray-700 rounded shadow-lg whitespace-nowrap z-50 pointer-events-none">
-          {raw}
-        </span>
-      )}
-    </span>
-  );
-}
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
@@ -536,9 +506,12 @@ export function Analytics() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+          <div className="flex items-center gap-3 text-xs text-gray-500">
             <span>Real-time monitoring and analytics for Claude Code sessions</span>
-            <span>Last update: {lastUpdate.toLocaleTimeString()}</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 bg-surface-2 px-2 py-0.5 rounded-md font-mono">
+              <Clock className="w-3 h-3" />
+              {lastUpdate.toLocaleTimeString()}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -700,7 +673,9 @@ export function Analytics() {
               <div className="mt-6 pt-4 border-t border-border space-y-1.5">
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>Total tokens</span>
-                  <span className="text-gray-300 font-mono">{totalTokens.toLocaleString()}</span>
+                  <Tip raw={totalTokens.toLocaleString()}>
+                    <span className="text-gray-300 font-mono">{fmt(totalTokens)}</span>
+                  </Tip>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>Cache efficiency</span>
@@ -822,9 +797,32 @@ export function Analytics() {
             <div className="card p-5">
               <h3 className="text-sm font-medium text-gray-300 mb-5">Agent Status</h3>
               <DonutChart segments={agentStatusSegments} />
-              <div className="mt-4 pt-4 border-t border-border flex justify-between text-xs text-gray-500">
-                <span>Total agents</span>
-                <span className="text-gray-300 font-mono">{data?.overview.total_agents ?? 0}</span>
+              <div className="mt-4 pt-4 border-t border-border space-y-1.5">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Total agents</span>
+                  <Tip raw={(data?.overview.total_agents ?? 0).toLocaleString()}>
+                    <span className="text-gray-300 font-mono">
+                      {fmt(data?.overview.total_agents ?? 0)}
+                    </span>
+                  </Tip>
+                </div>
+                {agentStatusSegments.map((s) => (
+                  <div
+                    key={s.label}
+                    className="flex items-center justify-between text-xs text-gray-500"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      {s.label}
+                    </span>
+                    <Tip raw={s.value.toLocaleString()}>
+                      <span className="text-gray-400 font-mono">{fmt(s.value)}</span>
+                    </Tip>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -876,11 +874,32 @@ export function Analytics() {
             <div className="card p-5">
               <h3 className="text-sm font-medium text-gray-300 mb-5">Session Outcomes</h3>
               <DonutChart segments={sessionOutcomeSegments} />
-              <div className="mt-4 pt-4 border-t border-border flex justify-between text-xs text-gray-500">
-                <span>Total sessions</span>
-                <span className="text-gray-300 font-mono">
-                  {data?.overview.total_sessions ?? 0}
-                </span>
+              <div className="mt-4 pt-4 border-t border-border space-y-1.5">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Total sessions</span>
+                  <Tip raw={(data?.overview.total_sessions ?? 0).toLocaleString()}>
+                    <span className="text-gray-300 font-mono">
+                      {fmt(data?.overview.total_sessions ?? 0)}
+                    </span>
+                  </Tip>
+                </div>
+                {sessionOutcomeSegments.map((s) => (
+                  <div
+                    key={s.label}
+                    className="flex items-center justify-between text-xs text-gray-500"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      {s.label}
+                    </span>
+                    <Tip raw={s.value.toLocaleString()}>
+                      <span className="text-gray-400 font-mono">{fmt(s.value)}</span>
+                    </Tip>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -926,14 +945,6 @@ export function Analytics() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="text-[11px] text-gray-600 pt-4 border-t border-border">
-        <span>
-          Last updated:{" "}
-          <span className="text-gray-500">{formatDateTime(lastUpdate.toISOString())}</span>
-        </span>
       </div>
     </div>
   );

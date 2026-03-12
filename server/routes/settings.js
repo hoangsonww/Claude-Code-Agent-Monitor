@@ -19,11 +19,14 @@ function getDbSize() {
 }
 
 function getTableCounts() {
-  const tables = ["sessions", "agents", "events", "token_usage", "model_pricing"];
+  const tables = ["sessions", "agents", "events", "model_pricing"];
   const counts = {};
   for (const t of tables) {
     counts[t] = db.prepare(`SELECT COUNT(*) as c FROM ${t}`).get().c;
   }
+  counts.token_usage = db
+    .prepare("SELECT COUNT(DISTINCT session_id) as c FROM token_usage")
+    .get().c;
   return counts;
 }
 

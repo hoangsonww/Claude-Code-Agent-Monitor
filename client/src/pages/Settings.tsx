@@ -38,7 +38,10 @@ import {
   BarChart3,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { ModelPricing } from "../lib/types";
+import { eventBus } from "../lib/eventBus";
+import { fmt, fmtCost } from "../lib/format";
+import { Tip } from "../components/Tip";
+import type { ModelPricing, WSMessage } from "../lib/types";
 
 // ─── Notification preferences ───
 
@@ -206,6 +209,34 @@ export function Settings() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Live refresh: periodic for uptime/ws-clients, WS-driven for DB counts
+  useEffect(() => {
+    const refreshInfo = () =>
+      api.settings
+        .info()
+        .then(setSysInfo)
+        .catch(() => {});
+    const interval = setInterval(refreshInfo, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    return eventBus.subscribe((msg: WSMessage) => {
+      if (
+        msg.type === "session_created" ||
+        msg.type === "session_updated" ||
+        msg.type === "agent_created" ||
+        msg.type === "agent_updated" ||
+        msg.type === "new_event"
+      ) {
+        api.settings
+          .info()
+          .then(setSysInfo)
+          .catch(() => {});
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!actionResult) return;
@@ -493,7 +524,15 @@ export function Settings() {
             <div>
               <p className="text-sm text-gray-500">Total Estimated Cost</p>
               <p className="text-2xl font-semibold text-gray-100">
-                ${totalCost !== null ? totalCost.toFixed(2) : "-.--"}
+                <Tip
+                  raw={
+                    totalCost !== null
+                      ? `$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : undefined
+                  }
+                >
+                  {totalCost !== null ? fmtCost(totalCost) : "$-.--"}
+                </Tip>
               </p>
             </div>
           </div>
@@ -869,6 +908,13 @@ export function Settings() {
                     token_usage: <Coins className="w-4 h-4 text-amber-400" />,
                     model_pricing: <BarChart3 className="w-4 h-4 text-cyan-400" />,
                   };
+                  const tableLabels: Record<string, string> = {
+                    sessions: "sessions",
+                    agents: "agents",
+                    events: "events",
+                    token_usage: "sessions with cost",
+                    model_pricing: "pricing rules",
+                  };
                   const tableColors: Record<string, string> = {
                     sessions: "border-blue-500/20",
                     agents: "border-emerald-500/20",
@@ -884,11 +930,11 @@ export function Settings() {
                       <div className="flex items-center gap-2 mb-1.5">
                         {tableIcons[table] || <Database className="w-4 h-4 text-gray-500" />}
                         <p className="text-[11px] text-gray-500 uppercase tracking-wider">
-                          {table.replace(/_/g, " ")}
+                          {tableLabels[table] || table.replace(/_/g, " ")}
                         </p>
                       </div>
                       <p className="text-xl font-semibold text-gray-200">
-                        {count.toLocaleString()}
+                        <Tip raw={count.toLocaleString()}>{fmt(count)}</Tip>
                       </p>
                     </div>
                   ));

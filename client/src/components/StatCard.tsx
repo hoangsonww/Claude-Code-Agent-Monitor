@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Tip } from "./Tip";
 
 interface StatCardProps {
   label: string;
@@ -6,6 +7,8 @@ interface StatCardProps {
   icon: LucideIcon;
   trend?: string;
   accentColor?: string;
+  /** Raw value shown as custom tooltip on hover */
+  raw?: string;
 }
 
 export function StatCard({
@@ -14,6 +17,7 @@ export function StatCard({
   icon: Icon,
   trend,
   accentColor = "text-accent",
+  raw,
 }: StatCardProps) {
   return (
     <div className="card p-5">
@@ -22,7 +26,9 @@ export function StatCard({
         <Icon className={`w-4 h-4 ${accentColor}`} />
       </div>
       <div className="flex items-end gap-2 min-w-0">
-        <span className="text-2xl font-semibold text-gray-100 truncate">{value}</span>
+        <Tip raw={raw}>
+          <span className="text-2xl font-semibold text-gray-100 truncate">{value}</span>
+        </Tip>
         {trend && <span className="text-xs text-gray-500 mb-1 flex-shrink-0">{trend}</span>}
       </div>
     </div>

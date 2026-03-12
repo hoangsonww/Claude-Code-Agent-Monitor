@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
-import { formatDateTime, formatDuration, truncate } from "../lib/format";
+import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
 import type { Session, SessionStatus, DashboardEvent } from "../lib/types";
 
 const FILTER_OPTIONS: Array<{ label: string; value: string }> = [
@@ -208,7 +208,7 @@ export function Sessions() {
                     <td className="px-5 py-4 text-sm text-gray-400 font-mono">
                       {(() => {
                         const c = sessionCosts[session.id];
-                        return c != null && c > 0 ? `$${c.toFixed(2)}` : "-";
+                        return c != null && c > 0 ? fmtCost(c) : "-";
                       })()}
                     </td>
                     <td className="px-5 py-4 text-[11px] text-gray-500 font-mono">
