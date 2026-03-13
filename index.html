@@ -380,6 +380,7 @@
 
           <div class="nav-section">Ops & Reference</div>
           <a href="#deployment" class="nav-link"><span class="nav-icon">◈</span>Deployment Modes</a>
+          <a href="#docker" class="nav-link"><span class="nav-icon">◈</span>Docker / Podman</a>
           <a href="#performance" class="nav-link"><span class="nav-icon">◈</span>Performance</a>
           <a href="#security" class="nav-link"><span class="nav-icon">◈</span>Security</a>
           <a href="#troubleshoot" class="nav-link"
@@ -619,7 +620,8 @@
               <h3>Cost Tracking</h3>
               <p>
                 Per-model cost estimation with configurable pricing rules. View total and per-session
-                cost breakdowns based on input, output, and cache token rates.
+                cost breakdowns based on input, output, and cache token rates. Compaction-aware token
+                accounting preserves totals across context compressions so no usage is ever lost.
               </p>
             </div>
             <div class="feature-card">
@@ -690,7 +692,17 @@
                 <tr>
                   <td><code>Notification</code></td>
                   <td>Agent sends notification</td>
-                  <td>Event logged to activity feed.</td>
+                  <td>Event logged to activity feed. Compaction-related notifications tagged as <code>Compaction</code> events.</td>
+                </tr>
+                <tr>
+                  <td><code>Compaction</code></td>
+                  <td><code>/compact</code> detected in JSONL</td>
+                  <td>
+                    Creates a compaction subagent →
+                    <span class="status-chip chip-completed"
+                      ><span class="chip-dot"></span>Completed</span
+                    >. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (every 2 min) catches compactions when no hooks fire.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -2281,6 +2293,87 @@ podman compose down</code></pre>
                 containerized server.
               </p>
             </div>
+          </div>
+        </section>
+
+        <!-- ─── Docker / Podman ──────────────────────────────────────────── -->
+        <section id="docker">
+          <div class="section-label">◈ Operations</div>
+          <h2>Docker / Podman</h2>
+          <p>
+            A multi-stage <code>Dockerfile</code> and <code>docker-compose.yml</code> are included.
+            Both <strong>Docker</strong> and <strong>Podman</strong> are fully supported — the image is OCI-compliant.
+          </p>
+
+          <h3>Quick Start</h3>
+          <pre><code># Docker Compose
+docker compose up -d --build
+
+# Podman Compose
+CLAUDE_HOME="$HOME/.claude" podman compose up -d --build</code></pre>
+
+          <h3>Plain Docker / Podman (no Compose)</h3>
+          <pre><code># Build the image
+docker build -t agent-monitor .
+# — or —
+podman build -t agent-monitor .
+
+# Run the container
+docker run -d --name agent-monitor \
+  -p 4820:4820 \
+  -v "$HOME/.claude:/root/.claude:ro" \
+  -v agent-monitor-data:/app/data \
+  agent-monitor</code></pre>
+
+          <h3>Volume Mounts</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Mount</th><th>Purpose</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>~/.claude:/root/.claude:ro</code></td>
+                  <td>Read-only access to legacy session history for automatic import on startup</td>
+                </tr>
+                <tr>
+                  <td><code>agent-monitor-data:/app/data</code></td>
+                  <td>Persists the SQLite database across container restarts</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Multi-Stage Build</h3>
+          <p>
+            The Dockerfile uses three stages to minimize the final image size:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Stage</th><th>Purpose</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>server-deps</strong></td>
+                  <td>Installs production <code>node_modules</code> (including native <code>better-sqlite3</code> compilation via python3/make/g++)</td>
+                </tr>
+                <tr>
+                  <td><strong>client-build</strong></td>
+                  <td>Runs <code>npm ci</code> + <code>vite build</code> to produce optimized static assets</td>
+                </tr>
+                <tr>
+                  <td><strong>runtime</strong></td>
+                  <td>Clean <code>node:20-alpine</code> with only <code>node_modules</code>, server code, and <code>client/dist</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warn">
+            <strong>Hook note:</strong> Claude Code hooks run on the host, not inside the container.
+            The containerized server receives hook events via HTTP on <code>localhost:4820</code>.
+            Run <code>npm run install-hooks</code> on the host after starting the container.
           </div>
         </section>
 

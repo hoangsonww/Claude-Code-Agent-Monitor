@@ -429,8 +429,26 @@ export function Analytics() {
     URL.revokeObjectURL(url);
   }
 
+  // Local date string helper — avoids UTC offset issues where toISOString()
+  // can show tomorrow's date if the user is behind UTC.
+  function localDateStr(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  // Server returns UTC dates — reindex events by local date so the heatmap
+  // and sparkline align with the user's calendar.
+  const dailyMap: Record<string, number> = {};
+  for (const d of data?.daily_events ?? []) {
+    // d.date is "YYYY-MM-DD" in UTC — parse as noon UTC to avoid DST edge cases,
+    // then convert to local date string
+    const local = localDateStr(new Date(d.date + "T12:00:00Z"));
+    dailyMap[local] = (dailyMap[local] ?? 0) + d.count;
+  }
+
   // Build heatmap: 52 weeks × 7 days
-  const dailyMap = Object.fromEntries((data?.daily_events ?? []).map((d) => [d.date, d.count]));
   const today = new Date();
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - 363);
@@ -442,7 +460,7 @@ export function Analytics() {
       const cell = new Date(startDate);
       cell.setDate(startDate.getDate() + w * 7 + d);
       if (cell > today) break;
-      const dateStr = cell.toISOString().slice(0, 10);
+      const dateStr = localDateStr(cell);
       week.push({ date: dateStr, count: dailyMap[dateStr] ?? 0 });
     }
     if (week.length > 0) weeks.push(week);
@@ -452,9 +470,21 @@ export function Analytics() {
   const last30 = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(today);
     d.setDate(today.getDate() - (29 - i));
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = localDateStr(d);
     return { date: dateStr, count: dailyMap[dateStr] ?? 0 };
   });
+
+  // Convert daily_sessions from UTC to local dates
+  const dailySessionsLocal: Array<{ date: string; count: number }> = [];
+  const sessMap: Record<string, number> = {};
+  for (const d of data?.daily_sessions ?? []) {
+    const local = localDateStr(new Date(d.date + "T12:00:00Z"));
+    sessMap[local] = (sessMap[local] ?? 0) + d.count;
+  }
+  for (const [date, count] of Object.entries(sessMap)) {
+    dailySessionsLocal.push({ date, count });
+  }
+  dailySessionsLocal.sort((a, b) => a.date.localeCompare(b.date));
 
   const totalTokens =
     (data?.tokens.total_input ?? 0) +
@@ -911,18 +941,21 @@ export function Analytics() {
             {/* Daily session trends */}
             <div className="card p-5">
               <h3 className="text-sm font-medium text-gray-300 mb-5">Daily Session Trends</h3>
-              {(data?.daily_sessions ?? []).length === 0 ? (
+              {dailySessionsLocal.length === 0 ? (
                 <p className="text-sm text-gray-500">No session trend data yet.</p>
               ) : (
                 <>
-                  <Sparkline data={(data?.daily_sessions ?? []).slice(-30)} color="#6366f1" />
+                  <Sparkline data={dailySessionsLocal.slice(-30)} color="#6366f1" />
                   <div className="mt-4 space-y-2">
-                    {(data?.daily_sessions ?? [])
+                    {dailySessionsLocal
                       .slice(-7)
                       .reverse()
                       .map(({ date, count }) => {
                         const maxD = Math.max(
-                          ...(data?.daily_sessions ?? [{ count: 1 }]).map((d) => d.count)
+                          ...(dailySessionsLocal.length > 0
+                            ? dailySessionsLocal
+                            : [{ count: 1 }]
+                          ).map((d) => d.count)
                         );
                         return (
                           <div key={date} className="flex items-center gap-3">

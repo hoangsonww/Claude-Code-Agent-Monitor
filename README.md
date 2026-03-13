@@ -135,7 +135,7 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | Feature               | Description                                                                  |
 | --------------------- | ---------------------------------------------------------------------------- |
 | **Dashboard**         | Overview stats, active agent cards, recent activity feed                     |
-| **Kanban Board**      | 5-column agent status board with paginated columns (10 per page)             |
+| **Kanban Board**      | 5-column agent status board with paginated columns, per-status fetching (no artificial limits) |
 | **Sessions**          | Searchable, filterable, paginated table of all Claude Code sessions          |
 | **Session Detail**    | Per-session agent cards and full event timeline                              |
 | **Activity Feed**     | Real-time streaming event log with pause/resume and pagination               |
@@ -144,10 +144,11 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | **Auto-Discovery**    | Sessions and agents are created automatically from hook events               |
 | **History Import**    | Automatically imports legacy sessions from `~/.claude/` on server startup    |
 | **Background Agents** | Correctly tracks backgrounded subagents without premature completion         |
-| **Cost Tracking**     | Per-model cost estimation with configurable pricing rules and per-session breakdowns |
+| **Cost Tracking**     | Per-model cost estimation with configurable pricing rules and per-session breakdowns. Compaction-aware token accounting preserves totals across context compressions |
 | **Notifications**     | Browser notifications for session starts, completions, errors, and subagent spawns. Configurable per-event toggles with permission management |
 | **Settings**          | System info, hook status, model pricing management, notification preferences, data export, session cleanup |
-| **Subsessions/Resumed Sessions** | Automatically reactivates sessions when new events arrive, correctly handles `/resume` and orphaned sessions |
+| **Compaction Tracking** | Detects `/compact` events from JSONL transcripts, creates compaction agents and events. Backfills legacy compactions on startup. Periodic scanner catches compactions within 2 minutes even when no hooks fire |
+| **Subsessions/Resumed Sessions** | Automatically reactivates sessions when new events arrive, correctly handles `/resume` and orphaned sessions. Periodic sweep (every 2 min) marks abandoned sessions that slip past event-based detection |
 | **Responsive Design** | Mobile-friendly layouts with stacking grids, scrollable tables, and collapsible sidebar |
 | **Seed Data**         | Built-in seed script for demos and development                               |
 | **Statusline**        | Color-coded CLI statusline showing model, context usage, git branch, tokens  |
@@ -272,7 +273,7 @@ sequenceDiagram
     WS->>UI: Push message
     UI->>UI: Re-render component
 
-    Note over CC,HH: Hooks fire on SessionStart,<br/>PreToolUse, PostToolUse,<br/>Stop, SubagentStop,<br/>SessionEnd, Notification
+    Note over CC,HH: Hooks fire on SessionStart,<br/>PreToolUse, PostToolUse,<br/>Stop, SubagentStop,<br/>SessionEnd, Notification.<br/>Compaction detected from JSONL
     Note over API,DB: Transactional writes<br/>with auto session/agent creation
     Note over WS,UI: ~0ms latency,<br/>no polling
 ```
@@ -290,6 +291,8 @@ sequenceDiagram
    - On `SessionEnd` (CLI process exits), marks all agents and the session as `completed`
    - On `SessionStart`, any other active session with no activity for 5+ minutes is automatically marked "abandoned" with its agents completed. This handles `/resume` inside a session, Ctrl+C, and other scenarios where a session is orphaned without a clean `SessionEnd`
    - Reactivates completed/error/abandoned sessions when new work events arrive (session resumed)
+   - Detects conversation compaction (`isCompactSummary` entries in the JSONL transcript) and creates `Compaction` agents + events. Token baselines are preserved across compactions so no usage is lost
+   - A periodic server sweep (every 2 min) catches abandoned sessions and new compactions that slipped past event-based detection (e.g., `/compact` fires no hook, `/resume` within seconds of session creation)
 4. **WebSocket** broadcasts the change to all connected clients
 5. **UI** receives the update and re-renders the affected components
 
@@ -492,8 +495,9 @@ The dashboard processes these Claude Code hook types:
 | `PostToolUse`  | Tool execution completed       | Clears `current_tool`. Agent stays `working` (no status change)                              |
 | `Stop`         | Claude finishes responding     | Main agent to `idle` (even on non-tool turns). Background subagents keep running. Session stays `active` |
 | `SubagentStop` | Background agent finished      | Matches and completes the subagent by description, type, or task                             |
-| `Notification` | Agent notification             | Logs event. Triggers a browser notification if the user has notifications enabled             |
+| `Notification` | Agent notification             | Logs event. Compaction-related notifications are tagged as `Compaction` events. Triggers a browser notification if the user has notifications enabled |
 | `SessionEnd`   | Claude Code CLI process exits  | Marks all agents and the session as `completed`                                              |
+| `Compaction`   | `/compact` detected in JSONL   | Creates a compaction subagent (type `compaction`) and Compaction event. Detected via `isCompactSummary` entries in the transcript JSONL. Also detected by periodic scanner for active sessions |
 
 ---
 

@@ -163,6 +163,23 @@ try {
   db.prepare("UPDATE agents SET updated_at = COALESCE(ended_at, started_at)").run();
 }
 
+// Migrate: add compaction baseline columns to token_usage.
+// When conversation compaction rewrites the JSONL, pre-compaction token counts
+// are lost from the transcript. Baselines preserve those counts so the effective
+// total = current + baseline.
+try {
+  db.prepare("SELECT baseline_input FROM token_usage LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE token_usage ADD COLUMN baseline_input INTEGER NOT NULL DEFAULT 0").run();
+  db.prepare("ALTER TABLE token_usage ADD COLUMN baseline_output INTEGER NOT NULL DEFAULT 0").run();
+  db.prepare(
+    "ALTER TABLE token_usage ADD COLUMN baseline_cache_read INTEGER NOT NULL DEFAULT 0"
+  ).run();
+  db.prepare(
+    "ALTER TABLE token_usage ADD COLUMN baseline_cache_write INTEGER NOT NULL DEFAULT 0"
+  ).run();
+}
+
 // Startup cleanup: mark stale active sessions as completed.
 // Legacy sessions (created before SessionEnd hook) will never receive a SessionEnd event,
 // so they stay "active" forever. Complete any active session whose last event is older than
@@ -276,9 +293,18 @@ const stmts = {
       cache_write_tokens = cache_write_tokens + excluded.cache_write_tokens
   `),
   replaceTokenUsage: db.prepare(`
-    INSERT INTO token_usage (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO token_usage (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0)
     ON CONFLICT(session_id, model) DO UPDATE SET
+      baseline_input = CASE WHEN excluded.input_tokens < input_tokens
+        THEN baseline_input + input_tokens ELSE baseline_input END,
+      baseline_output = CASE WHEN excluded.output_tokens < output_tokens
+        THEN baseline_output + output_tokens ELSE baseline_output END,
+      baseline_cache_read = CASE WHEN excluded.cache_read_tokens < cache_read_tokens
+        THEN baseline_cache_read + cache_read_tokens ELSE baseline_cache_read END,
+      baseline_cache_write = CASE WHEN excluded.cache_write_tokens < cache_write_tokens
+        THEN baseline_cache_write + cache_write_tokens ELSE baseline_cache_write END,
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       cache_read_tokens = excluded.cache_read_tokens,
@@ -286,14 +312,19 @@ const stmts = {
   `),
   getTokenTotals: db.prepare(`
     SELECT
-      COALESCE(SUM(input_tokens), 0) as total_input,
-      COALESCE(SUM(output_tokens), 0) as total_output,
-      COALESCE(SUM(cache_read_tokens), 0) as total_cache_read,
-      COALESCE(SUM(cache_write_tokens), 0) as total_cache_write
+      COALESCE(SUM(input_tokens + baseline_input), 0) as total_input,
+      COALESCE(SUM(output_tokens + baseline_output), 0) as total_output,
+      COALESCE(SUM(cache_read_tokens + baseline_cache_read), 0) as total_cache_read,
+      COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) as total_cache_write
     FROM token_usage
   `),
   getTokensBySession: db.prepare(
-    "SELECT model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens FROM token_usage WHERE session_id = ?"
+    `SELECT model,
+      input_tokens + baseline_input as input_tokens,
+      output_tokens + baseline_output as output_tokens,
+      cache_read_tokens + baseline_cache_read as cache_read_tokens,
+      cache_write_tokens + baseline_cache_write as cache_write_tokens
+    FROM token_usage WHERE session_id = ?`
   ),
 
   // Model pricing

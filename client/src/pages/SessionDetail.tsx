@@ -225,7 +225,7 @@ export function SessionDetail() {
                   </div>
                   <AgentStatusBadge
                     status={
-                      event.event_type === "Stop"
+                      event.event_type === "Stop" || event.event_type === "Compaction"
                         ? "completed"
                         : event.event_type === "PreToolUse"
                           ? "working"
