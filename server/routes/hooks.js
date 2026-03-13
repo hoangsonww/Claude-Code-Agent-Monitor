@@ -8,7 +8,9 @@ const router = Router();
 
 /**
  * Parse a Claude Code transcript JSONL file and extract cumulative token usage per model.
- * Returns null if the file can't be read or has no usage data.
+ * Also detects compaction summaries (isCompactSummary entries) so callers can track
+ * compaction events and agents.
+ * Returns null if the file can't be read or has no data.
  */
 function extractTokensFromTranscript(transcriptPath) {
   if (!transcriptPath) return null;
@@ -16,10 +18,23 @@ function extractTokensFromTranscript(transcriptPath) {
     if (!fs.existsSync(transcriptPath)) return null;
     const content = fs.readFileSync(transcriptPath, "utf8");
     const tokensByModel = {};
+    let compaction = null;
     for (const line of content.split("\n")) {
       if (!line) continue;
       try {
         const entry = JSON.parse(line);
+        // Detect compaction summaries — main JSONL has isCompactSummary entries
+        // with uuid (not agentId). Count all of them for dedup.
+        if (entry.isCompactSummary) {
+          if (!compaction) {
+            compaction = { count: 0, entries: [] };
+          }
+          compaction.count++;
+          compaction.entries.push({
+            uuid: entry.uuid || null,
+            timestamp: entry.timestamp || null,
+          });
+        }
         // Transcript JSONL nests model/usage inside entry.message
         const msg = entry.message || entry;
         const model = msg.model;
@@ -35,7 +50,12 @@ function extractTokensFromTranscript(transcriptPath) {
         continue;
       }
     }
-    return Object.keys(tokensByModel).length > 0 ? tokensByModel : null;
+    const hasTokens = Object.keys(tokensByModel).length > 0;
+    if (!hasTokens && !compaction) return null;
+    return {
+      tokensByModel: hasTokens ? tokensByModel : null,
+      compaction,
+    };
   } catch {
     return null;
   }
@@ -305,7 +325,14 @@ const processEvent = db.transaction((hookType, data) => {
     }
 
     case "Notification": {
-      summary = data.message || "Notification received";
+      const msg = data.message || "Notification received";
+      // Tag compaction-related notifications so they show as Compaction events
+      if (/compact|compress|context.*(reduc|truncat|summar)/i.test(msg)) {
+        eventType = "Compaction";
+        summary = msg;
+      } else {
+        summary = msg;
+      }
       break;
     }
 
@@ -316,20 +343,77 @@ const processEvent = db.transaction((hookType, data) => {
 
   // Extract token usage from transcript on every event that provides transcript_path.
   // Claude Code hooks don't include usage/model in stdin — the transcript JSONL is
-  // the only reliable source. Using replaceTokenUsage (overwrite, not accumulate)
-  // since we compute totals from the full transcript each time.
+  // the only reliable source. Uses replaceTokenUsage with compaction-aware logic:
+  // when the JSONL total drops (compaction rewrote it), the old value rolls into
+  // a baseline column so effective_total = current_jsonl + baseline. This ensures
+  // tokens from before compaction are never lost.
+  //
+  // Also detects compaction events (isCompactSummary in JSONL) and creates a
+  // Compaction agent + event so the dashboard shows when context was compressed.
   if (data.transcript_path) {
-    const tokensByModel = extractTokensFromTranscript(data.transcript_path);
-    if (tokensByModel) {
-      for (const [model, tokens] of Object.entries(tokensByModel)) {
-        stmts.replaceTokenUsage.run(
-          sessionId,
-          model,
-          tokens.input,
-          tokens.output,
-          tokens.cacheRead,
-          tokens.cacheWrite
-        );
+    const result = extractTokensFromTranscript(data.transcript_path);
+    if (result) {
+      const { tokensByModel, compaction } = result;
+
+      // Register compaction agents and events.
+      // Each isCompactSummary entry in the JSONL = one compaction that occurred.
+      // Deduplicate by uuid so we only create once per compaction.
+      if (compaction) {
+        for (const entry of compaction.entries) {
+          const compactId = `${sessionId}-compact-${entry.uuid}`;
+          if (stmts.getAgent.get(compactId)) continue;
+
+          const ts = entry.timestamp || new Date().toISOString();
+          stmts.insertAgent.run(
+            compactId,
+            sessionId,
+            "Context Compaction",
+            "subagent",
+            "compaction",
+            "completed",
+            "Automatic conversation context compression",
+            mainAgentId,
+            null
+          );
+          stmts.updateAgent.run(null, "completed", null, null, ts, null, compactId);
+          broadcast("agent_created", stmts.getAgent.get(compactId));
+
+          const compactSummary = `Context compacted — conversation history compressed (#${compaction.entries.indexOf(entry) + 1})`;
+          stmts.insertEvent.run(
+            sessionId,
+            compactId,
+            "Compaction",
+            null,
+            compactSummary,
+            JSON.stringify({
+              uuid: entry.uuid,
+              timestamp: ts,
+              compaction_number: compaction.entries.indexOf(entry) + 1,
+              total_compactions: compaction.count,
+            })
+          );
+          broadcast("new_event", {
+            session_id: sessionId,
+            agent_id: compactId,
+            event_type: "Compaction",
+            tool_name: null,
+            summary: compactSummary,
+            created_at: ts,
+          });
+        }
+      }
+
+      if (tokensByModel) {
+        for (const [model, tokens] of Object.entries(tokensByModel)) {
+          stmts.replaceTokenUsage.run(
+            sessionId,
+            model,
+            tokens.input,
+            tokens.output,
+            tokens.cacheRead,
+            tokens.cacheWrite
+          );
+        }
       }
     }
   }

@@ -5,7 +5,8 @@ const { broadcast } = require("../websocket");
 const router = Router();
 
 router.get("/", (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const rawLimit = parseInt(req.query.limit);
+  const limit = rawLimit > 0 ? rawLimit : 10000;
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
   const session_id = req.query.session_id;

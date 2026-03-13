@@ -40,6 +40,7 @@ async function parseSessionFile(filePath) {
   const tokensByModel = {};
   const messageTimestamps = [];
   const toolUses = [];
+  const compactions = [];
 
   for await (const line of rl) {
     if (!line.trim()) continue;
@@ -48,6 +49,10 @@ async function parseSessionFile(filePath) {
       entry = JSON.parse(line);
     } catch {
       continue;
+    }
+
+    if (entry.isCompactSummary) {
+      compactions.push({ uuid: entry.uuid || null, timestamp: entry.timestamp || null });
     }
 
     if (!cwd && entry.cwd) cwd = entry.cwd;
@@ -117,7 +122,66 @@ async function parseSessionFile(filePath) {
     tokensByModel,
     messageTimestamps,
     toolUses,
+    compactions,
   };
+}
+
+/**
+ * Create compaction agents and events for a session.
+ * Deduplicated by uuid — safe to call repeatedly.
+ * Returns the number of compactions created.
+ */
+function importCompactions(dbModule, sessionId, mainAgentId, compactions) {
+  if (!compactions || compactions.length === 0) return 0;
+  const { db, stmts } = dbModule;
+  const insertEvent = db.prepare(
+    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
+  let created = 0;
+  for (let i = 0; i < compactions.length; i++) {
+    const c = compactions[i];
+    if (!c.uuid) continue;
+    const compactId = `${sessionId}-compact-${c.uuid}`;
+    if (stmts.getAgent.get(compactId)) continue;
+
+    const ts = c.timestamp || new Date().toISOString();
+    stmts.insertAgent.run(
+      compactId,
+      sessionId,
+      "Context Compaction",
+      "subagent",
+      "compaction",
+      "completed",
+      "Automatic conversation context compression",
+      mainAgentId,
+      null
+    );
+    db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
+      ts,
+      ts,
+      ts,
+      compactId
+    );
+
+    const summary = `Context compacted — conversation history compressed (#${i + 1})`;
+    insertEvent.run(
+      sessionId,
+      compactId,
+      "Compaction",
+      null,
+      summary,
+      JSON.stringify({
+        uuid: c.uuid,
+        timestamp: ts,
+        compaction_number: i + 1,
+        total_compactions: compactions.length,
+        imported: true,
+      }),
+      ts
+    );
+    created++;
+  }
+  return created;
 }
 
 /**
@@ -190,6 +254,15 @@ function importSession(dbModule, session) {
       }
       backfilled = true;
     }
+
+    // Backfill compaction agents/events for existing sessions
+    const compactCount = importCompactions(
+      dbModule,
+      session.sessionId,
+      mainAgentId,
+      session.compactions
+    );
+    if (compactCount > 0) backfilled = true;
 
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
   }
@@ -315,9 +388,12 @@ function importSession(dbModule, session) {
     }
   }
 
+  // Create compaction agents/events
+  importCompactions(dbModule, session.sessionId, mainAgentId, session.compactions);
+
   for (const [tokenModel, tokens] of Object.entries(session.tokensByModel)) {
     if (tokens.input > 0 || tokens.output > 0 || tokens.cacheRead > 0 || tokens.cacheWrite > 0) {
-      stmts.upsertTokenUsage.run(
+      stmts.replaceTokenUsage.run(
         session.sessionId,
         tokenModel,
         tokens.input,
@@ -329,6 +405,59 @@ function importSession(dbModule, session) {
   }
 
   return { skipped: false };
+}
+
+/**
+ * Backfill compaction agents/events for ALL sessions in the database.
+ * Scans every JSONL file, finds isCompactSummary entries, and creates
+ * agents + events that are missing. Safe to run repeatedly (deduplicated).
+ */
+async function backfillCompactions(dbModule) {
+  if (!fs.existsSync(PROJECTS_DIR)) return { backfilled: 0 };
+  const { stmts } = dbModule;
+
+  const projectDirs = fs
+    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
+
+  let backfilled = 0;
+
+  for (const projDir of projectDirs) {
+    const projPath = path.join(PROJECTS_DIR, projDir);
+    const files = fs.readdirSync(projPath).filter((f) => f.endsWith(".jsonl"));
+
+    for (const file of files) {
+      const sessionId = path.basename(file, ".jsonl");
+      const session = stmts.getSession.get(sessionId);
+      if (!session) continue;
+
+      const filePath = path.join(projPath, file);
+      const rl = readline.createInterface({
+        input: fs.createReadStream(filePath, { encoding: "utf8" }),
+        crlfDelay: Infinity,
+      });
+
+      const compactions = [];
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line);
+          if (entry.isCompactSummary) {
+            compactions.push({ uuid: entry.uuid || null, timestamp: entry.timestamp || null });
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (compactions.length === 0) continue;
+      const mainAgentId = `${sessionId}-main`;
+      backfilled += importCompactions(dbModule, sessionId, mainAgentId, compactions);
+    }
+  }
+
+  return { backfilled };
 }
 
 /**
@@ -446,4 +575,26 @@ if (require.main === module) {
   });
 }
 
-module.exports = { importAllSessions };
+/**
+ * Scan a single JSONL file for isCompactSummary entries.
+ * Synchronous and lightweight — reads the file once.
+ */
+function findCompactionsInFile(filePath) {
+  if (!fs.existsSync(filePath)) return [];
+  const compactions = [];
+  const content = fs.readFileSync(filePath, "utf8");
+  for (const line of content.split("\n")) {
+    if (!line) continue;
+    try {
+      const entry = JSON.parse(line);
+      if (entry.isCompactSummary) {
+        compactions.push({ uuid: entry.uuid || null, timestamp: entry.timestamp || null });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return compactions;
+}
+
+module.exports = { importAllSessions, backfillCompactions, importCompactions, findCompactionsInFile };

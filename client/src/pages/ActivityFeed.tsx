@@ -68,6 +68,7 @@ export function ActivityFeed() {
         return "connected";
       case "Stop":
       case "SubagentStop":
+      case "Compaction":
         return "completed";
       default:
         return "idle";

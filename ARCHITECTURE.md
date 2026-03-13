@@ -159,7 +159,7 @@ sequenceDiagram
     Note over TX: Creates session + main agent<br/>if first contact
 
     TX->>TX: Process by hook_type
-    Note over TX: SessionStart → create/reactivate session,<br/>abandon stale sessions (5+ min idle)<br/>PreToolUse → set agent working<br/>PostToolUse → clear current_tool<br/>Stop → main agent idle (including non-tool turns)<br/>SubagentStop → mark subagent done<br/>SessionEnd → mark all completed
+    Note over TX: SessionStart → create/reactivate session,<br/>abandon stale sessions (5+ min idle)<br/>PreToolUse → set agent working<br/>PostToolUse → clear current_tool<br/>Stop → main agent idle (non-tool turns too)<br/>SubagentStop → mark subagent done<br/>SessionEnd → mark all completed<br/>Every event → detect compaction from JSONL,<br/>create Compaction agent + event if new
 
     TX->>TX: insertEvent(...)
     TX->>TX: COMMIT
@@ -241,10 +241,10 @@ graph TD
 
 | Module                | Responsibility                                                                                                                                   |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `server/index.js`     | Express app setup, middleware (CORS, JSON parsing), route mounting, static file serving in production, HTTP server creation                      |
+| `server/index.js`     | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions, scans active sessions' JSONL files for new compaction entries). Triggers legacy session import and compaction backfill on startup |
 | `server/db.js`        | SQLite connection with WAL mode, schema migration (CREATE TABLE IF NOT EXISTS + ALTER TABLE for column additions), all prepared statements as a reusable `stmts` object. Migrations use literal defaults for ALTER TABLE since SQLite does not support expressions like `strftime()` in column defaults added via ALTER TABLE |
 | `server/websocket.js` | WebSocket server on `/ws` path, 30s heartbeat with ping/pong dead connection detection, typed broadcast function                                 |
-| `routes/hooks.js`     | Core event processing inside a SQLite transaction. Auto-creates sessions/agents (main agents named `Main Agent — {session name}`). Handles 7 hook types (SessionStart through SessionEnd). Manages agent state machine (connected → working → idle → completed), session reactivation on resume, orphaned session cleanup on SessionStart (abandons sessions idle for 5+ minutes), non-tool turn handling on Stop, and token usage extraction from transcripts |
+| `routes/hooks.js`     | Core event processing inside a SQLite transaction. Auto-creates sessions/agents. Handles 7 hook types (SessionStart through SessionEnd) plus synthetic `Compaction` events. Manages agent state machine, session reactivation on resume, orphaned session cleanup (5+ min idle). Detects compaction via `isCompactSummary` in JSONL transcripts and creates compaction agents + events (deduplicated by uuid). Token baselines (`baseline_*` columns) preserve pre-compaction totals so no usage is lost across context compressions |
 | `routes/sessions.js`  | Standard CRUD with pagination. GET includes agent count via LEFT JOIN. POST is idempotent on session ID                                          |
 | `routes/agents.js`    | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`                                                                          |
 | `routes/events.js`    | Read-only event listing with session_id filter and pagination                                                                                    |
@@ -406,7 +406,7 @@ graph LR
 | Route           | Page          | Data Sources                                           |
 | --------------- | ------------- | ------------------------------------------------------ |
 | `/`             | Dashboard     | `GET /api/stats`, `GET /api/agents`, `GET /api/events` |
-| `/kanban`       | KanbanBoard   | `GET /api/agents?limit=200`                            |
+| `/kanban`       | KanbanBoard   | `GET /api/agents?status={each}` per-status (no limit)  |
 | `/sessions`     | Sessions      | `GET /api/sessions`                                    |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` (includes agents + events)     |
 | `/activity`     | ActivityFeed  | `GET /api/events?limit=100`                            |
@@ -468,10 +468,14 @@ erDiagram
     token_usage {
         TEXT session_id PK "FK to sessions + part of composite PK"
         TEXT model PK "Model identifier + part of composite PK"
-        INTEGER input_tokens
-        INTEGER output_tokens
-        INTEGER cache_read_tokens
-        INTEGER cache_write_tokens
+        INTEGER input_tokens "Current JSONL total"
+        INTEGER output_tokens "Current JSONL total"
+        INTEGER cache_read_tokens "Current JSONL total"
+        INTEGER cache_write_tokens "Current JSONL total"
+        INTEGER baseline_input "Accumulated pre-compaction tokens"
+        INTEGER baseline_output "Accumulated pre-compaction tokens"
+        INTEGER baseline_cache_read "Accumulated pre-compaction tokens"
+        INTEGER baseline_cache_write "Accumulated pre-compaction tokens"
     }
 
     model_pricing {
