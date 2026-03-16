@@ -37,17 +37,15 @@ body:
       label: Area
       description: Which part of the app would this affect?
       options:
-        - API (backend)
-        - Web (frontend)
-        - Authentication
-        - Transactions
-        - Budgets
-        - Goals
-        - Recurring / Bills
-        - Analytics
-        - Dashboard
+        - Server / API
+        - Client / UI
+        - WebSocket / Real-time
+        - Hook Integration
+        - Sessions / Agents
+        - Analytics / Tokens
+        - Settings / Pricing
+        - Database / SQLite
         - Docker / Deployment
-        - Helm / Kubernetes
         - Other
     validations:
       required: true

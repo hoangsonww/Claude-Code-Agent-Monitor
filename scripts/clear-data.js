@@ -5,7 +5,19 @@
  * Useful for removing seed/demo data before using the real dashboard.
  */
 
-const Database = require("better-sqlite3");
+let Database;
+try {
+  Database = require("better-sqlite3");
+} catch {
+  try {
+    Database = require("../server/compat-sqlite");
+  } catch {
+    console.error(
+      "Error: No SQLite backend available. Upgrade to Node.js 22+ or install build tools."
+    );
+    process.exit(1);
+  }
+}
 const path = require("path");
 
 const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(__dirname, "..", "data", "dashboard.db");

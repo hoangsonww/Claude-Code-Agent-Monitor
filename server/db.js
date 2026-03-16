@@ -1,4 +1,27 @@
-const Database = require("better-sqlite3");
+let Database;
+try {
+  Database = require("better-sqlite3");
+} catch {
+  try {
+    Database = require("./compat-sqlite");
+  } catch {
+    console.error(
+      "\n" +
+        "╔══════════════════════════════════════════════════════════════╗\n" +
+        "║  SQLite backend not available                               ║\n" +
+        "║                                                             ║\n" +
+        "║  better-sqlite3 could not be loaded (native module) and     ║\n" +
+        "║  node:sqlite is not available (requires Node.js >= 22).     ║\n" +
+        "║                                                             ║\n" +
+        "║  Fix options (pick one):                                    ║\n" +
+        "║    1. Upgrade to Node.js 22+ (recommended)                  ║\n" +
+        "║    2. Install Python 3 + C++ build tools, then              ║\n" +
+        "║       run: npm rebuild better-sqlite3                       ║\n" +
+        "╚══════════════════════════════════════════════════════════════╝\n"
+    );
+    process.exit(1);
+  }
+}
 const path = require("path");
 const fs = require("fs");
 

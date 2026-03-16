@@ -1,12 +1,11 @@
-# ── Stage 1: Install server production deps (with native build tools) ──
-FROM node:20-alpine AS server-deps
-RUN apk add --no-cache python3 make g++
+# ── Stage 1: Install server production deps ───────────────────────────
+FROM node:22-alpine AS server-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # ── Stage 2: Build React client ───────────────────────────────────────
-FROM node:20-alpine AS client-build
+FROM node:22-alpine AS client-build
 WORKDIR /app/client
 COPY client/package.json client/package-lock.json ./
 RUN npm ci
@@ -14,7 +13,7 @@ COPY client/ ./
 RUN npm run build
 
 # ── Stage 3: Production runtime ───────────────────────────────────────
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
 
 COPY --from=server-deps /app/node_modules ./node_modules/

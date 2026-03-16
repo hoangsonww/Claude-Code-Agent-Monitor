@@ -29,8 +29,8 @@
 - [ ] I have read the [contributing guidelines](../CONTRIBUTING.md)
 - [ ] My code follows the project's coding standards
 - [ ] I have added/updated tests that prove my fix or feature works
-- [ ] All new and existing tests pass (`npm run test`)
-- [ ] TypeScript compiles without errors (`npm run lint`)
+- [ ] All new and existing tests pass (`npm test`)
+- [ ] Code is formatted (`npm run format:check`)
 - [ ] I have updated documentation where necessary
 
 ## Screenshots

@@ -7,7 +7,7 @@ on:
     branches: ["**"]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   IMAGE_NAME: claude-code-agent-monitor
 
 jobs:

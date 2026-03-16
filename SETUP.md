@@ -166,6 +166,34 @@ See [statusline/README.md](./statusline/README.md) for installation instructions
 
 ## Troubleshooting
 
+### `better-sqlite3` errors during `npm install` / `npm run setup`
+
+These warnings are **harmless**. `better-sqlite3` is an optional dependency — if it cannot compile, npm skips it and the server falls back to Node.js built-in `node:sqlite` (available on Node 22+).
+
+You do **not** need Python, Visual Studio Build Tools, or any C++ compiler to run this project on Node 22+.
+
+If you are on Node 18 or 20 and `better-sqlite3` prebuilds are not available for your platform, you have two options:
+
+1. **Upgrade to Node.js 22+** — the built-in `node:sqlite` fallback requires no native compilation at all
+2. **Install build tools** and run `npm rebuild better-sqlite3`:
+   - **Windows:** install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the C++ workload
+   - **macOS:** `xcode-select --install`
+   - **Linux:** `sudo apt install python3 make g++` (Debian/Ubuntu)
+
+### "SQLite backend not available" error on startup
+
+This means neither `better-sqlite3` nor `node:sqlite` could be loaded. The most common cause is running Node.js < 22 without `better-sqlite3` prebuilds. Upgrade to Node.js 22+ to resolve this.
+
+### Database is locked / busy errors
+
+The SQLite database uses WAL mode with a 5-second busy timeout. If you see lock errors:
+
+- Ensure only one dashboard server instance is running
+- Check for zombie `node server/index.js` processes: `ps aux | grep server/index`
+- Delete `data/dashboard.db-wal` and `data/dashboard.db-shm` if the server was killed uncleanly, then restart
+
+---
+
 ### No sessions appearing after starting Claude Code
 
 **Check 1 — Is the server running?**
@@ -238,3 +266,36 @@ And make sure Claude Code posts hooks to the new port:
 CLAUDE_DASHBOARD_PORT=4821 claude
 # or edit scripts/hook-handler.js and change the default port
 ```
+
+---
+
+### Docker / Podman container starts but no sessions appear
+
+**Check 1 — Is the container healthy?**
+
+```bash
+curl http://localhost:4820/api/health
+# Expected: {"status":"ok","timestamp":"..."}
+```
+
+**Check 2 — Did you install hooks on the host?**
+
+Hooks run on the host machine, not inside the container. After the container is up:
+
+```bash
+npm run install-hooks
+```
+
+**Check 3 — Are hooks pointing to the right port?**
+
+Open `~/.claude/settings.json` and verify the hook commands reference `localhost:4820` (or whatever port the container is mapped to). If you changed the port mapping, update hooks accordingly.
+
+---
+
+### Docker build fails during `npm ci`
+
+If the build fails in Stage 1 with `better-sqlite3` errors, this is expected and should not block the build — `better-sqlite3` is an optional dependency. If the build still fails:
+
+- Ensure you are using the latest Dockerfile (it should use `node:22-alpine` and **not** install `python3`, `make`, or `g++`)
+- Run `docker build --no-cache -t agent-monitor .` to force a clean rebuild
+- Check that `package.json` has `better-sqlite3` under `optionalDependencies`, not `dependencies`

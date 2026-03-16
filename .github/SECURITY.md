@@ -25,15 +25,13 @@ You should receive an acknowledgment within **48 hours**. We will work with you 
 
 The following are in scope:
 
-- Authentication and authorization flaws (JWT handling, session management)
-- Injection vulnerabilities (NoSQL injection, XSS, command injection)
-- Sensitive data exposure (credentials, tokens, PII leaks)
-- Broken access control (cross-user data access)
+- Injection vulnerabilities (SQL injection, XSS, command injection)
+- Sensitive data exposure (credentials, tokens, PII leaks in SQLite database)
+- Path traversal or file access issues (e.g. via hook handler or transcript paths)
 - Dependency vulnerabilities with a known exploit
 
 The following are **out of scope**:
 
-- Issues in third-party services (MongoDB Atlas, cloud providers)
 - Denial of service via rate limiting (we acknowledge this and plan to address it)
 - Self-hosted deployment misconfigurations
 

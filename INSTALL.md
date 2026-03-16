@@ -4,7 +4,7 @@
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Node.js | 18+ | Required for server and client |
+| Node.js | 18+ (22+ recommended) | Required for server and client |
 | npm | 9+ | Comes with Node.js |
 | Claude Code | 2.x+ | Required for hook integration |
 | Python | 3.6+ | Optional — statusline utility only |
@@ -163,6 +163,52 @@ podman run -d --name agent-monitor \
 <p align="center">
   <img src="images/settings.png" alt="Settings Overview" width="100%">
 </p>
+
+---
+
+## Troubleshooting
+
+### `npm run setup` shows `better-sqlite3` errors
+
+This is expected and **non-fatal**. `better-sqlite3` is a native C++ module listed as an optional dependency. If prebuilt binaries are not available for your Node version or platform, npm will print gyp/compilation errors but still complete successfully.
+
+At runtime the server uses this fallback chain:
+
+1. **`better-sqlite3`** — used when prebuilt binaries are available (Node 18/20/22 on Windows x64, macOS arm64/x64, Linux x64/arm64)
+2. **`node:sqlite`** — Node.js built-in SQLite module, used automatically on Node 22+ when `better-sqlite3` is unavailable
+
+If you see an error box at startup saying *"SQLite backend not available"*, either:
+
+- **Upgrade to Node.js 22+** (recommended — zero native dependencies needed), or
+- **Install build tools** so `better-sqlite3` can compile from source:
+  - **Windows:** `npm install -g windows-build-tools` or install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the C++ workload
+  - **macOS:** `xcode-select --install`
+  - **Linux:** `sudo apt install python3 make g++` (Debian/Ubuntu) or equivalent
+
+  Then run: `npm rebuild better-sqlite3`
+
+### `npm run dev` fails immediately
+
+Ensure both server and client dependencies are installed:
+
+```bash
+npm run setup
+```
+
+If the error mentions a missing module like `express` or `react`, dependencies may be incomplete. Delete `node_modules` in both root and `client/`, then re-run setup:
+
+```bash
+rm -rf node_modules client/node_modules
+npm run setup
+```
+
+### Server starts but client shows a blank page
+
+The Vite dev server and Express server run on different ports. Make sure both are running (`npm run dev` starts both). Open **http://localhost:5173**, not `http://localhost:4820`, during development.
+
+### No sessions appearing after starting Claude Code
+
+See [SETUP.md — Troubleshooting](./SETUP.md#troubleshooting) for detailed hook debugging steps.
 
 ---
 

@@ -210,7 +210,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     INDEX[server/index.js<br/>Express app + HTTP server]
-    DB[server/db.js<br/>SQLite + prepared statements]
+    DB[server/db.js<br/>SQLite + prepared statements<br/>better-sqlite3 → node:sqlite fallback]
     WS[server/websocket.js<br/>WS server + broadcast]
     HOOKS[routes/hooks.js<br/>Hook event processing]
     SESSIONS[routes/sessions.js<br/>Session CRUD]
@@ -239,19 +239,20 @@ graph TD
 
 ### Server Components
 
-| Module                | Responsibility                                                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `server/index.js`     | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions, scans active sessions' JSONL files for new compaction entries). Triggers legacy session import and compaction backfill on startup |
-| `server/db.js`        | SQLite connection with WAL mode, schema migration (CREATE TABLE IF NOT EXISTS + ALTER TABLE for column additions), all prepared statements as a reusable `stmts` object. Migrations use literal defaults for ALTER TABLE since SQLite does not support expressions like `strftime()` in column defaults added via ALTER TABLE |
-| `server/websocket.js` | WebSocket server on `/ws` path, 30s heartbeat with ping/pong dead connection detection, typed broadcast function                                 |
-| `routes/hooks.js`     | Core event processing inside a SQLite transaction. Auto-creates sessions/agents. Handles 7 hook types (SessionStart through SessionEnd) plus synthetic `Compaction` events. Manages agent state machine, session reactivation on resume, orphaned session cleanup (5+ min idle). Detects compaction via `isCompactSummary` in JSONL transcripts and creates compaction agents + events (deduplicated by uuid). Token baselines (`baseline_*` columns) preserve pre-compaction totals so no usage is lost across context compressions |
-| `routes/sessions.js`  | Standard CRUD with pagination. GET includes agent count via LEFT JOIN. POST is idempotent on session ID                                          |
-| `routes/agents.js`    | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`                                                                          |
-| `routes/events.js`    | Read-only event listing with session_id filter and pagination                                                                                    |
-| `routes/stats.js`     | Single aggregate query returning total/active counts + status distributions                                                                      |
-| `routes/analytics.js` | Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution |
-| `routes/pricing.js`  | Model pricing CRUD (list/upsert/delete), per-session and global cost calculation with pattern-based model matching |
-| `routes/settings.js` | System info (DB size, hook status, server uptime), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks |
+| Module                    | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `server/index.js`         | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions, scans active sessions' JSONL files for new compaction entries). Triggers legacy session import and compaction backfill on startup                                                                                                                                                                                                                    |
+| `server/db.js`            | SQLite connection with WAL mode, schema migration (CREATE TABLE IF NOT EXISTS + ALTER TABLE for column additions), all prepared statements as a reusable `stmts` object. Tries `better-sqlite3` first, falls back to `node:sqlite` via `compat-sqlite.js`. Migrations use literal defaults for ALTER TABLE since SQLite does not support expressions like `strftime()` in column defaults added via ALTER TABLE                                                                                                                      |
+| `server/compat-sqlite.js` | Compatibility wrapper that gives Node.js built-in `node:sqlite` (`DatabaseSync`) the same API as `better-sqlite3` — pragma, transaction, prepare. Used as automatic fallback when the native module is unavailable (Node 22+)                                                                                                                                                                                                                                                                                                        |
+| `server/websocket.js`     | WebSocket server on `/ws` path, 30s heartbeat with ping/pong dead connection detection, typed broadcast function                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `routes/hooks.js`         | Core event processing inside a SQLite transaction. Auto-creates sessions/agents. Handles 7 hook types (SessionStart through SessionEnd) plus synthetic `Compaction` events. Manages agent state machine, session reactivation on resume, orphaned session cleanup (5+ min idle). Detects compaction via `isCompactSummary` in JSONL transcripts and creates compaction agents + events (deduplicated by uuid). Token baselines (`baseline_*` columns) preserve pre-compaction totals so no usage is lost across context compressions |
+| `routes/sessions.js`      | Standard CRUD with pagination. GET includes agent count via LEFT JOIN. POST is idempotent on session ID                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `routes/agents.js`        | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `routes/events.js`        | Read-only event listing with session_id filter and pagination                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `routes/stats.js`         | Single aggregate query returning total/active counts + status distributions                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `routes/analytics.js`     | Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `routes/pricing.js`       | Model pricing CRUD (list/upsert/delete), per-session and global cost calculation with pattern-based model matching                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `routes/settings.js`      | System info (DB size, hook status, server uptime), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### Request Processing
 
@@ -602,15 +603,15 @@ flowchart TD
     START[Claude Code fires hook] --> STDIN[Read stdin to EOF]
     STDIN --> PARSE{Parse JSON?}
     PARSE -->|Success| POST["POST to 127.0.0.1:4820<br/>/api/hooks/event"]
-    PARSE -->|Failure| WRAP[Wrap raw input as<br/>{"raw": "..."}]
+    PARSE -->|Failure| WRAP["Wrap raw input as<br/>#123;raw: ...#125;"]
     WRAP --> POST
     POST --> RESP{Response?}
-    RESP -->|200| EXIT0[exit(0)]
-    RESP -->|Error| EXIT0_ERR[exit(0)]
+    RESP -->|200| EXIT0[exit = 0]
+    RESP -->|Error| EXIT0_ERR[exit = 0]
     RESP -->|Timeout 3s| DESTROY[Destroy request]
-    DESTROY --> EXIT0_TO[exit(0)]
+    DESTROY --> EXIT0_TO[exit = 0]
 
-    SAFETY[Safety net: setTimeout 5s] --> EXIT0_SAFETY[exit(0)]
+    SAFETY[Safety net: setTimeout 5s] --> EXIT0_SAFETY[exit = 0]
 
     style EXIT0 fill:#10b981,stroke:#34d399,color:#fff
     style EXIT0_ERR fill:#10b981,stroke:#34d399,color:#fff
@@ -908,9 +909,9 @@ A multi-stage `Dockerfile` builds the client and server into a single production
 ```mermaid
 graph LR
     subgraph "Multi-Stage Build"
-        S1["Stage 1: server-deps\nnode:20-alpine\nnpm ci --omit=dev\n+ python3/make/g++ for native modules"]
-        S2["Stage 2: client-build\nnode:20-alpine\nnpm ci + vite build"]
-        S3["Stage 3: runtime\nnode:20-alpine\nCopies node_modules + client/dist"]
+        S1["Stage 1: server-deps\nnode:22-alpine\nnpm ci --omit=dev"]
+        S2["Stage 2: client-build\nnode:22-alpine\nnpm ci + vite build"]
+        S3["Stage 3: runtime\nnode:22-alpine\nCopies node_modules + client/dist"]
         S1 --> S3
         S2 --> S3
     end
@@ -1010,7 +1011,7 @@ Claude Code invokes this command on each update, piping a JSON payload to stdin.
 
 | Technology                      | Why This Over Alternatives                                                                                                                      |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SQLite** (via better-sqlite3) | Zero-config, embedded, no server process. WAL mode gives concurrent reads. Synchronous API is simpler than async alternatives for this use case |
+| **SQLite** (via `better-sqlite3` or built-in `node:sqlite`) | Zero-config, embedded, no server process. WAL mode gives concurrent reads. Synchronous API is simpler than async alternatives for this use case. Falls back to Node.js built-in `node:sqlite` when `better-sqlite3` cannot be compiled |
 | **Express**                     | Battle-tested, minimal, well-understood. Overkill would be Fastify for this scale; underkill would be raw `http` module                         |
 | **ws**                          | Fastest, most lightweight WebSocket library for Node. No Socket.IO overhead needed since we only push JSON messages                             |
 | **React 18**                    | Stable, widely known, strong TypeScript support. No need for Server Components or RSC given this is a client-rendered SPA                       |

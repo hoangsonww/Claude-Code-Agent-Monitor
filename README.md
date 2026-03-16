@@ -14,7 +14,7 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
-![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7_(optional)-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-8.5-DD3A0A?style=flat-square&logo=postcss&logoColor=white)
@@ -159,7 +159,7 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 18.0.0 (22+ recommended)
 - **npm** >= 9.0.0
 
 ### 1. Install
@@ -533,7 +533,7 @@ Additionally, any `Notification` hook event from Claude Code triggers a browser 
 
 ## Data Storage
 
-- **Engine:** SQLite 3 via `better-sqlite3`
+- **Engine:** SQLite 3 via `better-sqlite3` (optional) or Node.js built-in `node:sqlite`
 - **Location:** `data/dashboard.db`
 - **Journal mode:** WAL (concurrent reads during writes)
 - **Reset:** Delete `data/dashboard.db` to clear all data
@@ -739,9 +739,10 @@ agent-dashboard/
 |       |-- agents.js            # Agent CRUD
 |       |-- events.js            # Event listing
 |       |-- stats.js             # Aggregate statistics
-|       |-- analytics.js        # Token, tool, and trend analytics
-|       |-- pricing.js            # Model pricing CRUD and cost calculation
-|       +-- settings.js           # System info, data management, export, cleanup
+|       |-- analytics.js         # Token, tool, and trend analytics
+|       |-- pricing.js           # Model pricing CRUD and cost calculation
+|       +-- settings.js          # System info, data management, export, cleanup
+|   +-- compat-sqlite.js         # node:sqlite compatibility wrapper (fallback for better-sqlite3)
 |-- client/
 |   |-- package.json             # Client dependencies
 |   |-- index.html               # HTML entry point
@@ -758,7 +759,7 @@ agent-dashboard/
 |       |   |-- format.ts        # Date/time formatting utilities
 |       |   +-- eventBus.ts      # Pub/sub for WebSocket distribution
 |       |-- hooks/
-|       |   |-- useWebSocket.ts  # Auto-reconnecting WebSocket hook
+|       |   |-- useWebSocket.ts     # Auto-reconnecting WebSocket hook
 |       |   +-- useNotifications.ts # Browser notification triggers from WebSocket events
 |       |-- components/
 |       |   |-- Layout.tsx       # Shell with sidebar + outlet
@@ -768,12 +769,12 @@ agent-dashboard/
 |       |   |-- StatusBadge.tsx  # Color-coded status pills
 |       |   +-- EmptyState.tsx   # Placeholder for empty lists
 |       +-- pages/
-|           |-- Dashboard.tsx    # Overview page
-|           |-- KanbanBoard.tsx  # Agent status columns
-|           |-- Sessions.tsx     # Sessions table
-|           |-- SessionDetail.tsx # Single session deep dive
-|           |-- ActivityFeed.tsx # Real-time event stream
-|           |-- Analytics.tsx   # Token usage, heatmap, trends
+|           |-- Dashboard.tsx      # Overview page
+|           |-- KanbanBoard.tsx    # Agent status columns
+|           |-- Sessions.tsx       # Sessions table
+|           |-- SessionDetail.tsx  # Single session deep dive
+|           |-- ActivityFeed.tsx   # Real-time event stream
+|           |-- Analytics.tsx      # Token usage, heatmap, trends
 |           |-- Settings.tsx       # Model pricing, notifications, hooks, export, cleanup
 |           +-- NotFound.tsx       # 404 catch-all page
 |-- scripts/
@@ -795,7 +796,7 @@ agent-dashboard/
 
 | Problem                           | Solution                                                                                                                                                         |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `better-sqlite3` fails to install | Ensure you have Node.js >= 18. On Windows, you may need the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) C++ workload |
+| `better-sqlite3` fails to install | This is non-fatal — the server falls back to Node.js built-in `node:sqlite` automatically (Node 22+). On older Node versions, install Python 3 and C++ build tools, then run `npm rebuild better-sqlite3` |
 | Hooks not firing                  | Run `npm run install-hooks` and restart Claude Code. Verify hooks exist in `~/.claude/settings.json`                                                             |
 | Dashboard shows no data           | Ensure the server is running (`npm run dev`) before starting a Claude Code session. Check `http://localhost:4820/api/health`                                     |
 | WebSocket disconnected            | The client auto-reconnects every 2 seconds. Check that port 4820 is not blocked by a firewall                                                                    |
