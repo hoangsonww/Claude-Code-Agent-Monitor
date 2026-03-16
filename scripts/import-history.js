@@ -92,7 +92,11 @@ async function parseSessionFile(filePath) {
       if (Array.isArray(content)) {
         for (const block of content) {
           if (block.type === "tool_use" && block.name) {
-            toolUses.push({ name: block.name, timestamp: isoTs || firstTimestamp });
+            toolUses.push({
+              name: block.name,
+              timestamp: isoTs || firstTimestamp,
+              input: block.input || null,
+            });
           }
         }
       }
@@ -185,6 +189,66 @@ function importCompactions(dbModule, sessionId, mainAgentId, compactions) {
 }
 
 /**
+ * Create subagent records from Agent tool_use blocks found during import.
+ * Deduplicated by a deterministic ID derived from session + tool_use index.
+ * Returns the number of subagents created.
+ */
+function importSubagents(dbModule, sessionId, mainAgentId, toolUses) {
+  if (!toolUses || toolUses.length === 0) return 0;
+  const { stmts } = dbModule;
+  const insertEvent = dbModule.db.prepare(
+    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  );
+
+  let created = 0;
+  let agentIndex = 0;
+
+  for (const tu of toolUses) {
+    if (tu.name !== "Agent" || !tu.input) continue;
+    const input = tu.input;
+    agentIndex++;
+
+    const subId = `${sessionId}-subagent-${agentIndex}`;
+    if (stmts.getAgent.get(subId)) continue;
+
+    const rawName =
+      input.description ||
+      input.subagent_type ||
+      (input.prompt ? input.prompt.split("\n")[0].slice(0, 60) : null) ||
+      "Subagent";
+    const subName = rawName.length > 60 ? rawName.slice(0, 57) + "..." : rawName;
+    const ts = tu.timestamp || new Date().toISOString();
+
+    stmts.insertAgent.run(
+      subId,
+      sessionId,
+      subName,
+      "subagent",
+      input.subagent_type || null,
+      "completed",
+      input.prompt ? input.prompt.slice(0, 500) : null,
+      mainAgentId,
+      null
+    );
+    dbModule.db
+      .prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?")
+      .run(ts, ts, ts, subId);
+
+    insertEvent.run(
+      sessionId,
+      subId,
+      "PreToolUse",
+      "Agent",
+      `Subagent spawned: ${subName} (imported)`,
+      JSON.stringify({ imported: true, subagent_type: input.subagent_type || null }),
+      ts
+    );
+    created++;
+  }
+  return created;
+}
+
+/**
  * Import a parsed session into the database.
  */
 function importSession(dbModule, session) {
@@ -263,6 +327,15 @@ function importSession(dbModule, session) {
       session.compactions
     );
     if (compactCount > 0) backfilled = true;
+
+    // Backfill subagent records from Agent tool_use blocks
+    const subagentCount = importSubagents(
+      dbModule,
+      session.sessionId,
+      mainAgentId,
+      session.toolUses
+    );
+    if (subagentCount > 0) backfilled = true;
 
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
   }
@@ -390,6 +463,9 @@ function importSession(dbModule, session) {
 
   // Create compaction agents/events
   importCompactions(dbModule, session.sessionId, mainAgentId, session.compactions);
+
+  // Create subagent records from Agent tool_use blocks
+  importSubagents(dbModule, session.sessionId, mainAgentId, session.toolUses);
 
   for (const [tokenModel, tokens] of Object.entries(session.tokensByModel)) {
     if (tokens.input > 0 || tokens.output > 0 || tokens.cacheRead > 0 || tokens.cacheWrite > 0) {
@@ -601,5 +677,6 @@ module.exports = {
   importAllSessions,
   backfillCompactions,
   importCompactions,
+  importSubagents,
   findCompactionsInFile,
 };

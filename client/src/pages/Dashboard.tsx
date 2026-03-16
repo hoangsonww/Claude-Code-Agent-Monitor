@@ -1,6 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Bot, Zap, DollarSign, Activity, ArrowRight, RefreshCw } from "lucide-react";
+import {
+  FolderOpen,
+  Bot,
+  Zap,
+  DollarSign,
+  Activity,
+  ArrowRight,
+  RefreshCw,
+  GitBranch,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { StatCard } from "../components/StatCard";
@@ -16,6 +27,8 @@ export function Dashboard() {
   const [activeAgents, setActiveAgents] = useState<Agent[]>([]);
   const [recentEvents, setRecentEvents] = useState<DashboardEvent[]>([]);
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [allSubagents, setAllSubagents] = useState<Agent[]>([]);
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -29,10 +42,23 @@ export function Dashboard() {
         api.pricing.totalCost(),
       ]);
       setStats(statsRes);
-      setActiveAgents([...workingRes.agents, ...connectedRes.agents, ...idleRes.agents]);
+      const active = [...workingRes.agents, ...connectedRes.agents, ...idleRes.agents];
+      setActiveAgents(active);
       setRecentEvents(eventsRes.events);
       setTotalCost(costRes.total_cost);
       setError(null);
+
+      // Fetch all subagents for each active main agent's session
+      const activeSessionIds = [
+        ...new Set(active.filter((a) => a.type === "main").map((a) => a.session_id)),
+      ];
+      const subagentResults = await Promise.all(
+        activeSessionIds.map((sid) => api.agents.list({ session_id: sid, limit: 100 }))
+      );
+      const subs = subagentResults
+        .flatMap((r) => r.agents)
+        .filter((a) => a.type === "subagent");
+      setAllSubagents(subs);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
     }
@@ -43,6 +69,19 @@ export function Dashboard() {
     const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, [load]);
+
+  // Auto-expand agents with active subagents
+  useEffect(() => {
+    const parentsWithActive = new Set<string>();
+    for (const a of allSubagents) {
+      if (a.parent_agent_id && (a.status === "working" || a.status === "connected")) {
+        parentsWithActive.add(a.parent_agent_id);
+      }
+    }
+    if (parentsWithActive.size > 0) {
+      setExpandedAgents((prev) => new Set([...prev, ...parentsWithActive]));
+    }
+  }, [allSubagents]);
 
   useEffect(() => {
     return eventBus.subscribe((msg: WSMessage) => {
@@ -85,7 +124,7 @@ export function Dashboard() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           label="Total Sessions"
           value={stats ? fmt(stats.total_sessions) : "-"}
@@ -98,6 +137,13 @@ export function Dashboard() {
           value={stats?.active_agents ?? "-"}
           icon={Bot}
           accentColor="text-emerald-400"
+        />
+        <StatCard
+          label="Active Subagents"
+          value={allSubagents.filter((a) => a.status === "working" || a.status === "connected").length}
+          icon={GitBranch}
+          accentColor="text-violet-400"
+          trend={`${allSubagents.length} total`}
         />
         <StatCard
           label="Events Today"
@@ -142,10 +188,88 @@ export function Dashboard() {
               description="Agents will appear here when a Claude Code session is running."
             />
           ) : (
-            <div className="space-y-3">
-              {activeAgents.slice(0, 5).map((agent) => (
-                <AgentCard key={agent.id} agent={agent} />
-              ))}
+            <div className="space-y-2">
+              {activeAgents
+                .filter((a) => a.type === "main")
+                .slice(0, 5)
+                .map((main) => {
+                  const children = allSubagents.filter(
+                    (a) => a.parent_agent_id === main.id
+                  );
+                  const isExpanded = expandedAgents.has(main.id);
+                  const hasChildren = children.length > 0;
+                  const activeCount = children.filter(
+                    (c) => c.status === "working" || c.status === "connected"
+                  ).length;
+
+                  return (
+                    <div key={main.id}>
+                      <div className="flex items-center gap-1">
+                        {hasChildren ? (
+                          <button
+                            onClick={() =>
+                              setExpandedAgents((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(main.id)) next.delete(main.id);
+                                else next.add(main.id);
+                                return next;
+                              })
+                            }
+                            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="w-6" />
+                        )}
+                        <div className="flex-1">
+                          <AgentCard agent={main} />
+                        </div>
+                      </div>
+
+                      {hasChildren && isExpanded && (
+                        <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
+                          {children.map((sub) => (
+                            <div key={sub.id} className="flex items-center gap-2">
+                              <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
+                              <div className="flex-1">
+                                <AgentCard agent={sub} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {hasChildren && !isExpanded && (
+                        <button
+                          onClick={() =>
+                            setExpandedAgents((prev) => new Set([...prev, main.id]))
+                          }
+                          className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+                        >
+                          {children.length} subagent{children.length !== 1 ? "s" : ""}
+                          {activeCount > 0 && (
+                            <span className="text-emerald-400 ml-1">
+                              ({activeCount} active)
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              {/* Show active subagents without a main agent in the active list */}
+              {activeAgents
+                .filter((a) => a.type === "subagent")
+                .map((agent) => (
+                  <div key={agent.id} className="ml-7">
+                    <AgentCard agent={agent} />
+                  </div>
+                ))}
             </div>
           )}
         </div>

@@ -1,6 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Bot, Clock, FolderOpen, Cpu, RefreshCw, DollarSign } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  Clock,
+  FolderOpen,
+  Cpu,
+  RefreshCw,
+  DollarSign,
+  ChevronDown,
+  ChevronRight,
+  GitBranch,
+} from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { AgentCard } from "../components/AgentCard";
@@ -17,6 +28,10 @@ export function SessionDetail() {
   const [cost, setCost] = useState<CostResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(() => {
+    // Auto-expand on first render; useEffect below handles live updates
+    return new Set<string>();
+  });
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -40,6 +55,23 @@ export function SessionDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Auto-expand agents that have working subagents
+  useEffect(() => {
+    const parentsWithActiveChildren = new Set<string>();
+    for (const a of agents) {
+      if (
+        a.type === "subagent" &&
+        a.parent_agent_id &&
+        (a.status === "working" || a.status === "connected")
+      ) {
+        parentsWithActiveChildren.add(a.parent_agent_id);
+      }
+    }
+    if (parentsWithActiveChildren.size > 0) {
+      setExpandedAgents((prev) => new Set([...prev, ...parentsWithActiveChildren]));
+    }
+  }, [agents]);
 
   useEffect(() => {
     return eventBus.subscribe((msg) => {
@@ -133,10 +165,106 @@ export function SessionDetail() {
         {agents.length === 0 ? (
           <p className="text-sm text-gray-500">No agents recorded.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {agents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
-            ))}
+          <div className="space-y-2">
+            {(() => {
+              const mainAgents = agents.filter((a) => a.type === "main");
+              const subagentsByParent = new Map<string, Agent[]>();
+              for (const a of agents) {
+                if (a.type === "subagent" && a.parent_agent_id) {
+                  const list = subagentsByParent.get(a.parent_agent_id) || [];
+                  list.push(a);
+                  subagentsByParent.set(a.parent_agent_id, list);
+                }
+              }
+              // Subagents with no matching parent (orphans) get shown at top level
+              const orphans = agents.filter(
+                (a) =>
+                  a.type === "subagent" &&
+                  (!a.parent_agent_id || !mainAgents.some((m) => m.id === a.parent_agent_id))
+              );
+
+              return (
+                <>
+                  {mainAgents.map((main) => {
+                    const children = subagentsByParent.get(main.id) || [];
+                    const isExpanded = expandedAgents.has(main.id);
+                    const hasChildren = children.length > 0;
+
+                    return (
+                      <div key={main.id}>
+                        {/* Main agent row */}
+                        <div className="flex items-center gap-1">
+                          {hasChildren ? (
+                            <button
+                              onClick={() =>
+                                setExpandedAgents((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(main.id)) next.delete(main.id);
+                                  else next.add(main.id);
+                                  return next;
+                                })
+                              }
+                              className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="w-6" />
+                          )}
+                          <div className="flex-1">
+                            <AgentCard agent={main} />
+                          </div>
+                        </div>
+
+                        {/* Subagent children (collapsible) */}
+                        {hasChildren && isExpanded && (
+                          <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
+                            {children.map((sub) => (
+                              <div key={sub.id} className="flex items-center gap-2">
+                                <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
+                                <div className="flex-1">
+                                  <AgentCard agent={sub} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Subagent count badge when collapsed */}
+                        {hasChildren && !isExpanded && (
+                          <button
+                            onClick={() =>
+                              setExpandedAgents((prev) => new Set([...prev, main.id]))
+                            }
+                            className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+                          >
+                            {children.length} subagent{children.length !== 1 ? "s" : ""}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Orphaned subagents */}
+                  {orphans.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-[11px] text-gray-500 mb-2 uppercase tracking-wider">
+                        Unparented Subagents
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {orphans.map((agent) => (
+                          <AgentCard key={agent.id} agent={agent} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
