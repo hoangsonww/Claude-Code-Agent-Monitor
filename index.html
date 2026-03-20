@@ -608,8 +608,18 @@
               <div class="feature-icon ic-emerald">⟳</div>
               <h3>History Import</h3>
               <p>
-                Automatically imports legacy sessions from <code>~/.claude/</code> on server
-                startup with correct historical timestamps.
+                Automatically imports sessions from <code>~/.claude/</code> on server startup
+                with correct historical timestamps. Recently-modified transcripts are imported
+                as active sessions so the dashboard reflects real state immediately.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-cyan">⧉</div>
+              <h3>Transcript Cache</h3>
+              <p>
+                Stat-based incremental JSONL reader shared across hook handler and compaction
+                scanner. Avoids duplicate I/O, bounds memory with automatic eviction on session
+                end, and enables smarter session reactivation from transcript activity.
               </p>
             </div>
             <div class="feature-card">
