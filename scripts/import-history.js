@@ -110,6 +110,15 @@ async function parseSessionFile(filePath) {
     ? `${projectName} (${slug})`
     : `${projectName} - ${sessionId.slice(0, 8)}`;
 
+  // Check if the JSONL file was recently modified — indicates a possibly-active session
+  let fileModifiedAt = null;
+  try {
+    const stat = fs.statSync(filePath);
+    fileModifiedAt = stat.mtimeMs;
+  } catch {
+    // non-fatal
+  }
+
   return {
     sessionId,
     name: sessionName,
@@ -127,6 +136,7 @@ async function parseSessionFile(filePath) {
     messageTimestamps,
     toolUses,
     compactions,
+    fileModifiedAt,
   };
 }
 
@@ -340,6 +350,14 @@ function importSession(dbModule, session) {
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
   }
 
+  // If the JSONL file was modified recently (within 10 minutes), the session is likely
+  // still active — import it as active/idle so it appears on the dashboard immediately.
+  const RECENT_THRESHOLD_MS = 10 * 60 * 1000;
+  const isRecentlyActive =
+    session.fileModifiedAt && Date.now() - session.fileModifiedAt < RECENT_THRESHOLD_MS;
+  const sessionStatus = isRecentlyActive ? "active" : "completed";
+  const agentStatus = isRecentlyActive ? "idle" : "completed";
+
   const metadata = JSON.stringify({
     version: session.version,
     slug: session.slug,
@@ -352,7 +370,7 @@ function importSession(dbModule, session) {
   stmts.insertSession.run(
     session.sessionId,
     session.name,
-    "completed",
+    sessionStatus,
     session.cwd,
     session.model,
     metadata
@@ -360,25 +378,26 @@ function importSession(dbModule, session) {
 
   db.prepare("UPDATE sessions SET started_at = ?, ended_at = ? WHERE id = ?").run(
     session.startedAt,
-    session.endedAt,
+    isRecentlyActive ? null : session.endedAt,
     session.sessionId
   );
 
   const mainAgentId = `${session.sessionId}-main`;
+  const agentLabel = `Main Agent — ${session.name}`;
   stmts.insertAgent.run(
     mainAgentId,
     session.sessionId,
-    "Main Agent",
+    agentLabel,
     "main",
     null,
-    "completed",
+    agentStatus,
     null,
     null,
     null
   );
   db.prepare("UPDATE agents SET started_at = ?, ended_at = ? WHERE id = ?").run(
     session.startedAt,
-    session.endedAt,
+    isRecentlyActive ? null : session.endedAt,
     mainAgentId
   );
 

@@ -121,8 +121,8 @@ export function Dashboard() {
         </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats grid — 2 rows of 3 avoids the 6-column squeeze */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard
           label="Total Sessions"
           value={stats ? fmt(stats.total_sessions) : "-"}

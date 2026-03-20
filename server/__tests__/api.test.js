@@ -647,6 +647,86 @@ describe("Hook Event Processing", () => {
     assert.equal(main.ended_at, null, "Main agent ended_at should be cleared");
   });
 
+  it("should reactivate imported completed session on Stop event", async () => {
+    // Simulate a session that was imported as "completed" before the server started.
+    // This happens when a session is active but was imported from JSONL during startup.
+    const sessionId = "hook-sess-imported-reactivate";
+    const mainAgentId = `${sessionId}-main`;
+
+    // Manually insert a "completed" imported session + agent (mimics import-history.js)
+    stmts.insertSession.run(
+      sessionId,
+      "Imported Session",
+      "completed",
+      "/tmp",
+      "claude-sonnet-4-6",
+      null
+    );
+    stmts.insertAgent.run(
+      mainAgentId,
+      sessionId,
+      "Main Agent",
+      "main",
+      null,
+      "completed",
+      null,
+      null,
+      null
+    );
+
+    // Verify it starts as completed
+    let sessRes = await fetch(`/api/sessions/${sessionId}`);
+    assert.equal(sessRes.body.session.status, "completed");
+    let main = sessRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.status, "completed");
+
+    // A Stop event arrives — this proves the session is actually alive
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sessionId, stop_reason: "end_turn" },
+    });
+
+    // Session should be reactivated
+    sessRes = await fetch(`/api/sessions/${sessionId}`);
+    assert.equal(
+      sessRes.body.session.status,
+      "active",
+      "Completed session should reactivate on Stop"
+    );
+
+    main = sessRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.status, "idle", "Main agent should be idle after Stop reactivation");
+  });
+
+  it("should NOT reactivate error session on Stop event", async () => {
+    // Error sessions should only reactivate on work events, not Stop
+    const sessionId = "hook-sess-error-stop";
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: { session_id: sessionId, tool_name: "Read" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sessionId, stop_reason: "error" },
+    });
+
+    let sessRes = await fetch(`/api/sessions/${sessionId}`);
+    assert.equal(sessRes.body.session.status, "error");
+
+    // Another Stop should NOT reactivate an error session
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sessionId, stop_reason: "end_turn" },
+    });
+
+    sessRes = await fetch(`/api/sessions/${sessionId}`);
+    assert.equal(
+      sessRes.body.session.status,
+      "error",
+      "Error session should NOT reactivate on Stop"
+    );
+  });
+
   it("should keep session active across multiple Stop events (multi-turn)", async () => {
     // Turn 1: user asks something, Claude responds
     await post("/api/hooks/event", {
@@ -957,5 +1037,166 @@ describe("Database Integrity", () => {
   it("should have foreign keys enabled", () => {
     const fk = db.pragma("foreign_keys", { simple: true });
     assert.equal(fk, 1);
+  });
+});
+
+describe("Transcript cache integration", () => {
+  it("should extract and cache tokens from transcript file via hook event", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `test-transcript-${Date.now()}.jsonl`);
+    const entries = [
+      JSON.stringify({
+        message: {
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_read_input_tokens: 10,
+            cache_creation_input_tokens: 5,
+          },
+        },
+      }),
+      JSON.stringify({
+        message: {
+          model: "claude-sonnet-4-20250514",
+          usage: {
+            input_tokens: 200,
+            output_tokens: 75,
+            cache_read_input_tokens: 20,
+            cache_creation_input_tokens: 10,
+          },
+        },
+      }),
+    ];
+    fs.writeFileSync(tmpTranscript, entries.join("\n") + "\n");
+
+    try {
+      const sessionId = `cache-test-${Date.now()}`;
+
+      // First event — cache miss, full read
+      const r1 = await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+      assert.strictEqual(r1.status, 200);
+
+      // Verify token usage was stored
+      const tokenRow = stmts.getTokensBySession.all(sessionId);
+      assert.ok(tokenRow.length > 0, "token_usage row should exist");
+      const sonnet = tokenRow.find((r) => r.model.includes("sonnet"));
+      assert.ok(sonnet, "should have sonnet model entry");
+      assert.strictEqual(sonnet.input_tokens, 300);
+      assert.strictEqual(sonnet.output_tokens, 125);
+      assert.strictEqual(sonnet.cache_read_tokens, 30);
+      assert.strictEqual(sonnet.cache_write_tokens, 15);
+
+      // Second event — same file, should be a cache hit (stat unchanged)
+      const r2 = await post("/api/hooks/event", {
+        hook_type: "PostToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+      assert.strictEqual(r2.status, 200);
+
+      // Tokens should still be the same (no double-counting)
+      const tokenRow2 = stmts.getTokensBySession.all(sessionId);
+      const sonnet2 = tokenRow2.find((r) => r.model.includes("sonnet"));
+      assert.strictEqual(sonnet2.input_tokens, 300);
+
+      // Append new data — simulates Claude writing more to transcript
+      fs.appendFileSync(
+        tmpTranscript,
+        JSON.stringify({
+          message: {
+            model: "claude-sonnet-4-20250514",
+            usage: {
+              input_tokens: 400,
+              output_tokens: 150,
+              cache_read_input_tokens: 40,
+              cache_creation_input_tokens: 20,
+            },
+          },
+        }) + "\n"
+      );
+
+      // Third event — file grew, incremental read should pick up new data
+      const r3 = await post("/api/hooks/event", {
+        hook_type: "Stop",
+        data: { session_id: sessionId, transcript_path: tmpTranscript, cwd: "/tmp" },
+      });
+      assert.strictEqual(r3.status, 200);
+
+      const tokenRow3 = stmts.getTokensBySession.all(sessionId);
+      const sonnet3 = tokenRow3.find((r) => r.model.includes("sonnet"));
+      assert.strictEqual(sonnet3.input_tokens, 700);
+      assert.strictEqual(sonnet3.output_tokens, 275);
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  });
+
+  it("should include transcript_cache in settings info", async () => {
+    const res = await fetch("/api/settings/info");
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.transcript_cache, "response should include transcript_cache");
+    assert.ok(typeof res.body.transcript_cache.entries === "number", "should have entries count");
+    assert.ok(Array.isArray(res.body.transcript_cache.paths), "should have paths array");
+  });
+
+  it("should evict cache entry on SessionEnd", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `test-evict-${Date.now()}.jsonl`);
+    fs.writeFileSync(
+      tmpTranscript,
+      JSON.stringify({ message: { model: "m1", usage: { input_tokens: 10, output_tokens: 5 } } }) +
+        "\n"
+    );
+
+    try {
+      const sessionId = `evict-test-${Date.now()}`;
+      const { transcriptCache } = require("../routes/hooks");
+
+      // Hook event populates cache
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+      assert.ok(
+        transcriptCache.stats().paths.includes(tmpTranscript),
+        "cache should contain transcript path after event"
+      );
+
+      // SessionEnd should evict
+      await post("/api/hooks/event", {
+        hook_type: "SessionEnd",
+        data: { session_id: sessionId, transcript_path: tmpTranscript, cwd: "/tmp" },
+      });
+      assert.ok(
+        !transcriptCache.stats().paths.includes(tmpTranscript),
+        "cache should NOT contain transcript path after SessionEnd"
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
   });
 });

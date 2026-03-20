@@ -83,7 +83,8 @@ if (require.main === module) {
   //    without this scanner)
   const cleanupDb = require("./db");
   const { broadcast } = require("./websocket");
-  const { importCompactions, findCompactionsInFile } = require("../scripts/import-history");
+  const { importCompactions } = require("../scripts/import-history");
+  const { transcriptCache } = require("./routes/hooks");
   setInterval(
     () => {
       // 1. Stale session cleanup
@@ -99,6 +100,14 @@ if (require.main === module) {
         }
         cleanupDb.stmts.updateSession.run(null, "abandoned", now, null, s.id);
         broadcast("session_updated", cleanupDb.stmts.getSession.get(s.id));
+
+        // Evict transcript cache for abandoned sessions to bound memory growth
+        const tpRow = cleanupDb.db
+          .prepare(
+            "SELECT json_extract(data, '$.transcript_path') as tp FROM events WHERE session_id = ? AND json_extract(data, '$.transcript_path') IS NOT NULL LIMIT 1"
+          )
+          .get(s.id);
+        if (tpRow?.tp) transcriptCache.invalidate(tpRow.tp);
       }
 
       // 2. Scan active sessions for new compaction entries
@@ -110,7 +119,7 @@ if (require.main === module) {
       for (const row of active) {
         if (!row.tp) continue;
         try {
-          const compactions = findCompactionsInFile(row.tp);
+          const compactions = transcriptCache.extractCompactions(row.tp);
           if (compactions.length === 0) continue;
           const mainAgentId = `${row.session_id}-main`;
           const created = importCompactions(cleanupDb, row.session_id, mainAgentId, compactions);

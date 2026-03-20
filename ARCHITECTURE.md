@@ -216,6 +216,7 @@ graph TD
     DB[server/db.js<br/>SQLite + prepared statements<br/>better-sqlite3 → node:sqlite fallback]
     WS[server/websocket.js<br/>WS server + broadcast]
     HOOKS[routes/hooks.js<br/>Hook event processing]
+    TC[lib/transcript-cache.js<br/>JSONL cache + incremental reads]
     SESSIONS[routes/sessions.js<br/>Session CRUD]
     AGENTS[routes/agents.js<br/>Agent CRUD]
     EVENTS[routes/events.js<br/>Event listing]
@@ -227,13 +228,14 @@ graph TD
     INDEX --> WS
     INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS & PRICING & SETTINGS
 
-    HOOKS --> DB & WS
+    HOOKS --> DB & WS & TC
+    SETTINGS --> DB & TC
+    INDEX --> TC
     SESSIONS --> DB & WS
     AGENTS --> DB & WS
     EVENTS --> DB
     STATS --> DB & WS
     PRICING --> DB
-    SETTINGS --> DB
 
     style INDEX fill:#6366f1,stroke:#818cf8,color:#fff
     style DB fill:#003B57,stroke:#005f8a,color:#fff
@@ -244,18 +246,19 @@ graph TD
 
 | Module                    | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `server/index.js`         | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions, scans active sessions' JSONL files for new compaction entries). Triggers legacy session import and compaction backfill on startup                                                                                                                                                                                                                    |
+| `server/index.js`         | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions with transcript cache eviction, scans active sessions for new compaction entries via shared transcript cache). Triggers legacy session import (with active-session detection for recently-modified JSONL files) and compaction backfill on startup                                                                                                                                                                                                                    |
 | `server/db.js`            | SQLite connection with WAL mode, schema migration (CREATE TABLE IF NOT EXISTS + ALTER TABLE for column additions), all prepared statements as a reusable `stmts` object. Tries `better-sqlite3` first, falls back to `node:sqlite` via `compat-sqlite.js`. Migrations use literal defaults for ALTER TABLE since SQLite does not support expressions like `strftime()` in column defaults added via ALTER TABLE                                                                                                                      |
 | `server/compat-sqlite.js` | Compatibility wrapper that gives Node.js built-in `node:sqlite` (`DatabaseSync`) the same API as `better-sqlite3` — pragma, transaction, prepare. Used as automatic fallback when the native module is unavailable (Node 22+)                                                                                                                                                                                                                                                                                                        |
 | `server/websocket.js`     | WebSocket server on `/ws` path, 30s heartbeat with ping/pong dead connection detection, typed broadcast function                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `routes/hooks.js`         | Core event processing inside a SQLite transaction. Auto-creates sessions/agents. Handles 7 hook types (SessionStart through SessionEnd) plus synthetic `Compaction` events. Manages agent state machine, session reactivation on resume, orphaned session cleanup (5+ min idle). Detects compaction via `isCompactSummary` in JSONL transcripts and creates compaction agents + events (deduplicated by uuid). Token baselines (`baseline_*` columns) preserve pre-compaction totals so no usage is lost across context compressions |
+| `routes/hooks.js`         | Core event processing inside a SQLite transaction. Auto-creates sessions/agents. Handles 7 hook types (SessionStart through SessionEnd) plus synthetic `Compaction` events. Manages agent state machine, session reactivation on resume (including Stop/SubagentStop reactivation for imported completed/abandoned sessions), orphaned session cleanup (5+ min idle). Uses a shared `TranscriptCache` instance (`server/lib/transcript-cache.js`) for token extraction — stat-based caching with incremental byte-offset reads avoids re-reading entire JSONL files on every event. Detects compaction via `isCompactSummary` in JSONL transcripts and creates compaction agents + events (deduplicated by uuid). Token baselines (`baseline_*` columns) preserve pre-compaction totals so no usage is lost. Cache entries are evicted on SessionEnd |
 | `routes/sessions.js`      | Standard CRUD with pagination. GET includes agent count via LEFT JOIN. POST is idempotent on session ID                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `routes/agents.js`        | CRUD with status/session_id filtering. PATCH broadcasts `agent_updated`                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `routes/events.js`        | Read-only event listing with session_id filter and pagination                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `routes/stats.js`         | Single aggregate query returning total/active counts + status distributions                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `routes/analytics.js`     | Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `routes/pricing.js`       | Model pricing CRUD (list/upsert/delete), per-session and global cost calculation with pattern-based model matching                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `routes/settings.js`      | System info (DB size, hook status, server uptime), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks                                                                                                                                                                                                                                                                                                                                                                   |
+| `routes/settings.js`      | System info (DB size, hook status, server uptime, transcript cache stats), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks                                                                                                                                                                                                                                                                                                                                           |
+| `lib/transcript-cache.js` | Stat-based JSONL transcript cache with incremental byte-offset reads. Shared between `hooks.js` (token extraction on every event) and the periodic compaction scanner (`index.js`). Uses `(path, mtime, size)` cache key — unchanged files return cached results instantly, grown files only parse new bytes, shrunk files (compaction) trigger full re-read. LRU eviction caps at 200 entries. Entries evicted on SessionEnd and abandoned session cleanup                                                                            |
 
 ### Request Processing
 
@@ -312,7 +315,7 @@ graph TD
     LAYOUT --> SIDEBAR
     LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & SETTINGS_P & NOTFOUND
 
-    DASH --> SC1["StatCard x5<br/>(sessions/agents/subagents/events/cost)"]
+    DASH --> SC1["StatCard x6<br/>(sessions/agents/subagents/<br/>events today/total events/cost)<br/>3-column grid"]
     DASH --> AC1["AgentCard[]<br/>with collapsible subagent hierarchy"]
     DASH --> EV1["Event rows"]
 
@@ -521,7 +524,7 @@ All queries use prepared statements (`db.prepare()`) for:
 - **Performance** -- compiled once, executed many times
 - **Reliability** -- syntax errors caught at startup, not runtime
 
-Notable prepared statements include `findStaleSessions` (used by `SessionStart` to identify active sessions with no activity for a configurable number of minutes), `touchSession` (bumps `updated_at` on every event), and `reactivateSession` / `reactivateAgent` (used when a previously completed/abandoned session receives new work events).
+Notable prepared statements include `findStaleSessions` (used by `SessionStart` to identify active sessions with no activity for a configurable number of minutes), `touchSession` (bumps `updated_at` on every event), and `reactivateSession` / `reactivateAgent` (used when a previously completed/abandoned session receives new work or stop events — Stop/SubagentStop reactivate completed/abandoned sessions to handle sessions imported before the server started).
 
 ---
 
@@ -950,12 +953,12 @@ The Settings page provides a UI for toggling each preference, managing browser p
 | Metric                         | Value                        | Notes                                                            |
 | ------------------------------ | ---------------------------- | ---------------------------------------------------------------- |
 | **Server startup**             | < 200ms                      | SQLite opens instantly; schema migration is idempotent           |
-| **Hook latency**               | < 50ms                       | Transaction + broadcast, no async I/O beyond SQLite              |
+| **Hook latency**               | < 5ms (cache hit), < 50ms (miss) | TranscriptCache: stat-check only on cache hit; incremental byte-offset read on file growth; full read only on first contact or compaction |
 | **Client bundle**              | 200 KB JS, 17 KB CSS         | Gzipped: ~63 KB JS, ~4 KB CSS                                    |
 | **WebSocket latency**          | < 5ms                        | Local loopback, JSON serialization only                          |
 | **SQLite write throughput**    | ~50,000 inserts/sec          | WAL mode on SSD; far exceeds hook event rate                     |
 | **Max events before slowdown** | ~1M rows                     | SQLite handles this easily; pagination prevents full-table scans |
-| **Memory usage**               | ~30 MB server, ~15 MB client | SQLite in-process, no ORM overhead                               |
+| **Memory usage**               | ~30 MB server, ~15 MB client | SQLite in-process, no ORM overhead. TranscriptCache adds ~1 KB per active session (LRU-capped at 200 entries) |
 
 ### SQLite WAL Mode Benefits
 

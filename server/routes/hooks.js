@@ -1,65 +1,13 @@
 const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
-const fs = require("fs");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
+const TranscriptCache = require("../lib/transcript-cache");
 
 const router = Router();
 
-/**
- * Parse a Claude Code transcript JSONL file and extract cumulative token usage per model.
- * Also detects compaction summaries (isCompactSummary entries) so callers can track
- * compaction events and agents.
- * Returns null if the file can't be read or has no data.
- */
-function extractTokensFromTranscript(transcriptPath) {
-  if (!transcriptPath) return null;
-  try {
-    if (!fs.existsSync(transcriptPath)) return null;
-    const content = fs.readFileSync(transcriptPath, "utf8");
-    const tokensByModel = {};
-    let compaction = null;
-    for (const line of content.split("\n")) {
-      if (!line) continue;
-      try {
-        const entry = JSON.parse(line);
-        // Detect compaction summaries — main JSONL has isCompactSummary entries
-        // with uuid (not agentId). Count all of them for dedup.
-        if (entry.isCompactSummary) {
-          if (!compaction) {
-            compaction = { count: 0, entries: [] };
-          }
-          compaction.count++;
-          compaction.entries.push({
-            uuid: entry.uuid || null,
-            timestamp: entry.timestamp || null,
-          });
-        }
-        // Transcript JSONL nests model/usage inside entry.message
-        const msg = entry.message || entry;
-        const model = msg.model;
-        if (!model || model === "<synthetic>" || !msg.usage) continue;
-        if (!tokensByModel[model]) {
-          tokensByModel[model] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-        }
-        tokensByModel[model].input += msg.usage.input_tokens || 0;
-        tokensByModel[model].output += msg.usage.output_tokens || 0;
-        tokensByModel[model].cacheRead += msg.usage.cache_read_input_tokens || 0;
-        tokensByModel[model].cacheWrite += msg.usage.cache_creation_input_tokens || 0;
-      } catch {
-        continue;
-      }
-    }
-    const hasTokens = Object.keys(tokensByModel).length > 0;
-    if (!hasTokens && !compaction) return null;
-    return {
-      tokensByModel: hasTokens ? tokensByModel : null,
-      compaction,
-    };
-  } catch {
-    return null;
-  }
-}
+// Shared cache instance — reused by periodic compaction scanner via router.transcriptCache
+const transcriptCache = new TranscriptCache();
 
 function ensureSession(sessionId, data) {
   let session = stmts.getSession.get(sessionId);
@@ -106,10 +54,18 @@ const processEvent = db.transaction((hookType, data) => {
   let mainAgent = getMainAgent(sessionId);
   const mainAgentId = mainAgent?.id ?? null;
 
-  // Reactivate completed/error/abandoned sessions on new work events (resumed session)
-  const endingEvents = ["Stop", "SubagentStop", "SessionEnd"];
-  const isWorkEvent = !endingEvents.includes(hookType);
-  if (isWorkEvent && session.status !== "active") {
+  // Reactivate non-active sessions when we receive hook events proving the session is alive.
+  // - Work events (PreToolUse, PostToolUse, Notification, SessionStart) always reactivate.
+  // - Stop/SubagentStop reactivate only if session is completed/abandoned — this handles
+  //   sessions imported as "completed" before the server started, where the first hook event
+  //   might be a Stop. For error sessions, Stop should NOT reactivate (the error is intentional).
+  // - SessionEnd never reactivates.
+  const isNonTerminalEvent = hookType !== "SessionEnd";
+  const isStopLike = hookType === "Stop" || hookType === "SubagentStop";
+  const isImportedOrAbandoned = session.status === "completed" || session.status === "abandoned";
+  const needsReactivation =
+    session.status !== "active" && isNonTerminalEvent && (!isStopLike || isImportedOrAbandoned);
+  if (needsReactivation) {
     stmts.reactivateSession.run(sessionId);
     broadcast("session_updated", stmts.getSession.get(sessionId));
 
@@ -321,6 +277,7 @@ const processEvent = db.transaction((hookType, data) => {
       }
       stmts.updateSession.run(null, "completed", now, null, sessionId);
       broadcast("session_updated", stmts.getSession.get(sessionId));
+
       break;
     }
 
@@ -351,7 +308,7 @@ const processEvent = db.transaction((hookType, data) => {
   // Also detects compaction events (isCompactSummary in JSONL) and creates a
   // Compaction agent + event so the dashboard shows when context was compressed.
   if (data.transcript_path) {
-    const result = extractTokensFromTranscript(data.transcript_path);
+    const result = transcriptCache.extract(data.transcript_path);
     if (result) {
       const { tokensByModel, compaction } = result;
 
@@ -418,6 +375,12 @@ const processEvent = db.transaction((hookType, data) => {
     }
   }
 
+  // Evict transcript from cache on SessionEnd — session is done, no more reads expected.
+  // Must happen after token extraction above to avoid re-populating the cache.
+  if (hookType === "SessionEnd" && data.transcript_path) {
+    transcriptCache.invalidate(data.transcript_path);
+  }
+
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
@@ -461,4 +424,5 @@ router.post("/event", (req, res) => {
   res.json({ ok: true, event: result });
 });
 
+router.transcriptCache = transcriptCache;
 module.exports = router;

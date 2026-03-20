@@ -1,5 +1,14 @@
 {
   "permissions": {
-    "allow": ["Bash(npm run:*)", "Bash(cd client:*)", "Bash(git add:*)", "Bash(git:*)"]
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(cd client:*)",
+      "Bash(git add:*)",
+      "Bash(git:*)",
+      "Bash(node --test server/lib/__tests__/transcript-cache.test.js)",
+      "Bash(node -e \"const r = require\\(''''./server/routes/hooks''''\\); console.log\\(''''router type:'''', typeof r\\); console.log\\(''''transcriptCache exists:'''', !!r.transcriptCache\\); console.log\\(''''transcriptCache has extract:'''', typeof r.transcriptCache?.extract\\);\")",
+      "Bash(node -e \"const r = require\\(''''./server/routes/hooks''''\\); console.log\\(''''router type:'''', typeof r\\); console.log\\(''''transcriptCache exists:'''', Boolean\\(r.transcriptCache\\)\\); console.log\\(''''transcriptCache has extract:'''', typeof \\(r.transcriptCache && r.transcriptCache.extract\\)\\);\")",
+      "Bash(node -e \"const { transcriptCache } = require\\(''./server/routes/hooks''\\); console.log\\(''transcriptCache exists:'', Boolean\\(transcriptCache\\)\\); console.log\\(''has extract:'', typeof \\(transcriptCache && transcriptCache.extract\\)\\); console.log\\(''has extractCompactions:'', typeof \\(transcriptCache && transcriptCache.extractCompactions\\)\\); console.log\\(''has invalidate:'', typeof \\(transcriptCache && transcriptCache.invalidate\\)\\); console.log\\(''has stats:'', typeof \\(transcriptCache && transcriptCache.stats\\)\\);\")"
+    ]
   }
 }

@@ -30,60 +30,26 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 
 ## Table of Contents
 
-- [Agent Dashboard for Claude Code](#agent-dashboard-for-claude-code)
-    - [Real-time monitoring platform for Claude Code agent activity](#real-time-monitoring-platform-for-claude-code-agent-activity)
-  - [Table of Contents](#table-of-contents)
-  - [Overview](#overview)
-    - [User Interface](#user-interface)
-  - [Features](#features)
-  - [Quick Start](#quick-start)
-    - [Prerequisites](#prerequisites)
-    - [1. Install](#1-install)
-    - [2. Configure Claude Code Hooks](#2-configure-claude-code-hooks)
-    - [3. Start](#3-start)
-    - [4. Open](#4-open)
-    - [5. Optional: Build and run the local MCP server](#5-optional-build-and-run-the-local-mcp-server)
-    - [Optional: Seed Demo Data](#optional-seed-demo-data)
-    - [Alternative: Docker / Podman](#alternative-docker--podman)
-  - [How It Works](#how-it-works)
-    - [Hook Lifecycle](#hook-lifecycle)
-    - [Agent State Machine](#agent-state-machine)
-    - [Session State Machine](#session-state-machine)
-    - [Cost Calculation Flow](#cost-calculation-flow)
-  - [Configuration](#configuration)
-  - [npm Scripts](#npm-scripts)
-  - [Agent Extensions](#agent-extensions)
-    - [Extension Architecture](#extension-architecture)
-    - [Claude Code Layer](#claude-code-layer)
-    - [Codex Layer](#codex-layer)
-  - [MCP Integration](#mcp-integration)
-    - [MCP Architecture](#mcp-architecture)
-    - [MCP Tool Surface](#mcp-tool-surface)
-    - [MCP Operational Modes](#mcp-operational-modes)
-  - [API Reference](#api-reference)
-    - [Health](#health)
-    - [Sessions](#sessions)
-    - [Agents](#agents)
-    - [Events](#events)
-    - [Stats](#stats)
-    - [Hooks](#hooks)
-    - [Pricing](#pricing)
-    - [Settings](#settings)
-    - [WebSocket](#websocket)
-  - [Hook Events](#hook-events)
-  - [Browser Notifications](#browser-notifications)
-    - [How It Works](#how-it-works-1)
-    - [Architecture](#architecture)
-  - [Data Storage](#data-storage)
-    - [Entity Relationship Diagram](#entity-relationship-diagram)
-  - [Statusline](#statusline)
-  - [Server Architecture](#server-architecture)
-  - [Client Routing](#client-routing)
-  - [Hook Handler Flow](#hook-handler-flow)
-  - [Deployment Modes](#deployment-modes)
-  - [Project Structure](#project-structure)
-  - [Troubleshooting](#troubleshooting)
-  - [License](#license)
+- [Overview](#overview)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [How It Works](#how-it-works)
+- [Configuration](#configuration)
+- [npm Scripts](#npm-scripts)
+- [Agent Extensions](#agent-extensions)
+- [MCP Integration](#mcp-integration)
+- [API Reference](#api-reference)
+- [Hook Events](#hook-events)
+- [Browser Notifications](#browser-notifications)
+- [Data Storage](#data-storage)
+- [Statusline](#statusline)
+- [Server Architecture](#server-architecture)
+- [Client Routing](#client-routing)
+- [Hook Handler Flow](#hook-handler-flow)
+- [Deployment Modes](#deployment-modes)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ---
 
@@ -142,28 +108,29 @@ The sidebar provides quick access to the Dashboard, Kanban Board, Sessions list,
 
 The dashboard offers a comprehensive set of features to monitor and analyze your Claude Code sessions and agents:
 
-| Feature               | Description                                                                  |
-| --------------------- | ---------------------------------------------------------------------------- |
-| **Dashboard**         | Overview stats, active agent cards with collapsible subagent hierarchy, recent activity feed |
-| **Kanban Board**      | 5-column agent status board with paginated columns, per-status fetching (no artificial limits) |
-| **Sessions**          | Searchable, filterable, paginated table of all Claude Code sessions          |
-| **Session Detail**    | Per-session agent hierarchy tree (parent/child) and full event timeline      |
-| **Activity Feed**     | Real-time streaming event log with pause/resume and pagination               |
-| **Analytics**         | Token usage, tool frequency, activity heatmap, session trends, live/offline connection indicator |
-| **Live Updates**      | WebSocket push -- no polling, instant UI updates                             |
-| **Auto-Discovery**    | Sessions and agents are created automatically from hook events               |
-| **History Import**    | Automatically imports legacy sessions from `~/.claude/` on server startup    |
-| **Subagent Hierarchy** | Collapsible parent-child agent tree on Dashboard and Session Detail. Agents with subagents show expand/collapse chevrons; leaf agents show a dot indicator. Auto-expands when subagents are active |
-| **Background Agents** | Correctly tracks backgrounded subagents without premature completion         |
-| **Cost Tracking**     | Per-model cost estimation with configurable pricing rules and per-session breakdowns. Compaction-aware token accounting preserves totals across context compressions |
-| **Notifications**     | Browser notifications for session starts, completions, errors, and subagent spawns. Configurable per-event toggles with permission management |
-| **Settings**          | System info, hook status, model pricing management, notification preferences, data export, session cleanup |
-| **MCP Server (Local)** | Enterprise-grade local MCP server in `mcp/` exposing dashboard operations as tools for Claude Code and other MCP hosts, with strict input schemas, retries/timeouts, localhost-only API target enforcement, and mutation/destructive safety gates |
-| **Compaction Tracking** | Detects `/compact` events from JSONL transcripts, creates compaction agents and events. Backfills legacy compactions on startup. Periodic scanner catches compactions within 2 minutes even when no hooks fire |
-| **Subsessions/Resumed Sessions** | Automatically reactivates sessions when new events arrive, correctly handles `/resume` and orphaned sessions. Periodic sweep (every 2 min) marks abandoned sessions that slip past event-based detection |
-| **Responsive Design** | Mobile-friendly layouts with stacking grids, scrollable tables, and collapsible sidebar |
-| **Seed Data**         | Built-in seed script for demos and development                               |
-| **Statusline**        | Color-coded CLI statusline showing model, context usage, git branch, tokens  |
+| Feature                            | Description                                                                                                                                                                                                                                                                  |
+|------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Dashboard**                      | Overview stats, active agent cards with collapsible subagent hierarchy, recent activity feed                                                                                                                                                                                 |
+| **Kanban Board**                   | 5-column agent status board with paginated columns, per-status fetching (no artificial limits)                                                                                                                                                                               |
+| **Sessions**                       | Searchable, filterable, paginated table of all Claude Code sessions                                                                                                                                                                                                          |
+| **Session Detail**                 | Per-session agent hierarchy tree (parent/child) and full event timeline                                                                                                                                                                                                      |
+| **Activity Feed**                  | Real-time streaming event log with pause/resume and pagination                                                                                                                                                                                                               |
+| **Analytics**                      | Token usage, tool frequency, activity heatmap, session trends, live/offline connection indicator                                                                                                                                                                             |
+| **Live Updates**                   | WebSocket push -- no polling, instant UI updates                                                                                                                                                                                                                             |
+| **Auto-Discovery**                 | Sessions and agents are created automatically from hook events                                                                                                                                                                                                               |
+| **History Import**                 | Automatically imports legacy sessions from `~/.claude/` on server startup. Recently-modified JSONL files (< 10 min) are imported as "active" with idle agents, so sessions running before the server started appear immediately                                              |
+| **Subagent Hierarchy**             | Collapsible parent-child agent tree on Dashboard and Session Detail. Agents with subagents show expand/collapse chevrons; leaf agents show a dot indicator. Auto-expands when subagents are active                                                                           |
+| **Background Agents**              | Correctly tracks backgrounded subagents without premature completion                                                                                                                                                                                                         |
+| **Cost Tracking**                  | Per-model cost estimation with configurable pricing rules and per-session breakdowns. Compaction-aware token accounting preserves totals across context compressions. Transcript reads are cached with incremental byte-offset updates for efficient token extraction        |
+| **Notifications**                  | Browser notifications for session starts, completions, errors, and subagent spawns. Configurable per-event toggles with permission management                                                                                                                                |
+| **Settings**                       | System info, hook status, model pricing management, notification preferences, data export, session cleanup                                                                                                                                                                   |
+| **MCP Server (Local)**             | Enterprise-grade local MCP server in `mcp/` exposing dashboard operations as tools for Claude Code and other MCP hosts, with strict input schemas, retries/timeouts, localhost-only API target enforcement, and mutation/destructive safety gates                            |
+| **Compaction Tracking**            | Detects `/compact` events from JSONL transcripts, creates compaction agents and events. Backfills legacy compactions on startup. Periodic scanner catches compactions within 2 minutes even when no hooks fire. Shares the transcript cache so no duplicate file reads occur |
+| **Subsessions/Resumed Sessions**   | Automatically reactivates sessions when new events arrive, correctly handles `/resume` and orphaned sessions. Periodic sweep (every 2 min) marks abandoned sessions that slip past event-based detection                                                                     |
+| **Pre-Existing Session Detection** | Sessions already running when the server starts are imported as "active" (based on recent JSONL file modification). Stop events also reactivate imported completed/abandoned sessions, so the first hook from an in-progress session always surfaces it on the dashboard     |
+| **Responsive Design**              | Mobile-friendly layouts with stacking grids, scrollable tables, and collapsible sidebar                                                                                                                                                                                      |
+| **Seed Data**                      | Built-in seed script for demos and development                                                                                                                                                                                                                               |
+| **Statusline**                     | Color-coded CLI statusline showing model, context usage, git branch, tokens                                                                                                                                                                                                  |
 
 ---
 
@@ -317,9 +284,9 @@ sequenceDiagram
    - Marks subagents completed individually via `SubagentStop`
    - On `SessionEnd` (CLI process exits), marks all agents and the session as `completed`
    - On `SessionStart`, any other active session with no activity for 5+ minutes is automatically marked "abandoned" with its agents completed. This handles `/resume` inside a session, Ctrl+C, and other scenarios where a session is orphaned without a clean `SessionEnd`
-   - Reactivates completed/error/abandoned sessions when new work events arrive (session resumed)
-   - Detects conversation compaction (`isCompactSummary` entries in the JSONL transcript) and creates `Compaction` agents + events. Token baselines are preserved across compactions so no usage is lost
-   - A periodic server sweep (every 2 min) catches abandoned sessions and new compactions that slipped past event-based detection (e.g., `/compact` fires no hook, `/resume` within seconds of session creation)
+   - Reactivates completed/error/abandoned sessions when new work events arrive (session resumed). Stop and SubagentStop events also reactivate completed/abandoned sessions — this handles pre-existing sessions imported before the server started, where the first hook event may be a Stop
+   - Detects conversation compaction (`isCompactSummary` entries in the JSONL transcript) and creates `Compaction` agents + events. Token baselines are preserved across compactions so no usage is lost. Transcript reads use a shared stat-based cache with incremental byte-offset reads — only new bytes appended since the last read are parsed, giving ~50x speedup for long sessions
+   - A periodic server sweep (every 2 min) catches abandoned sessions and new compactions that slipped past event-based detection (e.g., `/compact` fires no hook, `/resume` within seconds of session creation). The sweep shares the transcript cache with the hook handler, avoiding duplicate I/O. Abandoned session cleanup also evicts the transcript cache entry to bound memory
 4. **WebSocket** broadcasts the change to all connected clients
 5. **UI** receives the update and re-renders the affected components
 
@@ -914,6 +881,8 @@ agent-dashboard/
 |       |-- analytics.js         # Token, tool, and trend analytics
 |       |-- pricing.js           # Model pricing CRUD and cost calculation
 |       +-- settings.js          # System info, data management, export, cleanup
+|   +-- lib/
+|       +-- transcript-cache.js  # Stat-based JSONL transcript cache with incremental reads
 |   +-- compat-sqlite.js         # node:sqlite compatibility wrapper (fallback for better-sqlite3)
 |-- client/
 |   |-- package.json             # Client dependencies

@@ -4,6 +4,7 @@ const path = require("path");
 const os = require("os");
 const { db, stmts, DB_PATH } = require("../db");
 const { getConnectionCount } = require("../websocket");
+const { transcriptCache } = require("./hooks");
 
 const router = Router();
 
@@ -82,6 +83,7 @@ router.get("/info", (_req, res) => {
       platform: process.platform,
       ws_connections: getConnectionCount(),
     },
+    transcript_cache: transcriptCache.stats(),
   });
 });
 

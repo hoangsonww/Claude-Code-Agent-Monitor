@@ -21,9 +21,11 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <div className="card p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</span>
-        <Icon className={`w-4 h-4 ${accentColor}`} />
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider truncate">
+          {label}
+        </span>
+        <Icon className={`w-5 h-5 flex-shrink-0 ${accentColor}`} />
       </div>
       <div className="flex items-end gap-2 min-w-0">
         <Tip raw={raw}>
