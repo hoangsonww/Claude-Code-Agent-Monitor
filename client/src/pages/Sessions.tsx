@@ -23,7 +23,6 @@ export function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [sessionCosts, setSessionCosts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
 
@@ -33,21 +32,6 @@ export function Sessions() {
       if (filter) params.status = filter;
       const sessionsRes = await api.sessions.list(params);
       setSessions(sessionsRes.sessions);
-      // Fetch individual session costs in background
-      const costs: Record<string, number> = {};
-      const batchSize = 10;
-      for (let i = 0; i < sessionsRes.sessions.length; i += batchSize) {
-        const batch = sessionsRes.sessions.slice(i, i + batchSize);
-        const results = await Promise.all(
-          batch.map((s) =>
-            api.pricing.sessionCost(s.id).catch(() => ({ total_cost: 0, breakdown: [] }))
-          )
-        );
-        batch.forEach((s, j) => {
-          if (results[j]) costs[s.id] = results[j].total_cost;
-        });
-      }
-      setSessionCosts(costs);
     } finally {
       setLoading(false);
     }
@@ -206,10 +190,7 @@ export function Sessions() {
                       {session.agent_count ?? "-"}
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-400 font-mono">
-                      {(() => {
-                        const c = sessionCosts[session.id];
-                        return c != null && c > 0 ? fmtCost(c) : "-";
-                      })()}
+                      {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
                     </td>
                     <td className="px-5 py-4 text-[11px] text-gray-500 font-mono">
                       {session.cwd ? truncate(session.cwd, 30) : "-"}

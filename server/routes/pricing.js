@@ -116,3 +116,4 @@ router.get("/cost/:sessionId", (req, res) => {
 });
 
 module.exports = router;
+module.exports.calculateCost = calculateCost;

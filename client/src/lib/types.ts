@@ -13,6 +13,7 @@ export interface Session {
   metadata: string | null;
   agent_count?: number;
   last_activity?: string;
+  cost?: number;
 }
 
 export interface Agent {

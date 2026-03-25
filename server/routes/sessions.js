@@ -1,6 +1,7 @@
 const { Router } = require("express");
-const { stmts } = require("../db");
+const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
+const { calculateCost } = require("./pricing");
 
 const router = Router();
 
@@ -12,6 +13,38 @@ router.get("/", (req, res) => {
   const rows = status
     ? stmts.listSessionsByStatus.all(status, limit, offset)
     : stmts.listSessions.all(limit, offset);
+
+  // Bulk-compute costs for all returned sessions in a single pass
+  if (rows.length > 0) {
+    const ids = rows.map((r) => r.id);
+    const placeholders = ids.map(() => "?").join(",");
+    const allTokens = db
+      .prepare(
+        `SELECT session_id, model,
+          input_tokens + baseline_input as input_tokens,
+          output_tokens + baseline_output as output_tokens,
+          cache_read_tokens + baseline_cache_read as cache_read_tokens,
+          cache_write_tokens + baseline_cache_write as cache_write_tokens
+        FROM token_usage WHERE session_id IN (${placeholders})`
+      )
+      .all(...ids);
+
+    const rules = stmts.listPricing.all();
+    const tokensBySession = {};
+    for (const t of allTokens) {
+      if (!tokensBySession[t.session_id]) tokensBySession[t.session_id] = [];
+      tokensBySession[t.session_id].push(t);
+    }
+
+    for (const row of rows) {
+      const sessionTokens = tokensBySession[row.id];
+      if (sessionTokens) {
+        row.cost = calculateCost(sessionTokens, rules).total_cost;
+      } else {
+        row.cost = 0;
+      }
+    }
+  }
 
   res.json({ sessions: rows, limit, offset });
 });
