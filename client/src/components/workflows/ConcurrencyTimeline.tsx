@@ -15,59 +15,58 @@ const SUBAGENT_PALETTE = [
   "#84cc16", // lime
 ];
 
-function laneColor(name: string, subagentIndex: number): string {
-  if (name === "Main Agent") return MAIN_COLOR;
-  return SUBAGENT_PALETTE[subagentIndex % SUBAGENT_PALETTE.length] ?? MAIN_COLOR;
-}
-
-// ── X-axis tick labels ─────────────────────────────────────────────────────────
-
-const TICKS = [0, 25, 50, 75, 100];
-
 // ── Lane row ──────────────────────────────────────────────────────────────────
 
 interface LaneRowProps {
   lane: ConcurrencyLane;
   color: string;
+  maxCount: number;
 }
 
-function LaneRow({ lane, color }: LaneRowProps) {
-  const startPct = Math.max(0, Math.min(100, lane.avgStart));
-  const endPct = Math.max(0, Math.min(100, lane.avgEnd));
-  const widthPct = Math.max(0, endPct - startPct);
+function LaneRow({ lane, color, maxCount }: LaneRowProps) {
+  // Bar width proportional to session count (the metric with meaningful variance)
+  const barPct = maxCount > 0 ? (lane.count / maxCount) * 100 : 0;
+
+  // Duration as percentage of session (backend returns 0-1 fractions)
+  const startPct = (lane.avgStart * 100).toFixed(0);
+  const endPct = (lane.avgEnd * 100).toFixed(0);
 
   return (
     <div className="flex items-center gap-3 py-1.5 group">
       {/* Label column */}
-      <div className="flex-shrink-0 w-[120px] text-right" title={lane.name}>
+      <div className="flex-shrink-0 w-[140px] text-right" title={lane.name}>
         <span className="text-xs font-medium text-gray-400 truncate block group-hover:text-gray-200 transition-colors">
           {lane.name}
         </span>
-        <span className="text-[10px] text-gray-600">
-          {lane.count} {lane.count === 1 ? "session" : "sessions"}
+      </div>
+
+      {/* Bar area */}
+      <div className="relative flex-1 h-6 bg-surface-3 rounded overflow-hidden">
+        <div
+          className="absolute top-0 bottom-0 left-0 rounded transition-all duration-300"
+          style={{
+            width: `${barPct}%`,
+            minWidth: barPct > 0 ? "4px" : undefined,
+            backgroundColor: color,
+            opacity: 0.85,
+          }}
+          title={`${lane.count} session${lane.count !== 1 ? "s" : ""} — active ${startPct}%–${endPct}% of session`}
+        />
+        {/* Count label inside bar if wide enough, outside if not */}
+        <span
+          className="absolute top-0 bottom-0 flex items-center text-[11px] font-medium tabular-nums"
+          style={{
+            left: barPct > 15 ? "8px" : `calc(${barPct}% + 6px)`,
+            color: barPct > 15 ? "white" : "var(--color-gray-400)",
+          }}
+        >
+          {lane.count}
         </span>
       </div>
 
-      {/* Track area */}
-      <div className="relative flex-1 h-6 bg-surface-3 rounded overflow-hidden">
-        {/* Segment */}
-        {widthPct > 0 && (
-          <div
-            className="absolute top-0 bottom-0 rounded"
-            style={{
-              left: `${startPct}%`,
-              width: `${widthPct}%`,
-              backgroundColor: color,
-              opacity: 0.85,
-            }}
-            title={`${startPct.toFixed(1)}% – ${endPct.toFixed(1)}% of session duration`}
-          />
-        )}
-      </div>
-
-      {/* Duration range label */}
-      <div className="flex-shrink-0 w-[88px] text-xs text-gray-600 tabular-nums">
-        {startPct.toFixed(0)}%&ndash;{endPct.toFixed(0)}%
+      {/* Timing range */}
+      <div className="flex-shrink-0 w-[72px] text-[11px] text-gray-600 tabular-nums">
+        {startPct}%&ndash;{endPct}%
       </div>
     </div>
   );
@@ -112,9 +111,13 @@ export function ConcurrencyTimeline({ data }: ConcurrencyTimelineProps) {
     return <EmptyState />;
   }
 
-  // Assign color indices to non-main lanes
+  // Sort by session count descending so the most-used agent types are on top
+  const sorted = [...lanes].sort((a, b) => b.count - a.count);
+  const maxCount = sorted[0]?.count ?? 1;
+
+  // Assign colors
   let subagentIndex = 0;
-  const coloredLanes = lanes.map((lane) => {
+  const coloredLanes = sorted.map((lane) => {
     const isMain = lane.name === "Main Agent";
     const color = isMain
       ? MAIN_COLOR
@@ -125,47 +128,22 @@ export function ConcurrencyTimeline({ data }: ConcurrencyTimelineProps) {
 
   return (
     <div className="w-full">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-2">
+        <div className="flex-shrink-0 w-[140px]" />
+        <div className="flex-1 flex items-center justify-between">
+          <span className="text-[10px] text-gray-600 uppercase tracking-wider">Sessions</span>
+          <span className="text-[10px] text-gray-600 tabular-nums">{maxCount} max</span>
+        </div>
+        <div className="flex-shrink-0 w-[72px] text-[10px] text-gray-600 uppercase tracking-wider">
+          Timing
+        </div>
+      </div>
+
       {/* Lane rows */}
       <div className="flex flex-col divide-y divide-surface-4">
         {coloredLanes.map(({ lane, color }) => (
-          <LaneRow key={lane.name} lane={lane} color={color} />
-        ))}
-      </div>
-
-      {/* X-axis ticks */}
-      <div className="mt-2 flex items-center gap-3">
-        {/* Spacer to align with track area */}
-        <div className="flex-shrink-0 w-[120px]" />
-        <div className="relative flex-1 flex justify-between">
-          {TICKS.map((tick) => (
-            <span
-              key={tick}
-              className="text-[10px] text-gray-600 tabular-nums"
-              style={
-                tick === 0
-                  ? { position: "absolute", left: 0 }
-                  : tick === 100
-                    ? { position: "absolute", right: 0 }
-                    : { position: "absolute", left: `${tick}%`, transform: "translateX(-50%)" }
-              }
-            >
-              {tick}%
-            </span>
-          ))}
-        </div>
-        <div className="flex-shrink-0 w-[88px]" />
-      </div>
-
-      {/* Legend */}
-      <div className="mt-4 flex flex-wrap gap-3">
-        {coloredLanes.map(({ lane, color }) => (
-          <div key={lane.name} className="flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-              style={{ backgroundColor: color }}
-            />
-            <span className="text-xs text-gray-500">{lane.name}</span>
-          </div>
+          <LaneRow key={lane.name} lane={lane} color={color} maxCount={maxCount} />
         ))}
       </div>
     </div>
@@ -173,4 +151,7 @@ export function ConcurrencyTimeline({ data }: ConcurrencyTimelineProps) {
 }
 
 // Re-export helper so callers can import the color fn if needed
-export { laneColor };
+export function laneColor(name: string, subagentIndex: number): string {
+  if (name === "Main Agent") return MAIN_COLOR;
+  return SUBAGENT_PALETTE[subagentIndex % SUBAGENT_PALETTE.length] ?? MAIN_COLOR;
+}

@@ -18,7 +18,13 @@
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(npx vite:*)",
       "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(''deps:'', Object.keys\\(p.dependencies || {}\\).length\\); console.log\\(Object.keys\\(p.dependencies || {}\\).join\\('', ''\\)\\)\")",
-      "Bash(npx prettier:*)"
+      "Bash(npx prettier:*)",
+      "Bash(node scripts/seed.js)",
+      "Bash(lsof -ti:4820)",
+      "Bash(xargs kill:*)",
+      "Bash(lsof -ti:5173)",
+      "Bash(lsof -ti:5174)",
+      "Bash(curl -s http://localhost:4820/api/health)"
     ]
   }
 }

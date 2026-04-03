@@ -132,10 +132,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
       </div>
 
       {node.children.length > 0 && (
-        <div
-          className="border-l border-border ml-[calc(var(--indent)+12px)]"
-          style={{ "--indent": `${indentPx}px` } as React.CSSProperties}
-        >
+        <div>
           {node.children.map((child) => (
             <TreeNode key={child.id} node={child} depth={depth + 1} />
           ))}
