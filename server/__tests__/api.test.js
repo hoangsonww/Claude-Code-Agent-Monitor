@@ -1200,3 +1200,421 @@ describe("Transcript cache integration", () => {
     }
   });
 });
+
+// ============================================================
+// Nested Agent Spawning (agents spawning agents spawning agents)
+// ============================================================
+describe("Nested Agent Spawning", () => {
+  const SID = "hook-sess-nested";
+
+  it("should parent subagent to main when main is working (depth 0→1)", async () => {
+    // Main agent is working (auto-created on first event) and spawns a subagent
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: SID,
+        tool_name: "Agent",
+        tool_input: {
+          description: "Level-1 explorer",
+          subagent_type: "Explore",
+          prompt: "Explore the codebase",
+        },
+      },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${SID}`);
+    const sub1 = agentsRes.body.agents.find((a) => a.name === "Level-1 explorer");
+    assert.ok(sub1, "Level-1 subagent should exist");
+    assert.equal(sub1.parent_agent_id, `${SID}-main`, "Level-1 parent should be main agent");
+    assert.equal(sub1.status, "working");
+  });
+
+  it("should parent sub-subagent to working subagent when main is idle (depth 1→2)", async () => {
+    // Stop main agent so it goes idle — simulates main waiting for subagent results
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: SID, stop_reason: "end_turn" },
+    });
+
+    // Verify main is idle
+    const mainRes = await fetch(`/api/agents/${SID}-main`);
+    assert.equal(mainRes.body.agent.status, "idle", "Main should be idle");
+
+    // Now a new Agent tool call arrives — since main is idle, this must be from the working subagent
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: SID,
+        tool_name: "Agent",
+        tool_input: {
+          description: "Level-2 researcher",
+          subagent_type: "general-purpose",
+          prompt: "Research the topic",
+        },
+      },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${SID}`);
+    const sub1 = agentsRes.body.agents.find((a) => a.name === "Level-1 explorer");
+    const sub2 = agentsRes.body.agents.find((a) => a.name === "Level-2 researcher");
+    assert.ok(sub2, "Level-2 subagent should exist");
+    assert.equal(
+      sub2.parent_agent_id,
+      sub1.id,
+      "Level-2 parent should be level-1 subagent, not main"
+    );
+    assert.equal(sub2.status, "working");
+  });
+
+  it("should parent sub-sub-subagent to deepest working agent (depth 2→3)", async () => {
+    // Level-2 is working, level-1 is working, main is idle → deepest working is level-2
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: SID,
+        tool_name: "Agent",
+        tool_input: {
+          description: "Level-3 specialist",
+          subagent_type: "test-engineer",
+          prompt: "Write tests",
+        },
+      },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${SID}`);
+    const sub2 = agentsRes.body.agents.find((a) => a.name === "Level-2 researcher");
+    const sub3 = agentsRes.body.agents.find((a) => a.name === "Level-3 specialist");
+    assert.ok(sub3, "Level-3 subagent should exist");
+    assert.equal(sub3.parent_agent_id, sub2.id, "Level-3 parent should be level-2 subagent");
+  });
+
+  it("should complete deepest agent first and shift parenting on SubagentStop", async () => {
+    // Complete level-3 first
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: SID, description: "Level-3 specialist" },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${SID}`);
+    const sub3 = agentsRes.body.agents.find((a) => a.name === "Level-3 specialist");
+    assert.equal(sub3.status, "completed", "Level-3 should be completed");
+
+    // Now spawn another agent — with level-3 completed, deepest working is level-2
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: SID,
+        tool_name: "Agent",
+        tool_input: {
+          description: "Level-3b sibling",
+          subagent_type: "Explore",
+          prompt: "Another task",
+        },
+      },
+    });
+
+    const agentsRes2 = await fetch(`/api/agents?session_id=${SID}`);
+    const sub2 = agentsRes2.body.agents.find((a) => a.name === "Level-2 researcher");
+    const sub3b = agentsRes2.body.agents.find((a) => a.name === "Level-3b sibling");
+    assert.ok(sub3b, "Level-3b sibling should exist");
+    assert.equal(sub3b.parent_agent_id, sub2.id, "Level-3b should be parented to level-2");
+  });
+
+  it("should return correct tree structure from workflows endpoint", async () => {
+    // Complete remaining agents so tree is stable
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: SID, description: "Level-3b sibling" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: SID, description: "Level-2 researcher" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: SID, description: "Level-1 explorer" },
+    });
+
+    const res = await fetch(`/api/workflows/session/${SID}`);
+    assert.equal(res.status, 200);
+    const { tree } = res.body;
+    assert.ok(tree.length >= 1, "Tree should have root nodes");
+
+    // Find main agent in tree
+    const mainNode = tree.find((n) => n.type === "main");
+    assert.ok(mainNode, "Main agent should be a root node");
+    assert.ok(mainNode.children.length >= 1, "Main should have children");
+
+    // Find level-1 in main's children
+    const l1 = mainNode.children.find((c) => c.name === "Level-1 explorer");
+    assert.ok(l1, "Level-1 should be child of main");
+    assert.ok(l1.children.length >= 1, "Level-1 should have children");
+
+    // Find level-2 in level-1's children
+    const l2 = l1.children.find((c) => c.name === "Level-2 researcher");
+    assert.ok(l2, "Level-2 should be child of level-1");
+    assert.ok(l2.children.length >= 1, "Level-2 should have children");
+
+    // Level-3 and level-3b should be children of level-2
+    const l3names = l2.children.map((c) => c.name);
+    assert.ok(l3names.includes("Level-3 specialist"), "Level-3 should be child of level-2");
+    assert.ok(l3names.includes("Level-3b sibling"), "Level-3b should be child of level-2");
+  });
+
+  it("should complete all nested agents on SessionEnd", async () => {
+    // Create a fresh session with deep nesting, then SessionEnd
+    const sid = "hook-sess-nested-end";
+    // Main spawns level-1
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "End-L1", prompt: "task" },
+      },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+    // Level-1 spawns level-2
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "End-L2", prompt: "subtask" },
+      },
+    });
+
+    // SessionEnd should complete everything
+    await post("/api/hooks/event", {
+      hook_type: "SessionEnd",
+      data: { session_id: sid },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    for (const agent of agentsRes.body.agents) {
+      assert.equal(
+        agent.status,
+        "completed",
+        `Agent ${agent.name} should be completed after SessionEnd`
+      );
+      assert.ok(agent.ended_at, `Agent ${agent.name} should have ended_at`);
+    }
+  });
+
+  it("should handle orphaned subagents when parent is missing", async () => {
+    // Create session with main, a legitimate subagent, then delete the parent to orphan it
+    stmts.insertSession.run("orphan-sess", "Orphan Test", "active", null, null, null);
+    stmts.insertAgent.run(
+      "orphan-main",
+      "orphan-sess",
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+    // Create a subagent parented to main, then we'll check tree structure
+    stmts.insertAgent.run(
+      "orphan-real-parent",
+      "orphan-sess",
+      "Real Parent",
+      "subagent",
+      "Explore",
+      "completed",
+      null,
+      "orphan-main",
+      null
+    );
+    // Create a child of the real parent — this will become orphaned when we NULL its parent
+    stmts.insertAgent.run(
+      "orphan-sub",
+      "orphan-sess",
+      "Orphan Sub",
+      "subagent",
+      "Explore",
+      "working",
+      null,
+      "orphan-real-parent",
+      null
+    );
+    // Delete the real parent — FK ON DELETE SET NULL means orphan-sub.parent_agent_id becomes NULL
+    db.prepare("DELETE FROM agents WHERE id = 'orphan-real-parent'").run();
+
+    const res = await fetch("/api/workflows/session/orphan-sess");
+    assert.equal(res.status, 200);
+    // The orphan should appear as a root (parent was deleted, FK set to NULL)
+    const { tree } = res.body;
+    const orphanNode = tree.find((n) => n.name === "Orphan Sub");
+    assert.ok(orphanNode, "Orphaned subagent should appear as a root node in tree");
+  });
+
+  it("should parent to main when main is working and subagents also working (parallel)", async () => {
+    const sid = "hook-sess-parallel";
+    // Main spawns first subagent
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "Parallel-A", prompt: "task A" },
+      },
+    });
+    // Main is still working — spawns another subagent
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "Parallel-B", prompt: "task B" },
+      },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const subA = agentsRes.body.agents.find((a) => a.name === "Parallel-A");
+    const subB = agentsRes.body.agents.find((a) => a.name === "Parallel-B");
+    assert.equal(subA.parent_agent_id, `${sid}-main`, "Parallel-A should be parented to main");
+    assert.equal(
+      subB.parent_agent_id,
+      `${sid}-main`,
+      "Parallel-B should be parented to main (main was working)"
+    );
+  });
+
+  it("should verify depth calculation in workflows stats", async () => {
+    const res = await fetch("/api/workflows");
+    assert.equal(res.status, 200);
+    // Our nested session (hook-sess-nested) has depth 3, so avg should be > 0
+    assert.ok(typeof res.body.stats.avgDepth === "number", "avgDepth should be a number");
+    assert.ok(res.body.stats.avgDepth > 0, "avgDepth should be > 0 with nested agents");
+  });
+
+  it("should support arbitrary depth (depth 7 chain)", async () => {
+    const sid = "hook-sess-deep7";
+    const DEPTH = 7;
+
+    // Spawn level-1 from main (main is working on first event)
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "Deep-L1", prompt: "task" },
+      },
+    });
+    // Stop main so subagent events get parented correctly
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+
+    // Spawn levels 2 through DEPTH — each parented to the previous
+    for (let i = 2; i <= DEPTH; i++) {
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sid,
+          tool_name: "Agent",
+          tool_input: { description: `Deep-L${i}`, prompt: `task at depth ${i}` },
+        },
+      });
+    }
+
+    // Verify the chain: each level should be parented to the previous
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const agents = agentsRes.body.agents;
+    const byName = {};
+    for (const a of agents) byName[a.name] = a;
+
+    assert.equal(byName["Deep-L1"].parent_agent_id, `${sid}-main`, "L1 parent = main");
+    for (let i = 2; i <= DEPTH; i++) {
+      const child = byName[`Deep-L${i}`];
+      const parent = byName[`Deep-L${i - 1}`];
+      assert.ok(child, `Deep-L${i} should exist`);
+      assert.ok(parent, `Deep-L${i - 1} should exist`);
+      assert.equal(
+        child.parent_agent_id,
+        parent.id,
+        `Deep-L${i} should be parented to Deep-L${i - 1}`
+      );
+    }
+
+    // Verify tree structure from workflows endpoint
+    const treeRes = await fetch(`/api/workflows/session/${sid}`);
+    assert.equal(treeRes.status, 200);
+    let node = treeRes.body.tree.find((n) => n.type === "main");
+    assert.ok(node, "Main should be root");
+    for (let i = 1; i <= DEPTH; i++) {
+      assert.ok(node.children.length >= 1, `Node at depth ${i - 1} should have children`);
+      node = node.children.find((c) => c.name === `Deep-L${i}`);
+      assert.ok(node, `Deep-L${i} should be in tree at depth ${i}`);
+    }
+    assert.equal(node.children.length, 0, "Deepest node should be a leaf");
+  });
+
+  it("should unwind correctly when inner agents stop (depth 5, then spawn sibling)", async () => {
+    const sid = "hook-sess-unwind";
+
+    // Build chain: main → L1 → L2 → L3 → L4 → L5
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "UW-L1", prompt: "t" },
+      },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+    for (let i = 2; i <= 5; i++) {
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sid,
+          tool_name: "Agent",
+          tool_input: { description: `UW-L${i}`, prompt: "t" },
+        },
+      });
+    }
+
+    // Now complete L5 and L4
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: sid, description: "UW-L5" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: sid, description: "UW-L4" },
+    });
+
+    // Deepest working should now be L3. Spawn a new agent — should parent to L3.
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "UW-L4b", prompt: "t" },
+      },
+    });
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const agents = agentsRes.body.agents;
+    const byName = {};
+    for (const a of agents) byName[a.name] = a;
+
+    assert.equal(byName["UW-L5"].status, "completed");
+    assert.equal(byName["UW-L4"].status, "completed");
+    assert.equal(byName["UW-L3"].status, "working");
+    assert.equal(
+      byName["UW-L4b"].parent_agent_id,
+      byName["UW-L3"].id,
+      "After unwinding to L3, new spawn should parent to L3"
+    );
+  });
+});

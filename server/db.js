@@ -272,6 +272,27 @@ const stmts = {
   reactivateAgent: db.prepare(
     "UPDATE agents SET status = 'connected', ended_at = NULL, current_tool = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  // Find the deepest currently-working subagent in a session using a recursive CTE.
+  // Used to infer which agent is spawning a new subagent when hook events don't
+  // carry an explicit agent ID. Returns the most recently created deepest agent.
+  findDeepestWorkingAgent: db.prepare(`
+    WITH RECURSIVE agent_depth AS (
+      SELECT id, parent_agent_id, 0 as depth
+      FROM agents
+      WHERE session_id = ? AND parent_agent_id IS NULL
+      UNION ALL
+      SELECT a.id, a.parent_agent_id, ad.depth + 1
+      FROM agents a
+      JOIN agent_depth ad ON a.parent_agent_id = ad.id
+      WHERE a.session_id = ?
+    )
+    SELECT ad.id, ad.depth
+    FROM agent_depth ad
+    JOIN agents a ON a.id = ad.id
+    WHERE a.status = 'working' AND a.type = 'subagent'
+    ORDER BY ad.depth DESC, a.started_at DESC
+    LIMIT 1
+  `),
 
   touchSession: db.prepare(
     "UPDATE sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"

@@ -69,7 +69,7 @@ export function Dashboard() {
     return () => clearInterval(interval);
   }, [load]);
 
-  // Auto-expand agents with active subagents
+  // Auto-expand agents with active subagents (walk up the full parent chain)
   useEffect(() => {
     const parentsWithActive = new Set<string>();
     for (const a of allSubagents) {
@@ -78,7 +78,17 @@ export function Dashboard() {
       }
     }
     if (parentsWithActive.size > 0) {
-      setExpandedAgents((prev) => new Set([...prev, ...parentsWithActive]));
+      const subMap = new Map(allSubagents.map((a) => [a.id, a]));
+      const toExpand = new Set<string>();
+      for (const pid of parentsWithActive) {
+        let cur = pid;
+        while (cur) {
+          toExpand.add(cur);
+          const parent = subMap.get(cur);
+          cur = parent?.parent_agent_id ?? "";
+        }
+      }
+      setExpandedAgents((prev) => new Set([...prev, ...toExpand]));
     }
   }, [allSubagents]);
 
@@ -197,27 +207,51 @@ export function Dashboard() {
             />
           ) : (
             <div className="space-y-2">
-              {activeAgents
-                .filter((a) => a.type === "main")
-                .slice(0, 5)
-                .map((main) => {
-                  const children = allSubagents.filter((a) => a.parent_agent_id === main.id);
-                  const isExpanded = expandedAgents.has(main.id);
+              {(() => {
+                // Build parent→children map across all subagents for recursive rendering
+                const childrenByParent = new Map<string, Agent[]>();
+                for (const a of allSubagents) {
+                  if (a.parent_agent_id) {
+                    const list = childrenByParent.get(a.parent_agent_id) || [];
+                    list.push(a);
+                    childrenByParent.set(a.parent_agent_id, list);
+                  }
+                }
+
+                function countDescendants(id: string): number {
+                  const kids = childrenByParent.get(id) || [];
+                  return kids.reduce((sum, k) => sum + 1 + countDescendants(k.id), 0);
+                }
+
+                function countActiveDescendants(id: string): number {
+                  const kids = childrenByParent.get(id) || [];
+                  return kids.reduce(
+                    (sum, k) =>
+                      sum +
+                      (k.status === "working" || k.status === "connected" ? 1 : 0) +
+                      countActiveDescendants(k.id),
+                    0
+                  );
+                }
+
+                function renderAgentNode(agent: Agent, depth: number) {
+                  const children = childrenByParent.get(agent.id) || [];
+                  const isExpanded = expandedAgents.has(agent.id);
                   const hasChildren = children.length > 0;
-                  const activeCount = children.filter(
-                    (c) => c.status === "working" || c.status === "connected"
-                  ).length;
+                  const isSubagent = depth > 0;
+                  const totalDesc = hasChildren ? countDescendants(agent.id) : 0;
+                  const activeDesc = hasChildren ? countActiveDescendants(agent.id) : 0;
 
                   return (
-                    <div key={main.id}>
+                    <div key={agent.id}>
                       <div className="flex items-center gap-1 min-w-0">
                         {hasChildren && (
                           <button
                             onClick={() =>
                               setExpandedAgents((prev) => {
                                 const next = new Set(prev);
-                                if (next.has(main.id)) next.delete(main.id);
-                                else next.add(main.id);
+                                if (next.has(agent.id)) next.delete(agent.id);
+                                else next.add(agent.id);
                                 return next;
                               })
                             }
@@ -230,46 +264,53 @@ export function Dashboard() {
                             )}
                           </button>
                         )}
+                        {isSubagent && !hasChildren && <span className="w-6 flex-shrink-0" />}
+                        {isSubagent && (
+                          <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
+                        )}
                         <div className="flex-1 min-w-0">
-                          <AgentCard agent={main} />
+                          <AgentCard agent={agent} />
                         </div>
                       </div>
 
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
-                          {children.map((sub) => (
-                            <div key={sub.id} className="flex items-center gap-2">
-                              <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
-                              <div className="flex-1">
-                                <AgentCard agent={sub} />
-                              </div>
-                            </div>
-                          ))}
+                          {children.map((child) => renderAgentNode(child, depth + 1))}
                         </div>
                       )}
 
                       {hasChildren && !isExpanded && (
                         <button
-                          onClick={() => setExpandedAgents((prev) => new Set([...prev, main.id]))}
+                          onClick={() => setExpandedAgents((prev) => new Set([...prev, agent.id]))}
                           className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
                         >
-                          {children.length} subagent{children.length !== 1 ? "s" : ""}
-                          {activeCount > 0 && (
-                            <span className="text-emerald-400 ml-1">({activeCount} active)</span>
+                          {totalDesc} subagent{totalDesc !== 1 ? "s" : ""}
+                          {activeDesc > 0 && (
+                            <span className="text-emerald-400 ml-1">({activeDesc} active)</span>
                           )}
                         </button>
                       )}
                     </div>
                   );
-                })}
-              {/* Show active subagents without a main agent in the active list */}
-              {activeAgents
-                .filter((a) => a.type === "subagent")
-                .map((agent) => (
-                  <div key={agent.id}>
-                    <AgentCard agent={agent} />
-                  </div>
-                ))}
+                }
+
+                return (
+                  <>
+                    {activeAgents
+                      .filter((a) => a.type === "main")
+                      .slice(0, 5)
+                      .map((main) => renderAgentNode(main, 0))}
+                    {/* Show active subagents without a main agent in the active list */}
+                    {activeAgents
+                      .filter((a) => a.type === "subagent")
+                      .map((agent) => (
+                        <div key={agent.id}>
+                          <AgentCard agent={agent} />
+                        </div>
+                      ))}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

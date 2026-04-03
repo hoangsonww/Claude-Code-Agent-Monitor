@@ -234,6 +234,152 @@ function seed() {
       }
     }
 
+    // ── Deeply nested agents session (agents spawning agents) ──────────────
+    const nestedSessionId = uuidv4();
+    stmts.insertSession.run(
+      nestedSessionId,
+      "Deep Nesting: Multi-Agent Research Pipeline",
+      "active",
+      "/home/dev/research-pipeline",
+      "claude-opus-4-6",
+      null
+    );
+    sessions.push(nestedSessionId);
+
+    const nestedMain = `${nestedSessionId}-main`;
+    stmts.insertAgent.run(
+      nestedMain,
+      nestedSessionId,
+      "Main Agent",
+      "main",
+      null,
+      "idle",
+      "Orchestrating multi-agent research pipeline",
+      null,
+      null
+    );
+
+    // Depth 1: Main → L1-Explorer (working)
+    const l1Explorer = uuidv4();
+    stmts.insertAgent.run(
+      l1Explorer,
+      nestedSessionId,
+      "Codebase Explorer",
+      "subagent",
+      "Explore",
+      "working",
+      "Mapping authentication module dependencies",
+      nestedMain,
+      null
+    );
+    db.prepare("UPDATE agents SET current_tool = ? WHERE id = ?").run("Glob", l1Explorer);
+
+    // Depth 2: L1-Explorer → L2-Researcher (working)
+    const l2Researcher = uuidv4();
+    stmts.insertAgent.run(
+      l2Researcher,
+      nestedSessionId,
+      "Security Researcher",
+      "subagent",
+      "general-purpose",
+      "working",
+      "Analyzing OAuth2 token validation patterns",
+      l1Explorer,
+      null
+    );
+    db.prepare("UPDATE agents SET current_tool = ? WHERE id = ?").run("WebSearch", l2Researcher);
+
+    // Depth 3: L2-Researcher → L3-TestWriter (working)
+    const l3TestWriter = uuidv4();
+    stmts.insertAgent.run(
+      l3TestWriter,
+      nestedSessionId,
+      "Test Engineer",
+      "subagent",
+      "test-engineer",
+      "working",
+      "Writing integration tests for token refresh flow",
+      l2Researcher,
+      null
+    );
+    db.prepare("UPDATE agents SET current_tool = ? WHERE id = ?").run("Write", l3TestWriter);
+
+    // Depth 4: L3-TestWriter → L4-Debugger (working — deepest)
+    const l4Debugger = uuidv4();
+    stmts.insertAgent.run(
+      l4Debugger,
+      nestedSessionId,
+      "Test Debugger",
+      "subagent",
+      "debugger",
+      "working",
+      "Investigating flaky assertion in token expiry test",
+      l3TestWriter,
+      null
+    );
+    db.prepare("UPDATE agents SET current_tool = ? WHERE id = ?").run("Bash", l4Debugger);
+
+    // Depth 2 (branch): L1-Explorer → L2-CodeReviewer (completed — sibling of L2-Researcher)
+    const l2Reviewer = uuidv4();
+    stmts.insertAgent.run(
+      l2Reviewer,
+      nestedSessionId,
+      "Code Reviewer",
+      "subagent",
+      "code-reviewer",
+      "completed",
+      "Reviewed middleware chain for injection risks",
+      l1Explorer,
+      null
+    );
+    db.prepare("UPDATE agents SET ended_at = ? WHERE id = ?").run(minutesAgo(5), l2Reviewer);
+
+    // Depth 1 (sibling): Main → L1-Architect (completed)
+    const l1Architect = uuidv4();
+    stmts.insertAgent.run(
+      l1Architect,
+      nestedSessionId,
+      "Architecture Planner",
+      "subagent",
+      "Plan",
+      "completed",
+      "Designed auth service boundary and API contracts",
+      nestedMain,
+      null
+    );
+    db.prepare("UPDATE agents SET ended_at = ? WHERE id = ?").run(minutesAgo(12), l1Architect);
+
+    // Depth 1 (sibling): Main → L1-DocWriter (working)
+    const l1DocWriter = uuidv4();
+    stmts.insertAgent.run(
+      l1DocWriter,
+      nestedSessionId,
+      "Documentation Writer",
+      "subagent",
+      "doc-writer",
+      "working",
+      "Writing API docs for /auth/* endpoints",
+      nestedMain,
+      null
+    );
+    db.prepare("UPDATE agents SET current_tool = ? WHERE id = ?").run("Edit", l1DocWriter);
+
+    // Depth 2: L1-DocWriter → L2-ExampleGen (connected)
+    const l2ExampleGen = uuidv4();
+    stmts.insertAgent.run(
+      l2ExampleGen,
+      nestedSessionId,
+      "Example Generator",
+      "subagent",
+      "general-purpose",
+      "connected",
+      "Generating cURL examples for auth endpoints",
+      l1DocWriter,
+      null
+    );
+
+    console.log(`  → Nested session: ${nestedSessionId} (depth 4, 9 agents, 2 branches)`);
+
     // Create events
     for (const sid of sessions) {
       const eventCount = Math.floor(Math.random() * 15) + 5;

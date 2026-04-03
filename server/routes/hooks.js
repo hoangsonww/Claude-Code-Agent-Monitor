@@ -96,6 +96,22 @@ const processEvent = db.transaction((hookType, data) => {
           (input.prompt ? input.prompt.split("\n")[0].slice(0, 60) : null) ||
           "Subagent";
         const subName = rawName.length > 60 ? rawName.slice(0, 57) + "..." : rawName;
+
+        // Infer which agent is spawning this subagent.
+        // Hook events don't carry an explicit agent ID, so we use a heuristic:
+        //   - If the main agent is actively working, it's the one spawning (common case).
+        //   - If the main agent is idle/connected (waiting for user or subagent results),
+        //     the spawn must come from an already-running subagent — pick the deepest
+        //     working subagent (most recently nested active agent).
+        //   - Fallback to main if nothing else matches.
+        let parentId = mainAgentId;
+        if (mainAgent && mainAgent.status !== "working") {
+          const deepest = stmts.findDeepestWorkingAgent.get(sessionId, sessionId);
+          if (deepest) {
+            parentId = deepest.id;
+          }
+        }
+
         stmts.insertAgent.run(
           subId,
           sessionId,
@@ -104,7 +120,7 @@ const processEvent = db.transaction((hookType, data) => {
           input.subagent_type || null,
           "working",
           input.prompt ? input.prompt.slice(0, 500) : null,
-          mainAgentId,
+          parentId,
           input.metadata ? JSON.stringify(input.metadata) : null
         );
         broadcast("agent_created", stmts.getAgent.get(subId));
@@ -112,11 +128,20 @@ const processEvent = db.transaction((hookType, data) => {
         summary = `Subagent spawned: ${subName}`;
       }
 
-      // Update main agent status for any non-terminal state.
-      // Skip only if already completed/error (stale event after SessionEnd).
-      // "idle" → "working" is the normal transition when a new turn starts after Stop.
+      // Update main agent status to "working" — but only when main is the likely
+      // actor. When main is idle and working subagents exist, PreToolUse events
+      // come from subagents, not main. Incorrectly promoting main to "working"
+      // would break parent inference for nested agent spawning.
+      //
+      // Heuristic: main is idle + working subagents exist → subagent is the actor.
+      //            main is connected/working/idle with no subagents → main is the actor.
+      const subagentIsActor =
+        mainAgent &&
+        mainAgent.status === "idle" &&
+        !!stmts.findDeepestWorkingAgent.get(sessionId, sessionId);
       if (
         mainAgent &&
+        !subagentIsActor &&
         (mainAgent.status === "working" ||
           mainAgent.status === "connected" ||
           mainAgent.status === "idle")
