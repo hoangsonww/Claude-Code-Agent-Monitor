@@ -43,6 +43,8 @@
 - [Performance Characteristics](#performance-characteristics)
 - [Deployment Modes](#deployment-modes)
 - [Statusline Utility](#statusline-utility)
+- [Technology Choices](#technology-choices)
+- [Build & Run Targets](#build--run-targets)
 
 ---
 
@@ -1214,3 +1216,24 @@ Claude Code invokes this command on each update, piping a JSON payload to stdin.
 | **React Router 6**              | Standard routing for React SPAs. Layout routes with `<Outlet>` give clean shell composition                                                     |
 | **Lucide React**                | Tree-shakeable icon library. Only imports what's used (~20 icons)                                                                               |
 | **TypeScript Strict**           | Catches null/undefined bugs at compile time. `noUncheckedIndexedAccess` prevents array bounds issues                                            |
+
+---
+
+## Build & Run Targets
+
+A root `Makefile` mirrors every npm script for developers who prefer `make`. Run `make help` for the full list.
+
+```
+make setup          Install all dependencies (root + client + MCP)
+make dev            Start server + client in watch mode
+make build          Build the React client for production
+make start          Start the production server
+make test           Run all tests (server + client)
+make format         Format all files with Prettier
+make mcp-build      Compile MCP TypeScript → JavaScript
+make mcp-typecheck  Type-check MCP source without emitting
+make docker-up      Start via docker-compose
+make docker-down    Stop docker-compose stack
+```
+
+See `Makefile` for the complete set of 30 targets covering setup, dev, testing, formatting, MCP, data management, Codex extensions, and Docker/Podman workflows.

@@ -24,6 +24,8 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-20.10-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-1.0-646CFF?style=flat-square&logo=vitest&logoColor=white)
+![React Testing Library](https://img.shields.io/badge/React_Testing_Library-13.0-FF5733?style=flat-square&logo=testinglibrary&logoColor=white)
+![Make](https://img.shields.io/badge/Make-4.3-000000?style=flat-square&logo=make&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-automated_builds-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
@@ -172,6 +174,9 @@ npm run dev
 # Production (single process, built client)
 npm run build && npm start
 ```
+
+> [!TIP]
+> **Makefile alternative** — all commands are also available via `make` if you have it installed on your system. Run `make help` to see every target, or use shortcuts like `make dev`, `make build`, `make test`, etc.
 
 ### 4. Open
 

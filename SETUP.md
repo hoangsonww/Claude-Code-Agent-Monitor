@@ -206,6 +206,37 @@ npm run seed
 
 ---
 
+## Makefile targets
+
+All npm scripts are mirrored as `make` targets for convenience. Run `make help` to list them:
+
+```bash
+make help
+```
+
+Commonly used targets:
+
+| Make target | Equivalent npm command | Description |
+|---|---|---|
+| `make setup` | `npm run setup` + MCP install | Install all dependencies (root + client + MCP) |
+| `make dev` | `npm run dev` | Start server + client in watch mode |
+| `make build` | `npm run build` | Build the React client for production |
+| `make start` | `npm start` | Start the production server |
+| `make prod` | `npm run build && npm start` | Build then start in one step |
+| `make test` | `npm test` | Run all tests (server + client) |
+| `make test-server` | `npm run test:server` | Run server tests only |
+| `make test-client` | `npm run test:client` | Run client tests only |
+| `make format` | `npm run format` | Format all files with Prettier |
+| `make format-check` | `npm run format:check` | Check formatting without writing |
+| `make mcp-build` | `npm run mcp:build` | Compile MCP TypeScript |
+| `make mcp-typecheck` | `npm run mcp:typecheck` | Type-check MCP source |
+| `make seed` | `npm run seed` | Load demo data |
+| `make clear-data` | `npm run clear-data` | Delete all data rows |
+| `make docker-up` | `docker compose up -d` | Start via docker-compose |
+| `make docker-down` | `docker compose down` | Stop docker-compose stack |
+
+---
+
 ## Statusline (optional)
 
 The `statusline/` directory contains a standalone terminal statusline for Claude Code showing model, working directory, git branch, context window usage, and token counts. It is independent of the web dashboard.

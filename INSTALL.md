@@ -34,6 +34,12 @@ npm install
 cd client && npm install
 ```
 
+Or via Makefile (also installs MCP dependencies):
+
+```bash
+make setup
+```
+
 ---
 
 ## Step 3 — Start the dashboard
