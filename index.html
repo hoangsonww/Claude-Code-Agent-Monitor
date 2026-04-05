@@ -267,7 +267,7 @@
         color: var(--text, #e2e2f0);
       }
 
-      @media (max-width: 1250px) {
+      @media (max-width: 1400px) {
         .sidebar {
           display: flex !important;
           z-index: 200;
@@ -365,7 +365,7 @@
           <a href="#state-mgmt" class="nav-link"><span class="nav-icon">◈</span>State Management</a>
 
           <div class="nav-section">Data & APIs</div>
-          <a href="#database" class="nav-link"><span class="nav-icon">◈</span>Database Design</a>
+          <a href="#database-design" class="nav-link"><span class="nav-icon">◈</span>Database Design</a>
           <a href="#api-reference" class="nav-link"><span class="nav-icon">◈</span>API Reference</a>
           <a href="#websocket" class="nav-link"
             ><span class="nav-icon">◈</span>WebSocket Protocol</a
@@ -476,6 +476,14 @@
         <section id="overview">
           <div class="section-label">◈ Introduction</div>
           <h2>System Overview</h2>
+
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card">
+              <img src="images/dashboard.png" alt="Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed</div>
+            </div>
+          </div>
+
           <p>
             Claude Code Agent Monitor integrates with Claude Code through its native hook system. When Claude
             Code performs any action — tool use, session start, subagent orchestration, session end
@@ -692,6 +700,34 @@
                 tool call timeline, and event sequence. Cross-filtering from DAG nodes, compaction
                 impact analysis, JSON export, and real-time WebSocket auto-refresh.
               </p>
+            </div>
+          </div>
+
+          <h3>Screenshots</h3>
+          <div class="screenshot-gallery">
+            <div class="screenshot-card">
+              <img src="images/sessions.png" alt="Sessions table with search, filters, status badges, and pagination" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📋</span> Sessions table — searchable, filterable, paginated</div>
+            </div>
+            <div class="screenshot-card">
+              <img src="images/session.png" alt="Session detail view with agent hierarchy tree and event timeline" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">🔬</span> Session detail — agent tree and event timeline</div>
+            </div>
+            <div class="screenshot-card">
+              <img src="images/board.png" alt="Kanban board showing agents in Idle, Connected, Working, Completed, and Error columns" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📂</span> Kanban board — 5-column agent status view</div>
+            </div>
+            <div class="screenshot-card">
+              <img src="images/feed.png" alt="Real-time activity feed with streaming events and pause/resume controls" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📰</span> Activity feed — real-time streaming event log</div>
+            </div>
+            <div class="screenshot-card">
+              <img src="images/analytics.png" alt="Analytics dashboard with token usage charts, tool frequency, and session trends" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📊</span> Analytics — token usage, tool frequency, and trends</div>
+            </div>
+            <div class="screenshot-card">
+              <img src="images/workflows.png" alt="Workflow graphs showing agent orchestration DAGs and tool execution Sankey diagrams" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">🔀</span> Workflows — agent DAGs and tool Sankey diagrams</div>
             </div>
           </div>
 
@@ -1139,185 +1175,6 @@ npm run codex:sync</code></pre>
                 </tr>
               </tbody>
             </table>
-          </div>
-        </section>
-
-        <!-- ─── MCP + Agent Extensions ─────────────────────────────────────── -->
-        <section id="mcp-agent-extensions">
-          <div class="section-label">◈ Integrations</div>
-          <h2>MCP &amp; Agent Extensions</h2>
-          <p>
-            In addition to dashboard telemetry, this project now includes a production-grade local
-            MCP server and complete extension scaffolding for both Claude Code and Codex. This gives
-            agents a richer local tool surface while keeping all execution local-first.
-          </p>
-
-          <div class="diagram-wrap">
-            <!-- prettier-ignore -->
-            <div class="mermaid">
-              graph LR
-                subgraph Hosts["Agent Hosts"]
-                  CC["Claude Code"]
-                  CX["Codex"]
-                end
-
-                subgraph Layers["Instruction + Skill Layers"]
-                  CL["CLAUDE.md + .claude/rules + .claude/skills + .claude/agents"]
-                  AG["AGENTS.md + codex/rules + codex/skills + codex/agents"]
-                end
-
-                subgraph Runtime["Local Runtime"]
-                  MCP["Local MCP Server (stdio)\nmcp/build/index.js"]
-                  API["Dashboard API\nhttp://127.0.0.1:4820"]
-                end
-
-                CC --> CL
-                CX --> AG
-                CC -->|"MCP tool calls"| MCP
-                MCP -->|"REST"| API
-            </div>
-            <p class="diagram-label">
-              Local extension architecture: host instructions + skills + local MCP sidecar
-            </p>
-          </div>
-
-          <h3>Local MCP Server Runtime</h3>
-          <p>
-            The <code>mcp/</code> package exposes dashboard-oriented tools for AI agents. Mutation and
-            destructive operations are policy-gated by environment variables and disabled by default.
-          </p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Component</th>
-                  <th>Location</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>MCP source</td>
-                  <td><code>mcp/src/</code></td>
-                  <td>TypeScript server, tools, policy guards, transport bootstrap</td>
-                </tr>
-                <tr>
-                  <td>MCP build output</td>
-                  <td><code>mcp/build/</code></td>
-                  <td>Compiled JavaScript used by local stdio server runtime</td>
-                </tr>
-                <tr>
-                  <td>MCP docs</td>
-                  <td><code>mcp/README.md</code></td>
-                  <td>Tool catalog, architecture diagrams, host integration examples</td>
-                </tr>
-                <tr>
-                  <td>Runtime commands</td>
-                  <td><code>npm run mcp:install|typecheck|build|start|dev|docker:build|podman:build</code></td>
-                  <td>Install, validate, compile, and run MCP locally</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3>Agent Extension Layout</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Target</th>
-                  <th>Files</th>
-                  <th>Purpose</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Claude Code</td>
-                  <td><code>CLAUDE.md</code>, <code>.claude/rules/</code></td>
-                  <td>Persistent project instructions + path-scoped coding rules</td>
-                </tr>
-                <tr>
-                  <td>Claude Code Skills</td>
-                  <td><code>.claude/skills/</code></td>
-                  <td>Reusable workflows (onboarding, shipping, MCP ops, live debugging)</td>
-                </tr>
-                <tr>
-                  <td>Claude Code Subagents</td>
-                  <td><code>.claude/agents/</code></td>
-                  <td>Specialized reviewers for backend, frontend, and MCP code paths</td>
-                </tr>
-                <tr>
-                  <td>Codex Base Instructions</td>
-                  <td><code>AGENTS.md</code>, <code>codex/rules/default.rules</code></td>
-                  <td>Project-wide guidance + execution policy defaults</td>
-                </tr>
-                <tr>
-                  <td>Codex Skills</td>
-                  <td><code>codex/skills/</code></td>
-                  <td>Task-specific skills aligned to this repository</td>
-                </tr>
-                <tr>
-                  <td>Codex Agents</td>
-                  <td><code>codex/agents/</code></td>
-                  <td>Reusable custom-agent templates for implementation and review</td>
-                </tr>
-                <tr>
-                  <td>Codex runtime sync</td>
-                  <td><code>scripts/setup-codex-extensions.js</code></td>
-                  <td>Copies templates into <code>.agents/skills</code> and <code>.codex/agents</code></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3>Root Helper Scripts</h3>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Script</th>
-                  <th>Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>scripts/hook-handler.js</code></td>
-                  <td>Receives Claude hook payloads over stdin and forwards them to dashboard API</td>
-                </tr>
-                <tr>
-                  <td><code>scripts/install-hooks.js</code></td>
-                  <td>Writes/updates hook registration in <code>~/.claude/settings.json</code></td>
-                </tr>
-                <tr>
-                  <td><code>scripts/import-history.js</code></td>
-                  <td>Imports historical session data into local database</td>
-                </tr>
-                <tr>
-                  <td><code>scripts/seed.js</code></td>
-                  <td>Loads deterministic demo data for testing and demos</td>
-                </tr>
-                <tr>
-                  <td><code>scripts/clear-data.js</code></td>
-                  <td>Removes persisted rows while preserving schema</td>
-                </tr>
-                <tr>
-                  <td><code>scripts/setup-codex-extensions.js</code></td>
-                  <td>Syncs Codex extension templates to active runtime directories</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="callout callout-warning">
-            <div class="callout-icon">⚠</div>
-            <div class="callout-body">
-              <strong>Runtime sync note</strong>
-              <p>
-                If hidden directories are restricted in your environment, run
-                <code>npm run codex:sync</code> with <code>CODEX_PROJECT_AGENTS_DIR</code> and
-                <code>CODEX_PROJECT_SKILLS_DIR</code> overrides.
-              </p>
-            </div>
           </div>
         </section>
 
@@ -1863,7 +1720,7 @@ npm run codex:sync</code></pre>
         </section>
 
         <!-- ─── Database Design ───────────────────────────────────────────── -->
-        <section id="database">
+        <section id="database-design">
           <div class="section-label">◈ Data</div>
           <h2>Database Design</h2>
 
@@ -2349,10 +2206,197 @@ npm run codex:sync</code></pre>
           </div>
         </section>
 
+        <!-- ─── MCP + Agent Extensions ─────────────────────────────────────── -->
+        <section id="mcp-agent-extensions">
+          <div class="section-label">◈ Integrations</div>
+          <h2>MCP &amp; Agent Extensions</h2>
+          <p>
+            In addition to dashboard telemetry, this project now includes a production-grade local
+            MCP server and complete extension scaffolding for both Claude Code and Codex. This gives
+            agents a richer local tool surface while keeping all execution local-first.
+          </p>
+
+          <div class="diagram-wrap">
+            <!-- prettier-ignore -->
+            <div class="mermaid">
+              graph LR
+                subgraph Hosts["Agent Hosts"]
+                  CC["Claude Code"]
+                  CX["Codex"]
+                end
+
+                subgraph Layers["Instruction + Skill Layers"]
+                  CL["CLAUDE.md + .claude/rules + .claude/skills + .claude/agents"]
+                  AG["AGENTS.md + codex/rules + codex/skills + codex/agents"]
+                end
+
+                subgraph Runtime["Local Runtime"]
+                  MCP["Local MCP Server (stdio)\nmcp/build/index.js"]
+                  API["Dashboard API\nhttp://127.0.0.1:4820"]
+                end
+
+                CC --> CL
+                CX --> AG
+                CC -->|"MCP tool calls"| MCP
+                MCP -->|"REST"| API
+            </div>
+            <p class="diagram-label">
+              Local extension architecture: host instructions + skills + local MCP sidecar
+            </p>
+          </div>
+
+          <h3>Local MCP Server Runtime</h3>
+          <p>
+            The <code>mcp/</code> package exposes dashboard-oriented tools for AI agents. Mutation and
+            destructive operations are policy-gated by environment variables and disabled by default.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Location</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>MCP source</td>
+                  <td><code>mcp/src/</code></td>
+                  <td>TypeScript server, tools, policy guards, transport bootstrap</td>
+                </tr>
+                <tr>
+                  <td>MCP build output</td>
+                  <td><code>mcp/build/</code></td>
+                  <td>Compiled JavaScript used by local stdio server runtime</td>
+                </tr>
+                <tr>
+                  <td>MCP docs</td>
+                  <td><code>mcp/README.md</code></td>
+                  <td>Tool catalog, architecture diagrams, host integration examples</td>
+                </tr>
+                <tr>
+                  <td>Runtime commands</td>
+                  <td><code>npm run mcp:install|typecheck|build|start|dev|docker:build|podman:build</code></td>
+                  <td>Install, validate, compile, and run MCP locally</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Agent Extension Layout</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Target</th>
+                  <th>Files</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Claude Code</td>
+                  <td><code>CLAUDE.md</code>, <code>.claude/rules/</code></td>
+                  <td>Persistent project instructions + path-scoped coding rules</td>
+                </tr>
+                <tr>
+                  <td>Claude Code Skills</td>
+                  <td><code>.claude/skills/</code></td>
+                  <td>Reusable workflows (onboarding, shipping, MCP ops, live debugging)</td>
+                </tr>
+                <tr>
+                  <td>Claude Code Subagents</td>
+                  <td><code>.claude/agents/</code></td>
+                  <td>Specialized reviewers for backend, frontend, and MCP code paths</td>
+                </tr>
+                <tr>
+                  <td>Codex Base Instructions</td>
+                  <td><code>AGENTS.md</code>, <code>codex/rules/default.rules</code></td>
+                  <td>Project-wide guidance + execution policy defaults</td>
+                </tr>
+                <tr>
+                  <td>Codex Skills</td>
+                  <td><code>codex/skills/</code></td>
+                  <td>Task-specific skills aligned to this repository</td>
+                </tr>
+                <tr>
+                  <td>Codex Agents</td>
+                  <td><code>codex/agents/</code></td>
+                  <td>Reusable custom-agent templates for implementation and review</td>
+                </tr>
+                <tr>
+                  <td>Codex runtime sync</td>
+                  <td><code>scripts/setup-codex-extensions.js</code></td>
+                  <td>Copies templates into <code>.agents/skills</code> and <code>.codex/agents</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Root Helper Scripts</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Script</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>scripts/hook-handler.js</code></td>
+                  <td>Receives Claude hook payloads over stdin and forwards them to dashboard API</td>
+                </tr>
+                <tr>
+                  <td><code>scripts/install-hooks.js</code></td>
+                  <td>Writes/updates hook registration in <code>~/.claude/settings.json</code></td>
+                </tr>
+                <tr>
+                  <td><code>scripts/import-history.js</code></td>
+                  <td>Imports historical session data into local database</td>
+                </tr>
+                <tr>
+                  <td><code>scripts/seed.js</code></td>
+                  <td>Loads deterministic demo data for testing and demos</td>
+                </tr>
+                <tr>
+                  <td><code>scripts/clear-data.js</code></td>
+                  <td>Removes persisted rows while preserving schema</td>
+                </tr>
+                <tr>
+                  <td><code>scripts/setup-codex-extensions.js</code></td>
+                  <td>Syncs Codex extension templates to active runtime directories</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-warning">
+            <div class="callout-icon">⚠</div>
+            <div class="callout-body">
+              <strong>Runtime sync note</strong>
+              <p>
+                If hidden directories are restricted in your environment, run
+                <code>npm run codex:sync</code> with <code>CODEX_PROJECT_AGENTS_DIR</code> and
+                <code>CODEX_PROJECT_SKILLS_DIR</code> overrides.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <!-- ─── Statusline Utility ────────────────────────────────────────── -->
         <section id="statusline">
           <div class="section-label">◈ Integrations</div>
           <h2>Statusline Utility</h2>
+
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card">
+              <img src="images/statusline.png" alt="CLI statusline showing model, user, git branch, context window bar, and token counts" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">🖥️</span> Statusline — context window, tokens, git branch at a glance</div>
+            </div>
+          </div>
+
           <p>
             The <code>statusline/</code> directory contains a standalone CLI statusline for Claude
             Code — completely independent of the web dashboard. It renders a color-coded bar at the
@@ -2458,6 +2502,14 @@ npm run codex:sync</code></pre>
         <section id="settings-page">
           <div class="section-label">◈ Integrations</div>
           <h2>Settings Page</h2>
+
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card">
+              <img src="images/settings.png" alt="Settings page with model pricing editor, hook status, data management, and system info" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">⚙️</span> Settings — pricing, hooks, data management, and system info</div>
+            </div>
+          </div>
+
           <p>
             The <code>/settings</code> route provides a comprehensive management interface with
             five sections:
@@ -3136,7 +3188,7 @@ npm run install-hooks</code></pre>
     </div>
     <!-- /.wiki-layout -->
 
-    <script src="wiki/script.js"></script>
+    <script src="wiki/script.js?v=2"></script>
     <script>
       (function () {
         const btn = document.getElementById("sidebar-toggle");
@@ -3155,7 +3207,7 @@ npm run install-hooks</code></pre>
           btn.setAttribute("aria-expanded", String(!collapsed));
           btn.textContent = collapsed ? "›" : "‹";
           if (scrim) {
-            var isMobile = window.innerWidth <= 1250;
+            var isMobile = window.innerWidth <= 1400;
             scrim.setAttribute("aria-hidden", String(collapsed || !isMobile));
           }
         }

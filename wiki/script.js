@@ -75,9 +75,28 @@ mermaid.initialize({
 (function () {
   const sections = document.querySelectorAll("section[id]");
   const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
+  var clickedId = null;
+  var clickTimer = null;
+
+  /* On click: lock the highlight so the observer doesn't fight it.
+     Do NOT preventDefault — let the browser handle the actual scroll. */
+  navLinks.forEach(function (link) {
+    link.addEventListener("click", function () {
+      var id = link.getAttribute("href").slice(1);
+      clickedId = id;
+      navLinks.forEach(function (l) {
+        l.classList.toggle("active", l.getAttribute("href") === "#" + id);
+      });
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(function () {
+        clickedId = null;
+      }, 1500);
+    });
+  });
 
   const observer = new IntersectionObserver(
     (entries) => {
+      if (clickedId) return;
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           const id = entry.target.id;
