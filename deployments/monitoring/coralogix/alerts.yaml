@@ -1,0 +1,194 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Coralogix Alert Definitions for Claude Code Agent Monitor
+#
+# These alerts can be imported via the Coralogix Alerts API or Terraform
+# provider (coralogix/coralogix). They mirror the Prometheus/Alertmanager
+# rules in ../prometheus/rules/ for consistency across observability stacks.
+#
+# API import:
+#   curl -X POST "https://api.coralogix.com/api/v1/external/alerts" \
+#     -H "Authorization: Bearer $CORALOGIX_API_KEY" \
+#     -H "Content-Type: application/json" \
+#     -d @deployments/monitoring/coralogix/alerts.yaml
+#
+# Terraform:
+#   See the coralogix_alert resources in coralogix-terraform.tf
+# ─────────────────────────────────────────────────────────────────────────────
+
+alerts:
+  # ── Critical ───────────────────────────────────────────────────────────────
+
+  - name: "Agent Monitor Down"
+    description: "No metrics received from agent-monitor pods for > 2 minutes"
+    severity: critical
+    type: metric
+    condition:
+      metric_name: "up"
+      filter:
+        job: "agent-monitor"
+      threshold: 1
+      comparison: less_than
+      for_duration: "2m"
+      of_last: "5m"
+    notifications:
+      - integration: pagerduty
+      - integration: slack
+        channel: "#agent-monitor-critical"
+    labels:
+      service: agent-monitor
+      team: platform
+
+  - name: "High Error Rate"
+    description: "5xx error rate exceeds 5% of total requests for 5 minutes"
+    severity: critical
+    type: ratio
+    condition:
+      numerator:
+        query: 'http_requests_total{job="agent-monitor", status=~"5.."}'
+      denominator:
+        query: 'http_requests_total{job="agent-monitor"}'
+      threshold: 0.05
+      comparison: greater_than
+      for_duration: "5m"
+    notifications:
+      - integration: pagerduty
+      - integration: slack
+        channel: "#agent-monitor-critical"
+    labels:
+      service: agent-monitor
+
+  - name: "Pod Restart Loop"
+    description: "Agent Monitor pod has restarted > 5 times in 15 minutes"
+    severity: critical
+    type: metric
+    condition:
+      query: 'increase(kube_pod_container_status_restarts_total{namespace=~"agent-monitor.*", container="agent-monitor"}[15m])'
+      threshold: 5
+      comparison: greater_than
+      for_duration: "1m"
+    notifications:
+      - integration: pagerduty
+      - integration: slack
+        channel: "#agent-monitor-critical"
+    labels:
+      service: agent-monitor
+
+  - name: "Persistent Volume Nearly Full"
+    description: "SQLite persistent volume is > 90% full"
+    severity: critical
+    type: metric
+    condition:
+      query: '(kubelet_volume_stats_used_bytes{namespace=~"agent-monitor.*"} / kubelet_volume_stats_capacity_bytes{namespace=~"agent-monitor.*"}) * 100'
+      threshold: 90
+      comparison: greater_than
+      for_duration: "5m"
+    notifications:
+      - integration: pagerduty
+      - integration: slack
+        channel: "#agent-monitor-critical"
+    labels:
+      service: agent-monitor
+
+  # ── Warning ────────────────────────────────────────────────────────────────
+
+  - name: "High Latency"
+    description: "P95 request latency exceeds 2 seconds for 5 minutes"
+    severity: warning
+    type: metric
+    condition:
+      query: 'histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="agent-monitor"}[5m]))'
+      threshold: 2
+      comparison: greater_than
+      for_duration: "5m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+  - name: "WebSocket Connection Spike"
+    description: "Active WebSocket connections exceed 1000"
+    severity: warning
+    type: metric
+    condition:
+      metric_name: "websocket_connections_active"
+      filter:
+        job: "agent-monitor"
+      threshold: 1000
+      comparison: greater_than
+      for_duration: "2m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+  - name: "High Memory Usage"
+    description: "Container memory usage exceeds 85% of limit"
+    severity: warning
+    type: metric
+    condition:
+      query: '(container_memory_working_set_bytes{namespace=~"agent-monitor.*", container="agent-monitor"} / container_spec_memory_limit_bytes{namespace=~"agent-monitor.*", container="agent-monitor"}) * 100'
+      threshold: 85
+      comparison: greater_than
+      for_duration: "5m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+  - name: "High CPU Usage"
+    description: "Container CPU usage exceeds 80% for 10 minutes"
+    severity: warning
+    type: metric
+    condition:
+      query: '(rate(container_cpu_usage_seconds_total{namespace=~"agent-monitor.*", container="agent-monitor"}[5m]) / container_spec_cpu_quota{namespace=~"agent-monitor.*", container="agent-monitor"} * 100000)'
+      threshold: 80
+      comparison: greater_than
+      for_duration: "10m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+  - name: "HPA Maxed Out"
+    description: "HPA replicas at max for 15 minutes — may need capacity increase"
+    severity: warning
+    type: metric
+    condition:
+      query: 'kube_horizontalpodautoscaler_status_current_replicas{namespace=~"agent-monitor.*"} == kube_horizontalpodautoscaler_spec_max_replicas{namespace=~"agent-monitor.*"}'
+      threshold: 1
+      comparison: greater_than_or_equal
+      for_duration: "15m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+  - name: "Slow Database Queries"
+    description: "SQLite query duration exceeds 1 second"
+    severity: warning
+    type: metric
+    condition:
+      metric_name: "sqlite_query_duration_seconds"
+      filter:
+        job: "agent-monitor"
+      threshold: 1
+      comparison: greater_than
+      for_duration: "5m"
+    notifications:
+      - integration: slack
+        channel: "#agent-monitor-alerts"
+    labels:
+      service: agent-monitor
+
+# ── Notification integrations ────────────────────────────────────────────────
+# Configure these in Coralogix UI: Settings → Integrations → Outbound Webhooks
+#
+# Required integrations:
+#   - pagerduty: PagerDuty Events API v2 routing key
+#   - slack: Slack webhook for #agent-monitor-critical and #agent-monitor-alerts
+#   - email: (optional) Email notification group

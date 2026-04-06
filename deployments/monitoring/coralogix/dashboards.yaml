@@ -1,0 +1,245 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Coralogix Custom Dashboard – Agent Monitor
+#
+# Import via Coralogix UI: Dashboards → Custom Dashboards → Import
+# Or via API:
+#   curl -X POST "https://api.coralogix.com/api/v1/external/grafana/api/dashboards/db" \
+#     -H "Authorization: Bearer $CORALOGIX_API_KEY" \
+#     -H "Content-Type: application/json" \
+#     -d @dashboards.yaml
+#
+# This dashboard mirrors the Grafana dashboard (../grafana/dashboards/) while
+# leveraging Coralogix-native features: DataPrime queries, log correlation,
+# distributed tracing waterfall, and Apdex scoring.
+# ─────────────────────────────────────────────────────────────────────────────
+
+dashboard:
+  name: "Agent Monitor – Operations"
+  description: "Claude Code Agent Monitor: real-time operations, SLOs, and infrastructure health"
+  folder: "Agent Monitor"
+  tags:
+    - agent-monitor
+    - operations
+    - sre
+
+  # ── Row 1: Overview ──────────────────────────────────────────────────────
+  rows:
+    - name: "Overview"
+      panels:
+        - title: "Active Sessions"
+          type: line-chart
+          query:
+            type: metrics
+            promql: 'agent_monitor_active_sessions'
+            legend: "{{namespace}}"
+          span: 4
+
+        - title: "Request Rate (req/s)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: 'sum(rate(http_requests_total{job="agent-monitor"}[5m]))'
+            legend: "Requests/sec"
+          span: 4
+
+        - title: "WebSocket Connections"
+          type: line-chart
+          query:
+            type: metrics
+            promql: 'websocket_connections_active{job="agent-monitor"}'
+            legend: "{{pod}}"
+          span: 4
+
+    # ── Row 2: HTTP Performance ────────────────────────────────────────────
+    - name: "HTTP Performance"
+      panels:
+        - title: "Latency Distribution (P50 / P95 / P99)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: |
+              histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job="agent-monitor"}[5m])) by (le))
+              histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="agent-monitor"}[5m])) by (le))
+              histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="agent-monitor"}[5m])) by (le))
+          span: 6
+
+        - title: "Error Rate (%)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: |
+              sum(rate(http_requests_total{job="agent-monitor", status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total{job="agent-monitor"}[5m])) * 100
+            legend: "5xx %"
+          thresholds:
+            - value: 1
+              color: yellow
+            - value: 5
+              color: red
+          span: 3
+
+        - title: "Status Code Distribution"
+          type: bar-chart
+          query:
+            type: metrics
+            promql: 'sum by (status) (increase(http_requests_total{job="agent-monitor"}[1h]))'
+          span: 3
+
+    # ── Row 3: Logs (DataPrime) ────────────────────────────────────────────
+    - name: "Application Logs"
+      panels:
+        - title: "Error Logs"
+          type: dataprime
+          query: |
+            source logs
+            | filter $d.cx.application.name == 'agent-monitor'
+            | filter $d.severity == 'ERROR' || $d.severity == 'FATAL'
+            | select $m.timestamp, $d.k8s.pod.name, $d.message
+            | order by $m.timestamp desc
+            | limit 100
+          span: 6
+
+        - title: "Log Volume by Severity"
+          type: bar-chart
+          query:
+            type: dataprime
+            expression: |
+              source logs
+              | filter $d.cx.application.name == 'agent-monitor'
+              | count_group_by $d.severity as count
+          span: 3
+
+        - title: "Hook Event Throughput"
+          type: line-chart
+          query:
+            type: dataprime
+            expression: |
+              source logs
+              | filter $d.cx.application.name == 'agent-monitor'
+              | filter $d.message matches 'hook.*event'
+              | count_per_time 1m as throughput
+          span: 3
+
+    # ── Row 4: Infrastructure ──────────────────────────────────────────────
+    - name: "Infrastructure"
+      panels:
+        - title: "CPU Usage (%)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: |
+              rate(container_cpu_usage_seconds_total{
+                namespace=~"agent-monitor.*",
+                container="agent-monitor"
+              }[5m]) * 100
+            legend: "{{pod}}"
+          span: 4
+
+        - title: "Memory Usage (MiB)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: |
+              container_memory_working_set_bytes{
+                namespace=~"agent-monitor.*",
+                container="agent-monitor"
+              } / 1024 / 1024
+            legend: "{{pod}}"
+          span: 4
+
+        - title: "Pod Status"
+          type: gauge
+          query:
+            type: metrics
+            promql: |
+              count by (phase) (
+                kube_pod_status_phase{namespace=~"agent-monitor.*"}
+              )
+          span: 4
+
+    # ── Row 5: Database & Storage ──────────────────────────────────────────
+    - name: "Database & Storage"
+      panels:
+        - title: "SQLite Query Duration (ms)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: 'sqlite_query_duration_seconds{job="agent-monitor"} * 1000'
+          span: 4
+
+        - title: "PV Usage (%)"
+          type: gauge
+          query:
+            type: metrics
+            promql: |
+              (kubelet_volume_stats_used_bytes{namespace=~"agent-monitor.*"}
+              / kubelet_volume_stats_capacity_bytes{namespace=~"agent-monitor.*"}) * 100
+          thresholds:
+            - value: 70
+              color: yellow
+            - value: 90
+              color: red
+          span: 4
+
+        - title: "Network I/O (bytes/s)"
+          type: line-chart
+          query:
+            type: metrics
+            promql: |
+              sum by (pod) (rate(container_network_receive_bytes_total{namespace=~"agent-monitor.*"}[5m]))
+              sum by (pod) (rate(container_network_transmit_bytes_total{namespace=~"agent-monitor.*"}[5m]))
+          span: 4
+
+    # ── Row 6: SLO Tracking ────────────────────────────────────────────────
+    - name: "SLO Tracking"
+      panels:
+        - title: "Availability SLO (99.9% target)"
+          type: gauge
+          query:
+            type: metrics
+            promql: |
+              (1 - sum(rate(http_requests_total{job="agent-monitor", status=~"5.."}[30d]))
+              / sum(rate(http_requests_total{job="agent-monitor"}[30d]))) * 100
+          thresholds:
+            - value: 99.9
+              color: green
+            - value: 99.5
+              color: yellow
+            - value: 99.0
+              color: red
+          span: 4
+
+        - title: "Latency SLO (P95 < 500ms)"
+          type: gauge
+          query:
+            type: metrics
+            promql: |
+              histogram_quantile(0.95,
+                sum(rate(http_request_duration_seconds_bucket{job="agent-monitor"}[30d])) by (le)
+              ) * 1000
+          thresholds:
+            - value: 300
+              color: green
+            - value: 500
+              color: yellow
+            - value: 1000
+              color: red
+          span: 4
+
+        - title: "Error Budget Remaining"
+          type: gauge
+          query:
+            type: metrics
+            promql: |
+              (0.001 - sum(rate(http_requests_total{job="agent-monitor", status=~"5.."}[30d]))
+              / sum(rate(http_requests_total{job="agent-monitor"}[30d])))
+              / 0.001 * 100
+          thresholds:
+            - value: 50
+              color: green
+            - value: 25
+              color: yellow
+            - value: 0
+              color: red
+          span: 4

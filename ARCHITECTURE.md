@@ -32,6 +32,8 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 ![Prometheus](https://img.shields.io/badge/Prometheus-2.x-E6522C?style=flat-square&logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Grafana-10.x-F46800?style=flat-square&logo=grafana&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-Ingress-009639?style=flat-square&logo=nginx&logoColor=white)
+![Coralogix](https://img.shields.io/badge/Coralogix-Observability-1a1a2e?style=flat-square&logo=datadog&logoColor=white)
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector-4f46e5?style=flat-square&logo=opentelemetry&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-ECS%20%7C%20RDS-232F3E?style=flat-square&logo=task&logoColor=white)
 ![Google Cloud](https://img.shields.io/badge/Google_Cloud-GKE%20%7C%20SQL-4285F4?style=flat-square&logo=googlecloud&logoColor=white)
 ![Azure](https://img.shields.io/badge/Azure-AKS%20%7C%20SQL-0078D4?style=flat-square&logo=cloudflare&logoColor=white)
@@ -1247,17 +1249,20 @@ graph TB
     LB["Load Balancer<br/>TLS 1.3 · WebSocket<br/>Weighted Routing"]
     PV["Persistent Storage<br/>Encrypted NFS"]
     MON["Monitoring<br/>Prometheus · Grafana<br/>13 Alert Rules"]
+    OTEL["OTel Collector<br/>Coralogix"]
   end
 
   LB -->|"Active"| BLUE
   LB -.->|"Standby"| GREEN
   BLUE & GREEN --> PV
   MON -->|"Scrape"| BLUE & GREEN
+  BLUE & GREEN -->|"logs + metrics + traces"| OTEL
 
   style BLUE fill:#2563eb,color:#fff
   style GREEN fill:#16a34a,color:#fff
   style LB fill:#7c3aed,color:#fff
   style CI fill:#2088ff,color:#fff
+  style OTEL fill:#4f46e5,color:#fff
 ```
 
 | Capability | Details |
@@ -1267,7 +1272,7 @@ graph TB
 | **Release Strategies** | Rolling update, blue-green (instant switchover), canary (automated analysis) |
 | **Environments** | Dev, staging, production with per-environment configuration |
 | **CI/CD** | GitHub Actions and GitLab CI pipelines with Trivy security scanning |
-| **Observability** | Prometheus scraping, 13 alert rules, Grafana dashboard (16 panels), Alertmanager routing |
+| **Observability** | Prometheus scraping, 13 alert rules, Grafana dashboard (16 panels), Alertmanager routing, Coralogix full-stack observability (logs, metrics, traces, SLO tracking) via OpenTelemetry Collector |
 | **Operations** | Scripts for deploy, rollback, blue-green switch, database backup/restore, teardown |
 | **Security** | Restricted PSS, network policies, TLS enforcement, OIDC auth, no long-lived credentials |
 
