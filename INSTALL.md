@@ -150,19 +150,13 @@ This repository includes extension packs for both Claude Code and Codex.
   - `.claude/rules/`
   - `.claude/skills/`
   - `.claude/agents/`
-- Codex project packs are provided under:
+- Codex project packs live under `.codex/`:
   - `AGENTS.md`
-  - `codex/rules/`
-  - `codex/agents/`
-  - `codex/skills/`
+  - `.codex/rules/`
+  - `.codex/agents/`
+  - `.codex/skills/`
 
-For Codex activation details and copy/symlink commands, see [codex/README.md](./codex/README.md).
-
-Quick sync command:
-
-```bash
-npm run codex:sync
-```
+See [`.codex/README.md`](./.codex/README.md) for Codex extension details.
 
 ---
 

@@ -395,17 +395,16 @@ flowchart LR
 | `npm run mcp:typecheck` | Type-check MCP source without emitting build output        |
 | `npm run mcp:docker:build` | Build MCP container image with Docker (`agent-dashboard-mcp:local`) |
 | `npm run mcp:podman:build` | Build MCP container image with Podman (`localhost/agent-dashboard-mcp:local`) |
-| `npm run codex:sync`    | Sync `codex/agents` + `codex/skills` into `.codex/agents` + `.agents/skills` |
 
 ---
 
 ## Agent Extensions
 
-This repository now includes a comprehensive extension layer for both Claude Code and Codex:
+This repository includes a comprehensive extension layer for both Claude Code and Codex:
 
 - Claude Code: `CLAUDE.md`, `.claude/rules/`, `.claude/skills/`
 - Claude subagents: `.claude/agents/`
-- Codex: `AGENTS.md`, `codex/rules/`, `codex/agents/`, `codex/skills/`
+- Codex: `AGENTS.md`, `.codex/rules/`, `.codex/agents/`, `.codex/skills/`
 
 ### Extension Architecture
 
@@ -417,9 +416,9 @@ graph TD
     MEMORY["CLAUDE.md + .claude/rules/*"]
     C_SKILLS[".claude/skills/*"]
     AGENTS_MD["AGENTS.md"]
-    X_RULES["codex/rules/*.rules"]
-    X_AGENTS["codex/agents/*.toml"]
-    X_SKILLS["codex/skills/*"]
+    X_RULES[".codex/rules/*.rules"]
+    X_AGENTS[".codex/agents/*.toml"]
+    X_SKILLS[".codex/skills/*"]
 
     USER --> CLAUDE
     USER --> CODEX
@@ -455,14 +454,13 @@ graph TD
 - Persistent context:
   - [`AGENTS.md`](./AGENTS.md)
 - Execution policy:
-  - [`codex/rules/default.rules`](./codex/rules/default.rules)
+  - [`.codex/rules/default.rules`](./.codex/rules/default.rules)
 - Custom subagent templates:
-  - [`codex/agents/`](./codex/agents)
+  - [`.codex/agents/`](./.codex/agents)
 - Skills:
-  - [`codex/skills/`](./codex/skills)
-- Activation instructions:
-  - [`codex/README.md`](./codex/README.md)
-  - quick sync: `npm run codex:sync`
+  - [`.codex/skills/`](./.codex/skills)
+- Setup:
+  - [`.codex/README.md`](./.codex/README.md)
 
 ---
 
@@ -1067,8 +1065,9 @@ agent-dashboard/
 |   |   |-- ui/                  # ANSI banner, colors, formatter, tables
 |   |   +-- types/               # Shared MCP type definitions
 |   +-- build/                   # Built MCP runtime output
-|-- codex/
-|   |-- README.md                # Codex activation guide for agents and skills
+|-- .codex/
+|   |-- config.toml              # Codex runtime configuration
+|   |-- README.md                # Codex setup guide for agents and skills
 |   |-- rules/                   # Codex execution policy rules
 |   |-- agents/                  # Codex custom agent templates
 |   +-- skills/                  # Codex project skills

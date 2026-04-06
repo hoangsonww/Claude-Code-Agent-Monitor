@@ -729,7 +729,7 @@ flowchart TD
 The repository includes a dual extension strategy:
 
 - Claude Code-native extensions (`CLAUDE.md`, `.claude/rules`, `.claude/skills`)
-- Codex-native extensions (`AGENTS.md`, `codex/rules`, `codex/agents`, `codex/skills`)
+- Codex-native extensions (`AGENTS.md`, `.codex/rules`, `.codex/agents`, `.codex/skills`)
 
 ```mermaid
 graph TD
@@ -741,9 +741,9 @@ graph TD
     CLAUDE --> C_SKILLS[".claude/skills/*"]
 
     CODEX --> X_MEM["AGENTS.md"]
-    CODEX --> X_RULES["codex/rules/*.rules"]
-    CODEX --> X_AGENTS["codex/agents/*.toml"]
-    CODEX --> X_SKILLS["codex/skills/*"]
+    CODEX --> X_RULES[".codex/rules/*.rules"]
+    CODEX --> X_AGENTS[".codex/agents/*.toml"]
+    CODEX --> X_SKILLS[".codex/skills/*"]
 ```
 
 ### Claude Code extension scope
@@ -763,10 +763,9 @@ graph TD
 ### Codex extension scope
 
 - `AGENTS.md` provides project-wide default behavior.
-- `codex/rules/default.rules` controls external execution decisions.
-- `codex/agents/` provides custom subagent templates.
-- `codex/skills/` provides reusable task workflows.
-- `npm run codex:sync` copies `codex/agents` and `codex/skills` into Codex runtime directories when needed.
+- `.codex/rules/default.rules` controls external execution decisions.
+- `.codex/agents/` provides custom subagent templates.
+- `.codex/skills/` provides reusable task workflows.
 
 ---
 

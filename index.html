@@ -857,10 +857,7 @@ npm run mcp:start              # stdio (for MCP host integration)
 npm run mcp:start:http         # HTTP + SSE server on port 8819
 npm run mcp:start:repl         # interactive CLI with tab completion
 
-# 5. (Optional) Sync Codex runtime extension folders
-npm run codex:sync
-
-# 6. Open the dashboard
+# 5. Open the dashboard
 # http://localhost:5173  (dev)
 # http://localhost:4820  (prod after npm run build && npm start)</code></pre>
 
@@ -913,11 +910,7 @@ npm run mcp:install
 npm run mcp:build
 npm run mcp:start              # stdio (default — for MCP hosts)
 npm run mcp:start:http         # HTTP + SSE server on port 8819
-npm run mcp:start:repl         # interactive CLI with tab completion
-
-# Sync codex extension templates into runtime dirs
-# (copies codex/agents -> .codex/agents and codex/skills -> .agents/skills)
-npm run codex:sync</code></pre>
+npm run mcp:start:repl         # interactive CLI with tab completion</code></pre>
 
           <h3>Verification</h3>
           <p>After starting a Claude Code session, you should see:</p>
@@ -1200,12 +1193,9 @@ npm run codex:sync</code></pre>
                   </td>
                 </tr>
                 <tr>
-                  <td><code>codex:sync</code></td>
-                  <td><code>npm run codex:sync</code></td>
-                  <td>
-                    Sync <code>codex/agents</code> + <code>codex/skills</code> into runtime
-                    directories (<code>.codex/agents</code> + <code>.agents/skills</code>)
-                  </td>
+                  <td><code>test:mcp</code></td>
+                  <td><code>npm run test:mcp</code></td>
+                  <td>Run MCP server unit tests</td>
                 </tr>
                 <tr>
                   <td><code>format</code></td>
@@ -2275,7 +2265,7 @@ npm run codex:sync</code></pre>
 
                 subgraph Layers["Instruction + Skill Layers"]
                   CL["CLAUDE.md + .claude/rules + .claude/skills + .claude/agents"]
-                  AG["AGENTS.md + codex/rules + codex/skills + codex/agents"]
+                  AG["AGENTS.md + .codex/rules + .codex/skills + .codex/agents"]
                 end
 
                 subgraph Runtime["Local MCP Runtime"]
@@ -2379,23 +2369,18 @@ npm run codex:sync</code></pre>
                 </tr>
                 <tr>
                   <td>Codex Base Instructions</td>
-                  <td><code>AGENTS.md</code>, <code>codex/rules/default.rules</code></td>
+                  <td><code>AGENTS.md</code>, <code>.codex/rules/default.rules</code></td>
                   <td>Project-wide guidance + execution policy defaults</td>
                 </tr>
                 <tr>
                   <td>Codex Skills</td>
-                  <td><code>codex/skills/</code></td>
+                  <td><code>.codex/skills/</code></td>
                   <td>Task-specific skills aligned to this repository</td>
                 </tr>
                 <tr>
                   <td>Codex Agents</td>
-                  <td><code>codex/agents/</code></td>
+                  <td><code>.codex/agents/</code></td>
                   <td>Reusable custom-agent templates for implementation and review</td>
-                </tr>
-                <tr>
-                  <td>Codex runtime sync</td>
-                  <td><code>scripts/setup-codex-extensions.js</code></td>
-                  <td>Copies templates into <code>.agents/skills</code> and <code>.codex/agents</code></td>
                 </tr>
               </tbody>
             </table>
@@ -2431,24 +2416,8 @@ npm run codex:sync</code></pre>
                   <td><code>scripts/clear-data.js</code></td>
                   <td>Removes persisted rows while preserving schema</td>
                 </tr>
-                <tr>
-                  <td><code>scripts/setup-codex-extensions.js</code></td>
-                  <td>Syncs Codex extension templates to active runtime directories</td>
-                </tr>
               </tbody>
             </table>
-          </div>
-
-          <div class="callout callout-warning">
-            <div class="callout-icon">⚠</div>
-            <div class="callout-body">
-              <strong>Runtime sync note</strong>
-              <p>
-                If hidden directories are restricted in your environment, run
-                <code>npm run codex:sync</code> with <code>CODEX_PROJECT_AGENTS_DIR</code> and
-                <code>CODEX_PROJECT_SKILLS_DIR</code> overrides.
-              </p>
-            </div>
           </div>
         </section>
 

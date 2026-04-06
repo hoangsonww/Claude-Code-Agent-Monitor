@@ -155,12 +155,12 @@ This repository ships extension files for both agent ecosystems:
   - `.claude/agents/*`
 - Codex:
   - `AGENTS.md`
-  - `codex/rules/default.rules`
-  - `codex/agents/*`
-  - `codex/skills/*`
+  - `.codex/config.toml`
+  - `.codex/rules/default.rules`
+  - `.codex/agents/*`
+  - `.codex/skills/*`
 
-Use [`codex/README.md`](./codex/README.md) to sync Codex agent and skill files into runtime directories (`.codex/agents` and `.agents/skills`) if needed by your local Codex configuration.
-If hidden directories are restricted in your environment, set `CODEX_PROJECT_AGENTS_DIR` and `CODEX_PROJECT_SKILLS_DIR` when running `npm run codex:sync`.
+See [`.codex/README.md`](./.codex/README.md) for Codex extension details.
 
 ---
 
@@ -220,7 +220,7 @@ npm run seed
 | `mcp:typecheck` | `npm run mcp:typecheck` | Type-check MCP source |
 | `mcp:docker:build` | `npm run mcp:docker:build` | Build MCP container image with Docker |
 | `mcp:podman:build` | `npm run mcp:podman:build` | Build MCP container image with Podman |
-| `codex:sync` | `npm run codex:sync` | Sync Codex agent and skill templates into runtime locations |
+| `test:mcp` | `npm run test:mcp` | Run MCP server unit tests |
 | `claude` | Claude CLI | Uses `CLAUDE.md`, `.claude/rules`, and `.claude/skills` automatically |
 | `test` | `npm test` | Run all server and client tests |
 | `test:server` | `npm run test:server` | Run server integration tests only |
