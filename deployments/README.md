@@ -30,7 +30,7 @@ graph TB
     end
 
     subgraph "Observability"
-      MON["monitoring/<br/>Prometheus · Grafana · Alertmanager<br/>13 rules · 16 panels"]
+      MON["monitoring/<br/>Prometheus · Grafana · Alertmanager · Coralogix<br/>13 rules · 16 panels · OTel Collector"]
     end
   end
 
@@ -103,7 +103,8 @@ deployments/
 ├── monitoring/                 # Observability stack configs
 │   ├── prometheus/             # Scrape config + alert rules
 │   ├── grafana/                # Dashboards + datasources
-│   └── alertmanager/           # Alert routing (Slack, PagerDuty, email)
+│   ├── alertmanager/           # Alert routing (Slack, PagerDuty, email)
+│   └── coralogix/              # Full-stack observability (logs, metrics, traces, SLOs)
 └── ci/                         # CI/CD pipeline definitions
     ├── github-actions/         # GitHub Actions workflows
     └── gitlab-ci/              # GitLab CI pipeline
@@ -134,6 +135,7 @@ graph TB
         PV["Persistent Volume<br/>(EFS / Filestore / Azure Files / FSS)"]
         SECRETS["Secret Store<br/>(Vault / Secrets Manager)"]
         MON["Monitoring<br/>(Prometheus / Grafana)"]
+        OTEL["OTel Collector<br/>(Coralogix)"]
     end
 
     USER -->|HTTPS + WSS| LB
@@ -146,6 +148,8 @@ graph TB
     G_MCP -->|localhost:4820| G1
     MON -->|scrape /api/health| Blue
     MON -->|scrape /api/health| Green
+    Blue -->|logs + metrics| OTEL
+    Green -->|logs + metrics| OTEL
 
     style Blue fill:#2563eb,stroke:#3b82f6,color:#fff
     style Green fill:#16a34a,stroke:#22c55e,color:#fff
@@ -297,19 +301,26 @@ The monitoring stack provides:
 - **Prometheus** scrape configuration and alert rules
 - **Grafana** dashboard with request rate, latency, errors, WebSocket connections, resource usage
 - **Alertmanager** routing to Slack, PagerDuty, and email
+- **Coralogix** full-stack observability with log analytics (DataPrime), metrics, distributed tracing, SLO tracking, and error budget management via OpenTelemetry Collector
 
 ```mermaid
 graph LR
     APP["agent-monitor pods"] -->|metrics| PROM["Prometheus"]
+    APP -->|"logs + metrics"| OTEL["OTel Collector"]
     PROM -->|query| GRAF["Grafana Dashboards"]
     PROM -->|evaluate rules| AM["Alertmanager"]
+    OTEL -->|"OTLP gRPC"| CX["Coralogix"]
     AM -->|critical| PD["PagerDuty"]
     AM -->|warning| SLACK["Slack"]
     AM -->|info| EMAIL["Email"]
+    CX -->|alerts| PD
+    CX -->|alerts| SLACK
 
     style PROM fill:#e6522c,stroke:#e6522c,color:#fff
     style GRAF fill:#f46800,stroke:#f46800,color:#fff
     style AM fill:#e6522c,stroke:#e6522c,color:#fff
+    style CX fill:#1a1a2e,stroke:#1a1a2e,color:#fff
+    style OTEL fill:#4f46e5,stroke:#4f46e5,color:#fff
 ```
 
 Deploy the monitoring stack:
@@ -324,6 +335,15 @@ kubectl apply -f ./deployments/monitoring/prometheus/rules/
 # Apply Alertmanager config
 kubectl create secret generic alertmanager-config \
   --from-file=./deployments/monitoring/alertmanager/alertmanager.yaml
+
+# Deploy Coralogix OTel Collector (optional)
+helm repo add coralogix https://cgx.jfrog.io/artifactory/coralogix-charts-virtual
+kubectl create secret generic coralogix-keys \
+  --namespace agent-monitor \
+  --from-literal=PRIVATE_KEY=<YOUR_CORALOGIX_KEY>
+helm install coralogix-otel coralogix/opentelemetry \
+  --namespace agent-monitor \
+  -f ./deployments/monitoring/coralogix/values.yaml
 ```
 
 ## CI/CD
@@ -427,7 +447,7 @@ Provisions the application load balancer with TLS termination and WebSocket supp
 
 ### monitoring/
 
-Provisions cloud-native monitoring and alerting.
+Provisions cloud-native monitoring and alerting, with optional Coralogix full-stack observability.
 
 | Provider | Metrics | Alarms | Logs |
 |----------|---------|--------|------|
@@ -435,6 +455,7 @@ Provisions cloud-native monitoring and alerting.
 | GCP | Cloud Monitoring | Notification Channel | Cloud Logging |
 | Azure | Azure Monitor | Action Group | Log Analytics |
 | OCI | OCI Monitoring | Notification Topic | OCI Logging |
+| Coralogix | PromQL + Recording Rules | Coralogix Alerts → PagerDuty/Slack | DataPrime Log Analytics |
 
 ### Root Variables
 

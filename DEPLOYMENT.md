@@ -39,6 +39,8 @@ graph TB
     PROM[Prometheus]
     GRAF[Grafana]
     ALERT[Alertmanager]
+    CX[Coralogix]
+    OTEL[OTel Collector]
   end
 
   U --> LB
@@ -48,6 +50,8 @@ graph TB
   B1 & B2 & B3 --> PV
   PROM -->|Scrape| B1 & B2 & B3
   PROM --> ALERT
+  OTEL -->|Ship logs, metrics, traces| CX
+  B1 & B2 & B3 --> OTEL
   GRAF --> PROM
 ```
 
@@ -717,12 +721,17 @@ cp deployments/ci/gitlab-ci/.gitlab-ci.yml .
 ```mermaid
 graph TB
   App[Agent Monitor<br/>Pods] -->|"/metrics"| Prom[Prometheus<br/>Scraping & Storage]
+  App -->|"logs + metrics"| OTEL[OTel Collector<br/>DaemonSet]
   Prom --> Graf[Grafana<br/>Dashboards]
   Prom --> AM[Alertmanager<br/>Routing & Notifications]
+  OTEL -->|"OTLP gRPC"| CX[Coralogix<br/>Full-Stack Observability]
 
   AM --> Slack[Slack]
   AM --> PD[PagerDuty]
   AM --> Email[Email]
+  CX --> CXA[Coralogix Alerts]
+  CXA --> PD
+  CXA --> Slack
 
   subgraph "Grafana Dashboard"
     P1[Request Rate]
@@ -733,11 +742,22 @@ graph TB
     P6[SQLite Operations]
   end
 
+  subgraph "Coralogix Dashboard"
+    C1[Log Analytics / DataPrime]
+    C2[Metrics + Recording Rules]
+    C3[SLO Tracking + Error Budget]
+    C4[Distributed Tracing]
+  end
+
   Graf --- P1 & P2 & P3 & P4 & P5 & P6
+  CX --- C1 & C2 & C3 & C4
 
   style Prom fill:#e6522c,color:#fff
   style Graf fill:#f46800,color:#fff
   style AM fill:#e6522c,color:#fff
+  style CX fill:#1a1a2e,color:#fff
+  style OTEL fill:#4f46e5,color:#fff
+  style CXA fill:#dc2626,color:#fff
 ```
 
 ### Setup
@@ -755,6 +775,15 @@ kubectl apply -f deployments/monitoring/prometheus/rules/agent-monitor.rules.yam
 
 # Apply Alertmanager config
 # Merge deployments/monitoring/alertmanager/alertmanager.yaml into your Alertmanager config
+
+# Deploy Coralogix OTel Collector (optional – full-stack observability)
+helm repo add coralogix https://cgx.jfrog.io/artifactory/coralogix-charts-virtual
+kubectl create secret generic coralogix-keys \
+  --namespace agent-monitor \
+  --from-literal=PRIVATE_KEY=<YOUR_CORALOGIX_KEY>
+helm install coralogix-otel coralogix/opentelemetry \
+  --namespace agent-monitor \
+  -f deployments/monitoring/coralogix/values.yaml
 ```
 
 ### Alert Rules
@@ -784,6 +813,17 @@ The pre-built dashboard (`agent-monitor.json`) includes 16 panels across 6 rows:
 - **Database** — Query duration, row counts, WAL checkpoint time
 - **Resources** — CPU, memory, network I/O, filesystem usage
 - **Deployment** — Pod status, restart count, HPA scaling events
+
+### Coralogix Dashboard
+
+The Coralogix custom dashboard (`monitoring/coralogix/dashboards.yaml`) provides 18 panels across 6 rows with SLO tracking:
+
+- **Overview** — Active sessions, request rate, WebSocket connections
+- **HTTP Performance** — Latency P50/P95/P99, error rate with thresholds, status code distribution
+- **Application Logs** — Error log stream via DataPrime, log volume by severity, hook event throughput
+- **Infrastructure** — CPU, memory, pod status gauges
+- **Database & Storage** — SQLite query duration, PV usage gauge, network I/O
+- **SLO Tracking** — Availability SLO (99.9% target), latency SLO (P95 < 500ms), error budget remaining
 
 ---
 
@@ -858,6 +898,11 @@ deployments/
 │       └── canary/              # Canary with analysis
 ├── monitoring/
 │   ├── alertmanager/            # Alert routing config
+│   ├── coralogix/               # Coralogix full-stack observability
+│   │   ├── values.yaml          # OTel Collector Helm values
+│   │   ├── alerts.yaml          # Alert definitions
+│   │   ├── dashboards.yaml      # Custom dashboard (18 panels)
+│   │   └── coralogix-terraform.tf  # Terraform-managed resources
 │   ├── grafana/
 │   │   ├── dashboards/          # Pre-built dashboard JSON
 │   │   └── datasources.yaml

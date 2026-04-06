@@ -1,0 +1,180 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Coralogix OpenTelemetry Collector – Helm Values
+#
+# Deploys the Coralogix OTel collector as a DaemonSet + Gateway for shipping
+# logs, metrics, and traces from the Agent Monitor cluster.
+#
+# Prerequisites:
+#   1. Add Coralogix Helm repo:
+#        helm repo add coralogix https://cgx.jfrog.io/artifactory/coralogix-charts-virtual
+#        helm repo update
+#   2. Create the API key secret:
+#        kubectl create secret generic coralogix-keys \
+#          --namespace agent-monitor \
+#          --from-literal=PRIVATE_KEY=<YOUR_CORALOGIX_PRIVATE_KEY>
+#
+# Install:
+#   helm install coralogix-otel coralogix/opentelemetry \
+#     --namespace agent-monitor \
+#     -f deployments/monitoring/coralogix/values.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+global:
+  # Coralogix domain – set to your region's endpoint
+  # Options: coralogix.com | eu2.coralogix.com | coralogix.in | coralogix.us |
+  #          cx498.coralogix.com | coralogix.eu | coralogix.sg
+  domain: "coralogix.com"
+
+  # Reference the API key from the pre-created K8s secret
+  clusterName: "agent-monitor"
+
+# ── Secret reference ─────────────────────────────────────────────────────────
+secret:
+  enabled: true
+  name: "coralogix-keys"
+  # Key in the secret containing the Coralogix Send-Your-Data API key
+  privateKeySecretRef:
+    key: "PRIVATE_KEY"
+
+# ── Collector – DaemonSet mode (node-level collection) ───────────────────────
+opentelemetry-collector:
+  mode: daemonset
+
+  presets:
+    # Collect Kubernetes pod/container logs
+    logsCollection:
+      enabled: true
+      includeCollectorLogs: false
+
+    # Enrich telemetry with Kubernetes metadata
+    kubernetesAttributes:
+      enabled: true
+      extractAllPodLabels: true
+      extractAllPodAnnotations: false
+
+    # Collect host-level metrics (CPU, memory, disk, network)
+    hostMetrics:
+      enabled: true
+
+    # Collect kubelet/cAdvisor metrics
+    kubeletMetrics:
+      enabled: true
+
+  config:
+    receivers:
+      # Scrape Prometheus metrics from agent-monitor pods
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: "agent-monitor"
+              scrape_interval: 15s
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names:
+                      - agent-monitor
+                      - agent-monitor-staging
+                      - agent-monitor-production
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: "true"
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                  action: replace
+                  regex: ([^:]+)(?::\d+)?;(\d+)
+                  replacement: $$1:$$2
+                  target_label: __address__
+
+      # Receive OTLP from in-cluster services (gRPC + HTTP)
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+
+    processors:
+      # Batch telemetry for efficient export
+      batch:
+        send_batch_size: 1024
+        send_batch_max_size: 2048
+        timeout: 5s
+
+      # Enrich with resource attributes
+      resource:
+        attributes:
+          - key: cx.application.name
+            value: "agent-monitor"
+            action: upsert
+          - key: cx.subsystem.name
+            from_attribute: k8s.container.name
+            action: upsert
+          - key: k8s.cluster.name
+            value: "agent-monitor"
+            action: upsert
+
+      # Memory limiter to prevent OOM
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+
+      # Filter out noisy internal logs
+      filter/drop-internal:
+        logs:
+          exclude:
+            match_type: regexp
+            bodies:
+              - ".*kube-probe.*"
+              - ".*healthz.*"
+
+    exporters:
+      coralogix:
+        domain: "${CORALOGIX_DOMAIN}"
+        private_key: "${PRIVATE_KEY}"
+        application_name: "agent-monitor"
+        subsystem_name: "kubernetes"
+        timeout: 30s
+
+    service:
+      pipelines:
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, filter/drop-internal, batch]
+          exporters: [coralogix]
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [memory_limiter, resource, batch]
+          exporters: [coralogix]
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [coralogix]
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+
+# ── Gateway mode (optional – for centralized export) ─────────────────────────
+opentelemetry-gateway:
+  enabled: false
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: "1Gi"

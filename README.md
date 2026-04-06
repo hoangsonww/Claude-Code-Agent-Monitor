@@ -34,6 +34,8 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![Prometheus](https://img.shields.io/badge/Prometheus-2.x-E6522C?style=flat-square&logo=prometheus&logoColor=white)
 ![Grafana](https://img.shields.io/badge/Grafana-10.x-F46800?style=flat-square&logo=grafana&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-Ingress-009639?style=flat-square&logo=nginx&logoColor=white)
+![Coralogix](https://img.shields.io/badge/Coralogix-Observability-1a1a2e?style=flat-square&logo=coralogix&logoColor=white)
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector-4f46e5?style=flat-square&logo=opentelemetry&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-ECS%20%7C%20RDS-232F3E?style=flat-square&logo=task&logoColor=white)
 ![Google Cloud](https://img.shields.io/badge/Google_Cloud-GKE%20%7C%20SQL-4285F4?style=flat-square&logo=googlecloud&logoColor=white)
 ![Azure](https://img.shields.io/badge/Azure-AKS%20%7C%20SQL-0078D4?style=flat-square&logo=cloudflare&logoColor=white)
@@ -1012,8 +1014,14 @@ graph TB
     CAN["Canary + Analysis"]
   end
 
+  subgraph "Observability"
+    PROM["📊 Prometheus + Grafana"]
+    CX["📡 Coralogix<br/>Logs · Metrics · Traces · SLOs"]
+  end
+
   HELM & KUST --> ROLL & BG & CAN
   TF --> AWS & GCP & AZ & OCI
+  ROLL & BG & CAN --> PROM & CX
 
   style HELM fill:#0f1689,color:#fff
   style KUST fill:#326ce5,color:#fff
@@ -1022,6 +1030,8 @@ graph TB
   style GCP fill:#4285f4,color:#fff
   style AZ fill:#0078d4,color:#fff
   style OCI fill:#f80000,color:#fff
+  style PROM fill:#e6522c,color:#fff
+  style CX fill:#1a1a2e,color:#fff
 ```
 
 ```bash
@@ -1041,7 +1051,7 @@ terraform init && terraform apply -var-file=../../environments/production/terraf
 ./deployments/scripts/deploy.sh --env production --method helm --strategy blue-green
 ```
 
-The deployment stack includes CI/CD pipelines (GitHub Actions + GitLab CI), comprehensive monitoring (Prometheus, Grafana, Alertmanager with 13 alert rules), operational scripts (deploy, rollback, blue-green switch, backup/restore, teardown), and a full security posture (Restricted Pod Security Standard, TLS 1.3, network policies, Trivy scanning).
+The deployment stack includes CI/CD pipelines (GitHub Actions + GitLab CI), comprehensive monitoring (Prometheus, Grafana, Alertmanager with 13 alert rules, Coralogix full-stack observability with OpenTelemetry Collector for logs, metrics, traces, and SLO tracking), operational scripts (deploy, rollback, blue-green switch, backup/restore, teardown), and a full security posture (Restricted Pod Security Standard, TLS 1.3, network policies, Trivy scanning).
 
 > [!NOTE]
 > 📘 **Full deployment guide:** See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions, architecture diagrams, and operational workflows.
@@ -1157,7 +1167,7 @@ agent-dashboard/
 |   |   +-- strategies/          # Blue-green and canary deployment strategies
 |   |-- helm/agent-monitor/      # Helm chart with 12 templates and 4 value sets
 |   |-- scripts/                 # Operational scripts (deploy, rollback, backup, teardown)
-|   |-- monitoring/              # Prometheus rules, Grafana dashboards, Alertmanager config
+|   |-- monitoring/              # Prometheus, Grafana, Alertmanager, Coralogix (OTel Collector)
 |   +-- ci/                      # CI/CD pipelines (GitHub Actions, GitLab CI)
 |-- .codex/
 |   |-- config.toml              # Codex runtime configuration
