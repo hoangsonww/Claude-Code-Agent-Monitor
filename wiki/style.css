@@ -237,6 +237,7 @@ body {
 
 .main-content > * {
   width: min(100%, var(--content-max));
+  min-width: 0;
 }
 
 /* ─── Hero ──────────────────────────────────────────────────────────────── */
@@ -307,21 +308,60 @@ body {
   margin-bottom: 28px;
 }
 
-.hero-badges {
+/* ─── Tech Badge Marquee ────────────────────────────────────────────────── */
+.marquee-wrapper {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  max-width: 700px;
+  min-width: 0;
+}
+
+.marquee-track {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  width: max-content;
+  animation: marquee-scroll 40s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.marquee-content {
+  display: flex;
+  gap: 10px;
+  padding-right: 10px;
+  flex-shrink: 0;
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 .tech-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   border: 1px solid;
+  white-space: nowrap;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.tech-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .badge-node {
@@ -363,6 +403,61 @@ body {
   background: rgba(245, 158, 11, 0.1);
   border-color: rgba(245, 158, 11, 0.25);
   color: #fbbf24;
+}
+.badge-express {
+  background: rgba(200, 200, 200, 0.08);
+  border-color: rgba(200, 200, 200, 0.2);
+  color: #ccc;
+}
+.badge-d3 {
+  background: rgba(245, 133, 56, 0.12);
+  border-color: rgba(245, 133, 56, 0.3);
+  color: #f5a462;
+}
+.badge-tailwind {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+.badge-router {
+  background: rgba(202, 66, 56, 0.12);
+  border-color: rgba(202, 66, 56, 0.3);
+  color: #f47067;
+}
+.badge-zod {
+  background: rgba(62, 103, 178, 0.12);
+  border-color: rgba(62, 103, 178, 0.3);
+  color: #6d9feb;
+}
+.badge-vitest {
+  background: rgba(114, 159, 45, 0.12);
+  border-color: rgba(114, 159, 45, 0.3);
+  color: #a4d65e;
+}
+.badge-mcp {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+}
+.badge-docker {
+  background: rgba(36, 150, 237, 0.12);
+  border-color: rgba(36, 150, 237, 0.3);
+  color: #56b4f5;
+}
+.badge-lucide {
+  background: rgba(244, 63, 94, 0.1);
+  border-color: rgba(244, 63, 94, 0.25);
+  color: #fb7185;
+}
+.badge-postcss {
+  background: rgba(221, 60, 0, 0.12);
+  border-color: rgba(221, 60, 0, 0.3);
+  color: #f07b4f;
+}
+.badge-esbuild {
+  background: rgba(255, 207, 0, 0.12);
+  border-color: rgba(255, 207, 0, 0.3);
+  color: #ffd54f;
 }
 
 /* ─── Quick Start Cards ─────────────────────────────────────────────────── */
@@ -824,7 +919,112 @@ tr:hover td {
   color: #fbbf24;
 }
 
-/* ─── Feature Grid ──────────────────────────────────────────────────────── */
+/* ─── Feature Carousel ──────────────────────────────────────────────────── */
+.carousel {
+  margin: 24px 0;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.carousel-viewport {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding-top: 8px;
+  margin-top: -8px;
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.carousel .feature-card {
+  margin: 0 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transition:
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.carousel .feature-card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.carousel-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+  line-height: 1;
+}
+
+.carousel-btn:hover {
+  background: var(--border);
+  border-color: var(--border-light);
+  color: var(--text);
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+
+.carousel-dot:hover {
+  background: var(--text-muted);
+}
+
+.carousel-dot.active {
+  background: var(--accent, #818cf8);
+  transform: scale(1.3);
+}
+
+/* Keep feature-grid for other sections that still use it */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

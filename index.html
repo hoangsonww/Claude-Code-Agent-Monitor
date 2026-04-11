@@ -461,17 +461,55 @@
             agents, and tool events via native hooks, persists them in SQLite, and streams updates
             to a React UI over WebSocket — with no external services required.
           </p>
-          <div class="hero-badges">
-            <span class="tech-badge badge-node">Node.js ≥ 18 (22+ recommended)</span>
-            <span class="tech-badge badge-react">React 18.3</span>
-            <span class="tech-badge badge-ts">TypeScript Strict</span>
-            <span class="tech-badge badge-sqlite">SQLite WAL</span>
-            <span class="tech-badge badge-ws">WebSocket</span>
-            <span class="tech-badge badge-vite">Vite 6</span>
-            <span class="tech-badge badge-node">Local MCP Server</span>
-            <span class="tech-badge badge-react">Claude + Codex Extensions</span>
-            <span class="tech-badge badge-python">Python 3.6+</span>
-            <span class="tech-badge badge-mit">MIT License</span>
+          <div class="marquee-wrapper">
+            <div class="marquee-track">
+              <div class="marquee-content">
+                <span class="tech-badge badge-node">Node.js ≥ 18</span>
+                <span class="tech-badge badge-react">React 18.3</span>
+                <span class="tech-badge badge-ts">TypeScript Strict</span>
+                <span class="tech-badge badge-sqlite">SQLite WAL</span>
+                <span class="tech-badge badge-ws">WebSocket</span>
+                <span class="tech-badge badge-vite">Vite 6</span>
+                <span class="tech-badge badge-express">Express</span>
+                <span class="tech-badge badge-d3">D3.js</span>
+                <span class="tech-badge badge-tailwind">Tailwind CSS</span>
+                <span class="tech-badge badge-router">React Router</span>
+                <span class="tech-badge badge-zod">Zod</span>
+                <span class="tech-badge badge-vitest">Vitest</span>
+                <span class="tech-badge badge-mcp">MCP SDK</span>
+                <span class="tech-badge badge-docker">Docker</span>
+                <span class="tech-badge badge-node">Local MCP Server</span>
+                <span class="tech-badge badge-react">Claude + Codex Extensions</span>
+                <span class="tech-badge badge-python">Python 3.6+</span>
+                <span class="tech-badge badge-lucide">Lucide Icons</span>
+                <span class="tech-badge badge-postcss">PostCSS</span>
+                <span class="tech-badge badge-esbuild">esbuild</span>
+                <span class="tech-badge badge-mit">MIT License</span>
+              </div>
+              <div class="marquee-content" aria-hidden="true">
+                <span class="tech-badge badge-node">Node.js ≥ 18</span>
+                <span class="tech-badge badge-react">React 18.3</span>
+                <span class="tech-badge badge-ts">TypeScript Strict</span>
+                <span class="tech-badge badge-sqlite">SQLite WAL</span>
+                <span class="tech-badge badge-ws">WebSocket</span>
+                <span class="tech-badge badge-vite">Vite 6</span>
+                <span class="tech-badge badge-express">Express</span>
+                <span class="tech-badge badge-d3">D3.js</span>
+                <span class="tech-badge badge-tailwind">Tailwind CSS</span>
+                <span class="tech-badge badge-router">React Router</span>
+                <span class="tech-badge badge-zod">Zod</span>
+                <span class="tech-badge badge-vitest">Vitest</span>
+                <span class="tech-badge badge-mcp">MCP SDK</span>
+                <span class="tech-badge badge-docker">Docker</span>
+                <span class="tech-badge badge-node">Local MCP Server</span>
+                <span class="tech-badge badge-react">Claude + Codex Extensions</span>
+                <span class="tech-badge badge-python">Python 3.6+</span>
+                <span class="tech-badge badge-lucide">Lucide Icons</span>
+                <span class="tech-badge badge-postcss">PostCSS</span>
+                <span class="tech-badge badge-esbuild">esbuild</span>
+                <span class="tech-badge badge-mit">MIT License</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -550,206 +588,242 @@
             production mode.
           </p>
 
-          <div class="feature-grid">
-            <div class="feature-card">
-              <div class="feature-icon ic-indigo">📡</div>
-              <h3>Live Dashboard</h3>
-              <p>
-                Overview stats, active agent cards with collapsible subagent hierarchy, and recent
-                activity feed — all updating in real-time via WebSocket.
-              </p>
+          <div class="carousel" id="feature-carousel">
+            <div class="carousel-viewport">
+              <div class="carousel-track">
+                <div class="feature-card">
+                  <div class="feature-icon ic-indigo">📡</div>
+                  <h3>Live Dashboard</h3>
+                  <p>
+                    Overview stats, active agent cards with collapsible subagent hierarchy, and recent
+                    activity feed — all updating in real-time via WebSocket.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-emerald">📋</div>
+                  <h3>Kanban Board</h3>
+                  <p>
+                    5-column agent status board (Idle / Connected / Working / Completed / Error) with
+                    paginated columns (10 per page) and horizontal scroll on overflow.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-amber">📂</div>
+                  <h3>Sessions Table</h3>
+                  <p>
+                    Searchable, filterable, paginated table of all sessions with color-coded status
+                    badges, agent counts, duration, and model info. Filter by active, completed,
+                    error, or abandoned status. Click any row to drill into the full session detail.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-violet">🔬</div>
+                  <h3>Session Detail</h3>
+                  <p>
+                    Per-session agent hierarchy tree (parent/child with expand/collapse) and full
+                    chronological event timeline with tool names and summaries.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-pink">📰</div>
+                  <h3>Activity Feed</h3>
+                  <p>
+                    Real-time streaming event log showing tool calls, agent state changes, errors,
+                    and compaction events as they happen. Pause/resume with buffering, paginated
+                    history, and automatic scrolling. Each entry is color-coded by event type.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-cyan">📊</div>
+                  <h3>Analytics</h3>
+                  <p>
+                    Token usage breakdown by model, tool frequency bar charts, agent type distribution,
+                    52-week activity heatmap (day-of-week aligned with tooltips), 30-day sparkline
+                    trends, session outcome donut charts, and cost summary. Live/offline indicator
+                    with auto-refresh.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-blue">⚡</div>
+                  <h3>WebSocket Push</h3>
+                  <p>
+                    All UI updates are pushed over WebSocket with sub-5ms latency — no polling.
+                    Automatic 2-second reconnection on disconnect, heartbeat ping/pong for
+                    dead-connection detection, and a visual connection indicator in the sidebar
+                    so you always know when you're live.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-rose">🖥️</div>
+                  <h3>Statusline</h3>
+                  <p>
+                    Standalone CLI statusline for Claude Code showing model name, user, working
+                    directory, git branch, a color-coded context window usage bar (green/yellow/red),
+                    and token counts. ANSI-colored output that updates on every turn. Python-based
+                    with a shell wrapper for easy integration.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-emerald">🔄</div>
+                  <h3>History Import</h3>
+                  <p>
+                    Automatically imports sessions from <code>~/.claude/</code> on startup with
+                    correct timestamps. Deep JSONL extraction captures API errors, per-turn
+                    durations, thinking blocks, usage extras, and parses subagent JSONL files for
+                    per-subagent model, token, and tool breakdowns. Recently-modified sessions
+                    are imported as active so the dashboard reflects real state immediately.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-cyan">💾</div>
+                  <h3>Transcript Cache</h3>
+                  <p>
+                    Stat-based incremental JSONL reader shared across hook handler and compaction
+                    scanner. Avoids duplicate I/O with byte-offset reads, bounds memory via LRU
+                    eviction, and detects API errors, turn durations, thinking blocks, and usage
+                    extras from live transcripts in real-time as sessions progress.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-violet">🌳</div>
+                  <h3>Subagent Hierarchy</h3>
+                  <p>
+                    Collapsible parent-child agent tree on Dashboard and Session Detail. Agents with
+                    subagents show expand/collapse chevrons; leaf agents show a dot indicator.
+                    Auto-expands when subagents are active. Correctly tracks backgrounded subagents
+                    without premature completion.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-amber">💰</div>
+                  <h3>Cost Tracking</h3>
+                  <p>
+                    Per-model cost estimation with configurable pricing rules. View total and per-session
+                    cost breakdowns based on input, output, and cache token rates. Compaction-aware token
+                    accounting preserves totals across context compressions so no usage is ever lost.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-indigo">⚙️</div>
+                  <h3>Settings &amp; Management</h3>
+                  <p>
+                    Model pricing editor with per-token rate configuration, hook installation status
+                    and one-click reinstall, full JSON data export, session cleanup controls (abandon
+                    stale sessions, purge old data by age), browser notification preferences with
+                    per-event toggles, and a system information dashboard showing DB stats and
+                    server health.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-blue">🔌</div>
+                  <h3>Local MCP Server</h3>
+                  <p>
+                    Local MCP sidecar with three transport modes (stdio, HTTP+SSE, interactive REPL),
+                    25 typed tools across 6 domains, retry-aware API access, and tiered policy gates
+                    for mutation and destructive operations.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-rose">🧩</div>
+                  <h3>Claude + Codex Extensions</h3>
+                  <p>
+                    Comprehensive instruction, skills, rules, and custom-agent layers for both Claude
+                    Code and Codex. Includes path-scoped rules for backend, frontend, MCP, and docs,
+                    reusable skills for onboarding, feature shipping, debugging, and MCP operations,
+                    plus specialized subagents for backend, frontend, and MCP code review.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-teal">🔀</div>
+                  <h3>Workflow Graphs</h3>
+                  <p>
+                    D3.js-powered agent orchestration DAG showing spawn patterns across sessions,
+                    tool execution Sankey diagram mapping tool-to-tool transitions, and a directed
+                    agent pipeline graph revealing which agent types run after which with frequency labels.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-indigo">📊</div>
+                  <h3>Workflow Analytics</h3>
+                  <p>
+                    Subagent effectiveness scorecards with success rings and day-of-week activity
+                    charts. Auto-detected workflow patterns, model delegation flow, error propagation
+                    with horizontal bars and API error cards, concurrency swim-lanes, and complexity
+                    bubble charts. Status filter (Active/Completed/All) filters all sections.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-cyan">🔍</div>
+                  <h3>Session Drill-In</h3>
+                  <p>
+                    Searchable session selector with pagination to explore any session's agent tree,
+                    tool call timeline, and event sequence. Cross-filtering from DAG nodes, compaction
+                    impact analysis, JSON export, and real-time WebSocket auto-refresh.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-pink">🔔</div>
+                  <h3>Browser Notifications</h3>
+                  <p>
+                    Native browser notifications for session starts, completions, errors, and subagent
+                    spawns — even when the dashboard tab is in the background. Per-event toggles in
+                    Settings let you choose exactly which events trigger alerts, with automatic
+                    permission management and graceful fallback.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-teal">🐳</div>
+                  <h3>Docker Deployment</h3>
+                  <p>
+                    Ready-to-use Dockerfile and docker-compose.yml for one-command deployment.
+                    Supports both Docker and Podman with persistent volume mounts, automatic
+                    rebuilds, and configurable port mapping. Run
+                    <code>docker compose up -d --build</code> and you're live.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-violet">🏪</div>
+                  <h3>Plugin Marketplace</h3>
+                  <p>
+                    Official Claude Code plugin marketplace with 5 plugins (18 skills, 4 agents, 3 CLI
+                    tools). Deep analytics with compaction baselines, productivity automation, developer
+                    diagnostics, AI-powered insights via workflow intelligence, and dashboard MCP
+                    integration. Install with <code>claude plugin install</code>.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-emerald">📱</div>
+                  <h3>Responsive Design</h3>
+                  <p>
+                    Mobile-first layouts with stacking grids, scrollable tables, and a collapsible
+                    sidebar that auto-hides below 1400px. All seven pages adapt seamlessly from phone
+                    to ultrawide with consistent navigation, readable typography, and full touch support.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-sky">🌊</div>
+                  <h3>Concurrency Timeline</h3>
+                  <p>
+                    Visualize parallel agent execution with a Gantt-style timeline showing overlapping
+                    subagent lifetimes, tool call concurrency, and idle gaps. Identify bottlenecks in
+                    multi-agent orchestration and optimize task parallelism across complex sessions.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-rose">🛡️</div>
+                  <h3>Error Propagation Map</h3>
+                  <p>
+                    Trace how errors cascade across agents and tool calls with a directed graph showing
+                    failure origins, retry paths, and recovery points. Pinpoint root causes in deep
+                    subagent chains and understand which tool failures trigger upstream session aborts.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-emerald">📋</div>
-              <h3>Kanban Board</h3>
-              <p>
-                5-column agent status board (Idle / Connected / Working / Completed / Error) with
-                paginated columns (10 per page) and horizontal scroll on overflow.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-amber">📂</div>
-              <h3>Sessions Table</h3>
-              <p>
-                Searchable, filterable, paginated table of all sessions with color-coded status
-                badges, agent counts, duration, and model info. Filter by active, completed,
-                error, or abandoned status. Click any row to drill into the full session detail.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-violet">🔬</div>
-              <h3>Session Detail</h3>
-              <p>
-                Per-session agent hierarchy tree (parent/child with expand/collapse) and full
-                chronological event timeline with tool names and summaries.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-pink">📰</div>
-              <h3>Activity Feed</h3>
-              <p>
-                Real-time streaming event log showing tool calls, agent state changes, errors,
-                and compaction events as they happen. Pause/resume with buffering, paginated
-                history, and automatic scrolling. Each entry is color-coded by event type.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-cyan">📊</div>
-              <h3>Analytics</h3>
-              <p>
-                Token usage breakdown by model, tool frequency bar charts, agent type distribution,
-                52-week activity heatmap (day-of-week aligned with tooltips), 30-day sparkline
-                trends, session outcome donut charts, and cost summary. Live/offline indicator
-                with auto-refresh.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-blue">⚡</div>
-              <h3>WebSocket Push</h3>
-              <p>
-                All UI updates are pushed over WebSocket with sub-5ms latency — no polling.
-                Automatic 2-second reconnection on disconnect, heartbeat ping/pong for
-                dead-connection detection, and a visual connection indicator in the sidebar
-                so you always know when you're live.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-rose">🖥️</div>
-              <h3>Statusline</h3>
-              <p>
-                Standalone CLI statusline for Claude Code showing model name, user, working
-                directory, git branch, a color-coded context window usage bar (green/yellow/red),
-                and token counts. ANSI-colored output that updates on every turn. Python-based
-                with a shell wrapper for easy integration.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-emerald">🔄</div>
-              <h3>History Import</h3>
-              <p>
-                Automatically imports sessions from <code>~/.claude/</code> on startup with
-                correct timestamps. Deep JSONL extraction captures API errors, per-turn
-                durations, thinking blocks, usage extras, and parses subagent JSONL files for
-                per-subagent model, token, and tool breakdowns. Recently-modified sessions
-                are imported as active so the dashboard reflects real state immediately.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-cyan">💾</div>
-              <h3>Transcript Cache</h3>
-              <p>
-                Stat-based incremental JSONL reader shared across hook handler and compaction
-                scanner. Avoids duplicate I/O with byte-offset reads, bounds memory via LRU
-                eviction, and detects API errors, turn durations, thinking blocks, and usage
-                extras from live transcripts in real-time as sessions progress.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-violet">🌳</div>
-              <h3>Subagent Hierarchy</h3>
-              <p>
-                Collapsible parent-child agent tree on Dashboard and Session Detail. Agents with
-                subagents show expand/collapse chevrons; leaf agents show a dot indicator.
-                Auto-expands when subagents are active. Correctly tracks backgrounded subagents
-                without premature completion.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-amber">💰</div>
-              <h3>Cost Tracking</h3>
-              <p>
-                Per-model cost estimation with configurable pricing rules. View total and per-session
-                cost breakdowns based on input, output, and cache token rates. Compaction-aware token
-                accounting preserves totals across context compressions so no usage is ever lost.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-indigo">⚙️</div>
-              <h3>Settings &amp; Management</h3>
-              <p>
-                Model pricing editor with per-token rate configuration, hook installation status
-                and one-click reinstall, full JSON data export, session cleanup controls (abandon
-                stale sessions, purge old data by age), browser notification preferences with
-                per-event toggles, and a system information dashboard showing DB stats and
-                server health.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-blue">🔌</div>
-              <h3>Local MCP Server</h3>
-              <p>
-                Local MCP sidecar with three transport modes (stdio, HTTP+SSE, interactive REPL),
-                25 typed tools across 6 domains, retry-aware API access, and tiered policy gates
-                for mutation and destructive operations.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-rose">🧩</div>
-              <h3>Claude + Codex Extensions</h3>
-              <p>
-                Comprehensive instruction, skills, rules, and custom-agent layers for both Claude
-                Code and Codex. Includes path-scoped rules for backend, frontend, MCP, and docs,
-                reusable skills for onboarding, feature shipping, debugging, and MCP operations,
-                plus specialized subagents for backend, frontend, and MCP code review.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-teal">🔀</div>
-              <h3>Workflow Graphs</h3>
-              <p>
-                D3.js-powered agent orchestration DAG showing spawn patterns across sessions,
-                tool execution Sankey diagram mapping tool-to-tool transitions, and a directed
-                agent pipeline graph revealing which agent types run after which with frequency labels.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-indigo">📊</div>
-              <h3>Workflow Analytics</h3>
-              <p>
-                Subagent effectiveness scorecards with success rings and day-of-week activity
-                charts. Auto-detected workflow patterns, model delegation flow, error propagation
-                with horizontal bars and API error cards, concurrency swim-lanes, and complexity
-                bubble charts. Status filter (Active/Completed/All) filters all sections.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-cyan">🔍</div>
-              <h3>Session Drill-In</h3>
-              <p>
-                Searchable session selector with pagination to explore any session's agent tree,
-                tool call timeline, and event sequence. Cross-filtering from DAG nodes, compaction
-                impact analysis, JSON export, and real-time WebSocket auto-refresh.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-pink">🔔</div>
-              <h3>Browser Notifications</h3>
-              <p>
-                Native browser notifications for session starts, completions, errors, and subagent
-                spawns — even when the dashboard tab is in the background. Per-event toggles in
-                Settings let you choose exactly which events trigger alerts, with automatic
-                permission management and graceful fallback.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-teal">🐳</div>
-              <h3>Docker Deployment</h3>
-              <p>
-                Ready-to-use Dockerfile and docker-compose.yml for one-command deployment.
-                Supports both Docker and Podman with persistent volume mounts, automatic
-                rebuilds, and configurable port mapping. Run
-                <code>docker compose up -d --build</code> and you're live.
-              </p>
-            </div>
-            <div class="feature-card">
-              <div class="feature-icon ic-violet">🏪</div>
-              <h3>Plugin Marketplace</h3>
-              <p>
-                Official Claude Code plugin marketplace with 5 plugins (18 skills, 4 agents, 3 CLI
-                tools). Deep analytics with compaction baselines, productivity automation, developer
-                diagnostics, AI-powered insights via workflow intelligence, and dashboard MCP
-                integration. Install with <code>claude plugin install</code>.
-              </p>
+            <div class="carousel-controls">
+              <button class="carousel-btn carousel-prev" aria-label="Previous features">‹</button>
+              <div class="carousel-dots" id="carousel-dots"></div>
+              <button class="carousel-btn carousel-next" aria-label="Next features">›</button>
             </div>
           </div>
 
@@ -2828,7 +2902,7 @@ ccam-export all --output backup.json</code></pre>
 
           <p>
             The <code>/settings</code> route provides a comprehensive management interface with
-            five sections:
+            six sections:
           </p>
 
           <div class="feature-grid">
@@ -2845,8 +2919,9 @@ ccam-export all --output backup.json</code></pre>
               <div class="feature-icon ic-emerald">🪝</div>
               <h3>Hook Configuration</h3>
               <p>
-                Shows per-hook installation status (SessionStart, PreToolUse, PostToolUse, Stop, SubagentStop,
-                Notification, SessionEnd). One-click reinstall if hooks are missing or outdated.
+                Shows per-hook installation status (SessionStart, PreToolUse, PostToolUse, Stop,
+                SubagentStop, Notification, SessionEnd). One-click reinstall if hooks are missing
+                or outdated. Validates paths and permissions automatically.
               </p>
             </div>
             <div class="feature-card">
@@ -2855,7 +2930,7 @@ ccam-export all --output backup.json</code></pre>
               <p>
                 View database row counts and size. Session cleanup: abandon stale active sessions
                 after N hours, purge old completed sessions after N days. Danger zone: clear all
-                data with confirmation.
+                data with confirmation dialog to prevent accidental loss.
               </p>
             </div>
             <div class="feature-card">
@@ -2863,15 +2938,26 @@ ccam-export all --output backup.json</code></pre>
               <h3>Data Export</h3>
               <p>
                 Download all sessions, agents, events, token usage, and pricing rules as a single
-                JSON file for backup or analysis.
+                JSON file for backup or analysis. Includes full event history, model metadata,
+                and cost breakdowns in one portable archive.
               </p>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-blue">🖧</div>
               <h3>System Info</h3>
               <p>
-                Server uptime, Node.js version, platform, active WebSocket connections. At-a-glance
-                health monitoring for the dashboard itself.
+                Server uptime, Node.js version, platform, and active WebSocket connections.
+                At-a-glance health monitoring for the dashboard server itself, with database
+                statistics and memory usage displayed in real-time.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon ic-pink">🔔</div>
+              <h3>Notification Preferences</h3>
+              <p>
+                Configure native browser notifications with per-event toggles for session starts,
+                completions, errors, and subagent spawns. Automatic permission management with
+                test-send button and graceful fallback when denied.
               </p>
             </div>
           </div>
@@ -3506,6 +3592,138 @@ npm run install-hooks</code></pre>
 
     <script src="wiki/script.js?v=2"></script>
     <script>
+      /* ─── Feature Carousel ──────────────────────────────────────────────── */
+      (function () {
+        var carousel = document.getElementById("feature-carousel");
+        if (!carousel) return;
+
+        var viewport = carousel.querySelector(".carousel-viewport");
+        var track = carousel.querySelector(".carousel-track");
+        var cards = Array.prototype.slice.call(track.querySelectorAll(".feature-card"));
+        var dotsContainer = document.getElementById("carousel-dots");
+        var prevBtn = carousel.querySelector(".carousel-prev");
+        var nextBtn = carousel.querySelector(".carousel-next");
+
+        var currentPage = 0;
+        var autoInterval = null;
+        var AUTO_DELAY = 4000;
+        var GAP = 12;
+
+        function getPerPage() {
+          var w = viewport.offsetWidth;
+          if (w <= 500) return 1;
+          if (w <= 800) return 2;
+          return 3;
+        }
+
+        function getTotalPages() {
+          return Math.ceil(cards.length / getPerPage());
+        }
+
+        function sizeCards() {
+          var perPage = getPerPage();
+          var vpWidth = viewport.offsetWidth;
+          var cardW = (vpWidth - GAP * (perPage - 1)) / perPage;
+          for (var i = 0; i < cards.length; i++) {
+            cards[i].style.width = cardW + "px";
+            cards[i].style.minWidth = cardW + "px";
+            cards[i].style.marginRight = (i < cards.length - 1) ? GAP + "px" : "0";
+            cards[i].style.marginLeft = "0";
+          }
+        }
+
+        function buildDots() {
+          dotsContainer.innerHTML = "";
+          var total = getTotalPages();
+          for (var i = 0; i < total; i++) {
+            var dot = document.createElement("button");
+            dot.className = "carousel-dot" + (i === currentPage ? " active" : "");
+            dot.setAttribute("aria-label", "Go to page " + (i + 1));
+            dot.dataset.page = i;
+            dot.addEventListener("click", function () {
+              goTo(parseInt(this.dataset.page));
+              resetAuto();
+            });
+            dotsContainer.appendChild(dot);
+          }
+        }
+
+        function updatePosition() {
+          var perPage = getPerPage();
+          var vpWidth = viewport.offsetWidth;
+          var cardW = (vpWidth - GAP * (perPage - 1)) / perPage;
+          var step = cardW + GAP;
+          var offset = currentPage * perPage * step;
+          var maxOffset = track.scrollWidth - vpWidth;
+          if (maxOffset < 0) maxOffset = 0;
+          if (offset > maxOffset) offset = maxOffset;
+          track.style.transform = "translateX(-" + offset + "px)";
+
+          var dots = dotsContainer.querySelectorAll(".carousel-dot");
+          for (var i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle("active", i === currentPage);
+          }
+        }
+
+        function goTo(page) {
+          var total = getTotalPages();
+          currentPage = ((page % total) + total) % total;
+          updatePosition();
+        }
+
+        function next() { goTo(currentPage + 1); }
+        function prev() { goTo(currentPage - 1); }
+
+        function startAuto() {
+          stopAuto();
+          autoInterval = setInterval(next, AUTO_DELAY);
+        }
+        function stopAuto() {
+          if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+        }
+        function resetAuto() { stopAuto(); startAuto(); }
+
+        function layout() {
+          if (currentPage >= getTotalPages()) currentPage = getTotalPages() - 1;
+          if (currentPage < 0) currentPage = 0;
+          sizeCards();
+          buildDots();
+          updatePosition();
+        }
+
+        prevBtn.addEventListener("click", function () { prev(); resetAuto(); });
+        nextBtn.addEventListener("click", function () { next(); resetAuto(); });
+        carousel.addEventListener("mouseenter", stopAuto);
+        carousel.addEventListener("mouseleave", startAuto);
+
+        var touchStartX = 0;
+        carousel.addEventListener("touchstart", function (e) {
+          touchStartX = e.changedTouches[0].screenX;
+          stopAuto();
+        }, { passive: true });
+        carousel.addEventListener("touchend", function (e) {
+          var diff = touchStartX - e.changedTouches[0].screenX;
+          if (Math.abs(diff) > 50) { if (diff > 0) next(); else prev(); }
+          startAuto();
+        }, { passive: true });
+
+        carousel.setAttribute("tabindex", "0");
+        carousel.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowRight") { next(); resetAuto(); }
+          if (e.key === "ArrowLeft") { prev(); resetAuto(); }
+        });
+
+        var resizeTimer;
+        window.addEventListener("resize", function () {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(layout, 100);
+        });
+
+        layout();
+        startAuto();
+      })();
+
+      /* ─── Sidebar Toggle ────────────────────────────────────────────────── */
       (function () {
         const btn = document.getElementById("sidebar-toggle");
         const scrim = document.getElementById("sidebar-scrim");
