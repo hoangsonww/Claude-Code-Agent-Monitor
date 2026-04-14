@@ -1,0 +1,16 @@
+{
+  "brand": "Agent 仪表盘",
+  "brandSub": "Claude Code 监控",
+  "dashboard": "仪表盘",
+  "agentBoard": "代理看板",
+  "sessions": "会话",
+  "activityFeed": "活动流",
+  "analytics": "分析",
+  "workflows": "工作流",
+  "settings": "设置",
+  "expand": "展开侧边栏",
+  "collapse": "收起侧边栏",
+  "collapseShort": "收起",
+  "live": "在线",
+  "disconnected": "已断开"
+}

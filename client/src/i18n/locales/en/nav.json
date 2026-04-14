@@ -1,0 +1,16 @@
+{
+  "brand": "Agent Dashboard",
+  "brandSub": "Claude Code Monitor",
+  "dashboard": "Dashboard",
+  "agentBoard": "Agent Board",
+  "sessions": "Sessions",
+  "activityFeed": "Activity Feed",
+  "analytics": "Analytics",
+  "workflows": "Workflows",
+  "settings": "Settings",
+  "expand": "Expand sidebar",
+  "collapse": "Collapse sidebar",
+  "collapseShort": "Collapse",
+  "live": "Live",
+  "disconnected": "Disconnected"
+}

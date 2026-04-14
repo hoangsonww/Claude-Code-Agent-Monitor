@@ -1,0 +1,9 @@
+{
+  "title": "活动流",
+  "subtitle": "所有代理事件的实时流",
+  "paused": "（已暂停 - 缓冲 {{count}} 条）",
+  "resume": "继续",
+  "pause": "暂停",
+  "noActivity": "暂无活动",
+  "noActivityDesc": "Claude Code 代理工作时，事件将实时流式传输到此处。"
+}

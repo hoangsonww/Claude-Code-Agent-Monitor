@@ -1,0 +1,67 @@
+{
+  "refresh": "刷新",
+  "retry": "重试",
+  "cancel": "取消",
+  "export": "导出",
+  "loading": "加载中...",
+  "noData": "暂无数据",
+  "total": "合计",
+  "active": "活跃",
+  "total_lower": "总计",
+  "subagent": "子代理",
+  "subagents": "子代理",
+  "events": "事件",
+  "event": "事件",
+  "sessions": "个会话",
+  "session": "个会话",
+  "agents": "代理",
+  "agent": "代理",
+  "live": "在线",
+  "offline": "离线",
+  "running": "运行中",
+  "days": "天",
+  "hours": "小时",
+  "updated": "已更新 ",
+  "lastUpdated": "最后更新：",
+  "showMore": "显示更多（剩余 {{count}} 个）",
+  "plusMore": "+{{count}} 更多",
+  "ofSessions": "% 的会话",
+  "status": {
+    "idle": "空闲",
+    "connected": "已连接",
+    "working": "工作中",
+    "completed": "已完成",
+    "error": "错误",
+    "active": "活跃",
+    "abandoned": "已废弃"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "mAgo": "{{count}}分钟前",
+    "hAgo": "{{count}}小时前",
+    "dAgo": "{{count}}天前"
+  },
+  "pagination": {
+    "previous": "上一页",
+    "next": "下一页",
+    "showing": "显示 {{from}}-{{to}}，共 {{total}} 条"
+  },
+  "token": {
+    "input": "输入",
+    "output": "输出",
+    "cacheRead": "缓存读取",
+    "cacheWrite": "缓存写入",
+    "totalTokens": "总 Token 数"
+  },
+  "cost": {
+    "model": "模型",
+    "cost": "费用",
+    "totalCost": "总费用",
+    "totalEstimatedCost": "预估总费用"
+  },
+  "duration": {
+    "h_m": "{{h}}时{{m}}分",
+    "m_s": "{{m}}分{{s}}秒",
+    "s": "{{s}}秒"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "export": "Export",
+  "loading": "Loading...",
+  "noData": "No data",
+  "total": "Total",
+  "active": "active",
+  "total_lower": "total",
+  "subagent": "subagent",
+  "subagents": "subagents",
+  "events": "events",
+  "event": "event",
+  "sessions": "sessions",
+  "session": "session",
+  "agents": "agents",
+  "agent": "agent",
+  "live": "Live",
+  "offline": "Offline",
+  "running": "running",
+  "days": "days",
+  "hours": "hours",
+  "updated": "Updated ",
+  "lastUpdated": "Last updated: ",
+  "showMore": "Show more ({{count}} remaining)",
+  "plusMore": "+{{count}} more",
+  "ofSessions": "% of sessions",
+  "status": {
+    "idle": "Idle",
+    "connected": "Connected",
+    "working": "Working",
+    "completed": "Completed",
+    "error": "Error",
+    "active": "Active",
+    "abandoned": "Abandoned"
+  },
+  "time": {
+    "justNow": "just now",
+    "mAgo": "{{count}}m ago",
+    "hAgo": "{{count}}h ago",
+    "dAgo": "{{count}}d ago"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "showing": "Showing {{from}}-{{to}} of {{total}}"
+  },
+  "token": {
+    "input": "Input",
+    "output": "Output",
+    "cacheRead": "Cache Read",
+    "cacheWrite": "Cache Write",
+    "totalTokens": "Total tokens"
+  },
+  "cost": {
+    "model": "Model",
+    "cost": "Cost",
+    "totalCost": "Total Cost",
+    "totalEstimatedCost": "Total Estimated Cost"
+  },
+  "duration": {
+    "h_m": "{{h}}h {{m}}m",
+    "m_s": "{{m}}m {{s}}s",
+    "s": "{{s}}s"
+  }
+}

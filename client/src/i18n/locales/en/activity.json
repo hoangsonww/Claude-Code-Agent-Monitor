@@ -1,0 +1,9 @@
+{
+  "title": "Activity Feed",
+  "subtitle": "Real-time stream of all agent events",
+  "paused": "(paused - {{count}} buffered)",
+  "resume": "Resume",
+  "pause": "Pause",
+  "noActivity": "No activity yet",
+  "noActivityDesc": "Events will stream here in real-time as Claude Code agents work."
+}

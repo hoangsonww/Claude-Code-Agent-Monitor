@@ -1,0 +1,85 @@
+{
+  "title": "设置",
+  "subtitle": "管理定价、通知、数据和钩子",
+  "exportData": "导出数据",
+  "acrossSessions": "跨所有追踪的会话",
+  "basedOnUsage": "基于每模型 Token 使用量",
+  "pricing": {
+    "title": "模型定价",
+    "description": "每百万 Token 的费率（美元）。在模式中使用 % 作为通配符。",
+    "resetConfirm": "确认重置",
+    "resetDefaults": "恢复默认",
+    "resetResult": "已重置为 {{count}} 条默认规则",
+    "addModel": "添加模型",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "模式和显示名称为必填项",
+    "lastUpdated": "最后更新："
+  },
+  "hooks": {
+    "title": "钩子配置",
+    "description": "Claude Code 钩子将事件实时转发到仪表盘。",
+    "allInstalled": "所有钩子已安装",
+    "incomplete": "钩子不完整",
+    "reinstall": "重新安装钩子",
+    "success": "钩子安装成功",
+    "failed": "钩子安装失败"
+  },
+  "notifications": {
+    "title": "通知",
+    "description": "重要事件的浏览器通知。需要授权。",
+    "enable": "启用浏览器通知",
+    "granted": "已授权",
+    "blocked": "已阻止",
+    "required": "需要授权",
+    "notifyWhen": "通知我当...",
+    "newSession": "新会话开始",
+    "sessionComplete": "会话完成",
+    "sessionError": "会话出错",
+    "subagentSpawned": "子代理生成",
+    "testTitle": "Agent 监控",
+    "testBody": "通知功能正常！",
+    "sendTest": "发送测试通知",
+    "disabledInfo": "通知已禁用 - 启用以获取会话事件提醒"
+  },
+  "data": {
+    "title": "数据管理",
+    "description": "数据库信息、导入/导出和清理。",
+    "dbOverview": "数据库概览",
+    "dbSize": "数据库大小",
+    "loadingDb": "正在加载数据库信息...",
+    "sessionCleanup": "会话清理",
+    "cleanupDesc": "废弃过期会话并清除旧数据",
+    "abandonAfter": "废弃超过以下时间的活跃会话",
+    "purgeAfter": "清除超过以下时间的已完成/错误会话",
+    "confirmCleanup": "确认清理",
+    "runCleanup": "执行清理",
+    "nothingToClean": "无需清理",
+    "abandonedResult": " 个会话已废弃",
+    "purgedResult": " 个会话已清除（{{events}} 个事件，{{agents}} 个代理）"
+  },
+  "danger": {
+    "title": "危险操作",
+    "description": "不可逆操作，将永久删除数据",
+    "warning": "这将删除所有会话、代理、事件和 Token 数据。确定要继续吗？",
+    "yesClearAll": "是的，清除所有数据",
+    "clearAllData": "清除所有数据",
+    "clearedResult": "已清除 {{count}} 行"
+  },
+  "about": {
+    "title": "关于",
+    "description": "服务器运行时信息。",
+    "uptime": "运行时间",
+    "nodejs": "Node.js",
+    "platform": "平台",
+    "wsClients": "WebSocket 客户端",
+    "loadingInfo": "正在加载服务器信息..."
+  },
+  "tables": {
+    "sessions": "个会话",
+    "agents": "个代理",
+    "events": "个事件",
+    "sessionsWithCost": "个有费用的会话",
+    "pricingRules": "条定价规则"
+  }
+}

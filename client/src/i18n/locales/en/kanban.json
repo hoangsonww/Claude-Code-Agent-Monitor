@@ -1,0 +1,10 @@
+{
+  "title": "Agent Board",
+  "subtitle": "Kanban view of all agents by status",
+  "noAgents": "No agents tracked yet",
+  "noAgentsDesc": "Start a Claude Code session with hooks installed to see agents appear here.",
+  "agentCount": "{{count}} agent tracked",
+  "agentCount_plural": "{{count}} agents tracked",
+  "noAgentsInColumn": "No agents",
+  "ran": "ran "
+}

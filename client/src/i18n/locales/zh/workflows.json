@@ -1,0 +1,156 @@
+{
+  "title": "工作流",
+  "subtitle": "代理编排智能分析",
+  "failedLoad": "工作流数据加载失败",
+  "filteredBy": "筛选：",
+  "clearFilter": "清除筛选",
+  "refreshData": "刷新数据",
+  "exportJson": "导出 JSON",
+  "allSessions": "所有会话",
+  "activeOnly": "仅活跃",
+  "completed": "已完成",
+  "stats": {
+    "avgAgentDepth": "平均代理深度",
+    "avgSubagentsPerSession": "每会话平均子代理数",
+    "agentSuccessRate": "代理成功率",
+    "mostCommonFlow": "最常见流程",
+    "avgCompactions": "平均压缩次数",
+    "avgDuration": "平均时长"
+  },
+  "orchestration": {
+    "title": "代理编排图",
+    "subtitle": "跨所有会话的聚合生成模式 - 点击节点筛选",
+    "sessions": "会话",
+    "mainAgent": "主代理",
+    "compactions": "压缩",
+    "noData": "暂无编排数据",
+    "noDataDesc": "当记录了包含子代理的会话后，代理生成数据将显示在此处。",
+    "legend": "图例",
+    "edgeWeight": "边权重 = 频率",
+    "count": "计数",
+    "layers": {
+      "origin": "起点",
+      "mainAgent": "主代理",
+      "subagentTypes": "子代理类型",
+      "compactions": "压缩",
+      "outcomes": "结果"
+    }
+  },
+  "toolFlow": {
+    "title": "工具执行流",
+    "subtitle": "工具如何串联 - 桑基图风格的有向流",
+    "noData": "暂无工具流数据"
+  },
+  "pipeline": {
+    "title": "代理管道图",
+    "subtitle": "有向工作流 - 哪些代理类型在哪些之后运行，带频率标签",
+    "noData": "暂无管道数据",
+    "noDataDesc": "当代理类型在多个会话中按顺序运行时，有向工作流边将显示在此处。",
+    "legend": "图例",
+    "legendDesc": "A 在 B 之前运行（标注计数）",
+    "frequency": "频率",
+    "meaning": "含义",
+    "times": " 次",
+    "ranAfter": " 在 ",
+    "spawns": " 次生成"
+  },
+  "effectiveness": {
+    "title": "子代理效能",
+    "subtitle": "每种代理类型的性能指标",
+    "success": "成功",
+    "sessions": "会话",
+    "avgDuration": "平均时长",
+    "weeklyActivity": "每周活动",
+    "noData": "暂无子代理数据"
+  },
+  "patterns": {
+    "title": "检测到的工作流模式",
+    "subtitle": "常见的代理编排序列",
+    "noData": "尚未检测到模式",
+    "noDataDesc": "当多个会话共享相同的代理序列时，模式将显示在此处。",
+    "solo": "独立（无子代理）",
+    "label": "工作流模式"
+  },
+  "modelDelegation": {
+    "title": "模型委派流",
+    "subtitle": "模型如何在代理层级中路由",
+    "mainModels": "主模型",
+    "subagentModels": "子代理模型",
+    "noData": "暂无模型委派数据"
+  },
+  "errorPropagation": {
+    "title": "错误传播图",
+    "subtitle": "错误在代理层级深度中的聚集位置",
+    "noErrors": "未记录错误",
+    "allSuccess": "所有会话均已成功完成",
+    "sessionsHadErrors": " 个会话存在错误",
+    "agentErrors": " 个代理级别错误（跨层级）",
+    "sessionErrorsOnly": "仅会话级别错误",
+    "errorsByDepth": "按层级深度的错误",
+    "errorProneTypes": "易出错的代理类型",
+    "apiSessionErrors": "API 和会话错误",
+    "depthLabels": {
+      "sessionMain": "会话 / 主代理",
+      "directSubagent": "直接子代理",
+      "nested": "嵌套（深度 2）",
+      "deep": "深层（深度 3+）"
+    }
+  },
+  "concurrency": {
+    "title": "代理并发时间线",
+    "subtitle": "并行代理执行模式 - 显示代理如何时间重叠",
+    "noData": "暂无并发数据",
+    "noDataDesc": "当记录了包含子代理的会话后，并发数据将显示在此处。",
+    "sessions": "会话",
+    "timing": "时间",
+    "max": " 最大"
+  },
+  "complexity": {
+    "title": "会话复杂度散点图",
+    "subtitle": "时长 vs 代理数 vs Token - 气泡大小 = Token 用量",
+    "noData": "暂无会话复杂度数据",
+    "noDataDesc": "当包含代理活动的会话完成后，将显示在此处。",
+    "duration": "时长",
+    "agentCount": "代理数",
+    "tooltip": {
+      "duration": "时长：",
+      "agents": "代理：",
+      "subagents": "子代理：",
+      "tokens": "Token：",
+      "model": "模型："
+    }
+  },
+  "compaction": {
+    "title": "压缩影响分析",
+    "subtitle": "上下文压缩事件和 Token 恢复",
+    "noData": "未记录压缩",
+    "totalCompactions": "总压缩次数",
+    "tokensRecovered": "恢复的 Token 数",
+    "distribution": "跨会话的压缩分布",
+    "hadCompactions": " 个会话（{{pct}}%）存在压缩"
+  },
+  "drillIn": {
+    "title": "会话深入分析",
+    "subtitle": "从散点图选择会话或使用下拉菜单探索",
+    "searchPlaceholder": "搜索会话...",
+    "noSessionSelected": "未选择会话",
+    "noSessionDesc": "在上方搜索并选择会话，或点击散点图中的气泡，以深入查看其代理树、工具时间线和事件序列。",
+    "failedLoad": "会话加载失败",
+    "loading": "加载中...",
+    "loadMore": "加载更多",
+    "noMatch": "没有匹配的会话。",
+    "notFound": "未找到会话。",
+    "unknownModel": "未知模型",
+    "tabs": {
+      "agentTree": "代理树",
+      "toolTimeline": "工具时间线",
+      "eventSequence": "事件序列"
+    },
+    "noAgentTree": "暂无代理树数据。",
+    "noToolEvents": "暂无工具事件记录。",
+    "noEvents": "暂无此会话的事件记录。",
+    "showingOf": "显示 100/{{total}} 条事件",
+    "sessionInfo": " 个会话 - 占会话时长的 {{from}}%-{{to}}%",
+    "sortedByCompaction": " 个会话（按压缩次数排序）"
+  }
+}

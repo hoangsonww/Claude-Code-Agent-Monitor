@@ -1,0 +1,85 @@
+{
+  "title": "Settings",
+  "subtitle": "Manage pricing, notifications, data, and hooks",
+  "exportData": "Export Data",
+  "acrossSessions": "Across all tracked sessions",
+  "basedOnUsage": "Based on per-model token usage",
+  "pricing": {
+    "title": "Model Pricing",
+    "description": "Rates per million tokens (USD). Use % as wildcard in patterns.",
+    "resetConfirm": "Confirm Reset",
+    "resetDefaults": "Reset Defaults",
+    "resetResult": "Reset to {{count}} default rules",
+    "addModel": "Add Model",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "Pattern and display name are required",
+    "lastUpdated": "Last updated: "
+  },
+  "hooks": {
+    "title": "Hook Configuration",
+    "description": "Claude Code hooks forward events to the dashboard in real time.",
+    "allInstalled": "All hooks installed",
+    "incomplete": "Hooks incomplete",
+    "reinstall": "Reinstall Hooks",
+    "success": "Hooks installed successfully",
+    "failed": "Hook installation failed"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "description": "Browser notifications for important events. Requires permission.",
+    "enable": "Enable Browser Notifications",
+    "granted": "Permission granted",
+    "blocked": "Permission blocked",
+    "required": "Permission required",
+    "notifyWhen": "Notify me when...",
+    "newSession": "New session starts",
+    "sessionComplete": "Session completes",
+    "sessionError": "Session errors",
+    "subagentSpawned": "Subagent spawned",
+    "testTitle": "Agent Monitor",
+    "testBody": "Notifications are working!",
+    "sendTest": "Send Test Notification",
+    "disabledInfo": "Notifications are disabled - enable to get alerts for session events"
+  },
+  "data": {
+    "title": "Data Management",
+    "description": "Database info, import/export, and cleanup.",
+    "dbOverview": "Database Overview",
+    "dbSize": "DB Size",
+    "loadingDb": "Loading database info...",
+    "sessionCleanup": "Session Cleanup",
+    "cleanupDesc": "Abandon stale sessions and purge old data",
+    "abandonAfter": "Abandon stale active sessions older than",
+    "purgeAfter": "Purge completed/errored sessions older than",
+    "confirmCleanup": "Confirm Cleanup",
+    "runCleanup": "Run Cleanup",
+    "nothingToClean": "Nothing to clean up",
+    "abandonedResult": " sessions abandoned",
+    "purgedResult": " sessions purged ({{events}} events, {{agents}} agents)"
+  },
+  "danger": {
+    "title": "Danger Zone",
+    "description": "Irreversible actions that delete data permanently",
+    "warning": "This will delete all sessions, agents, events, and token data. Are you sure?",
+    "yesClearAll": "Yes, Clear All",
+    "clearAllData": "Clear All Data",
+    "clearedResult": "Cleared {{count}} rows"
+  },
+  "about": {
+    "title": "About",
+    "description": "Server runtime information.",
+    "uptime": "Uptime",
+    "nodejs": "Node.js",
+    "platform": "Platform",
+    "wsClients": "WS Clients",
+    "loadingInfo": "Loading server info..."
+  },
+  "tables": {
+    "sessions": "sessions",
+    "agents": "agents",
+    "events": "events",
+    "sessionsWithCost": "sessions with cost",
+    "pricingRules": "pricing rules"
+  }
+}

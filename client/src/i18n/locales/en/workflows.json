@@ -1,0 +1,156 @@
+{
+  "title": "Workflows",
+  "subtitle": "Agent orchestration intelligence",
+  "failedLoad": "Failed to load workflow data",
+  "filteredBy": "Filtered by:",
+  "clearFilter": "Clear filter",
+  "refreshData": "Refresh data",
+  "exportJson": "Export as JSON",
+  "allSessions": "All Sessions",
+  "activeOnly": "Active Only",
+  "completed": "Completed",
+  "stats": {
+    "avgAgentDepth": "Avg Agent Depth",
+    "avgSubagentsPerSession": "Avg Subagents / Session",
+    "agentSuccessRate": "Agent Success Rate",
+    "mostCommonFlow": "Most Common Flow",
+    "avgCompactions": "Avg Compactions",
+    "avgDuration": "Avg Duration"
+  },
+  "orchestration": {
+    "title": "Agent Orchestration Graph",
+    "subtitle": "Aggregate spawning patterns across all sessions - Click a node to filter",
+    "sessions": "Sessions",
+    "mainAgent": "Main Agent",
+    "compactions": "Compactions",
+    "noData": "No orchestration data",
+    "noDataDesc": "Agent spawning data will appear here once sessions with subagents have been recorded.",
+    "legend": "Legend",
+    "edgeWeight": "Edge weight = frequency",
+    "count": "Count",
+    "layers": {
+      "origin": "Origin",
+      "mainAgent": "Main Agent",
+      "subagentTypes": "Subagent Types",
+      "compactions": "Compactions",
+      "outcomes": "Outcomes"
+    }
+  },
+  "toolFlow": {
+    "title": "Tool Execution Flow",
+    "subtitle": "How tools chain together - Sankey-style directed flow",
+    "noData": "No tool flow data"
+  },
+  "pipeline": {
+    "title": "Agent Pipeline Graph",
+    "subtitle": "Directed workflow - which agent types run after which, with frequency labels",
+    "noData": "No pipeline data yet",
+    "noDataDesc": "Directed workflow edges appear once agent types run sequentially across multiple sessions.",
+    "legend": "Legend",
+    "legendDesc": "A runs before B (labeled count)",
+    "frequency": "Frequency",
+    "meaning": "Meaning",
+    "times": " times",
+    "ranAfter": " ran after ",
+    "spawns": " spawns"
+  },
+  "effectiveness": {
+    "title": "Subagent Effectiveness",
+    "subtitle": "Performance metrics per agent type",
+    "success": "Success",
+    "sessions": "Sessions",
+    "avgDuration": "Avg Duration",
+    "weeklyActivity": "Weekly activity",
+    "noData": "No subagent data available"
+  },
+  "patterns": {
+    "title": "Detected Workflow Patterns",
+    "subtitle": "Common agent orchestration sequences",
+    "noData": "No patterns detected yet",
+    "noDataDesc": "Patterns appear once multiple sessions share the same agent sequence.",
+    "solo": "solo (no subagents)",
+    "label": "Workflow Patterns"
+  },
+  "modelDelegation": {
+    "title": "Model Delegation Flow",
+    "subtitle": "How models route through agent hierarchies",
+    "mainModels": "MAIN MODELS",
+    "subagentModels": "SUBAGENT MODELS",
+    "noData": "No model delegation data available"
+  },
+  "errorPropagation": {
+    "title": "Error Propagation Map",
+    "subtitle": "Where errors cluster in agent hierarchy depth",
+    "noErrors": "No errors recorded",
+    "allSuccess": "All sessions completed successfully",
+    "sessionsHadErrors": " sessions had errors",
+    "agentErrors": " agent-level error(s) across hierarchy",
+    "sessionErrorsOnly": "Session-level errors only",
+    "errorsByDepth": "Errors by hierarchy depth",
+    "errorProneTypes": "Error-prone agent types",
+    "apiSessionErrors": "API & session errors",
+    "depthLabels": {
+      "sessionMain": "Session / Main",
+      "directSubagent": "Direct Subagent",
+      "nested": "Nested (depth 2)",
+      "deep": "Deep (depth 3+)"
+    }
+  },
+  "concurrency": {
+    "title": "Agent Concurrency Timeline",
+    "subtitle": "Parallel agent execution patterns - Shows how agents overlap in time",
+    "noData": "No concurrency data",
+    "noDataDesc": "Concurrency data appears once sessions with subagents have been recorded.",
+    "sessions": "Sessions",
+    "timing": "Timing",
+    "max": " max"
+  },
+  "complexity": {
+    "title": "Session Complexity Scatter",
+    "subtitle": "Duration vs agent count vs tokens - Bubble size = token usage",
+    "noData": "No session complexity data",
+    "noDataDesc": "Sessions will appear here once they complete with agent activity.",
+    "duration": "Duration",
+    "agentCount": "Agent Count",
+    "tooltip": {
+      "duration": "Duration:",
+      "agents": "Agents:",
+      "subagents": "Subagents:",
+      "tokens": "Tokens:",
+      "model": "Model:"
+    }
+  },
+  "compaction": {
+    "title": "Compaction Impact Analysis",
+    "subtitle": "Context compression events and token recovery",
+    "noData": "No compactions recorded",
+    "totalCompactions": "Total Compactions",
+    "tokensRecovered": "Tokens Recovered",
+    "distribution": "Compaction distribution across sessions",
+    "hadCompactions": " sessions ({{pct}}%) had compactions"
+  },
+  "drillIn": {
+    "title": "Session Drill-In",
+    "subtitle": "Select a session from the scatter plot or use the dropdown to explore",
+    "searchPlaceholder": "Search sessions...",
+    "noSessionSelected": "No session selected",
+    "noSessionDesc": "Search and select a session above, or click a bubble in the scatter plot, to drill into its agent tree, tool timeline, and event sequence.",
+    "failedLoad": "Failed to load session",
+    "loading": "Loading...",
+    "loadMore": "Load more",
+    "noMatch": "No sessions match your search.",
+    "notFound": "No sessions found.",
+    "unknownModel": "unknown model",
+    "tabs": {
+      "agentTree": "Agent Tree",
+      "toolTimeline": "Tool Timeline",
+      "eventSequence": "Event Sequence"
+    },
+    "noAgentTree": "No agent tree data available.",
+    "noToolEvents": "No tool events recorded.",
+    "noEvents": "No events recorded for this session.",
+    "showingOf": "Showing 100 of {{total}} events",
+    "sessionInfo": " session(s) - active {{from}}%-{{to}}% of session",
+    "sortedByCompaction": " session(s) (sorted by compaction count)"
+  }
+}

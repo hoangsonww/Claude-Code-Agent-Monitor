@@ -1,0 +1,22 @@
+{
+  "title": "仪表盘",
+  "subtitle": "Claude Code 代理活动实时概览",
+  "totalSessions": "总会话数",
+  "activeAgents": "活跃代理",
+  "activeSubagents": "活跃子代理",
+  "eventsToday": "今日事件",
+  "totalEvents": "总事件数",
+  "totalCost": "总费用",
+  "viewBoard": "查看看板",
+  "viewAll": "查看全部",
+  "activeAgentsSection": "活跃代理",
+  "recentActivity": "最近活动",
+  "noAgents": "暂无活跃代理",
+  "noAgentsDesc": "当 Claude Code 会话运行时，代理将显示在此处。",
+  "noActivity": "暂无活动",
+  "noActivityDesc": "来自 Claude Code 会话的事件将实时流式传输到此处。",
+  "failedConnect": "无法连接到服务器",
+  "failedLoad": "数据加载失败",
+  "activeTrend": " 活跃",
+  "totalTrend": " 总计"
+}
