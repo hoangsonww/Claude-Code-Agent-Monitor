@@ -10,6 +10,8 @@
   "total_lower": "总计",
   "subagent": "子代理",
   "subagents": "子代理",
+  "subagent_label_one": "{{count}} 个子代理",
+  "subagent_label_other": "{{count}} 个子代理",
   "events": "事件",
   "event": "事件",
   "sessions": "个会话",

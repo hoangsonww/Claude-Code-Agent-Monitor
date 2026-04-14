@@ -242,7 +242,7 @@ export function SessionDetail() {
                         onClick={() => setExpandedAgents((prev) => new Set([...prev, agent.id]))}
                         className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
                       >
-                        {totalDesc} {t("common:subagent", { count: totalDesc })}
+                        {t("common:subagent_label", { count: totalDesc })}
                       </button>
                     )}
                   </div>

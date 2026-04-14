@@ -10,6 +10,8 @@
   "total_lower": "total",
   "subagent": "subagent",
   "subagents": "subagents",
+  "subagent_label_one": "{{count}} subagent",
+  "subagent_label_other": "{{count}} subagents",
   "events": "events",
   "event": "event",
   "sessions": "sessions",
