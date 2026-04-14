@@ -77,15 +77,27 @@ function Tooltip({ state }: { state: TooltipState }) {
         {state.item.name ?? state.item.id.slice(0, 12)}
       </p>
       <div className="flex flex-col gap-0.5 text-gray-400">
-        <span>{t("complexity.tooltip.duration")} {formatDurationSec(state.item.duration)}</span>
-        <span>{t("complexity.tooltip.agents")} {state.item.agentCount}</span>
-        <span>{t("complexity.tooltip.subagents")} {state.item.subagentCount}</span>
-        <span>{t("complexity.tooltip.tokens")} {fmtTokens(state.item.totalTokens)}</span>
-        {state.item.model && <span>{t("complexity.tooltip.model")} {state.item.model}</span>}
+        <span>
+          {t("complexity.tooltip.duration")} {formatDurationSec(state.item.duration)}
+        </span>
+        <span>
+          {t("complexity.tooltip.agents")} {state.item.agentCount}
+        </span>
+        <span>
+          {t("complexity.tooltip.subagents")} {state.item.subagentCount}
+        </span>
+        <span>
+          {t("complexity.tooltip.tokens")} {fmtTokens(state.item.totalTokens)}
+        </span>
+        {state.item.model && (
+          <span>
+            {t("complexity.tooltip.model")} {state.item.model}
+          </span>
+        )}
       </div>
       <div className="mt-1 pt-1 border-t border-[#2a2a4a]">
         <span className="font-medium" style={{ color: statusColor(state.item.status) }}>
-          {state.item.status}
+          {t(`common:status.${state.item.status}`, { defaultValue: state.item.status })}
         </span>
       </div>
     </div>
@@ -97,6 +109,7 @@ function Tooltip({ state }: { state: TooltipState }) {
 const LEGEND_STATUSES = ["completed", "active", "error", "abandoned"] as const;
 
 function Legend() {
+  const { t } = useTranslation("workflows");
   return (
     <div className="flex flex-wrap items-center gap-4 justify-center mt-2">
       {LEGEND_STATUSES.map((s) => (
@@ -105,7 +118,9 @@ function Legend() {
             className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: statusColor(s) }}
           />
-          <span className="text-xs text-gray-500 capitalize">{s}</span>
+          <span className="text-xs text-gray-500">
+            {t(`common:status.${s}`, { defaultValue: s })}
+          </span>
         </div>
       ))}
     </div>
@@ -132,9 +147,7 @@ function EmptyState() {
         </svg>
       </div>
       <p className="text-sm font-medium text-gray-400">{t("complexity.noData")}</p>
-      <p className="text-xs text-gray-600 mt-1">
-        {t("complexity.noDataDesc")}
-      </p>
+      <p className="text-xs text-gray-600 mt-1">{t("complexity.noDataDesc")}</p>
     </div>
   );
 }
@@ -317,7 +330,7 @@ export function SessionComplexityScatter({ data, onSessionClick }: SessionComple
         ref={svgRef}
         width={width}
         height={height}
-        aria-label="Session complexity scatter plot"
+        aria-label={t("complexity.ariaLabel")}
         role="img"
       />
       <Legend />

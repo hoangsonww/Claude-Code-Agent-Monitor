@@ -23,12 +23,6 @@ type AgentNode = SessionDrillInData["tree"][number];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function durationLabel(startedAt: string, endedAt: string | null): string {
-  if (!endedAt) return "running";
-  const ms = new Date(endedAt + "Z").getTime() - new Date(startedAt + "Z").getTime();
-  return formatMs(ms >= 0 ? ms : 0);
-}
-
 function statusColor(status: string): string {
   switch (status) {
     case "completed":
@@ -65,9 +59,21 @@ interface TabBarProps {
 function TabBar({ active, onChange }: TabBarProps) {
   const { t } = useTranslation("workflows");
   const tabs = [
-    { id: "tree" as Tab, label: t("drillIn.tabs.agentTree"), icon: <GitFork className="w-3.5 h-3.5" /> },
-    { id: "timeline" as Tab, label: t("drillIn.tabs.toolTimeline"), icon: <Wrench className="w-3.5 h-3.5" /> },
-    { id: "events" as Tab, label: t("drillIn.tabs.eventSequence"), icon: <List className="w-3.5 h-3.5" /> },
+    {
+      id: "tree" as Tab,
+      label: t("drillIn.tabs.agentTree"),
+      icon: <GitFork className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "timeline" as Tab,
+      label: t("drillIn.tabs.toolTimeline"),
+      icon: <Wrench className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "events" as Tab,
+      label: t("drillIn.tabs.eventSequence"),
+      icon: <List className="w-3.5 h-3.5" />,
+    },
   ];
   return (
     <div className="flex gap-1 p-1 bg-surface-3 rounded-lg">
@@ -99,10 +105,19 @@ interface TreeNodeProps {
 }
 
 function TreeNode({ node, depth }: TreeNodeProps) {
+  const { t } = useTranslation(["workflows", "common"]);
   const indentPx = depth * 20;
   const isMain = node.type === "main";
-  const dur = durationLabel(node.started_at, node.ended_at);
+  const dur = node.ended_at
+    ? formatMs(
+        Math.max(
+          0,
+          new Date(node.ended_at + "Z").getTime() - new Date(node.started_at + "Z").getTime()
+        )
+      )
+    : t("common:running");
   const sc = statusColor(node.status);
+  const statusLabel = t(`common:status.${node.status}`, { defaultValue: node.status });
 
   return (
     <div>
@@ -117,7 +132,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
         <span
           className={`flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${sc}`}
         >
-          {node.status}
+          {statusLabel}
         </span>
 
         {/* Name */}
@@ -233,9 +248,7 @@ function eventTypeColor(type: string): string {
 function EventSequence({ events }: EventSequenceProps) {
   const { t } = useTranslation("workflows");
   if (events.length === 0) {
-    return (
-      <p className="text-sm text-gray-500 text-center py-8">{t("drillIn.noEvents")}</p>
-    );
+    return <p className="text-sm text-gray-500 text-center py-8">{t("drillIn.noEvents")}</p>;
   }
 
   const recent = events.slice(0, 100);
@@ -315,9 +328,21 @@ interface NoSessionStateProps {
 function NoSessionState({ onSelectSession }: NoSessionStateProps) {
   const { t } = useTranslation("workflows");
   const tabs = [
-    { id: "tree" as Tab, label: t("drillIn.tabs.agentTree"), icon: <GitFork className="w-3.5 h-3.5" /> },
-    { id: "timeline" as Tab, label: t("drillIn.tabs.toolTimeline"), icon: <Wrench className="w-3.5 h-3.5" /> },
-    { id: "events" as Tab, label: t("drillIn.tabs.eventSequence"), icon: <List className="w-3.5 h-3.5" /> },
+    {
+      id: "tree" as Tab,
+      label: t("drillIn.tabs.agentTree"),
+      icon: <GitFork className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "timeline" as Tab,
+      label: t("drillIn.tabs.toolTimeline"),
+      icon: <Wrench className="w-3.5 h-3.5" />,
+    },
+    {
+      id: "events" as Tab,
+      label: t("drillIn.tabs.eventSequence"),
+      icon: <List className="w-3.5 h-3.5" />,
+    },
   ];
   return (
     <div className="flex flex-col py-6 px-4 border-2 border-dashed border-border rounded-xl">
@@ -328,9 +353,7 @@ function NoSessionState({ onSelectSession }: NoSessionStateProps) {
           <GitFork className="w-5 h-5 text-gray-600" />
         </div>
         <p className="text-sm font-medium text-gray-400 mb-1">{t("drillIn.noSessionSelected")}</p>
-        <p className="text-xs text-gray-600 max-w-xs">
-          {t("drillIn.noSessionDesc")}
-        </p>
+        <p className="text-xs text-gray-600 max-w-xs">{t("drillIn.noSessionDesc")}</p>
 
         {/* Preview tab pills */}
         <div className="flex gap-2 mt-5">
@@ -370,7 +393,8 @@ function SessionHeader({ drillIn, onClose, activeTab, onTabChange }: SessionHead
             {session.name ?? session.id}
           </p>
           <p className="text-xs text-gray-500 mt-0.5 truncate">
-            {session.model ?? t("drillIn.unknownModel")} &middot; {session.status}
+            {session.model ?? t("drillIn.unknownModel")} &middot;{" "}
+            {t(`common:status.${session.status}`, { defaultValue: session.status })}
             {session.started_at && ` \u00b7 ${safeTimestamp(session.started_at)}`}
           </p>
         </div>
@@ -378,7 +402,7 @@ function SessionHeader({ drillIn, onClose, activeTab, onTabChange }: SessionHead
           type="button"
           onClick={onClose}
           className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-colors"
-          aria-label="Close drill-in panel"
+          aria-label={t("drillIn.closePanel")}
         >
           <X className="w-4 h-4" />
         </button>
@@ -598,6 +622,7 @@ export interface SessionDrillInProps {
 }
 
 export function SessionDrillIn({ sessionId, onClose, onSelectSession }: SessionDrillInProps) {
+  const { t } = useTranslation(["workflows", "common"]);
   const [activeTab, setActiveTab] = useState<Tab>("tree");
   const [drillIn, setDrillIn] = useState<SessionDrillInData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -625,7 +650,7 @@ export function SessionDrillIn({ sessionId, onClose, onSelectSession }: SessionD
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          const msg = err instanceof Error ? err.message : "Unexpected error";
+          const msg = err instanceof Error ? err.message : t("common:unexpectedError");
           setError(msg);
         }
       })
@@ -636,7 +661,7 @@ export function SessionDrillIn({ sessionId, onClose, onSelectSession }: SessionD
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, t]);
 
   // No session selected
   if (!sessionId) {
@@ -662,7 +687,7 @@ export function SessionDrillIn({ sessionId, onClose, onSelectSession }: SessionD
             type="button"
             onClick={onClose}
             className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:text-gray-300 hover:bg-white/10 transition-colors"
-            aria-label="Close"
+            aria-label={t("drillIn.close")}
           >
             <X className="w-3.5 h-3.5" />
           </button>

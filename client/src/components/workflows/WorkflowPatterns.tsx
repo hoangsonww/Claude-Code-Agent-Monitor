@@ -36,6 +36,7 @@ function StepPill({ label }: { label: string }) {
 }
 
 function StepFlow({ steps }: { steps: string[] }) {
+  const { t } = useTranslation("workflows");
   const visible = steps.slice(0, MAX_VISIBLE_STEPS);
   const overflow = steps.length - MAX_VISIBLE_STEPS;
 
@@ -51,7 +52,7 @@ function StepFlow({ steps }: { steps: string[] }) {
       ))}
       {overflow > 0 && (
         <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-gray-700/50 text-gray-400 border border-gray-600/20 whitespace-nowrap">
-          +{overflow} more
+          {t("common:plusMore", { count: overflow })}
         </span>
       )}
     </div>
@@ -63,7 +64,9 @@ function PatternFrequency({ count, percentage }: { count: number; percentage: nu
   return (
     <div className="flex-shrink-0 text-right">
       <p className="text-sm font-semibold text-gray-100">{count.toLocaleString()}</p>
-      <p className="text-xs text-gray-500">{percentage.toFixed(1)}% {t("common:ofSessions", { defaultValue: "of sessions" })}</p>
+      <p className="text-xs text-gray-500">
+        {percentage.toFixed(1)}% {t("common:ofSessions", { defaultValue: "of sessions" })}
+      </p>
     </div>
   );
 }
@@ -123,7 +126,9 @@ function SoloSessionItem({ count, percentage }: { count: number; percentage: num
       </div>
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-semibold text-gray-100">{count.toLocaleString()}</p>
-        <p className="text-xs text-gray-500">{percentage.toFixed(1)}% {t("common:ofSessions", { defaultValue: "of sessions" })}</p>
+        <p className="text-xs text-gray-500">
+          {percentage.toFixed(1)}% {t("common:ofSessions", { defaultValue: "of sessions" })}
+        </p>
       </div>
     </div>
   );
@@ -137,9 +142,7 @@ function EmptyPatterns() {
         <Zap className="w-5 h-5 text-gray-600" />
       </div>
       <p className="text-sm font-medium text-gray-400">{t("patterns.noData")}</p>
-      <p className="text-xs text-gray-600 mt-1">
-        {t("patterns.noDataDesc")}
-      </p>
+      <p className="text-xs text-gray-600 mt-1">{t("patterns.noDataDesc")}</p>
     </div>
   );
 }

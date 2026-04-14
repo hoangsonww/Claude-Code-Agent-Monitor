@@ -18,6 +18,9 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-3.0-85EA2D?style=flat-square&logo=swagger&logoColor=white)
+![i18next](https://img.shields.io/badge/i18next-22.4-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![i18next Language Detector](https://img.shields.io/badge/i18next_Language_Detector-6.1-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![Mermaid](https://img.shields.io/badge/Mermaid-10.2-ff3333?style=flat-square&logo=mermaid&logoColor=white)
 ![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
@@ -49,11 +52,15 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-pipelines-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
+> [!TIP]
+> See also: [README-CN.md](./README-CN.md) (中文版本) and [README-VI.md](./README-VI.md) (Phiên bản tiếng Việt) for localized documentation with region-specific tips and best practices.
+
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Internationalization (i18n)](#internationalization-i18n)
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [How It Works](#how-it-works)
@@ -91,6 +98,21 @@ graph LR
     style C fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
     style D fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+### Internationalization (i18n)
+
+The UI ships with built-in locale switching for English (`en`), Chinese (`zh`), and Vietnamese (`vi`). Language resources are loaded by namespace and persisted through browser storage for stable user preference across refreshes.
+
+```mermaid
+flowchart LR
+    A["User selects language<br/>en / zh / vi"] --> B["i18next detector<br/>localStorage -> navigator"]
+    B --> C["Resolved language<br/>fallback: en"]
+    C --> D["Namespace resources<br/>common/nav/dashboard/..."]
+    D --> E["React useTranslation hooks"]
+    E --> F["Localized UI + accessibility labels"]
+```
+
+For full architecture and operational guidance, see [docs/I18N.md](./docs/I18N.md).
 
 In addition to the real-time monitoring dashboard, it also includes a local MCP server implementation in `mcp/` that exposes a catalog of tools for introspecting and managing the dashboard itself, making it easy to integrate dashboard operations directly into your Claude Code workflows. There is also an agent extension layer, which provides Claude Code plugins, skills, and subagents for dashboard interaction, analytics, and workflow intelligence.
 
@@ -169,6 +191,7 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | **Subsessions/Resumed Sessions**   | Automatically reactivates sessions when new events arrive, correctly handles `/resume` and orphaned sessions. Periodic sweep (every 2 min) marks abandoned sessions that slip past event-based detection                                                                     |
 | **Pre-Existing Session Detection** | Sessions already running when the server starts are imported as "active" (based on recent JSONL file modification). Stop events also reactivate imported completed/abandoned sessions, so the first hook from an in-progress session always surfaces it on the dashboard     |
 | **Responsive Design**              | Mobile-friendly layouts with stacking grids, scrollable tables, and collapsible sidebar                                                                                                                                                                                      |
+| **UI Localization**                | Built-in language switching with translated UI copy and accessibility labels for English (`en`), Chinese (`zh`), and Vietnamese (`vi`)                                                                                                                                       |
 | **Seed Data**                      | Built-in seed script for demos and development                                                                                                                                                                                                                               |
 | **Statusline**                     | Color-coded CLI statusline showing model, context usage, git branch, tokens                                                                                                                                                                                                  |
 | **Plugin Marketplace**             | Official Claude Code plugin marketplace with 5 plugins (ccam-analytics, ccam-productivity, ccam-devtools, ccam-insights, ccam-dashboard). 18 skills, 4 agents, 3 CLI tools, 2 hook configs. All grounded in actual data model — token baselines, pricing engine, workflow intelligence (11 datasets), session metadata. Install via `claude plugin marketplace add` |

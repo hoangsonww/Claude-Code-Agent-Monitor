@@ -19,11 +19,11 @@ export function NotFound() {
           <AlertTriangle className="w-7 h-7 text-accent" />
         </div>
 
-        <p className="text-xs uppercase tracking-[0.18em] text-gray-500 mb-2">{t("notFound.code")}</p>
-        <h2 className="text-2xl font-semibold text-gray-100 mb-2">{t("notFound.title")}</h2>
-        <p className="text-sm text-gray-400 mb-8">
-          {t("notFound.description")}
+        <p className="text-xs uppercase tracking-[0.18em] text-gray-500 mb-2">
+          {t("notFound.code")}
         </p>
+        <h2 className="text-2xl font-semibold text-gray-100 mb-2">{t("notFound.title")}</h2>
+        <p className="text-sm text-gray-400 mb-8">{t("notFound.description")}</p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button className="btn-primary" onClick={() => navigate("/")}>

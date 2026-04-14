@@ -330,7 +330,11 @@ export const SESSION_STATUS_CONFIG: Record<
     color: "text-violet-400",
     bg: "bg-violet-500/10 border-violet-500/20",
   },
-  error: { labelKey: "common:status.error", color: "text-red-400", bg: "bg-red-500/10 border-red-500/20" },
+  error: {
+    labelKey: "common:status.error",
+    color: "text-red-400",
+    bg: "bg-red-500/10 border-red-500/20",
+  },
   abandoned: {
     labelKey: "common:status.abandoned",
     color: "text-yellow-400",

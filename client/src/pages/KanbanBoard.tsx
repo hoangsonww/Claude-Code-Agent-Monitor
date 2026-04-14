@@ -87,9 +87,7 @@ export function KanbanBoard() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-100">{t("title")}</h1>
-            <p className="text-xs text-gray-500">
-              {t("agentCount", { count: agents.length })}
-            </p>
+            <p className="text-xs text-gray-500">{t("agentCount", { count: agents.length })}</p>
           </div>
         </div>
         <button onClick={load} className="btn-ghost flex-shrink-0">

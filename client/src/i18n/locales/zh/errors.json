@@ -10,7 +10,7 @@
     "newSession": "新会话",
     "sessionDefault": "会话 ",
     "sessionError": "会话错误",
-    "subagentSpawned": "子代理已生成",
+    "subagentSpawned": "Subagent已生成",
     "finishedResponding": "Claude 已完成响应",
     "readyForInput": "等待输入",
     "sessionCompleted": "会话已完成",
@@ -25,7 +25,7 @@
     "bash": "Bash",
     "grep": "Grep",
     "glob": "Glob",
-    "agent": "代理",
+    "agent": "Agent",
     "other": "其他"
   }
 }

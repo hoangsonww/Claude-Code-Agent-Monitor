@@ -137,9 +137,7 @@ export function Dashboard() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-100">{t("title")}</h1>
-            <p className="text-xs text-gray-500">
-              {t("subtitle")}
-            </p>
+            <p className="text-xs text-gray-500">{t("subtitle")}</p>
           </div>
         </div>
         <button onClick={load} className="btn-ghost flex-shrink-0">
@@ -208,11 +206,7 @@ export function Dashboard() {
             </button>
           </div>
           {activeAgents.length === 0 ? (
-            <EmptyState
-              icon={Bot}
-              title={t("noAgents")}
-              description={t("noAgentsDesc")}
-            />
+            <EmptyState icon={Bot} title={t("noAgents")} description={t("noAgentsDesc")} />
           ) : (
             <div className="space-y-2">
               {(() => {
@@ -294,7 +288,9 @@ export function Dashboard() {
                         >
                           {totalDesc} {t("common:subagent", { count: totalDesc })}
                           {activeDesc > 0 && (
-                            <span className="text-emerald-400 ml-1">({activeDesc} {t("common:active")})</span>
+                            <span className="text-emerald-400 ml-1">
+                              ({activeDesc} {t("common:active")})
+                            </span>
                           )}
                         </button>
                       )}
@@ -332,11 +328,7 @@ export function Dashboard() {
             </button>
           </div>
           {recentEvents.length === 0 ? (
-            <EmptyState
-              icon={Activity}
-              title={t("noActivity")}
-              description={t("noActivityDesc")}
-            />
+            <EmptyState icon={Activity} title={t("noActivity")} description={t("noActivityDesc")} />
           ) : (
             <div className="card divide-y divide-border">
               {recentEvents.slice(0, 8).map((event, i) => (

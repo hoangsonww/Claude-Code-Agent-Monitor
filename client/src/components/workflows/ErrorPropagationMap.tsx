@@ -27,7 +27,7 @@ export function ErrorPropagationMap({ data }: ErrorPropagationMapProps) {
       t("errorPropagation.depthLabels.nested"),
       t("errorPropagation.depthLabels.deep"),
     ];
-    return keys[depth] ?? `${t("common:depth", { defaultValue: "Depth" })} ${depth}`;
+    return keys[depth] ?? `${t("common:depth")} ${depth}`;
   }
 
   const hasErrors =
@@ -54,7 +54,9 @@ export function ErrorPropagationMap({ data }: ErrorPropagationMapProps) {
             <polyline points="22 4 12 14.01 9 11.01" />
           </svg>
         </div>
-        <span className="text-sm text-emerald-400 font-medium">{t("errorPropagation.noErrors")}</span>
+        <span className="text-sm text-emerald-400 font-medium">
+          {t("errorPropagation.noErrors")}
+        </span>
         <span className="text-xs text-gray-600">{t("errorPropagation.allSuccess")}</span>
       </div>
     );
@@ -77,7 +79,10 @@ export function ErrorPropagationMap({ data }: ErrorPropagationMapProps) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-red-300">
-            {data.sessionsWithErrors} of {data.totalSessions}{t("errorPropagation.sessionsHadErrors")}
+            {t("errorPropagation.sessionsErrorSummary", {
+              errorSessions: data.sessionsWithErrors,
+              totalSessions: data.totalSessions,
+            })}
           </p>
           <p className="text-[11px] text-gray-500 mt-0.5">
             {totalErrors > 0

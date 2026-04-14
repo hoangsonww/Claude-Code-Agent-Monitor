@@ -75,7 +75,8 @@ export function AgentCard({ agent, onClick }: AgentCardProps) {
           <>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {t("ran")}{formatDuration(agent.started_at, agent.ended_at)}
+              {t("ran")}
+              {formatDuration(agent.started_at, agent.ended_at)}
             </span>
             <span className="text-gray-600">{timeAgo(agent.ended_at)}</span>
           </>

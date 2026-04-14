@@ -30,6 +30,8 @@ interface LaneRowProps {
 }
 
 function LaneRow({ lane, color, maxCount }: LaneRowProps) {
+  const { t } = useTranslation("workflows");
+  const displayName = lane.name === "Main Agent" ? t("orchestration.mainAgent") : lane.name;
   // Bar width proportional to session count (the metric with meaningful variance)
   const barPct = maxCount > 0 ? (lane.count / maxCount) * 100 : 0;
 
@@ -40,9 +42,9 @@ function LaneRow({ lane, color, maxCount }: LaneRowProps) {
   return (
     <div className="flex items-center gap-3 py-1.5 group">
       {/* Label column */}
-      <div className="flex-shrink-0 w-[140px] text-right" title={lane.name}>
+      <div className="flex-shrink-0 w-[140px] text-right" title={displayName}>
         <span className="text-xs font-medium text-gray-400 truncate block group-hover:text-gray-200 transition-colors">
-          {lane.name}
+          {displayName}
         </span>
       </div>
 
@@ -56,7 +58,7 @@ function LaneRow({ lane, color, maxCount }: LaneRowProps) {
             backgroundColor: color,
             opacity: 0.85,
           }}
-          title={`${lane.count} session${lane.count !== 1 ? "s" : ""} — active ${startPct}%–${endPct}% of session`}
+          title={t("concurrency.sessionInfo", { count: lane.count, from: startPct, to: endPct })}
         />
         {/* Count label inside bar if wide enough, outside if not */}
         <span
@@ -98,9 +100,7 @@ function EmptyState() {
         </svg>
       </div>
       <p className="text-sm font-medium text-gray-400">{t("concurrency.noData")}</p>
-      <p className="text-xs text-gray-600 mt-1">
-        {t("concurrency.noDataDesc")}
-      </p>
+      <p className="text-xs text-gray-600 mt-1">{t("concurrency.noDataDesc")}</p>
     </div>
   );
 }
@@ -140,8 +140,13 @@ export function ConcurrencyTimeline({ data }: ConcurrencyTimelineProps) {
       <div className="flex items-center gap-3 mb-2">
         <div className="flex-shrink-0 w-[140px]" />
         <div className="flex-1 flex items-center justify-between">
-          <span className="text-[10px] text-gray-600 uppercase tracking-wider">{t("concurrency.sessions")}</span>
-          <span className="text-[10px] text-gray-600 tabular-nums">{maxCount}{t("concurrency.max")}</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-wider">
+            {t("concurrency.sessions")}
+          </span>
+          <span className="text-[10px] text-gray-600 tabular-nums">
+            {maxCount}
+            {t("concurrency.max")}
+          </span>
         </div>
         <div className="flex-shrink-0 w-[72px] text-[10px] text-gray-600 uppercase tracking-wider">
           {t("concurrency.timing")}

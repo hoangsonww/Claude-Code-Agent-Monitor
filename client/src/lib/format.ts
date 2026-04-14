@@ -22,14 +22,31 @@ function parseDate(iso: string): Date {
   return new Date(iso.replace(" ", "T") + "Z");
 }
 
+type SupportedLanguage = "en" | "zh" | "vi";
+
+function getCurrentLanguage(): SupportedLanguage {
+  const language = (i18n.resolvedLanguage ?? i18n.language ?? "en").toLowerCase().split("-")[0];
+  if (language === "zh" || language === "vi" || language === "en") {
+    return language;
+  }
+  return "en";
+}
+
+export function getCurrentLocale(): string {
+  const language = getCurrentLanguage();
+  if (language === "zh") return "zh-CN";
+  if (language === "vi") return "vi-VN";
+  return "en-US";
+}
+
 export function formatTime(iso: string): string {
   const d = parseDate(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString(getCurrentLocale(), { hour: "2-digit", minute: "2-digit" });
 }
 
 export function formatDateTime(iso: string): string {
   const d = parseDate(iso);
-  return d.toLocaleString([], {
+  return d.toLocaleString(getCurrentLocale(), {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -88,5 +105,8 @@ export function fmtCost(n: number): string {
 
 /** Format dollar amounts with commas (for tooltips / full display). */
 export function fmtCostFull(n: number, decimals = 2): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  return `$${n.toLocaleString(getCurrentLocale(), {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
 }

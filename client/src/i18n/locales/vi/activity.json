@@ -1,0 +1,9 @@
+{
+  "title": "Luồng hoạt động",
+  "subtitle": "Luồng thời gian thực của mọi sự kiện Agent",
+  "paused": "(đã tạm dừng - {{count}} mục đệm)",
+  "resume": "Tiếp tục",
+  "pause": "Tạm dừng",
+  "noActivity": "Chưa có hoạt động",
+  "noActivityDesc": "Sự kiện sẽ được phát trực tiếp tại đây khi các Agent Claude Code làm việc."
+}

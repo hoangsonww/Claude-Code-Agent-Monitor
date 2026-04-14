@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
-import { fmt, fmtCost } from "../lib/format";
+import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { Tip } from "../components/Tip";
 import type { ModelPricing, WSMessage } from "../lib/types";
 
@@ -115,7 +115,7 @@ function formatTimestamp(iso: string): string {
   const normalized =
     /[Zz]$/.test(iso) || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso.replace(" ", "T") + "Z";
   const d = new Date(normalized);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(getCurrentLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -191,7 +191,11 @@ export function Settings() {
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [actionResult, setActionResult] = useState<{ key: string; message: string } | null>(null);
+  const [actionResult, setActionResult] = useState<{
+    key: string;
+    message: string;
+    isError: boolean;
+  } | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(loadNotifPrefs);
   const [abandonHours, setAbandonHours] = useState("24");
@@ -209,11 +213,11 @@ export function Settings() {
       setSysInfo(infoRes);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : t("messages.failedLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -313,7 +317,7 @@ export function Settings() {
       setAdding(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : t("messages.failedSave"));
     } finally {
       setSaving(false);
     }
@@ -324,7 +328,7 @@ export function Settings() {
       await api.pricing.delete(pattern);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete");
+      setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
   };
 
@@ -334,12 +338,15 @@ export function Settings() {
     setConfirmAction(null);
     try {
       const message = await fn();
-      setActionResult({ key, message });
+      setActionResult({ key, message, isError: false });
       await load();
     } catch (err) {
       setActionResult({
         key,
-        message: `Error: ${err instanceof Error ? err.message : "Unknown"}`,
+        message: t("messages.actionFailed", {
+          message: err instanceof Error ? err.message : t("messages.unknownError"),
+        }),
+        isError: true,
       });
     } finally {
       setActionLoading(null);
@@ -460,14 +467,14 @@ export function Settings() {
             onClick={saveEdit}
             disabled={saving}
             className="p-1.5 rounded-md text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-            title="Save"
+            title={t("common:save")}
           >
             <Check className="w-4 h-4" />
           </button>
           <button
             onClick={cancelEdit}
             className="p-1.5 rounded-md text-gray-400 hover:bg-surface-4 transition-colors"
-            title="Cancel"
+            title={t("common:cancel")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -479,11 +486,10 @@ export function Settings() {
   const actionBanner = (keys: string[]) => {
     const match = actionResult && keys.includes(actionResult.key) ? actionResult : null;
     if (!match) return null;
-    const isError = match.message.startsWith("Error");
     return (
       <div
         className={`px-3 py-2 rounded-lg text-xs ${
-          isError
+          match.isError
             ? "bg-red-500/10 border border-red-500/20 text-red-400"
             : "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
         }`}
@@ -495,7 +501,9 @@ export function Settings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">{t("common:loading")}</div>
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        {t("common:loading")}
+      </div>
     );
   }
 
@@ -564,9 +572,7 @@ export function Settings() {
               <DollarSign className="w-4 h-4 text-gray-500" />
               {t("pricing.title")}
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {t("pricing.description")}
-            </p>
+            <p className="text-xs text-gray-500 mt-0.5">{t("pricing.description")}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -583,7 +589,9 @@ export function Settings() {
               }`}
             >
               <RotateCcw className="w-3 h-3 inline mr-1" />
-              {confirmAction === "reset-pricing" ? t("pricing.resetConfirm") : t("pricing.resetDefaults")}
+              {confirmAction === "reset-pricing"
+                ? t("pricing.resetConfirm")
+                : t("pricing.resetDefaults")}
             </button>
             <button
               onClick={startAdd}
@@ -608,7 +616,7 @@ export function Settings() {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Pattern
+                  {t("pricing.pattern")}
                 </th>
                 <th className="px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
                   {t("common:cost.model")}
@@ -626,7 +634,7 @@ export function Settings() {
                   {t("common:token.cacheWrite")}
                 </th>
                 <th className="w-24 px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t("common:actions")}
                 </th>
               </tr>
             </thead>
@@ -663,7 +671,7 @@ export function Settings() {
                           onClick={() => startEdit(rule)}
                           disabled={isEditing}
                           className="p-1.5 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-30"
-                          title="Edit"
+                          title={t("common:edit")}
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -671,7 +679,7 @@ export function Settings() {
                           onClick={() => deleteRule(rule.model_pattern)}
                           disabled={isEditing}
                           className="p-1.5 rounded-md text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30"
-                          title="Delete"
+                          title={t("common:delete")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -686,7 +694,10 @@ export function Settings() {
         </div>
 
         {lastUpdated && (
-          <p className="text-xs text-gray-600 mt-3">{t("pricing.lastUpdated")}{formatTimestamp(lastUpdated)}</p>
+          <p className="text-xs text-gray-600 mt-3">
+            {t("pricing.lastUpdated")}
+            {formatTimestamp(lastUpdated)}
+          </p>
         )}
       </section>
 
@@ -696,9 +707,7 @@ export function Settings() {
           <Plug className="w-4 h-4 text-gray-500" />
           {t("hooks.title")}
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
-          {t("hooks.description")}
-        </p>
+        <p className="text-xs text-gray-500 mb-4">{t("hooks.description")}</p>
 
         <div className="card p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -758,9 +767,7 @@ export function Settings() {
           <Bell className="w-4 h-4 text-gray-500" />
           {t("notifications.title")}
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
-          {t("notifications.description")}
-        </p>
+        <p className="text-xs text-gray-500 mb-4">{t("notifications.description")}</p>
 
         <div className="card p-5 space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -950,7 +957,9 @@ export function Settings() {
                 <div className="bg-surface-2 rounded-lg px-3 py-3 border-l-2 border-indigo-500/20">
                   <div className="flex items-center gap-2 mb-1.5">
                     <HardDrive className="w-4 h-4 text-indigo-400" />
-                    <p className="text-[11px] text-gray-500 uppercase tracking-wider">{t("data.dbSize")}</p>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                      {t("data.dbSize")}
+                    </p>
                   </div>
                   <p className="text-xl font-semibold text-gray-200">
                     {formatBytes(sysInfo.db.size)}
@@ -976,9 +985,7 @@ export function Settings() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-surface-2 rounded-lg px-4 py-3">
-                <label className="text-xs text-gray-400 block mb-2">
-                  {t("data.abandonAfter")}
-                </label>
+                <label className="text-xs text-gray-400 block mb-2">{t("data.abandonAfter")}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -991,9 +998,7 @@ export function Settings() {
                 </div>
               </div>
               <div className="bg-surface-2 rounded-lg px-4 py-3">
-                <label className="text-xs text-gray-400 block mb-2">
-                  {t("data.purgeAfter")}
-                </label>
+                <label className="text-xs text-gray-400 block mb-2">{t("data.purgeAfter")}</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -1037,17 +1042,13 @@ export function Settings() {
               </div>
               <div>
                 <p className="text-sm font-medium text-red-400">{t("danger.title")}</p>
-                <p className="text-xs text-gray-500">
-                  {t("danger.description")}
-                </p>
+                <p className="text-xs text-gray-500">{t("danger.description")}</p>
               </div>
             </div>
 
             {confirmAction === "clear" ? (
               <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3">
-                <span className="text-xs text-amber-400">
-                  {t("danger.warning")}
-                </span>
+                <span className="text-xs text-amber-400">{t("danger.warning")}</span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleClearData}
@@ -1097,7 +1098,9 @@ export function Settings() {
               <div className="bg-surface-2 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Clock className="w-4 h-4 text-blue-400" />
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">{t("about.uptime")}</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                    {t("about.uptime")}
+                  </p>
                 </div>
                 <p className="text-sm font-semibold text-gray-200">
                   {formatUptime(sysInfo.server.uptime)}
@@ -1106,7 +1109,9 @@ export function Settings() {
               <div className="bg-surface-2 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Cpu className="w-4 h-4 text-emerald-400" />
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">{t("about.nodejs")}</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                    {t("about.nodejs")}
+                  </p>
                 </div>
                 <p className="text-sm font-semibold text-gray-200 font-mono">
                   {sysInfo.server.node_version}
@@ -1115,14 +1120,18 @@ export function Settings() {
               <div className="bg-surface-2 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Globe className="w-4 h-4 text-violet-400" />
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">{t("about.platform")}</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                    {t("about.platform")}
+                  </p>
                 </div>
                 <p className="text-sm font-semibold text-gray-200">{sysInfo.server.platform}</p>
               </div>
               <div className="bg-surface-2 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Wifi className="w-4 h-4 text-amber-400" />
-                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">{t("about.wsClients")}</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider">
+                    {t("about.wsClients")}
+                  </p>
                 </div>
                 <p className="text-sm font-semibold text-gray-200">
                   {sysInfo.server.ws_connections}

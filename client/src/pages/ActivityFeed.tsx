@@ -117,11 +117,7 @@ export function ActivityFeed() {
       </div>
 
       {!loading && events.length === 0 ? (
-        <EmptyState
-          icon={Activity}
-          title={t("noActivity")}
-          description={t("noActivityDesc")}
-        />
+        <EmptyState icon={Activity} title={t("noActivity")} description={t("noActivityDesc")} />
       ) : (
         <>
           <div className="card overflow-hidden">

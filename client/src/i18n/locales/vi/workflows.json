@@ -1,0 +1,180 @@
+{
+  "title": "Quy trình",
+  "subtitle": "Phân tích điều phối Agent",
+  "failedLoad": "Không thể tải dữ liệu quy trình",
+  "filteredBy": "Đang lọc theo:",
+  "clearFilter": "Xóa bộ lọc",
+  "refreshData": "Làm mới dữ liệu",
+  "exportJson": "Xuất JSON",
+  "allSessions": "Tất cả phiên",
+  "activeOnly": "Chỉ đang hoạt động",
+  "completed": "Hoàn tất",
+  "stats": {
+    "avgAgentDepth": "Độ sâu Agent TB",
+    "avgSubagentsPerSession": "Subagent TB / phiên",
+    "agentSuccessRate": "Tỷ lệ thành công Agent",
+    "mostCommonFlow": "Luồng phổ biến nhất",
+    "avgCompactions": "Số lần nén TB",
+    "avgDuration": "Thời lượng TB"
+  },
+  "orchestration": {
+    "title": "Đồ thị điều phối Agent",
+    "subtitle": "Mẫu spawn tổng hợp trên mọi phiên - Bấm nút để lọc",
+    "sessions": "Phiên",
+    "mainAgent": "Agent chính",
+    "compactions": "Nén ngữ cảnh",
+    "noData": "Chưa có dữ liệu điều phối",
+    "noDataDesc": "Dữ liệu spawn Agent sẽ xuất hiện khi đã ghi nhận phiên có Subagent.",
+    "legend": "Chú giải",
+    "edgeWeight": "Trọng số cạnh = tần suất",
+    "count": "Số lượng",
+    "otherTypes": "{{count}} loại khác",
+    "ariaLabel": "Đồ thị có hướng không chu trình điều phối Agent",
+    "layers": {
+      "origin": "Nguồn",
+      "mainAgent": "Agent chính",
+      "subagentTypes": "Loại Subagent",
+      "compactions": "Nén ngữ cảnh",
+      "outcomes": "Kết quả"
+    }
+  },
+  "toolFlow": {
+    "title": "Luồng thực thi công cụ",
+    "subtitle": "Chuỗi liên kết giữa các công cụ - luồng có hướng kiểu Sankey",
+    "noData": "Chưa có dữ liệu luồng công cụ",
+    "transitionCount_one": "{{count}} lượt chuyển",
+    "transitionCount_other": "{{count}} lượt chuyển"
+  },
+  "pipeline": {
+    "title": "Đồ thị pipeline Agent",
+    "subtitle": "Quy trình có hướng - loại Agent nào chạy sau loại nào, kèm tần suất",
+    "noData": "Chưa có dữ liệu pipeline",
+    "noDataDesc": "Các cạnh quy trình sẽ xuất hiện khi loại Agent chạy tuần tự qua nhiều phiên.",
+    "legend": "Chú giải",
+    "legendDesc": "A chạy trước B (kèm số lần)",
+    "frequency": "Tần suất",
+    "meaning": "Ý nghĩa",
+    "times": " lần",
+    "ranAfter": " chạy sau ",
+    "spawns": " lần spawn",
+    "spawned": "Đã spawn",
+    "inSessions": "Trong các phiên",
+    "ariaLabel": "Đồ thị pipeline Agent"
+  },
+  "effectiveness": {
+    "title": "Hiệu quả Subagent",
+    "subtitle": "Chỉ số hiệu năng theo từng loại Agent",
+    "success": "Thành công",
+    "sessions": "Phiên",
+    "avgDuration": "Thời lượng TB",
+    "weeklyActivity": "Hoạt động theo tuần",
+    "noData": "Chưa có dữ liệu Subagent",
+    "successRateAria": "Tỷ lệ thành công: {{rate}}%",
+    "weeklyActivityAria": "Biểu đồ tia hoạt động theo tuần",
+    "sessionCount_one": "{{count}} phiên",
+    "sessionCount_other": "{{count}} phiên"
+  },
+  "patterns": {
+    "title": "Mẫu quy trình phát hiện được",
+    "subtitle": "Chuỗi điều phối Agent thường gặp",
+    "noData": "Chưa phát hiện mẫu nào",
+    "noDataDesc": "Mẫu sẽ xuất hiện khi nhiều phiên có cùng chuỗi Agent.",
+    "solo": "đơn lẻ (không có Subagent)",
+    "label": "Mẫu quy trình"
+  },
+  "modelDelegation": {
+    "title": "Luồng ủy quyền mô hình",
+    "subtitle": "Cách các mô hình đi qua phân cấp Agent",
+    "mainModels": "MÔ HÌNH CHÍNH",
+    "subagentModels": "MÔ HÌNH TÁC TỬ PHỤ",
+    "noData": "Chưa có dữ liệu ủy quyền mô hình",
+    "agentsCount_one": "{{count}} Agent",
+    "agentsCount_other": "{{count}} Agent",
+    "tokensCount": "{{tokens}} token",
+    "sessionsCount_one": "{{count}} phiên",
+    "sessionsCount_other": "{{count}} phiên",
+    "ariaLabel": "Sơ đồ luồng ủy quyền mô hình"
+  },
+  "errorPropagation": {
+    "title": "Bản đồ lan truyền lỗi",
+    "subtitle": "Điểm tập trung lỗi theo độ sâu phân cấp Agent",
+    "noErrors": "Không ghi nhận lỗi",
+    "allSuccess": "Tất cả phiên đã hoàn tất thành công",
+    "sessionsHadErrors": " phiên gặp lỗi",
+    "sessionsErrorSummary": "{{errorSessions}} trên {{totalSessions}} phiên gặp lỗi",
+    "agentErrors": " lỗi cấp Agent trong toàn bộ phân cấp",
+    "sessionErrorsOnly": "Chỉ có lỗi ở cấp phiên",
+    "errorsByDepth": "Lỗi theo độ sâu phân cấp",
+    "errorProneTypes": "Loại Agent dễ lỗi",
+    "apiSessionErrors": "Lỗi API & phiên",
+    "depthLabels": {
+      "sessionMain": "Phiên / Agent chính",
+      "directSubagent": "Subagent trực tiếp",
+      "nested": "Lồng nhau (độ sâu 2)",
+      "deep": "Sâu (độ sâu 3+)"
+    }
+  },
+  "concurrency": {
+    "title": "Dòng thời gian đồng thời Agent",
+    "subtitle": "Mẫu thực thi song song - thể hiện mức chồng lấp theo thời gian",
+    "noData": "Chưa có dữ liệu đồng thời",
+    "noDataDesc": "Dữ liệu đồng thời sẽ xuất hiện khi đã ghi nhận phiên có Subagent.",
+    "sessions": "Phiên",
+    "timing": "Thời gian",
+    "max": " tối đa",
+    "sessionInfo_one": "{{count}} phiên - hoạt động từ {{from}}%-{{to}}% thời lượng phiên",
+    "sessionInfo_other": "{{count}} phiên - hoạt động từ {{from}}%-{{to}}% thời lượng phiên"
+  },
+  "complexity": {
+    "title": "Biểu đồ phân tán độ phức tạp phiên",
+    "subtitle": "Thời lượng vs số Agent vs token - kích thước bong bóng = lượng token",
+    "noData": "Chưa có dữ liệu độ phức tạp phiên",
+    "noDataDesc": "Phiên sẽ xuất hiện ở đây sau khi hoàn tất với hoạt động Agent.",
+    "duration": "Thời lượng",
+    "agentCount": "Số Agent",
+    "ariaLabel": "Biểu đồ phân tán độ phức tạp phiên",
+    "tooltip": {
+      "duration": "Thời lượng:",
+      "agents": "Agent:",
+      "subagents": "Subagent:",
+      "tokens": "Token:",
+      "model": "Mô hình:"
+    }
+  },
+  "compaction": {
+    "title": "Phân tích tác động nén ngữ cảnh",
+    "subtitle": "Sự kiện nén ngữ cảnh và lượng token thu hồi",
+    "noData": "Chưa ghi nhận nén ngữ cảnh",
+    "totalCompactions": "Tổng số lần nén",
+    "tokensRecovered": "Token thu hồi",
+    "distribution": "Phân bố nén theo phiên",
+    "hadCompactions": " phiên ({{pct}}%) có nén ngữ cảnh",
+    "ariaLabel": "Số lần nén theo từng phiên"
+  },
+  "drillIn": {
+    "title": "Phân tích chi tiết phiên",
+    "subtitle": "Chọn phiên từ biểu đồ phân tán hoặc dùng danh sách để khám phá",
+    "searchPlaceholder": "Tìm phiên...",
+    "noSessionSelected": "Chưa chọn phiên",
+    "noSessionDesc": "Hãy tìm và chọn phiên phía trên, hoặc bấm vào một bong bóng trong biểu đồ để xem cây Agent, dòng thời gian công cụ và chuỗi sự kiện.",
+    "failedLoad": "Không thể tải phiên",
+    "loading": "Đang tải...",
+    "loadMore": "Tải thêm",
+    "noMatch": "Không có phiên nào khớp với tìm kiếm.",
+    "notFound": "Không tìm thấy phiên.",
+    "unknownModel": "mô hình không xác định",
+    "closePanel": "Đóng bảng phân tích chi tiết",
+    "close": "Đóng",
+    "tabs": {
+      "agentTree": "Cây Agent",
+      "toolTimeline": "Dòng thời gian công cụ",
+      "eventSequence": "Chuỗi sự kiện"
+    },
+    "noAgentTree": "Không có dữ liệu cây Agent.",
+    "noToolEvents": "Không có sự kiện công cụ.",
+    "noEvents": "Không có sự kiện cho phiên này.",
+    "showingOf": "Đang hiển thị 100 / {{total}} sự kiện",
+    "sessionInfo": " phiên - hoạt động {{from}}%-{{to}} thời lượng phiên",
+    "sortedByCompaction": " phiên (sắp theo số lần nén ngữ cảnh)"
+  }
+}

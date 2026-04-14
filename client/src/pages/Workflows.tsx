@@ -143,11 +143,7 @@ export function Workflows() {
       <WorkflowStats stats={data.stats} />
 
       {/* Section 1: Agent Orchestration DAG */}
-      <Section
-        number={1}
-        title={t("orchestration.title")}
-        subtitle={t("orchestration.subtitle")}
-      >
+      <Section number={1} title={t("orchestration.title")} subtitle={t("orchestration.subtitle")}>
         <OrchestrationDAG
           data={data.orchestration}
           onNodeClick={setSelectedNode}
@@ -170,38 +166,22 @@ export function Workflows() {
       </Section>
 
       {/* Section 2: Tool Execution Flow */}
-      <Section
-        number={2}
-        title={t("toolFlow.title")}
-        subtitle={t("toolFlow.subtitle")}
-      >
+      <Section number={2} title={t("toolFlow.title")} subtitle={t("toolFlow.subtitle")}>
         <ToolExecutionFlow data={data.toolFlow} filterAgentType={selectedNode} />
       </Section>
 
       {/* Section 3: Agent Collaboration Network */}
-      <Section
-        number={3}
-        title={t("pipeline.title")}
-        subtitle={t("pipeline.subtitle")}
-      >
+      <Section number={3} title={t("pipeline.title")} subtitle={t("pipeline.subtitle")}>
         <AgentCollaborationNetwork effectiveness={data.effectiveness} edges={data.cooccurrence} />
       </Section>
 
       {/* Section 4 + 5: Two Column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section
-          number={4}
-          title={t("effectiveness.title")}
-          subtitle={t("effectiveness.subtitle")}
-        >
+        <Section number={4} title={t("effectiveness.title")} subtitle={t("effectiveness.subtitle")}>
           <SubagentEffectiveness data={data.effectiveness} />
         </Section>
 
-        <Section
-          number={5}
-          title={t("patterns.title")}
-          subtitle={t("patterns.subtitle")}
-        >
+        <Section number={5} title={t("patterns.title")} subtitle={t("patterns.subtitle")}>
           <WorkflowPatterns data={data.patterns} onPatternClick={() => {}} />
         </Section>
       </div>
@@ -226,39 +206,23 @@ export function Workflows() {
       </div>
 
       {/* Section 8: Agent Concurrency Timeline */}
-      <Section
-        number={8}
-        title={t("concurrency.title")}
-        subtitle={t("concurrency.subtitle")}
-      >
+      <Section number={8} title={t("concurrency.title")} subtitle={t("concurrency.subtitle")}>
         <ConcurrencyTimeline data={data.concurrency} />
       </Section>
 
       {/* Section 9 + 10: Two Column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Section
-          number={9}
-          title={t("complexity.title")}
-          subtitle={t("complexity.subtitle")}
-        >
+        <Section number={9} title={t("complexity.title")} subtitle={t("complexity.subtitle")}>
           <SessionComplexityScatter data={data.complexity} onSessionClick={setSelectedSessionId} />
         </Section>
 
-        <Section
-          number={10}
-          title={t("compaction.title")}
-          subtitle={t("compaction.subtitle")}
-        >
+        <Section number={10} title={t("compaction.title")} subtitle={t("compaction.subtitle")}>
           <CompactionImpact data={data.compaction} />
         </Section>
       </div>
 
       {/* Section 11: Session Drill-In */}
-      <Section
-        number={11}
-        title={t("drillIn.title")}
-        subtitle={t("drillIn.subtitle")}
-      >
+      <Section number={11} title={t("drillIn.title")} subtitle={t("drillIn.subtitle")}>
         <SessionDrillIn
           sessionId={selectedSessionId}
           onClose={() => setSelectedSessionId(null)}
@@ -383,7 +347,8 @@ function PageHeader({
 
         {lastUpdated && (
           <span className="text-[10px] text-gray-600 ml-1">
-            {t("common:updated")}{lastUpdated.toLocaleTimeString()}
+            {t("common:updated")}
+            {lastUpdated.toLocaleTimeString()}
           </span>
         )}
       </div>

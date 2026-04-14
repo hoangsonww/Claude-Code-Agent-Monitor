@@ -101,7 +101,9 @@ export function SessionDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">{t("detail.loading")}</div>
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        {t("detail.loading")}
+      </div>
     );
   }
 
@@ -353,7 +355,9 @@ export function SessionDetail() {
 
       {/* Event Timeline */}
       <div>
-        <h3 className="text-sm font-medium text-gray-300 mb-4">{t("detail.eventTimeline")} ({events.length})</h3>
+        <h3 className="text-sm font-medium text-gray-300 mb-4">
+          {t("detail.eventTimeline")} ({events.length})
+        </h3>
         {events.length === 0 ? (
           <p className="text-sm text-gray-500">{t("detail.noEvents")}</p>
         ) : (

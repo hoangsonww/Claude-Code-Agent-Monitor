@@ -1,0 +1,78 @@
+{
+  "refresh": "Làm mới",
+  "retry": "Thử lại",
+  "cancel": "Hủy",
+  "export": "Xuất",
+  "loading": "Đang tải...",
+  "noData": "Không có dữ liệu",
+  "total": "Tổng",
+  "active": "đang hoạt động",
+  "total_lower": "tổng",
+  "subagent": "Subagent",
+  "subagents": "Subagent",
+  "subagent_label_one": "{{count}} Subagent",
+  "subagent_label_other": "{{count}} Subagent",
+  "events": "sự kiện",
+  "event": "sự kiện",
+  "sessions": "phiên",
+  "session": "phiên",
+  "agents": "Agent",
+  "agent": "Agent",
+  "live": "Trực tiếp",
+  "offline": "Ngoại tuyến",
+  "running": "đang chạy",
+  "days": "ngày",
+  "hours": "giờ",
+  "updated": "Đã cập nhật ",
+  "lastUpdated": "Cập nhật lần cuối: ",
+  "showMore": "Hiển thị thêm (còn {{count}})",
+  "plusMore": "+{{count}} nữa",
+  "ofSessions": "% số phiên",
+  "save": "Lưu",
+  "edit": "Sửa",
+  "delete": "Xóa",
+  "actions": "Thao tác",
+  "close": "Đóng",
+  "unexpectedError": "Lỗi không xác định",
+  "depth": "Độ sâu",
+  "type": "Loại",
+  "statusLabel": "Trạng thái",
+  "status": {
+    "idle": "Nhàn rỗi",
+    "connected": "Đã kết nối",
+    "working": "Đang xử lý",
+    "completed": "Hoàn tất",
+    "error": "Lỗi",
+    "active": "Đang hoạt động",
+    "abandoned": "Bị bỏ dở"
+  },
+  "time": {
+    "justNow": "vừa xong",
+    "mAgo": "{{count}} phút trước",
+    "hAgo": "{{count}} giờ trước",
+    "dAgo": "{{count}} ngày trước"
+  },
+  "pagination": {
+    "previous": "Trước",
+    "next": "Tiếp",
+    "showing": "Hiển thị {{from}}-{{to}} / {{total}}"
+  },
+  "token": {
+    "input": "Đầu vào",
+    "output": "Đầu ra",
+    "cacheRead": "Đọc bộ nhớ đệm",
+    "cacheWrite": "Ghi bộ nhớ đệm",
+    "totalTokens": "Tổng token"
+  },
+  "cost": {
+    "model": "Mô hình",
+    "cost": "Chi phí",
+    "totalCost": "Tổng chi phí",
+    "totalEstimatedCost": "Tổng chi phí ước tính"
+  },
+  "duration": {
+    "h_m": "{{h}}h {{m}}m",
+    "m_s": "{{m}}m {{s}}s",
+    "s": "{{s}}s"
+  }
+}

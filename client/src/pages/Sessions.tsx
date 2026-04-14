@@ -133,11 +133,7 @@ export function Sessions() {
         <EmptyState
           icon={FolderOpen}
           title={t("noSessions")}
-          description={
-            search || filter
-              ? t("noSessionsDesc")
-              : t("noSessionsHint")
-          }
+          description={search || filter ? t("noSessionsDesc") : t("noSessionsHint")}
         />
       ) : (
         <>

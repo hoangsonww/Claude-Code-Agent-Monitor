@@ -95,7 +95,7 @@ function renderFlow(
   mainNodes: NodeDatum[],
   subNodes: NodeDatum[],
   edges: EdgeDatum[],
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): void {
   const allNodes = [...mainNodes, ...subNodes];
 
@@ -223,7 +223,7 @@ function renderFlow(
       .attr("fill", colors.text)
       .attr("font-size", 9.5)
       .attr("font-family", "Inter, sans-serif")
-      .text(`${node.agentCount} agents`);
+      .text(t("modelDelegation.agentsCount", { count: node.agentCount }));
 
     // Token count
     if (node.totalTokens > 0) {
@@ -233,7 +233,7 @@ function renderFlow(
         .attr("fill", "#6b7280")
         .attr("font-size", 9.5)
         .attr("font-family", "Inter, sans-serif")
-        .text(`${fmtTokens(node.totalTokens)} tokens`);
+        .text(t("modelDelegation.tokensCount", { tokens: fmtTokens(node.totalTokens) }));
     }
 
     // Session count (main nodes only)
@@ -245,7 +245,7 @@ function renderFlow(
         .attr("fill", "#6b7280")
         .attr("font-size", 9.5)
         .attr("font-family", "Inter, sans-serif")
-        .text(`${node.sessionCount} sessions`);
+        .text(t("modelDelegation.sessionsCount", { count: node.sessionCount }));
     }
   });
 }
@@ -331,7 +331,7 @@ export function ModelDelegationFlow({ data }: ModelDelegationFlowProps) {
         ref={svgRef}
         className="w-full"
         style={{ minHeight: 120 }}
-        aria-label="Model delegation flow diagram"
+        aria-label={t("modelDelegation.ariaLabel")}
         role="img"
       />
     </div>

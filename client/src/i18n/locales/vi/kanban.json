@@ -1,0 +1,10 @@
+{
+  "title": "Bảng Agent",
+  "subtitle": "Góc nhìn kanban của mọi Agent theo trạng thái",
+  "noAgents": "Chưa có Agent được theo dõi",
+  "noAgentsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy Agent xuất hiện tại đây.",
+  "agentCount": "Đã theo dõi {{count}} Agent",
+  "agentCount_plural": "Đã theo dõi {{count}} Agent",
+  "noAgentsInColumn": "Không có Agent",
+  "ran": "đã chạy "
+}

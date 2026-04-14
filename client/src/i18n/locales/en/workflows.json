@@ -28,6 +28,8 @@
     "legend": "Legend",
     "edgeWeight": "Edge weight = frequency",
     "count": "Count",
+    "otherTypes": "{{count}} other types",
+    "ariaLabel": "Agent orchestration directed acyclic graph",
     "layers": {
       "origin": "Origin",
       "mainAgent": "Main Agent",
@@ -39,7 +41,9 @@
   "toolFlow": {
     "title": "Tool Execution Flow",
     "subtitle": "How tools chain together - Sankey-style directed flow",
-    "noData": "No tool flow data"
+    "noData": "No tool flow data",
+    "transitionCount_one": "{{count}} transition",
+    "transitionCount_other": "{{count}} transitions"
   },
   "pipeline": {
     "title": "Agent Pipeline Graph",
@@ -52,7 +56,10 @@
     "meaning": "Meaning",
     "times": " times",
     "ranAfter": " ran after ",
-    "spawns": " spawns"
+    "spawns": " spawns",
+    "spawned": "Spawned",
+    "inSessions": "In sessions",
+    "ariaLabel": "Agent pipeline graph"
   },
   "effectiveness": {
     "title": "Subagent Effectiveness",
@@ -61,7 +68,11 @@
     "sessions": "Sessions",
     "avgDuration": "Avg Duration",
     "weeklyActivity": "Weekly activity",
-    "noData": "No subagent data available"
+    "noData": "No subagent data available",
+    "successRateAria": "Success rate: {{rate}}%",
+    "weeklyActivityAria": "Weekly activity sparkline",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions"
   },
   "patterns": {
     "title": "Detected Workflow Patterns",
@@ -76,7 +87,13 @@
     "subtitle": "How models route through agent hierarchies",
     "mainModels": "MAIN MODELS",
     "subagentModels": "SUBAGENT MODELS",
-    "noData": "No model delegation data available"
+    "noData": "No model delegation data available",
+    "agentsCount_one": "{{count}} agent",
+    "agentsCount_other": "{{count}} agents",
+    "tokensCount": "{{tokens}} tokens",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessions",
+    "ariaLabel": "Model delegation flow diagram"
   },
   "errorPropagation": {
     "title": "Error Propagation Map",
@@ -84,6 +101,7 @@
     "noErrors": "No errors recorded",
     "allSuccess": "All sessions completed successfully",
     "sessionsHadErrors": " sessions had errors",
+    "sessionsErrorSummary": "{{errorSessions}} of {{totalSessions}} sessions had errors",
     "agentErrors": " agent-level error(s) across hierarchy",
     "sessionErrorsOnly": "Session-level errors only",
     "errorsByDepth": "Errors by hierarchy depth",
@@ -103,7 +121,9 @@
     "noDataDesc": "Concurrency data appears once sessions with subagents have been recorded.",
     "sessions": "Sessions",
     "timing": "Timing",
-    "max": " max"
+    "max": " max",
+    "sessionInfo_one": "{{count}} session - active {{from}}%-{{to}}% of session",
+    "sessionInfo_other": "{{count}} sessions - active {{from}}%-{{to}}% of session"
   },
   "complexity": {
     "title": "Session Complexity Scatter",
@@ -112,6 +132,7 @@
     "noDataDesc": "Sessions will appear here once they complete with agent activity.",
     "duration": "Duration",
     "agentCount": "Agent Count",
+    "ariaLabel": "Session complexity scatter plot",
     "tooltip": {
       "duration": "Duration:",
       "agents": "Agents:",
@@ -127,7 +148,8 @@
     "totalCompactions": "Total Compactions",
     "tokensRecovered": "Tokens Recovered",
     "distribution": "Compaction distribution across sessions",
-    "hadCompactions": " sessions ({{pct}}%) had compactions"
+    "hadCompactions": " sessions ({{pct}}%) had compactions",
+    "ariaLabel": "Compaction count per session"
   },
   "drillIn": {
     "title": "Session Drill-In",
@@ -141,6 +163,8 @@
     "noMatch": "No sessions match your search.",
     "notFound": "No sessions found.",
     "unknownModel": "unknown model",
+    "closePanel": "Close drill-in panel",
+    "close": "Close",
     "tabs": {
       "agentTree": "Agent Tree",
       "toolTimeline": "Tool Timeline",

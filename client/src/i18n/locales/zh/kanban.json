@@ -1,10 +1,10 @@
 {
-  "title": "代理看板",
-  "subtitle": "按状态排列的代理看板视图",
-  "noAgents": "暂无追踪的代理",
-  "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看代理。",
-  "agentCount": "已追踪 {{count}} 个代理",
-  "agentCount_plural": "已追踪 {{count}} 个代理",
-  "noAgentsInColumn": "暂无代理",
+  "title": "Agent看板",
+  "subtitle": "按状态排列的Agent看板视图",
+  "noAgents": "暂无追踪的Agent",
+  "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看Agent。",
+  "agentCount": "已追踪 {{count}} 个Agent",
+  "agentCount_plural": "已追踪 {{count}} 个Agent",
+  "noAgentsInColumn": "暂无Agent",
   "ran": "运行了 "
 }

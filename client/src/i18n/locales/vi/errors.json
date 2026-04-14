@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "Không tìm thấy trang",
+    "description": "Đường dẫn bạn yêu cầu không tồn tại. Hãy dùng điều hướng để quay về trang hợp lệ.",
+    "goDashboard": "Đi tới Tổng quan",
+    "goBack": "Quay lại"
+  },
+  "notifications": {
+    "newSession": "Phiên mới",
+    "sessionDefault": "Phiên ",
+    "sessionError": "Lỗi phiên",
+    "subagentSpawned": "Đã tạo Subagent",
+    "finishedResponding": "Claude đã phản hồi xong",
+    "readyForInput": "Sẵn sàng nhận đầu vào",
+    "sessionCompleted": "Phiên đã hoàn tất",
+    "sessionClosed": "Phiên đã đóng",
+    "defaultTitle": "Claude Code",
+    "defaultBody": "Thông báo"
+  },
+  "toolLegend": {
+    "read": "Đọc",
+    "write": "Ghi",
+    "edit": "Sửa",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "Khác"
+  }
+}

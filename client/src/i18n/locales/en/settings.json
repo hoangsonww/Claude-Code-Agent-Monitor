@@ -11,6 +11,7 @@
     "resetDefaults": "Reset Defaults",
     "resetResult": "Reset to {{count}} default rules",
     "addModel": "Add Model",
+    "pattern": "Pattern",
     "patternPlaceholder": "claude-opus-4%",
     "namePlaceholder": "Claude Opus 4",
     "validationRequired": "Pattern and display name are required",
@@ -81,5 +82,12 @@
     "events": "events",
     "sessionsWithCost": "sessions with cost",
     "pricingRules": "pricing rules"
+  },
+  "messages": {
+    "failedLoad": "Failed to load",
+    "failedSave": "Failed to save",
+    "failedDelete": "Failed to delete",
+    "unknownError": "Unknown",
+    "actionFailed": "Error: {{message}}"
   }
 }
