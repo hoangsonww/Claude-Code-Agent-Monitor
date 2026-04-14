@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Agent Dashboard for Claude Code"
+type: software
+authors:
+  - family-names: "Nguyen"
+    given-names: "Son"
+abstract: "Real-time dashboard for tracking Claude Code agent activity."
+repository-code: "https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
+url: "https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
+version: "1.0.0"
+license: "MIT"
+keywords:
+  - "claude"
+  - "agent"
+  - "dashboard"
+  - "monitoring"
+  - "websocket"
+  - "sqlite"
