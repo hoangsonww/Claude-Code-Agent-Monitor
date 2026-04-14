@@ -1,3 +1,9 @@
+/**
+ * @file Workflows.tsx
+ * @description Displays comprehensive analytics on agent orchestration patterns, including DAGs of agent spawning, tool usage flows, collaboration networks, and session complexity metrics, with real-time updates and interactive filtering.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { Workflow, RefreshCw, Download, AlertCircle, Info } from "lucide-react";
 import { api } from "../lib/api";

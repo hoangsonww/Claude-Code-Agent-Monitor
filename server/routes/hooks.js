@@ -1,3 +1,8 @@
+/**
+ * @file Express router for handling incoming hook events from Claude CLI. It processes various hook types (PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, Notification), updates session and agent states accordingly in the database, extracts token usage from transcripts, detects compaction events, and broadcasts updates to connected clients via WebSocket.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
 const { stmts, db } = require("../db");

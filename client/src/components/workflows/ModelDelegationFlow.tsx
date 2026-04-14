@@ -1,3 +1,9 @@
+/**
+ * @file ModelDelegationFlow.tsx
+ * @description Defines the ModelDelegationFlow React component that visualizes the relationships between main models and subagent models in a flow diagram using D3.js. The component takes model delegation data as input and renders an SVG diagram that shows how different models are connected based on their usage in agents and sessions. It categorizes models into families (opus, sonnet, haiku, other) for color-coding and provides a clear visual representation of model delegation patterns.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useRef, useEffect } from "react";
 import * as d3 from "d3";
 import type { ModelDelegationData } from "../../lib/types";

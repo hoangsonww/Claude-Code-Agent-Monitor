@@ -1,3 +1,9 @@
+/**
+ * @file StatusBadge.tsx
+ * @description Defines reusable React components for displaying the status of agents and sessions in a visually distinct way using badges. The AgentStatusBadge component shows the current status of an agent with an optional pulsing effect for active states, while the SessionStatusBadge component indicates the status of a session. Both components utilize predefined configurations for consistent styling across the application.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { STATUS_CONFIG, SESSION_STATUS_CONFIG } from "../lib/types";
 import type { AgentStatus, SessionStatus } from "../lib/types";
 

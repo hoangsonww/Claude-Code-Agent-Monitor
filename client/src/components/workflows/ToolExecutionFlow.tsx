@@ -1,3 +1,9 @@
+/**
+ * @file ToolExecutionFlow.tsx
+ * @description Defines the ToolExecutionFlow component that visualizes the flow of tool usage in agent workflows using a Sankey diagram. It processes the provided tool flow data, constructs a Sankey graph, and renders it using D3.js. The component also includes interactive tooltips for links and a legend for tool types. It handles responsiveness and edge cases such as empty data gracefully.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import { sankey, sankeyLinkHorizontal } from "d3-sankey";

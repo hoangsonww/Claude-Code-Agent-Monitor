@@ -1,3 +1,9 @@
+/**
+ * @file StatCard.tsx
+ * @description A reusable React component that displays a statistic with a label, value, icon, and optional trend information. It is designed to be used in dashboards or analytics pages to present key metrics in a visually appealing way. The component also supports showing raw values as tooltips on hover for more detailed information.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import * as c from "./colors.js";
 
 const BANNER = `

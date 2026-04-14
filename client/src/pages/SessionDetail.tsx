@@ -1,3 +1,9 @@
+/**
+ * @file SessionDetail.tsx
+ * @description Displays detailed information about a specific session, including its agents, events, and cost breakdown, with real-time updates and an expandable agent hierarchy view.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {

@@ -1,3 +1,9 @@
+/**
+ * @file ErrorPropagationMap.tsx
+ * @description A React component that visualizes error propagation across agent hierarchies in a workflow system. It displays the distribution of errors by hierarchy depth, identifies error-prone agent types, and highlights API and session errors. The component uses horizontal bars to represent error counts at different depths and types, providing an intuitive overview of where errors are occurring within the agent structure.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useState } from "react";
 import type { ErrorPropagationData } from "../../lib/types";
 

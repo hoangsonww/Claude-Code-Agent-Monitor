@@ -1,3 +1,9 @@
+/**
+ * @file http-server.ts
+ * @description Implements the HTTP server transport for the MCP server, supporting both the newer Streamable HTTP protocol and the legacy SSE-based protocol. The server handles incoming requests, manages active sessions, and routes messages to the appropriate transport handlers. It also includes a health check endpoint and integrates with the MCP server instance to facilitate communication with connected clients. The module provides a shutdown function to gracefully close all active transports and the HTTP server itself.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { randomUUID } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";

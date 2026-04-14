@@ -1,3 +1,8 @@
+/**
+ * @file Express router for managing pricing rules and calculating costs based on token usage. It provides endpoints to list, create/update, and delete pricing rules, as well as calculate total costs across all sessions or for a specific session. The cost calculation matches token usage against the most specific applicable pricing rule based on model patterns.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 

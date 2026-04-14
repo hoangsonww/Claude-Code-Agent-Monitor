@@ -1,3 +1,8 @@
+/**
+ * @file Express router for session endpoints, allowing creation, retrieval, and updating of sessions with optional pagination and filtering by status. It also computes costs for sessions based on token usage and pricing rules, and broadcasts session changes to connected WebSocket clients for real-time updates.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");

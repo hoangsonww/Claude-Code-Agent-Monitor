@@ -1,3 +1,9 @@
+/**
+ * @file OrchestrationDAG.tsx
+ * @description Defines the OrchestrationDAG React component that visualizes orchestration data as a directed acyclic graph (DAG) using D3.js. The component takes in orchestration data, processes it to build a graph structure with nodes and edges, and renders it as an SVG. It includes interactive features such as tooltips on hover and click handlers for nodes. The graph is styled with gradients and colors to differentiate between different types of nodes and outcomes, providing a clear visual representation of the orchestration process.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import * as d3 from "d3";
 import type { OrchestrationData } from "../../lib/types";

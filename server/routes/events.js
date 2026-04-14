@@ -1,3 +1,8 @@
+/**
+ * @file Express router for event endpoints, allowing retrieval of events with optional pagination and filtering by session ID. It queries the database for events and returns them in a structured JSON format for frontend consumption.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { Router } = require("express");
 const { stmts } = require("../db");
 

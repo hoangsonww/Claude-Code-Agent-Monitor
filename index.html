@@ -267,6 +267,151 @@
         color: var(--text, #e2e2f0);
       }
 
+      #feature-carousel .carousel-btn .carousel-arrow {
+        display: block;
+        line-height: 1;
+      }
+
+      .star-history-link {
+        display: block;
+        line-height: 0;
+        margin: 0;
+        border-radius: 0;
+        overflow: hidden;
+        border: none;
+        background: transparent;
+      }
+
+      .star-history-card {
+        border-color: rgba(129, 140, 248, 0.32);
+        background: linear-gradient(180deg, rgba(22, 22, 34, 0.98), rgba(13, 13, 23, 0.98));
+      }
+
+      .star-history-card picture {
+        display: block;
+      }
+
+      .star-history-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: auto;
+        object-fit: contain;
+        border-bottom: none;
+      }
+
+      .star-history-card:hover img {
+        transform: none;
+      }
+
+      .star-history-card .screenshot-caption {
+        margin: 0;
+        border-top: 1px solid rgba(129, 140, 248, 0.2);
+        background: rgba(99, 102, 241, 0.08);
+      }
+
+      .star-history-card .star-history-caption-link {
+        color: #c7d2fe;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .star-history-card .star-history-caption-link:hover {
+        color: #e0e7ff;
+      }
+
+      .star-history-intro {
+        margin-bottom: 16px;
+      }
+
+      @media (max-width: 700px) {
+        #feature-carousel .feature-card {
+          min-height: 250px;
+          padding: 22px;
+        }
+
+        #feature-carousel .feature-icon {
+          width: 40px;
+          height: 40px;
+          font-size: 19px;
+          margin-bottom: 12px;
+        }
+
+        #feature-carousel .feature-card h3 {
+          font-size: 15px;
+          margin-bottom: 8px;
+        }
+
+        #feature-carousel .feature-card p {
+          font-size: 13.5px;
+          line-height: 1.62;
+          max-height: 17.8em;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 11;
+          -webkit-box-orient: vertical;
+        }
+
+        #feature-carousel .carousel-controls {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 12px;
+          flex-wrap: nowrap;
+        }
+
+        #feature-carousel .carousel-prev,
+        #feature-carousel .carousel-next {
+          flex: 0 0 auto;
+        }
+
+        #feature-carousel .carousel-dots {
+          flex: 1 1 auto;
+          min-width: 0;
+          max-width: calc(100% - 84px);
+          justify-content: center;
+          flex-wrap: wrap;
+          row-gap: 6px;
+          column-gap: 6px;
+        }
+
+        #feature-carousel .carousel-dot {
+          width: 7px;
+          height: 7px;
+        }
+
+        #feature-carousel .carousel-dot.active {
+          transform: scale(1.2);
+        }
+
+        #feature-carousel .carousel-btn {
+          width: 34px;
+          min-width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          padding: 0;
+          gap: 0;
+          font-size: 18px;
+          color: var(--text-muted, #8888aa);
+          border-color: var(--border, #252538);
+          background: var(--bg-card, #1a1a2b);
+          box-shadow: none;
+        }
+
+        #feature-carousel .carousel-btn:focus-visible {
+          outline: 2px solid rgba(129, 140, 248, 0.75);
+          outline-offset: 2px;
+        }
+
+        .star-history-link {
+          margin: 0;
+          border-radius: 0;
+        }
+
+      }
+
       @media (max-width: 1400px) {
         .sidebar {
           display: flex !important;
@@ -424,7 +569,7 @@
               </svg>
               sonnguyenhoang.com
             </a>
-            <a href="README.md" target="_blank" rel="noopener">
+            <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/README.md" target="_blank" rel="noopener">
               <svg
                 width="14"
                 height="14"
@@ -821,9 +966,13 @@
               </div>
             </div>
             <div class="carousel-controls">
-              <button class="carousel-btn carousel-prev" aria-label="Previous features">‹</button>
+              <button class="carousel-btn carousel-prev" aria-label="Previous features">
+                <span class="carousel-arrow" aria-hidden="true">‹</span>
+              </button>
               <div class="carousel-dots" id="carousel-dots"></div>
-              <button class="carousel-btn carousel-next" aria-label="Next features">›</button>
+              <button class="carousel-btn carousel-next" aria-label="Next features">
+                <span class="carousel-arrow" aria-hidden="true">›</span>
+              </button>
             </div>
           </div>
 
@@ -852,6 +1001,55 @@
             <div class="screenshot-card">
               <img src="images/workflows.png" alt="Workflow graphs showing agent orchestration DAGs and tool execution Sankey diagrams" loading="lazy" />
               <div class="screenshot-caption"><span class="caption-icon">🔀</span> Workflows — agent DAGs and tool Sankey diagrams</div>
+            </div>
+          </div>
+
+          <h3>GitHub Star History</h3>
+          <p class="star-history-intro">
+            This chart tracks how interest in Claude Code Agent Monitor has grown over time. The
+            curve keeps climbing as more developers discover the project, share it, and use it in
+            real workflows. Each new star is a small vote of confidence from the community.
+          </p>
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card star-history-card">
+              <a
+                class="star-history-link"
+                href="https://www.star-history.com/?repos=hoangsonww%2FClaude-Code-Agent-Monitor&type=date&legend=top-left"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <picture>
+                  <source
+                    media="(prefers-color-scheme: dark)"
+                    srcset="https://api.star-history.com/chart?repos=hoangsonww/Claude-Code-Agent-Monitor&type=date&theme=dark&legend=top-left"
+                  />
+                  <source
+                    media="(prefers-color-scheme: light)"
+                    srcset="https://api.star-history.com/chart?repos=hoangsonww/Claude-Code-Agent-Monitor&type=date&legend=top-left"
+                  />
+                  <img
+                    alt="GitHub star history chart for Claude Code Agent Monitor"
+                    src="https://api.star-history.com/chart?repos=hoangsonww/Claude-Code-Agent-Monitor&type=date&legend=top-left"
+                    loading="lazy"
+                    width="1140"
+                    height="560"
+                  />
+                </picture>
+              </a>
+              <div class="screenshot-caption">
+                <span class="caption-icon">⭐</span>
+                <span>
+                  Enjoying the project?
+                  <a
+                    class="star-history-caption-link"
+                    href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Give it a star on GitHub</a
+                  >
+                  and help more builders discover it.
+                </span>
+              </div>
             </div>
           </div>
 
@@ -3574,18 +3772,18 @@ npm run install-hooks</code></pre>
           <div>
             <div class="footer-col-title">Documentation</div>
             <div class="footer-col-links">
-              <a href="README.md">README</a>
-              <a href="ARCHITECTURE.md">Architecture</a>
-              <a href="INSTALL.md">Install</a>
-              <a href="SETUP.md">Setup</a>
+              <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/README.md">README</a>
+              <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/ARCHITECTURE.md">Architecture</a>
+              <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/INSTALL.md">Install</a>
+              <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/SETUP.md">Setup</a>
             </div>
           </div>
           <div>
-            <div class="footer-col-title">Project Links</div>
+            <div class="footer-col-title">Relevant Links</div>
             <div class="footer-col-links">
-              <a href="https://github.com/hoangsonww" target="_blank" rel="noopener">GitHub</a>
-              <a href="https://sonnguyenhoang.com" target="_blank" rel="noopener"
-                >sonnguyenhoang.com</a
+              <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/" target="_blank" rel="noopener">GitHub Repo</a>
+              <a href="https://sonnguyenhoang.com/" target="_blank" rel="noopener"
+                >About the Creator</a
               >
               <div class="footer-note">&copy; 2026</div>
             </div>
@@ -3612,13 +3810,13 @@ npm run install-hooks</code></pre>
 
         var currentPage = 0;
         var autoInterval = null;
-        var AUTO_DELAY = 4000;
+        var AUTO_DELAY = 2500;
         var GAP = 12;
 
         function getPerPage() {
           var w = viewport.offsetWidth;
-          if (w <= 500) return 1;
-          if (w <= 800) return 2;
+          if (w <= 700) return 1;
+          if (w <= 1000) return 2;
           return 3;
         }
 

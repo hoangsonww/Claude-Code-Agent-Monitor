@@ -1,3 +1,9 @@
+/**
+ * @file pricing-tools.ts
+ * @description Tool registration for pricing-related functionalities in the dashboard. This includes tools for retrieving pricing rules and calculating total costs based on usage. The tools interact with the backend API to fetch the necessary data and perform calculations as needed. The file also includes input validation using Zod schemas to ensure that the tool arguments are correctly formatted before processing. These tools are essential for providing users with insights into their costs and helping them manage their usage effectively.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { z } from "zod";
 import { createToolRegistrar } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";

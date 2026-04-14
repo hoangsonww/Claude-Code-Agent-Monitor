@@ -1,3 +1,8 @@
+/**
+ * @file Express router for workflow intelligence endpoints, providing aggregated insights into workflow orchestration, tool usage patterns, subagent effectiveness, error propagation, concurrency, and session complexity. It queries the database for various metrics and patterns related to agents, sessions, and events, and returns a comprehensive JSON response for frontend visualization on the dashboard.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { Router } = require("express");
 const { db, stmts } = require("../db");
 

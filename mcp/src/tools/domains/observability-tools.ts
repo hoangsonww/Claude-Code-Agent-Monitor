@@ -1,3 +1,9 @@
+/**
+ * @file observability-tools.ts
+ * @description Tool registration for observability-related tools in the MCP server. This module defines a set of tools that interact with the Agent Dashboard API to provide health checks, stats, analytics, system information, data export, and operational snapshots. These tools enable users to monitor and analyze the performance and usage of their agents and sessions through the dashboard. Each tool is registered with a name, description, input schema (if applicable), and an asynchronous handler function that makes API calls to retrieve the necessary data.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { z } from "zod";
 import type { ToolContext } from "../../types/tool-context.js";
 import { createToolRegistrar } from "../../core/tool-registry.js";

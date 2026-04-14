@@ -1,3 +1,8 @@
+/**
+ * @file Database setup and access layer using SQLite for storing sessions, agents, events, token usage, and model pricing. Handles schema creation, migrations, and provides prepared statements for all database operations.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 let Database;
 try {
   Database = require("better-sqlite3");

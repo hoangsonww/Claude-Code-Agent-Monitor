@@ -1,3 +1,9 @@
+/**
+ * @file event-tools.ts
+ * @description Defines tools related to event management in the dashboard, including listing events with optional filters and ingesting hook events from Claude Code. The tools are registered with the tool registry and include input validation using Zod schemas. The event listing tool supports pagination and session filtering, while the hook event ingestion tool allows for adding new events into the dashboard pipeline, with a guard to ensure that mutations are enabled in the configuration.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { z } from "zod";
 import { createToolRegistrar } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";

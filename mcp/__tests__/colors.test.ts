@@ -1,3 +1,9 @@
+/**
+ * @file colors.test.ts
+ * @description Unit tests for the colors module, which provides functions for styling console output with ANSI escape codes. The tests cover the stripAnsi function for removing ANSI codes from strings, the existence and functionality of various style functions (e.g., bold, red, bgBlue), and the composable styles like success, error, warn, info, muted, highlight, label, and accent. The tests also verify that the fg256 and bg256 functions return functions that correctly wrap text with the specified 256-color codes. The tests use Node's built-in test framework and assert module for assertions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as c from "../src/ui/colors.js";

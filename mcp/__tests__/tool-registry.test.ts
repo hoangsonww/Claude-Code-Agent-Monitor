@@ -1,3 +1,9 @@
+/**
+ * @file tool-registry.test.ts
+ * @description Unit tests for the tool registry functions, which are responsible for registering tools in the MCP server. The tests cover the behavior of the createCollectorRegistrar and createDualRegistrar functions, ensuring that they correctly collect tool entries and integrate with the MCP server's registration mechanism. The tests use Node's built-in test runner and assert module for assertions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {

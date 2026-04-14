@@ -1,3 +1,9 @@
+/**
+ * @file app-config.test.ts
+ * @description Unit tests for the app configuration loader, which reads environment variables and constructs a configuration object for the MCP server. The tests cover default values, parsing of different transport modes, HTTP port and host parsing with validation, boolean parsing for mutation/destructive flags, timeout and retry parsing with clamping, log level parsing with fallback, dashboard URL validation to ensure it targets a local host and uses http/https, and custom server name/version parsing. The tests use Node's built-in test runner and assert module for assertions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { loadConfig, type TransportMode } from "../src/config/app-config.js";

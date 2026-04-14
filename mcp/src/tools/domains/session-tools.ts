@@ -1,3 +1,9 @@
+/**
+ * @file session-tools.ts
+ * @description Defines and registers tools for managing sessions in the dashboard, including listing sessions with optional filters, retrieving session details, creating new sessions, and updating existing sessions. Each tool includes input validation using Zod schemas and interacts with the dashboard API to perform the necessary operations. The tools also check for mutation permissions before allowing changes to session data, ensuring that the application configuration is respected.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { z } from "zod";
 import { createToolRegistrar } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";

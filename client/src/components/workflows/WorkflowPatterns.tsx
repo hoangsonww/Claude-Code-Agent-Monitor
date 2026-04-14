@@ -1,3 +1,9 @@
+/**
+ * @file WorkflowPatterns.tsx
+ * @description Defines the WorkflowPatterns React component that visualizes common workflow patterns detected from session data. It displays a ranked list of patterns based on their frequency, showing the sequence of agent steps in each pattern along with an icon representing the type of workflow. The component also handles cases where no patterns are detected and includes a special item for solo sessions without subagents. Users can click on a pattern to trigger a callback with the pattern's steps for further analysis or filtering.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useState } from "react";
 import { ChevronRight, Zap, Code2, Shield, Bug, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";

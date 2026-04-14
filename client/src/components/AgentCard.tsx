@@ -1,3 +1,9 @@
+/**
+ * @file AgentCard.tsx
+ * @description Defines the AgentCard component that displays a summary of an agent's information, including its name, status, task, current tool, and timestamps. The card is clickable and navigates to the agent's session details when clicked. It also visually distinguishes active agents with a border highlight.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { Bot, GitBranch, Clock, Wrench } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AgentStatusBadge } from "./StatusBadge";

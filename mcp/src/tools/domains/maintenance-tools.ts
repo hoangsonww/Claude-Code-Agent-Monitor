@@ -1,3 +1,9 @@
+/**
+ * @file maintenance-tools.ts
+ * @description Defines a set of maintenance tools for the MCP dashboard, including functions to clean up stale sessions, re-import legacy data, reinstall hooks, and clear all data. These tools are registered with the MCP server and include appropriate guards to ensure that mutating and destructive actions are only performed when explicitly allowed in the configuration. The tools interact with the MCP server's API to perform the necessary maintenance tasks, providing a way for administrators to manage the dashboard's data and settings effectively.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { z } from "zod";
 import { createToolRegistrar } from "../../core/tool-registry.js";
 import { assertDestructiveEnabled, assertMutationsEnabled } from "../../policy/tool-guards.js";

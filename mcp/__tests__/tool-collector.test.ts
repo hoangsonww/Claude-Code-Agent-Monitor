@@ -1,3 +1,9 @@
+/**
+ * @file tool-collector.test.ts
+ * @description Unit tests for the tool-collector module, which is responsible for collecting and registering all tools available in the application. The tests cover the presence of expected tools, their properties, uniqueness of tool names, adherence to naming conventions, inclusion of tools from all domains, and proper handling of mutation and destructive tools based on configuration. The tests use Node's built-in test runner and assert module for assertions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { collectAllTools } from "../src/transports/tool-collector.js";

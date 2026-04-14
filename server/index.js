@@ -1,10 +1,17 @@
+/**
+ * @file Sets up the Express server with API routes and WebSocket, serves the React client in production, and includes periodic maintenance tasks like session cleanup and compaction scanning.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 if (!process.env.NODE_ENV) process.env.NODE_ENV = "production";
 
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const http = require("http");
+const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
+const { createOpenApiSpec } = require("./openapi");
 
 const sessionsRouter = require("./routes/sessions");
 const agentsRouter = require("./routes/agents");
@@ -18,6 +25,7 @@ const workflowsRouter = require("./routes/workflows");
 
 function createApp() {
   const app = express();
+  const openApiSpec = createOpenApiSpec();
 
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));
@@ -31,6 +39,16 @@ function createApp() {
   app.use("/api/pricing", pricingRouter);
   app.use("/api/settings", settingsRouter);
   app.use("/api/workflows", workflowsRouter);
+  app.get("/api/openapi.json", (_req, res) => {
+    res.json(openApiSpec);
+  });
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, {
+      customSiteTitle: "Agent Dashboard API Docs",
+    })
+  );
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

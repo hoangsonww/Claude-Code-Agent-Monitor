@@ -1,4 +1,10 @@
 /**
+ * @file format.ts
+ * @description Provides utility functions for formatting dates, times, durations, and numbers in the agent dashboard application. It includes functions to parse ISO timestamp strings while normalizing UTC, format time and date-time strings for display, calculate and format durations between timestamps, and format large numbers with appropriate suffixes (K/M/B) for better readability. These utilities help ensure consistent and user-friendly presentation of temporal and numerical data throughout the application.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
+/**
  * Parse a timestamp string into a Date, normalizing UTC.
  * SQLite datetime('now') returns 'YYYY-MM-DD HH:MM:SS' (no timezone).
  * JS treats that as local time, causing offset bugs. This ensures

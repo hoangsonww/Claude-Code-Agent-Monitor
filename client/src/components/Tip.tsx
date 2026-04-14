@@ -1,3 +1,9 @@
+/**
+ * @file Tip.tsx
+ * @description A reusable React component that displays a tooltip with custom content when the user hovers over the wrapped children. The tooltip is positioned above the children and can display any string content passed as the `raw` prop. If no `raw` prop is provided, it simply renders the children without any tooltip functionality. This component is designed to be used across the application wherever there is a need to show additional information on hover without cluttering the UI.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useState } from "react";
 
 export function Tip({ raw, children }: { raw?: string; children: React.ReactNode }) {

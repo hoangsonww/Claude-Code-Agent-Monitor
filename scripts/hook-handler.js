@@ -4,6 +4,8 @@
  * Claude Code hook handler.
  * Receives hook event JSON on stdin and forwards it to the Agent Dashboard API.
  * Designed to fail silently so it never blocks Claude Code.
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const http = require("http");

@@ -1,3 +1,9 @@
+/**
+ * @file StatCard.test.tsx
+ * @description Unit tests for the StatCard component, which is a reusable React component that displays a statistic with a label, value, icon, and optional trend information. The tests cover rendering of the label, value (both numeric and string), trend information, and the icon. The tests also verify that custom accent colors are applied correctly. The tests use React Testing Library and Vitest for assertions and mocking.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { StatCard } from "../StatCard";

@@ -1,3 +1,9 @@
+/**
+ * @file KanbanBoard.tsx
+ * @description Displays a Kanban board of agents grouped by their status with real-time updates and pagination features.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, Columns3, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";

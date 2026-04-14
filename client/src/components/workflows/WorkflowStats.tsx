@@ -1,3 +1,9 @@
+/**
+ * @file WorkflowStats.tsx
+ * @description Defines the WorkflowStats component that displays key statistics about agent workflows in a dashboard format. It includes helper functions for formatting durations and determining success rate colors, as well as a reusable StatCard component for consistent styling of individual statistics. The component takes workflow statistics as props and renders them in a responsive grid layout with appropriate icons and accent colors.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { GitFork, Users, CheckCircle, ArrowRightLeft, Layers, Clock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { WorkflowStats } from "../../lib/types";

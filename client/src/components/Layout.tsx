@@ -1,3 +1,9 @@
+/**
+ * @file Layout.tsx
+ * @description Defines the Layout component that serves as the main structure for the application, including a collapsible sidebar and a main content area. The sidebar's collapsed state is stored in localStorage to persist user preferences across sessions. The component uses React Router's Outlet to render nested routes within the main content area and adjusts its layout based on the sidebar's state.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useState, useCallback } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar, SIDEBAR_STORAGE_KEY, loadCollapsed } from "./Sidebar";

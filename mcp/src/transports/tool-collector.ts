@@ -1,3 +1,9 @@
+/**
+ * @file tool-collector.ts
+ * @description This module defines the collectAllTools function, which is responsible for collecting and registering all tool handlers available in the MCP application. The function takes the application configuration, a dashboard API client, and a logger as arguments, and returns an array of ToolEntry objects representing each registered tool. The tools cover various domains such as observability, session management, agent management, event handling, pricing, and maintenance. This collector is used in REPL mode to allow direct invocation of tools without requiring an MCP Server instance.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import type { AppConfig } from "../config/app-config.js";
 import type { DashboardApiClient } from "../clients/dashboard-api-client.js";
 import type { Logger } from "../core/logger.js";

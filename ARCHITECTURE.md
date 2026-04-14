@@ -14,12 +14,15 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-3.0-85EA2D?style=flat-square&logo=swagger&logoColor=white)
 ![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-7-F9A03C?style=flat-square&logo=d3dotjs&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-8.5-DD3A0A?style=flat-square&logo=postcss&logoColor=white)
 ![Autoprefixer](https://img.shields.io/badge/Autoprefixer-10.4-DD3735?style=flat-square&logo=autoprefixer&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-8.44-4B32C3?style=flat-square&logo=eslint&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-20.10-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Podman](https://img.shields.io/badge/Podman-4.0-CC342D?style=flat-square&logo=podman&logoColor=white)
@@ -291,6 +294,7 @@ graph TD
 | Module                    | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `server/index.js`         | Express app setup, middleware, route mounting, static file serving in production, HTTP server creation. Runs a periodic maintenance sweep every 2 min (abandons stale sessions with transcript cache eviction, scans active sessions for new compaction entries via shared transcript cache). Triggers legacy session import (with active-session detection for recently-modified JSONL files) and compaction backfill on startup                                                                                                                                                                                                                    |
+| `server/openapi.js`       | OpenAPI 3.0.3 document generator for the backend API (metadata, schemas, endpoint paths) used by both raw spec endpoint (`/api/openapi.json`) and Swagger UI (`/api/docs`)                                                                                                                                                                                                                                                                                                                                                      |
 | `server/db.js`            | SQLite connection with WAL mode, schema migration (CREATE TABLE IF NOT EXISTS + ALTER TABLE for column additions), all prepared statements as a reusable `stmts` object. Tries `better-sqlite3` first, falls back to `node:sqlite` via `compat-sqlite.js`. Migrations use literal defaults for ALTER TABLE since SQLite does not support expressions like `strftime()` in column defaults added via ALTER TABLE                                                                                                                      |
 | `server/compat-sqlite.js` | Compatibility wrapper that gives Node.js built-in `node:sqlite` (`DatabaseSync`) the same API as `better-sqlite3` — pragma, transaction, prepare. Used as automatic fallback when the native module is unavailable (Node 22+)                                                                                                                                                                                                                                                                                                        |
 | `server/websocket.js`     | WebSocket server on `/ws` path, 30s heartbeat with ping/pong dead connection detection, typed broadcast function                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -306,6 +310,22 @@ graph TD
 | `lib/transcript-cache.js` | Stat-based JSONL transcript cache with incremental byte-offset reads. Shared between `hooks.js` (token extraction on every event) and the periodic compaction scanner (`index.js`). Extracts tokens, compaction entries, API errors (`isApiErrorMessage` + raw error responses), turn durations (`system` subtype `turn_duration`), thinking block counts, and usage extras (service_tier, speed, inference_geo). Uses `(path, mtime, size)` cache key — unchanged files return cached results instantly, grown files only parse new bytes, shrunk files (compaction) trigger full re-read. LRU eviction caps at 200 entries. Entries evicted on SessionEnd and abandoned session cleanup |
 | `scripts/import-history.js` | Batch history importer that parses main JSONL transcript files and subagent JSONL files (`{session}/subagents/agent-*.jsonl`). Extracts tokens, API errors, turn durations, thinking block counts, and usage extras from main transcripts. Parses per-subagent model, tokens, tools, and timing from subagent files. Creates `APIError`, `TurnDuration`, and `ToolError` event types during import |
 
+### API Documentation
+
+Both JSDoc and Swagger/OpenAPI 3.0.3 are used for API documentation. JSDoc comments in route handlers provide inline documentation and type hints, while the OpenAPI spec is generated centrally for interactive API exploration via Swagger UI.
+
+| Layer | Source | Purpose |
+|-------|--------|---------|
+| Inline code docs | JSDoc blocks in `server/index.js`, `server/db.js`, `server/routes/*.js`, and `server/lib/*.js` | Explain route behavior, lifecycle logic, and internal contracts close to implementation |
+| Machine-readable API contract | `server/openapi.js` (`createOpenApiSpec()`) | Defines OpenAPI 3.0.3 `info`, schemas, parameters, and all documented `/api/*` paths |
+| Human/interactive docs | `GET /api/openapi.json` and `GET /api/docs` | Exposes raw OpenAPI JSON and Swagger UI for exploration and integration testing |
+
+The OpenAPI metadata is grounded in real project data (`package.json` version/license/repository/bugs), and route coverage is enforced in `server/__tests__/api.test.js` by asserting expected paths exist in the spec.
+
+<p align="center">
+  <img src="images/swagger.png" alt="Swagger UI" width="100%">
+</p>
+
 ### Request Processing
 
 ```mermaid
@@ -318,9 +338,12 @@ flowchart LR
     ROUTER -->|/api/agents| AGENTS[agents.js]
     ROUTER -->|/api/events| EVENTS[events.js]
     ROUTER -->|/api/stats| STATS[stats.js]
+    ROUTER -->|/api/analytics| ANALYTICS[analytics.js]
     ROUTER -->|/api/pricing| PRICING[pricing.js]
     ROUTER -->|/api/settings| SETTINGS[settings.js]
     ROUTER -->|/api/workflows| WORKFLOWS[workflows.js]
+    ROUTER -->|/api/openapi.json| OPENAPI[OpenAPI JSON]
+    ROUTER -->|/api/docs| SWAGGER[Swagger UI]
     ROUTER -->|/api/health| HEALTH[Health Check]
     ROUTER -->|"* (prod)"| STATIC[Static Files<br/>client/dist]
 
@@ -329,6 +352,7 @@ flowchart LR
     AGENTS --> DB
     EVENTS --> DB
     STATS --> DB
+    ANALYTICS --> DB
     PRICING --> DB
     SETTINGS --> DB
     WORKFLOWS --> DB
@@ -469,7 +493,7 @@ graph LR
 | `/sessions`     | Sessions      | `GET /api/sessions`                                    |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` (includes agents + events)     |
 | `/activity`     | ActivityFeed  | `GET /api/events?limit=100`                            |
-| `/analytics`    | Analytics     | `GET /api/analytics/tokens`, `GET /api/analytics/tools`, `GET /api/analytics/trends`, `GET /api/analytics/agents` |
+| `/analytics`    | Analytics     | `GET /api/analytics`                                   |
 | `/workflows`    | Workflows     | `GET /api/workflows?status=active\|completed`, `GET /api/workflows/session/:id` + WebSocket auto-refresh (3s debounce) |
 | `/settings`     | Settings      | `GET /api/settings/info`, `GET /api/pricing`, `GET /api/pricing/cost` + `localStorage` for notification prefs |
 | `/*`            | NotFound      | None (static 404 page)                                 |
@@ -844,7 +868,7 @@ graph TD
         STATS["/api/stats"]
         ANALYTICS["/api/analytics"]
         PRICING["/api/pricing/cost"]
-        WORKFLOWS["/api/workflows/:id"]
+        WORKFLOWS["/api/workflows/session/:id"]
         SESSIONS["/api/sessions"]
     end
 

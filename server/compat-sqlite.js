@@ -6,6 +6,9 @@
  * Available on Node.js >= 22.5.0 (node:sqlite is experimental).
  * On older Node versions, require() will throw and the caller should
  * handle the error (e.g. show an informative message).
+ *
+ * @file This module exports a Database class that wraps node:sqlite's DatabaseSync to provide a better-sqlite3-like API.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { DatabaseSync } = require("node:sqlite");

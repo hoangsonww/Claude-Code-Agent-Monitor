@@ -6,6 +6,8 @@ Enterprise-grade Node.js backend for Claude Code agent monitoring with real-time
 ![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-UI-85EA2D?style=flat-square&logo=swagger&logoColor=white)
 
 ---
 
@@ -34,7 +36,7 @@ The server is a lightweight Express application that:
 1. **Receives hook events** from Claude Code via HTTP POST (stdin → hook-handler.js → server)
 2. **Persists data** in SQLite database with schema migrations
 3. **Broadcasts updates** to connected web clients via WebSocket
-4. **Serves REST API** for session/agent/tool queries
+4. **Serves REST API** for sessions, agents, events, stats, analytics, pricing, workflows, settings, and docs
 5. **Manages pricing rules** for cost calculation and attribution
 
 ```mermaid
@@ -94,10 +96,16 @@ graph TB
     end
     
     subgraph "Routes"
-        Hooks[routes/hooks.js POST /hooks/*]
-        Sessions[routes/sessions.js GET /api/sessions/*]
-        Agents[routes/agents.js GET /api/agents/*]
-        Pricing[routes/pricing.js GET/POST/DELETE /api/pricing]
+        Hooks[routes/hooks.js POST /api/hooks/event]
+        Sessions[routes/sessions.js /api/sessions]
+        Agents[routes/agents.js /api/agents]
+        Events[routes/events.js GET /api/events]
+        Stats[routes/stats.js GET /api/stats]
+        Analytics[routes/analytics.js GET /api/analytics]
+        Pricing[routes/pricing.js /api/pricing*]
+        Settings[routes/settings.js /api/settings*]
+        Workflows[routes/workflows.js /api/workflows*]
+        OpenAPI[openapi.js + Swagger /api/openapi.json /api/docs]
     end
     
     subgraph "Tests"
@@ -109,7 +117,13 @@ graph TB
     Index --> Hooks
     Index --> Sessions
     Index --> Agents
+    Index --> Events
+    Index --> Stats
+    Index --> Analytics
     Index --> Pricing
+    Index --> Settings
+    Index --> Workflows
+    Index --> OpenAPI
     
     Hooks --> DB
     Sessions --> DB
@@ -138,7 +152,14 @@ server/
 │   ├── hooks.js           # Hook ingestion endpoints
 │   ├── sessions.js        # Session CRUD API
 │   ├── agents.js          # Agent CRUD API
-│   └── pricing.js         # Pricing rules API
+│   ├── events.js          # Event list API
+│   ├── stats.js           # Dashboard stats API
+│   ├── analytics.js       # Analytics aggregate API
+│   ├── pricing.js         # Pricing rules + cost API
+│   ├── settings.js        # Ops/settings API
+│   └── workflows.js       # Workflow intelligence API
+│
+├── openapi.js             # OpenAPI 3.0 spec generator
 │
 └── __tests__/
     └── api.test.js        # Integration tests
@@ -358,195 +379,89 @@ stmts.createPricingRule.run(pattern, input_cost_per_1m, output_cost_per_1m);
 
 ## API Reference
 
-### REST Endpoints
+All endpoints return JSON unless noted. Error responses use:
 
-```mermaid
-graph LR
-    Client[Client] -->|GET /api/sessions| Sessions[Session List]
-    Client -->|GET /api/sessions/:id| SessionDetail[Session Detail]
-    Client -->|GET /api/sessions/:id/agents| SessionAgents[Session Agents]
-    Client -->|GET /api/agents/:id| AgentDetail[Agent Detail]
-    Client -->|GET /api/agents/:id/tools| AgentTools[Agent Tools]
-    Client -->|GET /api/pricing| PricingList[Pricing Rules]
-    Client -->|POST /api/pricing| PricingCreate[Create Rule]
-    Client -->|DELETE /api/pricing/:pattern| PricingDelete[Delete Rule]
-    
-    style Sessions fill:#3B82F6
-    style SessionDetail fill:#3B82F6
-    style AgentDetail fill:#3B82F6
-```
-
-### Endpoint Documentation
-
-#### `GET /api/sessions`
-
-List all sessions, ordered by most recent activity.
-
-**Query Parameters:**
-- `limit` (optional, default: 50) - Max sessions to return
-
-**Response:**
 ```json
 {
-  "sessions": [
-    {
-      "id": 1,
-      "session_id": "sess_abc123",
-      "model": "claude-sonnet-4",
-      "status": "active",
-      "total_cost": 1.23,
-      "agent_count": 3,
-      "tool_count": 12,
-      "created_at": "2024-03-18T12:00:00Z",
-      "updated_at": "2024-03-18T14:30:00Z"
-    }
-  ]
-}
-```
-
-#### `GET /api/sessions/:id`
-
-Get single session details.
-
-**Response:**
-```json
-{
-  "session": {
-    "id": 1,
-    "session_id": "sess_abc123",
-    "model": "claude-sonnet-4",
-    "status": "active",
-    "total_cost": 1.23,
-    "created_at": "2024-03-18T12:00:00Z",
-    "updated_at": "2024-03-18T14:30:00Z"
+  "error": {
+    "code": "SOME_CODE",
+    "message": "Human-readable explanation"
   }
 }
 ```
 
-#### `GET /api/sessions/:id/agents`
+### OpenAPI / Swagger
 
-List agents for a session.
+| Method | Path                | Description                         |
+| ------ | ------------------- | ----------------------------------- |
+| `GET`  | `/api/openapi.json` | Raw OpenAPI 3.0.3 spec              |
+| `GET`  | `/api/docs`         | Interactive Swagger UI documentation |
 
-**Response:**
+The OpenAPI spec is generated from `server/openapi.js` and is the source of truth for request/response contracts.
+
+### Core Endpoints
+
+| Method  | Path                | Description                                      |
+| ------- | ------------------- | ------------------------------------------------ |
+| `GET`   | `/api/health`       | Server health check                              |
+| `GET`   | `/api/sessions`     | List sessions (`status`, `limit`, `offset`)     |
+| `GET`   | `/api/sessions/:id` | Session detail (includes `agents` + `events`)   |
+| `POST`  | `/api/sessions`     | Create session (idempotent by `id`)             |
+| `PATCH` | `/api/sessions/:id` | Update session                                   |
+| `GET`   | `/api/agents`       | List agents (`status`, `session_id`, pagination)|
+| `GET`   | `/api/agents/:id`   | Agent detail                                     |
+| `POST`  | `/api/agents`       | Create agent (idempotent by `id`)               |
+| `PATCH` | `/api/agents/:id`   | Update agent                                     |
+| `GET`   | `/api/events`       | List events (`session_id`, `limit`, `offset`)   |
+| `GET`   | `/api/stats`        | Dashboard aggregate counters                     |
+| `GET`   | `/api/analytics`    | Analytics aggregates for charts/trends           |
+
+### Hook Ingestion
+
+| Method | Path               | Description                                    |
+| ------ | ------------------ | ---------------------------------------------- |
+| `POST` | `/api/hooks/event` | Ingest one Claude Code hook event envelope     |
+
+Request body shape:
+
 ```json
 {
-  "agents": [
-    {
-      "id": 1,
-      "agent_id": "agent_xyz789",
-      "session_id": "sess_abc123",
-      "agent_type": "explore",
-      "status": "completed",
-      "current_tool": null,
-      "input_tokens": 1500,
-      "output_tokens": 800,
-      "cost": 0.45,
-      "created_at": "2024-03-18T12:00:00Z",
-      "updated_at": "2024-03-18T12:05:00Z"
-    }
-  ]
-}
-```
-
-#### `GET /api/agents/:id`
-
-Get single agent details.
-
-**Response:**
-```json
-{
-  "agent": {
-    "id": 1,
-    "agent_id": "agent_xyz789",
-    "session_id": "sess_abc123",
-    "agent_type": "explore",
-    "status": "completed",
-    "current_tool": null,
-    "input_tokens": 1500,
-    "output_tokens": 800,
-    "cost": 0.45,
-    "created_at": "2024-03-18T12:00:00Z",
-    "updated_at": "2024-03-18T12:05:00Z"
+  "hook_type": "PreToolUse",
+  "data": {
+    "session_id": "abc-123",
+    "tool_name": "Bash"
   }
 }
 ```
 
-#### `GET /api/agents/:id/tools`
+### Pricing
 
-List tool executions for an agent.
+| Method   | Path                      | Description                            |
+| -------- | ------------------------- | -------------------------------------- |
+| `GET`    | `/api/pricing`            | List pricing rules                     |
+| `PUT`    | `/api/pricing`            | Create/update a pricing rule           |
+| `DELETE` | `/api/pricing/:pattern`   | Delete pricing rule                    |
+| `GET`    | `/api/pricing/cost`       | Total cost across all sessions         |
+| `GET`    | `/api/pricing/cost/:id`   | Cost breakdown for one session         |
 
-**Response:**
-```json
-{
-  "tools": [
-    {
-      "id": 1,
-      "agent_id": "agent_xyz789",
-      "tool_name": "bash",
-      "duration_ms": 1234,
-      "success": 1,
-      "error_message": null,
-      "created_at": "2024-03-18T12:01:00Z"
-    }
-  ]
-}
-```
+### Workflows
 
-#### `GET /api/pricing`
+| Method | Path                          | Description                                                         |
+| ------ | ----------------------------- | ------------------------------------------------------------------- |
+| `GET`  | `/api/workflows`              | Aggregate workflow intelligence (`?status=active\|completed\|...`) |
+| `GET`  | `/api/workflows/session/:id`  | Per-session drill-in (tree, timeline, swim lanes, events)          |
 
-List pricing rules (default + custom).
+### Settings / Ops
 
-**Response:**
-```json
-{
-  "rules": [
-    {
-      "id": 1,
-      "pattern": "claude-sonnet-4",
-      "input_cost_per_1m": 3.0,
-      "output_cost_per_1m": 15.0,
-      "created_at": "2024-03-18T12:00:00Z"
-    }
-  ]
-}
-```
-
-#### `POST /api/pricing`
-
-Create custom pricing rule.
-
-**Request Body:**
-```json
-{
-  "pattern": "gpt-5.1-codex",
-  "input_cost_per_1m": 2.5,
-  "output_cost_per_1m": 10.0
-}
-```
-
-**Response:**
-```json
-{
-  "rule": {
-    "id": 2,
-    "pattern": "gpt-5.1-codex",
-    "input_cost_per_1m": 2.5,
-    "output_cost_per_1m": 10.0,
-    "created_at": "2024-03-18T14:30:00Z"
-  }
-}
-```
-
-#### `DELETE /api/pricing/:pattern`
-
-Delete pricing rule (pattern must be URL-encoded).
-
-**Response:**
-```json
-{
-  "deleted": true
-}
-```
+| Method | Path                           | Description                                      |
+| ------ | ------------------------------ | ------------------------------------------------ |
+| `GET`  | `/api/settings/info`           | System info, DB stats, hooks status, cache stats |
+| `POST` | `/api/settings/clear-data`     | Delete all sessions/agents/events/token usage    |
+| `POST` | `/api/settings/reimport`       | Re-import legacy sessions from `~/.claude/`      |
+| `POST` | `/api/settings/reinstall-hooks`| Reinstall Claude Code hooks                      |
+| `POST` | `/api/settings/reset-pricing`  | Reset pricing table to defaults                  |
+| `GET`  | `/api/settings/export`         | Export all data as JSON attachment               |
+| `POST` | `/api/settings/cleanup`        | Abandon stale sessions and purge old data        |
 
 ---
 
@@ -650,51 +565,45 @@ sequenceDiagram
     participant WS as WebSocket
     participant Client as Browser
     
-    Claude->>Hook: stdin: {"type":"sessionStart",...}
-    Hook->>Server: POST /hooks/session-start
-    Server->>DB: INSERT/UPDATE session
-    Server->>DB: INSERT/UPDATE agent
-    Server->>WS: broadcast(session.created)
-    WS->>Client: { type: "session.created", data: {...} }
+    Claude->>Hook: stdin JSON payload
+    Hook->>Server: POST /api/hooks/event
+    Server->>DB: INSERT/UPDATE session, agent, event, token_usage
+    Server->>WS: broadcast(session_created/agent_updated/new_event)
+    WS->>Client: { type: "...", data: {...}, timestamp: "..." }
     Server-->>Hook: 200 OK
     Hook-->>Claude: exit 0 (non-blocking)
 ```
 
 ### Hook Endpoints
 
-| Hook Type | Endpoint | Actions |
-|-----------|----------|---------|
-| SessionStart | `POST /hooks/session-start` | Create session + main agent |
-| PreToolUse | `POST /hooks/pre-tool-use` | Update agent current_tool |
-| PostToolUse | `POST /hooks/post-tool-use` | Create tool_execution, update agent tokens/cost |
-| Stop | `POST /hooks/stop` | Mark agent as completed |
-| SubagentStop | `POST /hooks/subagent-stop` | Mark subagent as completed |
-| Notification | `POST /hooks/notification` | Create notification record |
-| SessionEnd | `POST /hooks/session-end` | Mark session as completed |
+All hook traffic is sent to one endpoint:
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| `POST` | `/api/hooks/event` | Body includes `hook_type` and `data`; server routes behavior by hook type |
+
+Supported `hook_type` values include `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `Notification`, `SessionStart`, and `SessionEnd`.
 
 ### Hook Processing Logic
 
 ```javascript
-// routes/hooks.js - sessionStart handler
-router.post('/session-start', (req, res) => {
-  const { sessionId, model, agentId, agentType } = req.body;
-  
-  // Upsert session
-  let session = stmts.findSession.get(sessionId);
-  if (!session) {
-    stmts.createSession.run(sessionId, model);
-    session = stmts.findSession.get(sessionId);
-    broadcast({ type: 'session.created', data: session });
+// routes/hooks.js
+router.post("/event", (req, res) => {
+  const { hook_type, data } = req.body;
+  if (!hook_type || !data) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "hook_type and data are required" },
+    });
   }
-  
-  // Create main agent
-  if (!stmts.findAgent.get(agentId)) {
-    stmts.createAgent.run(agentId, sessionId, agentType);
-    const agent = stmts.findAgent.get(agentId);
-    broadcast({ type: 'agent.created', data: agent });
+
+  const event = processEvent(hook_type, data); // updates sessions, agents, events, tokens
+  if (!event) {
+    return res.status(400).json({
+      error: { code: "MISSING_SESSION", message: "session_id is required in data" },
+    });
   }
-  
-  res.json({ success: true });
+
+  res.json({ ok: true, event });
 });
 ```
 
@@ -877,16 +786,16 @@ graph TB
 ### Graceful Degradation
 
 ```javascript
-// Hook endpoints never throw errors to Claude Code
-router.post('/hooks/*', (req, res) => {
+// Hook endpoint never throws unhandled errors to Claude Code
+router.post("/api/hooks/event", (req, res) => {
   try {
     // Process hook
-    processHook(req.body);
-    res.json({ success: true });
+    processHookEvent(req.body);
+    res.json({ ok: true });
   } catch (err) {
-    console.error('Hook processing error:', err);
+    console.error("Hook processing error:", err);
     // Still return 200 to avoid blocking Claude Code
-    res.json({ success: false, error: err.message });
+    res.json({ ok: false, error: err.message });
   }
 });
 ```
@@ -1026,20 +935,22 @@ node --test --test-reporter=spec server/__tests__/*.test.js
 import { test } from 'node:test';
 import assert from 'node:assert';
 
-test('POST /hooks/session-start creates session', async () => {
-  const response = await fetch('http://localhost:4820/hooks/session-start', {
+test("POST /api/hooks/event ingests hook payload", async () => {
+  const response = await fetch("http://localhost:4820/api/hooks/event", {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sessionId: 'test_session',
-      model: 'claude-sonnet-4',
-      agentId: 'test_agent',
-      agentType: 'general-purpose'
+      hook_type: "SessionStart",
+      data: {
+        session_id: "test_session",
+        model: "claude-sonnet-4",
+        session_name: "Example Session",
+      },
     })
   });
   
   const data = await response.json();
-  assert.strictEqual(data.success, true);
+  assert.strictEqual(data.ok, true);
   
   // Verify session created
   const session = await fetch('http://localhost:4820/api/sessions/test_session');

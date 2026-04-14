@@ -1,3 +1,9 @@
+/**
+ * @file app-config.ts
+ * @description Module for loading and validating application configuration from environment variables. This module defines the AppConfig interface representing the configuration structure, along with functions to parse and validate individual configuration values such as booleans, integers, log levels, dashboard URLs, and transport modes. The loadConfig function aggregates all configuration values into a single AppConfig object, applying defaults and validation as needed. The module ensures that the application is configured correctly before it starts, providing clear error messages for invalid configurations.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type TransportMode = "stdio" | "http" | "repl";
 

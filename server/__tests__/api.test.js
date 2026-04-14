@@ -1,9 +1,15 @@
+/**
+ * @file Tests for the Dashboard API endpoints, covering session and agent management, event recording, stats aggregation, and hook event processing. Uses Node's built-in test runner and assertions to validate API behavior and edge cases.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const http = require("http");
+const pkg = require("../../package.json");
 
 // Set up test database BEFORE requiring any server modules
 const TEST_DB = path.join(os.tmpdir(), `dashboard-test-${Date.now()}-${process.pid}.db`);
@@ -14,6 +20,31 @@ const { db, stmts } = require("../db");
 
 let server;
 let BASE;
+const EXPECTED_API_PATHS = [
+  "/api/health",
+  "/api/sessions",
+  "/api/sessions/{id}",
+  "/api/agents",
+  "/api/agents/{id}",
+  "/api/events",
+  "/api/stats",
+  "/api/analytics",
+  "/api/hooks/event",
+  "/api/pricing",
+  "/api/pricing/{pattern}",
+  "/api/pricing/cost",
+  "/api/pricing/cost/{sessionId}",
+  "/api/workflows",
+  "/api/workflows/session/{id}",
+  "/api/settings/info",
+  "/api/settings/clear-data",
+  "/api/settings/reimport",
+  "/api/settings/reinstall-hooks",
+  "/api/settings/reset-pricing",
+  "/api/settings/export",
+  "/api/settings/cleanup",
+  "/api/openapi.json",
+];
 
 function fetch(urlPath, options = {}) {
   return new Promise((resolve, reject) => {
@@ -84,6 +115,29 @@ describe("GET /api/health", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.status, "ok");
     assert.ok(res.body.timestamp);
+  });
+});
+
+describe("OpenAPI / Swagger", () => {
+  it("should expose OpenAPI spec with complete endpoint coverage", async () => {
+    const res = await fetch("/api/openapi.json");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.openapi, "3.0.3");
+    assert.equal(res.body.info.version, pkg.version);
+    assert.equal(res.body.info.license.name, pkg.license);
+    assert.equal(res.body["x-issues-url"], pkg.bugs.url);
+    assert.match(res.body.info.contact.url, /github\.com\/hoangsonww\/Claude-Code-Agent-Monitor/);
+
+    for (const pathName of EXPECTED_API_PATHS) {
+      assert.ok(res.body.paths[pathName], `Expected path ${pathName} to be documented`);
+    }
+  });
+
+  it("should serve Swagger UI", async () => {
+    const res = await fetch("/api/docs/");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"], /text\/html/);
+    assert.match(res.body, /swagger/i);
   });
 });
 

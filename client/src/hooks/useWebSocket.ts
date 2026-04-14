@@ -1,3 +1,9 @@
+/**
+ * @file useWebSocket.ts
+ * @description Defines a custom React hook for managing WebSocket connections in the agent dashboard application. The hook establishes a WebSocket connection to the server, handles incoming messages, manages connection status, and implements automatic reconnection logic. It provides a clean interface for components to receive real-time updates from the server and react to changes in connectivity.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useEffect, useRef, useCallback, useState } from "react";
 import type { WSMessage } from "../lib/types";
 import { eventBus } from "../lib/eventBus";

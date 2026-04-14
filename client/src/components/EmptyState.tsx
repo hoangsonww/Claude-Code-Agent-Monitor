@@ -1,3 +1,9 @@
+/**
+ * @file EmptyState.tsx
+ * @description A reusable React component that displays an empty state with an icon, title, description, and an optional action. It is designed to be used across the application whenever there is no data to show or when a user needs guidance on what to do next.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import type { LucideIcon } from "lucide-react";
 
 interface EmptyStateProps {

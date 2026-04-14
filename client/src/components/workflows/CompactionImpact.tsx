@@ -1,3 +1,9 @@
+/**
+ * @file CompactionImpact.tsx
+ * @description Defines the CompactionImpact React component that visualizes the impact of compactions across sessions. It displays key statistics such as total compactions and tokens recovered, and renders a bar chart showing the distribution of compactions per session using D3.js. The component handles cases where no compactions are recorded and provides a clear summary of the data.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useRef, useEffect } from "react";
 import * as d3 from "d3";
 import type { CompactionImpactData } from "../../lib/types";

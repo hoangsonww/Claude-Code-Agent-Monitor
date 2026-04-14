@@ -1,3 +1,9 @@
+/**
+ * @file Dashboard.tsx
+ * @description Main dashboard page showing real-time stats, active agents, and recent activity feed for Claude Code sessions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {

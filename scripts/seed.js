@@ -2,6 +2,8 @@
 
 /**
  * Seeds the database with sample data for development and demo purposes.
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { v4: uuidv4 } = require("uuid");

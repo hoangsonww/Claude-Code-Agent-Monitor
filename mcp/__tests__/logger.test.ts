@@ -1,3 +1,9 @@
+/**
+ * @file logger.test.ts
+ * @description Unit tests for the Logger class, which is responsible for logging messages in JSON format to stderr with different log levels (debug, info, warn, error). The tests cover writing logs to stderr, respecting minimum log levels, omitting meta when empty, and ensuring that each log line is valid JSON. The tests use Node's built-in test runner and assert module for assertions and mocking.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { Logger } from "../src/core/logger.js";

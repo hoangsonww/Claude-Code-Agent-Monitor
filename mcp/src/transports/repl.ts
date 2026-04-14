@@ -1,3 +1,9 @@
+/**
+ * @file repl.ts
+ * @description Implements a REPL (Read-Eval-Print Loop) transport for the MCP server, allowing users to interact with the dashboard API and invoke registered tools directly from the command line. The REPL provides an interactive prompt with command history and tab completion for tool names and commands. It supports built-in commands for listing tools, showing configuration, and performing health checks, as well as invoking any registered tool with JSON or key=value arguments. The REPL is designed for ease of use and quick experimentation during development or debugging sessions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import * as readline from "node:readline";
 import type { AppConfig } from "../config/app-config.js";
 import type { DashboardApiClient } from "../clients/dashboard-api-client.js";

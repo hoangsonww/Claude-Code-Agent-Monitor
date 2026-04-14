@@ -1,3 +1,9 @@
+/**
+ * @file logger.ts
+ * @description Logger class for the MCP application, responsible for logging messages in JSON format to stderr with different log levels (debug, info, warn, error). The logger respects a minimum log level configuration and includes timestamps in ISO format. Each log entry is a single line of JSON containing the timestamp, log level, message, and optional metadata. This structured logging approach allows for easy parsing and analysis of logs. The Logger class provides methods for each log level and a private method to handle the actual writing of log entries to stderr.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import type { LogLevel } from "../config/app-config.js";
 
 const LEVEL_ORDER: Record<LogLevel, number> = {

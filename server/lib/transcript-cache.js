@@ -1,3 +1,8 @@
+/**
+ * @file TranscriptCache class for efficient extraction of token usage and compaction data from JSONL transcript files, with stat-based caching and incremental reads to handle append-only growth without re-reading the entire file. Also extracts API error entries and turn duration system messages for enhanced analytics.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 const fs = require("fs");
 
 const MAX_CACHE_ENTRIES = 200;

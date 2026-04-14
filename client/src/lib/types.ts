@@ -1,3 +1,9 @@
+/**
+ * @file types.ts
+ * @description Defines TypeScript types and interfaces for the agent dashboard application, including data structures for sessions, agents, events, statistics, analytics, model pricing, cost breakdowns, WebSocket messages, and workflow-related data. These types provide a clear contract for the shape of data used throughout the application and facilitate type safety when interacting with the backend API and managing state within the frontend components.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 export type SessionStatus = "active" | "completed" | "error" | "abandoned";
 export type AgentStatus = "idle" | "connected" | "working" | "completed" | "error";
 export type AgentType = "main" | "subagent";

@@ -1,3 +1,9 @@
+/**
+ * @file tool-result.test.ts
+ * @description Unit tests for the tool result formatting functions, which are responsible for converting tool outputs and errors into a standardized format that can be rendered in the MCP dashboard. The tests cover the behavior of the jsonResult function, ensuring that it correctly wraps payloads as text content with appropriate titles, and the errorResult function, verifying that it handles different types of errors (ApiError, generic Error, and non-Error values) and formats them into a consistent error result structure. The tests use Node's built-in test runner and assert module for assertions.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { jsonResult, errorResult } from "../src/core/tool-result.js";

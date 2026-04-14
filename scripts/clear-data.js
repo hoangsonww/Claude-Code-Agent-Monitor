@@ -3,6 +3,8 @@
 /**
  * Clears all sessions, agents, events, and token usage from the database.
  * Useful for removing seed/demo data before using the real dashboard.
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 let Database;

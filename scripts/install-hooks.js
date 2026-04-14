@@ -3,6 +3,8 @@
 /**
  * Installs Claude Code hooks that forward events to the Agent Dashboard.
  * Modifies ~/.claude/settings.json to add hook entries.
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const fs = require("fs");

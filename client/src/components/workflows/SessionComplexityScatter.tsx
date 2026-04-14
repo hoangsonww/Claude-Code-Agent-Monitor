@@ -1,3 +1,9 @@
+/**
+ * @file SessionComplexityScatter.tsx
+ * @description A React component that renders a scatter plot visualization of session complexity using D3.js. Each session is represented as a bubble, where the x-axis represents the session duration, the y-axis represents the number of agents involved, and the size of the bubble corresponds to the total tokens used. The color of each bubble indicates the session status (e.g., completed, active, error, abandoned). The component also includes tooltips for detailed information on hover and a legend for status colors. It is designed to be responsive and provides an empty state when no data is available.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useRef, useEffect, useState, useCallback } from "react";
 import * as d3 from "d3";
 import type { SessionComplexityItem } from "../../lib/types";

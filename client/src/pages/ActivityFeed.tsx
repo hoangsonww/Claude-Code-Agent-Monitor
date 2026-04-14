@@ -1,3 +1,9 @@
+/**
+ * @file ActivityFeed.tsx
+ * @description Displays a real-time feed of agent events with pause/resume and pagination features.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, Pause, Play, RefreshCw } from "lucide-react";

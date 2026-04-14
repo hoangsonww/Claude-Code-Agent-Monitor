@@ -1,3 +1,8 @@
+/**
+ * @file JS functionality for wiki page index.html at root
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 /* ─── Mermaid initialisation ────────────────────────────────────────────── */
 mermaid.initialize({
   startOnLoad: true,

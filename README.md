@@ -16,12 +16,15 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-3.0-85EA2D?style=flat-square&logo=swagger&logoColor=white)
 ![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-7-F9A03C?style=flat-square&logo=d3dotjs&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-8.5-DD3A0A?style=flat-square&logo=postcss&logoColor=white)
 ![Autoprefixer](https://img.shields.io/badge/Autoprefixer-10.4-DD3735?style=flat-square&logo=autoprefixer&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-8.44-4B32C3?style=flat-square&logo=eslint&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-20.10-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Podman](https://img.shields.io/badge/Podman-4.0-CC342D?style=flat-square&logo=podman&logoColor=white)
@@ -632,6 +635,19 @@ Full details: [mcp/README.md](./mcp/README.md)
 
 All endpoints return JSON. Error responses follow the shape `{ error: { code, message } }`.
 
+### OpenAPI / Swagger
+
+| Method | Path                | Description                         |
+| ------ | ------------------- | ----------------------------------- |
+| `GET`  | `/api/openapi.json` | Raw OpenAPI 3.0 spec                |
+| `GET`  | `/api/docs`         | Interactive Swagger UI documentation |
+
+The OpenAPI document is generated from `server/openapi.js`, and Swagger UI is served directly by the backend.
+
+<p align="center">
+  <img src="images/swagger.png" alt="Swagger UI" width="100%">
+</p>
+
 ### Health
 
 | Method | Path          | Description                           |
@@ -667,6 +683,12 @@ All endpoints return JSON. Error responses follow the shape `{ error: { code, me
 | Method | Path         | Description                                            |
 | ------ | ------------ | ------------------------------------------------------ |
 | `GET`  | `/api/stats` | Aggregate counts, status distributions, WS connections |
+
+### Analytics
+
+| Method | Path             | Description                                                |
+| ------ | ---------------- | ---------------------------------------------------------- |
+| `GET`  | `/api/analytics` | Token/tool/session aggregates for charts and trend views   |
 
 ### Hooks
 
@@ -710,6 +732,7 @@ All endpoints return JSON. Error responses follow the shape `{ error: { code, me
 | ------ | ------------------------------ | ------------------------------------------------ |
 | `GET`  | `/api/settings/info`           | System info, DB stats, hook status               |
 | `POST` | `/api/settings/clear-data`     | Delete all sessions, agents, events, token usage |
+| `POST` | `/api/settings/reimport`       | Re-import legacy sessions from `~/.claude/`      |
 | `POST` | `/api/settings/reinstall-hooks`| Reinstall Claude Code hooks                      |
 | `POST` | `/api/settings/reset-pricing`  | Reset pricing to defaults                        |
 | `GET`  | `/api/settings/export`         | Export all data as JSON download                 |
