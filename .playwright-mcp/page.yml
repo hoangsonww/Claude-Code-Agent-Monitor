@@ -1,1 +1,225 @@
+version: 1
+name: claude-code-agent-monitor
+description: >
+  Playwright MCP page model for the Claude Code Agent Monitor dashboard.
+  This file defines stable navigation targets, readiness checks, and
+  high-value interaction flows for browser automation and validation.
 
+app:
+  base_url: http://localhost:5173
+  production_url: http://localhost:4820
+  shell:
+    sidebar_brand: Agent Dashboard
+    nav_items:
+      - Dashboard
+      - Agent Board
+      - Sessions
+      - Activity Feed
+      - Analytics
+      - Workflows
+      - Settings
+    websocket_indicators:
+      live: Live
+      disconnected: Disconnected
+
+readiness:
+  default_timeout_ms: 15000
+  checks:
+    - type: text
+      value: Agent Dashboard
+      required: true
+    - type: text_any
+      values: [Live, Disconnected]
+      required: true
+    - type: nav_labels
+      values: [Dashboard, Agent Board, Sessions, Activity Feed, Analytics, Workflows, Settings]
+
+pages:
+  dashboard:
+    route: /
+    title_text: Dashboard
+    summary_text: Real-time overview of Claude Code agent activity
+    primary_actions:
+      - Refresh
+      - View Board
+    key_blocks:
+      - Total Sessions
+      - Active Agents
+      - Active Subagents
+      - Events Today
+      - Total Events
+      - Total Cost
+      - Active Agents
+      - Recent Activity
+    empty_states:
+      - No active agents
+      - No activity yet
+
+  agent_board:
+    route: /kanban
+    title_text: Agent Board
+    expected_columns:
+      - Working
+      - Connected
+      - Idle
+      - Completed
+      - Error
+    empty_state: No agents tracked yet
+
+  sessions:
+    route: /sessions
+    title_text: Sessions
+    search_placeholder: Search sessions...
+    filters:
+      - All
+      - Active
+      - Completed
+      - Error
+      - Abandoned
+    row_navigation: /sessions/:id
+    empty_state: No sessions found
+
+  session_detail:
+    route_pattern: /sessions/:id
+    expected_sections:
+      - Session Overview
+      - Agent Hierarchy
+      - Event Timeline
+    interactions:
+      - Expand nested agent tree when present
+      - Verify timeline entries are ordered newest-first
+
+  activity_feed:
+    route: /activity
+    title_text: Activity Feed
+    stream_text: Real-time stream of all agent events
+    controls:
+      - Pause
+      - Resume
+      - Refresh
+      - Previous
+      - Next
+    empty_state: No activity yet
+
+  analytics:
+    route: /analytics
+    title_text: Analytics
+    primary_actions:
+      - Refresh
+      - Export JSON
+    expected_cards:
+      - Total Tokens
+      - Input Tokens
+      - Output Tokens
+      - Estimated Cost
+      - Total Sessions
+      - Total Agents
+
+  workflows:
+    route: /workflows
+    title_text: Workflows
+    status_tabs:
+      - Active Only
+      - Completed
+      - All
+    primary_actions:
+      - Refresh data
+      - Export as JSON
+    expected_sections:
+      - Agent Orchestration Graph
+      - Tool Execution Flow
+      - Agent Pipeline Graph
+      - Subagent Effectiveness
+      - Detected Workflow Patterns
+      - Model Delegation Flow
+      - Error Propagation Map
+      - Agent Concurrency Timeline
+      - Session Complexity Scatter
+      - Compaction Impact Analysis
+      - Session Drill-In
+
+  settings:
+    route: /settings
+    title_text: Settings
+    expected_sections:
+      - Model Pricing
+      - Hook Configuration
+      - Data Export
+      - Session Cleanup
+      - Clear All Data
+      - About
+    key_inputs:
+      - model_filter: claude-opus-4%
+      - model_name: Claude Opus 4
+    dangerous_actions_require_confirmation:
+      - Clear All Data
+
+  not_found:
+    route: /__playwright_mcp_invalid_route__
+    expected_text:
+      - 404
+      - Page Not Found
+
+flows:
+  smoke_navigation:
+    description: Validate shell and every primary route.
+    steps:
+      - open /
+      - assert readiness checks
+      - click sidebar item Dashboard and assert title Dashboard
+      - click sidebar item Agent Board and assert title Agent Board
+      - click sidebar item Sessions and assert title Sessions
+      - click sidebar item Activity Feed and assert title Activity Feed
+      - click sidebar item Analytics and assert title Analytics
+      - click sidebar item Workflows and assert title Workflows
+      - click sidebar item Settings and assert title Settings
+
+  sessions_search_and_open:
+    description: Validate sessions page controls and row navigation.
+    steps:
+      - open /sessions
+      - fill Search sessions... with session
+      - toggle filters Active then All
+      - if a table row exists, click first row and assert route matches /sessions/:id
+
+  activity_pause_resume:
+    description: Validate feed buffering control UX.
+    steps:
+      - open /activity
+      - click Pause
+      - wait 2s
+      - click Resume
+      - assert Pause button becomes visible again
+
+  workflows_refresh_and_export:
+    description: Validate workflows controls and major sections.
+    steps:
+      - open /workflows
+      - assert all expected section titles are visible
+      - click Refresh data
+      - click Export as JSON
+
+  settings_safety:
+    description: Validate access to settings and destructive gate visibility.
+    steps:
+      - open /settings
+      - assert sections Model Pricing and Hook Configuration are visible
+      - verify Clear All Data action is present and requires explicit confirmation
+
+stability:
+  preferred_locators:
+    - role + accessible name
+    - visible heading text
+    - stable button text
+  discouraged_locators:
+    - autogenerated class names
+    - brittle nth-child selectors
+  waits:
+    navigation_idle: networkidle
+    post_action_ms: 150
+    websocket_settle_ms: 3000
+
+notes:
+  - Use `app.base_url` in local dev and `app.production_url` for production smoke checks.
+  - Prefer validating both populated and empty-state UI where seed data is unavailable.
+  - Keep assertions content-focused so minor style changes do not break automation.
