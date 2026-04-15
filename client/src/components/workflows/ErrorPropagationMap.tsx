@@ -27,7 +27,7 @@ export function ErrorPropagationMap({ data }: ErrorPropagationMapProps) {
       t("errorPropagation.depthLabels.nested"),
       t("errorPropagation.depthLabels.deep"),
     ];
-    return keys[depth] ?? `${t("common:depth", { defaultValue: "Depth" })} ${depth}`;
+    return keys[depth] ?? `${t("common:depth")} ${depth}`;
   }
 
   const hasErrors =
@@ -79,8 +79,10 @@ export function ErrorPropagationMap({ data }: ErrorPropagationMapProps) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-red-300">
-            {data.sessionsWithErrors} of {data.totalSessions}
-            {t("errorPropagation.sessionsHadErrors")}
+            {t("errorPropagation.sessionsErrorSummary", {
+              errorSessions: data.sessionsWithErrors,
+              totalSessions: data.totalSessions,
+            })}
           </p>
           <p className="text-[11px] text-gray-500 mt-0.5">
             {totalErrors > 0

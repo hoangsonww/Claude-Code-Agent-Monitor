@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "../Sidebar";
 
@@ -59,5 +60,36 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/kanban");
     expect(hrefs).toContain("/sessions");
     expect(hrefs).toContain("/activity");
+  });
+
+  it("should render three language options in expanded mode", () => {
+    renderSidebar(true);
+    expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chinese" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vietnamese" })).toBeInTheDocument();
+  });
+
+  it("should switch to Vietnamese when Vietnamese option is clicked", async () => {
+    const user = userEvent.setup();
+    renderSidebar(true);
+
+    await user.click(screen.getByRole("button", { name: "Vietnamese" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Tổng quan")).toBeInTheDocument();
+      expect(screen.getByText("Bảng Agent")).toBeInTheDocument();
+    });
+  });
+
+  it("should cycle language in collapsed mode", async () => {
+    const user = userEvent.setup();
+    renderSidebar(true, true);
+
+    expect(screen.getByText("EN")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Switch to Chinese" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("中文")).toBeInTheDocument();
+    });
   });
 });

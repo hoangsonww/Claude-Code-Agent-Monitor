@@ -136,7 +136,7 @@ function outcomeColorSet(status: string) {
 
 function buildGraph(
   data: OrchestrationData,
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): {
   nodes: DAGNode[];
   edges: DAGEdge[];
@@ -201,13 +201,17 @@ function buildGraph(
     const overflowTotal = overflow.reduce((s, [, v]) => s + v.count, 0);
     rawNodes.push({
       id: "subagent:__overflow",
-      label: `+${overflow.length} more`,
+      label: t("common:plusMore", { count: overflow.length }),
       count: overflowTotal,
       layer: 2,
       kind: "subagent",
       width: NODE_W,
       height: NODE_H,
-      meta: { completed: 0, errors: 0, subagent_type: `${overflow.length} others` },
+      meta: {
+        completed: 0,
+        errors: 0,
+        subagent_type: t("orchestration.otherTypes", { count: overflow.length }),
+      },
     });
   }
 
@@ -732,7 +736,7 @@ export function OrchestrationDAG({ data, onNodeClick, selectedNode }: Orchestrat
             height: graph.svgHeight,
             display: "block",
           }}
-          aria-label="Agent orchestration directed acyclic graph"
+          aria-label={t("orchestration.ariaLabel")}
           role="img"
         />
       </div>
@@ -795,15 +799,15 @@ function DAGTooltip({ tooltip }: { tooltip: TooltipState }) {
 
   if (node.kind === "nested" && node.meta?.subagent_type) {
     lines.push({
-      label: t("common:type", { defaultValue: "Type" }),
+      label: t("common:type"),
       value: node.meta.subagent_type,
     });
   }
 
   if (node.kind === "outcome" && node.meta?.status) {
     lines.push({
-      label: t("common:status.status", { defaultValue: "Status" }),
-      value: node.meta.status,
+      label: t("common:statusLabel"),
+      value: t(`common:status.${node.meta.status}`, { defaultValue: node.meta.status }),
     });
   }
 

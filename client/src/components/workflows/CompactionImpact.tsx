@@ -226,7 +226,7 @@ export function CompactionImpact({ data }: CompactionImpactProps) {
           ref={svgRef}
           className="w-full"
           style={{ height: CHART_HEIGHT }}
-          aria-label="Compaction count per session"
+          aria-label={t("compaction.ariaLabel")}
           role="img"
         />
       </div>

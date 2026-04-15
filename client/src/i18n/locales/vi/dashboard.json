@@ -1,0 +1,22 @@
+{
+  "title": "Tổng quan",
+  "subtitle": "Góc nhìn thời gian thực về hoạt động Agent Claude Code",
+  "totalSessions": "Tổng số phiên",
+  "activeAgents": "Agent đang hoạt động",
+  "activeSubagents": "Subagent đang hoạt động",
+  "eventsToday": "Sự kiện hôm nay",
+  "totalEvents": "Tổng sự kiện",
+  "totalCost": "Tổng chi phí",
+  "viewBoard": "Xem bảng",
+  "viewAll": "Xem tất cả",
+  "activeAgentsSection": "Agent đang hoạt động",
+  "recentActivity": "Hoạt động gần đây",
+  "noAgents": "Không có Agent đang hoạt động",
+  "noAgentsDesc": "Agent sẽ xuất hiện ở đây khi phiên Claude Code đang chạy.",
+  "noActivity": "Chưa có hoạt động",
+  "noActivityDesc": "Sự kiện từ các phiên Claude Code sẽ được phát trực tiếp tại đây.",
+  "failedConnect": "Không thể kết nối máy chủ",
+  "failedLoad": "Không thể tải dữ liệu",
+  "activeTrend": " đang hoạt động",
+  "totalTrend": " tổng"
+}

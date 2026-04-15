@@ -1,0 +1,30 @@
+{
+  "brand": "Bảng điều khiển Agent",
+  "brandSub": "Giám sát Claude Code",
+  "dashboard": "Tổng quan",
+  "agentBoard": "Bảng Agent",
+  "sessions": "Phiên",
+  "activityFeed": "Luồng hoạt động",
+  "analytics": "Phân tích",
+  "workflows": "Quy trình",
+  "settings": "Cài đặt",
+  "language": "Ngôn ngữ",
+  "github": "GitHub",
+  "website": "Website",
+  "expand": "Mở rộng thanh bên",
+  "collapse": "Thu gọn thanh bên",
+  "collapseShort": "Thu gọn",
+  "live": "Trực tiếp",
+  "disconnected": "Mất kết nối",
+  "switchLanguage": "Chuyển sang {{language}}",
+  "languageNames": {
+    "en": "English",
+    "zh": "Tiếng Trung",
+    "vi": "Tiếng Việt"
+  },
+  "languageShort": {
+    "en": "EN",
+    "zh": "中文",
+    "vi": "VI"
+  }
+}

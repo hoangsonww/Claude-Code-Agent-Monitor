@@ -1,0 +1,93 @@
+{
+  "title": "Cài đặt",
+  "subtitle": "Quản lý định giá, thông báo, dữ liệu và hooks",
+  "exportData": "Xuất dữ liệu",
+  "acrossSessions": "Trên toàn bộ phiên đang được theo dõi",
+  "basedOnUsage": "Dựa trên mức dùng token theo mô hình",
+  "pricing": {
+    "title": "Định giá mô hình",
+    "description": "Đơn giá theo một triệu token (USD). Dùng % làm ký tự đại diện trong mẫu.",
+    "resetConfirm": "Xác nhận đặt lại",
+    "resetDefaults": "Khôi phục mặc định",
+    "resetResult": "Đã đặt lại về {{count}} quy tắc mặc định",
+    "addModel": "Thêm mô hình",
+    "pattern": "Mẫu",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "Bắt buộc nhập mẫu và tên hiển thị",
+    "lastUpdated": "Cập nhật lần cuối: "
+  },
+  "hooks": {
+    "title": "Cấu hình hook",
+    "description": "Hooks của Claude Code chuyển tiếp sự kiện về dashboard theo thời gian thực.",
+    "allInstalled": "Đã cài đầy đủ hooks",
+    "incomplete": "Hooks chưa đầy đủ",
+    "reinstall": "Cài lại hooks",
+    "success": "Cài hooks thành công",
+    "failed": "Cài hooks thất bại"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "description": "Thông báo trình duyệt cho các sự kiện quan trọng. Cần cấp quyền.",
+    "enable": "Bật thông báo trình duyệt",
+    "granted": "Đã cấp quyền",
+    "blocked": "Đã chặn quyền",
+    "required": "Cần cấp quyền",
+    "notifyWhen": "Thông báo cho tôi khi...",
+    "newSession": "Phiên mới bắt đầu",
+    "sessionComplete": "Phiên hoàn tất",
+    "sessionError": "Phiên gặp lỗi",
+    "subagentSpawned": "Subagent được tạo",
+    "testTitle": "Agent Monitor",
+    "testBody": "Thông báo đang hoạt động!",
+    "sendTest": "Gửi thông báo thử",
+    "disabledInfo": "Thông báo đang tắt - bật để nhận cảnh báo sự kiện phiên"
+  },
+  "data": {
+    "title": "Quản lý dữ liệu",
+    "description": "Thông tin cơ sở dữ liệu, nhập/xuất và dọn dẹp.",
+    "dbOverview": "Tổng quan cơ sở dữ liệu",
+    "dbSize": "Kích thước CSDL",
+    "loadingDb": "Đang tải thông tin cơ sở dữ liệu...",
+    "sessionCleanup": "Dọn dẹp phiên",
+    "cleanupDesc": "Đánh dấu bỏ dở các phiên cũ và xóa dữ liệu cũ",
+    "abandonAfter": "Đánh dấu bỏ dở phiên đang hoạt động cũ hơn",
+    "purgeAfter": "Xóa phiên hoàn tất/lỗi cũ hơn",
+    "confirmCleanup": "Xác nhận dọn dẹp",
+    "runCleanup": "Chạy dọn dẹp",
+    "nothingToClean": "Không có gì để dọn dẹp",
+    "abandonedResult": " phiên đã bị bỏ dở",
+    "purgedResult": " phiên đã xóa ({{events}} sự kiện, {{agents}} Agent)"
+  },
+  "danger": {
+    "title": "Vùng nguy hiểm",
+    "description": "Các thao tác không thể hoàn tác, xóa dữ liệu vĩnh viễn",
+    "warning": "Thao tác này sẽ xóa toàn bộ phiên, Agent, sự kiện và dữ liệu token. Bạn chắc chứ?",
+    "yesClearAll": "Có, xóa tất cả",
+    "clearAllData": "Xóa toàn bộ dữ liệu",
+    "clearedResult": "Đã xóa {{count}} dòng"
+  },
+  "about": {
+    "title": "Giới thiệu",
+    "description": "Thông tin runtime của máy chủ.",
+    "uptime": "Thời gian chạy",
+    "nodejs": "Node.js",
+    "platform": "Nền tảng",
+    "wsClients": "WS Clients",
+    "loadingInfo": "Đang tải thông tin máy chủ..."
+  },
+  "tables": {
+    "sessions": "phiên",
+    "agents": "Agent",
+    "events": "sự kiện",
+    "sessionsWithCost": "phiên có chi phí",
+    "pricingRules": "quy tắc định giá"
+  },
+  "messages": {
+    "failedLoad": "Tải dữ liệu thất bại",
+    "failedSave": "Lưu thất bại",
+    "failedDelete": "Xóa thất bại",
+    "unknownError": "Không xác định",
+    "actionFailed": "Lỗi: {{message}}"
+  }
+}

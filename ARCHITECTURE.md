@@ -16,6 +16,9 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-3.0-85EA2D?style=flat-square&logo=swagger&logoColor=white)
+![i18next](https://img.shields.io/badge/i18next-22.4-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![i18next Language Detector](https://img.shields.io/badge/i18next_Language_Detector-6.1-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![Mermaid](https://img.shields.io/badge/Mermaid-10.2-ff3333?style=flat-square&logo=mermaid&logoColor=white)
 ![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
@@ -56,6 +59,7 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 - [Data Flow](#data-flow)
 - [Server Architecture](#server-architecture)
 - [Client Architecture](#client-architecture)
+- [Internationalization Architecture](#internationalization-architecture)
 - [Database Design](#database-design)
 - [WebSocket Protocol](#websocket-protocol)
 - [Hook Integration](#hook-integration)
@@ -544,6 +548,24 @@ graph TD
 | `SessionDrillIn` | Per-session agent tree, tool timeline, events | Searchable dropdown with pagination, 3 tabs |
 
 **Cross-filtering:** Clicking nodes in the OrchestrationDAG filters data in other sections. **JSON export:** All workflow data can be exported as JSON from the page header.
+
+---
+
+## Internationalization Architecture
+
+The client localization stack is powered by `i18next` + `react-i18next` (`client/src/i18n/index.ts`) and currently supports three languages: English (`en`), Chinese (`zh`), and Vietnamese (`vi`). Language detection prefers `localStorage` (`i18nextLng`) and falls back to the browser locale (`navigator`) with `en` as final fallback.
+
+```mermaid
+flowchart LR
+    A["Browser load"] --> B["LanguageDetector<br/>localStorage -> navigator"]
+    B --> C["Resolved language<br/>en | zh | vi (fallback en)"]
+    C --> D["Namespace resources<br/>common/nav/dashboard/sessions/..."]
+    D --> E["React pages/components<br/>useTranslation(ns)"]
+    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN"]
+    F --> G["Localized labels,<br/>dates, and number formatting"]
+```
+
+See [docs/I18N.md](docs/I18N.md) for resource strategy, key naming conventions, localization tests, troubleshooting, and rollout checklists.
 
 ---
 

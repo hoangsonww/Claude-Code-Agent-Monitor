@@ -8,9 +8,23 @@
   "analytics": "Analytics",
   "workflows": "Workflows",
   "settings": "Settings",
+  "language": "Language",
+  "github": "GitHub",
+  "website": "Website",
   "expand": "Expand sidebar",
   "collapse": "Collapse sidebar",
   "collapseShort": "Collapse",
   "live": "Live",
-  "disconnected": "Disconnected"
+  "disconnected": "Disconnected",
+  "switchLanguage": "Switch to {{language}}",
+  "languageNames": {
+    "en": "English",
+    "zh": "Chinese",
+    "vi": "Vietnamese"
+  },
+  "languageShort": {
+    "en": "EN",
+    "zh": "中文",
+    "vi": "VI"
+  }
 }

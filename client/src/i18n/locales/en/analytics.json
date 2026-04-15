@@ -10,6 +10,8 @@
   "cacheHitRate": "% cache hit rate",
   "perSession": " per session",
   "noDataCost": "No data",
+  "eventCountLabel_one": "{{count}} event",
+  "eventCountLabel_other": "{{count}} events",
   "tabs": {
     "tokenAnalytics": "Token Analytics",
     "workflowIntelligence": "Workflow Intelligence",

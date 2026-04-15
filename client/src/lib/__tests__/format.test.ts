@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { formatMs, formatDuration, timeAgo, truncate, fmt, fmtCost } from "../format";
+import i18n from "i18next";
+import {
+  formatMs,
+  formatDuration,
+  timeAgo,
+  truncate,
+  fmt,
+  fmtCost,
+  formatDateTime,
+  formatTime,
+  getCurrentLocale,
+} from "../format";
 
 describe("formatMs", () => {
   it("should return 0s for negative values", () => {
@@ -58,6 +69,7 @@ describe("formatDuration", () => {
 describe("timeAgo", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('should return "just now" for recent times', () => {
@@ -82,6 +94,49 @@ describe("timeAgo", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-07T10:00:00Z"));
     expect(timeAgo("2026-03-05T10:00:00Z")).toBe("2d ago");
+  });
+});
+
+describe("locale-aware date formatting", () => {
+  it("should map selected language to the expected locale", async () => {
+    await i18n.changeLanguage("zh");
+    expect(getCurrentLocale()).toBe("zh-CN");
+
+    await i18n.changeLanguage("vi");
+    expect(getCurrentLocale()).toBe("vi-VN");
+
+    await i18n.changeLanguage("en");
+    expect(getCurrentLocale()).toBe("en-US");
+  });
+
+  it("should format date-time using the active locale", async () => {
+    const spy = vi.spyOn(Date.prototype, "toLocaleString").mockReturnValue("formatted-datetime");
+    await i18n.changeLanguage("vi");
+
+    expect(formatDateTime("2026-03-05T10:00:00.000Z")).toBe("formatted-datetime");
+    expect(spy).toHaveBeenCalledWith(
+      "vi-VN",
+      expect.objectContaining({
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
+  });
+
+  it("should format time using the active locale", async () => {
+    const spy = vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue("formatted-time");
+    await i18n.changeLanguage("zh");
+
+    expect(formatTime("2026-03-05T10:00:00.000Z")).toBe("formatted-time");
+    expect(spy).toHaveBeenCalledWith(
+      "zh-CN",
+      expect.objectContaining({
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    );
   });
 });
 

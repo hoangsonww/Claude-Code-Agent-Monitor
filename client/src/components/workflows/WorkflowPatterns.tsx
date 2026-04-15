@@ -36,6 +36,7 @@ function StepPill({ label }: { label: string }) {
 }
 
 function StepFlow({ steps }: { steps: string[] }) {
+  const { t } = useTranslation("workflows");
   const visible = steps.slice(0, MAX_VISIBLE_STEPS);
   const overflow = steps.length - MAX_VISIBLE_STEPS;
 
@@ -51,7 +52,7 @@ function StepFlow({ steps }: { steps: string[] }) {
       ))}
       {overflow > 0 && (
         <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-gray-700/50 text-gray-400 border border-gray-600/20 whitespace-nowrap">
-          +{overflow} more
+          {t("common:plusMore", { count: overflow })}
         </span>
       )}
     </div>

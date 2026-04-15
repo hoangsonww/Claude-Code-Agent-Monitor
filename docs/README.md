@@ -7,6 +7,7 @@ Comprehensive documentation for the Agent Dashboard project.
 ## Quick Links
 
 - [Architecture Overview](../ARCHITECTURE.md) - System design and technical reference
+- [I18N Architecture](./I18N.md) - Internationalization architecture and usage guide
 - [Setup Guide](../SETUP.md) - Installation and configuration
 - [Installation](../INSTALL.md) - Detailed installation instructions
 
@@ -49,6 +50,7 @@ graph TB
 | [HOOKS.md](./HOOKS.md) | Claude Code hook system integration | Hook developers |
 | [MCP.md](./MCP.md) | MCP server setup and tool reference | MCP integrators |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Production deployment strategies | DevOps engineers |
+| [I18N.md](./I18N.md) | Language architecture, locale strategy, and rollout checklist | Frontend and product teams |
 
 ---
 
@@ -213,6 +215,19 @@ graph TB
 | **Backend** | Node.js 18+, Express 4.21, WebSocket |
 | **Database** | SQLite 3 (better-sqlite3 or node:sqlite) |
 | **Integration** | Claude Code Hooks, MCP Server |
+
+### Internationalization Support (en/zh/vi)
+
+```mermaid
+flowchart LR
+    A["User language preference<br/>en / zh / vi"] --> B["i18next detector<br/>localStorage + navigator"]
+    B --> C["Namespace JSON resources"]
+    C --> D["React useTranslation hooks"]
+    D --> E["Localized UI + a11y labels"]
+    E --> F["Locale-aware date/number formatting"]
+```
+
+Supported language codes are explicitly `en`, `zh`, and `vi`. Use [I18N.md](./I18N.md) for architecture details, naming conventions, language switching flow, localization behavior, and rollout guidance.
 
 ---
 
@@ -469,6 +484,7 @@ This documentation covers:
 - ✅ **Deployment guides** - Docker, PM2, systemd, cloud
 - ✅ **Performance tuning** - Database, server, client optimizations
 - ✅ **Integration guides** - Hooks, MCP, custom clients
+- ✅ **Internationalization** - Language resources, switching flow, locale formatting, rollout checklist
 - ✅ **Development guides** - Setup, testing, contributing
 
 **Start with:** [SETUP.md](../SETUP.md) for installation, then explore specific areas based on your role.

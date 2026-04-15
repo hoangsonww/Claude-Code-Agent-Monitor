@@ -11,6 +11,7 @@
     "resetDefaults": "恢复默认",
     "resetResult": "已重置为 {{count}} 条默认规则",
     "addModel": "添加模型",
+    "pattern": "模式",
     "patternPlaceholder": "claude-opus-4%",
     "namePlaceholder": "Claude Opus 4",
     "validationRequired": "模式和显示名称为必填项",
@@ -36,7 +37,7 @@
     "newSession": "新会话开始",
     "sessionComplete": "会话完成",
     "sessionError": "会话出错",
-    "subagentSpawned": "子代理生成",
+    "subagentSpawned": "Subagent生成",
     "testTitle": "Agent 监控",
     "testBody": "通知功能正常！",
     "sendTest": "发送测试通知",
@@ -56,12 +57,12 @@
     "runCleanup": "执行清理",
     "nothingToClean": "无需清理",
     "abandonedResult": " 个会话已废弃",
-    "purgedResult": " 个会话已清除（{{events}} 个事件，{{agents}} 个代理）"
+    "purgedResult": " 个会话已清除（{{events}} 个事件，{{agents}} 个Agent）"
   },
   "danger": {
     "title": "危险操作",
     "description": "不可逆操作，将永久删除数据",
-    "warning": "这将删除所有会话、代理、事件和 Token 数据。确定要继续吗？",
+    "warning": "这将删除所有会话、Agent、事件和 Token 数据。确定要继续吗？",
     "yesClearAll": "是的，清除所有数据",
     "clearAllData": "清除所有数据",
     "clearedResult": "已清除 {{count}} 行"
@@ -77,9 +78,16 @@
   },
   "tables": {
     "sessions": "个会话",
-    "agents": "个代理",
+    "agents": "个Agent",
     "events": "个事件",
     "sessionsWithCost": "个有费用的会话",
     "pricingRules": "条定价规则"
+  },
+  "messages": {
+    "failedLoad": "加载失败",
+    "failedSave": "保存失败",
+    "failedDelete": "删除失败",
+    "unknownError": "未知错误",
+    "actionFailed": "错误：{{message}}"
   }
 }

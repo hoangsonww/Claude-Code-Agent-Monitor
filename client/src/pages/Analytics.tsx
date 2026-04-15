@@ -4,7 +4,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
@@ -67,23 +67,6 @@ function useTooltip() {
 
 // ── Heatmap ──────────────────────────────────────────────────────────────────
 
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 function cellColor(count: number, max: number) {
   if (count === 0) return "#161625";
   // Log scale + RGB interpolation across a wide color ramp for maximum perceptual range
@@ -109,7 +92,27 @@ function cellColor(count: number, max: number) {
 
 function Heatmap({ weeks }: { weeks: Array<Array<{ date: string; count: number }>> }) {
   const { show, move, hide, node } = useTooltip();
-  const { t } = useTranslation("analytics");
+  const { t, i18n } = useTranslation(["analytics", "common"]);
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const monthLabels = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, month) =>
+        new Intl.DateTimeFormat(locale, { month: "short" }).format(
+          new Date(Date.UTC(2026, month, 1))
+        )
+      ),
+    [locale]
+  );
+  const dayNames = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, day) =>
+        new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
+          new Date(Date.UTC(2026, 0, 4 + day))
+        )
+      ),
+    [locale]
+  );
+  const dayLabels = ["", dayNames[1] ?? "", "", dayNames[3] ?? "", "", dayNames[5] ?? "", ""];
   const maxCount = Math.max(...weeks.flatMap((w) => w.map((c) => c.count)), 1);
 
   // Compute month label positions (which week index a month starts)
@@ -120,7 +123,7 @@ function Heatmap({ weeks }: { weeks: Array<Array<{ date: string; count: number }
     if (!firstCell) return;
     const m = new Date(firstCell.date + "T12:00:00").getMonth();
     if (m !== lastMonth) {
-      monthPositions.push({ label: MONTH_LABELS[m] ?? "", col: wi });
+      monthPositions.push({ label: monthLabels[m] ?? "", col: wi });
       lastMonth = m;
     }
   });
@@ -142,7 +145,7 @@ function Heatmap({ weeks }: { weeks: Array<Array<{ date: string; count: number }
       <div className="flex" style={{ gap: "3px" }}>
         {/* Day labels */}
         <div className="flex flex-col mr-1" style={{ gap: "3px" }}>
-          {DAY_LABELS.map((d, i) => (
+          {dayLabels.map((d, i) => (
             <div
               key={i}
               className="text-[10px] text-gray-600 flex items-center"
@@ -164,10 +167,10 @@ function Heatmap({ weeks }: { weeks: Array<Array<{ date: string; count: number }
                     e,
                     <>
                       <span className="text-gray-400">
-                        {DAY_NAMES[dow]}, {cell.date}
+                        {dayNames[dow] ?? ""}, {cell.date}
                       </span>
                       <span className="ml-2 font-medium">
-                        {cell.count} event{cell.count !== 1 ? "s" : ""}
+                        {t("eventCountLabel", { count: cell.count })}
                       </span>
                     </>
                   );
@@ -221,6 +224,7 @@ function Sparkline({
   data: Array<{ date: string; count: number }>;
   color?: string;
 }) {
+  const { t } = useTranslation("analytics");
   const { show, move, hide, node } = useTooltip();
   const max = Math.max(...data.map((d) => d.count), 1);
   return (
@@ -240,7 +244,7 @@ function Sparkline({
               e,
               <>
                 <span className="text-gray-400">{date}</span>
-                <span className="ml-2 font-medium">{count} events</span>
+                <span className="ml-2 font-medium">{t("eventCountLabel", { count })}</span>
               </>
             )
           }
@@ -295,9 +299,10 @@ function DonutChart({
   segments: Array<{ label: string; value: number; color: string }>;
   formatTotal?: (total: number) => string;
 }) {
+  const { t } = useTranslation(["analytics", "common"]);
   const { show, move, hide, node } = useTooltip();
   const total = segments.reduce((s, g) => s + g.value, 0);
-  if (total === 0) return <div className="text-xs text-gray-500">No data</div>;
+  if (total === 0) return <div className="text-xs text-gray-500">{t("common:noData")}</div>;
 
   const r = 52;
   const cx = 64;
@@ -349,7 +354,7 @@ function DonutChart({
           {(formatTotal ?? fmt)(total)}
         </text>
         <text x={cx} y={cy + 10} textAnchor="middle" className="fill-gray-600" fontSize={9}>
-          total
+          {t("common:total_lower")}
         </text>
       </svg>
       <div className="space-y-2">
@@ -528,18 +533,50 @@ export function Analytics() {
     totalTokens > 0 ? Math.round(((data?.tokens.total_cache_read ?? 0) / totalTokens) * 100) : 0;
 
   const sessionOutcomeSegments = [
-    { label: "Completed", value: data?.sessions_by_status?.completed ?? 0, color: "#8b5cf6" },
-    { label: "Active", value: data?.sessions_by_status?.active ?? 0, color: "#10b981" },
-    { label: "Error", value: data?.sessions_by_status?.error ?? 0, color: "#ef4444" },
-    { label: "Abandoned", value: data?.sessions_by_status?.abandoned ?? 0, color: "#f59e0b" },
+    {
+      label: t("common:status.completed"),
+      value: data?.sessions_by_status?.completed ?? 0,
+      color: "#8b5cf6",
+    },
+    {
+      label: t("common:status.active"),
+      value: data?.sessions_by_status?.active ?? 0,
+      color: "#10b981",
+    },
+    {
+      label: t("common:status.error"),
+      value: data?.sessions_by_status?.error ?? 0,
+      color: "#ef4444",
+    },
+    {
+      label: t("common:status.abandoned"),
+      value: data?.sessions_by_status?.abandoned ?? 0,
+      color: "#f59e0b",
+    },
   ].filter((s) => s.value > 0);
 
   const agentStatusSegments = [
-    { label: "Completed", value: data?.agents_by_status?.completed ?? 0, color: "#8b5cf6" },
-    { label: "Working", value: data?.agents_by_status?.working ?? 0, color: "#10b981" },
-    { label: "Connected", value: data?.agents_by_status?.connected ?? 0, color: "#3b82f6" },
-    { label: "Idle", value: data?.agents_by_status?.idle ?? 0, color: "#6b7280" },
-    { label: "Error", value: data?.agents_by_status?.error ?? 0, color: "#ef4444" },
+    {
+      label: t("common:status.completed"),
+      value: data?.agents_by_status?.completed ?? 0,
+      color: "#8b5cf6",
+    },
+    {
+      label: t("common:status.working"),
+      value: data?.agents_by_status?.working ?? 0,
+      color: "#10b981",
+    },
+    {
+      label: t("common:status.connected"),
+      value: data?.agents_by_status?.connected ?? 0,
+      color: "#3b82f6",
+    },
+    { label: t("common:status.idle"), value: data?.agents_by_status?.idle ?? 0, color: "#6b7280" },
+    {
+      label: t("common:status.error"),
+      value: data?.agents_by_status?.error ?? 0,
+      color: "#ef4444",
+    },
   ].filter((s) => s.value > 0);
 
   const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -714,19 +751,23 @@ export function Analytics() {
               <h3 className="text-sm font-medium text-gray-300 mb-5">{t("tokenDistribution")}</h3>
               <div className="space-y-4">
                 {[
-                  { label: "Input", value: data?.tokens.total_input ?? 0, color: "bg-blue-400" },
                   {
-                    label: "Output",
+                    label: t("common:token.input"),
+                    value: data?.tokens.total_input ?? 0,
+                    color: "bg-blue-400",
+                  },
+                  {
+                    label: t("common:token.output"),
                     value: data?.tokens.total_output ?? 0,
                     color: "bg-emerald-400",
                   },
                   {
-                    label: "Cache Read",
+                    label: t("common:token.cacheRead"),
                     value: data?.tokens.total_cache_read ?? 0,
                     color: "bg-violet-400",
                   },
                   {
-                    label: "Cache Write",
+                    label: t("common:token.cacheWrite"),
                     value: data?.tokens.total_cache_write ?? 0,
                     color: "bg-yellow-400",
                   },
@@ -759,23 +800,27 @@ export function Analytics() {
               <h3 className="text-sm font-medium text-gray-300 mb-5">{t("tokenBreakdown")}</h3>
               <div className="space-y-3">
                 {[
-                  { label: "Input", value: data?.tokens.total_input ?? 0, color: "text-blue-400" },
                   {
-                    label: "Output",
+                    label: t("common:token.input"),
+                    value: data?.tokens.total_input ?? 0,
+                    color: "text-blue-400",
+                  },
+                  {
+                    label: t("common:token.output"),
                     value: data?.tokens.total_output ?? 0,
                     color: "text-emerald-400",
                   },
                   {
-                    label: "Cache Read",
+                    label: t("common:token.cacheRead"),
                     value: data?.tokens.total_cache_read ?? 0,
                     color: "text-violet-400",
                   },
                   {
-                    label: "Cache Write",
+                    label: t("common:token.cacheWrite"),
                     value: data?.tokens.total_cache_write ?? 0,
                     color: "text-yellow-400",
                   },
-                  { label: "Total", value: totalTokens, color: "text-gray-100" },
+                  { label: t("common:total"), value: totalTokens, color: "text-gray-100" },
                 ].map(({ label, value, color }) => (
                   <div
                     key={label}
@@ -823,7 +868,7 @@ export function Analytics() {
                         </div>
                       ))}
                     <div className="flex justify-between text-xs pt-2 border-t border-border">
-                      <span className="text-gray-300 font-medium">Total</span>
+                      <span className="text-gray-300 font-medium">{t("common:total")}</span>
                       <span className="text-emerald-400 font-mono font-semibold">
                         <Tip raw={fmtCostFull(costData.total_cost)}>
                           {fmtCost(costData.total_cost)}

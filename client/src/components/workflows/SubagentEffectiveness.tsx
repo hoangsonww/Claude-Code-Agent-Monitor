@@ -4,11 +4,9 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SubagentEffectivenessItem } from "../../lib/types";
-
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 const COLORS = [
   "#10b981",
@@ -55,7 +53,7 @@ function SuccessRing({ rate, color }: SuccessRingProps) {
         width={viewSize}
         height={viewSize}
         viewBox={`0 0 ${viewSize} ${viewSize}`}
-        aria-label={`Success rate: ${clampedRate.toFixed(1)}%`}
+        aria-label={t("effectiveness.successRateAria", { rate: clampedRate.toFixed(1) })}
         role="img"
       >
         {/* Track */}
@@ -107,17 +105,28 @@ interface SparklineProps {
 }
 
 function Sparkline({ data, color }: SparklineProps) {
+  const { t, i18n } = useTranslation(["workflows", "common"]);
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const dayLabels = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, day) =>
+        new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
+          new Date(Date.UTC(2026, 0, 5 + day))
+        )
+      ),
+    [locale]
+  );
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const bars = data.length > 0 ? data : Array.from({ length: 7 }, () => 0);
   const max = Math.max(...bars, 1);
 
   return (
-    <div aria-label="Weekly activity sparkline">
+    <div aria-label={t("effectiveness.weeklyActivityAria")}>
       {/* Bars */}
       <div className="flex items-end gap-1 h-8 relative">
         {bars.map((value, i) => {
           const heightPct = Math.max((value / max) * 100, value > 0 ? 8 : 4);
-          const label = DAY_LABELS[i % DAY_LABELS.length];
+          const label = dayLabels[i % dayLabels.length] ?? "";
           return (
             <div
               key={i}
@@ -132,7 +141,7 @@ function Sparkline({ data, color }: SparklineProps) {
                   <span className="font-medium">{label}</span>
                   <span className="text-gray-400 mx-1">·</span>
                   <span className="tabular-nums" style={{ color }}>
-                    {value} {value === 1 ? "session" : "sessions"}
+                    {t("effectiveness.sessionCount", { count: value })}
                   </span>
                   <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-[#2a2a4a]" />
                 </div>
@@ -157,7 +166,7 @@ function Sparkline({ data, color }: SparklineProps) {
             key={i}
             className="flex-1 text-center text-[8px] text-gray-600 leading-none select-none"
           >
-            {DAY_LABELS[i % DAY_LABELS.length]}
+            {dayLabels[i % dayLabels.length] ?? ""}
           </span>
         ))}
       </div>

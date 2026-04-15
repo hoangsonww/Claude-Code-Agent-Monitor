@@ -4,7 +4,8 @@
 
 专业的 Dashboard，用于实时追踪和可视化你的 Claude Code Agent 会话、工具使用和子 Agent 编排。基于 Node.js、Express、React 和 SQLite 构建，通过 Claude Code 原生 Hook 系统直接集成，实现无缝的会话追踪和分析。
 
-![Claude Code](https://img.shields.io/badge/Claude_Code-1.0-orange?style=flat-square&logo=claude&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
+![Claude Code Plugins](https://img.shields.io/badge/Claude_Code-Plugins_&_Skills-orange?style=flat-square&logo=anthropic&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express&logoColor=white)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=white)
@@ -15,12 +16,18 @@
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-000000?style=flat-square&logo=openapiinitiative&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-3.0-85EA2D?style=flat-square&logo=swagger&logoColor=white)
+![i18next](https://img.shields.io/badge/i18next-22.4-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![i18next Language Detector](https://img.shields.io/badge/i18next_Language_Detector-6.1-7A42FF?style=flat-square&logo=i18next&logoColor=white)
+![Mermaid](https://img.shields.io/badge/Mermaid-10.2-ff3333?style=flat-square&logo=mermaid&logoColor=white)
 ![better--sqlite3](https://img.shields.io/badge/better--sqlite3-11.7-003B57?style=flat-square&logo=sqlite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-7-F9A03C?style=flat-square&logo=d3dotjs&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-8.5-DD3A0A?style=flat-square&logo=postcss&logoColor=white)
 ![Autoprefixer](https://img.shields.io/badge/Autoprefixer-10.4-DD3735?style=flat-square&logo=autoprefixer&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-8.44-4B32C3?style=flat-square&logo=eslint&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-20.10-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Podman](https://img.shields.io/badge/Podman-4.0-CC342D?style=flat-square&logo=podman&logoColor=white)
@@ -45,11 +52,16 @@
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-pipelines-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
+**语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`)  
+
+切换文档：[`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md)
+
 ---
 
 ## 目录
 
 - [概述](#概述)
+- [多语言支持（i18n）](#多语言支持i18n)
 - [功能特性](#功能特性)
 - [快速开始](#快速开始)
 - [工作原理](#工作原理)
@@ -87,6 +99,25 @@ graph LR
     style C fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
     style D fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+### 多语言支持（i18n）
+
+Dashboard 内置多语言界面，支持 `en`、`zh`、`vi` 三种语言，适用于跨语言协作和团队共享。
+
+```mermaid
+flowchart LR
+    A["用户选择语言<br/>en / zh / vi"] --> B["前端 i18n 路由"]
+    B --> C["翻译字典加载"]
+    C --> D["UI 文案与可访问性标签渲染"]
+    D --> E["实时仪表盘 / API 文档 / 设置页"]
+    style A fill:#6366f1,stroke:#818cf8,color:#fff
+    style B fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
+    style C fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
+    style D fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
+    style E fill:#10b981,stroke:#34d399,color:#fff
+```
+
+完整实现细节与排障指南请见 [docs/I18N.md](./docs/I18N.md)。
 
 ### 用户界面
 
@@ -155,6 +186,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **子会话/恢复会话** | 新事件到达时自动重新激活会话，正确处理 `/resume` 和孤立会话。周期性清理（每 2 分钟）标记遗漏事件检测的废弃会话 |
 | **预存会话检测** | 服务器启动时已在运行的会话以"活跃"状态导入（基于近期 JSONL 文件修改时间）。Stop 事件也会重新激活已导入的完成/废弃会话，因此进行中的会话的第一个 Hook 始终会显示在 Dashboard 上 |
 | **响应式设计** | 适配移动端的布局，堆叠网格、可滚动表格和可折叠侧边栏 |
+| **界面本地化** | 内置语言切换，UI 文案与无障碍标签已覆盖英文（`en`）、中文（`zh`）和越南语（`vi`） |
 | **种子数据** | 内置种子脚本，用于演示和开发 |
 | **状态栏** | 彩色编码的 CLI 状态栏，显示模型、上下文使用率、Git 分支、Token 数 |
 | **插件市场** | 官方 Claude Code 插件市场，包含 5 个插件（ccam-analytics、ccam-productivity、ccam-devtools、ccam-insights、ccam-dashboard）。18 个技能、4 个 Agent、3 个 CLI 工具、2 个 Hook 配置。全部基于实际数据模型 — Token 基线、定价引擎、工作流智能（11 个数据集）、会话元数据。通过 `claude plugin marketplace add` 安装 |
@@ -618,6 +650,19 @@ flowchart TD
 
 所有端点返回 JSON。错误响应遵循格式 `{ error: { code, message } }`。
 
+### OpenAPI / Swagger
+
+| 方法 | 路径 | 描述 |
+| ------ | ------------------- | ----------------------------------- |
+| `GET` | `/api/openapi.json` | 原始 OpenAPI 3.0 规范 |
+| `GET` | `/api/docs` | 交互式 Swagger UI 文档 |
+
+OpenAPI 文档由 `server/openapi.js` 生成，Swagger UI 由后端直接提供。
+
+<p align="center">
+  <img src="images/swagger.png" alt="Swagger UI" width="100%">
+</p>
+
 ### 健康检查
 
 | 方法 | 路径 | 描述 |
@@ -653,6 +698,12 @@ flowchart TD
 | 方法 | 路径 | 描述 |
 | ------ | ------------ | ------------------------------------------------------ |
 | `GET` | `/api/stats` | 聚合计数、状态分布、WS 连接数 |
+
+### 分析
+
+| 方法 | 路径 | 描述 |
+| ------ | ---------------- | ---------------------------------------------------------- |
+| `GET` | `/api/analytics` | 用于图表和趋势视图的 Token / 工具 / 会话聚合数据 |
 
 ### Hook
 

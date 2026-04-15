@@ -83,8 +83,8 @@ function showTooltip(
   el.appendChild(title);
 
   const rows: [string, string][] = [
-    ["Spawned", String(d.total) + t("pipeline.spawns")],
-    ["In sessions", String(d.sessions)],
+    [t("pipeline.spawned"), String(d.total) + t("pipeline.spawns")],
+    [t("pipeline.inSessions"), String(d.sessions)],
     [t("effectiveness.success"), Math.round(d.successRate) + "%"],
   ];
   for (const [label, value] of rows) {
@@ -478,7 +478,7 @@ export function AgentCollaborationNetwork({
       <svg
         ref={svgRef}
         style={{ display: "block", width: "100%", background: "transparent" }}
-        aria-label="Agent pipeline graph"
+        aria-label={t("pipeline.ariaLabel")}
         role="img"
       />
       <div

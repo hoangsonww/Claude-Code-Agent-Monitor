@@ -97,7 +97,7 @@ function Tooltip({ state }: { state: TooltipState }) {
       </div>
       <div className="mt-1 pt-1 border-t border-[#2a2a4a]">
         <span className="font-medium" style={{ color: statusColor(state.item.status) }}>
-          {state.item.status}
+          {t(`common:status.${state.item.status}`, { defaultValue: state.item.status })}
         </span>
       </div>
     </div>
@@ -109,6 +109,7 @@ function Tooltip({ state }: { state: TooltipState }) {
 const LEGEND_STATUSES = ["completed", "active", "error", "abandoned"] as const;
 
 function Legend() {
+  const { t } = useTranslation("workflows");
   return (
     <div className="flex flex-wrap items-center gap-4 justify-center mt-2">
       {LEGEND_STATUSES.map((s) => (
@@ -117,7 +118,9 @@ function Legend() {
             className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: statusColor(s) }}
           />
-          <span className="text-xs text-gray-500 capitalize">{s}</span>
+          <span className="text-xs text-gray-500">
+            {t(`common:status.${s}`, { defaultValue: s })}
+          </span>
         </div>
       ))}
     </div>
@@ -327,7 +330,7 @@ export function SessionComplexityScatter({ data, onSessionClick }: SessionComple
         ref={svgRef}
         width={width}
         height={height}
-        aria-label="Session complexity scatter plot"
+        aria-label={t("complexity.ariaLabel")}
         role="img"
       />
       <Legend />

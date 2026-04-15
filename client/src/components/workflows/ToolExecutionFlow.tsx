@@ -4,7 +4,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import * as d3 from "d3";
 import { sankey, sankeyLinkHorizontal } from "d3-sankey";
 import type { SankeyGraph, SankeyNode, SankeyLink } from "d3-sankey";
@@ -159,6 +159,25 @@ export function ToolExecutionFlow({
   const isEmpty = data.transitions.length === 0 || data.transitions.every((t) => t.value === 0);
 
   const totalUsage = data.toolCounts.reduce((s, c) => s + c.count, 0);
+  const localizeToolLabel = useCallback(
+    (name: string) => {
+      const lower = name.toLowerCase();
+      switch (lower) {
+        case "read":
+        case "write":
+        case "edit":
+        case "bash":
+        case "grep":
+        case "glob":
+        case "agent":
+        case "other":
+          return t(`errors:toolLegend.${lower}`);
+        default:
+          return name;
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     const svgEl = svgRef.current;
@@ -265,13 +284,13 @@ export function ToolExecutionFlow({
       .style("cursor", "default")
       .on("mouseenter", function (event: MouseEvent, d: SLink) {
         d3.select(this).attr("stroke-opacity", LINK_OPACITY_HOVER);
-        const srcName = toolLabel((d.source as SNode).id);
-        const tgtName = toolLabel((d.target as SNode).id);
+        const srcName = localizeToolLabel(toolLabel((d.source as SNode).id));
+        const tgtName = localizeToolLabel(toolLabel((d.target as SNode).id));
         const count = d.value;
         setTooltip({
           x: event.clientX,
           y: event.clientY,
-          content: `${srcName} \u2192 ${tgtName}: ${count.toLocaleString()} transition${count !== 1 ? "s" : ""}`,
+          content: `${srcName} \u2192 ${tgtName}: ${t("toolFlow.transitionCount", { count })}`,
         });
       })
       .on("mousemove", function (event: MouseEvent) {
@@ -312,11 +331,12 @@ export function ToolExecutionFlow({
       const nodeH = nodeY1 - nodeY0;
       const midY = nodeY0 + nodeH / 2;
 
-      const label = toolLabel(d.id);
+      const rawLabel = toolLabel(d.id);
+      const label = localizeToolLabel(rawLabel);
       const isRightSide = (nodeX0 + nodeX1) / 2 > innerW / 2;
 
       // Percentage of total
-      const countEntry = data.toolCounts.find((c) => c.tool_name === label);
+      const countEntry = data.toolCounts.find((c) => c.tool_name === rawLabel);
       const pct =
         countEntry && totalUsage > 0
           ? ` ${((countEntry.count / totalUsage) * 100).toFixed(1)}%`
@@ -343,7 +363,7 @@ export function ToolExecutionFlow({
         text.append("tspan").text(pct).style("fill", "#64748b").style("font-size", "11px");
       }
     });
-  }, [data, dimensions, isEmpty, totalUsage]);
+  }, [data, dimensions, isEmpty, localizeToolLabel, t, totalUsage]);
 
   // Adapt SVG height based on node count so tall graphs don't crush
   useEffect(() => {
@@ -402,27 +422,28 @@ function Tooltip({ x, y, content }: { x: number; y: number; content: string }) {
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 
-const LEGEND_ITEMS: Array<{ label: string; color: string }> = [
-  { label: "Read", color: "#3b82f6" },
-  { label: "Write", color: "#22c55e" },
-  { label: "Edit", color: "#eab308" },
-  { label: "Bash", color: "#ef4444" },
-  { label: "Grep", color: "#a855f7" },
-  { label: "Glob", color: "#ec4899" },
-  { label: "Agent", color: "#6366f1" },
-  { label: "Other", color: "#64748b" },
+const LEGEND_ITEMS: Array<{ key: string; color: string }> = [
+  { key: "read", color: "#3b82f6" },
+  { key: "write", color: "#22c55e" },
+  { key: "edit", color: "#eab308" },
+  { key: "bash", color: "#ef4444" },
+  { key: "grep", color: "#a855f7" },
+  { key: "glob", color: "#ec4899" },
+  { key: "agent", color: "#6366f1" },
+  { key: "other", color: "#64748b" },
 ];
 
 function Legend() {
+  const { t } = useTranslation("errors");
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 px-1">
-      {LEGEND_ITEMS.map(({ label, color }) => (
-        <div key={label} className="flex items-center gap-1.5">
+      {LEGEND_ITEMS.map(({ key, color }) => (
+        <div key={key} className="flex items-center gap-1.5">
           <span
             style={{ background: color, opacity: 0.9 }}
             className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
           />
-          <span className="text-xs text-gray-400">{label}</span>
+          <span className="text-xs text-gray-400">{t(`toolLegend.${key}`)}</span>
         </div>
       ))}
     </div>
