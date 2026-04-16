@@ -233,7 +233,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
               href="https://github.com/hoangsonww"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-xs text-gray-400 hover:text-gray-200 hover:bg-surface-3 hover:border-border transition-colors"
+              className="group flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-xs text-gray-300 hover:text-gray-200 hover:bg-surface-3 hover:border-border transition-colors"
               title={t("nav:github")}
             >
               <span className="w-6 h-6 rounded-md bg-surface-3 flex items-center justify-center">
@@ -245,7 +245,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
               href="https://sonnguyenhoang.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-xs text-gray-400 hover:text-gray-200 hover:bg-surface-3 hover:border-border transition-colors"
+              className="group flex items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-xs text-gray-300 hover:text-gray-200 hover:bg-surface-3 hover:border-border transition-colors"
               title={websiteLabel}
             >
               <span className="w-6 h-6 rounded-md bg-surface-3 flex items-center justify-center">
@@ -261,7 +261,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
               href="https://github.com/hoangsonww"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-8 h-8 rounded-md border border-transparent flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-surface-3 hover:border-border transition-colors"
+              className="w-8 h-8 rounded-md border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-300 hover:bg-surface-3 hover:border-border transition-colors"
               title={t("nav:github")}
               aria-label={t("nav:github")}
             >
@@ -271,7 +271,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
               href="https://sonnguyenhoang.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-8 h-8 rounded-md border border-transparent flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-surface-3 hover:border-border transition-colors"
+              className="w-8 h-8 rounded-md border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-300 hover:bg-surface-3 hover:border-border transition-colors"
               title={websiteLabel}
               aria-label={websiteLabel}
             >

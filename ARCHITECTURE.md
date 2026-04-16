@@ -640,6 +640,13 @@ erDiagram
         REAL cache_write_per_mtok "Cost per million cache write tokens"
         TEXT updated_at "ISO 8601"
     }
+
+    push_subscriptions {
+        TEXT endpoint PK "Subscription URL"
+        TEXT p256dh "Public key"
+        TEXT auth "Auth secret"
+        TEXT created_at "ISO 8601"
+    }
 ```
 
 ### Indexes
@@ -1162,89 +1169,76 @@ This pattern ensures:
 
 ## Browser Notification System
 
-The dashboard implements native browser notifications using the Web Notifications API, allowing users to receive alerts when they're not actively viewing the dashboard tab.
+The dashboard implements a robust notification system using the Web Push API (VAPID) and Service Workers, allowing for reliable delivery even when the browser is backgrounded or closed.
 
 ### Notification Architecture
 
 ```mermaid
 graph TD
     subgraph "Server Side"
-        WS_SRV["WebSocket Server<br/>broadcasts events"]
+        API_P["Push API<br/>(/api/push/*)"]
+        WP["web-push lib<br/>(VAPID)"]
+        DB_P["push_subscriptions<br/>table"]
+        KEYS["vapid-keys.json<br/>(persisted)"]
     end
 
     subgraph "Client Side"
-        WS_CLI["useWebSocket hook<br/>receives messages"]
-        EB["eventBus<br/>distributes messages"]
-        NOTIF["useNotifications hook<br/>evaluates notification rules"]
-        PREFS["localStorage<br/>(notification preferences)"]
-        API_N["Web Notifications API<br/>(browser native)"]
+        SW["Service Worker<br/>(sw.js)"]
+        PUSH["useNotifications hook<br/>(subscribes via SW)"]
+        PREFS["localStorage<br/>(event preferences)"]
+        BROWSER["Browser Push Service<br/>(FCM/Mozilla/Safari)"]
     end
 
-    WS_SRV -->|push| WS_CLI
-    WS_CLI --> EB
-    EB --> NOTIF
-    NOTIF -->|reads| PREFS
-    NOTIF -->|fires| API_N
+    API_P --> WP
+    WP -->|signed push| BROWSER
+    BROWSER --> SW
+    SW -->|showNotification| USER["Developer"]
+    PUSH -->|subscribe| SW
+    PUSH -->|POST /subscribe| API_P
+    API_P --> DB_P
+    WP -->|read keys| KEYS
 
-    style NOTIF fill:#f59e0b,stroke:#fbbf24,color:#000
-    style API_N fill:#10b981,stroke:#34d399,color:#fff
-    style PREFS fill:#6366f1,stroke:#818cf8,color:#fff
+    style SW fill:#f59e0b,stroke:#fbbf24,color:#000
+    style BROWSER fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+### Key Components
+
+| Component | Responsibility |
+| --- | --- |
+| **VAPID Pipeline** | Uses the `web-push` library on the server. VAPID keys are auto-generated on first run and persisted to `data/vapid-keys.json` to ensure subscription continuity. |
+| **Service Worker** | Located at `client/public/sw.js`. It runs independently of the dashboard tab, listening for `push` events from the browser's push service. It handles `notificationclick` to focus/open the dashboard. |
+| **macOS Audio Support** | Notifications are explicitly sent with `silent: false` and `sound: "default"`. This overrides macOS behavior that would otherwise suppress audio for web notifications. |
+| **Subscription Management** | The dashboard registers the service worker and requests a `PushSubscription`. This subscription (endpoint and keys) is stored in the `push_subscriptions` table, indexed by endpoint. |
+| **Event Routing** | When a WebSocket event (e.g., `session_created`) is broadcast, the server also triggers `sendPushToAll()`, which iterates through active subscriptions and sends signed VAPID payloads. |
 
 ### Notification Flow
 
 ```mermaid
 flowchart TD
-    MSG["WebSocket message received"] --> CHECK_ENABLED{"Notifications<br/>enabled?"}
-    CHECK_ENABLED -->|No| SKIP[Skip]
-    CHECK_ENABLED -->|Yes| CHECK_TYPE{"Message type?"}
+    EVENT["Server Event<br/>(e.g. SessionStart)"] --> PREFS{"User Prefs<br/>Enabled?"}
+    PREFS -->|No| SKIP[Skip]
+    PREFS -->|Yes| SUBS["Fetch all subscriptions<br/>from DB"]
+    SUBS --> LOOP["For each subscription:"]
+    LOOP --> SEND["webpush.sendNotification()"]
+    SEND --> BROWSER["Browser Push Service"]
+    BROWSER --> SW["Service Worker"]
+    SW --> SHOW["showNotification(title, body)<br/>silent: false"]
 
-    CHECK_TYPE -->|session_created| CHECK_NEW{"onNewSession<br/>enabled?"}
-    CHECK_TYPE -->|session_updated| CHECK_STATUS{"Session status?"}
-    CHECK_TYPE -->|agent_created| CHECK_SUB{"Subagent?<br/>onSubagentSpawn?"}
-    CHECK_TYPE -->|new_event| CHECK_EVENT{"event_type?"}
-
-    CHECK_STATUS -->|error| CHECK_ERROR{"onSessionError?"}
-
-    CHECK_EVENT -->|Stop| CHECK_STOP{"onSessionComplete?"}
-    CHECK_EVENT -->|SessionEnd| CHECK_END{"onSessionComplete?"}
-    CHECK_EVENT -->|Notification| FIRE
-
-    CHECK_NEW -->|Yes| FIRE["new Notification(title, body)"]
-    CHECK_STOP -->|Yes| FIRE_STOP["notify: Claude Finished Responding"]
-    CHECK_END -->|Yes| FIRE_END["notify: Session Completed"]
-    CHECK_ERROR -->|Yes| FIRE
-    CHECK_SUB -->|Yes| FIRE
-
-    style FIRE fill:#10b981,stroke:#34d399,color:#fff
-    style SKIP fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
+    style SHOW fill:#10b981,stroke:#34d399,color:#fff
 ```
 
 ### Preference Storage
 
-Notification preferences are stored in `localStorage` as a JSON object:
+Notification preferences remain in `localStorage` (`agent-monitor-notifications`) for UI-side filtering, while the actual push delivery is managed by the server-side subscription store.
 
-```typescript
-interface NotifPrefs {
-  enabled: boolean;          // Master toggle
-  onNewSession: boolean;     // New session created
-  onSessionError: boolean;   // Session ended with error
-  onSessionComplete: boolean; // Session completed successfully
-  onSubagentSpawn: boolean;  // Background subagent spawned
-}
-```
-
-**Key:** `agent-monitor-notifications`
-
-The Settings page provides a UI for toggling each preference, managing browser permission state (granted/denied/prompt), and sending test notifications.
-
-### Permission States
-
-| Browser Permission | UI Indicator     | Behavior                                        |
-| ------------------ | ---------------- | ----------------------------------------------- |
-| `granted`          | Green shield     | Notifications fire immediately                  |
-| `denied`           | Red shield       | Notifications silently suppressed by browser     |
-| `default`          | Amber shield     | Enabling triggers `Notification.requestPermission()` |
+| Preference | UI Key | Logic |
+| --- | --- | --- |
+| Master Toggle | `enabled` | Controls whether the subscription is active |
+| New Session | `onNewSession` | Filtered during push fan-out |
+| Session Error | `onSessionError` | Filtered during push fan-out |
+| Session Complete | `onSessionComplete` | Filtered during push fan-out |
+| Subagent Spawn | `onSubagentSpawn` | Filtered during push fan-out |
 
 ---
 

@@ -102,8 +102,6 @@ after(() => {
   } catch {
     // ignore cleanup errors
   }
-  // Force exit since WS heartbeat interval keeps process alive
-  setTimeout(() => process.exit(0), 100);
 });
 
 // ============================================================

@@ -184,7 +184,7 @@ Bảng điều khiển cung cấp một bộ tính năng toàn diện để giá
 | **Agent nền**              | Theo dõi chính xác các tác nhân phụ có nền mà không cần hoàn thành sớm                                                                                                                                                                                                         |
 | **Theo dõi chi phí**                  | Ước tính chi phí cho mỗi mô hình với các quy tắc định giá có thể định cấu hình và phân tích chi tiết theo từng phiên. Tính toán mã thông báo nhận biết nén sẽ duy trì tổng số trong các lần nén ngữ cảnh. Việc đọc bản ghi được lưu vào bộ nhớ đệm với các bản cập nhật bù byte tăng dần để trích xuất mã thông báo hiệu quả        |
 | **Bộ nhớ đệm bản ghi**               | Trích xuất theo thời gian thực từ bản ghi JSONL: mã thông báo, nén, lỗi API (`isApiErrorMessage` được lưu trữ dưới dạng sự kiện `APIError`), thời lượng lượt (được lưu dưới dạng sự kiện `TurnDuration`), số lượng khối suy nghĩ và các tính năng bổ sung sử dụng (service_tier, tốc độ, inference_geo). Siêu dữ liệu phiên được làm phong phú với các trường này trong thời gian thực |
-| **Thông báo**                  | Thông báo của trình duyệt về thời gian bắt đầu, hoàn thành, lỗi và xuất hiện tác nhân phụ. Chuyển đổi theo sự kiện có thể định cấu hình với quản lý quyền                                                                                                                                |
+| **Thông báo**                  | Hệ thống Web Push (VAPID) đầy đủ để phân phối đáng tin cậy. Thông báo đến ngay cả khi tab ở chế độ nền hoặc trình duyệt đã đóng. Được cấu hình đặc biệt để hỗ trợ âm thanh trên macOS. Có thể định cấu hình chuyển đổi theo sự kiện với quản lý đăng ký |
 | **Cài đặt**                       | Thông tin hệ thống, trạng thái hook, quản lý giá mô hình, tùy chọn thông báo, xuất dữ liệu, dọn dẹp phiên                                                                                                                                                                   |
 | **Máy chủ MCP (Cục bộ)**             | Máy chủ MCP cục bộ cấp doanh nghiệp trong `mcp/` với ba chế độ truyền tải (stdio, HTTP+SSE, REPL tương tác), 25 công cụ được nhập trên 6 miền, lược đồ đầu vào nghiêm ngặt, thử lại/ngăn chặn, thực thi API chỉ dành cho máy chủ cục bộ và các cổng an toàn đột biến/phá hủy theo cấp bậc. Chế độ HTTP phục vụ HTTP có thể phát trực tuyến (25/11/2025) và SSE cũ (2024-11-05) trên cổng có thể định cấu hình. Chế độ REPL cung cấp lệnh gọi công cụ tương tác hoàn thành theo tab với đầu ra có màu |
 | **Quy trình làm việc**                      | Trang trực quan hóa được hỗ trợ bởi D3.js với 11 phần tương tác: điều phối tác nhân DAG, thực thi công cụ Sơ đồ Sankey, mạng cộng tác, hiệu quả của tác nhân phụ (biểu đồ ngày trong tuần với chú giải công cụ phong phú), mẫu quy trình làm việc được phát hiện, luồng ủy quyền mô hình, bản đồ lan truyền lỗi (thanh ngang với huy hiệu tỷ lệ, phân tích loại tác nhân, thẻ lỗi API/phiên), dòng thời gian đồng thời, độ phức tạp phân tán phiên, phân tích tác động nén và thông tin chi tiết về mỗi phiên. Các tab lọc trạng thái (Chỉ hoạt động / Đã hoàn thành / Tất cả) lọc tất cả 11 phần. Lọc chéo, xuất JSON và tự động làm mới WebSocket theo thời gian thực với khả năng gỡ lỗi trong 3 giây |
@@ -810,31 +810,31 @@ Bảng điều khiển xử lý các loại hook Claude Code này:
 
 ## Thông báo trình duyệt
 
-Trang tổng quan hỗ trợ thông báo của trình duyệt gốc để cảnh báo theo thời gian thực khi bạn không chủ động xem tab trang tổng quan.
+Bảng điều khiển hỗ trợ thông báo trình duyệt liên tục thông qua Web Push (VAPID) để cảnh báo theo thời gian thực ngay cả khi tab bảng điều khiển không được tập trung hoặc trình duyệt đang ở chế độ nền.
 
 ### Nó hoạt động như thế nào
 
 1. **Bật** thông báo trong trang Cài đặt thông qua nút chuyển đổi chính
-2. **Cấp** quyền cho trình duyệt khi được nhắc (được API thông báo web yêu cầu)
+2. **Cấp** quyền cho trình duyệt khi được nhắc — điều này sẽ đăng ký một Service Worker và tạo một đăng ký đẩy
 3. **Định cấu hình** sự kiện nào kích hoạt thông báo:
 
 | Sự kiện                        | Mặc định | Sự miêu tả                                                     |
 | ---------------------------- | ------- | --------------------------------------------------------------- |
-| Phiên mới bắt đầu           | TRÊN      | Kích hoạt khi phiên Claude Code mới được tạo                 |
+| Phiên mới bắt đầu           | Bật      | Kích hoạt khi phiên Claude Code mới được tạo                 |
 | Claude trả lời xong   | Tắt     | Kích hoạt các sự kiện `Stop` khi Claude kết thúc lượt phản hồi     |
 | Phiên đã đóng               | Tắt     | Kích hoạt `SessionEnd` khi quá trình CLI thoát                |
-| Lỗi phiên               | TRÊN      | Kích hoạt khi phiên kết thúc có lỗi                         |
+| Lỗi phiên               | Bật      | Kích hoạt khi phiên kết thúc có lỗi                         |
 | Subagent sinh ra             | Tắt     | Kích hoạt khi tác nhân phụ nền được tạo                     |
 
 Ngoài ra, bất kỳ sự kiện hook `Notification` nào từ Claude Code đều kích hoạt thông báo trình duyệt bất kể nút chuyển đổi cho mỗi sự kiện (miễn là nút chuyển đổi chính được bật).
 
 ### Kiến trúc thông báo
 
-- **Preferences** được lưu trữ trong `localStorage` dưới khóa `agent-monitor-notifications`
-- **`useNotifications` hook** đăng ký xe buýt sự kiện WebSocket ở cấp gốc ứng dụng (`App.tsx`) và thực hiện lệnh gọi `new Notification()` dựa trên các tùy chọn đã lưu
-- **Quản lý quyền** được xử lý trong trang Cài đặt với các chỉ báo trực quan cho các trạng thái được cấp/từ chối/nhắc
-- Nút **Thông báo kiểm tra** trong Cài đặt cho phép bạn xác minh quá trình thiết lập có hoạt động không
-- Không có thành phần phía máy chủ - thông báo hoàn toàn ở phía máy khách, được kích hoạt bởi thông báo WebSocket
+- **Hệ thống VAPID:** Sử dụng `web-push` trên máy chủ để phân phối tin nhắn an toàn. Các khóa VAPID được tạo tự động và lưu trữ trong `data/vapid-keys.json`.
+- **Service Worker:** Một worker chuyên dụng (`client/public/sw.js`) xử lý các sự kiện `push` đến và hiển thị thông báo với `silent: false` để đảm bảo phát lại âm thanh trên macOS.
+- **Đăng ký:** Các điểm cuối dành riêng cho trình duyệt được lưu trữ trong bảng `push_subscriptions` trong SQLite.
+- **Tính liên tục:** Thông báo vẫn đến ngay cả khi trình duyệt đã đóng, vì Service Worker hoạt động ở chế độ nền.
+- **Thông báo kiểm tra:** Nút trong Cài đặt cho phép bạn xác minh hệ thống VAPID và phát lại âm thanh.
 
 ---
 

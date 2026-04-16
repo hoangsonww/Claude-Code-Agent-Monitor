@@ -183,7 +183,7 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | **Background Agents**              | Correctly tracks backgrounded subagents without premature completion                                                                                                                                                                                                         |
 | **Cost Tracking**                  | Per-model cost estimation with configurable pricing rules and per-session breakdowns. Compaction-aware token accounting preserves totals across context compressions. Transcript reads are cached with incremental byte-offset updates for efficient token extraction        |
 | **Transcript Cache**               | Real-time extraction from JSONL transcripts: tokens, compactions, API errors (`isApiErrorMessage` entries stored as `APIError` events), turn durations (stored as `TurnDuration` events), thinking block counts, and usage extras (service_tier, speed, inference_geo). Session metadata is enriched with these fields in real-time |
-| **Notifications**                  | Browser notifications for session starts, completions, errors, and subagent spawns. Configurable per-event toggles with permission management                                                                                                                                |
+| **Notifications**                  | Full Web Push (VAPID) pipeline for reliable delivery. Arrive even when the tab is backgrounded or the browser is closed. Explicitly configured for macOS audio support. Configurable per-event toggles with subscription management |
 | **Settings**                       | System info, hook status, model pricing management, notification preferences, data export, session cleanup                                                                                                                                                                   |
 | **MCP Server (Local)**             | Enterprise-grade local MCP server in `mcp/` with three transport modes (stdio, HTTP+SSE, interactive REPL), 25 typed tools across 6 domains, strict input schemas, retry/backoff, localhost-only API enforcement, and tiered mutation/destructive safety gates. HTTP mode serves Streamable HTTP (2025-11-25) and legacy SSE (2024-11-05) on configurable port. REPL mode provides tab-completed interactive tool invocation with colored output |
 | **Workflows**                      | D3.js-powered visualization page with 11 interactive sections: agent orchestration DAG, tool execution Sankey diagram, collaboration network, subagent effectiveness (day-of-week charts with rich tooltips), detected workflow patterns, model delegation flow, error propagation map (horizontal bars with rate badges, agent type breakdown, API/session error cards), concurrency timeline, session complexity scatter, compaction impact analysis, and per-session drill-in. Status filter tabs (Active Only / Completed / All) filter all 11 sections. Cross-filtering, JSON export, and real-time WebSocket auto-refresh with 3-second debounce |
@@ -809,12 +809,12 @@ The dashboard processes these Claude Code hook types:
 
 ## Browser Notifications
 
-The dashboard supports native browser notifications for real-time alerts when you're not actively viewing the dashboard tab.
+The dashboard supports persistent browser notifications via Web Push (VAPID) for real-time alerts even when the dashboard tab is not focused or the browser is backgrounded.
 
 ### How It Works
 
 1. **Enable** notifications in the Settings page via the master toggle
-2. **Grant** browser permission when prompted (required by the Web Notifications API)
+2. **Grant** browser permission when prompted — this registers a Service Worker and creates a push subscription
 3. **Configure** which events trigger notifications:
 
 | Event                        | Default | Description                                                     |
@@ -829,11 +829,11 @@ Additionally, any `Notification` hook event from Claude Code triggers a browser 
 
 ### Notifications Architecture
 
-- **Preferences** are stored in `localStorage` under the key `agent-monitor-notifications`
-- **`useNotifications` hook** subscribes to the WebSocket event bus at the app root level (`App.tsx`) and fires `new Notification()` calls based on the saved preferences
-- **Permission management** is handled in the Settings page with visual indicators for granted/denied/prompt states
-- **Test notification** button in Settings lets you verify the setup works
-- No server-side component - notifications are entirely client-side, triggered by WebSocket messages
+- **VAPID Pipeline:** Uses `web-push` on the server for secure message delivery. VAPID keys are auto-generated and stored in `data/vapid-keys.json`.
+- **Service Worker:** A dedicated worker (`client/public/sw.js`) handles incoming `push` events and displays notifications with `silent: false` to ensure audio playback on macOS.
+- **Subscriptions:** Browser-specific endpoints are stored in the `push_subscriptions` table in SQLite.
+- **Persistence:** Notifications arrive even if the browser is closed, as the Service Worker operates in the background.
+- **Test notification:** button in Settings lets you verify the VAPID pipeline and audio playback.
 
 ---
 

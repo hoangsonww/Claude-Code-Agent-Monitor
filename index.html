@@ -910,10 +910,10 @@
                   <div class="feature-icon ic-pink">🔔</div>
                   <h3>Browser Notifications</h3>
                   <p>
-                    Native browser notifications for session starts, completions, errors, and subagent
-                    spawns — even when the dashboard tab is in the background. Per-event toggles in
-                    Settings let you choose exactly which events trigger alerts, with automatic
-                    permission management and graceful fallback.
+                    Persistent browser notifications via Web Push (VAPID) for real-time alerts even
+                    when the dashboard tab is not focused or the browser is backgrounded. Includes
+                    explicit macOS audio support, per-event toggles, and server-side subscription
+                    management.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1118,7 +1118,7 @@
                 <tr>
                   <td><code>Notification</code></td>
                   <td>Agent sends notification</td>
-                  <td>Event logged to activity feed. Compaction-related notifications tagged as <code>Compaction</code> events.</td>
+                  <td>Event logged to activity feed. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers persistent browser notification if enabled.</td>
                 </tr>
                 <tr>
                   <td><code>Compaction</code></td>

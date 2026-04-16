@@ -33,6 +33,7 @@ function initWebSocket(server) {
       ws.ping();
     });
   }, 30000);
+  interval.unref();
 
   wss.on("close", () => {
     clearInterval(interval);
