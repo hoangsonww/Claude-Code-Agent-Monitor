@@ -74,5 +74,22 @@
     "h_m": "{{h}}h {{m}}m",
     "m_s": "{{m}}m {{s}}s",
     "s": "{{s}}s"
+  },
+  "eventDetail": {
+    "eventId": "ID sự kiện",
+    "sessionId": "ID phiên",
+    "agentId": "ID Agent",
+    "cwd": "Thư mục làm việc",
+    "permissionMode": "Chế độ quyền",
+    "toolUseId": "ID lượt dùng công cụ",
+    "toolInput": "Đầu vào công cụ",
+    "toolResponse": "Phản hồi công cụ",
+    "rawPayload": "Dữ liệu thô",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "noPayload": "Không có dữ liệu cho sự kiện này.",
+    "viewDetails": "Xem chi tiết",
+    "expand": "Mở rộng sự kiện",
+    "collapse": "Thu gọn sự kiện"
   }
 }

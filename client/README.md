@@ -48,19 +48,22 @@ graph TB
             Layout[Layout Component]
             
             subgraph "Pages"
-                Home[SessionsPage]
-                Detail[SessionDetailPage]
-                Agent[AgentDetailPage]
-                Settings[SettingsPage]
-                Pricing[PricingPage]
+                Home[Dashboard]
+                Kanban[KanbanBoard]
+                Sessions[Sessions]
+                Detail[SessionDetail]
+                Feed[ActivityFeed]
+                Analytics[Analytics]
+                Workflows[Workflows]
+                Settings[Settings]
             end
             
             subgraph "Shared Components"
-                SessionCard[SessionCard]
                 AgentCard[AgentCard]
-                ToolCard[ToolCard]
-                EventTimeline[EventTimeline]
-                NotificationBadge[NotificationBadge]
+                StatCard[StatCard]
+                StatusBadge[StatusBadge]
+                EventDetail[EventDetail]
+                EmptyState[EmptyState]
             end
         end
         
@@ -78,8 +81,9 @@ graph TB
     end
     
     Router --> Layout
-    Layout --> Home & Detail & Agent & Settings & Pricing
-    Home & Detail & Agent --> SessionCard & AgentCard & ToolCard & EventTimeline
+    Layout --> Home & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings
+    Home & Detail --> AgentCard & StatCard & StatusBadge
+    Feed --> EventDetail
     API --> REST
     WS --> WSS
     Bus --> Notif
@@ -150,39 +154,46 @@ client/
 │   ├── components/         # Reusable UI components
 │   │   ├── __tests__/      # Component tests
 │   │   ├── AgentCard.tsx
-│   │   ├── SessionCard.tsx
-│   │   ├── ToolCard.tsx
-│   │   ├── EventTimeline.tsx
-│   │   ├── NotificationBadge.tsx
-│   │   └── Layout.tsx
+│   │   ├── StatCard.tsx
+│   │   ├── StatusBadge.tsx
+│   │   ├── EventDetail.tsx  # Inline hook payload viewer (used by ActivityFeed + SessionDetail)
+│   │   ├── EmptyState.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── Layout.tsx
+│   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
 │   ├── pages/              # Route pages
-│   │   ├── SessionsPage.tsx
-│   │   ├── SessionDetailPage.tsx
-│   │   ├── AgentDetailPage.tsx
-│   │   ├── SettingsPage.tsx
-│   │   └── PricingPage.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── KanbanBoard.tsx
+│   │   ├── Sessions.tsx
+│   │   ├── SessionDetail.tsx
+│   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
+│   │   ├── Analytics.tsx
+│   │   ├── Workflows.tsx
+│   │   ├── Settings.tsx
+│   │   └── NotFound.tsx
 │   │
 │   ├── lib/                # Core utilities & business logic
 │   │   ├── __tests__/      # Utility tests
 │   │   ├── api.ts          # REST API client
-│   │   ├── websocket.ts    # WebSocket manager
-│   │   ├── eventBus.ts     # Event pub/sub
-│   │   ├── notifications.ts # Browser notifications
-│   │   ├── format.ts       # Formatters (fmt, fmtCost, timeAgo)
-│   │   ├── types.ts        # TypeScript type definitions
-│   │   └── constants.ts    # App-wide constants
+│   │   ├── eventBus.ts     # WebSocket pub/sub + connection state
+│   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
+│   │   └── types.ts        # TypeScript type definitions
 │   │
-│   ├── App.tsx             # Root component
+│   ├── hooks/
+│   │   ├── useWebSocket.ts      # Auto-reconnecting WebSocket hook
+│   │   └── useNotifications.ts  # Browser push notification triggers
+│   │
+│   ├── i18n/               # Internationalization (en / zh / vi)
+│   ├── App.tsx             # Root component + router setup
 │   ├── main.tsx            # Entry point
-│   └── index.css           # Global styles (Tailwind imports)
+│   └── index.css           # Tailwind + custom utilities
 │
-├── public/                 # Static assets
+├── public/                 # Static assets (sw.js service worker)
 ├── index.html              # HTML template
-├── vite.config.ts          # Vite configuration
-├── vitest.config.ts        # Test configuration
-├── tailwind.config.js      # Tailwind CSS config
-├── tsconfig.json           # TypeScript config
+├── vite.config.ts          # Vite + proxy config
+├── tailwind.config.js      # Custom dark theme
+├── tsconfig.json           # Strict TypeScript config
 └── package.json
 ```
 
@@ -194,34 +205,31 @@ client/
 
 ```mermaid
 graph TB
-    App[App.tsx<br/>Router Setup]
-    Layout[Layout.tsx<br/>Navbar + Outlet]
-    
-    Sessions[SessionsPage<br/>List all sessions]
-    Detail[SessionDetailPage<br/>Single session view]
-    AgentDetail[AgentDetailPage<br/>Single agent view]
-    Settings[SettingsPage<br/>Notifications + Pricing]
-    Pricing[PricingPage<br/>Cost rules management]
-    
+    App[App.tsx<br/>Router + WS + Notifications]
+    Layout[Layout.tsx<br/>Sidebar + Outlet]
+
+    Dashboard[Dashboard<br/>stats + agents + events]
+    Kanban[KanbanBoard<br/>5-column agent board]
+    Sessions[Sessions<br/>filterable table]
+    Detail[SessionDetail<br/>agent hierarchy + timeline]
+    Feed[ActivityFeed<br/>streaming event log]
+    Analytics[Analytics<br/>tokens + heatmap + trends]
+    Workflows[Workflows<br/>D3.js visualizations]
+    Settings[Settings<br/>pricing + notifications + hooks]
+
     App --> Layout
-    Layout --> Sessions
-    Layout --> Detail
-    Layout --> AgentDetail
-    Layout --> Settings
-    Layout --> Pricing
-    
-    Sessions --> SessionCard[SessionCard × N]
-    Detail --> AgentCard[AgentCard × N]
-    Detail --> EventTimeline[EventTimeline]
-    AgentDetail --> ToolCard[ToolCard × N]
-    AgentDetail --> EventTimeline
-    Layout --> NotificationBadge[NotificationBadge]
-    
+    Layout --> Dashboard & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings
+
+    Dashboard --> StatCard[StatCard × 6]
+    Dashboard --> AgentCard[AgentCard × N]
+    Detail --> AgentCard
+    Feed --> EventDetail[EventDetail<br/>inline payload viewer]
+    Detail --> EventDetail
+
     style App fill:#1E40AF
     style Layout fill:#3B82F6
-    style Sessions fill:#60A5FA
-    style Detail fill:#60A5FA
-    style AgentDetail fill:#60A5FA
+    style Feed fill:#8B5CF6
+    style EventDetail fill:#10B981
 ```
 
 ### Component Props Flow
@@ -411,21 +419,21 @@ useEffect(() => {
 ```mermaid
 graph TB
     Root["/"]
-    Sessions["/ (SessionsPage)"]
+    Dashboard["/ (Dashboard)"]
+    Kanban["/kanban"]
+    Sessions["/sessions"]
     Detail["/sessions/:id"]
-    Agent["/agents/:id"]
+    Feed["/activity"]
+    Analytics["/analytics"]
+    Workflows["/workflows"]
     Settings["/settings"]
-    Pricing["/pricing"]
-    
-    Root --> Sessions
-    Root --> Detail
-    Root --> Agent
-    Root --> Settings
-    Root --> Pricing
-    
-    style Sessions fill:#3B82F6
+    NF["/* (NotFound)"]
+
+    Root --> Dashboard & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings & NF
+
+    style Dashboard fill:#3B82F6
     style Detail fill:#3B82F6
-    style Agent fill:#3B82F6
+    style Feed fill:#8B5CF6
 ```
 
 ### Route Configuration
@@ -439,11 +447,15 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<SessionsPage />} />
-          <Route path="sessions/:id" element={<SessionDetailPage />} />
-          <Route path="agents/:id" element={<AgentDetailPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="pricing" element={<PricingPage />} />
+          <Route index element={<Dashboard />} />
+          <Route path="kanban" element={<KanbanBoard />} />
+          <Route path="sessions" element={<Sessions />} />
+          <Route path="sessions/:id" element={<SessionDetail />} />
+          <Route path="activity" element={<ActivityFeed />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="workflows" element={<Workflows />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
@@ -459,13 +471,15 @@ sequenceDiagram
     participant UI
     participant Router
     participant Page
-    
-    User->>UI: Click session card
+
+    User->>UI: Click session row in Sessions table
     UI->>Router: navigate('/sessions/123')
-    Router->>Page: Mount SessionDetailPage
+    Router->>Page: Mount SessionDetail
     Page->>Page: Read params.id = '123'
     Page->>Page: Fetch session data
-    Page->>UI: Render details
+    Page->>UI: Render agent tree + event timeline
+
+    Note over UI: In ActivityFeed, clicking a row<br/>expands the inline payload panel.<br/>The "Session →" button on each row<br/>navigates to /sessions/:id instead.
 ```
 
 ---
@@ -630,9 +644,33 @@ graph TB
     style Event4 fill:#F59E0B
 ```
 
-#### NotificationBadge
+#### ActivityFeed (`pages/ActivityFeed.tsx`)
 
-Shows unread notification count in navbar, triggers browser notifications.
+Real-time streaming event log with pause/resume, pagination, and inline payload expansion.
+
+**UX interaction model:**
+
+```mermaid
+flowchart LR
+    ROW["Event row\n(role=button)"] -->|click| EXPAND["Toggle EventDetail\n(inline payload)"]
+    ROW --> SESSBTN["Session → button\n(right edge)"]
+    SESSBTN -->|click + stopPropagation| NAV["/sessions/:id"]
+    EXPAND --> ED["EventDetail.tsx\nparsed fields + JSON blocks"]
+
+    style ROW fill:#1a1a28,stroke:#4f4f6a,color:#e4e4ed
+    style SESSBTN fill:#3B82F6,stroke:#60A5FA,color:#fff
+    style ED fill:#10B981,stroke:#34D399,color:#fff
+    style NAV fill:#8B5CF6,stroke:#A78BFA,color:#fff
+```
+
+- The entire row is clickable (keyboard accessible via `Enter`/`Space`) and toggles the `EventDetail` dropdown.
+- The chevron icon rotates 90° when a row is expanded — it is a visual indicator only, not a separate button.
+- The **Session →** button uses `e.stopPropagation()` so navigating to session details never collapses an open payload panel.
+- Multiple rows can be expanded simultaneously (state stored in `Set<number>`).
+
+#### EventDetail (`components/EventDetail.tsx`)
+
+Renders the hook payload for a single event inline below its row. Scalars appear as `key: value` pairs; objects and arrays render in a terminal-styled code block with a copy button.
 
 ---
 

@@ -5,26 +5,36 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Activity, Pause, Play, RefreshCw } from "lucide-react";
+import { Activity, Pause, Play, RefreshCw, ChevronRight, ExternalLink } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
+import { EventDetail } from "../components/EventDetail";
 import { formatTime, timeAgo } from "../lib/format";
 import type { DashboardEvent, AgentStatus } from "../lib/types";
 
 const PAGE_SIZE = 10;
 
 export function ActivityFeed() {
-  const navigate = useNavigate();
   const { t } = useTranslation("activity");
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [bufferCount, setBufferCount] = useState(0);
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set());
+
+  function toggleEvent(id: number) {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const bufferRef = useRef<DashboardEvent[]>([]);
   const pausedRef = useRef(paused);
 
@@ -122,35 +132,65 @@ export function ActivityFeed() {
         <>
           <div className="card overflow-hidden">
             <div className="divide-y divide-border max-h-[calc(100vh-260px)] overflow-y-auto overflow-x-auto">
-              {events.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((event, i) => (
-                <div
-                  key={event.id ?? i}
-                  onClick={() => navigate(`/sessions/${event.session_id}`)}
-                  className="px-5 py-3.5 flex items-center gap-4 hover:bg-surface-4 transition-colors cursor-pointer animate-slide-up"
-                >
-                  <div className="w-14 text-[11px] text-gray-500 font-mono flex-shrink-0 text-right">
-                    {formatTime(event.created_at)}
+              {events.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((event, i) => {
+                const isOpen = event.id != null && expandedEvents.has(event.id);
+                return (
+                  <div key={event.id ?? i} className="animate-slide-up">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (event.id != null) toggleEvent(event.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (event.id != null) toggleEvent(event.id);
+                        }
+                      }}
+                      aria-expanded={isOpen}
+                      className="flex items-center px-5 py-3.5 gap-4 hover:bg-surface-4 transition-colors cursor-pointer select-none"
+                    >
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 ${isOpen ? "rotate-90" : ""}`}
+                      />
+
+                      <div className="w-14 text-[11px] text-gray-500 font-mono flex-shrink-0 text-right">
+                        {formatTime(event.created_at)}
+                      </div>
+
+                      <AgentStatusBadge status={statusFromEventType(event.event_type)} />
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-300 truncate">
+                          {event.summary || event.event_type}
+                        </p>
+                      </div>
+
+                      {event.tool_name && (
+                        <span className="text-[11px] px-2 py-0.5 bg-surface-2 rounded text-gray-500 font-mono flex-shrink-0">
+                          {event.tool_name}
+                        </span>
+                      )}
+
+                      <span className="text-[11px] text-gray-600 flex-shrink-0 w-16 text-right">
+                        {timeAgo(event.created_at)}
+                      </span>
+
+                      <Link
+                        to={`/sessions/${event.session_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={t("viewSession")}
+                        className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-surface-2 text-gray-400 hover:text-accent hover:bg-accent/10 border border-border hover:border-accent/30 transition-colors flex-shrink-0 font-medium"
+                      >
+                        {t("viewSession")}
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                    {isOpen && <EventDetail event={event} />}
                   </div>
-
-                  <AgentStatusBadge status={statusFromEventType(event.event_type)} />
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-300 truncate">
-                      {event.summary || event.event_type}
-                    </p>
-                  </div>
-
-                  {event.tool_name && (
-                    <span className="text-[11px] px-2 py-0.5 bg-surface-2 rounded text-gray-500 font-mono flex-shrink-0">
-                      {event.tool_name}
-                    </span>
-                  )}
-
-                  <span className="text-[11px] text-gray-600 flex-shrink-0 w-16 text-right">
-                    {timeAgo(event.created_at)}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
           {events.length > PAGE_SIZE && (

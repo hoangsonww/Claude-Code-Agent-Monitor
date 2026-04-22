@@ -74,5 +74,22 @@
     "h_m": "{{h}}时{{m}}分",
     "m_s": "{{m}}分{{s}}秒",
     "s": "{{s}}秒"
+  },
+  "eventDetail": {
+    "eventId": "事件 ID",
+    "sessionId": "会话 ID",
+    "agentId": "Agent ID",
+    "cwd": "工作目录",
+    "permissionMode": "权限模式",
+    "toolUseId": "工具使用 ID",
+    "toolInput": "工具输入",
+    "toolResponse": "工具响应",
+    "rawPayload": "原始负载",
+    "copy": "复制",
+    "copied": "已复制",
+    "noPayload": "此事件未捕获负载。",
+    "viewDetails": "查看详情",
+    "expand": "展开事件",
+    "collapse": "折叠事件"
   }
 }

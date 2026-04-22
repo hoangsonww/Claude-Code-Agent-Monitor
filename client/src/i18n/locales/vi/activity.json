@@ -5,5 +5,6 @@
   "resume": "Tiếp tục",
   "pause": "Tạm dừng",
   "noActivity": "Chưa có hoạt động",
-  "noActivityDesc": "Sự kiện sẽ được phát trực tiếp tại đây khi các Agent Claude Code làm việc."
+  "noActivityDesc": "Sự kiện sẽ được phát trực tiếp tại đây khi các Agent Claude Code làm việc.",
+  "viewSession": "Phiên"
 }

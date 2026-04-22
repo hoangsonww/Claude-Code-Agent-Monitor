@@ -23,6 +23,7 @@ import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { AgentCard } from "../components/AgentCard";
 import { SessionStatusBadge, AgentStatusBadge } from "../components/StatusBadge";
+import { EventDetail } from "../components/EventDetail";
 import { formatDateTime, formatDuration, fmtCostFull, timeAgo } from "../lib/format";
 import type { Session, Agent, DashboardEvent, SessionStatus, CostResult } from "../lib/types";
 
@@ -39,6 +40,16 @@ export function SessionDetail() {
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(() => {
     return new Set<string>();
   });
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set());
+
+  function toggleEvent(id: number) {
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const goBack = useCallback(() => {
     const historyState =
       typeof window !== "undefined" ? (window.history.state as { idx?: number } | null) : null;
@@ -372,35 +383,53 @@ export function SessionDetail() {
         ) : (
           <div className="card overflow-hidden">
             <div className="divide-y divide-border max-h-[600px] overflow-y-auto overflow-x-auto">
-              {events.map((event, i) => (
-                <div
-                  key={event.id ?? i}
-                  className="px-5 py-3 flex items-center gap-4 hover:bg-surface-4 transition-colors min-w-0"
-                >
-                  <div className="w-16 text-[11px] text-gray-600 font-mono flex-shrink-0">
-                    {timeAgo(event.created_at)}
+              {events.map((event, i) => {
+                const key = event.id ?? i;
+                const isOpen = event.id != null && expandedEvents.has(event.id);
+                return (
+                  <div key={key}>
+                    <button
+                      type="button"
+                      onClick={() => event.id != null && toggleEvent(event.id)}
+                      aria-expanded={isOpen}
+                      aria-label={
+                        isOpen ? t("common:eventDetail.collapse") : t("common:eventDetail.expand")
+                      }
+                      className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-surface-4 transition-colors min-w-0 cursor-pointer"
+                    >
+                      <span
+                        className={`text-gray-500 text-[10px] w-3 flex-shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                        aria-hidden="true"
+                      >
+                        ▶
+                      </span>
+                      <div className="w-16 text-[11px] text-gray-600 font-mono flex-shrink-0">
+                        {timeAgo(event.created_at)}
+                      </div>
+                      <AgentStatusBadge
+                        status={
+                          event.event_type === "Stop" || event.event_type === "Compaction"
+                            ? "completed"
+                            : event.event_type === "PreToolUse"
+                              ? "working"
+                              : event.event_type === "error"
+                                ? "error"
+                                : "connected"
+                        }
+                      />
+                      <span className="text-sm text-gray-300 flex-1 truncate">
+                        {event.summary || event.event_type}
+                      </span>
+                      {event.tool_name && (
+                        <span className="text-[11px] px-2 py-0.5 bg-surface-2 rounded text-gray-500 font-mono">
+                          {event.tool_name}
+                        </span>
+                      )}
+                    </button>
+                    {isOpen && <EventDetail event={event} />}
                   </div>
-                  <AgentStatusBadge
-                    status={
-                      event.event_type === "Stop" || event.event_type === "Compaction"
-                        ? "completed"
-                        : event.event_type === "PreToolUse"
-                          ? "working"
-                          : event.event_type === "error"
-                            ? "error"
-                            : "connected"
-                    }
-                  />
-                  <span className="text-sm text-gray-300 flex-1 truncate">
-                    {event.summary || event.event_type}
-                  </span>
-                  {event.tool_name && (
-                    <span className="text-[11px] px-2 py-0.5 bg-surface-2 rounded text-gray-500 font-mono">
-                      {event.tool_name}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

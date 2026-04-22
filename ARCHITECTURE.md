@@ -407,7 +407,7 @@ graph TD
     SESS --> TABLE["Session Table<br/>with filters"]
     DETAIL --> AC3["AgentCard hierarchy<br/>parent → children tree"]
     DETAIL --> TL["Event Timeline"]
-    ACTIVITY --> FEED["Streaming<br/>Event List"]
+    ACTIVITY --> FEED["Streaming Event List<br/>(click row → expand payload;<br/>Session btn → session detail)"]
     WORKFLOWS_P --> WFC["12 D3.js components<br/>(workflows/ directory)"]
 
     style APP fill:#6366f1,stroke:#818cf8,color:#fff
@@ -501,11 +501,33 @@ graph LR
 | `/kanban`       | KanbanBoard   | `GET /api/agents?status={each}` per-status (no limit)  |
 | `/sessions`     | Sessions      | `GET /api/sessions`                                    |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` (includes agents + events)     |
-| `/activity`     | ActivityFeed  | `GET /api/events?limit=100`                            |
+| `/activity`     | ActivityFeed  | `GET /api/events?limit=100` — click row to expand inline payload; "Session →" button navigates to `/sessions/:id` |
 | `/analytics`    | Analytics     | `GET /api/analytics`                                   |
 | `/workflows`    | Workflows     | `GET /api/workflows?status=active\|completed`, `GET /api/workflows/session/:id` + WebSocket auto-refresh (3s debounce) |
 | `/settings`     | Settings      | `GET /api/settings/info`, `GET /api/pricing`, `GET /api/pricing/cost` + `localStorage` for notification prefs |
 | `/*`            | NotFound      | None (static 404 page)                                 |
+
+### Activity Feed Interaction Model
+
+The Activity Feed (`/activity`) separates two previously conflated interactions into distinct affordances:
+
+```mermaid
+flowchart LR
+    ROW["Event row\n(div role=button)"] -->|click / Enter / Space| EXPAND["Toggle inline\nEventDetail panel"]
+    ROW --> BTN["Session → button\n(right edge, Link)"]
+    BTN -->|click - stopPropagation| NAV["/sessions/:id"]
+    EXPAND --> DETAIL["EventDetail.tsx\nparsed payload fields\n+ terminal JSON blocks"]
+
+    style ROW fill:#1a1a28,stroke:#2a2a3d,color:#e4e4ed
+    style BTN fill:#6366f1,stroke:#818cf8,color:#fff
+    style DETAIL fill:#10b981,stroke:#34d399,color:#fff
+    style NAV fill:#f59e0b,stroke:#fbbf24,color:#000
+```
+
+- **Row click** (anywhere except the Session button) toggles the `EventDetail` dropdown for the selected event. Chevron rotates 90° as a visual indicator.
+- **Session → button** uses `e.stopPropagation()` to navigate to session details without triggering the expand toggle.
+- Expanded state is tracked in a `Set<number>` (`expandedEvents`) allowing multiple rows to be open simultaneously.
+- Keyboard accessible: `Enter` and `Space` on the row trigger expand; the Session button is a standard `<a>` element navigable by Tab.
 
 ### Workflows Page Architecture
 

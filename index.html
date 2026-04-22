@@ -874,7 +874,10 @@
                   <p>
                     Real-time streaming event log showing tool calls, agent state changes, errors,
                     and compaction events as they happen. Pause/resume with buffering, paginated
-                    history, and automatic scrolling. Each entry is color-coded by event type.
+                    history, and automatic scrolling. Click any event row to expand its full hook
+                    payload inline; a dedicated <strong>Session →</strong> button at the right of
+                    each row navigates directly to session details without affecting the expanded
+                    state. Each entry is color-coded by event type.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1105,8 +1108,8 @@
               <div class="screenshot-caption"><span class="caption-icon">📂</span> Kanban board — 5-column agent status view</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/feed.png" alt="Real-time activity feed with streaming events and pause/resume controls" loading="lazy" />
-              <div class="screenshot-caption"><span class="caption-icon">📰</span> Activity feed — real-time streaming event log</div>
+              <img src="images/feed.png" alt="Real-time activity feed with streaming events, expandable payload rows, and session navigation button" loading="lazy" />
+              <div class="screenshot-caption"><span class="caption-icon">📰</span> Activity feed — click a row to expand payload; "Session →" button opens session details</div>
             </div>
             <div class="screenshot-card">
               <img src="images/analytics.png" alt="Analytics dashboard with token usage charts, tool frequency, and session trends" loading="lazy" />
@@ -1404,7 +1407,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 </tr>
                 <tr>
                   <td>Activity Feed</td>
-                  <td>Events streaming in as Claude Code uses tools</td>
+                  <td>Events streaming in; click any row to expand payload, use "Session →" to drill into session details</td>
                 </tr>
                 <tr>
                   <td>Dashboard</td>
