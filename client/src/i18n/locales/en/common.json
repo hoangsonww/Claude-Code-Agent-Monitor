@@ -74,5 +74,22 @@
     "h_m": "{{h}}h {{m}}m",
     "m_s": "{{m}}m {{s}}s",
     "s": "{{s}}s"
+  },
+  "eventDetail": {
+    "eventId": "Event ID",
+    "sessionId": "Session ID",
+    "agentId": "Agent ID",
+    "cwd": "Working directory",
+    "permissionMode": "Permission mode",
+    "toolUseId": "Tool use ID",
+    "toolInput": "Tool input",
+    "toolResponse": "Tool response",
+    "rawPayload": "Raw payload",
+    "copy": "Copy",
+    "copied": "Copied",
+    "noPayload": "No payload captured for this event.",
+    "viewDetails": "View details",
+    "expand": "Expand event",
+    "collapse": "Collapse event"
   }
 }
