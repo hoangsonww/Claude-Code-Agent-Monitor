@@ -69,10 +69,7 @@ export function groupEvents(events: DashboardEvent[]): EventGroup[] {
     const last = sorted[sorted.length - 1]!;
     const durationMs =
       sorted.length > 1
-        ? Math.max(
-            0,
-            new Date(last.created_at).getTime() - new Date(first.created_at).getTime()
-          )
+        ? Math.max(0, new Date(last.created_at).getTime() - new Date(first.created_at).getTime())
         : null;
     const summary =
       [...sorted].reverse().find((e) => e.summary && e.summary.length > 0)?.summary ?? null;
@@ -136,9 +133,7 @@ function humanizeMcpServer(raw: string): string {
     if (dedup[dedup.length - 1] !== t) dedup.push(t);
   }
   const last = dedup[dedup.length - 1] ?? raw;
-  return last.toLowerCase() === last
-    ? last.charAt(0).toUpperCase() + last.slice(1)
-    : last;
+  return last.toLowerCase() === last ? last.charAt(0).toUpperCase() + last.slice(1) : last;
 }
 
 /** snake_case → lowercase words with spaces (e.g. "get_merge_request" → "get merge request"). */
@@ -260,7 +255,6 @@ function shortPath(path: string): string {
   if (parts.length <= 1) return parts[0] ?? path;
   return parts.slice(-2).join("/");
 }
-
 
 function hostFromUrl(url: string): string {
   try {
@@ -446,10 +440,7 @@ export type AgentInfo = {
  *  comes from the session's main agent (the pill is noise in that case) or
  *  when no info is available. Prefers subagent_type (e.g. "frontend-reviewer"),
  *  then the agent's name, and finally the last-8 short ID fallback. */
-export function agentPillLabel(
-  agentId: string | null,
-  info: AgentInfo | undefined
-): string | null {
+export function agentPillLabel(agentId: string | null, info: AgentInfo | undefined): string | null {
   if (!agentId) return null;
   if (info) {
     if (info.type === "main") return null;

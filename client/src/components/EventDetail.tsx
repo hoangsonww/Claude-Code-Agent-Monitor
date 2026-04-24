@@ -81,12 +81,7 @@ export function EventDetail({ event }: EventDetailProps) {
       )}
       <div className="space-y-2">
         {rows.map((row) => (
-          <FieldRow
-            key={row.key}
-            label={row.label}
-            value={row.value}
-            toolName={event.tool_name}
-          />
+          <FieldRow key={row.key} label={row.label} value={row.value} toolName={event.tool_name} />
         ))}
       </div>
     </div>
@@ -109,9 +104,7 @@ function SummaryBlock({
   if (hasToolInput) refs.push("tool_input");
   if (hasToolResponse) refs.push("tool_response");
   const hint =
-    refs.length > 0
-      ? t("eventDetail.seeDetailsBelow", { fields: refs.join(" · ") })
-      : null;
+    refs.length > 0 ? t("eventDetail.seeDetailsBelow", { fields: refs.join(" · ") }) : null;
   return (
     <div className="border border-border rounded overflow-hidden bg-surface-3/30">
       <div className="px-3 py-1 border-b border-border bg-black/20">

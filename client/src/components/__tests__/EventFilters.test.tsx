@@ -67,9 +67,7 @@ describe("EventFilters", () => {
     fireEvent.click(screen.getByRole("button", { name: /event type/i }));
     const option = await screen.findByText("PreToolUse");
     fireEvent.click(option);
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ event_type: ["PreToolUse"] })
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ event_type: ["PreToolUse"] }));
   });
 
   it("shows the clear-all button only when filters are non-empty", () => {

@@ -79,9 +79,7 @@ export const api = {
       const et = csv(params?.event_type);
       const tn = csv(params?.tool_name);
       const ag = csv(params?.agent_id);
-      const sid = Array.isArray(params?.session_id)
-        ? csv(params?.session_id)
-        : params?.session_id;
+      const sid = Array.isArray(params?.session_id) ? csv(params?.session_id) : params?.session_id;
       if (et) qs.set("event_type", et);
       if (tn) qs.set("tool_name", tn);
       if (ag) qs.set("agent_id", ag);
@@ -99,8 +97,7 @@ export const api = {
         total: number;
       }>(`/events${q ? `?${q}` : ""}`);
     },
-    facets: () =>
-      request<{ event_types: string[]; tool_names: string[] }>("/events/facets"),
+    facets: () => request<{ event_types: string[]; tool_names: string[] }>("/events/facets"),
   },
 
   analytics: {

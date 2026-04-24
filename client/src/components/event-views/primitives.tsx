@@ -42,13 +42,7 @@ export function CopyButton({ text }: { text: string }) {
 
 // ───────────────────────── Terminal (command) ─────────────────────────
 
-export function Terminal({
-  command,
-  description,
-}: {
-  command: string;
-  description?: string;
-}) {
+export function Terminal({ command, description }: { command: string; description?: string }) {
   return (
     <div className="relative bg-black/70 border border-border rounded font-mono text-[11px] overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1 border-b border-border bg-black/40">
@@ -56,9 +50,7 @@ export function Terminal({
         <CopyButton text={command} />
       </div>
       <pre className="px-3 py-2 text-gray-200 whitespace-pre-wrap break-words">
-        {description && (
-          <div className="text-gray-500 mb-1"># {description}</div>
-        )}
+        {description && <div className="text-gray-500 mb-1"># {description}</div>}
         <div>
           <span className="text-emerald-400 select-none">$ </span>
           {command}
@@ -207,11 +199,7 @@ function HunkView({ hunk }: { hunk: DiffHunk }) {
       <table className="w-full border-collapse">
         <tbody>
           {hunk.lines.map((line, i) => {
-            const kind = line.startsWith("+")
-              ? "add"
-              : line.startsWith("-")
-                ? "remove"
-                : "ctx";
+            const kind = line.startsWith("+") ? "add" : line.startsWith("-") ? "remove" : "ctx";
             const body = line.slice(kind === "ctx" ? 0 : 1);
             const showOld = kind !== "add";
             const showNew = kind !== "remove";
@@ -295,8 +283,7 @@ function ValueCell({ value }: { value: unknown }) {
         {String(value)}
       </span>
     );
-  if (typeof value === "number")
-    return <span className="font-mono text-gray-300">{value}</span>;
+  if (typeof value === "number") return <span className="font-mono text-gray-300">{value}</span>;
   if (typeof value === "string") {
     if (value.length > 120 || value.includes("\n")) {
       return (
@@ -337,8 +324,7 @@ function safeStringify(value: unknown): string {
 // ───────────────────────── File list / match list ─────────────────────────
 
 export function FileList({ paths }: { paths: string[] }) {
-  if (paths.length === 0)
-    return <p className="text-[11px] text-gray-500 italic">no files</p>;
+  if (paths.length === 0) return <p className="text-[11px] text-gray-500 italic">no files</p>;
   return (
     <ul className="divide-y divide-border border border-border rounded overflow-hidden text-[11px] max-h-80 overflow-y-auto">
       {paths.map((p, i) => (
@@ -357,8 +343,7 @@ export type GrepMatch = {
 };
 
 export function MatchList({ matches }: { matches: GrepMatch[] }) {
-  if (matches.length === 0)
-    return <p className="text-[11px] text-gray-500 italic">no matches</p>;
+  if (matches.length === 0) return <p className="text-[11px] text-gray-500 italic">no matches</p>;
   return (
     <ul className="divide-y divide-border border border-border rounded overflow-hidden text-[11px] max-h-80 overflow-y-auto font-mono">
       {matches.map((m, i) => (

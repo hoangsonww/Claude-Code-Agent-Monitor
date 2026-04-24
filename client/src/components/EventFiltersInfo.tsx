@@ -21,16 +21,12 @@ export function EventFiltersInfo() {
         <span className="font-semibold uppercase tracking-wide">
           {t("eventFilters.help.title")}
         </span>
-        <span className="text-gray-500 font-normal ml-1">
-          — {t("eventFilters.help.subtitle")}
-        </span>
+        <span className="text-gray-500 font-normal ml-1">— {t("eventFilters.help.subtitle")}</span>
       </summary>
 
       <div className="divide-y divide-border">
         <Section title={t("eventFilters.help.statusesTitle")}>
-          <p className="text-[11px] text-gray-500 mb-2">
-            {t("eventFilters.help.statusesIntro")}
-          </p>
+          <p className="text-[11px] text-gray-500 mb-2">{t("eventFilters.help.statusesIntro")}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[11px]">
             <dt>
               <AgentStatusBadge status="working" />
@@ -56,9 +52,7 @@ export function EventFiltersInfo() {
         </Section>
 
         <Section title={t("eventFilters.help.lifecycleTitle")}>
-          <p className="text-[11px] text-gray-400 mb-2">
-            {t("eventFilters.help.lifecycleDesc")}
-          </p>
+          <p className="text-[11px] text-gray-400 mb-2">{t("eventFilters.help.lifecycleDesc")}</p>
           <code className="block bg-black/40 border border-border rounded p-2 text-[11px] font-mono text-gray-300 whitespace-pre-wrap">
             {t("eventFilters.help.lifecycleFlow")}
           </code>
@@ -68,9 +62,7 @@ export function EventFiltersInfo() {
           <ul className="list-disc pl-5 space-y-1 text-[11px] text-gray-400">
             <li>{t("eventFilters.help.filterTip1")}</li>
             <li>{t("eventFilters.help.filterTip2")}</li>
-            <li className="text-amber-300/90">
-              {t("eventFilters.help.filterTipGrouping")}
-            </li>
+            <li className="text-amber-300/90">{t("eventFilters.help.filterTipGrouping")}</li>
             <li>{t("eventFilters.help.filterTip3")}</li>
             <li>{t("eventFilters.help.filterTip4")}</li>
           </ul>
@@ -78,10 +70,7 @@ export function EventFiltersInfo() {
 
         <Section title={t("eventFilters.help.valuesTitle")}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[11px]">
-            <Field
-              label={t("eventFilters.status")}
-              desc={t("eventFilters.help.valueStatusDesc")}
-            />
+            <Field label={t("eventFilters.status")} desc={t("eventFilters.help.valueStatusDesc")} />
             <Field
               label={t("eventFilters.eventType")}
               desc={t("eventFilters.help.valueEventTypeDesc")}

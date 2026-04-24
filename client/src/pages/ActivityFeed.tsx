@@ -91,9 +91,7 @@ export function ActivityFeed() {
   // event_type values and merge with any explicit event_type selection.
   const apiParams = useMemo(() => {
     const statusExpanded = expandStatusToEventTypes(filters.status);
-    const eventTypeMerged = Array.from(
-      new Set<string>([...filters.event_type, ...statusExpanded])
-    );
+    const eventTypeMerged = Array.from(new Set<string>([...filters.event_type, ...statusExpanded]));
     return {
       event_type: eventTypeMerged.length > 0 ? eventTypeMerged : undefined,
       tool_name: filters.tool_name.length > 0 ? filters.tool_name : undefined,

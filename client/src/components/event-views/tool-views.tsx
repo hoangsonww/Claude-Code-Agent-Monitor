@@ -36,9 +36,7 @@ function str(v: unknown): string {
 }
 
 function obj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null;
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
 function isMcp(toolName: string): boolean {
@@ -123,8 +121,7 @@ function toMatch(raw: unknown): GrepMatch | null {
 }
 
 function parseFileList(value: unknown): string[] {
-  if (Array.isArray(value))
-    return value.filter((v): v is string => typeof v === "string");
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
   const o = obj(value);
   if (!o) return [];
   if (Array.isArray(o.files))
@@ -154,7 +151,18 @@ export function ToolInputView({
     return (
       <KeyValueCard
         data={i}
-        priority={["url", "query", "q", "title", "name", "id", "page_id", "task_id", "merge_request_iid", "issue_iid"]}
+        priority={[
+          "url",
+          "query",
+          "q",
+          "title",
+          "name",
+          "id",
+          "page_id",
+          "task_id",
+          "merge_request_iid",
+          "issue_iid",
+        ]}
       />
     );
   }
@@ -373,8 +381,7 @@ export function ToolResponseView({
       if (typeof response === "string") return <LineNumberedCode text={response} />;
       const r = obj(response);
       if (r && typeof r.content === "string") return <LineNumberedCode text={r.content} />;
-      if (r)
-        return <KeyValueCard data={r} priority={["url", "title", "status", "content"]} />;
+      if (r) return <KeyValueCard data={r} priority={["url", "title", "status", "content"]} />;
       return null;
     }
     case "Task":
@@ -391,7 +398,8 @@ export function ToolResponseView({
     case "TaskOutput":
     case "TaskList": {
       const r = obj(response);
-      if (r) return <KeyValueCard data={r} priority={["description", "status", "id", "activeForm"]} />;
+      if (r)
+        return <KeyValueCard data={r} priority={["description", "status", "id", "activeForm"]} />;
       return null;
     }
     case "AskUserQuestion": {

@@ -122,9 +122,7 @@ export function SessionDetail() {
   const eventApiParams = useMemo(() => {
     if (!id) return null;
     const statusExpanded = expandStatusToEventTypes(filters.status);
-    const eventTypeMerged = Array.from(
-      new Set<string>([...filters.event_type, ...statusExpanded])
-    );
+    const eventTypeMerged = Array.from(new Set<string>([...filters.event_type, ...statusExpanded]));
     return {
       session_id: [id],
       event_type: eventTypeMerged.length > 0 ? eventTypeMerged : undefined,
@@ -521,7 +519,11 @@ export function SessionDetail() {
           />
         </div>
         <div className="flex items-center gap-2 mb-3 px-1">
-          <div role="group" aria-label="view mode" className="inline-flex rounded-md border border-border overflow-hidden">
+          <div
+            role="group"
+            aria-label="view mode"
+            className="inline-flex rounded-md border border-border overflow-hidden"
+          >
             <button
               type="button"
               onClick={() => setGrouped(true)}
@@ -557,11 +559,7 @@ export function SessionDetail() {
             <div className="divide-y divide-border max-h-[600px] overflow-y-auto overflow-x-auto">
               {grouped
                 ? eventGroups.map((group) => (
-                    <EventGroupRow
-                      key={group.key}
-                      group={group}
-                      agentInfoById={agentInfoById}
-                    />
+                    <EventGroupRow key={group.key} group={group} agentInfoById={agentInfoById} />
                   ))
                 : events.map((event, i) => {
                     const key = event.id ?? i;

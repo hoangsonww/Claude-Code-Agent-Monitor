@@ -104,7 +104,9 @@ router.get("/", (req, res) => {
 // GET /api/events/facets — distinct event_type / tool_name values in the DB.
 router.get("/facets", (_req, res) => {
   const eventTypes = db
-    .prepare("SELECT DISTINCT event_type FROM events WHERE event_type IS NOT NULL ORDER BY event_type")
+    .prepare(
+      "SELECT DISTINCT event_type FROM events WHERE event_type IS NOT NULL ORDER BY event_type"
+    )
     .all()
     .map((r) => r.event_type);
 

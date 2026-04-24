@@ -137,9 +137,7 @@ export function EventFilters({
   const toggle = (field: keyof EventFiltersValue, item: string) => {
     const current = value[field];
     if (!Array.isArray(current)) return;
-    const next = current.includes(item)
-      ? current.filter((x) => x !== item)
-      : [...current, item];
+    const next = current.includes(item) ? current.filter((x) => x !== item) : [...current, item];
     onChange({ ...value, [field]: next });
   };
 
@@ -234,7 +232,6 @@ export function EventFilters({
           />
         )}
       </div>
-
     </div>
   );
 }

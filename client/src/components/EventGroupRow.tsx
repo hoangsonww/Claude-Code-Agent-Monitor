@@ -48,7 +48,9 @@ export function EventGroupRow({
   const [expanded, setExpanded] = useState(false);
   const [expandedInner, setExpandedInner] = useState<Set<number>>(() => new Set());
 
-  const statusSequence = dedupeConsecutive(group.events.map((e) => statusFromEventType(e.event_type)));
+  const statusSequence = dedupeConsecutive(
+    group.events.map((e) => statusFromEventType(e.event_type))
+  );
   const duration = formatGroupDuration(group.durationMs);
   // Every group is expandable — single-event groups show the EventDetail
   // directly; multi-event groups show a nested list where each event can be
@@ -83,9 +85,7 @@ export function EventGroupRow({
           aria-label={expanded ? "Collapse group" : "Expand group"}
           disabled={!canExpand}
           className={`p-1 rounded flex-shrink-0 ${
-            canExpand
-              ? "text-gray-500 hover:text-gray-200 cursor-pointer"
-              : "text-transparent"
+            canExpand ? "text-gray-500 hover:text-gray-200 cursor-pointer" : "text-transparent"
           }`}
         >
           <ChevronRight
@@ -128,10 +128,7 @@ export function EventGroupRow({
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-300 truncate">
                   {origin && (
-                    <span
-                      className="text-gray-500 mr-1"
-                      title={`${sid ?? ""} · ${agentId ?? ""}`}
-                    >
+                    <span className="text-gray-500 mr-1" title={`${sid ?? ""} · ${agentId ?? ""}`}>
                       {origin} ·
                     </span>
                   )}
@@ -157,9 +154,7 @@ export function EventGroupRow({
         </div>
       </div>
 
-      {expanded && isSingleEvent && group.events[0] && (
-        <EventDetail event={group.events[0]} />
-      )}
+      {expanded && isSingleEvent && group.events[0] && <EventDetail event={group.events[0]} />}
 
       {expanded && !isSingleEvent && (
         <div className="bg-surface-2/40 border-t border-border divide-y divide-border">
@@ -174,11 +169,7 @@ export function EventGroupRow({
                   type="button"
                   onClick={() => event.id != null && toggleInner(event.id)}
                   aria-expanded={innerOpen}
-                  aria-label={
-                    innerOpen
-                      ? t("eventDetail.collapse")
-                      : t("eventDetail.expand")
-                  }
+                  aria-label={innerOpen ? t("eventDetail.collapse") : t("eventDetail.expand")}
                   className="w-full text-left px-5 py-2 flex items-center gap-4 min-w-0 hover:bg-surface-3/60 transition-colors cursor-pointer"
                 >
                   <span

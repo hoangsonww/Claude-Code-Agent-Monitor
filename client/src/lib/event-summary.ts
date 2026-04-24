@@ -20,9 +20,7 @@ function str(v: unknown): string {
 }
 
 function obj(v: unknown): Record<string, unknown> | null {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : null;
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
 }
 
 function shortPath(path: string): string {
@@ -64,7 +62,8 @@ function countHunks(structuredPatch: unknown): { hunks: number; added: number; r
 function firstEnclosingContext(structuredPatch: unknown): string | null {
   // Look for a context line that looks like a function/class/const definition.
   if (!Array.isArray(structuredPatch)) return null;
-  const defPattern = /^\s+(?:function\s+\w+|def\s+\w+|class\s+\w+|(?:const|let|var)\s+\w+|\w+\s*=\s*\()/;
+  const defPattern =
+    /^\s+(?:function\s+\w+|def\s+\w+|class\s+\w+|(?:const|let|var)\s+\w+|\w+\s*=\s*\()/;
   for (const raw of structuredPatch) {
     const r = obj(raw);
     if (!r || !Array.isArray(r.lines)) continue;
@@ -100,8 +99,7 @@ export function buildEventSummary(event: DashboardEvent): EventSummary | null {
     if (msg) bullets.push(`Last message: ${trunc(msg.split(/\r?\n/)[0] ?? "", 80)}`);
     return {
       icon: "🛑",
-      headline:
-        event.event_type === "SubagentStop" ? "Subagent turn ended" : "Turn ended",
+      headline: event.event_type === "SubagentStop" ? "Subagent turn ended" : "Turn ended",
       bullets,
     };
   }
@@ -338,10 +336,7 @@ export function buildEventSummary(event: DashboardEvent): EventSummary | null {
       const reason = str(input?.reason);
       return {
         icon: "😴",
-        headline:
-          typeof delay === "number"
-            ? `Scheduled wakeup in ${delay}s`
-            : "Scheduled wakeup",
+        headline: typeof delay === "number" ? `Scheduled wakeup in ${delay}s` : "Scheduled wakeup",
         bullets: reason ? [`Reason: ${trunc(reason, 80)}`] : [],
       };
     }
@@ -368,8 +363,7 @@ function humanizeMcp(toolName: string): string {
   const dedup: string[] = [];
   for (const t of tokens) if (dedup[dedup.length - 1] !== t) dedup.push(t);
   const last = dedup[dedup.length - 1] ?? rawServer;
-  const server =
-    last.toLowerCase() === last ? last.charAt(0).toUpperCase() + last.slice(1) : last;
+  const server = last.toLowerCase() === last ? last.charAt(0).toUpperCase() + last.slice(1) : last;
   const toolPart = rest.replace(/_+/g, " ").trim().toLowerCase();
   return `${server} · ${toolPart}`;
 }
@@ -379,10 +373,7 @@ function firstWord(command: string): string {
   return m ? (m[1] ?? command) : command;
 }
 
-function firstStringField(
-  obj: Record<string, unknown>,
-  priority: string[]
-): string | null {
+function firstStringField(obj: Record<string, unknown>, priority: string[]): string | null {
   for (const k of priority) {
     const v = obj[k];
     if (typeof v === "string" && v.length > 0) return v;
