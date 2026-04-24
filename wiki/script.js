@@ -213,16 +213,32 @@ mermaid.initialize({
     "main .wiki-footer > *",
   ];
 
-  const targets = Array.from(document.querySelectorAll(selectors.join(","))).filter(
+  const allTargets = Array.from(document.querySelectorAll(selectors.join(","))).filter(
     (element, index, collection) => collection.indexOf(element) === index
   );
-  const targetSet = new Set(targets);
+
+  if (allTargets.length === 0) return;
+
+  /* Only animate elements that start below the initial viewport.
+   *
+   * On a normal top-of-page load, the hero and first-fold content are
+   * already where the user is looking — a fade-in there just delays
+   * paint. More importantly, on a deep-link load (e.g. #update-notifier),
+   * the browser scrolls to the target section *before* this script runs;
+   * applying reveal-on-scroll to that section's children would leave
+   * them opacity 0 with up to 550ms + 250ms stagger before they appear.
+   *
+   * Measuring getBoundingClientRect() here — after DOM parse and after
+   * the browser's hash scroll — tells us exactly what's already visible
+   * (or scrolled past). Those elements skip reveal entirely. Everything
+   * below the fold keeps the staggered fade on scroll as before. */
+  const viewportBottom = window.innerHeight;
+  const targets = allTargets.filter(
+    (target) => target.getBoundingClientRect().top >= viewportBottom
+  );
 
   if (targets.length === 0) return;
-
-  const revealImmediately = () => {
-    targets.forEach((target) => target.classList.add("is-visible"));
-  };
+  const targetSet = new Set(targets);
 
   targets.forEach((target) => {
     target.classList.add("reveal-on-scroll");
@@ -236,7 +252,7 @@ mermaid.initialize({
   });
 
   if (prefersReducedMotion.matches || !("IntersectionObserver" in window)) {
-    revealImmediately();
+    targets.forEach((target) => target.classList.add("is-visible"));
     return;
   }
 
