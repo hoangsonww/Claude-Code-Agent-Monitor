@@ -57,8 +57,9 @@ export function UpdateNotifier() {
     });
   }, [syncFromPayload]);
 
-  const show =
-    Boolean(status?.update_available && status.remote_sha && dismissedSha !== status.remote_sha);
+  const show = Boolean(
+    status?.update_available && status.remote_sha && dismissedSha !== status.remote_sha
+  );
 
   const dismiss = () => {
     if (!status?.remote_sha) return;
@@ -128,9 +129,7 @@ export function UpdateNotifier() {
           {t("commitsBehind", { count: behind, ref: refLabel })}
         </p>
 
-        {status.fetch_error ? (
-          <p className="text-sm text-amber-300/90">{t("fetchError")}</p>
-        ) : null}
+        {status.fetch_error ? <p className="text-sm text-amber-300/90">{t("fetchError")}</p> : null}
 
         {!status.git_repo ? <p className="text-sm text-gray-400">{t("notGit")}</p> : null}
 
@@ -152,7 +151,11 @@ export function UpdateNotifier() {
               disabled={copied}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface-0 text-sm text-gray-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-colors disabled:opacity-60"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              {copied ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
               {copied ? t("copied") : t("copy")}
             </button>
           ) : null}
