@@ -13,5 +13,7 @@
   "restartNote": "Máy chủ sẽ dừng ngắn rồi chạy lại khi xong.",
   "checkNow": "Kiểm tra ngay",
   "checking": "Đang kiểm tra…",
-  "checkError": "Không thể kiểm tra cập nhật"
+  "checkError": "Không thể kiểm tra cập nhật",
+  "restarting": "Đang khởi động lại máy chủ…",
+  "restartTimeout": "Máy chủ chưa hoạt động lại. Mở self-update.log trong thư mục cài đặt để xem lỗi."
 }

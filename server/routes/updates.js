@@ -4,6 +4,7 @@
  */
 
 const { Router } = require("express");
+const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const { getUpdatesStatus, DEFAULT_ROOT } = require("../lib/update-check");
@@ -94,10 +95,19 @@ router.post("/apply", async (req, res) => {
   });
 
   setImmediate(() => {
+    let logStdio = "ignore";
+    const logPath = path.join(root, "self-update.log");
+    try {
+      const fd = fs.openSync(logPath, "a");
+      logStdio = ["ignore", fd, fd];
+    } catch {
+      // Could not open the log file — fall back to ignoring stdio so the
+      // update still runs even if the filesystem is read-only.
+    }
     const child = spawn(process.execPath, [scriptPath], {
       cwd: root,
       detached: true,
-      stdio: "ignore",
+      stdio: logStdio,
       env: { ...process.env },
     });
     child.unref();

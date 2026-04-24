@@ -13,5 +13,7 @@
   "restartNote": "The server will stop briefly, then start again when finished.",
   "checkNow": "Check now",
   "checking": "Checking…",
-  "checkError": "Could not check for updates"
+  "checkError": "Could not check for updates",
+  "restarting": "Restarting server…",
+  "restartTimeout": "Server did not come back. Check self-update.log in the install directory for errors."
 }

@@ -29,6 +29,7 @@ export function UpdateNotifier() {
   const [status, setStatus] = useState<UpdateStatusPayload | null>(null);
   const [dismissedSha, setDismissedSha] = useState<string | null>(loadDismissedSha);
   const [applying, setApplying] = useState(false);
+  const [waitingRestart, setWaitingRestart] = useState(false);
   const [applyErr, setApplyErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -97,11 +98,43 @@ export function UpdateNotifier() {
     setApplying(true);
     try {
       await api.updates.apply();
+      // Server accepted the update; it will exit shortly. Switch to the
+      // waiting-for-restart phase so the button doesn't sit on "Updating…"
+      // forever. The effect below watches for WS reconnect and reloads.
+      setApplying(false);
+      setWaitingRestart(true);
     } catch (e) {
       setApplying(false);
       setApplyErr(e instanceof Error ? e.message : t("applyError"));
     }
   };
+
+  // While waiting for the server to come back, watch the WS connection state.
+  // useWebSocket reconnects every 2s and publishes to eventBus. Once we see a
+  // disconnect followed by a fresh reconnect, the new server is up — reload
+  // the page so the UI picks up the new build. Fall back to an error after
+  // ~3 minutes if nothing comes back.
+  useEffect(() => {
+    if (!waitingRestart) return;
+    let sawDisconnect = !eventBus.connected;
+    const unsubscribe = eventBus.onConnection((connected: boolean) => {
+      if (!connected) {
+        sawDisconnect = true;
+        return;
+      }
+      if (sawDisconnect) {
+        window.location.reload();
+      }
+    });
+    const timeout = window.setTimeout(() => {
+      setWaitingRestart(false);
+      setApplyErr(t("restartTimeout"));
+    }, 180_000);
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timeout);
+    };
+  }, [waitingRestart, t]);
 
   const checkNow = async () => {
     if (checking) return;
@@ -186,15 +219,26 @@ export function UpdateNotifier() {
           <button
             type="button"
             onClick={apply}
-            disabled={applying || !status.git_repo || Boolean(status.fetch_error)}
+            disabled={
+              applying || waitingRestart || !status.git_repo || Boolean(status.fetch_error)
+            }
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {applying ? t("applying") : t("apply")}
+            {waitingRestart ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden />
+                {t("restarting")}
+              </>
+            ) : applying ? (
+              t("applying")
+            ) : (
+              t("apply")
+            )}
           </button>
           <button
             type="button"
             onClick={checkNow}
-            disabled={checking}
+            disabled={checking || waitingRestart}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-surface-0 text-sm text-gray-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-colors disabled:opacity-60"
           >
             <RefreshCw className={`w-4 h-4 ${checking ? "animate-spin" : ""}`} aria-hidden />

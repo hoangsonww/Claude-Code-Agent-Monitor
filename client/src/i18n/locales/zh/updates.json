@@ -13,5 +13,7 @@
   "restartNote": "服务器会短暂停止，完成后将重新启动。",
   "checkNow": "立即检查",
   "checking": "正在检查…",
-  "checkError": "无法检查更新"
+  "checkError": "无法检查更新",
+  "restarting": "正在重启服务器…",
+  "restartTimeout": "服务器未恢复。请查看安装目录下的 self-update.log 获取错误信息。"
 }
