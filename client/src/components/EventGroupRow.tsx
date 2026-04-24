@@ -94,10 +94,8 @@ export function EventGroupRow({
         </button>
 
         <div
-          className={`flex items-center gap-4 flex-1 min-w-0 ${
-            onRowActivate ? "cursor-pointer" : ""
-          }`}
-          onClick={onRowActivate}
+          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
+          onClick={() => (onRowActivate ? onRowActivate() : canExpand && setExpanded((v) => !v))}
         >
           <div className="w-16 text-[11px] text-gray-500 font-mono flex-shrink-0 text-right">
             {formatTime(group.firstAt)}

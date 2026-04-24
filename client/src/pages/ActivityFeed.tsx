@@ -32,10 +32,11 @@ import {
   buildOriginLabel,
   groupEvents,
   projectFromEvent,
+  statusFromEventType,
 } from "../lib/event-grouping";
 import type { AgentInfo } from "../lib/event-grouping";
 import { formatTime, timeAgo } from "../lib/format";
-import type { DashboardEvent, AgentStatus } from "../lib/types";
+import type { DashboardEvent } from "../lib/types";
 
 const INITIAL_BATCH = 50;
 const MORE_BATCH = 500;
@@ -115,6 +116,10 @@ export function ActivityFeed() {
       });
       setEvents(data);
       setTotal(totalCount);
+    } catch (err) {
+      // Non-fatal: keep the previous list; log so dev tools surface the
+      // failure instead of raising an unhandled promise rejection.
+      console.error("Failed to load events:", err);
     } finally {
       setLoading(false);
     }
@@ -171,6 +176,8 @@ export function ActivityFeed() {
       });
       setEvents((prev) => [...prev, ...data]);
       setTotal(totalCount);
+    } catch (err) {
+      console.error("Failed to load more events:", err);
     } finally {
       setLoadingMore(false);
     }
@@ -182,13 +189,20 @@ export function ActivityFeed() {
   const refreshWithPagination = useCallback(async () => {
     const target = Math.max(loadedCountRef.current || INITIAL_BATCH, INITIAL_BATCH);
     const size = Math.min(target, MAX_REFRESH);
-    const { events: data, total: totalCount } = await api.events.list({
-      ...apiParamsRef.current,
-      limit: size,
-      offset: 0,
-    });
-    setEvents(data);
-    setTotal(totalCount);
+    try {
+      const { events: data, total: totalCount } = await api.events.list({
+        ...apiParamsRef.current,
+        limit: size,
+        offset: 0,
+      });
+      setEvents(data);
+      setTotal(totalCount);
+    } catch (err) {
+      // Non-fatal: swallow the error so a flaky websocket burst doesn't
+      // spam unhandled rejections; the next live event / manual refresh
+      // will try again.
+      console.error("Failed to refresh events:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -225,23 +239,15 @@ export function ActivityFeed() {
     refreshWithPagination();
   }
 
-  function statusFromEventType(type: string): AgentStatus {
-    switch (type) {
-      case "PreToolUse":
-        return "working";
-      case "PostToolUse":
-        return "connected";
-      case "Stop":
-      case "SubagentStop":
-      case "Compaction":
-        return "completed";
-      default:
-        return "idle";
-    }
-  }
-
   const hasMore = events.length < total;
   const groups = useMemo(() => groupEvents(events), [events]);
+  // Precompute the project name per event so row rendering doesn't re-parse
+  // event.data JSON on every render pass.
+  const projectByEventId = useMemo(() => {
+    const map = new Map<number, string | null>();
+    for (const e of events) map.set(e.id, projectFromEvent(e));
+    return map;
+  }, [events]);
 
   return (
     <div className="animate-fade-in">
@@ -379,7 +385,7 @@ export function ActivityFeed() {
                             const info = event.agent_id
                               ? agentInfoById.get(event.agent_id)
                               : undefined;
-                            const project = projectFromEvent(event);
+                            const project = projectByEventId.get(event.id) ?? null;
                             const origin = buildOriginLabel(
                               project,
                               sname ?? null,

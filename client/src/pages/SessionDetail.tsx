@@ -39,6 +39,7 @@ import {
   buildOriginLabel,
   groupEvents,
   projectFromEvent,
+  statusFromEventType,
 } from "../lib/event-grouping";
 import type { AgentInfo } from "../lib/event-grouping";
 import { formatDateTime, formatDuration, fmtCostFull, timeAgo } from "../lib/format";
@@ -148,15 +149,26 @@ export function SessionDetail() {
     return map;
   }, [agents]);
 
+  // Precompute project per event so flat-row rendering doesn't re-parse JSON.
+  const projectByEventId = useMemo(() => {
+    const map = new Map<number, string | null>();
+    for (const e of events) map.set(e.id, projectFromEvent(e));
+    return map;
+  }, [events]);
+
   const loadEvents = useCallback(async () => {
     if (!eventApiParams) return;
-    const { events: data, total } = await api.events.list({
-      ...eventApiParams,
-      limit: EVENTS_INITIAL_BATCH,
-      offset: 0,
-    });
-    setEvents(data);
-    setEventsTotal(total);
+    try {
+      const { events: data, total } = await api.events.list({
+        ...eventApiParams,
+        limit: EVENTS_INITIAL_BATCH,
+        offset: 0,
+      });
+      setEvents(data);
+      setEventsTotal(total);
+    } catch (err) {
+      console.error("Failed to load session events:", err);
+    }
   }, [eventApiParams]);
 
   useEffect(() => {
@@ -174,6 +186,8 @@ export function SessionDetail() {
       });
       setEvents((prev) => [...prev, ...data]);
       setEventsTotal(total);
+    } catch (err) {
+      console.error("Failed to load more session events:", err);
     } finally {
       setEventsLoadingMore(false);
     }
@@ -211,13 +225,17 @@ export function SessionDetail() {
       EVENTS_INITIAL_BATCH
     );
     const size = Math.min(target, EVENTS_MAX_REFRESH);
-    const { events: data, total } = await api.events.list({
-      ...params,
-      limit: size,
-      offset: 0,
-    });
-    setEvents(data);
-    setEventsTotal(total);
+    try {
+      const { events: data, total } = await api.events.list({
+        ...params,
+        limit: size,
+        offset: 0,
+      });
+      setEvents(data);
+      setEventsTotal(total);
+    } catch (err) {
+      console.error("Failed to refresh session events:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -586,17 +604,7 @@ export function SessionDetail() {
                           <div className="w-16 text-[11px] text-gray-600 font-mono flex-shrink-0">
                             {timeAgo(event.created_at)}
                           </div>
-                          <AgentStatusBadge
-                            status={
-                              event.event_type === "Stop" || event.event_type === "Compaction"
-                                ? "completed"
-                                : event.event_type === "PreToolUse"
-                                  ? "working"
-                                  : event.event_type === "error"
-                                    ? "error"
-                                    : "connected"
-                            }
-                          />
+                          <AgentStatusBadge status={statusFromEventType(event.event_type)} />
                           {(() => {
                             const info = event.agent_id
                               ? agentInfoById.get(event.agent_id)
@@ -604,7 +612,7 @@ export function SessionDetail() {
                             // Session is implicit on this page — project is
                             // still shown so the row identifies the working
                             // directory when you share / search.
-                            const project = projectFromEvent(event);
+                            const project = projectByEventId.get(event.id) ?? null;
                             const origin = buildOriginLabel(
                               project,
                               null,
