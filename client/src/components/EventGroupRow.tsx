@@ -84,7 +84,7 @@ export function EventGroupRow({
           aria-expanded={expanded}
           aria-label={expanded ? "Collapse group" : "Expand group"}
           disabled={!canExpand}
-          className={`p-1 rounded flex-shrink-0 ${
+          className={`p-1 rounded flex-shrink-0 -mr-3 ${
             canExpand ? "text-gray-500 hover:text-gray-200 cursor-pointer" : "text-transparent"
           }`}
         >

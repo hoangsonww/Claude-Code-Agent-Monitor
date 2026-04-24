@@ -38,12 +38,9 @@ import type { AgentInfo } from "../lib/event-grouping";
 import { formatTime, timeAgo } from "../lib/format";
 import type { DashboardEvent } from "../lib/types";
 
-const INITIAL_BATCH = 50;
-const MORE_BATCH = 500;
+const PAGE_SIZE = 50;
 // Max rows a single /api/events request can return (server cap). Refreshes
-// triggered by live events are bounded by this — if the user has loaded more
-// than MAX_REFRESH via "Load more", the refresh shows the newest MAX_REFRESH
-// matching rows and the tail falls off until the user paginates again.
+// triggered by live events are bounded by this.
 const MAX_REFRESH = 500;
 // Debounce live-event refreshes so a burst of hook events (e.g. a stream of
 // PostToolUse results) triggers one refetch instead of dozens.
@@ -53,10 +50,10 @@ export function ActivityFeed() {
   const { t } = useTranslation("activity");
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [filters, setFilters] = useState<EventFiltersValue>(EMPTY_FILTERS);
   const [paused, setPaused] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [bufferCount, setBufferCount] = useState(0);
   const [grouped, setGrouped] = useState(true);
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set());
@@ -70,14 +67,14 @@ export function ActivityFeed() {
 
   const bufferRef = useRef<DashboardEvent[]>([]);
   const pausedRef = useRef(paused);
-  // Refs let the websocket handler read the latest filter/size without
+  // Refs let the websocket handler read the latest filter/page without
   // re-subscribing on every change.
   const apiParamsRef = useRef<Record<string, unknown>>({});
-  const loadedCountRef = useRef(0);
+  const pageRef = useRef(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   pausedRef.current = paused;
-  loadedCountRef.current = events.length;
+  pageRef.current = page;
 
   function toggleEvent(id: number) {
     setExpandedEvents((prev) => {
@@ -111,8 +108,8 @@ export function ActivityFeed() {
     try {
       const { events: data, total: totalCount } = await api.events.list({
         ...apiParams,
-        limit: INITIAL_BATCH,
-        offset: 0,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
       });
       setEvents(data);
       setTotal(totalCount);
@@ -123,11 +120,17 @@ export function ActivityFeed() {
     } finally {
       setLoading(false);
     }
-  }, [apiParams]);
+  }, [apiParams, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reset to page 0 whenever filters change so the user lands on the first
+  // page of the new filtered result set.
+  useEffect(() => {
+    setPage(0);
+  }, [apiParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,34 +169,15 @@ export function ActivityFeed() {
     };
   }, []);
 
-  const loadMore = useCallback(async () => {
-    setLoadingMore(true);
-    try {
-      const { events: data, total: totalCount } = await api.events.list({
-        ...apiParams,
-        limit: MORE_BATCH,
-        offset: events.length,
-      });
-      setEvents((prev) => [...prev, ...data]);
-      setTotal(totalCount);
-    } catch (err) {
-      console.error("Failed to load more events:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [apiParams, events.length]);
-
-  // Refetches the list using the latest filter state + the page size the user
-  // has currently accumulated. Preserves "Load more" state across live
-  // refreshes (capped at MAX_REFRESH, the server limit).
+  // Refetches the current page using the latest filter state. Capped at
+  // MAX_REFRESH (server limit); at the default PAGE_SIZE this is a no-op cap.
   const refreshWithPagination = useCallback(async () => {
-    const target = Math.max(loadedCountRef.current || INITIAL_BATCH, INITIAL_BATCH);
-    const size = Math.min(target, MAX_REFRESH);
+    const size = Math.min(PAGE_SIZE, MAX_REFRESH);
     try {
       const { events: data, total: totalCount } = await api.events.list({
         ...apiParamsRef.current,
         limit: size,
-        offset: 0,
+        offset: pageRef.current * PAGE_SIZE,
       });
       setEvents(data);
       setTotal(totalCount);
@@ -239,7 +223,7 @@ export function ActivityFeed() {
     refreshWithPagination();
   }
 
-  const hasMore = events.length < total;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const groups = useMemo(() => groupEvents(events), [events]);
   // Precompute the project name per event so row rendering doesn't re-parse
   // event.data JSON on every render pass.
@@ -341,7 +325,7 @@ export function ActivityFeed() {
       ) : (
         <>
           <div className="card overflow-hidden">
-            <div className="divide-y divide-border max-h-[calc(100vh-380px)] overflow-y-auto overflow-x-auto">
+            <div className="divide-y divide-border max-h-[calc(100vh-260px)] min-h-[560px] overflow-y-auto overflow-x-auto">
               {grouped
                 ? groups.map((group) => (
                     <EventGroupRow
@@ -371,7 +355,7 @@ export function ActivityFeed() {
                           className="flex items-center px-5 py-3.5 gap-4 hover:bg-surface-4 transition-colors cursor-pointer select-none"
                         >
                           <ChevronRight
-                            className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 ${isOpen ? "rotate-90" : ""}`}
+                            className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 -mr-1.5 ${isOpen ? "rotate-90" : ""}`}
                           />
 
                           <div className="w-14 text-[11px] text-gray-500 font-mono flex-shrink-0 text-right">
@@ -434,21 +418,90 @@ export function ActivityFeed() {
                   })}
             </div>
           </div>
-          <div className="flex items-center justify-between mt-4 px-1">
-            <span className="text-xs text-gray-500">
-              {t("common:eventFilters.showing", { shown: events.length, total })}
-            </span>
-            {hasMore && (
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="px-3 py-1.5 text-xs font-medium rounded-md bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {loadingMore ? t("common:eventFilters.loading") : t("common:eventFilters.loadMore")}
-              </button>
-            )}
-          </div>
+          {total > 0 && (
+            <div className="flex items-center justify-between mt-4 px-1">
+              <span className="text-xs text-gray-500">
+                {t("common:pagination.showing", {
+                  from: page * PAGE_SIZE + 1,
+                  to: Math.min((page + 1) * PAGE_SIZE, total),
+                  total,
+                })}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(0)}
+                  disabled={page === 0}
+                  className="px-2 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  aria-label="First page"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {t("common:pagination.previous")}
+                </button>
+                {(() => {
+                  // Compact numbered page buttons: show up to 5 pages around
+                  // the current page, with ellipses when appropriate.
+                  const pages: (number | "…")[] = [];
+                  const windowSize = 5;
+                  let start = Math.max(0, page - Math.floor(windowSize / 2));
+                  let end = Math.min(totalPages - 1, start + windowSize - 1);
+                  start = Math.max(0, Math.min(start, end - windowSize + 1));
+                  if (start > 0) {
+                    pages.push(0);
+                    if (start > 1) pages.push("…");
+                  }
+                  for (let i = start; i <= end; i++) pages.push(i);
+                  if (end < totalPages - 1) {
+                    if (end < totalPages - 2) pages.push("…");
+                    pages.push(totalPages - 1);
+                  }
+                  return pages.map((p, idx) =>
+                    p === "…" ? (
+                      <span
+                        key={`ellipsis-${idx}`}
+                        className="px-2 py-1.5 text-xs text-gray-600 select-none"
+                      >
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        aria-current={p === page ? "page" : undefined}
+                        className={`min-w-[32px] px-2.5 py-1.5 text-xs font-medium rounded-md cursor-pointer transition-colors ${
+                          p === page
+                            ? "bg-accent/20 text-accent border border-accent/30"
+                            : "bg-surface-2 text-gray-400 hover:text-gray-200"
+                        }`}
+                      >
+                        {p + 1}
+                      </button>
+                    )
+                  );
+                })()}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {t("common:pagination.next")}
+                </button>
+                <button
+                  onClick={() => setPage(totalPages - 1)}
+                  disabled={page >= totalPages - 1}
+                  className="px-2 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  aria-label="Last page"
+                >
+                  »
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
