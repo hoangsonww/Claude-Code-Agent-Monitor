@@ -10,6 +10,6 @@
   "notGit": "此安装不是 git 克隆；请使用手动升级方式。",
   "restartNote": "命令完成后，请按原来的启动方式重新启动仪表板。",
   "checkNow": "立即检查",
-  "checking": "正在检查…",
+  "checking": "正在检查...",
   "checkError": "无法检查更新"
 }

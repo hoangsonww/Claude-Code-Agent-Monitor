@@ -4,7 +4,7 @@
  * A single tool invocation typically emits two events — `PreToolUse` (Working)
  * and `PostToolUse` (Connected) — both carrying the same `tool_use_id` inside
  * their hook payload. Grouping collapses each such pair into one `EventGroup`
- * so the UI can show "Bash: curl … (2.3s)" as one row instead of two, while
+ * so the UI can show "Bash: curl ... (2.3s)" as one row instead of two, while
  * keeping the individual events accessible when the group is expanded.
  *
  * Events without a `tool_use_id` (Stop, Notification, TurnDuration, etc.)
@@ -289,7 +289,7 @@ export function buildEventTitle(event: DashboardEvent): string {
   const input = extractToolInput(event);
   const s = (v: unknown): string => (typeof v === "string" ? v : "");
   const trunc = (text: string, max = 80): string =>
-    text.length > max ? text.slice(0, max) + "…" : text;
+    text.length > max ? text.slice(0, max) + "..." : text;
 
   // ── MCP tools — fully dynamic dispatch ─────────────────────────────
   const mcp = parseMcpToolName(event.tool_name);

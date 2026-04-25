@@ -30,7 +30,7 @@ function shortPath(path: string): string {
 }
 
 function trunc(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) + "…" : text;
+  return text.length > max ? text.slice(0, max) + "..." : text;
 }
 
 function parseData(event: DashboardEvent): Record<string, unknown> | null {

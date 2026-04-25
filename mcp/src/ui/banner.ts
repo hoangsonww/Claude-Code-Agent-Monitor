@@ -76,5 +76,5 @@ export function printReady(transport: string): void {
 }
 
 export function printShutdown(): void {
-  process.stdout.write(`\n  ${c.warn("⏻")} ${c.bold(c.brightWhite("Shutting down…"))}\n`);
+  process.stdout.write(`\n  ${c.warn("⏻")} ${c.bold(c.brightWhite("Shutting down..."))}\n`);
 }

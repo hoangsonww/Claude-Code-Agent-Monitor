@@ -972,10 +972,10 @@ flowchart LR
   "update_available": true,
   "repo_root": "/Users/you/Claude-Code-Agent-Monitor",
   "remote_ref": "origin/master",
-  "local_sha": "abc1234…",
-  "remote_sha": "def5678…",
+  "local_sha": "abc1234...",
+  "remote_sha": "def5678...",
   "commits_behind": 3,
-  "manual_command": "cd \"/…\" && git pull --ff-only && npm run setup",
+  "manual_command": "cd \"/...\" && git pull --ff-only && npm run setup",
   "message": "3 commit(s) on origin/master not in your checkout."
 }
 ```

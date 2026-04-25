@@ -446,27 +446,27 @@ export function ActivityFeed() {
                 {(() => {
                   // Compact numbered page buttons: show up to 5 pages around
                   // the current page, with ellipses when appropriate.
-                  const pages: (number | "…")[] = [];
+                  const pages: (number | "...")[] = [];
                   const windowSize = 5;
                   let start = Math.max(0, page - Math.floor(windowSize / 2));
                   let end = Math.min(totalPages - 1, start + windowSize - 1);
                   start = Math.max(0, Math.min(start, end - windowSize + 1));
                   if (start > 0) {
                     pages.push(0);
-                    if (start > 1) pages.push("…");
+                    if (start > 1) pages.push("...");
                   }
                   for (let i = start; i <= end; i++) pages.push(i);
                   if (end < totalPages - 1) {
-                    if (end < totalPages - 2) pages.push("…");
+                    if (end < totalPages - 2) pages.push("...");
                     pages.push(totalPages - 1);
                   }
                   return pages.map((p, idx) =>
-                    p === "…" ? (
+                    p === "..." ? (
                       <span
                         key={`ellipsis-${idx}`}
                         className="px-2 py-1.5 text-xs text-gray-600 select-none"
                       >
-                        …
+                        ...
                       </span>
                     ) : (
                       <button

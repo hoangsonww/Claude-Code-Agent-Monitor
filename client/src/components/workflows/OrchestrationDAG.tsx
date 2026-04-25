@@ -190,7 +190,7 @@ function buildGraph(
   for (const [type, stats] of visible) {
     rawNodes.push({
       id: `subagent:${type}`,
-      label: type.length > 14 ? type.slice(0, 12) + "…" : type,
+      label: type.length > 14 ? type.slice(0, 12) + "..." : type,
       count: stats.count,
       layer: 2,
       kind: "subagent",

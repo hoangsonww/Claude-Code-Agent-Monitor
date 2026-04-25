@@ -17,7 +17,7 @@
   "live": "在线",
   "disconnected": "已断开",
   "checkForUpdates": "检查更新",
-  "checkingForUpdates": "正在检查更新…",
+  "checkingForUpdates": "正在检查更新...",
   "updateAvailable": "有可用更新",
   "upToDate": "已是最新",
   "checkFailed": "检查更新失败",

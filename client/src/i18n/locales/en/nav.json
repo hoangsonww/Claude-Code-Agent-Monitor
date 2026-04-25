@@ -17,7 +17,7 @@
   "live": "Live",
   "disconnected": "Disconnected",
   "checkForUpdates": "Check for updates",
-  "checkingForUpdates": "Checking for updates…",
+  "checkingForUpdates": "Checking for updates...",
   "updateAvailable": "Update available",
   "upToDate": "Up to date",
   "checkFailed": "Update check failed",

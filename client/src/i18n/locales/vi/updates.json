@@ -10,6 +10,6 @@
   "notGit": "Bản cài đặt này không phải bản git clone; hãy nâng cấp thủ công.",
   "restartNote": "Sau khi chạy xong lệnh, hãy khởi động lại bảng điều khiển theo cách bạn đã dùng để chạy nó.",
   "checkNow": "Kiểm tra ngay",
-  "checking": "Đang kiểm tra…",
+  "checking": "Đang kiểm tra...",
   "checkError": "Không thể kiểm tra cập nhật"
 }

@@ -1564,7 +1564,7 @@ sequenceDiagram
 
 | Component | Responsibility |
 | --- | --- |
-| **`server/lib/update-check.js`** | Pure function `getUpdatesStatus(root?, { skipFetch? })`. Runs every git call via `execFile` (no shell, 10s–120s timeouts). Handles non-git installs, missing `origin`, fetch failures, and unresolvable upstream refs as soft payloads — never throws to the caller. Builds the copy-pastable `manual_command` (`cd … && git pull --ff-only && npm run setup`, plus `npm run build` in production). |
+| **`server/lib/update-check.js`** | Pure function `getUpdatesStatus(root?, { skipFetch? })`. Runs every git call via `execFile` (no shell, 10s–120s timeouts). Handles non-git installs, missing `origin`, fetch failures, and unresolvable upstream refs as soft payloads — never throws to the caller. Builds the copy-pastable `manual_command` (`cd ... && git pull --ff-only && npm run setup`, plus `npm run build` in production). |
 | **`server/update-scheduler.js`** | Ticks the lib every `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` (default 300 000, floor 60 000). First tick is scheduled 8s after server start with `.unref()` so it doesn't block shutdown. Broadcasts only when the fingerprint `{update_available, remote_sha, commits_behind, fetch_error}` changes. Emits a framed message to stdout on "up-to-date → behind" transitions. `DASHBOARD_UPDATE_CHECK=0\|false\|off` disables the scheduler entirely. |
 | **`server/routes/updates.js`** | Two endpoints: `GET /status` (read-only check), `POST /check` (check + broadcast). No auth — the dashboard is assumed local. There is **no** `POST /apply` route. |
 | **`UpdateNotifier.tsx`** | Modal. Hydrates from `api.updates.status()` on mount and mirrors the payload back into the local `eventBus` so the Sidebar can listen without a second git fetch. Subscribes to `update_status` WS frames for ongoing sync. Keeps `dismissedSha` in `localStorage` (`agent-monitor-update-dismissed-sha`) and in React state; a window event `dashboard:reset-update-dismissal` from the Sidebar clears both. ESC / backdrop click dismisses. |
@@ -1577,11 +1577,11 @@ interface UpdateStatusPayload {
   git_repo: boolean;
   update_available: boolean;
   repo_root?: string;
-  remote_ref?: string | null;      // "origin/master" | "origin/main" | …
+  remote_ref?: string | null;      // "origin/master" | "origin/main" | ...
   local_sha?: string | null;
   remote_sha?: string | null;
   commits_behind?: number;
-  manual_command?: string | null;  // "cd … && git pull --ff-only && npm run setup"
+  manual_command?: string | null;  // "cd ... && git pull --ff-only && npm run setup"
   message?: string | null;
   fetch_error?: string;            // set when git fetch fails
 }
@@ -1593,12 +1593,12 @@ The same shape is used by `GET /status`, `POST /check`, and the `update_status` 
 
 | Condition | Returned payload | User-visible effect |
 | --- | --- | --- |
-| Not a git clone | `{git_repo:false, update_available:false, message:"Install directory is not a git clone…"}` | Modal suppressed (`update_available` false). Sidebar stays neutral. |
-| No `origin` remote | `{git_repo:true, update_available:false, message:"No origin remote configured…"}` | Same as above. |
+| Not a git clone | `{git_repo:false, update_available:false, message:"Install directory is not a git clone..."}` | Modal suppressed (`update_available` false). Sidebar stays neutral. |
+| No `origin` remote | `{git_repo:true, update_available:false, message:"No origin remote configured..."}` | Same as above. |
 | `git fetch` failed (offline, auth) | `{git_repo:true, update_available:false, fetch_error:"<stderr>"}` | Sidebar button goes amber; modal stays suppressed until a successful check. |
-| No upstream ref resolvable | `{git_repo:true, update_available:false, message:"Could not resolve origin/master…"}` | Modal suppressed. |
+| No upstream ref resolvable | `{git_repo:true, update_available:false, message:"Could not resolve origin/master..."}` | Modal suppressed. |
 | Healthy, up to date | `{git_repo:true, update_available:false, commits_behind:0, local_sha, remote_sha}` | Sidebar neutral, modal suppressed. |
-| Healthy, behind | `{git_repo:true, update_available:true, commits_behind:N, manual_command, …}` | Modal opens (unless `dismissedSha === remote_sha`); Sidebar badges green. |
+| Healthy, behind | `{git_repo:true, update_available:true, commits_behind:N, manual_command, ...}` | Modal opens (unless `dismissedSha === remote_sha`); Sidebar badges green. |
 
 ### Why No Self-Restart
 
