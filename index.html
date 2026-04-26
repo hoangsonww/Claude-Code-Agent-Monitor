@@ -2412,8 +2412,17 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <h2>API Reference</h2>
           <p>
             All endpoints return JSON. Errors follow
-            <code>{ "error": { "code", "message" } }</code>.
+            <code>{ "error": { "code", "message" } }</code>. The full OpenAPI 3.0 spec is
+            served at <code>/api/openapi.json</code> and rendered as interactive Swagger UI
+            at <code>/api/docs</code>.
           </p>
+
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card">
+              <img src="images/swagger.png" alt="Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls" />
+              <div class="screenshot-caption"><span class="caption-icon">📘</span> Swagger UI at <code>/api/docs</code> — interactive playground for every endpoint</div>
+            </div>
+          </div>
 
           <h3>Health</h3>
           <div class="route-list">
