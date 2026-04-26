@@ -371,29 +371,29 @@
 
       @media (max-width: 700px) {
         #feature-carousel .feature-card {
-          min-height: 250px;
-          padding: 22px;
+          min-height: 220px;
+          padding: 18px;
         }
 
         #feature-carousel .feature-icon {
-          width: 40px;
-          height: 40px;
-          font-size: 19px;
-          margin-bottom: 12px;
+          width: 36px;
+          height: 36px;
+          font-size: 17px;
+          margin-bottom: 10px;
         }
 
         #feature-carousel .feature-card h3 {
-          font-size: 15px;
-          margin-bottom: 8px;
+          font-size: 13.5px;
+          margin-bottom: 6px;
         }
 
         #feature-carousel .feature-card p {
-          font-size: 13.5px;
-          line-height: 1.62;
-          max-height: 17.8em;
+          font-size: 12.5px;
+          line-height: 1.55;
+          max-height: 13.95em;
           overflow: hidden;
           display: -webkit-box;
-          -webkit-line-clamp: 11;
+          -webkit-line-clamp: 9;
           -webkit-box-orient: vertical;
         }
 
@@ -454,6 +454,32 @@
           border-radius: 0;
         }
 
+      }
+
+      @media (max-width: 480px) {
+        #feature-carousel .feature-card {
+          min-height: 200px;
+          padding: 16px;
+        }
+
+        #feature-carousel .feature-icon {
+          width: 32px;
+          height: 32px;
+          font-size: 15px;
+          margin-bottom: 8px;
+        }
+
+        #feature-carousel .feature-card h3 {
+          font-size: 13px;
+          margin-bottom: 5px;
+        }
+
+        #feature-carousel .feature-card p {
+          font-size: 12px;
+          line-height: 1.5;
+          max-height: 12em;
+          -webkit-line-clamp: 8;
+        }
       }
 
       @media (max-width: 1400px) {
@@ -772,7 +798,7 @@
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/analytics.png" alt="Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed" />
+              <img src="images/analytics.png" alt="Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed" width="1918" height="1046" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed</div>
             </div>
           </div>
@@ -1104,27 +1130,27 @@
           <h3>Screenshots</h3>
           <div class="screenshot-gallery">
             <div class="screenshot-card">
-              <img src="images/sessions.png" alt="Sessions table with search, filters, status badges, and pagination" />
+              <img src="images/sessions.png" alt="Sessions table with search, filters, status badges, and pagination" width="1917" height="1042" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📋</span> Sessions table — searchable, filterable, paginated</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/session.png" alt="Session detail view with agent hierarchy tree and event timeline" />
+              <img src="images/session.png" alt="Session detail view with agent hierarchy tree and event timeline" width="3024" height="1674" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🔬</span> Session detail — agent tree and event timeline</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/board.png" alt="Kanban board showing agents in Idle, Connected, Working, Completed, and Error columns" />
+              <img src="images/board.png" alt="Kanban board showing agents in Idle, Connected, Working, Completed, and Error columns" width="1918" height="1047" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📂</span> Kanban board — 5-column agent status view</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/feed.png" alt="Real-time activity feed with streaming events, expandable payload rows, and session navigation button" />
+              <img src="images/feed.png" alt="Real-time activity feed with streaming events, expandable payload rows, and session navigation button" width="3024" height="1672" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📰</span> Activity feed — click a row to expand payload; "Session →" button opens session details</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/analytics.png" alt="Analytics dashboard with token usage charts, tool frequency, and session trends" />
+              <img src="images/analytics.png" alt="Analytics dashboard with token usage charts, tool frequency, and session trends" width="1918" height="1046" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📊</span> Analytics — token usage, tool frequency, and trends</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/workflows.png" alt="Workflow graphs showing agent orchestration DAGs and tool execution Sankey diagrams" />
+              <img src="images/workflows.png" alt="Workflow graphs showing agent orchestration DAGs and tool execution Sankey diagrams" width="1918" height="1047" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🔀</span> Workflows — agent DAGs and tool Sankey diagrams</div>
             </div>
           </div>
@@ -2412,8 +2438,17 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <h2>API Reference</h2>
           <p>
             All endpoints return JSON. Errors follow
-            <code>{ "error": { "code", "message" } }</code>.
+            <code>{ "error": { "code", "message" } }</code>. The full OpenAPI 3.0 spec is
+            served at <code>/api/openapi.json</code> and rendered as interactive Swagger UI
+            at <code>/api/docs</code>.
           </p>
+
+          <div class="screenshot-gallery gallery-single">
+            <div class="screenshot-card">
+              <img src="images/swagger.png" alt="Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls" width="3024" height="1666" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">📘</span> Swagger UI at <code>/api/docs</code> — interactive playground for every endpoint</div>
+            </div>
+          </div>
 
           <h3>Health</h3>
           <div class="route-list">
@@ -2779,7 +2814,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/import.png" alt="Settings page Import History section showing rescan default folder, scan custom path, and upload controls with progress output" />
+              <img src="images/import.png" alt="Settings page Import History section showing rescan default folder, scan custom path, and upload controls with progress output" width="3024" height="1746" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📥</span> Settings → Import History — rescan, custom path, and upload controls feeding the shared pipeline</div>
             </div>
           </div>
@@ -3053,7 +3088,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/mcp.png" alt="MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output" />
+              <img src="images/mcp.png" alt="MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output" width="2852" height="1680" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🔧</span> MCP Server REPL — interactive tool invocation with colored output</div>
             </div>
           </div>
@@ -3421,7 +3456,7 @@ ccam-export all --output backup.json</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/statusline.png" alt="CLI statusline showing model, user, git branch, context window bar, and token counts" />
+              <img src="images/statusline.png" alt="CLI statusline showing model, user, git branch, context window bar, and token counts" width="2498" height="70" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🖥️</span> Statusline — context window, tokens, git branch at a glance</div>
             </div>
           </div>
@@ -3539,7 +3574,7 @@ ccam-export all --output backup.json</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card" style="border-radius: 20px; overflow: hidden; border: 1px solid var(--border);">
-              <img src="vscode-extension/vscode.png" alt="VS Code Extension sidebar showing live health, analytics, and navigation" />
+              <img src="vscode-extension/vscode.png" alt="VS Code Extension sidebar showing live health, analytics, and navigation" width="3024" height="1964" loading="lazy" decoding="async" />
               <div class="screenshot-caption" style="background: rgba(99, 102, 241, 0.08); border-top: 1px solid var(--border);"><span class="caption-icon">🔌</span> Sidebar — live health, analytics, and deep navigation links</div>
             </div>
           </div>
@@ -3624,7 +3659,7 @@ ccam-export all --output backup.json</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/settings.png" alt="Settings page with model pricing editor, hook status, data management, and system info" />
+              <img src="images/settings.png" alt="Settings page with model pricing editor, hook status, data management, and system info" width="1918" height="1047" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">⚙️</span> Settings — pricing, hooks, data management, and system info</div>
             </div>
           </div>
@@ -3711,17 +3746,23 @@ ccam-export all --output backup.json</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="images/update.png" alt="Update modal showing commits-behind count and copy-to-clipboard command" />
+              <img src="images/update.png" alt="Update modal showing commits-behind count and copy-to-clipboard command" width="3024" height="1752" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">⬆</span> Update Notifier — copy-the-command modal, no self-restart</div>
             </div>
           </div>
 
           <p>
-            A detection-only subsystem that tells the user when the dashboard's git checkout is behind
-            its tracked upstream (<code>origin/master</code> / <code>origin/main</code> /
-            <code>origin/HEAD</code>). The server <strong>never</strong> pulls or restarts itself —
-            the user runs the printed command in a terminal — so the mechanism cannot break dev
-            sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.
+            A detection-only subsystem that tells the user when the dashboard's git checkout is
+            behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an
+            <code>upstream</code> remote is configured (the standard convention for forks), it
+            takes priority over <code>origin</code>; the chosen remote's
+            <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref.
+            The printed command adapts to the user's situation — <code>git pull --ff-only</code>
+            only when their branch actually tracks the canonical ref, otherwise
+            <code>git fetch</code> (with a fast-forward merge in the fork case). The server
+            <strong>never</strong> pulls or restarts itself — the user runs the command in a
+            terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker
+            supervision, or leave orphaned processes.
           </p>
 
           <div class="diagram-wrap">
@@ -3769,12 +3810,14 @@ ccam-export all --output backup.json</code></pre>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-cyan">📋</div>
-              <h3>Copy-Pastable Command</h3>
+              <h3>Situation-Aware Command</h3>
               <p>
-                Each status payload carries a ready-to-run <code>manual_command</code> — the
-                exact sequence to pull, reinstall, and (in production) rebuild. The modal&apos;s
-                primary button copies it to the clipboard; the user pastes it into a terminal
-                and restarts the server however they started it.
+                Each status payload carries a <code>manual_command</code> shaped for the user's
+                actual situation: <code>git pull --ff-only</code> on a tracked canonical branch,
+                <code>git fetch &amp;&amp; git merge --ff-only</code> for forks where local
+                tracks the wrong remote, and a plain <code>git fetch</code> on a feature branch
+                where pulling would update the wrong branch. Install / build steps are appended
+                only when the working tree is actually being rewritten.
               </p>
             </div>
             <div class="feature-card">
@@ -3791,10 +3834,10 @@ ccam-export all --output backup.json</code></pre>
               <div class="feature-icon ic-pink">🛡</div>
               <h3>Soft Failure Semantics</h3>
               <p>
-                Non-git installs, a missing <code>origin</code>, offline fetches, and an
-                unresolvable upstream ref all return tagged payloads instead of throwing. The
-                sidebar badge turns amber on fetch errors and the modal stays suppressed until
-                a successful check arrives — no spinners, no stuck state.
+                Non-git installs, no remotes configured, offline fetches, and unresolvable
+                upstream refs all return tagged payloads instead of throwing. The sidebar
+                badge turns amber on fetch errors and the modal stays suppressed until a
+                successful check arrives — no spinners, no stuck state.
               </p>
             </div>
             <div class="feature-card">
@@ -3834,13 +3877,15 @@ ccam-export all --output backup.json</code></pre>
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
-              <strong>There is no <code>POST /api/updates/apply</code></strong>
+              <strong>Detection-only by design</strong>
               <p>
-                A self-restart route existed briefly during development but was removed: a process
-                cannot reliably replace itself without an external supervisor. Every environment
-                (dev vs prod, pm2/systemd/Docker, macOS/Linux/Windows) surfaced a different
-                failure mode. Shipping detection-only keeps the mechanism portable and the
-                server lifecycle owned by whatever started it.
+                There is no <code>POST /api/updates/apply</code> and no in-process restart
+                helper. A process cannot reliably replace itself without an external supervisor,
+                and <code>npm run dev</code>, <code>npm start</code>, pm2, systemd, launchd, and
+                Docker each need different restart logic. Detection-only keeps the mechanism
+                portable across every supervisor and OS, and leaves the dashboard's lifecycle
+                owned by whatever started it. The user runs the printed command in their own
+                shell.
               </p>
             </div>
           </div>

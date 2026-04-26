@@ -190,7 +190,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **成本追踪** | 按模型估算成本，支持可配置定价规则和按会话明细。压缩感知的 Token 核算在上下文压缩过程中保留总量。Transcript 读取通过增量字节偏移更新缓存，实现高效 Token 提取 |
 | **Transcript 缓存** | 从 JSONL Transcript 实时提取：Token、压缩、API 错误（`isApiErrorMessage` 条目存储为 `APIError` 事件）、回合耗时（存储为 `TurnDuration` 事件）、思考块计数和用量附加信息（service_tier、speed、inference_geo）。会话元数据实时丰富这些字段 |
 | **通知** | 基于 Web Push (VAPID) 的持久化浏览器通知。即使 Dashboard 标签页未聚焦或浏览器已关闭也能送达。特别针对 macOS 音效支持进行了配置。支持按事件配置开关及订阅管理 |
-| **更新提醒** | 服务端定期以非阻塞方式执行 `git fetch`，将本地检出与 `origin/master` / `origin/main` / `origin/HEAD` 对比。当上游有新提交时，UI 弹出模态框并给出完整的 `git pull && npm run setup` 命令及一键 **复制** 按钮；侧边栏还有常驻的"检查更新"按钮及状态徽标。Dashboard **不会**自行拉取或重启——用户在终端中手动执行命令——因此该机制不会破坏开发会话、pm2/systemd/Docker 进程管理，也不会留下孤立进程 |
+| **更新提醒** | 服务端定期以非阻塞方式执行 `git fetch`，将本地检出与所选规范远程的默认分支对比。**支持分支与 fork：** 若同时存在 `upstream` 和 `origin`，优先使用 `upstream`（fork 的常规约定）；命令也会根据用户处境调整——只有在本地分支真正跟踪规范引用时才建议 `git pull --ff-only`，否则给出 `git fetch`（fork 场景下加上 fast-forward 合并），让命令永不撒谎。侧边栏还有常驻的"检查更新"按钮及状态徽标。Dashboard **不会**自行拉取或重启——用户在终端中手动执行命令——因此该机制不会破坏开发会话、pm2/systemd/Docker 进程管理，也不会留下孤立进程 |
 | **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出、会话清理 |
 | **MCP 服务器（本地）** | 位于 `mcp/` 的企业级本地 MCP 服务器，支持三种传输模式（stdio、HTTP+SSE、交互式 REPL），6 个域共 25 个类型化工具，严格输入 Schema、重试/退避、仅限本地 API 强制执行，以及分层变更/破坏性安全门控。HTTP 模式在可配置端口上提供 Streamable HTTP（2025-11-25）和传统 SSE（2024-11-05）。REPL 模式提供带 Tab 补全和彩色输出的交互式工具调用 |
 | **工作流** | 基于 D3.js 的可视化页面，包含 11 个交互式模块：Agent 编排 DAG、工具执行 Sankey 图、协作网络、子 Agent 有效性（含丰富提示的按周图表）、检测到的流程模式、模型委派流、错误传播图（带比率徽章的水平条形图、Agent 类型分解、API/会话错误卡片）、并发时间线、会话复杂度散点图、压缩影响分析和按会话下钻。状态筛选标签（仅活跃 / 已完成 / 全部）可筛选全部 11 个模块。支持交叉筛选、JSON 导出和 3 秒防抖的实时 WebSocket 自动刷新 |
@@ -922,7 +922,7 @@ Dashboard 支持通过 Web Push (VAPID) 实现持久化浏览器通知。即使 
 
 ## 更新提醒
 
-Dashboard 会监视自身的 git 检出，每当上游所追踪的分支（`origin/master` / `origin/main` / `origin/HEAD`）出现新提交时，就会弹出一个模态框。用户得到的是要在终端里执行的确切命令——服务端**永远不会**自动拉取或重启自己，这样机制在开发会话、pm2/systemd/launchd/Docker 等进程管理以及远程部署中都保持可移植性。
+Dashboard 会监视自身的 git 检出，当规范默认分支领先于 HEAD 时弹出模态框。**支持分支与 fork：** 若配置了 `upstream` 远程（fork 的常规约定），则优先于 `origin`；所选远程的 `master`/`main`/`HEAD` 即为对比引用。`manual_command` 会根据用户处境调整——只有在本地分支真正跟踪规范引用时才用 `git pull --ff-only`，否则用 `git fetch`（fork 场景再加上 fast-forward 合并），命令永不撒谎。用户得到的是要在终端里执行的确切命令——服务端**永远不会**自动拉取或重启自己，这样机制在开发会话、pm2/systemd/launchd/Docker 等进程管理以及远程部署中都保持可移植性。
 
 <p align="center">
   <img src="images/update.png" alt="带有一键复制命令的 Dashboard 更新模态框" width="100%">
@@ -932,22 +932,23 @@ Dashboard 会监视自身的 git 检出，每当上游所追踪的分支（`orig
 
 ```mermaid
 flowchart LR
-    S["服务器启动"] --> SCHED["更新调度器<br/>（每 5 分钟）"]
-    SCHED -->|"git fetch origin --prune<br/>(execFile，120 秒超时)"| GIT[(origin 远程)]
-    GIT --> CMP["rev-list --count<br/>HEAD..origin/master"]
-    CMP -->|落后 > 0| FP{"指纹<br/>变化?"}
+    S["服务器启动"] --> SCHED["更新调度器<br/>每 5 分钟"]
+    SCHED --> PICK["选择规范远程<br/>upstream 优先, 否则 origin"]
+    PICK --> FETCH["git fetch remote prune<br/>execFile 120 秒超时"]
+    FETCH --> CMP["rev-list HEAD vs<br/>remote master main HEAD"]
+    CMP --> FP["指纹是否变化?"]
     FP -->|是| WS["广播<br/>update_status"]
     FP -->|否| IDLE["跳过广播"]
     WS --> CLIENT["UpdateNotifier<br/>+ 侧边栏徽标"]
 
-    CHECK["POST /api/updates/check<br/>（侧边栏/模态框按钮）"] --> SCHED
-    STATUS["GET /api/updates/status"] -.->|直接读取| CMP
+    CHECK["POST updates check"] --> FETCH
+    STATUS["GET updates status"] -.-> CMP
 
     style WS fill:#6366f1,stroke:#818cf8,color:#fff
     style CLIENT fill:#10b981,stroke:#34d399,color:#fff
 ```
 
-单次检查开销很小（针对 `origin` 的 `git fetch origin --prune`），使用 `execFile`（不经 shell）封装并设有 120 秒超时。各种失败场景——离线、非 git 安装、缺失 `origin`、无法解析上游引用——都会返回**软失败载荷**（例如 `fetch_error: "..."`）而非抛错，因此不稳定的远程永远不会阻塞 Dashboard。
+单次检查开销很小（针对所选规范远程的 `git fetch <remote> --prune`——若配置了 `upstream` 则优先使用，否则用 `origin`），使用 `execFile`（不经 shell）封装并设有 120 秒超时。各种失败场景——离线、非 git 安装、未配置远程、无法解析上游引用——都会返回**软失败载荷**（例如 `fetch_error: "..."`）而非抛错，因此不稳定的远程永远不会阻塞 Dashboard。
 
 ### UI 入口
 
@@ -961,7 +962,7 @@ flowchart LR
 
 | 端点 | 作用 |
 | --- | --- |
-| `GET /api/updates/status` | 只读检查：运行 `git fetch`，比较 HEAD 与所追踪的上游，返回载荷。 |
+| `GET /api/updates/status` | 只读检查：对规范远程运行 `git fetch`，比较 HEAD 与其默认分支，返回载荷。 |
 | `POST /api/updates/check` | 相同的检查，但会同时通过 WebSocket 广播 `update_status`，让所有连接的客户端同步更新。 |
 
 两个端点返回相同的载荷结构：
@@ -971,18 +972,26 @@ flowchart LR
   "git_repo": true,
   "update_available": true,
   "repo_root": "/Users/you/Claude-Code-Agent-Monitor",
-  "remote_ref": "origin/master",
+  "remote_ref": "upstream/master",
+  "canonical_remote": "upstream",
+  "current_branch": "master",
+  "tracking_upstream": "origin/master",
+  "tracks_canonical": false,
+  "situation": "fork_or_diverged_tracking",
   "local_sha": "abc1234...",
   "remote_sha": "def5678...",
   "commits_behind": 3,
-  "manual_command": "cd \"/...\" && git pull --ff-only && npm run setup",
-  "message": "3 commit(s) on origin/master not in your checkout."
+  "manual_command": "cd \"/...\" && git fetch upstream && git merge --ff-only upstream/master && npm run setup",
+  "situation_note": "You're on 'master' tracking 'origin/master'. This command fast-forwards your branch from upstream/master (the canonical default).",
+  "message": "3 commit(s) on upstream/master not in your checkout."
 }
 ```
 
+`situation` 取值：`tracking_canonical`（典型克隆，本地分支跟踪规范引用——`git pull --ff-only` 即可）；`fork_or_diverged_tracking`（本地分支名与规范一致但跟踪了不同的远程，例如 fork——`git fetch <remote> && git merge --ff-only <ref>`）；`feature_branch`（不在规范默认分支上——只 fetch，由用户决定如何整合）；`detached_head`。
+
 ### 为何**没有**自动更新
 
-这里没有 `POST /api/updates/apply`，也没有自重启脚本。该路由曾在开发中短暂存在过，但在没有外部进程管理的情况下让进程自我替换并不可靠——dev/prod、pm2/systemd/Docker、macOS/Linux/Windows，每种环境都暴露出不同的失败模式。只做检测不做自更新能让行为保持可预测，同时仍然解决"什么时候需要拉取？"的信息缺口。
+这里没有 `POST /api/updates/apply`，也没有自重启脚本——这是有意为之。在没有外部进程管理的情况下让进程自我替换并不可靠：`npm run dev`（concurrently）、`npm start`、`pm2`、`systemd`、`launchd`、Docker 各自需要不同的重启逻辑，而 `git pull` / `npm install` 在一个即将退出的进程里失败时没有干净的回滚路径。只做检测能让行为在所有进程管理器、所有操作系统、所有分支状态下都保持可预测，同时仍然解决"什么时候需要拉取？"的信息缺口；实际的更新操作由用户在自己的 shell 中完成。
 
 ### 配置
 

@@ -29,11 +29,17 @@ function startUpdateScheduler({ broadcast }) {
     if (stopped) return;
     try {
       const status = await getUpdatesStatus();
+      // Fingerprint must change whenever anything user-visible changes,
+      // including the *shape* of manual_command (e.g. user switches branch
+      // or adds an upstream remote — same remote_sha / commits_behind, but
+      // different command). Including manual_command here covers situation
+      // transitions automatically.
       const fp = JSON.stringify({
         a: Boolean(status.update_available),
         r: status.remote_sha || null,
         b: status.commits_behind || 0,
         e: status.fetch_error || null,
+        c: status.manual_command || null,
       });
       const changed = fp !== lastFingerprint;
       lastFingerprint = fp;
@@ -47,9 +53,20 @@ function startUpdateScheduler({ broadcast }) {
         console.log(`\n${line}`);
         console.log("  Agent Dashboard: upstream update available");
         console.log(`  ${status.message || ""}`);
+        if (status.situation_note) {
+          console.log(`  ${status.situation_note}`);
+        }
         if (status.manual_command) {
           console.log(`  Run: ${status.manual_command}`);
-          console.log("  Then restart the dashboard the same way you started it.");
+          // Only suggest restart when the command actually rewrites the
+          // working tree. fetch-only situations (feature_branch /
+          // detached_head) don't need a restart.
+          const updatesWorkingTree =
+            status.situation === "tracking_canonical" ||
+            status.situation === "fork_or_diverged_tracking";
+          if (updatesWorkingTree) {
+            console.log("  Then restart the dashboard the same way you started it.");
+          }
         }
         console.log(`${line}\n`);
       }
