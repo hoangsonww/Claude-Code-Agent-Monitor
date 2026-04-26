@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, Bot, User, Brain, ScrollText } from "lucide-react";
 import type { TranscriptMessage, TranscriptContent } from "../../lib/types";
 import { ToolCallBlock } from "./ToolCallBlock";
@@ -109,12 +109,15 @@ export function MessageList({ messages, loading }: MessageListProps) {
   const toolResultMap = buildToolResultMap(messages);
 
   // Track which user messages are pure tool_result (no text) — we merge those into the preceding assistant message
-  const userMsgHasText = new Map<number, boolean>();
-  messages.forEach((msg, idx) => {
-    if (msg.type !== "user") return;
-    const hasText = msg.content.some((c) => c.type === "text");
-    userMsgHasText.set(idx, hasText);
-  });
+  const userMsgHasText = useMemo(() => {
+    const map = new Map<number, boolean>();
+    messages.forEach((msg, idx) => {
+      if (msg.type !== "user") return;
+      const hasText = msg.content.some((c) => c.type === "text");
+      map.set(idx, hasText);
+    });
+    return map;
+  }, [messages]);
 
   return (
     <div className="space-y-4">

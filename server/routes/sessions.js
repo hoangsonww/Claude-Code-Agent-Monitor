@@ -21,6 +21,23 @@ const {
 
 const router = Router();
 
+/**
+ * Read only the first non-empty line from a JSONL file using streaming.
+ * Avoids loading the entire file into memory.
+ */
+async function readFirstLine(filePath) {
+  const rl = readline.createInterface({
+    input: fs.createReadStream(filePath, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+  for await (const line of rl) {
+    rl.close();
+    rl.removeAllListeners();
+    return line;
+  }
+  return null;
+}
+
 router.get("/", (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 1000);
   const offset = parseInt(req.query.offset) || 0;
@@ -120,7 +137,7 @@ router.patch("/:id", (req, res) => {
 });
 
 // GET /:id/transcripts — List available transcript files for a session (main + sub-agents)
-router.get("/:id/transcripts", (req, res) => {
+router.get("/:id/transcripts", async (req, res) => {
   const session = stmts.getSession.get(req.params.id);
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
@@ -193,7 +210,7 @@ router.get("/:id/transcripts", (req, res) => {
         let transcriptTimestamp = null;
         try {
           const jsonlPath = path.join(dir, file);
-          const firstLine = fs.readFileSync(jsonlPath, "utf8").split("\n")[0];
+          const firstLine = await readFirstLine(jsonlPath);
           if (firstLine) {
             const entry = JSON.parse(firstLine);
             transcriptTimestamp = entry.timestamp || null;
@@ -331,31 +348,25 @@ router.get("/:id/transcript", async (req, res) => {
   }
 
   if (!jsonlPath || !fs.existsSync(jsonlPath)) {
-    return res.json({ messages: [], total: 0, has_more: false, last_line: 0 });
+    return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
   }
 
   try {
-    // First pass: collect line numbers and parsed results for all valid messages
-    const allMessages = [];
+    // Stream-parse JSONL with early termination for efficiency.
+    // Instead of loading all messages into memory, we use pagination-aware
+    // strategies to stop reading as soon as we have enough data.
+    const messages = [];
     let lineNum = 0;
+    let total = 0; // total valid messages seen (exact for early-terminated streams, indicates >= actual)
+    let hasMore = false;
 
     const rl = readline.createInterface({
       input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
       crlfDelay: Infinity,
     });
 
-    for await (const line of rl) {
-      lineNum++;
-      if (!line.trim()) continue;
-      let entry;
-      try {
-        entry = JSON.parse(line);
-      } catch {
-        continue;
-      }
-
-      if (entry.type !== "user" && entry.type !== "assistant") continue;
-
+    // Helper: parse a JSONL line into a message object, or null if not a displayable message
+    function parseMessage(entry, num) {
       const msg = entry.type === "assistant" ? entry.message || {} : {};
       const content = [];
 
@@ -382,7 +393,7 @@ router.get("/:id/transcript", async (req, res) => {
             }
           }
         } else if (msgContent === undefined || msgContent === null) {
-          continue;
+          return null;
         }
       } else {
         const msgContent = msg.content || [];
@@ -404,7 +415,7 @@ router.get("/:id/transcript", async (req, res) => {
         }
       }
 
-      if (content.length === 0) continue;
+      if (content.length === 0) return null;
 
       const message = {
         type: entry.type,
@@ -414,7 +425,7 @@ router.get("/:id/transcript", async (req, res) => {
             : entry.timestamp
           : null,
         content,
-        line: lineNum,
+        line: num,
       };
 
       if (entry.type === "assistant") {
@@ -427,46 +438,113 @@ router.get("/:id/transcript", async (req, res) => {
         }
       }
 
-      allMessages.push(message);
+      return message;
     }
-
-    const total = allMessages.length;
-    let messages;
-    let hasMore = false;
-    let lastLine = 0;
 
     if (afterLine !== null) {
-      // Incremental mode: return messages with line > afterLine
-      const startIdx = allMessages.findIndex((m) => m.line > afterLine);
-      if (startIdx === -1) {
-        messages = [];
-        hasMore = false;
-      } else {
-        messages = allMessages.slice(startIdx, startIdx + limit);
-        hasMore = startIdx + limit < total;
+      // Incremental mode: skip lines until after afterLine, collect up to limit, then stop
+      let foundStart = false;
+      for await (const line of rl) {
+        lineNum++;
+        if (!line.trim()) continue;
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        if (entry.type !== "user" && entry.type !== "assistant") continue;
+
+        if (!foundStart) {
+          if (lineNum <= afterLine) continue;
+          foundStart = true;
+        }
+
+        const message = parseMessage(entry, lineNum);
+        if (!message) continue;
+        total++;
+        messages.push(message);
+        if (messages.length >= limit) {
+          // Check if there's at least one more valid message
+          hasMore = true;
+          rl.close();
+          rl.removeAllListeners();
+          break;
+        }
       }
+      // If we exhausted the stream without hitting limit, hasMore stays false
     } else if (beforeLine !== null) {
-      // History mode: return the latest N messages with line < beforeLine
-      const endIdx = allMessages.findIndex((m) => m.line >= beforeLine);
-      const sliceEnd = endIdx === -1 ? total : endIdx;
-      const sliceStart = Math.max(0, sliceEnd - limit);
-      messages = allMessages.slice(sliceStart, sliceEnd);
-      hasMore = sliceStart > 0;
+      // History mode: collect messages with line < beforeLine using a sliding window
+      for await (const line of rl) {
+        lineNum++;
+        if (!line.trim()) continue;
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        if (entry.type !== "user" && entry.type !== "assistant") continue;
+        if (lineNum >= beforeLine) {
+          // We've reached the boundary — stop reading
+          hasMore = true; // there are more messages at or after beforeLine
+          rl.close();
+          rl.removeAllListeners();
+          break;
+        }
+
+        const message = parseMessage(entry, lineNum);
+        if (!message) continue;
+        total++;
+        messages.push(message);
+        // Sliding window: only keep the last `limit` messages
+        if (messages.length > limit) {
+          messages.shift();
+        }
+      }
+      // total is the count of messages before beforeLine; if we shifted, there are more
+      if (total > limit) hasMore = true;
     } else if (offset > 0) {
-      // Legacy offset pagination (compatible)
-      messages = allMessages.slice(offset, offset + limit);
-      hasMore = offset + limit < total;
+      // Legacy offset pagination: skip `offset` valid messages, then collect `limit`
+      let skipped = 0;
+      for await (const line of rl) {
+        lineNum++;
+        if (!line.trim()) continue;
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        if (entry.type !== "user" && entry.type !== "assistant") continue;
+
+        const message = parseMessage(entry, lineNum);
+        if (!message) continue;
+        total++;
+
+        if (skipped < offset) {
+          skipped++;
+          continue;
+        }
+        messages.push(message);
+        if (messages.length >= limit) {
+          hasMore = true; // assume more exist
+          rl.close();
+          rl.removeAllListeners();
+          break;
+        }
+      }
     } else {
-      // Default: return the latest N messages (chat-flow mode)
-      const sliceStart = Math.max(0, total - limit);
-      messages = allMessages.slice(sliceStart);
-      hasMore = sliceStart > 0;
+      // Default: return the latest N messages (chat-flow mode) using a sliding window
+      for await (const line of rl) {
+        lineNum++;
+        if (!line.trim()) continue;
+        let entry;
+        try { entry = JSON.parse(line); } catch { continue; }
+        if (entry.type !== "user" && entry.type !== "assistant") continue;
+
+        const message = parseMessage(entry, lineNum);
+        if (!message) continue;
+        total++;
+        messages.push(message);
+        // Sliding window: only keep the last `limit` messages in memory
+        if (messages.length > limit) {
+          messages.shift();
+        }
+      }
+      // If we shifted any messages out, there are more
+      hasMore = total > limit;
     }
 
-    if (messages.length > 0) {
-      lastLine = messages[messages.length - 1].line;
-    }
-
+    const lastLine = messages.length > 0 ? messages[messages.length - 1].line : 0;
     const firstLine = messages.length > 0 ? messages[0].line : 0;
 
     // Remove internal line field from messages
@@ -482,7 +560,7 @@ router.get("/:id/transcript", async (req, res) => {
       first_line: firstLine,
     });
   } catch (err) {
-    res.json({ messages: [], total: 0, has_more: false, last_line: 0 });
+    res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
   }
 });
 

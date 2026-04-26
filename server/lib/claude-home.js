@@ -152,7 +152,10 @@ function writeEnvFile(key, value) {
   if (!found) {
     lines.push(`${key}=${value}`);
   }
-  fs.writeFileSync(envPath, lines.join("\n") + "\n", "utf8");
+  // Write atomically: write to temp file then rename to prevent corruption
+  const tempPath = envPath + ".tmp";
+  fs.writeFileSync(tempPath, lines.join("\n") + "\n", "utf8");
+  fs.renameSync(tempPath, envPath);
 }
 
 module.exports = {
