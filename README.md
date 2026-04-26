@@ -934,7 +934,7 @@ Additionally, any `Notification` hook event from Claude Code triggers a browser 
 
 ## Update Notifier
 
-The dashboard watches its own git checkout and surfaces a modal whenever upstream commits land on the branch it tracks (`origin/master`, `origin/main`, or `origin/HEAD`). Users get the exact command to run in a terminal — the server **never** pulls or restarts itself, which keeps the mechanism portable across dev sessions, pm2/systemd/launchd/Docker supervision, and remote deployments.
+The dashboard watches its own git checkout and surfaces a modal whenever the canonical default branch has commits ahead of HEAD. **Branch- and fork-aware:** if you have an `upstream` remote (the standard convention for forks), it's preferred over `origin`; the chosen remote's `master`/`main`/`HEAD` is the comparison ref. The `manual_command` adapts to your situation — `git pull --ff-only` only when your branch actually tracks the canonical ref, otherwise a `git fetch` (and a fast-forward merge in the fork case) so the command never lies. Users get the exact command to run in a terminal — the server **never** pulls or restarts itself, which keeps the mechanism portable across dev sessions, pm2/systemd/launchd/Docker supervision, and remote deployments.
 
 <p align="center">
   <img src="images/update.png" alt="Dashboard update modal with copy-to-clipboard command" width="100%">
@@ -944,28 +944,29 @@ The dashboard watches its own git checkout and surfaces a modal whenever upstrea
 
 ```mermaid
 flowchart LR
-    S["Server startup"] --> SCHED["Update scheduler<br/>(poll every 5 min)"]
-    SCHED -->|"git fetch origin --prune<br/>(execFile, 120s timeout)"| GIT[(origin remote)]
-    GIT --> CMP["rev-list --count<br/>HEAD..origin/master"]
-    CMP -->|behind > 0| FP{"fingerprint<br/>changed?"}
+    S["Server startup"] --> SCHED["Update scheduler<br/>poll every 5 min"]
+    SCHED --> PICK["Pick canonical remote<br/>upstream then origin"]
+    PICK --> FETCH["git fetch remote prune<br/>execFile 120s timeout"]
+    FETCH --> CMP["rev-list HEAD vs<br/>remote master main HEAD"]
+    CMP --> FP["Fingerprint changed?"]
     FP -->|yes| WS["broadcast<br/>update_status"]
     FP -->|no| IDLE["skip broadcast"]
     WS --> CLIENT["UpdateNotifier<br/>+ Sidebar badge"]
 
-    CHECK["POST /api/updates/check<br/>(Sidebar / modal button)"] --> SCHED
-    STATUS["GET /api/updates/status"] -.->|direct read| CMP
+    CHECK["POST updates check"] --> FETCH
+    STATUS["GET updates status"] -.-> CMP
 
     style WS fill:#6366f1,stroke:#818cf8,color:#fff
     style CLIENT fill:#10b981,stroke:#34d399,color:#fff
 ```
 
-A single check is cheap (`git fetch origin --prune` against `origin`), wrapped with `execFile` (no shell) and a 120s timeout. Failures — offline network, non-git install, missing `origin`, unresolvable upstream ref — all return **soft payloads** (e.g. `fetch_error: "..."`) rather than throwing, so a flaky remote never blocks the dashboard.
+A single check is cheap (`git fetch <remote> --prune` against the canonical remote — `upstream` if configured, else `origin`), wrapped with `execFile` (no shell) and a 120s timeout. Failures — offline network, non-git install, no remotes configured, unresolvable upstream ref — all return **soft payloads** (e.g. `fetch_error: "..."`) rather than throwing, so a flaky remote never blocks the dashboard.
 
 ### UI Surfaces
 
 | Surface | Behavior |
 | --- | --- |
-| **Modal** (`client/src/components/UpdateNotifier.tsx`) | Appears when `update_available === true` and the user hasn't already dismissed this specific `remote_sha`. Shows commits-behind, the tracked ref, the copy-pastable command, and three buttons: **Copy command** (primary), **Check now**, **Dismiss**. ESC and backdrop clicks dismiss. Keyed by `remote_sha` in `localStorage`, so a newer upstream commit re-opens the modal automatically. |
+| **Modal** (`client/src/components/UpdateNotifier.tsx`) | Appears when `update_available === true` and the user hasn't already dismissed this specific `remote_sha`. Shows commits-behind, the tracked ref, an optional `situation_note` (when on a feature branch / fork the note explains why the command differs), the copy-pastable command, and three buttons: **Copy command** (primary), **Check now**, **Dismiss**. ESC and backdrop clicks dismiss. Keyed by `remote_sha` in `localStorage`, so a newer upstream commit re-opens the modal automatically. |
 | **Sidebar button** (`client/src/components/Sidebar.tsx`) | Always-visible "Check for updates" button in the footer. Emerald border + green badge dot when behind, amber when the last check hit a fetch error. Clicking it clears any prior dismissal, then fires `POST /api/updates/check`. |
 | **Server terminal** | When the scheduler transitions from "up to date" to "behind," it prints a framed block to stdout with the command so users running headless still see it. |
 
@@ -973,7 +974,7 @@ A single check is cheap (`git fetch origin --prune` against `origin`), wrapped w
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/updates/status` | Read-only check: runs `git fetch`, compares HEAD to the tracked upstream, returns the payload. |
+| `GET /api/updates/status` | Read-only check: runs `git fetch` against the canonical remote, compares HEAD to its default branch, returns the payload. |
 | `POST /api/updates/check` | Same check, but also broadcasts `update_status` over WebSocket so all connected clients update at once. |
 
 Both endpoints return the same payload shape:
@@ -983,18 +984,26 @@ Both endpoints return the same payload shape:
   "git_repo": true,
   "update_available": true,
   "repo_root": "/Users/you/Claude-Code-Agent-Monitor",
-  "remote_ref": "origin/master",
+  "remote_ref": "upstream/master",
+  "canonical_remote": "upstream",
+  "current_branch": "master",
+  "tracking_upstream": "origin/master",
+  "tracks_canonical": false,
+  "situation": "fork_or_diverged_tracking",
   "local_sha": "abc1234...",
   "remote_sha": "def5678...",
   "commits_behind": 3,
-  "manual_command": "cd \"/...\" && git pull --ff-only && npm run setup",
-  "message": "3 commit(s) on origin/master not in your checkout."
+  "manual_command": "cd \"/...\" && git fetch upstream && git merge --ff-only upstream/master && npm run setup",
+  "situation_note": "You're on 'master' tracking 'origin/master'. This command fast-forwards your branch from upstream/master (the canonical default).",
+  "message": "3 commit(s) on upstream/master not in your checkout."
 }
 ```
 
+`situation` is one of `tracking_canonical` (typical clone on the default branch — `git pull --ff-only` works), `fork_or_diverged_tracking` (local branch name matches canonical, but tracks a different remote — `git fetch <remote> && git merge --ff-only <ref>`), `feature_branch` (off the default branch — fetch only, integration left to the user), or `detached_head`.
+
 ### What's Intentionally **Not** Here
 
-There is no `POST /api/updates/apply` and no self-restart helper. That route existed briefly during development, but self-updating a process from inside itself is unreliable without an external supervisor — every environment (dev/prod, pm2/systemd/Docker, macOS/Linux/Windows) surfaced a different failure mode. Shipping a detection-only update notifier keeps the behavior predictable while still closing the "when do I need to pull?" information gap.
+There is no `POST /api/updates/apply` and no self-restart helper, by design. Self-updating a process from inside itself is unreliable without an external supervisor — `npm run dev` (concurrently), `npm start`, `pm2`, `systemd`, `launchd`, and Docker each need different restart logic, and `git pull` / `npm install` failures on a dying server have no clean rollback path. Detection-only keeps behaviour predictable across every supervisor, every OS, and every branch state, while still closing the "when do I need to pull?" information gap; the user owns the actual update in their own shell.
 
 ### Configuration
 

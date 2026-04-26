@@ -180,6 +180,12 @@ export function UpdateNotifier() {
             </div>
           ) : null}
 
+          {status.situation_note ? (
+            <div className="text-xs text-amber-200/90 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2 leading-relaxed">
+              {status.situation_note}
+            </div>
+          ) : null}
+
           {status.manual_command ? (
             <pre
               className="bg-surface-1 border border-border rounded-lg px-3 py-2.5 text-[11px] font-mono text-gray-200 whitespace-pre-wrap break-all leading-relaxed"
@@ -189,7 +195,13 @@ export function UpdateNotifier() {
             </pre>
           ) : null}
 
-          <p className="text-[11px] text-gray-500 leading-relaxed">{t("restartNote")}</p>
+          {/* The restart hint only applies when the printed command actually
+           * rewrites the working tree. Feature-branch / detached-HEAD commands
+           * are fetch-only — restarting the dashboard would change nothing. */}
+          {status.situation === "tracking_canonical" ||
+          status.situation === "fork_or_diverged_tracking" ? (
+            <p className="text-[11px] text-gray-500 leading-relaxed">{t("restartNote")}</p>
+          ) : null}
 
           {error ? (
             <p className="text-xs text-red-400" role="alert">

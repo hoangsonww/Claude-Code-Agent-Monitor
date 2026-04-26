@@ -8,7 +8,7 @@
   "dismiss": "Dismiss",
   "fetchError": "Could not reach git remote. Try again when you are online.",
   "notGit": "This install is not a git clone; use a manual upgrade path.",
-  "restartNote": "After the command finishes, restart the dashboard the same way you started it: if you used npm start, run npm start again.",
+  "restartNote": "After the command finishes, close and restart the dashboard the same way you started it: if you used npm start, run npm start again.",
   "checkNow": "Check now",
   "checking": "Checking...",
   "checkError": "Could not check for updates"

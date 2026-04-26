@@ -3717,11 +3717,17 @@ ccam-export all --output backup.json</code></pre>
           </div>
 
           <p>
-            A detection-only subsystem that tells the user when the dashboard's git checkout is behind
-            its tracked upstream (<code>origin/master</code> / <code>origin/main</code> /
-            <code>origin/HEAD</code>). The server <strong>never</strong> pulls or restarts itself —
-            the user runs the printed command in a terminal — so the mechanism cannot break dev
-            sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.
+            A detection-only subsystem that tells the user when the dashboard's git checkout is
+            behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an
+            <code>upstream</code> remote is configured (the standard convention for forks), it
+            takes priority over <code>origin</code>; the chosen remote's
+            <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref.
+            The printed command adapts to the user's situation — <code>git pull --ff-only</code>
+            only when their branch actually tracks the canonical ref, otherwise
+            <code>git fetch</code> (with a fast-forward merge in the fork case). The server
+            <strong>never</strong> pulls or restarts itself — the user runs the command in a
+            terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker
+            supervision, or leave orphaned processes.
           </p>
 
           <div class="diagram-wrap">
@@ -3769,12 +3775,14 @@ ccam-export all --output backup.json</code></pre>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-cyan">📋</div>
-              <h3>Copy-Pastable Command</h3>
+              <h3>Situation-Aware Command</h3>
               <p>
-                Each status payload carries a ready-to-run <code>manual_command</code> — the
-                exact sequence to pull, reinstall, and (in production) rebuild. The modal&apos;s
-                primary button copies it to the clipboard; the user pastes it into a terminal
-                and restarts the server however they started it.
+                Each status payload carries a <code>manual_command</code> shaped for the user's
+                actual situation: <code>git pull --ff-only</code> on a tracked canonical branch,
+                <code>git fetch &amp;&amp; git merge --ff-only</code> for forks where local
+                tracks the wrong remote, and a plain <code>git fetch</code> on a feature branch
+                where pulling would update the wrong branch. Install / build steps are appended
+                only when the working tree is actually being rewritten.
               </p>
             </div>
             <div class="feature-card">
@@ -3791,10 +3799,10 @@ ccam-export all --output backup.json</code></pre>
               <div class="feature-icon ic-pink">🛡</div>
               <h3>Soft Failure Semantics</h3>
               <p>
-                Non-git installs, a missing <code>origin</code>, offline fetches, and an
-                unresolvable upstream ref all return tagged payloads instead of throwing. The
-                sidebar badge turns amber on fetch errors and the modal stays suppressed until
-                a successful check arrives — no spinners, no stuck state.
+                Non-git installs, no remotes configured, offline fetches, and unresolvable
+                upstream refs all return tagged payloads instead of throwing. The sidebar
+                badge turns amber on fetch errors and the modal stays suppressed until a
+                successful check arrives — no spinners, no stuck state.
               </p>
             </div>
             <div class="feature-card">
@@ -3834,13 +3842,15 @@ ccam-export all --output backup.json</code></pre>
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
-              <strong>There is no <code>POST /api/updates/apply</code></strong>
+              <strong>Detection-only by design</strong>
               <p>
-                A self-restart route existed briefly during development but was removed: a process
-                cannot reliably replace itself without an external supervisor. Every environment
-                (dev vs prod, pm2/systemd/Docker, macOS/Linux/Windows) surfaced a different
-                failure mode. Shipping detection-only keeps the mechanism portable and the
-                server lifecycle owned by whatever started it.
+                There is no <code>POST /api/updates/apply</code> and no in-process restart
+                helper. A process cannot reliably replace itself without an external supervisor,
+                and <code>npm run dev</code>, <code>npm start</code>, pm2, systemd, launchd, and
+                Docker each need different restart logic. Detection-only keeps the mechanism
+                portable across every supervisor and OS, and leaves the dashboard's lifecycle
+                owned by whatever started it. The user runs the printed command in their own
+                shell.
               </p>
             </div>
           </div>
