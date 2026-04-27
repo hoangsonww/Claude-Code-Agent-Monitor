@@ -1,0 +1,46 @@
+# Claude Code Agent Monitor
+
+> Local-first real-time dashboard for Claude Code: native hooks POST to an Express + SQLite server, the React UI updates over WebSocket, and an optional local MCP server exposes safe dashboard tools. This repository is MIT-licensed; default stack is Node.js 18+, React 18, Vite, TypeScript, and better-sqlite3.
+
+Important context for tools and answers:
+
+- **Not** a cloud SaaS: designed to run on the developer machine (or your own host); data stays in your SQLite file unless you configure otherwise.
+- **Pipelines to preserve** when changing code: `hooks → HTTP API → SQLite → WebSocket → UI` and optional `MCP` for the same data/actions.
+- **Module map**: `server/` (API, hooks ingest, DB, WS), `client/` (Vite React app), `scripts/` (hook installer, utilities), `mcp/` (local MCP server), root `index.html` + `wiki/` assets = human wiki on GitHub Pages.
+
+## Core documentation
+
+- [README](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/README.md): Install, features, npm scripts, API summary, deployment overview, troubleshooting.
+- [INSTALL](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/INSTALL.md): Installation paths and prerequisites.
+- [SETUP](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/SETUP.md): First-time project setup.
+- [CLAUDE.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/CLAUDE.md): Claude Code working guide (repo map, commands, change rules for agents).
+- [AGENTS.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/AGENTS.md): Codex / general agent instructions and validation expectations.
+- [ARCHITECTURE.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/ARCHITECTURE.md): High-level system and data-flow architecture.
+
+## Reference (deep dives)
+
+- [docs/API.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/API.md): REST API surface and behavior.
+- [docs/HOOKS.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/HOOKS.md): Hook events, payloads, and integration notes.
+- [docs/DATABASE.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/DATABASE.md): SQLite schema and data model.
+- [docs/MCP.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/MCP.md): MCP integration for this project.
+- [docs/PLUGINS.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/PLUGINS.md): Plugin marketplace and plugin layout.
+- [mcp/README.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/mcp/README.md): Local MCP server: build, run, tool domains, safety policy.
+- [server/README.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/server/README.md): Server package responsibilities.
+- [client/README.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/client/README.md): Client app notes.
+
+## Deployment & packaging
+
+- [DEPLOYMENT.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/DEPLOYMENT.md): Deployment modes and operational notes.
+- [docs/DEPLOYMENT.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/DEPLOYMENT.md): Additional deployment documentation.
+- [deployments/README.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/deployments/README.md): Deployment assets index (e.g. Kubernetes, Terraform paths).
+- [vscode-extension/README.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/vscode-extension/README.md): VS Code extension behavior and packaging.
+
+## Optional
+
+- [README-CN.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/README-CN.md): Chinese README (localized tips).
+- [README-VN.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/README-VN.md): Vietnamese README.
+- [docs/I18N.md](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/docs/I18N.md): Internationalization notes for the UI.
+- [Project wiki (HTML, diagrams)](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/): GitHub Pages wiki with Mermaid diagrams; complements Markdown docs above (same project, richer layout — not a second source of truth for API contracts).
+- [Repository](https://github.com/hoangsonww/Claude-Code-Agent-Monitor): Source, issues, and discussions.
+- [security policy](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/security/policy): Reporting vulnerabilities.
+- [LICENSE](https://raw.githubusercontent.com/hoangsonww/Claude-Code-Agent-Monitor/master/LICENSE): MIT license text.
