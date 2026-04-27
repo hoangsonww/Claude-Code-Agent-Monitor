@@ -49,13 +49,16 @@ export const api = {
   },
 
   sessions: {
-    list: (params?: { status?: string; limit?: number; offset?: number }) => {
+    list: (params?: { status?: string; q?: string; limit?: number; offset?: number }) => {
       const qs = new URLSearchParams();
       if (params?.status) qs.set("status", params.status);
+      if (params?.q) qs.set("q", params.q);
       if (params?.limit) qs.set("limit", String(params.limit));
       if (params?.offset) qs.set("offset", String(params.offset));
-      const q = qs.toString();
-      return request<{ sessions: Session[] }>(`/sessions${q ? `?${q}` : ""}`);
+      const queryString = qs.toString();
+      return request<{ sessions: Session[]; total: number; limit: number; offset: number }>(
+        `/sessions${queryString ? `?${queryString}` : ""}`
+      );
     },
     get: (id: string) =>
       request<{ session: Session; agents: Agent[]; events: DashboardEvent[] }>(

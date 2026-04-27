@@ -12,7 +12,7 @@ describe("i18n resources", () => {
     await i18n.changeLanguage("vi");
 
     expect(i18n.t("nav:dashboard")).toBe("Tổng quan");
-    expect(i18n.t("nav:agentBoard")).toBe("Bảng Agent");
+    expect(i18n.t("nav:agentBoard")).toBe("Bảng Kanban");
     expect(i18n.t("nav:languageShort.vi")).toBe("VI");
   });
 

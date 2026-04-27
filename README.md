@@ -1,6 +1,6 @@
 # Agent Dashboard for Claude Code
 
-### Real-time monitoring platform for Claude Code agent activity
+### Real-time monitoring platform for Claude Code agent activity 🚀
 
 A professional dashboard to track and visualize your Claude Code agent sessions, tool usage, and subagent orchestration in real-time. Built with Node.js, Express, React, and SQLite, it integrates directly with Claude Code via its native hook system for seamless session tracking and analytics.
 
@@ -133,34 +133,56 @@ Comes with a sleek dark theme, responsive design, and intuitive navigation to ex
 
 <p align="center">
   <img src="images/dashboard.png" alt="Dashboard Overview" width="100%">
+  <br>
+  <em>📡 <strong>Dashboard</strong> — overview stats, active agent cards, and recent activity feed</em>
 </p>
 
 <p align="center">
-  <img src="images/board.png" alt="Board Overview" width="100%">
+  <img src="images/board.png" alt="Kanban Board — Agents view" width="100%">
+  <br>
+  <em>📋 <strong>Kanban Board (agents)</strong> — agents grouped by status across 5 columns: Idle / Connected / Working / Completed / Error</em>
+</p>
+
+<p align="center">
+  <img src="images/board-sessions.png" alt="Kanban Board — Sessions view" width="100%">
+  <br>
+  <em>🗂️ <strong>Kanban Board (sessions)</strong> — sessions grouped by status: Active / Completed / Error / Abandoned, toggleable from the same page</em>
 </p>
 
 <p align="center">
   <img src="images/sessions.png" alt="Sessions Overview" width="100%">
+  <br>
+  <em>📂 <strong>Sessions</strong> — searchable, filterable, server-paginated table of every recorded session with cost, model, agent count, and duration</em>
 </p>
 
 <p align="center">
   <img src="images/session.png" alt="Session Detail Overview" width="100%">
+  <br>
+  <em>🔬 <strong>Session Detail</strong> — full agent hierarchy tree and chronological event timeline with multi-dimension filters and tool-aware payload renderers</em>
 </p>
 
 <p align="center">
   <img src="images/feed.png" alt="Activity Feed Overview" width="100%">
+  <br>
+  <em>📰 <strong>Activity Feed</strong> — real-time event log with pause / resume, grouping, multi-dimension filters, and a "Session →" jump button per row</em>
 </p>
 
 <p align="center">
   <img src="images/analytics.png" alt="Analytics Overview" width="100%">
+  <br>
+  <em>📊 <strong>Analytics</strong> — token usage by model, tool frequency, activity heatmap, and session trends with live / offline indicator</em>
 </p>
 
 <p align="center">
-  <img src="images/workflows.png" alt="Analytics Overview" width="100%">
+  <img src="images/workflows.png" alt="Workflows Overview" width="100%">
+  <br>
+  <em>🔀 <strong>Workflows</strong> — agent orchestration DAGs, tool execution Sankey diagrams, collaboration networks, and 11 interactive sections of workflow intelligence</em>
 </p>
 
 <p align="center">
   <img src="images/settings.png" alt="Settings Overview" width="100%">
+  <br>
+  <em>⚙️ <strong>Settings</strong> — model pricing rules, hook installation status, data management, notification preferences, and system info</em>
 </p>
 
 The sidebar provides quick access to the Dashboard, Kanban Board, Sessions list, Activity Feed, Analytics, Workflows, and Settings. Each page is designed to give you deep insights into your Claude Code agent activity with real-time updates and rich visualizations.
@@ -174,8 +196,8 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | Feature                            | Description                                                                                                                                                                                                                                                                  |
 |------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Dashboard**                      | Overview stats, active agent cards with collapsible subagent hierarchy, recent activity feed                                                                                                                                                                                 |
-| **Kanban Board**                   | 5-column agent status board with paginated columns, per-status fetching (no artificial limits)                                                                                                                                                                               |
-| **Sessions**                       | Searchable, filterable, paginated table of all Claude Code sessions                                                                                                                                                                                                          |
+| **Kanban Board**                   | Two views with a header toggle (persisted in `localStorage`): **Agents** — 5 columns (Idle / Connected / Working / Completed / Error) — and **Sessions** — 4 columns (Active / Completed / Error / Abandoned). Each column fetches its own status from the server (effectively unlimited per status), then paginates client-side at 10 cards per column with a "Show more" affordance. WS subscription scopes to the active view (`agent_*` vs `session_*` frames) so off-view updates don't trigger refetches |
+| **Sessions**                       | Searchable, filterable, **server-paginated** table of every recorded session. Each page click hits `/api/sessions?status=&q=&limit=10&offset=…`, so cost computation runs only over the visible page — independent of how many sessions exist in the database. The search box (`q=`) does case-insensitive matching across `id` / `name` / `cwd` on the server with a 300 ms debounce, and the response carries a `total` count for the paginator UI. Status filter, search, and pagination compose. |
 | **Session Detail**                 | Per-session real-time overview panel with active-agent banner (current tool + task), six tile counters (events with events/min rate, tool calls, subagents, compactions, errors, ticking duration), top-tool usage bars, subagent type breakdown, stacked token-flow strip, and event-type pill cloud — all live-refreshed on hook events. Below it: agent hierarchy tree, full event timeline with multi-dimension filters (status, event type, tool, agent, text search, date range), Pre/Post grouping by `tool_use_id`, human-readable summary block, tool-aware input/response renderers (terminal for Bash, unified diff for Edit, line-numbered code for Read/Write, match list for Grep, key/value card for MCP tools), and a Conversation tab that renders transcripts with markdown (headings, lists, blockquotes, tables, task lists), syntax-highlighted code blocks (js/ts, python, json, bash, html, css, sql, yaml, diff) with line numbers and copy-to-clipboard, and per-tool styled tool calls (Bash → terminal, Edit → side-by-side old/new, Write → file label, Read → path chip, Grep → pattern card) |
 | **Activity Feed**                  | Real-time streaming event log with pause/resume, multi-dimension filters (same toolbar as Session Detail plus a Session filter), server-driven "Load more" pagination, debounced filter-aware live refresh preserving the loaded page size, grouping toggle, origin prefix showing project › session › subagent, and a "Session →" button per row                                         |
 | **Analytics**                      | Token usage, tool frequency, activity heatmap (centered, day-of-week aligned starting Sunday, day-name tooltips), session trends, live/offline connection indicator                                                                                                           |
@@ -690,7 +712,7 @@ The OpenAPI document is generated from `server/openapi.js`, and Swagger UI is se
 
 | Method  | Path                            | Query Params                                                     | Description                                                                                  |
 | ------- | ------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `GET`   | `/api/sessions`                 | `status`, `limit`, `offset`                                      | List sessions with agent counts                                                              |
+| `GET`   | `/api/sessions`                 | `status`, `q`, `limit`, `offset`                                 | List sessions with agent counts and per-session cost. `q` does case-insensitive search across `id` / `name` / `cwd`. `limit` defaults to 50, max 10000. Response includes `total` for paginators. |
 | `GET`   | `/api/sessions/:id`             | --                                                               | Session detail with agents and events                                                        |
 | `GET`   | `/api/sessions/:id/stats`       | --                                                               | Aggregated counts powering the Session Detail overview panel: events, events-by-type, top tool usage, error count, agent type/status counts, subagent type breakdown, token totals, time range |
 | `GET`   | `/api/sessions/:id/transcripts` | --                                                               | List available JSONL transcripts for the session (main + subagents + compactions)            |
@@ -937,7 +959,7 @@ Additionally, any `Notification` hook event from Claude Code triggers a browser 
 
 ## Update Notifier
 
-The dashboard watches its own git checkout and surfaces a modal whenever upstream commits land on the branch it tracks (`origin/master`, `origin/main`, or `origin/HEAD`). Users get the exact command to run in a terminal — the server **never** pulls or restarts itself, which keeps the mechanism portable across dev sessions, pm2/systemd/launchd/Docker supervision, and remote deployments.
+The dashboard watches its own git checkout and surfaces a modal whenever the canonical default branch has commits ahead of HEAD. **Branch- and fork-aware:** if you have an `upstream` remote (the standard convention for forks), it's preferred over `origin`; the chosen remote's `master`/`main`/`HEAD` is the comparison ref. The `manual_command` adapts to your situation — `git pull --ff-only` only when your branch actually tracks the canonical ref, otherwise a `git fetch` (and a fast-forward merge in the fork case) so the command never lies. Users get the exact command to run in a terminal — the server **never** pulls or restarts itself, which keeps the mechanism portable across dev sessions, pm2/systemd/launchd/Docker supervision, and remote deployments.
 
 <p align="center">
   <img src="images/update.png" alt="Dashboard update modal with copy-to-clipboard command" width="100%">
@@ -947,28 +969,29 @@ The dashboard watches its own git checkout and surfaces a modal whenever upstrea
 
 ```mermaid
 flowchart LR
-    S["Server startup"] --> SCHED["Update scheduler<br/>(poll every 5 min)"]
-    SCHED -->|"git fetch origin --prune<br/>(execFile, 120s timeout)"| GIT[(origin remote)]
-    GIT --> CMP["rev-list --count<br/>HEAD..origin/master"]
-    CMP -->|behind > 0| FP{"fingerprint<br/>changed?"}
+    S["Server startup"] --> SCHED["Update scheduler<br/>poll every 5 min"]
+    SCHED --> PICK["Pick canonical remote<br/>upstream then origin"]
+    PICK --> FETCH["git fetch remote prune<br/>execFile 120s timeout"]
+    FETCH --> CMP["rev-list HEAD vs<br/>remote master main HEAD"]
+    CMP --> FP["Fingerprint changed?"]
     FP -->|yes| WS["broadcast<br/>update_status"]
     FP -->|no| IDLE["skip broadcast"]
     WS --> CLIENT["UpdateNotifier<br/>+ Sidebar badge"]
 
-    CHECK["POST /api/updates/check<br/>(Sidebar / modal button)"] --> SCHED
-    STATUS["GET /api/updates/status"] -.->|direct read| CMP
+    CHECK["POST updates check"] --> FETCH
+    STATUS["GET updates status"] -.-> CMP
 
     style WS fill:#6366f1,stroke:#818cf8,color:#fff
     style CLIENT fill:#10b981,stroke:#34d399,color:#fff
 ```
 
-A single check is cheap (`git fetch origin --prune` against `origin`), wrapped with `execFile` (no shell) and a 120s timeout. Failures — offline network, non-git install, missing `origin`, unresolvable upstream ref — all return **soft payloads** (e.g. `fetch_error: "..."`) rather than throwing, so a flaky remote never blocks the dashboard.
+A single check is cheap (`git fetch <remote> --prune` against the canonical remote — `upstream` if configured, else `origin`), wrapped with `execFile` (no shell) and a 120s timeout. Failures — offline network, non-git install, no remotes configured, unresolvable upstream ref — all return **soft payloads** (e.g. `fetch_error: "..."`) rather than throwing, so a flaky remote never blocks the dashboard.
 
 ### UI Surfaces
 
 | Surface | Behavior |
 | --- | --- |
-| **Modal** (`client/src/components/UpdateNotifier.tsx`) | Appears when `update_available === true` and the user hasn't already dismissed this specific `remote_sha`. Shows commits-behind, the tracked ref, the copy-pastable command, and three buttons: **Copy command** (primary), **Check now**, **Dismiss**. ESC and backdrop clicks dismiss. Keyed by `remote_sha` in `localStorage`, so a newer upstream commit re-opens the modal automatically. |
+| **Modal** (`client/src/components/UpdateNotifier.tsx`) | Appears when `update_available === true` and the user hasn't already dismissed this specific `remote_sha`. Shows commits-behind, the tracked ref, an optional `situation_note` (when on a feature branch / fork the note explains why the command differs), the copy-pastable command, and three buttons: **Copy command** (primary), **Check now**, **Dismiss**. ESC and backdrop clicks dismiss. Keyed by `remote_sha` in `localStorage`, so a newer upstream commit re-opens the modal automatically. |
 | **Sidebar button** (`client/src/components/Sidebar.tsx`) | Always-visible "Check for updates" button in the footer. Emerald border + green badge dot when behind, amber when the last check hit a fetch error. Clicking it clears any prior dismissal, then fires `POST /api/updates/check`. |
 | **Server terminal** | When the scheduler transitions from "up to date" to "behind," it prints a framed block to stdout with the command so users running headless still see it. |
 
@@ -976,7 +999,7 @@ A single check is cheap (`git fetch origin --prune` against `origin`), wrapped w
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/updates/status` | Read-only check: runs `git fetch`, compares HEAD to the tracked upstream, returns the payload. |
+| `GET /api/updates/status` | Read-only check: runs `git fetch` against the canonical remote, compares HEAD to its default branch, returns the payload. |
 | `POST /api/updates/check` | Same check, but also broadcasts `update_status` over WebSocket so all connected clients update at once. |
 
 Both endpoints return the same payload shape:
@@ -986,18 +1009,26 @@ Both endpoints return the same payload shape:
   "git_repo": true,
   "update_available": true,
   "repo_root": "/Users/you/Claude-Code-Agent-Monitor",
-  "remote_ref": "origin/master",
+  "remote_ref": "upstream/master",
+  "canonical_remote": "upstream",
+  "current_branch": "master",
+  "tracking_upstream": "origin/master",
+  "tracks_canonical": false,
+  "situation": "fork_or_diverged_tracking",
   "local_sha": "abc1234...",
   "remote_sha": "def5678...",
   "commits_behind": 3,
-  "manual_command": "cd \"/...\" && git pull --ff-only && npm run setup",
-  "message": "3 commit(s) on origin/master not in your checkout."
+  "manual_command": "cd \"/...\" && git fetch upstream && git merge --ff-only upstream/master && npm run setup",
+  "situation_note": "You're on 'master' tracking 'origin/master'. This command fast-forwards your branch from upstream/master (the canonical default).",
+  "message": "3 commit(s) on upstream/master not in your checkout."
 }
 ```
 
+`situation` is one of `tracking_canonical` (typical clone on the default branch — `git pull --ff-only` works), `fork_or_diverged_tracking` (local branch name matches canonical, but tracks a different remote — `git fetch <remote> && git merge --ff-only <ref>`), `feature_branch` (off the default branch — fetch only, integration left to the user), or `detached_head`.
+
 ### What's Intentionally **Not** Here
 
-There is no `POST /api/updates/apply` and no self-restart helper. That route existed briefly during development, but self-updating a process from inside itself is unreliable without an external supervisor — every environment (dev/prod, pm2/systemd/Docker, macOS/Linux/Windows) surfaced a different failure mode. Shipping a detection-only update notifier keeps the behavior predictable while still closing the "when do I need to pull?" information gap.
+There is no `POST /api/updates/apply` and no self-restart helper, by design. Self-updating a process from inside itself is unreliable without an external supervisor — `npm run dev` (concurrently), `npm start`, `pm2`, `systemd`, `launchd`, and Docker each need different restart logic, and `git pull` / `npm install` failures on a dying server have no clean rollback path. Detection-only keeps behaviour predictable across every supervisor, every OS, and every branch state, while still closing the "when do I need to pull?" information gap; the user owns the actual update in their own shell.
 
 ### Configuration
 
@@ -1213,8 +1244,8 @@ graph TD
 ```mermaid
 graph LR
     ROOT["/ (index)"] --> DASH["Dashboard<br/>stats + agents + events"]
-    K["/kanban"] --> KANBAN["KanbanBoard<br/>5-column agent board"]
-    S["/sessions"] --> SESS["Sessions<br/>filterable table"]
+    K["/kanban"] --> KANBAN["KanbanBoard<br/>agents/sessions toggle"]
+    S["/sessions"] --> SESS["Sessions<br/>server-paginated table"]
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
@@ -1451,8 +1482,8 @@ agent-dashboard/
 |       |       +-- SessionDrillIn.tsx              # Per-session agent tree, tool timeline, events
 |       +-- pages/
 |           |-- Dashboard.tsx      # Overview page
-|           |-- KanbanBoard.tsx    # Agent status columns
-|           |-- Sessions.tsx       # Sessions table
+|           |-- KanbanBoard.tsx    # Agents/Sessions toggle, status columns
+|           |-- Sessions.tsx       # Server-paginated sessions table
 |           |-- SessionDetail.tsx  # Single session deep dive
 |           |-- ActivityFeed.tsx   # Real-time event stream
 |           |-- Analytics.tsx      # Token usage, heatmap, trends

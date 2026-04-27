@@ -5,7 +5,7 @@
 
 /* ─── Mermaid initialisation ────────────────────────────────────────────── */
 mermaid.initialize({
-  startOnLoad: true,
+  startOnLoad: false,
   theme: "dark",
   themeVariables: {
     primaryColor: "#1a1a2b",
@@ -75,6 +75,67 @@ mermaid.initialize({
   },
   logLevel: "error",
 });
+
+/* ─── Lazy-render mermaid diagrams ─────────────────────────────────────────
+ * mermaid.min.js is ~3.2MB uncompressed and rendering 21 diagrams
+ * synchronously at DOMContentLoaded blocks the main thread for hundreds
+ * of ms (and forces a layout shift when SVGs replace text). Instead, we
+ * render each .mermaid block only when it scrolls within ~200px of the
+ * viewport. The render cost gets spread across scroll instead of dumped
+ * upfront, so first paint is near-instant.
+ *
+ * Falls back to eager rendering when IntersectionObserver isn't
+ * available, or on prefers-reduced-motion (where we want stable content
+ * up front rather than appearing-as-you-scroll motion). */
+(function () {
+  const blocks = Array.from(document.querySelectorAll(".mermaid"));
+  if (blocks.length === 0) return;
+
+  // Reserve a placeholder so the page doesn't collapse before render and
+  // the IntersectionObserver has stable layout to measure.
+  blocks.forEach(function (el) {
+    if (!el.style.minHeight) el.style.minHeight = "120px";
+    el.dataset.mermaidPending = "1";
+  });
+
+  function renderOne(el) {
+    if (!el.dataset.mermaidPending) return;
+    delete el.dataset.mermaidPending;
+    try {
+      // mermaid v10 API: render a specific subtree of nodes.
+      mermaid.run({ nodes: [el] }).catch(function () {
+        /* ignore — leave the source text visible if render fails */
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (!("IntersectionObserver" in window) || reduced.matches) {
+    blocks.forEach(renderOne);
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        observer.unobserve(entry.target);
+        renderOne(entry.target);
+      });
+    },
+    {
+      // Start rendering before the diagram is visible so it feels instant.
+      rootMargin: "200px 0px",
+      threshold: 0,
+    }
+  );
+
+  blocks.forEach(function (el) {
+    observer.observe(el);
+  });
+})();
 
 /* ─── Sidebar tooltips (collapsed state) ────────────────────────────────── */
 (function () {

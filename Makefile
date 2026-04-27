@@ -2,7 +2,7 @@
 # Claude Code Agent Monitor — Makefile
 # A collection of convenient commands for development, testing, and deployment.
 # Prerequisites: GNU Make, Node.js, npm
-# Author: Son Nguyen (hoangson091104@gmail.com)
+# Author: Son Nguyen <hoangson091104@gmail.com>
 # Quickstart:
 #   make setup            # Install all dependencies
 #   make dev              # Start server + client in watch mode

@@ -1,10 +1,26 @@
 {
-  "title": "Bảng Agent",
+  "title": "Bảng Kanban",
   "subtitle": "Góc nhìn kanban của mọi Agent theo trạng thái",
+  "subtitleSessions": "Góc nhìn kanban của mọi phiên theo trạng thái",
+  "viewToggle": {
+    "agents": "Agent",
+    "sessions": "Phiên"
+  },
   "noAgents": "Chưa có Agent được theo dõi",
   "noAgentsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy Agent xuất hiện tại đây.",
   "agentCount": "Đã theo dõi {{count}} Agent",
   "agentCount_plural": "Đã theo dõi {{count}} Agent",
   "noAgentsInColumn": "Không có Agent",
-  "ran": "đã chạy "
+  "noSessions": "Chưa có phiên được theo dõi",
+  "noSessionsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy phiên xuất hiện tại đây.",
+  "sessionCount": "Đã theo dõi {{count}} phiên",
+  "sessionCount_plural": "Đã theo dõi {{count}} phiên",
+  "noSessionsInColumn": "Không có phiên",
+  "ran": "đã chạy ",
+  "running": "đang chạy ",
+  "session": {
+    "anonymous": "Phiên chưa đặt tên",
+    "agentSummary_one": "{{count}} Agent",
+    "agentSummary_other": "{{count}} Agent"
+  }
 }

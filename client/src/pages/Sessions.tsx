@@ -21,7 +21,12 @@ export function Sessions() {
   const navigate = useNavigate();
   const { t } = useTranslation("sessions");
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState("");
+  // `searchInput` is what the user types; `search` is the debounced value
+  // actually sent to the server. Without debouncing, every keystroke would
+  // hit /api/sessions.
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -34,20 +39,41 @@ export function Sessions() {
     { label: t("filterAbandoned"), value: "abandoned" },
   ];
 
+  // Debounce the search input → 300 ms after the user stops typing, the
+  // committed value flips and triggers a fresh fetch.
+  useEffect(() => {
+    const id = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
+
+  // Server-side pagination: only the visible page is fetched. Cost
+  // computation on the server scales with PAGE_SIZE, not with the total
+  // session count, so this stays cheap regardless of how many sessions
+  // exist in the database.
   const load = useCallback(async () => {
     try {
-      const params: { status?: string; limit?: number } = { limit: 500 };
+      const params: { status?: string; q?: string; limit: number; offset: number } = {
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      };
       if (filter) params.status = filter;
-      const sessionsRes = await api.sessions.list(params);
-      setSessions(sessionsRes.sessions);
+      if (search) params.q = search;
+      const res = await api.sessions.list(params);
+      setSessions(res.sessions);
+      setTotal(res.total);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, search, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reset to page 0 whenever filter or search changes.
+  useEffect(() => {
+    setPage(0);
+  }, [filter, search]);
 
   useEffect(() => {
     return eventBus.subscribe((msg) => {
@@ -63,22 +89,10 @@ export function Sessions() {
     });
   }, [load]);
 
-  const filtered = search
-    ? sessions.filter(
-        (s) =>
-          s.id.toLowerCase().includes(search.toLowerCase()) ||
-          s.name?.toLowerCase().includes(search.toLowerCase()) ||
-          s.cwd?.toLowerCase().includes(search.toLowerCase())
-      )
-    : sessions;
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-  // Reset page when filter/search changes
-  useEffect(() => {
-    setPage(0);
-  }, [filter, search]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // The server already paginates, so the rendered page IS the loaded list.
+  const paged = sessions;
+  const filtered = sessions; // kept for empty-state checks below
 
   return (
     <div className="animate-fade-in">
@@ -90,7 +104,7 @@ export function Sessions() {
           <div>
             <h1 className="text-lg font-semibold text-gray-100">{t("title")}</h1>
             <p className="text-xs text-gray-500">
-              {t("sessionCount", { count: sessions.length })}
+              {t("sessionCount", { count: total })}
               {filter ? ` ${filter}` : ""}
             </p>
           </div>
@@ -107,8 +121,8 @@ export function Sessions() {
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="input w-full pl-10"
           />
         </div>
@@ -215,8 +229,8 @@ export function Sessions() {
               <span className="text-xs text-gray-500">
                 {t("common:pagination.showing", {
                   from: page * PAGE_SIZE + 1,
-                  to: Math.min((page + 1) * PAGE_SIZE, filtered.length),
-                  total: filtered.length,
+                  to: Math.min((page + 1) * PAGE_SIZE, total),
+                  total,
                 })}
               </span>
               <div className="flex items-center gap-1">

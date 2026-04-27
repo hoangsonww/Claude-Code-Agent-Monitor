@@ -39,15 +39,51 @@ async function readFirstLine(filePath) {
 }
 
 router.get("/", (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 1000);
+  // Cap raised from 1000 → 10000 so the Sessions and Kanban pages can list
+  // realistic deployments without truncation. Cost computation below runs
+  // only over the *returned* rows, so it scales with limit (the page size),
+  // not with the total session count — server-side pagination keeps each
+  // request cheap regardless of how many sessions exist in the DB.
+  const limit = Math.min(parseInt(req.query.limit) || 50, 10000);
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
 
-  const rows = status
-    ? stmts.listSessionsByStatus.all(status, limit, offset)
-    : stmts.listSessions.all(limit, offset);
+  let rows;
+  let total;
+  if (q) {
+    // Search across id, name, cwd — case-insensitive LIKE. Composes with
+    // the status filter when present. Output shape (agent_count,
+    // last_activity, ordering) matches stmts.listSessions so callers can
+    // treat the search result identically.
+    const like = `%${q}%`;
+    const where = ["(s.id LIKE ? OR s.name LIKE ? OR s.cwd LIKE ?)"];
+    const params = [like, like, like];
+    if (status) {
+      where.push("s.status = ?");
+      params.push(status);
+    }
+    const whereSql = `WHERE ${where.join(" AND ")}`;
+    rows = db
+      .prepare(
+        `SELECT s.*, COUNT(a.id) as agent_count, s.updated_at as last_activity
+         FROM sessions s LEFT JOIN agents a ON a.session_id = s.id
+         ${whereSql}
+         GROUP BY s.id ORDER BY s.updated_at DESC LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset);
+    total = db.prepare(`SELECT COUNT(*) as c FROM sessions s ${whereSql}`).get(...params).c;
+  } else if (status) {
+    rows = stmts.listSessionsByStatus.all(status, limit, offset);
+    total = db.prepare("SELECT COUNT(*) as c FROM sessions WHERE status = ?").get(status).c;
+  } else {
+    rows = stmts.listSessions.all(limit, offset);
+    total = db.prepare("SELECT COUNT(*) as c FROM sessions").get().c;
+  }
 
-  // Bulk-compute costs for all returned sessions in a single pass
+  // Bulk-compute costs for the returned page only (not the entire matching
+  // set). One IN-clause query for token rows, one for pricing rules, then
+  // an O(rows) JS pass.
   if (rows.length > 0) {
     const ids = rows.map((r) => r.id);
     const placeholders = ids.map(() => "?").join(",");
@@ -79,7 +115,7 @@ router.get("/", (req, res) => {
     }
   }
 
-  res.json({ sessions: rows, limit, offset });
+  res.json({ sessions: rows, limit, offset, total });
 });
 
 router.get("/:id", (req, res) => {

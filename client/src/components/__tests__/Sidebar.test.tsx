@@ -32,7 +32,7 @@ describe("Sidebar", () => {
   it("should render all navigation links", () => {
     renderSidebar(true);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Agent Board")).toBeInTheDocument();
+    expect(screen.getByText("Kanban Board")).toBeInTheDocument();
     expect(screen.getByText("Sessions")).toBeInTheDocument();
     expect(screen.getByText("Activity Feed")).toBeInTheDocument();
   });
@@ -77,7 +77,7 @@ describe("Sidebar", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Tổng quan")).toBeInTheDocument();
-      expect(screen.getByText("Bảng Agent")).toBeInTheDocument();
+      expect(screen.getByText("Bảng Kanban")).toBeInTheDocument();
     });
   });
 

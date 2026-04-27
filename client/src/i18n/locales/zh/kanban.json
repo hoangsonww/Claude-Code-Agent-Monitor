@@ -1,10 +1,26 @@
 {
-  "title": "Agent看板",
-  "subtitle": "按状态排列的Agent看板视图",
-  "noAgents": "暂无追踪的Agent",
-  "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看Agent。",
-  "agentCount": "已追踪 {{count}} 个Agent",
-  "agentCount_plural": "已追踪 {{count}} 个Agent",
-  "noAgentsInColumn": "暂无Agent",
-  "ran": "运行了 "
+  "title": "Kanban 看板",
+  "subtitle": "按状态排列的 Agent 看板视图",
+  "subtitleSessions": "按状态排列的会话看板视图",
+  "viewToggle": {
+    "agents": "Agent",
+    "sessions": "会话"
+  },
+  "noAgents": "暂无追踪的 Agent",
+  "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看 Agent。",
+  "agentCount": "已追踪 {{count}} 个 Agent",
+  "agentCount_plural": "已追踪 {{count}} 个 Agent",
+  "noAgentsInColumn": "暂无 Agent",
+  "noSessions": "暂无追踪的会话",
+  "noSessionsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看会话。",
+  "sessionCount": "已追踪 {{count}} 个会话",
+  "sessionCount_plural": "已追踪 {{count}} 个会话",
+  "noSessionsInColumn": "暂无会话",
+  "ran": "运行了 ",
+  "running": "运行中 ",
+  "session": {
+    "anonymous": "未命名会话",
+    "agentSummary_one": "{{count}} 个 Agent",
+    "agentSummary_other": "{{count}} 个 Agent"
+  }
 }

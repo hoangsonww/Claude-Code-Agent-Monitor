@@ -38,6 +38,12 @@
 
 html {
   scroll-behavior: smooth;
+  /* Stop mobile browsers from auto-inflating text in narrow viewports.
+   * Without this, Safari iOS and Chrome Android override CSS font-size in
+   * full-bleed sections like the feature carousel cards, sometimes by
+   * 1.5–2x — text overflows cards even though the CSS is correct. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {

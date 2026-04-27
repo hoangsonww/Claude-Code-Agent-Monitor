@@ -134,8 +134,13 @@ export function ActivityFeed() {
 
   useEffect(() => {
     let cancelled = false;
+    // Mount-time name lookups: ask for the server's safety cap so even
+    // long-running deployments get full pill coverage. These are one-shot
+    // fetches; cost computation is bounded by returned rows but agents
+    // don't have it and sessions only compute it on the page-sized list,
+    // so this is cheap.
     api.sessions
-      .list({ limit: 500 })
+      .list({ limit: 10000 })
       .then(({ sessions }) => {
         if (cancelled) return;
         const map = new Map<string, string>();
@@ -148,7 +153,7 @@ export function ActivityFeed() {
         // Non-fatal: rows just render without the session name pill.
       });
     api.agents
-      .list({ limit: 1000 })
+      .list({ limit: 10000 })
       .then(({ agents }) => {
         if (cancelled) return;
         const map = new Map<string, AgentInfo>();

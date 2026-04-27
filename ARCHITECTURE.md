@@ -501,8 +501,8 @@ graph LR
 | Route           | Page          | Data Sources                                           |
 | --------------- | ------------- | ------------------------------------------------------ |
 | `/`             | Dashboard     | `GET /api/stats`, `GET /api/agents`, `GET /api/events`, `GET /api/agents?session_id={sid}` (subagent hierarchy) |
-| `/kanban`       | KanbanBoard   | `GET /api/agents?status={each}` per-status (no limit)  |
-| `/sessions`     | Sessions      | `GET /api/sessions`                                    |
+| `/kanban`       | KanbanBoard   | View toggle persisted in `localStorage`. Agents view: `GET /api/agents?status={each}` per-status (default 10000 cap). Sessions view: `GET /api/sessions?status={each}&limit=10000` per-status. Each column then paginates client-side at `COLUMN_PAGE_SIZE=10`; the WS subscription scopes to the active view. |
+| `/sessions`     | Sessions      | `GET /api/sessions?status=&q=&limit=PAGE_SIZE&offset=page*PAGE_SIZE` — true server-side pagination. The search box passes `q` to the server (300 ms debounced). Response carries `total` for the paginator UI. Cost computation runs server-side over the visible page only. |
 | `/sessions/:id` | SessionDetail | `GET /api/sessions/:id` (agents + events), `GET /api/sessions/:id/stats` (overview tiles, top tools, subagent breakdown, token totals — debounced live-refresh on `new_event`/`agent_*`/`session_updated`), `GET /api/sessions/:id/transcripts` (Conversation tab transcript list), `GET /api/sessions/:id/transcript` (cursor-paginated message stream) |
 | `/activity`     | ActivityFeed  | `GET /api/events?limit=100` — click row to expand inline payload; "Session →" button navigates to `/sessions/:id` |
 | `/analytics`    | Analytics     | `GET /api/analytics`                                   |
@@ -688,7 +688,7 @@ erDiagram
 | `idx_events_session`   | events   | `session_id`      | Session detail event list      |
 | `idx_events_type`      | events   | `event_type`      | Filter events by type          |
 | `idx_events_created`   | events   | `created_at DESC` | Activity feed ordering         |
-| `idx_sessions_status`  | sessions | `status`          | Status filter on sessions page |
+| `idx_sessions_status`  | sessions | `status`          | Status filter on Sessions page and Kanban Sessions view |
 | `idx_sessions_started` | sessions | `started_at DESC` | Default sort order             |
 
 ### SQLite Configuration
@@ -1537,18 +1537,18 @@ sequenceDiagram
     alt not a git repo
         Lib-->>Sched: soft payload, git_repo false
     else git repo
-        Lib->>Git: git remote, look for origin
-        alt no origin
-            Lib-->>Sched: soft payload, no origin message
+        Lib->>Git: git remote, pick upstream then origin
+        alt no remotes configured
+            Lib-->>Sched: soft payload, no remotes message
         else
-            Lib->>Git: git fetch origin --prune, 120s timeout
+            Lib->>Git: git fetch canonical remote, 120s timeout
             alt fetch fails
                 Lib-->>Sched: soft payload with fetch_error
             else
-                Lib->>Git: git rev-parse HEAD
-                Lib->>Git: git rev-parse upstream ref
-                Lib->>Git: git rev-list --count HEAD..ref
-                Lib-->>Sched: full payload with commits_behind
+                Lib->>Git: rev-parse HEAD and canonical ref
+                Lib->>Git: rev-list --count HEAD..ref
+                Lib->>Git: read current branch and its tracked upstream
+                Lib-->>Sched: full payload with situation and manual_command
             end
         end
     end
@@ -1566,8 +1566,8 @@ sequenceDiagram
 
 | Component | Responsibility |
 | --- | --- |
-| **`server/lib/update-check.js`** | Pure function `getUpdatesStatus(root?, { skipFetch? })`. Runs every git call via `execFile` (no shell, 10s–120s timeouts). Handles non-git installs, missing `origin`, fetch failures, and unresolvable upstream refs as soft payloads — never throws to the caller. Builds the copy-pastable `manual_command` (`cd ... && git pull --ff-only && npm run setup`, plus `npm run build` in production). |
-| **`server/update-scheduler.js`** | Ticks the lib every `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` (default 300 000, floor 60 000). First tick is scheduled 8s after server start with `.unref()` so it doesn't block shutdown. Broadcasts only when the fingerprint `{update_available, remote_sha, commits_behind, fetch_error}` changes. Emits a framed message to stdout on "up-to-date → behind" transitions. `DASHBOARD_UPDATE_CHECK=0\|false\|off` disables the scheduler entirely. |
+| **`server/lib/update-check.js`** | Pure function `getUpdatesStatus(root?, { skipFetch? })`. Runs every git call via `execFile` (no shell, 10s–120s timeouts). **Branch- and fork-aware:** prefers `upstream` over `origin` when both exist (standard fork convention), resolves `<remote>/master`/`/main`/`/HEAD`, reads the current branch and its tracked upstream, and shapes `manual_command` per situation: `git pull --ff-only` only when the local branch tracks the canonical ref; `git fetch <remote> && git merge --ff-only <ref>` for forks (local branch name matches canonical but tracks a different remote); `git fetch <remote>` only on a feature branch or detached HEAD. Non-git installs, missing remotes, fetch failures, and unresolvable upstream refs are returned as soft payloads — never throws. Adds `situation`, `situation_note`, `canonical_remote`, `current_branch`, `tracking_upstream`, and `tracks_canonical` to the response. |
+| **`server/update-scheduler.js`** | Ticks the lib every `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` (default 300 000, floor 60 000). First tick is scheduled 8s after server start with `.unref()` so it doesn't block shutdown. Broadcasts only when the fingerprint `{update_available, remote_sha, commits_behind, fetch_error, manual_command}` changes — `manual_command` is included so situation transitions (e.g. user switches branches, or adds an `upstream` remote) trigger a re-broadcast even when the SHA and commit count are unchanged. Emits a framed message to stdout on "up-to-date → behind" transitions, and only suggests "restart the dashboard" when the printed command actually rewrites the working tree. `DASHBOARD_UPDATE_CHECK=0\|false\|off` disables the scheduler entirely. |
 | **`server/routes/updates.js`** | Two endpoints: `GET /status` (read-only check), `POST /check` (check + broadcast). No auth — the dashboard is assumed local. There is **no** `POST /apply` route. |
 | **`UpdateNotifier.tsx`** | Modal. Hydrates from `api.updates.status()` on mount and mirrors the payload back into the local `eventBus` so the Sidebar can listen without a second git fetch. Subscribes to `update_status` WS frames for ongoing sync. Keeps `dismissedSha` in `localStorage` (`agent-monitor-update-dismissed-sha`) and in React state; a window event `dashboard:reset-update-dismissal` from the Sidebar clears both. ESC / backdrop click dismisses. |
 | **`Sidebar.tsx`** | Always-visible "Check for updates" button in the footer. Subscribes to `update_status` (no own fetch). On click: clears dismissed SHA in localStorage, dispatches `dashboard:reset-update-dismissal`, then calls `api.updates.check()`. Visual state: emerald badge when `update_available`, amber when `fetch_error`, neutral otherwise. |
@@ -1579,13 +1579,23 @@ interface UpdateStatusPayload {
   git_repo: boolean;
   update_available: boolean;
   repo_root?: string;
-  remote_ref?: string | null;      // "origin/master" | "origin/main" | ...
+  remote_ref?: string | null;          // "upstream/master" | "origin/main" | ...
+  canonical_remote?: string | null;    // "upstream" preferred, else "origin"
+  current_branch?: string | null;      // null on detached HEAD
+  tracking_upstream?: string | null;   // e.g. "origin/feature/foo", null if no upstream
+  tracks_canonical?: boolean;          // true when branch upstream === remote_ref
+  situation?:                          // categorical hint for the UI
+    | "tracking_canonical"
+    | "fork_or_diverged_tracking"
+    | "feature_branch"
+    | "detached_head";
+  situation_note?: string | null;      // human-readable explanation when not tracking_canonical
   local_sha?: string | null;
   remote_sha?: string | null;
   commits_behind?: number;
-  manual_command?: string | null;  // "cd ... && git pull --ff-only && npm run setup"
+  manual_command?: string | null;      // shaped for the user's situation
   message?: string | null;
-  fetch_error?: string;            // set when git fetch fails
+  fetch_error?: string;                // set when git fetch fails
 }
 ```
 
@@ -1596,22 +1606,24 @@ The same shape is used by `GET /status`, `POST /check`, and the `update_status` 
 | Condition | Returned payload | User-visible effect |
 | --- | --- | --- |
 | Not a git clone | `{git_repo:false, update_available:false, message:"Install directory is not a git clone..."}` | Modal suppressed (`update_available` false). Sidebar stays neutral. |
-| No `origin` remote | `{git_repo:true, update_available:false, message:"No origin remote configured..."}` | Same as above. |
-| `git fetch` failed (offline, auth) | `{git_repo:true, update_available:false, fetch_error:"<stderr>"}` | Sidebar button goes amber; modal stays suppressed until a successful check. |
-| No upstream ref resolvable | `{git_repo:true, update_available:false, message:"Could not resolve origin/master..."}` | Modal suppressed. |
-| Healthy, up to date | `{git_repo:true, update_available:false, commits_behind:0, local_sha, remote_sha}` | Sidebar neutral, modal suppressed. |
-| Healthy, behind | `{git_repo:true, update_available:true, commits_behind:N, manual_command, ...}` | Modal opens (unless `dismissedSha === remote_sha`); Sidebar badges green. |
+| No remotes configured | `{git_repo:true, update_available:false, message:"No git remotes configured..."}` | Same as above. |
+| `git fetch` failed (offline, auth) | `{git_repo:true, update_available:false, canonical_remote, fetch_error:"<stderr>"}` | Sidebar button goes amber; modal stays suppressed until a successful check. |
+| Canonical default branch unresolvable | `{git_repo:true, update_available:false, canonical_remote, message:"Could not resolve <remote>/master..."}` | Modal suppressed. |
+| Healthy, up to date | `{git_repo:true, update_available:false, commits_behind:0, situation:"tracking_canonical"\|...}` | Sidebar neutral, modal suppressed. |
+| Healthy, behind, on canonical branch | `{update_available:true, situation:"tracking_canonical", manual_command:"...git pull --ff-only..."}` | Modal opens with `git pull` flow + restart hint. |
+| Healthy, behind, fork (origin = fork, upstream = canonical) | `{update_available:true, situation:"fork_or_diverged_tracking", manual_command:"...git fetch upstream && git merge --ff-only upstream/master..."}` | Modal opens with merge flow + restart hint + `situation_note` explaining the divergence. |
+| Healthy, behind, on a feature branch | `{update_available:true, situation:"feature_branch", manual_command:"...git fetch <remote>"}` | Modal opens; `situation_note` explains the user is off the canonical branch; restart hint suppressed because the working tree isn't being changed. |
 
-### Why No Self-Restart
+### Why Detection-Only
 
-An earlier iteration included `POST /api/updates/apply` + a detached helper script that ran `git pull && npm run setup && npm start`. It was removed because:
+The dashboard does not expose an apply/restart endpoint by design. A process cannot reliably replace itself without an external supervisor, and several real constraints make an in-process self-update path strictly worse than letting the user run two commands in a terminal:
 
-- **Branch mismatch:** detection compares against `origin/master`, but `git pull` follows the current branch's upstream — so an apply from a feature branch would succeed without actually closing the gap.
-- **Supervisor ambiguity:** `npm run dev` (concurrently), `npm start`, `pm2`, `systemd`, `launchd`, and Docker each need different restart logic; the helper could only encode one.
-- **Silent failures:** `npm install` / `npm run build` / port-release timing issues surface as a dead server with no user-facing feedback.
-- **No rollback:** a partial pull + install leaves a broken checkout with no atomic recovery.
+- **Supervisor ambiguity.** `npm run dev` (concurrently), `npm start`, `pm2`, `systemd`, `launchd`, and Docker each need different restart logic; an in-process helper could only encode one of them and would silently mis-restart the rest.
+- **Silent failures.** `npm install` / `npm run build` / port-release timing issues surface as a dead server with no user-facing feedback once the original process has exited.
+- **No rollback.** A partial pull + install leaves a broken checkout with no atomic recovery — the working tree is mutated mid-flight.
+- **Branch coverage.** Even with the situation-aware `manual_command` produced by the detection layer, an automatic apply would still need branch-aware integration (rebase vs merge vs switch) and merge-conflict handling. That belongs in the user's shell, not in a background daemon.
 
-The replacement is information-only — the dashboard tells the user *when* to update and *exactly what to run*; the user owns the *how* in their own shell. The detection half carries all the signal value without the fragility.
+The detection layer carries all of the signal value: the dashboard tells the user *when* to update and *exactly what to run*; the user owns the *how* in their own shell.
 
 ---
 

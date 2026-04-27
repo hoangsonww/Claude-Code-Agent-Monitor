@@ -1,10 +1,26 @@
 {
-  "title": "Agent Board",
+  "title": "Kanban Board",
   "subtitle": "Kanban view of all agents by status",
+  "subtitleSessions": "Kanban view of all sessions by status",
+  "viewToggle": {
+    "agents": "Agents",
+    "sessions": "Sessions"
+  },
   "noAgents": "No agents tracked yet",
   "noAgentsDesc": "Start a Claude Code session with hooks installed to see agents appear here.",
   "agentCount": "{{count}} agent tracked",
   "agentCount_plural": "{{count}} agents tracked",
   "noAgentsInColumn": "No agents",
-  "ran": "ran "
+  "noSessions": "No sessions tracked yet",
+  "noSessionsDesc": "Start a Claude Code session with hooks installed to see sessions appear here.",
+  "sessionCount": "{{count}} session tracked",
+  "sessionCount_plural": "{{count}} sessions tracked",
+  "noSessionsInColumn": "No sessions",
+  "ran": "ran ",
+  "running": "running ",
+  "session": {
+    "anonymous": "Untitled session",
+    "agentSummary_one": "{{count}} agent",
+    "agentSummary_other": "{{count}} agents"
+  }
 }
