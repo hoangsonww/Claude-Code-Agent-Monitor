@@ -92,6 +92,67 @@ router.get("/:id", (req, res) => {
   res.json({ session, agents, events });
 });
 
+/**
+ * GET /:id/stats — Aggregated counts for the SessionOverview panel.
+ *
+ * Returns at-a-glance metrics used by the Agents tab on the Session detail page.
+ * All aggregation runs in SQL so we don't ship 14k+ event rows to the client.
+ */
+router.get("/:id/stats", (req, res) => {
+  const sessionId = req.params.id;
+  const session = stmts.getSession.get(sessionId);
+  if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+
+  const totalEvents = stmts.sessionEventCount.get(sessionId)?.count ?? 0;
+  const eventsByType = stmts.sessionEventTypeCounts.all(sessionId);
+  const tools = stmts.sessionToolUsageCounts.all(sessionId);
+  const errors = stmts.sessionErrorCount.get(sessionId)?.count ?? 0;
+  const timeRange = stmts.sessionEventTimeRange.get(sessionId) || {};
+  const subagentTypes = stmts.sessionAgentTypeCounts.all(sessionId);
+  const agentStatusRows = stmts.sessionAgentStatusCounts.all(sessionId);
+  const tokens = stmts.sessionTokenTotals.get(sessionId) || {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+  };
+
+  // Aggregate agent counts by category
+  const agentCounts = {
+    total: 0,
+    main: 0,
+    subagent: 0,
+    compaction: 0,
+    by_status: {},
+  };
+  for (const row of agentStatusRows) {
+    agentCounts.total += row.count;
+    agentCounts.by_status[row.status] = row.count;
+  }
+  // Compactions: count agents whose subagent_type === 'compaction'
+  const compactionRow = subagentTypes.find((r) => r.subagent_type === "compaction");
+  agentCounts.compaction = compactionRow?.count ?? 0;
+  // Main vs sub: derive from agents list
+  const allAgents = stmts.listAgentsBySession.all(sessionId);
+  agentCounts.main = allAgents.filter((a) => a.type === "main").length;
+  agentCounts.subagent = allAgents.filter((a) => a.type === "subagent").length;
+
+  res.json({
+    session_id: sessionId,
+    total_events: totalEvents,
+    events_by_type: eventsByType,
+    tools_used: tools,
+    error_count: errors,
+    first_event_at: timeRange.first_at ?? null,
+    last_event_at: timeRange.last_at ?? null,
+    agents: agentCounts,
+    subagent_types: subagentTypes.filter((r) => r.subagent_type !== "compaction"),
+    tokens,
+  });
+});
+
 router.post("/", (req, res) => {
   const { id, name, cwd, model, metadata } = req.body;
   if (!id) {

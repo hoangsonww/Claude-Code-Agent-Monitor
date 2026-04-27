@@ -12,6 +12,7 @@ import type {
   ModelPricing,
   Session,
   SessionDrillIn,
+  SessionStats,
   Stats,
   TranscriptListResult,
   TranscriptResult,
@@ -60,6 +61,7 @@ export const api = {
       request<{ session: Session; agents: Agent[]; events: DashboardEvent[] }>(
         `/sessions/${encodeURIComponent(id)}`
       ),
+    stats: (id: string) => request<SessionStats>(`/sessions/${encodeURIComponent(id)}/stats`),
     transcripts: (id: string) =>
       request<TranscriptListResult>(`/sessions/${encodeURIComponent(id)}/transcripts`),
     transcript: (

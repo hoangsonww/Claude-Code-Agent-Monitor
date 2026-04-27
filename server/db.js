@@ -455,6 +455,67 @@ const stmts = {
     SELECT ROUND(CAST(COUNT(*) AS REAL) / MAX(1, (SELECT COUNT(*) FROM sessions)), 1) as avg
     FROM events
   `),
+
+  // Per-session aggregations powering the SessionOverview panel.
+  sessionEventCount: db.prepare("SELECT COUNT(*) as count FROM events WHERE session_id = ?"),
+  sessionEventTypeCounts: db.prepare(`
+    SELECT event_type, COUNT(*) as count
+    FROM events
+    WHERE session_id = ?
+    GROUP BY event_type
+    ORDER BY count DESC
+  `),
+  sessionToolUsageCounts: db.prepare(`
+    SELECT tool_name, COUNT(*) as count
+    FROM events
+    WHERE session_id = ? AND tool_name IS NOT NULL
+    GROUP BY tool_name
+    ORDER BY count DESC
+    LIMIT 15
+  `),
+  // Errors are surfaced via a couple of conventions: event_type containing
+  // "error" (case-insensitive) OR a summary prefixed with "Error" / "Failed".
+  // We accept both so legacy and current hook conventions both count.
+  sessionErrorCount: db.prepare(`
+    SELECT COUNT(*) as count
+    FROM events
+    WHERE session_id = ?
+      AND (
+        LOWER(event_type) LIKE '%error%'
+        OR LOWER(event_type) LIKE '%failed%'
+        OR LOWER(summary) LIKE 'error%'
+        OR LOWER(summary) LIKE 'failed%'
+      )
+  `),
+  sessionEventTimeRange: db.prepare(`
+    SELECT MIN(created_at) as first_at, MAX(created_at) as last_at
+    FROM events
+    WHERE session_id = ?
+  `),
+  sessionAgentTypeCounts: db.prepare(`
+    SELECT
+      COALESCE(subagent_type, 'unknown') as subagent_type,
+      COUNT(*) as count
+    FROM agents
+    WHERE session_id = ? AND type = 'subagent'
+    GROUP BY COALESCE(subagent_type, 'unknown')
+    ORDER BY count DESC
+  `),
+  sessionAgentStatusCounts: db.prepare(`
+    SELECT status, COUNT(*) as count
+    FROM agents
+    WHERE session_id = ?
+    GROUP BY status
+  `),
+  sessionTokenTotals: db.prepare(`
+    SELECT
+      COALESCE(SUM(input_tokens), 0) as input_tokens,
+      COALESCE(SUM(output_tokens), 0) as output_tokens,
+      COALESCE(SUM(cache_read_tokens), 0) as cache_read_tokens,
+      COALESCE(SUM(cache_write_tokens), 0) as cache_write_tokens
+    FROM token_usage
+    WHERE session_id = ?
+  `),
 };
 
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING };

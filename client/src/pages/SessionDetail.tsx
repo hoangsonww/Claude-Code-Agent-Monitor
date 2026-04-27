@@ -24,6 +24,7 @@ import {
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { AgentCard } from "../components/AgentCard";
+import { SessionOverview } from "../components/SessionOverview";
 import { ConversationView } from "../components/conversation/ConversationView";
 import { SessionStatusBadge, AgentStatusBadge } from "../components/StatusBadge";
 import { EventDetail } from "../components/EventDetail";
@@ -525,134 +526,145 @@ export function SessionDetail() {
 
       {activeTab === "agents" && (
         <div>
+          <SessionOverview session={session} agents={agents} />
+
           {agents.length === 0 ? (
             <p className="text-sm text-gray-500">{t("detail.noAgents")}</p>
           ) : (
-            <div className="space-y-2">
-              {(() => {
-                // Build parent→children map for the full tree (works at any depth)
-                const agentMap = new Map(agents.map((a) => [a.id, a]));
-                const childrenByParent = new Map<string, Agent[]>();
-                const rootAgents: Agent[] = [];
-                for (const a of agents) {
-                  if (a.parent_agent_id && agentMap.has(a.parent_agent_id)) {
-                    const list = childrenByParent.get(a.parent_agent_id) || [];
-                    list.push(a);
-                    childrenByParent.set(a.parent_agent_id, list);
-                  } else if (!a.parent_agent_id || !agentMap.has(a.parent_agent_id)) {
-                    rootAgents.push(a);
+            <>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5 text-violet-400" />
+                {t("detail.agents")}
+                <span className="text-gray-600 font-mono">· {agents.length}</span>
+              </h3>
+              <div className="space-y-2" data-testid="agent-tree">
+                {(() => {
+                  // Build parent→children map for the full tree (works at any depth)
+                  const agentMap = new Map(agents.map((a) => [a.id, a]));
+                  const childrenByParent = new Map<string, Agent[]>();
+                  const rootAgents: Agent[] = [];
+                  for (const a of agents) {
+                    if (a.parent_agent_id && agentMap.has(a.parent_agent_id)) {
+                      const list = childrenByParent.get(a.parent_agent_id) || [];
+                      list.push(a);
+                      childrenByParent.set(a.parent_agent_id, list);
+                    } else if (!a.parent_agent_id || !agentMap.has(a.parent_agent_id)) {
+                      rootAgents.push(a);
+                    }
                   }
-                }
-                // Sort roots and children by started_at ascending (chronological order)
-                rootAgents.sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
-                for (const key of childrenByParent.keys()) {
-                  childrenByParent
-                    .get(key)!
-                    .sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
-                }
+                  // Sort roots and children by started_at ascending (chronological order)
+                  rootAgents.sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
+                  for (const key of childrenByParent.keys()) {
+                    childrenByParent
+                      .get(key)!
+                      .sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
+                  }
 
-                // Count all descendants (recursive) for collapsed badge
-                function countDescendants(id: string): number {
-                  const kids = childrenByParent.get(id) || [];
-                  return kids.reduce((sum, k) => sum + 1 + countDescendants(k.id), 0);
-                }
+                  // Count all descendants (recursive) for collapsed badge
+                  function countDescendants(id: string): number {
+                    const kids = childrenByParent.get(id) || [];
+                    return kids.reduce((sum, k) => sum + 1 + countDescendants(k.id), 0);
+                  }
 
-                // Recursive agent node renderer
-                function renderAgentNode(agent: Agent, depth: number) {
-                  const children = childrenByParent.get(agent.id) || [];
-                  const isExpanded = expandedAgents.has(agent.id);
-                  const hasChildren = children.length > 0;
-                  const isSubagent = depth > 0;
-                  const totalDesc = hasChildren ? countDescendants(agent.id) : 0;
+                  // Recursive agent node renderer
+                  function renderAgentNode(agent: Agent, depth: number) {
+                    const children = childrenByParent.get(agent.id) || [];
+                    const isExpanded = expandedAgents.has(agent.id);
+                    const hasChildren = children.length > 0;
+                    const isSubagent = depth > 0;
+                    const totalDesc = hasChildren ? countDescendants(agent.id) : 0;
 
-                  return (
-                    <div key={agent.id}>
-                      <div className="flex items-center gap-1 min-w-0">
-                        {hasChildren && (
+                    return (
+                      <div key={agent.id}>
+                        <div className="flex items-center gap-1 min-w-0">
+                          {hasChildren && (
+                            <button
+                              onClick={() =>
+                                setExpandedAgents((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(agent.id)) next.delete(agent.id);
+                                  else next.add(agent.id);
+                                  return next;
+                                })
+                              }
+                              className="p-1 text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                          {isSubagent && !hasChildren && <span className="w-6 flex-shrink-0" />}
+                          {isSubagent && (
+                            <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <AgentCard
+                              agent={agent}
+                              label={compactionLabels.get(agent.id)}
+                              onClick={() => navigateToAgentConversation(agent)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Recursive children (collapsible) */}
+                        {hasChildren && isExpanded && (
+                          <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
+                            {children.map((child) => renderAgentNode(child, depth + 1))}
+                          </div>
+                        )}
+
+                        {/* Descendant count badge when collapsed */}
+                        {hasChildren && !isExpanded && (
                           <button
                             onClick={() =>
-                              setExpandedAgents((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(agent.id)) next.delete(agent.id);
-                                else next.add(agent.id);
-                                return next;
-                              })
+                              setExpandedAgents((prev) => new Set([...prev, agent.id]))
                             }
-                            className="p-1 text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                            className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
                           >
-                            {isExpanded ? (
-                              <ChevronDown className="w-4 h-4" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4" />
-                            )}
+                            {t("common:subagent_label", { count: totalDesc })}
                           </button>
                         )}
-                        {isSubagent && !hasChildren && <span className="w-6 flex-shrink-0" />}
-                        {isSubagent && (
-                          <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <AgentCard
-                            agent={agent}
-                            label={compactionLabels.get(agent.id)}
-                            onClick={() => navigateToAgentConversation(agent)}
-                          />
-                        </div>
                       </div>
+                    );
+                  }
 
-                      {/* Recursive children (collapsible) */}
-                      {hasChildren && isExpanded && (
-                        <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
-                          {children.map((child) => renderAgentNode(child, depth + 1))}
-                        </div>
-                      )}
-
-                      {/* Descendant count badge when collapsed */}
-                      {hasChildren && !isExpanded && (
-                        <button
-                          onClick={() => setExpandedAgents((prev) => new Set([...prev, agent.id]))}
-                          className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
-                        >
-                          {t("common:subagent_label", { count: totalDesc })}
-                        </button>
-                      )}
-                    </div>
+                  // Separate true orphans (subagent whose parent_agent_id references a missing agent)
+                  const orphans = rootAgents.filter(
+                    (a) =>
+                      a.type === "subagent" && a.parent_agent_id && !agentMap.has(a.parent_agent_id)
                   );
-                }
+                  const roots = rootAgents.filter(
+                    (a) =>
+                      !(
+                        a.type === "subagent" &&
+                        a.parent_agent_id &&
+                        !agentMap.has(a.parent_agent_id)
+                      )
+                  );
 
-                // Separate true orphans (subagent whose parent_agent_id references a missing agent)
-                const orphans = rootAgents.filter(
-                  (a) =>
-                    a.type === "subagent" && a.parent_agent_id && !agentMap.has(a.parent_agent_id)
-                );
-                const roots = rootAgents.filter(
-                  (a) =>
-                    !(
-                      a.type === "subagent" &&
-                      a.parent_agent_id &&
-                      !agentMap.has(a.parent_agent_id)
-                    )
-                );
+                  return (
+                    <>
+                      {roots.map((agent) => renderAgentNode(agent, 0))}
 
-                return (
-                  <>
-                    {roots.map((agent) => renderAgentNode(agent, 0))}
-
-                    {/* Orphaned subagents */}
-                    {orphans.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-[11px] text-gray-500 mb-2 uppercase tracking-wider">
-                          {t("detail.unparented")}
-                        </p>
-                        <div className="space-y-1">
-                          {orphans.map((agent) => renderAgentNode(agent, 1))}
+                      {/* Orphaned subagents */}
+                      {orphans.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-[11px] text-gray-500 mb-2 uppercase tracking-wider">
+                            {t("detail.unparented")}
+                          </p>
+                          <div className="space-y-1">
+                            {orphans.map((agent) => renderAgentNode(agent, 1))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </>
           )}
 
           {/* Cost Breakdown — shown under Agents tab */}

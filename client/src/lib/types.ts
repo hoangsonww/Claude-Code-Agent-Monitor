@@ -151,6 +151,32 @@ export interface WSMessage {
   timestamp: string;
 }
 
+// ── Session stats ──
+
+export interface SessionStats {
+  session_id: string;
+  total_events: number;
+  events_by_type: Array<{ event_type: string; count: number }>;
+  tools_used: Array<{ tool_name: string; count: number }>;
+  error_count: number;
+  first_event_at: string | null;
+  last_event_at: string | null;
+  agents: {
+    total: number;
+    main: number;
+    subagent: number;
+    compaction: number;
+    by_status: Record<string, number>;
+  };
+  subagent_types: Array<{ subagent_type: string; count: number }>;
+  tokens: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+  };
+}
+
 // ── Workflow types ──
 
 export interface WorkflowStats {
