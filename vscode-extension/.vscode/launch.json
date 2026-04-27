@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": [],
+      "presentation": {
+        "group": "1_extension",
+        "order": 1
+      }
+    },
+    {
+      "name": "Run Extension (clean profile)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions",
+        "--profile-temp"
+      ],
+      "presentation": {
+        "group": "1_extension",
+        "order": 2
+      }
+    },
+    {
+      "name": "Run Extension (open repo)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/.."],
+      "presentation": {
+        "group": "1_extension",
+        "order": 3
+      }
+    }
+  ]
+}

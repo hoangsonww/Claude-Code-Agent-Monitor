@@ -8,13 +8,22 @@
 
 const vscode = require("vscode");
 const http = require("http");
-const { DashboardStatusProvider } = require("./sidebar");
+const { DashboardWebviewProvider } = require("./sidebar");
 
 let statusBarItem;
+let outputChannel;
 
 function activate(context) {
-  const statusProvider = new DashboardStatusProvider();
-  vscode.window.registerTreeDataProvider("claude-code-monitor-view", statusProvider);
+  outputChannel = vscode.window.createOutputChannel("Claude Code Monitor");
+  outputChannel.appendLine("[activate] " + new Date().toISOString());
+  context.subscriptions.push(outputChannel);
+
+  const statusProvider = new DashboardWebviewProvider(context, outputChannel);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("claude-code-monitor-view", statusProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
+  );
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = "claude-code-agent-monitor.openDashboard";
@@ -23,7 +32,6 @@ function activate(context) {
   updateStatusBar();
   const statusInterval = setInterval(() => {
     updateStatusBar();
-    statusProvider.refresh();
   }, 5000); // Auto-refresh every 5 seconds
 
   let openDashboard = vscode.commands.registerCommand(
