@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, Bot, User, Brain, ScrollText } from "lucide-react";
 import type { TranscriptMessage, TranscriptContent } from "../../lib/types";
 import { ToolCallBlock } from "./ToolCallBlock";
+import { MarkdownContent } from "./MarkdownContent";
+import { fmt } from "../../lib/format";
 
 interface MessageListProps {
   messages: TranscriptMessage[];
@@ -49,6 +51,15 @@ function isTaskNotification(text: string): boolean {
   return text.includes("<task-notification>") || text.includes("<task-id>");
 }
 
+/** Format a timestamp as compact local time (e.g. "14:23:01"). */
+function formatLocalTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString();
+  } catch {
+    return "";
+  }
+}
+
 /** Generic collapsible content block */
 function CollapsibleBlock({
   text,
@@ -68,7 +79,7 @@ function CollapsibleBlock({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className={`rounded-lg border ${borderClass} ${bgClass}`}>
+    <div className={`rounded-lg border ${borderClass} ${bgClass} overflow-hidden`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:opacity-80 transition-colors"
@@ -123,49 +134,57 @@ export function MessageList({ messages, loading }: MessageListProps) {
   }, [messages]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {messages.map((msg, idx) => {
         // Skip user messages that are purely tool_result — they're rendered inside ToolCallBlock
         if (msg.type === "user" && !userMsgHasText.get(idx)) {
           return null;
         }
 
+        const isAssistant = msg.type === "assistant";
+        const accentBar = isAssistant ? "before:bg-violet-500/40" : "before:bg-blue-500/40";
+        const avatarRing = isAssistant
+          ? "bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200 ring-1 ring-violet-400/30"
+          : "bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-blue-200 ring-1 ring-blue-400/30";
+
         return (
-          <div key={idx} className="flex gap-3">
+          <div
+            key={idx}
+            className={`relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2/30 transition-colors before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:opacity-60 ${accentBar}`}
+          >
             {/* Avatar */}
             <div
-              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5 ${
-                msg.type === "assistant"
-                  ? "bg-violet-500/20 text-violet-400"
-                  : "bg-blue-500/20 text-blue-400"
-              }`}
+              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5 shadow-sm ${avatarRing}`}
             >
-              {msg.type === "assistant" ? (
-                <Bot className="w-4 h-4" />
-              ) : (
-                <User className="w-4 h-4" />
-              )}
+              {isAssistant ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
             </div>
 
             {/* Message body */}
             <div className="flex-1 min-w-0 space-y-2">
               {/* Header line */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-400">
-                  {msg.type === "assistant" ? "Assistant" : "User"}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`text-xs font-semibold tracking-wide ${
+                    isAssistant ? "text-violet-200" : "text-blue-200"
+                  }`}
+                >
+                  {isAssistant ? "Assistant" : "User"}
                 </span>
                 {msg.model && (
-                  <span className="text-[11px] text-gray-600 font-mono">{msg.model}</span>
+                  <span className="text-[10px] text-gray-400 font-mono bg-surface-3/60 border border-surface-3 rounded px-1.5 py-0.5">
+                    {msg.model}
+                  </span>
                 )}
                 {msg.usage && (
-                  <span className="text-[11px] text-gray-600 font-mono">
-                    {msg.usage.input_tokens.toLocaleString()}in /{" "}
-                    {msg.usage.output_tokens.toLocaleString()}out
+                  <span className="text-[10px] text-gray-500 font-mono inline-flex items-center gap-1">
+                    <span className="text-emerald-300/70">↓ {fmt(msg.usage.input_tokens)}</span>
+                    <span className="text-gray-700">·</span>
+                    <span className="text-orange-300/70">↑ {fmt(msg.usage.output_tokens)}</span>
                   </span>
                 )}
                 {msg.timestamp && (
-                  <span className="text-[11px] text-gray-600 ml-auto">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  <span className="text-[10px] text-gray-600 ml-auto font-mono">
+                    {formatLocalTime(msg.timestamp)}
                   </span>
                 )}
               </div>
@@ -211,19 +230,17 @@ export function MessageList({ messages, loading }: MessageListProps) {
                     return (
                       <div
                         key={bIdx}
-                        className="text-sm text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 rounded px-3 py-1.5 whitespace-pre-wrap break-words"
+                        className="inline-flex items-center gap-2 text-sm text-emerald-300 font-mono bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-1.5 max-w-full"
                       >
-                        {display}
+                        <span className="text-emerald-500/70">›</span>
+                        <span className="break-all">{display}</span>
                       </div>
                     );
                   }
 
                   return (
-                    <div
-                      key={bIdx}
-                      className="text-sm text-gray-300 whitespace-pre-wrap break-words leading-relaxed"
-                    >
-                      {block.text}
+                    <div key={bIdx} className="min-w-0">
+                      <MarkdownContent text={block.text} />
                     </div>
                   );
                 }
@@ -234,7 +251,7 @@ export function MessageList({ messages, loading }: MessageListProps) {
                   return (
                     <div
                       key={bIdx}
-                      className="rounded-lg border border-amber-500/20 bg-amber-500/5"
+                      className="rounded-lg border border-amber-500/20 bg-amber-500/5 overflow-hidden"
                     >
                       <button
                         onClick={() =>
@@ -247,19 +264,22 @@ export function MessageList({ messages, loading }: MessageListProps) {
                         }
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-amber-500/10 transition-colors"
                       >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-amber-500/60" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-amber-500/60" />
+                        <ChevronRight
+                          className={`w-3.5 h-3.5 text-amber-500/60 transition-transform duration-150 ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                        <Brain className="w-3.5 h-3.5 text-amber-400/80" />
+                        <span className="text-xs text-amber-200/90 font-medium">Thinking</span>
+                        {!isExpanded && (
+                          <span className="text-[10px] text-amber-300/40 font-mono ml-auto">
+                            {block.text.length.toLocaleString()} chars
+                          </span>
                         )}
-                        <Brain className="w-3.5 h-3.5 text-amber-400/60" />
-                        <span className="text-xs text-amber-400/80">Thinking</span>
                       </button>
                       {isExpanded && (
-                        <div className="border-t border-amber-500/10 px-3 py-2">
-                          <pre className="text-xs text-amber-200/70 whitespace-pre-wrap break-words leading-relaxed">
-                            {block.text}
-                          </pre>
+                        <div className="border-t border-amber-500/10 px-3 py-2 text-amber-100/80">
+                          <MarkdownContent text={block.text} dense />
                         </div>
                       )}
                     </div>

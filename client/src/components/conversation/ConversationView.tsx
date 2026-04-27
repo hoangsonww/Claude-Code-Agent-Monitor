@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronDown, Loader2, ArrowDown } from "lucide-react";
+import { ChevronDown, Loader2, ArrowDown, MessagesSquare } from "lucide-react";
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
 import { MessageList } from "./MessageList";
@@ -213,32 +213,29 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
 
   return (
     <div className="relative flex flex-col" style={{ minHeight: 0 }}>
-      {/* Transcript selector */}
-      {transcripts.length > 1 && (
+      {/* Toolbar */}
+      {(transcripts.length > 1 || (!loading && total > 0)) && (
         <div className="flex items-center gap-3 mb-3 flex-shrink-0">
-          <div className="relative">
-            <select
-              value={selectedTranscript || ""}
-              onChange={(e) => setSelectedTranscript(e.target.value || null)}
-              className="appearance-none bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-300 focus:outline-none focus:border-violet-500/50 cursor-pointer"
-            >
-              {transcripts.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-          <span className="text-xs text-gray-600">
+          {transcripts.length > 1 && (
+            <div className="relative">
+              <select
+                value={selectedTranscript || ""}
+                onChange={(e) => setSelectedTranscript(e.target.value || null)}
+                className="appearance-none bg-surface-2 border border-surface-3 rounded-lg px-3 py-1.5 pr-8 text-sm text-gray-300 focus:outline-none focus:border-violet-500/50 hover:border-violet-500/30 cursor-pointer transition-colors"
+              >
+                {transcripts.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          )}
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 font-mono bg-surface-2 border border-surface-3 rounded-md px-2 py-1">
+            <MessagesSquare className="w-3 h-3" />
             {total} message{total !== 1 ? "s" : ""}
           </span>
-        </div>
-      )}
-
-      {transcripts.length <= 1 && !loading && (
-        <div className="text-xs text-gray-600 mb-2 flex-shrink-0">
-          {total} message{total !== 1 ? "s" : ""}
         </div>
       )}
 
