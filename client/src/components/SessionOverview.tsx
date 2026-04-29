@@ -99,7 +99,7 @@ function ToolUsageRow({ toolName, count, max }: { toolName: string; count: numbe
       </div>
       <div className="flex-1 h-1.5 rounded-full bg-surface-3/60 overflow-hidden">
         <div
-          className={`h-full rounded-full ${style.chip} transition-all duration-500`}
+          className={`h-full rounded-full ${style.bar} transition-all duration-500`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -327,48 +327,83 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
           )}
         </div>
 
-        {/* Subagent breakdown */}
+        {/* Subagent breakdown.
+         *
+         * The /api/sessions/:id/stats endpoint deliberately strips compaction
+         * agents from `subagent_types` so the workflow analytics don't lump
+         * them in. But on this overview a session with only compactions still
+         * has *something* to show — surfacing zero subagents while the agents
+         * tab below clearly lists "Context Compaction" cards is confusing.
+         *
+         * We synthesize a compaction row from `stats.agents.compaction` and
+         * render it alongside any real subagent types, distinguished by an
+         * amber bar (matching the compaction iconography elsewhere in the
+         * app) instead of cyan. */}
         <div className="rounded-lg border border-surface-3 bg-surface-2/60 p-3.5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
-              <GitBranch className="w-3.5 h-3.5 text-cyan-400" />
-              Subagents
-            </h3>
-            <span className="text-[10px] text-gray-500 font-mono">
-              {stats.subagent_types.reduce((s, r) => s + r.count, 0)} runs
-            </span>
-          </div>
-          {stats.subagent_types.length === 0 ? (
-            <div className="text-center py-6 text-xs text-gray-500">
-              No subagents in this session.
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {stats.subagent_types.slice(0, 8).map((s) => {
-                const max = stats.subagent_types[0]!.count;
-                const pct = max > 0 ? Math.max(4, Math.round((s.count / max) * 100)) : 0;
-                return (
-                  <div key={s.subagent_type} className="flex items-center gap-2">
-                    <span
-                      className="font-mono text-xs text-gray-300 truncate flex-1 min-w-0"
-                      title={s.subagent_type}
-                    >
-                      {s.subagent_type}
-                    </span>
-                    <div className="w-16 h-1.5 rounded-full bg-surface-3/60 overflow-hidden flex-shrink-0">
-                      <div
-                        className="h-full rounded-full bg-cyan-500/40"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="font-mono text-xs text-gray-400 w-8 text-right flex-shrink-0">
-                      {s.count}
-                    </span>
+          {(() => {
+            type SubRow = { key: string; label: string; count: number; isCompaction: boolean };
+            const rows: SubRow[] = stats.subagent_types.map((s) => ({
+              key: s.subagent_type,
+              label: s.subagent_type,
+              count: s.count,
+              isCompaction: false,
+            }));
+            if (stats.agents.compaction > 0) {
+              rows.push({
+                key: "__compaction__",
+                label: "Context Compaction",
+                count: stats.agents.compaction,
+                isCompaction: true,
+              });
+            }
+            const totalRuns = rows.reduce((s, r) => s + r.count, 0);
+            const max = rows.reduce((m, r) => Math.max(m, r.count), 0);
+
+            return (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-cyan-400" />
+                    Subagents
+                  </h3>
+                  <span className="text-[10px] text-gray-500 font-mono">{totalRuns} runs</span>
+                </div>
+                {rows.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-gray-500">
+                    No subagents in this session.
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ) : (
+                  <div className="space-y-1.5">
+                    {rows.slice(0, 8).map((r) => {
+                      const pct = max > 0 ? Math.max(4, Math.round((r.count / max) * 100)) : 0;
+                      const barClass = r.isCompaction ? "bg-amber-500/60" : "bg-cyan-500/60";
+                      return (
+                        <div key={r.key} className="flex items-center gap-2">
+                          <span
+                            className={`font-mono text-xs truncate flex-1 min-w-0 ${
+                              r.isCompaction ? "text-amber-300" : "text-gray-300"
+                            }`}
+                            title={r.label}
+                          >
+                            {r.label}
+                          </span>
+                          <div className="w-16 h-1.5 rounded-full bg-surface-3/60 overflow-hidden flex-shrink-0">
+                            <div
+                              className={`h-full rounded-full ${barClass}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className="font-mono text-xs text-gray-400 w-8 text-right flex-shrink-0">
+                            {r.count}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
