@@ -243,21 +243,23 @@ export function Dashboard() {
                   const isSubagent = depth > 0;
                   const totalDesc = hasChildren ? countDescendants(agent.id) : 0;
                   const activeDesc = hasChildren ? countActiveDescendants(agent.id) : 0;
+                  const toggleExpanded = () =>
+                    setExpandedAgents((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(agent.id)) next.delete(agent.id);
+                      else next.add(agent.id);
+                      return next;
+                    });
 
                   return (
                     <div key={agent.id}>
                       <div className="flex items-center gap-1 min-w-0">
                         {hasChildren && (
                           <button
-                            onClick={() =>
-                              setExpandedAgents((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(agent.id)) next.delete(agent.id);
-                                else next.add(agent.id);
-                                return next;
-                              })
-                            }
+                            onClick={toggleExpanded}
                             className="p-1 text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+                            aria-label={isExpanded ? "Collapse subagents" : "Expand subagents"}
+                            aria-expanded={isExpanded}
                           >
                             {isExpanded ? (
                               <ChevronDown className="w-4 h-4" />
@@ -271,7 +273,10 @@ export function Dashboard() {
                           <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <AgentCard agent={agent} />
+                          <AgentCard
+                            agent={agent}
+                            onClick={hasChildren ? toggleExpanded : undefined}
+                          />
                         </div>
                       </div>
 

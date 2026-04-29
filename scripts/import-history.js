@@ -480,6 +480,65 @@ function importApiErrors(dbModule, sessionId, mainAgentId, apiErrors) {
 }
 
 /**
+ * Combine the parent session's tokensByModel with every parsed subagent's
+ * tokensByModel. Subagents run in their own JSONL files with their own
+ * `msg.usage` records, so their token consumption must be added to the parent
+ * session's totals — otherwise cost calculations under-count any session that
+ * spawned subagents (which is most non-trivial sessions).
+ *
+ * Returns a fresh object; inputs are not mutated.
+ */
+function combineSessionTokens(session) {
+  const combined = {};
+  const merge = (src) => {
+    if (!src) return;
+    for (const [model, tok] of Object.entries(src)) {
+      if (!combined[model]) {
+        combined[model] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+      }
+      combined[model].input += tok.input || 0;
+      combined[model].output += tok.output || 0;
+      combined[model].cacheRead += tok.cacheRead || 0;
+      combined[model].cacheWrite += tok.cacheWrite || 0;
+    }
+  };
+  merge(session.tokensByModel);
+  if (Array.isArray(session.parsedSubagents)) {
+    for (const sub of session.parsedSubagents) merge(sub.tokensByModel);
+  }
+  return combined;
+}
+
+/**
+ * Write a session's per-model token totals via replaceTokenUsage. Safe to call
+ * repeatedly: the underlying SQL preserves the highest-seen value via the
+ * baseline_* columns, so a re-run never reduces totals.
+ */
+function writeSessionTokens(dbModule, sessionId, tokensByModel) {
+  const { stmts } = dbModule;
+  let written = 0;
+  for (const [tokenModel, tokens] of Object.entries(tokensByModel || {})) {
+    if (
+      (tokens.input || 0) > 0 ||
+      (tokens.output || 0) > 0 ||
+      (tokens.cacheRead || 0) > 0 ||
+      (tokens.cacheWrite || 0) > 0
+    ) {
+      stmts.replaceTokenUsage.run(
+        sessionId,
+        tokenModel,
+        tokens.input || 0,
+        tokens.output || 0,
+        tokens.cacheRead || 0,
+        tokens.cacheWrite || 0
+      );
+      written++;
+    }
+  }
+  return written;
+}
+
+/**
  * Import a parsed subagent from its own JSONL file into the agents table.
  * Deduplicated by deterministic ID. Returns 1 if created, 0 if already exists.
  */
@@ -518,15 +577,9 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
     subId
   );
 
-  // Import subagent-specific token usage (additive to session totals)
-  for (const [tokenModel, tokens] of Object.entries(subData.tokensByModel)) {
-    if (tokens.input > 0 || tokens.output > 0 || tokens.cacheRead > 0 || tokens.cacheWrite > 0) {
-      // Use a subagent-specific key to avoid overwriting parent session tokens
-      const subKey = `${sessionId}:sub:${subData.agentId}`;
-      // We can't use replaceTokenUsage with a modified key since it uses session_id as PK.
-      // Instead, just record tool events — token usage is already captured in parent session totals.
-    }
-  }
+  // Subagent token totals are merged into the parent session's token_usage row
+  // by combineSessionTokens() / writeSessionTokens() at the importSession level
+  // (subagents have their own JSONL files with separate msg.usage records).
 
   // Create tool events for the subagent
   const insertEvent = db.prepare(
@@ -705,6 +758,28 @@ function importSession(dbModule, session) {
         : 0;
       stmts.updateSession.run(null, null, null, JSON.stringify(meta), session.sessionId);
       backfilled = true;
+    }
+
+    // Reconcile token usage. The earlier importer dropped subagent tokens
+    // entirely, so any session with subagent JSONLs has under-counted totals.
+    // replaceTokenUsage's baseline-shift logic guarantees this can never
+    // reduce a session's totals — at worst it's a no-op.
+    if (
+      session.parsedSubagents &&
+      session.parsedSubagents.some(
+        (s) =>
+          s.tokensByModel &&
+          Object.values(s.tokensByModel).some(
+            (t) => (t.input || 0) + (t.output || 0) + (t.cacheRead || 0) + (t.cacheWrite || 0) > 0
+          )
+      )
+    ) {
+      const written = writeSessionTokens(
+        dbModule,
+        session.sessionId,
+        combineSessionTokens(session)
+      );
+      if (written > 0) backfilled = true;
     }
 
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
@@ -894,18 +969,7 @@ function importSession(dbModule, session) {
     }
   }
 
-  for (const [tokenModel, tokens] of Object.entries(session.tokensByModel)) {
-    if (tokens.input > 0 || tokens.output > 0 || tokens.cacheRead > 0 || tokens.cacheWrite > 0) {
-      stmts.replaceTokenUsage.run(
-        session.sessionId,
-        tokenModel,
-        tokens.input,
-        tokens.output,
-        tokens.cacheRead,
-        tokens.cacheWrite
-      );
-    }
-  }
+  writeSessionTokens(dbModule, session.sessionId, combineSessionTokens(session));
 
   return { skipped: false };
 }
@@ -1029,9 +1093,118 @@ async function importAllSessions(dbModule) {
   return { imported, skipped, errors };
 }
 
+/**
+ * Re-walk every JSONL file under ~/.claude/projects/ for sessions that already
+ * exist in the DB, sum parent + subagent tokens, and refresh token_usage via
+ * replaceTokenUsage. Safe to run repeatedly: never reduces totals because of
+ * replaceTokenUsage's baseline-shift behavior.
+ *
+ * Returns { reconciled, sessionsTouched, modelsWritten, missingFiles }.
+ */
+async function reconcileTokens(dbModule, options = {}) {
+  const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+  const counters = { reconciled: 0, sessionsTouched: 0, modelsWritten: 0, missingFiles: 0 };
+  if (!fs.existsSync(PROJECTS_DIR)) return counters;
+
+  const projectDirs = fs
+    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
+
+  // Build a map of session_id -> JSONL path so we only parse files for sessions
+  // already present in the DB.
+  const sessionPaths = new Map();
+  for (const projDir of projectDirs) {
+    const projPath = path.join(PROJECTS_DIR, projDir);
+    let files;
+    try {
+      files = fs.readdirSync(projPath).filter((f) => f.endsWith(".jsonl"));
+    } catch {
+      continue;
+    }
+    for (const f of files) {
+      const sid = path.basename(f, ".jsonl");
+      sessionPaths.set(sid, path.join(projPath, f));
+    }
+  }
+
+  const known = dbModule.db
+    .prepare("SELECT id FROM sessions WHERE metadata LIKE '%\"imported\":true%'")
+    .all();
+
+  const total = known.length;
+  let processed = 0;
+
+  const tx = dbModule.db.transaction((batch) => {
+    for (const { sessionId, tokens } of batch) {
+      const written = writeSessionTokens(dbModule, sessionId, tokens);
+      if (written > 0) {
+        counters.sessionsTouched++;
+        counters.modelsWritten += written;
+      }
+      counters.reconciled++;
+    }
+  });
+
+  let batch = [];
+  const FLUSH = 50;
+
+  for (const { id: sessionId } of known) {
+    processed++;
+    const jsonlPath = sessionPaths.get(sessionId);
+    if (!jsonlPath) {
+      counters.missingFiles++;
+      if (processed % 25 === 0) onProgress({ processed, total, counters });
+      continue;
+    }
+
+    try {
+      const session = await parseSessionFile(jsonlPath);
+      if (!session) {
+        if (processed % 25 === 0) onProgress({ processed, total, counters });
+        continue;
+      }
+
+      // Attach subagents discovered next to this session.
+      const subPaths = findSessionSubagents(jsonlPath);
+      if (subPaths.length > 0) {
+        session.parsedSubagents = [];
+        for (const sp of subPaths) {
+          try {
+            const subData = await parseSubagentFile(sp);
+            if (subData) session.parsedSubagents.push(subData);
+          } catch {
+            /* non-fatal */
+          }
+        }
+      }
+
+      const tokens = combineSessionTokens(session);
+      if (Object.keys(tokens).length > 0) {
+        batch.push({ sessionId, tokens });
+        if (batch.length >= FLUSH) {
+          tx(batch);
+          batch = [];
+        }
+      } else {
+        counters.reconciled++;
+      }
+    } catch {
+      /* non-fatal — keep going */
+    }
+
+    if (processed % 25 === 0) onProgress({ processed, total, counters });
+  }
+  if (batch.length > 0) tx(batch);
+
+  onProgress({ processed, total, counters });
+  return counters;
+}
+
 // CLI entrypoint
 if (require.main === module) {
   const dryRun = process.argv.includes("--dry-run");
+  const reconcile = process.argv.includes("--reconcile-tokens");
   const projectIdx = process.argv.indexOf("--project");
   const projectFilter = projectIdx !== -1 ? process.argv[projectIdx + 1] : null;
 
@@ -1039,11 +1212,67 @@ if (require.main === module) {
     console.log("Claude Code Session Importer");
     console.log("============================");
     if (dryRun) console.log("DRY RUN - no data will be written\n");
+    if (reconcile)
+      console.log("RECONCILE — refreshing token totals for already-imported sessions\n");
     if (projectFilter) console.log(`Filtering to project: ${projectFilter}\n`);
 
     if (!fs.existsSync(PROJECTS_DIR)) {
       console.error(`Projects directory not found: ${PROJECTS_DIR}`);
       process.exit(1);
+    }
+
+    if (reconcile) {
+      const dbModule = require("../server/db");
+      const before = dbModule.db
+        .prepare(
+          `SELECT
+             COALESCE(SUM(input_tokens + baseline_input), 0) AS i,
+             COALESCE(SUM(output_tokens + baseline_output), 0) AS o,
+             COALESCE(SUM(cache_read_tokens + baseline_cache_read), 0) AS cr,
+             COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) AS cw
+           FROM token_usage`
+        )
+        .get();
+      const result = await reconcileTokens(dbModule, {
+        onProgress: ({ processed, total, counters }) => {
+          process.stdout.write(
+            `  reconciling ${processed}/${total} (touched: ${counters.sessionsTouched}, models: ${counters.modelsWritten})\r`
+          );
+        },
+      });
+      const after = dbModule.db
+        .prepare(
+          `SELECT
+             COALESCE(SUM(input_tokens + baseline_input), 0) AS i,
+             COALESCE(SUM(output_tokens + baseline_output), 0) AS o,
+             COALESCE(SUM(cache_read_tokens + baseline_cache_read), 0) AS cr,
+             COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) AS cw
+           FROM token_usage`
+        )
+        .get();
+      console.log(`\nReconciled ${result.reconciled} sessions.`);
+      console.log(`Sessions whose tokens changed: ${result.sessionsTouched}`);
+      console.log(`Token rows written: ${result.modelsWritten}`);
+      if (result.missingFiles > 0) {
+        console.log(`Sessions with no JSONL on disk (skipped): ${result.missingFiles}`);
+      }
+      const fmt = (n) => Number(n).toLocaleString();
+      console.log("");
+      console.log("Token totals (before → after):");
+      console.log(
+        `  input:       ${fmt(before.i)}  →  ${fmt(after.i)}  (Δ ${fmt(after.i - before.i)})`
+      );
+      console.log(
+        `  output:      ${fmt(before.o)}  →  ${fmt(after.o)}  (Δ ${fmt(after.o - before.o)})`
+      );
+      console.log(
+        `  cache_read:  ${fmt(before.cr)}  →  ${fmt(after.cr)}  (Δ ${fmt(after.cr - before.cr)})`
+      );
+      console.log(
+        `  cache_write: ${fmt(before.cw)}  →  ${fmt(after.cw)}  (Δ ${fmt(after.cw - before.cw)})`
+      );
+      console.log("\nDone.");
+      return;
     }
 
     if (dryRun) {
@@ -1369,4 +1598,7 @@ module.exports = {
   classifyJsonl,
   findSessionSubagents,
   importSession,
+  combineSessionTokens,
+  writeSessionTokens,
+  reconcileTokens,
 };

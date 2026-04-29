@@ -32,7 +32,7 @@ export function AgentCard({ agent, label, onClick }: AgentCardProps) {
   return (
     <div
       onClick={handleClick}
-      className={`card-hover p-4 cursor-pointer animate-fade-in overflow-hidden ${
+      className={`card-hover p-4 cursor-pointer overflow-hidden ${
         isActive ? "border-l-2 border-l-emerald-500/50" : ""
       }`}
     >
