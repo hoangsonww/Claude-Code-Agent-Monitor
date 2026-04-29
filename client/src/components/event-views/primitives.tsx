@@ -5,6 +5,7 @@
  * typed contract so they can be composed freely (Terminal + TerminalOutput for
  * Bash; Terminal + UnifiedDiff for Edit; LineNumberedCode for Read/Write;
  * FileList/MatchList for Grep/Glob; KeyValueCard for MCP tools).
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useState } from "react";

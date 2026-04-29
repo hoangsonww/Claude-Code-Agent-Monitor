@@ -270,10 +270,28 @@ export function SessionDetail() {
   const agentInfoById = useMemo(() => {
     const map = new Map<string, AgentInfo>();
     for (const a of agents) {
-      map.set(a.id, { type: a.type, subagent_type: a.subagent_type, name: a.name });
+      map.set(a.id, {
+        type: a.type,
+        subagent_type: a.subagent_type,
+        name: a.name,
+        parent_agent_id: a.parent_agent_id,
+      });
     }
     return map;
   }, [agents]);
+
+  // Single-entry session-name lookup so EventDetail can surface the session
+  // label above the raw id, mirroring the agentInfoById pattern. Falls back
+  // to "Session abcdefgh" when session.name is null/empty so the row always
+  // shows *something* identifiable — matches the header's display logic.
+  const sessionNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    if (session?.id) {
+      const label = session.name?.trim() || `Session ${session.id.slice(0, 8)}`;
+      map.set(session.id, label);
+    }
+    return map;
+  }, [session?.id, session?.name]);
 
   // Precompute project per event so flat-row rendering doesn't re-parse JSON.
   const projectByEventId = useMemo(() => {
@@ -805,7 +823,12 @@ export function SessionDetail() {
               <div className="divide-y divide-border max-h-[600px] overflow-y-auto overflow-x-auto">
                 {grouped
                   ? eventGroups.map((group) => (
-                      <EventGroupRow key={group.key} group={group} agentInfoById={agentInfoById} />
+                      <EventGroupRow
+                        key={group.key}
+                        group={group}
+                        agentInfoById={agentInfoById}
+                        sessionNameById={sessionNameById}
+                      />
                     ))
                   : events.map((event, i) => {
                       const key = event.id ?? i;
@@ -834,9 +857,6 @@ export function SessionDetail() {
                             </div>
                             <AgentStatusBadge status={statusFromEventType(event.event_type)} />
                             {(() => {
-                              const info = event.agent_id
-                                ? agentInfoById.get(event.agent_id)
-                                : undefined;
                               // Session is implicit on this page — project is
                               // still shown so the row identifies the working
                               // directory when you share / search.
@@ -844,7 +864,7 @@ export function SessionDetail() {
                               const origin = buildOriginLabel(
                                 project,
                                 null,
-                                agentOriginLabel(event.agent_id, info)
+                                agentOriginLabel(event.agent_id, agentInfoById)
                               );
                               return (
                                 <span className="text-sm text-gray-300 flex-1 truncate">
@@ -866,7 +886,13 @@ export function SessionDetail() {
                               </span>
                             )}
                           </button>
-                          {isOpen && <EventDetail event={event} />}
+                          {isOpen && (
+                            <EventDetail
+                              event={event}
+                              agentInfoById={agentInfoById}
+                              sessionNameById={sessionNameById}
+                            />
+                          )}
                         </div>
                       );
                     })}

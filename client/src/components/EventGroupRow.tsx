@@ -5,6 +5,7 @@
  * events — e.g. 🟢 → 🔵 for a Pre/Post pair — plus tool name, summary, and
  * the wall-clock duration between first and last event. Clicking the chevron
  * expands the group inline to reveal each underlying event row.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useState } from "react";
@@ -117,12 +118,11 @@ export function EventGroupRow({
             const sid = first?.session_id;
             const sname = sid ? sessionNameById?.get(sid) : undefined;
             const agentId = first?.agent_id ?? null;
-            const info = agentId ? agentInfoById?.get(agentId) : undefined;
             const project = first ? projectFromEvent(first) : null;
             const origin = buildOriginLabel(
               project,
               sname ?? null,
-              agentOriginLabel(agentId, info)
+              agentOriginLabel(agentId, agentInfoById)
             );
             return (
               <div className="flex-1 min-w-0">
@@ -166,7 +166,13 @@ export function EventGroupRow({
         )}
       </div>
 
-      {expanded && isSingleEvent && group.events[0] && <EventDetail event={group.events[0]} />}
+      {expanded && isSingleEvent && group.events[0] && (
+        <EventDetail
+          event={group.events[0]}
+          agentInfoById={agentInfoById}
+          sessionNameById={sessionNameById}
+        />
+      )}
 
       {expanded && !isSingleEvent && (
         <div className="bg-surface-2/40 border-t border-border divide-y divide-border">
@@ -201,7 +207,13 @@ export function EventGroupRow({
                     {buildEventTitle(event)}
                   </span>
                 </button>
-                {innerOpen && <EventDetail event={event} />}
+                {innerOpen && (
+                  <EventDetail
+                    event={event}
+                    agentInfoById={agentInfoById}
+                    sessionNameById={sessionNameById}
+                  />
+                )}
               </div>
             );
           })}

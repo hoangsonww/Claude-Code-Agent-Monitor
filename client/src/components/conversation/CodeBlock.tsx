@@ -3,6 +3,7 @@
  * @description Reusable, syntax-highlighted code block with a chrome bar (language pill,
  * optional filename, copy-to-clipboard, line count) and optional gutter line numbers.
  * Used by MarkdownContent for fenced code blocks and by ToolCallBlock for tool I/O.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useMemo, useState } from "react";

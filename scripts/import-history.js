@@ -247,6 +247,11 @@ async function parseSubagentFile(filePath) {
   const tokensByModel = {};
   const toolNames = new Set();
   let thinkingBlockCount = 0;
+  // Subagent tool calls aren't broadcast via hooks — they live only in this JSONL.
+  // Walk the file pairing assistant tool_use blocks with the next matching tool_result
+  // so the importer can emit Pre/PostToolUse events under the subagent's own agent_id.
+  const toolCalls = []; // {id, name, input, timestamp}
+  const toolResults = new Map(); // tool_use_id → {content, is_error, timestamp}
 
   for await (const line of rl) {
     if (!line.trim()) continue;
@@ -258,21 +263,33 @@ async function parseSubagentFile(filePath) {
     }
 
     const ts = entry.timestamp;
+    let isoTs = null;
     if (ts) {
-      const isoTs = typeof ts === "number" ? new Date(ts).toISOString() : ts;
+      isoTs = typeof ts === "number" ? new Date(ts).toISOString() : ts;
       if (!firstTimestamp || isoTs < firstTimestamp) firstTimestamp = isoTs;
       if (!lastTimestamp || isoTs > lastTimestamp) lastTimestamp = isoTs;
     }
 
     if (entry.type === "user") {
       userMessageCount++;
+      const msgContent = entry.message?.content;
       if (!task) {
-        const msgContent = entry.message?.content;
         if (typeof msgContent === "string") {
           task = msgContent.slice(0, 500);
         } else if (Array.isArray(msgContent)) {
           const textBlock = msgContent.find((b) => b && b.type === "text");
           if (textBlock) task = (textBlock.text || "").slice(0, 500);
+        }
+      }
+      if (Array.isArray(msgContent)) {
+        for (const block of msgContent) {
+          if (block && block.type === "tool_result" && block.tool_use_id) {
+            toolResults.set(block.tool_use_id, {
+              content: block.content,
+              is_error: !!block.is_error,
+              timestamp: isoTs,
+            });
+          }
         }
       }
     }
@@ -294,7 +311,17 @@ async function parseSubagentFile(filePath) {
       const content = msg.content || [];
       if (Array.isArray(content)) {
         for (const block of content) {
-          if (block.type === "tool_use" && block.name) toolNames.add(block.name);
+          if (block.type === "tool_use" && block.name) {
+            toolNames.add(block.name);
+            if (block.id) {
+              toolCalls.push({
+                id: block.id,
+                name: block.name,
+                input: block.input || null,
+                timestamp: isoTs,
+              });
+            }
+          }
           if (block.type === "thinking") thinkingBlockCount++;
         }
       }
@@ -305,6 +332,20 @@ async function parseSubagentFile(filePath) {
       // Some subagent files don't have meta.json; this is fallback
     }
   }
+
+  // Pair each tool_use with its tool_result (if any) into ordered tool events.
+  const toolEvents = toolCalls.map((call) => {
+    const result = toolResults.get(call.id) || null;
+    return {
+      tool_use_id: call.id,
+      tool_name: call.name,
+      tool_input: call.input,
+      pre_timestamp: call.timestamp,
+      tool_response: result ? result.content : null,
+      is_error: result ? result.is_error : false,
+      post_timestamp: result ? result.timestamp : null,
+    };
+  });
 
   if (!firstTimestamp) return null;
 
@@ -331,6 +372,7 @@ async function parseSubagentFile(filePath) {
     tokensByModel,
     toolNames: [...toolNames],
     thinkingBlockCount,
+    toolEvents,
   };
 }
 
@@ -480,6 +522,65 @@ function importApiErrors(dbModule, sessionId, mainAgentId, apiErrors) {
 }
 
 /**
+ * Truncate a JSON-serializable value so individual events stay reasonably sized.
+ * Subagent tool_response payloads (file contents, command stdout) can run into
+ * hundreds of KB — store a capped version with a `_truncated` marker.
+ */
+const SUBAGENT_EVENT_VALUE_CAP = 50_000; // chars in serialized form
+function truncateForEvent(value) {
+  if (value == null) return value;
+  let serialized;
+  try {
+    serialized = typeof value === "string" ? value : JSON.stringify(value);
+  } catch {
+    return null;
+  }
+  if (serialized.length <= SUBAGENT_EVENT_VALUE_CAP) return value;
+  if (typeof value === "string") {
+    return value.slice(0, SUBAGENT_EVENT_VALUE_CAP) + "\n…[truncated]";
+  }
+  return {
+    _truncated: true,
+    _original_length: serialized.length,
+    preview: serialized.slice(0, SUBAGENT_EVENT_VALUE_CAP),
+  };
+}
+
+/**
+ * Find an existing live subagent (created via PreToolUse "Agent" hook) that
+ * matches a JSONL transcript. Used to merge JSONL-extracted tool events into
+ * the live subagent row instead of creating a duplicate row.
+ *
+ * Match heuristic: same session, same agentType, started within START_TOLERANCE_MS
+ * of the JSONL's first timestamp, not already a JSONL-keyed row.
+ */
+const SUBAGENT_LIVE_MATCH_TOLERANCE_MS = 30_000;
+function findLiveSubagentForJsonl(dbModule, sessionId, subData) {
+  if (!subData.agentType || !subData.startedAt) return null;
+  return dbModule.db
+    .prepare(
+      `SELECT id FROM agents
+       WHERE session_id = ?
+         AND type = 'subagent'
+         AND subagent_type = ?
+         AND id NOT LIKE ?
+         AND ABS(CAST(strftime('%s', started_at) AS INTEGER) -
+                 CAST(strftime('%s', ?) AS INTEGER)) <= ?
+       ORDER BY ABS(CAST(strftime('%s', started_at) AS INTEGER) -
+                    CAST(strftime('%s', ?) AS INTEGER)) ASC
+       LIMIT 1`
+    )
+    .get(
+      sessionId,
+      subData.agentType,
+      `${sessionId}-jsonl-%`,
+      subData.startedAt,
+      SUBAGENT_LIVE_MATCH_TOLERANCE_MS / 1000,
+      subData.startedAt
+    );
+}
+
+/**
  * Combine the parent session's tokensByModel with every parsed subagent's
  * tokensByModel. Subagents run in their own JSONL files with their own
  * `msg.usage` records, so their token consumption must be added to the parent
@@ -539,65 +640,152 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel) {
 }
 
 /**
- * Import a parsed subagent from its own JSONL file into the agents table.
- * Deduplicated by deterministic ID. Returns 1 if created, 0 if already exists.
+ * Import a parsed subagent from its own JSONL file into the agents + events tables.
+ * Idempotent: re-running on an already-imported subagent backfills any tool events
+ * that are missing without duplicating the agent row.
+ *
+ * If a live subagent (created via PreToolUse "Agent" hook) matches this JSONL,
+ * tool events are emitted under the live subagent's id and no JSONL-keyed row
+ * is created. Otherwise, a JSONL-keyed row is created (for backfill of historical
+ * sessions that never went through hooks).
+ *
+ * Returns the count of newly created records (agent + events).
  */
 function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   if (!subData) return 0;
   const { db, stmts } = dbModule;
 
-  const subId = `${sessionId}-jsonl-${subData.agentId}`;
-  if (stmts.getAgent.get(subId)) return 0;
+  const jsonlSubId = `${sessionId}-jsonl-${subData.agentId}`;
+  const liveSub = findLiveSubagentForJsonl(dbModule, sessionId, subData);
+  const targetAgentId = liveSub ? liveSub.id : jsonlSubId;
+  const existingJsonl = stmts.getAgent.get(jsonlSubId);
 
   const subName = subData.agentType ? subData.agentType : `Subagent ${subData.agentId.slice(0, 8)}`;
+  let created = 0;
 
-  stmts.insertAgent.run(
-    subId,
-    sessionId,
-    subName,
-    "subagent",
-    subData.agentType || null,
-    "completed",
-    subData.task,
-    mainAgentId,
-    JSON.stringify({
-      imported: true,
-      source: "jsonl",
-      model: subData.model,
-      tools: subData.toolNames,
-      user_messages: subData.userMessages,
-      assistant_messages: subData.assistantMessages,
-      thinking_blocks: subData.thinkingBlockCount,
-    })
-  );
-  db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
-    subData.startedAt,
-    subData.endedAt,
-    subData.endedAt,
-    subId
-  );
+  // Only create a JSONL-keyed row when there's no live subagent to merge into.
+  // Live subagents (created via the PreToolUse "Agent" hook) are detected by
+  // findLiveSubagentForJsonl above; in that case tool events are emitted under
+  // the live row's id and no parallel JSONL-keyed row is needed.
+  if (!liveSub && !existingJsonl) {
+    stmts.insertAgent.run(
+      jsonlSubId,
+      sessionId,
+      subName,
+      "subagent",
+      subData.agentType || null,
+      "completed",
+      subData.task,
+      mainAgentId,
+      JSON.stringify({
+        imported: true,
+        source: "jsonl",
+        model: subData.model,
+        tools: subData.toolNames,
+        user_messages: subData.userMessages,
+        assistant_messages: subData.assistantMessages,
+        thinking_blocks: subData.thinkingBlockCount,
+      })
+    );
+    db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
+      subData.startedAt,
+      subData.endedAt,
+      subData.endedAt,
+      jsonlSubId
+    );
+    created++;
+  }
 
   // Subagent token totals are merged into the parent session's token_usage row
   // by combineSessionTokens() / writeSessionTokens() at the importSession level
   // (subagents have their own JSONL files with separate msg.usage records).
 
-  // Create tool events for the subagent
   const insertEvent = db.prepare(
     "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
 
-  // Add a spawn event
-  insertEvent.run(
-    sessionId,
-    mainAgentId,
-    "PreToolUse",
-    "Agent",
-    `Subagent spawned: ${subName} (from JSONL)`,
-    JSON.stringify({ imported: true, subagent_type: subData.agentType, source: "subagent_jsonl" }),
-    subData.startedAt
-  );
+  // Spawn marker under the parent (main) agent — only emit once per subagent,
+  // and only when we own the subagent row (i.e. no live row already exists).
+  if (!liveSub) {
+    const spawnExists = db
+      .prepare(
+        "SELECT 1 FROM events WHERE session_id = ? AND agent_id = ? AND event_type = 'PreToolUse' AND tool_name = 'Agent' AND data LIKE ? LIMIT 1"
+      )
+      .get(sessionId, mainAgentId, `%"subagent_id":${JSON.stringify(targetAgentId)}%`);
+    if (!spawnExists) {
+      insertEvent.run(
+        sessionId,
+        mainAgentId,
+        "PreToolUse",
+        "Agent",
+        `Subagent spawned: ${subName} (from JSONL)`,
+        JSON.stringify({
+          imported: true,
+          subagent_type: subData.agentType,
+          subagent_id: targetAgentId,
+          source: "subagent_jsonl",
+        }),
+        subData.startedAt
+      );
+      created++;
+    }
+  }
 
-  return 1;
+  // Per-tool-call events under the subagent's own agent_id so the UI can attribute
+  // them to the subagent. Idempotent by (agent_id, event_type, tool_use_id).
+  if (Array.isArray(subData.toolEvents) && subData.toolEvents.length > 0) {
+    const eventExists = db.prepare(
+      "SELECT 1 FROM events WHERE agent_id = ? AND event_type = ? AND data LIKE ? LIMIT 1"
+    );
+    for (const tev of subData.toolEvents) {
+      if (!tev.tool_use_id) continue;
+      const useIdMarker = `%"tool_use_id":${JSON.stringify(tev.tool_use_id)}%`;
+      const ts = tev.pre_timestamp || subData.startedAt;
+      const truncatedInput = truncateForEvent(tev.tool_input);
+
+      if (!eventExists.get(targetAgentId, "PreToolUse", useIdMarker)) {
+        insertEvent.run(
+          sessionId,
+          targetAgentId,
+          "PreToolUse",
+          tev.tool_name,
+          `Using tool: ${tev.tool_name}`,
+          JSON.stringify({
+            imported: true,
+            source: "subagent_jsonl",
+            tool_use_id: tev.tool_use_id,
+            tool_name: tev.tool_name,
+            tool_input: truncatedInput,
+          }),
+          ts
+        );
+        created++;
+      }
+
+      if (tev.post_timestamp && !eventExists.get(targetAgentId, "PostToolUse", useIdMarker)) {
+        insertEvent.run(
+          sessionId,
+          targetAgentId,
+          "PostToolUse",
+          tev.tool_name,
+          `Tool completed: ${tev.tool_name}`,
+          JSON.stringify({
+            imported: true,
+            source: "subagent_jsonl",
+            tool_use_id: tev.tool_use_id,
+            tool_name: tev.tool_name,
+            tool_input: truncatedInput,
+            tool_response: truncateForEvent(tev.tool_response),
+            is_error: tev.is_error,
+          }),
+          tev.post_timestamp
+        );
+        created++;
+      }
+    }
+  }
+
+  return created;
 }
 
 /**
@@ -1583,6 +1771,41 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
   return counters;
 }
 
+/**
+ * Scan a single session's `subagents/` directory and import any subagent
+ * JSONL files into the events table. Used for live ingestion (e.g. on
+ * SubagentStop hook) so each subagent's tool calls show up under its own
+ * agent_id without waiting for the periodic scanner.
+ *
+ * Returns `{ imported, created }` — `imported` counts files seen, `created`
+ * counts new agent + event rows.
+ */
+async function scanAndImportSubagents(dbModule, sessionId, transcriptPath) {
+  if (!sessionId || !transcriptPath) return { imported: 0, created: 0 };
+  const subDir = path.join(path.dirname(transcriptPath), sessionId, "subagents");
+  try {
+    await fs.promises.access(subDir);
+  } catch {
+    return { imported: 0, created: 0 };
+  }
+
+  const subFiles = (await fs.promises.readdir(subDir)).filter((f) => f.endsWith(".jsonl"));
+  if (subFiles.length === 0) return { imported: 0, created: 0 };
+
+  const mainAgentId = `${sessionId}-main`;
+  let created = 0;
+  for (const sf of subFiles) {
+    try {
+      const subData = await parseSubagentFile(path.join(subDir, sf));
+      if (!subData) continue;
+      created += importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData);
+    } catch {
+      // non-fatal — partial JSONL files are common during a live run
+    }
+  }
+  return { imported: subFiles.length, created };
+}
+
 module.exports = {
   importAllSessions,
   importFromDirectory,
@@ -1598,6 +1821,7 @@ module.exports = {
   classifyJsonl,
   findSessionSubagents,
   importSession,
+  scanAndImportSubagents,
   combineSessionTokens,
   writeSessionTokens,
   reconcileTokens,

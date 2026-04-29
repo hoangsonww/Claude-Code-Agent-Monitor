@@ -1,3 +1,12 @@
+/**
+ * @file MessageList.tsx
+ * @description Renders the chronological message stream of a Claude Code
+ * transcript: alternating user / assistant rows with collapsible thinking
+ * blocks, inline ToolCallBlocks for tool_use / tool_result pairs, and
+ * MarkdownContent for prose. Used by ConversationView as the main body of
+ * the Conversation tab on the Session detail page.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronRight, Bot, User, Brain, ScrollText } from "lucide-react";
 import type { TranscriptMessage, TranscriptContent } from "../../lib/types";

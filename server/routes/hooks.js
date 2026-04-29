@@ -5,9 +5,11 @@
 
 const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
-const { stmts, db } = require("../db");
+const dbModule = require("../db");
+const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
 const TranscriptCache = require("../lib/transcript-cache");
+const { scanAndImportSubagents } = require("../../scripts/import-history");
 
 const router = Router();
 
@@ -662,6 +664,31 @@ router.post("/event", (req, res) => {
   }
 
   res.json({ ok: true, event: result });
+
+  // After SubagentStop, scan the session's subagent JSONL files and ingest any
+  // tool calls that aren't yet in the events table. Subagent tool_use blocks
+  // never fire hooks on the parent session — this scan is the only path that
+  // attributes them to the subagent's agent_id.
+  if (hook_type === "SubagentStop" && data.session_id && data.transcript_path) {
+    scanAndImportSubagents(dbModule, data.session_id, data.transcript_path)
+      .then(({ created }) => {
+        if (created > 0) {
+          // Nudge SessionDetail to refetch — the page already debounces
+          // bursts of new_event into a single paginated reload.
+          broadcast("new_event", {
+            session_id: data.session_id,
+            agent_id: null,
+            event_type: "SubagentJsonlImported",
+            tool_name: null,
+            summary: `Imported ${created} subagent record(s) from JSONL`,
+            created_at: new Date().toISOString(),
+          });
+        }
+      })
+      .catch(() => {
+        // non-fatal — partial JSONL during a live run is expected
+      });
+  }
 });
 
 router.transcriptCache = transcriptCache;

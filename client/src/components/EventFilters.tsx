@@ -5,6 +5,7 @@
  * session_id, free-text search, and an ISO date range — as a single
  * controlled component. Parent owns the filter state; this component only
  * renders the inputs and emits change events.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useEffect, useRef, useState } from "react";

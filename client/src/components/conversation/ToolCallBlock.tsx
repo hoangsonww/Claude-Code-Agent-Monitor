@@ -1,3 +1,12 @@
+/**
+ * @file ToolCallBlock.tsx
+ * @description Collapsible block rendered inside an assistant message for each
+ * tool_use / tool_result pair. Shows tool icon + name in the header, with the
+ * paired result inline when present. Per-tool styling comes from toolStyle.ts;
+ * the tool's input/output payload is delegated to <CodeBlock /> for syntax
+ * highlighting.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
 import { useState } from "react";
 import { ChevronRight, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 import type { TranscriptContent } from "../../lib/types";

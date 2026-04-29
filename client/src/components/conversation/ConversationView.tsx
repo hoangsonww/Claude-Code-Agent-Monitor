@@ -1,3 +1,13 @@
+/**
+ * @file ConversationView.tsx
+ * @description Conversation tab on the Session detail page. Loads a session
+ * (or sub-agent) JSONL transcript, paginates it incrementally, and renders
+ * the message stream via MessageList. Combines a WebSocket subscription, a
+ * visibility-gated polling fallback, and a manual refresh button so the view
+ * stays caught up even when hooks miss frames or the user is mid-text-only
+ * turn (no PreToolUse fires until Stop).
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw } from "lucide-react";
 import { api } from "../../lib/api";

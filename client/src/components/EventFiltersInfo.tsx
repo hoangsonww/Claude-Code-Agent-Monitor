@@ -6,6 +6,7 @@
  * ActivityFeed and SessionDetail so users can discover the model without
  * leaving the page. Native <details> / <summary> — no popover primitive
  * required and keyboard-accessible out of the box.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useTranslation } from "react-i18next";

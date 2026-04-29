@@ -16,6 +16,7 @@
  *   - mcp__*              → KeyValueCard with known semantic fields promoted
  *   - AskUserQuestion     → formatted Q with options
  *   - Any other           → returns null (caller falls back to generic JSON)
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import {

@@ -9,6 +9,8 @@
  *
  * Events without a `tool_use_id` (Stop, Notification, TurnDuration, etc.)
  * become single-event groups and render identically to a flat row.
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import type { DashboardEvent } from "./types";
@@ -429,12 +431,24 @@ export function shortAgentLabel(agentId: string | null): string | null {
   return agentId.length > 8 ? agentId.slice(-8) : agentId;
 }
 
-/** Minimal subset of an Agent record, enough to render a subagent pill. */
+/** Minimal subset of an Agent record, enough to render a subagent pill and
+ *  walk the parent chain (so events from a nested subagent can render the
+ *  full "main › coder › explorer" attribution). */
 export type AgentInfo = {
   type: "main" | "subagent";
   subagent_type: string | null;
   name: string;
+  parent_agent_id?: string | null;
 };
+
+/** Single-segment label for an agent — the pill text. Returns null when the
+ *  agent is the session's main agent (pill is noise in that case). */
+function singleAgentSegment(info: AgentInfo): string | null {
+  if (info.type === "main") return null;
+  if (info.subagent_type && info.subagent_type.length > 0) return info.subagent_type;
+  if (info.name && info.name.length > 0) return info.name;
+  return null;
+}
 
 /** Resolves the pill label for an event's agent. Returns null when the event
  *  comes from the session's main agent (the pill is noise in that case) or
@@ -443,28 +457,64 @@ export type AgentInfo = {
 export function agentPillLabel(agentId: string | null, info: AgentInfo | undefined): string | null {
   if (!agentId) return null;
   if (info) {
+    const seg = singleAgentSegment(info);
+    if (seg !== null) return seg;
     if (info.type === "main") return null;
-    if (info.subagent_type && info.subagent_type.length > 0) return info.subagent_type;
-    if (info.name && info.name.length > 0) return info.name;
   }
   return shortAgentLabel(agentId);
 }
 
 /** Resolves a label that always identifies an event's agent origin — unlike
  *  agentPillLabel, this returns "main" for main agents instead of null. Used
- *  by the inline origin prefix ("{session} › {agent} · {action}"). */
+ *  by the inline origin prefix ("{session} › {agent} · {action}").
+ *
+ *  When an `agentInfoById` map is provided AND the event's agent has a
+ *  parent_agent_id, the chain is walked from the root subagent down to the
+ *  current agent and joined with " › " — so an event triggered by a deeply
+ *  nested subagent reads "main › coder › explorer" instead of just "explorer".
+ *  Cycles and missing parents fall back gracefully to the single-segment label. */
 export function agentOriginLabel(
   agentId: string | null,
-  info: AgentInfo | undefined
+  infoOrMap: AgentInfo | Map<string, AgentInfo> | undefined
 ): string | null {
   if (!agentId) return null;
-  if (info) {
-    if (info.type === "main") return "main";
-    if (info.subagent_type && info.subagent_type.length > 0) return info.subagent_type;
-    if (info.name && info.name.length > 0) return info.name;
+  const map = infoOrMap instanceof Map ? infoOrMap : null;
+  const info = map ? map.get(agentId) : (infoOrMap as AgentInfo | undefined);
+
+  // No map — preserve the legacy single-segment behavior for callers that
+  // haven't switched to the chain-aware overload yet.
+  if (!map) {
+    if (info) {
+      if (info.type === "main") return "main";
+      const seg = singleAgentSegment(info);
+      if (seg) return seg;
+    }
+    if (agentId.endsWith("-main")) return "main";
+    return shortAgentLabel(agentId);
   }
-  if (agentId.endsWith("-main")) return "main";
-  return shortAgentLabel(agentId);
+
+  // Map provided — walk parent chain so nested subagents read "main › coder".
+  const segments: string[] = [];
+  const seen = new Set<string>();
+  let cursor: string | null = agentId;
+  while (cursor && !seen.has(cursor)) {
+    seen.add(cursor);
+    const node = map.get(cursor);
+    if (!node) break;
+    if (node.type === "main") {
+      segments.unshift("main");
+      break;
+    }
+    const seg = singleAgentSegment(node);
+    if (seg) segments.unshift(seg);
+    cursor = node.parent_agent_id ?? null;
+  }
+
+  if (segments.length === 0) {
+    if (agentId.endsWith("-main")) return "main";
+    return shortAgentLabel(agentId);
+  }
+  return segments.join(" › ");
 }
 
 /** Builds the muted origin prefix shown before a row's action title, e.g.

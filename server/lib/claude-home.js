@@ -1,11 +1,15 @@
+/**
+ * @file claude-home.js
+ * @description Centralized Claude Code home directory path management.
+ * Resolves the projects directory, transcript paths (main + per-subagent),
+ * and settings file location. Supports a custom root via the CLAUDE_HOME
+ * environment variable (e.g. ~/.codefuse/engine/cc/) so the dashboard can
+ * track non-default Claude Code installations.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-
-/**
- * Centralized Claude Code home directory path management.
- * Supports custom paths via the CLAUDE_HOME environment variable (e.g. ~/.codefuse/engine/cc/).
- */
 
 function getClaudeHome() {
   return process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
