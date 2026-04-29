@@ -364,6 +364,8 @@ Triggered when a sub-agent (explore, task, etc.) completes.
 **Purpose:**
 - Match the finishing subagent by description, type, or task and mark it `completed`
 - **Deliberately does NOT clear `awaiting_input_since`** — a backgrounded subagent finishing tells us nothing about whether the human has responded
+- **Triggers a fire-and-forget JSONL scan** (`scanAndImportSubagents` from `scripts/import-history.js`) after `res.json()` returns. The scan walks the session's `subagents/agent-*.jsonl` files, pairs each assistant `tool_use` block with the next matching user `tool_result` block by `tool_use_id`, and emits per-tool `PreToolUse` + `PostToolUse` events under the subagent's own `agent_id`. Idempotent (`data LIKE '%"tool_use_id":"X"%'` dedup) and merges into a hook-created live row when one matches by `subagent_type + started_at` within 30 s — closes the gap where subagent-internal tool calls would otherwise be invisible to the dashboard
+- Imported tool events carry `imported: true, source: "subagent_jsonl"` in their JSON `data` payload so analytics can distinguish backfilled rows from live hook-captured ones if needed
 
 ---
 

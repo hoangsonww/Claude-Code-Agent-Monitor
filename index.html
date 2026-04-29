@@ -1299,7 +1299,7 @@
                     Matched subagent →
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human.
+                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks.
                   </td>
                 </tr>
                 <tr>
@@ -1914,7 +1914,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 TX->>TX: ensureSession(session_id)
                 Note over TX: Creates session + main agent<br/>on first contact
                 TX->>TX: process by hook_type
-                Note over TX: SessionStart -> stamp awaiting flag (Waiting)<br/>UserPromptSubmit -> clear flag, agent working<br/>PreToolUse -> clear flag, agent working<br/>PostToolUse -> clear flag, clear current_tool<br/>Stop (non-error) -> idle + flag re-stamped<br/>Stop (error) -> drop flag, session error<br/>SubagentStop -> complete matched subagent (does NOT touch flag)<br/>Notification (permission) -> stamp flag<br/>SessionEnd -> drop flag, mark all completed
+                Note over TX: SessionStart -> stamp awaiting flag (Waiting)<br/>UserPromptSubmit -> clear flag, agent working<br/>PreToolUse -> clear flag, agent working<br/>PostToolUse -> clear flag, clear current_tool<br/>Stop (non-error) -> idle + flag re-stamped<br/>Stop (error) -> drop flag, session error<br/>SubagentStop -> complete matched subagent (does NOT touch flag);<br/>fire-and-forget scanAndImportSubagents emits<br/>per-tool Pre/PostToolUse events under each<br/>subagent's own agent_id<br/>Notification (permission) -> stamp flag<br/>SessionEnd -> drop flag, mark all completed
                 TX->>TX: insertEvent(...)
                 TX->>TX: COMMIT
                 API->>WS: broadcast("agent_updated", agent)

@@ -1,6 +1,6 @@
 # Claude Code Agent Dashboard（Agent 监控面板）
 
-### Claude Code Agent 活动实时监控平台
+### Claude Code Agent 活动实时监控平台 🚀
 
 专业的 Dashboard，用于实时追踪和可视化你的 Claude Code Agent 会话、工具使用和子 Agent 编排。基于 Node.js、Express、React 和 SQLite 构建，通过 Claude Code 原生 Hook 系统直接集成，实现无缝的会话追踪和分析。
 
@@ -221,6 +221,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **历史导入** | 启动时从 `~/.claude/` 导入会话。增强的 JSONL 提取：API 错误（配额/速率/无效请求）、回合耗时、入口点（cli/sdk-ts）、权限模式、思考块计数、用量附加信息（service_tier、speed、inference_geo）、工具结果错误，以及子 Agent JSONL 文件（`subagents/agent-*.jsonl` 含 `.meta.json`）。重新导入时回填已有会话。近期 JSONL 文件（< 10 分钟）以"活跃"状态导入 |
 | **子 Agent 层级** | Dashboard 和会话详情页可折叠的父子 Agent 树。有子 Agent 的 Agent 显示展开/折叠箭头；叶子 Agent 显示圆点指示器。子 Agent 活跃时自动展开 |
 | **后台 Agent** | 正确追踪后台子 Agent，不会提前标记为完成 |
+| **子 Agent 工具归属** | 子 Agent 内部的工具调用(Read、Bash、Edit、Grep 等)只存在于每个子 Agent 自己的 JSONL 文件中 — Claude Code 不会为其触发任何 Hook。每次 `SubagentStop` 后,dashboard 触发 fire-and-forget 的 `scanAndImportSubagents`:解析每个 `subagents/agent-*.jsonl`,根据 `tool_use_id` 配对 `tool_use` 与 `tool_result` 块,并在子 Agent 自己的 `agent_id` 下发出 `PreToolUse` + `PostToolUse` 事件。具备幂等性(通过 `data LIKE '%"tool_use_id":"X"%'` 去重),并在按类型 + 启动时间在 30 秒内匹配到 hook 创建的 live 行时合并进去,因此不会创建并行的 `<sid>-jsonl-*` 行。同一路径在 `npm run setup` 启动导入时也会运行,实现完整的历史回填 — 早于 dashboard 安装的会话也能获得完整的每子 Agent 工具时间线。Activity Feed 和会话详情页将父链以 `main › coder › explorer` 形式渲染嵌套子 Agent |
 | **成本追踪** | 按模型估算成本，支持可配置定价规则和按会话明细。压缩感知的 Token 核算在上下文压缩过程中保留总量。Transcript 读取通过增量字节偏移更新缓存，实现高效 Token 提取 |
 | **Transcript 缓存** | 从 JSONL Transcript 实时提取：Token、压缩、API 错误（`isApiErrorMessage` 条目存储为 `APIError` 事件）、回合耗时（存储为 `TurnDuration` 事件）、思考块计数和用量附加信息（service_tier、speed、inference_geo）。会话元数据实时丰富这些字段 |
 | **通知** | 基于 Web Push (VAPID) 的持久化浏览器通知。即使 Dashboard 标签页未聚焦或浏览器已关闭也能送达。特别针对 macOS 音效支持进行了配置。支持按事件配置开关及订阅管理 |
@@ -397,7 +398,7 @@ sequenceDiagram
    - 非错误 `Stop` 时,主 Agent 变为 `idle` 并重新盖上等待标志 — Claude 完成本回合,主动权交给用户。错误 `Stop` 会清除标志并将会话标记为 `error`。后台子 Agent 继续运行
    - 在权限 `Notification` 时(按消息模式匹配:`permission`、`waiting for input`、`needs your approval` 等),盖上等待标志而不改变状态
    - `SubagentStop` 故意不清除等待标志 — 后台子 Agent 完成不能说明用户是否已响应
-   - 通过 `SubagentStop` 单独标记子 Agent 为完成
+   - 通过 `SubagentStop` 单独标记子 Agent 为完成。`res.json()` 返回后,触发 fire-and-forget 的 `scanAndImportSubagents`,遍历会话的 `subagents/agent-*.jsonl` 文件,根据 `tool_use_id` 配对 `tool_use` ↔ `tool_result` 块,并在每个子 Agent 自己的 `agent_id` 下发出 `PreToolUse` + `PostToolUse` 事件 — 弥补子 Agent 内部工具调用对 dashboard 不可见的空白
    - `SessionEnd` 时(CLI 进程退出),清除等待标志并将所有 Agent 和会话标记为 `completed`
    - `SessionStart` 时,任何无活动超过 `DASHBOARD_STALE_MINUTES`(默认 180 = 3 小时,可通过环境变量覆盖)的其他活跃会话自动标记为"abandoned",其 Agent 标记为完成。处理会话内的 `/resume`、Ctrl+C 和其他会话无 `SessionEnd` 而被孤立的场景
    - 新工作事件到达时重新激活 completed/error/abandoned 会话(会话恢复)。Stop 和 SubagentStop 事件也会重新激活 completed/abandoned 会话 — 处理服务器启动前已导入的预存会话,其中第一个 Hook 事件可能是 Stop
@@ -933,7 +934,7 @@ Dashboard 处理以下 Claude Code Hook 类型：
 | `PreToolUse` | Agent 开始使用工具 | 清除等待标志,设置 Agent 为 `working`,设置 `current_tool`。如果工具是 `Agent`,创建子 Agent 记录 |
 | `PostToolUse` | 工具执行完成 | 清除等待标志(用于处理用户在工具运行期间批准权限提示的场景)。清除 `current_tool`。Agent 保持 `working` |
 | `Stop` | Claude 完成响应 | 非错误:主 Agent → `idle` 并重新盖上等待标志 — Claude 完成本回合,主动权交给用户。错误:清除标志,将会话标记为 `error`。后台子 Agent 继续运行 |
-| `SubagentStop` | 后台 Agent 完成 | 通过描述、类型或任务匹配并完成子 Agent。故意不清除等待标志 — 子 Agent 完成不能说明用户是否已响应 |
+| `SubagentStop` | 后台 Agent 完成 | 通过描述、类型或任务匹配并完成子 Agent。故意不清除等待标志 — 子 Agent 完成不能说明用户是否已响应。**触发 fire-and-forget 的 JSONL 扫描**(`scanAndImportSubagents`),在子 Agent 自己的 `agent_id` 下为每个 tool 发出 `PreToolUse` + `PostToolUse` 事件,使 Timeline 显示子 Agent 运行的所有 tool,而不仅仅是 spawn 标记 |
 | `Notification` | Agent 通知 | 记录事件。权限/输入提示消息盖上等待标志(模式:`permission`、`waiting for input`、`needs your approval` 等)。压缩通知标记为 `Compaction` 事件。如果启用,触发浏览器通知 |
 | `SessionEnd` | Claude Code CLI 进程退出 | 清除等待标志,将所有 Agent 和会话标记为 `completed` |
 | `Compaction` | JSONL 中检测到 `/compact` | 创建压缩子 Agent（类型 `compaction`）和 Compaction 事件。通过 Transcript JSONL 中的 `isCompactSummary` 条目检测。也可由周期性扫描器对活跃会话检测 |
