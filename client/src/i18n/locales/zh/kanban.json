@@ -25,8 +25,7 @@
   },
   "tooltip": {
     "agent": {
-      "connected": "Agent 已连接,准备工作,但尚未发起任何工具调用。\n\n生命周期:SessionStart → Connected → 首次 PreToolUse 升级为 Working。",
-      "working": "Agent 当前正在执行工具调用。\n\nPreToolUse 时进入,Stop(回合结束)或下一次工具调用时退出。",
+      "working": "Agent 当前正在执行工具调用。\n\nPreToolUse 或 UserPromptSubmit 时进入,Stop(回合结束)时退出。",
       "waiting": "Agent 已结束本回合,正在等待用户 — 要么 Claude 在等下一条用户消息,要么弹出了使用工具的权限请求。\n\n下一次 PreToolUse / PostToolUse 或会话结束时清除。",
       "completed": "Agent 已在此会话完全结束 — 通常是 SessionEnd 触发,subagent 则是 SubagentStop。\n\n之后不会再记录此 Agent 的活动。",
       "error": "Agent 遇到错误,不会继续运行。主 Agent 来自 stop_reason=error 的 Stop;subagent 来自失败的运行。"

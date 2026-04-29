@@ -741,6 +741,29 @@ describe("Hook Event Processing", () => {
     );
   });
 
+  it("should mark a brand-new SessionStart as Waiting (sitting at the prompt)", async () => {
+    // A just-launched Claude Code session has nothing to do yet — it's
+    // sitting at a prompt waiting for the user's first message. The
+    // dashboard should reflect that immediately rather than parking it in
+    // Active until Stop fires.
+    const sid = "hook-sess-fresh-start";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "startup" },
+    });
+
+    const sessRes = await fetch(`/api/sessions/${sid}`);
+    assert.equal(sessRes.body.session.status, "active");
+    assert.ok(
+      sessRes.body.session.awaiting_input_since,
+      "fresh session should be flagged Waiting at SessionStart"
+    );
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.ok(main.awaiting_input_since, "fresh main agent should be flagged Waiting");
+  });
+
   it("should clear awaiting_input_since and promote main to working on UserPromptSubmit", async () => {
     // The bug this guards: text-only assistant turns emit no PreToolUse,
     // so without UserPromptSubmit the Waiting badge would persist for the

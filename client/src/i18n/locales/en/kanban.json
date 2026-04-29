@@ -25,8 +25,7 @@
   },
   "tooltip": {
     "agent": {
-      "connected": "Agent has just connected and is ready for work but hasn't started a tool call yet.\n\nLifecycle: SessionStart → Connected → first PreToolUse promotes to Working.",
-      "working": "Agent is actively running a tool call right now.\n\nEntered on PreToolUse, exits on Stop (turn finished) or further tool calls.",
+      "working": "Agent is actively running a tool call right now.\n\nEntered on PreToolUse or UserPromptSubmit, exits on Stop (turn finished).",
       "waiting": "Agent finished its turn and is blocked on the human — either Claude is waiting for the next user message or has prompted for permission to use a tool.\n\nCleared on the next PreToolUse / PostToolUse, or when the session ends.",
       "completed": "Agent has fully ended for this session — typically because SessionEnd fired or, for subagents, SubagentStop was processed.\n\nNo further activity will be recorded against this agent.",
       "error": "Agent recorded an error and will not continue. For main agents this comes from a Stop with stop_reason=error; for subagents, from a failed run."

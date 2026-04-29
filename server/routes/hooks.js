@@ -340,15 +340,28 @@ const processEvent = db.transaction((hookType, data) => {
 
     case "SessionStart": {
       summary = data.source === "resume" ? "Session resumed" : "Session started";
-      // SessionStart on a resume = user explicitly came back. Clear any
-      // stale waiting flag so the resumed session opens clean.
-      clearAwaitingInput(sessionId, mainAgentId, true);
+
       // Reactivation is already handled above for non-active sessions.
-      // Set main agent to connected (ready for work).
+      // Promote main agent from idle → connected if needed.
       if (mainAgent && mainAgent.status === "idle") {
         stmts.updateAgent.run(null, "connected", null, null, null, null, mainAgentId);
-        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
+
+      // A just-started or just-resumed session is sitting at a prompt
+      // waiting for the user's first message — Claude Code hasn't done
+      // anything yet. Stamp awaiting_input_since so it lands in Waiting
+      // from the moment the dashboard sees it. UserPromptSubmit (when the
+      // user hits enter) or PreToolUse (when Claude actually runs a tool)
+      // will clear the flag.
+      const sessionStartTs = new Date().toISOString();
+      stmts.setSessionAwaitingInput.run(sessionStartTs, sessionId);
+      if (mainAgentId) stmts.setAgentAwaitingInput.run(sessionStartTs, mainAgentId);
+
+      // Single broadcast pair with the final state — agents and sessions
+      // are now connected/active with the waiting flag set, so WS clients
+      // see the Waiting badge as soon as the SessionStart event lands.
+      broadcast("session_updated", stmts.getSession.get(sessionId));
+      if (mainAgentId) broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
 
       // Clean up orphaned sessions: when a user runs /resume inside a session,
       // the parent session never receives Stop or SessionEnd. Mark any active

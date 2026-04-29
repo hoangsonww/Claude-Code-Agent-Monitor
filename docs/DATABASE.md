@@ -147,17 +147,21 @@ graph LR
 
 ### sessions
 
-Tracks Claude Code sessions (one per CLI invocation or background task).
+Tracks Claude Code sessions (one per CLI invocation or background task). Schema mirrors `server/db.js`.
 
 ```sql
 CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT UNIQUE NOT NULL,
+    id TEXT PRIMARY KEY,                                              -- UUID from Claude Code
+    name TEXT,
+    status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','completed','error','abandoned')),
+    cwd TEXT,
     model TEXT,
-    status TEXT DEFAULT 'active',
-    total_cost REAL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    ended_at TEXT,
+    metadata TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    awaiting_input_since TEXT                                         -- NULL unless Waiting
 );
 ```
 
@@ -165,50 +169,66 @@ CREATE TABLE sessions (
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `id` | INTEGER | NO | Auto-increment primary key |
-| `session_id` | TEXT | NO | Unique session ID (e.g., `sess_abc123`) |
-| `model` | TEXT | YES | Model name (e.g., `claude-sonnet-4`) |
-| `status` | TEXT | NO | `active` or `completed` |
-| `total_cost` | REAL | NO | Aggregated cost from all agents (USD) |
-| `created_at` | TEXT | NO | ISO8601 timestamp of creation |
-| `updated_at` | TEXT | NO | ISO8601 timestamp of last activity |
+| `id` | TEXT | NO | Session UUID (assigned by Claude Code) |
+| `name` | TEXT | YES | Human-readable label (auto-generated or user-set) |
+| `status` | TEXT | NO | `active`, `completed`, `error`, or `abandoned` (CHECK-constrained) |
+| `cwd` | TEXT | YES | Working directory the CLI was launched from |
+| `model` | TEXT | YES | Claude model ID (e.g. `claude-opus-4-7`) |
+| `started_at` | TEXT | NO | ISO 8601 timestamp |
+| `ended_at` | TEXT | YES | ISO 8601 timestamp on terminal transition |
+| `metadata` | TEXT | YES | JSON blob for extras (turn duration totals, thinking blocks, …) |
+| `updated_at` | TEXT | NO | Bumped on every event for staleness detection |
+| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart, permission Notification). NULL otherwise |
 
 **Constraints:**
-- `session_id` must be unique
-- `status` should be either `'active'` or `'completed'`
-- `total_cost` is always >= 0
+- `status` must be one of the four enum values
+- `awaiting_input_since` is ignored on non-`active` sessions for UI bucketing
 
 **Lifecycle:**
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created: SessionStart hook
-    Created --> Active: First tool execution
-    Active --> Active: Hooks update updated_at
-    Active --> Completed: SessionEnd hook
-    Completed --> [*]
+    [*] --> waiting: SessionStart (status=active + awaiting_input_since)
+    waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
+    active --> waiting: Stop (non-error) / Permission Notification
+    active --> error: Stop (stop_reason=error)
+    waiting --> completed: SessionEnd
+    active --> completed: SessionEnd
+    waiting --> abandoned: Stale > DASHBOARD_STALE_MINUTES
+    active --> abandoned: Stale > DASHBOARD_STALE_MINUTES
+    completed --> active: Resumed
+    error --> active: Resumed
+    abandoned --> active: Resumed
+    completed --> [*]
+    error --> [*]
+    abandoned --> [*]
 ```
 
 ---
 
 ### agents
 
-Tracks individual agents within a session (main agent, explore, task, etc.).
+Tracks main agents and subagents within a session. Main agents have id `${session_id}-main`; subagents get a fresh UUID.
 
 ```sql
 CREATE TABLE agents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    agent_id TEXT UNIQUE NOT NULL,
+    id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
-    agent_type TEXT,
-    status TEXT DEFAULT 'running',
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'main' CHECK (type IN ('main','subagent')),
+    subagent_type TEXT,
+    status TEXT NOT NULL DEFAULT 'idle'
+        CHECK (status IN ('idle','connected','working','completed','error')),
+    task TEXT,
     current_tool TEXT,
-    input_tokens INTEGER DEFAULT 0,
-    output_tokens INTEGER DEFAULT 0,
-    cost REAL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+    started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    ended_at TEXT,
+    parent_agent_id TEXT,
+    metadata TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    awaiting_input_since TEXT,                                        -- main-agent waiting flag
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
 );
 ```
 
@@ -216,17 +236,17 @@ CREATE TABLE agents (
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `id` | INTEGER | NO | Auto-increment primary key |
-| `agent_id` | TEXT | NO | Unique agent ID (e.g., `agent_xyz789`) |
-| `session_id` | TEXT | NO | Foreign key to `sessions.session_id` |
-| `agent_type` | TEXT | YES | `explore`, `task`, `general-purpose`, `code-review`, etc. |
-| `status` | TEXT | NO | `running`, `completed`, `failed` |
-| `current_tool` | TEXT | YES | Currently executing tool (NULL when idle) |
-| `input_tokens` | INTEGER | NO | Cumulative input tokens |
-| `output_tokens` | INTEGER | NO | Cumulative output tokens |
-| `cost` | REAL | NO | Calculated cost for this agent (USD) |
-| `created_at` | TEXT | NO | ISO8601 timestamp of creation |
-| `updated_at` | TEXT | NO | ISO8601 timestamp of last update |
+| `id` | TEXT | NO | UUID (subagents) or `${session_id}-main` (main agent) |
+| `session_id` | TEXT | NO | FK to `sessions.id`, cascades on delete |
+| `name` | TEXT | NO | Display label (e.g. `Main Agent — {session name}` or subagent description) |
+| `type` | TEXT | NO | `main` or `subagent` |
+| `subagent_type` | TEXT | YES | `Explore`, `general-purpose`, `code-review`, `compaction`, … |
+| `status` | TEXT | NO | `idle`, `connected`, `working`, `completed`, `error` (CHECK-constrained). The dashboard's **Waiting** badge is the UI overlay produced by `awaiting_input_since`; it is not a persisted status |
+| `task` | TEXT | YES | Subagent prompt / brief |
+| `current_tool` | TEXT | YES | Tool currently running (cleared on `PostToolUse`) |
+| `parent_agent_id` | TEXT | YES | FK to spawning agent for nested subagent trees |
+| `metadata` | TEXT | YES | JSON blob for extras |
+| `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent. NULL on subagents |
 
 **Lifecycle:**
 

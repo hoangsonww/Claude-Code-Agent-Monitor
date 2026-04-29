@@ -77,8 +77,8 @@ claude
 
 After starting a Claude Code session, you should see:
 
-- **Sessions page** — your session listed with status `Active`
-- **Agent Board** — a `Main Agent` card in the `Connected` column
+- **Sessions page** — your session listed with status `Waiting` (a fresh CLI sitting at the prompt) or `Active` (mid-turn)
+- **Agent Board** — a `Main Agent` card in the `Waiting` column until you type your first message; it flips to `Working` on `UserPromptSubmit` / `PreToolUse` and back to `Waiting` after each `Stop`
 - **Activity Feed** — events streaming in as Claude Code uses tools
 - **Dashboard** — stats updating in real-time
 - **Settings page** — model pricing rules, hook configuration status, data export and cleanup tools

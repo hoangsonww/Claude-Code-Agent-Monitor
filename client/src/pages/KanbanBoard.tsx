@@ -42,18 +42,14 @@ type BoardView = "agents" | "sessions";
 // them correctly.
 const AGENT_FETCH_STATUSES: AgentStatus[] = ["idle", "connected", "working", "completed", "error"];
 
-// Columns rendered on the Agents board. Idle is intentionally absent —
-// with the current state machine, an active main agent in `idle` always
-// has the waiting flag set, so it belongs in Waiting. Bare-idle agents
-// (legacy/imported data) won't have a dedicated column; they're still
-// queryable via /api/agents?status=idle.
-const AGENT_COLUMNS: EffectiveAgentStatus[] = [
-  "connected",
-  "working",
-  "waiting",
-  "completed",
-  "error",
-];
+// Columns rendered on the Agents board. Idle and Connected are
+// intentionally absent — with the current state machine, neither is
+// reachable on a live active session: SessionStart immediately stamps
+// the waiting flag (so a fresh agent goes straight to Waiting), and
+// Stop pairs idle with the waiting flag (also Waiting). Both statuses
+// remain valid persisted enum values and are still queryable via
+// /api/agents?status={idle,connected} for legacy / imported data.
+const AGENT_COLUMNS: EffectiveAgentStatus[] = ["working", "waiting", "completed", "error"];
 const SESSION_COLUMNS: EffectiveSessionStatus[] = [
   "active",
   "waiting",

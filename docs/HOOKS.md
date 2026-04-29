@@ -31,34 +31,37 @@ graph TB
         Hooks[Hook System]
     end
     
-    subgraph "Hook Scripts (.githooks/)"
-        SessionStart[session-start.py]
-        PreTool[pre-tool-use.py]
-        PostTool[post-tool-use.py]
-        Stop[stop.py]
-        SubagentStop[subagent-stop.py]
-        Notification[notification.py]
-        SessionEnd[session-end.py]
+    subgraph "Hook Wiring (~/.claude/settings.json)"
+        SessionStart[SessionStart]
+        UserPromptSubmit[UserPromptSubmit]
+        PreTool[PreToolUse]
+        PostTool[PostToolUse]
+        Stop[Stop]
+        SubagentStop[SubagentStop]
+        Notification[Notification]
+        SessionEnd[SessionEnd]
     end
-    
+
     subgraph "Hook Handler"
         Handler[hook-handler.js]
     end
-    
+
     subgraph "Dashboard Server"
         API[Express Server<br/>:4820]
     end
-    
+
     Agent --> Hooks
     Hooks -->|stdin JSON| SessionStart
+    Hooks -->|stdin JSON| UserPromptSubmit
     Hooks -->|stdin JSON| PreTool
     Hooks -->|stdin JSON| PostTool
     Hooks -->|stdin JSON| Stop
     Hooks -->|stdin JSON| SubagentStop
     Hooks -->|stdin JSON| Notification
     Hooks -->|stdin JSON| SessionEnd
-    
+
     SessionStart -->|exec| Handler
+    UserPromptSubmit -->|exec| Handler
     PreTool -->|exec| Handler
     PostTool -->|exec| Handler
     Stop -->|exec| Handler
@@ -205,9 +208,9 @@ ls -la .githooks/
 
 ## Hook Types
 
-### 1. session-start
+### 1. SessionStart
 
-Triggered when a Claude Code session starts.
+Triggered when a Claude Code session starts (fresh launch, `--resume`, `/clear`, etc.).
 
 **Payload Example:**
 
@@ -215,39 +218,42 @@ Triggered when a Claude Code session starts.
 {
   "type": "sessionStart",
   "sessionId": "sess_abc123",
+  "source": "startup",
   "model": "claude-sonnet-4",
-  "agentId": "agent_main_001",
-  "agentType": "general-purpose",
   "timestamp": "2024-03-18T12:00:00Z"
 }
 ```
 
-**Hook Script:**
-
-```python
-#!/usr/bin/env python3
-# .githooks/session-start.py
-
-import sys
-import json
-import subprocess
-
-# Read JSON from stdin
-data = json.load(sys.stdin)
-
-# Call handler
-subprocess.run([
-    'node',
-    'scripts/hook-handler.js',
-    'session-start'
-], input=json.dumps(data), text=True, timeout=5)
-
-sys.exit(0)
-```
+**Purpose:**
+- Create the session and main-agent records on first contact
+- Stamp `awaiting_input_since` so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt
+- Reactivate completed/abandoned sessions on resume
+- Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed`
 
 ---
 
-### 2. pre-tool-use
+### 2. UserPromptSubmit
+
+Triggered the moment the user hits enter on a prompt — fires *before* Claude does any work.
+
+**Payload Example:**
+
+```json
+{
+  "type": "userPromptSubmit",
+  "sessionId": "sess_abc123",
+  "prompt": "Refactor this function...",
+  "timestamp": "2024-03-18T12:00:30Z"
+}
+```
+
+**Purpose:**
+- Clear `awaiting_input_since` on the session and main agent
+- Promote the main agent to `working` so the dashboard reflects "Claude is now thinking on this" through the entire response — including text-only replies that emit no `PreToolUse` before `Stop`
+
+---
+
+### 3. PreToolUse
 
 Triggered before a tool executes.
 
@@ -264,13 +270,14 @@ Triggered before a tool executes.
 ```
 
 **Purpose:**
-- Set `current_tool` on agent record
+- Clear `awaiting_input_since` (Claude can only call a tool after fresh user input)
+- Set agent to `working`, set `current_tool`
 - Track tool execution start time
-- Update UI to show active tool
+- If tool name is `Agent`, create a subagent record
 
 ---
 
-### 3. post-tool-use
+### 4. PostToolUse
 
 Triggered after a tool completes execution.
 
@@ -291,9 +298,9 @@ Triggered after a tool completes execution.
 ```
 
 **Purpose:**
-- Create `tool_execution` record
-- Clear `current_tool` on agent
-- Update agent token counts
+- Clear `awaiting_input_since` (covers permission-prompt approval mid-tool)
+- Clear `current_tool` on agent (agent stays `working`)
+- Update agent token counts via shared transcript cache
 - Calculate and update cost
 - Rollup cost to session
 
@@ -316,9 +323,9 @@ graph TB
 
 ---
 
-### 4. stop
+### 5. Stop
 
-Triggered when an agent completes.
+Triggered when Claude finishes a turn (NOT when the session is closed).
 
 **Payload Example:**
 
@@ -326,19 +333,19 @@ Triggered when an agent completes.
 {
   "type": "stop",
   "sessionId": "sess_abc123",
-  "agentId": "agent_main_001",
+  "stop_reason": "end_turn",
   "timestamp": "2024-03-18T12:05:00Z"
 }
 ```
 
 **Purpose:**
-- Set agent `status = 'completed'`
-- Clear `current_tool`
-- Trigger final cost calculation
+- Non-error: set main agent to `idle` and stamp `awaiting_input_since` — Claude finished its turn, ball is in the user's court. The session shows as **Waiting** until `UserPromptSubmit` / `PreToolUse` fires
+- Error (`stop_reason="error"`): drop `awaiting_input_since`, mark the session `error`
+- Background subagents continue running — they complete individually via `SubagentStop`, never via `Stop`
 
 ---
 
-### 5. subagent-stop
+### 6. SubagentStop
 
 Triggered when a sub-agent (explore, task, etc.) completes.
 
@@ -355,12 +362,12 @@ Triggered when a sub-agent (explore, task, etc.) completes.
 ```
 
 **Purpose:**
-- Same as `stop` hook, but for sub-agents
-- Used to track explore/task agent completion
+- Match the finishing subagent by description, type, or task and mark it `completed`
+- **Deliberately does NOT clear `awaiting_input_since`** — a backgrounded subagent finishing tells us nothing about whether the human has responded
 
 ---
 
-### 6. notification
+### 7. Notification
 
 Triggered when Claude Code sends a system notification.
 
@@ -377,13 +384,14 @@ Triggered when Claude Code sends a system notification.
 ```
 
 **Purpose:**
-- Create `notification` record
-- Trigger browser notifications
-- Update notification badge count
+- Log the event for the activity feed
+- If the message matches a permission/input-prompt pattern (`permission`, `waiting for input`, `needs your approval`, `awaiting your response`, …), stamp `awaiting_input_since` so the session lands in **Waiting**
+- If the message matches a compaction pattern, tag as a `Compaction` event
+- Trigger a browser notification when the user has notifications enabled
 
 ---
 
-### 7. session-end
+### 8. SessionEnd
 
 Triggered when a Claude Code session ends.
 
@@ -398,9 +406,9 @@ Triggered when a Claude Code session ends.
 ```
 
 **Purpose:**
-- Set session `status = 'completed'`
-- Finalize cost calculations
-- Archive session data
+- Drop `awaiting_input_since` on the session and any agents that still have it
+- Mark all agents and the session as `completed`
+- Evict the session's transcript from the shared transcript cache
 
 ---
 

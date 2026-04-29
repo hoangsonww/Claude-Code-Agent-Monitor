@@ -103,7 +103,7 @@ Returns all sessions, ordered by most recent activity.
 |-----------|------|---------|-------------|
 | `limit` | integer | 50 | Maximum sessions to return (1-1000) |
 | `offset` | integer | 0 | Pagination offset |
-| `status` | string | - | Filter by status (`active` or `completed`) |
+| `status` | string | - | Filter by persisted status: `active`, `completed`, `error`, `abandoned`. The UI **Waiting** state is derived from the `awaiting_input_since` column and is not a queryable enum — filter `status=active` and inspect `awaiting_input_since` (non-null = Waiting) |
 
 **Example Request:**
 
@@ -146,15 +146,17 @@ classDiagram
     }
     
     class Session {
-        +number id
-        +string session_id
+        +string id
+        +string name
+        +string status "active|completed|error|abandoned"
+        +string cwd
         +string model
-        +string status
-        +number total_cost
-        +number agent_count
-        +number tool_count
-        +string created_at
+        +string started_at
+        +string ended_at
         +string updated_at
+        +string awaiting_input_since "null unless Waiting"
+        +number cost
+        +number agent_count
     }
     
     SessionListResponse --> Session
@@ -298,22 +300,25 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
 {
   "agents": [
     {
-      "id": 1,
-      "agent_id": "agent_xyz789",
+      "id": "sess_abc123-main",
       "session_id": "sess_abc123",
-      "agent_type": "explore",
-      "status": "completed",
+      "name": "Main Agent — my-project",
+      "type": "main",
+      "subagent_type": null,
+      "status": "idle",
       "current_tool": null,
-      "input_tokens": 1500,
-      "output_tokens": 800,
-      "cost": 0.45,
-      "tool_count": 5,
-      "created_at": "2024-03-18T12:00:00Z",
-      "updated_at": "2024-03-18T12:05:00Z"
+      "task": null,
+      "started_at": "2024-03-18T12:00:00Z",
+      "ended_at": null,
+      "updated_at": "2024-03-18T12:05:00Z",
+      "parent_agent_id": null,
+      "awaiting_input_since": "2024-03-18T12:05:00Z"
     }
   ]
 }
 ```
+
+> **Note on `status` vs Waiting** — agents are persisted with one of `idle | connected | working | completed | error`. The yellow **Waiting** badge surfaced in the dashboard is a UI overlay derived from `awaiting_input_since` being non-null on a non-terminal agent (typically `idle` after a `Stop`, or `connected` right after `SessionStart`). Filter `?status=idle` on `/api/agents` and inspect `awaiting_input_since` to enumerate currently-waiting main agents.
 
 ---
 

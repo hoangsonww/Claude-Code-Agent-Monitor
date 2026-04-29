@@ -141,13 +141,13 @@ flowchart LR
 <p align="center">
   <img src="images/board.png" alt="Bảng Kanban — chế độ Agent" width="100%">
   <br>
-  <em>📋 <strong>Bảng Kanban (Agent)</strong> — Agent xếp theo trạng thái trên 5 cột: Nhàn rỗi / Đã kết nối / Đang làm / Hoàn tất / Lỗi</em>
+  <em>📋 <strong>Bảng Kanban (Agent)</strong> — Agent xếp theo trạng thái trên 4 cột: Đang làm / Đang chờ / Hoàn tất / Lỗi. Cột Đang chờ màu vàng làm nổi bật các phiên đang bị chặn chờ người dùng phản hồi (lời nhắc xin quyền, cuối lượt, hoặc đang ở dòng nhập đầu phiên). Mỗi thẻ hiển thị model, chi phí và tool hiện tại ngay trong tầm mắt.</em>
 </p>
 
 <p align="center">
   <img src="images/board-sessions.png" alt="Bảng Kanban — chế độ Phiên" width="100%">
   <br>
-  <em>🗂️ <strong>Bảng Kanban (Phiên)</strong> — phiên xếp theo trạng thái: Hoạt động / Hoàn tất / Lỗi / Bỏ dở, chuyển đổi trên cùng một trang</em>
+  <em>🗂️ <strong>Bảng Kanban (Phiên)</strong> — phiên xếp theo trạng thái trên 5 cột: Hoạt động / Đang chờ / Hoàn tất / Lỗi / Bỏ dở, chuyển đổi trên cùng một trang. Di chuột qua tiêu đề cột để xem mô tả vòng đời chi tiết.</em>
 </p>
 
 <p align="center">
@@ -209,7 +209,7 @@ Bảng điều khiển cung cấp một bộ tính năng toàn diện để giá
 | Tính năng                            | Sự miêu tả                                                                                                                                                                                                                                                                  |
 |------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Bảng điều khiển**                      | Số liệu thống kê tổng quan, thẻ Agent đang hoạt động với hệ thống phân cấp Subagent có thể thu gọn, nguồn cấp dữ liệu hoạt động gần đây                                                                                                                                                                                 |
-| **Bảng Kanban**                   | Hai chế độ với nút chuyển ở đầu trang (lưu trong `localStorage`): **Agent** — 5 cột (Nhàn rỗi / Đã kết nối / Đang làm / Hoàn tất / Lỗi), và **Phiên** — 4 cột (Hoạt động / Hoàn tất / Lỗi / Bỏ dở). Mỗi cột tìm nạp theo trạng thái từ máy chủ (không giới hạn thực tế mỗi cột), sau đó phân trang phía client với 10 thẻ mỗi cột kèm nút "Hiện thêm". Đăng ký WebSocket bám theo chế độ đang xem (`agent_*` so với `session_*`) nên cập nhật khác chế độ không gây tải lại |
+| **Bảng Kanban**                   | Hai chế độ với nút chuyển ở đầu trang (lưu trong `localStorage`): **Agent** — 4 cột (Đang làm / Đang chờ / Hoàn tất / Lỗi), và **Phiên** — 5 cột (Hoạt động / Đang chờ / Hoàn tất / Lỗi / Bỏ dở). Cột **Đang chờ** màu vàng là lớp phủ UI dẫn xuất từ cột `awaiting_input_since` trên phiên và Agent — được đặt khi Claude Code đang ngồi ở dòng nhập (phiên mới, giữa các lượt, hoặc đang bị chặn bởi Notification xin quyền) và xóa ngay khi người dùng tiếp tục (UserPromptSubmit / PreToolUse). Mỗi tiêu đề cột có biểu tượng `?` với tooltip giải thích vòng đời. Mỗi cột tìm nạp theo trạng thái từ máy chủ (không giới hạn thực tế mỗi cột), sau đó phân trang phía client với 10 thẻ mỗi cột kèm nút "Hiện thêm". Đăng ký WebSocket bám theo chế độ đang xem (`agent_*` so với `session_*`) nên cập nhật khác chế độ không gây tải lại. Nhàn rỗi và Đã kết nối vẫn là trạng thái lưu trữ hợp lệ (vẫn truy vấn được qua `/api/agents?status=…`) nhưng cố tình không có cột riêng — máy trạng thái sống không bao giờ đặt một main agent đang hoạt động vào đó. |
 | **Phiên**                       | Bảng toàn bộ phiên có tìm kiếm, bộ lọc và **phân trang phía máy chủ**. Mỗi lần đổi trang gọi `/api/sessions?status=&q=&limit=10&offset=…`, nên tính toán chi phí chỉ chạy trên trang đang hiển thị — không phụ thuộc số phiên trong CSDL. Ô tìm kiếm (`q=`) thực hiện so khớp không phân biệt hoa thường trên `id` / `name` / `cwd` ở máy chủ với debounce 300 ms; phản hồi kèm `total` cho bộ phân trang. Bộ lọc trạng thái, tìm kiếm và phân trang kết hợp với nhau |
 | **Chi tiết phiên**                 | Bảng tổng quan thời gian thực mỗi phiên với banner tác nhân đang hoạt động (công cụ + tác vụ hiện tại), sáu ô đếm (sự kiện kèm tốc độ sự kiện/phút, lượt gọi công cụ, subagent, lần nén, lỗi, thời lượng đang đếm), thanh sử dụng top công cụ, phân tích theo loại subagent, dải dòng chảy token, và đám mây chip loại sự kiện — tất cả được làm mới trực tiếp theo sự kiện hook. Bên dưới: cây phân cấp tác nhân, dòng thời gian sự kiện đầy đủ với bộ lọc đa chiều, nhóm Pre/Post theo `tool_use_id`, khối tóm tắt dễ đọc, bộ kết xuất nhận biết công cụ (terminal cho Bash, diff cho Edit, code có số dòng cho Read/Write, danh sách kết quả khớp cho Grep, thẻ key/value cho công cụ MCP), và tab Conversation hiển thị bản ghi với markdown (tiêu đề, danh sách, blockquote, bảng, danh sách công việc), khối code có syntax highlight (js/ts, python, json, bash, html, css, sql, yaml, diff) kèm số dòng và nút sao chép, cùng các khối tool call có style theo từng công cụ (Bash → terminal, Edit → cũ/mới song song, Write → nhãn file, Read → chip đường dẫn, Grep → thẻ pattern) |
 | **Nguồn cấp dữ liệu hoạt động**                  | Nhật ký sự kiện phát trực tuyến theo thời gian thực với tính năng tạm dừng/tiếp tục và phân trang; nhấp vào bất kỳ hàng sự kiện nào để mở rộng nội dung hook payload ngay tại chỗ (bảng EventDetail nội tuyến); nút "Phiên →" chuyên biệt ở cuối mỗi hàng điều hướng trực tiếp đến chi tiết phiên mà không thu gọn feed                                                                   |
@@ -226,8 +226,8 @@ Bảng điều khiển cung cấp một bộ tính năng toàn diện để giá
 | **Cài đặt**                       | Thông tin hệ thống, trạng thái hook, quản lý giá mô hình, tùy chọn thông báo, xuất dữ liệu, dọn dẹp phiên                                                                                                                                                                   |
 | **Máy chủ MCP (Cục bộ)**             | Máy chủ MCP cục bộ cấp doanh nghiệp trong `mcp/` với ba chế độ truyền tải (stdio, HTTP+SSE, REPL tương tác), 25 công cụ được nhập trên 6 miền, lược đồ đầu vào nghiêm ngặt, thử lại/ngăn chặn, thực thi API chỉ dành cho máy chủ cục bộ và các cổng an toàn đột biến/phá hủy theo cấp bậc. Chế độ HTTP phục vụ HTTP có thể phát trực tuyến (25/11/2025) và SSE cũ (2024-11-05) trên cổng có thể định cấu hình. Chế độ REPL cung cấp lệnh gọi công cụ tương tác hoàn thành theo tab với đầu ra có màu |
 | **Quy trình làm việc**                      | Trang trực quan hóa được hỗ trợ bởi D3.js với 11 phần tương tác: điều phối tác nhân DAG, thực thi công cụ Sơ đồ Sankey, mạng cộng tác, hiệu quả của tác nhân phụ (biểu đồ ngày trong tuần với chú giải công cụ phong phú), mẫu quy trình làm việc được phát hiện, luồng ủy quyền mô hình, bản đồ lan truyền lỗi (thanh ngang với huy hiệu tỷ lệ, phân tích loại tác nhân, thẻ lỗi API/phiên), dòng thời gian đồng thời, độ phức tạp phân tán phiên, phân tích tác động nén và thông tin chi tiết về mỗi phiên. Các tab lọc trạng thái (Chỉ hoạt động / Đã hoàn thành / Tất cả) lọc tất cả 11 phần. Lọc chéo, xuất JSON và tự động làm mới WebSocket theo thời gian thực với khả năng gỡ lỗi trong 3 giây |
-| **Theo dõi quá trình nén**            | Phát hiện các sự kiện `/compact` từ bản ghi JSONL, tạo tác nhân và sự kiện nén. Chèn lấp các nén cũ khi khởi động. Máy quét định kỳ sẽ phát hiện các vết nén trong vòng 2 phút ngay cả khi không có lưỡi móc nào cháy. Chia sẻ bộ nhớ đệm của bản ghi để không xảy ra tình trạng đọc tệp trùng lặp |
-| **Phiên đăng ký/Phiên tiếp tục**   | Tự động kích hoạt lại các phiên khi có sự kiện mới, xử lý chính xác các phiên `/resume` và phiên mồ côi. Quét định kỳ (2 phút một lần) đánh dấu các phiên bị bỏ qua vượt qua khả năng phát hiện dựa trên sự kiện                                                                     |
+| **Theo dõi quá trình nén**            | Phát hiện các sự kiện `/compact` từ bản ghi JSONL, tạo tác nhân và sự kiện nén. Chèn lấp các nén cũ khi khởi động. Máy quét định kỳ (tần suất được dẫn xuất từ `DASHBOARD_STALE_MINUTES`) phát hiện các vết nén ngay cả khi không có hook nào kích hoạt. Chia sẻ transcript cache để không xảy ra tình trạng đọc tệp trùng lặp |
+| **Phiên đăng ký/Phiên tiếp tục**   | Tự động kích hoạt lại các phiên khi có sự kiện mới, xử lý chính xác các phiên `/resume` và phiên mồ côi. Quét định kỳ (mỗi ¼ của `DASHBOARD_STALE_MINUTES`, kẹp giữa 60s–5 phút) đánh dấu các phiên bị bỏ qua vượt qua khả năng phát hiện dựa trên sự kiện                                                                     |
 | **Phát hiện phiên có sẵn** | Các phiên đã chạy khi máy chủ khởi động được nhập dưới dạng "hoạt động" (dựa trên sửa đổi tệp JSONL gần đây). Các sự kiện dừng cũng kích hoạt lại các phiên đã hoàn thành/bị bỏ rơi đã nhập, do đó, móc đầu tiên từ phiên đang diễn ra luôn hiển thị trên bảng điều khiển     |
 | **Thiết kế đáp ứng**              | Bố cục thân thiện với thiết bị di động với lưới xếp chồng, bảng có thể cuộn và thanh bên có thể thu gọn                                                                                                                                                                                      |
 | **Bản địa hóa giao diện người dùng**                | Chuyển đổi ngôn ngữ tích hợp với bản sao giao diện người dùng được dịch và nhãn trợ năng cho tiếng Anh (`en`), tiếng Trung (`zh`) và tiếng Việt (`vi`)                                                                                                                                       |
@@ -392,48 +392,65 @@ sequenceDiagram
 3. **Máy chủ** xử lý sự kiện bên trong giao dịch SQLite:
    - Tự động tạo phiên và Agent chính trong lần liên hệ đầu tiên
    - Phát hiện lệnh gọi công cụ `Agent` để theo dõi việc tạo tác nhân phụ
-   - Đặt tác nhân thành "đang hoạt động" trên `PreToolUse`, giữ cho tác nhân hoạt động thông qua `PostToolUse`
-   - Trên `Stop` (Claude trả lời xong), nhân viên chính chuyển sang trạng thái "không hoạt động" — ngay cả ở những lượt không sử dụng công cụ mà Claude phản hồi mà không gọi bất kỳ công cụ nào, đảm bảo dấu thời gian và nhật ký hoạt động luôn chính xác. Các tác nhân phụ nền tiếp tục chạy. Phiên vẫn ở `active` — người dùng có thể gửi thêm tin nhắn
-   - Đánh dấu các Subagent được hoàn thành riêng lẻ thông qua `SubagentStop`
-   - Trên `SessionEnd` (quy trình CLI thoát), đánh dấu tất cả tổng đài viên và phiên là `completed`
-   - Trên `SessionStart`, bất kỳ phiên hoạt động nào khác không có hoạt động nào trong hơn 5 phút sẽ tự động được đánh dấu là "bị bỏ rơi" với các tác nhân đã hoàn thành. Điều này xử lý `/resume` bên trong một phiên, Ctrl+C và các tình huống khác trong đó phiên bị mồ côi mà không có `SessionEnd` sạch
-   - Kích hoạt lại các phiên đã hoàn thành/lỗi/bị bỏ rơi khi có sự kiện công việc mới (phiên được tiếp tục). Các sự kiện Stop và SubagentStop cũng kích hoạt lại các phiên đã hoàn thành/bị bỏ rơi - thao tác này xử lý các phiên có sẵn được nhập trước khi máy chủ khởi động, trong đó sự kiện hook đầu tiên có thể là Stop
-   - Phát hiện quá trình nén cuộc hội thoại (`isCompactSummary` trong bản ghi JSONL) và tạo tác nhân + sự kiện `Compaction`. Đường cơ sở của mã thông báo được bảo toàn qua các lần nén nên không bị mất việc sử dụng. Việc đọc bản ghi sử dụng bộ đệm dựa trên thống kê được chia sẻ với các lần đọc bù byte tăng dần - chỉ các byte mới được thêm vào kể từ lần đọc cuối cùng được phân tích cú pháp, giúp tăng tốc ~ 50 lần cho các phiên dài
-   - Trích xuất các lỗi API (`isApiErrorMessage` các mục nhập: giới hạn hạn ngạch, giới hạn tỷ lệ, không hợp lệ_request) và phản hồi `type: "error"` thô từ bản ghi JSONL, được lưu trữ dưới dạng sự kiện `APIError`. Thời lượng lượt (`system` subtype `turn_duration`) được lưu trữ dưới dạng sự kiện `TurnDuration`. Lỗi kết quả công cụ (`toolUseResult.is_error`) được theo dõi dưới dạng sự kiện `ToolError`
-   - Quét máy chủ định kỳ (2 phút một lần) sẽ phát hiện các phiên bị bỏ qua và các lần nén mới vượt qua khả năng phát hiện dựa trên sự kiện (ví dụ: `/compact` không kích hoạt hook, `/resume` trong vài giây sau khi tạo phiên). Quá trình quét chia sẻ bộ nhớ đệm bản ghi với trình xử lý hook, tránh I/O trùng lặp. Việc dọn dẹp phiên bị bỏ dở cũng sẽ loại bỏ mục nhập bộ nhớ đệm bản ghi vào bộ nhớ bị ràng buộc
+   - Trên `SessionStart`, đóng dấu `awaiting_input_since` lên phiên và Agent chính, để CLI mới ngồi ở dòng nhập sẽ rơi ngay vào cột **Đang chờ**
+   - Trên `UserPromptSubmit` (người dùng nhấn enter), xóa cờ chờ và đẩy Agent chính sang `working` — đây là tín hiệu đáng tin cậy duy nhất cho biết các lượt văn bản thuần đã bắt đầu, vì chúng không phát ra `PreToolUse`
+   - Đặt tác nhân thành "working" trên `PreToolUse` (đồng thời xóa cờ chờ), giữ cho tác nhân hoạt động qua `PostToolUse` (cũng xóa cờ chờ — xử lý tình huống user duyệt prompt xin quyền giữa lúc tool đang chạy)
+   - Trên `Stop` không lỗi, Agent chính chuyển sang `idle` và cờ chờ được đóng dấu lại — Claude đã hoàn thành lượt, lượt tiếp theo thuộc về người dùng. `Stop` lỗi sẽ xóa cờ và đánh dấu phiên `error`. Các Subagent nền vẫn tiếp tục chạy
+   - Trên Notification dạng xin quyền (khớp mẫu: `permission`, `waiting for input`, `needs your approval`, …), đóng dấu cờ chờ mà không thay đổi trạng thái
+   - `SubagentStop` cố tình KHÔNG xóa cờ chờ — Subagent nền hoàn thành không nói lên gì về việc người dùng đã trả lời hay chưa
+   - Đánh dấu các Subagent hoàn thành riêng lẻ thông qua `SubagentStop`
+   - Trên `SessionEnd` (CLI thoát), xóa cờ chờ và đánh dấu tất cả Agent + phiên là `completed`
+   - Trên `SessionStart`, bất kỳ phiên active nào khác không có hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180 = 3 giờ, có thể ghi đè qua biến môi trường) sẽ được đánh dấu "abandoned" với các Agent của nó hoàn thành. Điều này xử lý `/resume` bên trong phiên, Ctrl+C và các tình huống mồ côi khác mà không có `SessionEnd` sạch
+   - Kích hoạt lại các phiên completed/error/abandoned khi có sự kiện công việc mới (phiên được tiếp tục). Các sự kiện Stop và SubagentStop cũng kích hoạt lại các phiên completed/abandoned — thao tác này xử lý các phiên có sẵn được nhập trước khi máy chủ khởi động, trong đó sự kiện hook đầu tiên có thể là Stop
+   - Phát hiện quá trình nén cuộc hội thoại (`isCompactSummary` trong bản ghi JSONL) và tạo tác nhân + sự kiện `Compaction`. Baseline token được bảo toàn qua các lần nén nên không bị mất usage. Việc đọc transcript sử dụng cache stat-based với incremental byte-offset reads — chỉ các byte mới được thêm vào kể từ lần đọc cuối cùng được parse, giúp tăng tốc ~50 lần cho các phiên dài
+   - Trích xuất các lỗi API (`isApiErrorMessage`: giới hạn quota, rate limit, invalid_request) và phản hồi `type: "error"` thô từ JSONL transcript, lưu dưới dạng sự kiện `APIError`. Thời lượng lượt (`system` subtype `turn_duration`) được lưu dưới dạng `TurnDuration`. Lỗi tool result (`toolUseResult.is_error`) được theo dõi dưới dạng `ToolError`
+   - Quét máy chủ định kỳ phát hiện các phiên bị bỏ qua và các lần nén mới vượt qua khả năng phát hiện dựa trên sự kiện (ví dụ: `/compact` không kích hoạt hook, `/resume` trong vài giây sau khi tạo phiên). Tần suất được dẫn xuất từ `DASHBOARD_STALE_MINUTES` (¼ ngưỡng, kẹp giữa 60s–5 phút). Quá trình quét chia sẻ transcript cache với trình xử lý hook, tránh I/O trùng lặp. Việc dọn dẹp phiên bỏ dở cũng evict cache để bound memory
 4. **WebSocket** thông báo thay đổi tới tất cả các máy khách được kết nối
 5. **UI** nhận bản cập nhật và hiển thị lại các thành phần bị ảnh hưởng trong thời gian thực mà không cần thăm dò ý kiến.
 
 ### Máy trạng thái Agent
 
+Trạng thái lưu trữ: `idle | connected | working | completed | error`. Trạng
+thái **Đang chờ** (Waiting) hiển thị trên dashboard là lớp phủ UI dẫn xuất
+từ cột `awaiting_input_since` — được đặt khi Claude Code đang ngồi ở dòng
+nhập chờ người dùng, xóa ngay khi người dùng tiếp tục.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> connected: Agent created
-    connected --> working: PreToolUse
-    working --> working: PreToolUse (different tool)
-    working --> idle: Stop (turn ended)
-    idle --> working: PreToolUse (next turn)
-    idle --> connected: SessionStart (resume)
+    [*] --> connected: ensureSession (hook đầu tiên)
+    connected --> waiting: SessionStart (đóng dấu cờ chờ)
+    waiting --> working: UserPromptSubmit (người dùng nhấn enter)
+    waiting --> working: PreToolUse (Claude gọi tool)
+    working --> working: PreToolUse (tool tiếp theo)
+    working --> waiting: Stop, không lỗi (idle + cờ)
+    working --> waiting: Notification xin quyền (cờ được đặt)
+    waiting --> completed: SessionEnd
     working --> completed: SessionEnd
-    idle --> completed: SessionEnd
-    connected --> completed: SessionEnd
-    working --> error: Error occurred
+    working --> error: Stop, stop_reason=error
     completed --> [*]
     error --> [*]
 ```
 
 ### Máy trạng thái phiên
 
+Trạng thái lưu trữ: `active | completed | error | abandoned`. Trạng thái
+**Đang chờ** là lớp phủ UI (status=`active` cộng với `awaiting_input_since`
+được đặt).
+
 ```mermaid
 stateDiagram-v2
-    [*] --> active: First hook event / SessionStart
-    active --> active: Stop (turn ended, waiting for user)
-    active --> error: Stop (error stop_reason)
-    active --> completed: SessionEnd (CLI exited)
-    active --> abandoned: No activity for 5+ min (SessionStart cleanup)
-    completed --> active: Session resumed (new work event)
-    error --> active: Session resumed (new work event)
-    abandoned --> active: Session resumed (new work event)
+    [*] --> waiting: SessionStart (status=active + cờ)
+    waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
+    active --> waiting: Stop, không lỗi (cờ được đóng dấu lại)
+    active --> waiting: Notification xin quyền
+    active --> error: Stop, stop_reason=error
+    waiting --> completed: SessionEnd (CLI thoát)
+    active --> completed: SessionEnd (CLI thoát)
+    waiting --> abandoned: Quá hạn > DASHBOARD_STALE_MINUTES (mặc định 180)
+    active --> abandoned: Quá hạn > DASHBOARD_STALE_MINUTES
+    completed --> active: Phiên được tiếp tục (sự kiện công việc mới)
+    error --> active: Phiên được tiếp tục
+    abandoned --> active: Phiên được tiếp tục
     completed --> [*]
     error --> [*]
     abandoned --> [*]
@@ -919,15 +936,16 @@ stateDiagram-v2
 
 Bảng điều khiển xử lý các loại hook Claude Code này:
 
-| Loại móc      | Cò súng                        | Hành động trên trang tổng quan                                                                             |
-| -------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `SessionStart` | Phiên Claude Code bắt đầu     | Tạo phiên và tác nhân chính. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không có hoạt động nào trong hơn 5 phút |
-| `PreToolUse`   | Agent bắt đầu sử dụng một công cụ      | Đặt tác nhân thành `working`, đặt `current_tool`. Nếu công cụ là `Agent`, tạo bản ghi tác nhân phụ    |
-| `PostToolUse`  | Thực hiện công cụ đã hoàn tất       | Xóa `current_tool`. Agent ở lại `working` (không thay đổi trạng thái)                              |
-| `Stop`         | Claude trả lời xong     | Tác nhân chính tới `idle` (ngay cả trên các vòng quay không có công cụ). Các tác nhân phụ nền tiếp tục chạy. Phiên ở lại `active` |
-| `SubagentStop` | Tác nhân nền đã hoàn tất      | Khớp và hoàn thành tác nhân phụ theo mô tả, loại hoặc nhiệm vụ                             |
-| `Notification` | Thông báo Agent             | Nhật ký sự kiện. Thông báo liên quan đến nén được gắn thẻ dưới dạng sự kiện `Compaction`. Kích hoạt thông báo trình duyệt nếu người dùng đã bật thông báo |
-| `SessionEnd`   | Quá trình Claude Code CLI thoát  | Đánh dấu tất cả các tổng đài viên và phiên là `completed`                                              |
+| Loại hook         | Trigger                        | Hành động trên dashboard                                                                             |
+| ----------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` để phiên mới rơi vào **Đang chờ**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
+| `UserPromptSubmit`| Người dùng nhấn enter          | Xóa cờ chờ và đẩy Agent chính sang `working` — tín hiệu duy nhất cho biết các lượt văn bản thuần đã bắt đầu, vì chúng không phát ra `PreToolUse` |
+| `PreToolUse`      | Agent bắt đầu sử dụng tool     | Xóa cờ chờ, đặt Agent thành `working`, đặt `current_tool`. Nếu tool là `Agent`, tạo bản ghi Subagent |
+| `PostToolUse`     | Tool hoàn tất                  | Xóa cờ chờ (xử lý các phê duyệt prompt xin quyền mà Notification đã đóng dấu giữa lúc tool đang chạy). Xóa `current_tool`. Agent ở lại `working` |
+| `Stop`            | Claude trả lời xong            | Không lỗi: Agent chính → `idle` và cờ chờ được đóng dấu lại — Claude xong lượt, đến lượt người dùng. Lỗi: xóa cờ, đánh dấu phiên `error`. Subagent nền vẫn tiếp tục chạy |
+| `SubagentStop`    | Subagent nền đã hoàn tất       | Khớp và hoàn thành Subagent theo mô tả, loại hoặc nhiệm vụ. Cố tình KHÔNG xóa cờ chờ — Subagent xong không nói lên gì về người dùng |
+| `Notification`    | Notification Agent             | Ghi sự kiện. Tin nhắn xin quyền/yêu cầu input đóng dấu cờ chờ (mẫu: `permission`, `waiting for input`, `needs your approval`, …). Notification liên quan đến nén được gắn thẻ `Compaction`. Kích hoạt notification trình duyệt nếu được bật |
+| `SessionEnd`      | CLI Claude Code thoát          | Xóa cờ chờ, đánh dấu tất cả Agent + phiên là `completed`                                              |
 | `Compaction`   | `/compact` được phát hiện trong JSONL   | Tạo một tác nhân phụ nén (loại `compaction`) và sự kiện Nén. Được phát hiện qua các mục `isCompactSummary` trong bản ghi JSONL. Cũng được phát hiện bởi máy quét định kỳ cho các phiên hoạt động |
 | `APIError`     | Lỗi API trong bản ghi JSONL  | Được trích xuất từ ​​các mục nhập `isApiErrorMessage` (hạn ngạch, giới hạn tỷ lệ, yêu cầu không hợp lệ) và phản hồi thô `type: "error"`. Được lưu trữ dưới dạng sự kiện với chi tiết lỗi |
 | `TurnDuration` | Xoay thời gian trong bảng điểm JSONL| Trích xuất từ ​​​​các tin nhắn `system` kiểu con `turn_duration` có `durationMs`. Được lưu trữ dưới dạng sự kiện để phân tích thời gian theo cấp độ |
@@ -1101,6 +1119,7 @@ erDiagram
         TEXT started_at "ISO 8601"
         TEXT ended_at "ISO 8601 or NULL"
         TEXT metadata "JSON blob"
+        TEXT awaiting_input_since "ISO 8601 hoặc NULL — đặt khi Đang chờ"
     }
 
     agents {
@@ -1110,6 +1129,7 @@ erDiagram
         TEXT type "main|subagent"
         TEXT status "idle|connected|working|completed|error"
         TEXT current_tool "Active tool or NULL"
+        TEXT awaiting_input_since "ISO 8601 hoặc NULL — cờ chờ của Agent chính"
     }
 
     events {

@@ -25,8 +25,7 @@
   },
   "tooltip": {
     "agent": {
-      "connected": "Agent vừa kết nối, sẵn sàng làm việc nhưng chưa gọi tool.\n\nVòng đời: SessionStart → Connected → PreToolUse đầu tiên chuyển sang Working.",
-      "working": "Agent đang chạy một tool call ngay lúc này.\n\nVào trạng thái khi PreToolUse, thoát khi Stop (hết lượt) hoặc khi gọi tool tiếp theo.",
+      "working": "Agent đang chạy một tool call ngay lúc này.\n\nVào trạng thái khi PreToolUse hoặc UserPromptSubmit, thoát khi Stop (hết lượt).",
       "waiting": "Agent đã kết thúc lượt và đang chờ người dùng — Claude chờ tin nhắn tiếp theo hoặc đã hỏi xin quyền sử dụng tool.\n\nXóa khi PreToolUse / PostToolUse tiếp theo, hoặc khi phiên kết thúc.",
       "completed": "Agent đã kết thúc hoàn toàn cho phiên này — thường do SessionEnd kích hoạt, hoặc với subagent là do SubagentStop.\n\nKhông còn hoạt động nào được ghi nhận cho Agent này.",
       "error": "Agent gặp lỗi và sẽ không tiếp tục. Với main agent là từ Stop với stop_reason=error; với subagent là do chạy thất bại."

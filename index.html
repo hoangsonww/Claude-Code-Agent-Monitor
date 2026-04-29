@@ -884,11 +884,11 @@
                   <div class="feature-icon ic-emerald">📋</div>
                   <h3>Kanban Board</h3>
                   <p>
-                    Two views with a header toggle (persisted in <code>localStorage</code>):
-                    <strong>Agents</strong> — 5 columns (Idle / Connected / Working / Completed /
-                    Error) — and <strong>Sessions</strong> — 4 columns (Active / Completed /
-                    Error / Abandoned). Each column paginates at 10 cards with a "Show more"
-                    affordance, and horizontal scroll handles overflow.
+                    Toggle between <strong>Agents</strong> (Working / Waiting / Completed /
+                    Error) and <strong>Sessions</strong> (Active / Waiting / Completed / Error /
+                    Abandoned). Yellow <strong>Waiting</strong> column flags rows sitting on the
+                    user — fresh prompt, between turns, or permission gate. Hover headers for
+                    lifecycle tooltips. Cards show model, cost, and current tool.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1160,11 +1160,11 @@
               <div class="screenshot-caption"><span class="caption-icon">🔬</span> Session detail · Timeline — chronological events with multi-dimension filters and tool-aware payloads</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/board.png" alt="Kanban board, agents view: 5 columns (Idle, Connected, Working, Completed, Error) of agent cards" width="1918" height="1047" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">📂</span> Kanban board — agents view, 5-column status board</div>
+              <img src="images/board.png" alt="Kanban board, agents view: 4 columns (Working, Waiting, Completed, Error) of agent cards with model, cost, and tool info" width="1918" height="1047" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">📂</span> Kanban board — agents view, 4-column status board with the yellow Waiting column</div>
             </div>
             <div class="screenshot-card">
-              <img src="images/board-sessions.png" alt="Kanban board, sessions view: 4 columns (Active, Completed, Error, Abandoned) of session cards with agent count, model, cost, duration, and time-ago" width="3024" height="1720" loading="lazy" decoding="async" />
+              <img src="images/board-sessions.png" alt="Kanban board, sessions view: 5 columns (Active, Waiting, Completed, Error, Abandoned) of session cards with agent count, model, cost, duration, and time-ago" width="3024" height="1720" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📁</span> Kanban board — sessions view, toggleable from the same page</div>
             </div>
             <div class="screenshot-card">
@@ -1245,41 +1245,51 @@
                   <td><code>SessionStart</code></td>
                   <td>Claude Code session begins</td>
                   <td>
-                    Creates session and main agent. Reactivates resumed sessions. Abandons orphaned sessions with no activity for 5+ minutes.
+                    Creates session and main agent. Stamps <code>awaiting_input_since</code> so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt). Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>UserPromptSubmit</code></td>
+                  <td>User hits enter on a prompt</td>
+                  <td>
+                    Clears the waiting flag and promotes the main agent to
+                    <span class="status-chip chip-working"
+                      ><span class="chip-dot"></span>Working</span
+                    >. The only reliable signal that text-only assistant turns have started — they emit no <code>PreToolUse</code> before <code>Stop</code>.
                   </td>
                 </tr>
                 <tr>
                   <td><code>PreToolUse</code></td>
                   <td>Agent begins using a tool</td>
                   <td>
-                    Agent →
+                    Clears the waiting flag, sets agent →
                     <span class="status-chip chip-working"
                       ><span class="chip-dot"></span>Working</span
-                    >, <code>current_tool</code> set. If tool is <code>Agent</code>, subagent record
-                    created.
+                    >, <code>current_tool</code> set. If tool is <code>Agent</code>, subagent record created.
                   </td>
                 </tr>
                 <tr>
                   <td><code>PostToolUse</code></td>
                   <td>Tool execution completes</td>
                   <td>
+                    Clears the waiting flag (covers permission-prompt approvals mid-tool).
                     <code>current_tool</code> cleared. Agent stays
                     <span class="status-chip chip-working"
                       ><span class="chip-dot"></span>Working</span
-                    > (no status change).
+                    >.
                   </td>
                 </tr>
                 <tr>
                   <td><code>Stop</code></td>
-                  <td>Session/turn ended</td>
+                  <td>Claude finishes a turn</td>
                   <td>
-                    Main agent →
+                    Non-error: main agent → <code>idle</code> and <code>awaiting_input_since</code> re-stamped — UI shows
                     <span class="status-chip chip-idle"
-                      ><span class="chip-dot"></span>Idle</span
-                    > if subagents still running, else
-                    <span class="status-chip chip-completed"
-                      ><span class="chip-dot"></span>Completed</span
-                    >. Running subagents are preserved. Token usage recorded.
+                      ><span class="chip-dot"></span>Waiting</span
+                    > until the next user input. Error: drops the flag, marks the session
+                    <span class="status-chip chip-error"
+                      ><span class="chip-dot"></span>Error</span
+                    >. Background subagents keep running.
                   </td>
                 </tr>
                 <tr>
@@ -1289,13 +1299,13 @@
                     Matched subagent →
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >. Auto-completes session when the last subagent finishes.
+                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human.
                   </td>
                 </tr>
                 <tr>
                   <td><code>Notification</code></td>
                   <td>Agent sends notification</td>
-                  <td>Event logged to activity feed. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers persistent browser notification if enabled.</td>
+                  <td>Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") stamp the waiting flag. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.</td>
                 </tr>
                 <tr>
                   <td><code>Compaction</code></td>
@@ -1304,7 +1314,7 @@
                     Creates a compaction subagent →
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (every 2 min) catches compactions when no hooks fire.
+                    >. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (cadence ~¼ of <code>DASHBOARD_STALE_MINUTES</code>) catches compactions when no hooks fire.
                   </td>
                 </tr>
                 <tr>
@@ -1327,10 +1337,10 @@
                   <td><code>SessionEnd</code></td>
                   <td>Claude Code CLI process exits</td>
                   <td>
-                    Marks all agents and the session as
+                    Drops the waiting flag and marks all agents and the session as
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >.
+                    >. Evicts the session's transcript from the shared cache.
                   </td>
                 </tr>
               </tbody>
@@ -1456,14 +1466,17 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Sessions</td>
                   <td>
                     Your session listed with status
+                    <span class="status-chip chip-idle"
+                      ><span class="chip-dot"></span>Waiting</span
+                    > (a fresh CLI is sitting at the prompt) — flips to
                     <span class="status-chip chip-active"
                       ><span class="chip-dot"></span>Active</span
-                    >
+                    > the moment Claude starts a turn
                   </td>
                 </tr>
                 <tr>
                   <td>Kanban Board</td>
-                  <td>A <em>Main Agent</em> card in the Connected column</td>
+                  <td>A <em>Main Agent</em> card in the <strong>Waiting</strong> column until you type your first message; flips to <em>Working</em> on <code>UserPromptSubmit</code> / <code>PreToolUse</code> and back to <em>Waiting</em> after each <code>Stop</code></td>
                 </tr>
                 <tr>
                   <td>Activity Feed</td>
@@ -1835,18 +1848,22 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <!-- prettier-ignore -->
             <div class="mermaid">
               stateDiagram-v2
-                [*] --> connected: Agent created
-                connected --> working: PreToolUse
-                working --> working: PreToolUse (different tool)
-                working --> idle: Stop (subagents still running)
-                working --> completed: Stop (no subagents)
-                idle --> idle: Tool events from subagents
-                idle --> completed: Last SubagentStop
-                working --> error: Error occurred
+                [*] --> connected: ensureSession (first hook)
+                connected --> waiting: SessionStart (stamps awaiting flag)
+                waiting --> working: UserPromptSubmit
+                waiting --> working: PreToolUse
+                working --> working: PreToolUse (subsequent tool)
+                working --> waiting: Stop (non-error, idle + flag)
+                working --> waiting: Permission Notification
+                waiting --> completed: SessionEnd
+                working --> completed: SessionEnd
+                working --> error: Stop (stop_reason=error)
                 completed --> [*]
                 error --> [*]
             </div>
-            <p class="diagram-label">Agent status transitions driven by hook events</p>
+            <p class="diagram-label">
+              Agent status transitions driven by hook events. <code>waiting</code> is a UI overlay — persisted as <code>idle</code>/<code>connected</code> with <code>awaiting_input_since</code> set.
+            </p>
           </div>
 
           <h3>Session State Machine</h3>
@@ -1854,16 +1871,22 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <!-- prettier-ignore -->
             <div class="mermaid">
               stateDiagram-v2
-                [*] --> active: First hook event received
-                active --> active: Stop (subagents still running)
-                active --> completed: Stop (no subagents) / last SubagentStop
-                active --> error: Stop hook (error)
-                active --> abandoned: No activity timeout
+                [*] --> waiting: SessionStart (status=active + flag)
+                waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
+                active --> waiting: Stop (non-error, flag re-stamped)
+                active --> waiting: Permission Notification
+                active --> error: Stop (stop_reason=error)
+                waiting --> completed: SessionEnd
+                active --> completed: SessionEnd
+                waiting --> abandoned: Stale > DASHBOARD_STALE_MINUTES
+                active --> abandoned: Stale > DASHBOARD_STALE_MINUTES
                 completed --> [*]
                 error --> [*]
                 abandoned --> [*]
             </div>
-            <p class="diagram-label">Session status lifecycle</p>
+            <p class="diagram-label">
+              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set.
+            </p>
           </div>
         </section>
 
@@ -1891,7 +1914,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 TX->>TX: ensureSession(session_id)
                 Note over TX: Creates session + main agent<br/>on first contact
                 TX->>TX: process by hook_type
-                Note over TX: PreToolUse -> agent working<br/>PostToolUse -> clear current_tool<br/>Stop -> idle if subagents, else completed<br/>SubagentStop -> complete matched subagent
+                Note over TX: SessionStart -> stamp awaiting flag (Waiting)<br/>UserPromptSubmit -> clear flag, agent working<br/>PreToolUse -> clear flag, agent working<br/>PostToolUse -> clear flag, clear current_tool<br/>Stop (non-error) -> idle + flag re-stamped<br/>Stop (error) -> drop flag, session error<br/>SubagentStop -> complete matched subagent (does NOT touch flag)<br/>Notification (permission) -> stamp flag<br/>SessionEnd -> drop flag, mark all completed
                 TX->>TX: insertEvent(...)
                 TX->>TX: COMMIT
                 API->>WS: broadcast("agent_updated", agent)
@@ -2117,7 +2140,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 SETTINGS_P["Settings.tsx"]
                 SC["StatCard x4"]
                 AC["AgentCard list"]
-                COL["Column x5\n(idle/connected/working/completed/error)"]
+                COL["Agents: 4 columns\n(working/waiting/completed/error)\nSessions: 5 columns\n(active/waiting/completed/error/abandoned)"]
                 AC2["AgentCard list"]
 
                 APP --> LAYOUT
@@ -2319,6 +2342,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT started_at "ISO 8601"
                   TEXT ended_at "ISO 8601 or NULL"
                   TEXT metadata "JSON blob"
+                  TEXT awaiting_input_since "ISO 8601 or NULL — Waiting flag"
                 }
 
                 agents {
@@ -2334,6 +2358,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT ended_at "ISO 8601 or NULL"
                   TEXT parent_agent_id FK "References agents.id"
                   TEXT metadata "JSON blob"
+                  TEXT awaiting_input_since "ISO 8601 or NULL — main-agent Waiting flag"
                 }
 
                 events {
