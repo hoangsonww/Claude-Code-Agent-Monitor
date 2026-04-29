@@ -727,6 +727,144 @@ describe("Hook Event Processing", () => {
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-1");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.equal(main.status, "idle");
+
+    // Non-error Stop also stamps awaiting_input_since so the dashboard
+    // surfaces a Waiting badge — Claude finished its turn, ball is now in
+    // the user's court. Cleared by the next PreToolUse/PostToolUse.
+    assert.ok(
+      sessRes.body.session.awaiting_input_since,
+      "session should be flagged waiting after non-error Stop"
+    );
+    assert.ok(
+      main.awaiting_input_since,
+      "main agent should be flagged waiting after non-error Stop"
+    );
+  });
+
+  it("should clear awaiting_input_since and promote main to working on UserPromptSubmit", async () => {
+    // The bug this guards: text-only assistant turns emit no PreToolUse,
+    // so without UserPromptSubmit the Waiting badge would persist for the
+    // entire generation. This test simulates: Stop (waiting set) → user
+    // types another message → UserPromptSubmit must clear waiting and
+    // promote the main agent back to working immediately, before Claude
+    // does anything.
+    const sid = "hook-sess-userprompt";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: { session_id: sid, tool_name: "Read" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+
+    // Confirm waiting state exists before the user types again.
+    const before = await fetch(`/api/sessions/${sid}`);
+    assert.ok(before.body.session.awaiting_input_since, "session should be waiting after Stop");
+
+    // User submits a new prompt — Claude hasn't done anything yet.
+    await post("/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, prompt: "follow-up question" },
+    });
+
+    const afterSess = await fetch(`/api/sessions/${sid}`);
+    assert.equal(
+      afterSess.body.session.awaiting_input_since,
+      null,
+      "session waiting flag should be cleared by UserPromptSubmit"
+    );
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.status, "working", "main agent should be promoted to working");
+  });
+
+  it("should NOT clear awaiting_input_since when SubagentStop fires after Stop", async () => {
+    // Regression: backgrounded subagents that finish *after* a non-error
+    // Stop used to flip the session out of Waiting because the blanket
+    // auto-clear ran on every non-Notification event. SubagentStop tells
+    // us nothing about whether the human responded, so it must leave the
+    // flag alone.
+    const sid = "hook-sess-subagent-late";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid },
+    });
+    // Spawn a subagent so SubagentStop has something to match.
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sid,
+        tool_name: "Agent",
+        tool_input: { description: "background-worker", subagent_type: "general-purpose" },
+      },
+    });
+    // Main turn ends — session enters Waiting.
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+
+    const beforeSess = await fetch(`/api/sessions/${sid}`);
+    assert.ok(beforeSess.body.session.awaiting_input_since, "session should be Waiting after Stop");
+    const beforeAgents = await fetch(`/api/agents?session_id=${sid}`);
+    const beforeMain = beforeAgents.body.agents.find((a) => a.type === "main");
+    assert.ok(beforeMain.awaiting_input_since, "main agent should be Waiting after Stop");
+
+    // Backgrounded subagent finishes — must NOT flip session out of Waiting.
+    await post("/api/hooks/event", {
+      hook_type: "SubagentStop",
+      data: { session_id: sid, agent_type: "general-purpose" },
+    });
+
+    const afterSess = await fetch(`/api/sessions/${sid}`);
+    assert.ok(
+      afterSess.body.session.awaiting_input_since,
+      "session should STILL be Waiting after SubagentStop"
+    );
+    const afterAgents = await fetch(`/api/agents?session_id=${sid}`);
+    const afterMain = afterAgents.body.agents.find((a) => a.type === "main");
+    assert.ok(
+      afterMain.awaiting_input_since,
+      "main agent should STILL be Waiting after SubagentStop"
+    );
+  });
+
+  it("should NOT stamp awaiting_input_since when Stop has stop_reason=error", async () => {
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: { session_id: "hook-sess-stop-err", tool_name: "Bash" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: "hook-sess-stop-err", stop_reason: "error" },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-stop-err");
+    assert.equal(sessRes.body.session.status, "error");
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+  });
+
+  it("should clear awaiting_input_since on the next PreToolUse after Stop", async () => {
+    // Confirm the flag carried forward from the previous Stop test.
+    const before = await fetch("/api/sessions/hook-sess-1");
+    assert.ok(before.body.session.awaiting_input_since);
+
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: { session_id: "hook-sess-1", tool_name: "Read" },
+    });
+
+    const after = await fetch("/api/sessions/hook-sess-1");
+    assert.equal(after.body.session.awaiting_input_since, null);
+
+    const agentsRes = await fetch("/api/agents?session_id=hook-sess-1");
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.awaiting_input_since, null);
   });
 
   it("should mark session as error when stop_reason is error", async () => {

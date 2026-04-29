@@ -48,13 +48,7 @@ import {
 } from "../lib/event-grouping";
 import type { AgentInfo } from "../lib/event-grouping";
 import { formatDateTime, formatDuration, fmtCostFull, timeAgo } from "../lib/format";
-import type {
-  Session,
-  Agent,
-  DashboardEvent,
-  CostResult,
-  TranscriptInfo,
-} from "../lib/types";
+import type { Session, Agent, DashboardEvent, CostResult, TranscriptInfo } from "../lib/types";
 
 type DetailTab = "agents" | "conversation" | "timeline";
 
@@ -614,6 +608,7 @@ export function SessionDetail() {
                           <div className="flex-1 min-w-0">
                             <AgentCard
                               agent={agent}
+                              session={session ?? undefined}
                               label={compactionLabels.get(agent.id)}
                               onClick={
                                 hasChildren

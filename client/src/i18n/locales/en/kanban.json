@@ -22,5 +22,21 @@
     "anonymous": "Untitled session",
     "agentSummary_one": "{{count}} agent",
     "agentSummary_other": "{{count}} agents"
+  },
+  "tooltip": {
+    "agent": {
+      "connected": "Agent has just connected and is ready for work but hasn't started a tool call yet.\n\nLifecycle: SessionStart → Connected → first PreToolUse promotes to Working.",
+      "working": "Agent is actively running a tool call right now.\n\nEntered on PreToolUse, exits on Stop (turn finished) or further tool calls.",
+      "waiting": "Agent finished its turn and is blocked on the human — either Claude is waiting for the next user message or has prompted for permission to use a tool.\n\nCleared on the next PreToolUse / PostToolUse, or when the session ends.",
+      "completed": "Agent has fully ended for this session — typically because SessionEnd fired or, for subagents, SubagentStop was processed.\n\nNo further activity will be recorded against this agent.",
+      "error": "Agent recorded an error and will not continue. For main agents this comes from a Stop with stop_reason=error; for subagents, from a failed run."
+    },
+    "session": {
+      "active": "Session is mid-turn — Claude is currently running and the user isn't blocking anything. Brief by nature: a session moves through Active during tool calls and back to Waiting at end of turn.",
+      "waiting": "Session is sitting on the user. Either Claude finished its turn (most common) or it has surfaced a permission prompt and is blocked until the human responds.\n\nLook here for sessions you owe a reply to.",
+      "completed": "Session has fully closed — SessionEnd fired (CLI exited cleanly) or the user explicitly closed it.\n\nAll agents on this session are also completed.",
+      "error": "Session ended with an error — Claude returned stop_reason=error, an unrecoverable failure occurred, or an upstream API error terminated the run.",
+      "abandoned": "Session went stale without a clean SessionEnd. Marked abandoned after 5+ minutes of no activity (orphaned by /resume, network drop, or the CLI being killed). Distinct from Completed: we never saw a real exit signal."
+    }
   }
 }

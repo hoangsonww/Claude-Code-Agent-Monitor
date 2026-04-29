@@ -22,5 +22,21 @@
     "anonymous": "Phiên chưa đặt tên",
     "agentSummary_one": "{{count}} Agent",
     "agentSummary_other": "{{count}} Agent"
+  },
+  "tooltip": {
+    "agent": {
+      "connected": "Agent vừa kết nối, sẵn sàng làm việc nhưng chưa gọi tool.\n\nVòng đời: SessionStart → Connected → PreToolUse đầu tiên chuyển sang Working.",
+      "working": "Agent đang chạy một tool call ngay lúc này.\n\nVào trạng thái khi PreToolUse, thoát khi Stop (hết lượt) hoặc khi gọi tool tiếp theo.",
+      "waiting": "Agent đã kết thúc lượt và đang chờ người dùng — Claude chờ tin nhắn tiếp theo hoặc đã hỏi xin quyền sử dụng tool.\n\nXóa khi PreToolUse / PostToolUse tiếp theo, hoặc khi phiên kết thúc.",
+      "completed": "Agent đã kết thúc hoàn toàn cho phiên này — thường do SessionEnd kích hoạt, hoặc với subagent là do SubagentStop.\n\nKhông còn hoạt động nào được ghi nhận cho Agent này.",
+      "error": "Agent gặp lỗi và sẽ không tiếp tục. Với main agent là từ Stop với stop_reason=error; với subagent là do chạy thất bại."
+    },
+    "session": {
+      "active": "Phiên đang giữa lượt — Claude đang chạy và người dùng không bị chặn. Trạng thái này thoáng qua: phiên đi qua Active trong các tool call rồi quay lại Waiting khi hết lượt.",
+      "waiting": "Phiên đang chờ người dùng. Có thể Claude đã hết lượt (phổ biến nhất) hoặc đang hỏi quyền và bị chặn cho tới khi người dùng phản hồi.\n\nXem cột này để biết phiên nào bạn cần trả lời.",
+      "completed": "Phiên đã đóng hoàn toàn — SessionEnd đã kích hoạt (CLI thoát sạch) hoặc người dùng đã đóng thủ công.\n\nMọi Agent của phiên cũng đã hoàn tất.",
+      "error": "Phiên kết thúc với lỗi — Claude trả về stop_reason=error, có lỗi không thể khôi phục, hoặc lỗi API thượng nguồn đã chấm dứt lần chạy.",
+      "abandoned": "Phiên đã chết mà không có SessionEnd sạch. Bị đánh dấu bỏ dở sau 5+ phút không hoạt động (mồ côi vì /resume, mất mạng, hoặc CLI bị tắt). Khác với Completed: ta không thấy tín hiệu thoát thật sự."
+    }
   }
 }

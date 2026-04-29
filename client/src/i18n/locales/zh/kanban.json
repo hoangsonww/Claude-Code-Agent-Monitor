@@ -22,5 +22,21 @@
     "anonymous": "未命名会话",
     "agentSummary_one": "{{count}} 个 Agent",
     "agentSummary_other": "{{count}} 个 Agent"
+  },
+  "tooltip": {
+    "agent": {
+      "connected": "Agent 已连接,准备工作,但尚未发起任何工具调用。\n\n生命周期:SessionStart → Connected → 首次 PreToolUse 升级为 Working。",
+      "working": "Agent 当前正在执行工具调用。\n\nPreToolUse 时进入,Stop(回合结束)或下一次工具调用时退出。",
+      "waiting": "Agent 已结束本回合,正在等待用户 — 要么 Claude 在等下一条用户消息,要么弹出了使用工具的权限请求。\n\n下一次 PreToolUse / PostToolUse 或会话结束时清除。",
+      "completed": "Agent 已在此会话完全结束 — 通常是 SessionEnd 触发,subagent 则是 SubagentStop。\n\n之后不会再记录此 Agent 的活动。",
+      "error": "Agent 遇到错误,不会继续运行。主 Agent 来自 stop_reason=error 的 Stop;subagent 来自失败的运行。"
+    },
+    "session": {
+      "active": "会话处于回合中 — Claude 正在运行,用户没有阻塞任何东西。本质上短暂:会话在工具调用期间进入 Active,回合结束后回到 Waiting。",
+      "waiting": "会话正在等用户。可能 Claude 已完成本回合(最常见),或者它弹出了权限请求,在用户响应前都被阻塞。\n\n查看此列以了解你需要回复哪些会话。",
+      "completed": "会话已完全关闭 — SessionEnd 触发(CLI 干净退出)或用户显式关闭。\n\n该会话上的所有 Agent 也都已完成。",
+      "error": "会话以错误结束 — Claude 返回 stop_reason=error,发生了不可恢复的故障,或上游 API 错误终止了运行。",
+      "abandoned": "会话陈旧但没有干净的 SessionEnd。在无活动 5+ 分钟后被标记为废弃(由 /resume 留下、断网、或 CLI 被杀)。与 Completed 不同:我们从未见到真正的退出信号。"
+    }
   }
 }

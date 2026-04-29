@@ -110,3 +110,21 @@ export function fmtCostFull(n: number, decimals = 2): string {
     maximumFractionDigits: decimals,
   })}`;
 }
+
+/** Strip the date suffix from a Claude model ID:
+ *  "claude-opus-4-7-20260101" → "opus-4-7". Returns the original string
+ *  when the pattern doesn't match, and null/undefined unchanged. */
+export function shortModel(model: string | null | undefined): string | null {
+  if (!model) return null;
+  const m = model.match(/claude-([a-z]+-\d+(?:-\d+)?)/i);
+  return m?.[1] ?? model;
+}
+
+/** Last segment of a filesystem path. POSIX-only — fine for cwd display.
+ *  "/Users/dav/code/my-project" → "my-project". */
+export function pathBasename(p: string | null | undefined): string | null {
+  if (!p) return null;
+  const trimmed = p.replace(/\/+$/, "");
+  const idx = trimmed.lastIndexOf("/");
+  return idx === -1 ? trimmed : trimmed.slice(idx + 1) || trimmed;
+}

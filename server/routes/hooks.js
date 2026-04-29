@@ -14,6 +14,14 @@ const router = Router();
 // Shared cache instance — reused by periodic compaction scanner via router.transcriptCache
 const transcriptCache = new TranscriptCache();
 
+// Stale-session threshold for the SessionStart cleanup pass. Mirrors the
+// periodic sweep in server/index.js so both code paths agree on what counts
+// as "abandoned". Configurable via DASHBOARD_STALE_MINUTES; default 180 (3h).
+const STALE_MINUTES = (() => {
+  const raw = parseInt(process.env.DASHBOARD_STALE_MINUTES, 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 180;
+})();
+
 // Detect Notification messages that indicate Claude Code is blocked waiting
 // for the user (permission prompt or "waiting for your input" notice). Idle
 // notifications such as "Claude has finished responding" intentionally do
@@ -114,17 +122,22 @@ const processEvent = db.transaction((hookType, data) => {
   let summary = null;
   let agentId = mainAgentId;
 
-  // Any non-Notification hook event implies the user has resumed (the CLI
-  // wouldn't run a tool, finish a turn, or close the session while still
-  // blocked on a permission prompt). Clear any pending waiting flag so the
-  // UI flips out of the yellow "Waiting" state immediately.
-  if (hookType !== "Notification") {
-    clearAwaitingInput(sessionId, mainAgentId, true);
-  }
+  // NOTE: clearing of awaiting_input_since is handled per-case below rather
+  // than blanket-clearing on every non-Notification event. The blanket rule
+  // caused spontaneous waiting → active flips when *any* hook arrived after
+  // a Stop — most commonly SubagentStop for backgrounded subagents, but
+  // also occasionally a late PostToolUse from a background tool. A subagent
+  // or background tool finishing tells us nothing about whether the human
+  // has actually responded, so those events must NOT clear the flag.
 
   switch (hookType) {
     case "PreToolUse": {
       summary = `Using tool: ${toolName}`;
+
+      // PreToolUse means Claude is actively running a tool, ergo the user
+      // has resumed (Stop only fires at end of turn — Claude can't start a
+      // new tool call without fresh user input). Clear waiting now.
+      clearAwaitingInput(sessionId, mainAgentId, true);
 
       // If the tool is Agent, a subagent is being created
       if (toolName === "Agent") {
@@ -196,6 +209,13 @@ const processEvent = db.transaction((hookType, data) => {
     case "PostToolUse": {
       summary = `Tool completed: ${toolName}`;
 
+      // Clear waiting too. The non-obvious case this covers: a permission
+      // Notification fires *between* PreToolUse and PostToolUse (when Claude
+      // Code prompts the user mid-tool). The Notification stamps waiting,
+      // the user approves, the tool completes, PostToolUse arrives. Without
+      // a clear here, we'd be stuck in waiting until the next PreToolUse.
+      clearAwaitingInput(sessionId, mainAgentId, true);
+
       // NOTE: PostToolUse for "Agent" tool fires immediately when a subagent is
       // backgrounded — it does NOT mean the subagent finished its work.
       // Subagent completion is handled by SubagentStop, not here.
@@ -219,24 +239,44 @@ const processEvent = db.transaction((hookType, data) => {
 
       // Stop means Claude finished its turn, NOT that the session is closed.
       // Session stays active — user can still send more messages.
-      // Main agent goes to "idle" (waiting for user input).
-      // Background subagents may still be running — do NOT complete them here.
-      // They complete individually via SubagentStop, or all at once on SessionEnd.
+      // Background subagents may still be running — do NOT complete them
+      // here. They complete via SubagentStop, or all at once on SessionEnd.
+      //
+      // CRITICAL: do all DB writes BEFORE any broadcast, then broadcast the
+      // final state once. An earlier version broadcast agent_updated twice
+      // (first with status=idle and no flag, then again after the flag was
+      // set) which made the agent flicker out of every Kanban column for a
+      // tick — visible to users as "agent skipped waiting and went to
+      // completed", because the Idle column no longer exists and Waiting
+      // requires the flag.
       const now = new Date().toISOString();
+      const agentMutable =
+        !!mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error";
 
-      // Set main agent to idle (waiting for user), not completed.
-      // For non-tool turns the agent may already be "idle" — still update it
-      // so the timestamp and activity log reflect that a turn completed.
-      if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
-        stmts.updateAgent.run(null, "idle", null, null, null, null, mainAgentId);
+      if (data.stop_reason === "error") {
+        if (agentMutable) {
+          stmts.updateAgent.run(null, "idle", null, null, null, null, mainAgentId);
+        }
+        stmts.updateSession.run(null, "error", now, null, sessionId);
+        // Error stop is terminal-ish — drop any waiting flag so the row
+        // lands cleanly in the Error column.
+        clearAwaitingInput(sessionId, mainAgentId, false);
+      } else {
+        if (agentMutable) {
+          stmts.updateAgent.run(null, "idle", null, null, null, null, mainAgentId);
+        }
+        // Stamp the waiting flag in the same DB pass as the idle update so
+        // the post-write read returns a consistent (idle, awaiting=set)
+        // row. Effective status flips working → waiting in one broadcast.
+        stmts.setSessionAwaitingInput.run(now, sessionId);
+        if (mainAgentId) stmts.setAgentAwaitingInput.run(now, mainAgentId);
+      }
+
+      // Now broadcast — single agent_updated reflecting the final state.
+      broadcast("session_updated", stmts.getSession.get(sessionId));
+      if (mainAgentId) {
         broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
-
-      // Mark error sessions on error stop_reason, but keep normal sessions active
-      if (data.stop_reason === "error") {
-        stmts.updateSession.run(null, "error", now, null, sessionId);
-      }
-      broadcast("session_updated", stmts.getSession.get(sessionId));
       break;
     }
 
@@ -300,6 +340,9 @@ const processEvent = db.transaction((hookType, data) => {
 
     case "SessionStart": {
       summary = data.source === "resume" ? "Session resumed" : "Session started";
+      // SessionStart on a resume = user explicitly came back. Clear any
+      // stale waiting flag so the resumed session opens clean.
+      clearAwaitingInput(sessionId, mainAgentId, true);
       // Reactivation is already handled above for non-active sessions.
       // Set main agent to connected (ready for work).
       if (mainAgent && mainAgent.status === "idle") {
@@ -309,8 +352,8 @@ const processEvent = db.transaction((hookType, data) => {
 
       // Clean up orphaned sessions: when a user runs /resume inside a session,
       // the parent session never receives Stop or SessionEnd. Mark any active
-      // session with no events for 5+ minutes as abandoned.
-      const staleSessions = stmts.findStaleSessions.all(sessionId, 5);
+      // session that hasn't seen events for STALE_MINUTES as abandoned.
+      const staleSessions = stmts.findStaleSessions.all(sessionId, STALE_MINUTES);
       const now = new Date().toISOString();
       for (const stale of staleSessions) {
         const staleAgents = stmts.listAgentsBySession.all(stale.id);
@@ -331,6 +374,10 @@ const processEvent = db.transaction((hookType, data) => {
       const endLabel = endSession?.name || `Session ${sessionId.slice(0, 8)}`;
       summary = `Session closed: ${endLabel}`;
 
+      // Session is terminating — drop any waiting flag so the row lands in
+      // the Completed column without a leftover yellow overlay.
+      clearAwaitingInput(sessionId, mainAgentId, false);
+
       // SessionEnd is the definitive signal that the CLI process exited.
       // Mark everything as completed.
       const allAgents = stmts.listAgentsBySession.all(sessionId);
@@ -344,6 +391,23 @@ const processEvent = db.transaction((hookType, data) => {
       stmts.updateSession.run(null, "completed", now, null, sessionId);
       broadcast("session_updated", stmts.getSession.get(sessionId));
 
+      break;
+    }
+
+    case "UserPromptSubmit": {
+      // User just hit enter on a new prompt. This is the unambiguous
+      // "session resumed" signal — fires before Claude does anything,
+      // unlike PreToolUse which only fires for tool-using turns. Clear
+      // the Waiting flag and promote the main agent to Working so the
+      // dashboard reflects "Claude is now thinking on this" through the
+      // entire response, including text-only replies that emit no
+      // PreToolUse before Stop.
+      summary = "User prompt submitted";
+      clearAwaitingInput(sessionId, mainAgentId, true);
+      if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
+        stmts.updateAgent.run(null, "working", null, null, null, null, mainAgentId);
+        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+      }
       break;
     }
 

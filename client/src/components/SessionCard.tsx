@@ -12,7 +12,7 @@ import { FolderOpen, Bot, Clock, Coins, Cpu } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
 import { effectiveSessionStatus, isSessionAwaitingInput } from "../lib/types";
 import type { Session } from "../lib/types";
-import { formatDuration, timeAgo } from "../lib/format";
+import { formatDuration, timeAgo, shortModel } from "../lib/format";
 
 interface SessionCardProps {
   session: Session;
@@ -24,13 +24,6 @@ function formatCost(cost: number): string {
   if (cost >= 1) return `$${cost.toFixed(2)}`;
   if (cost >= 0.01) return `$${cost.toFixed(3)}`;
   return `$${cost.toFixed(4)}`;
-}
-
-function shortModel(model: string | null): string | null {
-  if (!model) return null;
-  // "claude-opus-4-7-20260101" → "opus-4-7"
-  const m = model.match(/claude-([a-z]+-\d+(?:-\d+)?)/i);
-  return m?.[1] ?? model;
 }
 
 export function SessionCard({ session, onClick }: SessionCardProps) {

@@ -16,7 +16,13 @@ const HOOK_HANDLER = path.resolve(__dirname, "hook-handler.js").replace(/\\/g, "
 
 // Hook types to install. Some support matchers, some don't.
 const HOOKS_WITH_MATCHER = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop", "Notification"];
-const HOOKS_WITHOUT_MATCHER = ["SessionStart", "SessionEnd"];
+// UserPromptSubmit fires the instant the user hits enter — the only reliable
+// signal that the user has resumed for *text-only* turns (no PreToolUse will
+// fire until Claude calls a tool, which never happens for plain-text replies).
+// Without it the Waiting badge persists through the entire generation of a
+// text response. SessionStart / SessionEnd / UserPromptSubmit don't take
+// tool-name matchers, hence the separate list.
+const HOOKS_WITHOUT_MATCHER = ["SessionStart", "SessionEnd", "UserPromptSubmit"];
 const HOOK_TYPES = [...HOOKS_WITH_MATCHER, ...HOOKS_WITHOUT_MATCHER];
 
 function makeHookEntry(hookType) {
