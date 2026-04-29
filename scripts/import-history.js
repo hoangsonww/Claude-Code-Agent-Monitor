@@ -645,7 +645,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
       .prepare(
         "SELECT 1 FROM events WHERE session_id = ? AND agent_id = ? AND event_type = 'PreToolUse' AND tool_name = 'Agent' AND data LIKE ? LIMIT 1"
       )
-      .get(sessionId, mainAgentId, `%"subagent_id":"${targetAgentId}"%`);
+      .get(sessionId, mainAgentId, `%"subagent_id":${JSON.stringify(targetAgentId)}%`);
     if (!spawnExists) {
       insertEvent.run(
         sessionId,
@@ -673,7 +673,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
     );
     for (const tev of subData.toolEvents) {
       if (!tev.tool_use_id) continue;
-      const useIdMarker = `%"tool_use_id":"${tev.tool_use_id}"%`;
+      const useIdMarker = `%"tool_use_id":${JSON.stringify(tev.tool_use_id)}%`;
       const ts = tev.pre_timestamp || subData.startedAt;
       const truncatedInput = truncateForEvent(tev.tool_input);
 
@@ -1541,9 +1541,13 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
 async function scanAndImportSubagents(dbModule, sessionId, transcriptPath) {
   if (!sessionId || !transcriptPath) return { imported: 0, created: 0 };
   const subDir = path.join(path.dirname(transcriptPath), sessionId, "subagents");
-  if (!fs.existsSync(subDir)) return { imported: 0, created: 0 };
+  try {
+    await fs.promises.access(subDir);
+  } catch {
+    return { imported: 0, created: 0 };
+  }
 
-  const subFiles = fs.readdirSync(subDir).filter((f) => f.endsWith(".jsonl"));
+  const subFiles = (await fs.promises.readdir(subDir)).filter((f) => f.endsWith(".jsonl"));
   if (subFiles.length === 0) return { imported: 0, created: 0 };
 
   const mainAgentId = `${sessionId}-main`;
