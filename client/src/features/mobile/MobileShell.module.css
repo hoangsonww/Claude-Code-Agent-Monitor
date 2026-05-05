@@ -1,0 +1,98 @@
+/**
+ * MobileShell.module.css
+ *
+ * Styles for the mobile shell + bottom tab navigation. Colors deliberately
+ * mirror the dashboard's existing dark palette (see client/src/index.css and
+ * tailwind.config.js):
+ *   - background:        #0c0c14  (root canvas)
+ *   - surface-3:         #1a1a2e  (card)
+ *   - surface-4:         #22223a  (elevated card / hover)
+ *   - border:            #2a2a3d
+ *   - accent:            #6366f1  (indigo)
+ *   - text default:      #e4e4ed
+ *   - text muted:        #9a9aa8
+ *
+ * Hard-codes the values (rather than referencing Tailwind tokens) so this
+ * module file is self-contained and does not depend on Tailwind being
+ * configured for CSS Modules.
+ */
+
+.mobile {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* Use dynamic viewport height where available so iOS Safari's URL bar
+     collapsing does not leave a gap below the tab bar. */
+  min-height: 100dvh;
+  background: #0c0c14;
+  color: #e4e4ed;
+}
+
+.content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Reserve space for the fixed bottom nav (56px tab + safe-area inset). */
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+.tabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: rgba(18, 18, 30, 0.92);
+  backdrop-filter: saturate(140%) blur(12px);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  border-top: 1px solid #2a2a3d;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 56px;
+  padding: 6px 4px;
+  text-decoration: none;
+  color: #9a9aa8;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: color 120ms ease;
+  /* Improve tap target ergonomics. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab:hover {
+  color: #c4c4d4;
+}
+
+.tab:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+.tabActive {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.tabLabel {
+  display: block;
+  line-height: 1.2;
+}

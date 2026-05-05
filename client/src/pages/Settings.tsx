@@ -53,6 +53,7 @@ import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
+import { PushSubscribeButton } from "../features/mobile/PushSubscribeButton";
 import type { ModelPricing, WSMessage } from "../lib/types";
 
 // ─── Notification preferences ───
@@ -1110,6 +1111,15 @@ export function Settings() {
               {t("notifications.disabledInfo")}
             </div>
           )}
+
+          {/* Per-device PWA push subscription — independent of the localStorage
+              toggles above so a phone can opt-in even when desktop chooses not to. */}
+          <div className="pt-4 border-t border-border">
+            <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
+              {t("notifications.thisDevice", { defaultValue: "This device" })}
+            </p>
+            <PushSubscribeButton compact />
+          </div>
         </div>
       </section>
 

@@ -712,6 +712,31 @@ router.post("/event", (req, res) => {
 
   res.json({ ok: true, event: result });
 
+  // ── Fire-and-forget push dispatch ─────────────────────────────────────────
+  // Notify subscribed clients on user-actionable events (Stop / Notification /
+  // SubagentStop). MUST NOT throw or reject the request — the hook handler's
+  // fail-safe contract requires every code path to return 200 OK. We've
+  // already responded above; any error here just goes to stderr.
+  try {
+    const { dispatchPush } = require("../lib/push-dispatcher");
+    Promise.resolve(
+      dispatchPush({
+        event: hook_type,
+        payload: {
+          title: `Claude Code: ${hook_type}`,
+          body: result.summary || `Event: ${hook_type}`,
+          ts: Date.now(),
+        },
+      })
+    ).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error("[push] dispatch failed:", err && err.message);
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[push] module load failed:", err && err.message);
+  }
+
   // After SubagentStop, scan the session's subagent JSONL files and ingest any
   // tool calls that aren't yet in the events table. Subagent tool_use blocks
   // never fire hooks on the parent session — this scan is the only path that

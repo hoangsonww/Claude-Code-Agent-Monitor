@@ -196,18 +196,39 @@ export interface UpdateStatusPayload {
   fetch_error?: string;
 }
 
-export interface WSMessage {
-  type:
-    | "session_created"
-    | "session_updated"
-    | "agent_created"
-    | "agent_updated"
-    | "new_event"
-    | "import.progress"
-    | "update_status";
-  data: Session | Agent | DashboardEvent | ImportProgressMessage | UpdateStatusPayload;
-  timestamp: string;
+export interface AgentStreamChunk {
+  // Generic shape covering claude's stream-json events.
+  // Detailed parsing happens in MobileChat or backend; this is the over-the-wire shape.
+  type: "assistant" | "user" | "tool_use" | "tool_result" | "system" | "result" | string;
+  text?: string;
+  raw?: unknown;
 }
+
+export type WSMessage =
+  | {
+      type:
+        | "session_created"
+        | "session_updated"
+        | "agent_created"
+        | "agent_updated"
+        | "new_event"
+        | "import.progress"
+        | "update_status";
+      data: Session | Agent | DashboardEvent | ImportProgressMessage | UpdateStatusPayload;
+      timestamp: string;
+    }
+  | {
+      type: "agent_stream";
+      sessionId: string;
+      chunk: AgentStreamChunk;
+    }
+  | {
+      type: "agent_status";
+      sessionId: string;
+      status: "spawning" | "running" | "completed" | "error";
+      exitCode?: number;
+      error?: string;
+    };
 
 // ── Session stats ──
 

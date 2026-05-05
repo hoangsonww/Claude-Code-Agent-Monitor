@@ -48,6 +48,12 @@ const workflowsRouter = require("./routes/workflows");
 const pushRouter = require("./routes/push");
 const importRouter = require("./routes/import");
 const updatesRouter = require("./routes/updates");
+const orchestratorRouter = require("./routes/orchestrator");
+const memoryRouter = require("./routes/memory");
+const channelsRouter = require("./routes/channels");
+const skillsRouter = require("./routes/skills");
+const hooksMgmtRouter = require("./routes/hooks-mgmt");
+const contextRouter = require("./routes/context");
 
 function createApp() {
   const app = express();
@@ -68,6 +74,12 @@ function createApp() {
   app.use("/api/push", pushRouter);
   app.use("/api/import", importRouter);
   app.use("/api/updates", updatesRouter);
+  app.use("/api/orchestrator", orchestratorRouter);
+  app.use("/api/memory", memoryRouter);
+  app.use("/api/channels", channelsRouter);
+  app.use("/api/skills", skillsRouter);
+  app.use("/api/hooks-mgmt", hooksMgmtRouter);
+  app.use("/api/context", contextRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });

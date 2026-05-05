@@ -8,7 +8,9 @@ import { describe, it, expect, vi } from "vitest";
 import { eventBus } from "../eventBus";
 import type { WSMessage } from "../types";
 
-function makeMsg(type: WSMessage["type"] = "new_event"): WSMessage {
+type DataMessageType = Extract<WSMessage, { data: unknown }>["type"];
+
+function makeMsg(type: DataMessageType = "new_event"): WSMessage {
   return {
     type,
     data: {
