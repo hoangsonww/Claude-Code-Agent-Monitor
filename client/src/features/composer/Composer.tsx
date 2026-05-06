@@ -28,7 +28,15 @@ export function Composer(props: ComposerProps) {
   const canSend = !state.busy && (!!state.text.trim() || state.uploads.attachments.length > 0);
 
   return (
-    <Box sx={{ borderTop: "1px solid", borderColor: "divider", background: "background.paper" }}>
+    <Box sx={{
+      borderTop: "1px solid",
+      borderColor: "divider",
+      background: "background.paper",
+      // On mobile the BottomTabNav (position: fixed, height 56px + safe-area)
+      // overlays the bottom of the viewport. Reserve clearance below the
+      // composer so the Send/Stop row sits ABOVE the tab bar.
+      mb: { xs: "calc(56px + env(safe-area-inset-bottom, 0px))", md: 0 },
+    }}>
       <ComposerToolbar
         model={state.model}
         onModelChange={(v) => void state.setModel(v)}
