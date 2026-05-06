@@ -13,7 +13,7 @@ import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw } from "luci
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
 import { MessageList } from "./MessageList";
-import { SendComposer } from "../../features/launcher/SendComposer";
+import { Composer } from "../../features/composer/Composer";
 import type { TranscriptMessage, TranscriptInfo, WSMessage } from "../../lib/types";
 
 // Catch-up poll interval. Claude Code only fires hooks on PreToolUse /
@@ -433,7 +433,7 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
 
       {/* Send composer — only shown when session cwd is known */}
       {sessionCwd && (
-        <SendComposer
+        <Composer
           sessionId={sessionId}
           sessionCwd={sessionCwd}
           sessionLiveHandleId={sessionLiveHandleId}

@@ -1,7 +1,7 @@
 // client/src/pages/MobileChat.tsx
 import { useEffect, useState } from "react";
 import { useCwds } from "../hooks/useCwds";
-import { SendComposer } from "../features/launcher/SendComposer";
+import { Composer } from "../features/composer/Composer";
 import { eventBus } from "../lib/eventBus";
 import type { WSMessage } from "../lib/types";
 
@@ -55,7 +55,7 @@ export function MobileChat() {
           </div>
         ))}
       </div>
-      <SendComposer sessionId={sessionId} sessionCwd={cwd} sessionLiveHandleId={null} mode="fresh" />
+      <Composer sessionId={sessionId} sessionCwd={cwd} sessionLiveHandleId={null} mode="fresh" />
     </div>
   );
 }
