@@ -73,7 +73,7 @@ export const api = {
       );
     },
     get: (id: string) =>
-      request<{ session: Session; agents: Agent[]; events: DashboardEvent[] }>(
+      request<{ session: Session; agents: Agent[]; events: DashboardEvent[]; liveHandle: { id: string; pid?: number; status: string } | null }>(
         `/sessions/${encodeURIComponent(id)}`
       ),
     stats: (id: string) => request<SessionStats>(`/sessions/${encodeURIComponent(id)}/stats`),

@@ -13,6 +13,7 @@ import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw } from "luci
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
 import { MessageList } from "./MessageList";
+import { SendComposer } from "../../features/launcher/SendComposer";
 import type { TranscriptMessage, TranscriptInfo, WSMessage } from "../../lib/types";
 
 // Catch-up poll interval. Claude Code only fires hooks on PreToolUse /
@@ -28,9 +29,11 @@ const TRANSCRIPTS_REFRESH_MS = 15000;
 interface ConversationViewProps {
   sessionId: string;
   initialTranscriptId?: string | null;
+  sessionCwd?: string;
+  sessionLiveHandleId?: string | null;
 }
 
-export function ConversationView({ sessionId, initialTranscriptId }: ConversationViewProps) {
+export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, sessionLiveHandleId }: ConversationViewProps) {
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -426,6 +429,15 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
           <ArrowDown className="w-3 h-3" />
           New messages
         </button>
+      )}
+
+      {/* Send composer — only shown when session cwd is known */}
+      {sessionCwd && (
+        <SendComposer
+          sessionId={sessionId}
+          sessionCwd={sessionCwd}
+          sessionLiveHandleId={sessionLiveHandleId}
+        />
       )}
     </div>
   );

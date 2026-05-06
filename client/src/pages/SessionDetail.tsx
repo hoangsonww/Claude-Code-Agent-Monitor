@@ -64,6 +64,7 @@ export function SessionDetail() {
   const { t } = useTranslation("sessions");
   const [session, setSession] = useState<Session | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [liveHandle, setLiveHandle] = useState<{ id: string; pid?: number; status: string } | null>(null);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoadingMore, setEventsLoadingMore] = useState(false);
@@ -131,6 +132,7 @@ export function SessionDetail() {
       ]);
       setSession(data.session);
       setAgents(data.agents);
+      setLiveHandle(data.liveHandle ?? null);
       setCost(costData);
       setError(null);
     } catch (err) {
@@ -765,7 +767,12 @@ export function SessionDetail() {
 
       {visitedTabs.has("conversation") && (
         <div hidden={activeTab !== "conversation"}>
-          <ConversationView sessionId={session.id} initialTranscriptId={pendingTranscriptId} />
+          <ConversationView
+            sessionId={session.id}
+            initialTranscriptId={pendingTranscriptId}
+            sessionCwd={session.cwd ?? undefined}
+            sessionLiveHandleId={liveHandle?.id ?? null}
+          />
         </div>
       )}
 
