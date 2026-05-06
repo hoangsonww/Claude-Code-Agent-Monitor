@@ -15,8 +15,9 @@ function readSecretsEnv() {
   let text;
   try {
     text = fs.readFileSync(secretsPath(), "utf8");
-  } catch {
-    return {};
+  } catch (err) {
+    if (err && err.code === "ENOENT") return {};
+    throw err;
   }
   const out = {};
   for (const raw of text.split("\n")) {

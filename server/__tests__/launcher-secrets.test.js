@@ -32,17 +32,31 @@ describe("launcher-secrets", () => {
   });
 
   it("resolveEnvForNames pulls from process.env and secrets, with secrets winning", () => {
-    process.env.FOO = "from-process";
+    process.env.BOTH = "from-process";
+    process.env.ONLY_PROC = "ok";
     fs.writeFileSync(
       path.join(tmp, ".claude", "launcher", "secrets.env"),
-      "FOO=from-secrets\nONLY_PROC=ok\n",
+      "BOTH=from-secrets\nONLY_SECRETS=secret-only\n",
     );
-    process.env.ONLY_PROC = "ok";
     delete require.cache[require.resolve("../lib/launcher-secrets")];
     const { resolveEnvForNames } = require("../lib/launcher-secrets");
-    assert.deepEqual(resolveEnvForNames(["FOO", "ONLY_PROC", "MISSING"]), {
-      FOO: "from-secrets",
+    assert.deepEqual(resolveEnvForNames(["BOTH", "ONLY_PROC", "ONLY_SECRETS", "MISSING"]), {
+      BOTH: "from-secrets",
       ONLY_PROC: "ok",
+      ONLY_SECRETS: "secret-only",
     });
+  });
+
+  it("rethrows non-ENOENT errors from secrets.env", () => {
+    const file = path.join(tmp, ".claude", "launcher", "secrets.env");
+    fs.writeFileSync(file, "FOO=bar\n");
+    fs.chmodSync(file, 0);
+    delete require.cache[require.resolve("../lib/launcher-secrets")];
+    const { readSecretsEnv } = require("../lib/launcher-secrets");
+    try {
+      assert.throws(() => readSecretsEnv(), /EACCES|EPERM/);
+    } finally {
+      fs.chmodSync(file, 0o600);
+    }
   });
 });
