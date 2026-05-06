@@ -47,7 +47,9 @@ import {
   FolderOpen,
   Info,
 } from "lucide-react";
+import { LayoutList } from "lucide-react";
 import { api } from "../lib/api";
+import { SettingsProfiles } from "./SettingsProfiles";
 import { eventBus } from "../lib/eventBus";
 import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
@@ -1313,6 +1315,20 @@ export function Settings() {
 
             {actionBanner(["clear"])}
           </div>
+        </div>
+      </section>
+
+      {/* ─── AGENT PROFILES ─── */}
+      <section>
+        <h3 className="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1">
+          <LayoutList className="w-4 h-4 text-gray-500" />
+          Agent Profiles
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Manage reusable launch profiles for Claude Code agents.
+        </p>
+        <div className="card overflow-hidden">
+          <SettingsProfiles />
         </div>
       </section>
 
