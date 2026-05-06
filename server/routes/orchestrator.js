@@ -1,54 +1,84 @@
+// server/routes/orchestrator.js
 /**
  * @file HTTP routes for the local agent orchestrator. Disabled by default —
- * gated behind ORCHESTRATOR_ENABLED=1 so that simply having the code present
- * cannot accidentally launch `claude` subprocesses.
+ * gated behind ORCHESTRATOR_ENABLED=1.
  */
-
 const express = require("express");
-const { spawnAgent, killAgent, getAgent, listAgents } = require("../lib/spawner");
+const { spawnAgent, sendMessage, killAgent, getAgent, listAgents } = require("../lib/spawner");
+const profiles = require("../lib/profiles");
+const cwds = require("../lib/cwds");
+const launches = require("../lib/launches");
+const { resolveEnvForNames } = require("../lib/launcher-secrets");
 
 const router = express.Router();
-
 const ENABLED = process.env.ORCHESTRATOR_ENABLED === "1";
 
-// Gate everything behind the env flag. Returning 404 (not 403) makes the
-// surface invisible when disabled.
 router.use((req, res, next) => {
   if (!ENABLED) {
     return res.status(404).json({
       error: "orchestrator disabled",
-      hint: "Set ORCHESTRATOR_ENABLED=1 in your .env or shell environment to enable.",
+      hint: "Set ORCHESTRATOR_ENABLED=1 in your .env to enable.",
     });
   }
   next();
 });
 
-router.get("/", (_req, res) => {
-  res.json({ enabled: ENABLED, agents: listAgents() });
-});
+// Sub-routers
+router.use("/profiles", require("./profiles"));
+router.use("/cwds", require("./cwds"));
+
+router.get("/", (_req, res) => res.json({ enabled: ENABLED, agents: listAgents() }));
 
 router.post("/spawn", (req, res) => {
-  const { prompt, preset, cwd } = req.body || {};
+  const { prompt, cwd, profileId, configOverride, resumeSessionId, forkSession, continue: cont, sessionId } = req.body || {};
   if (!prompt) return res.status(400).json({ error: "prompt is required" });
+  if (!cwd) return res.status(400).json({ error: "cwd is required" });
+  if (!cwds.isAllowed(cwd)) return res.status(400).json({ error: "cwd not in allowlist" });
+
+  let baseConfig = {};
+  if (profileId) {
+    const p = profiles.get(profileId);
+    if (!p) return res.status(404).json({ error: "profile not found" });
+    baseConfig = p.config || {};
+  }
+  const config = { ...baseConfig, ...(configOverride || {}) };
+  const envExtra = resolveEnvForNames(config.envVarNames || []);
+  // Strip envVarNames before passing to spawner; it is not a real flag.
+  const cleanConfig = { ...config };
+  delete cleanConfig.envVarNames;
+
   try {
     const handle = spawnAgent({
-      profile: preset || {},
-      perLaunch: { prompt, cwd },
+      profile: cleanConfig,
+      perLaunch: { prompt, cwd, resumeSessionId, forkSession, continue: cont, sessionId },
+      envExtra,
     });
-    res.json({
+    if (profileId) profiles.markUsed(profileId);
+    cwds.markUsed(cwd);
+    launches.record({
       id: handle.id,
-      pid: handle.pid,
-      status: handle.status,
-      startedAt: handle.startedAt,
+      profileId: profileId || null,
+      sessionId: resumeSessionId || null,
+      cwd,
+      argv: handle.argv,
+      injectedEnvNames: config.envVarNames || [],
+      status: "spawning",
     });
+    res.json({ id: handle.id, pid: handle.pid, status: handle.status, startedAt: handle.startedAt });
   } catch (err) {
-    if (err.code === "EConcurrencyLimit") {
-      return res.status(429).json({ error: err.message, running: err.running });
-    }
-    if (err.code === "EConfigInvalid") {
-      return res.status(400).json({ error: err.message });
-    }
+    if (err.code === "EConcurrencyLimit") return res.status(429).json({ error: err.message, running: err.running });
+    if (err.code === "EConfigInvalid") return res.status(400).json({ error: err.message });
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/agents/:id/message", (req, res) => {
+  const text = req.body?.text;
+  if (typeof text !== "string" || !text) return res.status(400).json({ error: "text required" });
+  try {
+    res.json(sendMessage(req.params.id, text));
+  } catch (err) {
+    res.status(err.message.includes("not found") ? 404 : 400).json({ error: err.message });
   }
 });
 
@@ -63,8 +93,8 @@ router.get("/agents/:id", (req, res) => {
     endedAt: handle.endedAt,
     exitCode: handle.exitCode,
     error: handle.error,
-    stdoutPreview: handle.stdoutBuffer.slice(-2000),
-    stderrPreview: handle.stderrBuffer.slice(-2000),
+    stdoutPreview: (handle.stdoutBuffer || "").slice(-2000),
+    stderrPreview: (handle.stderrBuffer || "").slice(-2000),
   });
 });
 
