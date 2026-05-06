@@ -228,6 +228,12 @@ export type WSMessage =
       status: "spawning" | "running" | "completed" | "error";
       exitCode?: number;
       error?: string;
+    }
+  | {
+      type: "agent_input_ack";
+      sessionId: string;
+      messageId: string;
+      ts: number;
     };
 
 // ── Session stats ──
