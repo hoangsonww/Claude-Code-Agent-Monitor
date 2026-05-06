@@ -118,6 +118,40 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_created ON events(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
   CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at DESC);
+
+  CREATE TABLE IF NOT EXISTS launcher_profiles (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    config_json TEXT NOT NULL,
+    default_cwd TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_used_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS launcher_allowed_cwds (
+    path TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    added_at INTEGER NOT NULL,
+    last_used_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS launcher_launches (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT,
+    session_id TEXT,
+    cwd TEXT NOT NULL,
+    argv_json TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER,
+    exit_code INTEGER,
+    status TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_launcher_profiles_lastused ON launcher_profiles(last_used_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_launcher_launches_profile ON launcher_launches(profile_id);
+  CREATE INDEX IF NOT EXISTS idx_launcher_launches_session ON launcher_launches(session_id);
 `);
 
 // Default model pricing — shared by initial seed + startup top-up + reset endpoint
