@@ -1,13 +1,13 @@
 import { MenuItem, Stack, TextField } from "@mui/material";
 import type { PermissionMode, ProfileConfig } from "../../../lib/profile-types";
 
-const MODES: { value: PermissionMode; label: string }[] = [
-  { value: "default", label: "default" },
-  { value: "acceptEdits", label: "acceptEdits" },
-  { value: "plan", label: "plan" },
-  { value: "auto", label: "auto" },
-  { value: "dontAsk", label: "dontAsk" },
-  { value: "bypassPermissions", label: "bypass (all checks off)" },
+const MODES: PermissionMode[] = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "dontAsk",
+  "bypassPermissions",
 ];
 
 interface Props {
@@ -30,8 +30,8 @@ export function PermissionsSection({ value, onChange }: Props) {
       >
         <MenuItem value="">(acceptEdits — default)</MenuItem>
         {MODES.map((m) => (
-          <MenuItem key={m.value} value={m.value}>
-            {m.label}
+          <MenuItem key={m} value={m}>
+            {m}
           </MenuItem>
         ))}
       </TextField>

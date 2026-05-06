@@ -33,19 +33,19 @@ export function ToolsSection({ value, onChange }: Props) {
   return (
     <Stack spacing={2}>
       <ChipField
-        label="Capability allowlist"
+        label="tools (allowlist)"
         value={value.tools}
         onChange={(v) => onChange({ tools: v })}
         helper="Restrict which built-in capabilities Claude can use"
       />
       <ChipField
-        label="Auto-approved, no prompt"
+        label="allowedTools (no-prompt)"
         value={value.allowedTools}
         onChange={(v) => onChange({ allowedTools: v })}
         helper='Auto-approve specific calls, e.g. "Bash(git log *)", "Read"'
       />
       <ChipField
-        label="Blocked capabilities"
+        label="disallowedTools"
         value={value.disallowedTools}
         onChange={(v) => onChange({ disallowedTools: v })}
         helper="Prevent specific capabilities from being used"

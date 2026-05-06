@@ -8,13 +8,15 @@ vi.stubGlobal("fetch", vi.fn(async () => new Response("[]", { status: 200 })));
 describe("ProfileEditor", () => {
   it("renders all top-level sections", () => {
     render(<ProfileEditor value={{ name: "x", config: {} }} onChange={() => {}} />);
-    expect(screen.getByText(/Identity/i)).toBeInTheDocument();
-    expect(screen.getByText(/Working directory/i)).toBeInTheDocument();
-    expect(screen.getByText(/Model & runtime/i)).toBeInTheDocument();
-    expect(screen.getByText(/Permissions/i)).toBeInTheDocument();
-    expect(screen.getByText(/Tools/i)).toBeInTheDocument();
-    expect(screen.getByText(/System prompt/i)).toBeInTheDocument();
-    expect(screen.getByText(/Advanced — dangerous/i)).toBeInTheDocument();
+    // Match accordion section headers via the AccordionSummary button role,
+    // anchored to start-of-string to avoid matching field labels inside sections.
+    expect(screen.getByRole("button", { name: /^Identity$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Working directory$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Model & runtime$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Permissions$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Tools$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^System prompt$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Advanced — dangerous/i })).toBeInTheDocument();
   });
 
   it("propagates change events", async () => {

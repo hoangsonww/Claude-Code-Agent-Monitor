@@ -30,7 +30,7 @@ export function DangerousSection({ value, onChange }: Props) {
             }
           />
         }
-        label="--dangerously-skip-perms"
+        label="--dangerously-skip-permissions"
       />
       <FormControlLabel
         control={
@@ -41,7 +41,7 @@ export function DangerousSection({ value, onChange }: Props) {
             }
           />
         }
-        label="--allow-dangerously-skip-perms"
+        label="--allow-dangerously-skip-permissions"
       />
       <Autocomplete
         multiple
