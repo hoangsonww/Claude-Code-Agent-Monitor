@@ -31,9 +31,12 @@ interface ConversationViewProps {
   initialTranscriptId?: string | null;
   sessionCwd?: string;
   sessionLiveHandleId?: string | null;
+  defaultModel?: string | null;
+  defaultMode?: string | null;
+  defaultProfileId?: string | null;
 }
 
-export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, sessionLiveHandleId }: ConversationViewProps) {
+export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, sessionLiveHandleId, defaultModel, defaultMode, defaultProfileId }: ConversationViewProps) {
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -437,6 +440,9 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
           sessionId={sessionId}
           sessionCwd={sessionCwd}
           sessionLiveHandleId={sessionLiveHandleId}
+          defaultModel={defaultModel}
+          defaultMode={defaultMode as Parameters<typeof Composer>[0]["defaultMode"]}
+          defaultProfileId={defaultProfileId}
         />
       )}
     </div>

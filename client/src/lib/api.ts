@@ -73,9 +73,15 @@ export const api = {
       );
     },
     get: (id: string) =>
-      request<{ session: Session; agents: Agent[]; events: DashboardEvent[]; liveHandle: { id: string; pid?: number; status: string } | null }>(
-        `/sessions/${encodeURIComponent(id)}`
-      ),
+      request<{
+        session: Session;
+        agents: Agent[];
+        events: DashboardEvent[];
+        liveHandle: { id: string; pid?: number; status: string } | null;
+        currentModel?: string | null;
+        currentMode?: string | null;
+        currentProfileId?: string | null;
+      }>(`/sessions/${encodeURIComponent(id)}`),
     stats: (id: string) => request<SessionStats>(`/sessions/${encodeURIComponent(id)}/stats`),
     transcripts: (id: string) =>
       request<TranscriptListResult>(`/sessions/${encodeURIComponent(id)}/transcripts`),

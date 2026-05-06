@@ -39,6 +39,10 @@ export interface ComposerProps {
   sessionLiveHandleId?: string | null;
   sessionCwd: string;
   defaultProfileId?: string | null;
+  /** Initial value for the Model picker (from session.model or recent launch argv). */
+  defaultModel?: string | null;
+  /** Initial value for the Mode picker (from recent launch argv). */
+  defaultMode?: PermissionMode | null;
   /**
    * "resume" → spawn with --resume <sessionId> (the dashboard's primary path:
    *            every imported / orchestrator-launched session row).

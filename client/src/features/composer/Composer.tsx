@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Box, Alert } from "@mui/material";
+import { Box, Alert, Button } from "@mui/material";
 import { useComposerState } from "../../hooks/useComposerState";
 import { useSlashCommands } from "../../hooks/useSlashCommands";
+import { useCwds } from "../../hooks/useCwds";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { AttachmentBar } from "./AttachmentBar";
 import { ComposerTextarea } from "./ComposerTextarea";
@@ -12,6 +13,7 @@ import type { ComposerProps, SlashCommand } from "../../lib/composer-types";
 export function Composer(props: ComposerProps) {
   const state = useComposerState(props);
   const slash = useSlashCommands(props.sessionCwd);
+  const cwds = useCwds();
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
 
@@ -27,6 +29,20 @@ export function Composer(props: ComposerProps) {
 
   const canSend = !state.busy && (!!state.text.trim() || state.uploads.attachments.length > 0);
 
+  // "cwd not in allowlist" is the most common /spawn failure — recover with a
+  // single click instead of asking the user to navigate to Settings.
+  const isCwdAllowlistError =
+    !!state.error && /cwd not in allowlist/i.test(state.error);
+  const onAddCwdAndRetry = async () => {
+    try {
+      await cwds.add(props.sessionCwd);
+      // Trigger send again now that the cwd is in the allowlist
+      void state.send();
+    } catch {
+      /* error surfaces via cwds hook; state.error stays as-is until next send */
+    }
+  };
+
   return (
     <Box sx={{
       borderTop: "1px solid",
@@ -37,6 +53,23 @@ export function Composer(props: ComposerProps) {
       // composer so the Send/Stop row sits ABOVE the tab bar.
       mb: { xs: "calc(56px + env(safe-area-inset-bottom, 0px))", md: 0 },
     }}>
+      {state.error && (
+        <Alert
+          severity={isCwdAllowlistError ? "warning" : "error"}
+          sx={{ borderRadius: 0 }}
+          action={
+            isCwdAllowlistError ? (
+              <Button color="inherit" size="small" onClick={onAddCwdAndRetry}>
+                Add cwd & retry
+              </Button>
+            ) : null
+          }
+        >
+          {isCwdAllowlistError
+            ? `This session's cwd (${props.sessionCwd}) isn't in the allowlist.`
+            : state.error}
+        </Alert>
+      )}
       <ComposerToolbar
         model={state.model}
         onModelChange={(v) => void state.setModel(v)}
@@ -76,7 +109,6 @@ export function Composer(props: ComposerProps) {
         onSend={() => void state.send()}
         onStop={() => void state.stop()}
       />
-      {state.error && <Alert severity="error" sx={{ m: 1 }}>{state.error}</Alert>}
     </Box>
   );
 }

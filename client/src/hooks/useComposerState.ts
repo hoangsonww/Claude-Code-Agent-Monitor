@@ -13,8 +13,8 @@ function buildMessage(text: string, attachments: Attachment[]): string {
 
 export function useComposerState(props: ComposerProps) {
   const [text, setText] = useState("");
-  const [model, setModelState] = useState<string | null>(null);
-  const [mode, setModeState] = useState<PermissionMode | null>(null);
+  const [model, setModelState] = useState<string | null>(props.defaultModel || null);
+  const [mode, setModeState] = useState<PermissionMode | null>(props.defaultMode || null);
   const [profileId, setProfileId] = useState<string | null>(props.defaultProfileId || null);
   const [busy, setBusy] = useState(false);
   const [respawning, setRespawning] = useState(false);

@@ -65,6 +65,9 @@ export function SessionDetail() {
   const [session, setSession] = useState<Session | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [liveHandle, setLiveHandle] = useState<{ id: string; pid?: number; status: string } | null>(null);
+  const [currentModel, setCurrentModel] = useState<string | null>(null);
+  const [currentMode, setCurrentMode] = useState<string | null>(null);
+  const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoadingMore, setEventsLoadingMore] = useState(false);
@@ -133,6 +136,9 @@ export function SessionDetail() {
       setSession(data.session);
       setAgents(data.agents);
       setLiveHandle(data.liveHandle ?? null);
+      setCurrentModel(data.currentModel ?? null);
+      setCurrentMode(data.currentMode ?? null);
+      setCurrentProfileId(data.currentProfileId ?? null);
       setCost(costData);
       setError(null);
     } catch (err) {
@@ -772,6 +778,9 @@ export function SessionDetail() {
             initialTranscriptId={pendingTranscriptId}
             sessionCwd={session.cwd ?? undefined}
             sessionLiveHandleId={liveHandle?.id ?? null}
+            defaultModel={currentModel}
+            defaultMode={currentMode}
+            defaultProfileId={currentProfileId}
           />
         </div>
       )}

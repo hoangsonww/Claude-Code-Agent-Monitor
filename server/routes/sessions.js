@@ -178,6 +178,13 @@ router.get("/:id", (req, res) => {
   const events = stmts.listEventsBySession.all(req.params.id);
 
   let liveHandle = null;
+  // Composer initial values: fall back through live handle → most recent
+  // launches row → session.model column. permissionMode and profileId only
+  // exist when the session was driven through the orchestrator at some point.
+  let currentModel = session.model || null;
+  let currentMode = null;
+  let currentProfileId = null;
+
   if (process.env.ORCHESTRATOR_ENABLED === "1") {
     try {
       const { listAgents } = require("../lib/spawner");
@@ -188,13 +195,40 @@ router.get("/:id", (req, res) => {
       );
       if (agent && (agent.status === "running" || agent.status === "spawning")) {
         liveHandle = { id: agent.id, pid: agent.pid, status: agent.status };
+        if (agent.profile) {
+          if (agent.profile.model) currentModel = agent.profile.model;
+          if (agent.profile.permissionMode) currentMode = agent.profile.permissionMode;
+        }
       }
     } catch {
       // spawner not available (e.g., in tests where it's not loaded) — ignore
     }
+    try {
+      const { latestForSession } = require("../lib/launches");
+      const last = latestForSession(session.id);
+      if (last) {
+        currentProfileId = last.profile_id || currentProfileId;
+        try {
+          const argv = JSON.parse(last.argv_json);
+          // Recover --model and --permission-mode from the recorded argv if not
+          // already set by an active liveHandle profile.
+          if (!currentModel || !currentMode) {
+            const flat = Array.isArray(argv?.argv) ? argv.argv : [];
+            const m = flat.indexOf("--model");
+            if (m > -1 && !currentModel) currentModel = flat[m + 1] || null;
+            const p = flat.indexOf("--permission-mode");
+            if (p > -1 && !currentMode) currentMode = flat[p + 1] || null;
+          }
+        } catch {
+          // malformed argv_json — skip
+        }
+      }
+    } catch {
+      // launches lib unavailable in tests — ignore
+    }
   }
 
-  res.json({ session, agents, events, liveHandle });
+  res.json({ session, agents, events, liveHandle, currentModel, currentMode, currentProfileId });
 });
 
 /**
