@@ -22,6 +22,7 @@ import { ChannelsView } from "./pages/ChannelsView";
 import { SkillsView } from "./pages/SkillsView";
 import { HooksView } from "./pages/HooksView";
 import { ContextView } from "./pages/ContextView";
+import { LauncherView } from "./pages/LauncherView";
 import { NotFound } from "./pages/NotFound";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useNotifications } from "./hooks/useNotifications";
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="skills" element={<SkillsView />} />
           <Route path="hooks" element={<HooksView />} />
           <Route path="context" element={<ContextView />} />
+          <Route path="launcher" element={<LauncherView />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

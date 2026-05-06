@@ -15,6 +15,7 @@ import {
   BarChart3,
   Workflow,
   Settings,
+  Rocket,
   Wifi,
   WifiOff,
   Github,
@@ -40,6 +41,7 @@ const NAV_KEYS = [
   { to: "/analytics", icon: BarChart3, key: "nav:analytics" },
   { to: "/workflows", icon: Workflow, key: "nav:workflows" },
   { to: "/settings", icon: Settings, key: "nav:settings" },
+  { to: "/launcher", icon: Rocket, key: "nav:launcher" },
 ] as const;
 
 const STORAGE_KEY = "sidebar-collapsed";
