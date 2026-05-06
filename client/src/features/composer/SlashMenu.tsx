@@ -55,11 +55,13 @@ export function SlashMenu({ open, catalog, query, onPick }: Props) {
                 <ListItemButton
                   key={`${s.key}:${cmd.name}`}
                   onClick={() => onPick(cmd)}
-                  aria-label={cmd.description ? `/${cmd.name} — ${cmd.description}` : `/${cmd.name}`}
                 >
                   <ListItemText
                     primary={`/${cmd.name}`}
-                    slotProps={{ primary: { style: { fontFamily: "ui-monospace, monospace", fontSize: "0.875rem" } } }}
+                    secondary={cmd.description || undefined}
+                    slotProps={{
+                      primary: { variant: "body2", sx: { fontFamily: "ui-monospace, monospace" } },
+                    }}
                   />
                 </ListItemButton>
               ))}

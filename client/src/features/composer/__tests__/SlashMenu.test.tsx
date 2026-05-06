@@ -16,15 +16,15 @@ describe("SlashMenu", () => {
   it("renders all groups when open", () => {
     render(<SlashMenu open catalog={catalog} query="" onPick={() => {}} onClose={() => {}} />);
     expect(screen.getByText(/Built-in/i)).toBeInTheDocument();
-    expect(screen.getByText(/help/i)).toBeInTheDocument();
-    expect(screen.getByText(/code-review/)).toBeInTheDocument();
-    expect(screen.getByText(/deploy/)).toBeInTheDocument();
+    expect(screen.getByText("/help")).toBeInTheDocument();
+    expect(screen.getByText("/code-review")).toBeInTheDocument();
+    expect(screen.getByText("/deploy")).toBeInTheDocument();
   });
 
   it("filters by query", () => {
     render(<SlashMenu open catalog={catalog} query="re" onPick={() => {}} onClose={() => {}} />);
-    expect(screen.getByText(/code-review/)).toBeInTheDocument();
-    expect(screen.queryByText(/help/i)).not.toBeInTheDocument();
+    expect(screen.getByText("/code-review")).toBeInTheDocument();
+    expect(screen.queryByText("/help")).not.toBeInTheDocument();
   });
 
   it("clicking a command fires onPick with the command", async () => {
