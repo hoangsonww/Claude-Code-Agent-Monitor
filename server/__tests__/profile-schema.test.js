@@ -62,6 +62,23 @@ describe("validateProfileConfig", () => {
     assert.equal(r.ok, false);
     assert.match(r.errors[0], /maxTurns/);
   });
+
+  it("rejects arrays passed to json-shape keys", () => {
+    const r = validateProfileConfig({ agents: ["bad"] });
+    assert.equal(r.ok, false);
+    assert.match(r.errors[0], /agents/);
+  });
+
+  it("accepts envVarNames as string[]", () => {
+    const r = validateProfileConfig({ envVarNames: ["GITHUB_TOKEN"] });
+    assert.equal(r.ok, true, JSON.stringify(r.errors));
+  });
+
+  it("rejects envVarNames with non-string entries", () => {
+    const r = validateProfileConfig({ envVarNames: ["A", 1] });
+    assert.equal(r.ok, false);
+    assert.match(r.errors[0], /envVarNames/);
+  });
 });
 
 describe("buildArgsFromConfig", () => {

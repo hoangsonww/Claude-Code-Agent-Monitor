@@ -16,6 +16,9 @@ const flagTable = {
   effort: { flag: "--effort", shape: "scalar", enum: EFFORTS },
   betas: { flag: "--betas", shape: "comma" },
   permissionMode: { flag: "--permission-mode", shape: "scalar", enum: PERMISSION_MODES },
+  // NOTE: --allowedTools / --disallowedTools are camelCase per the Claude CLI
+  // reference (https://code.claude.com/docs/en/cli-reference). Most other
+  // flags use kebab-case; these two are deliberate exceptions.
   tools: { flag: "--tools", shape: "comma" },
   allowedTools: { flag: "--allowedTools", shape: "comma" },
   disallowedTools: { flag: "--disallowedTools", shape: "comma" },
@@ -85,12 +88,16 @@ function validateProfileConfig(cfg) {
         }
         break;
       case "json":
-        if (v == null || typeof v !== "object") errors.push(`${key} must be an object`);
+        if (v == null || typeof v !== "object" || Array.isArray(v)) {
+          errors.push(`${key} must be an object`);
+        }
         break;
     }
   }
-  if (cfg.envVarNames !== undefined && !Array.isArray(cfg.envVarNames)) {
-    errors.push("envVarNames must be string[]");
+  if (cfg.envVarNames !== undefined) {
+    if (!Array.isArray(cfg.envVarNames) || cfg.envVarNames.some((x) => typeof x !== "string")) {
+      errors.push("envVarNames must be string[]");
+    }
   }
   for (const [a, b] of MUTEX) {
     if (cfg[a] != null && cfg[b] != null) errors.push(`${a} and ${b} are mutually exclusive`);
