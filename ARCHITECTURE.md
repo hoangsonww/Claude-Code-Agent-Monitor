@@ -2,6 +2,8 @@
 
 Architectural overview and technical reference for the Agent Dashboard system, covering design goals, high-level architecture, data flow, server and client components, database design, WebSocket protocol, hook integration, MCP extension layer, Claude Code plugins & skills, state management, security considerations, performance characteristics, deployment modes, and technology choices.
 
+> **Optional control plane (`ORCHESTRATOR_ENABLED=1`)** — the dashboard can also drive new `claude` sessions and continue existing ones. New routes under `/api/orchestrator/*` (profiles, cwds, spawn, agents, message) and three new SQLite tables (`launcher_profiles`, `launcher_allowed_cwds`, `launcher_launches`) become reachable. Default behavior (observe-only) is preserved when the flag is off — every new route 404s. Spawned `claude` processes fire hooks back into the same `POST /api/hooks/event` ingestion path, so the existing observability stack covers them automatically. See [`docs/launcher.md`](docs/launcher.md).
+
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
 ![Claude Code Plugins](https://img.shields.io/badge/Claude_Code-Plugins_&_Skills-orange?style=flat-square&logo=anthropic&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=flat-square&logo=node.js&logoColor=white)
