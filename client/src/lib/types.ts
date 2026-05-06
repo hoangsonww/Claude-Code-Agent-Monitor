@@ -234,6 +234,12 @@ export type WSMessage =
       sessionId: string;
       messageId: string;
       ts: number;
+    }
+  | {
+      type: "agent_respawned";
+      sessionId: string;
+      oldHandleId: string;
+      newHandleId: string;
     };
 
 // ── Session stats ──

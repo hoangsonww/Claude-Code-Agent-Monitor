@@ -4,7 +4,7 @@
  * gated behind ORCHESTRATOR_ENABLED=1.
  */
 const express = require("express");
-const { spawnAgent, sendMessage, killAgent, getAgent, listAgents } = require("../lib/spawner");
+const { spawnAgent, sendMessage, killAgent, getAgent, listAgents, respawnAgent } = require("../lib/spawner");
 const profiles = require("../lib/profiles");
 const cwds = require("../lib/cwds");
 const launches = require("../lib/launches");
@@ -79,6 +79,33 @@ router.post("/agents/:id/message", (req, res) => {
     res.json(sendMessage(req.params.id, text));
   } catch (err) {
     res.status(err.message.includes("not found") ? 404 : 400).json({ error: err.message });
+  }
+});
+
+router.post("/agents/:id/respawn", async (req, res) => {
+  const { config, prompt } = req.body || {};
+  if (typeof prompt !== "string") return res.status(400).json({ error: "prompt required" });
+  const old = getAgent(req.params.id);
+  if (!old) return res.status(404).json({ error: "agent not found" });
+  const cleanConfig = { ...(config || {}) };
+  delete cleanConfig.envVarNames;
+  try {
+    const handle = await respawnAgent({
+      id: req.params.id,
+      profile: cleanConfig,
+      perLaunch: {
+        prompt,
+        cwd: old.cwd,
+        resumeSessionId: old.perLaunch?.resumeSessionId,
+        forkSession: old.perLaunch?.forkSession,
+      },
+    });
+    res.json({ id: handle.id, pid: handle.pid, status: handle.status, startedAt: handle.startedAt });
+  } catch (err) {
+    if (err.code === "EConfigInvalid") return res.status(400).json({ error: err.message });
+    if (err.code === "EConcurrencyLimit") return res.status(429).json({ error: err.message, running: err.running });
+    if (err.message === "agent not found") return res.status(404).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
