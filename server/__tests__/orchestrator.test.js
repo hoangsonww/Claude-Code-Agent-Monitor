@@ -31,42 +31,16 @@ describe("orchestrator route", () => {
     }
   });
 
-  it("buildArgs respects preset", () => {
-    delete require.cache[require.resolve("../lib/spawner")];
-    const { buildArgs } = require("../lib/spawner");
-    const args = buildArgs({
-      prompt: "do thing",
-      preset: { effort: "high", maxBudgetUsd: 1.5, model: "sonnet" },
-    });
+  it("buildArgsFromConfig defaults are stream-json + acceptEdits", () => {
+    delete require.cache[require.resolve("../lib/profile-schema")];
+    const { buildArgsFromConfig } = require("../lib/profile-schema");
+    const args = buildArgsFromConfig({}, { prompt: "hi" });
     assert.deepStrictEqual(args, [
-      "-p",
-      "do thing",
-      "--output-format",
-      "stream-json",
+      "-p", "hi",
+      "--input-format", "stream-json",
+      "--output-format", "stream-json",
       "--verbose",
-      "--permission-mode",
-      "acceptEdits",
-      "--effort",
-      "high",
-      "--max-budget-usd",
-      "1.5",
-      "--model",
-      "sonnet",
-    ]);
-  });
-
-  it("buildArgs defaults to acceptEdits when no preset is given", () => {
-    delete require.cache[require.resolve("../lib/spawner")];
-    const { buildArgs } = require("../lib/spawner");
-    const args = buildArgs({ prompt: "hi" });
-    assert.deepStrictEqual(args, [
-      "-p",
-      "hi",
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--permission-mode",
-      "acceptEdits",
+      "--permission-mode", "acceptEdits",
     ]);
   });
 
