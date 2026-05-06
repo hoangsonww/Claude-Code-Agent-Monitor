@@ -59,14 +59,30 @@ State-dependent flags (`--continue`, `--resume`, `--session-id`, `--fork-session
 
 Buttons are above the editor in the Settings tab. Export downloads a JSON artifact safe to share or commit to a dotfiles repo. Import accepts the same shape; on a name collision the imported profile is auto-suffixed (`name (2)`, `name (3)`, ...).
 
-## Continue any conversation
+## Continue any conversation (Composer)
 
-Open any session in the dashboard. The Conversation tab now has a sticky **Send** box at the bottom.
+Open any session in the dashboard. The Conversation tab has a sticky **Composer** at the bottom with the same affordances as Claude Desktop:
 
-- **Live session** (an orchestrator process is currently attached): your message is piped to the running agent's stdin via `POST /api/orchestrator/agents/:id/message`.
-- **Historical session** (no live process): the dashboard runs `claude --resume <session-id>` with the chosen profile and pipes your message in. The resumed `claude` reuses the same `session_id`, so new events flow through the existing hook ingestion path and land on the same Conversation row.
+- **Model picker** / **Mode picker** / **Profile picker** in the toolbar.
+- **Paperclip** (file picker) and **Photo / camera** (mobile-friendly with `capture="environment"`) icons. Drag-and-drop and clipboard paste also work on the textarea.
+- Type **`/`** at the start of a token to open the **slash command menu** — built-in commands, your skills, your plugins, and per-cwd `.claude/commands/` are listed and filterable as you type.
+- Multi-line textarea, **Cmd/Ctrl+Enter** to send.
 
-Use **Cmd+Enter** (or **Ctrl+Enter**) to send. The **Stop** button (only visible on live sessions) sends `SIGTERM` to the agent (escalating to `SIGKILL` after 5 s).
+Behavior:
+
+- **Live session** (orchestrator process attached): your message is piped to the running agent's stdin via `POST /api/orchestrator/agents/:id/message`.
+- **Historical session**: the dashboard runs `claude --resume <session-id>` with the chosen profile/model/mode and pipes your message in. The resumed `claude` reuses the same `session_id`, so new events flow through the existing hook ingestion path and land on the same Conversation row.
+- **Mid-session model or mode change**: the dashboard tears down the running agent and respawns it with `--resume` and the new flags via `POST /api/orchestrator/agents/:id/respawn`. Any text you'd typed but not yet sent is preserved across the respawn. **Note**: `--max-budget-usd` resets on respawn.
+
+The **Stop** button (visible only on live sessions) sends `SIGTERM` (escalating to `SIGKILL` after 5 s).
+
+### File uploads
+
+Files dropped or picked land at `<cwd>/.launcher-uploads/<uuid>/<filename>`. The dashboard auto-appends `.launcher-uploads/` to that cwd's `.gitignore` on first use (idempotent — no other lines touched). The agent reads uploaded files via the existing Read tool, including images (vision input). When a message is sent with attachments, the relative paths are appended below the prompt as a bullet list so the agent can read each file directly.
+
+Default upload cap is 25 MB per file; override with `LAUNCHER_MAX_UPLOAD_MB`.
+
+The Composer renders the same way on desktop, mobile web, and the installed PWA. On iOS/Android, the photo picker shows the native camera/photos chooser; on desktop it falls back to a regular image-only file picker.
 
 ## Secrets
 
