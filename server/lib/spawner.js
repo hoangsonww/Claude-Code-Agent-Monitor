@@ -6,6 +6,9 @@
  */
 
 const { spawn } = require("node:child_process");
+
+let _spawnImpl = spawn;
+function __setSpawnImplForTest(fn) { _spawnImpl = fn; }
 const { randomUUID } = require("node:crypto");
 const { broadcast } = require("../websocket");
 const { buildArgsFromConfig, validateProfileConfig } = require("./profile-schema");
@@ -96,7 +99,7 @@ function spawnAgent({ profile, perLaunch, envExtra }) {
   }
   const id = randomUUID();
   const argv = buildArgsFromConfig(profile || {}, perLaunch);
-  const child = spawn("claude", argv, {
+  const child = _spawnImpl("claude", argv, {
     env: cleanSpawnEnv(envExtra || {}),
     cwd: perLaunch.cwd || process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
@@ -157,7 +160,40 @@ function listAgents() {
   }));
 }
 
+function respawnAgent({ id, profile, perLaunch, envExtra }) {
+  return new Promise((resolve, reject) => {
+    const old = agents.get(id);
+    if (!old) return reject(new Error("agent not found"));
+    const v = validateProfileConfig(profile || {});
+    if (!v.ok) return reject(Object.assign(new Error(v.errors.join("; ")), { code: "EConfigInvalid" }));
+    const onOldExit = () => {
+      try {
+        agents.delete(id);
+        const newHandle = spawnAgent({ profile, perLaunch, envExtra });
+        broadcast("agent_respawned", {
+          sessionId: perLaunch?.resumeSessionId || newHandle.id,
+          oldHandleId: id,
+          newHandleId: newHandle.id,
+        });
+        resolve(newHandle);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    if (old.child && !old.child.killed) {
+      old.child.once("exit", onOldExit);
+      old.child.kill("SIGTERM");
+      setTimeout(() => {
+        if (old.child && !old.child.killed) old.child.kill("SIGKILL");
+      }, 5000);
+    } else {
+      onOldExit();
+    }
+  });
+}
+
 module.exports = {
   spawnAgent, sendMessage, killAgent, getAgent, listAgents,
   cleanSpawnEnv, liveCount, MAX_CONCURRENT,
+  respawnAgent, __setSpawnImplForTest,
 };
