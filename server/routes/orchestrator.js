@@ -26,6 +26,8 @@ router.use((req, res, next) => {
 // Sub-routers
 router.use("/profiles", require("./profiles"));
 router.use("/cwds", require("./cwds"));
+router.use("/uploads", require("./uploads"));
+router.use("/slash-commands", require("./slash-commands"));
 
 router.get("/", (_req, res) => res.json({ enabled: ENABLED, agents: listAgents() }));
 
