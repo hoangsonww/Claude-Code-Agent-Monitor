@@ -52,7 +52,7 @@ export function MobileChat() {
     const userText = input.trim();
     setTurns((t) => [...t, { role: "user", text: userText, ts: Date.now() }]);
     setInput("");
-    const result = await spawn({ prompt: userText });
+    const result = await spawn({ prompt: userText, cwd: "" });
     if (result) {
       setSessionId(result.id);
       setStatus(result.status);
