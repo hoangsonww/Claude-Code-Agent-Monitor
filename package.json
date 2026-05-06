@@ -83,7 +83,7 @@
     "adm-zip": "^0.5.16",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "multer": "^2.0.0",
+    "multer": "^1.4.5-lts.1",
     "swagger-ui-express": "^5.0.1",
     "tar": "^7.4.3",
     "uuid": "^11.1.0",
