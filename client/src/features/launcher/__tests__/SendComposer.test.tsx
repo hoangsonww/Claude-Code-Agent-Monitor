@@ -53,4 +53,17 @@ describe("SendComposer", () => {
     rerender(<SendComposer sessionId="s1" sessionLiveHandleId="h1" sessionCwd="/tmp" />);
     expect(screen.getByRole("button", { name: /^Stop$/i })).toBeInTheDocument();
   });
+
+  it('mode="fresh" omits resumeSessionId from spawn body', async () => {
+    render(<SendComposer sessionId="local-uuid" sessionCwd="/tmp" mode="fresh" />);
+    await userEvent.type(screen.getByPlaceholderText(/message/i), "go");
+    await userEvent.click(screen.getByRole("button", { name: /^Send$/i }));
+    const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const spawn = calls.find((c: unknown[]) => typeof c[0] === "string" && (c[0] as string).endsWith("/spawn"));
+    expect(spawn).toBeTruthy();
+    const body = JSON.parse((spawn![1] as RequestInit).body as string);
+    expect(body.resumeSessionId).toBeUndefined();
+    expect(body.prompt).toBe("go");
+    expect(body.cwd).toBe("/tmp");
+  });
 });

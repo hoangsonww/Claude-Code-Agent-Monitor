@@ -55,9 +55,7 @@ export function LauncherView() {
               disabled={!canLaunch}
               onClick={async () => {
                 if (!cwd) return;
-                // T21 will extend spawn to honor editor.config as configOverride.
-                // Today we launch with default flags; profile is editable + saveable.
-                await spawn({ prompt, cwd });
+                await spawn({ prompt, cwd, config: editor.config });
               }}
             >
               Launch

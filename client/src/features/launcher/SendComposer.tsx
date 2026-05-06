@@ -8,9 +8,18 @@ interface Props {
   sessionLiveHandleId?: string | null;
   sessionCwd: string;
   defaultProfileId?: string | null;
+  /**
+   * "resume" (default): no live handle → spawn with `--resume <sessionId>`. Use
+   *   when the session row already exists server-side (the dashboard's primary
+   *   path: every imported / orchestrator-launched session).
+   * "fresh": no live handle → spawn without `--resume`. Use for callers like
+   *   MobileChat that mint a sessionId locally before any session row exists.
+   *   The spawned `claude` will create its own session under that id.
+   */
+  mode?: "resume" | "fresh";
 }
 
-export function SendComposer({ sessionId, sessionLiveHandleId, sessionCwd, defaultProfileId }: Props) {
+export function SendComposer({ sessionId, sessionLiveHandleId, sessionCwd, defaultProfileId, mode = "resume" }: Props) {
   const [text, setText] = useState("");
   const [profileId, setProfileId] = useState<string>(defaultProfileId || "");
   const { spawn, sendMessage, kill, busy, error } = useOrchestrator();
@@ -25,7 +34,7 @@ export function SendComposer({ sessionId, sessionLiveHandleId, sessionCwd, defau
         prompt: text,
         cwd: sessionCwd,
         profileId: profileId || undefined,
-        resumeSessionId: sessionId,
+        ...(mode === "resume" ? { resumeSessionId: sessionId } : {}),
       });
     }
     setText("");

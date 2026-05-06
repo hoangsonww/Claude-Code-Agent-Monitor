@@ -55,7 +55,7 @@ export function MobileChat() {
           </div>
         ))}
       </div>
-      <SendComposer sessionId={sessionId} sessionCwd={cwd} sessionLiveHandleId={null} />
+      <SendComposer sessionId={sessionId} sessionCwd={cwd} sessionLiveHandleId={null} mode="fresh" />
     </div>
   );
 }

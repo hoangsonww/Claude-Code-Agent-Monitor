@@ -137,7 +137,7 @@ Launcher form / Conversation send composer
 - Hook handlers always exit `0` (preserved from the project's gotcha #2).
 - Argv is recorded in `launcher_launches.argv_json` with **env values redacted** — only the names that were injected are kept.
 
-## Known limitations
+## Implementation notes
 
-- The mobile **Chat** tab generates a fresh UUID per mount; the first message will currently fail with `400 — session not found` because the resume path expects a known session id. The primary launch path (Launcher tab → /launcher) and the Conversation send composer on dashboard sessions both work correctly. A `mode: "fresh" | "resume"` prop on `SendComposer` is the planned fix.
-- The `LauncherView` page calls `useOrchestrator.spawn({ prompt, cwd })` without passing `editor.config` as `configOverride`. The form is fully usable for save-as-profile; "Launch" currently spawns with default flags. Wiring `config` through is a one-line follow-up in `LauncherView.tsx`.
+- **`SendComposer` has two modes**: `mode="resume"` (default) calls `spawn` with `resumeSessionId` so the new `claude` re-attaches to an existing session row. `mode="fresh"` skips `resumeSessionId` so the spawned `claude` creates a new session under the locally-minted id. The Conversation send composer uses the default; the mobile `/chat` tab passes `mode="fresh"` because it mints a UUID before any session row exists.
+- **`LauncherView` Launch** sends `editor.config` as `configOverride` on `POST /spawn`, so the launcher form drives the full flag set. The form is also usable for "Save as profile" without launching.
