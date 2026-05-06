@@ -176,7 +176,25 @@ router.get("/:id", (req, res) => {
   }
   const agents = stmts.listAgentsBySession.all(req.params.id);
   const events = stmts.listEventsBySession.all(req.params.id);
-  res.json({ session, agents, events });
+
+  let liveHandle = null;
+  if (process.env.ORCHESTRATOR_ENABLED === "1") {
+    try {
+      const { listAgents } = require("../lib/spawner");
+      const agent = listAgents().find(
+        (h) =>
+          (h.perLaunch?.resumeSessionId && h.perLaunch.resumeSessionId === session.id) ||
+          h.id === session.id,
+      );
+      if (agent && (agent.status === "running" || agent.status === "spawning")) {
+        liveHandle = { id: agent.id, pid: agent.pid, status: agent.status };
+      }
+    } catch {
+      // spawner not available (e.g., in tests where it's not loaded) — ignore
+    }
+  }
+
+  res.json({ session, agents, events, liveHandle });
 });
 
 /**
