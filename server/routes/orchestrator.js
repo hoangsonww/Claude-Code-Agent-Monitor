@@ -28,10 +28,13 @@ router.get("/", (_req, res) => {
 });
 
 router.post("/spawn", (req, res) => {
-  const { prompt, preset, channelId, cwd } = req.body || {};
+  const { prompt, preset, cwd } = req.body || {};
   if (!prompt) return res.status(400).json({ error: "prompt is required" });
   try {
-    const handle = spawnAgent({ prompt, preset, channelId, cwd });
+    const handle = spawnAgent({
+      profile: preset || {},
+      perLaunch: { prompt, cwd },
+    });
     res.json({
       id: handle.id,
       pid: handle.pid,
@@ -39,6 +42,12 @@ router.post("/spawn", (req, res) => {
       startedAt: handle.startedAt,
     });
   } catch (err) {
+    if (err.code === "EConcurrencyLimit") {
+      return res.status(429).json({ error: err.message, running: err.running });
+    }
+    if (err.code === "EConfigInvalid") {
+      return res.status(400).json({ error: err.message });
+    }
     res.status(500).json({ error: err.message });
   }
 });

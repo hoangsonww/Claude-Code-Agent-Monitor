@@ -157,15 +157,7 @@ function listAgents() {
   }));
 }
 
-// Backward-compat shim: Task 11 will replace the orchestrator route that
-// currently calls buildArgs. Until then, re-export buildArgsFromConfig under
-// the old name so the route import doesn't throw.
-function buildArgs({ prompt, preset = {} }) {
-  return buildArgsFromConfig(preset, { prompt });
-}
-
 module.exports = {
   spawnAgent, sendMessage, killAgent, getAgent, listAgents,
   cleanSpawnEnv, liveCount, MAX_CONCURRENT,
-  buildArgs,
 };
