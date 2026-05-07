@@ -152,6 +152,44 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_launcher_profiles_lastused ON launcher_profiles(last_used_at DESC);
   CREATE INDEX IF NOT EXISTS idx_launcher_launches_profile ON launcher_launches(profile_id);
   CREATE INDEX IF NOT EXISTS idx_launcher_launches_session ON launcher_launches(session_id);
+
+  CREATE TABLE IF NOT EXISTS routines (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    instructions TEXT NOT NULL,
+    cwd TEXT NOT NULL,
+    worktree INTEGER NOT NULL DEFAULT 0,
+    permission_mode TEXT NOT NULL DEFAULT 'default',
+    model TEXT,
+    schedule_type TEXT NOT NULL DEFAULT 'manual',
+    schedule_minute INTEGER,
+    schedule_hour INTEGER,
+    schedule_minute_of_hour INTEGER,
+    schedule_dow INTEGER,
+    status TEXT NOT NULL DEFAULT 'active',
+    webhook_token TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_run_at INTEGER,
+    next_run_at INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS routine_runs (
+    id TEXT PRIMARY KEY,
+    routine_id TEXT NOT NULL,
+    agent_handle_id TEXT,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER,
+    exit_code INTEGER,
+    output_summary TEXT,
+    FOREIGN KEY (routine_id) REFERENCES routines(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_routines_status_next_run ON routines(status, next_run_at);
+  CREATE INDEX IF NOT EXISTS idx_routine_runs_routine_started ON routine_runs(routine_id, started_at DESC);
 `);
 
 // Default model pricing — shared by initial seed + startup top-up + reset endpoint

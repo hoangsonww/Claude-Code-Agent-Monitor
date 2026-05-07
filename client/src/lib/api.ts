@@ -19,6 +19,13 @@ import type {
   UpdateStatusPayload,
   WorkflowData,
 } from "./types";
+import type {
+  Routine,
+  RoutineCreateInput,
+  RoutineDetailResponse,
+  RoutineStatus,
+  RoutineUpdateInput,
+} from "./routine-types";
 
 const BASE = "/api";
 
@@ -258,6 +265,39 @@ export const api = {
     totalCost: () => request<CostResult>("/pricing/cost"),
     sessionCost: (sessionId: string) =>
       request<CostResult>(`/pricing/cost/${encodeURIComponent(sessionId)}`),
+  },
+
+  routines: {
+    list: (opts?: { includeDisabled?: boolean }) => {
+      const qs = opts?.includeDisabled ? "?includeDisabled=true" : "";
+      return request<{ routines: Routine[] }>(`/routines${qs}`);
+    },
+    create: (input: RoutineCreateInput) =>
+      request<{ routine: Routine }>("/routines", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    get: (id: string) =>
+      request<RoutineDetailResponse>(`/routines/${encodeURIComponent(id)}`),
+    update: (id: string, patch: RoutineUpdateInput) =>
+      request<{ routine: Routine }>(`/routines/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    remove: (id: string) =>
+      request<{ ok: boolean }>(`/routines/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    runNow: (id: string) =>
+      request<{ runId: string; agentHandleId: string | null; error?: string }>(
+        `/routines/${encodeURIComponent(id)}/run`,
+        { method: "POST", body: JSON.stringify({}) },
+      ),
+    setStatus: (id: string, status: RoutineStatus) =>
+      request<{ routine: Routine }>(`/routines/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
   },
 
   import: {

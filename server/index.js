@@ -49,6 +49,7 @@ const pushRouter = require("./routes/push");
 const importRouter = require("./routes/import");
 const updatesRouter = require("./routes/updates");
 const orchestratorRouter = require("./routes/orchestrator");
+const routinesRouter = require("./routes/routines");
 const memoryRouter = require("./routes/memory");
 const channelsRouter = require("./routes/channels");
 const skillsRouter = require("./routes/skills");
@@ -75,6 +76,7 @@ function createApp() {
   app.use("/api/import", importRouter);
   app.use("/api/updates", updatesRouter);
   app.use("/api/orchestrator", orchestratorRouter);
+  app.use("/api/routines", routinesRouter);
   app.use("/api/memory", memoryRouter);
   app.use("/api/channels", channelsRouter);
   app.use("/api/skills", skillsRouter);
@@ -130,6 +132,10 @@ if (require.main === module) {
     const { startUpdateScheduler } = require("./update-scheduler");
     const { broadcast } = require("./websocket");
     startUpdateScheduler({ broadcast });
+    if (process.env.ORCHESTRATOR_ENABLED === "1") {
+      const routineScheduler = require("./lib/routine-scheduler");
+      routineScheduler.start({});
+    }
   });
 
   // Auto-install Claude Code hooks on every startup so users don't have to

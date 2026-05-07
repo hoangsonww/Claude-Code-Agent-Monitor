@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
   Languages,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -33,16 +34,27 @@ function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
   return typeof x === "object" && x !== null && "git_repo" in x && "update_available" in x;
 }
 
-const NAV_KEYS = [
+interface NavItem {
+  to: string;
+  icon: typeof LayoutDashboard;
+  key: string;
+  /** When set, the entry only renders if the matching feature flag is on. */
+  flag?: "orchestrator";
+}
+
+const NAV_KEYS: ReadonlyArray<NavItem> = [
   { to: "/", icon: LayoutDashboard, key: "nav:dashboard" },
   { to: "/kanban", icon: Columns3, key: "nav:agentBoard" },
   { to: "/sessions", icon: FolderOpen, key: "nav:sessions" },
+  // The Routines entry is gated behind the orchestrator feature flag — the
+  // routes 404 when the flag is off and the page would be unusable.
+  { to: "/routines", icon: Zap, key: "nav:routines", flag: "orchestrator" },
   { to: "/activity", icon: Activity, key: "nav:activityFeed" },
   { to: "/analytics", icon: BarChart3, key: "nav:analytics" },
   { to: "/workflows", icon: Workflow, key: "nav:workflows" },
   { to: "/settings", icon: Settings, key: "nav:settings" },
   { to: "/launcher", icon: Rocket, key: "nav:launcher" },
-] as const;
+];
 
 const STORAGE_KEY = "sidebar-collapsed";
 const SUPPORTED_LANGUAGES = ["en", "zh", "vi"] as const;
@@ -76,6 +88,31 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
+  const [orchestratorEnabled, setOrchestratorEnabled] = useState(false);
+
+  // Probe the orchestrator flag once on mount to decide whether to render the
+  // Routines nav entry. The endpoint returns 404 when the flag is off, so a
+  // simple ok-check is enough.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/orchestrator/")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: unknown) => {
+        if (cancelled) return;
+        if (
+          body &&
+          typeof body === "object" &&
+          "enabled" in body &&
+          (body as { enabled: unknown }).enabled === true
+        ) {
+          setOrchestratorEnabled(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     return eventBus.subscribe((msg: WSMessage) => {
@@ -160,7 +197,10 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 px-2 py-3 space-y-1">
-        {NAV_KEYS.map(({ to, icon: Icon, key }) => {
+        {NAV_KEYS.filter((entry) => {
+          if (entry.flag === "orchestrator") return orchestratorEnabled;
+          return true;
+        }).map(({ to, icon: Icon, key }) => {
           const label = t(key);
           return (
             <NavLink
