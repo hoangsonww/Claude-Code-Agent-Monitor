@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Alert, Button } from "@mui/material";
+import { Box, Alert, Button, CircularProgress, Stack } from "@mui/material";
 import { useComposerState } from "../../hooks/useComposerState";
 import { useSlashCommands } from "../../hooks/useSlashCommands";
 import { useCwds } from "../../hooks/useCwds";
 import { ComposerToolbar } from "./ComposerToolbar";
 import { AttachmentBar } from "./AttachmentBar";
-import { ComposerTextarea } from "./ComposerTextarea";
-import { ComposerActions } from "./ComposerActions";
+import { ComposerTextarea, type ComposerTextareaHandle } from "./ComposerTextarea";
 import { SlashMenu } from "./SlashMenu";
 import type { ComposerProps, SlashCommand } from "../../lib/composer-types";
 import type { ContextUsage } from "../../lib/context-window";
@@ -29,6 +28,7 @@ export function Composer(props: Props) {
   const cwds = useCwds();
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
+  const textareaRef = useRef<ComposerTextareaHandle | null>(null);
 
   // Optimistic user-message tracking. We snapshot the textarea contents at
   // the moment the user clicks Send and report it to ConversationView so a
@@ -91,6 +91,25 @@ export function Composer(props: Props) {
     }
   };
 
+  // The Plus menu's "Slash commands" entry seeds a leading "/" and focuses
+  // the textarea so the existing slash-menu logic takes over from there.
+  const openSlashCommands = () => {
+    if (!state.text.startsWith("/")) {
+      state.setText(state.text.length === 0 ? "/" : `${state.text} /`);
+    }
+    setSlashOpen(true);
+    setSlashQuery("");
+    // Defer focus so React commits the text update first.
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  // Voice input appends transcribed text to the current draft.
+  const onMicTranscript = (chunk: string) => {
+    const sep = state.text && !state.text.endsWith(" ") ? " " : "";
+    state.setText(`${state.text}${sep}${chunk}`);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
   return (
     <Box sx={{
       borderTop: "1px solid",
@@ -98,7 +117,7 @@ export function Composer(props: Props) {
       background: "background.paper",
       // On mobile the BottomTabNav (position: fixed, height 56px + safe-area)
       // overlays the bottom of the viewport. Reserve clearance below the
-      // composer so the Send/Stop row sits ABOVE the tab bar.
+      // composer so the status bar sits ABOVE the tab bar.
       mb: { xs: "calc(56px + env(safe-area-inset-bottom, 0px))", md: 0 },
     }}>
       {state.error && (
@@ -118,18 +137,6 @@ export function Composer(props: Props) {
             : state.error}
         </Alert>
       )}
-      <ComposerToolbar
-        model={state.model}
-        onModelChange={(v) => void state.setModel(v)}
-        mode={state.mode}
-        onModeChange={(v) => void state.setMode(v)}
-        profileId={state.profileId}
-        onProfileIdChange={state.setProfileId}
-        onAddFile={(f) => void state.uploads.add(f)}
-        busy={state.busy}
-        contextUsage={contextUsage ?? null}
-        onCompact={() => doSend("/compact")}
-      />
       <AttachmentBar attachments={state.uploads.attachments} onRemove={(id) => void state.uploads.remove(id)} />
       <Box sx={{ position: "relative" }}>
         <SlashMenu
@@ -140,6 +147,7 @@ export function Composer(props: Props) {
           onClose={() => setSlashOpen(false)}
         />
         <ComposerTextarea
+          ref={textareaRef}
           value={state.text}
           onChange={state.setText}
           onSubmit={() => doSend()}
@@ -149,16 +157,55 @@ export function Composer(props: Props) {
             setSlashQuery(q);
           }}
           disabled={state.busy}
+          showInlineSubmit
+          busy={state.busy}
+          canSend={canSend}
+          onStop={() => void state.stop()}
         />
       </Box>
-      <ComposerActions
-        canSend={canSend}
+      <ComposerToolbar
+        model={state.model}
+        onModelChange={(v) => void state.setModel(v)}
+        mode={state.mode}
+        onModeChange={(v) => void state.setMode(v)}
+        effort={state.effort}
+        onEffortChange={(v) => void state.setEffort(v)}
+        fastMode={state.fastMode}
+        onFastModeChange={state.setFastMode}
+        onAddFile={(f) => void state.uploads.add(f)}
+        onOpenSlashCommands={openSlashCommands}
+        onMicTranscript={onMicTranscript}
         busy={state.busy}
-        respawning={state.respawning}
-        liveHandleId={state.liveHandleId}
-        onSend={() => doSend()}
-        onStop={() => void state.stop()}
+        contextUsage={contextUsage ?? null}
+        onCompact={() => doSend("/compact")}
       />
+      {/* Status footer — surfaces respawn progress and the keyboard hint
+          that previously lived in ComposerActions. The Send/Stop affordance
+          itself is now inline in the textarea. */}
+      {(state.respawning || state.liveHandleId) && (
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            px: 1,
+            py: 0.5,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            fontSize: 11,
+            color: "text.secondary",
+          }}
+        >
+          {state.respawning ? (
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              <CircularProgress size={10} />
+              respawning…
+            </Box>
+          ) : (
+            <span>Live session attached · Cmd+Enter to send</span>
+          )}
+        </Stack>
+      )}
     </Box>
   );
 }

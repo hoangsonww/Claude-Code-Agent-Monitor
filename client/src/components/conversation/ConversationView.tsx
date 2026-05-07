@@ -13,6 +13,7 @@ import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw, Bot, User }
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
 import { MessageList } from "./MessageList";
+import { TranscriptViewMenu } from "./TranscriptViewMenu";
 import { Composer } from "../../features/composer/Composer";
 import type { TranscriptMessage, TranscriptInfo, WSMessage, CostResult } from "../../lib/types";
 import {
@@ -21,6 +22,14 @@ import {
   type ContextUsage,
   type ResultChunkLike,
 } from "../../lib/context-window";
+import {
+  readTranscriptFontSize,
+  readTranscriptViewMode,
+  writeTranscriptFontSize,
+  writeTranscriptViewMode,
+  type TranscriptFontSize,
+  type TranscriptViewMode,
+} from "../../lib/transcriptViewMode";
 
 // Catch-up poll interval. Claude Code only fires hooks on PreToolUse /
 // PostToolUse / Stop, which means a user-typed message (no hook) and any
@@ -108,6 +117,19 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
   // Refresh-button spinner state — separate from initial `loading` so the
   // existing skeleton doesn't blink during a manual refresh.
   const [refreshing, setRefreshing] = useState(false);
+
+  // Transcript view-mode + font-size selections, persisted across reloads
+  // via localStorage. Default to "normal" + "medium" on first visit.
+  const [viewMode, setViewModeState] = useState<TranscriptViewMode>(() => readTranscriptViewMode());
+  const [fontSize, setFontSizeState] = useState<TranscriptFontSize>(() => readTranscriptFontSize());
+  const setViewMode = useCallback((m: TranscriptViewMode) => {
+    setViewModeState(m);
+    writeTranscriptViewMode(m);
+  }, []);
+  const setFontSize = useCallback((s: TranscriptFontSize) => {
+    setFontSizeState(s);
+    writeTranscriptFontSize(s);
+  }, []);
 
   // Load available transcript list (also rescanned on a short interval so
   // newly-spawned subagents appear in the dropdown without a page reload).
@@ -591,6 +613,12 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
             <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
+          <TranscriptViewMenu
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            fontSize={fontSize}
+            onFontSizeChange={setFontSize}
+          />
         </div>
       )}
 
@@ -633,7 +661,12 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
           </div>
         ) : (
           <>
-            <MessageList messages={unifiedMessages} loading={false} />
+            <MessageList
+              messages={unifiedMessages}
+              loading={false}
+              viewMode={viewMode}
+              fontSize={fontSize}
+            />
             {/* Pending optimistic user bubble, dimmed/italic until busy flips. */}
             {pendingUserText && (
               <div className="mt-3" data-testid="pending-user-bubble">

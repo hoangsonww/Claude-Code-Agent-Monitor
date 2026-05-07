@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ProfileConfig, PermissionMode } from "../lib/profile-types";
+import type { ProfileConfig, PermissionMode, Effort } from "../lib/profile-types";
 import type { Attachment, ComposerProps } from "../lib/composer-types";
 import { useUploads } from "./useUploads";
 
@@ -15,6 +15,9 @@ export function useComposerState(props: ComposerProps) {
   const [text, setText] = useState("");
   const [model, setModelState] = useState<string | null>(props.defaultModel || null);
   const [mode, setModeState] = useState<PermissionMode | null>(props.defaultMode || null);
+  const [effort, setEffortState] = useState<Effort | null>(null);
+  // UI-only fast-mode toggle. v1 is a stub — see ModelPickerPopover TODO.
+  const [fastMode, setFastMode] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(props.defaultProfileId || null);
   const [busy, setBusy] = useState(false);
   const [respawning, setRespawning] = useState(false);
@@ -27,8 +30,9 @@ export function useComposerState(props: ComposerProps) {
     const cfg: ProfileConfig = {};
     if (model) cfg.model = model;
     if (mode) cfg.permissionMode = mode;
+    if (effort) cfg.effort = effort;
     return cfg;
-  }, [model, mode]);
+  }, [model, mode, effort]);
 
   const respawnWithFlags = useCallback(
     async (newConfig: ProfileConfig, queuedText: string) => {
@@ -76,6 +80,20 @@ export function useComposerState(props: ComposerProps) {
       }
     },
     [mode, liveHandleId, buildConfig, text, respawnWithFlags],
+  );
+
+  // Effort changes follow the same respawn pattern as model/mode: when the
+  // session is already attached to a live handle, we have to re-spawn the
+  // agent with the new flag — there's no in-flight reconfigure path.
+  const setEffort = useCallback(
+    async (next: Effort | null) => {
+      if (next === effort) return;
+      setEffortState(next);
+      if (liveHandleId) {
+        await respawnWithFlags({ ...buildConfig(), effort: next || undefined }, text);
+      }
+    },
+    [effort, liveHandleId, buildConfig, text, respawnWithFlags],
   );
 
   // `overrideText` lets callers (e.g. the /compact button) send a fixed
@@ -146,6 +164,8 @@ export function useComposerState(props: ComposerProps) {
     text, setText,
     model, setModel,
     mode, setMode,
+    effort, setEffort,
+    fastMode, setFastMode,
     profileId, setProfileId,
     busy, respawning, error,
     liveHandleId,

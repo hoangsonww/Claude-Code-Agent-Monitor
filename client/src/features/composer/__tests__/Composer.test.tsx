@@ -19,22 +19,23 @@ beforeEach(() => {
 });
 
 describe("Composer", () => {
-  it("renders toolbar + textarea + actions", () => {
+  it("renders status-bar chips, plus menu, mic, and inline submit", () => {
     render(<Composer sessionId="s1" sessionCwd="/tmp" />);
-    expect(screen.getByLabelText(/^Model$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Mode$/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Ask Claude/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Permission mode/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Model and effort/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Type \/ for commands/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Send$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Add files, photos, or slash commands/i })).toBeInTheDocument();
   });
 
-  it("Send button is disabled when text is empty", () => {
+  it("inline Send icon is disabled when text is empty", () => {
     render(<Composer sessionId="s1" sessionCwd="/tmp" />);
     expect(screen.getByRole("button", { name: /^Send$/i })).toBeDisabled();
   });
 
   it("typing '/' opens the slash menu with built-in commands", async () => {
     render(<Composer sessionId="s1" sessionCwd="/tmp" />);
-    const ta = screen.getByPlaceholderText(/Ask Claude/i);
+    const ta = screen.getByPlaceholderText(/Type \/ for commands/i);
     await userEvent.type(ta, "/he");
     // The slash menu shows /help via the built-in section
     expect(await screen.findByText("/help")).toBeInTheDocument();

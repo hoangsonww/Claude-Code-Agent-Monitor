@@ -24,10 +24,21 @@ import { ToolCallBlock } from "./ToolCallBlock";
 import { MarkdownContent } from "./MarkdownContent";
 import { fmt } from "../../lib/format";
 import { parseTuiSegments, stripAnsi, hasTuiTags, type TuiSegment } from "./tuiSegments";
+import {
+  applyTranscriptViewMode,
+  fontSizeToCss,
+  type TranscriptFontSize,
+  type TranscriptViewMode,
+} from "../../lib/transcriptViewMode";
 
 interface MessageListProps {
   messages: TranscriptMessage[];
   loading: boolean;
+  /** Filter content blocks per the active transcript-view mode. Defaults to
+   * "verbose" (preserve existing behaviour for any non-Conversation caller). */
+  viewMode?: TranscriptViewMode;
+  /** Apply a CSS variable so font-size controls cascade to message body. */
+  fontSize?: TranscriptFontSize;
 }
 
 /** Build a map from tool_use id → tool_result for matching */
@@ -196,8 +207,33 @@ function CollapsibleBlock({
   );
 }
 
-export function MessageList({ messages, loading }: MessageListProps) {
+export function MessageList({ messages, loading, viewMode = "verbose", fontSize = "medium" }: MessageListProps) {
   const [expandedThinking, setExpandedThinking] = useState<Set<number>>(() => new Set());
+
+  // Apply view-mode filter once per render. The filter is a pure function so
+  // the caller can also pre-filter; here we keep the pipeline self-contained
+  // and easy to swap out.
+  const viewMessages = useMemo(
+    () => applyTranscriptViewMode(messages, viewMode),
+    [messages, viewMode],
+  );
+
+  // Tool-result lookup must reference the ORIGINAL messages so a hidden
+  // user-only tool_result row still paints alongside the assistant tool_use
+  // when verbose mode is active. (Filtered modes drop tool_use anyway.)
+  const toolResultMap = useMemo(() => buildToolResultMap(messages), [messages]);
+
+  // Track which user messages in the filtered view are pure tool_result (no
+  // text) — we merge those into the preceding assistant message.
+  const userMsgHasText = useMemo(() => {
+    const map = new Map<number, boolean>();
+    viewMessages.forEach((msg, idx) => {
+      if (msg.type !== "user") return;
+      const hasText = msg.content.some((c) => c.type === "text");
+      map.set(idx, hasText);
+    });
+    return map;
+  }, [viewMessages]);
 
   if (loading) {
     return (
@@ -213,22 +249,28 @@ export function MessageList({ messages, loading }: MessageListProps) {
     );
   }
 
-  const toolResultMap = buildToolResultMap(messages);
-
-  // Track which user messages are pure tool_result (no text) — we merge those into the preceding assistant message
-  const userMsgHasText = useMemo(() => {
-    const map = new Map<number, boolean>();
-    messages.forEach((msg, idx) => {
-      if (msg.type !== "user") return;
-      const hasText = msg.content.some((c) => c.type === "text");
-      map.set(idx, hasText);
-    });
-    return map;
-  }, [messages]);
+  // Summary mode supplies a "… N messages …" affordance so the user knows
+  // there are hidden rows. Click expands but here we just render the count
+  // because re-expansion is a transient affordance owned by the parent.
+  const summaryHidden = viewMode === "summary" ? Math.max(0, messages.length - viewMessages.length) : 0;
 
   return (
-    <div className="space-y-3">
-      {messages.map((msg, idx) => {
+    <div
+      className="space-y-3"
+      style={
+        {
+          // Cascade font size to MarkdownContent / pre / span via this var.
+          "--message-font-size": fontSizeToCss(fontSize),
+          fontSize: "var(--message-font-size)",
+        } as React.CSSProperties
+      }
+    >
+      {summaryHidden > 0 && (
+        <div className="text-center text-[11px] text-gray-500 italic py-2">
+          … {summaryHidden} message{summaryHidden === 1 ? "" : "s"} hidden …
+        </div>
+      )}
+      {viewMessages.map((msg, idx) => {
         // Skip user messages that are purely tool_result — they're rendered inside ToolCallBlock
         if (msg.type === "user" && !userMsgHasText.get(idx)) {
           return null;
