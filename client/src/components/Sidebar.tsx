@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { useOrchestratorEnabled } from "../hooks/useOrchestratorEnabled";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 
 function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
@@ -88,31 +89,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
-  const [orchestratorEnabled, setOrchestratorEnabled] = useState(false);
-
-  // Probe the orchestrator flag once on mount to decide whether to render the
-  // Routines nav entry. The endpoint returns 404 when the flag is off, so a
-  // simple ok-check is enough.
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/orchestrator/")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body: unknown) => {
-        if (cancelled) return;
-        if (
-          body &&
-          typeof body === "object" &&
-          "enabled" in body &&
-          (body as { enabled: unknown }).enabled === true
-        ) {
-          setOrchestratorEnabled(true);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const orchestratorEnabled = useOrchestratorEnabled();
 
   useEffect(() => {
     return eventBus.subscribe((msg: WSMessage) => {

@@ -43,7 +43,10 @@
   bottom: 0;
   z-index: 50;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* `--tab-count` is set by BottomTabNav.tsx so the grid grows/shrinks with
+     visible tabs (e.g. Routines hidden when the orchestrator flag is off).
+     Falls back to 5 columns if the variable is unset. */
+  grid-template-columns: repeat(var(--tab-count, 5), 1fr);
   gap: 0;
   background: rgba(18, 18, 30, 0.92);
   backdrop-filter: saturate(140%) blur(12px);
@@ -94,5 +97,120 @@
 
 .tabLabel {
   display: block;
+  line-height: 1.2;
+}
+
+/* The More button shares the .tab grid cell but uses native <button> reset. */
+.tabButton {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* ── More sheet ──────────────────────────────────────────────────────── */
+
+.moreOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.moreBackdrop {
+  position: absolute;
+  inset: 0;
+  appearance: none;
+  background: rgba(0, 0, 0, 0.5);
+  border: 0;
+  cursor: pointer;
+  /* Fade the backdrop in to feel less abrupt. */
+  animation: moreFade 160ms ease-out;
+}
+
+.moreSheet {
+  position: relative;
+  background: #15151f;
+  border-top: 1px solid #2a2a3d;
+  border-radius: 16px 16px 0 0;
+  padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  /* Avoid covering the entire viewport on tall phones. */
+  max-height: 75vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: moreSlide 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes moreFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes moreSlide {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.moreHandle {
+  width: 36px;
+  height: 4px;
+  margin: 6px auto 8px;
+  border-radius: 2px;
+  background: #3a3a52;
+}
+
+.moreTitle {
+  margin: 0 12px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a9aa8;
+}
+
+.moreList {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px;
+}
+
+.moreItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #c4c4d4;
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.moreItem:hover,
+.moreItem:focus-visible {
+  background: #1f1f30;
+  color: #e4e4ed;
+  outline: none;
+}
+
+.moreItemActive {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.moreItemIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  line-height: 0;
+}
+
+.moreItemLabel {
+  flex: 1 1 auto;
   line-height: 1.2;
 }

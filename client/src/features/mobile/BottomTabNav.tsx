@@ -1,12 +1,23 @@
 /**
  * @file BottomTabNav.tsx
- * @description Fixed bottom tab bar shown on mobile viewports. Renders four
- *   primary destinations (Dashboard, Sessions, Chat, Settings) using
- *   react-router's `NavLink` for active styling. Inline SVG icons keep the
- *   bundle free of additional icon library dependencies.
+ * @description Fixed bottom tab bar shown on mobile viewports. Surfaces the
+ *   primary destinations directly and exposes the remainder of the desktop
+ *   sidebar through a "More" sheet so every page reachable on desktop is
+ *   reachable on mobile.
+ *
+ *   Routines is gated behind the orchestrator feature flag — it appears as a
+ *   primary tab when the flag is on, and is omitted entirely when off (same
+ *   policy as the desktop Sidebar).
+ *
+ *   Inline SVG icons keep the bundle free of additional icon-library
+ *   dependencies in this leaf component, even though the rest of the app
+ *   uses lucide-react. Existing icons are preserved verbatim from the prior
+ *   four-tab version; new icons follow the same 24×24 viewBox convention.
  */
 
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import { useOrchestratorEnabled } from "../../hooks/useOrchestratorEnabled";
 import styles from "./MobileShell.module.css";
 
 interface TabDef {
@@ -15,6 +26,8 @@ interface TabDef {
   /** When true, only highlight when the path matches exactly. */
   end?: boolean;
   icon: React.ReactNode;
+  /** When set, the entry only renders if the matching feature flag is on. */
+  flag?: "orchestrator";
 }
 
 const iconProps = {
@@ -68,40 +81,185 @@ const LauncherIcon = () => (
   </svg>
 );
 
-const TABS: TabDef[] = [
+const RoutinesIcon = () => (
+  // Lightning bolt — matches Lucide `Zap` used in the desktop Sidebar.
+  <svg {...iconProps}>
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+);
+
+const KanbanIcon = () => (
+  <svg {...iconProps}>
+    <rect x="3" y="3" width="6" height="18" rx="1" />
+    <rect x="11" y="3" width="6" height="12" rx="1" />
+    <rect x="19" y="3" width="2" height="8" rx="1" />
+  </svg>
+);
+
+const ActivityIcon = () => (
+  <svg {...iconProps}>
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+  </svg>
+);
+
+const AnalyticsIcon = () => (
+  <svg {...iconProps}>
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
+  </svg>
+);
+
+const WorkflowsIcon = () => (
+  <svg {...iconProps}>
+    <rect x="3" y="3" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+    <path d="M9 6h6a3 3 0 0 1 3 3v6" />
+  </svg>
+);
+
+const MoreIcon = () => (
+  <svg {...iconProps}>
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const PRIMARY_TABS: TabDef[] = [
   { to: "/", label: "Dashboard", end: true, icon: <DashboardIcon /> },
   { to: "/sessions", label: "Sessions", icon: <SessionsIcon /> },
   { to: "/chat", label: "Chat", icon: <ChatIcon /> },
+  { to: "/routines", label: "Routines", icon: <RoutinesIcon />, flag: "orchestrator" },
+];
+
+// Items rendered in the More sheet, in the same order as the desktop Sidebar
+// so users who alternate between desktop and mobile see consistent placement.
+const MORE_ITEMS: TabDef[] = [
+  { to: "/kanban", label: "Kanban Board", icon: <KanbanIcon /> },
+  { to: "/activity", label: "Activity Feed", icon: <ActivityIcon /> },
+  { to: "/analytics", label: "Analytics", icon: <AnalyticsIcon /> },
+  { to: "/workflows", label: "Workflows", icon: <WorkflowsIcon /> },
   { to: "/settings", label: "Settings", icon: <SettingsIcon /> },
   { to: "/launcher", label: "Launcher", icon: <LauncherIcon /> },
 ];
 
+interface MoreSheetProps {
+  items: TabDef[];
+  onClose: () => void;
+}
+
 /**
- * Fixed bottom navigation bar for mobile viewports. Each tab is a `NavLink`,
- * so react-router applies the `aria-current="page"` attribute and an
- * `active` class name automatically, which we map to bolder text and an
- * accent color in the accompanying CSS module.
+ * Slide-up sheet rendered above the tab bar when the More tab is tapped.
+ * Tapping the backdrop or any link dismisses it. Locks body scroll while open
+ * so the underlying page doesn't move under the user's finger.
+ */
+function MoreSheet({ items, onClose }: MoreSheetProps) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Close on ESC for keyboard / external-keyboard users on iPad.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className={styles.moreOverlay} role="dialog" aria-modal="true" aria-label="More navigation">
+      <button
+        type="button"
+        className={styles.moreBackdrop}
+        onClick={onClose}
+        aria-label="Close menu"
+      />
+      <div className={styles.moreSheet}>
+        <div className={styles.moreHandle} aria-hidden="true" />
+        <h2 className={styles.moreTitle}>Navigation</h2>
+        <ul className={styles.moreList}>
+          {items.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  isActive ? `${styles.moreItem} ${styles.moreItemActive}` : styles.moreItem
+                }
+              >
+                <span className={styles.moreItemIcon}>{item.icon}</span>
+                <span className={styles.moreItemLabel}>{item.label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Fixed bottom navigation bar for mobile viewports. Renders primary tabs plus
+ * a "More" trigger that opens a sheet with the remaining sidebar destinations
+ * so every desktop page is reachable on mobile.
  */
 export function BottomTabNav() {
+  const orchestratorEnabled = useOrchestratorEnabled();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const visiblePrimary = PRIMARY_TABS.filter((t) =>
+    t.flag === "orchestrator" ? orchestratorEnabled : true,
+  );
+  // When the orchestrator flag is off, Routines is dropped from primary AND
+  // the More sheet — matching the desktop Sidebar's hide-everything policy.
+  const moreItems = MORE_ITEMS;
+  // CSS uses an inline custom property so the grid stays exactly N columns
+  // for the visible tabs (primary + the More button) — no auto-row wrap.
+  const tabCount = visiblePrimary.length + 1;
+
   return (
-    <nav
-      className={styles.tabBar}
-      role="navigation"
-      aria-label="Primary"
-    >
-      {TABS.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          end={tab.end}
-          className={({ isActive }) =>
-            isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab
-          }
+    <>
+      <nav
+        className={styles.tabBar}
+        role="navigation"
+        aria-label="Primary"
+        style={{ ["--tab-count" as never]: String(tabCount) }}
+      >
+        {visiblePrimary.map((tab) => (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.end}
+            className={({ isActive }) =>
+              isActive ? `${styles.tab} ${styles.tabActive}` : styles.tab
+            }
+          >
+            <span className={styles.tabIcon}>{tab.icon}</span>
+            <span className={styles.tabLabel}>{tab.label}</span>
+          </NavLink>
+        ))}
+        <button
+          type="button"
+          className={`${styles.tab} ${styles.tabButton}${moreOpen ? ` ${styles.tabActive}` : ""}`}
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={moreOpen}
+          aria-controls="bottom-nav-more"
         >
-          <span className={styles.tabIcon}>{tab.icon}</span>
-          <span className={styles.tabLabel}>{tab.label}</span>
-        </NavLink>
-      ))}
-    </nav>
+          <span className={styles.tabIcon}>
+            <MoreIcon />
+          </span>
+          <span className={styles.tabLabel}>More</span>
+        </button>
+      </nav>
+      {moreOpen && <MoreSheet items={moreItems} onClose={() => setMoreOpen(false)} />}
+    </>
   );
 }
