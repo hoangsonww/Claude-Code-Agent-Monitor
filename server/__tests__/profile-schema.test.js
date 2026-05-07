@@ -83,9 +83,11 @@ describe("validateProfileConfig", () => {
 
 describe("buildArgsFromConfig", () => {
   it("returns deterministic argv for an empty config + prompt", () => {
+    // The prompt is delivered through stdin (see spawner.js) — argv must NOT
+    // include `-p PROMPT`, because combining it with --input-format stream-json
+    // makes claude hang waiting for additional stdin input.
     const argv = buildArgsFromConfig({}, { prompt: "hi" });
     assert.deepEqual(argv, [
-      "-p", "hi",
       "--input-format", "stream-json",
       "--output-format", "stream-json",
       "--verbose",

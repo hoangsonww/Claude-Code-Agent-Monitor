@@ -99,7 +99,10 @@ export function useComposerState(props: ComposerProps) {
         if (profileId) body.profileId = profileId;
         const cfg = buildConfig();
         if (Object.keys(cfg).length) body.configOverride = cfg;
-        if (props.mode === "resume") body.resumeSessionId = props.sessionId;
+        // Default to "resume" so callers (like ConversationView) that don't pass
+        // the prop still continue the existing session. Only MobileChat — which
+        // mints a fresh sessionId locally — opts out by passing mode="fresh".
+        if ((props.mode ?? "resume") === "resume") body.resumeSessionId = props.sessionId;
         const res = await fetch("/api/orchestrator/spawn", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

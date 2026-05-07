@@ -109,6 +109,12 @@ function spawnAgent({ profile, perLaunch, envExtra }) {
   agents.set(id, handle);
   attachStreamHandlers(handle);
   broadcast("agent_status", { sessionId: id, status: "spawning" });
+  // Send the initial prompt via stdin (same path as sendMessage). buildArgs no
+  // longer uses -p PROMPT — that combo with --input-format stream-json hangs.
+  if (child?.stdin?.writable) {
+    const obj = { type: "user", message: { role: "user", content: String(perLaunch.prompt ?? "") }, id: randomUUID() };
+    child.stdin.write(JSON.stringify(obj) + "\n");
+  }
   return handle;
 }
 

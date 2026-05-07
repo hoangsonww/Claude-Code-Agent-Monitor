@@ -36,7 +36,6 @@ describe("orchestrator route", () => {
     const { buildArgsFromConfig } = require("../lib/profile-schema");
     const args = buildArgsFromConfig({}, { prompt: "hi" });
     assert.deepStrictEqual(args, [
-      "-p", "hi",
       "--input-format", "stream-json",
       "--output-format", "stream-json",
       "--verbose",

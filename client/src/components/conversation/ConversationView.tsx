@@ -37,6 +37,15 @@ interface ConversationViewProps {
 }
 
 export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, sessionLiveHandleId, defaultModel, defaultMode, defaultProfileId }: ConversationViewProps) {
+  // Live handle tracker: starts with the prop and updates when the Composer
+  // spawns or respawns. Used to filter agent_stream WS broadcasts so we only
+  // append messages from the agent attached to THIS session view.
+  const [liveHandleId, setLiveHandleId] = useState<string | null>(sessionLiveHandleId ?? null);
+  useEffect(() => setLiveHandleId(sessionLiveHandleId ?? null), [sessionLiveHandleId]);
+  // Live messages received via agent_stream — appended in real time so the user
+  // sees the agent's response immediately, even when `claude -p --resume` forks
+  // the session-id and no `new_event` ever fires for the session in the URL.
+  const [liveMessages, setLiveMessages] = useState<{ id: string; role: "user" | "assistant"; text: string; ts: number }[]>([]);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -197,6 +206,56 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
     });
     return unsubscribe;
   }, [sessionId, fetchNewMessages]);
+
+  // Live agent_stream subscription: append the agent's tokens directly when a
+  // live orchestrator handle is attached. This is independent of the JSONL →
+  // new_event path — `claude -p --resume <terminated-session>` forks the
+  // session-id, so no new_event ever fires for the session in the URL. The
+  // agent_stream broadcast comes straight from the spawner's stdout parser.
+  // NOTE: server's broadcast() wraps payload as {type, data, timestamp}, so
+  // sessionId/chunk live under msg.data — not at the top level. The WSMessage
+  // type declares them top-level, which is a pre-existing inaccuracy; we cast
+  // through `unknown` to read the actual wire shape.
+  useEffect(() => {
+    if (!liveHandleId) return;
+    const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
+      const wire = msg as unknown as { type: string; data?: Record<string, unknown> };
+      if (wire.type === "agent_respawned") {
+        const d = wire.data || {};
+        if (d.oldHandleId === liveHandleId && typeof d.newHandleId === "string") {
+          setLiveHandleId(d.newHandleId);
+        }
+        return;
+      }
+      if (wire.type !== "agent_stream") return;
+      const d = wire.data || {};
+      if (d.sessionId !== liveHandleId) return;
+      const chunk = d.chunk as { type?: string; message?: { role?: string; content?: unknown }; text?: string } | undefined;
+      if (!chunk) return;
+      // Normalize the SDK stream-json variants we care about into our compact
+      // shape. Skip system/hook events (subtype, hook_response, etc.) — they
+      // aren't user-visible turns.
+      let text: string | null = null;
+      let role: "user" | "assistant" = "assistant";
+      if (chunk.type === "assistant" && chunk.message) {
+        const c = chunk.message.content;
+        if (Array.isArray(c)) {
+          text = c.map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : "")).filter(Boolean).join("\n");
+        } else if (typeof c === "string") {
+          text = c;
+        }
+        role = "assistant";
+      } else if (chunk.type === "user" && chunk.message) {
+        const c = chunk.message.content;
+        if (typeof c === "string") text = c;
+        else if (Array.isArray(c)) text = c.map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : "")).filter(Boolean).join("\n");
+        role = "user";
+      }
+      if (!text) return;
+      setLiveMessages((prev) => [...prev, { id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role, text, ts: Date.now() }]);
+    });
+    return unsubscribe;
+  }, [liveHandleId]);
 
   // Resync on WebSocket reconnect: events that landed during a transient
   // disconnect are gone from the bus, but the JSONL still has them, so a
@@ -434,15 +493,44 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
         </button>
       )}
 
+      {/* Live messages received via agent_stream WS broadcast. Rendered after
+          the JSONL-derived messages list so they appear as the most recent
+          turns until the JSONL catches up (or doesn't, when the agent forks
+          to a new session-id). */}
+      {liveMessages.length > 0 && (
+        <div className="px-4 pb-4 border-t border-violet-900/40 pt-3 space-y-2">
+          <div className="text-[11px] text-violet-400 uppercase tracking-wide">Live</div>
+          {liveMessages.map((m) => (
+            <div
+              key={m.id}
+              className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                m.role === "user"
+                  ? "ml-auto bg-blue-900/40 text-blue-100"
+                  : "bg-zinc-800 text-zinc-100"
+              }`}
+            >
+              <div className="text-[10px] text-zinc-400 mb-0.5">{m.role}</div>
+              {m.text}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Send composer — only shown when session cwd is known */}
       {sessionCwd && (
         <Composer
           sessionId={sessionId}
           sessionCwd={sessionCwd}
-          sessionLiveHandleId={sessionLiveHandleId}
+          sessionLiveHandleId={liveHandleId}
           defaultModel={defaultModel}
           defaultMode={defaultMode as Parameters<typeof Composer>[0]["defaultMode"]}
           defaultProfileId={defaultProfileId}
+          onLiveHandleChange={(id) => {
+            setLiveHandleId(id);
+            // When a fresh handle is attached (new spawn), reset live messages
+            // so the user doesn't see stale chunks from a previous run.
+            if (id !== liveHandleId) setLiveMessages([]);
+          }}
         />
       )}
     </div>

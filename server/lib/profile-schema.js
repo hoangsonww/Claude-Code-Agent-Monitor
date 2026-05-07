@@ -106,8 +106,12 @@ function validateProfileConfig(cfg) {
 }
 
 function buildArgsFromConfig(cfg = {}, perLaunch = {}) {
-  const argv = ["-p", String(perLaunch.prompt ?? "")];
-  argv.push("--input-format", "stream-json");
+  // Initial prompt is sent via stdin as a stream-json user message — combining
+  // -p PROMPT with --input-format stream-json makes claude hang waiting for
+  // additional stdin input, so it never returns the response. The orchestrator
+  // sends the first turn through the same stdin path that subsequent
+  // sendMessage() calls use.
+  const argv = ["--input-format", "stream-json"];
   argv.push("--output-format", "stream-json");
   argv.push("--verbose");
   argv.push("--permission-mode", cfg.permissionMode || "acceptEdits");

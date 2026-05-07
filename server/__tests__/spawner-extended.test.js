@@ -75,6 +75,25 @@ describe("spawner — sendMessage and broadcast", () => {
   });
 });
 
+describe("spawner — initial prompt via stdin", () => {
+  beforeEach(() => {
+    captured = [];
+    setupBroadcastMock();
+    delete require.cache[require.resolve("../lib/spawner")];
+  });
+
+  it("writes the initial prompt to stdin as a stream-json user message", () => {
+    const { spawnAgent, __setSpawnImplForTest } = require("../lib/spawner");
+    const child = fakeChild();
+    __setSpawnImplForTest(() => child);
+    spawnAgent({ profile: {}, perLaunch: { prompt: "hello world", cwd: process.cwd() } });
+    assert.ok(child.stdin._last, "expected stdin to be written");
+    assert.match(child.stdin._last, /"role":"user"/);
+    assert.match(child.stdin._last, /"hello world"/);
+    assert.ok(child.stdin._last.endsWith("\n"));
+  });
+});
+
 describe("spawner — concurrency cap", () => {
   beforeEach(() => {
     captured = [];
