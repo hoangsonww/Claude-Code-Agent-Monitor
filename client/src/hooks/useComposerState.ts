@@ -78,8 +78,12 @@ export function useComposerState(props: ComposerProps) {
     [mode, liveHandleId, buildConfig, text, respawnWithFlags],
   );
 
-  const send = useCallback(async () => {
-    const finalText = buildMessage(text.trim(), uploads.attachments);
+  // `overrideText` lets callers (e.g. the /compact button) send a fixed
+  // message without touching the user's draft in the textarea. When omitted,
+  // the current `text` is sent as before.
+  const send = useCallback(async (overrideText?: string) => {
+    const baseText = overrideText !== undefined ? overrideText : text;
+    const finalText = buildMessage(baseText.trim(), uploads.attachments);
     if (!finalText) return;
     setBusy(true);
     setError(null);
@@ -113,8 +117,12 @@ export function useComposerState(props: ComposerProps) {
         setLiveHandleId(next.id);
         props.onLiveHandleChange?.(next.id);
       }
-      setText("");
-      uploads.clear();
+      // Only clear the draft when we sent the user's typed text. Override
+      // sends (e.g. /compact) leave the textarea untouched.
+      if (overrideText === undefined) {
+        setText("");
+        uploads.clear();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

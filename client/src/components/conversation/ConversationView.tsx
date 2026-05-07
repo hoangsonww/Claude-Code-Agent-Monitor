@@ -8,13 +8,19 @@
  * turn (no PreToolUse fires until Stop).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
-import { useEffect, useState, useCallback, useRef } from "react";
-import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw } from "lucide-react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw, Bot, User } from "lucide-react";
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
 import { MessageList } from "./MessageList";
 import { Composer } from "../../features/composer/Composer";
-import type { TranscriptMessage, TranscriptInfo, WSMessage } from "../../lib/types";
+import type { TranscriptMessage, TranscriptInfo, WSMessage, CostResult } from "../../lib/types";
+import {
+  contextFromResultChunk,
+  contextFromCost,
+  type ContextUsage,
+  type ResultChunkLike,
+} from "../../lib/context-window";
 
 // Catch-up poll interval. Claude Code only fires hooks on PreToolUse /
 // PostToolUse / Stop, which means a user-typed message (no hook) and any
@@ -26,6 +32,13 @@ const POLL_INTERVAL_MS = 3000;
 // mid-session appear in the dropdown without a page reload.
 const TRANSCRIPTS_REFRESH_MS = 15000;
 
+interface LiveMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  ts: number;
+}
+
 interface ConversationViewProps {
   sessionId: string;
   initialTranscriptId?: string | null;
@@ -34,6 +47,18 @@ interface ConversationViewProps {
   defaultModel?: string | null;
   defaultMode?: string | null;
   defaultProfileId?: string | null;
+}
+
+/** Convert a {@link LiveMessage} into the {@link TranscriptMessage} shape the
+ * unified MessageList consumes. Live entries don't carry usage/model
+ * metadata, so those fields stay undefined and MessageList renders a clean
+ * bubble without the token-cost annotations. */
+function liveToTranscript(m: LiveMessage): TranscriptMessage {
+  return {
+    type: m.role,
+    timestamp: new Date(m.ts).toISOString(),
+    content: [{ type: "text", text: m.text }],
+  };
 }
 
 export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, sessionLiveHandleId, defaultModel, defaultMode, defaultProfileId }: ConversationViewProps) {
@@ -45,7 +70,7 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
   // Live messages received via agent_stream — appended in real time so the user
   // sees the agent's response immediately, even when `claude -p --resume` forks
   // the session-id and no `new_event` ever fires for the session in the URL.
-  const [liveMessages, setLiveMessages] = useState<{ id: string; role: "user" | "assistant"; text: string; ts: number }[]>([]);
+  const [liveMessages, setLiveMessages] = useState<LiveMessage[]>([]);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -57,6 +82,18 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
   const [error, setError] = useState<string | null>(null);
   const [transcripts, setTranscripts] = useState<TranscriptInfo[]>([]);
   const [showNewMsg, setShowNewMsg] = useState(false);
+  // Optimistic user message: rendered immediately on Send, cleared when the
+  // composer reports busy=false. The JSONL catch-up will populate the real
+  // message within a few seconds — a brief gap is preferable to double-render.
+  const [pendingUserText, setPendingUserText] = useState<string | null>(null);
+  // Whether to show the assistant "thinking…" placeholder. True from Send
+  // until the first agent_stream chunk arrives or the agent terminates.
+  const [thinking, setThinking] = useState(false);
+  // Latest context-window snapshot from the most recent `result` chunk; used
+  // by the composer's capacity ring. Falls back to the cost endpoint until
+  // the first turn completes.
+  const [resultContext, setResultContext] = useState<ContextUsage | null>(null);
+  const [cost, setCost] = useState<CostResult | null>(null);
 
   // Track JSONL line numbers for incremental requests and history loading
   const lastLineRef = useRef(0);
@@ -93,6 +130,24 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
     };
   }, [sessionId]);
 
+  // Load aggregate session cost as a fallback context-usage source. The ring
+  // only renders this number until the first `result` chunk arrives, after
+  // which `resultContext` takes precedence.
+  useEffect(() => {
+    let cancelled = false;
+    api.pricing
+      .sessionCost(sessionId)
+      .then((c) => {
+        if (!cancelled) setCost(c);
+      })
+      .catch(() => {
+        /* non-fatal — ring renders a placeholder */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
   // Sync external initialTranscriptId to internal state
   useEffect(() => {
     if (initialTranscriptId != null) {
@@ -100,9 +155,15 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
     }
   }, [initialTranscriptId]);
 
-  // Initial load: fetch the latest N messages
+  // Initial load: fetch the latest N messages. Also clears live-stream
+  // and result-context state so a transcript switch doesn't carry stale
+  // chunks from the previous selection.
   useEffect(() => {
     let cancelled = false;
+    setLiveMessages([]);
+    setResultContext(null);
+    setPendingUserText(null);
+    setThinking(false);
 
     async function load() {
       try {
@@ -227,11 +288,40 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
         }
         return;
       }
+      if (wire.type === "agent_status") {
+        const d = wire.data || {};
+        if (d.sessionId === liveHandleId) {
+          // Terminal status — stop the thinking indicator regardless of
+          // whether any chunks made it through. "killed" matters too: a
+          // user-clicked Stop should drop the spinner, not strand it.
+          const status = d.status;
+          if (status === "completed" || status === "error" || status === "killed") {
+            setThinking(false);
+          }
+        }
+        return;
+      }
       if (wire.type !== "agent_stream") return;
       const d = wire.data || {};
       if (d.sessionId !== liveHandleId) return;
-      const chunk = d.chunk as { type?: string; message?: { role?: string; content?: unknown }; text?: string } | undefined;
+      const chunk = d.chunk as
+        | (ResultChunkLike & {
+            type?: string;
+            message?: { role?: string; content?: unknown };
+            text?: string;
+          })
+        | undefined;
       if (!chunk) return;
+
+      // Capture the `result` chunk for context-usage tracking — this is the
+      // most accurate snapshot available client-side.
+      if (chunk.type === "result") {
+        const usage = contextFromResultChunk(chunk);
+        if (usage) setResultContext(usage);
+        // `result` also marks the end of an assistant turn; clear thinking.
+        setThinking(false);
+      }
+
       // Normalize the SDK stream-json variants we care about into our compact
       // shape. Skip system/hook events (subtype, hook_response, etc.) — they
       // aren't user-visible turns.
@@ -240,7 +330,10 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
       if (chunk.type === "assistant" && chunk.message) {
         const c = chunk.message.content;
         if (Array.isArray(c)) {
-          text = c.map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : "")).filter(Boolean).join("\n");
+          text = c
+            .map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : ""))
+            .filter(Boolean)
+            .join("\n");
         } else if (typeof c === "string") {
           text = c;
         }
@@ -248,11 +341,24 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
       } else if (chunk.type === "user" && chunk.message) {
         const c = chunk.message.content;
         if (typeof c === "string") text = c;
-        else if (Array.isArray(c)) text = c.map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : "")).filter(Boolean).join("\n");
+        else if (Array.isArray(c))
+          text = c
+            .map((p: { type?: string; text?: string }) => (p?.type === "text" ? p.text || "" : ""))
+            .filter(Boolean)
+            .join("\n");
         role = "user";
       }
       if (!text) return;
-      setLiveMessages((prev) => [...prev, { id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role, text, ts: Date.now() }]);
+      // First assistant chunk arrived — drop the thinking placeholder.
+      if (role === "assistant") setThinking(false);
+      // The agent's stream-json includes a `user` echo of the prompt. When
+      // that arrives we also drop the optimistic pending bubble so the user
+      // doesn't see their message twice (pending dim + live echo).
+      if (role === "user") setPendingUserText(null);
+      setLiveMessages((prev) => [
+        ...prev,
+        { id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, role, text, ts: Date.now() },
+      ]);
     });
     return unsubscribe;
   }, [liveHandleId]);
@@ -397,6 +503,57 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
     }
   }, [loading, scrollToBottom]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Unified message list: JSONL-derived + live-stream-derived. Live messages
+  // get appended at the tail until the JSONL catches up; when a fresh agent
+  // handle is attached `liveMessages` is reset (see onLiveHandleChange).
+  const unifiedMessages = useMemo<TranscriptMessage[]>(() => {
+    if (liveMessages.length === 0) return messages;
+    // Dedupe: when the JSONL catch-up surfaces the same text the agent
+    // already streamed, the JSONL version (with model + token metadata)
+    // wins. Match against the tail of `messages` since live entries are
+    // always recent. Bounded N×M is fine — both sides are paginated to ~50.
+    const recent = messages.slice(-Math.max(liveMessages.length * 2, 10));
+    const recentText = new Set(
+      recent.map((m) => `${m.type}|${m.content.map((c) => c.text || "").join("")}`),
+    );
+    const dedupedLive = liveMessages.filter(
+      (l) => !recentText.has(`${l.role}|${l.text}`),
+    );
+    if (dedupedLive.length === 0) return messages;
+    return [...messages, ...dedupedLive.map(liveToTranscript)];
+  }, [messages, liveMessages]);
+
+  // Keep auto-scroll behaviour when live chunks arrive — without this the
+  // newly streamed assistant text would render below the fold while the
+  // scroll position stays anchored to the old bottom.
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      scrollToBottom();
+    } else {
+      setShowNewMsg(true);
+    }
+  }, [liveMessages.length, pendingUserText, thinking, scrollToBottom]);
+
+  // Composer reports its in-flight user-message text. We mirror it into
+  // `pendingUserText` so the dimmed "Sending…" bubble renders right after
+  // the click, and clear it when busy flips false (composer passes null).
+  const handlePendingChange = useCallback((text: string | null) => {
+    setPendingUserText(text);
+    if (text !== null) {
+      // The composer just kicked off a send — the next assistant chunk is
+      // pending, so light up the typing indicator.
+      setThinking(true);
+    }
+  }, []);
+
+  // Compose the context-usage snapshot: prefer the most recent `result`
+  // chunk, fall back to the cost endpoint, fall back to a model-default
+  // ring when neither has data yet.
+  const contextUsage = useMemo<ContextUsage | null>(() => {
+    if (resultContext) return resultContext;
+    return contextFromCost(cost, defaultModel);
+  }, [resultContext, cost, defaultModel]);
+
   return (
     <div className="relative flex flex-col" style={{ minHeight: 0 }}>
       {/* Toolbar — always rendered after the initial load so users can
@@ -470,12 +627,27 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
           <div className="flex items-center justify-center py-12 text-gray-500 text-sm">
             Loading conversation...
           </div>
-        ) : messages.length === 0 ? (
+        ) : unifiedMessages.length === 0 && !pendingUserText && !thinking ? (
           <div className="text-center py-12 text-gray-500 text-sm">
             No conversation records found.
           </div>
         ) : (
-          <MessageList messages={messages} loading={false} />
+          <>
+            <MessageList messages={unifiedMessages} loading={false} />
+            {/* Pending optimistic user bubble, dimmed/italic until busy flips. */}
+            {pendingUserText && (
+              <div className="mt-3" data-testid="pending-user-bubble">
+                <PendingUserBubble text={pendingUserText} />
+              </div>
+            )}
+            {/* Assistant thinking placeholder — three pulsing dots until the
+                first agent_stream chunk lands or the agent terminates. */}
+            {thinking && (
+              <div className="mt-3" data-testid="thinking-indicator">
+                <ThinkingBubble />
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -493,29 +665,6 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
         </button>
       )}
 
-      {/* Live messages received via agent_stream WS broadcast. Rendered after
-          the JSONL-derived messages list so they appear as the most recent
-          turns until the JSONL catches up (or doesn't, when the agent forks
-          to a new session-id). */}
-      {liveMessages.length > 0 && (
-        <div className="px-4 pb-4 border-t border-violet-900/40 pt-3 space-y-2">
-          <div className="text-[11px] text-violet-400 uppercase tracking-wide">Live</div>
-          {liveMessages.map((m) => (
-            <div
-              key={m.id}
-              className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "ml-auto bg-blue-900/40 text-blue-100"
-                  : "bg-zinc-800 text-zinc-100"
-              }`}
-            >
-              <div className="text-[10px] text-zinc-400 mb-0.5">{m.role}</div>
-              {m.text}
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Send composer — only shown when session cwd is known */}
       {sessionCwd && (
         <Composer
@@ -525,14 +674,78 @@ export function ConversationView({ sessionId, initialTranscriptId, sessionCwd, s
           defaultModel={defaultModel}
           defaultMode={defaultMode as Parameters<typeof Composer>[0]["defaultMode"]}
           defaultProfileId={defaultProfileId}
+          contextUsage={contextUsage}
+          onPendingChange={handlePendingChange}
           onLiveHandleChange={(id) => {
             setLiveHandleId(id);
             // When a fresh handle is attached (new spawn), reset live messages
             // so the user doesn't see stale chunks from a previous run.
-            if (id !== liveHandleId) setLiveMessages([]);
+            if (id !== liveHandleId) {
+              setLiveMessages([]);
+              setResultContext(null);
+            }
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Optimistic user-message bubble. Visually distinguishable from a settled
+ * user row (lower opacity, italic body, "Sending…" label) but uses the same
+ * blue accent palette so the transition to the real bubble is smooth. */
+function PendingUserBubble({ text }: { text: string }) {
+  return (
+    <div
+      className="relative flex gap-3 rounded-xl px-3 py-2.5 opacity-60 italic before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:opacity-60 before:bg-blue-500/40"
+      aria-label="Sending message"
+    >
+      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5 shadow-sm bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-blue-200 ring-1 ring-blue-400/30">
+        <User className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold tracking-wide text-blue-200">User</span>
+          <span className="text-[10px] text-gray-500 font-mono bg-surface-3/60 border border-surface-3 rounded px-1.5 py-0.5 not-italic">
+            Sending…
+          </span>
+        </div>
+        <div className="min-w-0 whitespace-pre-wrap text-sm text-gray-300">{text}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Three pulsing dots, rendered where the next assistant bubble will appear. */
+function ThinkingBubble() {
+  return (
+    <div
+      className="relative flex gap-3 rounded-xl px-3 py-2.5 before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:opacity-60 before:bg-violet-500/40"
+      aria-label="Assistant is thinking"
+    >
+      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5 shadow-sm bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200 ring-1 ring-violet-400/30">
+        <Bot className="w-4 h-4" />
+      </div>
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold tracking-wide text-violet-200">Assistant</span>
+          <span className="text-[10px] text-gray-500 font-mono">thinking…</span>
+        </div>
+        <div className="flex items-center gap-1.5 py-1">
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full bg-violet-300/70 animate-pulse"
+            style={{ animationDelay: "0ms" }}
+          />
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full bg-violet-300/70 animate-pulse"
+            style={{ animationDelay: "150ms" }}
+          />
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full bg-violet-300/70 animate-pulse"
+            style={{ animationDelay: "300ms" }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

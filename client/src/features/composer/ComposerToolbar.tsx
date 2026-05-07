@@ -3,7 +3,9 @@ import { ModelPicker } from "./ModelPicker";
 import { ModePicker } from "./ModePicker";
 import { ProfilePicker } from "./ProfilePicker";
 import { UploadButtons } from "./UploadButtons";
+import { ContextRingButton } from "./ContextRingButton";
 import type { PermissionMode } from "../../lib/profile-types";
+import type { ContextUsage } from "../../lib/context-window";
 
 interface Props {
   model: string | null;
@@ -14,6 +16,10 @@ interface Props {
   onProfileIdChange: (v: string | null) => void;
   onAddFile: (f: File) => void;
   busy: boolean;
+  /** Latest context-window usage snapshot (null hides the ring). */
+  contextUsage?: ContextUsage | null;
+  /** Triggers `/compact` via the composer's existing send path. */
+  onCompact?: () => void;
 }
 
 export function ComposerToolbar(p: Props) {
@@ -26,8 +32,15 @@ export function ComposerToolbar(p: Props) {
       <ModelPicker value={p.model} onChange={p.onModelChange} disabled={p.busy} />
       <ModePicker value={p.mode} onChange={p.onModeChange} disabled={p.busy} />
       <ProfilePicker value={p.profileId} onChange={p.onProfileIdChange} disabled={p.busy} />
-      <Stack direction="row" sx={{ ml: "auto" }}>
+      <Stack direction="row" sx={{ ml: "auto", alignItems: "center" }}>
         <UploadButtons onAdd={p.onAddFile} disabled={p.busy} />
+        {p.onCompact && (
+          <ContextRingButton
+            usage={p.contextUsage ?? null}
+            disabled={p.busy}
+            onCompact={p.onCompact}
+          />
+        )}
       </Stack>
     </Stack>
   );

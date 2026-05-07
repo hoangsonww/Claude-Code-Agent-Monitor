@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Alert, Button } from "@mui/material";
 import { useComposerState } from "../../hooks/useComposerState";
 import { useSlashCommands } from "../../hooks/useSlashCommands";
@@ -9,13 +9,47 @@ import { ComposerTextarea } from "./ComposerTextarea";
 import { ComposerActions } from "./ComposerActions";
 import { SlashMenu } from "./SlashMenu";
 import type { ComposerProps, SlashCommand } from "../../lib/composer-types";
+import type { ContextUsage } from "../../lib/context-window";
 
-export function Composer(props: ComposerProps) {
-  const state = useComposerState(props);
+interface Props extends ComposerProps {
+  /** Latest context-window snapshot (rendered as the toolbar capacity ring). */
+  contextUsage?: ContextUsage | null;
+  /**
+   * Called whenever the user-typed (non-submitted) text or the in-flight
+   * pending text changes. Lets ConversationView render an optimistic user
+   * bubble while `state.busy === true`.
+   */
+  onPendingChange?: (text: string | null) => void;
+}
+
+export function Composer(props: Props) {
+  const { contextUsage, onPendingChange, ...composerProps } = props;
+  const state = useComposerState(composerProps);
   const slash = useSlashCommands(props.sessionCwd);
   const cwds = useCwds();
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
+
+  // Optimistic user-message tracking. We snapshot the textarea contents at
+  // the moment the user clicks Send and report it to ConversationView so a
+  // dimmed "Sending…" bubble can render immediately. When `busy` flips back
+  // to false the parent clears the pending bubble (the JSONL catch-up will
+  // surface the real message within a few seconds).
+  const pendingRef = useRef<string | null>(null);
+  const wasBusyRef = useRef(false);
+
+  useEffect(() => {
+    if (state.busy && !wasBusyRef.current) {
+      // Just transitioned to busy — nothing to do here; the send wrapper
+      // captured the snapshot before calling state.send().
+    } else if (!state.busy && wasBusyRef.current) {
+      // Send resolved (or errored) — clear pending so the JSONL message can
+      // take over without the bubble lingering on screen.
+      pendingRef.current = null;
+      onPendingChange?.(null);
+    }
+    wasBusyRef.current = state.busy;
+  }, [state.busy, onPendingChange]);
 
   const onPickSlash = (cmd: SlashCommand) => {
     // Replace the trailing '/<partial>' with '/<cmd.name> '
@@ -29,6 +63,20 @@ export function Composer(props: ComposerProps) {
 
   const canSend = !state.busy && (!!state.text.trim() || state.uploads.attachments.length > 0);
 
+  // Wraps state.send() so we can publish the optimistic-bubble snapshot
+  // before the network round-trip. Cleared once busy flips false. Override
+  // text (e.g. /compact) bypasses the textarea entirely so the user's draft
+  // isn't destroyed; it's also passed straight through to send() because
+  // setState is async — calling state.send() after setText would still read
+  // the old textarea value from send's closure.
+  const doSend = (overrideText?: string) => {
+    const snapshot = (overrideText ?? state.text).trim();
+    if (!snapshot && state.uploads.attachments.length === 0) return;
+    pendingRef.current = snapshot || null;
+    if (snapshot) onPendingChange?.(snapshot);
+    void state.send(overrideText);
+  };
+
   // "cwd not in allowlist" is the most common /spawn failure — recover with a
   // single click instead of asking the user to navigate to Settings.
   const isCwdAllowlistError =
@@ -37,7 +85,7 @@ export function Composer(props: ComposerProps) {
     try {
       await cwds.add(props.sessionCwd);
       // Trigger send again now that the cwd is in the allowlist
-      void state.send();
+      doSend();
     } catch {
       /* error surfaces via cwds hook; state.error stays as-is until next send */
     }
@@ -79,6 +127,8 @@ export function Composer(props: ComposerProps) {
         onProfileIdChange={state.setProfileId}
         onAddFile={(f) => void state.uploads.add(f)}
         busy={state.busy}
+        contextUsage={contextUsage ?? null}
+        onCompact={() => doSend("/compact")}
       />
       <AttachmentBar attachments={state.uploads.attachments} onRemove={(id) => void state.uploads.remove(id)} />
       <Box sx={{ position: "relative" }}>
@@ -92,7 +142,7 @@ export function Composer(props: ComposerProps) {
         <ComposerTextarea
           value={state.text}
           onChange={state.setText}
-          onSubmit={() => void state.send()}
+          onSubmit={() => doSend()}
           onAddFiles={(files) => files.forEach((f) => void state.uploads.add(f))}
           onSlashStateChange={(open, q) => {
             setSlashOpen(open);
@@ -106,7 +156,7 @@ export function Composer(props: ComposerProps) {
         busy={state.busy}
         respawning={state.respawning}
         liveHandleId={state.liveHandleId}
-        onSend={() => void state.send()}
+        onSend={() => doSend()}
         onStop={() => void state.stop()}
       />
     </Box>
