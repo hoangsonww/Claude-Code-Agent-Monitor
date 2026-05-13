@@ -1516,7 +1516,7 @@ agent-dashboard/
 |       |-- pricing.js           # Model pricing CRUD and cost calculation
 |       +-- settings.js          # System info, data management, export, cleanup
 |   +-- lib/
-|       +-- transcript-cache.js  # Stat-based JSONL transcript cache with incremental reads. Extracts tokens, compactions, API errors, turn durations, thinking blocks, and usage extras (service_tier, speed, inference_geo)
+|       +-- transcript-cache.js  # Bộ nhớ đệm JSONL transcript dựa trên stat, đọc tăng dần. Dùng trình đọc byte-stream đồng bộ theo từng khối 4 MiB và phân tích theo dòng, không bao giờ nạp toàn bộ tệp thành chuỗi JS, nên các JSONL lớn hơn giới hạn chuỗi tối đa của V8 (~512 MiB trên Node 20 64-bit) vẫn được phân tích mà không khiến Node thoát với "FATAL ERROR: v8::ToLocalChecked Empty MaybeLocal". Trích xuất token, compaction, lỗi API, thời lượng vòng, khối thinking và usage extras (service_tier, speed, inference_geo)
 |   +-- compat-sqlite.js         # node:sqlite compatibility wrapper (fallback for better-sqlite3)
 |-- client/
 |   |-- package.json             # Client dependencies
@@ -1569,7 +1569,7 @@ agent-dashboard/
 |-- scripts/
 |   |-- hook-handler.js          # Lightweight stdin-to-HTTP forwarder
 |   |-- install-hooks.js         # Auto-configures ~/.claude/settings.json
-|   |-- import-history.js        # Imports sessions from ~/.claude/ with enhanced JSONL extraction (API errors, turn durations, entrypoint, permission modes, thinking blocks, usage extras, tool errors, subagent JSONL files)
+|   |-- import-history.js        # Nhập phiên từ ~/.claude/ với trích xuất JSONL nâng cao (lỗi API, thời lượng vòng, entrypoint, permission mode, khối thinking, usage extras, tool error, JSONL của subagent). Re-import hoàn toàn tăng dần: tính sẵn high-water mark theo loại sự kiện (`MAX(created_at) GROUP BY event_type` cho mỗi phiên) và chỉ chèn các mục JSONL có `ts > cutoff[type]`, nhờ đó các phiên dài ngày mà transcript liên tục được nối thêm trong nhiều ngày vẫn nhận đầy đủ các sự kiện Stop / PostToolUse / TurnDuration / ToolError ở mỗi lần chạy lại. Đồng thời tiến `sessions.ended_at` về phía trước khi JSONL đã vượt qua giá trị đã lưu và làm mới message-count trong metadata ở mỗi lượt
 |   +-- seed.js                  # Sample data generator
 |-- mcp/
 |   |-- package.json             # MCP package scripts + dependencies

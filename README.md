@@ -969,6 +969,23 @@ the importer is always safe. The compaction `baseline_input` /
 `baseline_output` / `baseline_cache_read` / `baseline_cache_write`
 columns preserve token counts from before a transcript was compacted,
 so re-ingesting a post-compaction JSONL never erases historical cost.
+Event-level dedup uses a per-event-type high-water mark
+(`MAX(created_at) GROUP BY event_type` for the session): on every
+re-import only JSONL entries with `ts > cutoff[type]` are inserted, so
+long-running sessions whose transcripts grow across multiple days
+continue to receive Stop / PostToolUse / TurnDuration / ToolError
+events without duplicating earlier work. `sessions.ended_at` is rolled
+forward to the JSONL's last activity when it surpasses the stored
+value, and message-count metadata is refreshed on every pass.
+
+**Huge-transcript safety.** The shared transcript cache
+(`server/lib/transcript-cache.js`) reads JSONL files in 4 MiB chunks
+and decodes only one line at a time, so transcripts larger than V8's
+max JS string length (~512 MiB on 64-bit Node 20) parse without
+aborting the process with `FATAL ERROR: v8::ToLocalChecked Empty
+MaybeLocal`. The same chunked path is used by hook ingestion, the
+periodic compaction sweep, and the history importer — none of them
+materialize the full file as a single JS string.
 
 **Safety.** Archive extraction validates every entry against path
 traversal (absolute paths and `..` segments are rejected). A
@@ -1583,7 +1600,7 @@ agent-dashboard/
 |       |-- pricing.js           # Model pricing CRUD and cost calculation
 |       +-- settings.js          # System info, data management, export, cleanup
 |   +-- lib/
-|       +-- transcript-cache.js  # Stat-based JSONL transcript cache with incremental reads. Extracts tokens, compactions, API errors, turn durations, thinking blocks, and usage extras (service_tier, speed, inference_geo)
+|       +-- transcript-cache.js  # Stat-based JSONL transcript cache with chunked sync byte-stream reader (4 MiB chunks, line-by-line UTF-8 decode) so files larger than V8's max string length (~512 MiB) parse without aborting Node with "FATAL ERROR: v8::ToLocalChecked Empty MaybeLocal". Extracts tokens, compactions, API errors, turn durations, thinking blocks, and usage extras (service_tier, speed, inference_geo)
 |   +-- compat-sqlite.js         # node:sqlite compatibility wrapper (fallback for better-sqlite3)
 |-- client/
 |   |-- package.json             # Client dependencies
@@ -1636,7 +1653,7 @@ agent-dashboard/
 |-- scripts/
 |   |-- hook-handler.js          # Lightweight stdin-to-HTTP forwarder
 |   |-- install-hooks.js         # Auto-configures ~/.claude/settings.json
-|   |-- import-history.js        # Imports sessions from ~/.claude/ with enhanced JSONL extraction (API errors, turn durations, entrypoint, permission modes, thinking blocks, usage extras, tool errors, subagent JSONL files)
+|   |-- import-history.js        # Imports sessions from ~/.claude/ with enhanced JSONL extraction (API errors, turn durations, entrypoint, permission modes, thinking blocks, usage extras, tool errors, subagent JSONL files). Re-import is fully incremental: a per-event-type high-water mark (`MAX(created_at) GROUP BY event_type` per session) is computed up-front and only JSONL entries with `ts > cutoff[type]` are inserted, so long-running sessions whose transcripts grow across multiple days continue to receive Stop / PostToolUse / TurnDuration / ToolError events on every re-run. Also rolls `sessions.ended_at` forward when the JSONL advances past the stored value and refreshes message-count metadata on every pass
 |   +-- seed.js                  # Sample data generator
 |-- mcp/
 |   |-- package.json             # MCP package scripts + dependencies

@@ -1506,7 +1506,7 @@ agent-dashboard/
 |       |-- pricing.js           # 模型定价 CRUD 和成本计算
 |       +-- settings.js          # 系统信息、数据管理、导出、清理
 |   +-- lib/
-|       +-- transcript-cache.js  # 基于 stat 的 JSONL Transcript 缓存，增量读取。提取 Token、压缩、API 错误、回合耗时、思考块和用量附加信息（service_tier、speed、inference_geo）
+|       +-- transcript-cache.js  # 基于 stat 的 JSONL Transcript 缓存，增量读取。采用 4 MiB 分块的同步字节流读取器并按行解析，避免一次性将整个文件加载为 JS 字符串，因此即使 JSONL 大于 V8 的最大字符串长度（64 位 Node 20 约 512 MiB）也能解析，不会让进程崩溃于 "FATAL ERROR: v8::ToLocalChecked Empty MaybeLocal"。提取 Token、压缩、API 错误、回合耗时、思考块和用量附加信息（service_tier、speed、inference_geo）
 |   +-- compat-sqlite.js         # node:sqlite 兼容性封装（better-sqlite3 的后备方案）
 |-- client/
 |   |-- package.json             # 客户端依赖
@@ -1559,7 +1559,7 @@ agent-dashboard/
 |-- scripts/
 |   |-- hook-handler.js          # 轻量级 stdin-to-HTTP 转发器
 |   |-- install-hooks.js         # 自动配置 ~/.claude/settings.json
-|   |-- import-history.js        # 从 ~/.claude/ 导入会话，含增强 JSONL 提取（API 错误、回合耗时、入口点、权限模式、思考块、用量附加信息、工具错误、子 Agent JSONL 文件）
+|   |-- import-history.js        # 从 ~/.claude/ 导入会话，含增强 JSONL 提取（API 错误、回合耗时、入口点、权限模式、思考块、用量附加信息、工具错误、子 Agent JSONL 文件）。重新导入完全增量：在每次导入前按事件类型查询 `MAX(created_at) GROUP BY event_type` 作为基准，只插入 `ts > cutoff[type]` 的 JSONL 条目，长跨度会话即使 transcript 在多天内持续追加，也能在每次重跑时继续接收 Stop / PostToolUse / TurnDuration / ToolError 事件；同时在 JSONL 推进时前向更新 `sessions.ended_at`，并刷新消息计数元数据
 |   +-- seed.js                  # 示例数据生成器
 |-- mcp/
 |   |-- package.json             # MCP 包脚本 + 依赖
