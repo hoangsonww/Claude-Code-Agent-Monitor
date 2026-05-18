@@ -90,6 +90,64 @@ jobs:
           retention-days: 7
 
   # ────────────────────────────────────────────────────────────────
+  #  🍎 macOS Desktop App (Electron DMG)                           #
+  #   Runs only when desktop/** changes (path-filtered), or on push #
+  #   to main/master. Produces a downloadable .dmg artifact for QA. #
+  # ────────────────────────────────────────────────────────────────
+  desktop:
+    name: "🍎 macOS Desktop (DMG)"
+    runs-on: macos-latest
+    needs: build
+    # The `paths` filter doesn't work at job level, so we check at runtime.
+    # On pull_request, we look at the changed files; on push, we always run
+    # for default-branch builds so artifacts stay fresh.
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && contains(toJSON(github.event.pull_request.labels.*.name), 'desktop')) ||
+      github.event.pull_request.head.ref == 'feat/macos-desktop-app'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies & build client
+        run: |
+          cd client && npm ci
+          cd .. && npm run build
+
+      - name: Install desktop dependencies
+        run: cd desktop && npm install
+
+      - name: Build desktop (tsc)
+        run: cd desktop && npm run build
+
+      - name: Smoke test
+        run: cd desktop && npm test
+
+      - name: Build DMG
+        run: cd desktop && npm run dmg
+        env:
+          # If these are set as repo secrets, electron-builder will sign +
+          # notarize automatically via desktop/scripts/notarize.js.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeCodeMonitor-dmg
+          path: desktop/release/*.dmg
+          retention-days: 14
+
+  # ────────────────────────────────────────────────────────────────
   #  🐳 Docker Build & Push to GHCR                                #
   #   Only pushes on push to main/master (not PRs)                 #
   # ────────────────────────────────────────────────────────────────
@@ -141,7 +199,7 @@ jobs:
     name: "🎉 Pipeline Status"
     if: always()
     runs-on: ubuntu-latest
-    needs: [format, test, build, docker]
+    needs: [format, test, build, desktop, docker]
     steps:
       - name: Determine overall result
         id: result
@@ -150,17 +208,20 @@ jobs:
           FORMAT="${{ needs.format.result }}"
           TEST="${{ needs.test.result }}"
           BUILD="${{ needs.build.result }}"
+          DESKTOP="${{ needs.desktop.result }}"
           DOCKER="${{ needs.docker.result }}"
 
           echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
           echo "test=$TEST" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "desktop=$DESKTOP" >> "$GITHUB_OUTPUT"
           echo "docker=$DOCKER" >> "$GITHUB_OUTPUT"
 
-          # Overall: fail if any required job failed
-          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DOCKER" == "failure" ]]; then
+          # Overall: fail if any required job failed. Desktop is treated as
+          # non-blocking when it was skipped (path-filtered out for non-desktop PRs).
+          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DESKTOP" == "failure" || "$DOCKER" == "failure" ]]; then
             echo "overall=failure" >> "$GITHUB_OUTPUT"
-          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DOCKER" == "cancelled" ]]; then
+          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DESKTOP" == "cancelled" || "$DOCKER" == "cancelled" ]]; then
             echo "overall=cancelled" >> "$GITHUB_OUTPUT"
           else
             echo "overall=success" >> "$GITHUB_OUTPUT"
@@ -181,6 +242,7 @@ jobs:
           echo "format=$(icon ${{ steps.result.outputs.format }})" >> "$GITHUB_OUTPUT"
           echo "test=$(icon ${{ steps.result.outputs.test }})" >> "$GITHUB_OUTPUT"
           echo "build=$(icon ${{ steps.result.outputs.build }})" >> "$GITHUB_OUTPUT"
+          echo "desktop=$(icon ${{ steps.result.outputs.desktop }})" >> "$GITHUB_OUTPUT"
           echo "docker=$(icon ${{ steps.result.outputs.docker }})" >> "$GITHUB_OUTPUT"
           echo "overall=$(icon ${{ steps.result.outputs.overall }})" >> "$GITHUB_OUTPUT"
 
@@ -199,6 +261,7 @@ jobs:
           | Formatting | ${{ steps.icons.outputs.format }} \`${{ steps.result.outputs.format }}\` | \`format\` |
           | Tests | ${{ steps.icons.outputs.test }} \`${{ steps.result.outputs.test }}\` | \`test\` |
           | Client Build | ${{ steps.icons.outputs.build }} \`${{ steps.result.outputs.build }}\` | \`build\` |
+          | macOS Desktop | ${{ steps.icons.outputs.desktop }} \`${{ steps.result.outputs.desktop }}\` | \`desktop\` |
           | Docker | ${{ steps.icons.outputs.docker }} \`${{ steps.result.outputs.docker }}\` | \`docker\` |
 
           | Detail | Value |
