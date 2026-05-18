@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a5b4fc" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#c7d2fe" stop-opacity="0.7"/>
+    </linearGradient>
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.85"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Rounded rectangle backplate to match macOS Big Sur+ icon style -->
+  <rect x="96" y="96" width="832" height="832" rx="184" ry="184" fill="url(#bg)"/>
+
+  <!-- Hexagon glyph (scaled from the project's 32px favicon, centered) -->
+  <g transform="translate(512 512) scale(20) translate(-16 -16)">
+    <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke="white" stroke-width="0.9" stroke-linejoin="round" opacity="0.55"/>
+    <!-- Center node -->
+    <circle cx="16" cy="16" r="3" fill="url(#centerGlow)"/>
+    <!-- Connector lines -->
+    <line x1="16" y1="13" x2="16" y2="7"     stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
+    <line x1="18.6" y1="17.5" x2="24" y2="20.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
+    <line x1="13.4" y1="17.5" x2="8"  y2="20.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.85"/>
+    <!-- Outer nodes -->
+    <circle cx="16"   cy="6"  r="1.8" fill="url(#glow)"/>
+    <circle cx="24.5" cy="21" r="1.8" fill="url(#glow)"/>
+    <circle cx="7.5"  cy="21" r="1.8" fill="url(#glow)"/>
+  </g>
+</svg>

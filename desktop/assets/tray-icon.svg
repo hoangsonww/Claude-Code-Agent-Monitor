@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!--
+    macOS menu-bar (tray) glyph. Single-color black on transparent; the OS
+    auto-tints this for light and dark menu bars when the file name ends in
+    "Template.png" and `setTemplateImage(true)` is called.
+  -->
+  <g fill="none" stroke="black" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="11,1.5 19,5.7 19,16.3 11,20.5 3,16.3 3,5.7"/>
+    <circle cx="11" cy="11" r="2" fill="black" stroke="none"/>
+    <line x1="11" y1="9"   x2="11" y2="5.5"/>
+    <line x1="12.8" y1="12" x2="16" y2="13.8"/>
+    <line x1="9.2"  y1="12" x2="6"  y2="13.8"/>
+    <circle cx="11" cy="4.8"  r="1.1" fill="black" stroke="none"/>
+    <circle cx="16.3" cy="14.5" r="1.1" fill="black" stroke="none"/>
+    <circle cx="5.7"  cy="14.5" r="1.1" fill="black" stroke="none"/>
+  </g>
+</svg>
