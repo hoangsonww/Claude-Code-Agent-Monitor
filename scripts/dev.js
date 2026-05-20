@@ -12,6 +12,8 @@
  * loopback, and every Vite proxy request to `localhost:4820` lands on SSH
  * instead of Express — silent `ECONNRESET`s everywhere. Probing both IP
  * families before we ever try to bind catches that.
+ *
+ * Built atop the macOS desktop app groundwork in PR #151 by @shuvamk.
  */
 
 const net = require("node:net");
