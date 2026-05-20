@@ -106,9 +106,14 @@ dmg:
   title: "Claude Code Monitor"
   icon: assets/icon.icns
   contents:
+    # Left slot: the .app bundle. Do NOT set `type: file` here — electron-builder
+    # auto-fills the app at this slot when type/path are omitted. With an
+    # explicit `type: file` and no `path`, recent electron-builder resolves
+    # `path: ""` against the project dir and stat's `<repo>/desktop`, then
+    # bombs with `<repo>/desktop not a file`. Omitting both is the canonical
+    # form documented in the electron-builder DMG layout examples.
     - x: 130
       y: 220
-      type: file
     - x: 410
       y: 220
       type: link

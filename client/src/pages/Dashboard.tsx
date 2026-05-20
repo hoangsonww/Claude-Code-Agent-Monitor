@@ -19,6 +19,7 @@ import {
   GitBranch,
   ChevronDown,
   ChevronRight,
+  CircleDot,
   Server,
   HardDrive,
   Plug,
@@ -1235,8 +1236,18 @@ export function Dashboard() {
                                 depending on whether they have subagents,
                                 making chevron-having mains look indented
                                 like a subagent of the chevron-less main
-                                above them. */}
-                            {!hasChildren && <span className="w-6 flex-shrink-0" />}
+                                above them. A muted leaf-marker icon fills
+                                the slot so the column reads as deliberately
+                                empty rather than as a misalignment. */}
+                            {!hasChildren && !isSubagent && (
+                              <span
+                                className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-violet-400/70"
+                                aria-hidden="true"
+                                title={t("common:noSubagents", "No subagents")}
+                              >
+                                <CircleDot className="w-4 h-4" strokeWidth={2} />
+                              </span>
+                            )}
                             {isSubagent && (
                               <GitBranch className="w-3 h-3 text-violet-400 flex-shrink-0" />
                             )}
@@ -1273,15 +1284,36 @@ export function Dashboard() {
                       );
                     }
 
+                    // Build the set of agent ids that will be rendered as
+                    // descendants under the visible main-agent trees, so the
+                    // orphan-subagent block below doesn't render them a
+                    // second time at the root. Previously the orphan filter
+                    // was `a.type === "subagent"` with no parentage check,
+                    // which surfaced every nested subagent twice: once
+                    // indented under its main, and once flush at root level.
+                    const visibleMains = activeAgents
+                      .filter((a) => a.type === "main")
+                      .slice(0, visibleAgentCount);
+                    const renderedInTree = new Set<string>();
+                    for (const m of visibleMains) {
+                      const stack: string[] = [m.id];
+                      while (stack.length) {
+                        const id = stack.pop()!;
+                        if (renderedInTree.has(id)) continue;
+                        renderedInTree.add(id);
+                        for (const child of childrenByParent.get(id) || []) {
+                          stack.push(child.id);
+                        }
+                      }
+                    }
+
                     return (
                       <>
+                        {visibleMains.map((main) => renderAgentNode(main, 0))}
+                        {/* Only true orphans: subagents whose ancestor chain
+                            isn't already shown in a tree above. */}
                         {activeAgents
-                          .filter((a) => a.type === "main")
-                          .slice(0, visibleAgentCount)
-                          .map((main) => renderAgentNode(main, 0))}
-                        {/* Show active subagents without a main agent in the active list */}
-                        {activeAgents
-                          .filter((a) => a.type === "subagent")
+                          .filter((a) => a.type === "subagent" && !renderedInTree.has(a.id))
                           .map((agent) => (
                             <div key={agent.id}>
                               <AgentCard agent={agent} />

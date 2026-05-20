@@ -2,8 +2,6 @@
 
 The dashboard ships with an optional **native macOS application** that wraps the existing server + client into a single `.app` you install once and forget. Everything you see in the browser at `localhost:4820` lives inside this window, with macOS-native lifecycle on top: menu-bar icon, application menu, Login Items integration, and a single quit button that cleans up the server.
 
-> **Status:** v1, macOS only. Windows and Linux are tracked as follow-ups — Electron makes them straightforward but each needs its own QA.
-
 ## Why this exists in addition to the PWA
 
 The PWA (added in #144) makes the dashboard installable in Chromium-based browsers, which is great for users who already keep the server running. The desktop app solves the orthogonal problem: **starting and keeping the server running** without a terminal window. Concretely:
