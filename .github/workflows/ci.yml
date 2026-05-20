@@ -170,6 +170,15 @@ jobs:
         # build, force-detaching any stale volume between attempts.
         run: |
           cd desktop
+          # GitHub Actions resolves missing secrets to empty strings, which
+          # makes electron-builder think CSC_LINK is set to "". It then tries
+          # to stat that empty path against cwd and bombs with
+          # "<repo>/desktop not a file" before reaching the DMG step. Unset
+          # any sign/notarize env var that's empty so electron-builder
+          # cleanly falls back to ad-hoc signing.
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD; do
+            if [ -z "${!v:-}" ]; then unset "$v"; fi
+          done
           for attempt in 1 2 3; do
             echo "::group::DMG build attempt ${attempt}/3"
             if npm run dmg; then
@@ -187,7 +196,11 @@ jobs:
           exit 1
         env:
           # If these are set as repo secrets, electron-builder will sign +
-          # notarize automatically via desktop/scripts/notarize.js.
+          # notarize automatically via desktop/scripts/notarize.js. When the
+          # secret is missing, GitHub resolves it to "" — the run step above
+          # strips empty values before invoking electron-builder so an empty
+          # CSC_LINK doesn't get interpreted as a path to a (non-existent)
+          # certificate file.
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
