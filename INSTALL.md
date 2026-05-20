@@ -172,9 +172,6 @@ Open **http://localhost:4820** in your browser.
 
 If you'd rather not keep a terminal window open, the project also ships an Electron 35-based **native macOS app** (the `desktop/` workspace). It embeds the Express server in-process, renders the built React client in a `BrowserWindow`, registers a menu-bar (tray) icon, and offers a one-click "Open at Login" toggle. Everything you'd see in the browser at `localhost:4820` lives inside a single `.app` you install once.
 
-> [!NOTE]
-> The desktop app is **macOS only** (v1). The DMG is ad-hoc signed by default, so macOS Gatekeeper warns on first launch — see [Install the app](#install-the-app) for the one-line bypass.
-
 ### Prerequisites
 
 | For… | You need |

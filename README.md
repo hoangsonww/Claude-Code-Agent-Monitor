@@ -1272,9 +1272,6 @@ The dashboard also ships as an optional **native macOS application** — a singl
 
 Everything you see in the browser at `localhost:4820` lives inside this window, with macOS-native lifecycle on top: a menu-bar (tray) icon, a native application menu, Login Items integration for auto-start, and a single quit button that cleanly shuts the server down.
 
-> [!NOTE]
-> The desktop app is **macOS only** for now. Windows/Linux builds and an in-app auto-updater are tracked as follow-ups — Electron makes them straightforward, but each needs its own QA. The current upgrade path is to re-download the latest DMG; your data is stored outside the `.app` bundle, so it persists across reinstalls and updates.
-
 ### How it works
 
 Unlike running the dashboard from a terminal, the desktop app needs no `npm start`, no open shell, and no second copy of the server. The Electron **main process** hosts the Express server **in-process** — it `require()`s `server/index.js` directly in the same Node runtime, with **no child process and no IPC** — and points a Chromium `BrowserWindow` at the built React client.
