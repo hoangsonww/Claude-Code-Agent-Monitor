@@ -3338,29 +3338,83 @@
             </p>
           </div>
         </div>
+        <div class="reveal install-group">
+          <div class="section-eyebrow">Install steps</div>
+          <h3 class="install-subtitle">From DMG to running in under a minute.</h3>
+          <p class="section-lead">
+            The DMG isn't notarized through Apple (yet), so the first launch needs one extra
+            Terminal command to clear macOS's quarantine flag. Everything after that is normal
+            macOS lifecycle.
+          </p>
+        </div>
+        <div class="how-grid reveal-stagger">
+          <div class="how-step">
+            <div class="how-step-num">01</div>
+            <h4>Download the right DMG</h4>
+            <p>
+              Open the <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest">latest
+              release</a> and grab
+              <code>ClaudeCodeMonitor-&lt;version&gt;-arm64.dmg</code> for Apple Silicon (M1 / M2 /
+              M3 / M4) or <code>-x64.dmg</code> for Intel Macs. Not sure which? Open the
+              <em>Apple menu &rarr; About This Mac</em>: anything labelled "Apple" silicon is
+              <code>arm64</code>.
+            </p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num">02</div>
+            <h4>Drag into Applications</h4>
+            <p>
+              Double-click the DMG to mount it, then drag <strong>Claude Code Monitor.app</strong>
+              onto the <code>Applications</code> shortcut beside it. Eject the DMG once the
+              copy is done.
+            </p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num">03</div>
+            <h4>Clear the Gatekeeper quarantine</h4>
+            <p>
+              In Terminal, run:
+              <code>xattr -cr "/Applications/Claude Code Monitor.app"</code>. Without this,
+              macOS shows <em>"Apple could not verify…"</em> because the build is ad-hoc signed,
+              not notarized. One-time step per install.
+            </p>
+          </div>
+          <div class="how-step">
+            <div class="how-step-num">04</div>
+            <h4>Launch &amp; toggle auto-start</h4>
+            <p>
+              Open <strong>Claude Code Monitor</strong> from <code>Applications</code> (or
+              Spotlight). The menu-bar icon appears within a second; click it &rarr;
+              <em>Open at Login</em> and macOS will start the app at every login from now on -
+              managed through <em>System Settings &rarr; General &rarr; Login Items</em>.
+            </p>
+          </div>
+        </div>
         <div class="install reveal install-group">
           <div class="install-text">
             <h3>Get it in two ways.</h3>
             <p>
               <strong>Download a pre-built DMG - no build required.</strong> Hit the
               button below to land on the <strong>latest GitHub Release</strong>; grab
-              the universal <code>ClaudeCodeMonitor-&lt;version&gt;-universal.dmg</code>
-              from its assets and drag the app into <code>/Applications</code>. The link
-              always redirects to the current release because CI publishes a new
-              <code>vX.Y.Z</code> automatically every time the version in
-              <code>package.json</code> is bumped on <code>master</code>. Releases are
-              public - no GitHub sign-in required.
+              the matching arch DMG -
+              <code>ClaudeCodeMonitor-&lt;version&gt;-arm64.dmg</code> for Apple Silicon
+              or <code>-x64.dmg</code> for Intel - from its assets and drag the app into
+              <code>/Applications</code>. The link always redirects to the current
+              release because CI publishes a new <code>vX.Y.Z</code> automatically every
+              time the version in <code>package.json</code> is bumped on
+              <code>master</code>. Releases are public - no GitHub sign-in required.
             </p>
             <p>
               Want a <strong>per-commit build from CI</strong> instead of waiting for a
               release? The macOS Desktop (DMG) workflow uploads a
               <code>ClaudeCodeMonitor-dmg</code> artifact on every green run - useful
               for testing master before it's tagged. Or
-              <strong>build it yourself</strong>: arch-specific builds
-              (<code>arm64</code> / <code>x64</code>) finish in about a minute, while
-              the universal <code>desktop:dmg</code> build is intentionally slow (it
-              builds twice and merges both architectures), so reserve it for release
-              artifacts. The DMG is roughly 80&nbsp;MB, about 250&nbsp;MB installed.
+              <strong>build it yourself</strong>: a single-arch build
+              (<code>desktop:dmg:arm64</code> or <code>desktop:dmg:x64</code>) finishes
+              in about a minute, while <code>desktop:dmg</code> produces both DMGs in
+              one go - the same dual output the release workflow ships - and is
+              correspondingly slower. Each DMG is roughly 125&nbsp;MB, about
+              250&nbsp;MB installed.
             </p>
             <a
               href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest"
@@ -3435,7 +3489,7 @@
 <span class="prompt">$</span>npm run desktop:dmg:arm64   <span class="comment"># Apple Silicon</span>
 <span class="prompt">$</span>npm run desktop:dmg:x64     <span class="comment"># Intel</span>
 
-<span class="comment"># Universal build - x64 + arm64, correct for release, SLOW</span>
+<span class="comment"># Both arches - two separate DMGs, what the release workflow ships</span>
 <span class="prompt">$</span>npm run desktop:dmg
 
 <span class="comment"># Open the DMG, drag the app to Applications, then clear</span>
