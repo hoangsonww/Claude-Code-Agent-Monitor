@@ -91,7 +91,9 @@ function ensureSession(sessionId, data) {
   // First-seen transcript_path → write to session row so the periodic sweep
   // doesn't have to scan events for it. Idempotent via the SQL guard
   // (NULL/'' check), so subsequent hooks for the same session are no-ops.
-  if (data.transcript_path) {
+  // Type guard: hook payloads are unvalidated JSON — a non-string value would
+  // make better-sqlite3 throw inside the surrounding processEvent transaction.
+  if (typeof data.transcript_path === "string" && data.transcript_path) {
     stmts.setSessionTranscriptPath.run(data.transcript_path, sessionId);
   }
   return session;

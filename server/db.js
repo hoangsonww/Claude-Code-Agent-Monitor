@@ -282,11 +282,14 @@ try {
   // session. Uses a correlated subquery so SQLite limits the inner scan to
   // each session's rows (still bounded by events row count, but only runs
   // once per DB lifetime).
+  // json_valid guard: legacy events.data may hold non-JSON text. Without it,
+  // json_extract throws "malformed JSON" mid-UPDATE and aborts startup.
   db.prepare(
     `UPDATE sessions SET transcript_path = (
        SELECT json_extract(e.data, '$.transcript_path')
        FROM events e
        WHERE e.session_id = sessions.id
+         AND json_valid(e.data) = 1
          AND json_extract(e.data, '$.transcript_path') IS NOT NULL
        LIMIT 1
      ) WHERE transcript_path IS NULL`

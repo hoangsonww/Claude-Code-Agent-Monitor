@@ -18,9 +18,15 @@ before(() => {
 });
 
 after(() => {
-  try { fs.unlinkSync(TEST_DB); } catch {}
-  try { fs.unlinkSync(TEST_DB + "-wal"); } catch {}
-  try { fs.unlinkSync(TEST_DB + "-shm"); } catch {}
+  try {
+    fs.unlinkSync(TEST_DB);
+  } catch {}
+  try {
+    fs.unlinkSync(TEST_DB + "-wal");
+  } catch {}
+  try {
+    fs.unlinkSync(TEST_DB + "-shm");
+  } catch {}
 });
 
 describe("sessions.transcript_path migration", () => {
@@ -47,9 +53,7 @@ describe("sessions.transcript_path migration", () => {
       "/tmp/foo.jsonl",
       "s-tp-1"
     );
-    const row = db
-      .prepare("SELECT transcript_path FROM sessions WHERE id = ?")
-      .get("s-tp-1");
+    const row = db.prepare("SELECT transcript_path FROM sessions WHERE id = ?").get("s-tp-1");
     assert.equal(row.transcript_path, "/tmp/foo.jsonl");
   });
 });
@@ -61,9 +65,7 @@ describe("hooks ingestion populates sessions.transcript_path", () => {
 
     // Pre-create a session without transcript_path (simulate legacy state)
     stmts.insertSession.run("s-hook-1", "n", "active", "/tmp/proj", "claude", null);
-    let row = db
-      .prepare("SELECT transcript_path FROM sessions WHERE id = ?")
-      .get("s-hook-1");
+    let row = db.prepare("SELECT transcript_path FROM sessions WHERE id = ?").get("s-hook-1");
     assert.equal(row.transcript_path, null);
 
     // Spin up app and POST a hook event with transcript_path
@@ -105,9 +107,7 @@ describe("hooks ingestion populates sessions.transcript_path", () => {
     });
     server.close();
 
-    row = db
-      .prepare("SELECT transcript_path FROM sessions WHERE id = ?")
-      .get("s-hook-1");
+    row = db.prepare("SELECT transcript_path FROM sessions WHERE id = ?").get("s-hook-1");
     assert.equal(row.transcript_path, "/tmp/somewhere/session.jsonl");
   });
 });

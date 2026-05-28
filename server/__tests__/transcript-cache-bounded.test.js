@@ -105,7 +105,11 @@ describe("TranscriptCache.extract — array caps", () => {
 
     assert.equal(result.errors.length, 50);
     assert.equal(result.compaction.entries.length, 50);
-    assert.equal(result.compaction.count, 300, "count must reflect ALL parsed entries, not just retained");
+    assert.equal(
+      result.compaction.count,
+      300,
+      "count must reflect ALL parsed entries, not just retained"
+    );
 
     delete process.env.TRANSCRIPT_CACHE_MAX_ARRAY_LEN;
     delete require.cache[require.resolve("../lib/transcript-cache")];
@@ -134,12 +138,13 @@ describe("TranscriptCache.extract — array caps", () => {
     // Append 50 more — total 130, cache should retain only last 100
     const fd = fs.openSync(p, "a");
     for (let i = 80; i < 130; i++) {
-      const line = JSON.stringify({
-        type: "system",
-        subtype: "turn_duration",
-        durationMs: i + 1,
-        timestamp: new Date(2026, 0, 1, 0, 0, i).toISOString(),
-      }) + "\n";
+      const line =
+        JSON.stringify({
+          type: "system",
+          subtype: "turn_duration",
+          durationMs: i + 1,
+          timestamp: new Date(2026, 0, 1, 0, 0, i).toISOString(),
+        }) + "\n";
       fs.writeSync(fd, line);
     }
     fs.closeSync(fd);
@@ -159,7 +164,12 @@ describe("TranscriptCache.extract — array caps", () => {
 describe("TranscriptCache._set — single storage", () => {
   it("cache entry contains ONLY {mtimeMs, size, bytesRead, result}", () => {
     const p = writeJsonl("single.jsonl", [
-      { type: "system", subtype: "turn_duration", durationMs: 100, timestamp: "2026-01-01T00:00:00Z" },
+      {
+        type: "system",
+        subtype: "turn_duration",
+        durationMs: 100,
+        timestamp: "2026-01-01T00:00:00Z",
+      },
     ]);
     const cache = new TranscriptCache();
     cache.extract(p);
@@ -171,8 +181,18 @@ describe("TranscriptCache._set — single storage", () => {
 
   it("does not store duplicate top-level errors/turnDurations/compaction", () => {
     const p = writeJsonl("dup.jsonl", [
-      { type: "system", subtype: "turn_duration", durationMs: 1, timestamp: "2026-01-01T00:00:00Z" },
-      { isApiErrorMessage: true, error: "x", message: { content: [{ text: "y" }] }, timestamp: "2026-01-01T00:00:01Z" },
+      {
+        type: "system",
+        subtype: "turn_duration",
+        durationMs: 1,
+        timestamp: "2026-01-01T00:00:00Z",
+      },
+      {
+        isApiErrorMessage: true,
+        error: "x",
+        message: { content: [{ text: "y" }] },
+        timestamp: "2026-01-01T00:00:01Z",
+      },
       { isCompactSummary: true, uuid: "u1", timestamp: "2026-01-01T00:00:02Z" },
     ]);
     const cache = new TranscriptCache();

@@ -19,6 +19,12 @@ const MAX_ARRAY_LEN = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 1000;
 })();
 
+// Watermark for in-flight trimming during _consumeLine. We trim back to
+// MAX_ARRAY_LEN whenever an array reaches 2*MAX_ARRAY_LEN, so a full-file
+// parse cannot accumulate an unbounded transient before _finalizeState runs.
+// Amortized O(N): each item is touched by a splice at most ~once.
+const PARSE_TRIM_WATERMARK = MAX_ARRAY_LEN * 2;
+
 class TranscriptCache {
   constructor(maxEntries = MAX_CACHE_ENTRIES) {
     this._cache = new Map();
@@ -88,7 +94,12 @@ class TranscriptCache {
             !result.usageExtras &&
             !result.latestModel
           ) {
-            this._set(key, { mtimeMs: stat.mtimeMs, size: stat.size, bytesRead: stat.size, result: null });
+            this._set(key, {
+              mtimeMs: stat.mtimeMs,
+              size: stat.size,
+              bytesRead: stat.size,
+              result: null,
+            });
             return null;
           }
           this._set(key, { mtimeMs: stat.mtimeMs, size: stat.size, bytesRead: stat.size, result });
@@ -280,6 +291,9 @@ class TranscriptCache {
         uuid: entry.uuid || null,
         timestamp: entry.timestamp || null,
       });
+      if (state.compaction.entries.length >= PARSE_TRIM_WATERMARK) {
+        this._trimArray(state.compaction.entries);
+      }
     }
 
     if (entry.type === "system" && entry.subtype === "turn_duration" && entry.durationMs) {
@@ -289,6 +303,9 @@ class TranscriptCache {
           : entry.timestamp
         : null;
       state.turnDurations.push({ durationMs: entry.durationMs, timestamp: turnTs });
+      if (state.turnDurations.length >= PARSE_TRIM_WATERMARK) {
+        this._trimArray(state.turnDurations);
+      }
     }
 
     const msg = entry.message || entry;
@@ -298,6 +315,9 @@ class TranscriptCache {
         message: msg.error.message || "Unknown API error",
         timestamp: entry.timestamp || null,
       });
+      if (state.errors.length >= PARSE_TRIM_WATERMARK) {
+        this._trimArray(state.errors);
+      }
       return;
     }
 
@@ -309,6 +329,9 @@ class TranscriptCache {
         message: errText,
         timestamp: entry.timestamp || null,
       });
+      if (state.errors.length >= PARSE_TRIM_WATERMARK) {
+        this._trimArray(state.errors);
+      }
       return;
     }
 
@@ -361,7 +384,8 @@ class TranscriptCache {
     this._trimArray(state.turnDurations);
     if (state.compaction) this._trimArray(state.compaction.entries);
 
-    // For usageExtras (Sets), bound by converting to array, trimming, back to Set
+    // usageExtras are accumulated as Sets and serialized as arrays here, with
+    // the same MAX_ARRAY_LEN tail cap applied via _capArrayFromSet.
     const serializedExtras = hasUsageExtras
       ? {
           service_tiers: this._capArrayFromSet(state.usageExtras.service_tiers),
@@ -405,7 +429,9 @@ class TranscriptCache {
   }
 
   _merge(cached, incremental) {
-    const tokensByModel = cached.result?.tokensByModel ? this._cloneTokens(cached.result.tokensByModel) : {};
+    const tokensByModel = cached.result?.tokensByModel
+      ? this._cloneTokens(cached.result.tokensByModel)
+      : {};
     if (incremental && incremental.tokensByModel) {
       for (const [model, tokens] of Object.entries(incremental.tokensByModel)) {
         if (!tokensByModel[model]) {
@@ -418,7 +444,9 @@ class TranscriptCache {
       }
     }
 
-    let compaction = cached.result?.compaction ? this._cloneCompaction(cached.result.compaction) : null;
+    let compaction = cached.result?.compaction
+      ? this._cloneCompaction(cached.result.compaction)
+      : null;
     if (incremental && incremental.compaction) {
       if (!compaction) compaction = { count: 0, entries: [] };
       compaction.count += incremental.compaction.count;
@@ -443,7 +471,9 @@ class TranscriptCache {
     const thinkingBlockCount =
       (cached.result?.thinkingBlockCount || 0) + (incremental?.thinkingBlockCount || 0);
 
-    let usageExtras = cached.result?.usageExtras ? this._cloneUsageExtras(cached.result.usageExtras) : null;
+    let usageExtras = cached.result?.usageExtras
+      ? this._cloneUsageExtras(cached.result.usageExtras)
+      : null;
     if (incremental && incremental.usageExtras) {
       if (!usageExtras) {
         usageExtras = { service_tiers: [], speeds: [], inference_geos: [] };
@@ -470,7 +500,8 @@ class TranscriptCache {
     // JSONL is append-only and parsed in order, so the incremental block's
     // latestModel (when present) is the newest reading — fall back to the
     // previously-cached value when the new chunk had no assistant entries.
-    const latestModel = (incremental && incremental.latestModel) || cached.result?.latestModel || null;
+    const latestModel =
+      (incremental && incremental.latestModel) || cached.result?.latestModel || null;
 
     return {
       tokensByModel,
