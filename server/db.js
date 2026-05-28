@@ -156,6 +156,7 @@ db.exec(`
 // Each model gets its own explicit row — no catch-all grouping
 const DEFAULT_PRICING = [
   // Opus family
+  ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25],
   ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25],
   ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25],
   ["claude-opus-4-5%", "Claude Opus 4.5", 5, 25, 0.5, 6.25],
@@ -177,7 +178,7 @@ const DEFAULT_PRICING = [
 
 // Top-up: insert any default pattern that isn't already present. Preserves
 // user edits to existing rows — we only add what's missing, never overwrite.
-// This runs every startup so new default models (e.g. Opus 4.7) appear in the
+// This runs every startup so new default models (e.g. Opus 4.8) appear in the
 // Settings UI automatically without requiring a manual "Reset Defaults".
 {
   const existing = new Set(
