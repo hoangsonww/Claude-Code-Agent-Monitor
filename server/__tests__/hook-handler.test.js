@@ -100,6 +100,9 @@ describe("hook-handler non-blocking delivery", () => {
     });
 
     assert.equal(code, 0, "handler should still exit cleanly with no listener");
-    assert.ok(ms < 2000, `handler should exit fast on a refused connection (was ${ms.toFixed(0)}ms)`);
+    assert.ok(
+      ms < 2000,
+      `handler should exit fast on a refused connection (was ${ms.toFixed(0)}ms)`
+    );
   });
 });
