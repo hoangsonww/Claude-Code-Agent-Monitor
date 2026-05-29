@@ -22,7 +22,7 @@ const vw = () => (typeof window !== "undefined" ? window.innerWidth : 1024);
 const vh = () => (typeof window !== "undefined" ? window.innerHeight : 768);
 
 function defaultPos(): TabbyPos {
-  return { side: "right", y: 1 }; // bottom-right, matching the old fixed corner
+  return { side: "right", y: 0.5 }; // right edge, vertically centered
 }
 
 /** Resting top-left screen coords for a docked position. */
