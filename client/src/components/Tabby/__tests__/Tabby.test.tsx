@@ -89,4 +89,40 @@ describe("Tabby widget", () => {
     renderTabby();
     expect(screen.queryByRole("button", { name: /open tabby companion/i })).not.toBeInTheDocument();
   });
+
+  it("a tap (no movement) still opens the panel", () => {
+    renderTabby();
+    const btn = screen.getByRole("button", { name: /open tabby companion/i });
+    act(() => {
+      fireEvent.pointerDown(btn, { clientX: 990, clientY: 700, button: 0 });
+      fireEvent.pointerUp(window, { clientX: 990, clientY: 700 });
+    });
+    fireEvent.click(btn);
+    expect(screen.getByRole("dialog", { name: /tabby companion/i })).toBeInTheDocument();
+  });
+
+  it("dragging snaps to an edge, persists position, and does not open the panel", () => {
+    renderTabby();
+    const btn = screen.getByRole("button", { name: /open tabby companion/i });
+    // Default dock is bottom-right. Drag far to the left past the threshold.
+    act(() => {
+      fireEvent.pointerDown(btn, { clientX: 990, clientY: 700, button: 0 });
+      fireEvent.pointerMove(window, { clientX: 80, clientY: 300 });
+      fireEvent.pointerUp(window, { clientX: 80, clientY: 300 });
+    });
+    // The synthetic click that follows a drag must be swallowed.
+    fireEvent.click(btn);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const saved = JSON.parse(localStorage.getItem("agent-dashboard-tabby-pos") || "{}");
+    expect(saved.side).toBe("left");
+    expect(typeof saved.y).toBe("number");
+  });
+
+  it("restores a persisted left-edge position on mount", () => {
+    localStorage.setItem("agent-dashboard-tabby-pos", JSON.stringify({ side: "left", y: 0.2 }));
+    renderTabby();
+    const root = document.querySelector(".tabby-root") as HTMLElement;
+    expect(root).toBeTruthy();
+    expect(root.getAttribute("data-side")).toBe("left");
+  });
 });

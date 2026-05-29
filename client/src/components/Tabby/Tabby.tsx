@@ -17,6 +17,7 @@ import { CatAvatar } from "./CatAvatar";
 import { SpeechBubble } from "./SpeechBubble";
 import { TabbyPanel } from "./TabbyPanel";
 import { useTabbyBrain } from "./useTabbyBrain";
+import { useTabbyPosition } from "./useTabbyPosition";
 import { matchIntent } from "./intents";
 import { tabbyPrefs } from "./prefs";
 import "./tabby.css";
@@ -43,6 +44,7 @@ export function Tabby() {
   const reducedMotion = usePrefersReducedMotion();
   const navigate = useNavigate();
   const brain = useTabbyBrain();
+  const place = useTabbyPosition();
 
   // Keep enabled in sync with Settings / other tabs.
   useEffect(() => tabbyPrefs.subscribe(() => setEnabled(tabbyPrefs.getEnabled())), []);
@@ -86,7 +88,19 @@ export function Tabby() {
   if (!enabled) return null;
 
   return (
-    <div className="tabby-root">
+    <div
+      className="tabby-root"
+      data-dragging={place.dragging ? "1" : "0"}
+      data-side={place.side}
+      style={{
+        left: place.left,
+        top: place.top,
+        // Avatar sits at the docked corner; bubble/panel stack toward screen
+        // center — upward when docked low, downward when docked high.
+        flexDirection: place.openUp ? "column" : "column-reverse",
+        alignItems: place.side === "left" ? "flex-start" : "flex-end",
+      }}
+    >
       {!open && brain.bubble && (
         <SpeechBubble text={brain.bubble} onDismiss={brain.dismissBubble} />
       )}
@@ -105,10 +119,16 @@ export function Tabby() {
 
       <button
         className="tabby-avatar-btn relative"
-        onClick={() => setOpen((v) => !v)}
+        onPointerDown={place.onPointerDown}
+        onClick={() => {
+          // A drag just ended — swallow the synthetic click so the panel
+          // doesn't toggle when the user only repositioned the avatar.
+          if (place.consumeDrag()) return;
+          setOpen((v) => !v);
+        }}
         aria-label={open ? "Close Tabby" : "Open Tabby companion"}
         aria-expanded={open}
-        title="Tabby — ⌘B"
+        title="Tabby — ⌘B · drag to move"
       >
         <CatAvatar mood={brain.mood} reducedMotion={reducedMotion} />
         {brain.status.errorCount > 0 && (
