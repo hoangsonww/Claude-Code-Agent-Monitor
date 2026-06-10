@@ -10,6 +10,7 @@ const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
 const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
+const { sanitizeEventData, sanitizeText } = require("../lib/privacy");
 
 const router = Router();
 
@@ -171,7 +172,9 @@ const processEvent = db.transaction((hookType, data) => {
           input.subagent_type ||
           (input.prompt ? input.prompt.split("\n")[0].slice(0, 60) : null) ||
           "Subagent";
-        const subName = rawName.length > 60 ? rawName.slice(0, 57) + "..." : rawName;
+        // Agent names/tasks come from the spawning prompt — run them through
+        // the privacy policy since they end up in the agents table and UI.
+        const subName = sanitizeText(rawName.length > 60 ? rawName.slice(0, 57) + "..." : rawName);
 
         // Infer which agent is spawning this subagent.
         // Hook events don't carry an explicit agent ID, so we use a heuristic:
@@ -195,9 +198,9 @@ const processEvent = db.transaction((hookType, data) => {
           "subagent",
           input.subagent_type || null,
           "working",
-          input.prompt ? input.prompt.slice(0, 500) : null,
+          input.prompt ? sanitizeText(input.prompt.slice(0, 500)) : null,
           parentId,
-          input.metadata ? JSON.stringify(input.metadata) : null
+          input.metadata ? JSON.stringify(sanitizeEventData(input.metadata).data) : null
         );
         broadcast("agent_created", stmts.getAgent.get(subId));
         agentId = subId;
@@ -587,14 +590,17 @@ const processEvent = db.transaction((hookType, data) => {
       if (result.errors) {
         let newErrorRecorded = false;
         for (const apiErr of result.errors) {
-          // Deduplicate: check if we already recorded this error (same type+message+timestamp)
-          const errKey = `${apiErr.type}:${apiErr.timestamp || ""}`;
+          // Error text comes straight from the transcript and can echo
+          // credentials (e.g. "invalid x-api-key sk-ant-…"). Sanitize the
+          // summary BEFORE the dedup lookup so stored and compared values
+          // agree, and sanitize the payload before persisting.
+          const errSummary = sanitizeText(`${apiErr.type}: ${apiErr.message}`);
           const existing = db
             .prepare(
               `SELECT 1 FROM events WHERE session_id = ? AND event_type = 'APIError'
                AND summary = ? LIMIT 1`
             )
-            .get(sessionId, `${apiErr.type}: ${apiErr.message}`);
+            .get(sessionId, errSummary);
           if (existing) continue;
 
           stmts.insertEvent.run(
@@ -602,15 +608,15 @@ const processEvent = db.transaction((hookType, data) => {
             mainAgentId,
             "APIError",
             null,
-            `${apiErr.type}: ${apiErr.message}`,
-            JSON.stringify(apiErr)
+            errSummary,
+            JSON.stringify(sanitizeEventData(apiErr).data)
           );
           broadcast("new_event", {
             session_id: sessionId,
             agent_id: mainAgentId,
             event_type: "APIError",
             tool_name: null,
-            summary: `${apiErr.type}: ${apiErr.message}`,
+            summary: errSummary,
             created_at: apiErr.timestamp || new Date().toISOString(),
           });
           newErrorRecorded = true;
@@ -697,13 +703,20 @@ const processEvent = db.transaction((hookType, data) => {
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
+  // Privacy policy: transform the payload + summary BEFORE persistence and
+  // broadcast. All routing decisions above (transcript_path, tool detection,
+  // status transitions) already ran on the raw payload — only what leaves the
+  // ingest path is sanitized.
+  const safeSummary = sanitizeText(summary);
+  const { data: safeData } = sanitizeEventData(data);
+
   stmts.insertEvent.run(
     sessionId,
     agentId,
     eventType,
     toolName,
-    summary,
-    JSON.stringify(data)
+    safeSummary,
+    JSON.stringify(safeData)
     // created_at uses default
   );
 
@@ -712,7 +725,7 @@ const processEvent = db.transaction((hookType, data) => {
     agent_id: agentId,
     event_type: eventType,
     tool_name: toolName,
-    summary,
+    summary: safeSummary,
     created_at: new Date().toISOString(),
   };
   broadcast("new_event", event);
@@ -834,7 +847,9 @@ function watchdogCheck() {
         );
 
         for (const apiErr of result.errors) {
-          const summary = `${apiErr.type}: ${apiErr.message}`;
+          // Sanitize before the dedup check — stored summaries are sanitized,
+          // so the comparison must be too.
+          const summary = sanitizeText(`${apiErr.type}: ${apiErr.message}`);
           if (existingSummaries.has(summary)) continue;
 
           stmts.insertEvent.run(
@@ -843,7 +858,7 @@ function watchdogCheck() {
             "APIError",
             null,
             summary,
-            JSON.stringify(apiErr)
+            JSON.stringify(sanitizeEventData(apiErr).data)
           );
           broadcast("new_event", {
             session_id: sess.id,

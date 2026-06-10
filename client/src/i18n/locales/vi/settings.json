@@ -176,5 +176,62 @@
     "failedDelete": "Xóa thất bại",
     "unknownError": "Không xác định",
     "actionFailed": "Lỗi: {{message}}"
+  },
+  "privacy": {
+    "title": "Kiểm soát quyền riêng tư",
+    "description": "Che, băm hoặc loại bỏ dữ liệu nhạy cảm khỏi payload hook trước khi lưu trữ hoặc phát sóng",
+    "loadFailed": "Không tải được chính sách quyền riêng tư.",
+    "enable": "Bật chính sách quyền riêng tư",
+    "enableDesc": "Làm sạch payload hook và phần tóm tắt ngay khi tiếp nhận",
+    "importWarning": "Chính sách chỉ áp dụng cho việc tiếp nhận hook trực tiếp. Nhập / nhập lại sẽ ghi transcript nguyên trạng từ đĩa — các bản ghi được nhập khi chính sách đang bật có thể có trước chính sách đó.",
+    "detectors": {
+      "title": "Bộ phát hiện tích hợp",
+      "secret_keys": "Khóa có tên nhạy cảm",
+      "secret_keysDesc": "các trường token / secret / password / api_key / auth / credential",
+      "bearer_tokens": "Bearer token",
+      "bearer_tokensDesc": "giá trị Authorization: Bearer … trong chuỗi",
+      "api_key_formats": "Định dạng API key",
+      "api_key_formatsDesc": "sk-ant-…, sk-…, ghp_…, AKIA…, xoxb-…, AIza…",
+      "private_key_blocks": "Khối private key",
+      "private_key_blocksDesc": "khối -----BEGIN … PRIVATE KEY-----",
+      "email_addresses": "Địa chỉ email",
+      "email_addressesDesc": "Tùy chọn: che mọi nội dung trông giống email",
+      "home_paths": "Đường dẫn thư mục người dùng",
+      "home_pathsDesc": "Tùy chọn: che /Users/<name>, /home/<name>, C:\\Users\\<name>"
+    },
+    "defaultAction": "Hành động của bộ phát hiện:",
+    "actions": {
+      "mask": "Che",
+      "hash": "Băm",
+      "drop_field": "Xóa trường",
+      "drop_event_payload": "Bỏ payload"
+    },
+    "matchTypes": {
+      "key": "Tên trường",
+      "value": "Nội dung giá trị"
+    },
+    "rules": {
+      "title": "Quy tắc tùy chỉnh",
+      "empty": "Chưa có quy tắc tùy chỉnh. Thêm quy tắc regex để che, băm hoặc xóa trường ngoài các bộ phát hiện tích hợp.",
+      "name": "Tên quy tắc",
+      "namePlaceholder": "Tên quy tắc",
+      "matchType": "Kiểu khớp",
+      "pattern": "Mẫu",
+      "patternPlaceholder": "biểu thức chính quy",
+      "action": "Hành động",
+      "add": "Thêm",
+      "delete": "Xóa quy tắc"
+    },
+    "preview": {
+      "title": "Xem trước payload mẫu",
+      "run": "Xem trước",
+      "after": "Sau khi áp dụng chính sách",
+      "invalidJson": "Mẫu phải là JSON hợp lệ",
+      "metaSummary": "Đã áp dụng {{applied}} quy tắc · che {{masked}} · băm {{hashed}} · xóa {{dropped}}"
+    },
+    "saveNote": "Thay đổi chỉ áp dụng cho sự kiện mới sau khi lưu. Sự kiện đã lưu không bao giờ bị ghi lại.",
+    "save": "Lưu chính sách",
+    "saving": "Đang lưu…",
+    "saved": "Đã lưu"
   }
 }

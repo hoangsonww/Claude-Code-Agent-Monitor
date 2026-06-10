@@ -176,5 +176,62 @@
     "failedDelete": "删除失败",
     "unknownError": "未知错误",
     "actionFailed": "错误：{{message}}"
+  },
+  "privacy": {
+    "title": "隐私控制",
+    "description": "在存储或广播之前，对 Hook 载荷中的敏感数据进行打码、哈希或删除",
+    "loadFailed": "加载隐私策略失败。",
+    "enable": "启用隐私策略",
+    "enableDesc": "在摄入时净化传入的 Hook 载荷和摘要",
+    "importWarning": "该策略仅适用于实时 Hook 摄入。导入 / 重新导入会按磁盘上的原样写入转录文件 —— 在策略启用期间导入的记录可能早于该策略。",
+    "detectors": {
+      "title": "内置检测器",
+      "secret_keys": "密钥类字段名",
+      "secret_keysDesc": "token / secret / password / api_key / auth / credential 字段",
+      "bearer_tokens": "Bearer 令牌",
+      "bearer_tokensDesc": "字符串中的 Authorization: Bearer … 值",
+      "api_key_formats": "API 密钥格式",
+      "api_key_formatsDesc": "sk-ant-…、sk-…、ghp_…、AKIA…、xoxb-…、AIza…",
+      "private_key_blocks": "私钥块",
+      "private_key_blocksDesc": "-----BEGIN … PRIVATE KEY----- 块",
+      "email_addresses": "电子邮件地址",
+      "email_addressesDesc": "可选启用：打码任何看起来像电子邮件的内容",
+      "home_paths": "用户主目录路径",
+      "home_pathsDesc": "可选启用：打码 /Users/<name>、/home/<name>、C:\\Users\\<name>"
+    },
+    "defaultAction": "检测器动作：",
+    "actions": {
+      "mask": "打码",
+      "hash": "哈希",
+      "drop_field": "删除字段",
+      "drop_event_payload": "丢弃载荷"
+    },
+    "matchTypes": {
+      "key": "字段名",
+      "value": "值文本"
+    },
+    "rules": {
+      "title": "自定义规则",
+      "empty": "暂无自定义规则。添加正则规则，可在内置检测器之外打码、哈希或删除字段。",
+      "name": "规则名称",
+      "namePlaceholder": "规则名称",
+      "matchType": "匹配类型",
+      "pattern": "模式",
+      "patternPlaceholder": "正则表达式",
+      "action": "动作",
+      "add": "添加",
+      "delete": "删除规则"
+    },
+    "preview": {
+      "title": "预览示例载荷",
+      "run": "预览",
+      "after": "应用策略后",
+      "invalidJson": "示例必须是有效的 JSON",
+      "metaSummary": "已应用 {{applied}} 条规则 · 打码 {{masked}} · 哈希 {{hashed}} · 删除 {{dropped}}"
+    },
+    "saveNote": "保存后仅对新事件生效。已存储的事件永远不会被改写。",
+    "save": "保存策略",
+    "saving": "保存中…",
+    "saved": "已保存"
   }
 }

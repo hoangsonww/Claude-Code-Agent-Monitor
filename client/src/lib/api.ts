@@ -10,6 +10,10 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  PrivacyAction,
+  PrivacyMatchType,
+  PrivacyPolicy,
+  PrivacyPreviewResult,
   Session,
   SessionDrillIn,
   SessionStats,
@@ -346,6 +350,30 @@ export const api = {
       }),
     kill: (id: string) =>
       request<{ ok: true }>(`/run/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
+
+  privacy: {
+    get: () =>
+      request<{
+        policy: PrivacyPolicy;
+        actions: PrivacyAction[];
+        match_types: PrivacyMatchType[];
+        defaults: PrivacyPolicy;
+      }>("/privacy"),
+    update: (policy: PrivacyPolicy) =>
+      request<{ policy: PrivacyPolicy }>("/privacy", {
+        method: "PUT",
+        body: JSON.stringify({ policy }),
+      }),
+    preview: (sample: {
+      data: Record<string, unknown>;
+      summary?: string;
+      policy?: PrivacyPolicy;
+    }) =>
+      request<PrivacyPreviewResult>("/privacy/preview", {
+        method: "POST",
+        body: JSON.stringify(sample),
+      }),
   },
 };
 

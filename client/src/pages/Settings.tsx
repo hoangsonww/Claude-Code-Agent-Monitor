@@ -54,6 +54,7 @@ import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
+import { PrivacyControls } from "../components/PrivacyControls";
 import { Skeleton } from "../components/Skeleton";
 import type { ModelPricing, WSMessage } from "../lib/types";
 
@@ -1046,6 +1047,16 @@ export function Settings() {
             />
           </div>
         </div>
+      </section>
+
+      {/* ─── PRIVACY CONTROLS ─── */}
+      <section>
+        <h3 className="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1">
+          <ShieldCheck className="w-4 h-4 text-gray-500" />
+          {t("privacy.title")}
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">{t("privacy.description")}</p>
+        <PrivacyControls />
       </section>
 
       {/* ─── NOTIFICATIONS ─── */}
