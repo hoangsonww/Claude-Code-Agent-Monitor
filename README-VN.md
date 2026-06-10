@@ -417,7 +417,7 @@ Cách nhanh nhất là **tải trình cài dựng sẵn** từ [bản GitHub Rel
 Hoặc nếu bạn muốn tự dựng:
 
 ```bash
-npm run desktop:install        # cài Electron + electron-builder vào desktop/
+npm run desktop:install        # cài Electron + electron-builder vào desktop/ (tiền kiểm phụ thuộc gốc; in hướng dẫn thiết lập khi thất bại)
 npm run desktop:dmg:arm64      # macOS: DMG một-kiến-trúc nhanh (Apple Silicon)
 npm run desktop:win            # Windows: trình cài NSIS .exe (chạy trên Windows)
 ```
@@ -592,7 +592,7 @@ flowchart LR
 | `npm run mcp:typecheck` | Kiểm tra kiểu nguồn MCP mà không phát ra đầu ra bản dựng        |
 | `npm run mcp:docker:build` | Xây dựng hình ảnh vùng chứa MCP bằng Docker (`agent-dashboard-mcp:local`) |
 | `npm run mcp:podman:build` | Xây dựng hình ảnh vùng chứa MCP bằng Podman (`localhost/agent-dashboard-mcp:local`) |
-| `npm run desktop:install` | Cài đặt Electron + electron-builder vào workspace `desktop/` |
+| `npm run desktop:install` | Cài đặt Electron + electron-builder vào workspace `desktop/` (dựng lại `better-sqlite3` cho ABI của Electron); tiền kiểm bản dựng gốc `better-sqlite3` và in hướng dẫn thiết lập cụ thể (kèm phương án không cần bộ công cụ C++) khi thất bại |
 | `npm run desktop:dev`   | Build TypeScript rồi khởi chạy ứng dụng máy tính để bàn Electron |
 | `npm run desktop:build` | Biên dịch tiến trình chính của ứng dụng máy tính để bàn thành `desktop/out/` |
 | `npm run desktop:test`  | Chạy kiểm thử smoke (spawn Electron rồi thăm dò `/api/health`) |
@@ -1201,6 +1201,12 @@ Bảng điều khiển đi kèm một **ứng dụng máy tính để bàn gốc
   <em>🍎🪟 <strong>Ứng dụng máy tính để bàn</strong> — vỏ gốc với biểu tượng tray ở menu-bar / khu vực thông báo, Open-at-Login và khoá single-instance. Cùng một bảng điều khiển, chạy trong một cửa sổ hệ điều hành thật (hình minh họa là macOS).</em>
 </p>
 
+<p align="center">
+  <img src="images/windows_app.png" alt="Claude Code Monitor chạy như một ứng dụng máy tính để bàn gốc trên Windows, hiển thị Activity Feed với thanh trình đơn cửa sổ Windows và bảng Tabby" width="100%">
+  <br>
+  <em>🪟 Cùng một bảng điều khiển dưới dạng ứng dụng Windows gốc — biểu tượng tray ở khu vực thông báo, trình đơn cửa sổ gốc và Open-at-Login.</em>
+</p>
+
 Workspace `desktop/` là **một workspace ngang hàng** với `client/`, `server/`, `mcp/` và `vscode-extension/` — được xây dựng bằng **Electron 35**. Nó **nhúng máy chủ Express ngay trong tiến trình** (`require()` trực tiếp `server/index.js` — không có tiến trình con, không có IPC) và hiển thị ứng dụng React đã build trong một `BrowserWindow`.
 
 > [!LƯU Ý]
@@ -1261,19 +1267,37 @@ Cài đặt:
 - **macOS** — mở (mount) tệp `.dmg`, rồi kéo `Claude Code Monitor.app` vào thư mục `Applications`. macOS có thể hiện cảnh báo Gatekeeper trong lần chạy đầu tiên — xem mục [Gatekeeper / SmartScreen](#gatekeeper--smartscreen-lần-chạy-đầu-tiên) bên dưới.
 - **Windows** — chạy `ClaudeCodeMonitor-Setup-<ver>-x64.exe`. Nó cài **theo từng người dùng** vào `%LOCALAPPDATA%\Programs\Claude Code Monitor` (không cần nâng quyền admin) và cho bạn chọn thư mục cài; hoặc chạy `*-portable.exe` để khởi động mà không cần cài. Windows **SmartScreen** có thể hiện cảnh báo trong lần chạy đầu tiên — xem bên dưới.
 
+<p align="center">
+  <img src="images/setup_win_wizard.png" alt="Trình cài NSIS bước 1 — Choose Installation Options, chọn cài theo từng người dùng (Only for me) hay cho mọi người dùng" width="100%">
+  <br>
+  <em>Trình cài Windows · Bước 1 — <strong>Chọn tùy chọn cài đặt</strong> (theo từng người dùng "Only for me" so với mọi người dùng).</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard2.png" alt="Trình cài NSIS bước 2 — Choose Install Location, với thư mục đích %LOCALAPPDATA%\Programs theo từng người dùng" width="100%">
+  <br>
+  <em>Trình cài Windows · Bước 2 — <strong>Chọn vị trí cài đặt</strong> (mặc định về <code>%LOCALAPPDATA%\Programs</code> theo từng người dùng).</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard3.png" alt="Trình cài NSIS bước 3 — Completing Setup, với tùy chọn hoàn tất và chạy ứng dụng" width="100%">
+  <br>
+  <em>Trình cài Windows · Bước 3 — <strong>Hoàn tất</strong> (Finish rồi khởi chạy ứng dụng).</em>
+</p>
+
 **Cách B — xây dựng cục bộ:**
 
 ```bash
 # Trong thư mục gốc dự án, sau khi `git clone`:
 npm run setup                # cài phụ thuộc root + client + vscode-extension
 npm run build                # build ứng dụng React
-npm run desktop:install      # cài Electron + electron-builder
+npm run desktop:install      # cài Electron + electron-builder vào desktop/ (tiền kiểm phụ thuộc gốc; in hướng dẫn thiết lập khi thất bại)
 npm run desktop:dmg:arm64    # macOS: tạo desktop/release/ClaudeCodeMonitor-<ver>-arm64.dmg (nhanh)
 npm run desktop:win          # Windows: tạo trình cài NSIS .exe (chạy trên Windows)
 ```
 
 > [!QUAN TRỌNG]
-> **DMG dựng trên macOS, `.exe` Windows dựng trên Windows** — electron-builder đóng gói theo hệ điều hành chủ. Bản dựng universal `npm run desktop:dmg` của macOS **cố tình chậm** (build hai lần rồi hợp nhất bằng `@electron/universal`); khi xây dựng cho **chính máy Mac của bạn**, hãy dùng `npm run desktop:dmg:arm64` (Apple Silicon) hoặc `npm run desktop:dmg:x64` (Intel) — chỉ một kiến trúc, hoàn tất trong khoảng một phút. Trên Windows, `npm run desktop:install` tải `better-sqlite3` dưới dạng nhị phân Electron dựng sẵn, nên trường hợp thông thường không cần bộ công cụ Visual Studio C++. CI đã dựng sẵn cả DMG macOS lẫn `.exe` Windows và tải lên dưới dạng artifact `ClaudeCodeMonitor-dmg` / `ClaudeCodeMonitor-win`, nên bạn hiếm khi cần tự dựng. DMG macOS khoảng ~80 MB (~250 MB khi giải nén trên đĩa) và trình cài Windows tương đương.
+> **DMG dựng trên macOS, `.exe` Windows dựng trên Windows** — electron-builder đóng gói theo hệ điều hành chủ. Bản dựng universal `npm run desktop:dmg` của macOS **cố tình chậm** (build hai lần rồi hợp nhất bằng `@electron/universal`); khi xây dựng cho **chính máy Mac của bạn**, hãy dùng `npm run desktop:dmg:arm64` (Apple Silicon) hoặc `npm run desktop:dmg:x64` (Intel) — chỉ một kiến trúc, hoàn tất trong khoảng một phút. Trên Windows, `npm run desktop:install` tải `better-sqlite3` dưới dạng nhị phân Electron dựng sẵn, nên trường hợp thông thường không cần bộ công cụ Visual Studio C++. Nếu việc dựng có thất bại (không có nhị phân dựng sẵn, hoặc thiếu bộ công cụ C++), `desktop:install` in ra đúng cách khắc phục theo từng hệ điều hành cùng một phương án không cần bộ công cụ rồi báo lỗi rõ ràng thay vì để lại bản cài hỏng. CI đã dựng sẵn cả DMG macOS lẫn `.exe` Windows và tải lên dưới dạng artifact `ClaudeCodeMonitor-dmg` / `ClaudeCodeMonitor-win`, nên bạn hiếm khi cần tự dựng. DMG macOS khoảng ~80 MB (~250 MB khi giải nén trên đĩa) và trình cài Windows tương đương.
 
 ### Điều gì xảy ra khi bạn khởi chạy ứng dụng
 
@@ -1307,6 +1331,7 @@ flowchart TD
 ### Biểu tượng tray, trình đơn và tự khởi động
 
 - **Biểu tượng tray** — bề mặt trạng thái luôn-bật (menu-bar trên macOS / khu vực thông báo trên Windows). Trình đơn ngữ cảnh gồm: *Open Dashboard, Open in Browser, Restart Server, Show Logs, Open at Login (chuyển đổi), Quit*. Trình đơn được dựng lại mỗi lần mở nên nhãn cổng và ô đánh dấu *Open at Login* luôn cập nhật. macOS dùng glyph template được tô màu; Windows dùng `icon.ico` màu (một template đen sẽ biến mất trên thanh tác vụ tối).
+- **Biểu tượng cửa sổ và thanh tác vụ** — `BrowserWindow` được gắn với logo ứng dụng màu (`icon.ico` trên Windows, `icon.png` ở nơi khác), nên thanh tiêu đề / thanh tác vụ hiển thị đúng biểu tượng Claude Code Monitor — kể cả khi chạy `npm run desktop:dev` chưa đóng gói cũng không còn hiện biểu tượng Electron chung chung nữa.
 - **Đóng cửa sổ thì ẩn đi** — máy chủ vẫn chạy, biểu tượng tray vẫn còn. Nhấp tray để đưa cửa sổ trở lại.
 - **Thoát (⌘Q / Ctrl+Q, hoặc tray → Quit)** — tắt máy chủ nhúng một cách gọn gàng, đóng SQLite sạch sẽ (checkpoint WAL) rồi thoát.
 - **Khóa một-phiên-bản** — khởi chạy lần hai chỉ đưa cửa sổ hiện có lên trước, không có máy chủ thứ hai, không xung đột cổng. (Áp dụng trên mọi nền tảng.)
@@ -1319,6 +1344,24 @@ flowchart TD
 
 `better-sqlite3` là module **gốc** duy nhất trong cây phụ thuộc, và một module gốc phải được biên dịch theo đúng ABI Node mà nó chạy trên đó. Workspace `desktop/` đi kèm một bản sao `better-sqlite3` cục bộ được dựng lại cho ABI của Electron (qua `electron-builder install-app-deps` trong `postinstall`), không động đến bản cài ở thư mục gốc dùng cho `npm run test:server`. Nếu việc dựng lại thất bại, máy chủ vẫn quay về dùng `node:sqlite` tích hợp sẵn nên ứng dụng vẫn khởi động được.
 
+**Tiền kiểm (preflight) phụ thuộc gốc.** `npm run desktop:install` chạy `scripts/install.js`, kiểm tra trước nhị phân gốc `better-sqlite3` cho ABI của Electron. Trên Windows trường hợp thông thường tải về nhị phân Electron **dựng sẵn**, nên không cần bộ công cụ Visual Studio C++. Nếu việc dựng thất bại (không có nhị phân dựng sẵn, hoặc thiếu bộ công cụ C++), nó **báo lỗi rõ ràng và thoát với mã khác 0** thay vì để lại một bản cài hỏng, đồng thời in ra phần khắc phục cụ thể theo từng hệ điều hành:
+
+- **Windows** — cài "Visual Studio Build Tools" kèm workload "Desktop development with C++".
+- **macOS** — `xcode-select --install`.
+- **Linux** — cài `build-essential` + `python3`.
+- Hoặc dùng một Node LTS (20 hoặc 22) vốn đi kèm nhị phân dựng sẵn để bỏ qua hẳn bước biên dịch.
+
+Hoặc, **không cần bộ công cụ C++ nào**, lấy thẳng nhị phân dựng sẵn của Electron:
+
+```bash
+cd desktop
+npm install --ignore-scripts
+node node_modules/electron/install.js
+npx electron-builder install-app-deps
+```
+
+Bước prebuild (`scripts/prebuild.js`) chắn (gate) mọi script `desktop:*` build/dev: nó **báo lỗi sớm (fail fast) kèm hướng dẫn thiết lập** khi thiếu hẳn nhị phân gốc `better-sqlite3`, biến một sự cố lúc chạy thành một lỗi lúc build có thể sao-chép-dán được.
+
 > [!MẸO]
 > **Dành cho người đóng góp:** dựng một DMG sẽ dựng lại `better-sqlite3` cho kiến trúc đích, nên một bản dựng DMG trước đó có thể để lại `better-sqlite3` được dựng cho CPU khác (khiến `desktop:dev` / `desktop:test` lỗi `ERR_DLOPEN_FAILED`). Bước prebuild của ứng dụng máy tính để bàn (`scripts/prebuild.js`) tự chữa lại cho máy cục bộ ở lần build kế tiếp; nếu cần, hãy chạy `npm run desktop:install`.
 
@@ -1328,7 +1371,7 @@ Tất cả lệnh chạy được từ **thư mục gốc kho mã**. Mọi lện
 
 | Lệnh | Tác dụng |
 |---|---|
-| `npm run desktop:install` | Cài Electron, electron-builder, types; dựng lại `better-sqlite3` cho ABI của Electron. |
+| `npm run desktop:install` | Cài Electron, electron-builder, types; dựng lại `better-sqlite3` cho ABI của Electron; tiền kiểm bản dựng gốc `better-sqlite3` và in hướng dẫn thiết lập cụ thể (kèm phương án không cần bộ công cụ C++) khi thất bại. |
 | `npm run desktop:build` | Prebuild guard + `tsc` → `desktop/out/`. |
 | `npm run desktop:dev` | Build, rồi khởi chạy Electron. |
 | `npm run desktop:test` | Build, rồi chạy kiểm thử smoke (spawn Electron + thăm dò `/api/health`). |

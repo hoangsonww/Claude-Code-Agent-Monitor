@@ -1331,6 +1331,12 @@ The dashboard also ships as an optional **native desktop application** you insta
   <em>🍎🪟 <strong>Desktop App</strong> — native shell with a menu-bar / notification-area (tray) icon, Open-at-Login, and a single-instance lock. The same dashboard, in a real OS window (macOS shown).</em>
 </p>
 
+<p align="center">
+  <img src="images/windows_app.png" alt="Claude Code Monitor running as a native Windows desktop app, showing the Activity Feed with the Windows window menu bar and Tabby panel" width="100%">
+  <br>
+  <em>🪟 The same dashboard as a native Windows app — notification-area (tray) icon, native window menu, and Open-at-Login.</em>
+</p>
+
 Everything you see in the browser at `localhost:4820` lives inside this window, with native OS lifecycle on top: a tray icon, a native application menu, auto-start integration, and a single quit button that cleanly shuts the server down.
 
 ### How it works
@@ -1430,6 +1436,24 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 1. Run `ClaudeCodeMonitor-Setup-<ver>-x64.exe`. It installs **per-user** under `%LOCALAPPDATA%\Programs\Claude Code Monitor` (no administrator elevation) and lets you pick the install directory; or run the `*-portable.exe` to launch without installing.
 2. The installer is **unsigned** by default, so Windows **SmartScreen** may show *"Windows protected your PC"* on first launch — click **More info → Run anyway**.
 3. Launch from the Start menu / desktop shortcut. The notification-area (tray) icon appears and the dashboard window opens.
+
+<p align="center">
+  <img src="images/setup_win_wizard.png" alt="NSIS installer step 1 — Choose Installation Options, with per-user (Only for me) versus all-users selection" width="100%">
+  <br>
+  <em>Windows installer · Step 1 — <strong>Choose Installation Options</strong> (per-user "Only for me" vs. all users).</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard2.png" alt="NSIS installer step 2 — Choose Install Location, with the per-user %LOCALAPPDATA%\Programs destination folder" width="100%">
+  <br>
+  <em>Windows installer · Step 2 — <strong>Choose Install Location</strong> (defaults to per-user <code>%LOCALAPPDATA%\Programs</code>).</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard3.png" alt="NSIS installer step 3 — Completing Setup, with the option to finish and run the app" width="100%">
+  <br>
+  <em>Windows installer · Step 3 — <strong>Completing Setup</strong> (Finish and launch the app).</em>
+</p>
 
 ### Build commands
 

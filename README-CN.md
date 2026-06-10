@@ -285,6 +285,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **Tabby** | 固定在每个页面右下角的可爱 SVG 小猫伴侣,会订阅实时会话 WebSocket 流并据此做出反应。**会做出反应的吉祥物**:基于实时会话流呈现 8 种情绪——空闲、观察、开心、担忧、卡住、思考、睡觉、断开连接;眼睛会追踪光标,每种情绪都有专属动画。**气泡台词**在值得关注的事件发生时弹出(会话开始/结束、出现错误、运行完成),带节流且可静音。点击小猫或按 **⌘B / Ctrl+B** 打开**面板**(Esc 关闭):实时状态行(N 个进行中 · M 个出错 · 连接状态)、快捷操作(跳转到 Run Claude / 活动 / 会话 / 出错的会话,静音,清除提醒)以及一个 **Ask** 提问框。Ask 提问框在本地回答简单的状态类问题;其他问题则交给现有的 **Run Claude** 页面(`/run?prompt=...`)以启动一个真正的 Claude Code 会话——**无需新增后端、无需 API 密钥**。完全构建在现有的 WebSocket 流之上,支持无障碍(键盘、`aria-live`、尊重 `prefers-reduced-motion`),可在「设置」中开关。代码位于 `client/src/components/Tabby/` |
 | **Claude 配置浏览器** | `/cc-config` 上的 12 标签页检查器,涵盖 Claude Code 知道的一切:技能、子代理、斜杠命令、输出样式、插件(每个插件包含贡献计数 + 来自 `plugin.json` 的作者/许可证/主页)、市场(包含从每个 `marketplace.json` 读取的插件计数)、MCP 服务器、Hook(含 `~/.claude/hooks/` 脚本列表)、设置(结构化键值视图 + 原始 JSON 切换、密钥脱敏)、记忆(`CLAUDE.md` 文件)、快捷键(按上下文分组,使用 `<kbd>` 字符)、状态行(配置 + 脚本内容)。对低风险文本文件表面(技能 / 代理 / 命令 / 输出样式 / 记忆),页面支持**带强制时间戳备份的创建/编辑/删除**,原子写入到 Claude Code 不扫描的目录之外,加上带自动构建 `mv` 恢复命令的备份模态框。插件、MCP、settings 中的 hooks 和 `settings.json` 文件保持只读,带说明横幅 + 可复制的 CLI 命令,以便用户知道要自行运行的确切命令。**实时更新**:服务端运行的 `cc-watcher` 通过 `fs.watch` 监听 `~/.claude/`(平台支持时递归)以及 `~/.claude.json`,以 500 ms 去抖,在 Claude Code 配置变化时(无论是仪表盘修改还是外部工具如 CLI 安装插件、手动编辑 `settings.json`、放入新技能)广播 `cc_config_changed` WebSocket 消息。页面订阅并自动重新拉取;标题旁的 Live / Offline 标识显示 WebSocket 连接状态 |
 | **渐进式 Web 应用 (PWA)**          | 三个独立的 PWA — 仪表盘、着陆页和维基 — 每个都有自己的 Web App Manifest 和 Service Worker。将任意一个安装到主屏幕/Dock,获得无浏览器边框的独立应用体验。仪表盘 SW 对 Vite 哈希化的 `/assets/*` 资源采用 cache-first(URL 每次构建都不可变,缓存命中始终正确),其他所有内容(导航、SW 自身、`manifest.json`、图标、根 `/`)采用 network-first 并以缓存兜底。配合生产环境 Express 静态中间件上的显式 `Cache-Control` 头(`/assets/*` 用 `immutable, max-age=31536000`,`index.html`、`sw.js`、`manifest.json` 用 `no-cache, must-revalidate`),重新构建后浏览器中的代码始终自动刷新,无需硬刷新;`client/src/main.tsx` 中的 `controllerchange` 监听器会在新 SW 接管已被控制的页面时恰好重新加载一次(首次安装不会)。VAPID 推送通知管道完全保留。着陆页和维基 SW 预缓存各自的 shell 并在首次访问时延迟缓存图片,单次加载后即可离线访问。所有 manifest 使用 SVG 图标(`favicon.svg`,`sizes="any"`),包含 `apple-mobile-web-app-capable` + `apple-touch-icon` meta 标签以支持 iOS 独立模式 |
+| **桌面应用（macOS 与 Windows）**   | 用 Electron 35 构建的可选原生桌面应用，位于 `desktop/` 工作区，与 `client/`、`server/`、`mcp/`、`vscode-extension/` 平级。以 macOS `.app`（`.dmg`）**以及** Windows `.exe`（NSIS 安装包 + 免安装便携版）形式分发。它将现有的 Express 服务器**以进程内方式嵌入**（直接 `require()` `server/index.js` —— 没有子进程、没有 IPC），并在 `BrowserWindow` 中渲染已构建的 React 客户端。新增了原生标题栏、菜单栏 / 通知区域（托盘）图标（单击其下拉菜单会显示一份在点击时从 SQLite 实时拉取的**状态快照**：会话、Agent、今日事件）、原生应用菜单、开机自启（macOS 通过 `SMAppService` 登录项；Windows 通过按用户的 `HKCU\…\Run`）、一个 **⌘Q / Ctrl+Q 确认对话框**（再按一次即跳过）、关闭窗口只隐藏但服务器继续运行、单实例锁，以及 **在浏览器中打开**、**重启服务器**、**查看日志** 等托盘操作。优先使用端口 4820（回退到 4821–4829，再到随机高位端口），若 4820 上已有健康的 dashboard 在运行则直接采用而不重复绑定，并**与 Web dashboard 共存** —— `npm run dev` 与桌面应用可同时运行，Hook 会同时分发到两者。通知以原生操作系统弹窗（toast）形式触发（Web Push 在 Electron 中无法可靠工作）。首次由应用自有的服务器启动时，它会自动安装 Claude Code Hook 并启动后台服务，因此仅安装应用的用户无需任何手动设置即可让事件流转。详见 [`DESKTOP.md`](./DESKTOP.md) 与 [`desktop/README.md`](./desktop/README.md) |
 
 ---
 
@@ -370,7 +371,7 @@ npm run seed
 若希望自行构建：
 
 ```bash
-npm run desktop:install        # 在 desktop/ 中安装 Electron + electron-builder
+npm run desktop:install        # 在 desktop/ 中安装 Electron + electron-builder（预检原生依赖；失败时打印安装帮助）
 npm run desktop:dmg:arm64      # macOS：Apple Silicon 专用 DMG（快速）
 npm run desktop:win            # Windows：NSIS 安装包 .exe（在 Windows 上运行）
 ```
@@ -590,7 +591,7 @@ flowchart LR
 | `npm run mcp:typecheck` | 类型检查 MCP 源码，不生成构建输出 |
 | `npm run mcp:docker:build` | 用 Docker 构建 MCP 容器镜像（`agent-dashboard-mcp:local`） |
 | `npm run mcp:podman:build` | 用 Podman 构建 MCP 容器镜像（`localhost/agent-dashboard-mcp:local`） |
-| `npm run desktop:install` | 安装桌面应用（`desktop/`）的依赖，并为 Electron 的 ABI 重新编译 `better-sqlite3` |
+| `npm run desktop:install` | 在 `desktop/` 工作区安装 Electron + electron-builder（为 Electron 的 ABI 重新编译 `better-sqlite3`）；预检原生 `better-sqlite3` 构建，失败时打印可操作的安装帮助（含无工具链的替代方案） |
 | `npm run desktop:build` | 预构建校验 + `tsc`，编译 Electron 主进程到 `desktop/out/` |
 | `npm run desktop:dev` | 构建后启动 Electron，加载本地桌面应用 |
 | `npm run desktop:test` | 运行桌面应用冒烟测试（启动 Electron 并探测 `/api/health`） |
@@ -1220,6 +1221,12 @@ Dashboard 现在还提供一个可选的**原生桌面应用**，将现有的服
   <em>🍎🪟 <strong>桌面应用</strong> —— 原生外壳:菜单栏 / 通知区域(托盘)图标、登录项自启动、单实例锁。同一套 Dashboard,运行在真正的操作系统窗口里(图为 macOS)。</em>
 </p>
 
+<p align="center">
+  <img src="images/windows_app.png" alt="以原生 Windows 桌面应用运行的 Claude Code Monitor，显示活动信息流、Windows 原生窗口菜单栏与 Tabby 面板" width="100%">
+  <br>
+  <em>🪟 同一套 Dashboard 作为原生 Windows 应用运行 —— 通知区域(托盘)图标、原生窗口菜单与登录项自启动。</em>
+</p>
+
 > **状态：** v1，支持 macOS 与 Windows。Linux 构建作为后续工作跟踪 —— Electron 让它实现起来并不难，但每个平台都需要各自的 QA。自动更新（auto-updater）同样不在 v1 范围内，当前的更新方式是重新下载最新的安装包。
 
 `desktop/` 是与 `client/`、`server/`、`mcp/`、`vscode-extension/` 平级的同级工作区，使用 **Electron 35** 构建。它**以进程内方式嵌入现有的 Express 服务器**——直接 `require()` `server/index.js`，运行在与 Electron 主进程相同的 Node 运行时中，**没有子进程、没有 IPC**——并在 `BrowserWindow` 中渲染已构建好的 React 客户端。
@@ -1280,18 +1287,75 @@ flowchart TD
 
 安装：
 
-- **macOS** —— 双击挂载 DMG，将 `Claude Code Monitor.app` 拖入 `应用程序`（Applications）文件夹。首次启动时 macOS 可能会弹出 Gatekeeper 警告 —— 见下文 [首次启动：Gatekeeper / SmartScreen](#首次启动gatekeeper--smartscreen)。
-- **Windows** —— 运行 `ClaudeCodeMonitor-Setup-<ver>-x64.exe`，它会**按用户**安装到 `%LOCALAPPDATA%\Programs\Claude Code Monitor`（无需管理员提权）并允许你选择安装目录；或运行 `*-portable.exe` 无需安装即可启动。首次启动时 Windows **SmartScreen** 可能弹出警告 —— 见下文。
+**macOS：**
+
+1. 双击 `.dmg` 将其挂载。
+2. 将 **Claude Code Monitor.app** 拖入你的 `/Applications`（应用程序）文件夹。
+3. DMG 默认采用**临时签名（ad-hoc signed）**，因此首次启动时 macOS Gatekeeper 会发出警告（*"Apple could not verify…"*）。清除隔离属性：
+
+   ```bash
+   xattr -cr "/Applications/Claude Code Monitor.app"
+   ```
+
+   或者打开 **系统设置 → 隐私与安全性**，点击**仍要打开（Open Anyway）**。
+
+4. 启动应用。托盘图标出现，Dashboard 窗口打开。
+
+**Windows：**
+
+1. 运行 `ClaudeCodeMonitor-Setup-<ver>-x64.exe`。它会**按用户**安装到 `%LOCALAPPDATA%\Programs\Claude Code Monitor`（无需管理员提权）并允许你选择安装目录；或运行 `*-portable.exe` 无需安装即可启动。
+2. 安装包**默认未签名**，因此首次启动时 Windows **SmartScreen** 可能弹出「**Windows 已保护你的电脑**」（*"Windows protected your PC"*）—— 点击**更多信息（More info）→ 仍要运行（Run anyway）**。
+3. 从开始菜单 / 桌面快捷方式启动。通知区域（托盘）图标出现，Dashboard 窗口打开。
+
+<p align="center">
+  <img src="images/setup_win_wizard.png" alt="NSIS 安装包第 1 步 —— 选择安装选项，可选择按用户（仅为我）或全部用户" width="100%">
+  <br>
+  <em>Windows 安装包 · 第 1 步 —— <strong>选择安装选项</strong>（按用户「仅为我」对比全部用户）。</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard2.png" alt="NSIS 安装包第 2 步 —— 选择安装位置，默认指向按用户的 %LOCALAPPDATA%\Programs 目标文件夹" width="100%">
+  <br>
+  <em>Windows 安装包 · 第 2 步 —— <strong>选择安装位置</strong>（默认指向按用户的 <code>%LOCALAPPDATA%\Programs</code>）。</em>
+</p>
+
+<p align="center">
+  <img src="images/setup_win_wizard3.png" alt="NSIS 安装包第 3 步 —— 完成安装，可选择结束并运行应用" width="100%">
+  <br>
+  <em>Windows 安装包 · 第 3 步 —— <strong>完成安装</strong>（结束并启动应用）。</em>
+</p>
 
 **方式 B —— 本地构建：**
 
 ```bash
 # 在项目根目录，git clone 之后：
-npm run setup                # 安装根目录 + 客户端 + vscode-extension 依赖
-npm run build                # 构建 React 客户端
-npm run desktop:install      # 安装 Electron + electron-builder
-npm run desktop:dmg:arm64    # macOS：为自己的 Mac 构建（Apple Silicon，快速）
-npm run desktop:win          # Windows：构建 NSIS 安装包 .exe（在 Windows 上运行）
+npm run setup                # 安装根目录 + 客户端依赖、构建客户端、安装 Hook
+npm run build                # 构建 React 客户端（client/dist）
+npm run desktop:install      # 在 desktop/ 中安装 Electron + electron-builder（预检原生依赖；失败时打印安装帮助）
+npm run desktop:dmg:arm64    # macOS：  快速的单架构 DMG → desktop/release/ClaudeCodeMonitor-<ver>-arm64.dmg
+npm run desktop:win          # Windows：NSIS 安装包 → desktop/release/ClaudeCodeMonitor-Setup-<ver>-x64.exe
+```
+
+> [!NOTE]
+> **DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建** —— electron-builder 针对宿主操作系统打包。macOS 的通用版 `npm run desktop:dmg` 构建**有意设计得很慢**（它会把应用构建两次，再用 `@electron/universal` 合并）；为自己的 Mac 构建时请使用单架构的 `desktop:dmg:arm64` / `desktop:dmg:x64`。在 Windows 上，`npm run desktop:install` 会把 `better-sqlite3` 作为 Electron 预编译二进制拉取，因此常见情况下无需 Visual Studio C++ 工具链。若构建确实失败（没有预编译二进制，或缺少 C++ 工具链），`desktop:install` 会打印准确的分平台修复步骤外加一个无工具链的替代方案，并**显式失败（fail loudly）**，而非留下一个损坏的安装。
+
+#### 原生依赖预检（preflight）
+
+`npm run desktop:install` 会运行 `scripts/install.js`，它在重新编译 `better-sqlite3`（依赖树中唯一的原生模块）之前先做一次预检。若该原生构建失败，它会打印分平台的工具链前置条件，并**以非零状态退出**（绝不让你误以为安装成功）；桌面构建的 `prebuild.js` 也会以同样的方式提前失败（fail fast）。打印出的指引包含两类常见原因与一个无工具链的替代方案：
+
+- **缺少 C++ 构建工具链**，模块无法从源码编译：
+  - **Windows：** 安装带 **「Desktop development with C++」** 工作负载的 **Visual Studio Build Tools**。
+  - **macOS：** `xcode-select --install`
+  - **Linux：** 安装 `build-essential` + `python3`。
+- **你的 Node.js 比任何已发布的 `better-sqlite3` 预编译二进制都新** —— 改用 Node LTS（20 或 22），它们自带预编译二进制，可完全避免编译。
+
+或者，跳过源码编译、直接拉取 Electron 的预编译二进制（**无需 C++ 工具链**）：
+
+```bash
+cd desktop
+npm install --ignore-scripts
+node node_modules/electron/install.js
+npx electron-builder install-app-deps
 ```
 
 #### 首次启动：Gatekeeper / SmartScreen
@@ -1343,7 +1407,9 @@ flowchart TD
 
 ### 生命周期语义
 
-- **托盘图标** —— 常驻状态面板（macOS 菜单栏 / Windows 通知区域）。macOS 使用着色的模板图标；Windows 使用彩色的 `icon.ico`（纯黑模板图标在深色任务栏上会看不见）。
+- **托盘图标** —— 常驻状态面板（macOS 菜单栏 / Windows 通知区域）。左键单击切换 Dashboard 窗口的显示/隐藏；右键单击打开上下文菜单，包含**打开 Dashboard**、**在浏览器中打开**、**重启服务器**、**查看日志**、**开机自启**（开关）与**退出**。macOS 使用着色的模板图标；Windows 使用彩色的 `icon.ico`（纯黑模板图标在深色任务栏上会看不见）。
+- **窗口与任务栏图标** —— `BrowserWindow` 已绑定彩色的应用 Logo（Windows 上为 `icon.ico`，其他平台为 `icon.png`），因此标题栏 / 任务栏显示的是真正的 Claude Code Monitor 图标 —— 即便是未打包的 `npm run desktop:dev` 运行，也不再显示通用的 Electron 图标。
+- **原生应用菜单** —— 标准的 `About` / `File` / `Edit` / `View` / `Window` / `Help` 菜单，带 `⌘` / `Ctrl` 快捷键。
 - **关闭窗口只是隐藏它。** 服务器继续运行，托盘图标保留。点击托盘即可重新调出窗口。
 - **退出（⌘Q / Ctrl+Q，或托盘 → 退出）** 会优雅关闭嵌入式服务器、干净关闭 SQLite（完成 WAL checkpoint），然后退出。
 - **开机自启开关：** 在托盘菜单（或应用菜单）中切换*开机自启*。在 macOS 上，它通过 `SMAppService` / `ServiceManagement` 框架注册 —— 你会在  → *系统设置 → 通用 → 登录项* 中看到该条目；在 Windows 上，它写入一个按用户的 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` 项，可在**任务管理器 → 启动**中看到。当应用在登录时被启动时，它以**仅托盘模式**启动，不会有窗口突然弹到用户面前。
@@ -1358,7 +1424,7 @@ flowchart TD
 
 | 命令 | 作用 |
 | ------------------------------- | ----------------------------------------------------------------------- |
-| `npm run desktop:install` | 安装 Electron、electron-builder、类型定义；并为 Electron 的 ABI 重新编译 `better-sqlite3` |
+| `npm run desktop:install` | 在 `desktop/` 中安装 Electron + electron-builder；为 Electron 的 ABI 重新编译 `better-sqlite3`；预检原生 `better-sqlite3` 构建，失败时打印可操作的安装帮助（含无工具链的替代方案） |
 | `npm run desktop:build` | 预构建校验 + `tsc`，编译主进程到 `desktop/out/` |
 | `npm run desktop:dev` | 构建后启动 Electron 加载本地应用 |
 | `npm run desktop:test` | 冒烟测试（启动 Electron 并探测 `/api/health`），同样在 CI 上运行 |
