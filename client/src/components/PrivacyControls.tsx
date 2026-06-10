@@ -130,7 +130,18 @@ export function PrivacyControls() {
 
   const addRule = () => {
     if (!policy || !newRule.name.trim() || !newRule.pattern.trim()) return;
-    edit({ rules: [...policy.rules, { ...newRule, name: newRule.name.trim() }] });
+    // Stamp a client-side id so unsaved rules have a stable React key even
+    // when rules are deleted/reordered before saving (the server keeps any
+    // provided id on save).
+    const ruleWithId = {
+      ...newRule,
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2, 11),
+      name: newRule.name.trim(),
+    };
+    edit({ rules: [...policy.rules, ruleWithId] });
     setNewRule({ name: "", enabled: true, match_type: "value", pattern: "", action: "mask" });
   };
 

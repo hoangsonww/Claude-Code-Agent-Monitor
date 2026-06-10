@@ -270,10 +270,12 @@ describe("Ingest-time sanitization", () => {
     assert.ok(a._privacy.fields_dropped >= 1);
 
     const sessionB = `privacy-droppayload-${Date.now()}`;
+    // Lowercase on purpose: value rules are compiled case-insensitively so
+    // case-variants of the pattern can't slip past redaction.
     await postHook("PreToolUse", {
       session_id: sessionB,
       tool_name: "Bash",
-      tool_input: { command: "cat TOPSECRET-file" },
+      tool_input: { command: "cat topsecret-file" },
     });
     const b = JSON.parse(lastEventFor(sessionB).data);
     assert.equal(b.tool_input, undefined, "payload reduced to metadata stub");
@@ -319,7 +321,9 @@ describe("Ingest-time sanitization", () => {
 
   it("survives large payloads without failing ingestion", async () => {
     const sessionId = `privacy-large-${Date.now()}`;
-    const big = "x".repeat(500_000); // beyond the per-string scan cap
+    // Large but under the 2 MB scan cap (and realistic — express caps hook
+    // bodies at 1 MB anyway): fully scanned, clean content preserved intact.
+    const big = "x".repeat(500_000);
     const res = await postHook("PreToolUse", {
       session_id: sessionId,
       tool_name: "Write",
@@ -327,10 +331,19 @@ describe("Ingest-time sanitization", () => {
     });
     assert.equal(res.status, 200);
     const stored = JSON.parse(lastEventFor(sessionId).data);
-    // Key-based detection is size-independent; oversized strings skip value
-    // regexes but never break ingestion.
     assert.ok(!JSON.stringify(stored).includes("still-caught-by-key-detector"));
     assert.equal(stored.tool_input.content.length, big.length);
+  });
+
+  it("masks oversized strings wholesale instead of skipping them", () => {
+    // Strings beyond the scan cap can't arrive via the API (express 1 MB body
+    // limit) — exercise the conservative branch through the library directly.
+    const { sanitizeEventData } = require("../lib/privacy");
+    const huge = `prefix sk-ant-api03-HIDDEN-IN-A-HUGE-STRING-1234567890 ${"y".repeat(3 * 1024 * 1024)}`;
+    const result = sanitizeEventData({ blob: huge });
+    assert.ok(!JSON.stringify(result.data).includes("sk-ant-api03-HIDDEN"));
+    assert.equal(result.data.blob, "[REDACTED:oversize_string]");
+    assert.ok(result.meta.fields_masked >= 1);
   });
 });
 

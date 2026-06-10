@@ -22,7 +22,10 @@ const MATCH_TYPES = ["key", "value"];
 // deeply nested or very wide object must not stall ingestion.
 const MAX_DEPTH = 32;
 const MAX_NODES = 20000;
-const MAX_STRING_SCAN = 262144; // strings longer than 256 KB skip value regexes
+// Above the express body cap, so every string an API payload can carry is
+// fully scanned. Strings beyond it (only constructible by internal callers)
+// are masked wholesale — an oversized string must never bypass scanning.
+const MAX_STRING_SCAN = 2 * 1024 * 1024;
 
 // Top-level keys kept when a drop_event_payload rule fires — the operational
 // minimum the dashboard needs to keep sessions/agents/analytics coherent.
@@ -190,7 +193,16 @@ function maskLabel(label) {
  * string (or the original when nothing matched) and bumps `meta` counters.
  */
 function sanitizeString(str, ctx) {
-  if (typeof str !== "string" || str.length === 0 || str.length > MAX_STRING_SCAN) return str;
+  if (typeof str !== "string" || str.length === 0) return str;
+  if (str.length > MAX_STRING_SCAN) {
+    // Conservative: redact rather than skip — skipping would let secrets ride
+    // through inside oversized strings, and a truncated scan would leak the
+    // unscanned tail. Real hook payloads can't get here (express caps bodies
+    // at 1 MB), so this only fires for pathological internal inputs.
+    ctx.meta.fields_masked += 1;
+    ctx.meta.rules_applied += 1;
+    return maskLabel("oversize_string");
+  }
   let out = str;
 
   for (const detector of VALUE_DETECTORS) {
@@ -311,7 +323,9 @@ function buildContext(policy) {
     if (!rule.enabled) continue;
     let re;
     try {
-      re = new RegExp(rule.pattern, rule.match_type === "value" ? "g" : "i");
+      // Value rules get "gi": redaction must not miss case-variants of the
+      // pattern (Password vs password). Key rules were already "i".
+      re = new RegExp(rule.pattern, rule.match_type === "value" ? "gi" : "i");
     } catch {
       continue; // validated at save time; belt-and-braces for hand-edited DB rows
     }
