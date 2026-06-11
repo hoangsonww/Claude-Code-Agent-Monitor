@@ -257,6 +257,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
+
+  -- Generic key/value store for server-side app settings that need to survive
+  -- restarts but don't deserve their own table (e.g. the privacy policy used
+  -- by server/lib/privacy.js). Values are JSON strings.
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
 `);
 
 // Migrate: add the 1h-ephemeral cache-write rate column to model_pricing.
@@ -973,6 +982,16 @@ const stmts = {
       COALESCE(SUM(cache_write_tokens), 0) as cache_write_tokens
     FROM token_usage
     WHERE session_id = ?
+  `),
+
+  // App settings key/value store (JSON values)
+  getAppSetting: db.prepare("SELECT value FROM app_settings WHERE key = ?"),
+  setAppSetting: db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `),
 };
 

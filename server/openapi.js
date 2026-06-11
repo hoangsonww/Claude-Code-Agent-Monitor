@@ -69,6 +69,10 @@ function createOpenApiSpec() {
         description:
           "Detect upstream git changes so users can pull and restart manually (local dashboard installs)",
       },
+      {
+        name: "Privacy",
+        description: "Ingest-time privacy policy: detector toggles, redaction rules, preview",
+      },
       { name: "Documentation", description: "OpenAPI/Swagger endpoints" },
     ],
     components: {
@@ -2256,6 +2260,106 @@ function createOpenApiSpec() {
             },
             500: {
               description: "Update check failed",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
+      "/api/privacy": {
+        get: {
+          tags: ["Privacy"],
+          summary: "Get the active ingest-time privacy policy",
+          operationId: "getPrivacyPolicy",
+          responses: {
+            200: {
+              description:
+                "Active policy plus the action/match-type vocabulary and built-in defaults",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ["Privacy"],
+          summary: "Replace the privacy policy (validated server-side)",
+          operationId: "putPrivacyPolicy",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    policy: {
+                      type: "object",
+                      additionalProperties: true,
+                      description:
+                        "Policy document: enabled, detectors (secret_keys, bearer_tokens, api_key_formats, private_key_blocks, email_addresses, home_paths), default_action (mask|hash), rules[] ({name, match_type: key|value, pattern, action: mask|hash|drop_field|drop_event_payload, enabled}).",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Normalized stored policy",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            400: {
+              description: "Validation error (bad regex, unknown action, …)",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
+      "/api/privacy/preview": {
+        post: {
+          tags: ["Privacy"],
+          summary: "Preview policy transformations on a sample payload (nothing is persisted)",
+          operationId: "previewPrivacyPolicy",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: {
+                    data: { type: "object", additionalProperties: true },
+                    summary: { type: "string" },
+                    policy: {
+                      type: "object",
+                      additionalProperties: true,
+                      description: "Optional draft policy to preview unsaved edits",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "before/after payloads plus redaction metadata",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            400: {
+              description: "Invalid sample payload or draft policy",
               content: {
                 "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
               },

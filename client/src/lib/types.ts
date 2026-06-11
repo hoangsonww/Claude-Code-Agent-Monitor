@@ -251,6 +251,51 @@ export interface CcConfigChangedPayload {
   paths?: string[];
 }
 
+// ── Privacy controls ──
+
+export type PrivacyAction = "mask" | "hash" | "drop_field" | "drop_event_payload";
+export type PrivacyMatchType = "key" | "value";
+
+export interface PrivacyRule {
+  id?: string;
+  name: string;
+  enabled: boolean;
+  match_type: PrivacyMatchType;
+  pattern: string;
+  action: PrivacyAction;
+}
+
+export interface PrivacyPolicy {
+  enabled: boolean;
+  detectors: {
+    secret_keys: boolean;
+    bearer_tokens: boolean;
+    api_key_formats: boolean;
+    private_key_blocks: boolean;
+    email_addresses: boolean;
+    home_paths: boolean;
+  };
+  default_action: "mask" | "hash";
+  rules: PrivacyRule[];
+}
+
+export interface PrivacyMeta {
+  rules_applied: number;
+  fields_masked: number;
+  fields_hashed: number;
+  fields_dropped: number;
+  payload_dropped: boolean;
+  error?: boolean;
+}
+
+export interface PrivacyPreviewResult {
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  meta: PrivacyMeta | null;
+  summary_before?: string;
+  summary_after?: string;
+}
+
 export interface WSMessage {
   type:
     | "session_created"

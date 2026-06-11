@@ -51,6 +51,7 @@ const importRouter = require("./routes/import");
 const updatesRouter = require("./routes/updates");
 const ccConfigRouter = require("./routes/cc-config");
 const runRouter = require("./routes/run");
+const privacyRouter = require("./routes/privacy");
 
 function createApp() {
   const app = express();
@@ -73,6 +74,7 @@ function createApp() {
   app.use("/api/updates", updatesRouter);
   app.use("/api/cc-config", ccConfigRouter);
   app.use("/api/run", runRouter);
+  app.use("/api/privacy", privacyRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });

@@ -180,5 +180,62 @@
     "failedDelete": "Failed to delete",
     "unknownError": "Unknown",
     "actionFailed": "Error: {{message}}"
+  },
+  "privacy": {
+    "title": "Privacy Controls",
+    "description": "Redact, hash, or drop sensitive data from hook payloads before they are stored or broadcast",
+    "loadFailed": "Failed to load the privacy policy.",
+    "enable": "Enable privacy policy",
+    "enableDesc": "Sanitize incoming hook payloads and summaries at ingest time",
+    "importWarning": "The policy applies to live hook ingestion only. Import / re-import writes transcripts as found on disk — records imported while a policy is active may predate it.",
+    "detectors": {
+      "title": "Built-in detectors",
+      "secret_keys": "Secret-named keys",
+      "secret_keysDesc": "token / secret / password / api_key / auth / credential fields",
+      "bearer_tokens": "Bearer tokens",
+      "bearer_tokensDesc": "Authorization: Bearer … values inside strings",
+      "api_key_formats": "API key formats",
+      "api_key_formatsDesc": "sk-ant-…, sk-…, ghp_…, AKIA…, xoxb-…, AIza…",
+      "private_key_blocks": "Private key blocks",
+      "private_key_blocksDesc": "-----BEGIN … PRIVATE KEY----- blocks",
+      "email_addresses": "Email addresses",
+      "email_addressesDesc": "Opt-in: masks anything that looks like an email",
+      "home_paths": "Home directory paths",
+      "home_pathsDesc": "Opt-in: masks /Users/<name>, /home/<name>, C:\\Users\\<name>"
+    },
+    "defaultAction": "Detector action:",
+    "actions": {
+      "mask": "Mask",
+      "hash": "Hash",
+      "drop_field": "Drop field",
+      "drop_event_payload": "Drop payload"
+    },
+    "matchTypes": {
+      "key": "Key name",
+      "value": "Value text"
+    },
+    "rules": {
+      "title": "Custom rules",
+      "empty": "No custom rules. Add regex rules to mask, hash, or drop fields beyond the built-in detectors.",
+      "name": "Rule name",
+      "namePlaceholder": "Rule name",
+      "matchType": "Match type",
+      "pattern": "Pattern",
+      "patternPlaceholder": "regex pattern",
+      "action": "Action",
+      "add": "Add",
+      "delete": "Delete rule"
+    },
+    "preview": {
+      "title": "Preview a sample payload",
+      "run": "Preview",
+      "after": "After policy",
+      "invalidJson": "Sample must be valid JSON",
+      "metaSummary": "{{applied}} rule(s) applied · {{masked}} masked · {{hashed}} hashed · {{dropped}} dropped"
+    },
+    "saveNote": "Changes apply to new events only after saving. Stored events are never rewritten.",
+    "save": "Save policy",
+    "saving": "Saving…",
+    "saved": "Saved"
   }
 }

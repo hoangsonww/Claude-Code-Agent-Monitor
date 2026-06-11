@@ -198,6 +198,10 @@ router.get("/export", (_req, res) => {
     events,
     token_usage: tokenUsage,
     model_pricing: pricing,
+    // Events above are exported as stored — i.e. post-privacy-policy. The
+    // active policy travels with the export so a restore on another machine
+    // can re-apply the same rules.
+    privacy_policy: require("../lib/privacy").loadPolicy(),
   });
 });
 
