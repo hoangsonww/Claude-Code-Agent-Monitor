@@ -20,14 +20,30 @@ function getProjectsDir() {
 }
 
 /**
+ * Canonical, user-global directory for the dashboard's writable state — the
+ * SQLite database, VAPID keys, and transcript snapshots. It resolves to the
+ * SAME absolute path for every launch path (`npm start`, `npm run dev`, and the
+ * macOS/Windows desktop app), so they all share ONE database instead of each
+ * host keeping its own. Lives under the Claude home, next to the hook discovery
+ * file (`~/.claude/.agent-dashboard.json`).
+ *
+ * An explicit `DASHBOARD_DATA_DIR` still wins — for tests, power users, or
+ * anyone pinning a custom location. The earlier default was the repo-local
+ * `data/` dir, which the desktop app (read-only bundle) couldn't use and which
+ * never coincided with the web server's copy; see db.js for the one-time
+ * migration that carries pre-existing databases into this location.
+ */
+function getDataDir() {
+  return process.env.DASHBOARD_DATA_DIR || path.join(getClaudeHome(), "agent-dashboard");
+}
+
+/**
  * Dashboard-owned directory where imported transcripts are snapshotted so the
  * Conversation tab survives Claude Code pruning the originals in
- * ~/.claude/projects. Lives next to the SQLite DB (same resolution order:
- * DASHBOARD_DATA_DIR for hosts with read-only bundles, else the repo `data/`).
+ * ~/.claude/projects. Lives next to the SQLite DB under the shared data dir.
  */
 function getTranscriptSnapshotDir() {
-  const dataDir = process.env.DASHBOARD_DATA_DIR || path.join(__dirname, "..", "..", "data");
-  return path.join(dataDir, "transcripts");
+  return path.join(getDataDir(), "transcripts");
 }
 
 function getSettingsPath() {
@@ -218,6 +234,7 @@ function writeEnvFile(key, value) {
 module.exports = {
   getClaudeHome,
   getProjectsDir,
+  getDataDir,
   getTranscriptSnapshotDir,
   getSettingsPath,
   getTranscriptPath,

@@ -29,16 +29,97 @@ try {
 }
 const path = require("path");
 const fs = require("fs");
+const { getDataDir } = require("./lib/claude-home");
 
-// Resolution order: explicit DASHBOARD_DB_PATH wins; otherwise the file lives
-// in DASHBOARD_DATA_DIR (set by hosts like the desktop app to keep writable
-// state outside a read-only bundle); otherwise the repo-local `data/` dir.
-const DB_PATH =
-  process.env.DASHBOARD_DB_PATH ||
-  path.join(process.env.DASHBOARD_DATA_DIR || path.join(__dirname, "..", "data"), "dashboard.db");
+/**
+ * Seed `targetPath` from the richest pre-existing database when none exists
+ * there yet. Best-effort and strictly non-destructive: it never overwrites the
+ * target and never modifies or deletes the sources, so existing web users keep
+ * an untouched backup at the old path.
+ *
+ * Earlier builds kept the DB per-host — the repo-local `data/` dir for
+ * `npm start`/`dev`, and the desktop app's per-user `userData/data` (handed in
+ * via DASHBOARD_LEGACY_DB_PATH). When both exist we copy the larger one (more
+ * rows ≈ larger file) so the fuller history wins.
+ */
+function migrateLegacyDatabase(targetPath) {
+  try {
+    // Respect explicit overrides: if the operator pinned the path, they own it.
+    if (process.env.DASHBOARD_DB_PATH || process.env.DASHBOARD_DATA_DIR) return;
+    if (fs.existsSync(targetPath)) return; // already migrated, or in active use
+
+    const candidates = [
+      process.env.DASHBOARD_LEGACY_DB_PATH, // desktop app's old per-user DB
+      path.join(__dirname, "..", "data", "dashboard.db"), // repo-local `npm start` DB
+    ].filter((p) => p && fs.existsSync(p));
+    if (candidates.length === 0) return;
+
+    const source = candidates
+      .map((p) => ({ p, size: fs.statSync(p).size }))
+      .sort((a, b) => b.size - a.size)[0].p;
+
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+
+    // `VACUUM INTO` produces a consistent, fully-checkpointed single-file copy —
+    // safe even when another process still holds the source open in WAL mode,
+    // and it never touches the source. A raw file copy of a live WAL database,
+    // by contrast, can capture an inconsistent .db/-wal/-shm trio and yield a
+    // "database disk image is malformed" file, so we deliberately do NOT fall
+    // back to one. `VACUUM INTO` ships in every SQLite the project uses (3.27+:
+    // better-sqlite3 and node:sqlite both support it).
+    const src = new Database(source);
+    try {
+      src.exec(`VACUUM INTO '${targetPath.replace(/'/g, "''")}'`);
+    } finally {
+      src.close();
+    }
+
+    // Carry over the one-time legacy-import marker so the (idempotent) backfill
+    // doesn't needlessly re-run against the migrated copy.
+    const srcMarker = path.join(path.dirname(source), ".legacy-import.done");
+    const dstMarker = path.join(path.dirname(targetPath), ".legacy-import.done");
+    if (fs.existsSync(srcMarker) && !fs.existsSync(dstMarker)) {
+      try {
+        fs.copyFileSync(srcMarker, dstMarker);
+      } catch {
+        /* non-fatal */
+      }
+    }
+
+    console.log(`[db] migrated existing database → ${targetPath} (from ${source})`);
+  } catch (err) {
+    // Migration is an optimization, never a hard requirement. On any failure,
+    // remove a possibly-partial target so the next start retries (or falls back
+    // to a fresh empty DB) instead of opening a half-written, corrupt file. The
+    // source is never modified, so nothing is lost.
+    for (const suffix of ["", "-wal", "-shm"]) {
+      try {
+        fs.rmSync(targetPath + suffix, { force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+    console.warn("[db] legacy database migration skipped:", err?.message || err);
+  }
+}
+
+// Resolution order: explicit DASHBOARD_DB_PATH wins; otherwise the file lives in
+// the shared data dir — DASHBOARD_DATA_DIR if set, else the canonical user-global
+// `~/.claude/agent-dashboard/` (see getDataDir). Resolving every launch path to
+// the same file is what lets the web app and the native apps share ONE database.
+const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(getDataDir(), "dashboard.db");
 const DB_DIR = path.dirname(DB_PATH);
 
 fs.mkdirSync(DB_DIR, { recursive: true });
+
+// One-time, non-destructive migration into the shared location. Earlier builds
+// kept the database per-host: the repo-local `data/` dir for `npm start`/`dev`,
+// and the desktop app's per-user `userData/data` (handed to us via
+// DASHBOARD_LEGACY_DB_PATH). If the canonical DB doesn't exist yet, seed it from
+// the richest legacy copy found so existing users keep all their history. The
+// source files are never modified or deleted, and an existing canonical DB is
+// never overwritten — so this is safe to run on every startup.
+migrateLegacyDatabase(DB_PATH);
 
 const db = new Database(DB_PATH);
 
@@ -91,11 +172,32 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS token_usage (
     session_id TEXT NOT NULL,
     model TEXT NOT NULL DEFAULT 'unknown',
+    -- Pricing dimensions: tokens are bucketed by these because each changes the
+    -- per-token RATE (fast mode, US data residency, Batch API). Defaults match
+    -- the standard/global/standard rate so historical rows price unchanged.
+    speed TEXT NOT NULL DEFAULT 'standard',
+    inference_geo TEXT NOT NULL DEFAULT 'global',
+    service_tier TEXT NOT NULL DEFAULT 'standard',
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     cache_read_tokens INTEGER NOT NULL DEFAULT 0,
     cache_write_tokens INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, model),
+    -- Subset of cache_write_tokens stored at the 1h tier; 5m = total - 1h.
+    cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+    -- Server-tool request counts (billed separately from tokens).
+    web_search_requests INTEGER NOT NULL DEFAULT 0,
+    web_fetch_requests INTEGER NOT NULL DEFAULT 0,
+    code_execution_requests INTEGER NOT NULL DEFAULT 0,
+    -- Compaction baselines preserve pre-rewrite totals (effective = current + baseline).
+    baseline_input INTEGER NOT NULL DEFAULT 0,
+    baseline_output INTEGER NOT NULL DEFAULT 0,
+    baseline_cache_read INTEGER NOT NULL DEFAULT 0,
+    baseline_cache_write INTEGER NOT NULL DEFAULT 0,
+    baseline_cache_write_1h INTEGER NOT NULL DEFAULT 0,
+    baseline_web_search INTEGER NOT NULL DEFAULT 0,
+    baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
+    baseline_code_execution INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (session_id, model, speed, inference_geo, service_tier),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
   );
 
@@ -106,6 +208,12 @@ db.exec(`
     output_per_mtok REAL NOT NULL DEFAULT 0,
     cache_read_per_mtok REAL NOT NULL DEFAULT 0,
     cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,
+    -- Fast mode (research preview) premium input/output rates; 0 = no fast pricing.
+    -- Cache rates in fast mode are derived from fast_input via the standard
+    -- caching multipliers (see server/lib/pricing-constants.js).
+    fast_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_output_per_mtok REAL NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
@@ -160,29 +268,84 @@ db.exec(`
   );
 `);
 
+// Migrate: add the 1h-ephemeral cache-write rate column to model_pricing.
+// Older DBs predate the 5m/1h cache-write split. ADD COLUMN defaults every
+// existing row to 0, which is not a realistic rate — so immediately backfill a
+// sensible per-model value derived from each row's own rates rather than a flat
+// guess (this also covers custom user-added models, not just the defaults):
+//   • 1h write ≈ 2× base input            (Anthropic's published ratio)
+//   • fallback: 1.6× the 5m write rate     (since 5m ≈ 1.25× input ⇒ 1h ≈ 1.6× 5m)
+//   • leave 0 only when neither input nor 5m-write is known.
+// User-edited 5m/input/output/read rates are preserved untouched. The top-up
+// below only inserts missing patterns, so it can't fill a new column on rows
+// that already exist — this backfill is what keeps existing models complete.
+try {
+  db.prepare("SELECT cache_write_1h_per_mtok FROM model_pricing LIMIT 1").get();
+} catch {
+  db.prepare(
+    "ALTER TABLE model_pricing ADD COLUMN cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0"
+  ).run();
+  db.prepare(
+    `UPDATE model_pricing
+     SET cache_write_1h_per_mtok = CASE
+       WHEN input_per_mtok > 0 THEN input_per_mtok * 2
+       WHEN cache_write_per_mtok > 0 THEN cache_write_per_mtok * 1.6
+       ELSE 0
+     END
+     WHERE cache_write_1h_per_mtok = 0`
+  ).run();
+}
+
+// Migrate: add fast-mode (research preview) premium rate columns to model_pricing.
+// Default 0 (= no fast pricing), then backfill the fast-capable Opus models on
+// existing DBs with their published rates so historical configs gain fast pricing
+// without a manual "Reset Defaults" (only fills rows still at 0).
+try {
+  db.prepare("SELECT fast_input_per_mtok FROM model_pricing LIMIT 1").get();
+} catch {
+  db.prepare(
+    "ALTER TABLE model_pricing ADD COLUMN fast_input_per_mtok REAL NOT NULL DEFAULT 0"
+  ).run();
+  db.prepare(
+    "ALTER TABLE model_pricing ADD COLUMN fast_output_per_mtok REAL NOT NULL DEFAULT 0"
+  ).run();
+  const setFast = db.prepare(
+    "UPDATE model_pricing SET fast_input_per_mtok = ?, fast_output_per_mtok = ? WHERE model_pattern = ? AND fast_input_per_mtok = 0"
+  );
+  setFast.run(10, 50, "claude-opus-4-8%");
+  setFast.run(30, 150, "claude-opus-4-7%");
+  setFast.run(30, 150, "claude-opus-4-6%");
+}
+
 // Default model pricing — shared by initial seed + startup top-up + reset endpoint
-// Columns: pattern, display_name, input, output, cache_read (hits & refreshes), cache_write (5m ephemeral)
-// Each model gets its own explicit row — no catch-all grouping
+// Columns: pattern, display_name, input, output, cache_read (hits & refreshes),
+//          cache_write (5m ephemeral writes), cache_write_1h (1h ephemeral writes),
+//          fast_input, fast_output (fast-mode premium; 0 = model has no fast pricing)
+// Each model gets its own explicit row — no catch-all grouping.
+// Rate shape mirrors Anthropic's published table: 5m write = 1.25× input, 1h write = 2× input.
 const DEFAULT_PRICING = [
-  // Opus family
-  ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25],
-  ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25],
-  ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25],
-  ["claude-opus-4-5%", "Claude Opus 4.5", 5, 25, 0.5, 6.25],
-  ["claude-opus-4-1%", "Claude Opus 4.1", 15, 75, 1.5, 18.75],
-  ["claude-opus-4-2%", "Claude Opus 4", 15, 75, 1.5, 18.75],
+  // Next-gen flagship
+  ["claude-fable-5%", "Claude Fable 5", 10, 50, 1, 12.5, 20, 0, 0],
+  ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20, 0, 0],
+  // Opus family (fast mode available on 4.6 / 4.7 / 4.8)
+  ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25, 10, 10, 50],
+  ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25, 10, 30, 150],
+  ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25, 10, 30, 150],
+  ["claude-opus-4-5%", "Claude Opus 4.5", 5, 25, 0.5, 6.25, 10, 0, 0],
+  ["claude-opus-4-1%", "Claude Opus 4.1", 15, 75, 1.5, 18.75, 30, 0, 0],
+  ["claude-opus-4-2%", "Claude Opus 4", 15, 75, 1.5, 18.75, 30, 0, 0],
   // Sonnet family
-  ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75],
-  ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75],
-  ["claude-sonnet-4-2%", "Claude Sonnet 4", 3, 15, 0.3, 3.75],
-  ["claude-3-7-sonnet%", "Claude Sonnet 3.7", 3, 15, 0.3, 3.75],
-  ["claude-3-5-sonnet%", "Claude Sonnet 3.5", 3, 15, 0.3, 3.75],
+  ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6, 0, 0],
+  ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75, 6, 0, 0],
+  ["claude-sonnet-4-2%", "Claude Sonnet 4", 3, 15, 0.3, 3.75, 6, 0, 0],
+  ["claude-3-7-sonnet%", "Claude Sonnet 3.7", 3, 15, 0.3, 3.75, 6, 0, 0],
+  ["claude-3-5-sonnet%", "Claude Sonnet 3.5", 3, 15, 0.3, 3.75, 6, 0, 0],
   // Haiku family
-  ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25],
-  ["claude-3-5-haiku%", "Claude Haiku 3.5", 0.8, 4, 0.08, 1],
-  ["claude-3-haiku%", "Claude Haiku 3", 0.25, 1.25, 0.03, 0.3],
+  ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25, 2, 0, 0],
+  ["claude-3-5-haiku%", "Claude Haiku 3.5", 0.8, 4, 0.08, 1, 1.6, 0, 0],
+  ["claude-3-haiku%", "Claude Haiku 3", 0.25, 1.25, 0.03, 0.3, 0.5, 0, 0],
   // Legacy
-  ["claude-3-opus%", "Claude Opus 3", 15, 75, 1.5, 18.75],
+  ["claude-3-opus%", "Claude Opus 3", 15, 75, 1.5, 18.75, 30, 0, 0],
 ];
 
 // Top-up: insert any default pattern that isn't already present. Preserves
@@ -197,11 +360,11 @@ const DEFAULT_PRICING = [
       .map((r) => r.model_pattern)
   );
   const insert = db.prepare(
-    "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, cache_write_1h_per_mtok, fast_input_per_mtok, fast_output_per_mtok) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
   const addMissing = db.transaction((rows) => {
-    for (const [pattern, name, inp, out, cr, cw] of rows) {
-      if (!existing.has(pattern)) insert.run(pattern, name, inp, out, cr, cw);
+    for (const [pattern, name, inp, out, cr, cw, cw1h, fin, fout] of rows) {
+      if (!existing.has(pattern)) insert.run(pattern, name, inp, out, cr, cw, cw1h, fin, fout);
     }
   });
   addMissing(DEFAULT_PRICING);
@@ -388,6 +551,63 @@ try {
   ).run();
 }
 
+// Migrate: re-key token_usage by pricing dimensions (speed / inference_geo /
+// service_tier) and add the 1h cache-write split + server-tool request columns
+// (with their compaction baselines). SQLite cannot alter a PRIMARY KEY in place,
+// so recreate the table. Existing rows map to the standard / global / standard
+// bucket with zero tool requests and zero 1h-writes — so their computed cost is
+// IDENTICAL to before (all writes priced at the 5m rate). Fully backward
+// compatible with historical sessions; old transcripts lacking these usage
+// fields continue to price exactly as they did.
+try {
+  db.prepare("SELECT speed FROM token_usage LIMIT 1").get();
+} catch {
+  db.pragma("foreign_keys = OFF");
+  db.prepare("ALTER TABLE token_usage RENAME TO token_usage_pre_modifiers").run();
+  db.prepare(
+    `
+    CREATE TABLE token_usage (
+      session_id TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT 'unknown',
+      speed TEXT NOT NULL DEFAULT 'standard',
+      inference_geo TEXT NOT NULL DEFAULT 'global',
+      service_tier TEXT NOT NULL DEFAULT 'standard',
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+      web_search_requests INTEGER NOT NULL DEFAULT 0,
+      web_fetch_requests INTEGER NOT NULL DEFAULT 0,
+      code_execution_requests INTEGER NOT NULL DEFAULT 0,
+      baseline_input INTEGER NOT NULL DEFAULT 0,
+      baseline_output INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_read INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_write INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_write_1h INTEGER NOT NULL DEFAULT 0,
+      baseline_web_search INTEGER NOT NULL DEFAULT 0,
+      baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
+      baseline_code_execution INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (session_id, model, speed, inference_geo, service_tier),
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+  `
+  ).run();
+  db.prepare(
+    `
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier,
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+      baseline_input, baseline_output, baseline_cache_read, baseline_cache_write)
+    SELECT session_id, model, 'standard', 'global', 'standard',
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+      baseline_input, baseline_output, baseline_cache_read, baseline_cache_write
+    FROM token_usage_pre_modifiers
+  `
+  ).run();
+  db.prepare("DROP TABLE token_usage_pre_modifiers").run();
+  db.pragma("foreign_keys = ON");
+}
+
 // Startup cleanup: mark stale active sessions as completed.
 // Legacy sessions (created before SessionEnd hook) will never receive a SessionEnd event,
 // so they stay "active" forever. Complete any active session whose last event is older than
@@ -564,20 +784,32 @@ const stmts = {
   agentStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status"),
   sessionStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM sessions GROUP BY status"),
 
+  // Legacy additive upsert. Targets the standard/global/standard bucket; kept
+  // for backward compatibility with any caller using the original 6-arg shape.
   upsertTokenUsage: db.prepare(`
-    INSERT INTO token_usage (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(session_id, model) DO UPDATE SET
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier,
+                             input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
+    VALUES (?, ?, 'standard', 'global', 'standard', ?, ?, ?, ?)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier) DO UPDATE SET
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
       cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
       cache_write_tokens = cache_write_tokens + excluded.cache_write_tokens
   `),
+  // Replace a bucket's totals with the latest full re-parse. The baseline_*
+  // columns preserve the highest-seen value so compaction (which shrinks the
+  // transcript) never reduces effective totals. Args, in order:
+  //   session_id, model, speed, inference_geo, service_tier,
+  //   input, output, cache_read, cache_write, cache_write_1h,
+  //   web_search, web_fetch, code_execution
   replaceTokenUsage: db.prepare(`
-    INSERT INTO token_usage (session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
-                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0)
-    ON CONFLICT(session_id, model) DO UPDATE SET
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier,
+                             input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+                             web_search_requests, web_fetch_requests, code_execution_requests,
+                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
+                             baseline_web_search, baseline_web_fetch, baseline_code_execution)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier) DO UPDATE SET
       baseline_input = CASE WHEN excluded.input_tokens < input_tokens
         THEN baseline_input + input_tokens ELSE baseline_input END,
       baseline_output = CASE WHEN excluded.output_tokens < output_tokens
@@ -586,25 +818,45 @@ const stmts = {
         THEN baseline_cache_read + cache_read_tokens ELSE baseline_cache_read END,
       baseline_cache_write = CASE WHEN excluded.cache_write_tokens < cache_write_tokens
         THEN baseline_cache_write + cache_write_tokens ELSE baseline_cache_write END,
+      baseline_cache_write_1h = CASE WHEN excluded.cache_write_1h_tokens < cache_write_1h_tokens
+        THEN baseline_cache_write_1h + cache_write_1h_tokens ELSE baseline_cache_write_1h END,
+      baseline_web_search = CASE WHEN excluded.web_search_requests < web_search_requests
+        THEN baseline_web_search + web_search_requests ELSE baseline_web_search END,
+      baseline_web_fetch = CASE WHEN excluded.web_fetch_requests < web_fetch_requests
+        THEN baseline_web_fetch + web_fetch_requests ELSE baseline_web_fetch END,
+      baseline_code_execution = CASE WHEN excluded.code_execution_requests < code_execution_requests
+        THEN baseline_code_execution + code_execution_requests ELSE baseline_code_execution END,
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       cache_read_tokens = excluded.cache_read_tokens,
-      cache_write_tokens = excluded.cache_write_tokens
+      cache_write_tokens = excluded.cache_write_tokens,
+      cache_write_1h_tokens = excluded.cache_write_1h_tokens,
+      web_search_requests = excluded.web_search_requests,
+      web_fetch_requests = excluded.web_fetch_requests,
+      code_execution_requests = excluded.code_execution_requests
   `),
   getTokenTotals: db.prepare(`
     SELECT
       COALESCE(SUM(input_tokens + baseline_input), 0) as total_input,
       COALESCE(SUM(output_tokens + baseline_output), 0) as total_output,
       COALESCE(SUM(cache_read_tokens + baseline_cache_read), 0) as total_cache_read,
-      COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) as total_cache_write
+      COALESCE(SUM(cache_write_tokens + baseline_cache_write), 0) as total_cache_write,
+      COALESCE(SUM(cache_write_1h_tokens + baseline_cache_write_1h), 0) as total_cache_write_1h,
+      COALESCE(SUM(web_search_requests + baseline_web_search), 0) as total_web_search,
+      COALESCE(SUM(web_fetch_requests + baseline_web_fetch), 0) as total_web_fetch,
+      COALESCE(SUM(code_execution_requests + baseline_code_execution), 0) as total_code_execution
     FROM token_usage
   `),
   getTokensBySession: db.prepare(
-    `SELECT model,
+    `SELECT model, speed, inference_geo, service_tier,
       input_tokens + baseline_input as input_tokens,
       output_tokens + baseline_output as output_tokens,
       cache_read_tokens + baseline_cache_read as cache_read_tokens,
-      cache_write_tokens + baseline_cache_write as cache_write_tokens
+      cache_write_tokens + baseline_cache_write as cache_write_tokens,
+      cache_write_1h_tokens + baseline_cache_write_1h as cache_write_1h_tokens,
+      web_search_requests + baseline_web_search as web_search_requests,
+      web_fetch_requests + baseline_web_fetch as web_fetch_requests,
+      code_execution_requests + baseline_code_execution as code_execution_requests
     FROM token_usage WHERE session_id = ?`
   ),
 
@@ -612,14 +864,17 @@ const stmts = {
   listPricing: db.prepare("SELECT * FROM model_pricing ORDER BY display_name ASC"),
   getPricing: db.prepare("SELECT * FROM model_pricing WHERE model_pattern = ?"),
   upsertPricing: db.prepare(`
-    INSERT INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    INSERT INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, cache_write_1h_per_mtok, fast_input_per_mtok, fast_output_per_mtok, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     ON CONFLICT(model_pattern) DO UPDATE SET
       display_name = excluded.display_name,
       input_per_mtok = excluded.input_per_mtok,
       output_per_mtok = excluded.output_per_mtok,
       cache_read_per_mtok = excluded.cache_read_per_mtok,
       cache_write_per_mtok = excluded.cache_write_per_mtok,
+      cache_write_1h_per_mtok = excluded.cache_write_1h_per_mtok,
+      fast_input_per_mtok = excluded.fast_input_per_mtok,
+      fast_output_per_mtok = excluded.fast_output_per_mtok,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
   `),
   deletePricing: db.prepare("DELETE FROM model_pricing WHERE model_pattern = ?"),

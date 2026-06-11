@@ -3,7 +3,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const CACHE_NAME = "wiki-v2";
+const CACHE_NAME = "wiki-v7";
 const PRECACHE = [
   "./",
   "./index.html",

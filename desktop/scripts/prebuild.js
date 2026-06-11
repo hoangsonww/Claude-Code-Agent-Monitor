@@ -20,6 +20,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { hasBetterSqliteBinary, printNativeDepHelp } = require("./preflight");
 
 const desktopRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(__dirname, "..", "..");
@@ -28,7 +29,13 @@ const rootNodeModules = path.join(repoRoot, "node_modules");
 const assets = path.join(desktopRoot, "assets");
 
 function run(cmd, args, opts = {}) {
-  const result = spawnSync(cmd, args, { stdio: "inherit", ...opts });
+  // On Windows `npm`/`npx` are `.cmd` shims that `spawnSync` can only launch
+  // through a shell; without this it fails with ENOENT. POSIX is unaffected.
+  const result = spawnSync(cmd, args, {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+    ...opts,
+  });
   if (result.status !== 0) {
     throw new Error(`${cmd} ${args.join(" ")} failed with exit ${result.status}`);
   }
@@ -80,6 +87,14 @@ if (process.platform === "darwin") {
       run("npx", ["electron-builder", "install-app-deps"], { cwd: desktopRoot });
     }
   }
+}
+
+// The embedded server `require`s better-sqlite3 at boot; without its native
+// binary the desktop app dies with a fatal dialog after compiling cleanly.
+// Catch it here (a build-time, copy-pasteable failure) rather than at runtime.
+if (!hasBetterSqliteBinary()) {
+  printNativeDepHelp("The desktop-local better-sqlite3 native binary is missing.");
+  process.exit(1);
 }
 
 console.log("[prebuild] ok");

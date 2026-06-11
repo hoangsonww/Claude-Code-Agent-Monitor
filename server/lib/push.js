@@ -6,13 +6,11 @@
 const webpush = require("web-push");
 const path = require("path");
 const fs = require("fs");
+const { getDataDir } = require("./claude-home");
 
-// Honors DASHBOARD_DATA_DIR so hosts like the desktop app can keep writable
-// state out of a read-only application bundle; defaults to the repo `data/`.
-const KEYS_PATH = path.join(
-  process.env.DASHBOARD_DATA_DIR || path.join(__dirname, "..", "..", "data"),
-  "vapid-keys.json"
-);
+// Lives in the shared data dir alongside the SQLite DB (see getDataDir), so the
+// web app and the native apps reuse one set of VAPID keys.
+const KEYS_PATH = path.join(getDataDir(), "vapid-keys.json");
 
 function loadOrCreateVapidKeys() {
   if (fs.existsSync(KEYS_PATH)) {

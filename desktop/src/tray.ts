@@ -1,10 +1,14 @@
 /**
- * @file Menu-bar (system tray) icon and its context menu.
+ * @file Menu-bar / notification-area (system tray) icon and its context menu.
  *
  * The tray is the "always-on" surface of the app. A single click opens the
  * menu showing live status snapshots from the embedded server plus an Open
- * Dashboard action. The image is a macOS "template" PNG so the OS tints it
- * correctly in both light and dark menu bars.
+ * Dashboard action.
+ *
+ * The image is platform-specific: macOS uses a black "template" PNG so the OS
+ * tints it for light/dark menu bars; Windows uses the colored `icon.ico`,
+ * because a black template glyph would be invisible on the (usually dark)
+ * Windows taskbar notification area.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -37,18 +41,26 @@ export interface ServerSnapshot {
 }
 
 /**
- * Tray icon PNG location. In dev `__dirname` is `desktop/out/`, so `../assets`
- * resolves to `desktop/assets/`. In the packaged app the PNG ships outside
+ * Tray icon image location. In dev `__dirname` is `desktop/out/`, so `../assets`
+ * resolves to `desktop/assets/`. In the packaged app the images ship outside
  * the asar archive via `extraResources` (see electron-builder.yml), so we
- * read it from `process.resourcesPath/assets/`. Loading template PNGs from
- * inside asar can yield empty `nativeImage` results, which is why we keep
- * them unpacked.
+ * read them from `process.resourcesPath/assets/`. Loading these from inside
+ * asar can yield empty `nativeImage` results, which is why we keep them
+ * unpacked.
+ *
+ * Windows gets the colored `icon.ico`; macOS gets the black template PNG that
+ * the menu bar tints automatically.
  */
+function trayImageFile(): string {
+  return process.platform === "win32" ? "icon.ico" : "tray-icon-Template.png";
+}
+
 function trayImagePath(): string {
+  const file = trayImageFile();
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, "assets", "tray-icon-Template.png");
+    return path.join(process.resourcesPath, "assets", file);
   }
-  return path.join(__dirname, "..", "assets", "tray-icon-Template.png");
+  return path.join(__dirname, "..", "assets", file);
 }
 
 export function createTray(actions: TrayActions): Tray {
@@ -56,7 +68,9 @@ export function createTray(actions: TrayActions): Tray {
   const image = nativeImage.createFromPath(imagePath);
   if (image.isEmpty()) {
     log.warn("tray image is empty; falling back to in-memory placeholder", imagePath);
-  } else {
+  } else if (process.platform === "darwin") {
+    // Template tinting is a macOS concept; on Windows the icon is colored and
+    // must be shown as-is.
     image.setTemplateImage(true);
   }
 

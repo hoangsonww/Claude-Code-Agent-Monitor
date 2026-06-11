@@ -24,6 +24,28 @@ function statePath(): string {
   return path.join(app.getPath("userData"), "window-state.json");
 }
 
+/**
+ * Absolute path to the colored application icon used for the window title bar
+ * and the Windows taskbar / Linux launcher — the same logo the macOS app shows
+ * in its Dock (rendered from `assets/icon.svg`). Without this, an unpackaged
+ * `electron out/main.js` run falls back to the generic Electron icon.
+ *
+ * Windows wants the multi-size `.ico` (crisp at every taskbar scale); other
+ * platforms take the `.png`. macOS ignores `BrowserWindow#icon` entirely (its
+ * window has no icon and the Dock uses the bundle's `.icns`), so the value is
+ * harmless there. Resolves dev (`desktop/assets`) vs packaged
+ * (`Resources/assets`, shipped via `extraResources`); returns `undefined` if
+ * the file is absent so we cleanly fall back instead of throwing.
+ */
+export function appIconPath(): string | undefined {
+  const file = process.platform === "win32" ? "icon.ico" : "icon.png";
+  const base = app.isPackaged
+    ? path.join(process.resourcesPath, "assets")
+    : path.join(__dirname, "..", "assets");
+  const p = path.join(base, file);
+  return fs.existsSync(p) ? p : undefined;
+}
+
 function loadState(): WindowState {
   try {
     const raw = fs.readFileSync(statePath(), "utf8");
@@ -61,6 +83,9 @@ export function createDashboardWindow(targetUrl: string): BrowserWindow {
     minHeight: 480,
     show: false,
     title: APP_NAME,
+    // Colored app logo for the title bar + taskbar (matches the macOS Dock
+    // icon). No-op on macOS; falls through to the Electron default if missing.
+    icon: appIconPath(),
     // Use the standard macOS title bar rather than `hiddenInset`. With a hidden
     // title bar the traffic-light buttons float directly over the React app's
     // top edge and visually blend into the dashboard chrome; a native title bar

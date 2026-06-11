@@ -168,10 +168,10 @@ router.post("/reset-pricing", (_req, res) => {
   db.prepare("DELETE FROM model_pricing").run();
 
   const seedPricing = db.prepare(
-    "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, cache_write_1h_per_mtok, fast_input_per_mtok, fast_output_per_mtok) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   );
-  for (const [pattern, name, inp, out, cr, cw] of DEFAULT_PRICING) {
-    seedPricing.run(pattern, name, inp, out, cr, cw);
+  for (const [pattern, name, inp, out, cr, cw, cw1h, fin, fout] of DEFAULT_PRICING) {
+    seedPricing.run(pattern, name, inp, out, cr, cw, cw1h, fin, fout);
   }
 
   const pricing = stmts.listPricing.all();

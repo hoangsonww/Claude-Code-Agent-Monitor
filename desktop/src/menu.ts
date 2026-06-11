@@ -48,11 +48,22 @@ export function installApplicationMenu(actions: MenuActions): Menu {
     {
       label: "File",
       submenu: [
-        {
-          label: "Open Dashboard",
-          accelerator: "CmdOrCtrl+1",
-          click: () => actions.showDashboard(),
-        },
+        // "Open Dashboard" is macOS-only. On macOS the menu bar is global and
+        // persists after the window is closed/hidden, so this item (and Cmd+1)
+        // genuinely reopens it. On Windows/Linux the menu is attached to the
+        // window itself and a menu accelerator only fires while that window is
+        // already focused/foreground — so the item could only ever run when the
+        // window is already up, making it a confusing no-op. Reopening from a
+        // hidden/tray state is handled by the tray's own "Open Dashboard" there.
+        ...(isMac
+          ? ([
+              {
+                label: "Open Dashboard",
+                accelerator: "CmdOrCtrl+1",
+                click: () => actions.showDashboard(),
+              },
+            ] satisfies MenuItemConstructorOptions[])
+          : []),
         {
           // No accelerator here: the View menu's `reload` role already owns
           // CmdOrCtrl+R. Two menu items sharing one accelerator triggers an
@@ -149,7 +160,11 @@ export function focusOrCreateWindow(
 ): BrowserWindow {
   if (existing && !existing.isDestroyed()) {
     if (existing.isMinimized()) existing.restore();
-    if (!existing.isVisible()) existing.show();
+    // Call show() unconditionally (not just when hidden): on Windows a bare
+    // focus() on a visible-but-background window often only flashes the taskbar
+    // button instead of raising it, whereas show() reliably activates and
+    // brings it to the foreground. Harmless when the window is already frontmost.
+    existing.show();
     existing.focus();
     return existing;
   }

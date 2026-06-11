@@ -8,14 +8,15 @@
  *   4. On `window-all-closed`: keep the app running (tray-only mode).
  *   5. On `before-quit`: gracefully stop the server if we own it.
  *
- * The macOS single-instance guarantee is enforced via `requestSingleInstanceLock`
- * so double-launching just focuses the existing window.
+ * Single-instance is enforced on every platform via `requestSingleInstanceLock`
+ * so double-launching (a second Dock click, or the Windows Start-Menu shortcut)
+ * just focuses the existing window instead of spawning a second tray + server.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { BrowserWindow, Notification, app, dialog, shell } from "electron";
 
-import { APP_NAME } from "./constants";
+import { APP_ID, APP_NAME } from "./constants";
 import { isOpenAtLogin, launchedAtLogin, toggleOpenAtLogin } from "./login-item";
 import { log } from "./logger";
 import { focusOrCreateWindow, installApplicationMenu } from "./menu";
@@ -29,7 +30,7 @@ import {
 } from "./server-host";
 import { ensureUserPath } from "./shell-path";
 import { createTray } from "./tray";
-import { createDashboardWindow } from "./window";
+import { appIconPath, createDashboardWindow } from "./window";
 
 interface AppState {
   serverHandle: ServerHandle | null;
@@ -58,6 +59,9 @@ const state: AppState = {
 function requestQuit(): void {
   if (state.quitting || state.confirmingQuit) return;
   state.confirmingQuit = true;
+  // On macOS a second ⌘Q while this dialog is open bypasses it (handled in
+  // `before-quit`); mention that shortcut only where it applies.
+  const quitAccel = process.platform === "darwin" ? "⌘Q" : "Ctrl+Q";
   const opts: Electron.MessageBoxOptions = {
     type: "question",
     buttons: ["Quit", "Cancel"],
@@ -67,7 +71,7 @@ function requestQuit(): void {
     message: "Quit Claude Code Monitor?",
     detail:
       "The embedded server will stop and your dashboard window will close. " +
-      "Press ⌘Q again to skip this prompt and quit immediately.",
+      `Press ${quitAccel} again to skip this prompt and quit immediately.`,
     noLink: true,
   };
   const parent = state.win && !state.win.isDestroyed() ? state.win : undefined;
@@ -142,6 +146,21 @@ function showFatalDialog(message: string, detail?: string): void {
 }
 
 async function boot(): Promise<void> {
+  // macOS only shows the bundle's .icns in the Dock; an unpackaged `desktop:dev`
+  // run otherwise displays the generic Electron icon. Set it explicitly so the
+  // dev Dock matches the packaged app (Windows/Linux get theirs via the
+  // BrowserWindow `icon`). Wrapped in try/catch — purely cosmetic.
+  if (process.platform === "darwin" && !app.isPackaged) {
+    const icon = appIconPath();
+    if (icon) {
+      try {
+        app.dock?.setIcon(icon);
+      } catch (err) {
+        log.warn("could not set dev dock icon", err);
+      }
+    }
+  }
+
   // Recover the user's shell PATH before the server boots — a Finder/Dock or
   // login-launched app only inherits launchd's minimal PATH, which makes the
   // "Run Claude" feature unable to find the `claude` CLI.
@@ -243,6 +262,11 @@ function wireLifecycle(): void {
 }
 
 app.setName(APP_NAME);
+// Windows: associate this process with the installed app's AppUserModelID so
+// `new Notification()` toasts (e.g. "Server restarted") render under the app's
+// name/icon and taskbar windows group correctly. Must be set before any window
+// or notification is created. No-op on macOS/Linux.
+if (process.platform === "win32") app.setAppUserModelId(APP_ID);
 wireLifecycle();
 app
   .whenReady()

@@ -370,19 +370,22 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
   process.env.NODE_ENV = "production";
   process.env.DASHBOARD_PORT = String(port);
 
-  // Keep all writable server state OUT of the .app bundle. When the app is
-  // installed under /Applications, code-signed, or run via macOS app
-  // translocation, `Resources/app/` is read-only — a SQLite database (or VAPID
-  // keys) written there fails, which breaks History Import and event
-  // persistence. Point the server's data directory at the per-user location.
-  if (!process.env.DASHBOARD_DATA_DIR) {
-    const dataDir = path.join(app.getPath("userData"), "data");
-    try {
-      fs.mkdirSync(dataDir, { recursive: true });
-      process.env.DASHBOARD_DATA_DIR = dataDir;
-      log.info("server data directory", { dataDir });
-    } catch (err) {
-      log.warn("could not create per-user data dir; server will use its default", err);
+  // The server now defaults its writable state (SQLite DB, VAPID keys,
+  // transcript snapshots) to the shared user-global `~/.claude/agent-dashboard/`
+  // — outside the read-only `.app`/installed bundle AND identical to what
+  // `npm start`/`npm run dev` use, so the desktop app and the web app share ONE
+  // database. We therefore no longer override DASHBOARD_DATA_DIR to this app's
+  // private `userData/data`.
+  //
+  // Earlier desktop builds DID write there, so point the server's one-time
+  // migration at that old per-user DB: on first launch with no shared DB yet,
+  // it copies this app's accumulated history into the canonical location
+  // (non-destructively — the old file is left untouched as a backup).
+  if (!process.env.DASHBOARD_DATA_DIR && !process.env.DASHBOARD_LEGACY_DB_PATH) {
+    const legacyDbPath = path.join(app.getPath("userData"), "data", "dashboard.db");
+    if (fs.existsSync(legacyDbPath)) {
+      process.env.DASHBOARD_LEGACY_DB_PATH = legacyDbPath;
+      log.info("legacy desktop database available for migration", { legacyDbPath });
     }
   }
 

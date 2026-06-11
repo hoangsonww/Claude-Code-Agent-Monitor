@@ -90,7 +90,16 @@ describe("/api/run", () => {
 
   after(async () => {
     await new Promise((r) => server.close(r));
-    fs.rmSync(TMP, { recursive: true, force: true });
+    // The SQLite DB lives under TMP and better-sqlite3 holds it open, so on
+    // Windows rmSync hits EPERM (can't remove a dir with an open handle).
+    // maxRetries covers transient locks; the try/catch makes the rest
+    // best-effort — a leftover temp dir must not fail the suite (the OS
+    // reclaims os.tmpdir()).
+    try {
+      fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* best-effort temp cleanup */
+    }
   });
 
   beforeEach(() => {
@@ -173,7 +182,8 @@ describe("/api/run", () => {
     assert.ok(kinds.includes("home"), "home present");
     for (const it of body.items) {
       assert.equal(typeof it.path, "string");
-      assert.ok(it.path.startsWith("/"), "absolute path");
+      // path.isAbsolute is platform-aware: "/x" on POSIX, "C:\\x" on Windows.
+      assert.ok(path.isAbsolute(it.path), "absolute path");
       assert.equal(typeof it.label, "string");
     }
   });
@@ -253,7 +263,11 @@ describe("/api/run", () => {
       assert.ok(all.body.items.includes("README.md"));
       assert.ok(!all.body.items.some((p) => p.startsWith("node_modules")));
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      try {
+        fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch {
+        /* best-effort temp cleanup (Windows may hold a handle) */
+      }
     }
   });
 

@@ -564,23 +564,35 @@ mermaid.initialize({
 /* ─── Copy-code buttons ──────────────────────────────────────────────────── */
 document.querySelectorAll("pre").forEach((pre) => {
   const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "code-copy-btn";
   btn.textContent = "Copy";
-  btn.style.cssText = `
-    position: absolute; top: 10px; right: 10px;
-    background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
-    color: #a5b4fc; font-size: 11px; font-weight: 600; font-family: inherit;
-    padding: 3px 10px; border-radius: 5px; cursor: pointer; opacity: 0;
-    transition: opacity 0.2s;
-  `;
-  pre.style.position = "relative";
-  pre.appendChild(btn);
 
-  pre.addEventListener("mouseenter", () => {
-    btn.style.opacity = "1";
-  });
-  pre.addEventListener("mouseleave", () => {
-    btn.style.opacity = "0";
-  });
+  // Prefer mounting the button in the window's title bar / header (the macOS
+  // chrome with the traffic-light dots) instead of floating inside the code
+  // body. Fall back to a floating, reveal-on-hover button for headerless
+  // standalone <pre> blocks that get their own window chrome.
+  const prev = pre.previousElementSibling;
+  const header =
+    prev && (prev.classList.contains("code-header") || prev.classList.contains("code-titlebar"))
+      ? prev
+      : null;
+
+  if (header) {
+    header.classList.add("has-copy");
+    header.appendChild(btn);
+  } else {
+    btn.classList.add("code-copy-btn--floating");
+    pre.style.position = "relative";
+    pre.appendChild(btn);
+
+    pre.addEventListener("mouseenter", () => {
+      btn.style.opacity = "1";
+    });
+    pre.addEventListener("mouseleave", () => {
+      btn.style.opacity = "0";
+    });
+  }
 
   btn.addEventListener("click", () => {
     const code = pre.querySelector("code");

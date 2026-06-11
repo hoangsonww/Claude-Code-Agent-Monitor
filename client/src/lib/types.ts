@@ -129,23 +129,51 @@ export interface ModelPricing {
   output_per_mtok: number;
   cache_read_per_mtok: number;
   cache_write_per_mtok: number;
+  cache_write_1h_per_mtok: number;
+  fast_input_per_mtok: number;
+  fast_output_per_mtok: number;
   updated_at: string;
 }
 
 export interface CostBreakdown {
   model: string;
+  speed?: string;
+  inference_geo?: string;
+  service_tier?: string;
   input_tokens: number;
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  cache_write_1h_tokens?: number;
+  web_search_requests?: number;
+  web_fetch_requests?: number;
+  code_execution_requests?: number;
   cost: number;
   matched_rule: string | null;
+}
+
+export interface CostFeatureCosts {
+  web_search_cost: number;
+  web_fetch_cost: number;
+  code_execution_cost: number;
+  code_execution_hours_estimated: number;
+  code_execution_free_hours: number;
+}
+
+export interface UnpricedModel {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
 }
 
 export interface CostResult {
   total_cost: number;
   breakdown: CostBreakdown[];
   daily_costs: Array<{ date: string; cost: number }>;
+  feature_costs?: CostFeatureCosts;
+  unpriced_models?: UnpricedModel[];
 }
 
 export interface ImportProgressMessage {

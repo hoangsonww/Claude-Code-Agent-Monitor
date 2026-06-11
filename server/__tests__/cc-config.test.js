@@ -219,7 +219,15 @@ describe("/api/cc-config", () => {
 
   after(async () => {
     await new Promise((r) => server.close(r));
-    fs.rmSync(TMP, { recursive: true, force: true });
+    // On Windows rmSync can hit EPERM when a handle under TMP (fixture files /
+    // the OS releasing directory handles) is still held. maxRetries covers
+    // transient locks; the try/catch makes the rest best-effort — a leftover
+    // temp dir must not fail the suite (the OS reclaims os.tmpdir()).
+    try {
+      fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* best-effort temp cleanup */
+    }
   });
 
   it("overview reports counts and roots", async () => {

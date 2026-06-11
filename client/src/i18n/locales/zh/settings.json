@@ -32,7 +32,11 @@
       "manualUpdatesBody": "Anthropic 在其官网公布价格变动——并没有实时数据源。当新模型发布或费率调整时，请编辑对应的规则（或在通用规则之上添加新规则），以便后续记录的会话能正确计费。已经存储的会话仍保留入库时使用的价格。",
       "apiPricing": "仅供参考 — API 价格",
       "apiPricingBody": "这些是按量付费的 API 价格。如果你通过订阅套餐（Pro、Max、Team 或 Enterprise）使用 Claude Code，你的实际花费是固定的月费，而非按 Token 计费——因此这里的数字通常会高于你实际支付的金额。请将此处的费用视为用量估算，仅供参考，并非账单。"
-    }
+    },
+    "cacheWrite5m": "缓存写入 (5m)",
+    "cacheWrite1h": "缓存写入 (1h)",
+    "fastInput": "快速输入",
+    "fastOutput": "快速输出"
   },
   "claudeHome": {
     "title": "CLAUDE_HOME",
