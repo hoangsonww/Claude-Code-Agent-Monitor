@@ -14,6 +14,15 @@
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
+const {
+  bucketKey,
+  emptyBucket,
+  extractUsageFields,
+  normalizeSpeed,
+  normalizeGeo,
+  normalizeTier,
+  accumulateBucket,
+} = require("../server/lib/token-usage");
 
 const {
   getClaudeHome,
@@ -210,13 +219,21 @@ async function parseSessionFile(filePath) {
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
       if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
         const usage = msg.usage;
-        if (tokensByModel[msgModel] === undefined) {
-          tokensByModel[msgModel] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        const key = bucketKey(
+          msgModel,
+          normalizeSpeed(usage),
+          normalizeGeo(usage),
+          normalizeTier(usage)
+        );
+        if (tokensByModel[key] === undefined) {
+          tokensByModel[key] = emptyBucket(
+            msgModel,
+            normalizeSpeed(usage),
+            normalizeGeo(usage),
+            normalizeTier(usage)
+          );
         }
-        tokensByModel[msgModel].input += usage.input_tokens || 0;
-        tokensByModel[msgModel].output += usage.output_tokens || 0;
-        tokensByModel[msgModel].cacheRead += usage.cache_read_input_tokens || 0;
-        tokensByModel[msgModel].cacheWrite += usage.cache_creation_input_tokens || 0;
+        accumulateBucket(tokensByModel[key], extractUsageFields(usage));
       }
       if (msg.usage) {
         if (msg.usage.service_tier) usageExtras.service_tiers.add(msg.usage.service_tier);
@@ -363,13 +380,22 @@ async function parseSubagentFile(filePath) {
       const msgModel = msg.model || null;
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
       if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
-        if (!tokensByModel[msgModel]) {
-          tokensByModel[msgModel] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+        const usage = msg.usage;
+        const key = bucketKey(
+          msgModel,
+          normalizeSpeed(usage),
+          normalizeGeo(usage),
+          normalizeTier(usage)
+        );
+        if (!tokensByModel[key]) {
+          tokensByModel[key] = emptyBucket(
+            msgModel,
+            normalizeSpeed(usage),
+            normalizeGeo(usage),
+            normalizeTier(usage)
+          );
         }
-        tokensByModel[msgModel].input += msg.usage.input_tokens || 0;
-        tokensByModel[msgModel].output += msg.usage.output_tokens || 0;
-        tokensByModel[msgModel].cacheRead += msg.usage.cache_read_input_tokens || 0;
-        tokensByModel[msgModel].cacheWrite += msg.usage.cache_creation_input_tokens || 0;
+        accumulateBucket(tokensByModel[key], extractUsageFields(usage));
       }
       const content = msg.content || [];
       if (Array.isArray(content)) {
@@ -656,14 +682,11 @@ function combineSessionTokens(session) {
   const combined = {};
   const merge = (src) => {
     if (!src) return;
-    for (const [model, tok] of Object.entries(src)) {
-      if (!combined[model]) {
-        combined[model] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    for (const [key, tok] of Object.entries(src)) {
+      if (!combined[key]) {
+        combined[key] = emptyBucket(tok.model, tok.speed, tok.geo, tok.tier);
       }
-      combined[model].input += tok.input || 0;
-      combined[model].output += tok.output || 0;
-      combined[model].cacheRead += tok.cacheRead || 0;
-      combined[model].cacheWrite += tok.cacheWrite || 0;
+      accumulateBucket(combined[key], tok);
     }
   };
   merge(session.tokensByModel);
@@ -681,20 +704,30 @@ function combineSessionTokens(session) {
 function writeSessionTokens(dbModule, sessionId, tokensByModel) {
   const { stmts } = dbModule;
   let written = 0;
-  for (const [tokenModel, tokens] of Object.entries(tokensByModel || {})) {
+  for (const tokens of Object.values(tokensByModel || {})) {
     if (
       (tokens.input || 0) > 0 ||
       (tokens.output || 0) > 0 ||
       (tokens.cacheRead || 0) > 0 ||
-      (tokens.cacheWrite || 0) > 0
+      (tokens.cacheWrite || 0) > 0 ||
+      (tokens.webSearch || 0) > 0 ||
+      (tokens.webFetch || 0) > 0 ||
+      (tokens.codeExec || 0) > 0
     ) {
       stmts.replaceTokenUsage.run(
         sessionId,
-        tokenModel,
+        tokens.model,
+        tokens.speed,
+        tokens.geo,
+        tokens.tier,
         tokens.input || 0,
         tokens.output || 0,
         tokens.cacheRead || 0,
-        tokens.cacheWrite || 0
+        tokens.cacheWrite || 0,
+        tokens.cacheWrite1h || 0,
+        tokens.webSearch || 0,
+        tokens.webFetch || 0,
+        tokens.codeExec || 0
       );
       written++;
     }
@@ -1602,7 +1635,7 @@ if (require.main === module) {
               0
             );
             console.log(
-              `  ${session.sessionId.slice(0, 12)}... | ${session.name.slice(0, 40).padEnd(40)} | msgs: ${session.userMessages}/${session.assistantMessages} | teams: ${session.teams.length} | models: ${Object.keys(session.tokensByModel).join(",")} | tokens: ${totalTok}`
+              `  ${session.sessionId.slice(0, 12)}... | ${session.name.slice(0, 40).padEnd(40)} | msgs: ${session.userMessages}/${session.assistantMessages} | teams: ${session.teams.length} | models: ${[...new Set(Object.values(session.tokensByModel).map((t) => t.model))].join(",")} | tokens: ${totalTok}`
             );
           } catch (err) {
             console.error(`  ERROR ${file}: ${err.message}`);

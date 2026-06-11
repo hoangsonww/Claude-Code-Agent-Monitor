@@ -32,7 +32,11 @@
       "manualUpdatesBody": "Anthropic công bố thay đổi giá trên website của họ — không có nguồn dữ liệu trực tiếp. Khi có model mới ra mắt hoặc đơn giá thay đổi, hãy chỉnh sửa quy tắc tương ứng (hoặc thêm quy tắc mới ở phía trên quy tắc bao quát) để những phiên ghi nhận sau này được tính phí chính xác. Phiên đã lưu vẫn giữ nguyên giá đã áp dụng tại thời điểm nạp.",
       "apiPricing": "Chỉ để tham khảo — đơn giá API",
       "apiPricingBody": "Đây là đơn giá API trả theo lượng dùng. Nếu bạn dùng Claude Code theo gói thuê bao (Pro, Max, Team hoặc Enterprise), chi phí thực tế là phí cố định hàng tháng chứ không tính theo token — nên những con số ở đây thường cao hơn số tiền bạn thực trả. Hãy xem chi phí ở đây là ước tính mức dùng để tham khảo, không phải hóa đơn."
-    }
+    },
+    "cacheWrite5m": "Ghi bộ nhớ đệm (5m)",
+    "cacheWrite1h": "Ghi bộ nhớ đệm (1h)",
+    "fastInput": "Fast Input",
+    "fastOutput": "Fast Output"
   },
   "claudeHome": {
     "title": "CLAUDE_HOME",

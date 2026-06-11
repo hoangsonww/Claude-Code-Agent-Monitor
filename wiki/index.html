@@ -82,7 +82,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
     />
-    <link rel="stylesheet" href="style.css?v=7" />
+    <link rel="stylesheet" href="style.css?v=9" />
 
     <!-- Global page styles -->
     <style>
@@ -581,7 +581,7 @@
             ><span class="nav-icon">◈</span>Statusline Utility</a
           >
           <a href="#vscode-ext" class="nav-link"><span class="nav-icon">◈</span>VS Code Extension</a>
-          <a href="#desktop-app" class="nav-link"><span class="nav-icon">◈</span>macOS Desktop App</a>
+          <a href="#desktop-app" class="nav-link"><span class="nav-icon">◈</span>Desktop App (macOS &amp; Windows)</a>
           <a href="#settings-page" class="nav-link"><span class="nav-icon">◈</span>Settings Page</a>
           <a href="#update-notifier" class="nav-link"><span class="nav-icon">◈</span>Update Notifier</a>
           <a href="#connection-status" class="nav-link"><span class="nav-icon">◈</span>Connection Status</a>
@@ -727,6 +727,8 @@
                 <span class="tech-badge badge-node">concurrently</span>
                 <span class="tech-badge badge-node">SMAppService</span>
                 <span class="tech-badge badge-node">macOS native APIs</span>
+                <span class="tech-badge badge-node">Windows native APIs</span>
+                <span class="tech-badge badge-node">NSIS installer</span>
                 <span class="tech-badge badge-node">Chromium (Electron)</span>
                 <span class="tech-badge badge-mit">MIT License</span>
               </div>
@@ -791,6 +793,8 @@
                 <span class="tech-badge badge-node">concurrently</span>
                 <span class="tech-badge badge-node">SMAppService</span>
                 <span class="tech-badge badge-node">macOS native APIs</span>
+                <span class="tech-badge badge-node">Windows native APIs</span>
+                <span class="tech-badge badge-node">NSIS installer</span>
                 <span class="tech-badge badge-node">Chromium (Electron)</span>
                 <span class="tech-badge badge-mit">MIT License</span>
               </div>
@@ -931,18 +935,21 @@
                   </p>
                 </div>
                 <div class="feature-card">
-                  <div class="feature-icon ic-cyan">🍎</div>
-                  <h3 id="feat-desktop-app">macOS Desktop App</h3>
+                  <div class="feature-icon ic-cyan">🍎🪟</div>
+                  <h3 id="feat-desktop-app">Desktop App (macOS &amp; Windows)</h3>
                   <p>
-                    A native macOS <code>.app</code> (shipped as a <code>.dmg</code>) built with
-                    Electron 35. It <strong>embeds the Express server in-process</strong> —
+                    A native desktop app — a macOS <code>.app</code> (shipped as a
+                    <code>.dmg</code>) and a Windows <code>.exe</code> (NSIS installer plus a
+                    no-install portable build) — built with Electron 35. It
+                    <strong>embeds the Express server in-process</strong> —
                     <code>require()</code>-ing <code>server/index.js</code> directly, with no
                     child process and no IPC — and renders the built React client in a
-                    <code>BrowserWindow</code>. Adds a menu-bar (tray) icon, a native macOS app
-                    menu, auto-start at login via macOS Login Items, and single-instance lock.
-                    Closing the window hides it while the server keeps running, and the app
-                    auto-installs Claude Code hooks on first boot so a DMG-only user gets events
-                    flowing without a checkout.
+                    <code>BrowserWindow</code>. Adds a menu-bar / notification-area (tray) icon, a
+                    native application menu, auto-start at login (macOS Login Items via
+                    <code>SMAppService</code>; Windows per-user <code>HKCU\…\Run</code>), and a
+                    single-instance lock. Closing the window hides it while the server keeps
+                    running, and the app auto-installs Claude Code hooks on first boot so an
+                    install-only user gets events flowing without a checkout.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1945,7 +1952,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>desktop:install</code></td>
                   <td><code>npm run desktop:install</code></td>
-                  <td>Install Electron + electron-builder under <code>desktop/</code>; rebuilds <code>better-sqlite3</code> for Electron's ABI</td>
+                  <td>Install Electron + electron-builder under <code>desktop/</code>; rebuilds <code>better-sqlite3</code> for Electron's ABI. Preflights the native <code>better-sqlite3</code> build; prints actionable setup help (incl. a no-toolchain alternative) on failure</td>
                 </tr>
                 <tr>
                   <td><code>desktop:build</code></td>
@@ -1975,7 +1982,22 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>desktop:dmg:x64</code></td>
                   <td><code>npm run desktop:dmg:x64</code></td>
-                  <td>Build an Intel-only DMG — fast</td>
+                  <td>Build an Intel-only DMG — fast (macOS host)</td>
+                </tr>
+                <tr>
+                  <td><code>desktop:win</code></td>
+                  <td><code>npm run desktop:win</code></td>
+                  <td>Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)</td>
+                </tr>
+                <tr>
+                  <td><code>desktop:win:portable</code></td>
+                  <td><code>npm run desktop:win:portable</code></td>
+                  <td>Build the no-install portable <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code> (Windows host)</td>
+                </tr>
+                <tr>
+                  <td><code>build:win-icon</code></td>
+                  <td><code>npm run build:win-icon</code></td>
+                  <td>Regenerate <code>desktop/assets/icon.ico</code> from <code>icon.png</code> (PowerShell + .NET; Windows host)</td>
                 </tr>
                 <tr>
                   <td><code>format</code></td>
@@ -2143,28 +2165,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <div class="diagram-wrap">
             <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram
-                participant CC as Claude Code
-                participant HH as hook-handler.js
-                participant API as POST /api/hooks/event
-                participant TX as SQLite Transaction
-                participant WS as WebSocket.broadcast()
-                participant UI as React Client
-
-                CC->>HH: stdin JSON payload
-                Note over HH: Reads stdin to EOF<br/>Parses JSON and adds hook_type
-                HH->>API: POST {"hook_type":"PreToolUse","data":{...}}
-                API->>TX: BEGIN TRANSACTION
-                TX->>TX: ensureSession(session_id)
-                Note over TX: Creates session + main agent<br/>on first contact
-                TX->>TX: process by hook_type
-                Note over TX: SessionStart &rarr; stamp awaiting flag (Waiting)<br/>UserPromptSubmit &rarr; clear flag, agent working<br/>PreToolUse &rarr; clear flag, agent working<br/>PostToolUse &rarr; clear flag, clear current_tool<br/>Stop non-error &rarr; agent waiting<br/>Stop error &rarr; agent error, session error<br/>SubagentStop &rarr; complete matched subagent<br/>(does NOT touch flag) &mdash; fire-and-forget<br/>scanAndImportSubagents emits per-tool<br/>Pre/PostToolUse events under each<br/>subagent's own agent_id<br/>Notification permission &rarr; stamp flag<br/>SessionEnd &rarr; drop flag, mark all completed
-                TX->>TX: insertEvent(...)
-                TX->>TX: COMMIT
-                API->>WS: broadcast("agent_updated", agent)
-                API->>WS: broadcast("new_event", event)
-                WS->>UI: {"type":"agent_updated","data":{...}}
-                UI->>UI: eventBus.publish -> page re-renders
+              flowchart TD
+                CC["Claude Code"] -->|stdin JSON| HH["hook-handler.js<br/>parse JSON,<br/>add hook_type"]
+                HH -->|POST| API["Express<br/>/api/hooks/event"]
+                API --> TX["SQLite txn:<br/>ensureSession,<br/>process by hook_type,<br/>insertEvent, COMMIT"]
+                TX --> RULES["per hook_type:<br/>stamp / clear awaiting flag,<br/>track current tool,<br/>working / waiting / error,<br/>complete subagents,<br/>SessionEnd &rarr; all done"]
+                RULES -->|broadcast| WS["WebSocket:<br/>agent_updated,<br/>new_event"]
+                WS -->|publish| UI["React Client<br/>re-renders"]
             </div>
             <p class="diagram-label">
               Complete event ingestion from hook fire to browser re-render
@@ -2175,27 +2182,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <div class="diagram-wrap">
             <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram
-                participant Page as React Page
-                participant API as api.ts
-                participant Server as Express
-                participant EB as eventBus
-                participant WS as WebSocket
-
-                Note over Page: Component mounts
-                Page->>API: load() via useEffect
-                API->>Server: GET /api/sessions (or agents, events, stats)
-                Server-->>API: JSON response
-                API-->>Page: setState(data)
-                Note over Page: Subscribes to live updates
-                Page->>EB: eventBus.subscribe(handler)
-                loop Real-time updates
-                  WS->>EB: eventBus.publish(msg)
-                  EB->>Page: handler(msg)
-                  Page->>Page: reload or optimistic update
-                end
-                Note over Page: Component unmounts
-                Page->>EB: unsubscribe()
+              flowchart TD
+                MOUNT["React Page mounts"] -->|load| API["api.ts &rarr; Express:<br/>GET sessions,<br/>agents, events, stats"]
+                API -->|JSON| PAGE["setState,<br/>React Page renders"]
+                PAGE -->|subscribe| LIVE["Live updates loop:<br/>WS &rarr; eventBus.publish<br/>&rarr; handler &rarr;<br/>reload / optimistic update"]
+                LIVE -->|unmount| UNMOUNT["eventBus.unsubscribe()"]
             </div>
             <p class="diagram-label">Initial load + WebSocket subscription lifecycle</p>
           </div>
@@ -3214,41 +3205,15 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <div class="diagram-wrap">
             <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram
-                autonumber
-                participant UI as Settings UI
-                participant API as /api/import/upload
-                participant M as multer (disk)
-                participant AR as archive.js
-                participant IMP as importFromDirectory
-                participant DB as SQLite
-                participant WS as WebSocket
-
-                UI->>API: POST multipart files[]
-                API->>M: uploadMiddleware
-                M->>M: mkTempDir per-request\nstored on req._ccamUploadDir
-                M->>M: fileFilter rejects unsupported\n(tracked in req._ccamRejected)
-                API->>AR: mkTempDir workDir
-                loop per uploaded file
-                  API->>AR: extractInto(src, workDir, name)
-                  AR->>AR: safeJoin rejects absolute / ..
-                  AR->>AR: enforce MAX_EXTRACT_BYTES
-                  alt bomb / oversized
-                    AR-->>API: ExtractionLimitError
-                    API-->>UI: 413 EXTRACTION_LIMIT_EXCEEDED
-                    API-->>WS: import.progress {phase: error}
-                  else ok
-                    AR-->>API: {extracted, skipped}
-                  end
-                  API->>WS: import.progress {phase: extract}
-                end
-                API->>IMP: importFromDirectory(workDir)
-                IMP->>IMP: collectJsonlFiles recursive
-                IMP->>IMP: parseSessionFile per JSONL
-                IMP->>DB: importSession in one transaction
-                IMP-->>WS: import.progress {phase: parse, complete}
-                API-->>UI: 200 {imported, backfilled, skipped,\nerrors, rejected_files}
-                API->>AR: rmTempDir workDir + req._ccamUploadDir
+              flowchart TD
+                UI["Settings UI"] -->|upload| API["/api/import/upload"]
+                API -->|middleware| M["multer (disk):<br/>per-request tempDir,<br/>fileFilter rejects<br/>unsupported"]
+                M --> EX["per file:<br/>extractInto + safeJoin<br/>(no absolute / ..),<br/>enforce MAX_EXTRACT_BYTES"]
+                EX --> DEC{"bomb /<br/>oversized?"}
+                DEC -->|yes| ERR["413<br/>EXTRACTION_LIMIT_<br/>EXCEEDED"]
+                DEC -->|no| IMP["importFromDirectory:<br/>collectJsonlFiles,<br/>parseSessionFile,<br/>importSession (1 txn)<br/>&rarr; SQLite"]
+                IMP -->|progress| RESP["200: imported,<br/>backfilled, skipped,<br/>errors, rejected_files"]
+                RESP --> CLEAN["rmTempDir (finally)"]
             </div>
             <p class="diagram-label">
               Upload path: multipart → safe extract → walk → parse → import — every temp dir
@@ -3883,19 +3848,13 @@ ccam-export all --output backup.json</code></pre>
           <div class="diagram-wrap">
             <!-- prettier-ignore -->
             <div class="mermaid">
-              sequenceDiagram
-                participant CC as Claude Code
-                participant SH as statusline-command.sh
-                participant PY as statusline.py
-                participant GIT as git CLI
-
-                CC->>SH: stdin (JSON payload)
-                SH->>PY: Pipe stdin through (PYTHONUTF8=1)
-                PY->>PY: Parse JSON (model, cwd, context_window, cost)
-                PY->>GIT: git symbolic-ref --short HEAD
-                GIT-->>PY: Branch name
-                PY->>PY: Build ANSI-colored segments (incl. tokens by direction, cost)
-                PY-->>CC: stdout (formatted statusline)
+              flowchart TD
+                CC["Claude Code"] -->|stdin| SH["statusline-command.sh"]
+                SH -->|pipe| PY["statusline.py"]
+                PY --> PARSE["parse JSON:<br/>model, cwd,<br/>context_window, cost"]
+                PARSE -->|git ref| GIT["git CLI"]
+                GIT -->|branch| BUILD["build ANSI segments:<br/>tokens by direction,<br/>cost"]
+                BUILD -->|stdout| CC
             </div>
             <p class="diagram-label">
               Statusline rendering pipeline — invoked on each Claude Code update
@@ -4010,29 +3969,35 @@ ccam-export all --output backup.json</code></pre>
           </p>
         </section>
 
-        <!-- ─── macOS Desktop App ──────────────────────────────────────────── -->
+        <!-- ─── Desktop App (macOS & Windows) ───────────────────────────────── -->
         <section id="desktop-app">
           <div class="section-label">◈ Integrations</div>
-          <h2>macOS Desktop App</h2>
+          <h2>Desktop App (macOS &amp; Windows)</h2>
 
           <p>
-            The dashboard ships as an optional <strong>native macOS application</strong> — a
+            The dashboard ships as an optional <strong>native desktop application</strong> — a
             <code>desktop/</code> workspace that wraps the existing server and client into a
-            single <code>.app</code> (distributed as a <code>.dmg</code>) you install once and
-            forget. <code>desktop/</code> is a sibling workspace to <code>client/</code>,
-            <code>server/</code>, <code>mcp/</code>, and <code>vscode-extension/</code>, built
-            with <strong>Electron 35</strong>. It <strong>embeds the Express server
-            in-process</strong> — it <code>require()</code>s <code>server/index.js</code>
-            directly in the same Node runtime as the Electron main process (no child process,
-            no IPC) — and renders the already-built React client in a
-            <code>BrowserWindow</code>. Everything you see in the browser at
-            <code>localhost:4820</code> lives inside this window, with macOS-native lifecycle
-            on top.
+            macOS <code>.app</code> (distributed as a <code>.dmg</code>) and a Windows
+            <code>.exe</code> (an NSIS installer plus a no-install portable build) you install
+            once and forget. <code>desktop/</code> is a sibling workspace to
+            <code>client/</code>, <code>server/</code>, <code>mcp/</code>, and
+            <code>vscode-extension/</code>, built with <strong>Electron 35</strong>. It
+            <strong>embeds the Express server in-process</strong> — it
+            <code>require()</code>s <code>server/index.js</code> directly in the same Node
+            runtime as the Electron main process (no child process, no IPC) — and renders the
+            already-built React client in a <code>BrowserWindow</code>. Everything you see in
+            the browser at <code>localhost:4820</code> lives inside this window, with native OS
+            lifecycle on top.
           </p>
 
           <div class="screenshot-card" style="margin: 8px 0 32px;">
-            <img src="../images/macos.png" alt="Claude Code Monitor running as a native macOS desktop app" width="100%" loading="lazy" decoding="async" />
-            <div class="screenshot-caption"><span class="caption-icon">🍎</span> <span>The full dashboard, natively on macOS — same React client, same Express server, real <code>BrowserWindow</code>. Tray icon included. Shipped as a universal DMG — see <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a>.</span></div>
+            <img src="../images/macos.png" alt="Claude Code Monitor running as a native desktop app" width="100%" loading="lazy" decoding="async" />
+            <div class="screenshot-caption"><span class="caption-icon">🍎🪟</span> <span>The full dashboard, natively on macOS <strong>and</strong> Windows — same React client, same Express server, real <code>BrowserWindow</code>. Menu-bar / notification-area (tray) icon included. Shipped as a macOS DMG and a Windows EXE (macOS shown) — see <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a>.</span></div>
+          </div>
+
+          <div class="screenshot-card" style="margin: 8px 0 32px;">
+            <img src="../images/windows_app.png" alt="Claude Code Monitor running as a native desktop app on Windows, showing the Activity Feed, native Windows window menu, and Tabby companion" width="100%" loading="lazy" decoding="async" />
+            <div class="screenshot-caption"><span class="caption-icon">🪟</span> <span>The same dashboard as a native <strong>Windows</strong> app — real <code>BrowserWindow</code> with the native Windows window menu, live Activity Feed, and the Tabby companion. A notification-area (system tray) icon sits beside the clock for quick access.</span></div>
           </div>
 
           <div class="callout callout-info">
@@ -4063,10 +4028,10 @@ ccam-export all --output backup.json</code></pre>
             <!-- prettier-ignore -->
             <div class="mermaid">
               flowchart LR
-                OS["macOS\nlaunch / Login Items"]:::mid --> MAIN["Electron Main Process\n(Node 22 / Electron 35)"]:::accent
+                OS["macOS Login Items / Windows HKCU Run\nlaunch at login"]:::mid --> MAIN["Electron Main Process\n(Node 22 / Electron 35)"]:::accent
                 MAIN --> HOST["server-host.ts\nport discovery + adopt"]:::mid
                 HOST -->|"require() in-process"| SRV["server/index.js\nExpress + WS + SQLite"]:::mid
-                MAIN --> TRAY["Tray icon\n+ app menu"]:::mid
+                MAIN --> TRAY["Menu-bar / notification-area tray\n+ native app menu"]:::mid
                 MAIN --> WIN["BrowserWindow\nReact dashboard"]:::ui
                 SRV -->|"http + ws on 127.0.0.1:port"| WIN
                 HOOKS["Claude Code hooks"]:::mid -->|"POST /api/hooks/event"| SRV
@@ -4084,37 +4049,45 @@ ccam-export all --output backup.json</code></pre>
           <div class="feature-grid">
             <div class="feature-card">
               <div class="feature-icon ic-cyan">📍</div>
-              <h3>Menu-Bar (Tray) Icon</h3>
+              <h3>Menu-Bar / Notification-Area (Tray) Icon</h3>
               <p>
-                An always-on menu-bar icon. A single click (left or right) opens a dropdown
-                with a <strong>live status snapshot</strong> queried straight from SQLite at
-                click time — server port, active sessions, working agents, events today —
-                followed by <strong>Open Dashboard</strong>, <strong>Open in Browser</strong>,
-                <strong>Restart Server</strong>, <strong>Show Logs</strong>,
-                <strong>Open at Login</strong> (toggle), and <strong>Quit</strong>. The
-                snapshot rows are clickable — they open the dashboard. The menu is rebuilt on
-                each open so every value is current.
+                An always-on tray icon — the macOS menu bar (a tinted template glyph) or the
+                Windows notification area (the colored <code>icon.ico</code>). A single click
+                (left or right) opens a dropdown with a <strong>live status snapshot</strong>
+                queried straight from SQLite at click time — server port, active sessions,
+                working agents, events today — followed by <strong>Open Dashboard</strong>,
+                <strong>Open in Browser</strong>, <strong>Restart Server</strong>,
+                <strong>Show Logs</strong>, <strong>Open at Login</strong> (toggle), and
+                <strong>Quit</strong>. The snapshot rows are clickable — they open the
+                dashboard. The menu is rebuilt on each open so every value is current.
               </p>
             </div>
             <div class="feature-card">
-              <div class="feature-icon ic-violet">🍎</div>
-              <h3>Native App Menu</h3>
+              <div class="feature-icon ic-violet">🍎🪟</div>
+              <h3>Native Application Menu</h3>
               <p>
-                A standard macOS application menu — <code>About</code>, <code>Open at
+                A standard native application menu — <code>About</code>, <code>Open at
                 Login</code>, <code>File</code>, <code>Edit</code>, <code>View</code>,
-                <code>Window</code>, <code>Help</code> — with <code>⌘R</code> wired to
-                <em>View ▸ reload</em>. External links open in the system browser, never
-                inside Electron.
+                <code>Window</code>, <code>Help</code> — with <code>⌘R</code> / <code>Ctrl+R</code>
+                wired to <em>View ▸ reload</em>. External links open in the system browser,
+                never inside Electron. The <code>File ▸ Open Dashboard</code> item
+                (<code>⌘1</code>) is macOS-only; on Windows/Linux the window-attached menu
+                can't reopen a hidden window, so reopen from the tray's
+                <strong>Open Dashboard</strong>.
               </p>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-emerald">🔁</div>
               <h3>Auto-Start at Login</h3>
               <p>
-                Flip <em>Open at Login</em> in the tray or app menu to register the app via
-                macOS's <code>SMAppService</code> API — it appears under
-                <strong>System Settings → General → Login Items</strong>. When macOS launches
-                the app at login it starts tray-only, with no window jumping into view.
+                Flip <em>Open at Login</em> in the tray or app menu — both platforms go through
+                Electron's first-party <code>app.*LoginItemSettings</code> API. On macOS it
+                registers via the modern <code>SMAppService</code> API and appears under
+                <strong>System Settings → General → Login Items</strong>; on Windows it writes a
+                per-user <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code> entry,
+                visible in <strong>Task Manager → Startup</strong>. When the app is launched at
+                login it starts tray-only, with no window jumping into view (on Windows the login
+                launch is detected via a <code>--ccam-hidden</code> argument).
               </p>
             </div>
             <div class="feature-card">
@@ -4122,10 +4095,11 @@ ccam-export all --output backup.json</code></pre>
               <h3>Close Hides, Server Stays Up</h3>
               <p>
                 Closing the window hides it — the embedded server keeps running, the tray icon
-                stays, and the dock icon stays too (a clickable "still alive" indicator).
-                <strong>Quit</strong> (<code>⌘Q</code>, app menu, or tray → Quit) pops a
-                confirmation modal — press the Quit button or hit <code>⌘Q</code> a second
-                time to skip the prompt — and only then does the embedded server shut down,
+                stays, and the dock / taskbar icon stays too (a clickable "still alive"
+                indicator). <strong>Quit</strong> (<code>⌘Q</code> / <code>Ctrl+Q</code>, app
+                menu, or tray → Quit) pops a confirmation modal — press the Quit button or hit
+                <code>⌘Q</code> / <code>Ctrl+Q</code> a second time to skip the prompt — and
+                only then does the embedded server shut down,
                 closing SQLite cleanly with a WAL checkpoint and removing this PID's entry
                 from the discovery file.
               </p>
@@ -4147,7 +4121,7 @@ ccam-export all --output backup.json</code></pre>
               <h3>Single-Instance Lock</h3>
               <p>
                 Double-launching the app just focuses the existing window — no second server,
-                no port collision. The lock is acquired via
+                no port collision, on every platform. The lock is acquired via
                 <code>requestSingleInstanceLock()</code> before any server boots.
               </p>
             </div>
@@ -4157,8 +4131,8 @@ ccam-export all --output backup.json</code></pre>
               <p>
                 On its first owned-server boot the app auto-installs the Claude Code hooks
                 into <code>~/.claude/settings.json</code> and starts the background services
-                (update scheduler, config watcher, orphaned-run reconciliation) — so a
-                DMG-only user gets events flowing without ever running
+                (update scheduler, config watcher, orphaned-run reconciliation) — so an
+                install-only user (DMG or EXE) gets events flowing without ever running
                 <code>npm run install-hooks</code> from a checkout.
               </p>
             </div>
@@ -4166,10 +4140,10 @@ ccam-export all --output backup.json</code></pre>
 
           <h3>Data Persistence &amp; CLI Reliability</h3>
           <p>
-            Two macOS packaging realities — a read-only <code>.app</code> bundle and the
-            minimal <code>PATH</code> a Finder-launched app inherits — are handled
-            automatically so installs survive updates and the <strong>Run Claude</strong>
-            feature works out of the box.
+            Two packaging realities — a read-only application bundle / install directory and
+            (on macOS) the minimal <code>PATH</code> a Finder-launched app inherits — are
+            handled automatically so installs survive updates and the <strong>Run Claude</strong>
+            feature works out of the box on both macOS and Windows.
           </p>
 
           <div class="callout callout-info">
@@ -4177,16 +4151,18 @@ ccam-export all --output backup.json</code></pre>
             <div class="callout-body">
               <strong>Your data survives reinstalls and updates</strong>
               <p>
-                The SQLite database and VAPID keys live in
-                <code>~/Library/Application Support/Claude Code Monitor/data/</code> —
-                <em>outside</em> the <code>.app</code> bundle. <code>server-host.ts</code>
-                points <code>DASHBOARD_DATA_DIR</code> at that per-user directory on boot.
-                Because a packaged, code-signed, or app-translocated bundle is read-only,
-                older builds that stored the database inside the bundle broke History
-                Import; with the data directory now in Application Support, your imported
-                history and events persist across app reinstalls and updates. After
-                upgrading from a pre-fix build, re-run <strong>Import History → Rescan</strong>
-                once to bridge the one-time gap.
+                The SQLite database and VAPID keys live in a per-user app-data directory
+                <em>outside</em> the application bundle / install dir —
+                <code>~/Library/Application Support/Claude Code Monitor/data/</code> on macOS,
+                <code>%APPDATA%\Claude Code Monitor\data\</code> on Windows.
+                <code>server-host.ts</code> points <code>DASHBOARD_DATA_DIR</code> at that
+                per-user directory on boot. Because a packaged, code-signed, or
+                app-translocated bundle is read-only, older builds that stored the database
+                inside the bundle broke History Import; with the data directory now in app-data,
+                your imported history and events persist across app reinstalls and updates (the
+                Windows NSIS uninstaller keeps this data by default). After upgrading from a
+                pre-fix build, re-run <strong>Import History → Rescan</strong> once to bridge the
+                one-time gap.
               </p>
             </div>
           </div>
@@ -4200,11 +4176,13 @@ ccam-export all --output backup.json</code></pre>
                 <code>PATH</code>, not your login shell's. At startup
                 <code>shell-path.ts</code> recovers the user's login-shell <code>PATH</code>
                 so the <strong>Run Claude</strong> feature can locate and spawn the
-                <code>claude</code> CLI. If it still cannot be found, make sure
-                <code>claude</code> is a real executable on your shell <code>PATH</code> — a
+                <code>claude</code> CLI. (On Windows the process already inherits the user
+                <code>PATH</code>, so no recovery step is needed.) If it still cannot be found,
+                make sure <code>claude</code> is a real executable on your <code>PATH</code> — a
                 shell alias or function cannot be spawned — and check the
-                <code>user PATH resolved</code> line in
-                <code>~/Library/Logs/Claude Code Monitor/desktop.log</code>.
+                <code>user PATH resolved</code> line in the desktop log
+                (<code>~/Library/Logs/Claude Code Monitor/desktop.log</code> on macOS,
+                <code>%APPDATA%\Claude Code Monitor\logs\desktop.log</code> on Windows).
               </p>
             </div>
           </div>
@@ -4264,20 +4242,55 @@ ccam-export all --output backup.json</code></pre>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Releases → latest
             </a>
-            and download
-            <code>ClaudeCodeMonitor-&lt;version&gt;-universal.dmg</code> from the assets. The
-            macOS Desktop CI job auto-publishes a new <code>vX.Y.Z</code> release every time
-            the version in <code>package.json</code> is bumped on <code>master</code>, so this
-            link always points at the current build. Releases are public — no GitHub sign-in
-            required.
+            and download the asset for your platform. The macOS and Windows Desktop CI jobs
+            auto-publish a new <code>vX.Y.Z</code> release every time the version in
+            <code>package.json</code> is bumped on <code>master</code>, so this link always
+            points at the current build. Releases are public — no GitHub sign-in required.
           </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Asset</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>macOS (Apple Silicon)</td>
+                  <td><code>ClaudeCodeMonitor-&lt;ver&gt;-arm64.dmg</code></td>
+                  <td>Drag the <code>.app</code> into <code>/Applications</code></td>
+                </tr>
+                <tr>
+                  <td>macOS (Intel)</td>
+                  <td><code>ClaudeCodeMonitor-&lt;ver&gt;-x64.dmg</code></td>
+                  <td>Drag the <code>.app</code> into <code>/Applications</code></td>
+                </tr>
+                <tr>
+                  <td>Windows (installer)</td>
+                  <td><code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code></td>
+                  <td>NSIS installer — per-user, no admin elevation</td>
+                </tr>
+                <tr>
+                  <td>Windows (portable)</td>
+                  <td><code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code></td>
+                  <td>Run without installing</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <h4>Option B — per-commit CI artifact</h4>
           <p>
             Want a build straight off the tip of <code>master</code>, ahead of the next tagged
             release? Every green run of the <code>🍎 macOS Desktop (DMG)</code> job on
             <code>macos-latest</code> uploads the universal DMG as the
-            <code>ClaudeCodeMonitor-dmg</code> workflow artifact. Open the
+            <code>ClaudeCodeMonitor-dmg</code> workflow artifact, and the
+            <code>🪟 Windows Desktop (EXE)</code> job on <code>windows-latest</code> uploads the
+            installer + portable EXEs as the <code>ClaudeCodeMonitor-win</code> artifact. Open
+            the
             <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess"
                target="_blank" rel="noopener noreferrer"
                class="dl-chip">
@@ -4285,7 +4298,8 @@ ccam-export all --output backup.json</code></pre>
               latest passing run
             </a>,
             scroll to its Artifacts section, and download
-            <code>ClaudeCodeMonitor-dmg</code>. (GitHub sign-in required; 14-day retention.)
+            <code>ClaudeCodeMonitor-dmg</code> or <code>ClaudeCodeMonitor-win</code>. (GitHub
+            sign-in required; 14-day retention.)
           </p>
 
           <h4>Option C — build locally</h4>
@@ -4300,13 +4314,21 @@ npm run setup
 npm run build
 
 # 3. Install Electron + electron-builder under desktop/
+#    (also fetches better-sqlite3 as a prebuilt Electron binary)
+#    Preflights the native better-sqlite3 build; on failure it prints
+#    copy-pasteable setup help (incl. a no-toolchain alternative) and exits non-zero
 npm run desktop:install
 
-# 4. Build a DMG — pick ONE:
+# 4a. ON macOS — build a DMG, pick ONE:
 npm run desktop:dmg:arm64    # Apple Silicon only — fast (~1 min), recommended
 npm run desktop:dmg:x64      # Intel only — fast
 npm run desktop:dmg          # universal (x64 + arm64) — for release, SLOW
 
+# 4b. ON Windows — build an EXE, pick ONE:
+npm run desktop:win          # NSIS installer → ClaudeCodeMonitor-Setup-<ver>-x64.exe
+npm run desktop:win:portable # no-install portable → ClaudeCodeMonitor-<ver>-x64-portable.exe
+
+# electron-builder packages for the HOST OS — build DMGs on a Mac, EXEs on Windows.
 # Each desktop:dmg* build wipes release/ first and emits a single arch-labelled
 # DMG, so the volume title states the architecture (e.g. "Claude Code Monitor
 # (Apple Silicon)") — no ambiguity when more than one DMG is on disk.
@@ -4330,6 +4352,8 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # match the arch you built<
           </div>
 
           <h3>Install</h3>
+
+          <h4>macOS</h4>
           <div class="quick-start-grid">
             <div class="qs-card">
               <div class="qs-step">1</div>
@@ -4375,16 +4399,69 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
             away for everyone.
           </p>
 
+          <h4>Windows</h4>
+          <div class="quick-start-grid">
+            <div class="qs-card">
+              <div class="qs-step">1</div>
+              <h3>Run the Installer</h3>
+              <p>Run <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> — a per-user NSIS install (no admin), or run the <code>*-portable.exe</code> to skip installing</p>
+            </div>
+            <div class="qs-card">
+              <div class="qs-step">2</div>
+              <h3>Clear SmartScreen</h3>
+              <p>The EXE is unsigned by default, so SmartScreen may warn — click <em>More info → Run anyway</em></p>
+            </div>
+            <div class="qs-card">
+              <div class="qs-step">3</div>
+              <h3>Launch</h3>
+              <p>Open from the Start menu / desktop shortcut — the notification-area (tray) icon appears and the dashboard window loads</p>
+            </div>
+          </div>
+
+          <div class="screenshot-card" style="margin: 8px 0 32px;">
+            <img src="../images/setup_win_wizard.png" alt="Windows NSIS installer step 1 — Choose Installation Options" width="100%" loading="lazy" decoding="async" />
+            <div class="screenshot-caption"><span class="caption-icon">1️⃣</span> <span>NSIS installer, step 1 — <strong>Choose Installation Options</strong>: pick per-user setup and optional shortcuts.</span></div>
+          </div>
+
+          <div class="screenshot-card" style="margin: 8px 0 32px;">
+            <img src="../images/setup_win_wizard2.png" alt="Windows NSIS installer step 2 — Choose Install Location" width="100%" loading="lazy" decoding="async" />
+            <div class="screenshot-caption"><span class="caption-icon">2️⃣</span> <span>NSIS installer, step 2 — <strong>Choose Install Location</strong>: defaults to <code>%LOCALAPPDATA%\Programs\Claude Code Monitor</code>, or point it anywhere.</span></div>
+          </div>
+
+          <div class="screenshot-card" style="margin: 8px 0 32px;">
+            <img src="../images/setup_win_wizard3.png" alt="Windows NSIS installer step 3 — Completing Setup" width="100%" loading="lazy" decoding="async" />
+            <div class="screenshot-caption"><span class="caption-icon">3️⃣</span> <span>NSIS installer, step 3 — <strong>Completing Setup</strong>: click <em>Finish</em> to launch the app and drop the tray icon in the notification area.</span></div>
+          </div>
+
+          <div class="callout callout-warning">
+            <div class="callout-icon">⚠</div>
+            <div class="callout-body">
+              <strong>SmartScreen warning on first launch</strong>
+              <p>
+                The installer and portable EXE are <strong>unsigned</strong> by default — that
+                is all the project can offer without a paid code-signing certificate. Windows
+                <strong>SmartScreen</strong> may show <em>"Windows protected your PC"</em> the
+                first time you run it; click <strong>More info → Run anyway</strong>. The
+                installer lays the app down <strong>per-user</strong> under
+                <code>%LOCALAPPDATA%\Programs\Claude Code Monitor</code> (and lets you choose the
+                install directory) and sets an <code>AppUserModelId</code>
+                (<code>com.hoangsonww.ccam.desktop</code>) so native toast notifications are
+                attributed correctly and the window groups under one taskbar entry.
+              </p>
+            </div>
+          </div>
+
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
               <strong>Bundle size</strong>
               <p>
                 The DMG is roughly 80&nbsp;MB, about 250&nbsp;MB installed on disk — the
-                standard Electron tax. The app is macOS-only in v1; Windows and Linux are
-                tracked as follow-ups. Logs live at
-                <code>~/Library/Logs/Claude Code Monitor/desktop.log</code> (reach them from
-                the tray menu → <em>Show Logs</em>).
+                standard Electron tax; the Windows installer is comparable. The app runs
+                natively on <strong>macOS and Windows</strong>; Linux is tracked as a follow-up.
+                Logs live at <code>~/Library/Logs/Claude Code Monitor/desktop.log</code> on macOS
+                or <code>%APPDATA%\Claude Code Monitor\logs\desktop.log</code> on Windows (reach
+                them from the tray menu → <em>Show Logs</em>).
               </p>
             </div>
           </div>
@@ -4895,13 +4972,13 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
-              <strong>A third way to run: the macOS Desktop App</strong>
+              <strong>A third way to run: the Desktop App (macOS &amp; Windows)</strong>
               <p>
                 Beyond development and standalone production, the dashboard also ships as a
-                native macOS <code>.app</code> that embeds the same production server
-                in-process — no terminal required. See the
-                <a href="#desktop-app">macOS Desktop App</a> section for download, build, and
-                install instructions.
+                native desktop app — a macOS <code>.app</code> and a Windows <code>.exe</code> —
+                that embeds the same production server in-process, no terminal required. See the
+                <a href="#desktop-app">Desktop App (macOS &amp; Windows)</a> section for download,
+                build, and install instructions.
               </p>
             </div>
           </div>
@@ -5260,7 +5337,9 @@ npm run install-hooks</code></pre>
                     This is non-fatal — <code>better-sqlite3</code> is an optional dependency. On
                     Node 22+ the server automatically falls back to built-in
                     <code>node:sqlite</code>. On older Node versions, install Python 3 + C++ build
-                    tools, then run <code>npm rebuild better-sqlite3</code>.
+                    tools, then run <code>npm rebuild better-sqlite3</code>. For the desktop app, the
+                    <code>desktop:install</code> preflight prints copy-pasteable per-OS setup guidance
+                    (incl. a no-toolchain alternative) when the native build fails.
                   </td>
                 </tr>
                 <tr>
@@ -5454,7 +5533,7 @@ npm run install-hooks</code></pre>
     </div>
     <!-- /.wiki-layout -->
 
-    <script src="script.js?v=17" defer></script>
+    <script src="script.js?v=22" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

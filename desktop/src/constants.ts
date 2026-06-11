@@ -5,6 +5,15 @@
 
 export const APP_NAME = "Claude Code Monitor";
 
+/**
+ * Application identifier. Must match `appId` in electron-builder.yml: on Windows
+ * we hand it to `app.setAppUserModelId()` so toast notifications attribute to
+ * the installed Start-Menu shortcut (NSIS writes the same AUMID there) instead
+ * of appearing as a generic "electron.app" toast — and so taskbar windows group
+ * under one icon. Ignored on macOS/Linux.
+ */
+export const APP_ID = "com.hoangsonww.ccam.desktop";
+
 /** Preferred dashboard port — matches the project's documented default. */
 export const PREFERRED_PORT = 4820;
 

@@ -4,6 +4,15 @@
  */
 
 const fs = require("fs");
+const {
+  bucketKey,
+  emptyBucket,
+  extractUsageFields,
+  normalizeSpeed,
+  normalizeGeo,
+  normalizeTier,
+  accumulateBucket,
+} = require("./token-usage");
 
 const MAX_CACHE_ENTRIES = 200;
 
@@ -338,13 +347,17 @@ class TranscriptCache {
     const model = msg.model;
     if (!model || model === "<synthetic>" || !msg.usage) return;
     state.latestModel = model;
-    if (!state.tokensByModel[model]) {
-      state.tokensByModel[model] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    // Bucket tokens by the pricing dimensions (speed / geo / tier) so cost can
+    // apply fast-mode, data-residency, and Batch modifiers per bucket. The value
+    // carries those dimensions so the DB writer can key the row correctly.
+    const speed = normalizeSpeed(msg.usage);
+    const geo = normalizeGeo(msg.usage);
+    const tier = normalizeTier(msg.usage);
+    const key = bucketKey(model, speed, geo, tier);
+    if (!state.tokensByModel[key]) {
+      state.tokensByModel[key] = emptyBucket(model, speed, geo, tier);
     }
-    state.tokensByModel[model].input += msg.usage.input_tokens || 0;
-    state.tokensByModel[model].output += msg.usage.output_tokens || 0;
-    state.tokensByModel[model].cacheRead += msg.usage.cache_read_input_tokens || 0;
-    state.tokensByModel[model].cacheWrite += msg.usage.cache_creation_input_tokens || 0;
+    accumulateBucket(state.tokensByModel[key], extractUsageFields(msg.usage));
 
     if (msg.usage.service_tier) state.usageExtras.service_tiers.add(msg.usage.service_tier);
     if (msg.usage.speed) state.usageExtras.speeds.add(msg.usage.speed);
@@ -433,14 +446,11 @@ class TranscriptCache {
       ? this._cloneTokens(cached.result.tokensByModel)
       : {};
     if (incremental && incremental.tokensByModel) {
-      for (const [model, tokens] of Object.entries(incremental.tokensByModel)) {
-        if (!tokensByModel[model]) {
-          tokensByModel[model] = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+      for (const [key, tokens] of Object.entries(incremental.tokensByModel)) {
+        if (!tokensByModel[key]) {
+          tokensByModel[key] = emptyBucket(tokens.model, tokens.speed, tokens.geo, tokens.tier);
         }
-        tokensByModel[model].input += tokens.input;
-        tokensByModel[model].output += tokens.output;
-        tokensByModel[model].cacheRead += tokens.cacheRead;
-        tokensByModel[model].cacheWrite += tokens.cacheWrite;
+        accumulateBucket(tokensByModel[key], tokens);
       }
     }
 

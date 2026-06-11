@@ -762,6 +762,7 @@ function createOpenApiSpec() {
             "output_per_mtok",
             "cache_read_per_mtok",
             "cache_write_per_mtok",
+            "cache_write_1h_per_mtok",
             "updated_at",
           ],
           properties: {
@@ -770,7 +771,16 @@ function createOpenApiSpec() {
             input_per_mtok: { type: "number" },
             output_per_mtok: { type: "number" },
             cache_read_per_mtok: { type: "number" },
-            cache_write_per_mtok: { type: "number" },
+            cache_write_per_mtok: { type: "number", description: "5m ephemeral cache-write rate" },
+            cache_write_1h_per_mtok: {
+              type: "number",
+              description: "1h ephemeral cache-write rate",
+            },
+            fast_input_per_mtok: { type: "number", description: "Fast-mode input rate (0 = none)" },
+            fast_output_per_mtok: {
+              type: "number",
+              description: "Fast-mode output rate (0 = none)",
+            },
             updated_at: { type: "string", format: "date-time" },
           },
         },
@@ -783,7 +793,16 @@ function createOpenApiSpec() {
             input_per_mtok: { type: "number" },
             output_per_mtok: { type: "number" },
             cache_read_per_mtok: { type: "number" },
-            cache_write_per_mtok: { type: "number" },
+            cache_write_per_mtok: { type: "number", description: "5m ephemeral cache-write rate" },
+            cache_write_1h_per_mtok: {
+              type: "number",
+              description: "1h ephemeral cache-write rate",
+            },
+            fast_input_per_mtok: { type: "number", description: "Fast-mode input rate (0 = none)" },
+            fast_output_per_mtok: {
+              type: "number",
+              description: "Fast-mode output rate (0 = none)",
+            },
           },
         },
         PricingListResponse: {
@@ -811,10 +830,17 @@ function createOpenApiSpec() {
           ],
           properties: {
             model: { type: "string" },
+            speed: { type: "string" },
+            inference_geo: { type: "string" },
+            service_tier: { type: "string" },
             input_tokens: { type: "integer" },
             output_tokens: { type: "integer" },
             cache_read_tokens: { type: "integer" },
             cache_write_tokens: { type: "integer" },
+            cache_write_1h_tokens: { type: "integer" },
+            web_search_requests: { type: "integer" },
+            web_fetch_requests: { type: "integer" },
+            code_execution_requests: { type: "integer" },
             cost: { type: "number" },
             matched_rule: { type: "string", nullable: true },
           },
@@ -834,6 +860,31 @@ function createOpenApiSpec() {
             total_cost: { type: "number" },
             breakdown: { type: "array", items: { $ref: "#/components/schemas/CostBreakdownItem" } },
             daily_costs: { type: "array", items: { $ref: "#/components/schemas/DailyCostItem" } },
+            feature_costs: {
+              type: "object",
+              description: "Server-tool surcharges separate from token cost",
+              properties: {
+                web_search_cost: { type: "number" },
+                web_fetch_cost: { type: "number" },
+                code_execution_cost: { type: "number" },
+                code_execution_hours_estimated: { type: "number" },
+                code_execution_free_hours: { type: "number" },
+              },
+            },
+            unpriced_models: {
+              type: "array",
+              description: "Models with usage but no matching pricing rule (cost not counted)",
+              items: {
+                type: "object",
+                properties: {
+                  model: { type: "string" },
+                  input_tokens: { type: "integer" },
+                  output_tokens: { type: "integer" },
+                  cache_read_tokens: { type: "integer" },
+                  cache_write_tokens: { type: "integer" },
+                },
+              },
+            },
           },
         },
         DeleteOkResponse: {

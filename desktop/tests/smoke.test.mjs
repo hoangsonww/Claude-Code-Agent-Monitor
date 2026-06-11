@@ -14,13 +14,18 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import http from "node:http";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP_ROOT = path.resolve(__dirname, "..");
 const MAIN_JS = path.join(DESKTOP_ROOT, "out", "main.js");
-const ELECTRON_BIN = path.join(DESKTOP_ROOT, "node_modules", ".bin", "electron");
+// Resolve the actual Electron executable (electron.exe on Windows, the binary
+// under Electron.app on macOS). The `.bin/electron` shim is extension-less and
+// cannot be spawned without a shell on Windows; `require("electron")` returns
+// the real binary path on every platform.
+const ELECTRON_BIN = createRequire(import.meta.url)("electron");
 
 const HEALTH_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 500;

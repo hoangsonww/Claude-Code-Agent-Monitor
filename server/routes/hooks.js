@@ -571,14 +571,23 @@ const processEvent = db.transaction((hookType, data) => {
       }
 
       if (tokensByModel) {
-        for (const [model, tokens] of Object.entries(tokensByModel)) {
+        // Each bucket carries its pricing dimensions (model/speed/geo/tier) plus
+        // the 1h cache-write split and server-tool request counts.
+        for (const tokens of Object.values(tokensByModel)) {
           stmts.replaceTokenUsage.run(
             sessionId,
-            model,
+            tokens.model,
+            tokens.speed,
+            tokens.geo,
+            tokens.tier,
             tokens.input,
             tokens.output,
             tokens.cacheRead,
-            tokens.cacheWrite
+            tokens.cacheWrite,
+            tokens.cacheWrite1h,
+            tokens.webSearch,
+            tokens.webFetch,
+            tokens.codeExec
           );
         }
       }

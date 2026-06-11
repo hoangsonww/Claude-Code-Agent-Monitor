@@ -38,6 +38,7 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 ![Electron](https://img.shields.io/badge/Electron-35-47848F?style=flat-square&logo=electron&logoColor=white)
 ![electron-builder](https://img.shields.io/badge/electron--builder-25.1-2c2e3b?style=flat-square&logo=electron&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-Desktop_App-000000?style=flat-square&logo=apple&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-Desktop_App-0078D6?style=flat-square&logo=windows&logoColor=white)
 ![SMAppService](https://img.shields.io/badge/SMAppService-Login_Items-000000?style=flat-square&logo=apple&logoColor=white)
 ![Universal DMG](https://img.shields.io/badge/Universal_DMG-arm64_%2B_x64-7c3aed?style=flat-square&logo=apple&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-1.0-646CFF?style=flat-square&logo=vitest&logoColor=white)
@@ -87,7 +88,7 @@ Architectural overview and technical reference for the Agent Dashboard system, c
 - [Update Notifier Subsystem](#update-notifier-subsystem)
 - [Tabby Companion Subsystem](#tabby-companion-subsystem)
 - [VS Code Extension Architecture](#vs-code-extension-architecture)
-- [Desktop App Architecture (macOS / Electron)](#desktop-app-architecture-macos--electron)
+- [Desktop App Architecture (macOS & Windows / Electron)](#desktop-app-architecture-macos--windows--electron)
 - [Security Considerations](#security-considerations)
 - [Performance Characteristics](#performance-characteristics)
 - [Deployment Modes](#deployment-modes)
@@ -328,7 +329,7 @@ graph TD
 | `routes/events.js`        | Read-only event listing with session_id filter and pagination                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `routes/stats.js`         | Single aggregate query returning total/active counts + status distributions                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `routes/analytics.js`     | Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution. The client-side analytics heatmap grid is aligned to a Sunday start for correct day-of-week positioning                                                                                                                                                                                                                                                                                                                   |
-| `routes/pricing.js`       | Model pricing CRUD (list/upsert/delete), per-session and global cost calculation with pattern-based model matching                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `routes/pricing.js`       | Model pricing CRUD (list/upsert/delete) and per-session / global cost calculation with pattern-based model matching. Cost is computed per token bucket — keyed by (model, speed, inference_geo, service_tier) — applying fast-mode premium, US data-residency (1.1x), and Batch (0.5x) modifiers, the 5m/1h cache-write split, plus server-tool surcharges (web search $10/1k; code execution estimated by container-time with the monthly free-hours allowance; web fetch free). Feature rates + modifier math live in `lib/pricing-constants.js`; usage normalization in `lib/token-usage.js` |
 | `routes/settings.js`      | System info (DB size, hook status, server uptime, transcript cache stats), data export as JSON, session cleanup (abandon stale, purge old), clear all data, reset pricing, reinstall hooks                                                                                                                                                                                                                                                                                                                                           |
 | `routes/workflows.js`     | Aggregate workflow visualization data (agent orchestration graphs, tool transition flows, collaboration networks, workflow pattern detection, model delegation, error propagation, concurrency timelines, session complexity metrics, compaction impact). Accepts `?status=active\|completed` query parameter to filter all data by session status. Per-session drill-in endpoint with agent tree, tool timeline, and event details |
 | `lib/transcript-cache.js` | Stat-based JSONL transcript cache with incremental byte-offset reads. Shared between `hooks.js` (token extraction on every event) and the periodic compaction scanner (`index.js`). Extracts tokens, compaction entries, API errors (`isApiErrorMessage` + raw error responses), turn durations (`system` subtype `turn_duration`), thinking block counts, and usage extras (service_tier, speed, inference_geo). Uses `(path, mtime, size)` cache key — unchanged files return cached results instantly, grown files only parse new bytes, shrunk files (compaction) trigger full re-read. Each cache entry stores **only** `{mtimeMs, size, bytesRead, result}` — the previous shape that duplicated every growable array at both the top level and inside `result` is gone, halving steady-state memory per entry. Per-entry growable arrays (`turnDurations`, `errors`, `compaction.entries`, `usageExtras.*`) are bounded to `TRANSCRIPT_CACHE_MAX_ARRAY_LEN` (default `1000`, tail-kept) — older items remain in the `events` table thanks to hook dedup, so the cap only affects the in-memory view. Trimming runs both during parse (when an array reaches `2 * MAX_ARRAY_LEN`, amortized O(N)) and at finalize, so even a fresh full-file parse on a multi-day session cannot accumulate an unbounded transient before returning. **Chunked sync byte-stream reader** (`_streamRange`, 4 MiB chunks split on `0x0A` bytes — safe across UTF-8 multibyte sequences — with a growable per-line byte buffer capped at 64 MiB) replaces the previous `readFileSync("utf8")` so transcripts larger than V8's max JS string length (~512 MiB on 64-bit Node 20) parse without aborting Node with `FATAL ERROR: v8::ToLocalChecked Empty MaybeLocal`. Both full and incremental reads share the same line-level state machine (`_initParseState` / `_consumeLine` / `_finalizeState`). LRU eviction caps at 200 entries. Entries evicted on SessionEnd and abandoned session cleanup |
@@ -749,14 +750,18 @@ erDiagram
     token_usage {
         TEXT session_id PK "FK to sessions + part of composite PK"
         TEXT model PK "Model identifier + part of composite PK"
+        TEXT speed PK "standard or fast (fast mode) — pricing dimension"
+        TEXT inference_geo PK "global or us (data residency) — pricing dimension"
+        TEXT service_tier PK "standard or batch (Batch API) — pricing dimension"
         INTEGER input_tokens "Current JSONL total"
         INTEGER output_tokens "Current JSONL total"
         INTEGER cache_read_tokens "Current JSONL total"
-        INTEGER cache_write_tokens "Current JSONL total"
-        INTEGER baseline_input "Accumulated pre-compaction tokens"
-        INTEGER baseline_output "Accumulated pre-compaction tokens"
-        INTEGER baseline_cache_read "Accumulated pre-compaction tokens"
-        INTEGER baseline_cache_write "Accumulated pre-compaction tokens"
+        INTEGER cache_write_tokens "Total ephemeral cache writes (5m + 1h)"
+        INTEGER cache_write_1h_tokens "Subset stored at the 1h tier; 5m = total - 1h"
+        INTEGER web_search_requests "server_tool_use web search count"
+        INTEGER web_fetch_requests "server_tool_use web fetch count"
+        INTEGER code_execution_requests "server_tool_use code execution count"
+        INTEGER baseline_input "Accumulated pre-compaction tokens (one per metric)"
     }
 
     model_pricing {
@@ -764,8 +769,11 @@ erDiagram
         TEXT display_name "Human-readable name"
         REAL input_per_mtok "Cost per million input tokens"
         REAL output_per_mtok "Cost per million output tokens"
-        REAL cache_read_per_mtok "Cost per million cache read tokens"
-        REAL cache_write_per_mtok "Cost per million cache write tokens"
+        REAL cache_read_per_mtok "Cost per million cache read tokens (cache hits)"
+        REAL cache_write_per_mtok "Cost per million 5m cache-write tokens"
+        REAL cache_write_1h_per_mtok "Cost per million 1h cache-write tokens"
+        REAL fast_input_per_mtok "Fast-mode input rate (0 = none)"
+        REAL fast_output_per_mtok "Fast-mode output rate (0 = none)"
         TEXT updated_at "ISO 8601"
     }
 
@@ -1596,7 +1604,7 @@ Cache versioning is controlled by the `CACHE_NAME` constant (`dashboard-v2`). On
 
 `client/src/main.tsx` snapshots `navigator.serviceWorker.controller` before registration and listens for `controllerchange`: when a new SW activates on an already-controlled page, it reloads exactly once so the page picks up the new asset URLs without a hard refresh. The first install (no previous controller) does **not** reload.
 
-These behaviors are reinforced by explicit `Cache-Control` headers from the production Express static middleware in `server/index.js`: `immutable, max-age=31536000` for `/assets/*`; `no-cache, must-revalidate` for `index.html`, `sw.js`, and `manifest.json`; a short revalidation window for other static files. The SPA fallback `sendFile` sends the same `no-cache` header. The macOS desktop shell loads the dashboard from this same in-process server (`NODE_ENV=production`), so it inherits the policy automatically.
+These behaviors are reinforced by explicit `Cache-Control` headers from the production Express static middleware in `server/index.js`: `immutable, max-age=31536000` for `/assets/*`; `no-cache, must-revalidate` for `index.html`, `sw.js`, and `manifest.json`; a short revalidation window for other static files. The SPA fallback `sendFile` sends the same `no-cache` header. The native desktop shell (macOS and Windows) loads the dashboard from this same in-process server (`NODE_ENV=production`), so it inherits the policy automatically.
 
 ---
 
@@ -1898,11 +1906,11 @@ For the extension source code, refer to the [vscode-extension/](./vscode-extensi
 
 ---
 
-## Desktop App Architecture (macOS / Electron)
+## Desktop App Architecture (macOS & Windows / Electron)
 
-The `desktop/` workspace ships the dashboard as a native macOS application (`Claude Code Monitor.app`, distributed as a `.dmg`). It is an Electron shell that **embeds the existing Express server in-process** and renders the already-built React client in a `BrowserWindow`. The desktop app does not reimplement the dashboard -- it `require()`s `server/index.js` directly, in the same Node runtime as the Electron main process, and points a Chromium window at it.
+The `desktop/` workspace ships the dashboard as a **native desktop app** for **macOS** (`Claude Code Monitor.app`, distributed as a `.dmg`) **and Windows** (`Claude Code Monitor.exe`, distributed as an NSIS installer plus a no-install portable build). It is an Electron shell that **embeds the existing Express server in-process** and renders the already-built React client in a `BrowserWindow`. The desktop app does not reimplement the dashboard -- it `require()`s `server/index.js` directly, in the same Node runtime as the Electron main process, and points a Chromium window at it.
 
-For the user-facing guide (download, install, Gatekeeper, tray menu, auto-start), see [DESKTOP.md](./DESKTOP.md). For the full contributor/architecture reference -- including build performance, code signing, notarization, and CI details -- see [desktop/README.md](./desktop/README.md).
+For the user-facing guide (download, install, Gatekeeper / SmartScreen, tray menu, auto-start), see [DESKTOP.md](./DESKTOP.md). For the full contributor/architecture reference -- including build performance, code signing, notarization, and CI details -- see [desktop/README.md](./desktop/README.md).
 
 ### Workspace Position
 
@@ -1973,11 +1981,12 @@ flowchart LR
 | --- | --- |
 | **`main.ts`** | Main-process entry. Single-instance lock, app menu + tray wiring, dashboard window, `Restart Server`, lifecycle (`window-all-closed`, `before-quit`). |
 | **`server-host.ts`** | In-process Express boot: port discovery, adoption, `better-sqlite3` ABI patch, `startBackgroundServices()` + hook bootstrap, clean DB close. Returns a `ServerHandle`. |
-| **`window.ts`** | `BrowserWindow` with persisted geometry (`userData/window-state.json`). External links open in the system browser. |
-| **`menu.ts` / `tray.ts`** | Native application menu and menu-bar (tray) icon. Tray uses a single-click dropdown (left or right) with a **live status snapshot** queried straight from SQLite at click time — server port, active sessions, working agents, events today — followed by *Open Dashboard* (⌘O), *Open in Browser*, *Restart Server*, *Show Logs*, *Open at Login* (toggle), and *Quit*. The menu is rebuilt on each open so every value stays current. Snapshot rows are enabled and click-to-open-dashboard rather than disabled (which the OS dims). |
-| **`login-item.ts`** | macOS Login Items toggle via Electron's first-party `app.setLoginItemSettings` (wraps `SMAppService`) -- not a `LaunchAgent` plist. |
-| **`shell-path.ts`** | Recovers the user's login-shell `PATH` at startup and merges it onto `process.env.PATH`, so the embedded server (and the `claude` CLI it spawns) is not limited to launchd's minimal `PATH`. |
-| **`logger.ts`** | File logger to `~/Library/Logs/Claude Code Monitor/desktop.log` (the main process has no console when launched from Finder). |
+| **`window.ts`** | `BrowserWindow` with persisted geometry (`userData/window-state.json`). External links open in the system browser. Sets the window/taskbar `icon` to the colored app logo (`assets/icon.ico` on Windows, `icon.png` elsewhere) so an unpackaged `desktop:dev` run no longer shows the generic Electron icon. |
+| **`menu.ts` / `tray.ts`** | Native application menu and menu-bar / notification-area (tray) icon. `tray.ts` selects a platform tray image — a macOS template glyph that the OS tints for the menu bar, or the colored `assets/icon.ico` for the Windows notification area (a black template would vanish on the dark taskbar). Tray uses a single-click dropdown (left or right) with a **live status snapshot** queried straight from SQLite at click time — server port, active sessions, working agents, events today — followed by *Open Dashboard*, *Open in Browser*, *Restart Server*, *Show Logs*, *Open at Login* (toggle), and *Quit*. The menu is rebuilt on each open so every value stays current. Snapshot rows are enabled and click-to-open-dashboard rather than disabled (which the OS dims). The application menu's *File ▸ Open Dashboard* (⌘1) is **macOS-only** — there the global menu bar persists after the window hides; on Windows/Linux the window-attached menu can't reopen a hidden window, so reopening is the tray's job. `focusOrCreateWindow` calls `show()` unconditionally so the tray reliably raises a backgrounded/minimized window (a bare `focus()` on Windows often only flashes the taskbar). |
+| **`login-item.ts`** | Auto-start-at-login toggle through Electron's first-party `app.setLoginItemSettings` API on every platform. On macOS it drives the modern `SMAppService` Login Items (not a `LaunchAgent` plist); on Windows it writes a per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry. Login launches are tagged with a `--ccam-hidden` arg so the app can stay tray-only at startup — Windows has no `wasOpenedAtLogin` signal, so the arg is the cross-platform detection mechanism. |
+| **`shell-path.ts`** | (macOS) Recovers the user's login-shell `PATH` at startup and merges it onto `process.env.PATH`, so the embedded server (and the `claude` CLI it spawns) is not limited to launchd's minimal `PATH`. On Windows the process already inherits the full user `PATH`, so no recovery is needed. |
+| **`logger.ts`** | File logger to `~/Library/Logs/Claude Code Monitor/desktop.log` (macOS) or `%APPDATA%\Claude Code Monitor\logs\desktop.log` (Windows) -- the main process has no console when launched from Finder / Explorer. |
+| **`constants.ts`** | Shared identifiers, including the `APP_ID` (`com.hoangsonww.ccam.desktop`) that `main.ts` sets as the Windows AppUserModelId. |
 
 `server-host.ts` resolves the directory containing the bundled `server/` and `client/dist/` via `resolveAppRoot()`: `process.resourcesPath/app` when packaged, or the repo root (one directory up from `desktop/`) in development.
 
@@ -2029,26 +2038,30 @@ Port preference order is **4820 → 4821–4829 → a random port in 49152–495
 
 ### Writable Data Directory
 
-A packaged `.app` bundle is **read-only**: once installed under `/Applications`, code-signed, or run through macOS **app translocation**, `Resources/app/` cannot be written to. The dashboard's SQLite database and the VAPID keypair (`server/lib/push.js`) are writable state, so they must not live inside the bundle. Before booting the embedded server, `server-host.ts` creates `app.getPath('userData')/data` and points the server at it via the `DASHBOARD_DATA_DIR` environment variable:
+A packaged install directory is **read-only** in practice: on macOS a `.app` bundle installed under `/Applications`, code-signed, or run through **app translocation** cannot write to `Resources/app/`, and on Windows the NSIS install dir under `%ProgramFiles%` (or the read-only mount a portable build runs from) is no place for mutable state. The dashboard's SQLite database and the VAPID keypair (`server/lib/push.js`) are writable state, so they must not live inside the bundle / install dir. Before booting the embedded server, `server-host.ts` creates `app.getPath('userData')/data` and points the server at it via the `DASHBOARD_DATA_DIR` environment variable:
 
 - `server/db.js` honors `DASHBOARD_DATA_DIR` for the SQLite file.
 - `server/lib/push.js` honors it for the persisted VAPID keys.
 
-The resulting location is `~/Library/Application Support/Claude Code Monitor/data/`. Because this lives outside the bundle, imported history and persisted events **survive an app reinstall or update**. Without this, writing a database into `Resources/app/` failed on a packaged build and broke History Import and event persistence.
+The resulting per-user location is `~/Library/Application Support/Claude Code Monitor/data/` on macOS and `%APPDATA%\Claude Code Monitor\data\` on Windows. Because this lives outside the bundle / install dir, imported history and persisted events **survive an app reinstall or update** (the Windows NSIS uninstaller keeps this data by default). Without this, writing a database into the read-only install location failed on a packaged build and broke History Import and event persistence.
 
 The standalone `node server/index.js` path is **unaffected**: `DASHBOARD_DATA_DIR` is unset there, and `server-host.ts` only sets it when it is not already defined -- so `server/db.js` falls back to its usual repo-relative default.
 
-### Shell `PATH` Recovery
+### Shell `PATH` Recovery (macOS)
 
-A macOS app launched from Finder, the Dock, or Login Items auto-start is spawned by `launchd`, which hands it a **minimal `PATH`** (roughly `/usr/bin:/bin:/usr/sbin:/sbin`) and does **not** source the user's shell profile. The dashboard's "Run Claude" feature (`server/routes/run.js`, `server/lib/run-spawner.js`) spawns the `claude` CLI, which is almost always installed somewhere only the shell `PATH` knows about (`/opt/homebrew/bin`, `~/.local/bin`, `~/.claude/local`, a Node version-manager's bin dir). Under launchd's `PATH`, `claude` cannot be resolved or spawned.
+This step is **macOS-only**. A macOS app launched from Finder, the Dock, or Login Items auto-start is spawned by `launchd`, which hands it a **minimal `PATH`** (roughly `/usr/bin:/bin:/usr/sbin:/sbin`) and does **not** source the user's shell profile. The dashboard's "Run Claude" feature (`server/routes/run.js`, `server/lib/run-spawner.js`) spawns the `claude` CLI, which is almost always installed somewhere only the shell `PATH` knows about (`/opt/homebrew/bin`, `~/.local/bin`, `~/.claude/local`, a Node version-manager's bin dir). Under launchd's `PATH`, `claude` cannot be resolved or spawned.
 
 `shell-path.ts` repairs this **before the server boots**: at startup it runs the user's login+interactive shell once (`$SHELL -ilc`, so `.zprofile`/`.zshrc` are sourced), captures the resulting `PATH` between sentinel markers, and merges it -- plus a fallback list of common CLI install directories -- onto `process.env.PATH`. The merge is order-preserving and deduplicated, so it is idempotent. Because the embedded server runs in the same process, it and every `claude` it spawns inherit the corrected `PATH`. (A `claude` shell _alias_ or _function_ still cannot be spawned -- only a real executable on the `PATH` can.)
+
+On **Windows** there is no equivalent step: a process launched from Explorer, the Start menu, or the `HKCU\…\Run` startup entry already inherits the full user `PATH`, so the embedded server can resolve `claude` directly.
 
 ### `better-sqlite3` Native-Module Handling
 
 `better-sqlite3` is the only **native** module in the dependency tree, and a native module must be compiled against the exact Node ABI it runs on. The repo-root copy is built for the **system Node** (so `npm run test:server` works for contributors); Electron ships its **own Node ABI**.
 
 The desktop workspace solves this without disturbing the root install: the desktop workspace has its own `better-sqlite3`, rebuilt for Electron's Node ABI by `electron-builder install-app-deps` (run in its `postinstall`). `server-host.ts` then installs a one-time, **process-local** patch to `Module._resolveFilename` that redirects `require("better-sqlite3")` -- from anywhere in the embedded server -- to that ABI-correct copy.
+
+Desktop setup is **guarded** so a missing or unbuilt binary never escapes as a raw node-gyp trace or a runtime crash: `desktop/scripts/preflight.js` (shared by `install.js` and `prebuild.js`) verifies the Electron-ABI binary exists and, when it doesn't, prints actionable, copy-pasteable setup help -- the per-OS C++ toolchain prerequisites (or a no-toolchain alternative that fetches Electron's prebuilt binary directly) -- before exiting non-zero. `desktop:install` runs this on install; the `prebuild` gate enforces it before every `desktop:*` build, turning a would-be runtime failure into a build-time error.
 
 ```mermaid
 flowchart TD
@@ -2102,7 +2115,7 @@ flowchart LR
 `bootstrapOwnedServer()` runs **once** -- guarded by a module-level flag so a `Restart Server` does not double-register schedulers or watchers -- and:
 
 1. Calls `startBackgroundServices()` -- the update scheduler, the `cc-watcher` config watcher, and one-time orphaned-run reconciliation.
-2. Calls `installHooks()` -- writes the Claude Code hook configuration to `~/.claude/settings.json`, so a DMG-only user gets events flowing without ever running `npm run install-hooks` from a checkout.
+2. Calls `installHooks()` -- writes the Claude Code hook configuration to `~/.claude/settings.json`, so an install-only user (DMG on macOS, `.exe` on Windows) gets events flowing without ever running `npm run install-hooks` from a checkout.
 
 It runs only when the server is **owned** by the app -- an adopted server has already done its own bootstrap.
 
@@ -2111,18 +2124,18 @@ It runs only when the server is **owned** by the app -- an adopted server has al
 ```mermaid
 sequenceDiagram
     autonumber
-    participant OS as macOS
+    participant OS as macOS / Windows
     participant Main as main.ts
     participant Host as server-host.ts
     participant Srv as server/index.js
     participant UI as BrowserWindow
 
     OS->>Main: launch app
-    Main->>Main: requestSingleInstanceLock()
+    Main->>Main: setAppUserModelId (win32) · requestSingleInstanceLock()
     alt lock not acquired
         Main->>OS: exit(0) — focus existing instance
     end
-    Main->>Host: ensureUserPath() — recover login-shell PATH
+    Main->>Host: ensureUserPath() — recover login-shell PATH (macOS only)
     Main->>Host: startEmbeddedServer()
     Host->>Host: probe :4820 — adopt if a healthy server answers
     alt no server to adopt
@@ -2133,34 +2146,36 @@ sequenceDiagram
     end
     Host-->>Main: ServerHandle { url, port, ownedByUs, stop }
     Main->>Main: installApplicationMenu() · createTray()
-    alt launched at login
-        Main->>OS: stay tray-only, hide dock
+    alt launched at login (--ccam-hidden / wasOpenedAtLogin)
+        Main->>OS: stay tray-only, hide dock (macOS)
     else normal launch
         Main->>UI: createDashboardWindow(url)
         UI->>Srv: GET http://127.0.0.1:port
     end
     Note over Main: window "close" → hide (server keeps running)
+    Note over Main: ⌘Q / Ctrl+Q → confirm (second press bypasses)
     Note over Main: before-quit → stop owned server + closeEmbeddedDatabase()
 ```
 
 | Event | Behavior |
 | --- | --- |
-| **Second launch** | `requestSingleInstanceLock()` fails -- the new process exits and the existing window is focused. |
+| **Second launch** | `requestSingleInstanceLock()` (enabled on **every platform**) fails -- the new process exits and the existing window is focused. |
 | **Window close** | Intercepted -- the window **hides** (`hide()`); the server and tray keep running. |
 | **`window-all-closed`** | App stays alive in tray-only mode (the handler is intentionally a no-op). |
-| **Launched at login** | The dashboard window is **not** shown -- only the tray icon (`openAsHidden`, dock hidden). |
+| **Launched at login** | The dashboard window is **not** shown -- only the tray icon. Detected via macOS `wasOpenedAtLogin` (dock hidden, `openAsHidden`) or, on Windows, the `--ccam-hidden` arg written into the `HKCU\…\Run` startup command. |
+| **Quit shortcut** | ⌘Q (macOS) / Ctrl+Q (Windows) shows a confirmation dialog; a second press bypasses it. |
 | **`before-quit`** | If the server is owned: stop the HTTP server, then `closeEmbeddedDatabase()` for a clean WAL checkpoint, then `app.exit(0)`. The DB handle is closed here -- never on `Restart Server`, where the cached `server/db.js` singleton must stay usable. |
 
 ### Packaged App Layout
 
-`electron-builder` produces `Claude Code Monitor.app`. The Electron main-process code is compiled (`tsc` → `out/`) and packed into `app.asar`; the rest of the repo is shipped as **`extraResources`** -- plain files under `Resources/app/`.
+`electron-builder` produces `Claude Code Monitor.app` on macOS and `Claude Code Monitor.exe` (NSIS installer + portable) on Windows. On both platforms the Electron main-process code is compiled (`tsc` → `out/`) and packed into `app.asar`; the rest of the repo is shipped as **`extraResources`** -- plain files under the bundle's `Resources/app/` (macOS) or the install dir's `resources\app\` (Windows). The internal layout is the same shape on both:
 
 ```mermaid
 flowchart TD
-    appbundle["Claude Code Monitor.app"]
-    appbundle --> contents["Contents/"]
-    contents --> macos["MacOS/ — Electron binary"]
-    contents --> res["Resources/"]
+    appbundle["Claude Code Monitor.app (macOS)<br/>Claude Code Monitor install dir (Windows)"]
+    appbundle --> contents["Contents/ (macOS)<br/>install root (Windows)"]
+    contents --> macos["MacOS/ — Electron binary (macOS)<br/>Claude Code Monitor.exe (Windows)"]
+    contents --> res["Resources/ (macOS)<br/>resources\ (Windows)"]
     res --> asar["app.asar<br/>(compiled out/**, package.json)"]
     res --> unpacked["app.asar.unpacked/<br/>node_modules/better-sqlite3 (.node)"]
     res --> appdir["app/"]
@@ -2174,9 +2189,9 @@ flowchart TD
     style appdir fill:#238636,stroke:#196c2e,color:#fff
 ```
 
-At runtime `server-host.ts` resolves this root as `process.resourcesPath/app` when packaged. Everything under `Resources/app/` is **read-only** on a packaged, signed, or app-translocated bundle -- so all writable state (the SQLite database, VAPID keys) lives in `~/Library/Application Support/Claude Code Monitor/data/`, **never inside the bundle** (see [Writable Data Directory](#writable-data-directory)).
+At runtime `server-host.ts` resolves this root as `process.resourcesPath/app` when packaged, on both platforms. Everything under the packaged `app/` is **read-only** on a packaged, signed, or app-translocated macOS bundle and on a Windows install under `%ProgramFiles%` (or a portable build's mount) -- so all writable state (the SQLite database, VAPID keys) lives in the per-user data dir (`~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%APPDATA%\Claude Code Monitor\data\` on Windows), **never inside the bundle / install dir** (see [Writable Data Directory](#writable-data-directory)).
 
-`electron-builder` produces a **universal** (x64 + arm64) DMG, ad-hoc signed by default so anyone can build a working `.dmg` without a paid Apple Developer account; real Developer ID signing and notarization are opt-in via environment variables (`CSC_LINK`, `APPLE_ID`, etc.). CI runs a path-filtered `🍎 macOS Desktop (DMG)` job on `macos-latest`. The `desktop/scripts/prebuild.js` guard also **self-heals** a `better-sqlite3` native binary that a prior cross-arch DMG build (`electron-builder --mac --x64/--arm64`) left compiled for the wrong CPU architecture -- it detects the mismatch via `file` and re-runs `electron-builder install-app-deps`, so `desktop:dev` and `desktop:test` do not fail with `ERR_DLOPEN_FAILED`. See [`desktop/README.md`](./desktop/README.md) for the full build pipeline, build-performance notes, and signing details.
+On macOS `electron-builder` produces a **universal** (x64 + arm64) DMG (plus single-arch `arm64` / `x64` DMGs), ad-hoc signed by default so anyone can build a working `.dmg` without a paid Apple Developer account; real Developer ID signing and notarization are opt-in via environment variables (`CSC_LINK`, `APPLE_ID`, etc.). On Windows it produces an **NSIS installer `.exe`** and a **no-install portable `.exe`** (both x64), using `assets/icon.ico` (generated from the source PNG by `desktop/scripts/build-win-icon.ps1`) as the application and tray icon. **`electron-builder` packages for the host OS** -- DMGs build on macOS, Windows `.exe`s build on Windows -- so the two artifacts come from two CI jobs (see below). The `desktop/scripts/prebuild.js` guard also **self-heals** a `better-sqlite3` native binary that a prior cross-arch DMG build (`electron-builder --mac --x64/--arm64`) left compiled for the wrong CPU architecture -- it detects the mismatch via `file` and re-runs `electron-builder install-app-deps`, so `desktop:dev` and `desktop:test` do not fail with `ERR_DLOPEN_FAILED`; on Windows it shells the `.cmd` shims for `npm`/`npx`. CI runs a path-filtered `🍎 macOS Desktop (DMG)` job on `macos-latest` (artifact `ClaudeCodeMonitor-dmg`) and a `🪟 Windows Desktop (EXE)` job on `windows-latest` (artifact `ClaudeCodeMonitor-win`); the release attaches both. See [`desktop/README.md`](./desktop/README.md) for the full build pipeline, build-performance notes, and signing details.
 
 ### Relation to Standalone Deployment
 
@@ -2269,13 +2284,13 @@ graph LR
 | **File watching** | `node --watch` + Vite HMR            | None                            |
 | **Source maps**   | Inline                               | External files                  |
 
-### Desktop App (macOS)
+### Desktop App (macOS & Windows)
 
-The native macOS app is a self-contained deployment mode: a single Electron process embeds the Express server in-process and renders the React client in a `BrowserWindow`. No terminal, no separate `npm start`.
+The native desktop app (macOS `.app`/`.dmg`, Windows NSIS / portable `.exe`) is a self-contained deployment mode: a single Electron process embeds the Express server in-process and renders the React client in a `BrowserWindow`. No terminal, no separate `npm start`.
 
 ```mermaid
 graph LR
-    LAUNCH["Open Claude Code Monitor.app"] --> MAIN["Electron main process<br/>(Node 22 / Electron 35)"]
+    LAUNCH["Open Claude Code Monitor<br/>(.app / .exe)"] --> MAIN["Electron main process<br/>(Node 22 / Electron 35)"]
     MAIN --> HOST["server-host.ts<br/>port discovery + adopt"]
     HOST --> SERVER["server/index.js (in-process)<br/>Port 4820 → fallback"]
     SERVER -->|serves| DIST["client/dist/<br/>(extraResources)"]
@@ -2287,7 +2302,7 @@ graph LR
     style DIST fill:#646CFF,stroke:#818cf8,color:#fff
 ```
 
-The hook ingestion path (Claude Code hooks → `POST /api/hooks/event` → SQLite → WebSocket) is **identical to the standalone Production path** -- only the process that hosts the server differs. See [Desktop App Architecture](#desktop-app-architecture-macos--electron) for the full design.
+The hook ingestion path (Claude Code hooks → `POST /api/hooks/event` → SQLite → WebSocket) is **identical to the standalone Production path** -- only the process that hosts the server differs. See [Desktop App Architecture](#desktop-app-architecture-macos--windows--electron) for the full design.
 
 ### MCP Sidecar (Optional)
 

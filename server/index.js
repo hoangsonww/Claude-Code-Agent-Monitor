@@ -238,14 +238,67 @@ function startBackgroundServices() {
   }
 }
 
+/**
+ * Resolve true when a healthy dashboard already answers `/api/health` on
+ * `port`. Used by the standalone entry point to avoid starting a SECOND server
+ * on the now-shared database — two live servers would each persist the
+ * fanned-out hook events and double-count them. Never rejects; any
+ * error/timeout (nothing listening, or a non-dashboard process) resolves false.
+ */
+function probeDashboardHealth(port, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const req = http.get(
+      { host: "127.0.0.1", port, path: "/api/health", timeout: timeoutMs },
+      (res) => {
+        let buf = "";
+        res.setEncoding("utf8");
+        res.on("data", (c) => (buf += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(buf)?.status === "ok");
+          } catch {
+            resolve(false);
+          }
+        });
+      }
+    );
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
 if (require.main === module) {
   const PORT = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
-  const app = createApp();
   let httpServer = null;
 
-  startServer(app, PORT).then((server) => {
-    httpServer = server;
-    startBackgroundServices();
+  // Single-server guard: if a healthy dashboard already owns this port, don't
+  // start a second one — both would write the fanned-out hook events into the
+  // shared database, double-counting them. Point the user at the running
+  // instance and exit. (`npm run dev` binds a free fallback port via
+  // scripts/dev.js, so this only trips when the conventional port is already
+  // serving a healthy dashboard — e.g. the desktop app, or another `npm start`.)
+  //
+  // Skip the guard under `node --watch` (dev:server): a watch restart briefly
+  // races the old process on the same port, and adopting there would wedge
+  // hot-reload. Dev already runs its own isolated server by design.
+  const isWatchMode = process.execArgv.some((a) => a.startsWith("--watch"));
+  probeDashboardHealth(PORT).then((alreadyRunning) => {
+    if (alreadyRunning && !isWatchMode) {
+      console.log(
+        `Agent Dashboard is already running on http://localhost:${PORT} — not starting a ` +
+          `second instance. Open that URL, or stop the other dashboard first.`
+      );
+      process.exit(0);
+      return;
+    }
+    const app = createApp();
+    startServer(app, PORT).then((server) => {
+      httpServer = server;
+      startBackgroundServices();
+    });
   });
 
   // Graceful shutdown — close connections and DB cleanly

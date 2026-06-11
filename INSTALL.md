@@ -1,6 +1,6 @@
 # Installation
 
-A step-by-step guide to get the Claude Code Agent Monitor up and running on your machine, with optional sections for importing history, running in a container, and using the macOS desktop app.
+A step-by-step guide to get the Claude Code Agent Monitor up and running on your machine, with optional sections for importing history, running in a container, and using the native desktop app (macOS & Windows).
 
 ## Requirements
 
@@ -170,69 +170,86 @@ Open **http://localhost:4820** in your browser.
 
 ---
 
-## macOS Desktop App (optional)
+## Desktop App (macOS & Windows) (optional)
 
-If you'd rather not keep a terminal window open, the project also ships an Electron 35-based **native macOS app** (the `desktop/` workspace). It embeds the Express server in-process, renders the built React client in a `BrowserWindow`, registers a menu-bar (tray) icon, and offers a one-click "Open at Login" toggle. Everything you'd see in the browser at `localhost:4820` lives inside a single `.app` you install once.
+If you'd rather not keep a terminal window open, the project also ships an Electron 35-based **native desktop app** (the `desktop/` workspace), available for both **macOS** and **Windows**. It embeds the Express server in-process, renders the built React client in a `BrowserWindow`, registers a menu-bar / notification-area (tray) icon, and offers a one-click "Open at Login" toggle. Everything you'd see in the browser at `localhost:4820` lives inside a single app you install once — distributed as a macOS `.app` (in a `.dmg`) and a Windows `.exe` (an NSIS installer plus a no-install portable build).
 
 ### Prerequisites
 
 | For… | You need |
 |---|---|
-| Downloading a pre-built DMG | macOS — nothing else |
-| Building the DMG locally | macOS, Node.js 18+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
+| Downloading a pre-built installer (macOS) | macOS — nothing else |
+| Downloading a pre-built installer (Windows) | Windows 10/11 (x64) — nothing else |
+| Building the DMG locally (macOS) | macOS, Node.js 18+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
+| Building the `.exe` locally (Windows) | Windows, Node.js 18+ (22+ recommended), npm 9+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
 
-### Way 1 — Download a pre-built DMG
+### Way 1 — Download a pre-built installer
 
 The fastest path. There are two flavours:
 
 **1a. From the latest GitHub Release** *(recommended — public, no sign-in)*
 
-Open [**Releases → latest**](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest) and download `ClaudeCodeMonitor-<version>-universal.dmg` from the assets. CI publishes a new `vX.Y.Z` release automatically every time the version in `package.json` is bumped on `master`, so this link always points at the current shipping build.
+Open [**Releases → latest**](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest) and download the asset for your platform. CI publishes a new `vX.Y.Z` release automatically every time the version in `package.json` is bumped on `master`, so this link always points at the current shipping build.
+
+| Platform | Asset | Notes |
+|---|---|---|
+| macOS (Apple Silicon) | `ClaudeCodeMonitor-<ver>-arm64.dmg` | drag into `/Applications` |
+| macOS (Intel) | `ClaudeCodeMonitor-<ver>-x64.dmg` | drag into `/Applications` |
+| Windows (installer) | `ClaudeCodeMonitor-Setup-<ver>-x64.exe` | per-user install, no admin |
+| Windows (portable) | `ClaudeCodeMonitor-<ver>-x64-portable.exe` | run without installing |
 
 **1b. From the per-commit CI artifact** *(useful for testing master before it's tagged — sign-in required, 14-day retention)*
 
-Every green run of the `🍎 macOS Desktop (DMG)` workflow uploads a `ClaudeCodeMonitor-dmg` artifact:
+Every green run of the desktop CI jobs uploads a packaged artifact — `ClaudeCodeMonitor-dmg` from the `🍎 macOS Desktop (DMG)` job and `ClaudeCodeMonitor-win` from the `🪟 Windows Desktop (EXE)` job:
 
-- **Via the GitHub UI:** open the latest passing run under [Actions](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess), scroll to **Artifacts**, and download `ClaudeCodeMonitor-dmg`.
+- **Via the GitHub UI:** open the latest passing run under [Actions](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess), scroll to **Artifacts**, and download `ClaudeCodeMonitor-dmg` (macOS) or `ClaudeCodeMonitor-win` (Windows).
 - **Via the `gh` CLI:**
 
   ```bash
-  gh run download <run-id> -R hoangsonww/Claude-Code-Agent-Monitor -n ClaudeCodeMonitor-dmg
+  gh run download <run-id> -R hoangsonww/Claude-Code-Agent-Monitor -n ClaudeCodeMonitor-dmg   # macOS
+  gh run download <run-id> -R hoangsonww/Claude-Code-Agent-Monitor -n ClaudeCodeMonitor-win   # Windows
   ```
 
-  Unzip the artifact to get `ClaudeCodeMonitor-*-universal.dmg`.
+  Unzip the macOS artifact to get the `.dmg`s, or the Windows artifact to get the NSIS installer + portable `.exe`s.
 
 Then jump to [Install the app](#install-the-app).
 
-### Way 2 — Build the DMG locally
+### Way 2 — Build the installer locally
 
-From the project root, after `git clone`:
+From the project root, after `git clone`. electron-builder packages for the **host OS**, so build the macOS DMG on a Mac and the Windows `.exe` on Windows. The common prelude is the same:
 
 ```bash
 npm run setup                # install root + client + vscode-extension deps
 npm run build                # build the React client (the SPA the window loads)
 npm run desktop:install      # install Electron + electron-builder into desktop/
+
+# macOS (run on macOS):
 npm run desktop:dmg:arm64    # fast single-arch DMG → desktop/release/
+
+# Windows (run on Windows):
+npm run desktop:win          # NSIS installer .exe → desktop/release/
 ```
 
-The DMG lands in `desktop/release/`. Pick the build command that matches your goal:
+The artifact lands in `desktop/release/`. Pick the build command that matches your goal:
 
-| Command | Architecture | Speed | Use when |
+| Command | Platform / Architecture | Speed | Use when |
 |---|---|---|---|
-| `npm run desktop:dmg` | Universal (x64 + arm64) | **Slow** | Building a release artifact for everyone |
-| `npm run desktop:dmg:arm64` | Apple Silicon only | Fast (~1 min) | Building for your own Apple Silicon Mac |
-| `npm run desktop:dmg:x64` | Intel only | Fast (~1 min) | Building for your own Intel Mac |
-| `npm run desktop:install` | — | — | Install Electron + electron-builder deps |
+| `npm run desktop:dmg` | macOS — Universal (x64 + arm64) | **Slow** | Building a release DMG for everyone |
+| `npm run desktop:dmg:arm64` | macOS — Apple Silicon only | Fast (~1 min) | Building for your own Apple Silicon Mac |
+| `npm run desktop:dmg:x64` | macOS — Intel only | Fast (~1 min) | Building for your own Intel Mac |
+| `npm run desktop:win` | Windows — NSIS installer `.exe` (x64) | — | Building the per-user installer |
+| `npm run desktop:win:portable` | Windows — portable `.exe` (x64) | — | Building the no-install portable build |
+| `npm run desktop:install` | — | — | Install Electron + electron-builder deps; preflights the native `better-sqlite3` build and prints actionable setup help on failure |
 | `npm run desktop:build` | — | — | TypeScript compile only (`out/`) |
 | `npm run desktop:dev` | — | — | Build, then launch Electron locally |
 | `npm run desktop:test` | — | — | Smoke test (spawn Electron, probe `/api/health`) |
 
 > [!IMPORTANT]
-> The universal `npm run desktop:dmg` build is **intentionally slow** — it builds the app twice (one tree per architecture), merges both with `@electron/universal`, then signs every binary. Expect the silent `packaging arch=universal` step to sit for several minutes. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds the universal DMG for you (see Way 1).
+> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. On macOS, the universal `npm run desktop:dmg` build is **intentionally slow** — it builds the app twice (one tree per architecture), merges both with `@electron/universal`, then signs every binary. Expect the silent `packaging arch=universal` step to sit for several minutes. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds both the universal DMG and the Windows `.exe`s for you (see Way 1).
 
 ### Install the app
 
-Each `desktop:dmg*` build wipes `release/` and emits a single DMG —
+**macOS.** Each `desktop:dmg*` build wipes `release/` and emits a single DMG —
 `desktop:dmg:arm64` → `…-arm64.dmg`, `desktop:dmg:x64` → `…-x64.dmg`, universal
 `desktop:dmg` → `…-universal.dmg` — and its mounted-volume title states the
 architecture (e.g. *Claude Code Monitor (Apple Silicon)*). Install the one
@@ -243,7 +260,7 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # the arch you built
 ```
 
 1. The DMG mounts — drag **Claude Code Monitor** into your `Applications` folder.
-2. The DMG is ad-hoc signed, so macOS shows a Gatekeeper warning (*"Apple could not verify…"*) on first launch. Strip the quarantine attribute, then open it:
+2. The DMG is ad-hoc signed, so macOS Gatekeeper shows a warning (*"Apple could not verify…"*) on first launch. Strip the quarantine attribute, then open it:
 
    ```bash
    xattr -cr "/Applications/Claude Code Monitor.app"
@@ -252,10 +269,16 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # the arch you built
 
    Alternatively, open  → *System Settings → Privacy & Security* and click *Open Anyway*.
 
-Once running, the embedded server boots on port `4820` (or adopts an already-healthy server on `4820`, or falls back to `4821`–`4829` / a random high port), a menu-bar icon appears, and the dashboard window opens. **Hooks are installed automatically on first boot** — a DMG-only user does not need `npm run install-hooks`; just start a new Claude Code session. Closing the window hides it but keeps the server running; **Quit** from the tray exits.
+**Windows.**
+
+1. Run `ClaudeCodeMonitor-Setup-<ver>-x64.exe`. It installs **per-user** (no administrator elevation) and lets you pick the install directory — or run the `*-portable.exe` to launch without installing.
+2. The installer is **unsigned** by default, so Windows **SmartScreen** may show *"Windows protected your PC"* on first launch — click **More info → Run anyway**.
+3. Launch from the Start menu / desktop shortcut.
+
+Once running, the embedded server boots on port `4820` (or adopts an already-healthy server on `4820`, or falls back to `4821`–`4829` / a random high port), the menu-bar / notification-area (tray) icon appears, and the dashboard window opens. **Hooks are installed automatically on first boot** — an install-only user does not need `npm run install-hooks`; just start a new Claude Code session. Closing the window hides it but keeps the server running; **Quit** from the tray exits.
 
 > [!NOTE]
-> The packaged app stores its SQLite database and VAPID keys in `~/Library/Application Support/Claude Code Monitor/data/` — **outside** the `.app` bundle. Your imported history and events therefore **survive app reinstalls and updates**. (Older builds kept the database inside the bundle, which is read-only once installed and code-signed — that broke History Import; it is now fixed. If you are upgrading from a pre-fix build, there is a one-time data gap: re-run **Settings → Import History → Rescan** once.)
+> The packaged app stores its SQLite database and VAPID keys in a per-user app-data directory **outside** the app bundle / install dir — `~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%APPDATA%\Claude Code Monitor\data\` on Windows. Your imported history and events therefore **survive app reinstalls and updates** (the Windows NSIS uninstaller keeps this data by default). (Older macOS builds kept the database inside the bundle, which is read-only once installed and code-signed — that broke History Import; it is now fixed. If you are upgrading from a pre-fix build, there is a one-time data gap: re-run **Settings → Import History → Rescan** once.)
 
 Full user guide: [`DESKTOP.md`](DESKTOP.md). Contributor / architecture reference: [`desktop/README.md`](desktop/README.md). Desktop-specific setup details (logs, auto-start, port adoption) are in [SETUP.md → Desktop App Setup](./SETUP.md#desktop-app-setup).
 
@@ -447,6 +470,17 @@ If you see an error box at startup saying *"SQLite backend not available"*, eith
 
   Then run: `npm rebuild better-sqlite3`
 
+### Desktop build or install fails on the native dependency
+
+Unlike the root server (which falls back to `node:sqlite`), the desktop app **requires** `better-sqlite3` built for Electron's ABI. If that build can't happen, `npm run desktop:install` (and the desktop `prebuild` gate that runs before every `desktop:*` build) now stops with copy-pasteable setup help instead of a raw node-gyp trace or a runtime crash: it lists the per-OS C++ toolchain prerequisites (Windows: Visual Studio Build Tools + "Desktop development with C++"; macOS: `xcode-select --install`; Linux: build-essential + python3), notes that Node LTS 20/22 ship prebuilt binaries, and offers a no-toolchain alternative:
+
+```bash
+cd desktop
+npm install --ignore-scripts
+node node_modules/electron/install.js
+npx electron-builder install-app-deps
+```
+
 ### `npm run dev` fails immediately
 
 Ensure both server and client dependencies are installed:
@@ -470,16 +504,17 @@ The Vite dev server and Express server run on different ports. Make sure both ar
 
 See [SETUP.md — Troubleshooting](./SETUP.md#troubleshooting) for detailed hook debugging steps.
 
-### macOS Desktop App issues
+### Desktop App (macOS & Windows) issues
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| *"Apple could not verify…"* on first launch | The DMG is ad-hoc signed (no paid Apple Developer ID) | `xattr -cr "/Applications/Claude Code Monitor.app"`, then open it — or use *System Settings → Privacy & Security → Open Anyway* |
-| `npm run desktop:dmg` hangs on `packaging arch=universal` | Not hung — the universal build merges two architectures and is intentionally slow | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
-| `entry file out/main.js does not exist` | `npm run clean` (in `desktop/`) deleted `out/`; `electron-builder` only packages, it does not compile | Re-run `npm run desktop:build` (or just use a `desktop:dmg*` script, which chains the build) |
-| Desktop window opens but is blank | The embedded server failed `/api/health` within 30 s | Check `~/Library/Logs/Claude Code Monitor/desktop.log`, then tray → *Restart Server* |
-| "Run Claude" says `claude` is not on your PATH | A Finder/Dock-launched macOS app only inherits launchd's minimal PATH, not your login-shell PATH | The app recovers your login-shell PATH at startup so it can find and spawn the `claude` CLI. If it still fails, make sure `claude` is a real executable on your shell PATH — not a shell alias or function |
-| Imported history vanished after updating the app | Older builds stored the database inside the (replaceable) `.app` bundle | Fixed — data now lives in `~/Library/Application Support/Claude Code Monitor/data/` and survives reinstalls/updates. After upgrading from a pre-fix build, re-run **Settings → Import History → Rescan** once |
+| *"Apple could not verify…"* on first launch (macOS) | The DMG is ad-hoc signed (no paid Apple Developer ID) | `xattr -cr "/Applications/Claude Code Monitor.app"`, then open it — or use *System Settings → Privacy & Security → Open Anyway* |
+| *"Windows protected your PC"* on first launch (Windows) | The `.exe` is unsigned by default, so SmartScreen prompts | Click **More info → Run anyway** |
+| `npm run desktop:dmg` hangs on `packaging arch=universal` (macOS) | Not hung — the universal build merges two architectures and is intentionally slow | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
+| `entry file out/main.js does not exist` | `npm run clean` (in `desktop/`) deleted `out/`; `electron-builder` only packages, it does not compile | Re-run `npm run desktop:build` (or just use a `desktop:dmg*` / `desktop:win*` script, which chains the build) |
+| Desktop window opens but is blank | The embedded server failed `/api/health` within 30 s | Check the desktop log (`~/Library/Logs/Claude Code Monitor/desktop.log` on macOS, `%APPDATA%\Claude Code Monitor\logs\desktop.log` on Windows), then tray → *Restart Server* |
+| "Run Claude" says `claude` is not on your PATH | A Finder/Dock-launched macOS app only inherits launchd's minimal PATH, not your login-shell PATH (on Windows the process already inherits the user PATH) | The app recovers your login-shell PATH at startup so it can find and spawn the `claude` CLI. If it still fails, make sure `claude` is a real executable on your shell PATH — not a shell alias or function |
+| Imported history vanished after updating the app | Older builds stored the database inside the (replaceable) `.app` bundle | Fixed — data now lives in the per-user app-data dir (`~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%APPDATA%\Claude Code Monitor\data\` on Windows) and survives reinstalls/updates. After upgrading from a pre-fix build, re-run **Settings → Import History → Rescan** once |
 
 ---
 

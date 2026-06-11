@@ -1,6 +1,6 @@
-# Claude Code Monitor — macOS Desktop App
+# Claude Code Monitor — Desktop App (macOS & Windows)
 
-The dashboard ships with an optional **native macOS application** that wraps the existing server + client into a single `.app` you install once and forget. Everything you see in the browser at `localhost:4820` lives inside this window, with macOS-native lifecycle on top: menu-bar icon, application menu, Login Items integration, and a single quit button that cleans up the server.
+The dashboard ships with an optional **native desktop app** (built with Electron 35) that wraps the existing server + client into a single application you install once and forget — a macOS `.app` (shipped as a `.dmg`) and a Windows `.exe` (an NSIS installer plus a no-install portable build). Everything you see in the browser at `localhost:4820` lives inside this window, with native OS lifecycle on top: a menu-bar / notification-area (tray) icon, a native application menu, auto-start at login, and a single quit button that cleans up the server.
 
 ## Why this exists in addition to the PWA
 
@@ -10,24 +10,32 @@ The PWA (added in #144) makes the dashboard installable in Chromium-based browse
 |---|---|---|
 | Installs to dock / Applications | ✅ | ✅ |
 | Manages the Express server | ❌ — user must `npm start` separately | ✅ — embedded in-process |
-| Auto-starts at login (macOS) | ❌ | ✅ via native Login Items |
-| Menu-bar (tray) icon for always-on status | ❌ | ✅ |
-| Native application menu (⌘ shortcuts, etc.) | ❌ | ✅ |
+| Auto-starts at login | ❌ | ✅ via macOS Login Items / Windows `HKCU\…\Run` |
+| Menu-bar / notification-area (tray) icon for always-on status | ❌ | ✅ |
+| Native application menu (⌘ / Ctrl shortcuts, etc.) | ❌ | ✅ |
 | Survives browser restart | ⚠️ depends on browser | ✅ |
 
 The two coexist — install whichever fits your workflow.
 
 ## Quick install
 
-**Option A — download a pre-built DMG** (recommended):
+**Option A — download a pre-built installer** (recommended):
 
-1. Open [**Releases → latest**](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest) and grab `ClaudeCodeMonitor-<version>-universal.dmg` from the assets. Every `master` commit that bumps the version in `package.json` cuts a new `vX.Y.Z` release automatically (CI publishes it), so this link always lands on the current build — no GitHub sign-in required.
-2. Want a **per-commit build** instead of waiting for a release? Every green CI run uploads a `ClaudeCodeMonitor-dmg` workflow artifact (sign-in required, 14-day retention):
+1. Open [**Releases → latest**](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest) and grab the asset for your platform. Every `master` commit that bumps the version in `package.json` cuts a new `vX.Y.Z` release automatically (CI publishes it), so this link always lands on the current build — no GitHub sign-in required.
+
+   | Platform | Asset | Notes |
+   |---|---|---|
+   | macOS (Apple Silicon) | `ClaudeCodeMonitor-<ver>-arm64.dmg` | drag into `/Applications` |
+   | macOS (Intel) | `ClaudeCodeMonitor-<ver>-x64.dmg` | drag into `/Applications` |
+   | Windows (installer) | `ClaudeCodeMonitor-Setup-<ver>-x64.exe` | per-user install, no admin |
+   | Windows (portable) | `ClaudeCodeMonitor-<ver>-x64-portable.exe` | run without installing |
+
+2. Want a **per-commit build** instead of waiting for a release? Every green CI run uploads a workflow artifact (sign-in required, 14-day retention) — `ClaudeCodeMonitor-dmg` from the `🍎 macOS Desktop (DMG)` job and `ClaudeCodeMonitor-win` from the `🪟 Windows Desktop (EXE)` job:
    ```bash
-   gh run download <run-id> -R hoangsonww/Claude-Code-Agent-Monitor -n ClaudeCodeMonitor-dmg
+   gh run download <run-id> -R hoangsonww/Claude-Code-Agent-Monitor -n ClaudeCodeMonitor-dmg   # or ClaudeCodeMonitor-win
    ```
-3. Double-click the DMG → drag `Claude Code Monitor.app` into your `Applications` folder.
-4. Open it. macOS may show a Gatekeeper warning the first time — see [Gatekeeper](#gatekeeper-first-launch) below.
+3. **macOS:** double-click the DMG → drag `Claude Code Monitor.app` into your `Applications` folder. Open it; macOS may show a Gatekeeper warning the first time — see [Gatekeeper & SmartScreen](#gatekeeper--smartscreen-first-launch) below.
+4. **Windows:** run `ClaudeCodeMonitor-Setup-<ver>-x64.exe` (per-user, no admin) and follow the wizard, or just run the `*-portable.exe` to launch without installing. Windows **SmartScreen** may show *"Windows protected your PC"* the first time — see [Gatekeeper & SmartScreen](#gatekeeper--smartscreen-first-launch) below.
 
 **Option B — build locally:**
 
@@ -37,12 +45,19 @@ npm run setup                # installs root + client + vscode-extension deps
 npm run build                # builds the React client
 npm run desktop:install      # installs Electron + electron-builder
 
-# Build the DMG — pick one:
+# Build for macOS (run ON macOS) — pick one:
 npm run desktop:dmg:arm64    # Apple Silicon only — FAST (~1 min); use this for your own Mac
 npm run desktop:dmg:x64      # Intel only — FAST
 npm run desktop:dmg          # universal (x64 + arm64) — SLOW; for distributing one DMG to everyone
 
-# Open the DMG you just built. Each desktop:dmg* build wipes release/ first
+# Build for Windows (run ON Windows) — pick one:
+npm run desktop:win          # NSIS installer → desktop/release/ClaudeCodeMonitor-Setup-<ver>-x64.exe
+npm run desktop:win:portable # no-install portable → desktop/release/ClaudeCodeMonitor-<ver>-x64-portable.exe
+
+# electron-builder packages for the HOST OS — you cannot build a Windows .exe
+# on macOS or a macOS .dmg on Windows.
+
+# Open the macOS DMG you just built. Each desktop:dmg* build wipes release/ first
 # and emits exactly one DMG, so match the suffix to the build above.
 open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # …-x64.dmg / …-universal.dmg for the others
 ```
@@ -62,21 +77,22 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # …-x64.dmg / …-univers
 2. If something already answers `/api/health` on port 4820 (e.g. you ran `npm start` in a terminal), the app **adopts that server** and skips starting a second one. No double-binding, no SQLite contention.
 3. Otherwise it `require()`s `server/index.js` directly in-process — same Node runtime as the main process, same memory. Boot is typically under two seconds.
 4. On startup the server records its **live port** to `~/.claude/.agent-dashboard.json`. The Claude Code hook handler reads that file, so events still reach the dashboard when the app bound a fallback port instead of 4820.
-5. The dashboard window opens (unless macOS launched the app at login, in which case it stays tray-only).
-6. A menu-bar (tray) icon appears. One click opens a dropdown with a **live status snapshot** (server port, active sessions, working agents, events today — all clickable to jump into the dashboard) plus *Open Dashboard*, *Open in Browser*, *Restart Server*, *Show Logs*, *Open at Login* (toggle), and *Quit*.
+5. The dashboard window opens — unless the app was launched at login (on macOS via Login Items; on Windows via the `HKCU\…\Run` entry, detected through a `--ccam-hidden` launch arg since Windows has no `wasOpenedAtLogin`), in which case it stays tray-only.
+6. A tray icon appears — the macOS **menu bar** or the Windows **notification area**. One click opens a dropdown with a **live status snapshot** (server port, active sessions, working agents, events today — all clickable to jump into the dashboard) plus *Open Dashboard*, *Open in Browser*, *Restart Server*, *Show Logs*, *Open at Login* (toggle), and *Quit*.
 
 ## Lifecycle semantics
 
-- **Closing the window hides it.** The server keeps running, the tray icon stays, and the **dock icon stays too** — clicking it re-opens the window. Three independent signals that the app is still alive.
-- **Quitting** (⌘Q, *Quit* in the application menu, or *Quit* in the tray menu) pops a confirmation modal — *"Quit Claude Code Monitor? Press ⌘Q again to skip this prompt and quit immediately."* Press **Quit** in the dialog, or **press ⌘Q a second time** to bypass the prompt. Either way the SQLite handle is checkpointed cleanly before the process exits.
-- **Menu-bar tray** — a single click (left or right) opens the dropdown. The dropdown shows a **live status snapshot** pulled straight from the embedded SQLite handle each time it opens: server port, active sessions, working agents, and events today. Snapshot rows are clickable — they open the dashboard.
-- **Login Items toggle:** flip *Open at Login* in the tray menu (or the app menu). It registers via macOS's `SMAppService` API — you'll see the entry under  → *System Settings → General → Login Items*.
-- **Single-instance:** double-launching just focuses the existing window. No second server, no port collision.
-- **Logs** live at `~/Library/Logs/Claude Code Monitor/desktop.log` (use *Show Logs* in the menu to open the folder).
-- **Your data** (the SQLite database and VAPID keys) lives in `~/Library/Application Support/Claude Code Monitor/data/` — outside the app bundle, so it **survives app reinstalls and updates**.
-- **The `claude` CLI** is resolved using your login-shell `PATH`, recovered at startup — so "Run Claude" works even though a Finder/Dock-launched app would otherwise only inherit a minimal `PATH`.
-- **Notifications** (including the in-dashboard *Send test notification* button) are delivered as **native macOS notifications** when running inside the `.app` — the embedded server calls Electron's `Notification` API directly. Web Push doesn't work reliably inside Electron (Chromium-in-Electron ships without Firebase Cloud Messaging credentials, so `pushManager.subscribe` returns endpoints nothing can deliver to), and this path bypasses it entirely. The web dashboard at `npm start` continues to use Web Push as before.
-- **Coexists with the web dashboard.** You can run the desktop app and `npm run dev` (or `npm start`) at the same time. Each server writes its `{port, pid, startedAt}` entry to a shared discovery file at `~/.claude/.agent-dashboard.json`, and the Claude Code hook handler **fan-outs each event to every live entry**. Both UIs stay real-time; the two SQLite databases (`~/Library/Application Support/Claude Code Monitor/data/dashboard.db` and the repo's `data/dashboard.db`) each record the same events independently.
+- **Closing the window hides it.** The server keeps running, the tray icon stays, and (on macOS) the **dock icon stays too** — clicking either re-opens the window. Independent signals that the app is still alive.
+- **Quitting** (⌘Q / Ctrl+Q, *Quit* in the application menu, or *Quit* in the tray menu) pops a confirmation dialog — *"Quit Claude Code Monitor? Press ⌘Q again to skip this prompt and quit immediately."* Press **Quit** in the dialog, or **press ⌘Q / Ctrl+Q a second time** to bypass the prompt. Either way the SQLite handle is checkpointed cleanly before the process exits.
+- **Tray** — the macOS menu bar / Windows notification area. macOS uses a black template glyph the OS tints for light/dark menu bars; Windows uses the colored `icon.ico`, because a template glyph would vanish on the dark taskbar. A single click (left or right) opens the dropdown, which shows a **live status snapshot** pulled straight from the embedded SQLite handle each time it opens: server port, active sessions, working agents, and events today. Snapshot rows are clickable — they open the dashboard. The tray's *Open Dashboard* reliably **raises** the window even when it is minimized or behind other windows. (The application menu's *File ▸ Open Dashboard* / ⌘1 is **macOS-only** — on Windows/Linux a window-attached menu accelerator can't reopen a hidden window, so reopening is the tray's job there.)
+- **Window / taskbar icon** — the `BrowserWindow` sets its `icon` to the colored app logo (`icon.ico` on Windows, `icon.png` elsewhere — the same logo as the macOS Dock, rendered from `assets/icon.svg`), so an unpackaged `desktop:dev` run shows the real app logo in the title bar / taskbar instead of the generic Electron icon. The macOS dev Dock icon is set too; packaged apps already get theirs from the bundle `.icns`/`.exe`.
+- **Open-at-login toggle:** flip *Open at Login* in the tray menu (or the app menu). Both platforms go through Electron's first-party `app.*LoginItemSettings` API — no third-party deps. On **macOS** it registers via the `SMAppService` API, so the entry appears under  → *System Settings → General → Login Items*. On **Windows** it writes a per-user `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry, visible under *Task Manager → Startup*; a login-triggered launch is detected via a `--ccam-hidden` arg (Windows has no `wasOpenedAtLogin`). On Linux the toggle is a no-op (unsupported).
+- **Single-instance:** double-launching just focuses the existing window. No second server, no port collision. (Applies on every platform.)
+- **Logs** live at `~/Library/Logs/Claude Code Monitor/desktop.log` on macOS and `%APPDATA%\Claude Code Monitor\logs\desktop.log` on Windows (use *Show Logs* in the tray menu to open the folder).
+- **Your data** (the SQLite database and VAPID keys) lives outside the app bundle / install dir, so it **survives app reinstalls and updates** — `~/Library/Application Support/Claude Code Monitor/data/` on macOS, `%APPDATA%\Claude Code Monitor\data\` on Windows. The Windows NSIS uninstaller **keeps this data by default** (`deleteAppDataOnUninstall: false`), mirroring how dragging the `.app` to the Trash on macOS never touches your data.
+- **The `claude` CLI on PATH.** On **macOS** the app resolves it using your login-shell `PATH`, recovered at startup — so "Run Claude" works even though a Finder/Dock-launched app would otherwise only inherit a minimal `PATH`. On **Windows** the inherited user `PATH` already includes it, so no recovery is needed.
+- **Notifications** (including the in-dashboard *Send test notification* button) are delivered as **native OS toasts** on both platforms when running inside the app — the embedded server calls Electron's `Notification` API directly. On Windows the app sets an `AppUserModelId` (`com.hoangsonww.ccam.desktop`, matching the electron-builder `appId`) so toasts attribute to the app and its taskbar windows group correctly. Web Push doesn't work reliably inside Electron (Chromium-in-Electron ships without Firebase Cloud Messaging credentials, so `pushManager.subscribe` returns endpoints nothing can deliver to), and this path bypasses it entirely. The web dashboard at `npm start` continues to use Web Push as before.
+- **Coexists with the web dashboard.** You can run the desktop app and `npm run dev` (or `npm start`) at the same time. Each server writes its `{port, pid, startedAt}` entry to a shared discovery file at `~/.claude/.agent-dashboard.json`, and the Claude Code hook handler **fan-outs each event to every live entry**. Both UIs stay real-time; the two SQLite databases (the per-user data dir's `dashboard.db` and the repo's `data/dashboard.db`) each record the same events independently.
 
 ## File layout (for contributors)
 
@@ -84,25 +100,28 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # …-x64.dmg / …-univers
 desktop/
 ├── package.json                # Electron + electron-builder
 ├── tsconfig.json
-├── electron-builder.yml        # DMG config; signing/notarization hooks
-├── assets/                     # icon.svg + generated icon.icns + tray PNGs
+├── electron-builder.yml        # macOS (dmg) + Windows (nsis/portable) targets; signing/notarization hooks
+├── assets/                     # icon.svg + generated icon.icns (macOS) + icon.ico (Windows) + tray PNGs
 ├── src/
-│   ├── main.ts                 # main process entry, lifecycle
+│   ├── main.ts                 # main process entry, lifecycle; setAppUserModelId on win32
 │   ├── server-host.ts          # in-process Express boot, port discovery, adopt
 │   ├── window.ts               # BrowserWindow + persisted state
-│   ├── tray.ts                 # menu-bar icon + context menu
+│   ├── tray.ts                 # tray icon (platform image: template PNG on macOS, icon.ico on Windows) + context menu
 │   ├── menu.ts                 # native application menu
-│   ├── login-item.ts           # macOS Login Items toggle
+│   ├── login-item.ts           # open-at-login (macOS Login Items + Windows HKCU\…\Run startup)
 │   ├── shell-path.ts           # recover the user's shell PATH (find `claude`)
 │   ├── preload.ts              # (empty — kept for future renderer bridges)
 │   ├── logger.ts               # file logger
-│   └── constants.ts
+│   └── constants.ts            # incl. APP_ID (matches electron-builder appId)
 ├── scripts/
-│   ├── prebuild.js             # ensures root + client are built before tsc
-│   ├── build-icons.sh          # SVG → PNG/ICNS via qlmanage/sips/iconutil
-│   └── notarize.js             # electron-builder afterSign hook (opt-in)
+│   ├── install.js              # `desktop:install` wrapper: runs npm install, then prints actionable native-dep help + exits non-zero on failure
+│   ├── preflight.js            # shared native-dep check (hasBetterSqliteBinary) + per-OS prerequisite help (printNativeDepHelp)
+│   ├── prebuild.js             # ensures root + client are built before tsc; shells npm/npx on Windows (.cmd shims); fails fast with setup help when the better-sqlite3 native binary is missing
+│   ├── build-icons.sh          # SVG → PNG/ICNS + tray PNGs via qlmanage/sips/iconutil (macOS)
+│   ├── build-win-icon.ps1      # icon.png → icon.ico for Windows (PowerShell + .NET)
+│   └── notarize.js             # electron-builder afterSign hook (opt-in; macOS only)
 └── tests/
-    └── smoke.test.mjs          # spawn-and-probe /api/health
+    └── smoke.test.mjs          # spawn-and-probe /api/health (resolves the real electron binary via createRequire)
 ```
 
 **Changes outside `desktop/` are deliberately minimal:**
@@ -113,7 +132,9 @@ desktop/
 
 `client/`, `mcp/`, and `vscode-extension/` are untouched. The Electron main process is otherwise just a host for the same code.
 
-## Gatekeeper (first launch)
+## Gatekeeper & SmartScreen (first launch)
+
+### macOS — Gatekeeper
 
 The DMG is **ad-hoc signed** by default — that's all the project can offer without a paid Apple Developer ID. macOS will warn the first time you open it: *"Apple could not verify…"*.
 
@@ -125,6 +146,12 @@ xattr -cr ~/Downloads/ClaudeCodeMonitor-*.dmg
 ```
 
 Or open  → *System Settings → Privacy & Security*, scroll to the blocked DMG, click *Open Anyway*.
+
+### Windows — SmartScreen
+
+The Windows `.exe` (both the installer and the portable build) is **unsigned** by default, so Windows **SmartScreen** may show *"Windows protected your PC"* the first time you run it. Click **More info → Run anyway** to launch it.
+
+Authenticode signing is opt-in for the maintainer: provide a code-signing certificate via `CSC_LINK` (a base64-encoded `.p12`) and `CSC_KEY_PASSWORD` and electron-builder signs the `.exe` automatically — no code change required. A signed build skips the SmartScreen prompt.
 
 ### Notarization (for the maintainer)
 
@@ -150,12 +177,37 @@ npm run desktop:dev
 # Smoke test (also runs in CI on macOS):
 npm run desktop:test
 
-# Single-architecture DMG — fast (~1 min):
+# macOS — single-architecture DMG — fast (~1 min):
 npm run desktop:dmg:arm64    # or desktop:dmg:x64 for Intel
 
-# Universal DMG — slow (builds + signs both architectures, then merges):
+# macOS — universal DMG — slow (builds + signs both architectures, then merges):
 npm run desktop:dmg
+
+# Windows — NSIS installer / no-install portable (run ON Windows):
+npm run desktop:win          # NSIS installer .exe
+npm run desktop:win:portable # no-install portable .exe
 ```
+
+> electron-builder packages for the **host OS** — build DMGs on macOS and the
+> Windows `.exe`s on Windows. The Windows icon regenerates from `icon.png` with
+> `npm run build:win-icon` (PowerShell + .NET); the macOS icns + tray PNGs come
+> from `npm run build:icons`. On Windows, `better-sqlite3` is fetched as a
+> prebuilt Electron binary by `npm run desktop:install` (its postinstall runs
+> `electron-builder install-app-deps`), so no Visual Studio C++ toolchain is
+> needed in the common case. If that fetch/rebuild *does* fail (no C++ toolchain,
+> or a Node version with no prebuilt binary), `npm run desktop:install` — and any
+> `desktop:*` build, gated by `prebuild.js` — prints the exact per-OS fix plus a
+> no-toolchain alternative and **fails loudly** rather than crashing at runtime:
+>
+> ```bash
+> cd desktop
+> npm install --ignore-scripts
+> node node_modules/electron/install.js
+> npx electron-builder install-app-deps
+> ```
+>
+> A Node LTS (20/22) ships prebuilt `better-sqlite3` binaries and avoids the
+> compile entirely.
 
 > After `npm run clean` in `desktop/`, you must `npm run build` again before
 > packaging — `clean` removes `out/`, and `electron-builder` only packages, it
@@ -167,20 +219,26 @@ The smoke test does not exercise the BrowserWindow (no display on headless CI). 
 
 ## Known caveats
 
-- **Bundle size** ≈ 80 MB DMG, ≈ 250 MB on disk. The standard Electron tax. Tauri would cut this dramatically but at the cost of a sidecar-process model and a Rust toolchain dependency — fair to revisit in a follow-up PR if bundle size becomes a real complaint.
-- **Native modules**: `better-sqlite3` is rebuilt against Electron's Node version automatically via `electron-builder install-app-deps` in the desktop workspace's `postinstall`. If that fails for any reason, the server falls back to `node:sqlite` (per #37), so the app still boots.
+- **Bundle size** ≈ 80 MB DMG, ≈ 250 MB on disk. The standard Electron tax. The Windows installer is comparable. Tauri would cut this dramatically but at the cost of a sidecar-process model and a Rust toolchain dependency — fair to revisit in a follow-up PR if bundle size becomes a real complaint.
+- **Native modules**: `better-sqlite3` is rebuilt against Electron's Node version automatically via `electron-builder install-app-deps` in the desktop workspace's `postinstall`. On Windows it is fetched as a **prebuilt Electron binary**, so no Visual Studio C++ toolchain is needed in the common case. If that build *does* fail (or the binary is missing afterward), `npm run desktop:install` — and any `desktop:*` build — prints the exact per-OS fix (Windows: Visual Studio Build Tools with the "Desktop development with C++" workload; macOS: `xcode-select --install`; Linux: build-essential + python3) plus a no-toolchain alternative (`npm install --ignore-scripts` → `node node_modules/electron/install.js` → `npx electron-builder install-app-deps`), and exits non-zero — failing loudly at install/build time rather than crashing at runtime. Even so, if the module is unavailable the server falls back to `node:sqlite` (per #37), so the app still boots.
 - **Universal binary**: `npm run desktop:dmg` produces a DMG containing both x64 and arm64 slices, which is slow to build. `npm run desktop:dmg:arm64` and `npm run desktop:dmg:x64` build a single-architecture DMG instead — much faster, and roughly half the size.
-- **Auto-update**: not wired in v1. The current update path is *re-download the latest DMG*. `electron-updater` + GitHub Releases is the natural follow-up.
+- **Auto-update**: not wired on either platform. The current update path is *re-download the latest installer* (DMG on macOS, `.exe` on Windows). `electron-updater` + GitHub Releases is the natural follow-up.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "Apple could not verify…" on first launch | Unnotarized DMG | `xattr -cr ~/Downloads/ClaudeCodeMonitor-*.dmg` |
+| "Apple could not verify…" on first launch (macOS) | Unnotarized DMG | `xattr -cr ~/Downloads/ClaudeCodeMonitor-*.dmg` |
+| "Windows protected your PC" on first launch (Windows) | The `.exe` is unsigned by default (SmartScreen) | Click **More info → Run anyway**. To remove the prompt for everyone, the maintainer can enable Authenticode signing via `CSC_LINK` + `CSC_KEY_PASSWORD` |
 | macOS prompts to install Rosetta when opening the app | You installed the **x64** build on an Apple Silicon Mac | Check your arch with `uname -m` (`arm64` → Apple Silicon, build with `desktop:dmg:arm64`). Each `desktop:dmg*` build now wipes `release/` and emits a single DMG whose mounted-volume title states the architecture — e.g. *Claude Code Monitor (Apple Silicon)* — so there is no ambiguous second window to drag from. If stale DMGs from an older build linger, clear them with `rm -rf desktop/release` and rebuild |
-| Window shows but content is blank | Server didn't boot — check `~/Library/Logs/Claude Code Monitor/desktop.log` | Restart from tray → *Restart Server* |
-| Tray icon missing | The OS hides tray icons when the menu bar is full | Move other menu-bar items aside, or look in the overflow chevron |
-| App didn't auto-start at login | Login Items entry got revoked by macOS | Toggle *Open at Login* off and on again from the tray menu |
+| Window shows but content is blank (macOS) | Server didn't boot — check `~/Library/Logs/Claude Code Monitor/desktop.log` | Restart from tray → *Restart Server* |
+| Window shows but content is blank (Windows) | Server didn't boot — check `%APPDATA%\Claude Code Monitor\logs\desktop.log` | Restart from tray → *Restart Server* |
+| Tray icon missing (macOS) | The OS hides tray icons when the menu bar is full | Move other menu-bar items aside, or look in the overflow chevron |
+| Tray icon missing (Windows) | Windows tucked it into the notification-area overflow | Click the **^** overflow chevron in the taskbar; drag the icon out to keep it pinned |
+| App didn't auto-start at login (macOS) | Login Items entry got revoked by macOS | Toggle *Open at Login* off and on again from the tray menu |
+| App didn't auto-start at login (Windows) | The `HKCU\…\Run` startup entry is missing or was disabled | Toggle *Open at Login* off and on again from the tray menu, then confirm the entry under *Task Manager → Startup* is **Enabled** |
+| `npm run desktop:win` / `:win:portable` fails or produces nothing | electron-builder packages for the host OS — you ran it on macOS/Linux | Build the Windows `.exe` **on Windows** (and DMGs on macOS) |
+| Desktop build/install fails on `better-sqlite3` / native binary missing | No C++ toolchain, or no prebuilt for your Node version | Run `npm run desktop:install` and follow the printed help, or use the no-toolchain alternative (`npm install --ignore-scripts` → `node node_modules/electron/install.js` → `npx electron-builder install-app-deps`); or use Node LTS 20/22 |
 | Port 4820 already in use, app refuses to start | Something other than the dashboard is on 4820 and it doesn't answer `/api/health` | The app will pick a fallback (4821–4829, then a random high port) — check the tray menu's port indicator |
 | Dashboard stays empty — 0 sessions, 0 agents, no real-time updates | The app bound a fallback port (4820 was taken), and the Claude Code hooks were posting events to the wrong port | Fixed — the server publishes its live port to `~/.claude/.agent-dashboard.json` and the hook handler reads it. After upgrading from a pre-fix build, **start a new Claude Code session** so the updated hooks take effect |
 | `desktop:dmg` seems stuck at `packaging arch=universal` | Not stuck — the universal merge is genuinely slow | Wait a few minutes, or build a single architecture with `desktop:dmg:arm64` / `desktop:dmg:x64` |

@@ -28,6 +28,7 @@ try {
 }
 const fs = require("fs");
 const path = require("path");
+const { getDataDir } = require("../server/lib/claude-home");
 
 const args = new Set(process.argv.slice(2));
 const CONFIRMED = args.has("--yes") || args.has("-y");
@@ -35,7 +36,9 @@ const BACKUP = args.has("--backup");
 const DEMO_ONLY = args.has("--demo-only");
 const DRY_RUN = args.has("--dry-run") || !CONFIRMED;
 
-const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(__dirname, "..", "data", "dashboard.db");
+// Mirror server/db.js resolution so we clear the same shared database the
+// servers actually use (DASHBOARD_DB_PATH override → shared data dir).
+const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(getDataDir(), "dashboard.db");
 
 if (!fs.existsSync(DB_PATH)) {
   console.error(`No database at ${DB_PATH} — nothing to clear.`);

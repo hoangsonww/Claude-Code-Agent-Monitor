@@ -754,7 +754,13 @@ code {
   transition:
     background 0.2s,
     border-color 0.2s;
-  white-space: nowrap;
+  /* Allow long inline code (registry keys, file paths like
+   * HKCU\Software\...\Run or %APPDATA%\Claude Code Monitor\data\) to wrap
+   * instead of forcing one unbreakable line that overflows its card/callout.
+   * `anywhere` also shrinks the token's min-content size so flex/grid parents
+   * can size down to fit. */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 :not(pre) > code:hover {
@@ -892,6 +898,70 @@ code {
   padding-right: 50px; /* offset the dots to visually center */
 }
 
+/* When a copy button lives in the title bar it balances the left-side dots,
+ * so drop the artificial right padding and let the label center naturally. */
+.code-header.has-copy .code-lang,
+.code-titlebar.has-copy .code-title {
+  padding-right: 0;
+}
+
+/* ─── Copy-code button ─────────────────────────────────────────────────── */
+.code-copy-btn {
+  flex-shrink: 0;
+  margin-left: 12px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition:
+    opacity 0.2s,
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.code-copy-btn:hover {
+  background: rgba(99, 102, 241, 0.28);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #c7d2fe;
+}
+
+/* Headerless code windows keep the floating, reveal-on-hover button. */
+.code-copy-btn--floating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0;
+}
+
+/* ─── Inline text links (prose) ────────────────────────────────────────── */
+/* Plain in-body links (no chip/badge/nav class) pick up the accent theme so
+ * cross-references like the "Desktop App (macOS & Windows)" jump-link no longer
+ * render as the unstyled browser-default blue underline. */
+.main-content p a:not([class]),
+.main-content li a:not([class]),
+.callout-body a:not([class]) {
+  color: #a5b4fc;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.4);
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.main-content p a:not([class]):hover,
+.main-content li a:not([class]):hover,
+.callout-body a:not([class]):hover {
+  color: #c7d2fe;
+  border-bottom-color: #a5b4fc;
+}
+
 /* Standalone pre blocks (no header) get their own window chrome */
 pre:not(.code-header + pre):not(.code-window pre) {
   border-radius: var(--radius-lg);
@@ -1018,6 +1088,10 @@ tr:hover td {
 
 .callout-body {
   flex: 1;
+  /* Without this a flex child won't shrink below its content's min-content
+   * width, so a long path/code token would push the callout wider and overflow.
+   */
+  min-width: 0;
 }
 .callout-body strong {
   display: block;

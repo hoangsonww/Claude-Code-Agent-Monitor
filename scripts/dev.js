@@ -17,10 +17,34 @@
  */
 
 const net = require("node:net");
+const http = require("node:http");
 const { spawn } = require("node:child_process");
 
 const START = parseInt(process.env.DASHBOARD_PORT || "4820", 10);
 const RANGE = 40;
+
+/** Resolve true if a healthy dashboard already answers /api/health on `port`. */
+function healthyDashboardOn(port) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: "127.0.0.1", port, path: "/api/health", timeout: 600 }, (res) => {
+      let buf = "";
+      res.setEncoding("utf8");
+      res.on("data", (c) => (buf += c));
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(buf)?.status === "ok");
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
 
 function probeHost(host, port, timeoutMs) {
   return new Promise((resolve) => {
@@ -63,10 +87,28 @@ async function pickPort() {
     console.log(
       `[dev] port ${START} is busy (something is on the loopback already — likely an SSH LocalForward); using ${port} instead`
     );
+    // If the thing on the conventional port is itself a healthy dashboard, this
+    // dev server will run alongside it on the SAME shared database. Claude Code
+    // hooks fan out to every live dashboard, so each live event would be written
+    // twice — inflating counts. Warn so the developer can stop the other one.
+    if (await healthyDashboardOn(START)) {
+      console.log(
+        `[dev] ⚠ another dashboard is already running on :${START} and shares this database. ` +
+          `Live hook events will be counted by BOTH — stop the other dashboard (e.g. the desktop app) for accurate dev data.`
+      );
+    }
   } else {
     console.log(`[dev] dashboard server will listen on :${port}`);
   }
 
+  // On Windows `npx` is a `npx.cmd` shim that `spawn` can only launch through a
+  // shell; without `shell: true` it fails with `spawn npx ENOENT`. POSIX has a
+  // real `npx` on PATH and is unaffected. With a shell, Node does not re-quote
+  // args, so the two space-containing `concurrently` commands must be quoted
+  // ourselves to survive as single tokens (on POSIX they're already one array
+  // element each, so we leave them bare).
+  const isWin = process.platform === "win32";
+  const cmd = (s) => (isWin ? `"${s}"` : s);
   const child = spawn(
     "npx",
     [
@@ -76,11 +118,12 @@ async function pickPort() {
       "server,client",
       "-c",
       "blue,green",
-      "npm run dev:server",
-      "npm run dev:client",
+      cmd("npm run dev:server"),
+      cmd("npm run dev:client"),
     ],
     {
       stdio: "inherit",
+      shell: isWin,
       env: { ...process.env, DASHBOARD_PORT: String(port) },
     }
   );
