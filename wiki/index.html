@@ -935,6 +935,24 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-amber">🔔</div>
+                  <h3 id="feat-alerts">Alerts &amp; Webhooks</h3>
+                  <p>
+                    A rules-based alerting engine evaluates the live event stream server-side:
+                    <strong>event pattern</strong> (match event type / tool / summary text,
+                    optionally N matches within a time window), <strong>inactivity</strong>,
+                    <strong>stuck agent</strong>, and <strong>token threshold</strong> — each with
+                    per-(rule, session, agent) cooldown dedup. Fired alerts surface in a live feed
+                    and fan out to <strong>14 first-class webhook providers</strong> — Slack,
+                    Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty,
+                    Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream — plus any generic JSON
+                    endpoint (with optional HMAC-SHA256 signing and custom headers). Delivery is
+                    detached and fail-safe with a request timeout, bounded retry/backoff, secret
+                    redaction, a one-click test probe, and a per-target delivery log. Rules and
+                    channels are managed together in <strong>Settings → Alerts</strong>.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-cyan">🍎🪟</div>
                   <h3 id="feat-desktop-app">Desktop App (macOS &amp; Windows)</h3>
                   <p>
@@ -3025,6 +3043,100 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               <span class="route-desc"
                 >Per-session drill-in — agent tree, tool timeline, event details</span
               >
+            </div>
+          </div>
+
+          <h3>Alerts</h3>
+          <div class="route-list">
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/alerts</span>
+              <span class="route-desc"
+                >Fired-alert feed, newest first (<code>?unacked=true</code>,
+                <code>limit</code>, <code>offset</code>; carries <code>total</code> and
+                <code>unacked</code> counts)</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/alerts/:id/ack</span>
+              <span class="route-desc">Acknowledge one alert</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/alerts/ack-all</span>
+              <span class="route-desc">Acknowledge every unacked alert</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/alerts/rules</span>
+              <span class="route-desc">List alert rules</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/alerts/rules</span>
+              <span class="route-desc"
+                >Create a rule (<code>event_pattern</code> | <code>inactivity</code> |
+                <code>status_duration</code> | <code>token_threshold</code>)</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-patch">PATCH</span>
+              <span class="route-path">/api/alerts/rules/:id</span>
+              <span class="route-desc">Update name / config / enabled / cooldown</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-delete">DELETE</span>
+              <span class="route-path">/api/alerts/rules/:id</span>
+              <span class="route-desc">Delete a rule and its fired-alert history</span>
+            </div>
+          </div>
+
+          <h3>Webhooks</h3>
+          <div class="route-list">
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/webhooks/providers</span>
+              <span class="route-desc"
+                >Supported providers + their config fields (drives the UI form)</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/webhooks</span>
+              <span class="route-desc">List webhook targets (URLs masked, secrets redacted)</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/webhooks</span>
+              <span class="route-desc"
+                >Create a target — 14 first-class providers (Slack, Discord, Teams, Google Chat,
+                Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier,
+                Make, n8n, Pipedream) + a generic JSON endpoint</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-patch">PATCH</span>
+              <span class="route-path">/api/webhooks/:id</span>
+              <span class="route-desc"
+                >Update name / url / enabled / secret / headers / config / rule scope
+                (<code>type</code> is immutable)</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-delete">DELETE</span>
+              <span class="route-path">/api/webhooks/:id</span>
+              <span class="route-desc">Delete a target and its delivery log</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/webhooks/:id/test</span>
+              <span class="route-desc">Send a synthetic test alert and report the result</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/webhooks/:id/deliveries</span>
+              <span class="route-desc">Recent delivery log for a target</span>
             </div>
           </div>
 
