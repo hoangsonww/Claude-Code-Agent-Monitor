@@ -48,6 +48,8 @@ import {
   Info,
   Cat,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -379,6 +381,8 @@ export function Settings() {
   const [claudeHomeSaving, setClaudeHomeSaving] = useState(false);
   const [claudeHomeError, setClaudeHomeError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>("pricing");
+  const tocRef = useRef<HTMLDivElement | null>(null);
+  const [tocOverflow, setTocOverflow] = useState({ left: false, right: false });
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   const animatedTotalCost = useCountUp(totalCost);
@@ -402,6 +406,37 @@ export function Settings() {
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, [loading]);
+
+  // Show chevron affordances on the TOC when its chips overflow horizontally.
+  const recomputeTocOverflow = useCallback(() => {
+    const el = tocRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setTocOverflow((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    recomputeTocOverflow();
+    const el = tocRef.current;
+    if (!el) return;
+    const onScroll = () => recomputeTocOverflow();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(recomputeTocOverflow) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", recomputeTocOverflow);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+      window.removeEventListener("resize", recomputeTocOverflow);
+    };
+  }, [loading, recomputeTocOverflow]);
+
+  const scrollTocBy = useCallback((delta: number) => {
+    tocRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -830,11 +865,21 @@ export function Settings() {
 
       {/* In-page section navigation — Settings is dense, so this TOC jumps to
           and scroll-spies each section. */}
-      <nav className="sticky top-0 z-20 -mx-1 -mt-6 px-1 py-2 bg-surface-0/85 backdrop-blur border-b border-border/60">
-        <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="flex-shrink-0 pl-1 pr-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-            {t("jumpTo", "Jump to")}
-          </span>
+      <nav className="sticky top-0 z-20 -mx-1 -mt-8 px-1 py-2 bg-surface-0/85 backdrop-blur border-b border-border/60 flex items-center gap-1.5">
+        <span className="flex-shrink-0 pl-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+          {t("jumpTo", "Jump to")}
+        </span>
+        {tocOverflow.left && (
+          <button
+            type="button"
+            onClick={() => scrollTocBy(-180)}
+            aria-label="Scroll left"
+            className="flex-shrink-0 flex items-center justify-center w-6 h-7 rounded-md border border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3 transition-colors"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <div ref={tocRef} className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1">
           {SETTINGS_SECTIONS.map(({ id, labelKey, fallback, Icon }) => {
             const active = activeSection === id;
             return (
@@ -858,6 +903,16 @@ export function Settings() {
             );
           })}
         </div>
+        {tocOverflow.right && (
+          <button
+            type="button"
+            onClick={() => scrollTocBy(180)}
+            aria-label="Scroll right"
+            className="flex-shrink-0 flex items-center justify-center w-6 h-7 rounded-md border border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3 transition-colors"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
       </nav>
 
       {/* Cost summary card */}

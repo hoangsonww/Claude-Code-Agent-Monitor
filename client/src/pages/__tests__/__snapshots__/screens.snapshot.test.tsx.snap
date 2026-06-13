@@ -7489,16 +7489,16 @@ exports[`screen snapshots > Settings 1`] = `
       </div>
     </div>
     <nav
-      class="sticky top-0 z-20 -mx-1 -mt-6 px-1 py-2 bg-surface-0/85 backdrop-blur border-b border-border/60"
+      class="sticky top-0 z-20 -mx-1 -mt-8 px-1 py-2 bg-surface-0/85 backdrop-blur border-b border-border/60 flex items-center gap-1.5"
     >
-      <div
-        class="flex items-center gap-1.5 overflow-x-auto"
+      <span
+        class="flex-shrink-0 pl-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500"
       >
-        <span
-          class="flex-shrink-0 pl-1 pr-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500"
-        >
-          Jump to
-        </span>
+        Jump to
+      </span>
+      <div
+        class="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1"
+      >
         <button
           class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 bg-accent/15 border-accent/30 text-accent"
           type="button"

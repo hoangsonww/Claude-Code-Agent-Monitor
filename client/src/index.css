@@ -80,6 +80,17 @@
   }
 }
 
+@layer utilities {
+  /* Hide the scrollbar on horizontally scrollable strips (e.g. the Settings
+     TOC) where chevron affordances replace it. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @keyframes pulse-dot {
   0%,
   100% {
