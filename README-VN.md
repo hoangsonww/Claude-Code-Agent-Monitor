@@ -224,6 +224,12 @@ flowchart LR
 </p>
 
 <p align="center">
+  <img src="images/dynamicworkflows-workflows2.png" alt="Lần chạy quy trình động được mở rộng với bộ lọc giai đoạn và kết quả theo từng agent" width="100%">
+  <br>
+  <em>🧬 <strong>Lần chạy quy trình · mở rộng</strong> — một lần chạy được mở ra: bộ lọc giai đoạn có màu và bấm được, bảng số liệu theo từng agent, và danh sách đầy đủ các mục kết quả bấm được để mở ra lời nhắc và kết quả đầy đủ của từng agent</em>
+</p>
+
+<p align="center">
   <img src="images/dynamicworkflows-session.png" alt="Lần chạy quy trình động trên trang chi tiết phiên" width="100%">
   <br>
   <em>🧬 <strong>Lần chạy quy trình (chi tiết phiên)</strong> — cùng các nhóm đó được liên kết tới phiên khởi chạy, nên các sub-agent của quy trình động và chi phí token đã được gộp vào đều hiển thị ngay trong phiên</em>

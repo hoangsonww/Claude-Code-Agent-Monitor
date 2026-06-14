@@ -226,6 +226,12 @@ flowchart LR
 </p>
 
 <p align="center">
+  <img src="images/dynamicworkflows-workflows2.png" alt="展开的动态工作流运行，含阶段筛选与按 Agent 的结果" width="100%">
+  <br>
+  <em>🧬 <strong>工作流运行 · 展开</strong> — 展开的一次运行：可点击的彩色阶段筛选、按 Agent 的指标表，以及完整的可点击结果项列表，点击即可展开每个 Agent 的完整提示词与结果</em>
+</p>
+
+<p align="center">
   <img src="images/dynamicworkflows-session.png" alt="会话详情页面上的动态工作流运行" width="100%">
   <br>
   <em>🧬 <strong>工作流运行（会话详情）</strong> — 同样的群组关联到其启动会话，因此会话的动态工作流子 Agent 及其已计入的 token 成本可在会话内直接查看</em>

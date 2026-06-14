@@ -1405,6 +1405,10 @@
               <img src="../images/dynamicworkflows-workflows.png" alt="Dynamic Workflow Runs on the Workflows page" width="3024" height="1720" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🧬</span> <span><strong>Workflow Runs</strong> — "dynamic workflows" spawned by the Workflow tool, reconstructed from on-disk run journals: status, agent count, tokens, and tool calls, expandable into a per-agent breakdown (phase, state, tokens, tools, duration) with humanized result previews</span></div>
             </div>
+            <div class="screenshot-card" id="ss-workflow-runs-expanded">
+              <img src="../images/dynamicworkflows-workflows2.png" alt="Dynamic Workflow Run expanded with phase filters and per-agent results" width="3024" height="1722" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — a run opened up: clickable color-coded phase filters, the per-agent metrics table, and a full list of clickable result items that expand to each agent's complete prompt and result</span></div>
+            </div>
             <div class="screenshot-card" id="ss-workflow-runs-session">
               <img src="../images/dynamicworkflows-session.png" alt="Dynamic Workflow Runs on the session detail page" width="3024" height="1720" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — the same fleets linked to their launching session, so a session's dynamic-workflow sub-agents and their folded-in token cost are visible inline</span></div>
@@ -5929,7 +5933,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=6" defer></script>
+    <script src="i18n-content.js?v=7" defer></script>
     <script src="script.js?v=26" defer></script>
     <script>
       (function () {
