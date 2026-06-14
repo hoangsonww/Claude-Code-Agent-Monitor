@@ -1167,6 +1167,20 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-violet">🧬</div>
+                  <h3>Workflow Runs</h3>
+                  <p>
+                    Surfaces "dynamic workflows" — the fleets of sub-agents spawned by the
+                    <code>Workflow</code> tool and self-paced <code>/loop</code> runs. These emit
+                    no hooks, so they are reconstructed from the on-disk run journal written when a
+                    workflow finishes (<code>workflows/wf_&lt;runId&gt;.json</code>) plus the inner
+                    <code>subagents/agent-*.jsonl</code> transcripts. Each run shows its phases and
+                    a per-agent token / tool-call / duration breakdown; a running workflow is
+                    detected from its launch script before the journal exists. Runs appear in a
+                    panel on the Workflows page and as a linked subsection on each session.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-cyan">🔍</div>
                   <h3>Session Drill-In</h3>
                   <p>
@@ -5907,7 +5921,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=4" defer></script>
+    <script src="i18n-content.js?v=5" defer></script>
     <script src="script.js?v=26" defer></script>
     <script>
       (function () {
