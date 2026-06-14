@@ -791,6 +791,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
     zh: {
       "Search docs...": "搜索文档…",
       "No results found": "未找到结果",
+      "Project Wiki": "项目维基",
       "Real-time · Local-first · Zero-config": "实时 · 本地优先 · 零配置",
       "A professional monitoring platform for Claude Code agent activity. Captures sessions, agents, and tool events via native hooks, persists them in SQLite, and streams updates to a React UI over WebSocket — with no external services required.":
         "一个专业的 Claude Code 代理活动监控平台。通过原生 hook 捕获会话、代理与工具事件,持久化到 SQLite,并通过 WebSocket 将更新流式推送到 React UI——无需任何外部服务。",
@@ -999,6 +1000,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
     vi: {
       "Search docs...": "Tìm tài liệu…",
       "No results found": "Không tìm thấy kết quả",
+      "Project Wiki": "Wiki dự án",
       "Real-time · Local-first · Zero-config": "Thời gian thực · Ưu tiên cục bộ · Không cấu hình",
       "A professional monitoring platform for Claude Code agent activity. Captures sessions, agents, and tool events via native hooks, persists them in SQLite, and streams updates to a React UI over WebSocket — with no external services required.":
         "Nền tảng giám sát chuyên nghiệp cho hoạt động agent của Claude Code. Ghi lại phiên, agent và sự kiện công cụ qua hook gốc, lưu vào SQLite và stream cập nhật tới giao diện React qua WebSocket — không cần dịch vụ ngoài nào.",
@@ -1203,7 +1205,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   };
 
   const PLAIN =
-    ".section-label, .nav-section, .nav-empty, .main-content h2, .main-content h3, .main-content h4, .hero-desc";
+    ".logo-sub, .section-label, .nav-section, .nav-empty, .main-content h2, .main-content h3, .main-content h4, .hero-desc";
   const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
   const tr = (lang, en) => (lang === "en" ? en : (T[lang] && T[lang][norm(en)]) || en);
 
