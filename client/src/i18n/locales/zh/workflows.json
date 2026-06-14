@@ -9,6 +9,43 @@
   "allSessions": "所有会话",
   "activeOnly": "仅活跃",
   "completed": "已完成",
+  "runs": {
+    "title": "动态工作流",
+    "subtitle": "由 Workflow 工具派生的 Agent 群组，依据磁盘上的运行日志重建",
+    "sessionTitle": "动态工作流",
+    "loading": "正在加载动态工作流…",
+    "empty": "暂无动态工作流。Workflow 工具的运行会在其日志写入后（即完成时）显示在此处。",
+    "noAgents": "本次运行未记录内部 Agent。",
+    "openSession": "打开所属会话",
+    "filterPhase": "按阶段筛选",
+    "clearFilter": "清除",
+    "resultsLabel": "结果",
+    "promptLabel": "提示词",
+    "resultLabel": "结果",
+    "tokens": "token",
+    "agents_one": "{{count}} 个 Agent",
+    "agents_other": "{{count}} 个 Agent",
+    "tools_one": "{{count}} 次工具调用",
+    "tools_other": "{{count}} 次工具调用",
+    "status": {
+      "running": "运行中",
+      "working": "运行中",
+      "queued": "排队中",
+      "completed": "已完成",
+      "done": "已完成",
+      "success": "已完成",
+      "error": "错误",
+      "failed": "失败"
+    },
+    "col": {
+      "agent": "Agent",
+      "phase": "阶段",
+      "state": "状态",
+      "tokens": "Token",
+      "tools": "工具",
+      "duration": "时长"
+    }
+  },
   "chartInfo": {
     "labels": {
       "what": "此图展示了什么",

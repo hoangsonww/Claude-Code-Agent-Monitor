@@ -1163,6 +1163,14 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🔔</span> <span><strong>设置 · 告警</strong> — 集于一处的基于规则的告警引擎与出站 Webhook：告警规则（事件模式 / 不活动 / agent 卡住 / token 阈值）支持按规则冷却、实时的已触发告警流，以及 14 个一等公民 Webhook 提供方加一个支持可选 HMAC 签名的通用 JSON 端点</span>',
     '<span class="caption-icon">🔔</span> Settings · Alerts — the rules-based alerting engine, a live fired-alert feed, and outbound webhook channels (14 first-class providers + a generic JSON endpoint) managed together in one place':
       '<span class="caption-icon">🔔</span> 设置 · 告警 — 基于规则的告警引擎、实时的已触发告警流，以及出站 Webhook 通道（14 个一等公民提供方 + 一个通用 JSON 端点）集中管理于一处',
+    'Surfaces "dynamic workflows" — the fleets of sub-agents spawned by the <code>Workflow</code> tool and self-paced <code>/loop</code> runs. These emit no hooks, so they are reconstructed from the on-disk run journal written when a workflow finishes (<code>workflows/wf_&lt;runId&gt;.json</code>) plus the inner <code>subagents/agent-*.jsonl</code> transcripts. Each run shows its phases and a per-agent token / tool-call / duration breakdown; a running workflow is detected from its launch script before the journal exists. Runs appear in a panel on the Workflows page and as a linked subsection on each session.':
+      "呈现「动态工作流」——由 <code>Workflow</code> 工具和自定节奏的 <code>/loop</code> 运行派生的 sub-agent 群组。它们不触发任何 hook，因此依据工作流完成时写入的磁盘运行日志（<code>workflows/wf_&lt;runId&gt;.json</code>）以及内部的 <code>subagents/agent-*.jsonl</code> 转录重建。每次运行展示其阶段以及按 Agent 的 token / 工具调用 / 时长分解；运行中的工作流会在日志存在之前依据其启动脚本被检测到。运行会显示在工作流页面的面板中，并作为每个会话的关联子区块。",
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs</strong> — "dynamic workflows" spawned by the Workflow tool, reconstructed from on-disk run journals: status, agent count, tokens, and tool calls, expandable into a per-agent breakdown (phase, state, tokens, tools, duration) with humanized result previews</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>工作流运行</strong> — 由 Workflow 工具派生的「动态工作流」，依据磁盘上的运行日志重建：状态、Agent 数量、token 与工具调用，可展开为按 Agent 的明细（阶段、状态、token、工具、时长），并附经过人性化处理的结果预览</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — the same fleets linked to their launching session, so a session\'s dynamic-workflow sub-agents and their folded-in token cost are visible inline</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>工作流运行 · 会话内</strong> — 同样的群组关联到其启动会话，因此会话的动态工作流子 Agent 及其已计入的 token 成本可在会话内直接查看</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — a run opened up: clickable color-coded phase filters, the per-agent metrics table, and a full list of clickable result items that expand to each agent\'s complete prompt and result</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>工作流运行 · 展开</strong> — 展开的一次运行：可点击的彩色阶段筛选、按 Agent 的指标表，以及完整的可点击结果项列表，点击即可展开每个 Agent 的完整提示词与结果</span>',
   },
   vi: {
     '<span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed':
@@ -2356,6 +2364,14 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🔔</span> <span><strong>Cài đặt · Cảnh báo</strong> — công cụ cảnh báo theo quy tắc và webhook gửi đi trong cùng một nơi: quy tắc cảnh báo (mẫu sự kiện / không hoạt động / agent bị treo / ngưỡng token) với cooldown theo từng quy tắc, nguồn cấp cảnh báo đã kích hoạt theo thời gian thực, và 14 nhà cung cấp webhook hạng nhất cùng một endpoint JSON tổng quát có tùy chọn ký HMAC</span>',
     '<span class="caption-icon">🔔</span> Settings · Alerts — the rules-based alerting engine, a live fired-alert feed, and outbound webhook channels (14 first-class providers + a generic JSON endpoint) managed together in one place':
       '<span class="caption-icon">🔔</span> Cài đặt · Cảnh báo — công cụ cảnh báo theo quy tắc, nguồn cấp cảnh báo đã kích hoạt theo thời gian thực, và các kênh webhook gửi đi (14 nhà cung cấp hạng nhất + một endpoint JSON tổng quát) được quản lý cùng một nơi',
+    'Surfaces "dynamic workflows" — the fleets of sub-agents spawned by the <code>Workflow</code> tool and self-paced <code>/loop</code> runs. These emit no hooks, so they are reconstructed from the on-disk run journal written when a workflow finishes (<code>workflows/wf_&lt;runId&gt;.json</code>) plus the inner <code>subagents/agent-*.jsonl</code> transcripts. Each run shows its phases and a per-agent token / tool-call / duration breakdown; a running workflow is detected from its launch script before the journal exists. Runs appear in a panel on the Workflows page and as a linked subsection on each session.':
+      'Hiển thị các "quy trình động" — những nhóm sub-agent do công cụ <code>Workflow</code> và các lần chạy <code>/loop</code> tự định nhịp tạo ra. Chúng không phát ra hook, nên được dựng lại từ nhật ký chạy trên đĩa được ghi khi quy trình kết thúc (<code>workflows/wf_&lt;runId&gt;.json</code>) cùng các bản ghi <code>subagents/agent-*.jsonl</code> bên trong. Mỗi lần chạy hiển thị các giai đoạn và bảng phân tích token / lệnh gọi công cụ / thời lượng theo từng agent; một quy trình đang chạy được phát hiện từ script khởi chạy trước khi nhật ký tồn tại. Các lần chạy xuất hiện trong một bảng trên trang Quy trình và dưới dạng mục liên kết trên mỗi phiên.',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs</strong> — "dynamic workflows" spawned by the Workflow tool, reconstructed from on-disk run journals: status, agent count, tokens, and tool calls, expandable into a per-agent breakdown (phase, state, tokens, tools, duration) with humanized result previews</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình</strong> — các "quy trình động" do công cụ Workflow tạo ra, được dựng lại từ nhật ký chạy trên đĩa: trạng thái, số agent, token và lệnh gọi công cụ, mở rộng thành bảng phân tích theo từng agent (giai đoạn, trạng thái, token, công cụ, thời lượng) kèm bản xem trước kết quả đã được làm gọn</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — the same fleets linked to their launching session, so a session\'s dynamic-workflow sub-agents and their folded-in token cost are visible inline</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình · trong phiên</strong> — cùng các nhóm đó được liên kết tới phiên khởi chạy, nên các sub-agent của quy trình động và chi phí token đã được gộp vào của phiên đều hiển thị ngay trong phiên</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — a run opened up: clickable color-coded phase filters, the per-agent metrics table, and a full list of clickable result items that expand to each agent\'s complete prompt and result</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình · mở rộng</strong> — một lần chạy được mở ra: bộ lọc giai đoạn có màu và bấm được, bảng số liệu theo từng agent, và danh sách đầy đủ các mục kết quả bấm được để mở ra lời nhắc và kết quả đầy đủ của từng agent</span>',
   },
   plain: {
     zh: {
@@ -2534,6 +2550,7 @@ window.__WIKI_CONTENT_I18N = {
       "Check 4 — Is Node.js in PATH?": "检查 4——Node.js 是否在 PATH 中？",
       "Common Issues": "常见问题",
       "Technology Choices": "技术选型",
+      "Workflow Runs": "工作流运行",
     },
     vi: {
       "System Overview": "Tổng quan hệ thống",
@@ -2714,6 +2731,7 @@ window.__WIKI_CONTENT_I18N = {
       "Check 4 — Is Node.js in PATH?": "Kiểm tra 4 — Node.js có trong PATH không?",
       "Common Issues": "Các vấn đề thường gặp",
       "Technology Choices": "Lựa chọn công nghệ",
+      "Workflow Runs": "Lần chạy quy trình",
     },
   },
 };

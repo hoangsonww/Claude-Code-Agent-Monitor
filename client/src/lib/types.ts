@@ -394,7 +394,8 @@ export interface WSMessage {
     | "run_input_ack"
     | "cc_config_changed"
     | "alert_triggered"
-    | "alert_updated";
+    | "alert_updated"
+    | "workflow_upserted";
   data:
     | Session
     | Agent
@@ -405,7 +406,8 @@ export interface WSMessage {
     | RunStatusPayload
     | RunInputAckPayload
     | CcConfigChangedPayload
-    | AlertEvent;
+    | AlertEvent
+    | WorkflowRun;
   timestamp: string;
 }
 
@@ -595,6 +597,71 @@ export interface SessionDrillIn {
     ended_at: string | null;
     parent_agent_id: string | null;
   }>;
+  events: DashboardEvent[];
+}
+
+// ── Workflow-tool runs (issue #167) ──────────────────────────────────────────
+// Fleets of inner sub-agents spawned by the Claude Code "Workflow" tool,
+// ingested from the on-disk run journal. Distinct from WorkflowData above
+// (which is events-derived analytics).
+export interface WorkflowPhase {
+  title?: string;
+  detail?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowProgressEntry {
+  /** "workflow_agent" (a real inner agent) or "workflow_phase" (a phase marker). */
+  type?: string;
+  agentId?: string;
+  agentType?: string | null;
+  model?: string | null;
+  state?: string | null;
+  label?: string | null;
+  phaseTitle?: string | null;
+  startedAt?: string | number | null;
+  tokens?: number;
+  toolCalls?: number;
+  durationMs?: number | null;
+  lastToolName?: string | null;
+  promptPreview?: string | null;
+  resultPreview?: string | null;
+  [key: string]: unknown;
+}
+
+export interface WorkflowRun {
+  run_id: string;
+  session_id: string;
+  task_id: string | null;
+  name: string | null;
+  status: string;
+  default_model: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_ms: number | null;
+  agent_count: number;
+  total_tokens: number;
+  total_tool_calls: number;
+  phases: WorkflowPhase[];
+  progress: WorkflowProgressEntry[];
+  script_path: string | null;
+  journal_path: string | null;
+  source: "journal" | "live";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowRunsResponse {
+  runs: WorkflowRun[];
+  total: number;
+  counts: Record<string, number>;
+  limit: number;
+  offset: number;
+}
+
+export interface WorkflowRunDetail {
+  workflow: WorkflowRun;
+  agents: Agent[];
   events: DashboardEvent[];
 }
 

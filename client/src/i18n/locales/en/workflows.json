@@ -9,6 +9,43 @@
   "allSessions": "All Sessions",
   "activeOnly": "Active Only",
   "completed": "Completed",
+  "runs": {
+    "title": "Dynamic Workflows",
+    "subtitle": "Fleets spawned by the Workflow tool, reconstructed from on-disk run journals",
+    "sessionTitle": "Dynamic Workflows",
+    "loading": "Loading dynamic workflows…",
+    "empty": "No dynamic workflows yet. Runs from the Workflow tool appear here once their journal is written (at completion).",
+    "noAgents": "No inner agents recorded for this run.",
+    "openSession": "Open parent session",
+    "filterPhase": "Filter by phase",
+    "clearFilter": "Clear",
+    "resultsLabel": "Results",
+    "promptLabel": "Prompt",
+    "resultLabel": "Result",
+    "tokens": "tokens",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "tools_one": "{{count}} tool call",
+    "tools_other": "{{count}} tool calls",
+    "status": {
+      "running": "Running",
+      "working": "Running",
+      "queued": "Queued",
+      "completed": "Completed",
+      "done": "Done",
+      "success": "Done",
+      "error": "Error",
+      "failed": "Failed"
+    },
+    "col": {
+      "agent": "Agent",
+      "phase": "Phase",
+      "state": "State",
+      "tokens": "Tokens",
+      "tools": "Tools",
+      "duration": "Duration"
+    }
+  },
   "chartInfo": {
     "labels": {
       "what": "What this shows",

@@ -345,7 +345,53 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_target ON webhook_deliveries(target_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created ON webhook_deliveries(created_at DESC);
+
+  -- Workflow-tool runs: fleets of sub-agents spawned by the Claude Code
+  -- "Workflow" tool (and self-paced /loop). These emit NO hooks; the source of
+  -- truth is the on-disk run journal (~/.claude/projects/<enc-cwd>/<sessionId>/
+  -- workflows/wf_<runId>.json), written at workflow COMPLETION. A row is keyed
+  -- by run_id, parented to the launching session. status is an open string
+  -- (running | completed | error | failed | …) — intentionally no CHECK, so new
+  -- harness states never trip a stale constraint. phases/progress hold the
+  -- journal's phases[] / workflowProgress[] arrays verbatim (JSON) for detail
+  -- rendering; the inner agents are linked via agents.workflow_run_id.
+  CREATE TABLE IF NOT EXISTS workflows (
+    run_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    task_id TEXT,
+    name TEXT,
+    status TEXT NOT NULL DEFAULT 'running',
+    default_model TEXT,
+    started_at TEXT,
+    ended_at TEXT,
+    duration_ms INTEGER,
+    agent_count INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tool_calls INTEGER NOT NULL DEFAULT 0,
+    phases TEXT,
+    progress TEXT,
+    script_path TEXT,
+    journal_path TEXT,
+    source TEXT NOT NULL DEFAULT 'journal',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_workflows_session ON workflows(session_id);
+  CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
 `);
+
+// Migrate: link agent rows to a workflow run. Workflow inner-agents are already
+// ingested as subagents (same subagents/ dir); these columns add the grouping +
+// phase that the run journal provides. Additive, safe on existing DBs.
+try {
+  db.prepare("SELECT workflow_run_id FROM agents LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE agents ADD COLUMN workflow_run_id TEXT").run();
+  db.prepare("ALTER TABLE agents ADD COLUMN workflow_phase TEXT").run();
+}
+db.prepare("CREATE INDEX IF NOT EXISTS idx_agents_workflow ON agents(workflow_run_id)").run();
 
 // Migrate: add the 1h-ephemeral cache-write rate column to model_pricing.
 // Older DBs predate the 5m/1h cache-write split. ADD COLUMN defaults every
@@ -1181,6 +1227,59 @@ const stmts = {
     `DELETE FROM webhook_deliveries WHERE id NOT IN (
        SELECT id FROM webhook_deliveries ORDER BY created_at DESC, id DESC LIMIT 2000
      )`
+  ),
+
+  // ── Workflow-tool runs ────────────────────────────────────────────────────
+  // Upsert keyed by run_id. started_at and created_at are written only on first
+  // insert (COALESCE keeps the existing launch time across a running→completed
+  // transition); every other field reflects the latest journal/scan.
+  upsertWorkflow: db.prepare(
+    `INSERT INTO workflows
+       (run_id, session_id, task_id, name, status, default_model, started_at, ended_at,
+        duration_ms, agent_count, total_tokens, total_tool_calls, phases, progress,
+        script_path, journal_path, source, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+             strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(run_id) DO UPDATE SET
+       session_id = excluded.session_id,
+       task_id = COALESCE(excluded.task_id, workflows.task_id),
+       name = COALESCE(excluded.name, workflows.name),
+       status = excluded.status,
+       default_model = COALESCE(excluded.default_model, workflows.default_model),
+       started_at = COALESCE(workflows.started_at, excluded.started_at),
+       ended_at = excluded.ended_at,
+       duration_ms = excluded.duration_ms,
+       agent_count = excluded.agent_count,
+       total_tokens = excluded.total_tokens,
+       total_tool_calls = excluded.total_tool_calls,
+       phases = COALESCE(excluded.phases, workflows.phases),
+       progress = COALESCE(excluded.progress, workflows.progress),
+       script_path = COALESCE(excluded.script_path, workflows.script_path),
+       journal_path = COALESCE(excluded.journal_path, workflows.journal_path),
+       source = excluded.source,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
+  getWorkflow: db.prepare("SELECT * FROM workflows WHERE run_id = ?"),
+  listWorkflowsBySession: db.prepare(
+    "SELECT * FROM workflows WHERE session_id = ? ORDER BY started_at DESC, created_at DESC"
+  ),
+  listWorkflows: db.prepare(
+    "SELECT * FROM workflows ORDER BY COALESCE(started_at, created_at) DESC LIMIT ? OFFSET ?"
+  ),
+  listWorkflowsByStatus: db.prepare(
+    "SELECT * FROM workflows WHERE status = ? ORDER BY COALESCE(started_at, created_at) DESC LIMIT ? OFFSET ?"
+  ),
+  listWorkflowsBySessionFilter: db.prepare(
+    "SELECT * FROM workflows WHERE session_id = ? ORDER BY COALESCE(started_at, created_at) DESC LIMIT ? OFFSET ?"
+  ),
+  countWorkflows: db.prepare("SELECT COUNT(*) AS n FROM workflows"),
+  countWorkflowsByStatus: db.prepare("SELECT COUNT(*) AS n FROM workflows WHERE status = ?"),
+  workflowStatusCounts: db.prepare("SELECT status, COUNT(*) AS n FROM workflows GROUP BY status"),
+  setAgentWorkflow: db.prepare(
+    "UPDATE agents SET workflow_run_id = ?, workflow_phase = ?, status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
+  ),
+  listAgentsByWorkflow: db.prepare(
+    "SELECT * FROM agents WHERE workflow_run_id = ? ORDER BY started_at ASC, id ASC"
   ),
 };
 

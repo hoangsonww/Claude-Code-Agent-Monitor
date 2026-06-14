@@ -908,8 +908,8 @@ All messages are JSON with this envelope:
 ```typescript
 {
   type: "session_created" | "session_updated" | "agent_created" | "agent_updated" | "new_event"
-      | "alert_triggered" | "alert_updated";
-  data: Session | Agent | DashboardEvent | AlertEvent;
+      | "alert_triggered" | "alert_updated" | "workflow_upserted";
+  data: Session | Agent | DashboardEvent | AlertEvent | WorkflowRun;
   timestamp: string; // ISO 8601
 }
 ```
@@ -1240,6 +1240,107 @@ are never throttled.
 
 Phases: `start` → `scan` → `extract` (upload only) → `parse` →
 `complete`, with `error` / `extract_error` replacing `complete` on failure.
+
+---
+
+## Workflow-Tool Run Ingestion
+
+"Dynamic workflows" — the fleets of sub-agents spawned by the Claude Code
+`Workflow` tool (and self-paced `/loop` runs) — are **invisible to hooks**.
+Inner `agent()` calls emit no `PreToolUse`/`SubagentStop` events, so hook-based
+ingestion can never see the fleet. Instead, everything is persisted on disk
+under the launching session's transcript folder:
+
+```
+<projects>/<enc-cwd>/<sessionId>/
+  workflows/
+    scripts/<name>-wf_<runId>.js   # the workflow script — written at LAUNCH
+    wf_<runId>.json                # the run journal — written at COMPLETION
+  subagents/
+    agent-<agentId>.jsonl          # one transcript per inner agent
+```
+
+The run journal (`wf_<runId>.json`) is the first-class record: identity
+(`runId`, `taskId`, `workflowName`), lifecycle (`status`, `startTime`,
+`durationMs`, `defaultModel`), aggregates (`agentCount`, `totalTokens`,
+`totalToolCalls`), `phases[]`, and `workflowProgress[]` — one entry per inner
+agent with `agentId`, `agentType`, `model`, `state`, `label`, `phaseTitle`,
+tokens, tool calls, duration, and previews. Critically,
+`workflowProgress[].agentId` is the **exact** `subagents/agent-<agentId>.jsonl`
+basename, so the workflow → inner-agent linkage is explicit.
+
+### The terminal-journal constraint
+
+`wf_<runId>.json` is written **only when the workflow finishes**. While a run
+is in flight, its live state lives in a per-run dir
+`subagents/workflows/<runId>/`: a streaming `journal.jsonl` (a `started` /
+`result` event per inner agent) and the growing `agent-<id>.jsonl` transcripts.
+The ingester handles both phases:
+
+- **Completed runs** are ingested in full from the terminal journal: a
+  `workflows` row (keyed by `run_id`) plus linked inner-agent rows, with phases
+  and per-agent labels.
+- **Running runs** (no terminal journal yet) are ingested **live** by
+  `ingestLiveWorkflow`: it reads `journal.jsonl` for each agent's started/done
+  state + result, and parses the live `agent-<id>.jsonl` transcripts (via
+  `parseSubagentFile`) for real-time per-agent tokens, tool calls, duration, and
+  model. It synthesizes a `progress[]` so the UI shows live activity
+  (phase/label aren't known until the terminal journal lands). The run is
+  `status: running` and **replaced by the terminal journal on completion**
+  (idempotent upsert by `run_id`; launch time preserved). A launch script with
+  no run dir yet falls back to a minimal `running` row.
+
+### Ingestion module and triggers
+
+`server/lib/workflow-ingest.js` (`ingestWorkflowsForSession`) reuses the
+import pipeline's `parseSubagentFile` and `importSubagentFromJsonl`, so inner
+agents become agent rows under the **same** `${sessionId}-jsonl-<agentId>` id
+scheme the subagent importer already uses — ingestion therefore **converges**
+with any prior subagent import (no duplicate rows). Each inner agent is stamped
+with `agents.workflow_run_id` + `agents.workflow_phase`. The per-agent table in
+the UI is read from the journal's `progress[]` JSON.
+
+**Cost folding.** Inner agents are sidechain contexts whose token usage is NOT
+in the parent transcript (the same reason `combineSessionTokens` *adds*
+subagent tokens). So the fleet's real token split — parsed from each
+`agent-<id>.jsonl` — is written into the session's `token_usage` under a
+namespaced `service_tier = 'workflow'` bucket. That bucket is isolated from the
+main-transcript writer's rows (which use the real tier), so the two never
+collide or clobber, while `calculateCost` still sums them per model. The write
+is a full recompute each ingest → `replaceTokenUsage`'s replace semantics make
+it idempotent (no double-count across re-ingests).
+
+Ingestion runs from four fail-safe, off-the-response-path triggers:
+
+1. **Live** — `routes/hooks.js`, on `Stop` / `SubagentStop` / `SessionEnd`
+   (the lifecycle hooks that bracket a workflow finishing).
+2. **Real-time poll** — `startWorkflowPoll` (`server/index.js`) scans active
+   sessions every ~12 s, skipping any whose workflow artifacts are unchanged.
+   The newest-mtime fingerprint (`workflowsMaxMtime`) includes the **live**
+   `journal.jsonl` + `agent-*.jsonl` of any in-flight run (bounded to runs
+   without a terminal journal), so the poll re-ingests as a running workflow's
+   tokens/tools/agents grow — the UI updates live without waiting for a hook or
+   completion. Tunable via `DASHBOARD_WORKFLOW_POLL_MS` (0 disables).
+3. **Periodic** — the `server/index.js` maintenance sweep, scanning active
+   sessions' `workflows/` directories (flips `running` → `completed` when a
+   journal lands without a subsequent hook).
+4. **Backfill** — a one-time pass in `autoImportLegacySessions` ingests
+   historical on-disk workflows for every recorded session.
+
+Each ingest that changes anything broadcasts `workflow_upserted` and a
+`session_updated` (so the cost views refetch) over WebSocket. Runs surface via
+`GET /api/workflows/runs` (list) and `GET /api/workflows/runs/:runId` (detail
+with linked agents + events), and are attached to the launching session via the
+`workflows[]` field on `GET /api/sessions/:id`. The UI shows them in a
+"Workflow Runs" panel on the Workflows page and a subsection on Session Detail.
+
+### Schema
+
+A `workflows` table (`run_id` PK, `session_id` FK `ON DELETE CASCADE`, status
+as an open string, `phases`/`progress` as JSON blobs, `source` = `journal` |
+`live`) plus two additive `agents` columns (`workflow_run_id`,
+`workflow_phase`). No existing table, response shape, or WebSocket message type
+changes.
 
 ---
 

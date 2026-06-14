@@ -178,7 +178,24 @@ router.get("/:id", (req, res) => {
   }
   const agents = stmts.listAgentsBySession.all(req.params.id);
   const events = stmts.listEventsBySession.all(req.params.id);
-  res.json({ session, agents, events });
+  // Workflow-tool runs launched within this session (issue #167). Parse the
+  // JSON-blob columns so the client gets arrays, not strings.
+  const workflows = stmts.listWorkflowsBySession.all(req.params.id).map((w) => {
+    let phases = [];
+    let progress = [];
+    try {
+      phases = w.phases ? JSON.parse(w.phases) : [];
+    } catch {
+      phases = [];
+    }
+    try {
+      progress = w.progress ? JSON.parse(w.progress) : [];
+    } catch {
+      progress = [];
+    }
+    return { ...w, phases, progress };
+  });
+  res.json({ session, agents, events, workflows });
 });
 
 /**

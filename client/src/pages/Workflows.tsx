@@ -30,6 +30,7 @@ import { ConcurrencyTimeline } from "../components/workflows/ConcurrencyTimeline
 import { SessionComplexityScatter } from "../components/workflows/SessionComplexityScatter";
 import { CompactionImpact } from "../components/workflows/CompactionImpact";
 import { SessionDrillIn } from "../components/workflows/SessionDrillIn";
+import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
 
 type StatusFilter = "all" | "active" | "completed";
 
@@ -148,6 +149,18 @@ export function Workflows() {
 
       {/* Stats Row */}
       <WorkflowStats stats={data.stats} />
+
+      {/* Workflow-tool runs (issue #167) — fleets ingested from on-disk journals */}
+      <div className="card p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+            <Workflow className="w-4 h-4 text-violet-400" />
+            {t("runs.title")}
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">{t("runs.subtitle")}</p>
+        </div>
+        <WorkflowRunsPanel statusFilter={statusFilter} />
+      </div>
 
       {/* Section 1: Agent Orchestration DAG */}
       <Section

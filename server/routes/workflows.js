@@ -758,4 +758,84 @@ function buildAgentTree(agents) {
   return roots;
 }
 
+// ── Workflow-tool runs (issue #167) ───────────────────────────────────────
+// Distinct from the analytics above: these are fleets spawned by the Claude
+// Code "Workflow" tool, ingested from on-disk run journals into the workflows
+// table (see server/lib/workflow-ingest.js). Routed under /runs so they never
+// collide with the analytics root or /session/:id.
+
+// Parse the JSON-blob columns into arrays for the client.
+function hydrateWorkflow(row) {
+  if (!row) return row;
+  let phases = [];
+  let progress = [];
+  try {
+    phases = row.phases ? JSON.parse(row.phases) : [];
+  } catch {
+    phases = [];
+  }
+  try {
+    progress = row.progress ? JSON.parse(row.progress) : [];
+  } catch {
+    progress = [];
+  }
+  return { ...row, phases, progress };
+}
+
+// GET /runs — list workflow runs (filter by status or session_id), paginated.
+router.get("/runs", (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const status = req.query.status && req.query.status !== "all" ? req.query.status : null;
+    const sessionId = req.query.session_id || null;
+
+    let rows;
+    if (sessionId) {
+      rows = stmts.listWorkflowsBySessionFilter.all(sessionId, limit, offset);
+    } else if (status) {
+      rows = stmts.listWorkflowsByStatus.all(status, limit, offset);
+    } else {
+      rows = stmts.listWorkflows.all(limit, offset);
+    }
+
+    const total = status
+      ? stmts.countWorkflowsByStatus.get(status).n
+      : stmts.countWorkflows.get().n;
+    const counts = {};
+    for (const r of stmts.workflowStatusCounts.all()) counts[r.status] = r.n;
+
+    res.json({ runs: rows.map(hydrateWorkflow), total, counts, limit, offset });
+  } catch (err) {
+    res.status(500).json({ error: { code: "WORKFLOW_LIST_FAILED", message: err.message } });
+  }
+});
+
+// GET /runs/:runId — one run with its linked inner agents + their events.
+router.get("/runs/:runId", (req, res) => {
+  try {
+    const wf = stmts.getWorkflow.get(req.params.runId);
+    if (!wf) {
+      return res
+        .status(404)
+        .json({ error: { code: "WORKFLOW_NOT_FOUND", message: "Workflow run not found" } });
+    }
+    const agents = stmts.listAgentsByWorkflow.all(req.params.runId);
+    // Events attributed to this run's inner agents (chronological).
+    let events = [];
+    if (agents.length > 0) {
+      const ids = agents.map((a) => a.id);
+      const placeholders = ids.map(() => "?").join(",");
+      events = db
+        .prepare(
+          `SELECT * FROM events WHERE agent_id IN (${placeholders}) ORDER BY created_at ASC, id ASC LIMIT 5000`
+        )
+        .all(...ids);
+    }
+    res.json({ workflow: hydrateWorkflow(wf), agents, events });
+  } catch (err) {
+    res.status(500).json({ error: { code: "WORKFLOW_DETAIL_FAILED", message: err.message } });
+  }
+});
+
 module.exports = router;

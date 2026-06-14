@@ -151,6 +151,57 @@ vi.mock("../../lib/api", async (importOriginal) => {
     sessions_by_status: {},
   };
 
+  const sampleWorkflowRun = {
+    run_id: "wf_sample1",
+    session_id: "sess-1",
+    task_id: "task-1",
+    name: "review-changes",
+    status: "completed",
+    default_model: "claude-opus-4-6",
+    started_at: "2026-06-10T12:30:00.000Z",
+    ended_at: "2026-06-10T12:35:00.000Z",
+    duration_ms: 300000,
+    agent_count: 2,
+    total_tokens: 48000,
+    total_tool_calls: 9,
+    phases: [{ title: "Review" }, { title: "Verify" }],
+    progress: [
+      { type: "workflow_phase", index: 1, title: "Review" },
+      { type: "workflow_phase", index: 2, title: "Verify" },
+      {
+        type: "workflow_agent",
+        agentId: "a1",
+        agentType: "reviewer",
+        state: "done",
+        label: "review:bugs",
+        phaseTitle: "Review",
+        tokens: 22000,
+        toolCalls: 5,
+        durationMs: 120000,
+        lastToolName: "Read",
+        resultPreview: "Found 3 issues",
+      },
+      {
+        type: "workflow_agent",
+        agentId: "a2",
+        agentType: "verifier",
+        state: "done",
+        label: "verify:bugs",
+        phaseTitle: "Verify",
+        tokens: 26000,
+        toolCalls: 4,
+        durationMs: 180000,
+        lastToolName: "Bash",
+        resultPreview: "All confirmed",
+      },
+    ],
+    script_path: null,
+    journal_path: "/x/wf_sample1.json",
+    source: "journal",
+    created_at: "2026-06-10T12:30:00.000Z",
+    updated_at: "2026-06-10T12:35:00.000Z",
+  };
+
   return {
     ...actual,
     api: {
@@ -158,7 +209,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
       sessions: {
         list: r({ sessions: [], total: 0, limit: 50, offset: 0 }),
         facets: r({ cwds: [] }),
-        get: r({ session, agents: [], events: [] }),
+        get: r({ session, agents: [], events: [], workflows: [sampleWorkflowRun] }),
         stats: r({
           session_id: "sess-1",
           total_events: 0,
@@ -185,7 +236,18 @@ vi.mock("../../lib/api", async (importOriginal) => {
         facets: r({ event_types: [], tool_names: [] }),
       },
       analytics: { get: r(analytics) },
-      workflows: { get: r(emptyWorkflow), session: r({}) },
+      workflows: {
+        get: r(emptyWorkflow),
+        session: r({}),
+        runs: r({
+          runs: [sampleWorkflowRun],
+          total: 1,
+          counts: { completed: 1 },
+          limit: 200,
+          offset: 0,
+        }),
+        run: r({ workflow: sampleWorkflowRun, agents: [], events: [] }),
+      },
       pricing: {
         list: r({ pricing: [] }),
         upsert: r({ pricing: {} }),

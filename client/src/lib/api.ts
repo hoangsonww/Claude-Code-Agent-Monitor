@@ -25,6 +25,9 @@ import type {
   WebhookTestResult,
   WebhookType,
   WorkflowData,
+  WorkflowRun,
+  WorkflowRunsResponse,
+  WorkflowRunDetail,
 } from "./types";
 
 const BASE = "/api";
@@ -80,9 +83,12 @@ export const api = {
       );
     },
     get: (id: string) =>
-      request<{ session: Session; agents: Agent[]; events: DashboardEvent[] }>(
-        `/sessions/${encodeURIComponent(id)}`
-      ),
+      request<{
+        session: Session;
+        agents: Agent[];
+        events: DashboardEvent[];
+        workflows: WorkflowRun[];
+      }>(`/sessions/${encodeURIComponent(id)}`),
     stats: (id: string) => request<SessionStats>(`/sessions/${encodeURIComponent(id)}/stats`),
     transcripts: (id: string) =>
       request<TranscriptListResult>(`/sessions/${encodeURIComponent(id)}/transcripts`),
@@ -243,6 +249,18 @@ export const api = {
       request<WorkflowData>(`/workflows${status && status !== "all" ? `?status=${status}` : ""}`),
     session: (id: string) =>
       request<SessionDrillIn>(`/workflows/session/${encodeURIComponent(id)}`),
+    // Workflow-tool runs (issue #167) — fleets ingested from on-disk journals.
+    runs: (params?: { status?: string; session_id?: string; limit?: number; offset?: number }) => {
+      const qs = new URLSearchParams();
+      if (params?.status && params.status !== "all") qs.set("status", params.status);
+      if (params?.session_id) qs.set("session_id", params.session_id);
+      if (params?.limit != null) qs.set("limit", String(params.limit));
+      if (params?.offset != null) qs.set("offset", String(params.offset));
+      const q = qs.toString();
+      return request<WorkflowRunsResponse>(`/workflows/runs${q ? `?${q}` : ""}`);
+    },
+    run: (runId: string) =>
+      request<WorkflowRunDetail>(`/workflows/runs/${encodeURIComponent(runId)}`),
   },
 
   pricing: {

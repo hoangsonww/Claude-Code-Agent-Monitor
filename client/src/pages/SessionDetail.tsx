@@ -22,6 +22,7 @@ import {
   AlertCircle,
   Play,
   ExternalLink,
+  Workflow,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -57,7 +58,15 @@ import {
   timeAgo,
   formatModelName,
 } from "../lib/format";
-import type { Session, Agent, DashboardEvent, CostResult, TranscriptInfo } from "../lib/types";
+import type {
+  Session,
+  Agent,
+  DashboardEvent,
+  CostResult,
+  TranscriptInfo,
+  WorkflowRun,
+} from "../lib/types";
+import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
 
 type DetailTab = "agents" | "conversation" | "timeline";
 
@@ -71,8 +80,10 @@ export function SessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation("sessions");
+  const { t: wfT } = useTranslation("workflows");
   const [session, setSession] = useState<Session | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [eventsLoadingMore, setEventsLoadingMore] = useState(false);
@@ -175,6 +186,7 @@ export function SessionDetail() {
       ]);
       setSession(data.session);
       setAgents(data.agents);
+      setWorkflows(data.workflows || []);
       setCost(costData);
       setError(null);
     } catch (err) {
@@ -642,6 +654,17 @@ export function SessionDetail() {
       {visitedTabs.has("agents") && (
         <div hidden={activeTab !== "agents"}>
           <SessionOverview session={session} agents={agents} />
+
+          {workflows.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Workflow className="w-3.5 h-3.5 text-violet-400" />
+                {wfT("runs.sessionTitle")}
+                <span className="text-gray-600 font-mono">· {workflows.length}</span>
+              </h3>
+              <WorkflowRunsPanel runs={workflows} hideSessionLink />
+            </div>
+          )}
 
           {agents.length === 0 ? (
             <p className="text-sm text-gray-500">{t("detail.noAgents")}</p>
