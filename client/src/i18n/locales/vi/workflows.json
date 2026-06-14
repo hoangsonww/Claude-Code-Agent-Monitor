@@ -24,7 +24,11 @@
     "tools_other": "{{count}} lệnh gọi công cụ",
     "status": {
       "running": "Đang chạy",
+      "working": "Đang chạy",
+      "queued": "Đang chờ",
       "completed": "Hoàn tất",
+      "done": "Xong",
+      "success": "Xong",
       "error": "Lỗi",
       "failed": "Thất bại"
     },

@@ -33,7 +33,11 @@ interface Props {
 
 const STATUS_STYLES: Record<string, string> = {
   running: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  working: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  queued: "bg-gray-500/15 text-gray-400 border-gray-500/30",
   completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  done: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  success: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   error: "bg-red-500/15 text-red-400 border-red-500/30",
   failed: "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -120,6 +124,9 @@ export function WorkflowRunsPanel({
     <div className="space-y-2">
       {runs.map((run) => {
         const isOpen = expanded.has(run.run_id);
+        // progress[] mixes phase markers and agents; only `workflow_agent`
+        // entries are real agents.
+        const agentRows = (run.progress || []).filter((p) => p.type === "workflow_agent");
         return (
           <div
             key={run.run_id}
@@ -186,7 +193,7 @@ export function WorkflowRunsPanel({
                   </div>
                 )}
 
-                {run.progress.length > 0 ? (
+                {agentRows.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full text-[11px]">
                       <thead>
@@ -206,7 +213,7 @@ export function WorkflowRunsPanel({
                         </tr>
                       </thead>
                       <tbody>
-                        {run.progress.map((a: WorkflowProgressEntry, i) => (
+                        {agentRows.map((a: WorkflowProgressEntry, i) => (
                           <tr key={a.agentId || i} className="border-b border-gray-800/40">
                             <td className="py-1 pr-3 text-gray-300">
                               {a.label || a.agentType || a.agentId}
@@ -242,9 +249,9 @@ export function WorkflowRunsPanel({
                   <p className="text-[11px] text-gray-600">{t("runs.noAgents")}</p>
                 )}
 
-                {run.progress.some((a) => a.promptPreview || a.resultPreview) && (
+                {agentRows.some((a) => a.promptPreview || a.resultPreview) && (
                   <div className="space-y-1">
-                    {run.progress
+                    {agentRows
                       .filter((a) => a.resultPreview)
                       .slice(0, 3)
                       .map((a, i) => (

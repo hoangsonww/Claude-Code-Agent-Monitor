@@ -24,7 +24,11 @@
     "tools_other": "{{count}} 次工具调用",
     "status": {
       "running": "运行中",
+      "working": "运行中",
+      "queued": "排队中",
       "completed": "已完成",
+      "done": "已完成",
+      "success": "已完成",
       "error": "错误",
       "failed": "失败"
     },

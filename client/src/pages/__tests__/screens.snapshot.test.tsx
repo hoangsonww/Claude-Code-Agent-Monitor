@@ -166,10 +166,13 @@ vi.mock("../../lib/api", async (importOriginal) => {
     total_tool_calls: 9,
     phases: [{ title: "Review" }, { title: "Verify" }],
     progress: [
+      { type: "workflow_phase", index: 1, title: "Review" },
+      { type: "workflow_phase", index: 2, title: "Verify" },
       {
+        type: "workflow_agent",
         agentId: "a1",
         agentType: "reviewer",
-        state: "completed",
+        state: "done",
         label: "review:bugs",
         phaseTitle: "Review",
         tokens: 22000,
@@ -179,9 +182,10 @@ vi.mock("../../lib/api", async (importOriginal) => {
         resultPreview: "Found 3 issues",
       },
       {
+        type: "workflow_agent",
         agentId: "a2",
         agentType: "verifier",
-        state: "completed",
+        state: "done",
         label: "verify:bugs",
         phaseTitle: "Verify",
         tokens: 26000,

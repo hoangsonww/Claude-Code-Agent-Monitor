@@ -77,10 +77,12 @@ before(async () => {
       totalToolCalls: 2,
       phases: [{ title: "Scan" }],
       workflowProgress: [
+        { type: "workflow_phase", index: 1, title: "Scan" },
         {
+          type: "workflow_agent",
+          index: 1,
           agentId: "x1",
-          agentType: "scanner",
-          state: "completed",
+          state: "done",
           phaseTitle: "Scan",
           label: "scan:repo",
           tokens: 999,
@@ -146,7 +148,8 @@ describe("GET /api/workflows/runs", () => {
     assert.equal(run.status, "completed");
     assert.equal(run.total_tokens, 999);
     assert.ok(Array.isArray(run.phases) && run.phases.length === 1);
-    assert.ok(Array.isArray(run.progress) && run.progress.length === 1);
+    assert.ok(Array.isArray(run.progress) && run.progress.length === 2);
+    assert.equal(run.progress.filter((p) => p.type === "workflow_agent").length, 1);
     assert.equal(typeof r.body.total, "number");
     assert.ok(r.body.counts && typeof r.body.counts === "object");
   });

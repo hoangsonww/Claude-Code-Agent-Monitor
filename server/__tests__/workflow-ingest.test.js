@@ -79,13 +79,19 @@ before(() => {
     agentCount: 2,
     totalTokens: 12345,
     totalToolCalls: 7,
-    phases: [{ title: "Review" }, { title: "Verify" }],
+    phases: [
+      { title: "Review", detail: "review the diff" },
+      { title: "Verify", detail: "verify findings" },
+    ],
     workflowProgress: [
+      { type: "workflow_phase", index: 1, title: "Review" },
+      { type: "workflow_phase", index: 2, title: "Verify" },
       {
+        type: "workflow_agent",
+        index: 1,
         agentId: "a1",
-        agentType: "reviewer",
         model: "claude-opus-4-8",
-        state: "completed",
+        state: "done",
         label: "review:bugs",
         phaseTitle: "Review",
         startedAt: 1700000000000,
@@ -95,8 +101,9 @@ before(() => {
         lastToolName: "Read",
       },
       {
+        type: "workflow_agent",
+        index: 2,
         agentId: "a2",
-        agentType: "verifier",
         model: "claude-haiku-4-5",
         state: "error",
         label: "verify:x",
@@ -159,7 +166,9 @@ describe("ingestWorkflowsForSession — completed journal", () => {
     assert.ok(wf.started_at, "started_at populated");
     assert.equal(wf.ended_at, new Date(1700000000000 + 5000).toISOString());
     assert.equal(JSON.parse(wf.phases).length, 2);
-    assert.equal(JSON.parse(wf.progress).length, 2);
+    // progress keeps all entries (2 phase markers + 2 agents)
+    assert.equal(JSON.parse(wf.progress).length, 4);
+    assert.equal(JSON.parse(wf.progress).filter((p) => p.type === "workflow_agent").length, 2);
   });
 
   it("links each inner agent by the shared jsonl id scheme, with phase + status", () => {

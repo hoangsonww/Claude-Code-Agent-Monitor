@@ -24,7 +24,11 @@
     "tools_other": "{{count}} tool calls",
     "status": {
       "running": "Running",
+      "working": "Running",
+      "queued": "Queued",
       "completed": "Completed",
+      "done": "Done",
+      "success": "Done",
       "error": "Error",
       "failed": "Failed"
     },

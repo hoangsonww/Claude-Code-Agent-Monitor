@@ -611,7 +611,9 @@ export interface WorkflowPhase {
 }
 
 export interface WorkflowProgressEntry {
-  agentId: string;
+  /** "workflow_agent" (a real inner agent) or "workflow_phase" (a phase marker). */
+  type?: string;
+  agentId?: string;
   agentType?: string | null;
   model?: string | null;
   state?: string | null;

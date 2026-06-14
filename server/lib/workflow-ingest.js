@@ -84,7 +84,12 @@ function mapState(state) {
     case "working":
     case "active":
     case "in_progress":
+    case "queued":
       return "working";
+    case "done":
+    case "completed":
+    case "success":
+      return "completed";
     default:
       return "completed";
   }
@@ -115,13 +120,12 @@ function resolveTranscriptPath(session) {
  *             journals: string[], scripts: string[] }}
  */
 function findSessionWorkflows(transcriptPath) {
-  const empty = { workflowsDir: null, subagentsDir: null, journals: [], scripts: [] };
+  const empty = { sessionDir: null, workflowsDir: null, journals: [], scripts: [] };
   if (!transcriptPath) return empty;
   const dir = path.dirname(transcriptPath);
   const sessionId = path.basename(transcriptPath, ".jsonl");
   const sessionDir = path.join(dir, sessionId);
   const workflowsDir = path.join(sessionDir, "workflows");
-  const subagentsDir = path.join(sessionDir, "subagents");
 
   const journals = [];
   const scripts = [];
@@ -140,7 +144,16 @@ function findSessionWorkflows(transcriptPath) {
   } catch {
     /* non-fatal — partial dir during a live run */
   }
-  return { workflowsDir, subagentsDir, journals, scripts };
+  return { sessionDir, workflowsDir, journals, scripts };
+}
+
+/**
+ * Per-run inner-agent transcript directory. The Workflow tool writes each
+ * fleet's agents under `<sessionId>/subagents/workflows/<runId>/agent-*.jsonl`
+ * (NOT the session's top-level subagents/ dir).
+ */
+function agentsDirForRun(sessionDir, runId) {
+  return path.join(sessionDir, "subagents", "workflows", runId);
 }
 
 /** Read + normalize a run journal file. Returns null on any parse failure. */
@@ -199,7 +212,9 @@ async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
   const { stmts } = dbModule;
   const mainAgentId = `${sessionId}-main`;
   const ih = importHistory();
-  const subagentsDir = opts.subagentsDir;
+  // Inner-agent transcripts live in a per-run nested dir, not the session's
+  // top-level subagents/. opts.sessionDir is the session transcript folder.
+  const agentDir = opts.sessionDir ? agentsDirForRun(opts.sessionDir, journal.runId) : null;
 
   stmts.upsertWorkflow.run(
     journal.runId,
@@ -221,19 +236,29 @@ async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
     "journal"
   );
 
-  for (const entry of journal.progress) {
-    const agentId = entry && entry.agentId;
-    if (!agentId) continue;
+  // Only `workflow_agent` entries are real agents; `workflow_phase` entries are
+  // phase markers (kept in progress[] for the phase chips, skipped here).
+  const agentEntries = journal.progress.filter(
+    (e) => e && e.type === "workflow_agent" && e.agentId
+  );
+  for (const entry of agentEntries) {
+    const agentId = entry.agentId;
     const jsonlId = `${sessionId}-jsonl-${agentId}`;
     const status = mapState(entry.state);
     const phase = entry.phaseTitle || null;
+    // subagent_type: prefer the label's prefix (e.g. "scout:starship" → "scout")
+    // for nicer grouping; otherwise the generic workflow-subagent type.
+    const subType =
+      (entry.label && entry.label.includes(":") ? entry.label.split(":")[0] : null) ||
+      entry.agentType ||
+      "workflow-subagent";
 
     // Prefer parsing the real transcript so tool events + metadata land via the
     // shared importer (idempotent, dedups by tool_use_id). Fall back to a
     // minimal row built from the journal entry if the file is gone.
     let parsed = null;
-    if (subagentsDir) {
-      const subPath = path.join(subagentsDir, `agent-${agentId}.jsonl`);
+    if (agentDir) {
+      const subPath = path.join(agentDir, `agent-${agentId}.jsonl`);
       if (fs.existsSync(subPath)) {
         try {
           parsed = await ih.parseSubagentFile(subPath);
@@ -249,9 +274,9 @@ async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
         stmts.insertAgent.run(
           jsonlId,
           sessionId,
-          entry.agentType || `Subagent ${String(agentId).slice(0, 8)}`,
+          entry.label || `Subagent ${String(agentId).slice(0, 8)}`,
           "subagent",
-          entry.agentType || null,
+          subType,
           status,
           entry.label || entry.promptPreview || null,
           mainAgentId,
@@ -298,20 +323,13 @@ function detectRunningWorkflows(dbModule, sessionId, paths, journalRunIds) {
     } catch {
       /* ignore */
     }
-    // Best-effort fleet size: subagent transcripts touched after launch.
+    // Best-effort fleet size: inner-agent transcripts in this run's nested dir.
     try {
-      if (paths.subagentsDir && fs.existsSync(paths.subagentsDir)) {
-        const startMs = startedAt ? Date.parse(startedAt) : 0;
+      const agentDir = paths.sessionDir ? agentsDirForRun(paths.sessionDir, runId) : null;
+      if (agentDir && fs.existsSync(agentDir)) {
         agentCount = fs
-          .readdirSync(paths.subagentsDir)
-          .filter((f) => f.startsWith("agent-") && f.endsWith(".jsonl"))
-          .filter((f) => {
-            try {
-              return fs.statSync(path.join(paths.subagentsDir, f)).mtimeMs >= startMs - 1000;
-            } catch {
-              return false;
-            }
-          }).length;
+          .readdirSync(agentDir)
+          .filter((f) => f.startsWith("agent-") && f.endsWith(".jsonl")).length;
       }
     } catch {
       /* ignore */
@@ -370,7 +388,7 @@ async function ingestWorkflowsForSession(dbModule, session) {
       if (!journal) continue;
       journalRunIds.add(journal.runId);
       const row = await ingestWorkflowJournal(dbModule, sessionId, journal, {
-        subagentsDir: paths.subagentsDir,
+        sessionDir: paths.sessionDir,
         scriptPath: scriptByRun.get(journal.runId) || null,
       });
       if (row) changed.push(row);
