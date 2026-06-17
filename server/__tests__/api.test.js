@@ -1738,13 +1738,78 @@ describe("Compaction agent ingestion", () => {
 
     const res = await fetch("/api/workflows");
     assert.equal(res.status, 200);
-    const compactionType = (res.body.types || []).find((t) => t.subagent_type === "compaction");
+    // Subagent effectiveness (incl. avgDuration per type) is at .effectiveness,
+    // not .types — the prior key never matched, so this assertion was dead.
+    const compactionType = (res.body.effectiveness || []).find(
+      (t) => t.subagent_type === "compaction"
+    );
     if (compactionType && compactionType.avgDuration !== null) {
       assert.ok(
         compactionType.avgDuration >= 0,
         `compaction avgDuration must be >= 0, got ${compactionType.avgDuration}`
       );
     }
+  });
+
+  it("workflows avgDuration for non-compaction subagents is clamped to >= 0", async () => {
+    // The #156 startup repair only heals compaction rows. A non-compaction
+    // subagent whose ended_at < started_at (clock skew, replayed/synced
+    // transcripts, or fleet/Workflow-tool ingestion) is NOT repaired, so the
+    // per-type avgDuration query must clamp negative durations itself.
+    const sid = `noncompact-avg-sess-${Date.now()}`;
+    stmts.insertSession.run(sid, "noncompact-avg", "completed", "/tmp", "test-model", null);
+    stmts.insertAgent.run(`${sid}-main`, sid, "main", "main", null, "completed", null, null, null);
+
+    // One valid Explore row (+10s) and one broken Explore row (ended 30s before
+    // started). The broken row is deliberately left un-repaired.
+    const goodId = `${sid}-explore-good`;
+    stmts.insertAgent.run(
+      goodId,
+      sid,
+      "Explore",
+      "subagent",
+      "Explore",
+      "completed",
+      null,
+      `${sid}-main`,
+      null
+    );
+    db.prepare("UPDATE agents SET started_at = ?, ended_at = ? WHERE id = ?").run(
+      new Date(Date.now() - 10_000).toISOString(),
+      new Date().toISOString(),
+      goodId
+    );
+
+    const brokenId = `${sid}-explore-broken`;
+    stmts.insertAgent.run(
+      brokenId,
+      sid,
+      "Explore",
+      "subagent",
+      "Explore",
+      "completed",
+      null,
+      `${sid}-main`,
+      null
+    );
+    db.prepare("UPDATE agents SET ended_at = ? WHERE id = ?").run(
+      new Date(Date.now() - 30_000).toISOString(),
+      brokenId
+    );
+    const before = db.prepare("SELECT started_at, ended_at FROM agents WHERE id = ?").get(brokenId);
+    assert.ok(
+      before.ended_at < before.started_at,
+      "precondition: broken row should have ended_at < started_at"
+    );
+
+    const res = await fetch("/api/workflows");
+    assert.equal(res.status, 200);
+    const exploreType = (res.body.effectiveness || []).find((t) => t.subagent_type === "Explore");
+    assert.ok(exploreType, "Explore subagent type should appear in effectiveness");
+    assert.ok(
+      exploreType.avgDuration >= 0,
+      `non-compaction avgDuration must be >= 0, got ${exploreType.avgDuration}`
+    );
   });
 });
 

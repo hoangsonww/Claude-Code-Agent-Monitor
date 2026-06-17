@@ -320,9 +320,14 @@ function getSubagentEffectiveness(statusFilter) {
   const withMetrics = types.map((t) => {
     const durRow = db
       .prepare(
+        // Clamp each row's duration to >= 0 before averaging. The #156 startup
+        // repair only heals compaction rows; any other subagent type whose
+        // ended_at < started_at (clock skew, replayed/synced transcripts) would
+        // otherwise drag this average negative. MAX(0, …) mirrors the Math.max(0)
+        // guard durationSec() already applies to every other duration here.
         `SELECT AVG(
           CASE WHEN ended_at IS NOT NULL THEN
-            (julianday(ended_at) - julianday(started_at)) * 86400
+            MAX(0, (julianday(ended_at) - julianday(started_at)) * 86400)
           ELSE NULL END
         ) as avg_duration
         FROM agents WHERE subagent_type = ? AND type = 'subagent'${sf.clause}`
