@@ -12,6 +12,7 @@ import { KanbanBoard } from "./pages/KanbanBoard";
 import { Sessions } from "./pages/Sessions";
 import { SessionDetail } from "./pages/SessionDetail";
 import { ActivityFeed } from "./pages/ActivityFeed";
+import { QueryExplorer } from "./pages/QueryExplorer";
 import { Analytics } from "./pages/Analytics";
 import { Workflows } from "./pages/Workflows";
 import { Settings } from "./pages/Settings";
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:id" element={<SessionDetail />} />
           <Route path="activity" element={<ActivityFeed />} />
+          <Route path="query" element={<QueryExplorer />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="workflows" element={<Workflows />} />
           <Route path="cc-config" element={<CcConfig />} />

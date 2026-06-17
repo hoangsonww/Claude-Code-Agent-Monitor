@@ -380,6 +380,24 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_workflows_session ON workflows(session_id);
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
+
+  -- Saved queries for the safe Query Explorer (server/routes/query.js). A saved
+  -- query is user configuration: the normalized DSL is stored as JSON in the
+  -- query column, optional tags as a JSON array. The route validates the DSL
+  -- via server/lib/query-dsl.js before insert, so nothing user-supplied is ever
+  -- concatenated into SQL. No FK — saved queries are user state, not session
+  -- data, and survive Clear Data.
+  CREATE TABLE IF NOT EXISTS saved_queries (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    entity TEXT NOT NULL,
+    query TEXT NOT NULL,
+    tags TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_saved_queries_created ON saved_queries(created_at DESC);
 `);
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already

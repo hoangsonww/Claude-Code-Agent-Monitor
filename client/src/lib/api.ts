@@ -12,6 +12,10 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  QueryBody,
+  QueryRunResult,
+  QuerySchema,
+  SavedQuery,
   Session,
   SessionDrillIn,
   SessionStats,
@@ -163,6 +167,39 @@ export const api = {
       }>(`/events${q ? `?${q}` : ""}`);
     },
     facets: () => request<{ event_types: string[]; tool_names: string[] }>("/events/facets"),
+  },
+
+  query: {
+    /** Fetch the entity/field/operator schema that drives the builder. */
+    schema: () => request<QuerySchema>("/query/schema"),
+    /** Run a query. JSON by default; pass `format: "csv"` to get the raw
+     * Response back (a text/csv download) without forcing a JSON parse. */
+    run: ((body: QueryBody, format?: "csv") => {
+      if (format === "csv") {
+        return runCsv(body);
+      }
+      return request<QueryRunResult>("/query/run", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    }) as {
+      (body: QueryBody): Promise<QueryRunResult>;
+      (body: QueryBody, format: "csv"): Promise<Response>;
+    },
+    saved: {
+      // The server wraps these as { saved: ... } (repo convention); unwrap so
+      // callers get the bare row(s).
+      list: () => request<{ saved: SavedQuery[] }>("/query/saved").then((r) => r.saved),
+      create: (body: { name: string; query: QueryBody; tags?: string[] }) =>
+        request<{ saved: SavedQuery }>("/query/saved", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }).then((r) => r.saved),
+      remove: (id: string | number) =>
+        request<{ ok: true }>(`/query/saved/${encodeURIComponent(String(id))}`, {
+          method: "DELETE",
+        }),
+    },
   },
 
   analytics: {
@@ -465,6 +502,24 @@ export const api = {
     },
   },
 };
+
+/**
+ * POST /api/query/run?format=csv — returns the raw Response so the caller can
+ * stream it into a Blob download. We don't parse the body here (it's text/csv,
+ * not JSON), but we still surface server errors via the shared error shape.
+ */
+async function runCsv(body: QueryBody): Promise<Response> {
+  const res = await fetch(`${BASE}/query/run?format=csv`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody?.error?.message || `HTTP ${res.status}`);
+  }
+  return res;
+}
 
 function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcArtifactType }) {
   const qs = new URLSearchParams();
