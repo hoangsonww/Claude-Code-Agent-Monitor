@@ -50,6 +50,10 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  Archive,
+  Download,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -60,7 +64,16 @@ import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
-import type { ModelPricing, WSMessage } from "../lib/types";
+import { ConfirmModal } from "../components/ConfirmModal";
+import type {
+  BackupBundle,
+  BackupDryRunResult,
+  BackupRestoreResult,
+  BackupValidateResult,
+  ModelPricing,
+  PricingStrategy,
+  WSMessage,
+} from "../lib/types";
 
 // In-page navigation for the (dense) Settings screen. Each entry maps to a
 // `<section id>` rendered below; the TOC scroll-spies the active one.
@@ -78,6 +91,7 @@ const SETTINGS_SECTIONS: {
   { id: "notifications", labelKey: "notifications.title", Icon: Bell },
   { id: "alerts", labelKey: "alertsHub.title", Icon: BellRing },
   { id: "data", labelKey: "data.title", Icon: Database },
+  { id: "backup", labelKey: "backup.title", Icon: Archive },
   { id: "about", labelKey: "about.title", Icon: Server },
 ];
 
@@ -345,6 +359,410 @@ function PricingInfoTooltip() {
         </div>
       )}
     </>
+  );
+}
+
+// ─── Backup & Restore ───
+
+/** Tables for which the dry-run/restore summary surfaces conflicts (pricing). */
+const PRICING_TABLE = "model_pricing";
+
+/**
+ * Self-contained Backup & Restore card. Downloads a full export via a plain
+ * anchor, and walks a pick → validate → dry-run → preview → confirm → restore
+ * flow for merging a backup file back into the local database. Restore is
+ * additive and idempotent; the confirm gate mirrors the Clear Data pattern.
+ */
+function BackupRestore() {
+  const { t } = useTranslation("settings");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [bundle, setBundle] = useState<BackupBundle | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [validation, setValidation] = useState<BackupValidateResult | null>(null);
+  const [dryRun, setDryRun] = useState<BackupDryRunResult | null>(null);
+  const [strategy, setStrategy] = useState<PricingStrategy>("keep_local");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<BackupRestoreResult | null>(null);
+
+  const compatible = validation?.compatible === true;
+  const pricingConflicts = dryRun?.summary?.[PRICING_TABLE]?.conflicts ?? 0;
+  const hasPricingConflicts = pricingConflicts > 0;
+
+  const resetPreview = useCallback(() => {
+    setBundle(null);
+    setFileName(null);
+    setValidation(null);
+    setDryRun(null);
+    setResult(null);
+    setError(null);
+    setStrategy("keep_local");
+  }, []);
+
+  // Run validate + dry-run for a freshly-picked bundle. Dry-run uses the
+  // default strategy; switching strategy re-runs it (see analyzeStrategy).
+  const analyze = useCallback(
+    async (parsed: BackupBundle) => {
+      setAnalyzing(true);
+      setError(null);
+      setValidation(null);
+      setDryRun(null);
+      setResult(null);
+      try {
+        const validateRes = await api.backup.validate(parsed);
+        setValidation(validateRes);
+        if (validateRes.compatible) {
+          const dryRunRes = await api.backup.dryRun(parsed, "keep_local");
+          setDryRun(dryRunRes);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("backup.restoreFailed"));
+      } finally {
+        setAnalyzing(false);
+      }
+    },
+    [t]
+  );
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      resetPreview();
+      setFileName(file.name);
+      let parsed: BackupBundle;
+      try {
+        const text = await file.text();
+        parsed = JSON.parse(text) as BackupBundle;
+      } catch {
+        setError(t("backup.invalidJson"));
+        return;
+      }
+      setBundle(parsed);
+      await analyze(parsed);
+    },
+    [analyze, resetPreview, t]
+  );
+
+  // Re-run the dry-run when the user flips the pricing strategy so the preview
+  // counts (would_update vs already_present) reflect the chosen resolution.
+  const handleStrategyChange = useCallback(
+    async (next: PricingStrategy) => {
+      setStrategy(next);
+      if (!bundle || !compatible) return;
+      setAnalyzing(true);
+      setError(null);
+      try {
+        const dryRunRes = await api.backup.dryRun(bundle, next);
+        setDryRun(dryRunRes);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("backup.restoreFailed"));
+      } finally {
+        setAnalyzing(false);
+      }
+    },
+    [bundle, compatible, t]
+  );
+
+  const handleRestore = useCallback(async () => {
+    if (!bundle) return;
+    setConfirmOpen(false);
+    setRestoring(true);
+    setError(null);
+    try {
+      const res = await api.backup.restore(bundle, strategy);
+      setResult(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("backup.restoreFailed"));
+    } finally {
+      setRestoring(false);
+    }
+  }, [bundle, strategy, t]);
+
+  const summaryEntries = dryRun ? Object.entries(dryRun.summary) : [];
+  const resultEntries = result ? Object.entries(result.applied) : [];
+
+  return (
+    <div className="space-y-4">
+      {/* Download backup */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <Download className="w-4 h-4 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-300">{t("backup.downloadTitle")}</p>
+            <p className="text-xs text-gray-500">{t("backup.downloadDesc")}</p>
+          </div>
+        </div>
+        <a
+          href={api.backup.exportUrl()}
+          download
+          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" />
+          {t("backup.download")}
+        </a>
+      </div>
+
+      {/* Restore from backup */}
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+            <Upload className="w-4 h-4 text-violet-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-300">{t("backup.restoreTitle")}</p>
+            <p className="text-xs text-gray-500">{t("backup.restoreDesc")}</p>
+          </div>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            // Reset so re-picking the same file fires onChange again.
+            e.target.value = "";
+          }}
+        />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={analyzing || restoring}
+            className="btn-ghost text-xs border border-border disabled:opacity-50"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {fileName ? t("backup.chooseDifferentFile") : t("backup.chooseFile")}
+          </button>
+          {fileName && (
+            <span className="text-xs text-gray-500 truncate min-w-0">
+              {t("backup.selectedFile", { name: fileName })}
+            </span>
+          )}
+        </div>
+
+        {analyzing && (
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            {t("backup.validating")}
+          </div>
+        )}
+
+        {error && (
+          <div className="px-3 py-2 rounded-lg text-xs bg-red-500/10 border border-red-500/20 text-red-400">
+            {error}
+          </div>
+        )}
+
+        {/* Validation issues / incompatible */}
+        {validation && !compatible && !analyzing && (
+          <div className="px-3 py-2.5 rounded-lg text-xs bg-amber-500/10 border border-amber-500/20 text-amber-300 space-y-1.5">
+            <p className="font-medium">{t("backup.incompatible")}</p>
+            {validation.issues.length > 0 && (
+              <ul className="list-disc list-inside space-y-0.5 text-amber-300/90">
+                {validation.issues.map((issue, i) => (
+                  <li key={i}>{issue}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* Preview */}
+        {compatible && validation?.manifest && dryRun && !result && !analyzing && (
+          <div className="space-y-4 pt-1">
+            {/* Manifest */}
+            <div className="bg-surface-2 rounded-lg px-4 py-3">
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                {t("backup.manifestTitle")}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div>
+                  <span className="text-gray-500">{t("backup.createdAt")}: </span>
+                  <span className="text-gray-300">
+                    {formatTimestamp(validation.manifest.created_at)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">{t("backup.appVersion")}: </span>
+                  <span className="text-gray-300 font-mono">{validation.manifest.app_version}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">{t("backup.schemaVersion")}: </span>
+                  <span className="text-gray-300 font-mono">
+                    {validation.manifest.schema_version}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Issues (compatible-but-noteworthy) */}
+            {dryRun.issues.length > 0 && (
+              <div className="px-3 py-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                <p className="font-medium mb-1">{t("backup.issuesTitle")}</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  {dryRun.issues.map((issue, i) => (
+                    <li key={i}>{issue}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Per-table summary */}
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                {t("backup.previewTitle")}
+              </p>
+              <div className="card overflow-x-auto">
+                <table className="w-full min-w-[460px]">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                        {t("backup.colTable")}
+                      </th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
+                        {t("backup.colIncoming")}
+                      </th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
+                        {t("backup.colToInsert")}
+                      </th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
+                        {t("backup.colAlreadyPresent")}
+                      </th>
+                      <th className="px-4 py-2.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">
+                        {t("backup.colConflicts")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {summaryEntries.map(([table, s]) => (
+                      <tr key={table} className="hover:bg-surface-4 transition-colors">
+                        <td className="px-4 py-2.5 text-sm font-mono text-gray-300">{table}</td>
+                        <td className="px-4 py-2.5 text-sm text-gray-400 text-right font-mono">
+                          {fmt(s.incoming)}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-emerald-400 text-right font-mono">
+                          {fmt(s.to_insert)}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-gray-400 text-right font-mono">
+                          {fmt(s.already_present)}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-right font-mono">
+                          {table === PRICING_TABLE && s.conflicts != null ? (
+                            <span className={s.conflicts > 0 ? "text-amber-400" : "text-gray-600"}>
+                              {fmt(s.conflicts)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Pricing conflict strategy */}
+            {hasPricingConflicts && (
+              <div className="bg-surface-2 rounded-lg px-4 py-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-300">{t("backup.strategyTitle")}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{t("backup.strategyDesc")}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="pricing-strategy"
+                      checked={strategy === "keep_local"}
+                      onChange={() => handleStrategyChange("keep_local")}
+                      disabled={analyzing || restoring}
+                      className="mt-0.5 accent-blue-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-300">{t("backup.strategyKeepLocal")}</p>
+                      <p className="text-xs text-gray-500">{t("backup.strategyKeepLocalDesc")}</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="pricing-strategy"
+                      checked={strategy === "use_incoming"}
+                      onChange={() => handleStrategyChange("use_incoming")}
+                      disabled={analyzing || restoring}
+                      className="mt-0.5 accent-blue-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-300">{t("backup.strategyUseIncoming")}</p>
+                      <p className="text-xs text-gray-500">{t("backup.strategyUseIncomingDesc")}</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={() => setConfirmOpen(true)}
+                disabled={restoring}
+                className="btn-primary text-xs disabled:opacity-50"
+              >
+                {restoring ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                {restoring ? t("backup.restoring") : t("backup.restore")}
+              </button>
+              <p className="text-xs text-gray-500">{t("backup.idempotentNote")}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Restore result */}
+        {result && (
+          <div className="px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-emerald-400 font-medium">
+              <CheckCircle className="w-4 h-4" />
+              {t("backup.resultTitle")}
+            </div>
+            <p className="text-xs text-emerald-300/90">
+              {t("backup.resultTotal", { count: result.total_inserted })}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+              {resultEntries.map(([table, r]) => (
+                <div key={table} className="flex items-center gap-2 text-gray-400">
+                  <span className="font-mono text-gray-300">{table}</span>
+                  <span className="text-gray-500">
+                    {r.inserted} {t("backup.resultInserted")}
+                    {r.updated != null ? `, ${r.updated} ${t("backup.resultUpdated")}` : ""},{" "}
+                    {r.skipped} {t("backup.resultSkipped")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title={t("backup.confirmTitle")}
+        message={t("backup.confirmMessage")}
+        confirmLabel={t("backup.confirmRestore")}
+        cancelLabel={t("common:cancel")}
+        busy={restoring}
+        onConfirm={handleRestore}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </div>
   );
 }
 
@@ -1581,6 +1999,16 @@ export function Settings() {
             {actionBanner(["clear"])}
           </div>
         </div>
+      </section>
+
+      {/* ─── BACKUP & RESTORE ─── */}
+      <section id="backup" className="scroll-mt-24">
+        <h3 className="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1">
+          <Archive className="w-4 h-4 text-gray-500" />
+          {t("backup.title")}
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">{t("backup.description")}</p>
+        <BackupRestore />
       </section>
 
       {/* ─── ABOUT ─── */}

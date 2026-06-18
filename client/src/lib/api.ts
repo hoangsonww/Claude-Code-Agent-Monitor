@@ -9,9 +9,14 @@ import type {
   AlertEvent,
   AlertRule,
   Analytics,
+  BackupBundle,
+  BackupDryRunResult,
+  BackupRestoreResult,
+  BackupValidateResult,
   CostResult,
   DashboardEvent,
   ModelPricing,
+  PricingStrategy,
   Session,
   SessionDrillIn,
   SessionStats,
@@ -242,6 +247,27 @@ export const api = {
         purged_events: number;
         purged_agents: number;
       }>("/settings/cleanup", { method: "POST", body: JSON.stringify(params) }),
+  },
+
+  backup: {
+    // Absolute URL for the export endpoint. Trigger a plain anchor download
+    // against this — do NOT fetch+parse (the response is a file attachment).
+    exportUrl: () => `${window.location.origin}${BASE}/backup/export`,
+    validate: (bundle: BackupBundle) =>
+      request<BackupValidateResult>("/backup/validate", {
+        method: "POST",
+        body: JSON.stringify(bundle),
+      }),
+    dryRun: (bundle: BackupBundle, strategy: PricingStrategy) =>
+      request<BackupDryRunResult>(`/backup/dry-run?pricing_strategy=${strategy}`, {
+        method: "POST",
+        body: JSON.stringify(bundle),
+      }),
+    restore: (bundle: BackupBundle, strategy: PricingStrategy) =>
+      request<BackupRestoreResult>(`/backup/restore?pricing_strategy=${strategy}`, {
+        method: "POST",
+        body: JSON.stringify(bundle),
+      }),
   },
 
   workflows: {

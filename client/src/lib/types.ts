@@ -135,6 +135,59 @@ export interface ModelPricing {
   updated_at: string;
 }
 
+// ── Backup & Restore ──
+
+/** Strategy for resolving model_pricing conflicts when restoring a backup. */
+export type PricingStrategy = "keep_local" | "use_incoming";
+
+export interface BackupManifest {
+  schema_version: number;
+  app_version: string;
+  created_at: string;
+  counts: Record<string, number>;
+}
+
+/** A backup bundle as picked from a file: { manifest, data }. */
+export interface BackupBundle {
+  manifest: Record<string, unknown>;
+  data: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface BackupValidateResult {
+  ok: boolean;
+  compatible: boolean;
+  manifest: BackupManifest | null;
+  issues: string[];
+}
+
+export interface BackupDryRunTableSummary {
+  incoming: number;
+  to_insert: number;
+  already_present: number;
+  conflicts?: number;
+  would_update?: number;
+}
+
+export interface BackupDryRunResult {
+  compatible: boolean;
+  issues: string[];
+  pricing_strategy: string;
+  summary: Record<string, BackupDryRunTableSummary>;
+}
+
+export interface BackupRestoreTableResult {
+  inserted: number;
+  skipped: number;
+  updated?: number;
+}
+
+export interface BackupRestoreResult {
+  ok: true;
+  applied: Record<string, BackupRestoreTableResult>;
+  total_inserted: number;
+}
+
 export interface CostBreakdown {
   model: string;
   speed?: string;
