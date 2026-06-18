@@ -65,6 +65,7 @@ const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
 const remoteSourcesRouter = require("./routes/remote-sources");
 const metricsRouter = require("./routes/metrics");
+const reportsRouter = require("./routes/reports");
 
 const APP_VERSION = (() => {
   try {
@@ -103,6 +104,7 @@ function createApp() {
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/remote-sources", remoteSourcesRouter);
   app.use("/api/metrics", metricsRouter);
+  app.use("/api/reports", reportsRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });
@@ -398,6 +400,14 @@ function startBackgroundServices() {
     }
   } catch (err) {
     console.warn("dashboard-runs reconciliation failed:", err.message);
+  }
+  // Scheduled Analytics Reports: materialize a run for each enabled definition
+  // as it comes due (60s unref'd tick; disable with DASHBOARD_REPORTS_DISABLED).
+  try {
+    const { startReportScheduler } = require("./lib/report-scheduler");
+    startReportScheduler({ broadcast });
+  } catch (err) {
+    console.warn("report scheduler failed to start:", err.message);
   }
 }
 

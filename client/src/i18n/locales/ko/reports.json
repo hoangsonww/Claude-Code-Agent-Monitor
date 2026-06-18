@@ -1,0 +1,85 @@
+{
+  "title": "예약 보고서",
+  "subtitle": "일정에 따라 자동으로 제공되는 분석 보고서",
+  "newReport": "새 보고서",
+  "refresh": "새로고침",
+  "failedLoad": "보고서를 불러오지 못했습니다",
+  "definitions": {
+    "empty": "아직 예약된 보고서가 없습니다",
+    "emptyDesc": "보고서를 만들어 일정에 따라 자동 분석 요약을 받아보세요.",
+    "createFirst": "보고서 만들기",
+    "nextRun": "다음 실행",
+    "lastRun": "마지막 실행",
+    "never": "없음",
+    "runNow": "지금 실행",
+    "running": "실행 중…",
+    "edit": "편집",
+    "delete": "삭제",
+    "enabled": "사용",
+    "disabled": "사용 안 함",
+    "formats": "형식",
+    "window": "{{count}}일 범위",
+    "viewHistory": "기록 보기",
+    "hideHistory": "기록 숨기기"
+  },
+  "frequency": {
+    "daily": "매일",
+    "weekly": "매주",
+    "monthly": "매월",
+    "dailyAt": "매일 · {{time}}",
+    "weeklyAt": "매주 · {{day}} {{time}}",
+    "monthlyAt": "매월 · 1일 {{time}}"
+  },
+  "days": {
+    "0": "일",
+    "1": "월",
+    "2": "화",
+    "3": "수",
+    "4": "목",
+    "5": "금",
+    "6": "토"
+  },
+  "status": {
+    "success": "성공",
+    "error": "오류",
+    "pending": "대기 중"
+  },
+  "form": {
+    "createTitle": "새 예약 보고서",
+    "editTitle": "보고서 편집",
+    "name": "이름",
+    "namePlaceholder": "주간 분석 요약",
+    "template": "템플릿",
+    "frequency": "빈도",
+    "dayOfWeek": "요일",
+    "hour": "시간 (0–23)",
+    "formats": "형식",
+    "windowDays": "범위 (일)",
+    "enabled": "사용",
+    "enabledDesc": "일정에 따라 이 보고서를 자동으로 실행합니다",
+    "cancel": "취소",
+    "create": "보고서 만들기",
+    "save": "변경 사항 저장",
+    "saving": "저장 중…",
+    "validationName": "보고서 이름이 필요합니다",
+    "validationTemplate": "템플릿을 선택하세요",
+    "validationFormats": "하나 이상의 형식을 선택하세요"
+  },
+  "history": {
+    "title": "실행 기록",
+    "empty": "아직 실행 기록이 없습니다",
+    "emptyDesc": "이 보고서는 아직 실행되지 않았습니다. \"지금 실행\"으로 첫 보고서를 생성하세요.",
+    "loadFailed": "실행 기록을 불러오지 못했습니다",
+    "window": "범위",
+    "started": "시작",
+    "viewHtml": "HTML 보기",
+    "downloadJson": "JSON 다운로드",
+    "errorLabel": "오류"
+  },
+  "delete": {
+    "title": "보고서를 삭제할까요?",
+    "message": "\"{{name}}\" 및 해당 실행 기록이 영구적으로 삭제됩니다.",
+    "confirm": "삭제",
+    "cancel": "취소"
+  }
+}
