@@ -226,14 +226,19 @@ export function QueryExplorer() {
         if (NO_VALUE_OPS.has(row.op)) {
           return { field: row.field, op: row.op };
         }
+        // int fields must be sent as numbers — the backend rejects a string for
+        // an int column (e.g. events.id), so coerce based on the schema type.
+        const fieldType = schema?.entities[entity]?.fields[row.field]?.type;
         if (row.op === IN_OP) {
           const values = row.value
             .split(",")
             .map((v) => v.trim())
-            .filter((v) => v.length > 0);
+            .filter((v) => v.length > 0)
+            .map((v) => (fieldType === "int" ? Number(v) : v));
           return { field: row.field, op: row.op, value: values };
         }
-        return { field: row.field, op: row.op, value: row.value };
+        const value = fieldType === "int" ? Number(row.value) : row.value;
+        return { field: row.field, op: row.op, value };
       });
       return {
         entity,
@@ -317,14 +322,21 @@ export function QueryExplorer() {
     (item: SavedQuery) => {
       if (!schema) return;
       const q = item.query;
+      // A saved query whose persisted JSON failed to parse comes back as null.
+      if (!q) return;
       const targetEntity = schema.entities[q.entity] ? q.entity : entity;
       const ent = schema.entities[targetEntity];
       setEntity(targetEntity);
-      // Re-hydrate filter rows; coerce array `in` values back to comma text.
+      // Re-hydrate filter rows; `in` arrays become comma text and numeric
+      // values become strings (FilterRow.value is always a string input).
       const rows: FilterRow[] = (q.filters ?? []).map((f) => ({
         field: f.field,
         op: f.op,
-        value: Array.isArray(f.value) ? f.value.join(", ") : (f.value ?? ""),
+        value: Array.isArray(f.value)
+          ? f.value.join(", ")
+          : f.value !== undefined && f.value !== null
+            ? String(f.value)
+            : "",
       }));
       setFilters(rows.length > 0 ? rows : [defaultFilterRow(ent, schema)]);
       setMatch(q.match === "or" ? "or" : "and");

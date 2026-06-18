@@ -716,11 +716,13 @@ export interface QuerySchema {
  * least events/agents/sessions. */
 export type QueryEntityName = string;
 
-/** `value` is omitted for is_null/is_not_null and an array for `in`. */
+/** `value` is omitted for is_null/is_not_null and an array for `in`. Numeric
+ * values are sent for `int` fields (e.g. events.id); the backend rejects a
+ * string there, so the UI parses int inputs to numbers before submitting. */
 export interface QueryFilter {
   field: string;
   op: QueryOperator;
-  value?: string | string[];
+  value?: string | number | (string | number)[];
 }
 
 export type QueryMatch = "and" | "or";
@@ -758,7 +760,8 @@ export interface SavedQuery {
   id: string | number;
   name: string;
   entity: QueryEntityName;
-  query: QueryBody;
+  // null when the persisted DSL JSON failed to parse server-side.
+  query: QueryBody | null;
   tags: string[];
 }
 

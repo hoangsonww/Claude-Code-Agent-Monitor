@@ -133,6 +133,28 @@ describe("POST /api/query/run — filters", () => {
     assert.equal(typeof r.body.tookMs, "number");
   });
 
+  it("accepts a numeric value on an int field (events.id)", async () => {
+    // Regression: the int columns must accept a JS number. The builder UI sends
+    // numbers for int fields (string values 400); this locks the contract.
+    const r = await request("/api/query/run", {
+      method: "POST",
+      body: { entity: "events", filters: [{ field: "id", op: "lte", value: 2 }] },
+    });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.total, 2);
+    assert.ok(
+      r.body.rows.every((row) => row.id <= 2),
+      "only rows with id <= 2"
+    );
+
+    // A string on an int field is still rejected (type guard intact).
+    const bad = await request("/api/query/run", {
+      method: "POST",
+      body: { entity: "events", filters: [{ field: "id", op: "eq", value: "2" }] },
+    });
+    assert.equal(bad.status, 400);
+  });
+
   it("gte on a datetime field uses an ISO string bound", async () => {
     const r = await request("/api/query/run", {
       method: "POST",
