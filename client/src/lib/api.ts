@@ -12,9 +12,15 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  PublicSnapshot,
+  RedactionKey,
+  RedactionOption,
   Session,
   SessionDrillIn,
   SessionStats,
+  SnapshotAuditEntry,
+  SnapshotMeta,
+  SnapshotPayload,
   Stats,
   TranscriptListResult,
   TranscriptResult,
@@ -463,6 +469,38 @@ export const api = {
         `/webhooks/${encodeURIComponent(id)}/deliveries${q ? `?${q}` : ""}`
       );
     },
+  },
+
+  // Shareable read-only session snapshots (issue: session-snapshots). Every
+  // server response is enveloped; we unwrap here so callers get the bare value.
+  snapshots: {
+    create: (body: {
+      session_id: string;
+      title?: string;
+      redactions?: RedactionKey[];
+      expires_in_hours?: number;
+    }) =>
+      request<{ snapshot: SnapshotMeta }>("/snapshots", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((r) => r.snapshot),
+    list: () => request<{ snapshots: SnapshotMeta[] }>("/snapshots").then((r) => r.snapshots),
+    options: () =>
+      request<{ redactions: RedactionOption[] }>("/snapshots/options").then((r) => r.redactions),
+    get: (token: string) =>
+      request<{ snapshot: PublicSnapshot; payload: SnapshotPayload }>(
+        `/snapshots/${encodeURIComponent(token)}`
+      ),
+    revoke: (token: string) =>
+      request<{ snapshot: SnapshotMeta }>(`/snapshots/${encodeURIComponent(token)}/revoke`, {
+        method: "POST",
+      }).then((r) => r.snapshot),
+    remove: (token: string) =>
+      request<{ ok: true }>(`/snapshots/${encodeURIComponent(token)}`, { method: "DELETE" }),
+    audit: (token: string) =>
+      request<{ audit: SnapshotAuditEntry[] }>(
+        `/snapshots/${encodeURIComponent(token)}/audit`
+      ).then((r) => r.audit),
   },
 };
 

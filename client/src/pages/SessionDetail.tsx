@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Bot,
+  Camera,
   Clock,
   FolderOpen,
   Cpu,
@@ -67,6 +68,7 @@ import type {
   WorkflowRun,
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
+import { CreateSnapshotModal } from "../components/CreateSnapshotModal";
 
 type DetailTab = "agents" | "conversation" | "timeline";
 
@@ -110,6 +112,8 @@ export function SessionDetail() {
   const [transcriptNotFound, setTranscriptNotFound] = useState(false);
   const notFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set());
+  // Controls the "Create snapshot / Share" modal. Opened from the header.
+  const [snapshotModalOpen, setSnapshotModalOpen] = useState(false);
 
   function toggleEvent(id: number) {
     setExpandedEvents((prev) => {
@@ -560,10 +564,28 @@ export function SessionDetail() {
             </div>
           )}
         </div>
-        <button onClick={load} className="btn-ghost">
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setSnapshotModalOpen(true)}
+            className="btn-ghost border border-border"
+            title={t("snapshots:create")}
+          >
+            <Camera className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("snapshots:share")}</span>
+          </button>
+          <button onClick={load} className="btn-ghost">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
+
+      {id && (
+        <CreateSnapshotModal
+          open={snapshotModalOpen}
+          sessionId={id}
+          onClose={() => setSnapshotModalOpen(false)}
+        />
+      )}
 
       {isDashboardRun && (
         <Link

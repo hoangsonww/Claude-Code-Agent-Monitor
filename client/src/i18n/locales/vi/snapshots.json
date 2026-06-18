@@ -1,0 +1,84 @@
+{
+  "title": "Ảnh chụp",
+  "subtitle": "Ảnh chụp phiên chỉ đọc có thể chia sẻ",
+  "create": "Tạo ảnh chụp",
+  "share": "Chia sẻ",
+  "refresh": "Làm mới",
+  "empty": "Chưa có ảnh chụp nào",
+  "emptyDesc": "Tạo ảnh chụp từ một phiên để chia sẻ một chế độ xem chỉ đọc không thay đổi khi phiên tiếp tục.",
+  "table": {
+    "title": "Tiêu đề",
+    "session": "Phiên",
+    "created": "Tạo lúc",
+    "status": "Trạng thái",
+    "views": "Lượt xem",
+    "actions": "Hành động"
+  },
+  "untitled": "Ảnh chụp không tiêu đề",
+  "viewSession": "Xem phiên",
+  "copyLink": "Sao chép liên kết",
+  "copied": "Đã sao chép",
+  "revoke": "Thu hồi",
+  "delete": "Xóa",
+  "status": {
+    "active": "Đang hoạt động",
+    "expired": "Đã hết hạn",
+    "revoked": "Đã thu hồi"
+  },
+  "confirmRevoke": {
+    "title": "Thu hồi ảnh chụp này?",
+    "message": "Bất kỳ ai có liên kết sẽ mất quyền truy cập ngay lập tức. Không thể hoàn tác, nhưng bản ghi ảnh chụp vẫn được giữ lại.",
+    "confirm": "Thu hồi"
+  },
+  "confirmDelete": {
+    "title": "Xóa ảnh chụp này?",
+    "message": "Ảnh chụp và liên kết chia sẻ của nó sẽ bị xóa vĩnh viễn. Không thể hoàn tác.",
+    "confirm": "Xóa"
+  },
+  "modal": {
+    "title": "Tạo ảnh chụp",
+    "subtitle": "Chụp lại phiên này thành một trang chỉ đọc mà bạn có thể chia sẻ bằng liên kết.",
+    "titleLabel": "Tiêu đề",
+    "titlePlaceholder": "Tùy chọn — mặc định dùng tên phiên",
+    "redactions": "Ẩn dữ liệu",
+    "redactionsHint": "Ẩn dữ liệu nhạy cảm khỏi chế độ xem được chia sẻ. Các trường bị ẩn được loại bỏ tại thời điểm chụp.",
+    "noRedactionOptions": "Không có tùy chọn ẩn dữ liệu nào.",
+    "expiry": "Hết hạn liên kết",
+    "expiryOptions": {
+      "never": "Không bao giờ hết hạn",
+      "1h": "1 giờ",
+      "24h": "24 giờ",
+      "7d": "7 ngày"
+    },
+    "cancel": "Hủy",
+    "submit": "Tạo ảnh chụp",
+    "submitting": "Đang tạo…",
+    "createAnother": "Tạo cái khác",
+    "done": "Xong",
+    "successTitle": "Ảnh chụp đã sẵn sàng",
+    "successDesc": "Chia sẻ liên kết chỉ đọc này. Nó sẽ không thay đổi khi phiên tiếp tục.",
+    "shareLink": "Liên kết chia sẻ",
+    "error": "Không thể tạo ảnh chụp. Vui lòng thử lại."
+  },
+  "viewer": {
+    "readOnly": "Ảnh chụp chỉ đọc",
+    "readOnlyDesc": "Đây là chế độ xem đã chụp, có thể chia sẻ của một phiên. Nó không cập nhật trực tiếp và không có nút điều khiển.",
+    "captured": "Ảnh chụp · đã chụp {{age}}",
+    "capturedAt": "Đã chụp {{datetime}}",
+    "redactedNote": "Một số dữ liệu đã được tác giả ẩn đi:",
+    "session": "Phiên",
+    "agents": "Tác nhân",
+    "events": "Sự kiện gần đây",
+    "noAgents": "Không có tác nhân nào trong ảnh chụp này.",
+    "noEvents": "Không có sự kiện nào trong ảnh chụp này.",
+    "unavailableTitle": "Ảnh chụp này không còn khả dụng",
+    "unavailableDesc": "Liên kết có thể đã bị thu hồi, hết hạn hoặc chưa từng tồn tại.",
+    "loading": "Đang tải ảnh chụp…"
+  },
+  "redactions": {
+    "file_paths": "Đường dẫn tệp",
+    "event_data": "Dữ liệu sự kiện",
+    "agent_tasks": "Nhiệm vụ tác nhân",
+    "event_summaries": "Tóm tắt sự kiện"
+  }
+}
