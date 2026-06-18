@@ -12,6 +12,9 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  ReportDefinition,
+  ReportRun,
+  ReportTemplatesResponse,
   Session,
   SessionDrillIn,
   SessionStats,
@@ -463,6 +466,71 @@ export const api = {
         `/webhooks/${encodeURIComponent(id)}/deliveries${q ? `?${q}` : ""}`
       );
     },
+  },
+
+  // Scheduled Analytics Reports. Every list/object response from the server is
+  // wrapped in an envelope; we unwrap here so callers get the bare value
+  // (matching the alerts/webhooks groups — a prior PR shipped a bug by NOT
+  // unwrapping, so this is deliberate).
+  reports: {
+    templates: () =>
+      request<ReportTemplatesResponse>("/reports/templates").then((res) => ({
+        templates: res.templates,
+        frequencies: res.frequencies,
+      })),
+    list: () =>
+      request<{ definitions: ReportDefinition[] }>("/reports").then((res) => res.definitions),
+    create: (body: {
+      name: string;
+      template: string;
+      frequency: ReportDefinition["frequency"];
+      day_of_week?: number | null;
+      hour?: number;
+      tz_offset?: number;
+      formats?: string[];
+      window_days?: number;
+      enabled?: boolean;
+    }) =>
+      request<{ definition: ReportDefinition }>("/reports", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }).then((res) => res.definition),
+    update: (
+      id: string,
+      body: Partial<{
+        name: string;
+        template: string;
+        frequency: ReportDefinition["frequency"];
+        day_of_week: number | null;
+        hour: number;
+        tz_offset: number;
+        formats: string[];
+        window_days: number;
+        enabled: boolean;
+      }>
+    ) =>
+      request<{ definition: ReportDefinition }>(`/reports/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }).then((res) => res.definition),
+    remove: (id: string) =>
+      request<{ ok: true }>(`/reports/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    run: (id: string) =>
+      request<{ run: ReportRun }>(`/reports/${encodeURIComponent(id)}/run`, {
+        method: "POST",
+      }).then((res) => res.run),
+    runs: (id: string) =>
+      request<{ runs: ReportRun[] }>(`/reports/${encodeURIComponent(id)}/runs`).then(
+        (res) => res.runs
+      ),
+    getRun: (runId: string) =>
+      request<{ run: ReportRun }>(`/reports/runs/${encodeURIComponent(runId)}`).then(
+        (res) => res.run
+      ),
+    // Artifact endpoint is NOT JSON-wrapped — it's a file. Return the full URL
+    // so callers can open it in a new tab (html) or trigger a download (json).
+    artifactUrl: (runId: string, format: "html" | "json") =>
+      `${window.location.origin}${BASE}/reports/runs/${encodeURIComponent(runId)}/artifact?format=${format}`,
   },
 };
 

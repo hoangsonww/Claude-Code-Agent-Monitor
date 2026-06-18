@@ -380,6 +380,52 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_workflows_session ON workflows(session_id);
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
+
+  -- Scheduled analytics reports. A definition is a saved schedule (template +
+  -- cadence + timezone); the scheduler materializes a report_runs row each time
+  -- a definition comes due. Definitions are user configuration and survive Clear
+  -- Data (like alert_rules / webhook_targets) — they hold no session FKs, so
+  -- they're intentionally NOT wiped by /api/settings/clear-data. window_days
+  -- NULL means "use the template default".
+  CREATE TABLE IF NOT EXISTS report_definitions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    template TEXT NOT NULL,
+    frequency TEXT NOT NULL CHECK(frequency IN ('daily','weekly','monthly')),
+    day_of_week INTEGER,
+    hour INTEGER NOT NULL DEFAULT 9,
+    tz_offset INTEGER NOT NULL DEFAULT 0,
+    formats TEXT NOT NULL DEFAULT '["html","json"]',
+    window_days INTEGER,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    next_run_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- Materialized report runs. Each row is one generation of a definition over a
+  -- concrete window. status is success|error; on error the error string is
+  -- populated and the artifacts are null. summary holds a few headline numbers
+  -- (JSON); artifact_html / artifact_json hold the rendered deliverables and are
+  -- served only via the artifact endpoint (never in list/detail payloads).
+  CREATE TABLE IF NOT EXISTS report_runs (
+    id TEXT PRIMARY KEY,
+    definition_id TEXT NOT NULL,
+    template TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('success','error')),
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    window_start TEXT,
+    window_end TEXT,
+    error TEXT,
+    summary TEXT,
+    artifact_html TEXT,
+    artifact_json TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_report_runs_def ON report_runs(definition_id, created_at DESC);
 `);
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already

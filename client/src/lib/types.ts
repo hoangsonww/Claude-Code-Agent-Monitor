@@ -380,6 +380,54 @@ export interface WebhookTestResult {
   error: string | null;
 }
 
+// ── Scheduled Analytics Reports ──
+
+export type ReportFrequency = "daily" | "weekly" | "monthly";
+
+export interface ReportTemplate {
+  key: string;
+  label: string;
+  description: string;
+  default_window_days: number;
+}
+
+export interface ReportDefinition {
+  id: string;
+  name: string;
+  template: string;
+  frequency: ReportFrequency;
+  day_of_week: number | null;
+  hour: number;
+  tz_offset: number;
+  formats: string[];
+  window_days: number;
+  enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  last_status: "success" | "error" | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReportRun {
+  id: string;
+  definition_id: string;
+  template: string;
+  status: "success" | "error";
+  started_at: string;
+  finished_at: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  error: string | null;
+  summary: Record<string, unknown> | null;
+  formats_available: string[];
+}
+
+export interface ReportTemplatesResponse {
+  templates: ReportTemplate[];
+  frequencies: ReportFrequency[];
+}
+
 export interface WSMessage {
   type:
     | "session_created"
