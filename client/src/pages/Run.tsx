@@ -3008,7 +3008,10 @@ function SessionPicker({
                     >
                       {s.status}
                     </span>
-                    <span className="font-mono text-[11px] text-gray-200 truncate">
+                    {s.name?.trim() && (
+                      <span className="text-[11px] text-gray-200 truncate">{s.name.trim()}</span>
+                    )}
+                    <span className="font-mono text-[11px] text-gray-400 truncate flex-shrink-0">
                       {s.id.slice(0, 12)}…
                     </span>
                     <span className="text-[10px] text-gray-600 ml-auto flex-shrink-0">

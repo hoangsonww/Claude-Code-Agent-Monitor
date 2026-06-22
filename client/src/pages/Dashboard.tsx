@@ -37,7 +37,7 @@ import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Tip } from "../components/Tip";
 import { timeAgo, fmt, fmtCost, formatModelName } from "../lib/format";
-import type { Stats, Agent, DashboardEvent, WSMessage, WorkflowData } from "../lib/types";
+import type { Stats, Agent, DashboardEvent, WSMessage, WorkflowData, Session } from "../lib/types";
 
 interface SystemInfo {
   db: {
@@ -905,6 +905,7 @@ export function Dashboard() {
   const [recentEvents, setRecentEvents] = useState<DashboardEvent[]>([]);
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [allSubagents, setAllSubagents] = useState<Agent[]>([]);
+  const [sessionsById, setSessionsById] = useState<Map<string, Session>>(new Map());
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
@@ -940,18 +941,22 @@ export function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [statsRes, workingRes, waitingRes, eventsRes, costRes] = await Promise.all([
-        api.stats.get(),
-        api.agents.list({ status: "working", limit: 20 }),
-        api.agents.list({ status: "waiting", limit: 20 }),
-        api.events.list({ limit: 30 }),
-        api.pricing.totalCost(),
-      ]);
+      const [statsRes, workingRes, waitingRes, eventsRes, costRes, sessionsRes] = await Promise.all(
+        [
+          api.stats.get(),
+          api.agents.list({ status: "working", limit: 20 }),
+          api.agents.list({ status: "waiting", limit: 20 }),
+          api.events.list({ limit: 30 }),
+          api.pricing.totalCost(),
+          api.sessions.list({ status: "active", limit: 100 }),
+        ]
+      );
       setStats(statsRes);
       const active = [...workingRes.agents, ...waitingRes.agents];
       setActiveAgents(active);
       setRecentEvents(eventsRes.events);
       setTotalCost(costRes.total_cost);
+      setSessionsById(new Map(sessionsRes.sessions.map((s) => [s.id, s])));
       setError(null);
 
       // Fetch all subagents for each active main agent's session
@@ -1260,6 +1265,7 @@ export function Dashboard() {
                             <div className="flex-1 min-w-0">
                               <AgentCard
                                 agent={agent}
+                                session={sessionsById.get(agent.session_id)}
                                 onClick={hasChildren ? toggleExpanded : undefined}
                               />
                             </div>
@@ -1322,7 +1328,10 @@ export function Dashboard() {
                           .filter((a) => a.type === "subagent" && !renderedInTree.has(a.id))
                           .map((agent) => (
                             <div key={agent.id}>
-                              <AgentCard agent={agent} />
+                              <AgentCard
+                                agent={agent}
+                                session={sessionsById.get(agent.session_id)}
+                              />
                             </div>
                           ))}
                       </>
@@ -1374,6 +1383,24 @@ export function Dashboard() {
                       <span className="text-sm text-gray-300 truncate flex-1">
                         {event.summary || event.event_type}
                       </span>
+                      {(() => {
+                        // Session label: real name when one exists, else the
+                        // short ID — keeps every activity row attributable.
+                        const sname = sessionsById.get(event.session_id)?.name?.trim() || "";
+                        const isAuto = /^Session [0-9a-f]{8}$/i.test(sname);
+                        return (
+                          <span
+                            className="text-[11px] text-gray-500 truncate max-w-[9rem] flex-shrink-0"
+                            title={event.session_id}
+                          >
+                            {sname && !isAuto ? (
+                              sname
+                            ) : (
+                              <span className="font-mono">{event.session_id.slice(0, 8)}</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                       {event.tool_name && (
                         <span className="text-[11px] text-gray-500 font-mono">
                           {event.tool_name}

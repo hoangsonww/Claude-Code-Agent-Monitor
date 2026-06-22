@@ -36,6 +36,10 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   const model = formatModelName(session?.model);
   const cwdBase = pathBasename(session?.cwd);
   const cost = typeof session?.cost === "number" ? session.cost : 0;
+  // Real (user-given) session name — the auto-generated "Session <id8>"
+  // fallback carries no extra info next to the ID, so it is suppressed.
+  const sessionName = session?.name?.trim() || "";
+  const realSessionName = /^Session [0-9a-f]{8}$/i.test(sessionName) ? "" : sessionName;
   const subtitle = isMain
     ? [model, cwdBase].filter(Boolean).join(" · ") || null
     : label || agent.subagent_type;
@@ -69,7 +73,14 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             {isMain ? <Bot className="w-3.5 h-3.5" /> : <GitBranch className="w-3.5 h-3.5" />}
           </div>
           <div className="min-w-0 overflow-hidden">
-            <p className="text-sm font-medium text-gray-200 truncate">{agent.name}</p>
+            <p className="text-sm font-medium text-gray-200 truncate">
+              {/* Auto-generated titles like "Main Agent — Session 229d93fd"
+                  swap the ID part for the real session name when one exists;
+                  custom agent names are left untouched. */}
+              {isMain && realSessionName
+                ? agent.name.replace(/Session [0-9a-f]{8}/i, realSessionName)
+                : agent.name}
+            </p>
             {subtitle && <p className="text-[11px] text-gray-500 truncate">{subtitle}</p>}
           </div>
         </div>
@@ -117,8 +128,9 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             {timeAgo(agent.updated_at || agent.started_at)}
           </span>
         )}
-        <span className="ml-auto font-mono opacity-50 flex-shrink-0">
-          {agent.session_id.slice(0, 8)}
+        <span className="ml-auto flex items-center gap-1 min-w-0 opacity-50">
+          {realSessionName && <span className="truncate max-w-[10rem]">{realSessionName} ·</span>}
+          <span className="font-mono flex-shrink-0">{agent.session_id.slice(0, 8)}</span>
         </span>
       </div>
     </div>
