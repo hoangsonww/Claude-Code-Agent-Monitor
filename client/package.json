@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "d3": "^7.9.0",
     "d3-sankey": "^0.12.3",
     "i18next": "^26.0.8",
