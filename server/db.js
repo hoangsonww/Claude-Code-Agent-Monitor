@@ -1291,4 +1291,31 @@ const stmts = {
   ),
 };
 
+// --- Ignore-Filter: Sessions mit bestimmten cwd nicht persistieren ---------
+// Einbahn-Konsolidierungs-/Probe-Sessions (z. B. `claude --print` mit cwd=/tmp,
+// von der claude-code-api gespawnt) sollen das Dashboard nicht zumüllen. Greift
+// zentral für ALLE Insert-Pfade (Hooks, REST-POST, Backfill), da alle
+// stmts.insertSession.run(...) nutzen. cwd ist das 4. Argument
+// (id, name, status, cwd, model, metadata). Opt-in über MONITOR_IGNORE_CWD
+// (kommagetrennt, exakter cwd-Match); Default leer = Filter AUS (damit Tests
+// und Upstream-Verhalten unverändert bleiben). Aktivierung via systemd-Unit.
+const IGNORED_SESSION_CWDS = new Set(
+  (process.env.MONITOR_IGNORE_CWD ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
+if (IGNORED_SESSION_CWDS.size > 0) {
+  const _origInsertSession = stmts.insertSession;
+  stmts.insertSession = {
+    run: (...args) => {
+      const cwd = args[3];
+      if (cwd && IGNORED_SESSION_CWDS.has(cwd)) {
+        return { changes: 0, lastInsertRowid: 0 };
+      }
+      return _origInsertSession.run(...args);
+    },
+  };
+}
+
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING };
