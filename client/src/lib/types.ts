@@ -665,6 +665,106 @@ export interface WorkflowRunDetail {
   events: DashboardEvent[];
 }
 
+// ── Query Explorer (ad-hoc query builder) ──────────────────────────────────
+// Generic, schema-driven query UI backed by GET /api/query/schema +
+// POST /api/query/run. The schema is fetched once on mount and drives which
+// entities/fields/operators the builder offers.
+
+/** Operator tokens accepted by the query engine. `is_null`/`is_not_null` take
+ * no value; `in` takes a comma-separated list that the UI splits into an array
+ * of strings before sending. */
+export type QueryOperator =
+  | "eq"
+  | "ne"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "like"
+  | "in"
+  | "is_null"
+  | "is_not_null";
+
+export type QueryFieldType = "int" | "text" | "datetime";
+
+export interface QuerySchemaField {
+  type: QueryFieldType;
+  /** Operators valid for this field's type (subset of the global operator set). */
+  ops: string[];
+}
+
+export interface QuerySchemaEntity {
+  /** Underlying SQL table name (informational; the UI keys off the entity name). */
+  table: string;
+  fields: Record<string, QuerySchemaField>;
+}
+
+export interface QuerySchemaLimits {
+  maxLimit: number;
+  defaultLimit: number;
+  maxInValues: number;
+}
+
+export interface QuerySchema {
+  entities: Record<string, QuerySchemaEntity>;
+  operators: string[];
+  limits: QuerySchemaLimits;
+}
+
+/** Entity names the schema exposes. Kept as a string so new entities added
+ * server-side don't require a client change, but the contract guarantees at
+ * least events/agents/sessions. */
+export type QueryEntityName = string;
+
+/** `value` is omitted for is_null/is_not_null and an array for `in`. Numeric
+ * values are sent for `int` fields (e.g. events.id); the backend rejects a
+ * string there, so the UI parses int inputs to numbers before submitting. */
+export interface QueryFilter {
+  field: string;
+  op: QueryOperator;
+  value?: string | number | (string | number)[];
+}
+
+export type QueryMatch = "and" | "or";
+export type QuerySortDir = "asc" | "desc";
+
+export interface QuerySort {
+  field: string;
+  dir: QuerySortDir;
+}
+
+/** Request body for POST /api/query/run (also the persisted `query` of a saved
+ * query). */
+export interface QueryBody {
+  entity: QueryEntityName;
+  filters: QueryFilter[];
+  match: QueryMatch;
+  sort: QuerySort[];
+  limit: number;
+  offset: number;
+}
+
+export interface QueryRunResult {
+  entity: QueryEntityName;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  total: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+  tookMs: number;
+  warnings: string[];
+}
+
+export interface SavedQuery {
+  id: string | number;
+  name: string;
+  entity: QueryEntityName;
+  // null when the persisted DSL JSON failed to parse server-side.
+  query: QueryBody | null;
+  tags: string[];
+}
+
 export const STATUS_CONFIG: Record<
   EffectiveAgentStatus,
   { labelKey: string; color: string; bg: string; dot: string }
