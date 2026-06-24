@@ -1,0 +1,85 @@
+{
+  "title": "Báo cáo định kỳ",
+  "subtitle": "Báo cáo phân tích tự động được tạo theo lịch",
+  "newReport": "Báo cáo mới",
+  "refresh": "Làm mới",
+  "failedLoad": "Không tải được báo cáo",
+  "definitions": {
+    "empty": "Chưa có báo cáo định kỳ",
+    "emptyDesc": "Tạo một báo cáo để nhận tóm tắt phân tích tự động theo lịch.",
+    "createFirst": "Tạo báo cáo",
+    "nextRun": "Lần chạy tiếp theo",
+    "lastRun": "Lần chạy gần nhất",
+    "never": "Chưa bao giờ",
+    "runNow": "Chạy ngay",
+    "running": "Đang chạy…",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "enabled": "Đang bật",
+    "disabled": "Đang tắt",
+    "formats": "Định dạng",
+    "window": "Khoảng {{count}} ngày",
+    "viewHistory": "Xem lịch sử",
+    "hideHistory": "Ẩn lịch sử"
+  },
+  "frequency": {
+    "daily": "Hằng ngày",
+    "weekly": "Hằng tuần",
+    "monthly": "Hằng tháng",
+    "dailyAt": "Hằng ngày · {{time}}",
+    "weeklyAt": "Hằng tuần · {{day}} {{time}}",
+    "monthlyAt": "Hằng tháng · ngày 1 {{time}}"
+  },
+  "days": {
+    "0": "CN",
+    "1": "T2",
+    "2": "T3",
+    "3": "T4",
+    "4": "T5",
+    "5": "T6",
+    "6": "T7"
+  },
+  "status": {
+    "success": "Thành công",
+    "error": "Lỗi",
+    "pending": "Đang chờ"
+  },
+  "form": {
+    "createTitle": "Báo cáo định kỳ mới",
+    "editTitle": "Sửa báo cáo",
+    "name": "Tên",
+    "namePlaceholder": "Tóm tắt phân tích hằng tuần",
+    "template": "Mẫu",
+    "frequency": "Tần suất",
+    "dayOfWeek": "Ngày trong tuần",
+    "hour": "Giờ (0–23)",
+    "formats": "Định dạng",
+    "windowDays": "Khoảng (ngày)",
+    "enabled": "Đang bật",
+    "enabledDesc": "Tự động chạy báo cáo này theo lịch",
+    "cancel": "Hủy",
+    "create": "Tạo báo cáo",
+    "save": "Lưu thay đổi",
+    "saving": "Đang lưu…",
+    "validationName": "Cần nhập tên báo cáo",
+    "validationTemplate": "Chọn một mẫu",
+    "validationFormats": "Chọn ít nhất một định dạng"
+  },
+  "history": {
+    "title": "Lịch sử chạy",
+    "empty": "Chưa có lần chạy nào",
+    "emptyDesc": "Báo cáo này chưa chạy. Dùng \"Chạy ngay\" để tạo báo cáo đầu tiên.",
+    "loadFailed": "Không tải được lịch sử chạy",
+    "window": "Khoảng",
+    "started": "Bắt đầu",
+    "viewHtml": "Xem HTML",
+    "downloadJson": "Tải JSON",
+    "errorLabel": "Lỗi"
+  },
+  "delete": {
+    "title": "Xóa báo cáo?",
+    "message": "\"{{name}}\" và lịch sử chạy của nó sẽ bị xóa vĩnh viễn.",
+    "confirm": "Xóa",
+    "cancel": "Hủy"
+  }
+}

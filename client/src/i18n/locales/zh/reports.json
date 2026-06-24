@@ -1,0 +1,85 @@
+{
+  "title": "定时报表",
+  "subtitle": "按计划自动生成并交付分析报表",
+  "newReport": "新建报表",
+  "refresh": "刷新",
+  "failedLoad": "加载报表失败",
+  "definitions": {
+    "empty": "暂无定时报表",
+    "emptyDesc": "创建一个报表，即可按计划自动接收分析摘要。",
+    "createFirst": "创建报表",
+    "nextRun": "下次运行",
+    "lastRun": "上次运行",
+    "never": "从未",
+    "runNow": "立即运行",
+    "running": "运行中…",
+    "edit": "编辑",
+    "delete": "删除",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "formats": "格式",
+    "window": "{{count}} 天窗口",
+    "viewHistory": "查看历史",
+    "hideHistory": "隐藏历史"
+  },
+  "frequency": {
+    "daily": "每天",
+    "weekly": "每周",
+    "monthly": "每月",
+    "dailyAt": "每天 · {{time}}",
+    "weeklyAt": "每周 · {{day}} {{time}}",
+    "monthlyAt": "每月 · 1 号 {{time}}"
+  },
+  "days": {
+    "0": "周日",
+    "1": "周一",
+    "2": "周二",
+    "3": "周三",
+    "4": "周四",
+    "5": "周五",
+    "6": "周六"
+  },
+  "status": {
+    "success": "成功",
+    "error": "失败",
+    "pending": "待处理"
+  },
+  "form": {
+    "createTitle": "新建定时报表",
+    "editTitle": "编辑报表",
+    "name": "名称",
+    "namePlaceholder": "每周分析摘要",
+    "template": "模板",
+    "frequency": "频率",
+    "dayOfWeek": "星期几",
+    "hour": "小时（0–23）",
+    "formats": "格式",
+    "windowDays": "窗口（天）",
+    "enabled": "已启用",
+    "enabledDesc": "按计划自动运行此报表",
+    "cancel": "取消",
+    "create": "创建报表",
+    "save": "保存更改",
+    "saving": "保存中…",
+    "validationName": "请填写报表名称",
+    "validationTemplate": "请选择模板",
+    "validationFormats": "请至少选择一种格式"
+  },
+  "history": {
+    "title": "运行历史",
+    "empty": "暂无运行记录",
+    "emptyDesc": "此报表尚未运行。点击“立即运行”以生成首份报表。",
+    "loadFailed": "加载运行历史失败",
+    "window": "窗口",
+    "started": "开始时间",
+    "viewHtml": "查看 HTML",
+    "downloadJson": "下载 JSON",
+    "errorLabel": "错误"
+  },
+  "delete": {
+    "title": "删除报表？",
+    "message": "“{{name}}”及其运行历史将被永久删除。",
+    "confirm": "删除",
+    "cancel": "取消"
+  }
+}

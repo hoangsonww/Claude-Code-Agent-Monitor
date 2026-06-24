@@ -1,0 +1,85 @@
+{
+  "title": "Scheduled Reports",
+  "subtitle": "Automated analytics reports delivered on a schedule",
+  "newReport": "New report",
+  "refresh": "Refresh",
+  "failedLoad": "Failed to load reports",
+  "definitions": {
+    "empty": "No scheduled reports yet",
+    "emptyDesc": "Create a report to receive automated analytics summaries on a schedule.",
+    "createFirst": "Create report",
+    "nextRun": "Next run",
+    "lastRun": "Last run",
+    "never": "Never",
+    "runNow": "Run now",
+    "running": "Running…",
+    "edit": "Edit",
+    "delete": "Delete",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "formats": "Formats",
+    "window": "{{count}}-day window",
+    "viewHistory": "View history",
+    "hideHistory": "Hide history"
+  },
+  "frequency": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "dailyAt": "Daily · {{time}}",
+    "weeklyAt": "Weekly · {{day}} {{time}}",
+    "monthlyAt": "Monthly · day 1 {{time}}"
+  },
+  "days": {
+    "0": "Sun",
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat"
+  },
+  "status": {
+    "success": "Success",
+    "error": "Error",
+    "pending": "Pending"
+  },
+  "form": {
+    "createTitle": "New scheduled report",
+    "editTitle": "Edit report",
+    "name": "Name",
+    "namePlaceholder": "Weekly analytics digest",
+    "template": "Template",
+    "frequency": "Frequency",
+    "dayOfWeek": "Day of week",
+    "hour": "Hour (0–23)",
+    "formats": "Formats",
+    "windowDays": "Window (days)",
+    "enabled": "Enabled",
+    "enabledDesc": "Run this report automatically on its schedule",
+    "cancel": "Cancel",
+    "create": "Create report",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "validationName": "A report name is required",
+    "validationTemplate": "Select a template",
+    "validationFormats": "Select at least one format"
+  },
+  "history": {
+    "title": "Run history",
+    "empty": "No runs yet",
+    "emptyDesc": "This report hasn't run yet. Use \"Run now\" to generate the first report.",
+    "loadFailed": "Failed to load run history",
+    "window": "Window",
+    "started": "Started",
+    "viewHtml": "View HTML",
+    "downloadJson": "Download JSON",
+    "errorLabel": "Error"
+  },
+  "delete": {
+    "title": "Delete report?",
+    "message": "\"{{name}}\" and its run history will be permanently removed.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  }
+}
