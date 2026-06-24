@@ -380,6 +380,38 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_workflows_session ON workflows(session_id);
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
+
+  -- Read-only shareable session snapshots. A snapshot is an IMMUTABLE copy of a
+  -- session's {session, agents, events, workflows} payload captured at creation
+  -- (redactions already applied), addressable by an unguessable token. There is
+  -- intentionally NO FK to sessions: a snapshot is a frozen copy that must
+  -- outlive a cleared or deleted session. Like alert_rules, snapshots are
+  -- user-created artifacts and survive Clear Data.
+  CREATE TABLE IF NOT EXISTS snapshots (
+    token TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    title TEXT,
+    payload TEXT NOT NULL,
+    redactions TEXT NOT NULL DEFAULT '[]',
+    view_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    expires_at TEXT,
+    revoked_at TEXT
+  );
+
+  -- Audit trail for snapshot lifecycle: create / access / revoke / access_denied.
+  -- No FK so an access_denied row can outlive a deleted snapshot if needed; the
+  -- DELETE route prunes a snapshot's audit rows alongside it.
+  CREATE TABLE IF NOT EXISTS snapshot_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_token TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_snapshots_created ON snapshots(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_snapshot_audit_token ON snapshot_audit(snapshot_token, created_at DESC);
 `);
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already

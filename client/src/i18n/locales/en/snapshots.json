@@ -1,0 +1,84 @@
+{
+  "title": "Snapshots",
+  "subtitle": "Shareable read-only snapshots of sessions",
+  "create": "Create snapshot",
+  "share": "Share",
+  "refresh": "Refresh",
+  "empty": "No snapshots yet",
+  "emptyDesc": "Create a snapshot from a session to share a read-only view that doesn't change as the session continues.",
+  "table": {
+    "title": "Title",
+    "session": "Session",
+    "created": "Created",
+    "status": "Status",
+    "views": "Views",
+    "actions": "Actions"
+  },
+  "untitled": "Untitled snapshot",
+  "viewSession": "View session",
+  "copyLink": "Copy link",
+  "copied": "Copied",
+  "revoke": "Revoke",
+  "delete": "Delete",
+  "status": {
+    "active": "Active",
+    "expired": "Expired",
+    "revoked": "Revoked"
+  },
+  "confirmRevoke": {
+    "title": "Revoke this snapshot?",
+    "message": "Anyone with the link will immediately lose access. This cannot be undone, but the snapshot record is kept.",
+    "confirm": "Revoke"
+  },
+  "confirmDelete": {
+    "title": "Delete this snapshot?",
+    "message": "The snapshot and its share link are permanently removed. This cannot be undone.",
+    "confirm": "Delete"
+  },
+  "modal": {
+    "title": "Create snapshot",
+    "subtitle": "Capture this session as a read-only page you can share by link.",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Optional — defaults to the session name",
+    "redactions": "Redact data",
+    "redactionsHint": "Hide sensitive data from the shared view. Redacted fields are stripped at capture time.",
+    "noRedactionOptions": "No redaction options available.",
+    "expiry": "Link expiry",
+    "expiryOptions": {
+      "never": "Never expires",
+      "1h": "1 hour",
+      "24h": "24 hours",
+      "7d": "7 days"
+    },
+    "cancel": "Cancel",
+    "submit": "Create snapshot",
+    "submitting": "Creating…",
+    "createAnother": "Create another",
+    "done": "Done",
+    "successTitle": "Snapshot ready",
+    "successDesc": "Share this read-only link. It won't change as the session continues.",
+    "shareLink": "Share link",
+    "error": "Could not create the snapshot. Please try again."
+  },
+  "viewer": {
+    "readOnly": "Read-only snapshot",
+    "readOnlyDesc": "This is a captured, shareable view of a session. It does not update live and has no controls.",
+    "captured": "Snapshot · captured {{age}}",
+    "capturedAt": "Captured {{datetime}}",
+    "redactedNote": "Some data was redacted by the author:",
+    "session": "Session",
+    "agents": "Agents",
+    "events": "Recent events",
+    "noAgents": "No agents in this snapshot.",
+    "noEvents": "No events in this snapshot.",
+    "unavailableTitle": "This snapshot is no longer available",
+    "unavailableDesc": "The link may have been revoked, expired, or never existed.",
+    "loading": "Loading snapshot…"
+  },
+  "redactions": {
+    "file_paths": "File paths",
+    "event_data": "Event payloads",
+    "agent_tasks": "Agent tasks",
+    "event_summaries": "Event summaries"
+  }
+}

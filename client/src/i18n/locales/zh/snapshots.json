@@ -1,0 +1,84 @@
+{
+  "title": "快照",
+  "subtitle": "可分享的会话只读快照",
+  "create": "创建快照",
+  "share": "分享",
+  "refresh": "刷新",
+  "empty": "暂无快照",
+  "emptyDesc": "从会话创建快照，即可分享一个不会随会话继续而变化的只读视图。",
+  "table": {
+    "title": "标题",
+    "session": "会话",
+    "created": "创建时间",
+    "status": "状态",
+    "views": "浏览次数",
+    "actions": "操作"
+  },
+  "untitled": "未命名快照",
+  "viewSession": "查看会话",
+  "copyLink": "复制链接",
+  "copied": "已复制",
+  "revoke": "撤销",
+  "delete": "删除",
+  "status": {
+    "active": "有效",
+    "expired": "已过期",
+    "revoked": "已撤销"
+  },
+  "confirmRevoke": {
+    "title": "撤销此快照？",
+    "message": "持有链接的任何人将立即失去访问权限。此操作无法撤销，但快照记录会被保留。",
+    "confirm": "撤销"
+  },
+  "confirmDelete": {
+    "title": "删除此快照？",
+    "message": "快照及其分享链接将被永久删除。此操作无法撤销。",
+    "confirm": "删除"
+  },
+  "modal": {
+    "title": "创建快照",
+    "subtitle": "将此会话捕获为可通过链接分享的只读页面。",
+    "titleLabel": "标题",
+    "titlePlaceholder": "可选 — 默认使用会话名称",
+    "redactions": "脱敏数据",
+    "redactionsHint": "在分享视图中隐藏敏感数据。脱敏字段会在捕获时被剔除。",
+    "noRedactionOptions": "暂无可用的脱敏选项。",
+    "expiry": "链接有效期",
+    "expiryOptions": {
+      "never": "永不过期",
+      "1h": "1 小时",
+      "24h": "24 小时",
+      "7d": "7 天"
+    },
+    "cancel": "取消",
+    "submit": "创建快照",
+    "submitting": "正在创建…",
+    "createAnother": "再创建一个",
+    "done": "完成",
+    "successTitle": "快照已就绪",
+    "successDesc": "分享此只读链接。它不会随会话继续而变化。",
+    "shareLink": "分享链接",
+    "error": "无法创建快照，请重试。"
+  },
+  "viewer": {
+    "readOnly": "只读快照",
+    "readOnlyDesc": "这是会话的已捕获、可分享视图。它不会实时更新，也没有任何控件。",
+    "captured": "快照 · 捕获于 {{age}}",
+    "capturedAt": "捕获于 {{datetime}}",
+    "redactedNote": "作者对部分数据进行了脱敏：",
+    "session": "会话",
+    "agents": "智能体",
+    "events": "近期事件",
+    "noAgents": "此快照中没有智能体。",
+    "noEvents": "此快照中没有事件。",
+    "unavailableTitle": "此快照已不可用",
+    "unavailableDesc": "该链接可能已被撤销、已过期或从未存在。",
+    "loading": "正在加载快照…"
+  },
+  "redactions": {
+    "file_paths": "文件路径",
+    "event_data": "事件载荷",
+    "agent_tasks": "智能体任务",
+    "event_summaries": "事件摘要"
+  }
+}

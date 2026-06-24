@@ -17,6 +17,8 @@ import { Workflows } from "./pages/Workflows";
 import { Settings } from "./pages/Settings";
 import { CcConfig } from "./pages/CcConfig";
 import { Run } from "./pages/Run";
+import { Snapshots } from "./pages/Snapshots";
+import { SnapshotViewer } from "./pages/SnapshotViewer";
 import { NotFound } from "./pages/NotFound";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useNotifications } from "./hooks/useNotifications";
@@ -34,6 +36,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public, read-only snapshot viewer — intentionally OUTSIDE the Layout
+            wrapper so it renders with no sidebar / nav / live websocket. */}
+        <Route path="snapshot/:token" element={<SnapshotViewer />} />
         <Route element={<Layout wsConnected={connected} />}>
           <Route index element={<Dashboard />} />
           <Route path="kanban" element={<KanbanBoard />} />
@@ -44,6 +49,7 @@ export default function App() {
           <Route path="workflows" element={<Workflows />} />
           <Route path="cc-config" element={<CcConfig />} />
           <Route path="run" element={<Run />} />
+          <Route path="snapshots" element={<Snapshots />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>

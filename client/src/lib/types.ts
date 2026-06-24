@@ -665,6 +665,60 @@ export interface WorkflowRunDetail {
   events: DashboardEvent[];
 }
 
+// ── Session snapshots (shareable read-only views) ──
+
+/** Categories of data a snapshot author can redact before sharing. */
+export type RedactionKey = "file_paths" | "event_data" | "agent_tasks" | "event_summaries";
+
+/** Lifecycle of a shared snapshot from the author's point of view. */
+export type SnapshotStatus = "active" | "expired" | "revoked";
+
+/** Author-facing snapshot record returned by the management endpoints. */
+export interface SnapshotMeta {
+  token: string;
+  session_id: string;
+  title: string | null;
+  created_at: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  view_count: number;
+  redactions: RedactionKey[];
+  status: SnapshotStatus;
+}
+
+/** The captured-at-time payload embedded in a snapshot. Reuses the live types. */
+export interface SnapshotPayload {
+  captured_at: string;
+  session: Session;
+  agents: Agent[];
+  events: DashboardEvent[];
+  workflows: WorkflowRun[];
+}
+
+/** Trimmed metadata exposed on the public (read-only) viewer route. */
+export interface PublicSnapshot {
+  token: string;
+  title: string | null;
+  captured_at: string;
+  age_seconds: number;
+  redactions: RedactionKey[];
+  read_only: true;
+}
+
+/** A single audit-log entry for a snapshot's lifecycle / access events. */
+export interface SnapshotAuditEntry {
+  id: number;
+  action: "create" | "access" | "revoke" | "access_denied";
+  detail: string | null;
+  created_at: string;
+}
+
+/** A selectable redaction option (key + human label) from the options endpoint. */
+export interface RedactionOption {
+  key: RedactionKey;
+  label: string;
+}
+
 export const STATUS_CONFIG: Record<
   EffectiveAgentStatus,
   { labelKey: string; color: string; bg: string; dot: string }
