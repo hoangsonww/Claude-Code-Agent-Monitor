@@ -965,8 +965,22 @@ The OpenAPI document is generated from `server/openapi.js`, and Swagger UI is se
 | `POST` | `/api/settings/reimport`       | Re-import legacy sessions from `~/.claude/`      |
 | `POST` | `/api/settings/reinstall-hooks`| Reinstall Claude Code hooks                      |
 | `POST` | `/api/settings/reset-pricing`  | Reset pricing to defaults                        |
-| `GET`  | `/api/settings/export`         | Export all data as JSON download                 |
+| `GET`  | `/api/settings/export`         | Export all data as JSON download (raw dump)      |
 | `POST` | `/api/settings/cleanup`        | Abandon stale sessions, purge old data           |
+
+### Backup & Restore (`/api/backup`)
+
+A portable, versioned **backup bundle** (manifest + data) with a validated,
+idempotent restore — to move dashboard state between machines or recover a fresh
+install. Distinct from the raw `/api/settings/export` dump (no manifest/restore)
+and from the infra-level `db-backup.sh` (full-file copy). See [docs/BACKUP.md](docs/BACKUP.md).
+
+| Method | Endpoint                       | Description                                      |
+| ------ | ------------------------------ | ------------------------------------------------ |
+| `GET`  | `/api/backup/export`           | Download a portable backup bundle (JSON)         |
+| `POST` | `/api/backup/validate`         | Validate a bundle's manifest + schema version    |
+| `POST` | `/api/backup/dry-run`          | Preview a restore per table (no mutation)        |
+| `POST` | `/api/backup/restore`          | Merge a bundle transactionally (idempotent)      |
 
 ### Claude Config Explorer (`/api/cc-config`)
 

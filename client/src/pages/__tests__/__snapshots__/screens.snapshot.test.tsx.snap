@@ -7879,6 +7879,38 @@ exports[`screen snapshots > Settings 1`] = `
           type="button"
         >
           <svg
+            class="lucide lucide-archive w-3.5 h-3.5"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              height="5"
+              rx="1"
+              width="20"
+              x="2"
+              y="3"
+            />
+            <path
+              d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"
+            />
+            <path
+              d="M10 12h4"
+            />
+          </svg>
+          Backup & Restore
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+          type="button"
+        >
+          <svg
             class="lucide lucide-server w-3.5 h-3.5"
             fill="none"
             height="24"
@@ -9628,6 +9660,220 @@ exports[`screen snapshots > Settings 1`] = `
             </svg>
             Clear All Data
           </button>
+        </div>
+      </div>
+    </section>
+    <section
+      class="scroll-mt-24"
+      id="backup"
+    >
+      <h3
+        class="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1"
+      >
+        <svg
+          class="lucide lucide-archive w-4 h-4 text-gray-500"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect
+            height="5"
+            rx="1"
+            width="20"
+            x="2"
+            y="3"
+          />
+          <path
+            d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"
+          />
+          <path
+            d="M10 12h4"
+          />
+        </svg>
+        Backup & Restore
+      </h3>
+      <p
+        class="text-xs text-gray-500 mb-4"
+      >
+        Download a full backup of your dashboard data, or merge a backup file back in. Restoring is additive and idempotent — existing data is preserved.
+      </p>
+      <div
+        class="space-y-4"
+      >
+        <div
+          class="card p-5 space-y-4"
+        >
+          <div
+            class="flex items-center gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center"
+            >
+              <svg
+                class="lucide lucide-download w-4 h-4 text-blue-400"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                />
+                <polyline
+                  points="7 10 12 15 17 10"
+                />
+                <line
+                  x1="12"
+                  x2="12"
+                  y1="15"
+                  y2="3"
+                />
+              </svg>
+            </div>
+            <div>
+              <p
+                class="text-sm font-medium text-gray-300"
+              >
+                Download backup
+              </p>
+              <p
+                class="text-xs text-gray-500"
+              >
+                Export everything (sessions, agents, events, token usage, pricing) as a single JSON file.
+              </p>
+            </div>
+          </div>
+          <a
+            class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-colors"
+            download=""
+            href="/api/backup/export"
+          >
+            <svg
+              class="lucide lucide-download w-3.5 h-3.5"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+              />
+              <polyline
+                points="7 10 12 15 17 10"
+              />
+              <line
+                x1="12"
+                x2="12"
+                y1="15"
+                y2="3"
+              />
+            </svg>
+            Download Backup
+          </a>
+        </div>
+        <div
+          class="card p-5 space-y-4"
+        >
+          <div
+            class="flex items-center gap-3"
+          >
+            <div
+              class="w-9 h-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center"
+            >
+              <svg
+                class="lucide lucide-upload w-4 h-4 text-violet-400"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                />
+                <polyline
+                  points="17 8 12 3 7 8"
+                />
+                <line
+                  x1="12"
+                  x2="12"
+                  y1="3"
+                  y2="15"
+                />
+              </svg>
+            </div>
+            <div>
+              <p
+                class="text-sm font-medium text-gray-300"
+              >
+                Restore from backup
+              </p>
+              <p
+                class="text-xs text-gray-500"
+              >
+                Pick a backup file to preview what would be merged into your current database.
+              </p>
+            </div>
+          </div>
+          <input
+            accept=".json,application/json"
+            class="hidden"
+            type="file"
+          />
+          <div
+            class="flex flex-wrap items-center gap-3"
+          >
+            <button
+              class="btn-ghost text-xs border border-border disabled:opacity-50"
+            >
+              <svg
+                class="lucide lucide-upload w-3.5 h-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                />
+                <polyline
+                  points="17 8 12 3 7 8"
+                />
+                <line
+                  x1="12"
+                  x2="12"
+                  y1="3"
+                  y2="15"
+                />
+              </svg>
+              Choose backup file…
+            </button>
+          </div>
         </div>
       </div>
     </section>

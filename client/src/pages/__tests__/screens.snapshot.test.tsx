@@ -374,6 +374,12 @@ vi.mock("../../lib/api", async (importOriginal) => {
         deliveries: r({ deliveries: [], limit: 20, offset: 0 }),
       },
       updates: { check: r({ behind: 0, ahead: 0, current: "", upstream: "" }), status: r({}) },
+      backup: {
+        exportUrl: () => "/api/backup/export",
+        validate: r({ ok: true, compatible: true, manifest: null, issues: [] }),
+        dryRun: r({ compatible: true, issues: [], summary: {}, pricing_strategy: "keep_local" }),
+        restore: r({ ok: true, applied: {}, total_inserted: 0 }),
+      },
     },
   };
 });

@@ -53,13 +53,22 @@ const ccConfigRouter = require("./routes/cc-config");
 const runRouter = require("./routes/run");
 const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
+const backupRouter = require("./routes/backup");
 
 function createApp() {
   const app = express();
   const openApiSpec = createOpenApiSpec();
 
   app.use(cors());
-  app.use(express.json({ limit: "1mb" }));
+  // Global JSON body parser. The /api/backup POST routes carry whole-database
+  // bundles that exceed 1mb, so they're skipped here and parsed by the router's
+  // own larger-limit parser instead (an app-level parser would otherwise consume
+  // the body first and reject it with 413 before the router runs).
+  const defaultJson = express.json({ limit: "1mb" });
+  app.use((req, res, next) => {
+    if (req.method === "POST" && req.path.startsWith("/api/backup/")) return next();
+    return defaultJson(req, res, next);
+  });
 
   app.use("/api/sessions", sessionsRouter);
   app.use("/api/agents", agentsRouter);
@@ -77,6 +86,7 @@ function createApp() {
   app.use("/api/run", runRouter);
   app.use("/api/alerts", alertsRouter);
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/backup", backupRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });
