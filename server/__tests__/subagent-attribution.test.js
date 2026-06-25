@@ -508,6 +508,50 @@ describe("scanAndImportSubagents — per-subagent model token attribution", () =
     }
   });
 
+  it("skips every model the MAIN transcript used, not just the latest (mid-session /model switch)", async () => {
+    const sessionId = "sess-185-switch";
+    // Orchestrator switched Opus → Sonnet mid-session; session.model holds the
+    // latest (Sonnet), but the main transcript wrote BOTH. A subagent on the
+    // earlier Opus must still be skipped to avoid colliding with the main writer.
+    stmts.insertSession.run(sessionId, "Switch", "active", "/tmp", "claude-sonnet-4-6", null);
+    stmts.insertAgent.run(
+      `${sessionId}-main`,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      {
+        id: "op",
+        lines: buildModelSubLines("planner", "claude-opus-4-8", { input: 5000, output: 5000 }),
+      },
+      {
+        id: "hq",
+        lines: buildModelSubLines("qa", "claude-haiku-4-5-20251001", { input: 100, output: 50 }),
+      },
+    ]);
+    try {
+      // parentModels carries BOTH orchestrator models (as hooks.js would pass).
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath, {
+        parentModels: ["claude-sonnet-4-6", "claude-opus-4-8"],
+      });
+      const models = stmts.getTokensBySession
+        .all(sessionId)
+        .map((r) => r.model)
+        .sort();
+      // Only Haiku is written; both orchestrator models (Sonnet + the earlier
+      // Opus) are skipped even though Opus != session.model.
+      assert.deepEqual(models, ["claude-haiku-4-5-20251001"]);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
   it("backfills a live subagent row's model from its own transcript", async () => {
     const sessionId = "sess-185-live";
     const startedAt = "2026-05-01T10:00:00.000Z";

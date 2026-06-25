@@ -2052,7 +2052,7 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
  * Returns `{ imported, created }` — `imported` counts files seen, `created`
  * counts new agent + event rows.
  */
-async function scanAndImportSubagents(dbModule, sessionId, transcriptPath) {
+async function scanAndImportSubagents(dbModule, sessionId, transcriptPath, opts = {}) {
   if (!sessionId || !transcriptPath) return { imported: 0, created: 0 };
   const subDir = path.join(path.dirname(transcriptPath), sessionId, "subagents");
   try {
@@ -2083,22 +2083,36 @@ async function scanAndImportSubagents(dbModule, sessionId, transcriptPath) {
   // A Haiku QA agent under an Opus orchestrator must keep its own (cheaper)
   // token bucket instead of being priced at the orchestrator's rate.
   //
-  // We deliberately SKIP any bucket whose model equals the parent session's
-  // model. That bucket is owned by the main-transcript writer in
-  // server/routes/hooks.js; writing it from two sources with different
+  // We deliberately SKIP any bucket whose model the MAIN transcript also wrote.
+  // Those buckets are owned by the main-transcript writer in
+  // server/routes/hooks.js; writing one from two sources with different
   // magnitudes would trip replaceTokenUsage's compaction baseline-shift
-  // (excluded < stored ⇒ baseline += stored) and inflate the total. Same-model
-  // subagents are reconciled by the authoritative importSession/reconcileTokens
-  // path instead. Subagent JSONLs are append-only, so the combined per-model
-  // sum only grows between SubagentStop sweeps — never a spurious drop.
+  // (excluded < stored ⇒ baseline += stored) and inflate the total. The caller
+  // passes opts.parentModels (every model the main transcript used — covers a
+  // mid-session /model switch, not just the latest); we also fold in the stored
+  // session.model as a fallback. Same-model subagents are reconciled by the
+  // authoritative importSession/reconcileTokens path instead. Subagent JSONLs
+  // are append-only, so the combined per-model sum only grows between
+  // SubagentStop sweeps — never a spurious drop.
   if (parsedSubagents.length > 0) {
     try {
+      const parentModels = new Set();
       const sessionRow = db.prepare("SELECT model FROM sessions WHERE id = ?").get(sessionId);
-      const parentModel = sessionRow ? sessionRow.model : null;
+      if (sessionRow && sessionRow.model) parentModels.add(sessionRow.model);
+      if (Array.isArray(opts.parentModels)) {
+        for (const m of opts.parentModels) if (m) parentModels.add(m);
+      }
       const combined = combineSessionTokens({ tokensByModel: null, parsedSubagents });
       const subOnly = {};
       for (const [key, tok] of Object.entries(combined)) {
-        if (tok.model && tok.model !== parentModel) subOnly[key] = tok;
+        // Exclude by MODEL only, even though token_usage keys on the full
+        // (model, speed, geo, tier) tuple. This is intentionally coarser: a
+        // same-model/different-tier sub (e.g. parent Opus standard, sub Opus
+        // batch) lands on a distinct key the main writer never touches, so it
+        // would be safe to write — but skipping it only causes a benign live
+        // under-count that the authoritative reconcile path later repairs.
+        // Erring toward under-count (never inflation) is the correct direction.
+        if (tok.model && !parentModels.has(tok.model)) subOnly[key] = tok;
       }
       writeSessionTokens(dbModule, sessionId, subOnly);
     } catch {

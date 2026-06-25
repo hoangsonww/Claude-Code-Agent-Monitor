@@ -812,7 +812,28 @@ router.post("/event", (req, res) => {
   // never fire hooks on the parent session — this scan is the only path that
   // attributes them to the subagent's agent_id.
   if (hook_type === "SubagentStop" && data.session_id && data.transcript_path) {
-    scanAndImportSubagents(dbModule, data.session_id, data.transcript_path)
+    // Models the MAIN transcript wrote. The subagent scan must SKIP these
+    // buckets — the main-transcript writer above owns them, and writing one
+    // from two sources of different magnitude would trip replaceTokenUsage's
+    // compaction baseline-shift and inflate the total. We pass ALL of them
+    // (covers a mid-session /model switch, not just the latest). extract() is
+    // stat-cached, so this re-read is a cache hit. The scan falls back to the
+    // stored session.model if this list is empty.
+    let parentTokenModels = [];
+    try {
+      const mainResult = transcriptCache.extract(data.transcript_path);
+      if (mainResult && mainResult.tokensByModel) {
+        parentTokenModels = Object.values(mainResult.tokensByModel)
+          .map((b) => b.model)
+          .filter(Boolean);
+      }
+      if (mainResult && mainResult.latestModel) parentTokenModels.push(mainResult.latestModel);
+    } catch {
+      /* fall back to stored session.model inside the scan */
+    }
+    scanAndImportSubagents(dbModule, data.session_id, data.transcript_path, {
+      parentModels: parentTokenModels,
+    })
       .then(({ created }) => {
         if (created > 0) {
           // Nudge SessionDetail to refetch — the page already debounces

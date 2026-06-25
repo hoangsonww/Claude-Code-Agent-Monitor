@@ -10,6 +10,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AgentCard } from "../AgentCard";
 import type { Agent } from "../../lib/types";
+import { formatModelName } from "../../lib/format";
 
 function renderCard(element: JSX.Element) {
   return render(<MemoryRouter>{element}</MemoryRouter>);
@@ -55,6 +56,20 @@ describe("AgentCard", () => {
       />
     );
     expect(screen.getByText("Explore")).toBeInTheDocument();
+  });
+
+  it("should show the subagent's own model from metadata (issue #185)", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({
+          type: "subagent",
+          subagent_type: "qa",
+          metadata: JSON.stringify({ model: "claude-haiku-4-5-20251001" }),
+        })}
+      />
+    );
+    const expected = `qa · ${formatModelName("claude-haiku-4-5-20251001")}`;
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 
   it("should not render subagent_type when null", () => {
