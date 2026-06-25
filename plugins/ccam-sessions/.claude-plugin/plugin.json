@@ -1,0 +1,17 @@
+{
+  "name": "ccam-sessions",
+  "description": "Search, inspect, replay, and manage Claude Code sessions tracked by the Agent Monitor dashboard — find sessions by project, model, status, or date; reconstruct event timelines; walk transcripts turn-by-turn; roll up activity per working directory; and identify stale or empty sessions before cleanup.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Son Nguyen",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor.git"
+  },
+  "license": "MIT",
+  "keywords": ["sessions", "search", "transcript", "replay", "timeline", "cleanup", "claude-code"],
+  "categories": ["sessions", "monitoring", "devtools"]
+}

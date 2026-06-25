@@ -1,6 +1,6 @@
 {
   "name": "claude-code-agent-monitor-plugins",
-  "description": "Official plugin marketplace for Claude Code Agent Monitor — analytics, productivity, developer tools, insights, and dashboard connectivity plugins for monitoring and optimizing your Claude Code sessions.",
+  "description": "Official plugin marketplace for Claude Code Agent Monitor — 10 plugins for analytics, cost guardrails, productivity, developer tools, AI insights, session forensics, workflow/fleet intelligence, reliability/SLOs, config & memory governance, and dashboard connectivity. Every plugin is powered by the local Agent Monitor API.",
   "owner": {
     "name": "hoangsonww",
     "url": "https://github.com/hoangsonww"
@@ -11,31 +11,61 @@
     {
       "name": "ccam-analytics",
       "path": "plugins/ccam-analytics",
-      "description": "Deep analytics on Claude Code sessions — token usage (total_input/total_output/total_cache_read/total_cache_write with compaction baselines pre-summed), cost breakdowns via the pricing engine, usage trends over 365 days, and productivity scoring.",
+      "description": "Deep analytics on Claude Code sessions — token usage (total_input/total_output/total_cache_read/total_cache_write with compaction baselines pre-summed), cost breakdowns via the pricing engine, usage trends over 365 days, cache efficiency, model mix, and productivity scoring.",
       "tags": ["analytics", "tokens", "cost", "productivity"]
+    },
+    {
+      "name": "ccam-cost-guard",
+      "path": "plugins/ccam-cost-guard",
+      "description": "Budget guardrails — set spend limits, forecast week/month-end cost from daily trends, surface cost-threshold alerts via the alert-rule API, and quantify model-routing savings.",
+      "tags": ["budget", "cost", "forecast", "alerts"]
     },
     {
       "name": "ccam-productivity",
       "path": "plugins/ccam-productivity",
-      "description": "Productivity automation — daily standups, weekly reports, sprint summaries from session data, and workflow optimization using the workflow intelligence API's 11 datasets.",
+      "description": "Productivity automation — daily standups, weekly/monthly reviews, sprint summaries, time-of-day focus analysis, and workflow optimization using the workflow intelligence API's 11 datasets.",
       "tags": ["productivity", "reports", "workflows", "standup"]
     },
     {
       "name": "ccam-devtools",
       "path": "plugins/ccam-devtools",
-      "description": "Developer tools for the Agent Monitor — session debugging with full event chain inspection, hook diagnostics, data export (JSON/CSV/Markdown), and system health checks.",
+      "description": "Developer tools for the Agent Monitor — session debugging with full event-chain inspection, data-integrity inspection, event tracing, transcript search, hook diagnostics, data export (JSON/CSV/Markdown), and system health checks.",
       "tags": ["devtools", "debug", "diagnostics", "export"]
     },
     {
       "name": "ccam-insights",
       "path": "plugins/ccam-insights",
-      "description": "AI-powered insights — pattern detection via workflow intelligence (tool flow transitions, agent co-occurrence), anomaly alerting, optimization recommendations, and session comparison.",
+      "description": "AI-powered insights — pattern detection via workflow intelligence (tool flow transitions, agent co-occurrence), anomaly alerting, trend forecasting, regression watch, benchmarking, optimization recommendations, and session comparison.",
       "tags": ["insights", "patterns", "anomaly", "optimization"]
+    },
+    {
+      "name": "ccam-sessions",
+      "path": "plugins/ccam-sessions",
+      "description": "Session forensics — search by project/model/status, reconstruct event timelines, replay transcripts turn-by-turn, roll up activity per working directory, and review stale sessions before cleanup.",
+      "tags": ["sessions", "search", "transcript", "replay"]
+    },
+    {
+      "name": "ccam-workflows",
+      "path": "plugins/ccam-workflows",
+      "description": "Multi-agent orchestration & fleet intelligence — map the subagent DAG, audit model delegation and effectiveness, report concurrency lanes, trace error propagation by depth, and review Workflow-tool fleet runs.",
+      "tags": ["workflows", "orchestration", "subagents", "fleet"]
+    },
+    {
+      "name": "ccam-quality",
+      "path": "plugins/ccam-quality",
+      "description": "Reliability & SLOs — scan for API errors and tool failures, audit hook delivery health (PreToolUse/PostToolUse balance), track completion/error-rate SLOs with error budgets, and alert on reliability regressions.",
+      "tags": ["reliability", "errors", "slo", "quality"]
+    },
+    {
+      "name": "ccam-config",
+      "path": "plugins/ccam-config",
+      "description": "Claude Code config & memory governance — audit skills/subagents/commands/MCP servers/hooks/settings via the Config Explorer API and curate the file-based memory store (CLAUDE.md + per-project auto-memory files).",
+      "tags": ["config", "memory", "governance", "mcp"]
     },
     {
       "name": "ccam-dashboard",
       "path": "plugins/ccam-dashboard",
-      "description": "Dashboard connector — quick status checks, one-line metrics, and MCP server integration for direct tool access to the Agent Monitor API.",
+      "description": "Dashboard connector — quick status checks, one-line metrics, live activity watch, endpoint probing, and MCP server integration for direct tool access to the Agent Monitor API.",
       "tags": ["dashboard", "status", "mcp", "connector"]
     }
   ]
