@@ -137,7 +137,21 @@
   "memory": {
     "userScope": "Bộ nhớ người dùng",
     "projectScope": "Bộ nhớ dự án",
-    "missing": "Không tìm thấy CLAUDE.md."
+    "missing": "Không tìm thấy CLAUDE.md.",
+    "autoTitle": "Kho bộ nhớ dự án",
+    "autoSubtitle": "Bộ nhớ theo tệp cho từng dự án trong ~/.claude/projects/<dự-án>/memory/ — một chỉ mục MEMORY.md cùng một tệp cho mỗi sự kiện được ghi nhớ. Chỉ đọc tại đây.",
+    "noMatches": "Không có tệp bộ nhớ nào khớp với tìm kiếm.",
+    "indexFiles": "Chỉ mục",
+    "fileCount_one": "{{count}} tệp",
+    "fileCount_other": "{{count}} tệp",
+    "factFiles_one": "{{count}} sự kiện",
+    "factFiles_other": "{{count}} sự kiện",
+    "newFile": "Tệp mới",
+    "newFileTitle": "Tệp bộ nhớ mới trong {{project}}",
+    "namePlaceholder": "vd: my_fact.md",
+    "nameHelp": "Tên tệp kết thúc bằng .md (sẽ tự thêm .md nếu bạn bỏ qua).",
+    "projectLabel": "Dự án",
+    "projectHelp": "Được tạo trong thư mục bộ nhớ của dự án này."
   },
   "edit": {
     "newButton": "Tạo mới",
@@ -168,7 +182,8 @@
       "agents": "---\nname: my-agent\ndescription: Khi nào gọi subagent này\ntools: Read, Grep\nmodel: sonnet\n---\n\nSystem prompt cho subagent.\n",
       "commands": "---\ndescription: Mô tả hiển thị trong menu /\n---\n\n/my-command làm gì.\n",
       "output-styles": "---\nname: my-style\ndescription: Mô tả kiểu xuất\n---\n\nChỉ thị về kiểu.\n",
-      "memory": "# Bộ nhớ dự án\n\nClaude đọc tệp này khi bắt đầu phiên.\n"
+      "memory": "# Bộ nhớ dự án\n\nClaude đọc tệp này khi bắt đầu phiên.\n",
+      "auto-memory": "---\nname: my-fact\ndescription: Tóm tắt một dòng về sự kiện được ghi nhớ\nmetadata:\n  type: feedback\n---\n\nNội dung cần ghi nhớ.\n"
     }
   },
   "backups": {

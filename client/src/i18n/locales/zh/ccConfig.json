@@ -137,7 +137,21 @@
   "memory": {
     "userScope": "用户记忆",
     "projectScope": "项目记忆",
-    "missing": "未找到 CLAUDE.md。"
+    "missing": "未找到 CLAUDE.md。",
+    "autoTitle": "项目记忆库",
+    "autoSubtitle": "位于 ~/.claude/projects/<项目>/memory/ 的按项目文件式记忆 —— 一个 MEMORY.md 索引外加每条记忆事实一个文件。此处为只读。",
+    "noMatches": "没有与搜索匹配的记忆文件。",
+    "indexFiles": "索引",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
+    "factFiles_one": "{{count}} 条事实",
+    "factFiles_other": "{{count}} 条事实",
+    "newFile": "新建文件",
+    "newFileTitle": "在 {{project}} 中新建记忆文件",
+    "namePlaceholder": "例如 my_fact.md",
+    "nameHelp": "以 .md 结尾的文件名（省略时会自动补上 .md）。",
+    "projectLabel": "项目",
+    "projectHelp": "创建在该项目的记忆目录中。"
   },
   "edit": {
     "newButton": "新建",
@@ -168,7 +182,8 @@
       "agents": "---\nname: my-agent\ndescription: 何时调用此子代理\ntools: Read, Grep\nmodel: sonnet\n---\n\n子代理的系统提示。\n",
       "commands": "---\ndescription: 出现在 / 菜单的描述\n---\n\n/my-command 的功能说明。\n",
       "output-styles": "---\nname: my-style\ndescription: 输出风格描述\n---\n\n风格指令。\n",
-      "memory": "# 项目记忆\n\nClaude 在会话开始时读取此文件。\n"
+      "memory": "# 项目记忆\n\nClaude 在会话开始时读取此文件。\n",
+      "auto-memory": "---\nname: my-fact\ndescription: 对所记忆事实的一行摘要\nmetadata:\n  type: feedback\n---\n\n需要记住的内容。\n"
     }
   },
   "backups": {

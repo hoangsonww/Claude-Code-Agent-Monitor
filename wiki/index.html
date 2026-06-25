@@ -1224,10 +1224,17 @@
                   <div class="feature-icon ic-violet">🏪</div>
                   <h3>Plugin Marketplace</h3>
                   <p>
-                    Official Claude Code plugin marketplace shipping 5 plugins with 18 skills,
-                    4 agents, and 3 CLI tools. Deep analytics with compaction-aware baselines,
-                    productivity automation, developer diagnostics, AI-powered workflow
-                    intelligence, and dashboard MCP integration. Install with
+                    Official Claude Code plugin marketplace shipping 10 plugins with 53 skills,
+                    14 agents, 30 slash commands, 3 CLI tools, 3 hook configs, and 1 MCP server.
+                    Deep analytics with compaction-aware baselines, productivity automation,
+                    developer diagnostics, AI-powered workflow intelligence, and dashboard MCP
+                    integration. Five newer plugins go further:
+                    <code>ccam-cost-guard</code> (budget guardrails, spend forecasts, and
+                    cost-threshold alerts), <code>ccam-sessions</code> (session forensics —
+                    search, timeline, and transcript replay), <code>ccam-workflows</code>
+                    (multi-agent orchestration and fleet intelligence), <code>ccam-quality</code>
+                    (reliability and SLO checks), and <code>ccam-config</code> (Claude Code
+                    config and memory governance). Install with
                     <code>claude plugin install</code> — no restart needed. Each listing shows
                     author, license, homepage, and per-skill contribution breakdown. The Config
                     Explorer's Plugins tab surfaces installed plugins with live status.
@@ -1256,7 +1263,12 @@
                     marketplaces, MCP servers, hooks, settings, memory, keybindings, and
                     statusline scripts. The Settings tab leads with a Current configuration summary
                     of the options <code>/config</code> controls — model, verbose, theme, output
-                    style, auto-compact, notifications — resolved across scopes. Create, edit, and
+                    style, auto-compact, notifications — resolved across scopes. The Memory tab
+                    surfaces both the user and project <code>CLAUDE.md</code> files and the
+                    per-project file-based memory store — every auto-memory <code>*.md</code>
+                    under <code>~/.claude/projects/&lt;slug&gt;/memory/</code> (a
+                    <code>MEMORY.md</code> index plus one file per remembered fact, often 100+),
+                    grouped by project, searchable, and editable. Create, edit, and
                     delete the low-risk text-file surfaces
                     with mandatory timestamped backups before every write. Plugins, MCP, hooks,
                     and live settings stay read-only with explainer banners and copy-able CLI
@@ -3753,8 +3765,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <div class="section-label">◈ Integrations</div>
           <h2>Plugin Marketplace</h2>
           <p>
-            The Agent Monitor ships with an official Claude Code plugin marketplace containing five
-            production-ready plugins. These extend Claude Code with skills, agents, hooks, CLI tools,
+            The Agent Monitor ships with an official Claude Code plugin marketplace containing ten
+            production-ready plugins (53 skills, 14 agents, 30 slash commands, 3 CLI tools, 3 hook
+            configs, and 1 MCP server). These extend Claude Code with skills, agents, hooks, CLI tools,
             and MCP integration — all grounded in the real data model (token tracking with compaction
             baselines, cost calculation via pattern-matched pricing rules, workflow intelligence with
             11 datasets per session, and session metadata including thinking blocks, turn counts, and
@@ -3768,9 +3781,14 @@ claude plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
 
 # Install individual plugins
 claude plugin install ccam-analytics@hoangsonww-claude-code-agent-monitor
+claude plugin install ccam-cost-guard@hoangsonww-claude-code-agent-monitor
 claude plugin install ccam-productivity@hoangsonww-claude-code-agent-monitor
 claude plugin install ccam-devtools@hoangsonww-claude-code-agent-monitor
 claude plugin install ccam-insights@hoangsonww-claude-code-agent-monitor
+claude plugin install ccam-sessions@hoangsonww-claude-code-agent-monitor
+claude plugin install ccam-workflows@hoangsonww-claude-code-agent-monitor
+claude plugin install ccam-quality@hoangsonww-claude-code-agent-monitor
+claude plugin install ccam-config@hoangsonww-claude-code-agent-monitor
 claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor</code></pre>
 
           <h3>Available Plugins</h3>
@@ -3794,6 +3812,13 @@ claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor</code>
                   <td>Token usage (4 types + baselines), cost via pricing engine, daily trends, productivity scoring</td>
                 </tr>
                 <tr>
+                  <td><strong>ccam-cost-guard</strong></td>
+                  <td>budget-set, spend-forecast, cost-alert, model-savings, daily-budget-check</td>
+                  <td>budget-sentinel</td>
+                  <td>—</td>
+                  <td>Budget guardrails: set budgets, forecast week/month-end spend, cost-threshold alerts, model-routing savings (fail-safe Stop hook)</td>
+                </tr>
+                <tr>
                   <td><strong>ccam-productivity</strong></td>
                   <td>daily-standup, weekly-report, sprint-summary, workflow-optimizer</td>
                   <td>productivity-coach</td>
@@ -3813,6 +3838,34 @@ claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor</code>
                   <td>insights-advisor</td>
                   <td>—</td>
                   <td>Pattern detection via tool flow transitions, anomaly alerting, optimization, session comparison</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-sessions</strong></td>
+                  <td>session-search, session-timeline, transcript-replay, cwd-rollup, session-cleanup</td>
+                  <td>session-investigator</td>
+                  <td>—</td>
+                  <td>Session forensics: search, timeline, transcript replay, per-cwd rollup, cleanup</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-workflows</strong></td>
+                  <td>dag-map, delegation-audit, concurrency-report, error-propagation, fleet-runs</td>
+                  <td>orchestration-analyst</td>
+                  <td>—</td>
+                  <td>Multi-agent orchestration &amp; fleet intelligence: DAG map, delegation audit, concurrency, error propagation, fleet runs (11-dataset workflow intelligence API)</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-quality</strong></td>
+                  <td>error-scan, api-error-report, hook-failure-audit, slo-check, regression-alert</td>
+                  <td>reliability-engineer</td>
+                  <td>—</td>
+                  <td>Reliability &amp; SLOs: error scan, API-error report, hook-failure audit, SLO check, regression alert</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-config</strong></td>
+                  <td>config-audit, memory-review, skill-inventory, mcp-audit, hook-inventory</td>
+                  <td>config-auditor</td>
+                  <td>—</td>
+                  <td>Claude Code config &amp; memory governance: config audit, memory review, skill/MCP/hook inventory (via the Config Explorer API)</td>
                 </tr>
                 <tr>
                   <td><strong>ccam-dashboard</strong></td>
@@ -3867,13 +3920,14 @@ ccam-export all --output backup.json</code></pre>
           <h3>Plugin Architecture</h3>
           <p>
             Each plugin follows the official Claude Code plugin specification. The marketplace manifest
-            at <code>.claude-plugin/marketplace.json</code> catalogs all five plugins. Each plugin
+            at <code>.claude-plugin/marketplace.json</code> catalogs all ten plugins. Each plugin
             directory contains:
           </p>
           <div class="code-header"><span class="code-lang">text</span></div>
           <pre><code>plugins/ccam-{name}/
 ├── .claude-plugin/plugin.json    # Plugin manifest (name, version, description)
 ├── skills/{skill-name}/SKILL.md  # Skill definitions with $ARGUMENTS
+├── commands/{command-name}.md    # Slash command definitions
 ├── agents/{agent-name}.md        # Agent definitions (model, tools, instructions)
 ├── hooks/hooks.json              # Event hooks (fail-safe, non-blocking)
 ├── bin/{cli-tool}                # CLI scripts (added to PATH)
@@ -5937,8 +5991,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=8" defer></script>
-    <script src="script.js?v=26" defer></script>
+    <script src="i18n-content.js?v=9" defer></script>
+    <script src="script.js?v=27" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

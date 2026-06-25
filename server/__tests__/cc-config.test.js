@@ -160,6 +160,19 @@ fs.writeFileSync(
 
 fs.writeFileSync(path.join(FAKE_PROJECT, "CLAUDE.md"), "# Project memory\nHello.");
 
+// Per-project file-based memory store under ~/.claude/projects/<slug>/memory/
+// (MEMORY.md index + one file per remembered fact). notes.txt is a non-md
+// file that must be ignored.
+const FAKE_AUTO_MEM = path.join(FAKE_HOME, "projects", "-Users-test-proj", "memory");
+fs.mkdirSync(FAKE_AUTO_MEM, { recursive: true });
+fs.writeFileSync(path.join(FAKE_AUTO_MEM, "MEMORY.md"), "- [Foo fact](foo.md) — a hook\n");
+fs.writeFileSync(
+  path.join(FAKE_AUTO_MEM, "foo.md"),
+  "---\nname: foo\n---\nFoo fact body about widgets.\n"
+);
+fs.writeFileSync(path.join(FAKE_AUTO_MEM, "bar.md"), "Bar fact body.\n");
+fs.writeFileSync(path.join(FAKE_AUTO_MEM, "notes.txt"), "ignored non-md\n");
+
 process.env.CLAUDE_HOME = FAKE_HOME;
 const TEST_DB = path.join(TMP, "dashboard-test.db");
 process.env.DASHBOARD_DB_PATH = TEST_DB;
@@ -242,7 +255,9 @@ describe("/api/cc-config", () => {
     assert.equal(body.counts.agents.user, 1);
     assert.equal(body.counts.commands.user, 1);
     assert.equal(body.counts.plugins, 1);
-    assert.equal(body.counts.memory, 1);
+    // 1 project CLAUDE.md + 3 auto-memory files (MEMORY.md, foo.md, bar.md);
+    // notes.txt is ignored.
+    assert.equal(body.counts.memory, 4);
   });
 
   it("skills returns user + project items with parsed frontmatter", async () => {
@@ -367,6 +382,34 @@ describe("/api/cc-config", () => {
     const proj = body.items.find((x) => x.scope === "project");
     assert.ok(proj);
     assert.match(proj.preview, /Project memory/);
+  });
+
+  it("memory surfaces per-project auto-memory files (index sorted first)", async () => {
+    const { body } = await fetchJson(
+      `/api/cc-config/memory?cwd=${encodeURIComponent(FAKE_PROJECT)}`
+    );
+    const auto = body.items.filter((x) => x.scope === "auto-memory");
+    assert.equal(auto.length, 3); // MEMORY.md + foo.md + bar.md; notes.txt ignored
+    // Index file (MEMORY.md) sorts before the per-fact files.
+    assert.equal(auto[0].name, "MEMORY.md");
+    assert.equal(auto[0].isIndex, true);
+    assert.equal(auto[0].project, "-Users-test-proj");
+    const foo = auto.find((x) => x.name === "foo.md");
+    assert.ok(foo);
+    assert.equal(foo.isIndex, false);
+    assert.equal(foo.frontmatter.name, "foo"); // frontmatter parsed
+    assert.match(foo.preview, /Foo fact body/); // preview is the body, sans frontmatter
+    assert.doesNotMatch(foo.preview, /name: foo/);
+  });
+
+  it("file endpoint reads auto-memory files (they live under CLAUDE_HOME)", async () => {
+    const target = path.join(FAKE_AUTO_MEM, "foo.md");
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}&path=${encodeURIComponent(target)}`
+    );
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.match(body.text, /Foo fact body/);
   });
 
   it("file endpoint reads inside CLAUDE_HOME", async () => {
@@ -596,5 +639,112 @@ describe("/api/cc-config", () => {
       .readdirSync(cmdsDir)
       .filter((n) => n.startsWith(".atomic-test.md.") && n.endsWith(".tmp"));
     assert.deepEqual(stragglers, []);
+  });
+
+  // ── auto-memory mutations (per-project file-based memory) ───────────────
+  const AUTO_SLUG = "-Users-test-proj";
+
+  it("PUT /file creates a new auto-memory fact file", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}`,
+      {
+        method: "PUT",
+        body: {
+          scope: "auto-memory",
+          type: "auto-memory",
+          project: AUTO_SLUG,
+          name: "new_fact.md",
+          content: "---\nname: new-fact\n---\nA freshly written fact.",
+        },
+      }
+    );
+    assert.equal(status, 200);
+    assert.equal(body.created, true);
+    assert.equal(body.backupPath, null); // brand-new file → nothing to back up
+    assert.equal(
+      fs.readFileSync(path.join(FAKE_AUTO_MEM, "new_fact.md"), "utf8"),
+      "---\nname: new-fact\n---\nA freshly written fact."
+    );
+  });
+
+  it("PUT /file edits an existing auto-memory file and backs it up", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}`,
+      {
+        method: "PUT",
+        body: {
+          scope: "auto-memory",
+          type: "auto-memory",
+          project: AUTO_SLUG,
+          name: "foo.md",
+          content: "edited foo body",
+        },
+      }
+    );
+    assert.equal(status, 200);
+    assert.ok(body.backupPath, "existing foo.md should be backed up");
+    assert.match(body.backupPath, /\.cc-config-backups[\\/]auto-memory[\\/]foo\.md\./);
+    assert.equal(fs.readFileSync(path.join(FAKE_AUTO_MEM, "foo.md"), "utf8"), "edited foo body");
+  });
+
+  it("DELETE /file backs up and removes an auto-memory file", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}`,
+      {
+        method: "DELETE",
+        body: { scope: "auto-memory", type: "auto-memory", project: AUTO_SLUG, name: "bar.md" },
+      }
+    );
+    assert.equal(status, 200);
+    assert.ok(body.backupPath);
+    assert.equal(fs.existsSync(path.join(FAKE_AUTO_MEM, "bar.md")), false);
+    assert.equal(fs.readFileSync(body.backupPath, "utf8"), "Bar fact body.\n");
+  });
+
+  it("backups endpoint includes auto-memory backups (with project)", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/backups?cwd=${encodeURIComponent(FAKE_PROJECT)}`
+    );
+    assert.equal(status, 200);
+    const auto = body.items.filter((b) => b.scope === "auto-memory");
+    assert.ok(auto.length >= 2, `expected ≥2 auto-memory backups, got ${auto.length}`);
+    assert.ok(auto.every((b) => b.project === AUTO_SLUG && b.type === "auto-memory"));
+    assert.ok(auto.some((b) => /^foo\.md\./.test(b.name)));
+  });
+
+  it("PUT /file rejects an auto-memory project slug that traverses", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}`,
+      {
+        method: "PUT",
+        body: {
+          scope: "auto-memory",
+          type: "auto-memory",
+          project: "../../etc",
+          name: "x.md",
+          content: "evil",
+        },
+      }
+    );
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "EBADPROJECT");
+  });
+
+  it("PUT /file rejects an auto-memory name without a .md extension", async () => {
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}`,
+      {
+        method: "PUT",
+        body: {
+          scope: "auto-memory",
+          type: "auto-memory",
+          project: AUTO_SLUG,
+          name: "../escape",
+          content: "evil",
+        },
+      }
+    );
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "EBADNAME");
   });
 });

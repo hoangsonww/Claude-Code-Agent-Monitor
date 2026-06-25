@@ -2,7 +2,8 @@
  * @file cc-mutate.js
  * @description Mutation helpers for the Claude Config Explorer. Handles
  * create / overwrite / delete on the low-risk text-file surfaces only:
- * skills, subagents, slash commands, output styles, and CLAUDE.md memory.
+ * skills, subagents, slash commands, output styles, CLAUDE.md memory, and
+ * per-project file-based memory (~/.claude/projects/<slug>/memory/*.md).
  *
  * Hard constraints (do not relax without a follow-up review):
  *   - Plugins, MCP servers, hooks-in-settings, and settings.json files are
@@ -25,6 +26,13 @@ const { getClaudeHome } = require("./claude-home");
 const { isUnder, MAX_FILE_BYTES } = require("./cc-discovery");
 
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+// Auto-memory files are arbitrary flat *.md filenames inside a project's
+// memory dir; the project is the ~/.claude/projects/<slug> dir name.
+const MEMORY_FILE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$/i;
+// Project slugs are an absolute cwd with "/" → "-", so they begin with "-".
+// Allow alnum/_/- as the first char (never "." — blocks hidden/weird dirs);
+// traversal is additionally blocked by the !includes("..") + isUnder guards.
+const PROJECT_SLUG_RE = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,255}$/;
 
 const TYPES = {
   skills: { kind: "dir", subdir: "skills", filename: "SKILL.md" },
@@ -32,6 +40,9 @@ const TYPES = {
   commands: { kind: "file", subdir: "commands", ext: ".md" },
   "output-styles": { kind: "file", subdir: "output-styles", ext: ".md" },
   memory: { kind: "memory" }, // CLAUDE.md at root, no `name`
+  // Per-project file-based memory: ~/.claude/projects/<project>/memory/<name>.md.
+  // Keyed by (project, name); scope is irrelevant (always under CLAUDE_HOME).
+  "auto-memory": { kind: "auto-memory" },
 };
 
 function getProjectRoot(cwd) {
@@ -52,6 +63,23 @@ function memoryPathForScope(scope, opts = {}) {
   if (scope === "user") return path.join(getClaudeHome(), "CLAUDE.md");
   if (scope === "project") return path.join(getProjectRoot(opts.cwd), "CLAUDE.md");
   throw makeError("EBADSCOPE", `unknown scope: ${scope}`);
+}
+
+/**
+ * Resolve (and validate) the memory dir for a per-project file-based memory
+ * store: ~/.claude/projects/<project>/memory/. Rejects slugs that could
+ * traverse out of the projects root.
+ */
+function autoMemoryDir(project) {
+  if (typeof project !== "string" || !PROJECT_SLUG_RE.test(project) || project.includes("..")) {
+    throw makeError("EBADPROJECT", `invalid project slug: ${project}`);
+  }
+  const projectsRoot = path.join(getClaudeHome(), "projects");
+  const dir = path.join(projectsRoot, project, "memory");
+  if (!isUnder(projectsRoot, dir)) {
+    throw makeError("EOUTOFROOT", "project escapes the projects root");
+  }
+  return dir;
 }
 
 function makeError(code, message) {
@@ -83,6 +111,15 @@ function resolveTarget(scope, type, name, opts = {}) {
       filePath,
       containmentRoot: path.dirname(filePath),
     };
+  }
+
+  if (spec.kind === "auto-memory") {
+    const memDir = autoMemoryDir(opts.project);
+    if (typeof name !== "string" || !MEMORY_FILE_RE.test(name) || name.includes("..")) {
+      throw makeError("EBADNAME", `auto-memory name must be a flat *.md filename`);
+    }
+    const target = path.join(memDir, name);
+    return { kind: "file", target, filePath: target, containmentRoot: memDir };
   }
 
   if (typeof name !== "string" || !NAME_RE.test(name)) {
@@ -123,6 +160,12 @@ function memoryBackupRoot(scope, opts = {}) {
   return path.join(dir, ".cc-config-backups", "memory");
 }
 
+function autoMemoryBackupRoot(memDir) {
+  // Backups live in a dotted subdir of the memory dir. Claude Code only loads
+  // *.md directly in the dir, so .bak files tucked under a subdir stay inert.
+  return path.join(memDir, ".cc-config-backups", "auto-memory");
+}
+
 function timestamp() {
   return new Date().toISOString().replace(/[:]/g, "-");
 }
@@ -150,7 +193,10 @@ function rmTreeSync(p) {
  */
 function createBackup({ scope, type, target, kind, opts }) {
   if (!fs.existsSync(target)) return null;
-  const root = type === "memory" ? memoryBackupRoot(scope, opts) : backupRoot(scope, type, opts);
+  let root;
+  if (type === "memory") root = memoryBackupRoot(scope, opts);
+  else if (type === "auto-memory") root = autoMemoryBackupRoot(path.dirname(target));
+  else root = backupRoot(scope, type, opts);
   fs.mkdirSync(root, { recursive: true });
   const base = path.basename(target);
   const stamp = timestamp();
@@ -209,12 +255,12 @@ function atomicWriteFile(filePath, content) {
  * @param {{scope:string, type:string, name?:string, content:string, cwd?:string}} args
  */
 function writeArtifact(args) {
-  const { scope, type, name, content, cwd } = args;
+  const { scope, type, name, content, cwd, project } = args;
   if (typeof content !== "string") throw makeError("EBADCONTENT", "content must be a string");
   if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) {
     throw makeError("ETOOLARGE", `content exceeds ${MAX_FILE_BYTES} bytes`);
   }
-  const r = resolveTarget(scope, type, name, { cwd });
+  const r = resolveTarget(scope, type, name, { cwd, project });
 
   // Containment guard: even after our regex, double-check that the resolved
   // path actually lives under the expected root. Defends against quirks like
@@ -253,8 +299,8 @@ function writeArtifact(args) {
  * the backup fails, the original is left intact.
  */
 function deleteArtifact(args) {
-  const { scope, type, name, cwd } = args;
-  const r = resolveTarget(scope, type, name, { cwd });
+  const { scope, type, name, cwd, project } = args;
+  const r = resolveTarget(scope, type, name, { cwd, project });
 
   if (!isUnder(r.containmentRoot, r.target)) {
     throw makeError("EOUTOFROOT", "resolved path is outside containment root");
@@ -288,8 +334,11 @@ function deleteArtifact(args) {
 function listBackups(opts = {}) {
   const out = [];
   const scopes = opts.scope ? [opts.scope] : ["user", "project"];
-  const types = opts.type ? [opts.type] : Object.keys(TYPES);
+  // auto-memory backups live per-project, not under a user/project root — they
+  // are scanned separately below.
+  const types = (opts.type ? [opts.type] : Object.keys(TYPES)).filter((t) => t !== "auto-memory");
   for (const scope of scopes) {
+    if (scope === "auto-memory") continue;
     for (const type of types) {
       const root =
         type === "memory" ? memoryBackupRoot(scope, opts) : backupRoot(scope, type, opts);
@@ -319,6 +368,47 @@ function listBackups(opts = {}) {
       }
     }
   }
+
+  // Per-project auto-memory backups: ~/.claude/projects/<slug>/memory/
+  // .cc-config-backups/auto-memory/. Best-effort — never throw.
+  const wantAuto =
+    (!opts.type || opts.type === "auto-memory") && (!opts.scope || opts.scope === "auto-memory");
+  if (wantAuto) {
+    try {
+      const projectsRoot = path.join(getClaudeHome(), "projects");
+      for (const proj of fs.readdirSync(projectsRoot)) {
+        const root = autoMemoryBackupRoot(path.join(projectsRoot, proj, "memory"));
+        let entries;
+        try {
+          entries = fs.readdirSync(root, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const ent of entries) {
+          const full = path.join(root, ent.name);
+          let stat;
+          try {
+            stat = fs.statSync(full);
+          } catch {
+            continue;
+          }
+          out.push({
+            scope: "auto-memory",
+            project: proj,
+            type: "auto-memory",
+            name: ent.name,
+            backupPath: full,
+            isDir: ent.isDirectory(),
+            mtime: stat.mtimeMs,
+            size: ent.isDirectory() ? null : stat.size,
+          });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   return out.sort((a, b) => b.mtime - a.mtime);
 }
 

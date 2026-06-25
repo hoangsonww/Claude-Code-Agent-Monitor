@@ -7,8 +7,9 @@
  * page.
  *
  * Read paths cover every surface. Write paths exist only for low-risk
- * text-file artifacts (skills, agents, commands, output styles, memory) and
- * always create a timestamped backup before mutating. Plugins, MCP servers,
+ * text-file artifacts (skills, agents, commands, output styles, memory, and
+ * per-project auto-memory files) and always create a timestamped backup
+ * before mutating. Plugins, MCP servers,
  * and the live settings.json files stay read-only because they are written
  * concurrently by the running Claude Code CLI.
  *
@@ -35,6 +36,7 @@ const ERR_TO_STATUS = {
   EBADTYPE: 400,
   EBADSCOPE: 400,
   EBADNAME: 400,
+  EBADPROJECT: 400,
   EBADCONTENT: 400,
   ETOOLARGE: 413,
   EOUTOFROOT: 400,
@@ -140,15 +142,15 @@ router.get("/file", (req, res) => {
 // not mutable here. See cc-mutate.js for the rationale.
 
 router.put("/file", (req, res) => {
-  const { scope, type, name, content } = req.body || {};
+  const { scope, type, name, content, project } = req.body || {};
   if (typeof scope !== "string" || typeof type !== "string") {
     return res
       .status(400)
       .json({ error: { code: "EBADREQ", message: "scope and type are required" } });
   }
   try {
-    const result = ccMutate.writeArtifact({ scope, type, name, content, cwd: cwdOf(req) });
-    emitChanged({ action: "write", scope, type, name: name || null });
+    const result = ccMutate.writeArtifact({ scope, type, name, content, project, cwd: cwdOf(req) });
+    emitChanged({ action: "write", scope, type, name: name || null, project: project || null });
     res.json(result);
   } catch (err) {
     return mutateError(res, err);
@@ -156,15 +158,15 @@ router.put("/file", (req, res) => {
 });
 
 router.delete("/file", (req, res) => {
-  const { scope, type, name } = req.body || {};
+  const { scope, type, name, project } = req.body || {};
   if (typeof scope !== "string" || typeof type !== "string") {
     return res
       .status(400)
       .json({ error: { code: "EBADREQ", message: "scope and type are required" } });
   }
   try {
-    const result = ccMutate.deleteArtifact({ scope, type, name, cwd: cwdOf(req) });
-    emitChanged({ action: "delete", scope, type, name: name || null });
+    const result = ccMutate.deleteArtifact({ scope, type, name, project, cwd: cwdOf(req) });
+    emitChanged({ action: "delete", scope, type, name: name || null, project: project || null });
     res.json(result);
   } catch (err) {
     return mutateError(res, err);

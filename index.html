@@ -2630,10 +2630,13 @@
             <p>
               12 tabs covering skills, subagents, slash commands, output styles, plugins,
               marketplaces, MCP servers, hooks, settings, memory, keybindings, statusline. The
-              Settings tab leads with a Current configuration summary of the options
-              <code>/config</code> controls (model, verbose, theme, output style, auto-compact,
-              notifications) resolved across scopes. Edit text-file artifacts with timestamped
-              backups.
+              Memory tab surfaces not just the user and project <code>CLAUDE.md</code> files but
+              the per-project file-based memory store - every auto-memory fact under
+              <code>~/.claude/projects/&lt;slug&gt;/memory/</code>, grouped by project and
+              searchable. The Settings tab leads with a Current configuration summary of the
+              options <code>/config</code> controls (model, verbose, theme, output style,
+              auto-compact, notifications) resolved across scopes. Edit text-file artifacts -
+              including the auto-memory files - with timestamped backups.
             </p>
           </div>
           <div class="feature-card">
@@ -2699,9 +2702,13 @@
             <div class="feature-icon indigo">📦</div>
             <h3>Plugin marketplace</h3>
             <p>
-              Official plugin marketplace with 5 plugins: ccam-analytics, ccam-productivity,
-              ccam-devtools, ccam-insights, ccam-dashboard. 18 skills, 4 agents, 3 CLI tools, 2
-              hook configs.
+              Official plugin marketplace with 10 plugins: ccam-analytics, ccam-cost-guard
+              (budget guardrails &amp; spend forecasts), ccam-productivity, ccam-devtools,
+              ccam-insights, ccam-sessions (session forensics &amp; transcript replay),
+              ccam-workflows (multi-agent orchestration &amp; fleet intelligence), ccam-quality
+              (reliability &amp; SLO checks), ccam-config (Claude Code config &amp; memory
+              governance), and ccam-dashboard. 53 skills, 14 agents, 30 slash commands, 3 CLI
+              tools, 3 hook configs.
             </p>
           </div>
           <div class="feature-card">

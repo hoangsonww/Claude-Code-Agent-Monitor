@@ -476,19 +476,28 @@ function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcAr
   return request<{ items: CcBackup[] }>(`/cc-config/backups${q ? `?${q}` : ""}`);
 }
 
-export type CcArtifactType = "skills" | "agents" | "commands" | "output-styles" | "memory";
+export type CcArtifactType =
+  | "skills"
+  | "agents"
+  | "commands"
+  | "output-styles"
+  | "memory"
+  | "auto-memory";
 
 export interface CcWriteArgs {
-  scope: "user" | "project";
+  // "auto-memory" targets a per-project memory file and requires `project`.
+  scope: "user" | "project" | "auto-memory";
   type: CcArtifactType;
   name?: string;
   content: string;
+  project?: string;
 }
 
 export interface CcDeleteArgs {
-  scope: "user" | "project";
+  scope: "user" | "project" | "auto-memory";
   type: CcArtifactType;
   name?: string;
+  project?: string;
 }
 
 export interface CcMutationResult {
@@ -500,13 +509,14 @@ export interface CcMutationResult {
 }
 
 export interface CcBackup {
-  scope: "user" | "project";
+  scope: "user" | "project" | "auto-memory";
   type: CcArtifactType;
   name: string;
   backupPath: string;
   isDir: boolean;
   mtime: number;
   size: number | null;
+  project?: string; // present for scope === "auto-memory"
 }
 
 export type CcScope = "user" | "project" | "all";
@@ -601,12 +611,20 @@ export interface CcSettingsSource {
 }
 
 export interface CcMemoryItem {
-  scope: "user" | "project";
+  // "user"/"project" are the two CLAUDE.md files (editable). "auto-memory"
+  // is a per-project file-based memory file under ~/.claude/projects/<slug>/
+  // memory/ — read-only in the dashboard for now.
+  scope: "user" | "project" | "auto-memory";
   file: string;
   size: number;
   mtime: number;
   truncated: boolean;
   preview: string;
+  // Present only for scope === "auto-memory":
+  project?: string; // the projects/<slug> dir name
+  name?: string; // the markdown filename (e.g. MEMORY.md, feedback_x.md)
+  isIndex?: boolean; // true for MEMORY.md / INDEX-*.md table-of-contents files
+  frontmatter?: Record<string, string>; // parsed YAML frontmatter, if any
 }
 
 export interface CcFileResponse {

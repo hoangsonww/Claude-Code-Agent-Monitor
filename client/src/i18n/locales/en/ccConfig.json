@@ -142,7 +142,21 @@
   "memory": {
     "userScope": "User memory",
     "projectScope": "Project memory",
-    "missing": "No CLAUDE.md found."
+    "missing": "No CLAUDE.md found.",
+    "autoTitle": "Project memory store",
+    "autoSubtitle": "Per-project file-based memory under ~/.claude/projects/<project>/memory/ — a MEMORY.md index plus one file per remembered fact. Read-only here.",
+    "noMatches": "No memory files match your search.",
+    "indexFiles": "Index",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "factFiles_one": "{{count}} fact",
+    "factFiles_other": "{{count}} facts",
+    "newFile": "New file",
+    "newFileTitle": "New memory file in {{project}}",
+    "namePlaceholder": "e.g. my_fact.md",
+    "nameHelp": "Filename ending in .md (.md is added if you omit it).",
+    "projectLabel": "Project",
+    "projectHelp": "Created in this project's memory dir."
   },
   "edit": {
     "newButton": "New",
@@ -173,7 +187,8 @@
       "agents": "---\nname: my-agent\ndescription: When to invoke this subagent\ntools: Read, Grep\nmodel: sonnet\n---\n\nSystem prompt for the subagent.\n",
       "commands": "---\ndescription: One-line description shown in the slash menu\n---\n\nWhat /my-command does.\n",
       "output-styles": "---\nname: my-style\ndescription: Output style description\n---\n\nStyle instructions.\n",
-      "memory": "# Project memory\n\nClaude reads this on session start.\n"
+      "memory": "# Project memory\n\nClaude reads this on session start.\n",
+      "auto-memory": "---\nname: my-fact\ndescription: One-line summary of the remembered fact\nmetadata:\n  type: feedback\n---\n\nThe fact to remember.\n"
     }
   },
   "backups": {

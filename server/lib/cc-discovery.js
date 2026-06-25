@@ -601,8 +601,21 @@ function readHookScripts() {
   };
 }
 
-// ── Memory (CLAUDE.md) ─────────────────────────────────────────────────
+// ── Memory (CLAUDE.md + per-project file-based memory) ─────────────────
 
+// Index/manifest files inside a memory dir (MEMORY.md, INDEX-*.md) sort
+// before the per-fact files so the table-of-contents shows up first.
+const MEMORY_INDEX_RE = /^(MEMORY|INDEX)\b/i;
+
+/**
+ * Read the two primary CLAUDE.md memory files (user + project) PLUS every
+ * markdown file under ~/.claude/projects/<slug>/memory/ — the common
+ * community pattern of a file-based agent memory store (a MEMORY.md index
+ * plus one file per remembered fact). The latter are emitted with
+ * scope "auto-memory" and carry `project` (the projects/<slug> dir name)
+ * and `name` (the filename) so the UI can group + label them. They are
+ * mutable via cc-mutate's "auto-memory" type (create/edit/delete + backup).
+ */
 function readMemory(opts = {}) {
   const sources = [
     { scope: "user", file: path.join(getClaudeHome(), "CLAUDE.md") },
@@ -621,6 +634,52 @@ function readMemory(opts = {}) {
       preview: r.text.slice(0, 480),
     });
   }
+
+  // Per-project file-based memory dirs. Best-effort: a missing projects
+  // root, an unreadable memory dir, or a single bad file must never break
+  // the memory tab — every layer is wrapped so we degrade to "fewer files".
+  try {
+    const projectsRoot = path.join(getClaudeHome(), "projects");
+    for (const proj of fs.readdirSync(projectsRoot)) {
+      const memDir = path.join(projectsRoot, proj, "memory");
+      let files;
+      try {
+        files = fs.readdirSync(memDir);
+      } catch {
+        continue;
+      }
+      files = files
+        .filter((f) => f.endsWith(".md"))
+        .sort((a, b) => {
+          const rank = (f) => (MEMORY_INDEX_RE.test(f) ? 0 : 1);
+          return rank(a) - rank(b) || a.localeCompare(b);
+        });
+      for (const f of files) {
+        const file = path.join(memDir, f);
+        const r = safeReadText(file);
+        if (!r) continue;
+        // Per-fact memory files commonly carry YAML frontmatter (name,
+        // description, metadata.type) — parse it like the other MD surfaces
+        // so the UI can show a clean title + description instead of raw text.
+        const { frontmatter, body } = parseFrontmatter(r.text);
+        result.push({
+          scope: "auto-memory",
+          project: proj,
+          name: f,
+          isIndex: MEMORY_INDEX_RE.test(f),
+          file,
+          size: r.size,
+          mtime: r.mtime,
+          truncated: r.truncated,
+          frontmatter: frontmatter || {},
+          preview: (body || r.text).slice(0, 480),
+        });
+      }
+    }
+  } catch {
+    /* best-effort: never break the memory tab */
+  }
+
   return result;
 }
 

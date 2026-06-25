@@ -1,0 +1,17 @@
+{
+  "name": "ccam-cost-guard",
+  "description": "Budget tracking, spend forecasting, and cost-threshold alerts for Claude Code usage via the Agent Monitor pricing engine. Watches spend against a target budget, projects month-end cost from the daily trend, surfaces the priciest sessions, estimates savings from cheaper-model routing, and wires up cost alert rules — all backed by the dashboard at http://localhost:4820.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Son Nguyen",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor.git"
+  },
+  "license": "MIT",
+  "keywords": ["budget", "cost", "forecast", "alerts", "spend", "pricing", "claude-code"],
+  "categories": ["cost", "monitoring", "alerts"]
+}

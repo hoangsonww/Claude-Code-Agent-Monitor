@@ -3308,7 +3308,7 @@ exports[`screen snapshots > Claude Config 1`] = `
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex-shrink-0 whitespace-nowrap text-gray-400 hover:text-gray-200 hover:bg-surface-3 border border-transparent"
         >
           <svg
-            class="lucide lucide-palette w-3.5 h-3.5"
+            class="lucide lucide-book-open w-3.5 h-3.5"
             fill="none"
             height="24"
             stroke="currentColor"
@@ -3319,36 +3319,15 @@ exports[`screen snapshots > Claude Config 1`] = `
             width="24"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <circle
-              cx="13.5"
-              cy="6.5"
-              fill="currentColor"
-              r=".5"
-            />
-            <circle
-              cx="17.5"
-              cy="10.5"
-              fill="currentColor"
-              r=".5"
-            />
-            <circle
-              cx="8.5"
-              cy="7.5"
-              fill="currentColor"
-              r=".5"
-            />
-            <circle
-              cx="6.5"
-              cy="12.5"
-              fill="currentColor"
-              r=".5"
+            <path
+              d="M12 7v14"
             />
             <path
-              d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
+              d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
             />
           </svg>
           <span>
-            Output styles
+            Memory
           </span>
           <span
             class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-surface-3 text-gray-400"
@@ -3616,7 +3595,7 @@ exports[`screen snapshots > Claude Config 1`] = `
           class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex-shrink-0 whitespace-nowrap text-gray-400 hover:text-gray-200 hover:bg-surface-3 border border-transparent"
         >
           <svg
-            class="lucide lucide-book-open w-3.5 h-3.5"
+            class="lucide lucide-palette w-3.5 h-3.5"
             fill="none"
             height="24"
             stroke="currentColor"
@@ -3627,15 +3606,36 @@ exports[`screen snapshots > Claude Config 1`] = `
             width="24"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <path
-              d="M12 7v14"
+            <circle
+              cx="13.5"
+              cy="6.5"
+              fill="currentColor"
+              r=".5"
+            />
+            <circle
+              cx="17.5"
+              cy="10.5"
+              fill="currentColor"
+              r=".5"
+            />
+            <circle
+              cx="8.5"
+              cy="7.5"
+              fill="currentColor"
+              r=".5"
+            />
+            <circle
+              cx="6.5"
+              cy="12.5"
+              fill="currentColor"
+              r=".5"
             />
             <path
-              d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"
+              d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
             />
           </svg>
           <span>
-            Memory
+            Output styles
           </span>
           <span
             class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-surface-3 text-gray-400"

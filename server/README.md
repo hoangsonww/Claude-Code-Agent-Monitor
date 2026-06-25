@@ -497,10 +497,10 @@ Reads — and carefully gated mutations for low-risk text-file artifacts — for
 | `GET`    | `/api/cc-config/keybindings`          | `~/.claude/keybindings.json` parsed into context-grouped key/action pairs |
 | `GET`    | `/api/cc-config/statusline`           | `settings.json.statusLine` config + script content if present |
 | `GET`    | `/api/cc-config/settings`             | User / project / project-local settings JSON, secret keys redacted |
-| `GET`    | `/api/cc-config/memory`               | `CLAUDE.md` files at user + project scope |
+| `GET`    | `/api/cc-config/memory`               | `CLAUDE.md` files at user + project scope. Also returns the per-project file-based memory store as `scope:"auto-memory"` items (each carrying `project`, `name`, `isIndex`, and parsed `frontmatter`) — every `*.md` under `~/.claude/projects/<slug>/memory/` |
 | `GET`    | `/api/cc-config/file?path=…`          | Body of a single file (path-contained to allowed roots) |
-| `GET`    | `/api/cc-config/backups[?scope=&type=]` | Listing of all timestamped backups |
-| `PUT`    | `/api/cc-config/file`                 | Create or overwrite a text-file artifact (skills/agents/commands/output-styles/memory). Body: `{ scope, type, name?, content }`. Auto-backs-up if file exists. Atomic temp + rename. 256 KB cap |
+| `GET`    | `/api/cc-config/backups[?scope=&type=]` | Listing of all timestamped backups. Also lists `scope:"auto-memory"` backups (each carrying `project`) |
+| `PUT`    | `/api/cc-config/file`                 | Create or overwrite a text-file artifact (skills/agents/commands/output-styles/memory). Body: `{ scope, type, name?, content }`. Auto-backs-up if file exists. Atomic temp + rename. 256 KB cap. Per-project file-based memory is also editable via `{ scope: "auto-memory", type: "auto-memory", project, name }` — backups land under `<memory-dir>/.cc-config-backups/auto-memory/`, and an invalid project slug returns `EBADPROJECT` |
 | `DELETE` | `/api/cc-config/file`                 | Backup-then-delete a text-file artifact. Skill dirs are backed up whole before recursive removal |
 
 ### Run Claude (`/api/run`)
