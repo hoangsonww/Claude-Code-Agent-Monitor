@@ -1,0 +1,50 @@
+{
+  "title": "支出预算",
+  "subtitle": "为每个周期设置美元上限，在超支前收到提醒",
+  "newBudget": "新建预算",
+  "confirmDelete": "删除此预算？此操作无法撤销。",
+  "alertsAt": "提醒阈值",
+  "thresholdFired": "本周期已发送提醒",
+  "thresholdArmed": "达到时将提醒",
+  "periodKey": "当前周期：{{key}}",
+  "remaining": "剩余 {{amount}}",
+  "over": "超出 {{amount}}",
+  "period": {
+    "daily": "每日",
+    "weekly": "每周",
+    "monthly": "每月"
+  },
+  "status": {
+    "ok": "正常",
+    "warning": "警告",
+    "exceeded": "已超预算"
+  },
+  "summary": {
+    "budgets": "预算数",
+    "activeSpend": "已花费（启用）",
+    "activeLimit": "上限（启用）",
+    "overBudget": "超预算数"
+  },
+  "actions": {
+    "enable": "启用",
+    "disable": "停用"
+  },
+  "form": {
+    "createTitle": "新建预算",
+    "editTitle": "编辑预算",
+    "period": "周期",
+    "limit": "上限（美元）",
+    "label": "标签（可选）",
+    "labelPlaceholder": "例如：个人上限、团队预算",
+    "thresholds": "提醒阈值",
+    "enabled": "启用",
+    "create": "创建预算"
+  },
+  "errors": {
+    "invalidLimit": "请输入大于 0 的上限"
+  },
+  "empty": {
+    "title": "暂无预算",
+    "description": "创建每日、每周或每月支出预算，跟踪 token 成本，并在超出上限前收到提醒。"
+  }
+}

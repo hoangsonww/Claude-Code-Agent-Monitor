@@ -265,7 +265,7 @@ Comes with a sleek dark theme, responsive design, and intuitive navigation to ex
   <em>🔔 <strong>Settings · Alerts</strong> — rules-based alerting engine and outbound webhooks in one place: alert rules (event pattern / inactivity / stuck agent / token threshold) with per-rule cooldown, a live fired-alert feed, and 14 first-class webhook providers (Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream) plus a generic JSON endpoint with optional HMAC signing</em>
 </p>
 
-The sidebar provides quick access to the Dashboard, Kanban Board, Sessions list, Activity Feed, Analytics, Workflows, and Settings. Each page is designed to give you deep insights into your Claude Code agent activity with real-time updates and rich visualizations.
+The sidebar provides quick access to the Dashboard, Kanban Board, Sessions list, Activity Feed, Analytics, Budgets, Workflows, and Settings. Each page is designed to give you deep insights into your Claude Code agent activity with real-time updates and rich visualizations.
 
 ---
 
@@ -281,6 +281,7 @@ The dashboard offers a comprehensive set of features to monitor and analyze your
 | **Session Detail**                 | Per-session real-time overview panel with active-agent banner (current tool + task), six tile counters (events with events/min rate, tool calls, subagents, compactions, errors, ticking duration), top-tool usage bars, subagent type breakdown, stacked token-flow strip, and event-type pill cloud — all live-refreshed on hook events. Below it: agent hierarchy tree, full event timeline with multi-dimension filters (status, event type, tool, agent, text search, date range), Pre/Post grouping by `tool_use_id`, human-readable summary block, tool-aware input/response renderers (terminal for Bash, unified diff for Edit, line-numbered code for Read/Write, match list for Grep, key/value card for MCP tools), and a Conversation tab that renders transcripts with markdown (headings, lists, blockquotes, tables, task lists), syntax-highlighted code blocks (js/ts, python, json, bash, html, css, sql, yaml, diff) with line numbers and copy-to-clipboard, and per-tool styled tool calls (Bash → terminal, Edit → side-by-side old/new, Write → file label, Read → path chip, Grep → pattern card) |
 | **Activity Feed**                  | Real-time streaming event log with pause/resume, multi-dimension filters (same toolbar as Session Detail plus a Session filter), server-driven "Load more" pagination, debounced filter-aware live refresh preserving the loaded page size, grouping toggle, origin prefix showing project › session › subagent, and a "Session →" button per row                                         |
 | **Analytics**                      | Token usage, tool frequency, activity heatmap (centered, day-of-week aligned starting Sunday, day-name tooltips), session trends, live/offline connection indicator. While the analytics payload loads, the chart region (not just the stat tiles) shows **pulsing skeleton placeholders** that mirror the chart layout, so the page never flashes empty/zero charts |
+| **Budgets**                        | Set USD spend limits per rolling period (daily / weekly / monthly) and get alerted before you overspend. Each budget shows live current-period spend with a status-colored progress bar (on-track / warning / over), remaining headroom, and per-threshold alert chips that light up once fired. Configurable alert thresholds (default 80% / 100%); a background scheduler fires web-push + native notifications and live-updates the page over WebSocket when a threshold is newly crossed, re-arming each new period. Spend reuses the same pricing rules as the cost views, so totals match Analytics |
 | **Live Updates**                   | WebSocket push -- no polling, instant UI updates                                                                                                                                                                                                                             |
 | **Auto-Discovery**                 | Sessions and agents are created automatically from hook events                                                                                                                                                                                                               |
 | **History Import**                 | Imports sessions from `~/.claude/` on startup. Enhanced JSONL extraction: API errors (quota/rate/invalid_request), turn durations, entrypoint (cli/sdk-ts), permission modes, thinking block counts, usage extras (service_tier, speed, inference_geo), tool result errors, and subagent JSONL files (`subagents/agent-*.jsonl` with `.meta.json`). Backfills existing sessions on re-import. Recent JSONL files (< 10 min) are imported as "active" |
@@ -592,6 +593,8 @@ flowchart LR
 | `NODE_ENV`              | `development` | Set to `production` to serve the built client |
 | `DASHBOARD_UPDATE_CHECK` | _(enabled)_ | Set to `0` / `false` / `off` to disable periodic git upstream checks |
 | `DASHBOARD_UPDATE_CHECK_INTERVAL_MS` | `300000` (5 min) | Interval between automatic checks; floor 60 000 ms. Users can also click **Check now** in the update modal or in the sidebar to run one on demand. |
+| `DASHBOARD_BUDGET_CHECK` | _(enabled)_ | Set to `0` / `false` / `off` to disable the periodic spend-budget evaluator |
+| `DASHBOARD_BUDGET_CHECK_INTERVAL_MS` | `60000` (1 min) | Interval between budget re-evaluations; floor 15 000 ms |
 
 For git clones, the server periodically `git fetch`es `origin` and compares your checkout to `origin/master`, `origin/main`, or `origin/HEAD`. When you are behind, a message appears in the server terminal and a modal appears in the UI with the exact command to run. The dashboard never pulls or restarts itself — you copy the command, run it in a terminal, then restart the server the same way you started it.
 
@@ -924,6 +927,31 @@ The OpenAPI document is generated from `server/openapi.js`, and Swagger UI is se
 | `DELETE` | `/api/pricing/:pattern`  | Delete a pricing rule                    |
 | `GET`    | `/api/pricing/cost`      | Total cost across all sessions           |
 | `GET`    | `/api/pricing/cost/:id`  | Cost breakdown for a specific session    |
+
+### Budgets
+
+Spend budgets let you cap token cost per rolling period and get alerted before
+you overspend. Each budget has a period (`daily` / `weekly` / `monthly`), a USD
+`limit_usd`, and a list of `alert_thresholds` (percent-of-limit points, default
+`[80, 100]`). Current-period spend is computed from `token_usage` joined to each
+session's start date (all period math in UTC) and reuses the same pricing rules
+as `/api/pricing/cost`, so the numbers line up. `GET` responses include the live
+`spent`, `remaining`, `pct`, `status` (`ok` / `warning` / `exceeded`), the
+`period_start` / `period_end` window, and which thresholds have already fired
+this period.
+
+| Method   | Path               | Description                                                        |
+| -------- | ------------------ | ----------------------------------------------------------------- |
+| `GET`    | `/api/budgets`     | List budgets with live current-period spend and status            |
+| `POST`   | `/api/budgets`     | Create a budget. Body: `{ period, limit_usd, label?, enabled?, alert_thresholds? }` |
+| `PUT`    | `/api/budgets/:id` | Update a budget (any subset of the create fields)                  |
+| `DELETE` | `/api/budgets/:id` | Delete a budget and its alert state                               |
+
+A background scheduler (`server/budget-scheduler.js`) re-evaluates enabled
+budgets on an interval and, when a threshold is newly crossed, fires a web-push +
+native notification and broadcasts `budget_alert` / `budgets_updated` over the
+WebSocket. Each threshold notifies at most once per period and re-arms when the
+next period begins.
 
 ### Workflows
 
@@ -1727,6 +1755,7 @@ graph LR
     D["/sessions/:id"] --> DETAIL["SessionDetail<br/>agents + timeline + cost"]
     A["/activity"] --> ACT["ActivityFeed<br/>streaming event log"]
     AN["/analytics"] --> ANALYTICS["Analytics<br/>tokens + heatmap + trends"]
+    BU["/budgets"] --> BUDGETS["Budgets<br/>spend limits + threshold alerts"]
     WF["/workflows"] --> WORKFLOWS["Workflows<br/>D3 visualizations + drill-in"]
     CC["/cc-config"] --> CCCONFIG["CcConfig<br/>12-tab Claude Code config inspector + editor"]
     RUN["/run"] --> RUNPAGE["Run<br/>spawn / resume / stream Claude subprocess"]

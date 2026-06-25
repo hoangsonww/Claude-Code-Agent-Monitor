@@ -14,6 +14,7 @@ import { Sessions } from "./pages/Sessions";
 import { SessionDetail } from "./pages/SessionDetail";
 import { ActivityFeed } from "./pages/ActivityFeed";
 import { Analytics } from "./pages/Analytics";
+import { Budgets } from "./pages/Budgets";
 import { Workflows } from "./pages/Workflows";
 import { Settings } from "./pages/Settings";
 import { CcConfig } from "./pages/CcConfig";
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="sessions/:id" element={<SessionDetail />} />
             <Route path="activity" element={<ActivityFeed />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="budgets" element={<Budgets />} />
             <Route path="workflows" element={<Workflows />} />
             <Route path="cc-config" element={<CcConfig />} />
             <Route path="run" element={<Run />} />

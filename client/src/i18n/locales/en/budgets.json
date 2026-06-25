@@ -1,0 +1,50 @@
+{
+  "title": "Spend Budgets",
+  "subtitle": "Set USD limits per period and get alerted before you overspend",
+  "newBudget": "New budget",
+  "confirmDelete": "Delete this budget? This cannot be undone.",
+  "alertsAt": "Alerts at",
+  "thresholdFired": "Alert already sent this period",
+  "thresholdArmed": "Will alert when crossed",
+  "periodKey": "Current period: {{key}}",
+  "remaining": "{{amount}} left",
+  "over": "{{amount}} over",
+  "period": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly"
+  },
+  "status": {
+    "ok": "On track",
+    "warning": "Warning",
+    "exceeded": "Over budget"
+  },
+  "summary": {
+    "budgets": "Budgets",
+    "activeSpend": "Spent (active)",
+    "activeLimit": "Limit (active)",
+    "overBudget": "Over budget"
+  },
+  "actions": {
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "form": {
+    "createTitle": "New budget",
+    "editTitle": "Edit budget",
+    "period": "Period",
+    "limit": "Limit (USD)",
+    "label": "Label (optional)",
+    "labelPlaceholder": "e.g. Personal cap, Team budget",
+    "thresholds": "Alert thresholds",
+    "enabled": "Enabled",
+    "create": "Create budget"
+  },
+  "errors": {
+    "invalidLimit": "Enter a limit greater than 0"
+  },
+  "empty": {
+    "title": "No budgets yet",
+    "description": "Create a daily, weekly, or monthly spend budget to track token cost and get alerted before you blow past your limit."
+  }
+}

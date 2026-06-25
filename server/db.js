@@ -258,6 +258,34 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
 
+  -- Spend budgets: user-defined USD ceilings per rolling period. The dashboard
+  -- evaluates current-period spend (token_usage joined to the owning session's
+  -- start date) and fires alerts when configured thresholds are crossed.
+  CREATE TABLE IF NOT EXISTS budgets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL CHECK(period IN ('daily','weekly','monthly')),
+    limit_usd REAL NOT NULL CHECK(limit_usd > 0),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    label TEXT,
+    alert_thresholds TEXT NOT NULL DEFAULT '[80,100]',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- One row per (budget, period instance, threshold) that has already fired,
+  -- so a threshold notifies at most once per period. A new period_key
+  -- (e.g. next day/week/month) naturally re-arms every threshold.
+  CREATE TABLE IF NOT EXISTS budget_alert_state (
+    budget_id INTEGER NOT NULL,
+    period_key TEXT NOT NULL,
+    threshold INTEGER NOT NULL,
+    fired_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (budget_id, period_key, threshold),
+    FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_budget_alert_state_budget ON budget_alert_state(budget_id, period_key);
+
   -- Rules-based alerting engine. Rules are evaluated server-side: event-driven
   -- types (event_pattern, token_threshold) on hook ingest, time-based types
   -- (inactivity, status_duration) on a periodic sweep in server/lib/alerts.js.

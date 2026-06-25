@@ -50,6 +50,8 @@ const EXPECTED_API_PATHS = [
   "/api/import/upload",
   "/api/updates/status",
   "/api/updates/check",
+  "/api/budgets",
+  "/api/budgets/{id}",
   "/api/alerts",
   "/api/alerts/rules",
   "/api/alerts/rules/{id}",

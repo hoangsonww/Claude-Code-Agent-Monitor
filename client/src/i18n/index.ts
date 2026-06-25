@@ -26,6 +26,9 @@ import activity_vi from "./locales/vi/activity.json";
 import analytics_en from "./locales/en/analytics.json";
 import analytics_zh from "./locales/zh/analytics.json";
 import analytics_vi from "./locales/vi/analytics.json";
+import budgets_en from "./locales/en/budgets.json";
+import budgets_zh from "./locales/zh/budgets.json";
+import budgets_vi from "./locales/vi/budgets.json";
 import workflows_en from "./locales/en/workflows.json";
 import workflows_zh from "./locales/zh/workflows.json";
 import workflows_vi from "./locales/vi/workflows.json";
@@ -66,6 +69,7 @@ i18n
         sessions: sessions_en,
         activity: activity_en,
         analytics: analytics_en,
+        budgets: budgets_en,
         workflows: workflows_en,
         settings: settings_en,
         kanban: kanban_en,
@@ -83,6 +87,7 @@ i18n
         sessions: sessions_zh,
         activity: activity_zh,
         analytics: analytics_zh,
+        budgets: budgets_zh,
         workflows: workflows_zh,
         settings: settings_zh,
         kanban: kanban_zh,
@@ -100,6 +105,7 @@ i18n
         sessions: sessions_vi,
         activity: activity_vi,
         analytics: analytics_vi,
+        budgets: budgets_vi,
         workflows: workflows_vi,
         settings: settings_vi,
         kanban: kanban_vi,
@@ -121,6 +127,7 @@ i18n
       "sessions",
       "activity",
       "analytics",
+      "budgets",
       "workflows",
       "settings",
       "kanban",

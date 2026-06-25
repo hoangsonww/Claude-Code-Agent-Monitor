@@ -70,6 +70,10 @@ function createOpenApiSpec() {
           "Detect upstream git changes so users can pull and restart manually (local dashboard installs)",
       },
       {
+        name: "Budgets",
+        description: "Spend budgets with per-period USD limits and threshold alerts",
+      },
+      {
         name: "Alerts",
         description: "Rules-based alerting: rule CRUD, fired-alert feed, acknowledgement",
       },
@@ -1215,6 +1219,93 @@ function createOpenApiSpec() {
             purged_sessions: { type: "integer" },
             purged_events: { type: "integer" },
             purged_agents: { type: "integer" },
+          },
+        },
+        Budget: {
+          type: "object",
+          required: [
+            "id",
+            "period",
+            "limit_usd",
+            "enabled",
+            "alert_thresholds",
+            "period_start",
+            "period_end",
+            "period_key",
+            "spent",
+            "remaining",
+            "pct",
+            "status",
+            "fired_thresholds",
+          ],
+          properties: {
+            id: { type: "integer" },
+            period: { type: "string", enum: ["daily", "weekly", "monthly"] },
+            limit_usd: { type: "number", description: "USD ceiling for the period" },
+            enabled: { type: "boolean" },
+            label: { type: "string", nullable: true },
+            alert_thresholds: {
+              type: "array",
+              items: { type: "integer", minimum: 1, maximum: 100 },
+              description: "Percent-of-limit points that trigger an alert",
+            },
+            created_at: { type: "string", format: "date-time" },
+            updated_at: { type: "string", format: "date-time" },
+            period_start: { type: "string", format: "date-time" },
+            period_end: { type: "string", format: "date-time" },
+            period_key: {
+              type: "string",
+              description: "Stable identifier for the current period instance (e.g. 2026-06)",
+            },
+            spent: { type: "number", description: "USD spent so far this period" },
+            remaining: { type: "number", description: "limit_usd minus spent" },
+            pct: { type: "number", description: "spent as a percentage of limit_usd" },
+            status: { type: "string", enum: ["ok", "warning", "exceeded"] },
+            fired_thresholds: {
+              type: "array",
+              items: { type: "integer" },
+              description: "Thresholds already alerted for the current period",
+            },
+          },
+        },
+        BudgetListResponse: {
+          type: "object",
+          required: ["budgets", "generated_at"],
+          properties: {
+            budgets: { type: "array", items: { $ref: "#/components/schemas/Budget" } },
+            generated_at: { type: "string", format: "date-time" },
+          },
+        },
+        BudgetMutationResponse: {
+          type: "object",
+          required: ["budget"],
+          properties: { budget: { $ref: "#/components/schemas/Budget" } },
+        },
+        BudgetCreateRequest: {
+          type: "object",
+          required: ["period", "limit_usd"],
+          properties: {
+            period: { type: "string", enum: ["daily", "weekly", "monthly"] },
+            limit_usd: { type: "number", exclusiveMinimum: 0 },
+            label: { type: "string", nullable: true },
+            enabled: { type: "boolean" },
+            alert_thresholds: {
+              type: "array",
+              items: { type: "integer", minimum: 1, maximum: 100 },
+            },
+          },
+        },
+        BudgetUpdateRequest: {
+          type: "object",
+          properties: {
+            period: { type: "string", enum: ["daily", "weekly", "monthly"] },
+            limit_usd: { type: "number", exclusiveMinimum: 0 },
+            label: { type: "string", nullable: true },
+            enabled: { type: "boolean" },
+            alert_thresholds: {
+              type: "array",
+              items: { type: "integer", minimum: 1, maximum: 100 },
+            },
           },
         },
       },
@@ -2711,6 +2802,110 @@ function createOpenApiSpec() {
                 "application/json": {
                   schema: { type: "object", additionalProperties: true },
                 },
+              },
+            },
+          },
+        },
+      },
+      "/api/budgets": {
+        get: {
+          tags: ["Budgets"],
+          summary: "List spend budgets with live current-period spend",
+          operationId: "listBudgets",
+          responses: {
+            200: {
+              description: "Budgets and their evaluated state",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/BudgetListResponse" },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ["Budgets"],
+          summary: "Create a spend budget",
+          operationId: "createBudget",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/BudgetCreateRequest" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Budget created",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/BudgetMutationResponse" },
+                },
+              },
+            },
+            400: {
+              description: "Invalid request body",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
+      "/api/budgets/{id}": {
+        put: {
+          tags: ["Budgets"],
+          summary: "Update a spend budget",
+          operationId: "updateBudget",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/BudgetUpdateRequest" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Budget updated",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/BudgetMutationResponse" },
+                },
+              },
+            },
+            400: {
+              description: "Invalid request body",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+            404: {
+              description: "Budget not found",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ["Budgets"],
+          summary: "Delete a spend budget",
+          operationId: "deleteBudget",
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+          responses: {
+            200: {
+              description: "Budget deleted",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/DeleteOkResponse" } },
+              },
+            },
+            404: {
+              description: "Budget not found",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
               },
             },
           },

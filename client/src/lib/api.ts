@@ -9,6 +9,9 @@ import type {
   AlertEvent,
   AlertRule,
   Analytics,
+  Budget,
+  BudgetListResponse,
+  BudgetPeriod,
   CostResult,
   DashboardEvent,
   ModelPricing,
@@ -375,6 +378,21 @@ export const api = {
       request<{ ok: true }>(`/run/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 
+  budgets: {
+    list: () => request<BudgetListResponse>("/budgets"),
+    create: (data: BudgetCreateArgs) =>
+      request<{ budget: Budget }>("/budgets", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: number, data: BudgetUpdateArgs) =>
+      request<{ budget: Budget }>(`/budgets/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    remove: (id: number) => request<{ ok: boolean }>(`/budgets/${id}`, { method: "DELETE" }),
+  },
+
   alerts: {
     list: (params?: { unacked?: boolean; limit?: number; offset?: number }) => {
       const qs = new URLSearchParams();
@@ -467,6 +485,16 @@ export const api = {
     },
   },
 };
+
+export interface BudgetCreateArgs {
+  period: BudgetPeriod;
+  limit_usd: number;
+  label?: string | null;
+  enabled?: boolean;
+  alert_thresholds?: number[];
+}
+
+export type BudgetUpdateArgs = Partial<BudgetCreateArgs>;
 
 function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcArtifactType }) {
   const qs = new URLSearchParams();

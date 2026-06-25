@@ -1,0 +1,50 @@
+{
+  "title": "Ngân sách chi tiêu",
+  "subtitle": "Đặt giới hạn USD theo từng kỳ và được cảnh báo trước khi vượt mức",
+  "newBudget": "Ngân sách mới",
+  "confirmDelete": "Xóa ngân sách này? Không thể hoàn tác.",
+  "alertsAt": "Cảnh báo tại",
+  "thresholdFired": "Đã gửi cảnh báo trong kỳ này",
+  "thresholdArmed": "Sẽ cảnh báo khi vượt qua",
+  "periodKey": "Kỳ hiện tại: {{key}}",
+  "remaining": "Còn {{amount}}",
+  "over": "Vượt {{amount}}",
+  "period": {
+    "daily": "Hàng ngày",
+    "weekly": "Hàng tuần",
+    "monthly": "Hàng tháng"
+  },
+  "status": {
+    "ok": "Trong tầm kiểm soát",
+    "warning": "Cảnh báo",
+    "exceeded": "Vượt ngân sách"
+  },
+  "summary": {
+    "budgets": "Ngân sách",
+    "activeSpend": "Đã chi (đang bật)",
+    "activeLimit": "Giới hạn (đang bật)",
+    "overBudget": "Vượt ngân sách"
+  },
+  "actions": {
+    "enable": "Bật",
+    "disable": "Tắt"
+  },
+  "form": {
+    "createTitle": "Ngân sách mới",
+    "editTitle": "Sửa ngân sách",
+    "period": "Kỳ",
+    "limit": "Giới hạn (USD)",
+    "label": "Nhãn (tùy chọn)",
+    "labelPlaceholder": "vd: Giới hạn cá nhân, Ngân sách nhóm",
+    "thresholds": "Ngưỡng cảnh báo",
+    "enabled": "Đang bật",
+    "create": "Tạo ngân sách"
+  },
+  "errors": {
+    "invalidLimit": "Nhập giới hạn lớn hơn 0"
+  },
+  "empty": {
+    "title": "Chưa có ngân sách",
+    "description": "Tạo ngân sách chi tiêu hàng ngày, hàng tuần hoặc hàng tháng để theo dõi chi phí token và được cảnh báo trước khi vượt giới hạn."
+  }
+}

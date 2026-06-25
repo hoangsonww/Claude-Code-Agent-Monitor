@@ -251,6 +251,50 @@ export interface CcConfigChangedPayload {
   paths?: string[];
 }
 
+export type BudgetPeriod = "daily" | "weekly" | "monthly";
+export type BudgetStatus = "ok" | "warning" | "exceeded";
+
+export interface Budget {
+  id: number;
+  period: BudgetPeriod;
+  limit_usd: number;
+  enabled: boolean;
+  label: string | null;
+  alert_thresholds: number[];
+  created_at?: string;
+  updated_at?: string;
+  period_start: string;
+  period_end: string;
+  period_key: string;
+  spent: number;
+  remaining: number;
+  pct: number;
+  status: BudgetStatus;
+  fired_thresholds: number[];
+}
+
+export interface BudgetListResponse {
+  budgets: Budget[];
+  generated_at: string;
+}
+
+export interface BudgetAlertPayload {
+  budget_id: number;
+  period: BudgetPeriod;
+  period_key: string;
+  threshold: number;
+  spent: number;
+  limit_usd: number;
+  pct: number;
+  status: BudgetStatus;
+  title: string;
+  body: string;
+}
+
+export interface BudgetsUpdatedPayload {
+  budgets: Budget[];
+}
+
 // ── Alerting ──
 
 export type AlertRuleType = "event_pattern" | "inactivity" | "status_duration" | "token_threshold";
@@ -393,6 +437,8 @@ export interface WSMessage {
     | "run_status"
     | "run_input_ack"
     | "cc_config_changed"
+    | "budget_alert"
+    | "budgets_updated"
     | "alert_triggered"
     | "alert_updated"
     | "workflow_upserted";
@@ -406,6 +452,8 @@ export interface WSMessage {
     | RunStatusPayload
     | RunInputAckPayload
     | CcConfigChangedPayload
+    | BudgetAlertPayload
+    | BudgetsUpdatedPayload
     | AlertEvent
     | WorkflowRun;
   timestamp: string;

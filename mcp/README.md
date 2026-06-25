@@ -132,6 +132,7 @@ graph TD
     AGT["Agents<br/>list/get/create/update"]
     EVT["Events & Hooks<br/>list events, ingest hook events"]
     PRC["Pricing & Cost<br/>rules CRUD, cost queries, reset defaults"]
+    BUD["Budgets<br/>list, create/update/delete<br/>spend limits + thresholds"]
     MNT["Maintenance<br/>cleanup, reimport, reinstall hooks,<br/>clear-all-data (guarded)"]
 
     ROOT --> OBS
@@ -139,6 +140,7 @@ graph TD
     ROOT --> AGT
     ROOT --> EVT
     ROOT --> PRC
+    ROOT --> BUD
     ROOT --> MNT
 ```
 
@@ -158,6 +160,7 @@ Read-focused tools:
 - `dashboard_get_pricing_rules`
 - `dashboard_get_total_cost`
 - `dashboard_get_session_cost`
+- `dashboard_get_budgets`
 
 Mutation tools (require `MCP_DASHBOARD_ALLOW_MUTATIONS=true`):
 
@@ -169,6 +172,9 @@ Mutation tools (require `MCP_DASHBOARD_ALLOW_MUTATIONS=true`):
 - `dashboard_upsert_pricing_rule`
 - `dashboard_delete_pricing_rule`
 - `dashboard_reset_pricing_defaults`
+- `dashboard_create_budget`
+- `dashboard_update_budget`
+- `dashboard_delete_budget`
 - `dashboard_cleanup_data`
 - `dashboard_reimport_history`
 - `dashboard_reinstall_hooks`

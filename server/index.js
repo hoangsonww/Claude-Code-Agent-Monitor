@@ -51,6 +51,7 @@ const importRouter = require("./routes/import");
 const updatesRouter = require("./routes/updates");
 const ccConfigRouter = require("./routes/cc-config");
 const runRouter = require("./routes/run");
+const budgetsRouter = require("./routes/budgets");
 const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
 
@@ -75,6 +76,7 @@ function createApp() {
   app.use("/api/updates", updatesRouter);
   app.use("/api/cc-config", ccConfigRouter);
   app.use("/api/run", runRouter);
+  app.use("/api/budgets", budgetsRouter);
   app.use("/api/alerts", alertsRouter);
   app.use("/api/webhooks", webhooksRouter);
   app.get("/api/openapi.json", (_req, res) => {
@@ -228,6 +230,12 @@ function startBackgroundServices() {
   const { startUpdateScheduler } = require("./update-scheduler");
   const { broadcast } = require("./websocket");
   startUpdateScheduler({ broadcast });
+  try {
+    const { startBudgetScheduler } = require("./budget-scheduler");
+    startBudgetScheduler({ broadcast });
+  } catch (err) {
+    console.warn("budget scheduler failed to start:", err.message);
+  }
   try {
     const { startCcWatcher } = require("./lib/cc-watcher");
     startCcWatcher({ broadcast });
