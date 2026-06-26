@@ -38,6 +38,56 @@ const router = Router();
 const TRANSCRIPT_RENDER_TYPES = new Set(["user", "assistant", "custom-title", "system"]);
 
 /**
+ * Classify the TRUE sender of a transcript entry. A JSONL `type:"user"` line is
+ * not always the human: it also carries tool results, harness-injected
+ * task-notifications, /loop re-injections (`isMeta`), and — in a subagent
+ * transcript — the task prompt handed down by the orchestrator. Attributing all
+ * of those to "User" is wrong; the UI styles each sender distinctly.
+ *
+ * Returns: "user" | "assistant" | "orchestrator" | "system" | "tool".
+ *   user         — a real message typed by the human
+ *   assistant    — the agent's own turn
+ *   orchestrator — a subagent's task, assigned by its parent/main agent
+ *   system       — harness/tooling injection (task-notification, /loop meta, …)
+ *   tool         — a tool_result echoed back on a `user` line
+ */
+function classifyTranscriptSender(entry, isSubagentFile) {
+  if (entry.type === "assistant") return "assistant";
+  // `system`/local_command lines are surfaced as the human's slash-command I/O.
+  if (entry.type !== "user") return "user";
+
+  const content = entry.message ? entry.message.content : undefined;
+  const onlyToolResults =
+    Array.isArray(content) &&
+    content.length > 0 &&
+    content.every((b) => b && b.type === "tool_result");
+  if (entry.toolUseResult !== undefined || onlyToolResults) return "tool";
+
+  const text =
+    typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? (content.find((b) => b && b.type === "text") || {}).text || ""
+        : "";
+  const lead = text.replace(/^\s+/, "");
+
+  // Harness injections that masquerade as a user line.
+  if (entry.isMeta === true) return "system";
+  if (lead.startsWith("<task-notification>") || lead.startsWith("<task-notification ")) {
+    return "system";
+  }
+
+  // In a subagent transcript, a user line with no human prompt provenance is the
+  // task injected by the Task/Agent tool. A real human message to the subagent
+  // (rare, but allowed) carries promptSource/origin and stays "user".
+  if (isSubagentFile && entry.promptSource === undefined && entry.origin === undefined) {
+    return "orchestrator";
+  }
+
+  return "user";
+}
+
+/**
  * Read only the first non-empty line from a JSONL file using streaming.
  * Avoids loading the entire file into memory.
  */
@@ -530,6 +580,9 @@ router.get("/:id/transcript", async (req, res) => {
 
   const agentId = req.query.agent_id || null;
   const runId = req.query.run_id || null;
+  // Subagent transcripts (anything but the main session file) need different
+  // sender attribution: their first user line is the orchestrator's task.
+  const isSubagentFile = !!(agentId && agentId !== "main");
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const afterLine = req.query.after ? parseInt(req.query.after) : null;
   const beforeLine = req.query.before ? parseInt(req.query.before) : null;
@@ -608,6 +661,7 @@ router.get("/:id/transcript", async (req, res) => {
         if (!sysText.trim()) return null;
         return {
           type: "user",
+          sender: "user", // local slash-command I/O is the human's own action
           timestamp: entry.timestamp || null,
           content: [{ type: "text", text: truncate(sysText, 10240) }],
           line: num,
@@ -666,6 +720,7 @@ router.get("/:id/transcript", async (req, res) => {
 
       const message = {
         type: entry.type,
+        sender: classifyTranscriptSender(entry, isSubagentFile),
         timestamp: entry.timestamp
           ? typeof entry.timestamp === "number"
             ? new Date(entry.timestamp).toISOString()
@@ -843,3 +898,5 @@ function truncateObj(obj, maxLen) {
 }
 
 module.exports = router;
+// Exported for unit tests — sender attribution is correctness-critical.
+module.exports.classifyTranscriptSender = classifyTranscriptSender;

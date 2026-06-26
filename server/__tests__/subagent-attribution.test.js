@@ -33,6 +33,7 @@ process.env.DASHBOARD_DB_PATH = TEST_DB;
 const dbModule = require("../db");
 const { db, stmts } = dbModule;
 const importHistory = require("../../scripts/import-history");
+const { calculateCost } = require("../routes/pricing");
 
 after(() => {
   if (db) db.close();
@@ -140,6 +141,62 @@ function buildSubagentLines(agentType = "coder") {
 
 function writeMetaJson(filePath, agentType) {
   fs.writeFileSync(filePath, JSON.stringify({ agentType }));
+}
+
+/**
+ * Minimal subagent JSONL on a specific model carrying one usage record, so
+ * parseSubagentFile yields a single token bucket keyed by that model.
+ */
+function buildModelSubLines(agentType, model, usage, startedAt = "2026-05-01T10:00:00.000Z") {
+  const t0 = startedAt;
+  return [
+    {
+      type: "user",
+      timestamp: t0,
+      agentType,
+      message: { content: [{ type: "text", text: "go" }] },
+    },
+    {
+      type: "assistant",
+      timestamp: "2026-05-01T10:00:01.000Z",
+      message: {
+        model,
+        content: [{ type: "tool_use", id: `toolu_${agentType}_1`, name: "Read", input: {} }],
+        usage: {
+          input_tokens: usage.input || 0,
+          output_tokens: usage.output || 0,
+          cache_read_input_tokens: usage.cacheRead || 0,
+          cache_creation_input_tokens: usage.cacheWrite || 0,
+        },
+      },
+    },
+    {
+      type: "user",
+      timestamp: "2026-05-01T10:00:02.000Z",
+      message: {
+        content: [{ type: "tool_result", tool_use_id: `toolu_${agentType}_1`, content: "ok" }],
+      },
+    },
+  ];
+}
+
+// Lay out <base>/<sessionId>/subagents/agent-*.jsonl and return the matching
+// transcriptPath (<base>/<sessionId>.jsonl) that scanAndImportSubagents expects.
+function buildSubagentDir(sessionId, files) {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), `sa-scan-${process.pid}-`));
+  const subDir = path.join(base, sessionId, "subagents");
+  fs.mkdirSync(subDir, { recursive: true });
+  for (const f of files) {
+    writeSubagentJsonl(path.join(subDir, `agent-${f.id}.jsonl`), f.lines);
+    // Companion meta.json so parseSubagentFile resolves agentType (the live-match key).
+    if (f.agentType) {
+      fs.writeFileSync(
+        path.join(subDir, `agent-${f.id}.meta.json`),
+        JSON.stringify({ agentType: f.agentType })
+      );
+    }
+  }
+  return { transcriptPath: path.join(base, `${sessionId}.jsonl`), base };
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -345,6 +402,212 @@ describe("importSubagentFromJsonl — event attribution", () => {
       } catch {
         /* ignore */
       }
+    }
+  });
+});
+
+// ── Per-subagent model token attribution (issue #185) ──────────────────
+describe("scanAndImportSubagents — per-subagent model token attribution", () => {
+  it("buckets each subagent's tokens under its OWN model, skipping the parent model", async () => {
+    const sessionId = "sess-185-tiered";
+    // Orchestrator on Opus; subagents tiered to Sonnet + Haiku, plus one on the
+    // SAME model as the parent (Opus) to verify that bucket is intentionally skipped.
+    stmts.insertSession.run(sessionId, "Tiered", "active", "/tmp", "claude-opus-4-8", null);
+    stmts.insertAgent.run(
+      `${sessionId}-main`,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      {
+        id: "hq",
+        lines: buildModelSubLines("qa", "claude-haiku-4-5-20251001", { input: 1000, output: 500 }),
+      },
+      {
+        id: "se",
+        lines: buildModelSubLines("engineer", "claude-sonnet-4-6", { input: 2000, output: 800 }),
+      },
+      {
+        id: "op",
+        lines: buildModelSubLines("planner", "claude-opus-4-8", { input: 9999, output: 9999 }),
+      },
+    ]);
+
+    try {
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+
+      const rows = stmts.getTokensBySession.all(sessionId);
+      const byModel = Object.fromEntries(rows.map((r) => [r.model, r]));
+      const models = Object.keys(byModel).sort();
+
+      // Haiku + Sonnet buckets are written under their own models.
+      assert.deepEqual(models, ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"]);
+      assert.equal(byModel["claude-haiku-4-5-20251001"].input_tokens, 1000);
+      assert.equal(byModel["claude-haiku-4-5-20251001"].output_tokens, 500);
+      assert.equal(byModel["claude-sonnet-4-6"].input_tokens, 2000);
+      assert.equal(byModel["claude-sonnet-4-6"].output_tokens, 800);
+
+      // The Opus subagent's tokens are NOT written here — that bucket belongs to
+      // the main-transcript writer; double-writing it would inflate via baseline.
+      assert.equal(byModel["claude-opus-4-8"], undefined, "parent-model bucket must be skipped");
+
+      // Cost is priced at the real (cheaper) per-subagent models, never Opus.
+      const cost = calculateCost(rows, stmts.listPricing.all());
+      const costModels = cost.breakdown.map((b) => b.model).sort();
+      assert.deepEqual(costModels, ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"]);
+      assert.ok(cost.total_cost > 0);
+
+      // Each subagent row records its real model in metadata.
+      const hq = stmts.getAgent.get(`${sessionId}-jsonl-hq`);
+      assert.equal(JSON.parse(hq.metadata).model, "claude-haiku-4-5-20251001");
+      const se = stmts.getAgent.get(`${sessionId}-jsonl-se`);
+      assert.equal(JSON.parse(se.metadata).model, "claude-sonnet-4-6");
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("re-running does not inflate token buckets (idempotent per-model write)", async () => {
+    const sessionId = "sess-185-idem";
+    stmts.insertSession.run(sessionId, "Idem", "active", "/tmp", "claude-opus-4-8", null);
+    stmts.insertAgent.run(
+      `${sessionId}-main`,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      {
+        id: "hq",
+        lines: buildModelSubLines("qa", "claude-haiku-4-5-20251001", { input: 1000, output: 500 }),
+      },
+    ]);
+    try {
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+      const rows = stmts.getTokensBySession.all(sessionId);
+      const haiku = rows.find((r) => r.model === "claude-haiku-4-5-20251001");
+      // getTokensBySession already returns effective totals (current + baseline).
+      // Re-running must not double them — append-only subagent JSONLs never drop.
+      assert.equal(haiku.input_tokens, 1000);
+      assert.equal(haiku.output_tokens, 500);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("skips every model the MAIN transcript used, not just the latest (mid-session /model switch)", async () => {
+    const sessionId = "sess-185-switch";
+    // Orchestrator switched Opus → Sonnet mid-session; session.model holds the
+    // latest (Sonnet), but the main transcript wrote BOTH. A subagent on the
+    // earlier Opus must still be skipped to avoid colliding with the main writer.
+    stmts.insertSession.run(sessionId, "Switch", "active", "/tmp", "claude-sonnet-4-6", null);
+    stmts.insertAgent.run(
+      `${sessionId}-main`,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      {
+        id: "op",
+        lines: buildModelSubLines("planner", "claude-opus-4-8", { input: 5000, output: 5000 }),
+      },
+      {
+        id: "hq",
+        lines: buildModelSubLines("qa", "claude-haiku-4-5-20251001", { input: 100, output: 50 }),
+      },
+    ]);
+    try {
+      // parentModels carries BOTH orchestrator models (as hooks.js would pass).
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath, {
+        parentModels: ["claude-sonnet-4-6", "claude-opus-4-8"],
+      });
+      const models = stmts.getTokensBySession
+        .all(sessionId)
+        .map((r) => r.model)
+        .sort();
+      // Only Haiku is written; both orchestrator models (Sonnet + the earlier
+      // Opus) are skipped even though Opus != session.model.
+      assert.deepEqual(models, ["claude-haiku-4-5-20251001"]);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("backfills a live subagent row's model from its own transcript", async () => {
+    const sessionId = "sess-185-live";
+    const startedAt = "2026-05-01T10:00:00.000Z";
+    stmts.insertSession.run(sessionId, "Live", "active", "/tmp", "claude-opus-4-8", null);
+    stmts.insertAgent.run(
+      `${sessionId}-main`,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+    // Live subagent created by the PreToolUse "Agent" hook — no model recorded.
+    const liveId = "live-185-qa";
+    stmts.insertAgent.run(
+      liveId,
+      sessionId,
+      "QA",
+      "subagent",
+      "qa",
+      "working",
+      "task",
+      `${sessionId}-main`,
+      null
+    );
+    db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
+      startedAt,
+      startedAt,
+      startedAt,
+      liveId
+    );
+
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      {
+        id: "qa1",
+        agentType: "qa",
+        lines: buildModelSubLines(
+          "qa",
+          "claude-haiku-4-5-20251001",
+          { input: 10, output: 5 },
+          startedAt
+        ),
+      },
+    ]);
+    try {
+      assert.equal(stmts.getAgent.get(liveId).metadata, null, "live row starts with no model");
+      await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+      const meta = JSON.parse(stmts.getAgent.get(liveId).metadata || "{}");
+      assert.equal(meta.model, "claude-haiku-4-5-20251001", "live row backfilled with real model");
+      // No JSONL-keyed duplicate row was created (events merged into the live row).
+      assert.equal(stmts.getAgent.get(`${sessionId}-jsonl-qa1`), undefined);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
     }
   });
 });

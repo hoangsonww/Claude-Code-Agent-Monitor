@@ -638,6 +638,103 @@ describe("Hook Event Processing", () => {
     assert.ok(completed[0].ended_at);
   });
 
+  it("SubagentStop attributes subagent tokens to their own model via the HTTP path (issue #185)", async () => {
+    // End-to-end through the /event handler (the unit tests call the importer
+    // directly, so this guards the handler wiring — e.g. parentModels scope).
+    const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "hooks-sa-185-"));
+    const sid = "hook-sess-185";
+    const mainPath = path.join(baseDir, `${sid}.jsonl`);
+    // Main transcript: orchestrator on Opus.
+    fs.writeFileSync(
+      mainPath,
+      [
+        {
+          type: "assistant",
+          timestamp: "2026-05-01T09:00:00.000Z",
+          message: {
+            model: "claude-opus-4-8",
+            content: [{ type: "text", text: "orchestrating" }],
+            usage: {
+              input_tokens: 100,
+              output_tokens: 50,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+          },
+        },
+      ]
+        .map((o) => JSON.stringify(o))
+        .join("\n")
+    );
+    // Subagent on Haiku, in <base>/<sid>/subagents/.
+    const subDir = path.join(baseDir, sid, "subagents");
+    fs.mkdirSync(subDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(subDir, "agent-h1.jsonl"),
+      [
+        {
+          type: "user",
+          timestamp: "2026-05-01T09:00:01.000Z",
+          message: { content: [{ type: "text", text: "go" }] },
+        },
+        {
+          type: "assistant",
+          timestamp: "2026-05-01T09:00:02.000Z",
+          message: {
+            model: "claude-haiku-4-5-20251001",
+            content: [{ type: "tool_use", id: "tu1", name: "Read", input: {} }],
+            usage: {
+              input_tokens: 700,
+              output_tokens: 300,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+          },
+        },
+        {
+          type: "user",
+          timestamp: "2026-05-01T09:00:03.000Z",
+          message: { content: [{ type: "tool_result", tool_use_id: "tu1", content: "ok" }] },
+        },
+      ]
+        .map((o) => JSON.stringify(o))
+        .join("\n")
+    );
+    fs.writeFileSync(path.join(subDir, "agent-h1.meta.json"), JSON.stringify({ agentType: "qa" }));
+
+    try {
+      const res = await post("/api/hooks/event", {
+        hook_type: "SubagentStop",
+        data: { session_id: sid, transcript_path: mainPath },
+      });
+      assert.equal(res.status, 200); // must not 500 — guards the handler scope wiring
+
+      // The subagent scan is fire-and-forget; poll for the Haiku bucket.
+      let haiku = null;
+      for (let i = 0; i < 100 && !haiku; i++) {
+        haiku = db
+          .prepare("SELECT * FROM token_usage WHERE session_id = ? AND model = ?")
+          .get(sid, "claude-haiku-4-5-20251001");
+        if (!haiku) await new Promise((r) => setTimeout(r, 20));
+      }
+      assert.ok(haiku, "subagent tokens must be attributed under the subagent's own model");
+      assert.equal(haiku.input_tokens, 700);
+      assert.equal(haiku.output_tokens, 300);
+
+      // Orchestrator's Opus bucket comes from the main transcript (not the sub).
+      const opus = db
+        .prepare("SELECT * FROM token_usage WHERE session_id = ? AND model = ?")
+        .get(sid, "claude-opus-4-8");
+      assert.ok(opus, "orchestrator opus bucket from the main transcript");
+      assert.equal(opus.input_tokens, 100);
+
+      const sess = db.prepare("SELECT model FROM sessions WHERE id = ?").get(sid);
+      assert.equal(sess.model, "claude-opus-4-8");
+    } finally {
+      fs.rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
   it("should handle Notification events", async () => {
     const res = await post("/api/hooks/event", {
       hook_type: "Notification",

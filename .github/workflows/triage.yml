@@ -1,0 +1,105 @@
+# Auto-Triage for Claude Code Agent Monitor
+#
+# Runs whenever an issue or a pull request is OPENED and performs three things:
+#   1. Labels      — applies the full label set (bug, documentation, enhancement,
+#                    good first issue, help wanted, question) to every new
+#                    issue AND pull request.
+#   2. Assignees   — a new PR is assigned to its author; a new issue is assigned
+#                    to the repo owner (hoangsonww) AND its author.
+#   3. Project     — adds every new issue / PR to the repo's linked GitHub
+#                    Project board (#44, "Claude Code AI Agents Monitor Project Board").
+#
+# Notes:
+#   - Labeling + assigning use the built-in GITHUB_TOKEN (issues + pull-requests
+#     write), so they work out of the box.
+#   - GitHub Projects (v2) CANNOT be written by GITHUB_TOKEN. The "add to project"
+#     step therefore needs a Personal Access Token (classic with `project` scope,
+#     or fine-grained with "Projects: Read and write" on the owner) stored as the
+#     repo secret `TRIAGE_PROJECT_TOKEN`. If that secret is absent the step is
+#     skipped — labeling/assigning still run.
+#   - `pull_request_target` (not `pull_request`) is used so PRs opened from forks
+#     still get a write-scoped token. No PR code is checked out or executed, so
+#     this is safe.
+#   - Assigning the author is best-effort: GitHub silently ignores assignees who
+#     lack repo access (common for first-time external contributors).
+#
+# Author: Son Nguyen <hoangson091104@gmail.com>
+name: 🏷️ Auto-Triage Issues & PRs
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  triage:
+    name: Label, assign, and add to project
+    runs-on: ubuntu-latest
+    env:
+      # Surfaced as an env var so the project step can be conditionally skipped
+      # when the PAT secret is not configured (secrets aren't usable directly in
+      # a step-level `if`).
+      PROJECT_TOKEN: ${{ secrets.TRIAGE_PROJECT_TOKEN }}
+    steps:
+      - name: Apply labels and assignees
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABELS = [
+              "bug",
+              "documentation",
+              "enhancement",
+              "good first issue",
+              "help wanted",
+              "question",
+            ];
+            const { owner, repo } = context.repo;
+            const isPR = Boolean(context.payload.pull_request);
+            const target = isPR ? context.payload.pull_request : context.payload.issue;
+            const number = target.number;
+            const creator = target.user.login;
+
+            // 1. Labels — same set for issues and PRs.
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: number,
+                labels: LABELS,
+              });
+            } catch (err) {
+              core.warning(`Failed to add labels: ${err.message}`);
+            }
+
+            // 2. Assignees — PR: author; issue: owner (hoangsonww) + author.
+            const assignees = isPR
+              ? [creator]
+              : [...new Set(["hoangsonww", creator])];
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: number,
+                assignees,
+              });
+            } catch (err) {
+              core.warning(`Failed to add assignees (${assignees.join(", ")}): ${err.message}`);
+            }
+
+            core.info(
+              `Triaged ${isPR ? "PR" : "issue"} #${number} by @${creator}: ` +
+                `${LABELS.length} labels, assignees [${assignees.join(", ")}].`
+            );
+
+      - name: Add to project board
+        if: ${{ env.PROJECT_TOKEN != '' }}
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/hoangsonww/projects/44
+          github-token: ${{ secrets.TRIAGE_PROJECT_TOKEN }}

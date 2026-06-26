@@ -3,7 +3,9 @@
  * @description Branding splash shown once per browser session on app load. A
  * dark-tech "constellation" overlay built around the node-graph brand mark:
  * a time-aware greeting, a bold (localized) tagline, and two subtexts reveal
- * in a staggered cascade. The overlay holds for ~2.5s, then fades out and
+ * in a staggered cascade. The tagline and the subtext pair are picked at
+ * random (per mount) from localized pools in `splash.json`, so the copy is
+ * fresh each session. The overlay holds for ~2.5s, then fades out and
  * unmounts. Clicking anywhere skips it; honors
  * `prefers-reduced-motion`. CSS-only animations (no extra deps).
  * @author Son Nguyen <hoangson091104@gmail.com>
@@ -38,6 +40,22 @@ export function SplashScreen() {
   const exitTimer = useRef<number | null>(null);
   const doneTimer = useRef<number | null>(null);
 
+  // Pick the tagline + subtext pair ONCE per mount from the localized pools.
+  // Falls back to the singular keys if a locale ships no array. Must run as an
+  // unconditional hook (before the early return below).
+  const [copy] = useState(() => {
+    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+    const taglines = t("taglines", { returnObjects: true }) as unknown as string[];
+    const subs = t("subs", { returnObjects: true }) as unknown as string[][];
+    const tagline = Array.isArray(taglines) && taglines.length > 0 ? pick(taglines) : t("tagline");
+    const pair = Array.isArray(subs) && subs.length > 0 ? pick(subs) : [t("sub1"), t("sub2")];
+    return {
+      tagline,
+      sub1: pair?.[0] ?? t("sub1"),
+      sub2: pair?.[1] ?? t("sub2"),
+    };
+  });
+
   const beginExit = () => {
     if (exiting) return;
     setExiting(true);
@@ -67,7 +85,7 @@ export function SplashScreen() {
   return (
     <div
       role="dialog"
-      aria-label={`${greeting}. ${t("tagline")}`}
+      aria-label={`${greeting}. ${copy.tagline}`}
       onClick={beginExit}
       className={`splash-root ${exiting ? "splash-exit" : ""}`}
     >
@@ -92,10 +110,10 @@ export function SplashScreen() {
           <span className="splash-rule splash-rule-right" />
         </div>
 
-        <h1 className="splash-tagline">{t("tagline")}</h1>
+        <h1 className="splash-tagline">{copy.tagline}</h1>
 
-        <p className="splash-sub splash-sub-1">{t("sub1")}</p>
-        <p className="splash-sub splash-sub-2">{t("sub2")}</p>
+        <p className="splash-sub splash-sub-1">{copy.sub1}</p>
+        <p className="splash-sub splash-sub-2">{copy.sub2}</p>
 
         <div className="splash-brand">{t("brand")}</div>
       </div>

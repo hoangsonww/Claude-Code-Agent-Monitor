@@ -21,7 +21,9 @@
   "session": {
     "anonymous": "Untitled session",
     "agentSummary_one": "{{count}} agent",
-    "agentSummary_other": "{{count}} agents"
+    "agentSummary_other": "{{count}} agents",
+    "turnSummary_one": "{{count}} turn",
+    "turnSummary_other": "{{count}} turns"
   },
   "tooltip": {
     "agent": {

@@ -21,7 +21,9 @@
   "session": {
     "anonymous": "Phiên chưa đặt tên",
     "agentSummary_one": "{{count}} Agent",
-    "agentSummary_other": "{{count}} Agent"
+    "agentSummary_other": "{{count}} Agent",
+    "turnSummary_one": "{{count}} lượt",
+    "turnSummary_other": "{{count}} lượt"
   },
   "tooltip": {
     "agent": {

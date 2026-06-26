@@ -8,5 +8,78 @@
   "tagline": "Mọi điều agent của bạn làm đều không ẩn trong bóng tối.",
   "sub1": "Khả năng quan sát thời gian thực cho mọi phiên Claude Code.",
   "sub2": "Token, công cụ, chi phí và workflow, tất cả trực tiếp.",
-  "brand": "Giám sát Claude Code"
+  "brand": "Giám sát Claude Code",
+  "taglines": [
+    "Mọi điều agent của bạn làm đều không ẩn trong bóng tối.",
+    "Thấy rõ từng bước đi của agent.",
+    "Agent của bạn, hoàn toàn trong tầm quan sát.",
+    "Từng token, công cụ và lượt xử lý — hiện rõ trước mắt.",
+    "Nhìn cả đội agent của bạn suy nghĩ.",
+    "Nơi mọi phiên Claude Code trở nên rõ ràng.",
+    "Đôi mắt thời gian thực dõi theo từng agent.",
+    "Từ prompt đến kết quả, tất cả đều được ghi lại.",
+    "Phòng điều khiển cho các AI agent của bạn.",
+    "Từng subagent đều được nắm rõ.",
+    "Biết chính xác agent của bạn tốn bao nhiêu.",
+    "Workflow agentic của bạn, trở nên dễ đọc.",
+    "Quan sát. Đo lường. Tối ưu.",
+    "Trung tâm điều hành cho Claude Code.",
+    "Biến mớ hỗn loạn của agent thành bức tranh rõ ràng.",
+    "Bằng chứng cho mọi lần chạy."
+  ],
+  "subs": [
+    [
+      "Khả năng quan sát thời gian thực cho mọi phiên Claude Code.",
+      "Token, công cụ, chi phí và workflow, tất cả trực tiếp."
+    ],
+    [
+      "Phiên, agent và sự kiện trực tiếp ngay khi diễn ra.",
+      "Phân tích token và chi phí theo từng model, không phải đoán mò."
+    ],
+    [
+      "Truy vết mọi lời gọi công cụ trên khắp cây agent của bạn.",
+      "Phát hiện lượt chậm, model tốn kém, lỗi âm thầm."
+    ],
+    ["Hook truyền thẳng tới một dashboard cục bộ.", "Dữ liệu của bạn không bao giờ rời khỏi máy."],
+    [
+      "Nhìn các orchestrator giao việc cho subagent.",
+      "DAG, xử lý đồng thời và lan truyền lỗi, được trực quan hóa."
+    ],
+    [
+      "Theo dõi chi phí đến từng token cache.",
+      "Giá theo từng model với mốc cơ sở nhận biết compaction."
+    ],
+    [
+      "Mọi phiên, agent và sự kiện gom về một nơi.",
+      "Tìm kiếm, phát lại và kiểm tra mà không cần rời khỏi phòng."
+    ],
+    [
+      "Từ SessionStart đến SessionEnd, được ghi lại trọn vẹn.",
+      "Bao gồm cả compaction, lỗi API và thời lượng từng lượt."
+    ],
+    [
+      "Biết model nào đã làm gì, và tốn bao nhiêu.",
+      "Subagent được tính theo giá riêng, không phải giá của orchestrator."
+    ],
+    [
+      "Đội workflow và các agent bên trong, được phơi bày.",
+      "Kể cả những lần chạy chẳng bao giờ kích hoạt một hook nào."
+    ],
+    [
+      "Cửa sổ cục bộ ưu tiên nhìn vào agent của bạn.",
+      "Không cloud, không tài khoản, không telemetry."
+    ],
+    [
+      "Đo năng suất, không phải cảm tính.",
+      "Tốc độ, hiệu quả cache và mức hữu dụng của công cụ, được chấm điểm."
+    ],
+    [
+      "Bắt bất thường trước khi hóa đơn bắt được.",
+      "Chi phí ngoại lệ và đột biến token, được cảnh báo sớm."
+    ],
+    [
+      "Cấu hình Claude Code của bạn, được lập bản đồ đầy đủ.",
+      "Skill, agent, hook, MCP và bộ nhớ chỉ trong một cái nhìn."
+    ]
+  ]
 }

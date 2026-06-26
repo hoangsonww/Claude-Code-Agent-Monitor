@@ -707,8 +707,15 @@ export interface TranscriptContent {
   is_error?: boolean;
 }
 
+/** Who actually sent a transcript message. A JSONL `type:"user"` line can be the
+ *  human, a tool result, a harness injection, or (in a subagent transcript) the
+ *  task handed down by the orchestrator — `sender` disambiguates for display. */
+export type TranscriptSender = "user" | "assistant" | "orchestrator" | "system" | "tool";
+
 export interface TranscriptMessage {
   type: "user" | "assistant" | "session_event";
+  /** True sender, classified server-side. Falls back to `type` when absent. */
+  sender?: TranscriptSender;
   timestamp: string | null;
   content: TranscriptContent[];
   model?: string;

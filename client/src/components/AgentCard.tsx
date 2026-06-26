@@ -40,9 +40,46 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // fallback carries no extra info next to the ID, so it is suppressed.
   const sessionName = session?.name?.trim() || "";
   const realSessionName = /^Session [0-9a-f]{8}$/i.test(sessionName) ? "" : sessionName;
+  // A subagent's own model lives in its metadata (resolved from its transcript,
+  // not the parent session's — see issue #185). Use it everywhere this card
+  // shows a model so a Haiku QA agent under an Opus orchestrator reads as
+  // Haiku, not Opus. Falls back to the session model only for the main agent.
+  let subagentModel: string | null = null;
+  if (!isMain && agent.metadata) {
+    try {
+      const parsed = JSON.parse(agent.metadata) as { model?: string };
+      subagentModel = parsed?.model ? formatModelName(parsed.model) : null;
+    } catch {
+      subagentModel = null;
+    }
+  }
+  // The model badge (footer) must reflect THIS card's agent: the session model
+  // for main, the subagent's own model for subagents.
+  const displayModel = isMain ? model : subagentModel;
+  // Model now lives in the footer badge, so the subtitle carries project
+  // context instead: main shows cwd + how many agents the session spawned +
+  // how many turns it has run; subagents show their type + the project they ran
+  // in. (No model here — that would duplicate the footer badge, which is what
+  // main cards used to do.)
+  const agentCount = typeof session?.agent_count === "number" ? session.agent_count : 0;
+  let sessionTurns = 0;
+  if (isMain && session?.metadata) {
+    try {
+      const m = JSON.parse(session.metadata) as { turn_count?: number };
+      if (typeof m?.turn_count === "number") sessionTurns = m.turn_count;
+    } catch {
+      sessionTurns = 0;
+    }
+  }
   const subtitle = isMain
-    ? [model, cwdBase].filter(Boolean).join(" · ") || null
-    : label || agent.subagent_type;
+    ? [
+        cwdBase,
+        agentCount > 0 ? t("kanban:session.agentSummary", { count: agentCount }) : null,
+        sessionTurns > 0 ? t("kanban:session.turnSummary", { count: sessionTurns }) : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null
+    : [label || agent.subagent_type, cwdBase].filter(Boolean).join(" · ") || null;
 
   function handleClick() {
     if (onClick) {
@@ -100,11 +137,12 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
         )}
         {/* Model badge - shown on every card when no tool is currently
             running (avoids clutter on actively-running agents that already
-            display the running tool name). */}
-        {model && !agent.current_tool && (
+            display the running tool name). Uses the agent's OWN model:
+            session model for main, the subagent's resolved model otherwise. */}
+        {displayModel && !agent.current_tool && (
           <span className="flex items-center gap-1 flex-shrink-0">
             <Cpu className="w-3 h-3" />
-            {model}
+            {displayModel}
           </span>
         )}
         {cost > 0 && (

@@ -19,8 +19,60 @@ import {
   Info,
   AlertTriangle,
   Pencil,
+  Workflow,
+  Cog,
 } from "lucide-react";
-import type { TranscriptMessage, TranscriptContent } from "../../lib/types";
+import type { TranscriptMessage, TranscriptContent, TranscriptSender } from "../../lib/types";
+
+/** Per-sender visual treatment for a transcript row. A JSONL `type:"user"` line
+ *  is not always the human (tool results, harness task-notifications, the
+ *  orchestrator's task to a subagent) — each sender gets its own label, icon,
+ *  and accent so attribution is unambiguous. */
+const SENDER_STYLES: Record<
+  TranscriptSender,
+  { label: string; icon: typeof User; avatarRing: string; accentBar: string; headerText: string }
+> = {
+  user: {
+    label: "User",
+    icon: User,
+    avatarRing:
+      "bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-blue-200 ring-1 ring-blue-400/30",
+    accentBar: "before:bg-blue-500/40",
+    headerText: "text-blue-200",
+  },
+  assistant: {
+    label: "Assistant",
+    icon: Bot,
+    avatarRing:
+      "bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200 ring-1 ring-violet-400/30",
+    accentBar: "before:bg-violet-500/40",
+    headerText: "text-violet-200",
+  },
+  orchestrator: {
+    label: "Main agent",
+    icon: Workflow,
+    avatarRing:
+      "bg-gradient-to-br from-teal-500/30 to-emerald-500/20 text-teal-200 ring-1 ring-teal-400/30",
+    accentBar: "before:bg-teal-500/40",
+    headerText: "text-teal-200",
+  },
+  system: {
+    label: "System",
+    icon: Cog,
+    avatarRing:
+      "bg-gradient-to-br from-slate-500/30 to-gray-500/20 text-gray-300 ring-1 ring-slate-400/30",
+    accentBar: "before:bg-slate-500/40",
+    headerText: "text-gray-300",
+  },
+  tool: {
+    label: "Tool",
+    icon: Terminal,
+    avatarRing:
+      "bg-gradient-to-br from-amber-500/30 to-orange-500/20 text-amber-200 ring-1 ring-amber-400/30",
+    accentBar: "before:bg-amber-500/40",
+    headerText: "text-amber-200",
+  },
+};
 import { ToolCallBlock } from "./ToolCallBlock";
 import { MarkdownContent } from "./MarkdownContent";
 import { fmt, formatModelName } from "../../lib/format";
@@ -262,33 +314,30 @@ export function MessageList({ messages, loading }: MessageListProps) {
         }
 
         const isAssistant = msg.type === "assistant";
-        const accentBar = isAssistant ? "before:bg-violet-500/40" : "before:bg-blue-500/40";
-        const avatarRing = isAssistant
-          ? "bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 text-violet-200 ring-1 ring-violet-400/30"
-          : "bg-gradient-to-br from-blue-500/30 to-cyan-500/20 text-blue-200 ring-1 ring-blue-400/30";
+        // The true sender (classified server-side) drives the label + styling.
+        // Falls back to the coarse type for older payloads without `sender`.
+        const sender: TranscriptSender = msg.sender ?? (isAssistant ? "assistant" : "user");
+        const style = SENDER_STYLES[sender] ?? SENDER_STYLES.user;
+        const SenderIcon = style.icon;
 
         return (
           <div
             key={idx}
-            className={`relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2/30 transition-colors before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:opacity-60 ${accentBar}`}
+            className={`relative flex gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2/30 transition-colors before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-full before:opacity-60 ${style.accentBar}`}
           >
             {/* Avatar */}
             <div
-              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5 shadow-sm ${avatarRing}`}
+              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5 shadow-sm ${style.avatarRing}`}
             >
-              {isAssistant ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+              <SenderIcon className="w-4 h-4" />
             </div>
 
             {/* Message body */}
             <div className="flex-1 min-w-0 space-y-2">
               {/* Header line */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={`text-xs font-semibold tracking-wide ${
-                    isAssistant ? "text-violet-200" : "text-blue-200"
-                  }`}
-                >
-                  {isAssistant ? "Assistant" : "User"}
+                <span className={`text-xs font-semibold tracking-wide ${style.headerText}`}>
+                  {style.label}
                 </span>
                 {msg.model && (
                   <span className="text-[10px] text-gray-400 font-mono bg-surface-3/60 border border-surface-3 rounded px-1.5 py-0.5">

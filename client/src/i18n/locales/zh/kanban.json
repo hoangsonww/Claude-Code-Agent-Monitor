@@ -21,7 +21,9 @@
   "session": {
     "anonymous": "未命名会话",
     "agentSummary_one": "{{count}} 个 Agent",
-    "agentSummary_other": "{{count}} 个 Agent"
+    "agentSummary_other": "{{count}} 个 Agent",
+    "turnSummary_one": "{{count}} 轮",
+    "turnSummary_other": "{{count}} 轮"
   },
   "tooltip": {
     "agent": {
