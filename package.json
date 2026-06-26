@@ -88,13 +88,15 @@
     "test:client": "cd client && npm test",
     "test:mcp": "npm --prefix mcp run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "openapi:yaml": "node scripts/generate-openapi-yaml.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "multer": "^2.0.0",
+    "redoc": "^2.5.3",
     "swagger-ui-express": "^5.0.1",
     "tar": "^7.4.3",
     "uuid": "^11.1.0",
@@ -106,6 +108,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "js-yaml": "^4.1.0",
     "prettier": "^3.8.1"
   },
   "engines": {

@@ -24,6 +24,10 @@ const EXPECTED_API_PATHS = [
   "/api/health",
   "/api/sessions",
   "/api/sessions/{id}",
+  "/api/sessions/facets",
+  "/api/sessions/{id}/stats",
+  "/api/sessions/{id}/transcripts",
+  "/api/sessions/{id}/transcript",
   "/api/agents",
   "/api/agents/{id}",
   "/api/events",
@@ -37,6 +41,8 @@ const EXPECTED_API_PATHS = [
   "/api/pricing/cost/{sessionId}",
   "/api/workflows",
   "/api/workflows/session/{id}",
+  "/api/workflows/runs",
+  "/api/workflows/runs/{runId}",
   "/api/settings/info",
   "/api/settings/clear-data",
   "/api/settings/reimport",
@@ -44,6 +50,7 @@ const EXPECTED_API_PATHS = [
   "/api/settings/reset-pricing",
   "/api/settings/export",
   "/api/settings/cleanup",
+  "/api/settings/claude-home",
   "/api/import/guide",
   "/api/import/rescan",
   "/api/import/scan-path",
@@ -55,7 +62,40 @@ const EXPECTED_API_PATHS = [
   "/api/alerts/rules/{id}",
   "/api/alerts/{id}/ack",
   "/api/alerts/ack-all",
+  "/api/push/vapid-public-key",
+  "/api/push/subscribe",
+  "/api/push/send",
+  "/api/cc-config/overview",
+  "/api/cc-config/skills",
+  "/api/cc-config/agents",
+  "/api/cc-config/commands",
+  "/api/cc-config/output-styles",
+  "/api/cc-config/plugins",
+  "/api/cc-config/mcp",
+  "/api/cc-config/hooks",
+  "/api/cc-config/settings",
+  "/api/cc-config/memory",
+  "/api/cc-config/marketplaces",
+  "/api/cc-config/keybindings",
+  "/api/cc-config/statusline",
+  "/api/cc-config/hook-scripts",
+  "/api/cc-config/file",
+  "/api/cc-config/backups",
+  "/api/run",
+  "/api/run/history",
+  "/api/run/cwds",
+  "/api/run/files",
+  "/api/run/binary",
+  "/api/run/{id}",
+  "/api/run/{id}/message",
+  "/api/webhooks",
+  "/api/webhooks/providers",
+  "/api/webhooks/{id}",
+  "/api/webhooks/{id}/test",
+  "/api/webhooks/{id}/deliveries",
   "/api/openapi.json",
+  "/api/docs",
+  "/api/redoc",
 ];
 
 function fetch(urlPath, options = {}) {
@@ -148,6 +188,21 @@ describe("OpenAPI / Swagger", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /text\/html/);
     assert.match(res.body, /swagger/i);
+  });
+
+  it("should serve the ReDoc reference page", async () => {
+    const res = await fetch("/api/redoc");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"], /text\/html/);
+    // References the spec and the locally-served bundle (no CDN).
+    assert.match(res.body, /spec-url="\/api\/openapi\.json"/);
+    assert.match(res.body, /src="\/api\/redoc\/redoc\.standalone\.js"/);
+  });
+
+  it("should serve the self-hosted ReDoc bundle", async () => {
+    const res = await fetch("/api/redoc/redoc.standalone.js");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"], /javascript/);
   });
 });
 

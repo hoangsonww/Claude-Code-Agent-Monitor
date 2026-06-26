@@ -865,11 +865,20 @@ flowchart TD
 | ------ | ------------------- | ----------------------------------- |
 | `GET` | `/api/openapi.json` | 原始 OpenAPI 3.0 规范 |
 | `GET` | `/api/docs` | 交互式 Swagger UI 文档 |
+| `GET` | `/api/redoc` | ReDoc 参考文档（针对阅读优化的三栏式 API 文档）。**自托管**：捆绑包从本地 `/api/redoc/redoc.standalone.js` 提供，不依赖 CDN，可离线使用 |
 
 OpenAPI 文档由 `server/openapi.js` 生成，Swagger UI 由后端直接提供。
 
+仓库根目录还提交了一份 `openapi.yaml`，它镜像实时规范，并通过 `npm run openapi:yaml` 重新生成（唯一可信来源为 `server/openapi.js`，切勿手动编辑）。
+
+API 文档现已**全面覆盖**：每个后端路由都有文档说明（共 75 个路径条目），包含参数、Schema、字段描述与示例；新增文档的路由组包括 `/api/push`、`/api/cc-config`、`/api/run`、`/api/workflows/runs`、`/api/sessions/facets` 与 `/api/settings/claude-home`。
+
 <p align="center">
   <img src="images/swagger.png" alt="Swagger UI" width="100%">
+</p>
+
+<p align="center">
+  <img src="images/redoc.png" alt="ReDoc UI" width="100%">
 </p>
 
 ### 健康检查

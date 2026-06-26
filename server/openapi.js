@@ -4,10 +4,34 @@
  */
 
 const pkg = require("../package.json");
+const extraSpec = require("./openapi-extra");
 
 function normalizeRepositoryUrl(url) {
   if (!url || typeof url !== "string") return null;
   return url.replace(/^git\+/, "").replace(/\.git$/, "");
+}
+
+/**
+ * Merge supplementary tags/schemas/paths (from server/openapi-extra) into the
+ * base spec. Extra `paths` and `schemas` override base entries with the same
+ * key; `tags` are appended only when a tag with that `name` isn't already
+ * present. Mutates and returns `spec`.
+ */
+function mergeExtraSpec(spec, extra) {
+  if (!extra) return spec;
+  if (Array.isArray(extra.tags) && extra.tags.length > 0) {
+    const have = new Set((spec.tags || []).map((t) => t && t.name));
+    for (const tag of extra.tags) {
+      if (tag && !have.has(tag.name)) spec.tags.push(tag);
+    }
+  }
+  if (extra.schemas) {
+    spec.components.schemas = { ...spec.components.schemas, ...extra.schemas };
+  }
+  if (extra.paths) {
+    spec.paths = { ...spec.paths, ...extra.paths };
+  }
+  return spec;
 }
 
 function createOpenApiSpec() {
@@ -20,7 +44,7 @@ function createOpenApiSpec() {
         : null;
   const defaultPort = Number.parseInt(process.env.DASHBOARD_PORT || "4820", 10) || 4820;
 
-  return {
+  const spec = {
     openapi: "3.0.3",
     info: {
       title: "Agent Dashboard for Claude Code API",
@@ -2703,6 +2727,8 @@ function createOpenApiSpec() {
         get: {
           tags: ["Documentation"],
           summary: "Get OpenAPI specification JSON",
+          description:
+            "Returns this OpenAPI 3.0 document as JSON. Both API explorers consume it: Swagger UI (`/api/docs`) for interactive try-it-out requests, and ReDoc (`/api/redoc`) for a read-optimized reference.",
           operationId: "getOpenApiJson",
           responses: {
             200: {
@@ -2716,6 +2742,36 @@ function createOpenApiSpec() {
           },
         },
       },
+      "/api/docs": {
+        get: {
+          tags: ["Documentation"],
+          summary: "Swagger UI explorer",
+          description:
+            "Interactive Swagger UI rendering of this specification, with try-it-out request execution against the live local server.",
+          operationId: "getSwaggerUi",
+          responses: {
+            200: {
+              description: "Swagger UI HTML page",
+              content: { "text/html": { schema: { type: "string" } } },
+            },
+          },
+        },
+      },
+      "/api/redoc": {
+        get: {
+          tags: ["Documentation"],
+          summary: "ReDoc API reference",
+          description:
+            "Read-optimized, three-panel ReDoc rendering of this specification. The ReDoc bundle is served locally from `/api/redoc/redoc.standalone.js` (bundled with the server, never fetched from a CDN), so the reference works fully offline.",
+          operationId: "getRedoc",
+          responses: {
+            200: {
+              description: "ReDoc HTML page",
+              content: { "text/html": { schema: { type: "string" } } },
+            },
+          },
+        },
+      },
     },
     ...(issuesUrl
       ? {
@@ -2723,6 +2779,8 @@ function createOpenApiSpec() {
         }
       : {}),
   };
+
+  return mergeExtraSpec(spec, extraSpec);
 }
 
 module.exports = { createOpenApiSpec };

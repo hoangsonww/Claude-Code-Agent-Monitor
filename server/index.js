@@ -35,6 +35,7 @@ const http = require("http");
 const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
 const { createOpenApiSpec } = require("./openapi");
+const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
 const { writeServerInfo, removeServerInfo } = require("./lib/server-info");
 const {
   resolveHost,
@@ -99,6 +100,26 @@ function createApp() {
       customSiteTitle: "Agent Dashboard API Docs",
     })
   );
+
+  // ReDoc — a read-optimized, three-panel rendering of the same OpenAPI spec
+  // (complements Swagger UI's interactive console at /api/docs). The bundle is
+  // served from node_modules, never a CDN, so the reference works offline.
+  app.get("/api/redoc/redoc.standalone.js", (_req, res) => {
+    res.sendFile(redocBundlePath(), (err) => {
+      if (err && !res.headersSent) res.status(500).end();
+    });
+  });
+  app.get("/api/redoc", (_req, res) => {
+    res
+      .type("html")
+      .send(
+        renderRedocHtml(
+          "/api/openapi.json",
+          "/api/redoc/redoc.standalone.js",
+          "Agent Dashboard API Reference"
+        )
+      );
+  });
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

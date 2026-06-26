@@ -571,6 +571,8 @@ class APIClient {
 export const api = new APIClient();
 ```
 
+> **API reference:** the endpoints this client calls are fully documented by the server's OpenAPI 3.0.3 spec. With the dashboard running (default port `4820`), explore them at `/api/docs` (interactive Swagger UI), `/api/redoc` (read-optimized ReDoc reference), or `/api/openapi.json` (raw spec). A committed `openapi.yaml` at the repo root mirrors the live spec.
+
 ### Error Handling
 
 ```mermaid

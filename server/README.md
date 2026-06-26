@@ -114,7 +114,7 @@ graph TB
         Pricing[routes/pricing.js /api/pricing*]
         Settings[routes/settings.js /api/settings*]
         Workflows[routes/workflows.js /api/workflows*]
-        OpenAPI[openapi.js + Swagger /api/openapi.json /api/docs]
+        OpenAPI[openapi.js + openapi-extra/ + Swagger + lib/redoc.js /api/openapi.json /api/docs /api/redoc]
     end
     
     subgraph "Tests"
@@ -168,7 +168,15 @@ server/
 │   ├── settings.js        # Ops/settings API
 │   └── workflows.js       # Workflow intelligence API
 │
-├── openapi.js             # OpenAPI 3.0 spec generator
+├── openapi.js             # OpenAPI 3.0.3 spec generator (createOpenApiSpec)
+├── openapi-extra/         # Supplementary OpenAPI fragments merged into the spec
+│   ├── cc-config.js       #   /api/cc-config/* paths + schemas
+│   ├── push.js            #   /api/push/* paths + schemas
+│   ├── run.js             #   /api/run/* paths + schemas
+│   └── misc.js            #   remaining route groups
+│
+├── lib/
+│   └── redoc.js           # Serves ReDoc reference (/api/redoc) + self-hosted bundle
 │
 └── __tests__/
     └── api.test.js        # Integration tests
@@ -399,14 +407,16 @@ All endpoints return JSON unless noted. Error responses use:
 }
 ```
 
-### OpenAPI / Swagger
+### OpenAPI / Swagger / ReDoc
 
-| Method | Path                | Description                         |
-| ------ | ------------------- | ----------------------------------- |
-| `GET`  | `/api/openapi.json` | Raw OpenAPI 3.0.3 spec              |
-| `GET`  | `/api/docs`         | Interactive Swagger UI documentation |
+| Method | Path                             | Description                                                                          |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET`  | `/api/openapi.json`              | Raw OpenAPI 3.0.3 spec                                                                |
+| `GET`  | `/api/docs`                      | Interactive **Swagger UI** (try-it-out request execution)                            |
+| `GET`  | `/api/redoc`                     | **ReDoc** reference — clean, read-optimized three-panel rendering of the same spec   |
+| `GET`  | `/api/redoc/redoc.standalone.js` | Self-hosted ReDoc bundle (via the `redoc` dependency, never a CDN — works offline)   |
 
-The OpenAPI spec is generated from `server/openapi.js` and is the source of truth for request/response contracts.
+The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), merged with supplementary fragments under `server/openapi-extra/`, and is the source of truth for request/response contracts. It now documents every backend route (75 path entries). Both Swagger UI and ReDoc (`server/lib/redoc.js`) render the same spec; the ReDoc bundle is served locally so the reference works offline / air-gapped. A committed `openapi.yaml` at the repo root mirrors the live spec — regenerate it after API changes with `npm run openapi:yaml` (never hand-edit it).
 
 ### Core Endpoints
 

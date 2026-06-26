@@ -844,17 +844,33 @@ Full details: [mcp/README.md](./mcp/README.md)
 
 All endpoints return JSON. Error responses follow the shape `{ error: { code, message } }`.
 
-### OpenAPI / Swagger
+### OpenAPI / Swagger / ReDoc
 
-| Method | Path                | Description                         |
-| ------ | ------------------- | ----------------------------------- |
-| `GET`  | `/api/openapi.json` | Raw OpenAPI 3.0 spec                |
-| `GET`  | `/api/docs`         | Interactive Swagger UI documentation |
+There are three ways to explore the HTTP API, all driven by a single OpenAPI 3.0.3 spec (default server port `4820`):
 
-The OpenAPI document is generated from `server/openapi.js`, and Swagger UI is served directly by the backend.
+| Method | Path                            | Description                                                                                       |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/openapi.json`             | Raw OpenAPI 3.0.3 JSON spec                                                                        |
+| `GET`  | `/api/docs`                     | Interactive **Swagger UI** — try-it-out request execution                                         |
+| `GET`  | `/api/redoc`                    | **ReDoc** reference — a clean, read-optimized three-panel rendering of the same spec              |
+| `GET`  | `/api/redoc/redoc.standalone.js`| Self-hosted ReDoc bundle (served locally via the `redoc` dependency, never a CDN — works offline) |
+
+The OpenAPI document is generated from `server/openapi.js` (`createOpenApiSpec()`), merged with supplementary fragments under `server/openapi-extra/`. Swagger UI and ReDoc are both served directly by the backend; the ReDoc bundle is served locally (`GET /api/redoc/redoc.standalone.js`) so the reference works fully offline / air-gapped, consistent with the project's no-external-assets policy.
+
+Coverage is comprehensive: every backend route is documented (75 path entries) across these tags — Health, Sessions, Agents, Events, Stats, Analytics, Hooks, Pricing, Workflows, Settings, Updates, Alerts, Webhooks, Push, CcConfig (Claude Code config explorer), Run (dashboard-spawned runs), and Documentation — each with parameters, request/response schemas, field-level descriptions, and realistic examples.
+
+A committed **`openapi.yaml`** at the repo root mirrors the live spec. It is generated from `server/openapi.js` (never hand-edited) — regenerate it after API changes with:
+
+```bash
+npm run openapi:yaml
+```
 
 <p align="center">
   <img src="images/swagger.png" alt="Swagger UI" width="100%">
+</p>
+
+<p align="center">
+  <img src="images/redoc.png" alt="ReDoc UI" width="100%">
 </p>
 
 ### Health

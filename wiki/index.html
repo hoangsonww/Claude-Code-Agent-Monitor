@@ -1451,6 +1451,14 @@
               <img src="../images/alerts.png" alt="Settings — Alerts &amp; Webhooks" width="100%" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🔔</span> <span><strong>Settings · Alerts</strong> — rules-based alerting engine and outbound webhooks in one place: alert rules (event pattern / inactivity / stuck agent / token threshold) with per-rule cooldown, a live fired-alert feed, and 14 first-class webhook providers plus a generic JSON endpoint with optional HMAC signing</span></div>
             </div>
+            <div class="screenshot-card" id="ss-swagger">
+              <img src="../images/swagger.png" alt="Swagger UI API docs" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">📘</span> <span><strong>API Docs · Swagger UI</strong> — interactive OpenAPI 3.0 playground at <code>/api/docs</code>: collapsible endpoint groups, request/response schemas, auth headers, and try-it-out request execution against the live local server</span></div>
+            </div>
+            <div class="screenshot-card" id="ss-redoc">
+              <img src="../images/redoc.png" alt="ReDoc API reference" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">📗</span> <span><strong>API Docs · ReDoc</strong> — a self-hosted, read-optimized rendering of the full OpenAPI 3.0 spec at <code>/api/redoc</code>, served entirely offline with no CDN. Complements the interactive Swagger UI at <code>/api/docs</code>; every backend route is documented with parameters, schemas, and examples</span></div>
+            </div>
           </div>
 
           <h3>GitHub Star History</h3>
@@ -2859,17 +2867,26 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <h2>API Reference</h2>
           <p>
             All endpoints return JSON. Errors follow
-            <code>{ "error": { "code", "message" } }</code>. The full OpenAPI 3.0 spec is
-            served at <code>/api/openapi.json</code> and rendered as interactive Swagger UI
-            at <code>/api/docs</code>.
+            <code>{ "error": { "code", "message" } }</code>. The OpenAPI 3.0 spec comprehensively
+            documents every backend route - parameters, request/response schemas, field
+            descriptions, and examples. It is served at <code>/api/openapi.json</code> (with a
+            committed <code>openapi.yaml</code> mirror), rendered as interactive Swagger UI at
+            <code>/api/docs</code>, and as a clean, read-optimized ReDoc reference at
+            <code>/api/redoc</code>. ReDoc is self-hosted, so it works fully offline.
           </p>
 
-          <div class="screenshot-gallery gallery-single">
+          <div class="screenshot-gallery">
             <div class="screenshot-card">
               <img src="../images/swagger.png" alt="Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls" width="3024" height="1666" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📘</span> <span>Swagger UI at <code>/api/docs</code> — auto-generated interactive playground for every REST endpoint. Try-it-out forms, request/response schema, auth headers, and curl snippets</span></div>
             </div>
+            <div class="screenshot-card">
+              <img src="../images/redoc.png" alt="ReDoc rendering the dashboard's OpenAPI 3.0 spec as a read-optimized three-panel reference, served self-hosted and fully offline" width="3024" height="1670" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">📗</span> <span>ReDoc at <code>/api/redoc</code> — a self-hosted, read-optimized three-panel rendering of the same OpenAPI spec: deep-linkable sections, search, and full schema/example detail. Works entirely offline (no CDN)</span></div>
+            </div>
           </div>
+
+
 
           <h3>Health</h3>
           <div class="route-list">
@@ -5996,8 +6013,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=10" defer></script>
-    <script src="script.js?v=28" defer></script>
+    <script src="i18n-content.js?v=13" defer></script>
+    <script src="script.js?v=29" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");
