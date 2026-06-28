@@ -1,0 +1,81 @@
+{
+  // ─────────────────────────────────────────────────────────────────────────
+  // Optional, opt-in dev environment for Claude Code Agent Monitor.
+  // Used only when you choose "Dev Containers: Reopen in Container" (VS Code) or
+  // open the repo in a GitHub Codespace. It changes nothing for host-based dev.
+  //
+  // Covers the full project: the Express server (4820), the React/Vite client
+  // (5173), the MCP server, and the VS Code extension. The native `better-sqlite3`
+  // addon builds here (build-essential + python3 are installed in the Dockerfile).
+  //
+  // NOTE (issue #193): Claude Code hooks are a HOST-side concern. This container
+  // intentionally does NOT bind-mount ~/.claude and does NOT install hooks — the
+  // installer refuses to run inside a container. Run `npm run install-hooks` on
+  // your host so hooks POST to http://localhost:4820 (forwarded from here).
+  // ─────────────────────────────────────────────────────────────────────────
+  "name": "Claude Code Agent Monitor",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Lets you build/run the project's own production Dockerfile + docker-compose
+    // from inside the dev container (e.g. to reproduce issue #193 deliberately).
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  // Server (API + WebSocket) and the Vite client dev server. VS Code forwards
+  // these from the container's localhost, so the secure loopback bind is fine.
+  "forwardPorts": [4820, 5173],
+  "portsAttributes": {
+    "4820": {
+      "label": "Dashboard server (API + WebSocket)",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite dev client",
+      "onAutoForward": "openBrowser"
+    }
+  },
+
+  // Install root + client + vscode-extension deps and build the MCP server.
+  // Never installs Claude Code hooks (host-only — see note above).
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "waitFor": "postCreateCommand",
+
+  "remoteUser": "node",
+
+  // Dev defaults. NODE_ENV=development so `npm run dev` runs API-only with the
+  // Vite client on 5173 (production mode would serve the prebuilt client/dist).
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "vitest.explorer",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "yzhang.markdown-all-in-one",
+        "ms-python.python",
+        "bradlc.vscode-tailwindcss",
+        "GitHub.vscode-pull-request-github"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+        "files.eol": "\n",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

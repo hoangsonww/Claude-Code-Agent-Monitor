@@ -1667,9 +1667,14 @@ cd Claude-Code-Agent-Monitor
 # 2. Install all dependencies (server + client)
 npm run setup
 
-# Optional: manually install hooks for container deployments
-# or if auto-install on server startup fails
+# Optional: install hooks on the HOST (e.g. for container deployments)
+# or if auto-install on server startup fails. Run this on the host, never
+# inside a container — the installer refuses there (issue #193).
 npm run install-hooks
+
+# Optional: develop in a preconfigured VS Code Dev Container / Codespace
+# (Node 22 + native build tools + Python, ports 4820/5173). Opt-in only —
+# host-based dev is unaffected. See .devcontainer/.
 
 # 3. Start in development mode
 npm run dev
@@ -1717,7 +1722,11 @@ docker run -d --name agent-monitor \
                 <code>npm start</code>, it automatically writes Claude Code hook entries to
                 <code>~/.claude/settings.json</code>. If you run the dashboard in Docker or Podman,
                 install hooks from the host with <code>npm run install-hooks</code> after the
-                container is up, then restart Claude Code.
+                container is up, then restart Claude Code. The installer refuses to run inside a
+                container (issue #193) so it never writes a container-internal handler path into a
+                bind-mounted host <code>~/.claude</code>; override with
+                <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code> only if Claude Code itself runs in the
+                container.
               </p>
             </div>
           </div>
@@ -6013,7 +6022,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=13" defer></script>
+    <script src="i18n-content.js?v=14" defer></script>
     <script src="script.js?v=29" defer></script>
     <script>
       (function () {

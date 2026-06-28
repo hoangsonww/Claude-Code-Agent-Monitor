@@ -449,7 +449,7 @@ The dashboard is then available at `http://localhost:4820`. The server binds `12
 | `agent-monitor-data:/app/data` | Persist the SQLite database across restarts |
 
 > [!IMPORTANT]
-> **Note:** Claude Code hooks must still point to a running hook-handler process on the host. The container itself does not receive hooks — run `npm run install-hooks` on the host to configure hooks that POST to `http://localhost:4820`.
+> **Note:** Claude Code hooks must still point to a running hook-handler process on the host. The container itself does not receive hooks — run `npm run install-hooks` **on the host** to configure hooks that POST to `http://localhost:4820`. Running the installer inside a container is **refused** (issue #193) so it can't write a container-internal handler path into a bind-mounted host `~/.claude`; override with `CCAM_ALLOW_CONTAINER_HOOKS=1` only if you actually run Claude Code inside the same container.
 
 ---
 

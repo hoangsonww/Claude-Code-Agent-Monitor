@@ -421,7 +421,7 @@ podman run -d --name agent-monitor \
 | `agent-monitor-data:/app/data` | Persists the SQLite database across container restarts |
 
 > [!IMPORTANT]
-> Claude Code hooks run on the host, not inside the container. After the container is healthy on `http://localhost:4820`, run `npm run install-hooks` on the host so Claude Code posts hook events back to the containerized server.
+> Claude Code hooks run on the host, not inside the container. After the container is healthy on `http://localhost:4820`, run `npm run install-hooks` on the host so Claude Code posts hook events back to the containerized server. The installer refuses to run inside a container (issue #193) to avoid writing a container-internal handler path into a bind-mounted `~/.claude`; use `CCAM_ALLOW_CONTAINER_HOOKS=1` only if you run Claude Code inside the same container.
 
 <p align="center">
   <img src="images/dashboard.png" alt="Dashboard Overview" width="100%">

@@ -14,6 +14,74 @@ const { getSettingsPath } = require("../server/lib/claude-home");
 const SETTINGS_PATH = getSettingsPath();
 const HOOK_HANDLER = path.resolve(__dirname, "hook-handler.js").replace(/\\/g, "/");
 
+function envFlag(name) {
+  return ["1", "true", "yes", "on"].includes(String(process.env[name] || "").toLowerCase());
+}
+
+/**
+ * True when this process is running inside a container (Docker, Podman, or a
+ * Kubernetes pod). Detected via the Docker/Podman marker files, the OCI/systemd
+ * `container` env var, and a Linux cgroup heuristic. `CCAM_FORCE_CONTAINER=1`
+ * forces a positive result and `CCAM_FORCE_HOST=1` forces a negative result
+ * (used by tests / to override misfiring detection).
+ *
+ * Why this matters (GitHub #193): the hook command written into
+ * `~/.claude/settings.json` embeds the absolute handler path resolved here.
+ * Inside a container that path (e.g. `/app/scripts/hook-handler.js`) does not
+ * exist on the host. When `~/.claude` is bind-mounted, installing from the
+ * container poisons the host settings and every host hook fails with
+ * `MODULE_NOT_FOUND`. Claude Code runs on the host, so hooks must be installed
+ * on the host.
+ *
+ * @returns {boolean}
+ */
+function isInsideContainer() {
+  if (envFlag("CCAM_FORCE_CONTAINER")) return true;
+  if (envFlag("CCAM_FORCE_HOST")) return false;
+  try {
+    if (fs.existsSync("/.dockerenv")) return true; // Docker
+    if (fs.existsSync("/run/.containerenv")) return true; // Podman
+  } catch {
+    /* fs probe failed — fall through to other signals */
+  }
+  // systemd-nspawn / Podman (and often Docker) export `container`.
+  if (typeof process.env.container === "string" && process.env.container.length > 0) return true;
+  // Linux cgroup heuristic — covers Docker, containerd, Kubernetes, Podman.
+  try {
+    const cgroup = fs.readFileSync("/proc/self/cgroup", "utf8");
+    if (/\b(docker|containerd|kubepods|libpod|podman)\b/.test(cgroup)) return true;
+  } catch {
+    /* not Linux / no cgroup file — not a container by this signal */
+  }
+  return false;
+}
+
+/** Multi-line message explaining why a container install is refused. */
+function containerRefusalMessage() {
+  return [
+    "✖ Refusing to install Claude Code hooks from inside a container.",
+    "",
+    `  The hook command would embed this handler path:`,
+    `      ${HOOK_HANDLER}`,
+    `  written into:`,
+    `      ${SETTINGS_PATH}`,
+    "",
+    "  Claude Code runs on the HOST. When ~/.claude is bind-mounted, a",
+    "  container-internal handler path does not exist on the host, so every host",
+    "  hook fails with MODULE_NOT_FOUND (e.g. the SessionEnd hook). See issue #193.",
+    "",
+    "  → Install hooks ON THE HOST instead:",
+    "        npm run install-hooks",
+    "        # or: node /path/to/Claude-Code-Agent-Monitor/scripts/install-hooks.js",
+    "",
+    "  The host handler POSTs to http://localhost:4820, which the container already",
+    "  publishes — so a host-installed hook reaches the containerized dashboard.",
+    "",
+    "  If you genuinely run Claude Code inside this same container, override with:",
+    "        CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks",
+  ].join("\n");
+}
+
 // Hook types to install. Some support matchers, some don't.
 const HOOKS_WITH_MATCHER = ["PreToolUse", "PostToolUse", "Stop", "SubagentStop", "Notification"];
 // UserPromptSubmit fires the instant the user hits enter — the only reliable
@@ -50,6 +118,14 @@ function isOurEntry(entry) {
 }
 
 function installHooks(silent = false) {
+  // Host-only guard (issue #193): never write a container-internal handler path
+  // into a (potentially bind-mounted) host settings file. Honors an explicit
+  // opt-out for the rare case of running Claude Code inside this same container.
+  if (isInsideContainer() && !envFlag("CCAM_ALLOW_CONTAINER_HOOKS")) {
+    if (!silent) console.error(containerRefusalMessage());
+    return false;
+  }
+
   let settings = {};
   if (fs.existsSync(SETTINGS_PATH)) {
     try {
@@ -96,7 +172,8 @@ function installHooks(silent = false) {
 }
 
 if (require.main === module) {
-  installHooks(false);
+  // Non-zero exit on refusal/failure so CI and shell users notice it.
+  if (!installHooks(false)) process.exitCode = 1;
 }
 
-module.exports = { installHooks };
+module.exports = { installHooks, isInsideContainer };

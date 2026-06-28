@@ -450,11 +450,21 @@ if (require.main === module) {
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
 
-  // Auto-install Claude Code hooks on every startup so users don't have to
+  // Auto-install Claude Code hooks on every startup so users don't have to.
+  // Skipped inside containers (issue #193): a container-internal handler path
+  // would poison a bind-mounted host ~/.claude and break every host hook, so
+  // hooks must be installed on the host (`npm run install-hooks`).
   try {
-    const { installHooks } = require("../scripts/install-hooks");
-    installHooks(true);
-    console.log("Claude Code hooks auto-configured.");
+    const { installHooks, isInsideContainer } = require("../scripts/install-hooks");
+    if (installHooks(true)) {
+      console.log("Claude Code hooks auto-configured.");
+    } else if (isInsideContainer()) {
+      console.log(
+        "Claude Code hooks NOT auto-configured: running inside a container. " +
+          "Run `npm run install-hooks` on the host so hooks point at a host path and " +
+          "POST to http://localhost:4820 (this container's published port)."
+      );
+    }
   } catch {
     // Non-fatal — user can run npm run install-hooks manually
   }

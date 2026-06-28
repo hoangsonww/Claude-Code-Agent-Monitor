@@ -3357,7 +3357,9 @@
             <h3>Four commands.</h3>
             <p>
               No accounts, no cloud, no telemetry. Everything stays on your machine. Existing
-              sessions in <code>~/.claude/projects</code> import on first start.
+              sessions in <code>~/.claude/projects</code> import on first start. Prefer a
+              containerized toolchain? An optional VS Code Dev Container / Codespaces config ships
+              in <code>.devcontainer/</code> (opt-in - host-based dev is unaffected).
             </p>
             <a href="wiki/#quickstart" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3398,7 +3400,7 @@
 <span class="prompt">$</span><span class="str">cd</span> Claude-Code-Agent-Monitor
 <span class="prompt">$</span>npm run setup
 
-<span class="comment"># Install the hooks</span>
+<span class="comment"># Install the hooks (on the HOST — never inside a container, #193)</span>
 <span class="prompt">$</span>npm run install-hooks
 
 <span class="comment"># Start the dashboard (server + Vite)</span>

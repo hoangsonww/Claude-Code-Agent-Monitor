@@ -153,6 +153,17 @@ graph TB
 npm run install-hooks
 ```
 
+> [!IMPORTANT]
+> **Hooks are a host-side step.** Claude Code runs on your host, so the hook
+> command must reference a `hook-handler.js` path that exists on the **host**.
+> Run `npm run install-hooks` on the host — never inside a container. When run
+> inside Docker/Podman, the installer **refuses** and exits non-zero (issue
+> #193): a container-internal path written into a bind-mounted `~/.claude` would
+> break every host hook with `MODULE_NOT_FOUND`. The host handler POSTs to
+> `http://localhost:4820`, which a containerized dashboard already publishes.
+> (Escape hatch for running Claude Code *inside* the same container:
+> `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.)
+
 This copies hook scripts from `scripts/hooks/` to `.githooks/`:
 
 ```mermaid
