@@ -123,4 +123,29 @@ describe("syncDefaultProjects", () => {
     // this fresh cache, so it is reported once — but the empty dir must not error.
     assert.ok(Array.isArray(changed));
   });
+
+  it("skips re-parsing an already-imported, unchanged session even on a cold cache", async () => {
+    // Models the immediate sweep after every server restart: mtimeCache is
+    // empty, but the DB already holds these sessions. An unchanged file must NOT
+    // be re-parsed/re-reported (the cold-restart fast path), so a large history
+    // doesn't re-parse every transcript on boot.
+    const SESSION_STABLE = "22222222-bbbb-4bbb-8bbb-222222222222";
+    writeSession("-stable", SESSION_STABLE, fixtureLines(SESSION_STABLE, "/stable"));
+
+    // First sweep (cold cache) imports it.
+    const first = await syncDefaultProjects(dbModule, { mtimeCache: new Map() });
+    assert.ok(
+      first.changed.find((c) => c.sessionId === SESSION_STABLE && c.isNew),
+      "first sweep imports the new session"
+    );
+
+    // Second sweep with a FRESH (cold) cache: the file is unchanged and the row
+    // exists, so the gate skips it — nothing reported for SESSION_STABLE.
+    const second = await syncDefaultProjects(dbModule, { mtimeCache: new Map() });
+    assert.equal(
+      second.changed.find((c) => c.sessionId === SESSION_STABLE),
+      undefined,
+      "an unchanged, already-imported session is skipped on a cold cache"
+    );
+  });
 });

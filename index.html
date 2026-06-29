@@ -2780,7 +2780,9 @@
               Rescan <code>~/.claude/projects/</code>, point at any directory, or drag-drop a
               <code>.tar.gz</code> archive of transcripts. Imports are <strong>idempotent</strong>
               — per-event-type high-water marks dedupe re-runs — with WebSocket progress, archive
-              extraction limits, and full subagent JSONL parsing.
+              extraction limits, and full subagent JSONL parsing. A background sync watches the
+              projects folder and auto-imports new or changed sessions live — even ones that never
+              fire hooks — so projects added after launch appear without a manual rescan.
             </p>
           </div>
           <div class="feature-card">

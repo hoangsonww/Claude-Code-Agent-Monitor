@@ -422,6 +422,17 @@ function startSessionSync(broadcast) {
           }
           if (!row) continue;
           broadcast(isNew ? "session_created" : "session_updated", row);
+          // Also surface the session's main agent, so a synced session appears
+          // live on the Agents board too (not just the Sessions board). Hooks
+          // emit both a session and an agent frame; mirror that here.
+          try {
+            const mainAgent = dbModule.db
+              .prepare("SELECT * FROM agents WHERE session_id = ? AND type = 'main' LIMIT 1")
+              .get(sessionId);
+            if (mainAgent) broadcast(isNew ? "agent_created" : "agent_updated", mainAgent);
+          } catch {
+            /* best-effort — the session frame already refreshed the UI */
+          }
         }
       })
       .catch(() => {})

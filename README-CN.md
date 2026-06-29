@@ -299,6 +299,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **压缩追踪** | 从 JSONL Transcript 检测 `/compact` 事件,创建压缩 Agent 和事件。启动时回填历史压缩。周期性扫描器(频率从 `DASHBOARD_STALE_MINUTES` 派生)在无 Hook 触发时也能捕获压缩。共享 Transcript 缓存,避免重复文件读取 |
 | **子会话/恢复会话** | 新事件到达时自动重新激活会话,正确处理 `/resume` 和孤立会话。周期性清理(每 ¼ 个 `DASHBOARD_STALE_MINUTES`,夹在 60 秒–5 分钟之间)标记遗漏事件检测的废弃会话 |
 | **预存会话检测** | 服务器启动时已在运行的会话以"活跃"状态导入（基于近期 JSONL 文件修改时间）。Stop 事件也会重新激活已导入的完成/废弃会话，因此进行中的会话的第一个 Hook 始终会显示在 Dashboard 上 |
+| **持续项目同步** | 启动时对 `~/.claude/projects` 的自动导入是一次性的（由标记位把关），因此在首次启动**之后**才创建的项目文件夹——其会话从不经过 Hook 流入（例如 host-only Hook 被禁用）——在手动重新扫描之前都将不可见。后台同步（`startSessionSync`）通过三个共享同一个 mtime 缓存 + 单次合并扫描的触发器弥补了这个空隙：启动时的**立即**扫描、一个去抖的 **`fs.watch`**（新会话文件 / 项目文件夹一出现就触发；在 macOS/Windows 上递归监听，在 Linux 上监听根目录 + 直接子文件夹，以规避用户态递归监听器的隐患），以及一个**周期性轮询**（`DASHBOARD_SESSION_SYNC_MS`，默认 30 秒）。每次扫描只重新解析 mtime 前进过的文件，并广播 `session_created`/`session_updated`（外加主 Agent），让 UI 实时刷新；DB 中已有且未变更的会话会被跳过、不再重新解析，因此重启成本保持为 O(新增/变更文件) |
 | **响应式设计** | 适配移动端的布局，堆叠网格、可滚动表格和可折叠侧边栏 |
 | **界面本地化** | 内置语言切换，UI 文案与无障碍标签已覆盖英文（`en`）、中文（`zh`）和越南语（`vi`）。覆盖范围现已贯穿 Workflows 页面的所有 tooltip：统计卡片的计算说明与按值分桶的解读、每个图表的「此图展示什么 / 如何阅读 / 为何重要」浮层、所有图形悬停 tooltip（编排 DAG、工具流、Pipeline、模型委派、并发时间线）、Workflow Patterns 详情面板的叙述与建议、设置页 → 模型定价的信息浮层、CLAUDE_HOME 面板，以及完整的 Import History 流程 |
 | **种子数据** | 内置种子脚本，用于演示和开发 |
@@ -509,6 +510,7 @@ sequenceDiagram
    - **错误检测看门狗** — 后台定时器每 15 秒运行一次，扫描没有近期 Hook 事件（>10 秒）的活跃会话。它重新读取 Transcript 文件查找 API 错误（认证失败、速率限制、配额耗尽），从会话 `cwd` 推导 Transcript 路径（用于没有 `transcript_path` 的导入会话），并在发现 API 错误时将会话/Agent 标记为 `error`。这可以捕获 Claude CLI 在 API 错误后不触发 Hook 的情况（例如 401 认证失败时 CLI 只显示错误并等待）
    - **用户中断（Esc）恢复** — 用户按 `Esc` 取消回合时**不会触发任何 Hook**（Claude Code 已知的限制），因此若不加干预，主 Agent 会永远卡在 `working` 状态。同一个 15 秒看门狗以两种方式恢复这些会话：(1) 当取消在 Transcript 中留下 `[Request interrupted by user]` 标记时（Esc 发生在已有部分输出之后），Transcript 缓存通过 `pendingInterrupt` 标记它 —— 该标志纯粹由 Transcript 顺序推导得出（最新的中断与最新的真实回合活动相比，使用同一时钟，因此即便是亚秒级取消也有效）—— 会话在约 15 秒内转入**等待中**；(2) 当 Esc 在**任何输出之前**按下时，Claude Code 完全不写入标记，因此应用空闲超时回退 —— 当主 Agent 处于 `working`、**没有进行中的工具**（`current_tool` 为 null），且 `DASHBOARD_WORKING_IDLE_SECONDS`（默认 `120`）期间**既无 Hook 事件也无 Transcript 推进**时，该回合被视为已死，会话转入**等待中**。两条路径都记录一个 `Interrupted` 事件，并将会话置于与正常 `Stop` 相同的等待中状态。流式输出（Transcript 仍在增长）和进行中的工具调用（`current_tool` 已设置）不受影响；罕见的误判会在下一次真实 Hook 时自愈
    - 周期性服务器清理捕获遗漏事件检测的废弃会话和新压缩(例如 `/compact` 不触发 Hook、会话创建后几秒内 `/resume`)。频率从 `DASHBOARD_STALE_MINUTES` 派生(¼ 阈值,夹在 60 秒–5 分钟之间)。清理共享 Hook Handler 的 Transcript 缓存,避免重复 I/O。废弃会话清理还会驱逐 Transcript 缓存条目以限制内存使用
+   - **持续项目同步**（`startSessionSync`）让 `~/.claude/projects` 在一次性、由标记位把关的启动回填之外仍可被发现：之后才加入、其会话从不经过 Hook 流入的项目，否则在手动重新扫描之前都将不可见。启动时的立即扫描、一个去抖的 `fs.watch`（在 macOS/Windows 上递归监听，在 Linux 上监听根目录 + 直接子文件夹），以及一个 `DASHBOARD_SESSION_SYNC_MS` 轮询（默认 30 秒；`0` 禁用轮询，但监听器保持运行），三者共享同一个 mtime 缓存与一次合并扫描，只重新解析 mtime 前进过的文件 —— 并跳过已导入且未变更的会话、不再重新解析，因此重启成本保持为 O(新增/变更文件)。每个新发现/增长的会话都会广播 `session_created`/`session_updated` 外加其主 Agent，与 Hook 发出的帧相同
 4. **WebSocket** 将变更广播到所有已连接客户端
 5. **UI** 接收更新并重新渲染受影响的组件
 
@@ -596,6 +598,7 @@ flowchart LR
 | `DASHBOARD_PORT` | `4820` | Express 服务器端口 |
 | `CLAUDE_DASHBOARD_PORT` | `4820` | Hook Handler 连接服务器使用的端口 |
 | `DASHBOARD_WORKING_IDLE_SECONDS` | `120` | 用于恢复**在任何输出之前**以 `Esc` 取消（不会留下 Transcript 标记）回合的空闲工作超时。当主 Agent 处于 `working`、没有进行中的工具，且在此时长内既无 Hook 事件也无 Transcript 推进时，看门狗将会话转入**等待中**。调低可获得更迅捷的恢复，但代价是长时间静默思考的回合上偶尔出现误判（会自愈） |
+| `DASHBOARD_SESSION_SYNC_MS` | `30000` | 持续 `~/.claude/projects` 后台同步的轮询间隔（毫秒），用于显示启动后才加入、其会话从不经过 Hook 流入的项目。无论如何 `fs.watch` 监听器都会近乎即时触发；该轮询是安全兜底（监听器可能错过事件 / 在网络文件系统上不触发）。设为 `0` 可禁用轮询，同时让监听器保持运行 |
 | `NODE_ENV` | `development` | 设为 `production` 以提供构建后的客户端 |
 
 ---

@@ -1047,6 +1047,27 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-emerald">🛰️</div>
+                  <h3>Continuous Project Sync</h3>
+                  <p>
+                    The startup auto-import of <code>~/.claude/projects</code> is one-time and
+                    marker-gated, so a project folder created after first launch — whose sessions
+                    never flow through hooks (for example with host-only hooks disabled) — would
+                    stay invisible until a manual rescan. A background sync closes that gap with
+                    three triggers sharing one mtime cache and a single coalesced sweep: an
+                    immediate sweep at startup, a debounced <code>fs.watch</code> (recursive on
+                    macOS and Windows; root plus immediate child folders on Linux to avoid the
+                    userland recursive-watcher hazard) that fires the moment a new session file or
+                    project folder appears, and a periodic safety-net poll tunable via
+                    <code>DASHBOARD_SESSION_SYNC_MS</code> (default <code>30000</code> ms;
+                    <code>0</code> disables the poll while leaving the watcher running). Each sweep
+                    re-parses only files whose mtime advanced and broadcasts
+                    <code>session_created</code> / <code>session_updated</code> (plus the main
+                    agent) so the UI refreshes live, while an already-imported unchanged session is
+                    skipped without re-parsing.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-cyan">💾</div>
                   <h3>Transcript Cache</h3>
                   <p>
@@ -1863,6 +1884,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>120</code></td>
                   <td>
                     Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_SESSION_SYNC_MS</code></td>
+                  <td><code>30000</code></td>
+                  <td>
+                    Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher
                   </td>
                 </tr>
                 <tr>
@@ -6038,8 +6066,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=15" defer></script>
-    <script src="script.js?v=29" defer></script>
+    <script src="i18n-content.js?v=16" defer></script>
+    <script src="script.js?v=30" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

@@ -1563,7 +1563,24 @@ async function syncDefaultProjects(dbModule, options = {}) {
 
       try {
         const sessionId = path.basename(file, ".jsonl");
-        const existed = !!dbModule.stmts.getSession.get(sessionId);
+        const existingRow = dbModule.stmts.getSession.get(sessionId);
+        // Cold-cache fast path (e.g. the immediate sweep on every restart, when
+        // `mtimeCache` is empty): if the session already exists and the file has
+        // NOT advanced past what we've already ingested, skip the full transcript
+        // parse entirely — just record the mtime. `updated_at` is bumped to >=
+        // the file mtime whenever we import the file or a hook ingests from it,
+        // so `mtime <= updated_at` means there is nothing new to read. A grown
+        // no-hook session (mtime > updated_at) still falls through and re-parses,
+        // which is the whole point of the sweep. This keeps restart cost O(new /
+        // changed files) instead of re-parsing every transcript on disk.
+        if (existingRow) {
+          const seenMs = Date.parse(existingRow.updated_at);
+          if (Number.isFinite(seenMs) && mtime <= seenMs) {
+            mtimeCache.set(sourcePath, mtime);
+            continue;
+          }
+        }
+        const existed = !!existingRow;
         const session = await parseSessionForImport(projPath, sourcePath);
         // Record the mtime even when the file yields no session, so we don't
         // re-parse an unusable file every tick.

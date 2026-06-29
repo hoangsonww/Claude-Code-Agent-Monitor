@@ -1023,6 +1023,16 @@ The server runs a background error detection timer every 15 seconds that proacti
 
 This catches cases where the Claude CLI doesn't fire a hook after an API error (e.g., 401 auth failures where the CLI just shows the error message and waits for user input).
 
+### Continuous Project Sync
+
+The startup auto-import of `~/.claude/projects` is **one-time** (marker-gated via `.legacy-import.done`), so a project folder created *after* first launch — whose sessions never flow through hooks (e.g. host-only hooks disabled) — would stay invisible until a manual rescan. `startSessionSync` (in `server/index.js`, wired into `startBackgroundServices`) closes that gap. It calls the exported `syncDefaultProjects(dbModule, { mtimeCache })` from `scripts/import-history.js` via three triggers that share **one** `mtimeCache` and a **single coalesced sweep** (a `running`/`queued` guard serializes overlapping triggers so at most one sweep runs at a time, with at most one more queued):
+
+1. **Immediate sweep** at startup — surfaces anything the one-time backfill missed, right away instead of after the first interval.
+2. **Debounced `fs.watch` (800 ms)** — fires a sweep the instant a *new* session file or project folder appears. Events for paths already in `mtimeCache` (active transcripts being appended) are ignored, so a busy session never thrashes the importer — its growth is left to the poll. Recursive watch is used on macOS/Windows (native, stable); on Linux the root + each immediate child folder are watched **non-recursively** (avoids the userland recursive-watcher hazard documented in `lib/cc-watcher.js`), adding a child watcher whenever a new folder appears.
+3. **Periodic poll** — a safety-net sweep on `DASHBOARD_SESSION_SYNC_MS` (default `30000` ms; `0` disables the poll but leaves the watcher running), covering events a watcher can miss (e.g. on network filesystems).
+
+Each sweep parses **only** files whose mtime is new or has advanced. A cold-cache fast path (e.g. the immediate sweep on every restart, when `mtimeCache` is empty) additionally skips an already-imported session whose file mtime hasn't advanced past its DB row's `updated_at`, so restart cost stays O(new/changed files) instead of re-parsing every transcript on disk. For each touched session it then broadcasts `session_created` / `session_updated` plus the session's main agent (`agent_created` / `agent_updated`) — the same frames hooks emit, so the UI refreshes live. All timers and watchers are `unref`'d and best-effort; nothing here can block shutdown or take down the server.
+
 ### User-Interrupt (Esc) Recovery
 
 Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI limitation), so the `UserPromptSubmit` that promoted the main agent to `working` is never undone — the session would otherwise sit in `working` forever. The same 15 s watchdog recovers it, with two detection paths:
@@ -1259,6 +1269,9 @@ DASHBOARD_ALLOWED_HOSTS=           # Extra Host-header names to allow (comma-sep
 
 # Database
 DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
+
+# Background services
+DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
 
 # Logging
 LOG_LEVEL=info                     # Log level (debug, info, warn, error)
