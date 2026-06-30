@@ -26,7 +26,7 @@
     "type": "git",
     "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
   },
-  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/main/vscode-extension/README.md",
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/vscode-extension/README.md",
   "contributes": {
     "commands": [
       {

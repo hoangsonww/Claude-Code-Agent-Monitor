@@ -1189,4 +1189,4 @@ The Agent Dashboard API provides:
 - ✅ **Pagination** for large datasets
 - ✅ **Pricing management** with custom rule support
 
-For integration examples, see [docs/INTEGRATION.md](./INTEGRATION.md).
+For interactive API exploration with live request/response examples, see the built-in Swagger UI at `/api/docs` and ReDoc at `/api/redoc`. For MCP integration, see [MCP.md](./MCP.md).

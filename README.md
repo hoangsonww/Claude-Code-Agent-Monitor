@@ -70,7 +70,7 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > [!TIP]
-> See also: [README-CN.md](./README-CN.md) (中文版本) and [README-VI.md](./README-VI.md) (Phiên bản tiếng Việt) for localized documentation with region-specific tips and best practices.
+> See also: [README-CN.md](./README-CN.md) (中文版本) and [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt) for localized documentation with region-specific tips and best practices.
 
 ---
 

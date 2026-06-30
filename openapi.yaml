@@ -11,7 +11,7 @@ info:
     url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor
   license:
     name: MIT
-    url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/main/LICENSE
+    url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/LICENSE
 externalDocs:
   description: Project documentation
   url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor#readme

@@ -12,7 +12,7 @@
 
 If you discover a security vulnerability in this project, please report it responsibly:
 
-1. **Email**: Send a detailed report to the maintainers via a private channel (open a [GitHub Security Advisory](../../security/advisories/new) on this repository).
+1. **Email**: Send a detailed report to the maintainers via a private channel (open a [GitHub Security Advisory](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/security/advisories/new) on this repository).
 2. **Include**:
    - Description of the vulnerability
    - Steps to reproduce
