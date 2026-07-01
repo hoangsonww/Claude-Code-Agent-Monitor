@@ -1266,7 +1266,12 @@ export function Dashboard() {
                               <AgentCard
                                 agent={agent}
                                 session={sessionsById.get(agent.session_id)}
-                                onClick={hasChildren ? toggleExpanded : undefined}
+                                // Card click always navigates (AgentCard's
+                                // default → session details), whether or not it
+                                // has children. Expand/collapse is handled solely
+                                // by the chevron button, so clicking a parent
+                                // (incl. the main agent) no longer toggles.
+                                onClick={undefined}
                               />
                             </div>
                           </div>

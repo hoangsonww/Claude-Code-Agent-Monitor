@@ -741,11 +741,12 @@ export function SessionDetail() {
                               agent={agent}
                               session={session ?? undefined}
                               label={compactionLabels.get(agent.id)}
-                              onClick={
-                                hasChildren
-                                  ? toggleExpanded
-                                  : () => navigateToAgentConversation(agent)
-                              }
+                              // Card click always opens the agent conversation —
+                              // same behavior whether or not it has children.
+                              // Expand/collapse of the subagent list is handled
+                              // solely by the chevron button, so clicking a
+                              // parent (incl. the main agent) no longer toggles.
+                              onClick={() => navigateToAgentConversation(agent)}
                             />
                           </div>
                         </div>
