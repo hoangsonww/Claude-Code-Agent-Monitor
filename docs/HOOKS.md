@@ -429,8 +429,10 @@ Triggered when a Claude Code session ends.
 
 **Purpose:**
 - Drop `awaiting_input_since` on the session and any agents that still have it
-- Mark all agents and the session as `completed`
+- Mark all agents and the session as `completed` — **unless the session is in `error` AND that error is still unrecovered at the transcript tail** (`isErrorAtTail`: the latest API error has no successful turn after it), in which case `error` is preserved. A transient error the CLI retried past (successful assistant turns after the last error) finalizes as `completed` instead of freezing in a stale `error`
 - Evict the session's transcript from the shared transcript cache
+
+> **Stale-error self-heal.** Separately from `SessionEnd`, the 15 s watchdog now scans `error` sessions (not just `active`) and clears a session back to `active` when its transcript has progressed past the last API error (`isErrorAtTail` is false). Claude auto-retries transient API errors (e.g. "Connection closed mid-response") and keeps working, so an error followed by real turn activity has recovered — recovery previously required a live `UserPromptSubmit`/`PreToolUse` hook, leaving imported or sweep-monitored sessions pinned in `error` indefinitely.
 
 ---
 

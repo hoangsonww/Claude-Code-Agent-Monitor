@@ -882,9 +882,11 @@ stateDiagram-v2
     active --> error: API error detected (watchdog)
     waiting --> error: API error detected (watchdog)
     error --> active: UserPromptSubmit / PreToolUse (recovery)
+    error --> active: Watchdog self-heal (transcript progressed past the error)
     waiting --> completed: SessionEnd (CLI exited)
     active --> completed: SessionEnd (CLI exited)
-    error --> error: SessionEnd (preserves error)
+    error --> error: SessionEnd (error still unrecovered at transcript tail)
+    error --> completed: SessionEnd (error recovered — successful turns after it)
     waiting --> abandoned: Stale > DASHBOARD_STALE_MINUTES
     active --> abandoned: Stale > DASHBOARD_STALE_MINUTES
     completed --> active: Session resumed (new work event)
@@ -1059,15 +1061,16 @@ Error state transitions:
 - `Stop` with `stop_reason=error` → agent `error`, session `error`
 - API error in transcript (hook-based or watchdog) → session `error`, agent `error`
 - `Notification` indicating input prompt → agent `waiting` (status change, not just flag)
-- `SessionEnd` on error session → **preserves** `error` status (previously always set to `completed`)
+- `SessionEnd` on error session → **preserves** `error` **only if the error is unrecovered at the transcript tail** (`isErrorAtTail`: the latest API error has no successful turn after it). A transient error the CLI retried past (successful turns after it) finalizes as `completed`, so a long healthy run doesn't exit frozen in a stale `error` from days earlier.
 
 ### Error Recovery
 
-Only two events can recover a session from `error` back to `active`:
+Three ways a session leaves `error`:
 - **`UserPromptSubmit`** — user hits enter on a new prompt (active retry)
 - **`PreToolUse`** — agent begins using a tool (session resumed with work)
+- **Watchdog self-heal** — the 15 s watchdog now scans `error` sessions too. When the transcript shows the session progressed past the last API error (successful turns after it — `isErrorAtTail` is false), it clears the error back to `active`. This closes the gap where a transient API error (e.g. "Connection closed mid-response" — the CLI auto-retries and keeps going) left a session that recovered but never received a live `UserPromptSubmit`/`PreToolUse` hook — or one driven purely by the transcript sweep — pinned in `error` forever.
 
-This ensures error states are only cleared by deliberate user action, not by background activity.
+Live user actions and the transcript-tail check clear the error; unrelated background activity does not (the watchdog only clears when the transcript proves recovery).
 
 ### Graceful Shutdown
 

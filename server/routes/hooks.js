@@ -500,9 +500,13 @@ const processEvent = db.transaction((hookType, data) => {
       clearAwaitingInput(sessionId, mainAgentId, false);
 
       // SessionEnd is the definitive signal that the CLI process exited.
-      // If the session was in error state, keep it there — the user never
-      // recovered before exiting. Otherwise mark completed.
-      const finalSessionStatus = endSession?.status === "error" ? "error" : "completed";
+      // Keep `error` ONLY if the error is still unrecovered at the transcript
+      // tail. A transient API error that the CLI retried past (successful turns
+      // after it) has recovered, so exiting after a long healthy run must land
+      // as `completed`, not a stale `error` frozen from days earlier.
+      const endResult = data.transcript_path ? transcriptCache.extract(data.transcript_path) : null;
+      const finalSessionStatus =
+        endSession?.status === "error" && isErrorAtTail(endResult) ? "error" : "completed";
       const allAgents = stmts.listAgentsBySession.all(sessionId);
       const now = new Date().toISOString();
       for (const agent of allAgents) {
@@ -936,6 +940,24 @@ const WORKING_IDLE_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 120_000; // default 2 min
 })();
 
+// True when the transcript's latest API error is unrecovered — i.e. it sits at
+// the tail with no successful turn after it. Claude auto-retries transient API
+// errors (e.g. "Connection closed mid-response") and keeps going, so an error
+// followed by real turn activity has RECOVERED and must not pin the session in
+// `error` forever. Mirrors computePendingInterrupt's ordering logic using the
+// timestamps the transcript cache already exposes (errors[].timestamp vs
+// lastTurnTs), so it needs no transcript re-parse.
+function isErrorAtTail(result) {
+  if (!result || !Array.isArray(result.errors) || result.errors.length === 0) return false;
+  let lastErrorTs = null;
+  for (const e of result.errors) {
+    if (e && e.timestamp && (!lastErrorTs || e.timestamp > lastErrorTs)) lastErrorTs = e.timestamp;
+  }
+  if (!lastErrorTs) return false; // errors without timestamps — can't prove it's current
+  if (!result.lastTurnTs) return true; // an error but no turn activity ⇒ unrecovered
+  return lastErrorTs >= result.lastTurnTs; // error is the latest activity ⇒ unrecovered
+}
+
 function watchdogCheck() {
   try {
     const os = require("os");
@@ -951,7 +973,7 @@ function watchdogCheck() {
                  AND e.event_type IN ('SessionStart','UserPromptSubmit','PreToolUse','Stop','Notification')
                  ORDER BY e.created_at DESC LIMIT 1) as last_data
          FROM sessions s
-         WHERE s.status = 'active' AND s.updated_at < ?`
+         WHERE s.status IN ('active', 'error') AND s.updated_at < ?`
       )
       .all(cutoff);
 
@@ -987,6 +1009,23 @@ function watchdogCheck() {
         .prepare("SELECT * FROM agents WHERE session_id = ? AND type = 'main' LIMIT 1")
         .get(sess.id);
       const mainAgentId = mainAgent?.id ?? null;
+
+      // Self-heal a stale error. The session was flipped to `error` by a
+      // transient API error, but the transcript has since progressed past it
+      // (successful turns after the last error) — so it recovered and must not
+      // show `error` forever. Recovery normally only happens on a live
+      // UserPromptSubmit/PreToolUse hook; a session monitored purely via the
+      // transcript sweep (imported, or whose recovering hooks never landed) had
+      // no path back. This is why the watchdog now scans `error` sessions too.
+      if (sess.status === "error" && !isErrorAtTail(result)) {
+        stmts.reactivateSession.run(sess.id);
+        broadcast("session_updated", stmts.getSession.get(sess.id));
+        if (mainAgent && mainAgent.status === "error") {
+          stmts.reactivateAgent.run(mainAgentId);
+          broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        }
+        continue; // handled this tick; error is cleared
+      }
 
       // User-interrupt (Esc) recovery. No hook fires when a turn is cancelled,
       // so UserPromptSubmit's "working" promotion is never undone and the main
