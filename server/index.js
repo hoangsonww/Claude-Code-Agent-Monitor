@@ -273,6 +273,27 @@ function startBackgroundServices() {
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();
 
+  // Backfill per-agent token metadata onto subagent rows that predate per-agent
+  // cost tracking, so their cards show their own cost instead of nothing. Runs
+  // deferred and non-blocking; self-limiting (rows with a tokens key are
+  // skipped), and metadata-only (never touches session token_usage).
+  {
+    const dbModule = require("./db");
+    const { backfillSubagentTokenMetadata } = require("../scripts/import-history");
+    const t = setTimeout(() => {
+      Promise.resolve()
+        .then(() => backfillSubagentTokenMetadata(dbModule))
+        .then((r) => {
+          if (r && r.stamped > 0)
+            console.log(
+              `Backfilled per-agent token cost for ${r.stamped} subagent(s) across ${r.sessions} session(s)`
+            );
+        })
+        .catch((err) => console.warn("subagent token backfill failed:", err?.message || err));
+    }, 500);
+    if (t.unref) t.unref();
+  }
+
   const { startUpdateScheduler } = require("./update-scheduler");
   const { broadcast } = require("./websocket");
   startUpdateScheduler({ broadcast });

@@ -898,7 +898,14 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
         meta.model = subData.model;
         changed = true;
       }
-      if (tokenRows.length > 0 && JSON.stringify(meta.tokens || []) !== JSON.stringify(tokenRows)) {
+      // Stamp per-agent token buckets so the row can be priced independently.
+      // Rewrite when the parsed usage differs; also stamp once (even []) on rows
+      // that predate this key so the backfill pass below doesn't re-scan a
+      // genuinely-zero-usage subagent on every startup.
+      const hasTokensKey = Object.prototype.hasOwnProperty.call(meta, "tokens");
+      const tokensChanged =
+        tokenRows.length > 0 && JSON.stringify(meta.tokens || []) !== JSON.stringify(tokenRows);
+      if (tokensChanged || !hasTokensKey) {
         meta.tokens = tokenRows;
         changed = true;
       }
@@ -2408,6 +2415,64 @@ async function scanAndImportSubagents(dbModule, sessionId, transcriptPath, opts 
   return { imported: subFiles.length, created, reparented };
 }
 
+/**
+ * Backfill metadata.tokens onto existing subagent rows that predate per-agent
+ * cost tracking. New imports and live SubagentStop scans stamp each subagent's
+ * own token buckets inline, but a historical session whose transcript never
+ * changes again is mtime-skipped by syncDefaultProjects — so its subagents would
+ * never gain a per-agent cost and their cards would show none. This re-parses
+ * the subagent transcripts for any session that still has a non-compaction
+ * subagent missing the tokens key and stamps them.
+ *
+ * METADATA ONLY — it routes through importSubagentFromJsonl, which stamps the
+ * agent row's metadata (and idempotently backfills any missing spawn/tool
+ * events) but never writes session token_usage. So session cost totals are
+ * completely untouched; only the per-agent breakdown is filled in.
+ *
+ * Idempotent and self-limiting: once a row has a tokens key it drops out of the
+ * driving query, so steady-state startups do near-zero work.
+ */
+async function backfillSubagentTokenMetadata(dbModule) {
+  const { db } = dbModule;
+  let sessions;
+  try {
+    sessions = db
+      .prepare(
+        `SELECT DISTINCT s.id AS session_id, s.transcript_path AS tp
+         FROM agents a JOIN sessions s ON s.id = a.session_id
+         WHERE a.type = 'subagent'
+           AND (a.subagent_type IS NULL OR a.subagent_type != 'compaction')
+           AND s.transcript_path IS NOT NULL
+           AND (a.metadata IS NULL OR a.metadata NOT LIKE '%"tokens":%')`
+      )
+      .all();
+  } catch {
+    return { sessions: 0, stamped: 0 };
+  }
+  let stamped = 0;
+  for (const s of sessions) {
+    const subDir = path.join(path.dirname(s.tp), s.session_id, "subagents");
+    let files;
+    try {
+      files = (await fs.promises.readdir(subDir)).filter((f) => f.endsWith(".jsonl"));
+    } catch {
+      continue; // transcript dir gone (moved/cleaned) — nothing to re-parse
+    }
+    const mainAgentId = `${s.session_id}-main`;
+    for (const f of files) {
+      try {
+        const subData = await parseSubagentFile(path.join(subDir, f));
+        if (!subData) continue;
+        importSubagentFromJsonl(dbModule, s.session_id, mainAgentId, subData);
+        stamped++;
+      } catch {
+        /* non-fatal — partial or unrelated files are common */
+      }
+    }
+  }
+  return { sessions: sessions.length, stamped };
+}
+
 module.exports = {
   importAllSessions,
   syncDefaultProjects,
@@ -2417,6 +2482,7 @@ module.exports = {
   importSubagents,
   importApiErrors,
   importSubagentFromJsonl,
+  backfillSubagentTokenMetadata,
   reconcileSubagentParents,
   parseSessionFile,
   parseSubagentFile,
