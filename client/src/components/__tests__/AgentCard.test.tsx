@@ -86,7 +86,7 @@ describe("AgentCard", () => {
     expect(screen.queryByText(formatModelName("claude-opus-4-8")!)).not.toBeInTheDocument();
   });
 
-  it("main agent subtitle shows project + agent count, with the model only once (#185)", () => {
+  it("main agent subtitle shows project + subagent count, with the model only once (#185)", () => {
     renderCard(
       <AgentCard
         agent={makeAgent({ type: "main", name: "Main" })}
@@ -103,8 +103,11 @@ describe("AgentCard", () => {
         }
       />
     );
-    // Subtitle: project basename + agent count + turn count (model excluded).
-    expect(screen.getByText("proj · 4 agents · 12 turns")).toBeInTheDocument();
+    // Subtitle: project basename + SUBAGENT count + turn count (model excluded).
+    // agent_count includes the main agent itself, so 4 agents => 3 subagents.
+    // Showing subagents (not agents) reconciles the card with the "Active
+    // Subagents" dashboard stat, which excludes main agents.
+    expect(screen.getByText("proj · 3 subagents · 12 turns")).toBeInTheDocument();
     // The model appears exactly once — in the footer badge, not duplicated in
     // the subtitle the way main cards used to.
     expect(screen.getAllByText(formatModelName("claude-opus-4-8")!)).toHaveLength(1);

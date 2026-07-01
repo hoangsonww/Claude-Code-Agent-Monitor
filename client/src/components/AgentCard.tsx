@@ -77,6 +77,12 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // in. (No model here — that would duplicate the footer badge, which is what
   // main cards used to do.)
   const agentCount = typeof session?.agent_count === "number" ? session.agent_count : 0;
+  // agent_count includes the main agent itself. Show how many SUBAGENTS the
+  // session spawned instead, so this reconciles with the "Active Subagents"
+  // dashboard stat (which excludes main agents) — otherwise a card reading
+  // "29 agents" looks like it should equal a 29-subagent stat when the session
+  // actually has 28 subagents + 1 main.
+  const subagentCount = Math.max(0, agentCount - 1);
   let sessionTurns = 0;
   if (isMain && session?.metadata) {
     try {
@@ -89,7 +95,7 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   const subtitle = isMain
     ? [
         cwdBase,
-        agentCount > 0 ? t("kanban:session.agentSummary", { count: agentCount }) : null,
+        subagentCount > 0 ? t("kanban:session.subagentSummary", { count: subagentCount }) : null,
         sessionTurns > 0 ? t("kanban:session.turnSummary", { count: sessionTurns }) : null,
       ]
         .filter(Boolean)

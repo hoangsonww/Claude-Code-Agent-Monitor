@@ -22,6 +22,8 @@
     "anonymous": "Phiên chưa đặt tên",
     "agentSummary_one": "{{count}} Agent",
     "agentSummary_other": "{{count}} Agent",
+    "subagentSummary_one": "{{count}} Agent con",
+    "subagentSummary_other": "{{count}} Agent con",
     "turnSummary_one": "{{count}} lượt",
     "turnSummary_other": "{{count}} lượt"
   },
