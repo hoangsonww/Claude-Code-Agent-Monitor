@@ -248,7 +248,7 @@ CREATE TABLE agents (
 | `task` | TEXT | YES | Subagent prompt / brief |
 | `current_tool` | TEXT | YES | Tool currently running (cleared on `PostToolUse`) |
 | `parent_agent_id` | TEXT | YES | FK to the spawning agent for nested subagent trees (`ON DELETE SET NULL`). Set to the main agent at insert, then repointed to the true spawner by `reconcileSubagentParents` from each subagent transcript's Task tool result (`toolUseResult.agentId`), so subagents-of-subagents nest correctly instead of flattening under main |
-| `metadata` | TEXT | YES | JSON blob for extras |
+| `metadata` | TEXT | YES | JSON blob for extras. For subagents it carries `model` (the subagent's own model, issue #185) and `tokens` — an array of per-agent token buckets parsed from the subagent's transcript. The agent-list endpoints price `tokens` at the current rates to attach a per-agent `cost` (so a subagent card shows its OWN cost, not the session total). Empty `[]` means the subagent did no billable work; absent means its transcript wasn't available to parse |
 | `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent. NULL on subagents |
 
 **Lifecycle:**
@@ -356,39 +356,54 @@ CREATE TABLE notifications (
 
 ---
 
-### pricing_rules
+### model_pricing
 
-Custom pricing rules for cost calculation.
+Per-model pricing rules for cost calculation, keyed by `model_pattern` (a SQL-style glob; `%` matches any characters). Rates are per **million** tokens (USD).
 
 ```sql
-CREATE TABLE pricing_rules (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pattern TEXT UNIQUE NOT NULL,
-    input_cost_per_1m REAL NOT NULL,
-    output_cost_per_1m REAL NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+CREATE TABLE model_pricing (
+    model_pattern TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    input_per_mtok REAL NOT NULL DEFAULT 0,
+    output_per_mtok REAL NOT NULL DEFAULT 0,
+    cache_read_per_mtok REAL NOT NULL DEFAULT 0,
+    cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,   -- 1h-ephemeral cache-write tier
+    fast_input_per_mtok REAL NOT NULL DEFAULT 0,       -- fast-mode premium rates
+    fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    -- Time-limited introductory (promo) rates. When intro_until is set, usage on
+    -- or before that date (YYYY-MM-DD) is priced at the intro_* rates and usage
+    -- after it at the standard rates. All 0 / NULL = no promo.
+    intro_input_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_output_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_read_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_until TEXT,                                   -- promo cutoff YYYY-MM-DD, or NULL
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 ```
 
-**Columns:**
+**Columns (highlights):**
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `id` | INTEGER | NO | Auto-increment primary key |
-| `pattern` | TEXT | NO | Model pattern (exact match or substring) |
-| `input_cost_per_1m` | REAL | NO | Input cost per 1M tokens (USD) |
-| `output_cost_per_1m` | REAL | NO | Output cost per 1M tokens (USD) |
-| `created_at` | TEXT | NO | ISO8601 timestamp |
+| `model_pattern` | TEXT | NO | Primary key. SQL-style glob (e.g. `claude-opus-4-7%`, `claude-%-haiku`). Rules are matched longest-pattern-first |
+| `display_name` | TEXT | NO | Human-readable model name shown in Settings |
+| `input_per_mtok` / `output_per_mtok` | REAL | NO | Standard input / output rate per 1M tokens |
+| `cache_read_per_mtok` / `cache_write_per_mtok` / `cache_write_1h_per_mtok` | REAL | NO | Cache read + 5m/1h cache-write rates |
+| `fast_input_per_mtok` / `fast_output_per_mtok` | REAL | NO | Fast-mode premium rates (0 = no premium) |
+| `intro_*_per_mtok` | REAL | NO | Introductory (promo) rates, mirroring the standard fields |
+| `intro_until` | TEXT | YES | Promo cutoff `YYYY-MM-DD`. Usage on/before it uses the intro rates; NULL = no promo. Editable per-rule in Settings |
+| `updated_at` | TEXT | NO | ISO8601 timestamp of the last edit |
 
-**Default Pricing Rules:**
+Standard rates and intro rates are edited independently: the pricing update path writes intro columns only when the caller sends intro fields, so a standard-rate edit never disturbs a promo (and vice versa). Clearing `intro_until` also zeroes the intro rates.
 
-| Pattern | Input ($/1M) | Output ($/1M) |
-|---------|--------------|---------------|
-| `claude-sonnet-4` | $3.00 | $15.00 |
-| `claude-opus-4` | $15.00 | $75.00 |
-| `claude-haiku-4` | $0.80 | $4.00 |
-| `gpt-5.1-codex` | $2.50 | $10.00 |
-| `gpt-5-mini` | $0.15 | $0.60 |
+**Example default rule (Claude Sonnet 5, with its launch promo):**
+
+| Pattern | Input | Output | Intro Input | Intro Output | Intro Until |
+|---------|-------|--------|-------------|--------------|-------------|
+| `claude-sonnet-5%` | $3.00 | $15.00 | $2.00 | $10.00 | `2026-08-31` |
 
 ---
 
@@ -428,6 +443,17 @@ CREATE INDEX idx_agents_status ON agents(status);
 - `SELECT * FROM agents WHERE agent_id = ?` - Primary key lookup
 - `SELECT * FROM agents WHERE session_id = ?` - All agents for session
 - `SELECT * FROM agents WHERE status = 'running'` - Active agents
+
+### events Indexes
+
+```sql
+-- Keeps the per-tool-event dedup used by subagent import an index seek instead
+-- of a full events scan. importSubagentFromJsonl checks
+-- `... WHERE agent_id = ? AND event_type = ? AND data LIKE '%"tool_use_id":"X"%'`
+-- before inserting; on a subagent-heavy re-import this drops a large sweep from
+-- tens of seconds to sub-second.
+CREATE INDEX idx_events_agent_type ON events(agent_id, event_type);
+```
 
 ### tool_executions Indexes
 

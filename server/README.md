@@ -469,6 +469,8 @@ Request body shape:
 | `GET`    | `/api/pricing/cost`       | Total cost across all sessions         |
 | `GET`    | `/api/pricing/cost/:id`   | Cost breakdown for one session         |
 
+`PUT /api/pricing` also accepts optional **time-limited introductory rates** (`intro_*_per_mtok` + an `intro_until` `YYYY-MM-DD` cutoff): usage on/before the cutoff is priced at the intro rate, after it at the standard rate. Intro columns are written only when the caller sends them, so a standard-rate edit never disturbs a promo. The agent-list endpoints (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (0 for main agents, whose cost is the session total).
+
 ### Workflows
 
 | Method | Path                          | Description                                                         |
