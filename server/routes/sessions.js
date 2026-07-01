@@ -9,7 +9,7 @@ const path = require("path");
 const readline = require("readline");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
-const { calculateCost } = require("./pricing");
+const { calculateCost, attachAgentCosts } = require("./pricing");
 const {
   getClaudeHome,
   getProjectsDir,
@@ -244,7 +244,9 @@ router.get("/:id", (req, res) => {
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
-  const agents = stmts.listAgentsBySession.all(req.params.id);
+  // Each agent's OWN cost (from its metadata token buckets) so subagent cards on
+  // the session-detail tree show their real cost, not the session total.
+  const agents = attachAgentCosts(stmts.listAgentsBySession.all(req.params.id));
   const events = stmts.listEventsBySession.all(req.params.id);
   // Workflow-tool runs launched within this session (issue #167). Parse the
   // JSON-blob columns so the client gets arrays, not strings.

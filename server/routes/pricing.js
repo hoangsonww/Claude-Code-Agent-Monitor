@@ -383,5 +383,41 @@ router.get("/cost/:sessionId", (req, res) => {
   res.json({ ...result, daily_costs });
 });
 
+/**
+ * Compute a single agent's own cost from the token buckets stashed in its
+ * metadata by the importer (agent.metadata.tokens). Returns 0 when the agent has
+ * no per-agent usage recorded (e.g. main agents — whose cost is the session
+ * total — compaction pseudo-agents, or live subagents not yet backfilled from
+ * their transcript). Priced with the agent's start date so a promo/standard
+ * cutover is respected, exactly like session cost.
+ */
+function agentOwnCost(agent, pricingRules) {
+  if (!agent || !agent.metadata) return 0;
+  let meta;
+  try {
+    meta = JSON.parse(agent.metadata);
+  } catch {
+    return 0;
+  }
+  const rows = Array.isArray(meta.tokens) ? meta.tokens : null;
+  if (!rows || rows.length === 0) return 0;
+  const asOf = agent.started_at ? String(agent.started_at).slice(0, 10) : undefined;
+  return calculateCost(rows, pricingRules, asOf).total_cost;
+}
+
+/**
+ * Return a shallow copy of each agent row with a computed `cost` field — the
+ * agent's OWN cost (see agentOwnCost). Pricing rules are read once for the whole
+ * batch. Used by the agent-list endpoints so subagent cards can show their real
+ * cost instead of the session total.
+ */
+function attachAgentCosts(agents) {
+  if (!Array.isArray(agents) || agents.length === 0) return agents;
+  const rules = stmts.listPricing.all();
+  return agents.map((a) => ({ ...a, cost: agentOwnCost(a, rules) }));
+}
+
 module.exports = router;
 module.exports.calculateCost = calculateCost;
+module.exports.agentOwnCost = agentOwnCost;
+module.exports.attachAgentCosts = attachAgentCosts;

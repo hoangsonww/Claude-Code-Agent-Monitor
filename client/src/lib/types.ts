@@ -52,6 +52,12 @@ export interface Agent {
   metadata: string | null;
   /** Mirrors the parent session: ISO timestamp when set, null otherwise. */
   awaiting_input_since?: string | null;
+  /**
+   * The agent's OWN cost (USD), computed server-side from its per-agent token
+   * buckets. Present for subagents that carry usage in their metadata; 0/absent
+   * for main agents (whose cost is the session total) and compaction agents.
+   */
+  cost?: number;
 }
 
 /** True when a session is paused on a permission prompt or input request. */

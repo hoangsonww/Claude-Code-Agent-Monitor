@@ -777,6 +777,43 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel) {
 }
 
 /**
+ * Flatten a subagent's per-model token buckets (from parseSubagentFile) into the
+ * row shape calculateCost() consumes, so a subagent's OWN cost can be recomputed
+ * at read time with current pricing (never a stored, stale figure). Buckets with
+ * no tokens at all are dropped to keep the stored metadata lean. This is what
+ * lets the UI show a subagent's real cost instead of the whole session's total.
+ */
+function subagentTokenRows(tokensByModel) {
+  const rows = [];
+  for (const b of Object.values(tokensByModel || {})) {
+    if (!b || !b.model) continue;
+    const row = {
+      model: b.model,
+      speed: b.speed,
+      inference_geo: b.geo,
+      service_tier: b.tier,
+      input_tokens: b.input || 0,
+      output_tokens: b.output || 0,
+      cache_read_tokens: b.cacheRead || 0,
+      cache_write_tokens: b.cacheWrite || 0,
+      cache_write_1h_tokens: b.cacheWrite1h || 0,
+      web_search_requests: b.webSearch || 0,
+      web_fetch_requests: b.webFetch || 0,
+      code_execution_requests: b.codeExec || 0,
+    };
+    const hasUsage =
+      row.input_tokens ||
+      row.output_tokens ||
+      row.cache_read_tokens ||
+      row.cache_write_tokens ||
+      row.web_search_requests ||
+      row.code_execution_requests;
+    if (hasUsage) rows.push(row);
+  }
+  return rows;
+}
+
+/**
  * Import a parsed subagent from its own JSONL file into the agents + events tables.
  * Idempotent: re-running on an already-imported subagent backfills any tool events
  * that are missing without duplicating the agent row.
@@ -798,6 +835,9 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   const existingJsonl = stmts.getAgent.get(jsonlSubId);
 
   const subName = subData.agentType ? subData.agentType : `Subagent ${subData.agentId.slice(0, 8)}`;
+  // This subagent's OWN token usage, so the UI can price it independently of the
+  // session total (which would otherwise be shown on every card, misleadingly).
+  const tokenRows = subagentTokenRows(subData.tokensByModel);
   let created = 0;
 
   // Only create a JSONL-keyed row when there's no live subagent to merge into.
@@ -822,6 +862,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
         user_messages: subData.userMessages,
         assistant_messages: subData.assistantMessages,
         thinking_blocks: subData.thinkingBlockCount,
+        tokens: tokenRows,
       })
     );
     db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
@@ -838,7 +879,12 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   // model, so without this they get read as the parent/orchestrator model
   // (issue #185). The JSONL-keyed row already records model at creation; this
   // backfills the live row (and is a no-op once model is set).
-  if (subData.model) {
+  // Backfill the target row's metadata: stamp the subagent's real model (issue
+  // #185) and refresh its own token buckets so its cost stays priced at current
+  // rates. Both are idempotent — model is only filled when missing; tokens are
+  // rewritten only when the transcript actually has usage (append-only JSONL, so
+  // the sum only grows) and when they differ from what's stored.
+  {
     const row = stmts.getAgent.get(targetAgentId);
     if (row) {
       let meta = {};
@@ -847,8 +893,16 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
       } catch {
         meta = {};
       }
-      if (!meta.model) {
+      let changed = false;
+      if (subData.model && !meta.model) {
         meta.model = subData.model;
+        changed = true;
+      }
+      if (tokenRows.length > 0 && JSON.stringify(meta.tokens || []) !== JSON.stringify(tokenRows)) {
+        meta.tokens = tokenRows;
+        changed = true;
+      }
+      if (changed) {
         db.prepare("UPDATE agents SET metadata = ? WHERE id = ?").run(
           JSON.stringify(meta),
           targetAgentId

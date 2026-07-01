@@ -10,7 +10,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AgentCard } from "../AgentCard";
 import type { Agent } from "../../lib/types";
-import { formatModelName } from "../../lib/format";
+import { formatModelName, fmtCost } from "../../lib/format";
 
 function renderCard(element: JSX.Element) {
   return render(<MemoryRouter>{element}</MemoryRouter>);
@@ -111,6 +111,56 @@ describe("AgentCard", () => {
     // The model appears exactly once — in the footer badge, not duplicated in
     // the subtitle the way main cards used to.
     expect(screen.getAllByText(formatModelName("claude-opus-4-8")!)).toHaveLength(1);
+  });
+
+  it("shows a subagent's OWN cost, not the session total (avoids misleading spend)", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ type: "subagent", subagent_type: "qa", cost: 3.5 })}
+        session={
+          {
+            id: "s",
+            name: "S",
+            status: "active",
+            cwd: "/x",
+            model: "claude-opus-4-8",
+            cost: 646.5,
+          } as never
+        }
+      />
+    );
+    expect(screen.getByText(fmtCost(3.5))).toBeInTheDocument();
+    // The session total must NOT appear on a subagent card.
+    expect(screen.queryByText(fmtCost(646.5))).not.toBeInTheDocument();
+  });
+
+  it("shows the session total on a main-agent card", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ type: "main" })}
+        session={
+          {
+            id: "s",
+            name: "S",
+            status: "active",
+            cwd: "/x",
+            model: "claude-opus-4-8",
+            cost: 646.5,
+          } as never
+        }
+      />
+    );
+    expect(screen.getByText(fmtCost(646.5))).toBeInTheDocument();
+  });
+
+  it("shows no cost on a subagent card with no recorded usage", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ type: "subagent", subagent_type: "qa" })}
+        session={{ id: "s", name: "S", status: "active", cwd: "/x", cost: 646.5 } as never}
+      />
+    );
+    expect(screen.queryByText(fmtCost(646.5))).not.toBeInTheDocument();
   });
 
   it("swaps the real session title into the hook-style placeholder (Session <id8>)", () => {
