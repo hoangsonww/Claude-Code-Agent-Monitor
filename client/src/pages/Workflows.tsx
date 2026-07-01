@@ -316,7 +316,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    // Flex column + a flex-1 card so that, when two Sections share a grid row
+    // (lg:grid-cols-2), the grid's default row-stretch reaches the card itself —
+    // otherwise a shorter chart (e.g. the Session Complexity Scatter) leaves its
+    // card shorter than a taller companion (Compaction Impact) in the same row.
+    <div className="flex flex-col h-full">
       <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="w-5 h-5 rounded-md bg-accent/15 text-accent text-[11px] font-bold flex items-center justify-center flex-shrink-0">
@@ -335,7 +339,7 @@ function Section({
           {subtitle}
         </span>
       </div>
-      <div className="card p-4">{children}</div>
+      <div className="card p-4 flex-1">{children}</div>
     </div>
   );
 }
