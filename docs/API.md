@@ -324,11 +324,14 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
       "ended_at": null,
       "updated_at": "2024-03-18T12:05:00Z",
       "parent_agent_id": null,
-      "awaiting_input_since": "2024-03-18T12:05:00Z"
+      "awaiting_input_since": "2024-03-18T12:05:00Z",
+      "cost": 0
     }
   ]
 }
 ```
+
+> **Note on `cost`** — `/api/agents` and `/api/sessions/:id/agents` attach a `cost` (USD) to each agent: the agent's **own** cost, computed server-side from the per-agent token buckets stored in `agents.metadata.tokens` and priced at the current pricing rules (at the agent's start date, so promo/standard cutovers apply — see [Pricing](#pricing)). It is `0` for main agents (whose cost is the session total, reported by `/api/pricing/cost/:sessionId`), for compaction pseudo-agents, and for any subagent whose transcript is unavailable. This lets a subagent card show only what that subagent spent instead of the whole session's total.
 
 > **Note on `status` vs Waiting** — agents are persisted with one of `idle | connected | working | completed | error`. The yellow **Waiting** badge surfaced in the dashboard is a UI overlay derived from `awaiting_input_since` being non-null on a non-terminal agent (typically `idle` after a `Stop`, or `connected` right after `SessionStart`). Filter `?status=idle` on `/api/agents` and inspect `awaiting_input_since` to enumerate currently-waiting main agents.
 
@@ -556,41 +559,61 @@ graph TB
 
 ---
 
-#### Create Pricing Rule
+#### Create or Update Pricing Rule
 
 ```http
-POST /api/pricing
+PUT /api/pricing
 ```
 
-Create custom pricing rule.
+Upsert a pricing rule, keyed by `model_pattern`. The same call creates a new rule or updates an existing one (matched on `model_pattern`). Rates are per **million** tokens.
 
 **Request Body:**
 
 ```json
 {
-  "pattern": "gpt-5.1-codex",
-  "input_cost_per_1m": 2.5,
-  "output_cost_per_1m": 10.0
+  "model_pattern": "claude-sonnet-5%",
+  "display_name": "Claude Sonnet 5",
+  "input_per_mtok": 3,
+  "output_per_mtok": 15,
+  "cache_read_per_mtok": 0.3,
+  "cache_write_per_mtok": 3.75,
+  "cache_write_1h_per_mtok": 6,
+  "fast_input_per_mtok": 0,
+  "fast_output_per_mtok": 0,
+
+  "intro_until": "2026-08-31",
+  "intro_input_per_mtok": 2,
+  "intro_output_per_mtok": 10,
+  "intro_cache_read_per_mtok": 0.2,
+  "intro_cache_write_per_mtok": 2.5,
+  "intro_cache_write_1h_per_mtok": 4
 }
 ```
 
-**Validation Rules:**
+**Fields:**
 
 | Field | Type | Constraints |
 |-------|------|-------------|
-| `pattern` | string | Required, unique, 1-100 chars |
-| `input_cost_per_1m` | number | Required, >= 0 |
-| `output_cost_per_1m` | number | Required, >= 0 |
+| `model_pattern` | string | Required. SQL-style glob; `%` matches any characters (e.g. `claude-opus-4-7%`) |
+| `display_name` | string | Required |
+| `input_per_mtok` / `output_per_mtok` | number | Standard per-MTok rates (default 0) |
+| `cache_read_per_mtok` / `cache_write_per_mtok` / `cache_write_1h_per_mtok` | number | Cache rates (default 0) |
+| `fast_input_per_mtok` / `fast_output_per_mtok` | number | Fast-mode premium rates (default 0) |
+| `intro_until` | string \| null | Optional promo cutoff `YYYY-MM-DD`. Usage **on or before** this date is priced at the `intro_*` rates, after it at the standard rates. Empty/`null` clears the promo (and zeroes the intro rates) |
+| `intro_*_per_mtok` | number | Optional introductory (promo) rates, mirroring the standard fields |
+
+The intro block is **optional and backward-compatible**: a request that omits every `intro_*`/`intro_until` field leaves any existing promo untouched, so older clients that send only the standard rates never clobber a promo.
 
 **Example Request:**
 
 ```bash
-curl -X POST http://localhost:4820/api/pricing \
+curl -X PUT http://localhost:4820/api/pricing \
   -H "Content-Type: application/json" \
   -d '{
-    "pattern": "gpt-5.1-codex",
-    "input_cost_per_1m": 2.5,
-    "output_cost_per_1m": 10.0
+    "model_pattern": "gpt-5.1-codex",
+    "display_name": "GPT-5.1 Codex",
+    "input_per_mtok": 2.5,
+    "output_per_mtok": 10.0
   }'
 ```
 
@@ -598,12 +621,13 @@ curl -X POST http://localhost:4820/api/pricing \
 
 ```json
 {
-  "rule": {
-    "id": 10,
-    "pattern": "gpt-5.1-codex",
-    "input_cost_per_1m": 2.5,
-    "output_cost_per_1m": 10.0,
-    "created_at": "2024-03-18T14:30:00Z"
+  "pricing": {
+    "model_pattern": "gpt-5.1-codex",
+    "display_name": "GPT-5.1 Codex",
+    "input_per_mtok": 2.5,
+    "output_per_mtok": 10.0,
+    "intro_until": null,
+    "updated_at": "2026-07-01T14:30:00Z"
   }
 }
 ```
@@ -612,8 +636,7 @@ curl -X POST http://localhost:4820/api/pricing \
 
 | Code | Description |
 |------|-------------|
-| 400 | Invalid request body |
-| 409 | Pattern already exists |
+| 400 | Missing `model_pattern`/`display_name`, or `intro_until` not a `YYYY-MM-DD` date |
 | 500 | Database error |
 
 ---

@@ -4,7 +4,15 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useEffect, useState, useCallback, useSyncExternalStore, useMemo, useRef } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useSyncExternalStore,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -1048,6 +1056,9 @@ export function Dashboard() {
     const descendantCache = new Map<string, { total: number; active: number }>();
     function getDescendants(id: string): { total: number; active: number } {
       if (descendantCache.has(id)) return descendantCache.get(id)!;
+      // Seed a zero sentinel before recursing so a cyclic parent_agent_id
+      // (corrupt data) resolves to the cached value instead of looping forever.
+      descendantCache.set(id, { total: 0, active: 0 });
       const kids = childrenByParent.get(id) || [];
       const result = kids.reduce(
         (acc, k) => {
@@ -1208,7 +1219,15 @@ export function Dashboard() {
                   {(() => {
                     const { childrenByParent, getDescendants } = agentTree;
 
-                    function renderAgentNode(agent: Agent, depth: number) {
+                    function renderAgentNode(
+                      agent: Agent,
+                      depth: number,
+                      ancestors: Set<string> = new Set()
+                    ): ReactNode {
+                      // Guard against a cyclic parent_agent_id (corrupt data) so
+                      // the recursive render can't stack-overflow the page.
+                      if (ancestors.has(agent.id)) return null;
+                      const childAncestors = new Set(ancestors).add(agent.id);
                       const children = childrenByParent.get(agent.id) || [];
                       const isExpanded = expandedAgents.has(agent.id);
                       const hasChildren = children.length > 0;
@@ -1266,14 +1285,21 @@ export function Dashboard() {
                               <AgentCard
                                 agent={agent}
                                 session={sessionsById.get(agent.session_id)}
-                                onClick={hasChildren ? toggleExpanded : undefined}
+                                // Card click always navigates (AgentCard's
+                                // default → session details), whether or not it
+                                // has children. Expand/collapse is handled solely
+                                // by the chevron button, so clicking a parent
+                                // (incl. the main agent) no longer toggles.
+                                onClick={undefined}
                               />
                             </div>
                           </div>
 
                           {hasChildren && isExpanded && (
                             <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
-                              {children.map((child) => renderAgentNode(child, depth + 1))}
+                              {children.map((child) =>
+                                renderAgentNode(child, depth + 1, childAncestors)
+                              )}
                             </div>
                           )}
 
@@ -1284,7 +1310,7 @@ export function Dashboard() {
                               }
                               className="ml-7 mt-1 text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
                             >
-                              {totalDesc} {t("common:subagent", { count: totalDesc })}
+                              {t("common:subagent_label", { count: totalDesc })}
                               {activeDesc > 0 && (
                                 <span className="text-emerald-400 ml-1">
                                   ({activeDesc} {t("common:active")})

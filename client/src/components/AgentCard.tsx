@@ -50,7 +50,20 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // subagent_type label (more useful than repeating the session model).
   const model = formatModelName(session?.model);
   const cwdBase = pathBasename(session?.cwd);
-  const cost = typeof session?.cost === "number" ? session.cost : 0;
+  // Cost shown on the card is scoped to what the card represents: a main agent's
+  // card stands in for the whole session, so it shows the session total; a
+  // subagent's card shows that subagent's OWN cost (server-computed from its
+  // token buckets). Showing the session total on a subagent card is misleading —
+  // it reads as if that one subagent cost the whole session's spend. A subagent
+  // with no recorded usage shows no cost (the cost > 0 guard below hides it),
+  // which is truthful rather than misleading.
+  const cost = isMain
+    ? typeof session?.cost === "number"
+      ? session.cost
+      : 0
+    : typeof agent.cost === "number"
+      ? agent.cost
+      : 0;
   // Real (user-given) session name - the auto-generated "Session <id8>"
   // fallback carries no extra info next to the ID, so it is suppressed.
   const sessionName = session?.name?.trim() || "";
@@ -77,6 +90,12 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // in. (No model here — that would duplicate the footer badge, which is what
   // main cards used to do.)
   const agentCount = typeof session?.agent_count === "number" ? session.agent_count : 0;
+  // agent_count includes the main agent itself. Show how many SUBAGENTS the
+  // session spawned instead, so this reconciles with the "Active Subagents"
+  // dashboard stat (which excludes main agents) — otherwise a card reading
+  // "29 agents" looks like it should equal a 29-subagent stat when the session
+  // actually has 28 subagents + 1 main.
+  const subagentCount = Math.max(0, agentCount - 1);
   let sessionTurns = 0;
   if (isMain && session?.metadata) {
     try {
@@ -89,7 +108,7 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   const subtitle = isMain
     ? [
         cwdBase,
-        agentCount > 0 ? t("kanban:session.agentSummary", { count: agentCount }) : null,
+        subagentCount > 0 ? t("kanban:session.subagentSummary", { count: subagentCount }) : null,
         sessionTurns > 0 ? t("kanban:session.turnSummary", { count: sessionTurns }) : null,
       ]
         .filter(Boolean)

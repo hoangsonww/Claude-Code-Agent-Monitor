@@ -12,7 +12,12 @@
   },
   "pricing": {
     "title": "Model Pricing",
-    "description": "Rates per million tokens (USD). Use % as wildcard in patterns.",
+    "description": "Rates per million tokens (USD). Use % as wildcard in patterns. Some models have a time-limited introductory rate (shown in violet); usage on or before its cutoff date is billed at that rate, and usage after it at the standard rate.",
+    "introNote": "Intro ${{input}}/${{output}} through {{until}}",
+    "introRatesTitle": "Introductory rates",
+    "introRatesHint": "Leave the date empty for no promo",
+    "introUntil": "Through (date)",
+    "introUntilInvalid": "Introductory cutoff must be a YYYY-MM-DD date",
     "resetConfirm": "Confirm Reset",
     "resetDefaults": "Reset Defaults",
     "resetResult": "Reset to {{count}} default rules",

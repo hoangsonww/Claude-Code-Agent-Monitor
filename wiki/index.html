@@ -1121,8 +1121,11 @@
                     per-session breakdowns on Sessions, Session Detail, and Analytics. Compaction-
                     aware token accounting preserves baselines across context compressions so no
                     usage is silently dropped. Cost chips appear on Kanban cards, session rows,
-                    and the sidebar summary. Pricing changes retroactively recalculate all stored
-                    sessions, and imports apply the same rate table.
+                    and the sidebar summary. Subagent cards show each subagent's own cost, computed
+                    from that subagent's transcript token usage priced at current rates, so a
+                    subagent card no longer misleadingly reads as if it cost the whole session;
+                    main-agent cards still show the session total. Pricing changes retroactively
+                    recalculate all stored sessions, and imports apply the same rate table.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1600,7 +1603,7 @@
                     Matched subagent →
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks.
+                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks. The same scan also rebuilds the nested-subagent hierarchy — it repoints each subagent's <code>parent_agent_id</code> to the true spawner recovered from the transcript's Task tool result (<code>toolUseResult.agentId</code>), so subagents that spawn their own subagents nest correctly instead of flattening under main.
                   </td>
                 </tr>
                 <tr>
@@ -4778,7 +4781,11 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
               <p>
                 Editable table of per-model pricing rules. Each Claude model variant has its own
                 explicit pattern (e.g., <code>claude-opus-4-6%</code>). Rates cover input, output,
-                cache read, and cache write tokens. Reset to defaults or add custom models. The
+                cache read, and cache write tokens. Each rule's editor also has a collapsible
+                <strong>Introductory rates</strong> block — a <code>YYYY-MM-DD</code> promo cutoff
+                plus per-category intro prices (input / output / cache-read / cache-write 5m &amp;
+                1h); an empty date means no promo, and any future model-launch promo needs no code
+                change. Reset to defaults or add custom models. The
                 section header carries an info popover (the <code>i</code> icon) that explains how
                 rule lookup works (first matching pattern wins), the SQL-style <code>%</code>
                 wildcard syntax with concrete examples (<code>claude-opus-4-7%</code>,
@@ -6066,7 +6073,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=16" defer></script>
+    <script src="i18n-content.js?v=18" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

@@ -500,9 +500,13 @@ const processEvent = db.transaction((hookType, data) => {
       clearAwaitingInput(sessionId, mainAgentId, false);
 
       // SessionEnd is the definitive signal that the CLI process exited.
-      // If the session was in error state, keep it there — the user never
-      // recovered before exiting. Otherwise mark completed.
-      const finalSessionStatus = endSession?.status === "error" ? "error" : "completed";
+      // Keep `error` ONLY if the error is still unrecovered at the transcript
+      // tail. A transient API error that the CLI retried past (successful turns
+      // after it) has recovered, so exiting after a long healthy run must land
+      // as `completed`, not a stale `error` frozen from days earlier.
+      const endResult = data.transcript_path ? transcriptCache.extract(data.transcript_path) : null;
+      const finalSessionStatus =
+        endSession?.status === "error" && isErrorAtTail(endResult) ? "error" : "completed";
       const allAgents = stmts.listAgentsBySession.all(sessionId);
       const now = new Date().toISOString();
       for (const agent of allAgents) {
@@ -708,11 +712,17 @@ const processEvent = db.transaction((hookType, data) => {
           newErrorRecorded = true;
         }
 
-        // Only flip to error when we recorded a NEW error this call. Pre-existing
-        // transcript errors must not re-overwrite status, otherwise sessions the
-        // user already recovered from (UserPromptSubmit reactivation above) get
-        // yanked back into 'error' the moment the transcript scan re-reads them.
-        if (newErrorRecorded) {
+        // Flip to error only when we recorded a NEW error this call AND that
+        // error is still unrecovered at the transcript tail (isErrorAtTail).
+        // The APIError events are always kept for history, but a transient error
+        // the CLI already retried past (successful turns after it — e.g.
+        // "Connection closed mid-response" mid-run) must NOT trip the whole
+        // session to `error`; only a genuinely-current failure should. This is
+        // the primary guard against false Error flapping; the self-heal below is
+        // the safety net for sessions flipped by older builds. The
+        // newErrorRecorded gate also stops re-reads from yanking a recovered
+        // session back into error.
+        if (newErrorRecorded && isErrorAtTail(result)) {
           const curSession = stmts.getSession.get(sessionId);
           if (curSession && curSession.status === "active") {
             stmts.updateSession.run(null, "error", null, null, sessionId);
@@ -721,6 +731,29 @@ const processEvent = db.transaction((hookType, data) => {
           if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
             stmts.updateAgent.run(null, "error", null, null, null, null, mainAgentId);
             clearAwaitingInput(sessionId, mainAgentId, false);
+            broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+          }
+        }
+      }
+
+      // Self-heal a stale error on ANY hook event. If the session is marked
+      // `error` but the transcript has progressed past the last API error
+      // (successful turns after it — isErrorAtTail false), the error was
+      // transient and the session recovered. Normal recovery only fires on
+      // UserPromptSubmit/PreToolUse; an actively-running session that only emits
+      // Stop / SubagentStop / PostToolUse / Notification would otherwise stay
+      // `error` forever even as its transcript (and cost) keeps growing. This
+      // complements the watchdog, which only re-examines STALE sessions and so
+      // never reaches a busy one. isErrorAtTail is transcript-driven, so a
+      // genuinely current error (tail) is left in place.
+      {
+        const curSession = stmts.getSession.get(sessionId);
+        if (curSession && curSession.status === "error" && !isErrorAtTail(result)) {
+          stmts.reactivateSession.run(sessionId);
+          broadcast("session_updated", stmts.getSession.get(sessionId));
+          const curMain = mainAgentId ? stmts.getAgent.get(mainAgentId) : null;
+          if (curMain && curMain.status === "error") {
+            stmts.reactivateAgent.run(mainAgentId);
             broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
           }
         }
@@ -864,16 +897,23 @@ router.post("/event", (req, res) => {
     scanAndImportSubagents(dbModule, data.session_id, data.transcript_path, {
       parentModels: parentTokenModels,
     })
-      .then(({ created }) => {
-        if (created > 0) {
+      .then(({ created, reparented }) => {
+        if (created > 0 || reparented > 0) {
           // Nudge SessionDetail to refetch — the page already debounces
-          // bursts of new_event into a single paginated reload.
+          // bursts of new_event into a single paginated reload. A pure
+          // re-parent (created === 0) still changes the tree shape, so it
+          // must trigger a refetch too.
           broadcast("new_event", {
             session_id: data.session_id,
             agent_id: null,
             event_type: "SubagentJsonlImported",
             tool_name: null,
-            summary: `Imported ${created} subagent record(s) from JSONL`,
+            summary:
+              created > 0 && reparented > 0
+                ? `Imported ${created} subagent record(s) and re-parented ${reparented} nested subagent(s)`
+                : created > 0
+                  ? `Imported ${created} subagent record(s) from JSONL`
+                  : `Re-parented ${reparented} nested subagent(s)`,
             created_at: new Date().toISOString(),
           });
         }
@@ -931,6 +971,24 @@ const WORKING_IDLE_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 120_000; // default 2 min
 })();
 
+// True when the transcript's latest API error is unrecovered — i.e. it sits at
+// the tail with no successful turn after it. Claude auto-retries transient API
+// errors (e.g. "Connection closed mid-response") and keeps going, so an error
+// followed by real turn activity has RECOVERED and must not pin the session in
+// `error` forever. Mirrors computePendingInterrupt's ordering logic using the
+// timestamps the transcript cache already exposes (errors[].timestamp vs
+// lastTurnTs), so it needs no transcript re-parse.
+function isErrorAtTail(result) {
+  if (!result || !Array.isArray(result.errors) || result.errors.length === 0) return false;
+  let lastErrorTs = null;
+  for (const e of result.errors) {
+    if (e && e.timestamp && (!lastErrorTs || e.timestamp > lastErrorTs)) lastErrorTs = e.timestamp;
+  }
+  if (!lastErrorTs) return false; // errors without timestamps — can't prove it's current
+  if (!result.lastTurnTs) return true; // an error but no turn activity ⇒ unrecovered
+  return lastErrorTs >= result.lastTurnTs; // error is the latest activity ⇒ unrecovered
+}
+
 function watchdogCheck() {
   try {
     const os = require("os");
@@ -946,7 +1004,7 @@ function watchdogCheck() {
                  AND e.event_type IN ('SessionStart','UserPromptSubmit','PreToolUse','Stop','Notification')
                  ORDER BY e.created_at DESC LIMIT 1) as last_data
          FROM sessions s
-         WHERE s.status = 'active' AND s.updated_at < ?`
+         WHERE s.status IN ('active', 'error') AND s.updated_at < ?`
       )
       .all(cutoff);
 
@@ -982,6 +1040,23 @@ function watchdogCheck() {
         .prepare("SELECT * FROM agents WHERE session_id = ? AND type = 'main' LIMIT 1")
         .get(sess.id);
       const mainAgentId = mainAgent?.id ?? null;
+
+      // Self-heal a stale error. The session was flipped to `error` by a
+      // transient API error, but the transcript has since progressed past it
+      // (successful turns after the last error) — so it recovered and must not
+      // show `error` forever. Recovery normally only happens on a live
+      // UserPromptSubmit/PreToolUse hook; a session monitored purely via the
+      // transcript sweep (imported, or whose recovering hooks never landed) had
+      // no path back. This is why the watchdog now scans `error` sessions too.
+      if (sess.status === "error" && !isErrorAtTail(result)) {
+        stmts.reactivateSession.run(sess.id);
+        broadcast("session_updated", stmts.getSession.get(sess.id));
+        if (mainAgent && mainAgent.status === "error") {
+          stmts.reactivateAgent.run(mainAgentId);
+          broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        }
+        continue; // handled this tick; error is cleared
+      }
 
       // User-interrupt (Esc) recovery. No hook fires when a turn is cancelled,
       // so UserPromptSubmit's "working" promotion is never undone and the main
@@ -1076,17 +1151,21 @@ function watchdogCheck() {
           });
         }
 
-        // Only flip to error when we actually detected a new error this tick.
-        // Pre-existing transcript errors must not re-overwrite status, otherwise
-        // sessions the user already recovered from (UserPromptSubmit reactivation
-        // at the top of processEvent) get yanked back into 'error' on every poll.
-        stmts.updateSession.run(null, "error", null, null, sess.id);
-        broadcast("session_updated", stmts.getSession.get(sess.id));
-        if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
-          stmts.updateAgent.run(null, "error", null, null, null, null, mainAgentId);
-          if (mainAgentId) {
-            stmts.clearAgentAwaitingInput.run(mainAgentId);
-            broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        // Flip to error only when a NEW error was detected this tick AND it is
+        // still unrecovered at the transcript tail. The events above are kept
+        // for history regardless, but a transient error the CLI already retried
+        // past (successful turns after it) must not trip the session to `error`.
+        // (The newErrorRecorded gate also stops re-reads from yanking a
+        // recovered session back into error.)
+        if (isErrorAtTail(result)) {
+          stmts.updateSession.run(null, "error", null, null, sess.id);
+          broadcast("session_updated", stmts.getSession.get(sess.id));
+          if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
+            stmts.updateAgent.run(null, "error", null, null, null, null, mainAgentId);
+            if (mainAgentId) {
+              stmts.clearAgentAwaitingInput.run(mainAgentId);
+              broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+            }
           }
         }
       }

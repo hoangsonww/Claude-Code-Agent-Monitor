@@ -22,6 +22,8 @@
     "anonymous": "Untitled session",
     "agentSummary_one": "{{count}} agent",
     "agentSummary_other": "{{count}} agents",
+    "subagentSummary_one": "{{count}} subagent",
+    "subagentSummary_other": "{{count}} subagents",
     "turnSummary_one": "{{count}} turn",
     "turnSummary_other": "{{count}} turns"
   },

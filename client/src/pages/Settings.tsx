@@ -4,7 +4,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useEffect, useState, useCallback, useRef, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useRef, useSyncExternalStore, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DollarSign,
@@ -127,6 +127,14 @@ interface EditRow {
   cache_write_1h_per_mtok: string;
   fast_input_per_mtok: string;
   fast_output_per_mtok: string;
+  // Time-limited introductory rates. intro_until empty ⇒ no promo (the intro_*
+  // values are ignored). Generic: any model can carry a promo window.
+  intro_until: string;
+  intro_input_per_mtok: string;
+  intro_output_per_mtok: string;
+  intro_cache_read_per_mtok: string;
+  intro_cache_write_per_mtok: string;
+  intro_cache_write_1h_per_mtok: string;
 }
 
 const emptyRow: EditRow = {
@@ -139,6 +147,12 @@ const emptyRow: EditRow = {
   cache_write_1h_per_mtok: "0",
   fast_input_per_mtok: "0",
   fast_output_per_mtok: "0",
+  intro_until: "",
+  intro_input_per_mtok: "0",
+  intro_output_per_mtok: "0",
+  intro_cache_read_per_mtok: "0",
+  intro_cache_write_per_mtok: "0",
+  intro_cache_write_1h_per_mtok: "0",
 };
 
 interface SystemInfo {
@@ -526,6 +540,12 @@ export function Settings() {
       cache_write_1h_per_mtok: String(rule.cache_write_1h_per_mtok),
       fast_input_per_mtok: String(rule.fast_input_per_mtok),
       fast_output_per_mtok: String(rule.fast_output_per_mtok),
+      intro_until: rule.intro_until ?? "",
+      intro_input_per_mtok: String(rule.intro_input_per_mtok ?? 0),
+      intro_output_per_mtok: String(rule.intro_output_per_mtok ?? 0),
+      intro_cache_read_per_mtok: String(rule.intro_cache_read_per_mtok ?? 0),
+      intro_cache_write_per_mtok: String(rule.intro_cache_write_per_mtok ?? 0),
+      intro_cache_write_1h_per_mtok: String(rule.intro_cache_write_1h_per_mtok ?? 0),
     });
   };
 
@@ -546,6 +566,11 @@ export function Settings() {
       setError(t("pricing.validationRequired"));
       return;
     }
+    const introUntil = editRow.intro_until.trim();
+    if (introUntil && !/^\d{4}-\d{2}-\d{2}$/.test(introUntil)) {
+      setError(t("pricing.introUntilInvalid"));
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -559,6 +584,14 @@ export function Settings() {
         cache_write_1h_per_mtok: parseFloat(editRow.cache_write_1h_per_mtok) || 0,
         fast_input_per_mtok: parseFloat(editRow.fast_input_per_mtok) || 0,
         fast_output_per_mtok: parseFloat(editRow.fast_output_per_mtok) || 0,
+        // Always send the intro block so the UI is authoritative for it: an
+        // empty date clears the promo, a valid date persists the intro rates.
+        intro_until: introUntil || null,
+        intro_input_per_mtok: parseFloat(editRow.intro_input_per_mtok) || 0,
+        intro_output_per_mtok: parseFloat(editRow.intro_output_per_mtok) || 0,
+        intro_cache_read_per_mtok: parseFloat(editRow.intro_cache_read_per_mtok) || 0,
+        intro_cache_write_per_mtok: parseFloat(editRow.intro_cache_write_per_mtok) || 0,
+        intro_cache_write_1h_per_mtok: parseFloat(editRow.intro_cache_write_1h_per_mtok) || 0,
       });
       setEditingPattern(null);
       setAdding(false);
@@ -773,6 +806,47 @@ export function Settings() {
         </div>
       </td>
     </>
+  );
+
+  // Second edit row: the time-limited introductory-rate block. Rendered under
+  // the standard-rate cells whenever a row is being edited/added. Leaving the
+  // date empty means "no promo" — the rate inputs are then ignored. This is the
+  // ONLY place intro rates are entered, and it works for any model pattern (not
+  // just Sonnet 5), so a future model with a launch promo needs no code change.
+  const introField = (key: keyof EditRow, labelKey: string, opts: { date?: boolean } = {}) => (
+    <label className="flex flex-col gap-1">
+      <span className="text-[10px] uppercase tracking-wider text-violet-300/70">{t(labelKey)}</span>
+      <input
+        type={opts.date ? "text" : "number"}
+        {...(opts.date ? { placeholder: "YYYY-MM-DD" } : { step: "0.01", min: "0" })}
+        value={editRow[key]}
+        onChange={(e) => setEditRow((r) => ({ ...r, [key]: e.target.value }))}
+        className={`input text-sm font-mono ${opts.date ? "w-36" : "w-24 text-right"}`}
+      />
+    </label>
+  );
+
+  const renderIntroEditRow = () => (
+    <tr className="bg-surface-3">
+      <td colSpan={10} className="px-4 pb-3 pt-2">
+        <div className="mt-2 rounded-md border border-violet-500/20 bg-violet-500/[0.04] px-3 py-2.5">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[11px] font-semibold text-violet-300 uppercase tracking-wider">
+              {t("pricing.introRatesTitle")}
+            </span>
+            <span className="text-[11px] text-gray-500">{t("pricing.introRatesHint")}</span>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            {introField("intro_until", "pricing.introUntil", { date: true })}
+            {introField("intro_input_per_mtok", "common:token.input")}
+            {introField("intro_output_per_mtok", "common:token.output")}
+            {introField("intro_cache_read_per_mtok", "common:token.cacheRead")}
+            {introField("intro_cache_write_per_mtok", "pricing.cacheWrite5m")}
+            {introField("intro_cache_write_1h_per_mtok", "pricing.cacheWrite1h")}
+          </div>
+        </div>
+      </td>
+    </tr>
   );
 
   const actionBanner = (keys: string[]) => {
@@ -1031,9 +1105,10 @@ export function Settings() {
             <tbody className="divide-y divide-border">
               {pricing.map((rule) =>
                 editingPattern === rule.model_pattern ? (
-                  <tr key={rule.model_pattern} className="bg-surface-3">
-                    {renderEditCells()}
-                  </tr>
+                  <Fragment key={rule.model_pattern}>
+                    <tr className="bg-surface-3">{renderEditCells()}</tr>
+                    {renderIntroEditRow()}
+                  </Fragment>
                 ) : (
                   <tr
                     key={rule.model_pattern}
@@ -1042,21 +1117,57 @@ export function Settings() {
                     <td className="px-4 py-3 text-sm font-mono text-gray-300">
                       {rule.model_pattern}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">{rule.display_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">
+                      {rule.display_name}
+                      {rule.intro_until && (
+                        <div className="text-[11px] font-normal text-violet-400/80 mt-0.5">
+                          {t("pricing.introNote", {
+                            input: rule.intro_input_per_mtok,
+                            output: rule.intro_output_per_mtok,
+                            until: rule.intro_until,
+                          })}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       ${rule.input_per_mtok}
+                      {rule.intro_until && (
+                        <span className="block text-[11px] text-violet-400/80">
+                          ${rule.intro_input_per_mtok}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       ${rule.output_per_mtok}
+                      {rule.intro_until && (
+                        <span className="block text-[11px] text-violet-400/80">
+                          ${rule.intro_output_per_mtok}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       ${rule.cache_read_per_mtok}
+                      {rule.intro_until && (
+                        <span className="block text-[11px] text-violet-400/80">
+                          ${rule.intro_cache_read_per_mtok}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       ${rule.cache_write_per_mtok}
+                      {rule.intro_until && (
+                        <span className="block text-[11px] text-violet-400/80">
+                          ${rule.intro_cache_write_per_mtok}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       ${rule.cache_write_1h_per_mtok}
+                      {rule.intro_until && (
+                        <span className="block text-[11px] text-violet-400/80">
+                          ${rule.intro_cache_write_1h_per_mtok}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-400 text-right font-mono">
                       {rule.fast_input_per_mtok ? `$${rule.fast_input_per_mtok}` : "-"}
@@ -1087,7 +1198,12 @@ export function Settings() {
                   </tr>
                 )
               )}
-              {adding && <tr className="bg-surface-3">{renderEditCells()}</tr>}
+              {adding && (
+                <>
+                  <tr className="bg-surface-3">{renderEditCells()}</tr>
+                  {renderIntroEditRow()}
+                </>
+              )}
             </tbody>
           </table>
         </div>

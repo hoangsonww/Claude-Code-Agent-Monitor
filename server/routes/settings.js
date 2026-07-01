@@ -7,7 +7,7 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { db, stmts, DB_PATH, DEFAULT_PRICING } = require("../db");
+const { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing } = require("../db");
 const { getConnectionCount } = require("../websocket");
 const { transcriptCache } = require("./hooks");
 
@@ -179,6 +179,9 @@ router.post("/reset-pricing", (_req, res) => {
   for (const [pattern, name, inp, out, cr, cw, cw1h, fin, fout] of DEFAULT_PRICING) {
     seedPricing.run(pattern, name, inp, out, cr, cw, cw1h, fin, fout);
   }
+  // Re-apply time-limited intro rates (e.g. Sonnet 5) — the seed above only
+  // carries standard rates, so without this a reset silently drops the promo.
+  applyIntroPricing(db);
 
   const pricing = stmts.listPricing.all();
   res.json({ ok: true, pricing });

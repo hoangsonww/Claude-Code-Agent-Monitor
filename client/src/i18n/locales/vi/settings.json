@@ -12,7 +12,12 @@
   },
   "pricing": {
     "title": "Định giá mô hình",
-    "description": "Đơn giá theo một triệu token (USD). Dùng % làm ký tự đại diện trong mẫu.",
+    "description": "Đơn giá theo một triệu token (USD). Dùng % làm ký tự đại diện trong mẫu. Một số mô hình có mức giá giới thiệu có thời hạn (hiển thị màu tím); usage vào hoặc trước ngày kết thúc tính theo mức đó, sau đó tính theo mức chuẩn.",
+    "introNote": "Ưu đãi ${{input}}/${{output}} đến {{until}}",
+    "introRatesTitle": "Giá giới thiệu",
+    "introRatesHint": "Để trống ngày nếu không có ưu đãi",
+    "introUntil": "Đến (ngày)",
+    "introUntilInvalid": "Ngày kết thúc ưu đãi phải theo định dạng YYYY-MM-DD",
     "resetConfirm": "Xác nhận đặt lại",
     "resetDefaults": "Khôi phục mặc định",
     "resetResult": "Đã đặt lại về {{count}} quy tắc mặc định",

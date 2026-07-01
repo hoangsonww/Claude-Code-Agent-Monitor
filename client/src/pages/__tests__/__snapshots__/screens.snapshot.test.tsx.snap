@@ -5075,7 +5075,7 @@ exports[`screen snapshots > Dashboard 1`] = `
             <span
               class="text-xs text-gray-500 mb-1 flex-shrink-0"
             >
-              0 total
+              0 in active sessions
             </span>
           </div>
         </div>
@@ -8031,7 +8031,7 @@ exports[`screen snapshots > Settings 1`] = `
           <p
             class="text-xs text-gray-500 mt-0.5"
           >
-            Rates per million tokens (USD). Use % as wildcard in patterns.
+            Rates per million tokens (USD). Use % as wildcard in patterns. Some models have a time-limited introductory rate (shown in violet); usage on or before its cutoff date is billed at that rate, and usage after it at the standard rate.
           </p>
         </div>
         <div
@@ -10681,7 +10681,9 @@ exports[`screen snapshots > Workflows 1`] = `
         </div>
       </div>
     </div>
-    <div>
+    <div
+      class="flex flex-col h-full"
+    >
       <div
         class="flex items-center justify-between gap-4 mb-3"
       >
@@ -10738,7 +10740,7 @@ exports[`screen snapshots > Workflows 1`] = `
         </span>
       </div>
       <div
-        class="card p-4"
+        class="card p-4 flex-1"
       >
         <div
           class="flex flex-col items-center justify-center py-20 text-center"
@@ -10795,7 +10797,9 @@ exports[`screen snapshots > Workflows 1`] = `
         </div>
       </div>
     </div>
-    <div>
+    <div
+      class="flex flex-col h-full"
+    >
       <div
         class="flex items-center justify-between gap-4 mb-3"
       >
@@ -10852,7 +10856,7 @@ exports[`screen snapshots > Workflows 1`] = `
         </span>
       </div>
       <div
-        class="card p-4"
+        class="card p-4 flex-1"
       >
         <div
           class="relative"
@@ -10984,7 +10988,9 @@ exports[`screen snapshots > Workflows 1`] = `
         </div>
       </div>
     </div>
-    <div>
+    <div
+      class="flex flex-col h-full"
+    >
       <div
         class="flex items-center justify-between gap-4 mb-3"
       >
@@ -11041,7 +11047,7 @@ exports[`screen snapshots > Workflows 1`] = `
         </span>
       </div>
       <div
-        class="card p-4"
+        class="card p-4 flex-1"
       >
         <div
           class="flex flex-col items-center justify-center py-16 text-center"
@@ -11062,7 +11068,9 @@ exports[`screen snapshots > Workflows 1`] = `
     <div
       class="grid grid-cols-1 lg:grid-cols-2 gap-6"
     >
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11119,7 +11127,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="flex items-center justify-center py-16 text-gray-500 text-sm"
@@ -11128,7 +11136,9 @@ exports[`screen snapshots > Workflows 1`] = `
           </div>
         </div>
       </div>
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11185,7 +11195,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="card p-5"
@@ -11236,7 +11246,9 @@ exports[`screen snapshots > Workflows 1`] = `
     <div
       class="grid grid-cols-1 lg:grid-cols-2 gap-6"
     >
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11293,7 +11305,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="flex flex-col items-center justify-center py-16 gap-3 text-gray-500"
@@ -11324,7 +11336,9 @@ exports[`screen snapshots > Workflows 1`] = `
           </div>
         </div>
       </div>
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11381,7 +11395,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="flex flex-col items-center justify-center py-16 gap-3"
@@ -11421,7 +11435,9 @@ exports[`screen snapshots > Workflows 1`] = `
         </div>
       </div>
     </div>
-    <div>
+    <div
+      class="flex flex-col h-full"
+    >
       <div
         class="flex items-center justify-between gap-4 mb-3"
       >
@@ -11478,7 +11494,7 @@ exports[`screen snapshots > Workflows 1`] = `
         </span>
       </div>
       <div
-        class="card p-4"
+        class="card p-4 flex-1"
       >
         <div
           class="flex flex-col items-center justify-center py-12 text-center"
@@ -11532,7 +11548,9 @@ exports[`screen snapshots > Workflows 1`] = `
     <div
       class="grid grid-cols-1 lg:grid-cols-2 gap-6"
     >
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11589,7 +11607,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="flex flex-col items-center justify-center py-16 text-center"
@@ -11634,7 +11652,9 @@ exports[`screen snapshots > Workflows 1`] = `
           </div>
         </div>
       </div>
-      <div>
+      <div
+        class="flex flex-col h-full"
+      >
         <div
           class="flex items-center justify-between gap-4 mb-3"
         >
@@ -11691,7 +11711,7 @@ exports[`screen snapshots > Workflows 1`] = `
           </span>
         </div>
         <div
-          class="card p-4"
+          class="card p-4 flex-1"
         >
           <div
             class="flex flex-col items-center justify-center py-16 gap-3 text-gray-500"
@@ -11727,7 +11747,9 @@ exports[`screen snapshots > Workflows 1`] = `
         </div>
       </div>
     </div>
-    <div>
+    <div
+      class="flex flex-col h-full"
+    >
       <div
         class="flex items-center justify-between gap-4 mb-3"
       >
@@ -11784,7 +11806,7 @@ exports[`screen snapshots > Workflows 1`] = `
         </span>
       </div>
       <div
-        class="card p-4"
+        class="card p-4 flex-1"
       >
         <div
           class="flex flex-col py-6 px-4 border-2 border-dashed border-border rounded-xl"
