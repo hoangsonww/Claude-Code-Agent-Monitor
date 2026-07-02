@@ -22,6 +22,8 @@
     "anonymous": "未命名会话",
     "agentSummary_one": "{{count}} 个 Agent",
     "agentSummary_other": "{{count}} 个 Agent",
+    "subagentSummary_one": "{{count}} 个子 Agent",
+    "subagentSummary_other": "{{count}} 个子 Agent",
     "turnSummary_one": "{{count}} 轮",
     "turnSummary_other": "{{count}} 轮"
   },

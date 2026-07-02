@@ -6,6 +6,7 @@
 const { Router } = require("express");
 const { stmts } = require("../db");
 const { broadcast } = require("../websocket");
+const { attachAgentCosts } = require("./pricing");
 
 const router = Router();
 
@@ -25,7 +26,9 @@ router.get("/", (req, res) => {
     rows = stmts.listAgents.all(limit, offset);
   }
 
-  res.json({ agents: rows, limit, offset });
+  // Attach each agent's OWN cost (from its metadata token buckets) so subagent
+  // cards can show their real cost instead of the session total.
+  res.json({ agents: attachAgentCosts(rows), limit, offset });
 });
 
 router.get("/:id", (req, res) => {

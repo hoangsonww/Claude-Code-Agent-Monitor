@@ -225,3 +225,101 @@ describe("calculateCost — server-tool surcharges", () => {
     assert.equal(r.feature_costs.code_execution_cost, 5); // 100 hrs * $0.05
   });
 });
+
+describe("calculateCost — model_pattern matching (dated ids, no cross-match)", () => {
+  // Sonnet-5 alongside Sonnet-4.6 + Opus, mirroring the seeded DEFAULT_PRICING.
+  const FAMILY = [
+    { model_pattern: "claude-opus-4-8%", input_per_mtok: 5, output_per_mtok: 25 },
+    { model_pattern: "claude-sonnet-5%", input_per_mtok: 3, output_per_mtok: 15 },
+    { model_pattern: "claude-sonnet-4-6%", input_per_mtok: 3, output_per_mtok: 15 },
+  ];
+  const priceOf = (model) => {
+    const r = calculateCost([bucket({ model, output_tokens: M })], FAMILY);
+    return { cost: r.total_cost, unpriced: r.unpriced_models.map((u) => u.model) };
+  };
+
+  it("prices bare claude-sonnet-5 (not $0, not unpriced)", () => {
+    const { cost, unpriced } = priceOf("claude-sonnet-5");
+    assert.equal(cost, 15); // 1M output * $15
+    assert.deepEqual(unpriced, []);
+  });
+
+  it("prices a dated claude-sonnet-5-YYYYMMDD via the % suffix", () => {
+    const { cost, unpriced } = priceOf("claude-sonnet-5-20260615");
+    assert.equal(cost, 15);
+    assert.deepEqual(unpriced, []);
+  });
+
+  it("does not cross-match sonnet-5 ↔ sonnet-4.x (both stay priced by their own rule)", () => {
+    // If claude-sonnet-5 wrongly matched the 4.6 rule (or vice versa) via a
+    // greedy/short pattern, one of these would resolve to the wrong row. Both
+    // are $3/$15 here, so the real guard is that neither is left UNPRICED and
+    // the sonnet-4.5 (absent) case IS surfaced as unpriced.
+    assert.deepEqual(priceOf("claude-sonnet-4-6").unpriced, []);
+    assert.deepEqual(priceOf("claude-sonnet-5").unpriced, []);
+    // A model with no rule (sonnet-4-5 not in FAMILY) must be reported unpriced,
+    // proving sonnet-5%/sonnet-4-6% don't greedily swallow it.
+    assert.deepEqual(priceOf("claude-sonnet-4-5").unpriced, ["claude-sonnet-4-5"]);
+  });
+});
+
+describe("calculateCost — date-effective (intro) pricing", () => {
+  // Sonnet-5-shaped rule: intro $2/$10 through 2026-08-31, standard $3/$15 after.
+  const INTRO = [
+    {
+      model_pattern: "claude-sonnet-5%",
+      input_per_mtok: 3,
+      output_per_mtok: 15,
+      cache_read_per_mtok: 0.3,
+      cache_write_per_mtok: 3.75,
+      cache_write_1h_per_mtok: 6,
+      intro_input_per_mtok: 2,
+      intro_output_per_mtok: 10,
+      intro_cache_read_per_mtok: 0.2,
+      intro_cache_write_per_mtok: 2.5,
+      intro_cache_write_1h_per_mtok: 4,
+      intro_until: "2026-08-31",
+    },
+  ];
+  // 1M output → intro $10, standard $15.
+  const cost = (asOf, rowDate) =>
+    calculateCost(
+      [{ ...bucket({ model: "claude-sonnet-5", output_tokens: M }), date: rowDate }],
+      INTRO,
+      asOf
+    ).total_cost;
+
+  it("uses intro rate before the cutoff (asOf)", () => {
+    assert.equal(cost("2026-07-01", undefined), 10);
+  });
+
+  it("uses intro rate on the cutoff day (inclusive)", () => {
+    assert.equal(cost("2026-08-31", undefined), 10);
+  });
+
+  it("uses standard rate after the cutoff", () => {
+    assert.equal(cost("2026-09-01", undefined), 15);
+    assert.equal(cost("2026-10-15", undefined), 15);
+  });
+
+  it("prefers the row's own date over asOf (per-day pricing)", () => {
+    // asOf is post-cutoff, but the row is dated pre-cutoff → intro applies.
+    assert.equal(cost("2026-12-01", "2026-08-01"), 10);
+    // and vice versa
+    assert.equal(cost("2026-07-01", "2026-09-15"), 15);
+  });
+
+  it("a rule with no intro_until always uses standard rate", () => {
+    const NO_INTRO = [
+      { model_pattern: "claude-sonnet-5%", input_per_mtok: 3, output_per_mtok: 15 },
+    ];
+    assert.equal(
+      calculateCost(
+        [bucket({ model: "claude-sonnet-5", output_tokens: M })],
+        NO_INTRO,
+        "2026-07-01"
+      ).total_cost,
+      15
+    );
+  });
+});

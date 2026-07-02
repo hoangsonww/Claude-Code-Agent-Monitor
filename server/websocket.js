@@ -82,4 +82,28 @@ function getConnectionCount() {
   return count;
 }
 
-module.exports = { initWebSocket, broadcast, getConnectionCount };
+/**
+ * Tear down the WebSocket server for a graceful shutdown. Open WS clients keep
+ * their underlying TCP sockets alive, which prevents http.Server#close() from
+ * ever completing — under `node --watch` that turns every restart into a
+ * multi-second "waiting for graceful termination" stall. Terminating the
+ * clients first lets the HTTP server drain and close promptly.
+ */
+function closeWebSocket() {
+  if (!wss) return;
+  wss.clients.forEach((client) => {
+    try {
+      client.terminate();
+    } catch {
+      /* already gone */
+    }
+  });
+  try {
+    wss.close();
+  } catch {
+    /* ignore */
+  }
+  wss = null;
+}
+
+module.exports = { initWebSocket, broadcast, getConnectionCount, closeWebSocket };

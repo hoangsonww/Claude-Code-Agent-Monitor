@@ -312,6 +312,11 @@ async function parseSessionFile(filePath) {
     version,
     slug,
     gitBranch,
+    // The transcript's own path, so importSession can persist it on the session
+    // row. Without this, imported sessions have transcript_path = NULL and the
+    // abandon sweep, compaction scanner, and per-agent cost backfill can't find
+    // their transcript. (Live/hook sessions get it from the hook payload.)
+    transcriptPath: filePath,
     startedAt: firstTimestamp,
     endedAt: lastTimestamp,
     teams: [...teams],
@@ -362,6 +367,12 @@ async function parseSubagentFile(filePath) {
   // so the importer can emit Pre/PostToolUse events under the subagent's own agent_id.
   const toolCalls = []; // {id, name, input, timestamp}
   const toolResults = new Map(); // tool_use_id → {content, is_error, timestamp}
+  // agentIds of subagents THIS agent spawned via the Task tool. Claude Code
+  // records the spawned child's id on the Task tool_result entry as
+  // `toolUseResult.agentId`, which matches the child's `agent-<id>.jsonl` file.
+  // Inverting these across a session reconstructs the real spawn hierarchy so
+  // nested subagents nest under their spawner instead of flattening to main.
+  const spawnedChildren = new Set();
 
   for await (const line of rl) {
     if (!line.trim()) continue;
@@ -370,6 +381,10 @@ async function parseSubagentFile(filePath) {
       entry = JSON.parse(line);
     } catch {
       continue;
+    }
+
+    if (entry.toolUseResult && entry.toolUseResult.agentId) {
+      spawnedChildren.add(entry.toolUseResult.agentId);
     }
 
     const ts = entry.timestamp;
@@ -492,6 +507,7 @@ async function parseSubagentFile(filePath) {
     toolNames: [...toolNames],
     thinkingBlockCount,
     toolEvents,
+    spawnedChildren: [...spawnedChildren],
   };
 }
 
@@ -766,6 +782,43 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel) {
 }
 
 /**
+ * Flatten a subagent's per-model token buckets (from parseSubagentFile) into the
+ * row shape calculateCost() consumes, so a subagent's OWN cost can be recomputed
+ * at read time with current pricing (never a stored, stale figure). Buckets with
+ * no tokens at all are dropped to keep the stored metadata lean. This is what
+ * lets the UI show a subagent's real cost instead of the whole session's total.
+ */
+function subagentTokenRows(tokensByModel) {
+  const rows = [];
+  for (const b of Object.values(tokensByModel || {})) {
+    if (!b || !b.model) continue;
+    const row = {
+      model: b.model,
+      speed: b.speed,
+      inference_geo: b.geo,
+      service_tier: b.tier,
+      input_tokens: b.input || 0,
+      output_tokens: b.output || 0,
+      cache_read_tokens: b.cacheRead || 0,
+      cache_write_tokens: b.cacheWrite || 0,
+      cache_write_1h_tokens: b.cacheWrite1h || 0,
+      web_search_requests: b.webSearch || 0,
+      web_fetch_requests: b.webFetch || 0,
+      code_execution_requests: b.codeExec || 0,
+    };
+    const hasUsage =
+      row.input_tokens ||
+      row.output_tokens ||
+      row.cache_read_tokens ||
+      row.cache_write_tokens ||
+      row.web_search_requests ||
+      row.code_execution_requests;
+    if (hasUsage) rows.push(row);
+  }
+  return rows;
+}
+
+/**
  * Import a parsed subagent from its own JSONL file into the agents + events tables.
  * Idempotent: re-running on an already-imported subagent backfills any tool events
  * that are missing without duplicating the agent row.
@@ -787,6 +840,9 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   const existingJsonl = stmts.getAgent.get(jsonlSubId);
 
   const subName = subData.agentType ? subData.agentType : `Subagent ${subData.agentId.slice(0, 8)}`;
+  // This subagent's OWN token usage, so the UI can price it independently of the
+  // session total (which would otherwise be shown on every card, misleadingly).
+  const tokenRows = subagentTokenRows(subData.tokensByModel);
   let created = 0;
 
   // Only create a JSONL-keyed row when there's no live subagent to merge into.
@@ -811,6 +867,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
         user_messages: subData.userMessages,
         assistant_messages: subData.assistantMessages,
         thinking_blocks: subData.thinkingBlockCount,
+        tokens: tokenRows,
       })
     );
     db.prepare("UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?").run(
@@ -827,7 +884,12 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   // model, so without this they get read as the parent/orchestrator model
   // (issue #185). The JSONL-keyed row already records model at creation; this
   // backfills the live row (and is a no-op once model is set).
-  if (subData.model) {
+  // Backfill the target row's metadata: stamp the subagent's real model (issue
+  // #185) and refresh its own token buckets so its cost stays priced at current
+  // rates. Both are idempotent — model is only filled when missing; tokens are
+  // rewritten only when the transcript actually has usage (append-only JSONL, so
+  // the sum only grows) and when they differ from what's stored.
+  {
     const row = stmts.getAgent.get(targetAgentId);
     if (row) {
       let meta = {};
@@ -836,8 +898,44 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
       } catch {
         meta = {};
       }
-      if (!meta.model) {
+      let changed = false;
+      if (subData.model && !meta.model) {
         meta.model = subData.model;
+        changed = true;
+      }
+      // Enrich a merged live/hook row with the metadata parsed from its
+      // transcript. Live rows (created by the PreToolUse "Agent" hook) carry
+      // none of this, so without backfilling here those exact subagents render
+      // with empty tool/message/thinking metadata. Only fill fields still
+      // missing so a richer existing value is never clobbered.
+      if (subData.toolNames && subData.toolNames.length > 0 && !meta.tools) {
+        meta.tools = subData.toolNames;
+        changed = true;
+      }
+      if (meta.user_messages == null && subData.userMessages != null) {
+        meta.user_messages = subData.userMessages;
+        changed = true;
+      }
+      if (meta.assistant_messages == null && subData.assistantMessages != null) {
+        meta.assistant_messages = subData.assistantMessages;
+        changed = true;
+      }
+      if (meta.thinking_blocks == null && subData.thinkingBlockCount != null) {
+        meta.thinking_blocks = subData.thinkingBlockCount;
+        changed = true;
+      }
+      // Stamp per-agent token buckets so the row can be priced independently.
+      // Rewrite when the parsed usage differs; also stamp once (even []) on rows
+      // that predate this key so the backfill pass below doesn't re-scan a
+      // genuinely-zero-usage subagent on every startup.
+      const hasTokensKey = Object.prototype.hasOwnProperty.call(meta, "tokens");
+      const tokensChanged =
+        tokenRows.length > 0 && JSON.stringify(meta.tokens || []) !== JSON.stringify(tokenRows);
+      if (tokensChanged || !hasTokensKey) {
+        meta.tokens = tokenRows;
+        changed = true;
+      }
+      if (changed) {
         db.prepare("UPDATE agents SET metadata = ? WHERE id = ?").run(
           JSON.stringify(meta),
           targetAgentId
@@ -940,6 +1038,91 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
 }
 
 /**
+ * Resolve the DB agent id for a parsed subagent: the live row (created by the
+ * PreToolUse "Agent" hook) if one matches, else the JSONL-keyed id. Mirrors the
+ * targetAgentId logic in importSubagentFromJsonl so parent/child linkage points
+ * at the same rows the importer wrote.
+ */
+function resolveSubagentDbId(dbModule, sessionId, subData) {
+  const live = findLiveSubagentForJsonl(dbModule, sessionId, subData);
+  return live ? live.id : `${sessionId}-jsonl-${subData.agentId}`;
+}
+
+/**
+ * Reconstruct the real parent→child hierarchy for a session's subagents.
+ *
+ * Subagent rows are inserted flat under the main agent because a single hook
+ * event or JSONL file carries no spawner identity. But each subagent's OWN
+ * transcript records every child it spawned via the Task tool
+ * (`toolUseResult.agentId`, captured as `spawnedChildren` by parseSubagentFile).
+ * Inverting that map gives child→parent; any subagent no other subagent claims
+ * stays under main. We then repoint parent_agent_id so nested agents nest under
+ * their true spawner instead of collapsing to a single level.
+ *
+ * Idempotent and additive: only rewrites parent_agent_id on existing rows,
+ * never inserts or deletes. Returns the number of rows repointed.
+ */
+function reconcileSubagentParents(dbModule, sessionId, mainAgentId, parsedSubagents) {
+  if (!Array.isArray(parsedSubagents) || parsedSubagents.length < 2) return 0;
+  const { stmts } = dbModule;
+
+  const byAgentId = new Map();
+  for (const s of parsedSubagents) if (s && s.agentId) byAgentId.set(s.agentId, s);
+
+  // child transcript id → parent transcript id, but only for parents we actually
+  // parsed (a claimed child whose spawner file is missing falls back to main).
+  const parentOf = new Map();
+  for (const s of parsedSubagents) {
+    if (!s || !Array.isArray(s.spawnedChildren)) continue;
+    for (const childId of s.spawnedChildren) {
+      if (childId && childId !== s.agentId && byAgentId.has(childId)) {
+        parentOf.set(childId, s.agentId);
+      }
+    }
+  }
+  if (parentOf.size === 0) return 0;
+
+  let updated = 0;
+  for (const s of parsedSubagents) {
+    const parentTid = parentOf.get(s.agentId);
+    if (!parentTid) continue; // direct child of main — already correct at insert
+    const parentData = byAgentId.get(parentTid);
+    if (!parentData) continue;
+
+    const childDbId = resolveSubagentDbId(dbModule, sessionId, s);
+    const parentDbId = resolveSubagentDbId(dbModule, sessionId, parentData);
+    if (!childDbId || !parentDbId || childDbId === parentDbId) continue;
+
+    const childRow = stmts.getAgent.get(childDbId);
+    const parentRow = stmts.getAgent.get(parentDbId);
+    if (!childRow || !parentRow) continue;
+    if (childRow.parent_agent_id === parentDbId) continue; // already linked
+
+    // Cycle guard. A real Task-spawn DAG is acyclic, but guard defensively:
+    // if the proposed parent is already a descendant of the child (walking up
+    // the parent chain from the parent reaches the child), linking them would
+    // create a loop that the recursive tree builders (client + findDeepest CTE)
+    // would spin on. Skip such a link rather than corrupt the hierarchy.
+    let cursor = parentDbId;
+    const seen = new Set([childDbId]);
+    let createsCycle = false;
+    while (cursor) {
+      if (seen.has(cursor)) {
+        createsCycle = true;
+        break;
+      }
+      seen.add(cursor);
+      cursor = stmts.getAgent.get(cursor)?.parent_agent_id || null;
+    }
+    if (createsCycle) continue;
+
+    stmts.setAgentParent.run(parentDbId, childDbId);
+    updated++;
+  }
+  return updated;
+}
+
+/**
  * Import a parsed session into the database.
  */
 function importSession(dbModule, session) {
@@ -1037,14 +1220,31 @@ function importSession(dbModule, session) {
     );
     if (compactCount > 0) backfilled = true;
 
-    // Backfill subagent records from Agent tool_use blocks
-    const subagentCount = importSubagents(
-      dbModule,
-      session.sessionId,
-      mainAgentId,
-      session.toolUses
-    );
-    if (subagentCount > 0) backfilled = true;
+    // Persist the transcript path so the abandon sweep, compaction scanner, and
+    // per-agent cost backfill can locate this session's transcript. The stmt
+    // only writes when the column is still empty, so it's a one-time no-op after.
+    if (session.transcriptPath) {
+      stmts.setSessionTranscriptPath.run(session.transcriptPath, session.sessionId);
+    }
+
+    // Subagent records. When the session has subagent TRANSCRIPTS
+    // (parsedSubagents), those `-jsonl-` rows are authoritative and richer
+    // (real model, tokens, tools) — so we must NOT also create `-subagent-N`
+    // rows from the main transcript's Agent blocks: the two are deduped only by
+    // a fragile type+timing match, and when it misses (the Agent-block timestamp
+    // and the subagent transcript's first timestamp differ by more than the
+    // tolerance) every subagent ends up DUPLICATED. Fall back to importSubagents
+    // only when there are no transcripts to reconstruct from.
+    const hasParsedSubs = session.parsedSubagents && session.parsedSubagents.length > 0;
+    if (!hasParsedSubs) {
+      const subagentCount = importSubagents(
+        dbModule,
+        session.sessionId,
+        mainAgentId,
+        session.toolUses
+      );
+      if (subagentCount > 0) backfilled = true;
+    }
 
     // Backfill API errors
     const apiErrCount = importApiErrors(
@@ -1061,6 +1261,16 @@ function importSession(dbModule, session) {
         if (importSubagentFromJsonl(dbModule, session.sessionId, mainAgentId, subData) > 0)
           backfilled = true;
       }
+      // Repoint nested subagents under their true spawner (inserts land flat).
+      if (
+        reconcileSubagentParents(
+          dbModule,
+          session.sessionId,
+          mainAgentId,
+          session.parsedSubagents
+        ) > 0
+      )
+        backfilled = true;
     }
 
     // Turn-duration events — one per JSONL entry newer than cutoff.
@@ -1110,7 +1320,12 @@ function importSession(dbModule, session) {
     const metaChanged =
       meta.user_messages !== session.userMessages ||
       meta.assistant_messages !== session.assistantMessages ||
-      (!meta.entrypoint && (session.entrypoint || session.turnDurations?.length > 0));
+      (!meta.entrypoint && (session.entrypoint || session.turnDurations?.length > 0)) ||
+      // Also refresh when turn count or thinking blocks grew even if the message
+      // counts happen to be unchanged, so usage_extras / turn_count / thinking
+      // aren't left stale on a re-imported, still-growing session.
+      (session.turnDurations && (meta.turn_count || 0) !== session.turnDurations.length) ||
+      (session.thinkingBlockCount || 0) > (meta.thinking_blocks || 0);
     if (metaChanged) {
       meta.user_messages = session.userMessages;
       meta.assistant_messages = session.assistantMessages;
@@ -1221,6 +1436,12 @@ function importSession(dbModule, session) {
     session.sessionId
   );
 
+  // Persist the transcript path so the abandon sweep, compaction scanner, and
+  // per-agent cost backfill can locate this session's transcript later.
+  if (session.transcriptPath) {
+    stmts.setSessionTranscriptPath.run(session.transcriptPath, session.sessionId);
+  }
+
   const mainAgentId = `${session.sessionId}-main`;
   const agentLabel = `Main Agent - ${session.name}`;
   stmts.insertAgent.run(
@@ -1322,8 +1543,14 @@ function importSession(dbModule, session) {
   // Create compaction agents/events
   importCompactions(dbModule, session.sessionId, mainAgentId, session.compactions);
 
-  // Create subagent records from Agent tool_use blocks
-  importSubagents(dbModule, session.sessionId, mainAgentId, session.toolUses);
+  // Create subagent records from Agent tool_use blocks ONLY when there are no
+  // subagent transcripts to reconstruct from. When transcripts exist, the
+  // `-jsonl-` rows below are authoritative; running both sources duplicates
+  // every subagent (they're deduped only by a fragile type+timing match). See
+  // the same guard on the backfill path above.
+  if (!(session.parsedSubagents && session.parsedSubagents.length > 0)) {
+    importSubagents(dbModule, session.sessionId, mainAgentId, session.toolUses);
+  }
 
   // Import API errors
   importApiErrors(dbModule, session.sessionId, mainAgentId, session.apiErrors);
@@ -1363,6 +1590,8 @@ function importSession(dbModule, session) {
     for (const subData of session.parsedSubagents) {
       importSubagentFromJsonl(dbModule, session.sessionId, mainAgentId, subData);
     }
+    // Repoint nested subagents under their true spawner (inserts land flat).
+    reconcileSubagentParents(dbModule, session.sessionId, mainAgentId, session.parsedSubagents);
   }
 
   writeSessionTokens(dbModule, session.sessionId, combineSessionTokens(session));
@@ -1594,6 +1823,14 @@ async function syncDefaultProjects(dbModule, options = {}) {
         if (!existed || !result.skipped) {
           changed.push({ sessionId: session.sessionId, isNew: !existed });
         }
+        // Cooperative yield after a heavy re-parse (this file fell through the
+        // fast path, so its full transcript + subagents were just parsed and
+        // imported synchronously). A cold sweep can re-parse many multi-MB
+        // transcripts back-to-back; without yielding, that monopolizes the
+        // event loop and starves the HTTP API + WebSocket handshake. The
+        // fast-path skip above `continue`s before reaching here, so unchanged
+        // files never pay this cost.
+        await new Promise((resolve) => setImmediate(resolve));
       } catch {
         /* non-fatal — leave mtime recorded so we don't spin on a bad file */
       }
@@ -1908,10 +2145,15 @@ function collectJsonlFiles(rootDir) {
  * a session-id folder). Anything else is treated as a top-level session.
  */
 function classifyJsonl(filePath) {
-  const parent = path.basename(path.dirname(filePath));
-  if (parent === "subagents") return "subagent";
-  const grand = path.basename(path.dirname(path.dirname(filePath)));
-  if (grand === "subagents") return "subagent";
+  // Any transcript living under a `subagents/` directory at ANY depth is a
+  // subagent, not a top-level session — this includes the flat
+  // `<sid>/subagents/agent-*.jsonl` layout AND the dynamic-workflow tree
+  // `<sid>/subagents/workflows/<runId>/agent-*.jsonl`. Walking the whole
+  // ancestor chain (rather than just parent/grandparent) stops workflow
+  // inner-agent files from being misimported as bogus top-level sessions when a
+  // user points the directory importer at a tree that contains workflow runs.
+  const segments = path.dirname(filePath).split(path.sep);
+  if (segments.includes("subagents")) return "subagent";
   return "session";
 }
 
@@ -2184,6 +2426,16 @@ async function scanAndImportSubagents(dbModule, sessionId, transcriptPath, opts 
     }
   }
 
+  // Repoint nested subagents under their true spawner. Rows are inserted flat
+  // under main (a single subagent JSONL carries no spawner id); the spawner's
+  // transcript names each child it spawned, so we can rebuild the real tree.
+  let reparented = 0;
+  try {
+    reparented = reconcileSubagentParents(dbModule, sessionId, mainAgentId, parsedSubagents);
+  } catch {
+    // non-fatal — hierarchy correction is best-effort during a live run
+  }
+
   // Attribute each subagent's token usage to ITS OWN model (issue #185).
   // A Haiku QA agent under an Opus orchestrator must keep its own (cheaper)
   // token bucket instead of being priced at the orchestrator's rate.
@@ -2225,7 +2477,92 @@ async function scanAndImportSubagents(dbModule, sessionId, transcriptPath, opts 
     }
   }
 
-  return { imported: subFiles.length, created };
+  return { imported: subFiles.length, created, reparented };
+}
+
+/**
+ * Backfill metadata.tokens onto existing subagent rows that predate per-agent
+ * cost tracking. New imports and live SubagentStop scans stamp each subagent's
+ * own token buckets inline, but a historical session whose transcript never
+ * changes again is mtime-skipped by syncDefaultProjects — so its subagents would
+ * never gain a per-agent cost and their cards would show none. This re-parses
+ * the subagent transcripts for any session that still has a non-compaction
+ * subagent missing the tokens key and stamps them.
+ *
+ * METADATA ONLY — it routes through importSubagentFromJsonl, which stamps the
+ * agent row's metadata (and idempotently backfills any missing spawn/tool
+ * events) but never writes session token_usage. So session cost totals are
+ * completely untouched; only the per-agent breakdown is filled in.
+ *
+ * Idempotent and self-limiting: once a row has a tokens key it drops out of the
+ * driving query, so steady-state startups do near-zero work.
+ */
+async function backfillSubagentTokenMetadata(dbModule) {
+  const { db } = dbModule;
+  let sessions;
+  try {
+    // Every session still holding a non-compaction subagent without a tokens
+    // key. Note: NOT filtered on transcript_path — most imported sessions have
+    // it NULL, yet their transcript is still on disk at the derivable
+    // <projectsDir>/<slug>/<sid>.jsonl path, so we resolve it below.
+    sessions = db
+      .prepare(
+        `SELECT DISTINCT s.id AS session_id, s.transcript_path AS tp,
+                s.metadata AS meta
+         FROM agents a JOIN sessions s ON s.id = a.session_id
+         WHERE a.type = 'subagent'
+           AND (a.subagent_type IS NULL OR a.subagent_type != 'compaction')
+           AND (a.metadata IS NULL OR a.metadata NOT LIKE '%"tokens":%')`
+      )
+      .all();
+  } catch {
+    return { sessions: 0, stamped: 0 };
+  }
+  let stamped = 0;
+  let scanned = 0;
+  for (const s of sessions) {
+    // Resolve the session transcript path: prefer the stored column when the
+    // file still exists, else derive it from the projects dir + slug (imported
+    // sessions leave transcript_path NULL). findSessionSubagents then covers
+    // BOTH on-disk layouts (<dir>/<sid>/subagents and <dir>/subagents/<sid>).
+    let transcriptPath = s.tp && fs.existsSync(s.tp) ? s.tp : null;
+    if (!transcriptPath) {
+      let slug = null;
+      try {
+        slug = s.meta ? JSON.parse(s.meta).slug : null;
+      } catch {
+        slug = null;
+      }
+      if (slug) {
+        const candidate = path.join(PROJECTS_DIR, slug, `${s.session_id}.jsonl`);
+        // The file itself may be gone, but findSessionSubagents only needs the
+        // path to derive the sibling subagents dir — so accept the candidate as
+        // long as its directory exists.
+        if (fs.existsSync(path.dirname(candidate))) transcriptPath = candidate;
+      }
+    }
+    if (!transcriptPath) continue; // can't locate the transcript tree — skip
+    let subFiles;
+    try {
+      subFiles = findSessionSubagents(transcriptPath);
+    } catch {
+      continue;
+    }
+    if (!subFiles || subFiles.length === 0) continue;
+    scanned++;
+    const mainAgentId = `${s.session_id}-main`;
+    for (const file of subFiles) {
+      try {
+        const subData = await parseSubagentFile(file);
+        if (!subData) continue;
+        importSubagentFromJsonl(dbModule, s.session_id, mainAgentId, subData);
+        stamped++;
+      } catch {
+        /* non-fatal — partial or unrelated files are common */
+      }
+    }
+  }
+  return { sessions: scanned, stamped };
 }
 
 module.exports = {
@@ -2237,6 +2574,8 @@ module.exports = {
   importSubagents,
   importApiErrors,
   importSubagentFromJsonl,
+  backfillSubagentTokenMetadata,
+  reconcileSubagentParents,
   parseSessionFile,
   parseSubagentFile,
   findCompactionsInFile,

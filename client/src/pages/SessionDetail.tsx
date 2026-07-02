@@ -3,7 +3,7 @@
  * @description Displays detailed information about a specific session, including its agents, events, and cost breakdown, with real-time updates and an expandable agent hierarchy view.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -694,14 +694,25 @@ export function SessionDetail() {
                       .sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
                   }
 
-                  // Count all descendants (recursive) for collapsed badge
-                  function countDescendants(id: string): number {
+                  // Count all descendants (recursive) for collapsed badge.
+                  // `seen` guards against a cyclic parent_agent_id (corrupt data)
+                  // that would otherwise recurse forever and crash the page.
+                  function countDescendants(id: string, seen = new Set<string>()): number {
+                    if (seen.has(id)) return 0;
+                    seen.add(id);
                     const kids = childrenByParent.get(id) || [];
-                    return kids.reduce((sum, k) => sum + 1 + countDescendants(k.id), 0);
+                    return kids.reduce((sum, k) => sum + 1 + countDescendants(k.id, seen), 0);
                   }
 
-                  // Recursive agent node renderer
-                  function renderAgentNode(agent: Agent, depth: number) {
+                  // Recursive agent node renderer. `ancestors` guards against a
+                  // cyclic parent_agent_id so a bad link can't stack-overflow.
+                  function renderAgentNode(
+                    agent: Agent,
+                    depth: number,
+                    ancestors: Set<string> = new Set()
+                  ): ReactNode {
+                    if (ancestors.has(agent.id)) return null;
+                    const childAncestors = new Set(ancestors).add(agent.id);
                     const children = childrenByParent.get(agent.id) || [];
                     const isExpanded = expandedAgents.has(agent.id);
                     const hasChildren = children.length > 0;
@@ -739,13 +750,25 @@ export function SessionDetail() {
                           <div className="flex-1 min-w-0">
                             <AgentCard
                               agent={agent}
-                              session={session ?? undefined}
-                              label={compactionLabels.get(agent.id)}
-                              onClick={
-                                hasChildren
-                                  ? toggleExpanded
-                                  : () => navigateToAgentConversation(agent)
+                              // The /api/sessions/:id session row has no `cost`
+                              // column (cost is loaded separately into `cost`
+                              // state), so inject the computed session total here
+                              // — otherwise the MAIN agent card, which shows
+                              // session.cost, renders no cost on this page.
+                              // Subagent cards ignore session.cost (they use
+                              // agent.cost), so this only affects the main card.
+                              session={
+                                session
+                                  ? { ...session, cost: cost?.total_cost ?? session.cost }
+                                  : undefined
                               }
+                              label={compactionLabels.get(agent.id)}
+                              // Card click always opens the agent conversation —
+                              // same behavior whether or not it has children.
+                              // Expand/collapse of the subagent list is handled
+                              // solely by the chevron button, so clicking a
+                              // parent (incl. the main agent) no longer toggles.
+                              onClick={() => navigateToAgentConversation(agent)}
                             />
                           </div>
                         </div>
@@ -753,7 +776,9 @@ export function SessionDetail() {
                         {/* Recursive children (collapsible) */}
                         {hasChildren && isExpanded && (
                           <div className="ml-6 mt-1 space-y-1 border-l-2 border-violet-500/20 pl-3">
-                            {children.map((child) => renderAgentNode(child, depth + 1))}
+                            {children.map((child) =>
+                              renderAgentNode(child, depth + 1, childAncestors)
+                            )}
                           </div>
                         )}
 

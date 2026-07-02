@@ -326,7 +326,11 @@ export function SessionComplexityScatter({ data, onSessionClick }: SessionComple
   if (data.length === 0) return <EmptyState />;
 
   return (
-    <div ref={containerRef} className="w-full" onMouseLeave={handleMouseLeave}>
+    <div
+      ref={containerRef}
+      className="w-full h-full flex flex-col justify-center"
+      onMouseLeave={handleMouseLeave}
+    >
       <svg
         ref={svgRef}
         width={width}

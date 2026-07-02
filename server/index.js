@@ -273,6 +273,27 @@ function startBackgroundServices() {
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();
 
+  // Backfill per-agent token metadata onto subagent rows that predate per-agent
+  // cost tracking, so their cards show their own cost instead of nothing. Runs
+  // deferred and non-blocking; self-limiting (rows with a tokens key are
+  // skipped), and metadata-only (never touches session token_usage).
+  {
+    const dbModule = require("./db");
+    const { backfillSubagentTokenMetadata } = require("../scripts/import-history");
+    const t = setTimeout(() => {
+      Promise.resolve()
+        .then(() => backfillSubagentTokenMetadata(dbModule))
+        .then((r) => {
+          if (r && r.stamped > 0)
+            console.log(
+              `Backfilled per-agent token cost for ${r.stamped} subagent(s) across ${r.sessions} session(s)`
+            );
+        })
+        .catch((err) => console.warn("subagent token backfill failed:", err?.message || err));
+    }, 500);
+    if (t.unref) t.unref();
+  }
+
   const { startUpdateScheduler } = require("./update-scheduler");
   const { broadcast } = require("./websocket");
   startUpdateScheduler({ broadcast });
@@ -445,8 +466,17 @@ function startSessionSync(broadcast) {
       });
   }
 
-  // 1. Immediate sweep — catch anything the one-time backfill missed, now.
-  runSweep();
+  // 1. Deferred initial sweep — let the HTTP server and WebSocket handshake
+  //    come up and serve the first page load before the (potentially heavy)
+  //    cold catch-up sweep runs. On a machine with many grown transcripts, the
+  //    cold sweep re-parses every file whose mtime is newer than its DB
+  //    updated_at; running it inline at startup can monopolize the event loop
+  //    long enough that the Vite `/ws` proxy handshake times out ("WebSocket is
+  //    closed before the connection is established") and the dashboard looks
+  //    stuck for a minute-plus. The sweep itself yields between heavy re-parses
+  //    (see syncDefaultProjects), so once it starts it stays cooperative.
+  const initialSweep = setTimeout(runSweep, 250);
+  if (initialSweep.unref) initialSweep.unref();
 
   // 3. Periodic safety net.
   const POLL_MS = process.env.DASHBOARD_SESSION_SYNC_MS
@@ -598,22 +628,62 @@ if (require.main === module) {
     }
     shutdownInProgress = true;
     console.log(`\n${signal} received — shutting down gracefully… (hit Ctrl+C again to force)`);
+
+    // Drop realtime clients first — open WS sockets otherwise hold the HTTP
+    // server open and stall the shutdown until the force-exit backstop fires.
+    try {
+      require("./websocket").closeWebSocket();
+    } catch {
+      /* websocket may not be initialised */
+    }
+
+    const closeDb = () => {
+      try {
+        require("./db").db.close();
+      } catch {
+        /* already closed */
+      }
+    };
+
     if (httpServer) {
+      // Close the DB only AFTER the HTTP server has fully drained. Closing it
+      // while requests are still in flight makes handlers throw "The database
+      // connection is not open" (e.g. server/routes/agents.js).
       httpServer.close(() => {
         console.log("HTTP server closed.");
+        closeDb();
+        process.exit(0);
       });
+      // Drop lingering IDLE keep-alive sockets so close() fires promptly (under
+      // `node --watch` this turns a multi-second "waiting for graceful
+      // termination" stall into a near-instant restart) while letting in-flight
+      // requests finish and drain — the whole point of closing the DB in the
+      // close() callback. closeAllConnections() would kill in-flight requests
+      // too, so use it only as a fallback on runtimes without
+      // closeIdleConnections; the 5s backstop below covers a genuinely stuck
+      // request either way.
+      if (typeof httpServer.closeIdleConnections === "function") {
+        httpServer.closeIdleConnections();
+      } else if (typeof httpServer.closeAllConnections === "function") {
+        httpServer.closeAllConnections();
+      }
+    } else {
+      closeDb();
+      process.exit(0);
     }
-    try {
-      require("./db").db.close();
-    } catch {
-      /* already closed */
-    }
+
     // Drop the port discovery file so a later run on a different port is not
     // shadowed by a stale entry. (A crash skips this — the PID-liveness check
     // in resolveDashboardPort() is the backstop for that case.)
     removeServerInfo();
-    // Give in-flight work 5s to finish, then force exit
-    setTimeout(() => process.exit(0), 5000).unref();
+    // Backstop: force exit if something still holds the event loop open. Close
+    // the DB here too — if close() never drained (a stuck in-flight request),
+    // the callback above never ran, so this is the only path that flushes
+    // SQLite before exit (closeDb is idempotent, so a normal drain is fine).
+    setTimeout(() => {
+      closeDb();
+      process.exit(0);
+    }, 5000).unref();
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));

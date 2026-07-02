@@ -611,3 +611,144 @@ describe("scanAndImportSubagents — per-subagent model token attribution", () =
     }
   });
 });
+
+describe("scanAndImportSubagents — nested subagent hierarchy", () => {
+  // A subagent's own transcript records each child it spawned via the Task tool
+  // as `toolUseResult.agentId`. Build a spawner file that claims `childIds`.
+  function buildSpawnerLines(childIds, startedAt = "2026-06-01T10:00:00.000Z") {
+    const lines = [
+      { type: "user", timestamp: startedAt, message: { content: [{ type: "text", text: "go" }] } },
+    ];
+    childIds.forEach((cid, i) => {
+      const ts = `2026-06-01T10:00:0${i + 1}.000Z`;
+      lines.push({
+        type: "assistant",
+        timestamp: ts,
+        message: {
+          model: "claude-opus-4-8",
+          content: [{ type: "tool_use", id: `toolu_task_${cid}`, name: "Task", input: {} }],
+        },
+      });
+      lines.push({
+        type: "user",
+        timestamp: ts,
+        toolUseResult: { agentId: cid, status: "completed" },
+        message: {
+          content: [{ type: "tool_result", tool_use_id: `toolu_task_${cid}`, content: "spawned" }],
+        },
+      });
+    });
+    return lines;
+  }
+
+  function buildLeafLines(startedAt = "2026-06-01T10:01:00.000Z") {
+    return [
+      {
+        type: "user",
+        timestamp: startedAt,
+        message: { content: [{ type: "text", text: "work" }] },
+      },
+      {
+        type: "assistant",
+        timestamp: startedAt,
+        message: {
+          model: "claude-haiku-4-5-20251001",
+          content: [{ type: "tool_use", id: "toolu_leaf", name: "Read", input: {} }],
+        },
+      },
+    ];
+  }
+
+  it("nests subagents under their true spawner instead of flattening to main", async () => {
+    const sessionId = "sess-nested-tree";
+    const mainAgentId = `${sessionId}-main`;
+    stmts.insertSession.run(sessionId, "Nested", "active", "/tmp", "claude-opus-4-8", null);
+    stmts.insertAgent.run(
+      mainAgentId,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+
+    // main → orch; orch → leafA, leafB; main → solo
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      { id: "orch", lines: buildSpawnerLines(["leafA", "leafB"]) },
+      { id: "leafA", lines: buildLeafLines() },
+      { id: "leafB", lines: buildLeafLines() },
+      { id: "solo", lines: buildLeafLines() },
+    ]);
+
+    try {
+      const res = await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+      assert.equal(res.reparented, 2, "leafA + leafB repointed under orch");
+
+      const parentOf = (id) => stmts.getAgent.get(`${sessionId}-jsonl-${id}`).parent_agent_id;
+      assert.equal(parentOf("orch"), mainAgentId, "orch is a direct child of main");
+      assert.equal(parentOf("solo"), mainAgentId, "solo stays under main");
+      assert.equal(parentOf("leafA"), `${sessionId}-jsonl-orch`, "leafA nests under orch");
+      assert.equal(parentOf("leafB"), `${sessionId}-jsonl-orch`, "leafB nests under orch");
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("is idempotent — a second scan repoints nothing", async () => {
+    const sessionId = "sess-nested-idem";
+    const mainAgentId = `${sessionId}-main`;
+    stmts.insertSession.run(sessionId, "NestedIdem", "active", "/tmp", "claude-opus-4-8", null);
+    stmts.insertAgent.run(
+      mainAgentId,
+      sessionId,
+      "Main",
+      "main",
+      null,
+      "working",
+      null,
+      null,
+      null
+    );
+
+    const { transcriptPath, base } = buildSubagentDir(sessionId, [
+      { id: "orch2", lines: buildSpawnerLines(["leafC"]) },
+      { id: "leafC", lines: buildLeafLines() },
+    ]);
+
+    try {
+      const first = await importHistory.scanAndImportSubagents(dbModule, sessionId, transcriptPath);
+      assert.equal(first.reparented, 1);
+      const second = await importHistory.scanAndImportSubagents(
+        dbModule,
+        sessionId,
+        transcriptPath
+      );
+      assert.equal(second.reparented, 0, "no re-parenting on the second pass");
+      assert.equal(
+        stmts.getAgent.get(`${sessionId}-jsonl-leafC`).parent_agent_id,
+        `${sessionId}-jsonl-orch2`
+      );
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("events dedup index", () => {
+  it("has a (agent_id, event_type) index so per-tool-event dedup is not a full scan", () => {
+    // importSubagentFromJsonl dedups every tool event with
+    // "WHERE agent_id = ? AND event_type = ? AND data LIKE '%tool_use_id%'".
+    // Without this index each dedup full-scans the events table; on a large DB a
+    // single re-import (e.g. the startup sweep touching a subagent-heavy session)
+    // takes tens of seconds and blocks the event loop. Guard it from regressing.
+    const row = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_events_agent_type'"
+      )
+      .get();
+    assert.ok(row, "idx_events_agent_type must exist to keep subagent dedup indexed");
+  });
+});

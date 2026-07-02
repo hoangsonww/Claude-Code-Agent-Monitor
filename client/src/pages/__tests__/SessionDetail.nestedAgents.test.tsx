@@ -9,6 +9,7 @@ import { render, screen, fireEvent, within, waitFor } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { SessionDetail } from "../SessionDetail";
 import type { Agent, Session, DashboardEvent } from "../../lib/types";
+import { fmtCost } from "../../lib/format";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ const mockSession: Session = {
 // ── Mock API ─────────────────────────────────────────────────────────────────
 
 let mockAgents: Agent[] = [];
+let mockCost: { total_cost: number; breakdown: unknown[] } = { total_cost: 0, breakdown: [] };
 
 vi.mock("../../lib/api", () => ({
   api: {
@@ -78,7 +80,7 @@ vi.mock("../../lib/api", () => ({
       ),
     },
     pricing: {
-      sessionCost: vi.fn(() => Promise.resolve({ total_cost: 0, breakdown: [] })),
+      sessionCost: vi.fn(() => Promise.resolve(mockCost)),
     },
     events: {
       list: vi.fn(() =>
@@ -120,6 +122,18 @@ async function findTree() {
 describe("SessionDetail - Nested Agent Tree Rendering", () => {
   beforeEach(() => {
     mockAgents = [];
+    mockCost = { total_cost: 0, breakdown: [] };
+  });
+
+  it("shows the session total cost on the main agent card (cost is loaded separately)", async () => {
+    // Regression: /api/sessions/:id has no cost column, so the main card (which
+    // renders session.cost) showed nothing until SessionDetail injected the
+    // separately-loaded total into the card's session prop.
+    mockCost = { total_cost: 42.5, breakdown: [] };
+    mockAgents = [makeAgent({ id: "main-1", name: "Main Agent", type: "main", status: "waiting" })];
+    renderPage();
+    const tree = await findTree();
+    await waitFor(() => expect(within(tree).getByText(fmtCost(42.5))).toBeInTheDocument());
   });
 
   it("renders a flat main → subagent hierarchy (depth 1)", async () => {

@@ -469,6 +469,8 @@ Request body shape:
 | `GET`    | `/api/pricing/cost`       | Total cost across all sessions         |
 | `GET`    | `/api/pricing/cost/:id`   | Cost breakdown for one session         |
 
+`PUT /api/pricing` also accepts optional **time-limited introductory rates** (`intro_*_per_mtok` + an `intro_until` `YYYY-MM-DD` cutoff): usage on/before the cutoff is priced at the intro rate, after it at the standard rate. Intro columns are written only when the caller sends them, so a standard-rate edit never disturbs a promo. The agent-list endpoints (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (0 for main agents, whose cost is the session total).
+
 ### Workflows
 
 | Method | Path                          | Description                                                         |
@@ -538,6 +540,15 @@ points share the same JSONL parser (`parseSessionFile` +
 calculations match real-time captured sessions exactly. Re-imports are
 idempotent (dedupe by session ID; compaction `baseline_*` columns
 prevent token double-counting).
+
+Imported and live-scanned subagents also get their **nested hierarchy**
+rebuilt: rows are inserted flat under the main agent, then
+`reconcileSubagentParents` recovers each spawner from the subagent
+transcript's Task tool result (`toolUseResult.agentId`) and repoints
+`parent_agent_id` so subagents-of-subagents nest under their true spawner
+instead of collapsing to one level. It is idempotent and additive (only
+rewrites `parent_agent_id`) and runs in `importSession` and the live
+`scanAndImportSubagents` path (which returns a `reparented` count).
 
 | Method | Path                      | Description                                                              |
 | ------ | ------------------------- | ------------------------------------------------------------------------ |
@@ -873,9 +884,11 @@ stateDiagram-v2
     active --> error: API error detected (watchdog)
     waiting --> error: API error detected (watchdog)
     error --> active: UserPromptSubmit / PreToolUse (recovery)
+    error --> active: Watchdog self-heal (transcript progressed past the error)
     waiting --> completed: SessionEnd (CLI exited)
     active --> completed: SessionEnd (CLI exited)
-    error --> error: SessionEnd (preserves error)
+    error --> error: SessionEnd (error still unrecovered at transcript tail)
+    error --> completed: SessionEnd (error recovered — successful turns after it)
     waiting --> abandoned: Stale > DASHBOARD_STALE_MINUTES
     active --> abandoned: Stale > DASHBOARD_STALE_MINUTES
     completed --> active: Session resumed (new work event)
@@ -1050,15 +1063,27 @@ Error state transitions:
 - `Stop` with `stop_reason=error` → agent `error`, session `error`
 - API error in transcript (hook-based or watchdog) → session `error`, agent `error`
 - `Notification` indicating input prompt → agent `waiting` (status change, not just flag)
-- `SessionEnd` on error session → **preserves** `error` status (previously always set to `completed`)
+- `SessionEnd` on error session → **preserves** `error` **only if the error is unrecovered at the transcript tail** (`isErrorAtTail`: the latest API error has no successful turn after it). A transient error the CLI retried past (successful turns after it) finalizes as `completed`, so a long healthy run doesn't exit frozen in a stale `error` from days earlier.
 
 ### Error Recovery
 
-Only two events can recover a session from `error` back to `active`:
+Three ways a session leaves `error`:
 - **`UserPromptSubmit`** — user hits enter on a new prompt (active retry)
 - **`PreToolUse`** — agent begins using a tool (session resumed with work)
+- **Watchdog self-heal** — the 15 s watchdog now scans `error` sessions too. When the transcript shows the session progressed past the last API error (successful turns after it — `isErrorAtTail` is false), it clears the error back to `active`. This closes the gap where a transient API error (e.g. "Connection closed mid-response" — the CLI auto-retries and keeps going) left a session that recovered but never received a live `UserPromptSubmit`/`PreToolUse` hook — or one driven purely by the transcript sweep — pinned in `error` forever.
 
-This ensures error states are only cleared by deliberate user action, not by background activity.
+Live user actions and the transcript-tail check clear the error; unrelated background activity does not (the watchdog only clears when the transcript proves recovery).
+
+### Graceful Shutdown
+
+`SIGTERM` / `SIGINT` tear the server down in a fixed order so a restart is fast and clean (this matters most under `node --watch`, which SIGTERMs on every file save):
+
+1. **Drop realtime clients first** — `closeWebSocket()` (`server/websocket.js`) terminates every WebSocket client so their underlying TCP sockets release. Open WS sockets otherwise keep the HTTP server alive.
+2. **`httpServer.close()`** — stop accepting new connections and begin draining in-flight requests.
+3. **`httpServer.closeAllConnections()`** — forcibly drop lingering keep-alive sockets so `close()` actually completes promptly instead of hanging.
+4. **Close SQLite last** — inside the `close()` callback, *after* the HTTP server has drained, then `process.exit(0)`.
+
+Ordering matters: closing the DB before the HTTP server drained made in-flight requests throw `The database connection is not open` (e.g. `routes/agents.js`); leaving WS/keep-alive sockets open stalled shutdown until the 5 s force-exit backstop (the "waiting for graceful termination" hang). A second signal forces an immediate exit.
 
 ---
 

@@ -30,7 +30,13 @@ router.get("/", (req, res) => {
 
   // Calculate total cost across all sessions
   const pricingRules = stmts.listPricing.all();
-  const allTokenUsage = db.prepare("SELECT * FROM token_usage").all();
+  // Join the owning session's start date so each bucket is priced at the rate
+  // effective when it was used (date-effective promo rates, e.g. Sonnet 5 intro).
+  const allTokenUsage = db
+    .prepare(
+      "SELECT tu.*, DATE(s.started_at) as date FROM token_usage tu JOIN sessions s ON s.id = tu.session_id"
+    )
+    .all();
 
   let totalCost = 0;
   for (const usage of allTokenUsage) {

@@ -214,6 +214,17 @@ db.exec(`
     -- caching multipliers (see server/lib/pricing-constants.js).
     fast_input_per_mtok REAL NOT NULL DEFAULT 0,
     fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    -- Time-limited introductory rates. When intro_until is set, usage on/before
+    -- that date (YYYY-MM-DD) is priced at the intro_* rates and usage after it at
+    -- the standard rates — so promo pricing (e.g. Claude Sonnet 5's launch
+    -- discount through 2026-08-31) stays correct for historical and future usage
+    -- at all times. 0 / NULL means "no intro rate" → standard rates always apply.
+    intro_input_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_output_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_read_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,
+    intro_until TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
@@ -254,6 +265,13 @@ db.exec(`
 
   -- Composite indexes for frequent query patterns (columns that exist at table creation time)
   CREATE INDEX IF NOT EXISTS idx_events_session_type ON events(session_id, event_type);
+  -- Subagent JSONL import dedups each tool event with
+  -- "WHERE agent_id = ? AND event_type = ? AND data LIKE '%tool_use_id%'".
+  -- Without an agent_id index that is a full events-table scan per tool event;
+  -- on a large DB a single re-import (e.g. the startup sync sweep re-touching a
+  -- session with many subagents) becomes tens of seconds and blocks the event
+  -- loop. This composite narrows each dedup to the agent's events of that type.
+  CREATE INDEX IF NOT EXISTS idx_events_agent_type ON events(agent_id, event_type);
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
@@ -442,6 +460,26 @@ try {
   setFast.run(30, 150, "claude-opus-4-6%");
 }
 
+// Migrate: add time-limited introductory-rate columns to model_pricing.
+// Usage on/before intro_until prices at the intro_* rates; usage after prices at
+// standard — so promo pricing (e.g. Claude Sonnet 5's launch discount) stays
+// correct for both historical and future usage. Additive + default 0/NULL, so
+// existing rows keep behaving exactly as before until an intro rate is set.
+try {
+  db.prepare("SELECT intro_until FROM model_pricing LIMIT 1").get();
+} catch {
+  for (const col of [
+    "intro_input_per_mtok",
+    "intro_output_per_mtok",
+    "intro_cache_read_per_mtok",
+    "intro_cache_write_per_mtok",
+    "intro_cache_write_1h_per_mtok",
+  ]) {
+    db.prepare(`ALTER TABLE model_pricing ADD COLUMN ${col} REAL NOT NULL DEFAULT 0`).run();
+  }
+  db.prepare("ALTER TABLE model_pricing ADD COLUMN intro_until TEXT").run();
+}
+
 // Default model pricing — shared by initial seed + startup top-up + reset endpoint
 // Columns: pattern, display_name, input, output, cache_read (hits & refreshes),
 //          cache_write (5m ephemeral writes), cache_write_1h (1h ephemeral writes),
@@ -460,6 +498,7 @@ const DEFAULT_PRICING = [
   ["claude-opus-4-1%", "Claude Opus 4.1", 15, 75, 1.5, 18.75, 30, 0, 0],
   ["claude-opus-4-2%", "Claude Opus 4", 15, 75, 1.5, 18.75, 30, 0, 0],
   // Sonnet family
+  ["claude-sonnet-5%", "Claude Sonnet 5", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-2%", "Claude Sonnet 4", 3, 15, 0.3, 3.75, 6, 0, 0],
@@ -494,6 +533,29 @@ const DEFAULT_PRICING = [
   });
   addMissing(DEFAULT_PRICING);
 }
+
+// Known introductory promo rates: [pattern, in, out, cacheRead, cw5m, cw1h, until].
+// Standard rates live in the DEFAULT_PRICING row; these add the time-limited
+// discount on top. Claude Sonnet 5: 2/3-off launch pricing through 2026-08-31.
+const DEFAULT_INTRO_PRICING = [["claude-sonnet-5%", 2, 10, 0.2, 2.5, 4, "2026-08-31"]];
+
+// Backfill the known intro rates. Only fills rows whose intro_until is still
+// NULL, so a user who edits or clears an intro rate in Settings is never
+// overwritten. Shared by startup and the reset-pricing endpoint (which
+// re-seeds standard rates and must re-apply the intro discount too, else Sonnet
+// 5 would silently price at standard until the next restart).
+function applyIntroPricing(dbHandle = db) {
+  const setIntro = dbHandle.prepare(
+    `UPDATE model_pricing SET
+       intro_input_per_mtok = ?, intro_output_per_mtok = ?, intro_cache_read_per_mtok = ?,
+       intro_cache_write_per_mtok = ?, intro_cache_write_1h_per_mtok = ?, intro_until = ?
+     WHERE model_pattern = ? AND intro_until IS NULL`
+  );
+  for (const [pattern, inp, out, cr, cw5m, cw1h, until] of DEFAULT_INTRO_PRICING) {
+    setIntro.run(inp, out, cr, cw5m, cw1h, until, pattern);
+  }
+}
+applyIntroPricing();
 
 // Migrate: if token_usage has rows without model column (old schema), add it
 try {
@@ -881,6 +943,13 @@ const stmts = {
   reactivateAgent: db.prepare(
     "UPDATE agents SET status = 'working', ended_at = NULL, current_tool = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  // Repoint a subagent at its true spawner. Used by reconcileSubagentParents to
+  // fix nested subagents that were inserted flat under the main agent (hook and
+  // JSONL ingestion can't know the spawner from a single file). Authoritative
+  // parent comes from the spawner transcript's Task tool_result (agentId).
+  setAgentParent: db.prepare(
+    "UPDATE agents SET parent_agent_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
   // Awaiting-input state. Stamping awaiting_input_since marks the row as
   // "waiting" for user attention without touching the underlying status
   // enum (kept stable for legacy CHECK constraints and aggregations).
@@ -968,9 +1037,26 @@ const stmts = {
       cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
       cache_write_tokens = cache_write_tokens + excluded.cache_write_tokens
   `),
-  // Replace a bucket's totals with the latest full re-parse. The baseline_*
-  // columns preserve the highest-seen value so compaction (which shrinks the
-  // transcript) never reduces effective totals. Args, in order:
+  // Replace a bucket's totals with the latest full re-parse, keeping the
+  // effective total (`live + baseline`) a monotonic HIGH-WATER MARK: it never
+  // decreases, but it also never inflates past the largest value ever seen.
+  //
+  //   baseline := max(old_live + old_baseline - new_live, 0)
+  //   live     := new_live
+  //   ⇒ effective = new_live + baseline = max(old_effective, new_live)
+  //
+  // Why not the old `baseline += old_live` on any decrease: two writers hit the
+  // same (session, model, …) bucket with DIFFERENT scopes — the live hook writer
+  // stores main-transcript-only tokens (server/routes/hooks.js), while
+  // importSession stores main+subagents combined (combineSessionTokens). Every
+  // time the smaller write followed the larger, the old formula mistook it for a
+  // compaction and ADDED the current value into baseline, so a long-lived,
+  // frequently-reswept session accumulated a baseline many times its real usage
+  // (a 26-day/80-repo session reached ~11× — its transcript proved 774M
+  // cache-read while baseline claimed 8.5B). Transcripts are append-only, so a
+  // full re-parse always sees the complete total; the high-water mark preserves
+  // the true max across writer-scope noise and re-imports without ever
+  // double-counting. Args, in order:
   //   session_id, model, speed, inference_geo, service_tier,
   //   input, output, cache_read, cache_write, cache_write_1h,
   //   web_search, web_fetch, code_execution
@@ -982,22 +1068,14 @@ const stmts = {
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
     ON CONFLICT(session_id, model, speed, inference_geo, service_tier) DO UPDATE SET
-      baseline_input = CASE WHEN excluded.input_tokens < input_tokens
-        THEN baseline_input + input_tokens ELSE baseline_input END,
-      baseline_output = CASE WHEN excluded.output_tokens < output_tokens
-        THEN baseline_output + output_tokens ELSE baseline_output END,
-      baseline_cache_read = CASE WHEN excluded.cache_read_tokens < cache_read_tokens
-        THEN baseline_cache_read + cache_read_tokens ELSE baseline_cache_read END,
-      baseline_cache_write = CASE WHEN excluded.cache_write_tokens < cache_write_tokens
-        THEN baseline_cache_write + cache_write_tokens ELSE baseline_cache_write END,
-      baseline_cache_write_1h = CASE WHEN excluded.cache_write_1h_tokens < cache_write_1h_tokens
-        THEN baseline_cache_write_1h + cache_write_1h_tokens ELSE baseline_cache_write_1h END,
-      baseline_web_search = CASE WHEN excluded.web_search_requests < web_search_requests
-        THEN baseline_web_search + web_search_requests ELSE baseline_web_search END,
-      baseline_web_fetch = CASE WHEN excluded.web_fetch_requests < web_fetch_requests
-        THEN baseline_web_fetch + web_fetch_requests ELSE baseline_web_fetch END,
-      baseline_code_execution = CASE WHEN excluded.code_execution_requests < code_execution_requests
-        THEN baseline_code_execution + code_execution_requests ELSE baseline_code_execution END,
+      baseline_input = MAX(input_tokens + baseline_input - excluded.input_tokens, 0),
+      baseline_output = MAX(output_tokens + baseline_output - excluded.output_tokens, 0),
+      baseline_cache_read = MAX(cache_read_tokens + baseline_cache_read - excluded.cache_read_tokens, 0),
+      baseline_cache_write = MAX(cache_write_tokens + baseline_cache_write - excluded.cache_write_tokens, 0),
+      baseline_cache_write_1h = MAX(cache_write_1h_tokens + baseline_cache_write_1h - excluded.cache_write_1h_tokens, 0),
+      baseline_web_search = MAX(web_search_requests + baseline_web_search - excluded.web_search_requests, 0),
+      baseline_web_fetch = MAX(web_fetch_requests + baseline_web_fetch - excluded.web_fetch_requests, 0),
+      baseline_code_execution = MAX(code_execution_requests + baseline_code_execution - excluded.code_execution_requests, 0),
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       cache_read_tokens = excluded.cache_read_tokens,
@@ -1048,6 +1126,24 @@ const stmts = {
       fast_input_per_mtok = excluded.fast_input_per_mtok,
       fast_output_per_mtok = excluded.fast_output_per_mtok,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  `),
+  // Update ONLY the time-limited introductory rates for an existing row. Kept
+  // separate from upsertPricing so a standard-rate edit never touches intro
+  // columns (and vice versa): the PUT route calls this only when the caller
+  // actually sends intro fields, so legacy callers that omit them preserve any
+  // promo untouched. intro_until = NULL clears the promo (row reverts to
+  // standard rates at all dates). This is fully generic — any model pattern can
+  // carry a promo window, not just Sonnet 5.
+  setIntroPricing: db.prepare(`
+    UPDATE model_pricing SET
+      intro_input_per_mtok = ?,
+      intro_output_per_mtok = ?,
+      intro_cache_read_per_mtok = ?,
+      intro_cache_write_per_mtok = ?,
+      intro_cache_write_1h_per_mtok = ?,
+      intro_until = ?,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE model_pattern = ?
   `),
   deletePricing: db.prepare("DELETE FROM model_pricing WHERE model_pattern = ?"),
   matchPricing: db.prepare(
@@ -1291,4 +1387,4 @@ const stmts = {
   ),
 };
 
-module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING };
+module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };
