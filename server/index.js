@@ -815,6 +815,12 @@ if (require.main === module) {
     // Catches workflows that complete without a subsequent hook and flips
     // launch-detected "running" rows to "completed" once their journal lands.
     const { ingestWorkflowsForSession, workflowsMaxMtime } = require("./lib/workflow-ingest");
+    // Forget fingerprints for sessions that are no longer active so the map
+    // can't grow without bound over the process lifetime.
+    const activeIds = new Set(active.map((r) => r.session_id));
+    for (const id of sweepWorkflowSeen.keys()) {
+      if (!activeIds.has(id)) sweepWorkflowSeen.delete(id);
+    }
     for (const row of active) {
       if (!row.tp) continue;
       // Skip sessions whose workflow artifacts are unchanged since the last
@@ -839,6 +845,9 @@ if (require.main === module) {
           if (sess) broadcast("session_updated", sess);
         })
         .catch((err) => {
+          // Forget the fingerprint so the next sweep retries this session
+          // instead of skipping it until its artifacts change again.
+          sweepWorkflowSeen.delete(row.session_id);
           console.warn(
             `[SWEEP] Workflow scan failed for session ${row.session_id}:`,
             err?.message || err
