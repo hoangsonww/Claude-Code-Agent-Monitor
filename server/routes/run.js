@@ -133,8 +133,10 @@ router.get("/history", (req, res) => {
 
 /**
  * Suggest plausible working directories. Pulls from:
- *   - "dashboard": the dashboard server's cwd (always shown first)
- *   - "home": $HOME
+ *   - "dashboard": the dashboard server's cwd
+ *   - "home": $HOME (the Run page's default cwd and first autocomplete group —
+ *     a neutral spawn location that doesn't inherit this repo's project
+ *     context, issue #202)
  *   - "recent": distinct cwds Claude Code has been used in, sourced from the
  *     dashboard's own sessions table. Filtered to dirs that still exist.
  *

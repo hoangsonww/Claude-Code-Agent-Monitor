@@ -575,12 +575,18 @@ export function Run() {
       .cwds()
       .then((r) => {
         setCwdSuggestions(r.items);
-        // Pre-fill cwd with the dashboard's cwd so the user can see exactly
-        // where the run will spawn. They can change it; we just don't want
-        // an invisible default.
+        // Pre-fill cwd with the user's home directory — a neutral default.
+        // Spawning in the dashboard's own cwd would make ad-hoc runs inherit
+        // this repo's project context (.claude/agents, skills, rules,
+        // CLAUDE.md, .mcp.json), which is almost never what an ad-hoc run
+        // wants and can bloat the initial request (issue #202). Fall back to
+        // the dashboard cwd when no home suggestion exists. The user can
+        // change it; we just don't want an invisible default.
+        const home = r.items.find((s) => s.kind === "home");
         const dashboard = r.items.find((s) => s.kind === "dashboard");
-        if (dashboard) {
-          setCwd((current) => current || dashboard.path);
+        const preferred = home || dashboard;
+        if (preferred) {
+          setCwd((current) => current || preferred.path);
         }
       })
       .catch(() => undefined);
@@ -2774,9 +2780,10 @@ function CwdAutocomplete({
     return out;
   }, [value, suggestions]);
 
-  // Group suggestions by kind preserving fixed order
+  // Group suggestions by kind preserving fixed order — home first, matching
+  // the neutral default the page pre-fills (issue #202).
   const groups = useMemo(() => {
-    const order: CwdSuggestion["kind"][] = ["dashboard", "home", "recent"];
+    const order: CwdSuggestion["kind"][] = ["home", "dashboard", "recent"];
     return order
       .map((kind) => ({ kind, items: filtered.filter((s) => s.kind === kind) }))
       .filter((g) => g.items.length > 0);
