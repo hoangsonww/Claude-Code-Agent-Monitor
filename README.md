@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/hoangsonww-claude-code-agent-monitor-badge.png)](https://mseep.ai/app/hoangsonww-claude-code-agent-monitor)
+
 # Agent Dashboard for Claude Code
 
 ### Real-time monitoring platform for Claude Code agent activity 🚀
