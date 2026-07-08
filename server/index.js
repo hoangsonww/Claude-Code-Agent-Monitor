@@ -287,10 +287,15 @@ function startBackgroundServices() {
   //      safety net for anything later (kill -9 / crashes fire no SessionEnd
   //      either), and its probe is skipped whenever no active session
   //      qualifies, so the steady-state cost is nil.
+  // Both boot passes run with ignoreIdleGate: at boot the probe alone is the
+  // truth — a session quit even ONE second before launch must clear
+  // immediately, not after the LIVENESS_IDLE_SECONDS gate ages out (the gate
+  // exists to protect long-running steady-state work on watchdog ticks, and
+  // there is no in-flight work at boot).
   {
     const bootReap = (label) => {
       try {
-        require("./routes/hooks").livenessReap();
+        require("./routes/hooks").livenessReap({ ignoreIdleGate: true });
       } catch (err) {
         console.warn(`${label} liveness reap failed:`, err?.message || err);
       }

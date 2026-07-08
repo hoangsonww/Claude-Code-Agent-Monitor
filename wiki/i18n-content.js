@@ -205,8 +205,8 @@ window.__WIKI_CONTENT_I18N = {
     "Path to the SQLite database file": "SQLite 数据库文件的路径",
     "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
       "设为 <code>0</code> 可禁用死亡会话的存活性回收——看门狗会把没有正在运行的 <code>claude</code> 进程的活动会话标记为完成；在 Windows 和容器内自动禁用",
-    "Idle gate before the liveness reap may complete a process-less session — the transcript must not have been written for at least this long (last hook write is the fallback clock)":
-      "存活性回收将无进程会话标记为完成前的空闲门槛——transcript 必须至少有这么长时间未被写入（无 transcript 时以最后一次 hook 写入为后备时钟）",
+    "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
+      "看门狗节拍存活性回收的空闲门槛——transcript 必须至少有这么长时间未被写入（无 transcript 时以最后一次 hook 写入为后备时钟）；启动时的回收会跳过该门槛",
     "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
       "看门狗用于恢复未在会话记录中留下标记的 <code>Esc</code> 取消的空闲工作超时",
     "Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher":
@@ -1404,8 +1404,8 @@ window.__WIKI_CONTENT_I18N = {
     "Path to the SQLite database file": "Đường dẫn tới tệp cơ sở dữ liệu SQLite",
     "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
       "Đặt <code>0</code> để tắt cơ chế thu dọn phiên đã chết — watchdog sẽ hoàn tất các phiên đang hoạt động không còn tiến trình <code>claude</code> nào chạy; tự động tắt trên Windows và trong container",
-    "Idle gate before the liveness reap may complete a process-less session — the transcript must not have been written for at least this long (last hook write is the fallback clock)":
-      "Ngưỡng nhàn rỗi trước khi cơ chế thu dọn được phép hoàn tất một phiên không còn tiến trình — transcript phải không được ghi trong ít nhất khoảng này (lấy lần ghi hook cuối làm đồng hồ dự phòng khi không có transcript)",
+    "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
+      "Ngưỡng nhàn rỗi cho thu dọn ở nhịp watchdog — transcript phải không được ghi trong ít nhất khoảng này (lấy lần ghi hook cuối làm đồng hồ dự phòng); các lượt thu dọn lúc khởi động bỏ qua ngưỡng này",
     "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
       "Thời gian chờ làm-việc-rảnh-rỗi mà watchdog dùng để khôi phục một lần hủy <code>Esc</code> không để lại dấu hiệu trong bản ghi",
     "Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher":

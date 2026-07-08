@@ -264,6 +264,32 @@ describe("watchdog liveness reap", () => {
     assert.equal(stmts.getSession.get(sid).status, "completed");
   });
 
+  it("boot pass (ignoreIdleGate) reaps a session quit seconds before launch", async () => {
+    // The reported flow: quit the session, IMMEDIATELY start the dashboard.
+    // Transcript mtime is only seconds old, so the gated reap would wait a
+    // full LIVENESS_IDLE_SECONDS — the boot passes must skip the gate and
+    // trust the probe alone.
+    const sid = "qikq0000-0000-0000-0000-00000000000a";
+    const cwd = "/tmp/liveness-quick-quit";
+    await seedSession(sid, cwd, { old: false }); // mtime + updated_at are NOW
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
+    hooksRouter.livenessReap({ ignoreIdleGate: true });
+
+    assert.equal(stmts.getSession.get(sid).status, "completed");
+  });
+
+  it("boot pass still spares a session whose claude process is alive", async () => {
+    const sid = "qikl0000-0000-0000-0000-00000000000b";
+    const cwd = "/tmp/liveness-quick-live";
+    await seedSession(sid, cwd, { old: false });
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set([path.resolve(cwd)]) });
+    hooksRouter.livenessReap({ ignoreIdleGate: true });
+
+    assert.equal(stmts.getSession.get(sid).status, "active");
+  });
+
   it("skips sessions without a cwd", async () => {
     const sid = "nocw0000-0000-0000-0000-000000000005";
     await req("POST", "/api/hooks/event", {

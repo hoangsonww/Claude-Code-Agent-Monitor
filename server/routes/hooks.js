@@ -1302,7 +1302,21 @@ function watchdogCheck() {
   }
 }
 
-function livenessReap() {
+/**
+ * Complete every `active` session whose cwd has no live `claude` process.
+ *
+ * `ignoreIdleGate` (boot passes only): skip the idle-age check entirely. At
+ * boot the gate is pure harm — the user's most common flow is "quit the
+ * session, immediately start the dashboard", where the transcript is only
+ * seconds old and the gate forced a full LIVENESS_IDLE_MS wait even though
+ * the probe already proved the process is gone. There is nothing mid-flight
+ * at boot to protect: genuinely live sessions are spared by the probe
+ * itself, and the one theoretical loser — a cwd-mismatched live session
+ * mid-turn at the exact boot instant — self-heals on its next hook via the
+ * existing reactivation path. Watchdog ticks keep the gate, where it still
+ * guards long-running steady-state work against transient probe misses.
+ */
+function livenessReap({ ignoreIdleGate = false } = {}) {
   const fs = require("fs");
   const path = require("path");
 
@@ -1326,26 +1340,28 @@ function livenessReap() {
     }
     if (probe.cwds.has(resolvedCwd)) continue;
 
-    // Idle gate: the transcript mtime is the ground truth for "when did this
-    // session last do anything" — Claude Code appends to it on every turn,
-    // and it stops moving the instant the process dies. updated_at is only a
-    // fallback for sessions with no transcript on disk: import/backfill
-    // passes bump updated_at at BOOT, so gating on it left a freshly
-    // imported dead session sitting in Waiting for a full extra
-    // LIVENESS_IDLE_MS after startup (the exact window the user first looks
-    // at the UI). Live sessions don't need updated_at here: an alive claude
-    // is protected by the probe itself, and a cwd-mismatched one that's
+    // Idle gate (watchdog ticks only — boot passes skip it, see above): the
+    // transcript mtime is the ground truth for "when did this session last
+    // do anything" — Claude Code appends to it on every turn, and it stops
+    // moving the instant the process dies. updated_at is only a fallback for
+    // sessions with no transcript on disk: import/backfill passes bump
+    // updated_at at BOOT, so gating on it left a freshly imported dead
+    // session sitting in Waiting for a full extra LIVENESS_IDLE_MS after
+    // startup. Live sessions don't need updated_at here: an alive claude is
+    // protected by the probe itself, and a cwd-mismatched one that's
     // actually mid-turn keeps its transcript mtime fresh.
-    let lastActivityMs = 0;
-    if (sess.transcript_path) {
-      try {
-        lastActivityMs = fs.statSync(sess.transcript_path).mtimeMs;
-      } catch {
-        /* transcript gone — fall back to updated_at below */
+    if (!ignoreIdleGate) {
+      let lastActivityMs = 0;
+      if (sess.transcript_path) {
+        try {
+          lastActivityMs = fs.statSync(sess.transcript_path).mtimeMs;
+        } catch {
+          /* transcript gone — fall back to updated_at below */
+        }
       }
+      if (!lastActivityMs) lastActivityMs = Date.parse(sess.updated_at) || 0;
+      if (now - lastActivityMs < LIVENESS_IDLE_MS) continue;
     }
-    if (!lastActivityMs) lastActivityMs = Date.parse(sess.updated_at) || 0;
-    if (now - lastActivityMs < LIVENESS_IDLE_MS) continue;
 
     // Mirror the SessionEnd case: all DB writes first, then broadcasts.
     const ts = new Date().toISOString();
