@@ -1902,7 +1902,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_LIVENESS_IDLE_SECONDS</code></td>
                   <td><code>60</code></td>
                   <td>
-                    Idle gate before the liveness reap may complete a process-less session — both the last hook write and the transcript mtime must be at least this old
+                    Idle gate before the liveness reap may complete a process-less session — the transcript must not have been written for at least this long (last hook write is the fallback clock)
                   </td>
                 </tr>
                 <tr>
@@ -6089,7 +6089,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=20" defer></script>
+    <script src="i18n-content.js?v=21" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

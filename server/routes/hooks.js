@@ -1326,14 +1326,25 @@ function livenessReap() {
     }
     if (probe.cwds.has(resolvedCwd)) continue;
 
-    let lastActivityMs = Date.parse(sess.updated_at) || 0;
+    // Idle gate: the transcript mtime is the ground truth for "when did this
+    // session last do anything" — Claude Code appends to it on every turn,
+    // and it stops moving the instant the process dies. updated_at is only a
+    // fallback for sessions with no transcript on disk: import/backfill
+    // passes bump updated_at at BOOT, so gating on it left a freshly
+    // imported dead session sitting in Waiting for a full extra
+    // LIVENESS_IDLE_MS after startup (the exact window the user first looks
+    // at the UI). Live sessions don't need updated_at here: an alive claude
+    // is protected by the probe itself, and a cwd-mismatched one that's
+    // actually mid-turn keeps its transcript mtime fresh.
+    let lastActivityMs = 0;
     if (sess.transcript_path) {
       try {
-        lastActivityMs = Math.max(lastActivityMs, fs.statSync(sess.transcript_path).mtimeMs);
+        lastActivityMs = fs.statSync(sess.transcript_path).mtimeMs;
       } catch {
-        /* transcript gone — fall back to updated_at alone */
+        /* transcript gone — fall back to updated_at below */
       }
     }
+    if (!lastActivityMs) lastActivityMs = Date.parse(sess.updated_at) || 0;
     if (now - lastActivityMs < LIVENESS_IDLE_MS) continue;
 
     // Mirror the SessionEnd case: all DB writes first, then broadcasts.

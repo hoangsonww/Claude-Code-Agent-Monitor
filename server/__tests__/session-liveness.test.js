@@ -246,6 +246,24 @@ describe("watchdog liveness reap", () => {
     assert.equal(stmts.getSession.get(sid).status, "active");
   });
 
+  it("reaps a just-imported dead session: fresh updated_at, old transcript mtime", async () => {
+    // The boot shape: the startup sync imports a transcript last touched when
+    // the user quit (old mtime) but stamps updated_at = NOW. The gate must key
+    // on the transcript mtime, or the dead session sits in Waiting for a full
+    // extra LIVENESS_IDLE_SECONDS after every dashboard start.
+    const sid = "boot0000-0000-0000-0000-000000000009";
+    const cwd = "/tmp/liveness-boot-import";
+    const tpath = await seedSession(sid, cwd, { old: false });
+    const old = new Date(Date.now() - 10 * 60 * 1000);
+    fs.utimesSync(tpath, old, old); // transcript stopped moving 10 min ago
+    // updated_at stays fresh (the import just wrote the row).
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
+    hooksRouter.livenessReap();
+
+    assert.equal(stmts.getSession.get(sid).status, "completed");
+  });
+
   it("skips sessions without a cwd", async () => {
     const sid = "nocw0000-0000-0000-0000-000000000005";
     await req("POST", "/api/hooks/event", {
