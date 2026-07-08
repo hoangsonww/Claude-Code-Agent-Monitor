@@ -475,7 +475,7 @@ graph TD
 
 ### Splash & loading UX
 
-- **`SplashScreen.tsx`** — rendered by `App.tsx` as a fixed full-screen overlay alongside the router. Shows once per browser session (`sessionStorage` gate, read synchronously so a repeat mount never flashes). Time-aware greeting + localized tagline/subtexts (`splash` i18n namespace, en/zh/vi) + an animated node-graph brand mark on a dark backdrop (radial glow, drifting constellation, grain). The backdrop is **opaque from the first paint** (no entrance fade on the root) so the app rendered behind it never flashes through; only the inner content cascades in. Holds ~2.5 s, then fades out and unmounts; click-to-skip; honors `prefers-reduced-motion`. CSS-only keyframes, no added dependencies.
+- **`SplashScreen.tsx`** — rendered by `App.tsx` as a fixed full-screen overlay alongside the router. Shows once per browser session (`sessionStorage` gate, read synchronously so a repeat mount never flashes). Time-aware greeting + localized tagline/subtexts (`splash` i18n namespace, en/zh/vi/ko) + an animated node-graph brand mark on a dark backdrop (radial glow, drifting constellation, grain). The backdrop is **opaque from the first paint** (no entrance fade on the root) so the app rendered behind it never flashes through; only the inner content cascades in. Holds ~2.5 s, then fades out and unmounts; click-to-skip; honors `prefers-reduced-motion`. CSS-only keyframes, no added dependencies.
 - **Loading skeletons** — the shared `Skeleton` primitive (`components/Skeleton.tsx`) uses Tailwind `animate-pulse`. `Analytics.tsx` now renders a pulsing `AnalyticsChartsSkeleton` for the whole chart region while `data` is null (previously it fell back to empty/zero charts).
 - **`workflows/CompactionImpact.tsx`** — redesigned from a one-bar-per-session chart into a "sessions by compaction count" histogram (D3) with axis titles, stat tiles (total / sessions affected / avg / peak), an explanatory help line, a plain-English summary, and rich React-managed hover tooltips (full-height per-bucket hit-area + bar highlight) matching the other charts.
 - **`Workflows.tsx` `Section`** — the right-aligned section subtitle is clamped to a single line (`truncate` + `max-w` + hover `title`) so a long translation never wraps and unbalances the header; the full text stays in the section's `i` popover.
@@ -727,15 +727,15 @@ Both popover classes use the same fixed-position + viewport-clamp algorithm: anc
 
 ## Internationalization Architecture
 
-The client localization stack is powered by `i18next` + `react-i18next` (`client/src/i18n/index.ts`) and currently supports three languages: English (`en`), Chinese (`zh`), and Vietnamese (`vi`). Language detection prefers `localStorage` (`i18nextLng`) and falls back to the browser locale (`navigator`) with `en` as final fallback.
+The client localization stack is powered by `i18next` + `react-i18next` (`client/src/i18n/index.ts`) and currently supports four languages: English (`en`), Chinese (`zh`), Vietnamese (`vi`), and Korean (`ko`). Language detection prefers `localStorage` (`i18nextLng`) and falls back to the browser locale (`navigator`) with `en` as final fallback.
 
 ```mermaid
 flowchart LR
     A["Browser load"] --> B["LanguageDetector<br/>localStorage -> navigator"]
-    B --> C["Resolved language<br/>en | zh | vi (fallback en)"]
+    B --> C["Resolved language<br/>en | zh | vi | ko (fallback en)"]
     C --> D["Namespace resources<br/>common/nav/dashboard/sessions/..."]
     D --> E["React pages/components<br/>useTranslation(ns)"]
-    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN"]
+    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN | ko-KR"]
     F --> G["Localized labels,<br/>dates, number formatting,<br/>and model name display"]
 ```
 
@@ -2168,7 +2168,7 @@ Tabby's only contact with the rest of the app is four light, additive touchpoint
 | `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, as a sibling of `<UpdateNotifier />`. |
 | `client/src/pages/Settings.tsx` | On/off toggle wired to `tabbyPrefs` (`localStorage`). |
 | `client/src/pages/Run.tsx` | Reads `?prompt=` to prefill the prompt box for Tabby's Ask handoff. |
-| `client/src/i18n/locales/{en,zh,vi}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi). |
+| `client/src/i18n/locales/{en,zh,vi,ko}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi / ko). |
 
 ---
 

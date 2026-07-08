@@ -777,8 +777,8 @@ window.__WIKI_CONTENT_I18N = {
       '每次投递都带有 <code>AbortController</code> 超时和有界的重试/退避（对传输错误、429 和 5xx 重试——绝不对其他 4xx 重试），随后将尝试链记录到 <code>webhook_deliveries</code>。提供方也可以否决一个其响应体表示失败的 2xx（Splunk On-Call 返回 200 但带 <code>result:"failure"</code>）。投递是<strong>分离且故障安全</strong>的——它绝不会向告警路径抛出异常、拖慢或阻塞它。',
     "Target URLs are masked (host + last 4 chars), and secrets / credential fields (routing keys, API keys, bot tokens) plus custom-header values are redacted in every API response — the full URL and secrets are stored server-side and never leave it. Generic endpoints support optional <strong>HMAC-SHA256</strong> body signing (<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>) so receivers can verify authenticity.":
       "目标 URL 会被掩码（主机 + 后 4 个字符），且密钥/凭据字段（路由键、API 密钥、bot token）以及自定义头的值在每个 API 响应中都会被脱敏——完整的 URL 和密钥存储在服务器端，绝不离开它。通用端点支持可选的 <strong>HMAC-SHA256</strong> 请求体签名（<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>），以便接收方可以验证真实性。",
-    'Every alert-rule field has a help tooltip — the event-type, tool-name, and summary-contains fields include example chips of real hook events and built-in tool names. Each webhook provider ships a collapsible step-by-step setup guide linking to the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic alert and reports the delivery result inline, and targets can be scoped to specific rules. Fully localized (en / zh / vi).':
-      "每个告警规则字段都有帮助提示——event-type、tool-name 和 summary-contains 字段包含真实 hook 事件和内置工具名称的示例标签。每个 webhook 提供方都附带一份可折叠的分步设置指南，并链接到官方文档。一键 <strong>“Send test”</strong> 探测会触发一个合成告警并就地报告投递结果，且目标可限定到特定规则。完全本地化（en / zh / vi）。",
+    'Every alert-rule field has a help tooltip — the event-type, tool-name, and summary-contains fields include example chips of real hook events and built-in tool names. Each webhook provider ships a collapsible step-by-step setup guide linking to the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic alert and reports the delivery result inline, and targets can be scoped to specific rules. Fully localized (en / zh / vi / ko).':
+      "每个告警规则字段都有帮助提示——event-type、tool-name 和 summary-contains 字段包含真实 hook 事件和内置工具名称的示例标签。每个 webhook 提供方都附带一份可折叠的分步设置指南，并链接到官方文档。一键 <strong>“Send test”</strong> 探测会触发一个合成告警并就地报告投递结果，且目标可限定到特定规则。完全本地化（en / zh / vi / ko）。",
     "Provider(s)": "提供方",
     "Payload format": "载荷格式",
     "URL / credentials": "URL / 凭据",
@@ -837,8 +837,8 @@ window.__WIKI_CONTENT_I18N = {
       "侧边栏页脚中的 <strong>Live</strong> / <strong>Disconnected</strong> 胶囊按钮会打开一个关于仪表盘 WebSocket 传输的小型详情面板。它展示当前活跃的 <code>ws://</code> 端点、当前套接字已运行多久、接收到的事件总数、以水平条形图呈现的热门事件类型、一条 60 秒吞吐量迷你折线图，以及作为活动列表的最近 8 个事件。累计统计（总数、类型分布、近期列表）通过 <code>localStorage</code> 以 <code>sidebar-connection-stats</code> 为键在重新加载后持久保留；滚动的迷你折线图和“连接以来”计时器有意设计为短暂的，因为它们只有相对于“当前”才有意义。一个 <strong>Reset</strong> 按钮可按需清除一切。",
     "Implementation note: per-event state lives in <code>useRef</code> buffers on the sidebar so the WS firehose never re-renders the navigation tree — the modal does its own one-second tick to sample the refs while open. Writes are throttled (single-flight timer, 2 s window) and flushed on <code>pagehide</code> / <code>visibilitychange</code> so the latest events aren't lost to the throttle window. The modal itself is portalled to <code>document.body</code> so the sidebar's stacking context can't trap it.":
       "实现说明：逐事件状态保存在侧边栏的 <code>useRef</code> 缓冲区中，因此 WS 的高速事件流绝不会重新渲染导航树——弹窗打开时会以每秒一次的节拍自行采样这些引用。写入被节流（单飞定时器，2 秒窗口）并在 <code>pagehide</code> / <code>visibilitychange</code> 时刷新，因此最新事件不会因节流窗口而丢失。弹窗本身被传送到 <code>document.body</code>，因此侧边栏的层叠上下文无法困住它。",
-    "The entire UI ships in <strong>three languages — English, 简体中文, and Tiếng Việt</strong> — built on <code>i18next</code> + <code>react-i18next</code> with <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts rule-help tooltips + webhook setup guides are translated. Switch languages from the sidebar (EN / 中文 / VI) — the choice persists in <code>localStorage</code>.":
-      "整个 UI 提供<strong>三种语言——English、简体中文和 Tiếng Việt</strong>——基于 <code>i18next</code> + <code>react-i18next</code> 并配合 <code>i18next-browser-languagedetector</code> 构建。覆盖是端到端的：每个页面、图表工具提示、Settings 流程、Workflow 叙述、Config Explorer 标签页、Run 页面，以及 Alerts 规则帮助工具提示 + webhook 设置指南都已翻译。从侧边栏切换语言（EN / 中文 / VI）——选择会持久保存在 <code>localStorage</code> 中。",
+    "The entire UI ships in <strong>four languages — English, 简体中文, Tiếng Việt, and 한국어</strong> — built on <code>i18next</code> + <code>react-i18next</code> with <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts rule-help tooltips + webhook setup guides are translated. Switch languages from the sidebar (EN / 中文 / VI / 한국어) — the choice persists in <code>localStorage</code>.":
+      "整个 UI 提供<strong>四种语言——English、简体中文、Tiếng Việt 和 한국어</strong>——基于 <code>i18next</code> + <code>react-i18next</code> 并配合 <code>i18next-browser-languagedetector</code> 构建。覆盖是端到端的：每个页面、图表工具提示、Settings 流程、Workflow 叙述、Config Explorer 标签页、Run 页面，以及 Alerts 规则帮助工具提示 + webhook 设置指南都已翻译。从侧边栏切换语言（EN / 中文 / VI / 한국어）——选择会持久保存在 <code>localStorage</code> 中。",
     'Translations are split into per-area JSON namespaces (<code>common</code>, <code>nav</code>, <code>dashboard</code>, <code>sessions</code>, <code>analytics</code>, <code>workflows</code>, <code>settings</code>, <code>kanban</code>, <code>run</code>, <code>ccConfig</code>, <code>alerts</code>, <code>errors</code>, <code>updates</code>) under <code>client/src/i18n/locales/&lt;lng&gt;/</code>. Components load only the namespaces they need via <code>useTranslation("…")</code>.':
       '翻译按区域拆分为各个 JSON 命名空间（<code>common</code>、<code>nav</code>、<code>dashboard</code>、<code>sessions</code>、<code>analytics</code>、<code>workflows</code>、<code>settings</code>、<code>kanban</code>、<code>run</code>、<code>ccConfig</code>、<code>alerts</code>、<code>errors</code>、<code>updates</code>），位于 <code>client/src/i18n/locales/&lt;lng&gt;/</code> 之下。组件仅通过 <code>useTranslation("…")</code> 加载它们所需的命名空间。',
     "Language is detected from <code>localStorage</code> (<code>i18nextLng</code>) then the browser's <code>navigator</code> setting, and the choice is cached back to <code>localStorage</code>. <code>fallbackLng</code> is English and <code>nonExplicitSupportedLngs</code> resolves regional tags (e.g. <code>vi-VN</code> → <code>vi</code>), so any unmapped key falls back gracefully rather than rendering a raw key.":
@@ -1986,8 +1986,8 @@ window.__WIKI_CONTENT_I18N = {
       'Mỗi lần gửi đều thực hiện POST với một thời gian chờ <code>AbortController</code> và cơ chế thử lại/lùi (backoff) có giới hạn (thử lại với lỗi truyền tải, 429 và 5xx — không bao giờ với các 4xx khác), sau đó ghi lại chuỗi các lần thử vào <code>webhook_deliveries</code>. Một nhà cung cấp cũng có thể phủ quyết một mã 2xx mà thân phản hồi báo hiệu thất bại (Splunk On-Call trả về 200 kèm <code>result:"failure"</code>). Việc gửi là <strong>tách rời và an toàn khi lỗi</strong> — nó không bao giờ ném lỗi vào, làm chậm hay chặn đường dẫn cảnh báo.',
     "Target URLs are masked (host + last 4 chars), and secrets / credential fields (routing keys, API keys, bot tokens) plus custom-header values are redacted in every API response — the full URL and secrets are stored server-side and never leave it. Generic endpoints support optional <strong>HMAC-SHA256</strong> body signing (<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>) so receivers can verify authenticity.":
       "Các URL đích được che (host + 4 ký tự cuối), và các trường bí mật / thông tin xác thực (khóa định tuyến, khóa API, token bot) cùng các giá trị tiêu đề tùy chỉnh đều được ẩn trong mọi phản hồi API — URL đầy đủ và các bí mật được lưu ở phía máy chủ và không bao giờ rời khỏi đó. Các điểm cuối tổng quát hỗ trợ tùy chọn ký thân bằng <strong>HMAC-SHA256</strong> (<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>) để bên nhận có thể xác minh tính xác thực.",
-    'Every alert-rule field has a help tooltip — the event-type, tool-name, and summary-contains fields include example chips of real hook events and built-in tool names. Each webhook provider ships a collapsible step-by-step setup guide linking to the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic alert and reports the delivery result inline, and targets can be scoped to specific rules. Fully localized (en / zh / vi).':
-      "Mỗi trường của quy tắc cảnh báo đều có chú giải trợ giúp — các trường event-type, tool-name và summary-contains bao gồm các chip ví dụ về sự kiện hook thật và tên công cụ tích hợp sẵn. Mỗi nhà cung cấp webhook đi kèm một hướng dẫn thiết lập từng bước có thể thu gọn, liên kết tới tài liệu chính thức. Một thăm dò <strong>“Send test”</strong> bằng một cú nhấp sẽ kích hoạt một cảnh báo tổng hợp và báo cáo kết quả gửi ngay tại chỗ, và các đích có thể được giới hạn theo các quy tắc cụ thể. Được bản địa hóa hoàn toàn (en / zh / vi).",
+    'Every alert-rule field has a help tooltip — the event-type, tool-name, and summary-contains fields include example chips of real hook events and built-in tool names. Each webhook provider ships a collapsible step-by-step setup guide linking to the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic alert and reports the delivery result inline, and targets can be scoped to specific rules. Fully localized (en / zh / vi / ko).':
+      "Mỗi trường của quy tắc cảnh báo đều có chú giải trợ giúp — các trường event-type, tool-name và summary-contains bao gồm các chip ví dụ về sự kiện hook thật và tên công cụ tích hợp sẵn. Mỗi nhà cung cấp webhook đi kèm một hướng dẫn thiết lập từng bước có thể thu gọn, liên kết tới tài liệu chính thức. Một thăm dò <strong>“Send test”</strong> bằng một cú nhấp sẽ kích hoạt một cảnh báo tổng hợp và báo cáo kết quả gửi ngay tại chỗ, và các đích có thể được giới hạn theo các quy tắc cụ thể. Được bản địa hóa hoàn toàn (en / zh / vi / ko).",
     "Provider(s)": "Nhà cung cấp",
     "Payload format": "Định dạng payload",
     "URL / credentials": "URL / thông tin xác thực",
@@ -2047,8 +2047,8 @@ window.__WIKI_CONTENT_I18N = {
       'Viên thuốc <strong>Live</strong> / <strong>Disconnected</strong> ở chân thanh bên mở ra một bảng chi tiết nhỏ về tầng vận chuyển WebSocket của bảng điều khiển. Nó hiển thị endpoint <code>ws://</code> đang hoạt động, socket hiện tại đã hoạt động bao lâu, tổng số sự kiện đã nhận, các loại sự kiện hàng đầu dưới dạng biểu đồ thanh ngang, một biểu đồ tia thông lượng 60 giây, và 8 sự kiện gần nhất dưới dạng danh sách hoạt động. Các thống kê tích lũy (tổng số, phân tách theo loại, danh sách gần đây) được giữ qua các lần tải lại thông qua <code>localStorage</code> dưới khóa <code>sidebar-connection-stats</code>; biểu đồ tia cuộn và bộ đếm thời gian "kết nối từ" được cố ý làm tạm thời vì chúng chỉ có ý nghĩa so với "bây giờ". Một nút <strong>Reset</strong> xóa mọi thứ theo nhu cầu.',
     "Implementation note: per-event state lives in <code>useRef</code> buffers on the sidebar so the WS firehose never re-renders the navigation tree — the modal does its own one-second tick to sample the refs while open. Writes are throttled (single-flight timer, 2 s window) and flushed on <code>pagehide</code> / <code>visibilitychange</code> so the latest events aren't lost to the throttle window. The modal itself is portalled to <code>document.body</code> so the sidebar's stacking context can't trap it.":
       "Ghi chú triển khai: trạng thái theo từng sự kiện nằm trong các bộ đệm <code>useRef</code> trên thanh bên nên dòng sự kiện WS dồn dập không bao giờ render lại cây điều hướng — hộp thoại tự thực hiện một nhịp mỗi giây để lấy mẫu các ref khi đang mở. Việc ghi được điều tiết (bộ định thời chạy-đơn, cửa sổ 2 giây) và được xả ra khi <code>pagehide</code> / <code>visibilitychange</code> để các sự kiện mới nhất không bị mất vào cửa sổ điều tiết. Bản thân hộp thoại được portal sang <code>document.body</code> nên ngữ cảnh xếp lớp của thanh bên không thể giam giữ nó.",
-    "The entire UI ships in <strong>three languages — English, 简体中文, and Tiếng Việt</strong> — built on <code>i18next</code> + <code>react-i18next</code> with <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts rule-help tooltips + webhook setup guides are translated. Switch languages from the sidebar (EN / 中文 / VI) — the choice persists in <code>localStorage</code>.":
-      "Toàn bộ giao diện được phát hành bằng <strong>ba ngôn ngữ — English, 简体中文, và Tiếng Việt</strong> — xây dựng trên <code>i18next</code> + <code>react-i18next</code> cùng <code>i18next-browser-languagedetector</code>. Phạm vi bao phủ là đầu-cuối: mọi trang, chú giải biểu đồ, luồng Settings, tường thuật Workflow, tab Config Explorer, trang Run, cùng các chú giải trợ giúp quy tắc Alerts + hướng dẫn thiết lập webhook đều được dịch. Chuyển ngôn ngữ từ thanh bên (EN / 中文 / VI) — lựa chọn được giữ trong <code>localStorage</code>.",
+    "The entire UI ships in <strong>four languages — English, 简体中文, Tiếng Việt, and 한국어</strong> — built on <code>i18next</code> + <code>react-i18next</code> with <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts rule-help tooltips + webhook setup guides are translated. Switch languages from the sidebar (EN / 中文 / VI / 한국어) — the choice persists in <code>localStorage</code>.":
+      "Toàn bộ giao diện được phát hành bằng <strong>bốn ngôn ngữ — English, 简体中文, Tiếng Việt và 한국어</strong> — xây dựng trên <code>i18next</code> + <code>react-i18next</code> cùng <code>i18next-browser-languagedetector</code>. Phạm vi bao phủ là đầu-cuối: mọi trang, chú giải biểu đồ, luồng Settings, tường thuật Workflow, tab Config Explorer, trang Run, cùng các chú giải trợ giúp quy tắc Alerts + hướng dẫn thiết lập webhook đều được dịch. Chuyển ngôn ngữ từ thanh bên (EN / 中文 / VI / 한국어) — lựa chọn được giữ trong <code>localStorage</code>.",
     'Translations are split into per-area JSON namespaces (<code>common</code>, <code>nav</code>, <code>dashboard</code>, <code>sessions</code>, <code>analytics</code>, <code>workflows</code>, <code>settings</code>, <code>kanban</code>, <code>run</code>, <code>ccConfig</code>, <code>alerts</code>, <code>errors</code>, <code>updates</code>) under <code>client/src/i18n/locales/&lt;lng&gt;/</code>. Components load only the namespaces they need via <code>useTranslation("…")</code>.':
       'Các bản dịch được chia thành các không gian tên JSON theo từng khu vực (<code>common</code>, <code>nav</code>, <code>dashboard</code>, <code>sessions</code>, <code>analytics</code>, <code>workflows</code>, <code>settings</code>, <code>kanban</code>, <code>run</code>, <code>ccConfig</code>, <code>alerts</code>, <code>errors</code>, <code>updates</code>) dưới <code>client/src/i18n/locales/&lt;lng&gt;/</code>. Các thành phần chỉ tải các không gian tên mà chúng cần thông qua <code>useTranslation("…")</code>.',
     "Language is detected from <code>localStorage</code> (<code>i18nextLng</code>) then the browser's <code>navigator</code> setting, and the choice is cached back to <code>localStorage</code>. <code>fallbackLng</code> is English and <code>nonExplicitSupportedLngs</code> resolves regional tags (e.g. <code>vi-VN</code> → <code>vi</code>), so any unmapped key falls back gracefully rather than rendering a raw key.":
@@ -2431,6 +2431,1224 @@ window.__WIKI_CONTENT_I18N = {
     '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — a run opened up: clickable color-coded phase filters, the per-agent metrics table, and a full list of clickable result items that expand to each agent\'s complete prompt and result</span>':
       '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình · mở rộng</strong> — một lần chạy được mở ra: bộ lọc giai đoạn có màu và bấm được, bảng số liệu theo từng agent, và danh sách đầy đủ các mục kết quả bấm được để mở ra lời nhắc và kết quả đầy đủ của từng agent</span>',
   },
+  ko: {
+    '<span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed':
+      '<span class="caption-icon">📡</span> 라이브 대시보드 — 실시간 에이전트 카드, 통계, 활동 피드',
+    "Claude Code Agent Monitor integrates with Claude Code through its native hook system. When Claude Code performs any action — tool use, session start, subagent orchestration, session end — it fires a hook that calls a small Node.js script bundled with this project. That script forwards the event over HTTP to the dashboard server, which stores it in SQLite and broadcasts it to the browser over WebSocket.":
+      "Claude Code Agent Monitor는 Claude Code의 네이티브 훅(hook) 시스템을 통해 통합됩니다. Claude Code가 도구 사용, 세션 시작, 서브에이전트 오케스트레이션, 세션 종료 등 어떤 작업을 수행하면 훅이 발생하여 이 프로젝트에 포함된 작은 Node.js 스크립트를 호출합니다. 이 스크립트는 이벤트를 HTTP를 통해 대시보드 서버로 전달하며, 서버는 이를 SQLite에 저장하고 WebSocket을 통해 브라우저로 브로드캐스트합니다.",
+    "End-to-end data pipeline from Claude Code to the browser":
+      "Claude Code에서 브라우저까지의 엔드투엔드 데이터 파이프라인",
+    "Local-first by design": "설계부터 로컬 우선(Local-first)",
+    "The server binds <code>127.0.0.1</code> (loopback) by default, so it is not network-reachable and everything runs on your machine. No data leaves your system. No API keys. No external services. Exposing it more widely is opt-in via <code>DASHBOARD_HOST</code> and should be paired with <code>DASHBOARD_TOKEN</code>.":
+      "서버는 기본적으로 <code>127.0.0.1</code>(루프백)에 바인딩되므로 네트워크에서 접근할 수 없으며 모든 것이 사용자의 컴퓨터에서 실행됩니다. 데이터가 시스템 밖으로 나가지 않습니다. API 키도 필요 없습니다. 외부 서비스도 없습니다. 더 넓게 노출하려면 <code>DASHBOARD_HOST</code>를 통해 선택적으로 설정해야 하며, 이때 <code>DASHBOARD_TOKEN</code>과 함께 사용해야 합니다.",
+    "Every feature is driven by real hook events — nothing is hardcoded or simulated in production mode.":
+      "모든 기능은 실제 훅 이벤트에 의해 구동되며, 프로덕션 모드에서는 하드코딩되거나 시뮬레이션되는 것이 없습니다.",
+    "Two tabs: <strong>Monitor</strong> shows overview stats, active agent cards with collapsible subagent hierarchy, and a recent activity feed whose item count fills available viewport height. <strong>Health</strong> renders a composite system health score ring, storage engine donut chart, cache/error/success gauges, tool invocation bars, subagent effectiveness ratios, model token distribution, and compaction stats. Both tabs auto-refresh every 5 seconds via WebSocket push so the view is always current without manual reload.":
+      "두 개의 탭으로 구성됩니다. <strong>Monitor</strong> 탭은 개요 통계, 접을 수 있는 서브에이전트 계층 구조가 포함된 활성 에이전트 카드, 그리고 뷰포트의 남은 높이를 채우는 개수만큼 표시되는 최근 활동 피드를 보여줍니다. <strong>Health</strong> 탭은 종합 시스템 상태 점수 링, 스토리지 엔진 도넛 차트, 캐시/오류/성공 게이지, 도구 호출 막대그래프, 서브에이전트 효율성 비율, 모델별 토큰 분포, 컴팩션 통계를 렌더링합니다. 두 탭 모두 WebSocket 푸시를 통해 5초마다 자동 새로고침되므로 수동으로 새로고침하지 않아도 항상 최신 상태를 유지합니다.",
+    "Toggle between <strong>Agents</strong> (Working / Waiting / Completed / Error) and <strong>Sessions</strong> (Active / Waiting / Completed / Error / Abandoned) swim lanes. A yellow <strong>Waiting</strong> column flags items sitting on the user — fresh prompt, between turns, or permission gate. Hover any column header for lifecycle tooltips explaining each state transition. Cards surface model name, cumulative cost, and the current tool being called. Counts update in real time via WebSocket so the board is always in sync with the live event store.":
+      "<strong>Agents</strong>(작업 중 / 대기 중 / 완료 / 오류)와 <strong>Sessions</strong>(활성 / 대기 중 / 완료 / 오류 / 중단됨) 스윔레인 사이를 전환할 수 있습니다. 노란색 <strong>Waiting</strong> 열은 새 프롬프트, 턴 사이, 또는 권한 게이트 등 사용자 입력을 기다리는 항목을 표시합니다. 열 제목에 마우스를 올리면 각 상태 전환을 설명하는 라이프사이클 툴팁이 표시됩니다. 카드에는 모델 이름, 누적 비용, 현재 호출 중인 도구가 표시됩니다. 개수는 WebSocket을 통해 실시간으로 업데이트되므로 보드는 항상 실시간 이벤트 저장소와 동기화된 상태를 유지합니다.",
+    "<strong>Server-paginated</strong> table of every recorded session — each page fetches only its slice so cost computation stays bounded no matter how many sessions exist. Case-insensitive search across <code>id</code>, <code>name</code>, and <code>cwd</code> runs server-side with a 300 ms debounce; the status filter composes with search for precise narrowing. Each row shows the session's real name (synced live from the transcript — a <code>/rename</code> or <code>claude -n</code> title, else the auto title, else the first user prompt, with a short-ID fallback), status badge, agent count, duration, model, and estimated cost. Click any row to drill into the full session detail view with conversation transcript and agent hierarchy.":
+      "기록된 모든 세션을 보여주는 <strong>서버 페이지네이션</strong> 테이블입니다. 각 페이지는 해당 구간만 가져오므로 세션 수가 아무리 많아도 비용 계산 범위가 제한됩니다. <code>id</code>, <code>name</code>, <code>cwd</code>에 대한 대소문자 구분 없는 검색은 300ms 디바운스와 함께 서버 측에서 실행되며, 상태 필터와 검색을 조합해 정확하게 좁힐 수 있습니다. 각 행은 세션의 실제 이름(트랜스크립트에서 실시간으로 동기화됨 — <code>/rename</code> 또는 <code>claude -n</code> 제목, 없으면 자동 생성된 제목, 그마저도 없으면 첫 사용자 프롬프트, 최종적으로 짧은 ID로 대체), 상태 배지, 에이전트 수, 지속 시간, 모델, 예상 비용을 표시합니다. 행을 클릭하면 대화 트랜스크립트와 에이전트 계층 구조가 포함된 전체 세션 상세 화면으로 이동합니다.",
+    "Per-session deep dive with a collapsible agent hierarchy tree and a full chronological event timeline showing every tool call name and summary. An overview panel at the top surfaces tile counters for events, tool calls, subagents, compactions, errors, and duration. Top-tool usage bars and a subagent type breakdown give quick distribution reads. The conversation viewer renders markdown with syntax highlighting, per-tool styled blocks, slash-command pills with their captured TUI output, and inline session-rename markers. Export the entire session as JSON or share the permalink for async review.":
+      "접을 수 있는 에이전트 계층 트리와 모든 도구 호출 이름 및 요약을 보여주는 전체 시간순 이벤트 타임라인을 통해 세션별로 깊이 있게 살펴볼 수 있습니다. 상단의 개요 패널은 이벤트, 도구 호출, 서브에이전트, 컴팩션, 오류, 지속 시간에 대한 타일 카운터를 표시합니다. 상위 도구 사용 막대그래프와 서브에이전트 유형 분석을 통해 분포를 빠르게 파악할 수 있습니다. 대화 뷰어는 구문 강조가 적용된 마크다운, 도구별 스타일이 지정된 블록, 캡처된 TUI 출력이 포함된 슬래시 명령 필, 인라인 세션 이름 변경 마커를 렌더링합니다. 전체 세션을 JSON으로 내보내거나 비동기 검토를 위해 고유 링크(permalink)를 공유할 수 있습니다.",
+    "A rules-based alerting engine evaluates the live event stream server-side: <strong>event pattern</strong> (match event type / tool / summary text, optionally N matches within a time window), <strong>inactivity</strong>, <strong>stuck agent</strong>, and <strong>token threshold</strong> — each with per-(rule, session, agent) cooldown dedup. Fired alerts surface in a live feed and fan out to <strong>14 first-class webhook providers</strong> — Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream — plus any generic JSON endpoint (with optional HMAC-SHA256 signing and custom headers). Delivery is detached and fail-safe with a request timeout, bounded retry/backoff, secret redaction, a one-click test probe, and a per-target delivery log. Rules and channels are managed together in <strong>Settings → Alerts</strong>.":
+      "규칙 기반 알림 엔진이 서버 측에서 실시간 이벤트 스트림을 평가합니다: <strong>이벤트 패턴</strong>(이벤트 유형/도구/요약 텍스트 일치, 선택적으로 특정 시간 창 내 N회 일치), <strong>비활성</strong>, <strong>정체된 에이전트</strong>, <strong>토큰 임계값</strong> — 각각 (규칙, 세션, 에이전트) 단위의 쿨다운 중복 제거를 적용합니다. 발생한 알림은 실시간 피드에 표시되며 <strong>14개의 공식 웹훅 제공자</strong> — Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream — 및 일반 JSON 엔드포인트(선택적 HMAC-SHA256 서명 및 사용자 지정 헤더 지원)로 전달됩니다. 전송은 요청 타임아웃, 제한된 재시도/백오프, 비밀 정보 마스킹, 원클릭 테스트 프로브, 대상별 전송 로그를 갖춘 분리된 안전 실패(fail-safe) 방식으로 이루어집니다. 규칙과 채널은 <strong>Settings → Alerts</strong>에서 함께 관리됩니다.",
+    "A native desktop app — a macOS <code>.app</code> (shipped as a <code>.dmg</code>) and a Windows <code>.exe</code> (NSIS installer plus a no-install portable build) — built with Electron 35. It <strong>embeds the Express server in-process</strong> — <code>require()</code>-ing <code>server/index.js</code> directly, with no child process and no IPC — and renders the built React client in a <code>BrowserWindow</code>. Adds a menu-bar / notification-area (tray) icon, a native application menu, auto-start at login (macOS Login Items via <code>SMAppService</code>; Windows per-user <code>HKCU\\…\\Run</code>), and a single-instance lock. Closing the window hides it while the server keeps running, and the app auto-installs Claude Code hooks on first boot so an install-only user gets events flowing without a checkout.":
+      "Electron 35로 빌드된 네이티브 데스크톱 앱 — macOS용 <code>.app</code>(<code>.dmg</code>로 배포)과 Windows용 <code>.exe</code>(NSIS 설치 프로그램 및 설치 없이 실행 가능한 포터블 빌드)입니다. <strong>Express 서버를 프로세스 내에 임베드</strong>하여 — 자식 프로세스나 IPC 없이 <code>server/index.js</code>를 직접 <code>require()</code>하고 — 빌드된 React 클라이언트를 <code>BrowserWindow</code>에 렌더링합니다. 메뉴바/알림 영역(트레이) 아이콘, 네이티브 애플리케이션 메뉴, 로그인 시 자동 시작(macOS는 <code>SMAppService</code>를 통한 로그인 항목, Windows는 사용자별 <code>HKCU\\…\\Run</code>), 단일 인스턴스 잠금 기능을 추가로 제공합니다. 창을 닫으면 서버는 계속 실행된 채로 창만 숨겨지며, 앱은 첫 실행 시 Claude Code 훅을 자동으로 설치하므로 설치만 한 사용자도 체크아웃 없이 이벤트를 바로 받아볼 수 있습니다.",
+    "Real-time streaming event log showing tool calls, agent state changes, errors, and compaction events as they arrive. Pause/resume with automatic buffering, paginated history for scrollback, and auto-scrolling to the latest entry. Click any row to expand its full hook payload inline. A dedicated <strong>Session →</strong> button navigates directly to session detail without collapsing the expanded state. Every entry is color-coded by event type and grouped by session for quick scanning of concurrent work.":
+      "도구 호출, 에이전트 상태 변경, 오류, 컴팩션 이벤트를 도착하는 즉시 보여주는 실시간 스트리밍 이벤트 로그입니다. 자동 버퍼링을 지원하는 일시정지/재개, 스크롤백을 위한 페이지네이션된 기록, 최신 항목으로의 자동 스크롤을 제공합니다. 행을 클릭하면 전체 훅 페이로드가 인라인으로 확장됩니다. 전용 <strong>Session →</strong> 버튼을 누르면 확장 상태를 접지 않고도 세션 상세 화면으로 바로 이동합니다. 모든 항목은 이벤트 유형별로 색상이 구분되고 세션별로 그룹화되어 동시에 진행 중인 작업을 빠르게 훑어볼 수 있습니다.",
+    "Token usage breakdown by model with stacked bar charts, tool frequency rankings, agent type distribution donuts, and session outcome pie charts. A 52-week activity heatmap aligned by day-of-week shows density with hover tooltips. 30-day sparkline trends track cost and session volume at a glance. The cost summary panel totals input, output, and cache spend across all models. A live/offline indicator and auto-refresh via WebSocket keep everything current. All charts are responsive and adapt to mobile viewports.":
+      "누적 막대그래프로 모델별 토큰 사용량을 분석하고, 도구 사용 빈도 순위, 에이전트 유형 분포 도넛 차트, 세션 결과 파이 차트를 제공합니다. 요일별로 정렬된 52주 활동 히트맵은 호버 툴팁과 함께 밀도를 보여줍니다. 30일 스파크라인 추세로 비용과 세션 수를 한눈에 확인할 수 있습니다. 비용 요약 패널은 모든 모델에 걸친 입력, 출력, 캐시 지출을 합산합니다. 실시간/오프라인 표시기와 WebSocket을 통한 자동 새로고침으로 항상 최신 상태를 유지합니다. 모든 차트는 반응형이며 모바일 뷰포트에 맞춰 조정됩니다.",
+    "Every UI update is pushed over a persistent WebSocket with sub-5 ms dispatch latency — zero polling anywhere. If the connection drops, automatic 2-second reconnect kicks in while a ping/pong heartbeat detects stale connections early. A sidebar indicator turns green/red so you always know whether you're live. The WebSocket carries typed JSON envelopes for new events, session updates, agent transitions, compaction results, and import progress — all parsed into the same eventBus the REST layer uses.":
+      "모든 UI 업데이트는 지속적인 WebSocket 연결을 통해 5ms 미만의 전달 지연으로 푸시되며, 어디에도 폴링이 없습니다. 연결이 끊기면 2초 후 자동으로 재연결이 시작되며, ping/pong 하트비트가 오래된 연결을 조기에 감지합니다. 사이드바 표시기가 초록색/빨간색으로 바뀌어 항상 연결 상태를 알 수 있습니다. WebSocket은 새 이벤트, 세션 업데이트, 에이전트 전환, 컴팩션 결과, 가져오기 진행 상황에 대한 타입이 지정된 JSON 봉투(envelope)를 전달하며, 이는 모두 REST 계층이 사용하는 것과 동일한 eventBus로 파싱됩니다.",
+    "Standalone CLI statusline for Claude Code that prints model name, user, working directory, git branch, and a color-coded context-window bar (green → yellow → red). Token counts show input (green ↑), output (cyan ↓), and cache (dim) separately. Session cost in USD shifts color by configurable thresholds. ANSI-colored output updates on every turn. Python-based with a thin shell wrapper — drop it into your prompt or tmux status line. Works with any terminal emulator that supports 256-color ANSI.":
+      "모델 이름, 사용자, 작업 디렉터리, git 브랜치, 색상으로 구분된 컨텍스트 윈도우 막대(초록 → 노랑 → 빨강)를 출력하는 Claude Code용 독립 실행형 CLI 상태줄입니다. 토큰 수는 입력(초록 ↑), 출력(시안 ↓), 캐시(흐림)로 구분하여 표시됩니다. USD 기준 세션 비용은 설정 가능한 임계값에 따라 색상이 바뀝니다. ANSI 색상 출력은 매 턴마다 갱신됩니다. Python 기반이며 얇은 셸 래퍼가 포함되어 있어 프롬프트나 tmux 상태줄에 바로 넣을 수 있습니다. 256색 ANSI를 지원하는 모든 터미널 에뮬레이터에서 작동합니다.",
+    "Import existing Claude Code sessions from three sources — rescan the default <code>~/.claude/projects</code> folder, scan any absolute path on disk, or drag-drop <code>.jsonl</code>, <code>.zip</code>, <code>.tar.gz</code>, and <code>.gz</code> archives through <b>Settings → Import History</b>. All paths funnel into the same ingestion pipeline the server uses for live hooks, so imported tokens and per-model cost match real-time capture exactly. Re-imports are idempotent via session-ID dedup, and archive extraction is guarded against path traversal and zip-bomb expansion.":
+      "기존 Claude Code 세션을 세 가지 방법으로 가져올 수 있습니다 — 기본 <code>~/.claude/projects</code> 폴더 재스캔, 디스크의 임의의 절대 경로 스캔, 또는 <b>Settings → Import History</b>에서 <code>.jsonl</code>, <code>.zip</code>, <code>.tar.gz</code>, <code>.gz</code> 아카이브를 드래그 앤 드롭. 모든 경로는 서버가 실시간 훅에 사용하는 것과 동일한 수집 파이프라인으로 통합되므로, 가져온 토큰과 모델별 비용이 실시간 캡처와 정확히 일치합니다. 재가져오기는 세션 ID 중복 제거를 통해 멱등적으로 처리되며, 아카이브 추출은 경로 순회(path traversal)와 zip 폭탄 확장으로부터 보호됩니다.",
+    "The startup auto-import of <code>~/.claude/projects</code> is one-time and marker-gated, so a project folder created after first launch — whose sessions never flow through hooks (for example with host-only hooks disabled) — would stay invisible until a manual rescan. A background sync closes that gap with three triggers sharing one mtime cache and a single coalesced sweep: an immediate sweep at startup, a debounced <code>fs.watch</code> (recursive on macOS and Windows; root plus immediate child folders on Linux to avoid the userland recursive-watcher hazard) that fires the moment a new session file or project folder appears, and a periodic safety-net poll tunable via <code>DASHBOARD_SESSION_SYNC_MS</code> (default <code>30000</code> ms; <code>0</code> disables the poll while leaving the watcher running). Each sweep re-parses only files whose mtime advanced and broadcasts <code>session_created</code> / <code>session_updated</code> (plus the main agent) so the UI refreshes live, while an already-imported unchanged session is skipped without re-parsing.":
+      "시작 시 수행되는 <code>~/.claude/projects</code> 자동 가져오기는 1회성이며 마커로 제어되므로, 첫 실행 이후 생성된 프로젝트 폴더(예: 호스트 전용 훅이 비활성화되어 세션이 훅을 통해 전달되지 않는 경우)는 수동으로 재스캔하기 전까지 보이지 않게 됩니다. 백그라운드 동기화는 하나의 mtime 캐시와 단일 통합 스윕을 공유하는 세 가지 트리거로 이 격차를 해소합니다: 시작 시 즉시 수행되는 스윕, 디바운스된 <code>fs.watch</code>(macOS와 Windows에서는 재귀적으로, Linux에서는 사용자 영역 재귀 워처의 위험을 피하기 위해 루트와 바로 아래 하위 폴더에 대해서만 적용)로 새 세션 파일이나 프로젝트 폴더가 나타나는 즉시 실행되며, <code>DASHBOARD_SESSION_SYNC_MS</code>(기본값 <code>30000</code>ms, <code>0</code>으로 설정하면 워처는 계속 실행하되 폴링만 비활성화)로 조정 가능한 주기적 안전망 폴링이 있습니다. 각 스윕은 mtime이 갱신된 파일만 다시 파싱하고 <code>session_created</code>/<code>session_updated</code>(및 메인 에이전트)를 브로드캐스트하여 UI가 실시간으로 갱신되며, 이미 가져와서 변경되지 않은 세션은 다시 파싱하지 않고 건너뜁니다.",
+    "Incremental JSONL reader shared across the hook handler, compaction scanner, conversation viewer, and import pipeline. Byte-offset tracking skips already-parsed content; cache hits short-circuit disk I/O so even sessions with tens of thousands of turns stay fast. It also extracts the live session title (<code>custom-title</code> / <code>ai-title</code>) so renames surface in real time, plus the first user prompt as a fallback descriptor for placeholder-named sessions and agents.":
+      "훅 핸들러, 컴팩션 스캐너, 대화 뷰어, 가져오기 파이프라인 전반에서 공유되는 점진적(incremental) JSONL 리더입니다. 바이트 오프셋 추적으로 이미 파싱된 콘텐츠를 건너뛰며, 캐시 히트 시 디스크 I/O를 생략하므로 수만 개의 턴이 있는 세션도 빠르게 처리됩니다. 또한 실시간 세션 제목(<code>custom-title</code> / <code>ai-title</code>)을 추출하여 이름 변경이 실시간으로 반영되며, 임시 이름으로 표시되는 세션과 에이전트를 위한 대체 설명으로 첫 사용자 프롬프트도 함께 추출합니다.",
+    "LRU eviction of cold session buffers plus a tail-cap on per-entry growable arrays (turn durations, API errors, compaction entries). A session that runs for days cannot grow a single cache entry without bound, and each entry stores its parsed result only once — no shadow copy.":
+      "비활성 세션 버퍼에 대한 LRU 축출과 항목별 가변 배열(턴 지속 시간, API 오류, 컴팩션 항목)에 대한 꼬리 제한(tail-cap)을 적용합니다. 며칠 동안 실행되는 세션이라도 단일 캐시 항목이 무한정 커질 수 없으며, 각 항목은 파싱된 결과를 단 한 번만 저장합니다 — 그림자 복사본은 없습니다.",
+    "The periodic compaction sweep reads each active session's transcript path directly from <code>sessions.transcript_path</code> (a partial index covers exactly those rows), so the work is O(active sessions) instead of a <code>json_extract</code> scan over the whole events table.":
+      "주기적인 컴팩션 스윕은 각 활성 세션의 트랜스크립트 경로를 <code>sessions.transcript_path</code>에서 직접 읽어오며(부분 인덱스가 정확히 해당 행들을 커버합니다), 이에 따라 작업량은 전체 events 테이블에 대한 <code>json_extract</code> 스캔이 아니라 O(활성 세션 수)가 됩니다.",
+    "Collapsible parent–child agent tree rendered on both Dashboard and Session Detail. Agents with subagents display expand/collapse chevrons; leaf agents show a dot indicator. The tree auto-expands when any child transitions to active and correctly tracks backgrounded subagents without premature completion. Depth is unlimited — deeply nested chains render as indented rows with connecting lines. Each node shows model, current tool, status badge, and cumulative token cost for tracing spend down the spawn chain.":
+      "Dashboard와 Session Detail 양쪽에서 렌더링되는 접을 수 있는 부모-자식 에이전트 트리입니다. 서브에이전트가 있는 에이전트는 펼치기/접기 화살표를 표시하며, 리프 에이전트는 점 표시기를 보여줍니다. 트리는 하위 항목이 활성 상태로 전환되면 자동으로 펼쳐지며, 백그라운드로 실행 중인 서브에이전트를 조기 완료 없이 정확하게 추적합니다. 깊이 제한은 없으며, 깊이 중첩된 체인은 연결선이 있는 들여쓰기된 행으로 렌더링됩니다. 각 노드는 모델, 현재 도구, 상태 배지, 그리고 생성 체인을 따라 지출을 추적할 수 있는 누적 토큰 비용을 표시합니다.",
+    "Per-model cost estimation with configurable pricing rules — set input, output, and cache-read rates per model variant through the Settings UI. View total and per-session breakdowns on Sessions, Session Detail, and Analytics. Compaction- aware token accounting preserves baselines across context compressions so no usage is silently dropped. Cost chips appear on Kanban cards, session rows, and the sidebar summary. Subagent cards show each subagent's own cost, computed from that subagent's transcript token usage priced at current rates, so a subagent card no longer misleadingly reads as if it cost the whole session; main-agent cards still show the session total. Pricing changes retroactively recalculate all stored sessions, and imports apply the same rate table.":
+      "설정 가능한 가격 책정 규칙에 따라 모델별 비용을 추정합니다 — Settings UI를 통해 모델 변형별로 입력, 출력, 캐시 읽기 요율을 설정할 수 있습니다. Sessions, Session Detail, Analytics에서 전체 및 세션별 분석을 확인할 수 있습니다. 컴팩션을 고려한 토큰 계산은 컨텍스트 압축 전반에 걸쳐 기준값을 보존하므로 사용량이 은연중에 누락되지 않습니다. 비용 칩은 칸반 카드, 세션 행, 사이드바 요약에 표시됩니다. 서브에이전트 카드는 현재 요율로 계산된 해당 서브에이전트 트랜스크립트의 토큰 사용량을 기반으로 각 서브에이전트 고유의 비용을 표시하므로, 서브에이전트 카드가 마치 전체 세션 비용인 것처럼 오해를 주지 않습니다. 메인 에이전트 카드는 여전히 세션 총합을 표시합니다. 가격 변경은 저장된 모든 세션에 소급 적용되어 재계산되며, 가져오기 역시 동일한 요율표를 적용합니다.",
+    "Model pricing editor with per-token rate configuration for every Claude variant. Hook installation status with one-click reinstall and per-hook health checks. Full JSON data export covering sessions, agents, events, tokens, and pricing rules. Session cleanup controls to abandon stale sessions or purge old data by age. Browser notification preferences with per-event toggles. A system information panel shows database row counts, file sizes, server uptime, and WebSocket connection status at a glance.":
+      "모든 Claude 변형에 대해 토큰당 요율을 설정할 수 있는 모델 가격 편집기입니다. 원클릭 재설치와 훅별 상태 점검이 가능한 훅 설치 상태를 제공합니다. 세션, 에이전트, 이벤트, 토큰, 가격 규칙을 아우르는 전체 JSON 데이터 내보내기가 가능합니다. 오래된 세션을 중단시키거나 기간별로 오래된 데이터를 삭제하는 세션 정리 기능도 있습니다. 이벤트별로 켜고 끌 수 있는 브라우저 알림 설정을 제공합니다. 시스템 정보 패널은 데이터베이스 행 수, 파일 크기, 서버 가동 시간, WebSocket 연결 상태를 한눈에 보여줍니다.",
+    "Local MCP sidecar with three transport modes — stdio for Claude Code native integration, HTTP+SSE for remote clients, and an interactive REPL for ad-hoc terminal queries. Exposes 25 typed tools across 6 domains: sessions, agents, events, analytics, settings, and system health. Every mutation is gated behind a tiered policy so nothing dangerous fires without opt-in. Retry-aware API access handles transient failures. Runs as a standalone Node process with no Docker or cloud dependency.":
+      "세 가지 전송 모드를 지원하는 로컬 MCP 사이드카입니다 — Claude Code 네이티브 통합을 위한 stdio, 원격 클라이언트를 위한 HTTP+SSE, 임시 터미널 쿼리를 위한 대화형 REPL. sessions, agents, events, analytics, settings, system health 등 6개 영역에 걸쳐 25개의 타입이 지정된 도구를 제공합니다. 모든 변경 작업은 단계별 정책에 의해 게이트되므로 명시적으로 허용하지 않으면 위험한 작업이 실행되지 않습니다. 재시도를 인식하는 API 접근으로 일시적인 장애를 처리합니다. Docker나 클라우드에 의존하지 않는 독립 실행형 Node 프로세스로 동작합니다.",
+    "Instruction, skills, rules, and custom-agent layers for both Claude Code and Codex. Path-scoped rules target backend, frontend, MCP, and docs directories with context-appropriate guidelines. Reusable skills cover onboarding, feature shipping, live-issue debugging, release-readiness, and MCP operations. Specialized subagents for backend, frontend, and MCP code review run in parallel with focused tooling. Everything lives in <code>.claude/</code> and is version-controlled alongside the codebase.":
+      "Claude Code와 Codex 양쪽을 위한 지침, 스킬, 규칙, 커스텀 에이전트 레이어입니다. 경로 범위 규칙은 backend, frontend, MCP, docs 디렉터리를 대상으로 상황에 맞는 가이드라인을 적용합니다. 재사용 가능한 스킬은 온보딩, 기능 배포, 실시간 이슈 디버깅, 릴리스 준비 상태 점검, MCP 운영을 다룹니다. backend, frontend, MCP 코드 리뷰를 위한 전문 서브에이전트가 특화된 도구와 함께 병렬로 실행됩니다. 모든 것이 <code>.claude/</code>에 위치하며 코드베이스와 함께 버전 관리됩니다.",
+    "D3.js-powered visualizations: an agent orchestration DAG showing spawn patterns across sessions, a tool-execution Sankey diagram mapping tool-to- tool transitions, and a directed pipeline graph with frequency labels. Every chart title carries an info icon that opens a popover explaining what it shows and how to read it. Hovering nodes, edges, and bars surfaces tooltips with share-of-source percentages, success-rate buckets, and timing patterns. All labels are translated to English, Vietnamese, and Chinese.":
+      "D3.js 기반 시각화입니다: 세션 전반의 생성 패턴을 보여주는 에이전트 오케스트레이션 DAG, 도구 간 전환을 매핑하는 도구 실행 생키(Sankey) 다이어그램, 빈도 레이블이 표시된 방향성 파이프라인 그래프를 제공합니다. 모든 차트 제목에는 무엇을 보여주는지와 읽는 방법을 설명하는 팝오버를 여는 정보 아이콘이 있습니다. 노드, 엣지, 막대에 마우스를 올리면 소스별 비율, 성공률 구간, 타이밍 패턴이 담긴 툴팁이 표시됩니다. 모든 레이블은 영어, 베트남어, 중국어로 번역되어 있습니다.",
+    "Subagent effectiveness scorecards with success-rate rings and day-of-week sparklines. Auto-detected workflow patterns expand on click into a detail panel with the full step chain, stats grid, and a narrative with loop detection. Model delegation flow, error propagation bars with API error cards, concurrency swim-lanes, and complexity bubble charts round out the view. Six headline stat cards each include an info popover explaining the metric and its current value. Status filter applies globally.":
+      "성공률 링과 요일별 스파크라인이 포함된 서브에이전트 효율성 스코어카드입니다. 자동 감지된 워크플로 패턴을 클릭하면 전체 단계 체인, 통계 그리드, 루프 감지 결과를 포함한 서술을 담은 상세 패널로 펼쳐집니다. 모델 위임 흐름, API 오류 카드가 포함된 오류 전파 막대그래프, 동시성 스윔레인, 복잡도 버블 차트가 화면을 완성합니다. 6개의 주요 통계 카드에는 각각 해당 지표와 현재 값을 설명하는 정보 팝오버가 포함되어 있습니다. 상태 필터는 전역적으로 적용됩니다.",
+    "Searchable session selector with pagination to explore any session's agent tree, tool-call timeline, and event sequence. The detail page opens with a live-updating overview — tile counters for events, tool calls, subagents, compactions, errors, and duration. Top-tool usage bars and subagent breakdown give quick reads. The conversation viewer renders markdown with syntax highlighting. Cross-filter from DAG nodes, run compaction analysis, or export as JSON — all with real-time WebSocket auto-refresh.":
+      "페이지네이션이 적용된 검색 가능한 세션 선택기로 모든 세션의 에이전트 트리, 도구 호출 타임라인, 이벤트 시퀀스를 살펴볼 수 있습니다. 상세 페이지는 실시간으로 업데이트되는 개요와 함께 열립니다 — 이벤트, 도구 호출, 서브에이전트, 컴팩션, 오류, 지속 시간에 대한 타일 카운터를 제공합니다. 상위 도구 사용 막대그래프와 서브에이전트 분석으로 빠르게 파악할 수 있습니다. 대화 뷰어는 구문 강조가 적용된 마크다운을 렌더링합니다. DAG 노드를 통한 교차 필터링, 컴팩션 분석 실행, JSON으로 내보내기 등을 모두 실시간 WebSocket 자동 새로고침과 함께 사용할 수 있습니다.",
+    "Persistent browser notifications via Web Push (VAPID) for real-time alerts even when the tab is not focused or the browser is backgrounded. Includes macOS audio support so notifications are audible alongside system sounds. Per-event toggles let you choose which events fire — session starts, completions, errors, compactions, or agent spawns. Server-side subscription management ensures one push per event per browser. Works on Chrome, Edge, Firefox, and Safari 17+ with graceful degradation elsewhere.":
+      "Web Push(VAPID)를 통한 지속적인 브라우저 알림으로, 탭이 포커스되어 있지 않거나 브라우저가 백그라운드에 있을 때도 실시간 알림을 받을 수 있습니다. macOS 오디오 지원이 포함되어 시스템 사운드와 함께 알림 소리를 들을 수 있습니다. 이벤트별 토글로 세션 시작, 완료, 오류, 컴팩션, 에이전트 생성 중 어떤 이벤트를 알릴지 선택할 수 있습니다. 서버 측 구독 관리로 브라우저당 이벤트당 하나의 푸시만 전송되도록 보장합니다. Chrome, Edge, Firefox, Safari 17 이상에서 동작하며, 그 외 환경에서는 점진적 성능 저하(graceful degradation) 방식으로 동작합니다.",
+    "Ready-to-use Dockerfile and docker-compose.yml for one-command deployment. Supports both Docker and Podman with persistent volume mounts for the SQLite database and hook data. Configurable port mapping via environment variables and a health-check endpoint the container runtime can poll. Multi-stage build keeps the image lean — only production deps and the compiled bundle ship. Run <code>docker compose up -d --build</code> and the dashboard is live with zero additional setup or configuration required.":
+      "한 번의 명령으로 배포할 수 있도록 바로 사용 가능한 Dockerfile과 docker-compose.yml을 제공합니다. Docker와 Podman을 모두 지원하며 SQLite 데이터베이스와 훅 데이터를 위한 영구 볼륨 마운트를 지원합니다. 환경 변수를 통해 포트 매핑을 설정할 수 있으며 컨테이너 런타임이 폴링할 수 있는 헬스 체크 엔드포인트를 제공합니다. 멀티스테이지 빌드로 이미지를 가볍게 유지합니다 — 프로덕션 의존성과 컴파일된 번들만 포함됩니다. <code>docker compose up -d --build</code>를 실행하면 추가 설정 없이 바로 대시보드가 실행됩니다.",
+    "Official Claude Code plugin marketplace shipping 10 plugins with 53 skills, 14 agents, 30 slash commands, 3 CLI tools, 3 hook configs, and 1 MCP server. Deep analytics with compaction-aware baselines, productivity automation, developer diagnostics, AI-powered workflow intelligence, and dashboard MCP integration. Five newer plugins go further: <code>ccam-cost-guard</code> (budget guardrails, spend forecasts, and cost-threshold alerts), <code>ccam-sessions</code> (session forensics — search, timeline, and transcript replay), <code>ccam-workflows</code> (multi-agent orchestration and fleet intelligence), <code>ccam-quality</code> (reliability and SLO checks), and <code>ccam-config</code> (Claude Code config and memory governance). Install with <code>claude plugin install</code> — no restart needed. Each listing shows author, license, homepage, and per-skill contribution breakdown. The Config Explorer's Plugins tab surfaces installed plugins with live status.":
+      "53개의 스킬, 14개의 에이전트, 30개의 슬래시 명령, 3개의 CLI 도구, 3개의 훅 설정, 1개의 MCP 서버를 포함한 10개의 플러그인을 제공하는 공식 Claude Code 플러그인 마켓플레이스입니다. 컴팩션을 고려한 기준값을 반영한 심층 분석, 생산성 자동화, 개발자 진단, AI 기반 워크플로 인텔리전스, 대시보드 MCP 통합을 제공합니다. 다섯 개의 최신 플러그인은 한 걸음 더 나아갑니다: <code>ccam-cost-guard</code>(예산 가드레일, 지출 예측, 비용 임계값 알림), <code>ccam-sessions</code>(세션 포렌식 — 검색, 타임라인, 트랜스크립트 재생), <code>ccam-workflows</code>(다중 에이전트 오케스트레이션과 플릿 인텔리전스), <code>ccam-quality</code>(신뢰성 및 SLO 점검), <code>ccam-config</code>(Claude Code 설정 및 메모리 거버넌스). <code>claude plugin install</code>로 설치할 수 있으며 재시작이 필요 없습니다. 각 항목에는 작성자, 라이선스, 홈페이지, 스킬별 기여도 분석이 표시됩니다. Config Explorer의 Plugins 탭은 설치된 플러그인을 실시간 상태와 함께 보여줍니다.",
+    "Spawn <code>claude</code> subprocesses straight from the dashboard with a chat-style streaming UI — multi-turn <b>Conversation</b> or single-shot <b>Headless</b> mode. One-click <b>Resume</b> on any past conversation spawns <code>claude --resume</code> seeded with the prior transcript. Re- attach reconciles in-memory logs with the on-disk JSONL so navigating away never loses history. Slash-command autocomplete, file references, live token/context-window meter, and a thinking-effort dial bring TUI parity to the browser. Same-origin guard blocks drive-by spawns.":
+      "대시보드에서 직접 채팅 스타일 스트리밍 UI로 <code>claude</code> 서브프로세스를 실행할 수 있습니다 — 여러 턴에 걸친 <b>Conversation</b> 모드 또는 단발성 <b>Headless</b> 모드입니다. 과거 대화에서 원클릭 <b>Resume</b>을 누르면 이전 트랜스크립트를 기반으로 <code>claude --resume</code>이 실행됩니다. 다시 연결(re-attach) 시 메모리 내 로그와 디스크상의 JSONL을 조정하므로 페이지를 벗어나도 기록이 손실되지 않습니다. 슬래시 명령 자동 완성, 파일 참조, 실시간 토큰/컨텍스트 윈도우 미터, 사고 노력(thinking-effort) 다이얼을 통해 브라우저에서도 TUI와 동등한 경험을 제공합니다. 동일 출처(same-origin) 가드가 무단 실행을 차단합니다.",
+    "A 12-tab inspector at <code>/cc-config</code> for everything Claude Code knows about: skills, subagents, slash commands, output styles, plugins, marketplaces, MCP servers, hooks, settings, memory, keybindings, and statusline scripts. The Settings tab leads with a Current configuration summary of the options <code>/config</code> controls — model, verbose, theme, output style, auto-compact, notifications — resolved across scopes. The Memory tab surfaces both the user and project <code>CLAUDE.md</code> files and the per-project file-based memory store — every auto-memory <code>*.md</code> under <code>~/.claude/projects/&lt;slug&gt;/memory/</code> (a <code>MEMORY.md</code> index plus one file per remembered fact, often 100+), grouped by project, searchable, and editable. Create, edit, and delete the low-risk text-file surfaces with mandatory timestamped backups before every write. Plugins, MCP, hooks, and live settings stay read-only with explainer banners and copy-able CLI commands. Per-plugin contribution breakdowns show author and license.":
+      "<code>/cc-config</code>에서 Claude Code가 알고 있는 모든 것을 보여주는 12개 탭짜리 검사 도구입니다: 스킬, 서브에이전트, 슬래시 명령, 출력 스타일, 플러그인, 마켓플레이스, MCP 서버, 훅, 설정, 메모리, 키바인딩, 상태줄 스크립트가 포함됩니다. Settings 탭은 <code>/config</code>가 제어하는 옵션 — 모델, verbose, 테마, 출력 스타일, 자동 컴팩트, 알림 — 을 범위별로 해석하여 보여주는 현재 설정 요약으로 시작합니다. Memory 탭은 사용자 및 프로젝트의 <code>CLAUDE.md</code> 파일과 프로젝트별 파일 기반 메모리 저장소 — <code>~/.claude/projects/&lt;slug&gt;/memory/</code> 아래의 모든 자동 메모리 <code>*.md</code>(<code>MEMORY.md</code> 인덱스와 기억된 사실마다 하나씩, 보통 100개 이상의 파일) — 를 프로젝트별로 그룹화하여 검색 및 편집할 수 있게 보여줍니다. 위험도가 낮은 텍스트 파일 영역은 생성, 편집, 삭제가 가능하며 모든 쓰기 작업 전에 타임스탬프가 찍힌 백업이 필수로 생성됩니다. 플러그인, MCP, 훅, 실시간 설정은 설명 배너와 복사 가능한 CLI 명령과 함께 읽기 전용으로 유지됩니다. 플러그인별 기여도 분석은 작성자와 라이선스를 보여줍니다.",
+    "Mobile-first layouts with stacking grids, horizontally scrollable tables, and a collapsible sidebar that auto-hides below 1400 px. All pages adapt from phone to ultrawide with consistent navigation and readable typography. Kanban columns stack vertically on narrow screens, analytics charts reflow to single-column, and the activity feed stays fully swipeable. Touch targets meet 44 px minimum. Dark theme renders consistently across iOS Safari, Chrome, and Firefox with no flash of unstyled content.":
+      "스태킹 그리드, 가로 스크롤이 가능한 테이블, 1400px 미만에서 자동으로 숨겨지는 접이식 사이드바를 갖춘 모바일 우선 레이아웃입니다. 모든 페이지는 스마트폰부터 울트라와이드 화면까지 일관된 내비게이션과 읽기 쉬운 타이포그래피로 적응합니다. 칸반 열은 좁은 화면에서 세로로 쌓이고, 분석 차트는 단일 열로 재배치되며, 활동 피드는 완전히 스와이프 가능한 상태를 유지합니다. 터치 대상은 최소 44px를 충족합니다. 다크 테마는 스타일이 적용되지 않은 콘텐츠가 잠깐 보이는 현상 없이 iOS Safari, Chrome, Firefox에서 일관되게 렌더링됩니다.",
+    "Visualize parallel agent execution with a Gantt-style timeline showing overlapping subagent lifetimes, tool-call concurrency windows, and wait gaps. Color-coded bars distinguish working, waiting, and errored states so bottlenecks are immediately visible. Hover any bar for exact timestamps and duration. Zoom and pan across long-running sessions with hundreds of agents. The timeline shares the Workflows status filter so you can isolate active, completed, or errored sessions without leaving the view.":
+      "겹치는 서브에이전트 수명, 도구 호출 동시성 구간, 대기 간격을 보여주는 간트 차트 스타일 타임라인으로 병렬 에이전트 실행을 시각화합니다. 색상으로 구분된 막대는 작업 중, 대기 중, 오류 상태를 구분하여 병목 지점을 즉시 확인할 수 있게 합니다. 막대에 마우스를 올리면 정확한 타임스탬프와 지속 시간을 확인할 수 있습니다. 수백 개의 에이전트가 포함된 장시간 실행 세션도 확대/축소 및 이동이 가능합니다. 타임라인은 Workflows 상태 필터를 공유하므로 화면을 벗어나지 않고도 활성, 완료, 오류 세션을 분리해서 볼 수 있습니다.",
+    "Professional VS Code extension with a real-time Activity Bar sidebar showing active sessions, agent counts, and recent events without leaving your editor. A status bar pulse monitor surfaces connection health and the latest event type at a glance. Deep navigation links open any session or analytics view directly in your browser. An embedded webview renders the full dashboard inside a VS Code tab with WebSocket push, theme sync, and responsive layout. Install from the marketplace or build from source.":
+      "에디터를 벗어나지 않고도 활성 세션, 에이전트 수, 최근 이벤트를 보여주는 실시간 액티비티 바 사이드바를 갖춘 전문가용 VS Code 확장입니다. 상태 표시줄 펄스 모니터는 연결 상태와 최신 이벤트 유형을 한눈에 보여줍니다. 딥 내비게이션 링크로 브라우저에서 바로 세션이나 분석 화면을 열 수 있습니다. 내장된 웹뷰는 WebSocket 푸시, 테마 동기화, 반응형 레이아웃과 함께 VS Code 탭 안에서 전체 대시보드를 렌더링합니다. 마켓플레이스에서 설치하거나 소스에서 직접 빌드할 수 있습니다.",
+    "Trace how errors cascade across agents and tool calls with a directed graph showing failure origins, retry paths, and recovery points. Each node displays the agent or tool that errored, the error message, and whether a retry succeeded or propagated upstream. Pinpoint root causes in deeply nested subagent chains. Horizontal bar charts rank the most error-prone tools and models. API error cards group failures by HTTP status and endpoint. Filter by session, time range, or error severity to narrow the view.":
+      "오류 발생 지점, 재시도 경로, 복구 지점을 보여주는 방향성 그래프로 오류가 에이전트와 도구 호출 전반에 어떻게 전파되는지 추적합니다. 각 노드는 오류가 발생한 에이전트 또는 도구, 오류 메시지, 재시도가 성공했는지 아니면 상위로 전파되었는지를 표시합니다. 깊이 중첩된 서브에이전트 체인에서도 근본 원인을 정확히 짚어낼 수 있습니다. 가로 막대그래프는 오류가 가장 자주 발생하는 도구와 모델의 순위를 보여줍니다. API 오류 카드는 HTTP 상태와 엔드포인트별로 실패를 그룹화합니다. 세션, 시간 범위, 오류 심각도로 필터링하여 범위를 좁힐 수 있습니다.",
+    'Three independent PWAs — dashboard, landing page, and wiki — each with its own Web App Manifest and Service Worker. Install to your home screen or dock for a standalone, chrome-less experience. SVG icons with <code>sizes="any"</code> and iOS standalone meta tags included.':
+      '각각 고유한 Web App Manifest와 Service Worker를 갖춘 세 개의 독립적인 PWA — 대시보드, 랜딩 페이지, 위키입니다. 홈 화면이나 독(dock)에 설치하면 브라우저 UI 없이 독립 실행형으로 사용할 수 있습니다. <code>sizes="any"</code> SVG 아이콘과 iOS 독립 실행형(standalone) 메타 태그가 포함되어 있습니다.',
+    "The dashboard SW serves Vite's hashed <code>/assets/*</code> bundles cache-first (URLs are immutable per build) and treats everything else as network-first with cache fallback. Explicit <code>Cache-Control</code> headers on the production Express static middleware reinforce the policy, so a rebuild replaces the in-browser code without a hard refresh.":
+      "대시보드 서비스 워커는 Vite가 해시를 붙인 <code>/assets/*</code> 번들을 캐시 우선(cache-first) 방식으로 제공하고(URL은 빌드마다 불변이므로), 그 외의 모든 것은 네트워크 우선(network-first)에 캐시 폴백을 적용합니다. 프로덕션 Express 정적 미들웨어의 명시적인 <code>Cache-Control</code> 헤더가 이 정책을 뒷받침하므로, 리빌드 시 강제 새로고침 없이도 브라우저 내 코드가 교체됩니다.",
+    "A <code>controllerchange</code> listener in <code>client/src/main.tsx</code> reloads the page exactly once when a new SW takes over an already-controlled page. First installs do not reload, so the very first visit is never interrupted.":
+      "<code>client/src/main.tsx</code>의 <code>controllerchange</code> 리스너는 이미 제어 중인 페이지를 새 서비스 워커가 인수할 때 정확히 한 번만 페이지를 새로고침합니다. 최초 설치 시에는 새로고침하지 않으므로 첫 방문이 중단되는 일은 없습니다.",
+    '<span class="caption-icon">📡</span> <span><strong>Dashboard · Monitor</strong> — live overview of active sessions and agents. Stats tiles, collapsible subagent hierarchy cards, and a recent activity feed. Auto-refreshes every 5 s via WebSocket</span>':
+      '<span class="caption-icon">📡</span> <span><strong>Dashboard · Monitor</strong> — 활성 세션 및 에이전트의 실시간 개요. 통계 타일, 접을 수 있는 서브에이전트 계층 카드, 최근 활동 피드. WebSocket을 통해 5초마다 자동 새로고침됩니다</span>',
+    '<span class="caption-icon">🩺</span> <span><strong>Dashboard · Health</strong> — composite health score ring, storage engine donut, cache/error/success gauges, tool invocation bars, subagent effectiveness, and model token distribution</span>':
+      '<span class="caption-icon">🩺</span> <span><strong>Dashboard · Health</strong> — 종합 상태 점수 링, 스토리지 엔진 도넛 차트, 캐시/오류/성공 게이지, 도구 호출 막대그래프, 서브에이전트 효율성, 모델별 토큰 분포</span>',
+    '<span class="caption-icon">📋</span> <span><strong>Kanban Board (agents)</strong> — agents swim-laned by status: Working, Waiting, Completed, Error. Cards show model, cost, and current tool call. Yellow column flags agents waiting on user input</span>':
+      '<span class="caption-icon">📋</span> <span><strong>Kanban Board (agents)</strong> — 상태별로 스윔레인 처리된 에이전트: 작업 중, 대기 중, 완료, 오류. 카드에는 모델, 비용, 현재 도구 호출이 표시됩니다. 노란색 열은 사용자 입력을 기다리는 에이전트를 표시합니다</span>',
+    '<span class="caption-icon">🗂️</span> <span><strong>Kanban Board (sessions)</strong> — sessions swim-laned across 5 columns: Active, Waiting, Completed, Error, Abandoned. Each card shows agent count, duration, model, and cumulative cost</span>':
+      '<span class="caption-icon">🗂️</span> <span><strong>Kanban Board (sessions)</strong> — 5개의 열로 스윔레인 처리된 세션: 활성, 대기 중, 완료, 오류, 중단됨. 각 카드는 에이전트 수, 지속 시간, 모델, 누적 비용을 표시합니다</span>',
+    '<span class="caption-icon">📂</span> <span><strong>Sessions</strong> — searchable, filterable, server-paginated table. Each row shows status badge, agent count, duration, model, and cost. Click any row to drill into session detail</span>':
+      '<span class="caption-icon">📂</span> <span><strong>Sessions</strong> — 검색 및 필터링이 가능한 서버 페이지네이션 테이블입니다. 각 행은 상태 배지, 에이전트 수, 지속 시간, 모델, 비용을 표시합니다. 행을 클릭하면 세션 상세 화면으로 이동합니다</span>',
+    '<span class="caption-icon">🤖</span> <span><strong>Session Detail · Agents</strong> — overview tiles (events, tool calls, subagents, errors, duration), top-tool usage bars, subagent type breakdown, and a collapsible parent–child agent hierarchy tree</span>':
+      '<span class="caption-icon">🤖</span> <span><strong>Session Detail · Agents</strong> — 개요 타일(이벤트, 도구 호출, 서브에이전트, 오류, 지속 시간), 상위 도구 사용 막대그래프, 서브에이전트 유형 분석, 접을 수 있는 부모-자식 에이전트 계층 트리</span>',
+    '<span class="caption-icon">💬</span> <span><strong>Session Detail · Conversation</strong> — full transcript viewer with markdown rendering, syntax-highlighted code blocks, per-tool sections, and collapsible thinking blocks</span>':
+      '<span class="caption-icon">💬</span> <span><strong>Session Detail · Conversation</strong> — 마크다운 렌더링, 구문 강조된 코드 블록, 도구별 섹션, 접을 수 있는 사고(thinking) 블록을 갖춘 전체 트랜스크립트 뷰어</span>',
+    '<span class="caption-icon">🔬</span> <span><strong>Session Detail · Timeline</strong> — chronological event timeline with multi-dimension filters, color-coded entries by type, expandable hook payloads, and direct links to the owning session and agent</span>':
+      '<span class="caption-icon">🔬</span> <span><strong>Session Detail · Timeline</strong> — 다차원 필터, 유형별 색상 구분 항목, 확장 가능한 훅 페이로드, 해당 세션 및 에이전트로의 직접 링크를 갖춘 시간순 이벤트 타임라인</span>',
+    '<span class="caption-icon">📰</span> <span><strong>Activity Feed</strong> — real-time streaming event log with pause/resume buffering, multi-dimension filters, expandable hook payloads, color-coded entries, and per-row session navigation buttons</span>':
+      '<span class="caption-icon">📰</span> <span><strong>Activity Feed</strong> — 일시정지/재개 버퍼링, 다차원 필터, 확장 가능한 훅 페이로드, 색상 구분 항목, 행별 세션 이동 버튼을 갖춘 실시간 스트리밍 이벤트 로그</span>',
+    '<span class="caption-icon">📊</span> <span><strong>Analytics</strong> — token usage by model, tool frequency bars, 52-week activity heatmap, 30-day sparkline trends, session outcome donuts, and cost summary with WebSocket auto-refresh</span>':
+      '<span class="caption-icon">📊</span> <span><strong>Analytics</strong> — 모델별 토큰 사용량, 도구 사용 빈도 막대그래프, 52주 활동 히트맵, 30일 스파크라인 추세, 세션 결과 도넛 차트, WebSocket 자동 새로고침이 적용된 비용 요약</span>',
+    '<span class="caption-icon">🔀</span> <span><strong>Workflows</strong> — D3.js agent orchestration DAG, tool-execution Sankey diagram, directed pipeline graph, effectiveness scorecards, concurrency swim-lanes, and complexity bubble charts</span>':
+      '<span class="caption-icon">🔀</span> <span><strong>Workflows</strong> — D3.js 기반 에이전트 오케스트레이션 DAG, 도구 실행 생키 다이어그램, 방향성 파이프라인 그래프, 효율성 스코어카드, 동시성 스윔레인, 복잡도 버블 차트</span>',
+    '<span class="caption-icon">🧰</span> <span><strong>Claude Config Explorer</strong> — 12-tab inspector for skills, subagents, slash commands, plugins, MCP servers, hooks, settings, memory, keybindings, and statusline. Safe edits with backups</span>':
+      '<span class="caption-icon">🧰</span> <span><strong>Claude Config Explorer</strong> — 스킬, 서브에이전트, 슬래시 명령, 플러그인, MCP 서버, 훅, 설정, 메모리, 키바인딩, 상태줄을 위한 12개 탭짜리 검사 도구입니다. 백업과 함께 안전하게 편집할 수 있습니다</span>',
+    '<span class="caption-icon">▶️</span> <span><strong>Run Claude</strong> — spawn or resume Claude subprocesses from the browser. Pick Conversation or Headless mode, set cwd, model, permission level, and thinking effort. Same-origin guard included</span>':
+      '<span class="caption-icon">▶️</span> <span><strong>Run Claude</strong> — 브라우저에서 Claude 서브프로세스를 실행하거나 재개합니다. Conversation 또는 Headless 모드를 선택하고 cwd, 모델, 권한 수준, 사고 노력을 설정할 수 있습니다. 동일 출처 가드가 포함되어 있습니다</span>',
+    '<span class="caption-icon">💬</span> <span><strong>Run Claude · live stream</strong> — character-by-character streaming output. Tool uses, tool results, and thinking blocks are collapsible. Active runs switcher juggles multiple sessions</span>':
+      '<span class="caption-icon">💬</span> <span><strong>Run Claude · live stream</strong> — 한 글자씩 스트리밍되는 출력입니다. 도구 사용, 도구 결과, 사고 블록은 접을 수 있습니다. 실행 중인 세션 전환기로 여러 세션을 오갈 수 있습니다</span>',
+    '<span class="caption-icon">⚙️</span> <span><strong>Settings</strong> — model pricing editor with per-token rates, hook installation status, JSON data export, session cleanup controls, browser notification toggles, and system info panel with DB stats</span>':
+      '<span class="caption-icon">⚙️</span> <span><strong>Settings</strong> — 토큰당 요율을 설정하는 모델 가격 편집기, 훅 설치 상태, JSON 데이터 내보내기, 세션 정리 기능, 브라우저 알림 토글, DB 통계가 포함된 시스템 정보 패널</span>',
+    "This chart tracks how interest in Claude Code Agent Monitor has grown over time. The curve keeps climbing as more developers discover the project, share it, and use it in real workflows. Each new star is a small vote of confidence from the community.":
+      "이 차트는 Claude Code Agent Monitor에 대한 관심이 시간이 지나면서 어떻게 성장했는지를 보여줍니다. 더 많은 개발자가 이 프로젝트를 발견하고, 공유하고, 실제 워크플로에서 사용함에 따라 곡선은 계속 상승합니다. 새로운 스타 하나하나가 커뮤니티의 작은 신뢰 표시입니다.",
+    '<span class="caption-icon">⭐</span> <span> Enjoying the project? <a class="star-history-caption-link" href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" target="_blank" rel="noopener noreferrer" >Give it a star on GitHub</a > and help more builders discover it. </span>':
+      '<span class="caption-icon">⭐</span> <span> 이 프로젝트가 마음에 드시나요? <a class="star-history-caption-link" href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" target="_blank" rel="noopener noreferrer" >GitHub에서 스타를 눌러주세요</a > 더 많은 개발자가 이 프로젝트를 발견할 수 있도록 도와주세요. </span>',
+    "Hook Type": "훅 유형",
+    Trigger: "트리거",
+    "Dashboard Action": "대시보드 동작",
+    "Claude Code session begins": "Claude Code 세션 시작",
+    "Creates session and main agent. Stamps <code>awaiting_input_since</code> so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt). Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).":
+      "세션과 메인 에이전트를 생성합니다. CLI가 프롬프트 상태이므로 처음부터 <strong>Waiting</strong>에 위치하도록 <code>awaiting_input_since</code>를 기록합니다. 재개된 세션을 다시 활성화합니다. <code>DASHBOARD_STALE_MINUTES</code>(기본값 180) 동안 활동이 없는 고아 세션은 중단 처리합니다.",
+    "User hits enter on a prompt": "사용자가 프롬프트에서 엔터를 입력",
+    'Clears the waiting flag and promotes the main agent to <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span >. The only reliable signal that text-only assistant turns have started — they emit no <code>PreToolUse</code> before <code>Stop</code>.':
+      '대기 플래그를 지우고 메인 에이전트를 <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span >으로 전환합니다. 텍스트로만 이루어진 어시스턴트 턴이 시작되었음을 알 수 있는 유일하게 신뢰할 수 있는 신호입니다 — 이런 턴은 <code>Stop</code> 이전에 <code>PreToolUse</code>를 전혀 발생시키지 않습니다.',
+    "Agent begins using a tool": "에이전트가 도구 사용을 시작",
+    'Clears the waiting flag, sets agent → <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span >, <code>current_tool</code> set. If tool is <code>Agent</code>, subagent record created.':
+      '대기 플래그를 지우고 에이전트를 <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span >으로 설정하며, <code>current_tool</code>을 지정합니다. 도구가 <code>Agent</code>인 경우 서브에이전트 레코드를 생성합니다.',
+    "Tool execution completes": "도구 실행 완료",
+    'Clears the waiting flag (covers permission-prompt approvals mid-tool). <code>current_tool</code> cleared. Agent stays <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span >.':
+      '대기 플래그를 지웁니다(도구 실행 중 권한 프롬프트 승인도 포함). <code>current_tool</code>이 지워집니다. 에이전트는 계속 <span class="status-chip chip-working" ><span class="chip-dot"></span>Working</span > 상태를 유지합니다.',
+    "Claude finishes a turn": "Claude가 턴을 종료",
+    'Non-error: main agent → <code>waiting</code> — UI shows <span class="status-chip chip-waiting" ><span class="chip-dot"></span>Waiting</span > until the next user input. <code>stop_reason=error</code>: marks the agent and session <span class="status-chip chip-error" ><span class="chip-dot"></span>Error</span >. Background subagents keep running.':
+      '오류가 아닌 경우: 메인 에이전트 → <code>waiting</code> — 다음 사용자 입력이 있을 때까지 UI에 <span class="status-chip chip-waiting" ><span class="chip-dot"></span>Waiting</span >이 표시됩니다. <code>stop_reason=error</code>인 경우: 에이전트와 세션을 <span class="status-chip chip-error" ><span class="chip-dot"></span>Error</span >로 표시합니다. 백그라운드 서브에이전트는 계속 실행됩니다.',
+    "Background agent finished": "백그라운드 에이전트 완료",
+    "Matched subagent → <span class=\"status-chip chip-completed\" ><span class=\"chip-dot\"></span>Completed</span >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks. The same scan also rebuilds the nested-subagent hierarchy — it repoints each subagent's <code>parent_agent_id</code> to the true spawner recovered from the transcript's Task tool result (<code>toolUseResult.agentId</code>), so subagents that spawn their own subagents nest correctly instead of flattening under main.":
+      '일치하는 서브에이전트 → <span class="status-chip chip-completed" ><span class="chip-dot"></span>Completed</span >. 대기 플래그는 의도적으로 지우지 <strong>않습니다</strong> — 백그라운드 서브에이전트가 완료되었다는 사실은 사용자에 대해 아무것도 알려주지 않기 때문입니다. 또한 세션의 <code>subagents/agent-*.jsonl</code> 파일을 순회하며 <code>tool_use_id</code>로 <code>tool_use</code>와 <code>tool_result</code> 블록을 짝짓고, 각 서브에이전트 고유의 <code>agent_id</code> 아래에 도구별 <code>PreToolUse</code> + <code>PostToolUse</code> 이벤트를 발생시키는 fire-and-forget JSONL 스캔(<code>scanAndImportSubagents</code>)도 시작됩니다 — 이를 통해 서브에이전트가 내부적으로 수행하지만 어떤 훅도 발생시키지 않는 도구 호출을 드러냅니다. 같은 스캔은 중첩된 서브에이전트 계층도 재구성합니다 — 트랜스크립트의 Task 도구 결과(<code>toolUseResult.agentId</code>)에서 복구한 실제 생성자로 각 서브에이전트의 <code>parent_agent_id</code>를 다시 지정하므로, 자체적으로 서브에이전트를 생성하는 서브에이전트도 메인 아래로 평탄화되지 않고 올바르게 중첩됩니다.',
+    "Agent sends notification": "에이전트가 알림 전송",
+    'Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") set the agent to <code>waiting</code> and stamp <code>awaiting_input_since</code>. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.':
+      '이벤트가 활동 피드에 기록됩니다. 권한/입력 프롬프트 패턴(예: "needs your permission", "waiting for your input")은 에이전트를 <code>waiting</code>으로 설정하고 <code>awaiting_input_since</code>를 기록합니다. 컴팩션 관련 알림은 <code>Compaction</code> 이벤트로 태그됩니다. 활성화되어 있으면 브라우저 알림을 트리거합니다.',
+    "<code>/compact</code> detected in JSONL": "JSONL에서 <code>/compact</code> 감지됨",
+    'Creates a compaction subagent → <span class="status-chip chip-completed" ><span class="chip-dot"></span>Completed</span >. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (cadence ~¼ of <code>DASHBOARD_STALE_MINUTES</code>) catches compactions when no hooks fire.':
+      '컴팩션 서브에이전트를 생성합니다 → <span class="status-chip chip-completed" ><span class="chip-dot"></span>Completed</span >. 트랜스크립트의 <code>isCompactSummary</code> 항목을 통해 감지됩니다. 토큰 기준값은 컴팩션 이전 총합을 보존합니다. 주기적 스캐너(주기는 대략 <code>DASHBOARD_STALE_MINUTES</code>의 1/4)가 훅이 발생하지 않는 컴팩션도 포착합니다.',
+    "API error detected in transcript": "트랜스크립트에서 API 오류 감지됨",
+    "Extracted from JSONL during history import, real-time transcript scanning, or the error detection watchdog. Captures quota limits, rate limits, auth failures, and other API errors. <strong>Immediately marks sessions and agents as error</strong> — previously recorded as events without changing status.":
+      "기록 가져오기, 실시간 트랜스크립트 스캔, 또는 오류 감지 워치독 중에 JSONL에서 추출됩니다. 할당량 한도, 속도 제한, 인증 실패 등 다양한 API 오류를 포착합니다. <strong>세션과 에이전트를 즉시 오류 상태로 표시합니다</strong> — 이전에는 상태를 변경하지 않고 이벤트로만 기록되었습니다.",
+    "Turn cancelled by the user (<code>Esc</code>)": "사용자가 턴을 취소함(<code>Esc</code>)",
+    "Synthesized by the watchdog because pressing <code>Esc</code> fires no hook. Recovered either from the transcript <code>[Request interrupted by user]</code> marker (flagged as <code>pendingInterrupt</code>) or, when <code>Esc</code> preceded any output and left no marker, from the idle-working timeout (<code>DASHBOARD_WORKING_IDLE_SECONDS</code>, default 120). Moves the session to <strong>Waiting</strong> — the same state a normal <code>Stop</code> produces.":
+      "<code>Esc</code>를 누르면 훅이 전혀 발생하지 않으므로 워치독이 이 이벤트를 합성합니다. 트랜스크립트의 <code>[Request interrupted by user]</code> 마커(<code>pendingInterrupt</code>로 표시됨)로부터 복구되거나, 출력이 나오기 전에 <code>Esc</code>가 눌려 마커가 남지 않은 경우에는 유휴 작업 타임아웃(<code>DASHBOARD_WORKING_IDLE_SECONDS</code>, 기본값 120)을 통해 복구됩니다. 세션을 <strong>Waiting</strong> 상태로 전환합니다 — 일반적인 <code>Stop</code>이 발생시키는 것과 동일한 상태입니다.",
+    "Per-turn timing recorded": "턴별 타이밍 기록됨",
+    "Extracted from JSONL turn boundaries. Records the duration of each assistant turn for latency analysis.":
+      "JSONL의 턴 경계에서 추출됩니다. 지연 시간 분석을 위해 각 어시스턴트 턴의 지속 시간을 기록합니다.",
+    "Claude Code CLI process exits": "Claude Code CLI 프로세스 종료",
+    'Drops the waiting flag. If the session is already in <span class="status-chip chip-error" ><span class="chip-dot"></span>Error</span >, the error state is preserved; otherwise marks all agents and the session as <span class="status-chip chip-completed" ><span class="chip-dot"></span>Completed</span >. Evicts the session\'s transcript from the shared cache.':
+      '대기 플래그를 제거합니다. 세션이 이미 <span class="status-chip chip-error" ><span class="chip-dot"></span>Error</span > 상태라면 오류 상태를 그대로 유지하고, 그렇지 않으면 모든 에이전트와 세션을 <span class="status-chip chip-completed" ><span class="chip-dot"></span>Completed</span >로 표시합니다. 공유 캐시에서 세션의 트랜스크립트를 축출합니다.',
+    "Clone the repository to your machine": "저장소를 컴퓨터에 클론합니다",
+    "Run <code>npm run setup</code> to install all dependencies":
+      "<code>npm run setup</code>을 실행하여 모든 의존성을 설치합니다",
+    "Run <code>npm run dev</code> — server + client launch automatically":
+      "<code>npm run dev</code>를 실행합니다 — 서버와 클라이언트가 자동으로 실행됩니다",
+    "Start a new Claude Code session — events appear in real-time":
+      "새 Claude Code 세션을 시작합니다 — 이벤트가 실시간으로 표시됩니다",
+    "A multi-stage <code>Dockerfile</code> and <code>docker-compose.yml</code> are included. You can run the monitor with either Docker or Podman and keep the SQLite database in a named volume.":
+      "멀티스테이지 <code>Dockerfile</code>과 <code>docker-compose.yml</code>이 포함되어 있습니다. Docker 또는 Podman으로 모니터를 실행할 수 있으며 SQLite 데이터베이스는 명명된 볼륨에 보관할 수 있습니다.",
+    "Hooks auto-install in local mode": "로컬 모드에서는 훅이 자동으로 설치됩니다",
+    "When you run the server directly on the host with <code>npm run dev</code> or <code>npm start</code>, it automatically writes Claude Code hook entries to <code>~/.claude/settings.json</code>. If you run the dashboard in Docker or Podman, install hooks from the host with <code>npm run install-hooks</code> after the container is up, then restart Claude Code. The installer refuses to run inside a container (issue #193) so it never writes a container-internal handler path into a bind-mounted host <code>~/.claude</code>; override with <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code> only if Claude Code itself runs in the container.":
+      "<code>npm run dev</code> 또는 <code>npm start</code>로 서버를 호스트에서 직접 실행하면 Claude Code 훅 항목이 <code>~/.claude/settings.json</code>에 자동으로 기록됩니다. Docker나 Podman에서 대시보드를 실행하는 경우, 컨테이너가 실행된 후 호스트에서 <code>npm run install-hooks</code>로 훅을 설치한 다음 Claude Code를 재시작하세요. 설치 프로그램은 컨테이너 내부에서 실행되는 것을 거부하므로(이슈 #193) 바인드 마운트된 호스트의 <code>~/.claude</code>에 컨테이너 내부 핸들러 경로가 기록되는 일이 없습니다. Claude Code 자체가 컨테이너 안에서 실행되는 경우에만 <code>CCAM_ALLOW_CONTAINER_HOOKS=1</code>로 이 동작을 재정의하세요.",
+    "This repository also ships a local MCP server under <code>mcp/</code> and extension scaffolding for both Claude Code and Codex. These are optional for the dashboard UI, but recommended for complete local-agent workflows. The MCP server supports stdio (for host integration), HTTP+SSE (for remote clients), and an interactive REPL (for operator debugging).":
+      "이 저장소에는 <code>mcp/</code> 아래에 로컬 MCP 서버와 Claude Code 및 Codex를 위한 확장 스캐폴딩도 함께 제공됩니다. 이는 대시보드 UI에는 선택 사항이지만, 완전한 로컬 에이전트 워크플로를 위해서는 사용을 권장합니다. MCP 서버는 stdio(호스트 통합용), HTTP+SSE(원격 클라이언트용), 대화형 REPL(운영자 디버깅용)을 지원합니다.",
+    "After starting a Claude Code session, you should see:":
+      "Claude Code 세션을 시작하면 다음과 같은 모습을 확인할 수 있습니다.",
+    Page: "페이지",
+    Expected: "예상 결과",
+    Sessions: "Sessions",
+    'Your session listed with status <span class="status-chip chip-waiting"><span class="chip-dot"></span>Waiting</span> (a fresh CLI is sitting at the prompt) — flips to <span class="status-chip chip-active"><span class="chip-dot"></span>Active</span> the moment Claude starts a turn':
+      '세션이 <span class="status-chip chip-waiting"><span class="chip-dot"></span>Waiting</span> 상태로 표시됩니다(새 CLI가 프롬프트 상태로 대기 중) — Claude가 턴을 시작하는 순간 <span class="status-chip chip-active"><span class="chip-dot"></span>Active</span>로 전환됩니다',
+    "Kanban Board": "Kanban Board",
+    "A <em>Main Agent</em> card in the <strong>Waiting</strong> column until you type your first message; flips to <em>Working</em> on <code>UserPromptSubmit</code> / <code>PreToolUse</code> and back to <em>Waiting</em> after each <code>Stop</code>":
+      "첫 메시지를 입력하기 전까지는 <strong>Waiting</strong> 열에 <em>Main Agent</em> 카드가 표시되며, <code>UserPromptSubmit</code> / <code>PreToolUse</code> 시 <em>Working</em>으로 전환되었다가 매 <code>Stop</code> 이후 다시 <em>Waiting</em>으로 돌아갑니다",
+    "Activity Feed": "Activity Feed",
+    'Events streaming in; click any row to expand payload, use "Session →" to drill into session details':
+      '이벤트가 실시간으로 스트리밍됩니다. 행을 클릭하면 페이로드가 확장되며, "Session →"를 사용해 세션 상세 정보로 이동할 수 있습니다',
+    Dashboard: "Dashboard",
+    "Stats updating in real-time": "통계가 실시간으로 업데이트됩니다",
+    "Start server before Claude Code": "Claude Code보다 먼저 서버를 시작하세요",
+    "Hooks only fire to a running server. If Claude Code was already running when you started the dashboard, restart the Claude Code session.":
+      "훅은 실행 중인 서버로만 전송됩니다. 대시보드를 시작하기 전에 Claude Code가 이미 실행 중이었다면 Claude Code 세션을 재시작하세요.",
+    Variable: "변수",
+    Default: "기본값",
+    Description: "설명",
+    "Port the Express server listens on": "Express 서버가 수신 대기하는 포트",
+    "Port used by the hook handler to reach the server (for custom port setups)":
+      "훅 핸들러가 서버에 접근할 때 사용하는 포트(사용자 지정 포트 설정용)",
+    "Base URL used by the local MCP server when calling dashboard APIs":
+      "로컬 MCP 서버가 대시보드 API를 호출할 때 사용하는 기본 URL",
+    "MCP transport mode: <code>stdio</code>, <code>http</code>, <code>repl</code>":
+      "MCP 전송 모드: <code>stdio</code>, <code>http</code>, <code>repl</code>",
+    "Port for the MCP HTTP+SSE server (only when <code>MCP_TRANSPORT=http</code>)":
+      "MCP HTTP+SSE 서버용 포트(<code>MCP_TRANSPORT=http</code>인 경우에만 사용)",
+    "Bind address for the MCP HTTP server": "MCP HTTP 서버의 바인드 주소",
+    "Path to the SQLite database file": "SQLite 데이터베이스 파일 경로",
+    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
+      "<code>0</code>으로 설정하면 죽은 세션에 대한 생존 확인 정리(reap) 기능이 비활성화됩니다 — 워치독은 실행 중인 <code>claude</code> 프로세스가 없는 활성 세션을 완료 처리합니다. Windows와 컨테이너에서는 자동으로 비활성화됩니다",
+    "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
+      "워치독 틱의 생존 확인 정리를 위한 유휴 게이트 — 트랜스크립트가 최소 이 시간 동안 기록되지 않아야 합니다(마지막 훅 기록 시각이 대체 기준이 됩니다). 시작 시점의 패스는 이 게이트를 건너뜁니다",
+    "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
+      "트랜스크립트에 마커를 남기지 않은 <code>Esc</code> 취소를 복구하기 위해 워치독이 사용하는 유휴 작업 타임아웃",
+    "Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher":
+      "<code>~/.claude/projects</code> 백그라운드 동기화의 폴링 간격입니다. <code>0</code>으로 설정하면 폴링은 비활성화되지만 파일 시스템 워처는 계속 유지됩니다",
+    "Set to <code>production</code> to serve built client from <code>client/dist/</code>":
+      "<code>production</code>으로 설정하면 <code>client/dist/</code>에서 빌드된 클라이언트를 제공합니다",
+    "The server writes the following to <code>~/.claude/settings.json</code> on every startup:":
+      "서버는 시작할 때마다 다음 내용을 <code>~/.claude/settings.json</code>에 기록합니다.",
+    "Existing hooks are preserved. The installer only adds or updates entries containing <code>hook-handler.js</code>.":
+      "기존 훅은 그대로 유지됩니다. 설치 프로그램은 <code>hook-handler.js</code>가 포함된 항목만 추가하거나 업데이트합니다.",
+    Script: "스크립트",
+    Command: "명령어",
+    "Install all dependencies (server + client)": "모든 의존성 설치(서버 + 클라이언트)",
+    "Start server + client in development mode with hot reload":
+      "핫 리로드가 적용된 개발 모드로 서버와 클라이언트를 시작",
+    "Start only the Express server with <code>--watch</code>":
+      "<code>--watch</code> 옵션으로 Express 서버만 시작",
+    "Start only the Vite dev server": "Vite 개발 서버만 시작합니다",
+    "TypeScript check + Vite production build to <code>client/dist/</code>":
+      "TypeScript 검사 후 <code>client/dist/</code>로 Vite 프로덕션 빌드를 수행합니다",
+    "Start Express in production mode serving built client":
+      "빌드된 클라이언트를 제공하는 프로덕션 모드로 Express를 시작합니다",
+    "Manually write Claude Code hooks to <code>~/.claude/settings.json</code>":
+      "Claude Code hook을 <code>~/.claude/settings.json</code>에 수동으로 기록합니다",
+    "Insert demo sessions, agents, and events (8 sessions / 23 agents / 106 events)":
+      "데모 세션, 에이전트, 이벤트를 삽입합니다 (세션 8개 / 에이전트 23개 / 이벤트 106개)",
+    "Import historical Claude Code sessions from <code>~/.claude</code> with deep JSONL extraction (API errors, turn durations, thinking blocks, subagent data)":
+      "<code>~/.claude</code>에서 과거 Claude Code 세션을 가져오며, JSONL을 심층 추출합니다 (API 오류, 턴 소요 시간, 생각 블록, Subagent 데이터)",
+    "Delete all data from the database (keeps schema)":
+      "데이터베이스의 모든 데이터를 삭제합니다 (스키마는 유지)",
+    "Run all server and client tests": "서버 및 클라이언트 테스트를 모두 실행합니다",
+    "Server integration tests only (Node built-in test runner)":
+      "서버 통합 테스트만 실행합니다 (Node 내장 테스트 러너)",
+    "Client unit tests only (Vitest + Testing Library)":
+      "클라이언트 단위 테스트만 실행합니다 (Vitest + Testing Library)",
+    "Install dependencies for the local MCP package under <code>mcp/</code>":
+      "<code>mcp/</code> 하위의 로컬 MCP 패키지 의존성을 설치합니다",
+    "Type-check MCP source without emitting build output":
+      "빌드 결과물을 생성하지 않고 MCP 소스의 타입을 검사합니다",
+    "Compile MCP server into <code>mcp/build/</code>":
+      "MCP 서버를 <code>mcp/build/</code>로 컴파일합니다",
+    "Start MCP server (stdio transport — for MCP hosts)":
+      "MCP 서버를 시작합니다 (stdio 전송 방식 — MCP 호스트용)",
+    "Start MCP HTTP+SSE server on port 8819 (Streamable HTTP + legacy SSE)":
+      "포트 8819에서 MCP HTTP+SSE 서버를 시작합니다 (Streamable HTTP + 레거시 SSE)",
+    "Start interactive MCP REPL with tab completion and colored output":
+      "탭 자동완성과 컬러 출력을 지원하는 대화형 MCP REPL을 시작합니다",
+    "Run MCP server in dev mode with <code>tsx</code> (stdio)":
+      "<code>tsx</code>를 사용해 개발 모드로 MCP 서버를 실행합니다 (stdio)",
+    "Run MCP HTTP server in dev mode with <code>tsx</code>":
+      "<code>tsx</code>를 사용해 개발 모드로 MCP HTTP 서버를 실행합니다",
+    "Run MCP REPL in dev mode with <code>tsx</code>":
+      "<code>tsx</code>를 사용해 개발 모드로 MCP REPL을 실행합니다",
+    "Build MCP container image with Docker (<code>agent-dashboard-mcp:local</code>)":
+      "Docker로 MCP 컨테이너 이미지를 빌드합니다 (<code>agent-dashboard-mcp:local</code>)",
+    "Build MCP container image with Podman (<code>localhost/agent-dashboard-mcp:local</code>)":
+      "Podman으로 MCP 컨테이너 이미지를 빌드합니다 (<code>localhost/agent-dashboard-mcp:local</code>)",
+    "Run MCP server unit tests": "MCP 서버 단위 테스트를 실행합니다",
+    "Install Electron + electron-builder under <code>desktop/</code>; rebuilds <code>better-sqlite3</code> for Electron's ABI. Preflights the native <code>better-sqlite3</code> build; prints actionable setup help (incl. a no-toolchain alternative) on failure":
+      "<code>desktop/</code> 하위에 Electron과 electron-builder를 설치하고, Electron의 ABI에 맞게 <code>better-sqlite3</code>를 다시 빌드합니다. 네이티브 <code>better-sqlite3</code> 빌드를 사전 점검하며, 실패 시 (툴체인이 없는 경우의 대안을 포함한) 실행 가능한 설정 도움말을 출력합니다",
+    "Prebuild guard + <code>tsc</code> compile of the Electron main process into <code>desktop/out/</code>":
+      "사전 빌드 가드 실행 후 Electron 메인 프로세스를 <code>tsc</code>로 컴파일하여 <code>desktop/out/</code>에 출력합니다",
+    "Build, then launch the desktop app against <code>desktop/out/main.js</code>":
+      "빌드한 뒤 <code>desktop/out/main.js</code>를 대상으로 데스크톱 앱을 실행합니다",
+    "Desktop smoke test — spawn Electron and probe <code>/api/health</code>":
+      "데스크톱 스모크 테스트 — Electron을 구동하고 <code>/api/health</code>를 점검합니다",
+    "Build a <strong>universal</strong> (x64 + arm64) DMG. Correct for release — intentionally slow":
+      "<strong>유니버설</strong>(x64 + arm64) DMG를 빌드합니다. 릴리스에 적합하며, 의도적으로 느립니다",
+    "Build an Apple-Silicon-only DMG — fast (~1 min), recommended for a single machine":
+      "Apple Silicon 전용 DMG를 빌드합니다 — 빠르며(약 1분), 단일 머신에서 사용을 권장합니다",
+    "Build an Intel-only DMG — fast (macOS host)":
+      "Intel 전용 DMG를 빌드합니다 — 빠름 (macOS 호스트)",
+    "Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)":
+      "Windows NSIS 설치 프로그램 <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>를 빌드합니다 (Windows 호스트)",
+    "Build the no-install portable <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code> (Windows host)":
+      "설치가 필요 없는 포터블 <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code>를 빌드합니다 (Windows 호스트)",
+    "Regenerate <code>desktop/assets/icon.ico</code> from <code>icon.png</code> (PowerShell + .NET; Windows host)":
+      "<code>icon.png</code>로부터 <code>desktop/assets/icon.ico</code>를 재생성합니다 (PowerShell + .NET; Windows 호스트)",
+    "Format all files with Prettier": "Prettier로 모든 파일의 서식을 정리합니다",
+    "Check formatting without writing": "파일을 수정하지 않고 서식만 검사합니다",
+    "Core dashboard telemetry is composed of three processes (Claude hook source, dashboard server, browser UI). When the local MCP sidecar is enabled, it integrates with the same dashboard API via stdio, HTTP+SSE, or interactive REPL transport.":
+      "핵심 대시보드 텔레메트리는 세 개의 프로세스(Claude hook 소스, 대시보드 서버, 브라우저 UI)로 구성됩니다. 로컬 MCP 사이드카가 활성화되면 stdio, HTTP+SSE, 또는 대화형 REPL 전송 방식을 통해 동일한 대시보드 API와 통합됩니다.",
+    "Full system architecture — Claude Code process → Hook Layer → Server → Browser":
+      "전체 시스템 아키텍처 — Claude Code 프로세스 → Hook 계층 → 서버 → 브라우저",
+    "Agent status transitions driven by hook events. <code>waiting</code> is a real persisted status — agents start as <code>waiting</code> and return to it after each turn. Error recovery requires active user retry (<code>UserPromptSubmit</code> or <code>PreToolUse</code>). A background watchdog detects API errors in transcripts every 15 s. The same watchdog also recovers <code>Esc</code>-cancelled turns — via either the transcript <code>[Request interrupted by user]</code> marker or the idle-working timeout when <code>Esc</code> preceded any output — and moves the session to Waiting.":
+      "hook 이벤트에 의해 구동되는 에이전트 상태 전이입니다. <code>waiting</code>은 실제로 영속화되는 상태로, 에이전트는 <code>waiting</code>으로 시작하며 매 턴이 끝날 때마다 이 상태로 돌아옵니다. 오류 복구에는 사용자의 능동적인 재시도(<code>UserPromptSubmit</code> 또는 <code>PreToolUse</code>)가 필요합니다. 백그라운드 워치독이 15초마다 transcript에서 API 오류를 감지합니다. 동일한 워치독은 transcript의 <code>[Request interrupted by user]</code> 마커, 또는 <code>Esc</code> 입력 후 아무 출력도 없을 때의 유휴 작업 타임아웃을 통해 <code>Esc</code>로 취소된 턴도 복구하며, 세션을 Waiting 상태로 전환합니다.",
+    "Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set. <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting.":
+      "세션 상태 생명주기입니다. <code>waiting</code>은 UI 오버레이로, 실제로는 <code>awaiting_input_since</code>가 설정된 <code>active</code> 상태로 영속화됩니다. <code>SessionEnd</code>는 오류 상태를 그대로 유지합니다. 오류 복구에는 <code>UserPromptSubmit</code> 또는 <code>PreToolUse</code>가 필요합니다. 워치독은 (마커 또는 유휴 타임아웃 경로를 통해) <code>Esc</code>로 취소된 턴도 복구하여 세션을 Waiting 상태로 전환합니다.",
+    "Complete event ingestion from hook fire to browser re-render":
+      "hook 발생부터 브라우저 리렌더링까지 이어지는 전체 이벤트 수집 과정",
+    "Initial load + WebSocket subscription lifecycle": "초기 로드 + WebSocket 구독 생명주기",
+    "Server module dependency graph": "서버 모듈 의존성 그래프",
+    Module: "모듈",
+    Responsibility: "역할",
+    "Express app setup, middleware (CORS, JSON 1MB limit), route mounting, static serving in production, HTTP server, auto-hook installation on startup":
+      "Express 앱 설정, 미들웨어(CORS, JSON 1MB 제한), 라우트 마운트, 프로덕션 환경의 정적 파일 제공, HTTP 서버, 시작 시 hook 자동 설치",
+    "SQLite connection, WAL/FK pragmas, schema migrations (<code >CREATE TABLE IF NOT EXISTS</code >), all prepared statements as a reusable <code>stmts</code> object. Tries <code>better-sqlite3</code> first, falls back to built-in <code>node:sqlite</code> via <code>compat-sqlite.js</code>":
+      "SQLite 연결, WAL/FK 프래그마, 스키마 마이그레이션(<code >CREATE TABLE IF NOT EXISTS</code >), 재사용 가능한 <code>stmts</code> 객체로 관리되는 모든 프리페어드 스테이트먼트. 먼저 <code>better-sqlite3</code>를 시도하고, 실패하면 <code>compat-sqlite.js</code>를 통해 내장된 <code>node:sqlite</code>로 폴백합니다",
+    "Compatibility wrapper giving Node.js built-in <code>node:sqlite</code> (<code>DatabaseSync</code>) the same API as <code>better-sqlite3</code> — pragma, transaction, prepare. Used as automatic fallback on Node 22+":
+      "Node.js 내장 <code>node:sqlite</code>(<code>DatabaseSync</code>)에 <code>better-sqlite3</code>와 동일한 API(pragma, transaction, prepare)를 제공하는 호환성 래퍼입니다. Node 22 이상에서 자동 폴백으로 사용됩니다",
+    "WebSocket server on <code>/ws</code> path, 30s ping/pong heartbeat, typed <code>broadcast(type, data)</code> function":
+      "<code>/ws</code> 경로의 WebSocket 서버, 30초 ping/pong 하트비트, 타입이 지정된 <code>broadcast(type, data)</code> 함수",
+    "Core event processing inside SQLite transactions. Auto-creates sessions/agents. Switch-case dispatch by hook type. Extracts token usage from Stop events.":
+      "SQLite 트랜잭션 내에서 수행되는 핵심 이벤트 처리입니다. 세션/에이전트를 자동으로 생성합니다. hook 타입별로 switch-case 방식으로 분기합니다. Stop 이벤트에서 토큰 사용량을 추출합니다.",
+    "CRUD with pagination. GET includes agent count via LEFT JOIN. POST is idempotent on session ID.":
+      "페이지네이션을 지원하는 CRUD입니다. GET은 LEFT JOIN을 통해 에이전트 수를 포함합니다. POST는 세션 ID 기준으로 멱등성을 가집니다.",
+    "CRUD with status/session_id filtering. PATCH broadcasts <code>agent_updated</code>.":
+      "status/session_id 필터링을 지원하는 CRUD입니다. PATCH는 <code>agent_updated</code>를 브로드캐스트합니다.",
+    "Read-only event listing with session_id filter and pagination.":
+      "session_id 필터와 페이지네이션을 지원하는 읽기 전용 이벤트 목록입니다.",
+    "Single aggregate query — total/active counts, status distributions, WS connection count.":
+      "단일 집계 쿼리 — 전체/활성 개수, 상태 분포, WS 연결 수.",
+    "Extended analytics — token totals, tool usage counts, daily event/session trends, agent type distribution, event type breakdown, average events per session.":
+      "확장 분석 — 토큰 총합, 도구 사용 횟수, 일별 이벤트/세션 추이, 에이전트 유형 분포, 이벤트 유형별 분류, 세션당 평균 이벤트 수.",
+    "Model pricing CRUD (list, upsert, delete). Per-session and global cost calculation with pattern-based model matching and specificity sorting.":
+      "모델 가격 CRUD(목록 조회, upsert, 삭제)입니다. 패턴 기반 모델 매칭과 구체성 정렬을 통해 세션별 및 전체 비용을 계산합니다.",
+    "System info (DB size, row counts, hook status, server uptime). Data export as JSON. Session cleanup (abandon stale active sessions, purge old completed sessions). Clear all data. Reset pricing to defaults. Reinstall hooks.":
+      "시스템 정보(DB 크기, 행 수, hook 상태, 서버 가동 시간)입니다. 데이터를 JSON으로 내보냅니다. 세션 정리(오래된 활성 세션을 중단 처리하고, 오래된 완료 세션을 삭제)를 수행합니다. 모든 데이터를 삭제합니다. 가격을 기본값으로 초기화합니다. hook을 재설치합니다.",
+    "Aggregate workflow visualization data (agent orchestration, tool transitions, collaboration networks, workflow patterns, model delegation, error propagation, concurrency, session complexity, compaction impact). Accepts <code>?status=active|completed</code> filter. Per-session drill-in with agent tree, tool timeline, and events.":
+      "워크플로 시각화 데이터를 집계합니다(에이전트 오케스트레이션, 도구 전이, 협업 네트워크, 워크플로 패턴, 모델 위임, 오류 전파, 동시성, 세션 복잡도, 컴팩션 영향). <code>?status=active|completed</code> 필터를 지원합니다. 에이전트 트리, 도구 타임라인, 이벤트를 포함한 세션별 상세 드릴인을 제공합니다.",
+    "React component tree": "React 컴포넌트 트리",
+    Purpose: "목적",
+    "<code>lib/api.ts</code>": "<code>lib/api.ts</code>",
+    "Typed fetch wrapper — one method per REST endpoint. All return typed promises.":
+      "타입이 지정된 fetch 래퍼 — REST 엔드포인트마다 메서드가 하나씩 있습니다. 모두 타입이 지정된 Promise를 반환합니다.",
+    "<code>lib/types.ts</code>": "<code>lib/types.ts</code>",
+    "TypeScript interfaces: <code>Session</code>, <code>Agent</code>, <code>DashboardEvent</code>, <code>Stats</code>, <code>Analytics</code>, <code>WSMessage</code>, plus all workflow-related types (<code>WorkflowData</code>, <code>SessionDrillIn</code>, etc). Status config maps.":
+      "TypeScript 인터페이스: <code>Session</code>, <code>Agent</code>, <code>DashboardEvent</code>, <code>Stats</code>, <code>Analytics</code>, <code>WSMessage</code>와 워크플로 관련 타입 전체(<code>WorkflowData</code>, <code>SessionDrillIn</code> 등). 상태 설정 맵.",
+    "<code>lib/eventBus.ts</code>": "<code>lib/eventBus.ts</code>",
+    "Set-based pub/sub. <code>subscribe(fn)</code> returns an unsubscribe function for clean useEffect teardown.":
+      "Set 기반 pub/sub입니다. <code>subscribe(fn)</code>은 useEffect를 깔끔하게 정리할 수 있도록 구독 해제 함수를 반환합니다.",
+    "<code>lib/format.ts</code>": "<code>lib/format.ts</code>",
+    "Date/time formatting helpers — relative time, duration, ISO display.":
+      "날짜/시간 포맷팅 헬퍼 — 상대 시간, 기간, ISO 표시.",
+    "<code>hooks/useWebSocket.ts</code>": "<code>hooks/useWebSocket.ts</code>",
+    "Auto-reconnecting WebSocket React hook. 2-second reconnect interval. Publishes messages to eventBus.":
+      "자동 재연결되는 WebSocket React hook입니다. 재연결 간격은 2초입니다. 메시지를 eventBus에 게시합니다.",
+    "The dashboard is a Progressive Web App with its own <code>manifest.json</code> and Service Worker (<code>client/public/sw.js</code>). The landing page and wiki are also independent PWAs with separate manifests and service workers.":
+      "대시보드는 자체 <code>manifest.json</code>과 서비스 워커(<code>client/public/sw.js</code>)를 갖춘 Progressive Web App입니다. 랜딩 페이지와 위키 또한 각각 별도의 매니페스트와 서비스 워커를 가진 독립적인 PWA입니다.",
+    Surface: "영역",
+    Manifest: "매니페스트",
+    "Service Worker": "서비스 워커",
+    Strategy: "전략",
+    "<code>client/public/manifest.json</code>": "<code>client/public/manifest.json</code>",
+    "<code>client/public/sw.js</code>": "<code>client/public/sw.js</code>",
+    "Precaches app shell. Cache-first for static assets (JS/CSS bundles). Network-first for navigation with offline fallback. Skips <code>/api/*</code>, <code>/ws</code>, and Vite HMR. Preserves push notification handlers.":
+      "앱 셸을 사전 캐싱합니다. 정적 자산(JS/CSS 번들)은 캐시 우선 방식입니다. 내비게이션은 오프라인 폴백을 포함한 네트워크 우선 방식입니다. <code>/api/*</code>, <code>/ws</code>, Vite HMR은 제외됩니다. 푸시 알림 핸들러는 유지됩니다.",
+    "Landing page": "랜딩 페이지",
+    "<code>manifest.json</code> (root)": "<code>manifest.json</code> (root)",
+    "<code>sw.js</code> (root)": "<code>sw.js</code> (root)",
+    "Precaches HTML shell, favicon, OG image. Lazy-caches screenshot PNGs on first view. Network-first HTML, cache-first assets.":
+      "HTML 셸, 파비콘, OG 이미지를 사전 캐싱합니다. 스크린샷 PNG는 처음 볼 때 지연 캐싱됩니다. HTML은 네트워크 우선, 자산은 캐시 우선 방식입니다.",
+    Wiki: "위키",
+    "<code>wiki/manifest.json</code>": "<code>wiki/manifest.json</code>",
+    "<code>wiki/sw.js</code>": "<code>wiki/sw.js</code>",
+    "Precaches <code>index.html</code>, <code>style.css</code>, <code>script.js</code>. Fully offline after one visit.":
+      "<code>index.html</code>, <code>style.css</code>, <code>script.js</code>를 사전 캐싱합니다. 한 번 방문하면 완전히 오프라인으로 동작합니다.",
+    'All three SWs call <code>skipWaiting()</code> on install and delete stale caches on activate (keyed by version strings like <code>dashboard-v1</code>). Manifests use SVG icons (<code>favicon.svg</code>) with <code>sizes="any"</code>. iOS standalone mode is enabled via <code>apple-mobile-web-app-capable</code> meta tags.':
+      '세 서비스 워커 모두 설치 시 <code>skipWaiting()</code>을 호출하고, 활성화 시 (<code>dashboard-v1</code>과 같은 버전 문자열을 키로 하는) 오래된 캐시를 삭제합니다. 매니페스트는 <code>sizes="any"</code>를 지정한 SVG 아이콘(<code>favicon.svg</code>)을 사용합니다. iOS 독립 실행형 모드는 <code>apple-mobile-web-app-capable</code> 메타 태그를 통해 활성화됩니다.',
+    "The client deliberately avoids Redux / Zustand / Context. Each page owns its data and lifecycle. WebSocket events trigger a reload or append — no complex state merging.":
+      "클라이언트는 의도적으로 Redux / Zustand / Context를 사용하지 않습니다. 각 페이지가 자신의 데이터와 생명주기를 직접 소유합니다. WebSocket 이벤트는 재로드 또는 추가(append)를 트리거할 뿐, 복잡한 상태 병합은 하지 않습니다.",
+    "No global store — by design": "전역 스토어 없음 — 의도된 설계",
+    "There is no cross-page shared state. Each page fetches and owns exactly the data it displays. This simplifies debugging and avoids stale-closure hazards that are common with global stores in long-running WebSocket apps.":
+      "페이지 간에 공유되는 상태는 없습니다. 각 페이지는 자신이 표시할 데이터만 정확히 가져와 소유합니다. 이는 디버깅을 단순화하고, 장시간 실행되는 WebSocket 앱에서 전역 스토어를 사용할 때 흔히 발생하는 stale-closure 문제를 방지합니다.",
+    Index: "인덱스",
+    Table: "테이블",
+    "Column(s)": "컬럼",
+    "Fast agent lookup by session": "세션 기준 빠른 에이전트 조회",
+    "Kanban column queries": "칸반 컬럼 쿼리",
+    "Session detail event list": "세션 상세 이벤트 목록",
+    "Filter events by type": "유형별 이벤트 필터링",
+    "Activity feed ordering": "활동 피드 정렬",
+    "Status filter on sessions page": "세션 페이지의 상태 필터",
+    "Default sort order": "기본 정렬 순서",
+    Pragma: "Pragma",
+    Value: "값",
+    Rationale: "근거",
+    "Concurrent reads during writes. Far better for read-heavy dashboards.":
+      "쓰기 중에도 동시 읽기가 가능합니다. 읽기 위주의 대시보드에 훨씬 유리합니다.",
+    "Referential integrity — prevents orphaned agents/events.":
+      "참조 무결성 — 고아 에이전트/이벤트 발생을 방지합니다.",
+    "Wait up to 5s for write lock instead of failing immediately under load.":
+      "부하 상황에서 즉시 실패하는 대신 쓰기 락을 최대 5초까지 대기합니다.",
+    'All endpoints return JSON. Errors follow <code>{ "error": { "code", "message" } }</code>. The OpenAPI 3.0 spec comprehensively documents every backend route - parameters, request/response schemas, field descriptions, and examples. It is served at <code>/api/openapi.json</code> (with a committed <code>openapi.yaml</code> mirror), rendered as interactive Swagger UI at <code>/api/docs</code>, and as a clean, read-optimized ReDoc reference at <code>/api/redoc</code>. ReDoc is self-hosted, so it works fully offline.':
+      '모든 엔드포인트는 JSON을 반환합니다. 오류는 <code>{ "error": { "code", "message" } }</code> 형식을 따릅니다. OpenAPI 3.0 스펙은 모든 백엔드 라우트 - 파라미터, 요청/응답 스키마, 필드 설명, 예제 - 를 빠짐없이 문서화합니다. 이 스펙은 <code>/api/openapi.json</code>에서 제공되며(커밋된 <code>openapi.yaml</code> 미러 포함), <code>/api/docs</code>에서 대화형 Swagger UI로, <code>/api/redoc</code>에서 읽기에 최적화된 깔끔한 ReDoc 레퍼런스로 렌더링됩니다. ReDoc은 자체 호스팅되므로 완전히 오프라인에서도 동작합니다.',
+    '<span class="caption-icon">📘</span> <span>Swagger UI at <code>/api/docs</code> — auto-generated interactive playground for every REST endpoint. Try-it-out forms, request/response schema, auth headers, and curl snippets</span>':
+      '<span class="caption-icon">📘</span> <span><code>/api/docs</code>의 Swagger UI — 모든 REST 엔드포인트에 대해 자동 생성되는 대화형 플레이그라운드입니다. Try-it-out 폼, 요청/응답 스키마, 인증 헤더, curl 스니펫을 제공합니다</span>',
+    Property: "속성",
+    Path: "경로",
+    Protocol: "프로토콜",
+    "Standard WebSocket (RFC 6455)": "표준 WebSocket (RFC 6455)",
+    Heartbeat: "하트비트",
+    "Server pings every 30s — clients that don't pong are terminated":
+      "서버는 30초마다 핑을 보내며, pong으로 응답하지 않는 클라이언트는 연결이 종료됩니다",
+    Reconnect: "재연결",
+    "Client retries every 2 seconds on disconnect":
+      "클라이언트는 연결이 끊기면 2초마다 재시도합니다",
+    "Client WebSocket auto-reconnect state machine": "클라이언트 WebSocket 자동 재연결 상태 머신",
+    "<code>scripts/hook-handler.js</code> is a minimal, fail-safe forwarder. It always exits 0 so it can never block Claude Code regardless of server state.":
+      "<code>scripts/hook-handler.js</code>는 최소한의 기능만 갖춘 fail-safe 포워더입니다. 서버 상태와 무관하게 Claude Code를 절대 차단하지 않도록 항상 0으로 종료합니다.",
+    "hook-handler.js flow — always exits 0, never blocks Claude Code":
+      "hook-handler.js 흐름 — 항상 0으로 종료되며 Claude Code를 절대 차단하지 않습니다",
+    "Hook installation is idempotent — safe to run multiple times":
+      "Hook 설치는 멱등적이므로 여러 번 실행해도 안전합니다",
+    '<span class="caption-icon">📥</span> <span>Settings → Import History — rescan default paths, set a custom directory, or drag-and-drop <code>.gz</code> archives. Progress bar and result card show counts for every run</span>':
+      '<span class="caption-icon">📥</span> <span>설정 → 가져오기 기록 — 기본 경로를 다시 스캔하거나, 사용자 지정 디렉터리를 설정하거나, <code>.gz</code> 아카이브를 드래그 앤 드롭할 수 있습니다. 진행률 표시줄과 결과 카드에 매 실행의 집계 수치가 표시됩니다</span>',
+    "The dashboard ships with a first-class <b>history importer</b> that backfills sessions, agents, events, tokens, and costs from Claude Code JSONL transcripts. Live hook ingestion and manual import share the exact same parser — <code>parseSessionFile</code> + <code>importSession</code> in <code>scripts/import-history.js</code> — which is the architectural contract that guarantees imported token totals and cost values are identical to those captured in real time. Re-imports are idempotent: session IDs are the dedup key and compaction <code>baseline_*</code> columns preserve pre-compaction token totals.":
+      "대시보드는 Claude Code JSONL transcript로부터 세션, 에이전트, 이벤트, 토큰, 비용을 소급 채워주는 완전한 기능의 <b>기록 가져오기(history importer)</b>를 기본 제공합니다. 실시간 hook 수집과 수동 가져오기는 정확히 동일한 파서 — <code>scripts/import-history.js</code>의 <code>parseSessionFile</code> + <code>importSession</code> — 를 공유하며, 이것이 가져온 토큰 총합과 비용 값이 실시간으로 수집된 값과 동일함을 보장하는 아키텍처적 계약입니다. 재가져오기는 멱등적입니다: 세션 ID가 중복 제거 키로 사용되며, 컴팩션 <code>baseline_*</code> 컬럼이 컴팩션 이전의 토큰 총합을 보존합니다.",
+    "All three modes funnel into the same parser and DB transaction — imported numbers match live capture bit-for-bit":
+      "세 가지 모드 모두 동일한 파서와 DB 트랜잭션으로 수렴합니다 — 가져온 수치는 실시간 캡처 값과 완전히 일치합니다",
+    "Upload path: multipart → safe extract → walk → parse → import — every temp dir reclaimed in <code>finally</code>":
+      "업로드 경로: multipart → 안전한 압축 해제 → 순회 → 파싱 → 가져오기 — 모든 임시 디렉터리는 <code>finally</code>에서 회수됩니다",
+    "The <code>baseline_*</code> columns make cost monotonic under re-imports — compacted sessions retain pre-compaction usage for billing":
+      "<code>baseline_*</code> 컬럼은 재가져오기 시에도 비용이 단조 증가하도록 보장합니다 — 컴팩션된 세션도 청구를 위해 컴팩션 이전 사용량을 유지합니다",
+    Layout: "레이아웃",
+    Example: "예시",
+    Handling: "처리 방식",
+    "Default Claude Code": "기본 Claude Code",
+    "Session transcript — extracts tokens, compactions, tool uses, turn durations":
+      "세션 transcript — 토큰, 컴팩션, 도구 사용, 턴 소요 시간을 추출합니다",
+    "Default subagent": "기본 서브에이전트",
+    "Paired with parent on discovery via <code>findSessionSubagents</code>":
+      "검색 시 <code>findSessionSubagents</code>를 통해 부모와 페어링됨",
+    "Alternative subagent": "대체 서브에이전트",
+    "Paired with parent on discovery (second layout probed automatically)":
+      "검색 시 부모와 페어링됨(두 번째 레이아웃이 자동으로 탐색됨)",
+    "Orphan subagent": "고아 서브에이전트",
+    "No parent JSONL in source, but <code>sid</code> exists in DB":
+      "소스에 부모 JSONL이 없지만 DB에 <code>sid</code>가 존재함",
+    "<code>importFromDirectory</code> probes both layouts; attaches if the parent is found":
+      "<code>importFromDirectory</code>가 두 레이아웃을 모두 탐색하며, 부모를 찾으면 연결함",
+    "Flat JSONL drop": "평면 JSONL 드롭",
+    "Recognized as a loose session transcript": "느슨한 세션 트랜스크립트로 인식됨",
+    Archives: "아카이브",
+    "Extracted into a per-request temp dir, then walked by the same importer":
+      "요청별 임시 디렉터리로 압축 해제된 후 동일한 임포터가 순회함",
+    "Single-file gzip": "단일 파일 gzip",
+    "Gunzipped in streaming mode with running byte-counter size cap":
+      "실행 중인 바이트 카운터 크기 제한을 적용해 스트리밍 방식으로 압축 해제됨",
+    Threat: "위협",
+    Mitigation: "완화 조치",
+    "Path traversal via archive entries": "아카이브 항목을 통한 경로 순회 공격",
+    "<code>archive.safeJoin</code> resolves under the extraction root; any <code>..</code> or absolute path returns <code>null</code>":
+      "<code>archive.safeJoin</code>은 추출 루트 하위에서 경로를 해석하며, <code>..</code>나 절대 경로는 <code>null</code>을 반환함",
+    "Zip / tar / gzip bombs": "Zip / tar / gzip 폭탄",
+    "<code>MAX_EXTRACT_BYTES</code> (default 4 GB) enforced by running byte counter; aborts with <code>ExtractionLimitError</code> → HTTP 413":
+      "실행 중인 바이트 카운터가 <code>MAX_EXTRACT_BYTES</code>(기본값 4GB)를 강제하며, 초과 시 <code>ExtractionLimitError</code>로 중단됨 → HTTP 413",
+    "Per-file upload size abuse": "파일별 업로드 크기 남용",
+    "multer <code>limits.fileSize = MAX_UPLOAD_BYTES</code> (default 1 GB)":
+      "multer <code>limits.fileSize = MAX_UPLOAD_BYTES</code>(기본값 1GB)",
+    "Too many files per request": "요청당 파일 수 초과",
+    "multer <code>limits.files = MAX_UPLOAD_FILES</code> (default 2000)":
+      "multer <code>limits.files = MAX_UPLOAD_FILES</code>(기본값 2000)",
+    "Unsupported file types": "지원되지 않는 파일 형식",
+    "<code>fileFilter</code> drops them early and reports them in <code>rejected_files[]</code>":
+      "<code>fileFilter</code>가 이를 조기에 제외하고 <code>rejected_files[]</code>에 보고함",
+    "Concurrent upload temp-dir collisions": "동시 업로드 임시 디렉터리 충돌",
+    "Per-request temp dir on <code>req._ccamUploadDir</code>; created in multer <code>destination</code>, reclaimed in <code>finally</code>":
+      "<code>req._ccamUploadDir</code>에 요청별 임시 디렉터리가 사용됨. multer <code>destination</code>에서 생성되고 <code>finally</code>에서 회수됨",
+    "Arbitrary absolute path on <code>scan-path</code>":
+      "<code>scan-path</code>에 임의의 절대 경로 입력",
+    "Validated: must be absolute (after <code>~</code> expansion), exist, and be a directory":
+      "검증됨: <code>~</code> 확장 후 절대 경로여야 하며, 존재해야 하고, 디렉터리여야 함",
+    "Relative / traversal paths on <code>scan-path</code>":
+      "<code>scan-path</code>의 상대 경로 / 순회 경로",
+    "Rejected with <code>INVALID_INPUT</code>": "<code>INVALID_INPUT</code>으로 거부됨",
+    "Maximum size per uploaded file on <code>/api/import/upload</code>":
+      "<code>/api/import/upload</code>에서 업로드 파일당 최대 크기",
+    "Maximum files per upload request": "업로드 요청당 최대 파일 수",
+    "Ceiling on total uncompressed bytes from any single archive (zip-bomb defense)":
+      "단일 아카이브에서 압축 해제된 총 바이트 수의 상한(zip 폭탄 방어)",
+    "Every import emits <code>import.progress</code> messages on <code>/ws</code>. Messages are throttled to at most one every ~150 ms to avoid flooding the channel on multi-thousand-session imports; the terminal <code>complete</code> and <code>error</code> frames are never throttled.":
+      "모든 임포트는 <code>/ws</code>에서 <code>import.progress</code> 메시지를 전송합니다. 수천 개 세션을 임포트할 때 채널이 넘치지 않도록 메시지는 최대 약 150ms에 한 번으로 제한되며, 최종 <code>complete</code> 및 <code>error</code> 프레임은 절대 제한되지 않습니다.",
+    "Phases: <code>start</code> → <code>scan</code> → <code>extract</code> (upload only) → <code>parse</code> → <code>complete</code>, with <code>error</code> / <code>extract_error</code> replacing <code>complete</code> on failure.":
+      "단계: <code>start</code> → <code>scan</code> → <code>extract</code>(업로드 전용) → <code>parse</code> → <code>complete</code>이며, 실패 시 <code>complete</code> 대신 <code>error</code> / <code>extract_error</code>가 대체됩니다.",
+    "In addition to dashboard telemetry, this project includes a production-grade local MCP server and complete extension scaffolding for both Claude Code and Codex. This gives agents a richer local tool surface while keeping all execution local-first. The MCP server supports three transport modes: stdio for host integration, HTTP+SSE for remote clients, and an interactive REPL for operator debugging.":
+      "대시보드 텔레메트리 외에도 이 프로젝트는 프로덕션 등급의 로컬 MCP 서버와 Claude Code 및 Codex 모두를 위한 완전한 확장 스캐폴딩을 포함합니다. 이를 통해 모든 실행을 로컬 우선으로 유지하면서도 에이전트에게 더 풍부한 로컬 도구 인터페이스를 제공합니다. MCP 서버는 호스트 통합을 위한 stdio, 원격 클라이언트를 위한 HTTP+SSE, 운영자 디버깅을 위한 대화형 REPL이라는 세 가지 전송 모드를 지원합니다.",
+    '<span class="caption-icon">🔧</span> MCP Server REPL — interactive tool invocation terminal with colored JSON output, argument prompts, error formatting, and session-aware context for rapid testing':
+      '<span class="caption-icon">🔧</span> MCP 서버 REPL — 색상이 적용된 JSON 출력, 인자 프롬프트, 오류 포맷팅, 빠른 테스트를 위한 세션 인식 컨텍스트를 갖춘 대화형 도구 호출 터미널',
+    "Local extension architecture: host instructions + skills + multi-transport MCP sidecar":
+      "로컬 확장 아키텍처: 호스트 지침 + 스킬 + 다중 전송 MCP 사이드카",
+    "The <code>mcp/</code> package exposes dashboard-oriented tools for AI agents across three transport modes. Mutation and destructive operations are policy-gated by environment variables and disabled by default. HTTP mode serves both Streamable HTTP (protocol 2025-11-25) and legacy SSE (protocol 2024-11-05). REPL mode provides tab-completed interactive tool invocation with colored output and JSON syntax highlighting.":
+      "<code>mcp/</code> 패키지는 세 가지 전송 모드에서 AI 에이전트를 위한 대시보드 지향 도구를 제공합니다. 변경 및 파괴적 작업은 환경 변수로 정책 제어되며 기본적으로 비활성화되어 있습니다. HTTP 모드는 Streamable HTTP(프로토콜 2025-11-25)와 레거시 SSE(프로토콜 2024-11-05)를 모두 지원합니다. REPL 모드는 탭 완성이 가능한 대화형 도구 호출을 색상 출력 및 JSON 구문 강조와 함께 제공합니다.",
+    Component: "구성 요소",
+    Location: "위치",
+    Notes: "비고",
+    "MCP source": "MCP 소스",
+    "TypeScript server, tools, policy guards, transport layer, CLI UI":
+      "TypeScript 서버, 도구, 정책 가드, 전송 계층, CLI UI",
+    "MCP build output": "MCP 빌드 출력",
+    "Compiled JavaScript runtime for all transport modes":
+      "모든 전송 모드를 위한 컴파일된 JavaScript 런타임",
+    "MCP docs": "MCP 문서",
+    "Tool catalog, architecture diagrams, host integration examples, REPL guide":
+      "도구 카탈로그, 아키텍처 다이어그램, 호스트 통합 예제, REPL 가이드",
+    "Transport layer": "전송 계층",
+    "HTTP+SSE server, interactive REPL, tool handler collector":
+      "HTTP+SSE 서버, 대화형 REPL, 도구 핸들러 수집기",
+    "CLI UI": "CLI UI",
+    "ANSI banner, colors, formatter with tables, boxes, JSON highlighting":
+      "ANSI 배너, 색상, 표·박스·JSON 강조 표시를 지원하는 포맷터",
+    "Runtime commands": "런타임 명령",
+    "Start MCP in stdio, HTTP+SSE, or REPL mode (production or dev)":
+      "stdio, HTTP+SSE 또는 REPL 모드(프로덕션 또는 개발)로 MCP 시작",
+    Target: "대상",
+    Files: "파일",
+    "Claude Code": "Claude Code",
+    "Persistent project instructions + path-scoped coding rules":
+      "영구 프로젝트 지침 + 경로 범위 코딩 규칙",
+    "Claude Code Skills": "Claude Code 스킬",
+    "Reusable workflows (onboarding, shipping, MCP ops, live debugging)":
+      "재사용 가능한 워크플로(온보딩, 배포, MCP 운영, 라이브 디버깅)",
+    "Claude Code Subagents": "Claude Code 서브에이전트",
+    "Specialized reviewers for backend, frontend, and MCP code paths":
+      "백엔드, 프런트엔드, MCP 코드 경로를 위한 전문 리뷰어",
+    "Codex Base Instructions": "Codex 기본 지침",
+    "Project-wide guidance + execution policy defaults":
+      "프로젝트 전반의 가이드 + 실행 정책 기본값",
+    "Codex Skills": "Codex 스킬",
+    "Task-specific skills aligned to this repository": "이 저장소에 맞춘 작업별 스킬",
+    "Codex Agents": "Codex 에이전트",
+    "Reusable custom-agent templates for implementation and review":
+      "구현 및 리뷰를 위한 재사용 가능한 커스텀 에이전트 템플릿",
+    Role: "역할",
+    "Receives Claude hook payloads over stdin and forwards them to dashboard API":
+      "stdin을 통해 Claude 훅 페이로드를 수신하여 대시보드 API로 전달함",
+    "Writes/updates hook registration in <code>~/.claude/settings.json</code>":
+      "<code>~/.claude/settings.json</code>에 훅 등록을 작성/업데이트함",
+    "Batch history importer used by server startup auto-import, the <code>/api/import/*</code> routes, and the <code>import-history</code> CLI. Exposes <code>importAllSessions()</code> for the default projects dir and the generalized <code>importFromDirectory(dbModule, rootDir, {onProgress})</code> which walks any directory recursively, classifies session vs subagent JSONLs (probes both <code>&lt;proj&gt;/&lt;sid&gt;/subagents/*</code> and <code>&lt;proj&gt;/subagents/&lt;sid&gt;/*</code> layouts), and funnels everything through the shared <code>parseSessionFile</code> + <code>importSession</code> pipeline — identical to live ingest. <b>Re-import is fully incremental</b>: a per-event-type high-water mark (<code>MAX(created_at) GROUP BY event_type</code> for the session) drives <code>ts &gt; cutoff[type]</code> dedup for Stop / PostToolUse / TurnDuration / ToolError, so long-running sessions whose transcripts grow across multiple days keep receiving new events on every re-run. <code>sessions.ended_at</code> is rolled forward when the JSONL has progressed past the stored value, and message-count metadata is refreshed on every pass. Session-ID dedup and <code>baseline_*</code> preservation keep token totals stable. Extracts tokens, API errors, turn durations, thinking blocks, usage extras, and per-subagent breakdowns":
+      "서버 시작 시 자동 임포트, <code>/api/import/*</code> 라우트, <code>import-history</code> CLI에서 사용되는 배치 히스토리 임포터입니다. 기본 프로젝트 디렉터리를 위한 <code>importAllSessions()</code>와, 임의의 디렉터리를 재귀적으로 순회하며 세션과 서브에이전트 JSONL을 분류하고(<code>&lt;proj&gt;/&lt;sid&gt;/subagents/*</code> 및 <code>&lt;proj&gt;/subagents/&lt;sid&gt;/*</code> 두 레이아웃을 모두 탐색), 모든 것을 공유되는 <code>parseSessionFile</code> + <code>importSession</code> 파이프라인으로 전달하는 일반화된 <code>importFromDirectory(dbModule, rootDir, {onProgress})</code>를 제공하며 — 이는 실시간 수집과 동일합니다. <b>재임포트는 완전히 증분 방식입니다</b>: 이벤트 유형별 하이워터마크(세션에 대한 <code>MAX(created_at) GROUP BY event_type</code>)가 Stop / PostToolUse / TurnDuration / ToolError에 대한 <code>ts &gt; cutoff[type]</code> 중복 제거를 주도하므로, 여러 날에 걸쳐 트랜스크립트가 늘어나는 장시간 실행 세션도 재실행할 때마다 새 이벤트를 계속 수신합니다. JSONL이 저장된 값보다 진행된 경우 <code>sessions.ended_at</code>이 앞으로 갱신되며, 메시지 수 메타데이터는 매 실행마다 새로 고쳐집니다. 세션 ID 중복 제거와 <code>baseline_*</code> 보존은 토큰 합계를 안정적으로 유지합니다. 토큰, API 오류, 턴 지속 시간, 사고(thinking) 블록, 사용량 추가 정보, 서브에이전트별 세부 내역을 추출합니다.",
+    "Express router for Import History. Four endpoints: <code>GET /api/import/guide</code> (OS-aware instructions + default-dir stats), <code>POST /api/import/rescan</code> (default <code>~/.claude/projects</code>), <code>POST /api/import/scan-path</code> (arbitrary absolute dir with <code>~</code> expansion), <code>POST /api/import/upload</code> (multer multipart). Each request uses a per-request temp dir reclaimed in <code>finally</code>. Progress broadcast as throttled <code>import.progress</code> WebSocket messages. Limits tunable via <code>CCAM_IMPORT_MAX_BYTES</code>, <code>CCAM_IMPORT_MAX_FILES</code>, <code>CCAM_IMPORT_MAX_EXTRACT_BYTES</code>":
+      "임포트 히스토리를 위한 Express 라우터입니다. 네 가지 엔드포인트: <code>GET /api/import/guide</code>(OS 인식 지침 + 기본 디렉터리 통계), <code>POST /api/import/rescan</code>(기본값 <code>~/.claude/projects</code>), <code>POST /api/import/scan-path</code>(<code>~</code> 확장을 지원하는 임의의 절대 디렉터리), <code>POST /api/import/upload</code>(multer 멀티파트). 각 요청은 <code>finally</code>에서 회수되는 요청별 임시 디렉터리를 사용합니다. 진행 상황은 제한된 <code>import.progress</code> WebSocket 메시지로 브로드캐스트됩니다. 제한값은 <code>CCAM_IMPORT_MAX_BYTES</code>, <code>CCAM_IMPORT_MAX_FILES</code>, <code>CCAM_IMPORT_MAX_EXTRACT_BYTES</code>를 통해 조정할 수 있습니다.",
+    "Safe archive extraction: <code>.zip</code> via <code>adm-zip</code>, <code>.tar</code>/<code>.tar.gz</code>/<code>.tgz</code> via <code>tar</code>, plain <code>.gz</code> streaming via <code>zlib</code>. Every entry validated through <code>safeJoin</code> which rejects absolute paths and <code>..</code> traversal before any bytes are written. Enforces a hard <code>MAX_EXTRACT_BYTES</code> cap (default 4 GB) with <code>ExtractionLimitError</code> surfaced as HTTP 413 — defense against zip/tar/gzip bombs":
+      "안전한 아카이브 추출: <code>adm-zip</code>을 통한 <code>.zip</code>, <code>tar</code>를 통한 <code>.tar</code>/<code>.tar.gz</code>/<code>.tgz</code>, <code>zlib</code>을 통한 일반 <code>.gz</code> 스트리밍. 모든 항목은 바이트가 기록되기 전에 절대 경로와 <code>..</code> 순회를 거부하는 <code>safeJoin</code>을 통해 검증됩니다. 엄격한 <code>MAX_EXTRACT_BYTES</code> 상한(기본값 4GB)을 강제하며, 초과 시 <code>ExtractionLimitError</code>가 HTTP 413으로 표면화됩니다 — zip/tar/gzip 폭탄에 대한 방어책",
+    "Loads deterministic demo data for testing and demos":
+      "테스트 및 데모를 위한 결정론적 데모 데이터를 로드함",
+    "Removes persisted rows while preserving schema": "스키마를 유지하면서 저장된 행을 제거함",
+    "The Agent Monitor ships with an official Claude Code plugin marketplace containing ten production-ready plugins (53 skills, 14 agents, 30 slash commands, 3 CLI tools, 3 hook configs, and 1 MCP server). These extend Claude Code with skills, agents, hooks, CLI tools, and MCP integration — all grounded in the real data model (token tracking with compaction baselines, cost calculation via pattern-matched pricing rules, workflow intelligence with 11 datasets per session, and session metadata including thinking blocks, turn counts, and inference geography).":
+      "Agent Monitor는 프로덕션 준비가 완료된 열 개의 플러그인(53개 스킬, 14개 에이전트, 30개 슬래시 명령, 3개 CLI 도구, 3개 훅 설정, 1개 MCP 서버)을 포함하는 공식 Claude Code 플러그인 마켓플레이스와 함께 제공됩니다. 이들은 스킬, 에이전트, 훅, CLI 도구, MCP 통합으로 Claude Code를 확장하며 — 모두 실제 데이터 모델(컴팩션 베이스라인을 포함한 토큰 추적, 패턴 매칭 가격 규칙을 통한 비용 계산, 세션당 11개 데이터셋을 갖춘 워크플로 인텔리전스, 사고 블록·턴 수·추론 지역을 포함한 세션 메타데이터)에 기반을 두고 있습니다.",
+    Plugin: "플러그인",
+    Skills: "스킬",
+    Agent: "에이전트",
+    "CLI Tools": "CLI 도구",
+    Focus: "초점",
+    "Token usage (4 types + baselines), cost via pricing engine, daily trends, productivity scoring":
+      "토큰 사용량(4가지 유형 + 베이스라인), 가격 산정 엔진을 통한 비용 계산, 일별 트렌드, 생산성 점수",
+    "Standup reports, sprint tracking, workflow optimization via 11 workflow intelligence datasets":
+      "스탠드업 리포트, 스프린트 추적, 11개 워크플로 인텔리전스 데이터셋을 통한 워크플로 최적화",
+    "Session debugging, hook diagnostics, data export (JSON/CSV), system health":
+      "세션 디버깅, 훅 진단, 데이터 내보내기(JSON/CSV), 시스템 상태",
+    "Pattern detection via tool flow transitions, anomaly alerting, optimization, session comparison":
+      "도구 흐름 전이를 통한 패턴 탐지, 이상 징후 알림, 최적화, 세션 비교",
+    "Budget guardrails: set budgets, forecast week/month-end spend, cost-threshold alerts, model-routing savings (fail-safe Stop hook)":
+      "예산 가드레일: 예산 설정, 주간/월말 지출 예측, 비용 임계값 알림, 모델 라우팅을 통한 절감(장애 안전 Stop 훅)",
+    "Session forensics: search, timeline, transcript replay, per-cwd rollup, cleanup":
+      "세션 포렌식: 검색, 타임라인, 트랜스크립트 재생, cwd별 집계, 정리",
+    "Multi-agent orchestration &amp; fleet intelligence: DAG map, delegation audit, concurrency, error propagation, fleet runs (11-dataset workflow intelligence API)":
+      "멀티에이전트 오케스트레이션 &amp; 플릿 인텔리전스: DAG 맵, 위임 감사, 동시성, 오류 전파, 플릿 실행(11개 데이터셋 워크플로 인텔리전스 API)",
+    "Reliability &amp; SLOs: error scan, API-error report, hook-failure audit, SLO check, regression alert":
+      "안정성 &amp; SLO: 오류 스캔, API 오류 리포트, 훅 실패 감사, SLO 점검, 회귀 알림",
+    "Claude Code config &amp; memory governance: config audit, memory review, skill/MCP/hook inventory (via the Config Explorer API)":
+      "Claude Code 설정 &amp; 메모리 거버넌스: 설정 감사, 메모리 검토, 스킬/MCP/훅 인벤토리(Config Explorer API를 통해)",
+    "Dashboard connector with MCP integration and one-line metric summaries":
+      "MCP 통합과 한 줄 지표 요약을 갖춘 대시보드 커넥터",
+    "Each plugin follows the official Claude Code plugin specification. The marketplace manifest at <code>.claude-plugin/marketplace.json</code> catalogs all ten plugins. Each plugin directory contains:":
+      "각 플러그인은 공식 Claude Code 플러그인 사양을 따릅니다. <code>.claude-plugin/marketplace.json</code>의 마켓플레이스 매니페스트가 열 개 플러그인을 모두 카탈로그화합니다. 각 플러그인 디렉터리는 다음을 포함합니다.",
+    "All plugins query the Agent Monitor API at <code>http://localhost:4820</code>. Key capabilities they leverage:":
+      "모든 플러그인은 <code>http://localhost:4820</code>의 Agent Monitor API를 조회합니다. 이들이 활용하는 주요 기능은 다음과 같습니다.",
+    Capability: "기능",
+    Details: "세부 사항",
+    "Token tracking": "토큰 추적",
+    "4 types (input, output, cache_read, cache_write) + 4 compaction baselines per model per session":
+      "4가지 유형(input, output, cache_read, cache_write) + 세션당 모델별 4개의 컴팩션 베이스라인",
+    "Cost calculation": "비용 계산",
+    "<code>(tokens / 1M) × rate_per_mtok</code> for each type; longest pattern match wins":
+      "각 유형에 대해 <code>(tokens / 1M) × rate_per_mtok</code>; 가장 긴 패턴 매치가 우선함",
+    "Session metadata": "세션 메타데이터",
+    "Event types": "이벤트 유형",
+    "Workflow intelligence": "워크플로 인텔리전스",
+    "11 datasets: stats, orchestration (DAG), toolFlow, effectiveness, patterns, modelDelegation, errorPropagation, concurrency, complexity, compaction, cooccurrence":
+      "11개 데이터셋: stats, orchestration(DAG), toolFlow, effectiveness, patterns, modelDelegation, errorPropagation, concurrency, complexity, compaction, cooccurrence",
+    "Agent hierarchy": "에이전트 계층 구조",
+    "Recursive parent/child tree with subagent_type, depth tracking via recursive CTE":
+      "재귀 CTE를 통해 subagent_type과 깊이를 추적하는 재귀적 부모/자식 트리",
+    '📖 Full documentation: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/docs/PLUGINS.md"><code>docs/plugins.md</code></a>':
+      '📖 전체 문서: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/docs/PLUGINS.md"><code>docs/plugins.md</code></a>',
+    '<span class="caption-icon">🖥️</span> Statusline — always-visible bar showing context window usage, token counts, active model, git branch, and session ID. Configurable segments with theme support':
+      '<span class="caption-icon">🖥️</span> Statusline — 컨텍스트 윈도우 사용량, 토큰 수, 활성 모델, git 브랜치, 세션 ID를 표시하는 항상 표시되는 바. 테마를 지원하는 구성 가능한 세그먼트',
+    "The <code>statusline/</code> directory contains a standalone CLI statusline for Claude Code — completely independent of the web dashboard. It renders a color-coded bar at the bottom of the Claude Code terminal showing context window usage, per-direction token counts, session cost in USD, and git branch.":
+      "<code>statusline/</code> 디렉터리에는 Claude Code용 독립형 CLI statusline이 들어 있으며 — 웹 대시보드와는 완전히 별개입니다. 이는 컨텍스트 윈도우 사용량, 방향별 토큰 수, USD 기준 세션 비용, git 브랜치를 보여주는 색상 코드 바를 Claude Code 터미널 하단에 렌더링합니다.",
+    Segment: "세그먼트",
+    Source: "소스",
+    "Color Logic": "색상 로직",
+    "Always cyan": "항상 청록색(cyan)",
+    "Always green": "항상 초록색",
+    "Always yellow, <code>~</code> prefix for home":
+      "항상 노란색, 홈 디렉터리는 <code>~</code> 접두사",
+    "Always magenta, hidden outside git repos": "항상 마젠타색, git 저장소 밖에서는 숨김",
+    "Green &lt; 50%, Yellow 50–79%, Red ≥ 80%": "초록 &lt; 50%, 노랑 50–79%, 빨강 ≥ 80%",
+    "Green <code>↑</code> input, cyan <code>↓</code> output, dim <code>c</code> cache reads":
+      "초록 <code>↑</code> 입력, 청록 <code>↓</code> 출력, 어두운 <code>c</code> 캐시 읽기",
+    "Green &lt; $5, Yellow $5–$20, Red ≥ $20 (shown on API and subscription plans)":
+      "초록 &lt; $5, 노랑 $5–$20, 빨강 ≥ $20 (API 및 구독 플랜에 표시)",
+    "Add this to <code>~/.claude/settings.json</code>:":
+      "다음을 <code>~/.claude/settings.json</code>에 추가하십시오.",
+    "No dependencies required": "필요한 의존성 없음",
+    "The statusline uses only Python 3.6+ stdlib (<code>sys</code>, <code>json</code>, <code>os</code>, <code>subprocess</code>). It fails silently on empty input or JSON errors and never blocks Claude Code.":
+      "이 statusline은 Python 3.6+ 표준 라이브러리(<code>sys</code>, <code>json</code>, <code>os</code>, <code>subprocess</code>)만 사용합니다. 입력이 비어 있거나 JSON 오류가 발생해도 조용히 실패하며 Claude Code를 절대 차단하지 않습니다.",
+    '<span class="caption-icon">🔌</span> Sidebar — live health, analytics, and deep navigation links':
+      '<span class="caption-icon">🔌</span> 사이드바 — 실시간 상태, 분석, 심층 탐색 링크',
+    "The <b>Claude Code Agent Monitor</b> is a premium, high-fidelity extension designed to minimize context switching for AI engineers. It brings the full power of the dashboard directly into VS Code, allowing you to monitor complex subagent orchestration without ever leaving your active code file.":
+      "<b>Claude Code Agent Monitor</b>는 AI 엔지니어의 컨텍스트 전환을 최소화하도록 설계된 프리미엄 고정밀 확장 프로그램입니다. 대시보드의 모든 기능을 VS Code로 직접 가져와, 현재 작업 중인 코드 파일을 벗어나지 않고도 복잡한 서브에이전트 오케스트레이션을 모니터링할 수 있게 해줍니다.",
+    "A dedicated Activity Bar view that performs background polling every 5 seconds. Includes a real-time <b>Agent Health</b> monitor tracking all 5 states (Working, Connected, Idle, Completed, Error) with native VS Code theme-aware icons and colors.":
+      "5초마다 백그라운드 폴링을 수행하는 전용 Activity Bar 뷰입니다. VS Code 네이티브 테마를 인식하는 아이콘과 색상으로 5가지 상태(Working, Connected, Idle, Completed, Error)를 모두 추적하는 실시간 <b>Agent Health</b> 모니터를 포함합니다.",
+    "Aggregates data from multiple API endpoints to display high-signal metrics directly in the sidebar: <ul style=\"margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;\"> <li><b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.</li> <li><b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.</li> <li><b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.</li> </ul>":
+      "여러 API 엔드포인트의 데이터를 취합하여 신호값이 높은 지표를 사이드바에 직접 표시합니다: <ul style=\"margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;\"> <li><b>토큰 소비량</b>: 1천 개부터 10억 개 이상의 토큰까지 확장 추적.</li> <li><b>실시간 비용 추정</b>: 모델 가격 규칙에 기반한 자동 USD 비용 계산.</li> <li><b>이벤트 빈도</b>: 총 이벤트 수, 일별 세션 수, 서브에이전트 생성 비율.</li> </ul>",
+    "<b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.":
+      "<b>토큰 소비량</b>: 1천 개부터 10억 개 이상의 토큰까지 확장 추적.",
+    "<b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.":
+      "<b>실시간 비용 추정</b>: 모델 가격 규칙을 기반으로 한 자동 USD 비용 계산입니다.",
+    "<b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.":
+      "<b>이벤트 빈도</b>: 총 이벤트 수, 일별 세션 수, 서브에이전트 생성 비율입니다.",
+    "Renders the full React application within a native webview tab. Supports <b>Deep Linking</b>: one-click jump from the sidebar directly to specific views like the <i>Kanban Board</i>, <i>Analytics Hub</i>, or your <i>Last 10 Sessions</i>.":
+      "전체 React 애플리케이션을 네이티브 웹뷰 탭 안에 렌더링합니다. <b>딥 링크</b>를 지원하여 사이드바에서 <i>Kanban Board</i>, <i>Analytics Hub</i>, <i>Last 10 Sessions</i>와 같은 특정 화면으로 한 번의 클릭으로 바로 이동할 수 있습니다.",
+    "Seamlessly scans ports <code>5173</code> (Vite Dev) and <code>4820</code> (Production) on localhost. Automatically toggles between <b>Online</b> and <b>Offline</b> modes in the sidebar as you start or stop your local server.":
+      "localhost의 <code>5173</code>(Vite Dev) 포트와 <code>4820</code>(Production) 포트를 매끄럽게 스캔합니다. 로컬 서버를 시작하거나 중지하면 사이드바에서 <b>Online</b> 모드와 <b>Offline</b> 모드가 자동으로 전환됩니다.",
+    "<strong>Zero-Config Setup</strong>": "<strong>제로 설정 구성</strong>",
+    "The extension is designed to be plug-and-play. Once your server is running, the extension automatically discovers the API and begins streaming telemetry — no manual URL configuration required.":
+      "이 확장 프로그램은 플러그 앤 플레이 방식으로 설계되었습니다. 서버가 실행되면 확장 프로그램이 API를 자동으로 감지하고 텔레메트리 스트리밍을 시작하므로, URL을 수동으로 설정할 필요가 없습니다.",
+    '📖 Full developer guide: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/vscode-extension/README.md"><code>vscode-extension/README.md</code></a>':
+      '📖 전체 개발자 가이드: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/vscode-extension/README.md"><code>vscode-extension/README.md</code></a>',
+    "The dashboard ships as an optional <strong>native desktop application</strong> — a <code>desktop/</code> workspace that wraps the existing server and client into a macOS <code>.app</code> (distributed as a <code>.dmg</code>) and a Windows <code>.exe</code> (an NSIS installer plus a no-install portable build) you install once and forget. <code>desktop/</code> is a sibling workspace to <code>client/</code>, <code>server/</code>, <code>mcp/</code>, and <code>vscode-extension/</code>, built with <strong>Electron 35</strong>. It <strong>embeds the Express server in-process</strong> — it <code>require()</code>s <code>server/index.js</code> directly in the same Node runtime as the Electron main process (no child process, no IPC) — and renders the already-built React client in a <code>BrowserWindow</code>. Everything you see in the browser at <code>localhost:4820</code> lives inside this window, with native OS lifecycle on top.":
+      "대시보드는 선택적 <strong>네이티브 데스크톱 애플리케이션</strong>으로도 제공됩니다 — 기존 서버와 클라이언트를 macOS <code>.app</code>(<code>.dmg</code>로 배포)과 Windows <code>.exe</code>(NSIS 설치 프로그램과 설치가 필요 없는 포터블 빌드)로 감싸는 <code>desktop/</code> 워크스페이스이며, 한 번 설치하면 신경 쓸 필요가 없습니다. <code>desktop/</code>은 <code>client/</code>, <code>server/</code>, <code>mcp/</code>, <code>vscode-extension/</code>과 나란히 위치한 워크스페이스이며, <strong>Electron 35</strong>로 빌드되었습니다. 이 앱은 <strong>Express 서버를 프로세스 내부에 내장</strong>합니다 — Electron 메인 프로세스와 동일한 Node 런타임에서 <code>server/index.js</code>를 직접 <code>require()</code>하며(자식 프로세스도, IPC도 없음), 이미 빌드된 React 클라이언트를 <code>BrowserWindow</code>에 렌더링합니다. 브라우저의 <code>localhost:4820</code>에서 보이는 모든 것이 이 창 안에 그대로 존재하며, 그 위에 네이티브 OS 라이프사이클이 얹혀 있습니다.",
+    '<span class="caption-icon">🍎🪟</span> <span>The full dashboard, natively on macOS <strong>and</strong> Windows — same React client, same Express server, real <code>BrowserWindow</code>. Menu-bar / notification-area (tray) icon included. Shipped as a macOS DMG and a Windows EXE (macOS shown) — see <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a>.</span>':
+      '<span class="caption-icon">🍎🪟</span> <span>macOS<strong>와</strong> Windows 양쪽에서 네이티브로 동작하는 전체 대시보드입니다 — 동일한 React 클라이언트, 동일한 Express 서버, 실제 <code>BrowserWindow</code>를 사용합니다. 메뉴 바 / 알림 영역(트레이) 아이콘이 포함되어 있습니다. macOS DMG와 Windows EXE로 제공됩니다(화면은 macOS 기준) — <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a>를 참고하세요.</span>',
+    '<span class="caption-icon">🪟</span> <span>The same dashboard as a native <strong>Windows</strong> app — real <code>BrowserWindow</code> with the native Windows window menu, live Activity Feed, and the Tabby companion. A notification-area (system tray) icon sits beside the clock for quick access.</span>':
+      '<span class="caption-icon">🪟</span> <span>동일한 대시보드를 네이티브 <strong>Windows</strong> 앱으로 구현한 모습입니다 — 네이티브 Windows 창 메뉴, 실시간 Activity Feed, Tabby 컴패니언을 갖춘 실제 <code>BrowserWindow</code>를 사용합니다. 시계 옆의 알림 영역(시스템 트레이) 아이콘으로 빠르게 접근할 수 있습니다.</span>',
+    "<strong>One-line mental model</strong>": "<strong>한 줄로 요약한 개념 모델</strong>",
+    "<em>Electron is a window onto the same code.</em> The desktop app does not reimplement the dashboard — it hosts the exact server and client the standalone deployment runs. The only change outside <code>desktop/</code> is a behavior-preserving refactor of <code>server/index.js</code>: its post-listen bootstrap was extracted into an exported <code>startBackgroundServices()</code> so the embedded server runs exactly what <code>node server/index.js</code> runs.":
+      "<em>Electron은 동일한 코드를 비추는 창일 뿐입니다.</em> 데스크톱 앱은 대시보드를 다시 구현하지 않고, 독립 실행형 배포와 완전히 동일한 서버와 클라이언트를 그대로 호스팅합니다. <code>desktop/</code> 외부에서 이루어진 유일한 변경은 <code>server/index.js</code>에 대한 동작 보존 리팩터링뿐입니다 — listen 이후의 부트스트랩 로직을 <code>startBackgroundServices()</code>라는 이름으로 export하여, 내장 서버가 <code>node server/index.js</code>를 실행했을 때와 정확히 동일하게 동작하도록 했습니다.",
+    "The Electron main process hosts the embedded server <em>and</em> manages the window, tray, and menus. The renderer is just Chromium loading <code>http://127.0.0.1:&lt;port&gt;</code> — the same origin a normal browser would use.":
+      "Electron 메인 프로세스는 내장 서버를 호스팅하는 <em>동시에</em> 창, 트레이, 메뉴를 관리합니다. 렌더러는 <code>http://127.0.0.1:&lt;port&gt;</code>를 로드하는 단순한 Chromium일 뿐이며, 이는 일반 브라우저가 사용하는 것과 동일한 origin입니다.",
+    "The desktop app embeds the Express server in-process — no child process, no IPC":
+      "데스크톱 앱은 Express 서버를 프로세스 내부에 내장합니다 — 자식 프로세스도, IPC도 없습니다",
+    "An always-on tray icon — the macOS menu bar (a tinted template glyph) or the Windows notification area (the colored <code>icon.ico</code>). A single click (left or right) opens a dropdown with a <strong>live status snapshot</strong> queried straight from SQLite at click time — server port, active sessions, working agents, events today — followed by <strong>Open Dashboard</strong>, <strong>Open in Browser</strong>, <strong>Restart Server</strong>, <strong>Show Logs</strong>, <strong>Open at Login</strong> (toggle), and <strong>Quit</strong>. The snapshot rows are clickable — they open the dashboard. The menu is rebuilt on each open so every value is current.":
+      "항상 표시되는 트레이 아이콘입니다 — macOS 메뉴 바(색조가 적용된 템플릿 글리프)이거나 Windows 알림 영역(컬러 <code>icon.ico</code>)입니다. 한 번의 클릭(좌클릭 또는 우클릭)으로 드롭다운이 열리며, 클릭 시점에 SQLite에서 직접 조회한 <strong>실시간 상태 스냅샷</strong> — 서버 포트, 활성 세션, 작업 중인 에이전트, 오늘의 이벤트 수 — 이 표시되고, 이어서 <strong>Open Dashboard</strong>, <strong>Open in Browser</strong>, <strong>Restart Server</strong>, <strong>Show Logs</strong>, <strong>Open at Login</strong>(토글), <strong>Quit</strong>이 나타납니다. 스냅샷 항목은 클릭 가능하며 클릭하면 대시보드가 열립니다. 메뉴는 열 때마다 다시 생성되므로 모든 값이 항상 최신 상태입니다.",
+    "A standard native application menu — <code>About</code>, <code>Open at Login</code>, <code>File</code>, <code>Edit</code>, <code>View</code>, <code>Window</code>, <code>Help</code> — with <code>⌘R</code> / <code>Ctrl+R</code> wired to <em>View ▸ reload</em>. External links open in the system browser, never inside Electron. The <code>File ▸ Open Dashboard</code> item (<code>⌘1</code>) is macOS-only; on Windows/Linux the window-attached menu can't reopen a hidden window, so reopen from the tray's <strong>Open Dashboard</strong>.":
+      "표준 네이티브 애플리케이션 메뉴입니다 — <code>About</code>, <code>Open at Login</code>, <code>File</code>, <code>Edit</code>, <code>View</code>, <code>Window</code>, <code>Help</code>로 구성되며, <code>⌘R</code> / <code>Ctrl+R</code>은 <em>View ▸ reload</em>에 연결되어 있습니다. 외부 링크는 항상 시스템 브라우저에서 열리며, Electron 내부에서는 열리지 않습니다. <code>File ▸ Open Dashboard</code> 항목(<code>⌘1</code>)은 macOS 전용입니다. Windows/Linux에서는 창에 연결된 메뉴로 숨겨진 창을 다시 열 수 없으므로, 트레이의 <strong>Open Dashboard</strong>를 통해 다시 열어야 합니다.",
+    "Flip <em>Open at Login</em> in the tray or app menu — both platforms go through Electron's first-party <code>app.*LoginItemSettings</code> API. On macOS it registers via the modern <code>SMAppService</code> API and appears under <strong>System Settings → General → Login Items</strong>; on Windows it writes a per-user <code>HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run</code> entry, visible in <strong>Task Manager → Startup</strong>. When the app is launched at login it starts tray-only, with no window jumping into view (on Windows the login launch is detected via a <code>--ccam-hidden</code> argument).":
+      "트레이나 앱 메뉴에서 <em>Open at Login</em>을 전환하면 됩니다 — 두 플랫폼 모두 Electron의 자체 <code>app.*LoginItemSettings</code> API를 사용합니다. macOS에서는 최신 <code>SMAppService</code> API를 통해 등록되며 <strong>시스템 설정 → 일반 → 로그인 항목</strong>에 표시됩니다. Windows에서는 사용자별 <code>HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run</code> 항목을 기록하며, <strong>작업 관리자 → 시작 프로그램</strong>에서 확인할 수 있습니다. 로그인 시 앱이 실행되면 트레이 전용으로만 시작되고 창이 갑자기 나타나지 않습니다(Windows에서는 <code>--ccam-hidden</code> 인자를 통해 로그인 실행 여부를 감지합니다).",
+    'Closing the window hides it — the embedded server keeps running, the tray icon stays, and the dock / taskbar icon stays too (a clickable "still alive" indicator). <strong>Quit</strong> (<code>⌘Q</code> / <code>Ctrl+Q</code>, app menu, or tray → Quit) pops a confirmation modal — press the Quit button or hit <code>⌘Q</code> / <code>Ctrl+Q</code> a second time to skip the prompt — and only then does the embedded server shut down, closing SQLite cleanly with a WAL checkpoint and removing this PID\'s entry from the discovery file.':
+      '창을 닫아도 창이 숨겨질 뿐입니다 — 내장 서버는 계속 실행되고, 트레이 아이콘도 남아 있으며, 독 / 작업 표시줄 아이콘도 그대로 유지됩니다(클릭 가능한 "여전히 살아있음" 표시입니다). <strong>Quit</strong>(<code>⌘Q</code> / <code>Ctrl+Q</code>, 앱 메뉴, 또는 트레이 → Quit)을 실행하면 확인 모달이 나타나며 — Quit 버튼을 누르거나 <code>⌘Q</code> / <code>Ctrl+Q</code>를 한 번 더 눌러 확인창을 건너뛸 수 있습니다 — 이 확인이 이루어진 후에야 내장 서버가 종료되며, WAL 체크포인트로 SQLite를 안전하게 닫고 discovery 파일에서 해당 PID 항목을 제거합니다.',
+    "Launch the desktop app and <code>npm run dev</code> at the same time and both stay real-time. Each server appends its <code>{port, pid, startedAt}</code> entry to <code>~/.claude/.agent-dashboard.json</code> on startup; the Claude Code hook handler reads that list and fan-outs every event to every live entry in parallel. Stale entries self-evict via a PID liveness check on read, so a crashed server can't misroute events to a dead port.":
+      "데스크톱 앱과 <code>npm run dev</code>를 동시에 실행해도 둘 다 실시간으로 동작합니다. 각 서버는 시작 시 자신의 <code>{port, pid, startedAt}</code> 항목을 <code>~/.claude/.agent-dashboard.json</code>에 추가하며, Claude Code 훅 핸들러는 이 목록을 읽어 모든 이벤트를 살아있는 모든 항목에 병렬로 팬아웃합니다. 오래된 항목은 읽을 때 수행되는 PID 생존 확인을 통해 스스로 제거되므로, 크래시된 서버가 죽은 포트로 이벤트를 잘못 라우팅하는 일이 없습니다.",
+    "Double-launching the app just focuses the existing window — no second server, no port collision, on every platform. The lock is acquired via <code>requestSingleInstanceLock()</code> before any server boots.":
+      "앱을 두 번 실행해도 기존 창에 포커스만 맞춰질 뿐입니다 — 모든 플랫폼에서 두 번째 서버가 뜨지 않으며 포트 충돌도 발생하지 않습니다. 이 잠금은 어떤 서버도 부팅되기 전에 <code>requestSingleInstanceLock()</code>을 통해 획득됩니다.",
+    "On its first owned-server boot the app auto-installs the Claude Code hooks into <code>~/.claude/settings.json</code> and starts the background services (update scheduler, config watcher, orphaned-run reconciliation) — so an install-only user (DMG or EXE) gets events flowing without ever running <code>npm run install-hooks</code> from a checkout.":
+      "앱이 소유한 서버가 처음 부팅될 때, Claude Code 훅을 <code>~/.claude/settings.json</code>에 자동으로 설치하고 백그라운드 서비스(업데이트 스케줄러, 설정 워처, 고아 실행 정합화)를 시작합니다 — 그 결과 설치만 한 사용자(DMG 또는 EXE)도 체크아웃에서 <code>npm run install-hooks</code>를 실행하지 않고도 이벤트가 흐르기 시작합니다.",
+    "Two packaging realities — a read-only application bundle / install directory and (on macOS) the minimal <code>PATH</code> a Finder-launched app inherits — are handled automatically so installs survive updates and the <strong>Run Claude</strong> feature works out of the box on both macOS and Windows.":
+      "패키징에서 발생하는 두 가지 현실적인 문제 — 읽기 전용 애플리케이션 번들 / 설치 디렉터리, 그리고 (macOS의 경우) Finder로 실행한 앱이 상속받는 최소한의 <code>PATH</code> — 는 자동으로 처리되므로, 업데이트를 거쳐도 설치가 유지되고 <strong>Run Claude</strong> 기능이 macOS와 Windows 모두에서 별도 설정 없이 바로 동작합니다.",
+    "<strong>Your data survives reinstalls and updates</strong>":
+      "<strong>재설치와 업데이트에도 데이터가 유지됩니다</strong>",
+    "The SQLite database and VAPID keys live in a per-user app-data directory <em>outside</em> the application bundle / install dir — <code>~/Library/Application Support/Claude Code Monitor/data/</code> on macOS, <code>%APPDATA%\\Claude Code Monitor\\data\\</code> on Windows. <code>server-host.ts</code> points <code>DASHBOARD_DATA_DIR</code> at that per-user directory on boot. Because a packaged, code-signed, or app-translocated bundle is read-only, older builds that stored the database inside the bundle broke History Import; with the data directory now in app-data, your imported history and events persist across app reinstalls and updates (the Windows NSIS uninstaller keeps this data by default). After upgrading from a pre-fix build, re-run <strong>Import History → Rescan</strong> once to bridge the one-time gap.":
+      "SQLite 데이터베이스와 VAPID 키는 애플리케이션 번들 / 설치 디렉터리 <em>바깥</em>의 사용자별 앱 데이터 디렉터리에 저장됩니다 — macOS에서는 <code>~/Library/Application Support/Claude Code Monitor/data/</code>, Windows에서는 <code>%APPDATA%\\Claude Code Monitor\\data\\</code>입니다. <code>server-host.ts</code>는 부팅 시 <code>DASHBOARD_DATA_DIR</code>을 이 사용자별 디렉터리로 지정합니다. 패키징되거나 코드 서명되거나 앱 트랜스로케이션된 번들은 읽기 전용이기 때문에, 데이터베이스를 번들 내부에 저장했던 이전 빌드에서는 History Import가 제대로 동작하지 않았습니다. 이제 데이터 디렉터리가 앱 데이터 영역에 있으므로, 가져온 히스토리와 이벤트는 앱을 재설치하거나 업데이트해도 유지됩니다(Windows NSIS 제거 프로그램은 기본적으로 이 데이터를 보존합니다). 수정 이전 빌드에서 업그레이드한 경우, 한 번의 격차를 메우기 위해 <strong>Import History → Rescan</strong>을 한 번 다시 실행하세요.",
+    "<strong>The <code>claude</code> CLI is found automatically</strong>":
+      "<strong><code>claude</code> CLI가 자동으로 탐지됩니다</strong>",
+    "A Finder- or Dock-launched macOS app inherits only launchd's minimal <code>PATH</code>, not your login shell's. At startup <code>shell-path.ts</code> recovers the user's login-shell <code>PATH</code> so the <strong>Run Claude</strong> feature can locate and spawn the <code>claude</code> CLI. (On Windows the process already inherits the user <code>PATH</code>, so no recovery step is needed.) If it still cannot be found, make sure <code>claude</code> is a real executable on your <code>PATH</code> — a shell alias or function cannot be spawned — and check the <code>user PATH resolved</code> line in the desktop log (<code>~/Library/Logs/Claude Code Monitor/desktop.log</code> on macOS, <code>%APPDATA%\\Claude Code Monitor\\logs\\desktop.log</code> on Windows).":
+      "Finder나 Dock에서 실행한 macOS 앱은 로그인 셸의 <code>PATH</code>가 아니라 launchd의 최소한의 <code>PATH</code>만 상속받습니다. 시작 시 <code>shell-path.ts</code>가 사용자 로그인 셸의 <code>PATH</code>를 복원하여 <strong>Run Claude</strong> 기능이 <code>claude</code> CLI를 찾아 실행할 수 있도록 합니다. (Windows에서는 프로세스가 이미 사용자 <code>PATH</code>를 상속받으므로 별도의 복원 단계가 필요하지 않습니다.) 그래도 찾을 수 없다면, <code>claude</code>가 <code>PATH</code>상의 실제 실행 파일인지 확인하세요 — 셸 별칭(alias)이나 함수는 실행할 수 없습니다 — 그리고 데스크톱 로그(macOS의 <code>~/Library/Logs/Claude Code Monitor/desktop.log</code>, Windows의 <code>%APPDATA%\\Claude Code Monitor\\logs\\desktop.log</code>)에서 <code>user PATH resolved</code> 줄을 확인하세요.",
+    "On launch the Electron main process picks a free port. If a healthy dashboard server already answers <code>/api/health</code> on port <code>4820</code> (for example, you ran <code>npm start</code> in a terminal), the app <strong>adopts</strong> that server instead of starting a second one — no double-binding, no SQLite contention. An adopted server is not owned by the app, so quitting leaves it running.":
+      "실행 시 Electron 메인 프로세스는 사용 가능한 포트를 선택합니다. 만약 정상적으로 동작하는 대시보드 서버가 이미 <code>4820</code> 포트에서 <code>/api/health</code>에 응답하고 있다면(예: 터미널에서 <code>npm start</code>를 실행한 경우), 앱은 두 번째 서버를 시작하는 대신 해당 서버를 <strong>채택(adopt)</strong>합니다 — 이중 바인딩도, SQLite 경합도 발생하지 않습니다. 채택된 서버는 앱이 소유한 것이 아니므로, 앱을 종료해도 계속 실행됩니다.",
+    Step: "단계",
+    "Port choice": "포트 선택",
+    Adopt: "채택",
+    "A healthy server already on <code>4820</code> is adopted as-is":
+      "이미 <code>4820</code>에서 정상적으로 동작 중인 서버를 그대로 채택합니다",
+    Preferred: "우선",
+    "<code>4820</code> when free": "비어 있으면 <code>4820</code>",
+    Fallback: "대체",
+    "The first free port in <code>4821</code>–<code>4829</code>":
+      "<code>4821</code>–<code>4829</code> 범위에서 처음으로 비어 있는 포트",
+    "Last resort": "최후의 수단",
+    "A random high port when all of the above are taken":
+      "위 항목이 모두 사용 중일 때 임의의 높은 포트",
+    "Three ways to obtain the desktop app — the latest GitHub Release (best for most users), a per-commit CI artifact (fresher than the latest release), or a local build.":
+      "데스크톱 앱을 구하는 방법은 세 가지입니다 — 최신 GitHub Release(대부분의 사용자에게 최선), 커밋 단위 CI 아티팩트(최신 릴리스보다 더 신선함), 또는 로컬 빌드입니다.",
+    'Open <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Releases → latest </a> and download the asset for your platform. The macOS and Windows Desktop CI jobs auto-publish a new <code>vX.Y.Z</code> release every time the version in <code>package.json</code> is bumped on <code>master</code>, so this link always points at the current build. Releases are public — no GitHub sign-in required.':
+      '<a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 릴리스 → 최신 </a>을 열어 사용 중인 플랫폼에 맞는 애셋을 다운로드하세요. macOS와 Windows Desktop CI 작업은 <code>package.json</code>의 버전이 <code>master</code>에서 올라갈 때마다 새로운 <code>vX.Y.Z</code> 릴리스를 자동으로 게시하므로, 이 링크는 항상 현재 빌드를 가리킵니다. 릴리스는 공개되어 있으며 GitHub 로그인이 필요하지 않습니다.',
+    Platform: "플랫폼",
+    Asset: "애셋",
+    "macOS (Apple Silicon)": "macOS (Apple Silicon)",
+    "<code>ClaudeCodeMonitor-&lt;ver&gt;-arm64.dmg</code>":
+      "<code>ClaudeCodeMonitor-&lt;ver&gt;-arm64.dmg</code>",
+    "Drag the <code>.app</code> into <code>/Applications</code>":
+      "<code>.app</code>을 <code>/Applications</code>로 드래그하세요",
+    "macOS (Intel)": "macOS (Intel)",
+    "<code>ClaudeCodeMonitor-&lt;ver&gt;-x64.dmg</code>":
+      "<code>ClaudeCodeMonitor-&lt;ver&gt;-x64.dmg</code>",
+    "Windows (installer)": "Windows (설치 프로그램)",
+    "<code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>":
+      "<code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>",
+    "NSIS installer — per-user, no admin elevation":
+      "NSIS 설치 프로그램 — 사용자별 설치, 관리자 권한 상승 불필요",
+    "Windows (portable)": "Windows (포터블)",
+    "<code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code>":
+      "<code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code>",
+    "Run without installing": "설치 없이 실행",
+    'Want a build straight off the tip of <code>master</code>, ahead of the next tagged release? Every green run of the <code>🍎 macOS Desktop (DMG)</code> job on <code>macos-latest</code> uploads the universal DMG as the <code>ClaudeCodeMonitor-dmg</code> workflow artifact, and the <code>🪟 Windows Desktop (EXE)</code> job on <code>windows-latest</code> uploads the installer + portable EXEs as the <code>ClaudeCodeMonitor-win</code> artifact. Open the <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg> latest passing run </a>, scroll to its Artifacts section, and download <code>ClaudeCodeMonitor-dmg</code> or <code>ClaudeCodeMonitor-win</code>. (GitHub sign-in required; 14-day retention.)':
+      '다음 태그된 릴리스보다 앞선, <code>master</code> 최신 커밋을 그대로 반영한 빌드를 원하시나요? <code>macos-latest</code>에서 실행되는 <code>🍎 macOS Desktop (DMG)</code> 작업이 성공할 때마다 유니버설 DMG를 <code>ClaudeCodeMonitor-dmg</code> 워크플로 아티팩트로 업로드하며, <code>windows-latest</code>에서 실행되는 <code>🪟 Windows Desktop (EXE)</code> 작업은 설치 프로그램과 포터블 EXE를 <code>ClaudeCodeMonitor-win</code> 아티팩트로 업로드합니다. <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg> 최신 성공 실행 </a>을 열어 Artifacts 섹션까지 스크롤한 다음 <code>ClaudeCodeMonitor-dmg</code> 또는 <code>ClaudeCodeMonitor-win</code>을 다운로드하세요. (GitHub 로그인 필요, 14일간 보관됩니다.)',
+    "From the project root, after <code>git clone</code>:":
+      "프로젝트 루트에서 <code>git clone</code> 이후:",
+    "Use the arch-specific build on your own machine":
+      "본인 컴퓨터에서는 아키텍처별 빌드를 사용하세요",
+    "The universal <code>desktop:dmg</code> build is intentionally slow: it builds the full app tree <em>twice</em> (once per architecture), merges both with <code>@electron/universal</code>, and ad-hoc-signs every binary in the merged bundle. For running on a single Mac, use <code>desktop:dmg:arm64</code> (Apple Silicon) or <code>desktop:dmg:x64</code> (Intel) — one architecture, no merge, finishing in roughly a minute instead of many. Reserve the universal build for release artifacts; CI already produces one as <code>ClaudeCodeMonitor-dmg</code>, so you rarely need to build it yourself.":
+      "유니버설 <code>desktop:dmg</code> 빌드는 의도적으로 느립니다. 전체 앱 트리를 <em>두 번</em>(아키텍처별로 한 번씩) 빌드한 다음 <code>@electron/universal</code>로 병합하고, 병합된 번들 안의 모든 바이너리에 애드혹 서명을 수행하기 때문입니다. 단일 Mac에서 실행하려면 <code>desktop:dmg:arm64</code>(Apple Silicon) 또는 <code>desktop:dmg:x64</code>(Intel)를 사용하세요 — 아키텍처가 하나뿐이고 병합도 없으므로 수 분이 아니라 약 1분 만에 끝납니다. 유니버설 빌드는 릴리스 아티팩트용으로 남겨 두세요. CI가 이미 <code>ClaudeCodeMonitor-dmg</code>로 하나를 생성해 주므로, 직접 빌드해야 하는 경우는 거의 없습니다.",
+    "Double-click the downloaded <code>.dmg</code> to mount it":
+      "다운로드한 <code>.dmg</code>를 더블클릭하여 마운트하세요",
+    "Drag <code>Claude Code Monitor.app</code> into your <code>Applications</code> folder":
+      "<code>Claude Code Monitor.app</code>을 <code>Applications</code> 폴더로 드래그하세요",
+    "Run <code>xattr -cr</code> on the app to get past Gatekeeper (see below)":
+      "Gatekeeper를 통과하려면 앱에 <code>xattr -cr</code>을 실행하세요(아래 참고)",
+    "Open the app — the tray icon appears and the dashboard window loads":
+      "앱을 여세요 — 트레이 아이콘이 나타나고 대시보드 창이 로드됩니다",
+    "Gatekeeper warning on first launch": "최초 실행 시 Gatekeeper 경고",
+    'The DMG is ad-hoc signed by default — that is all the project can offer without a paid Apple Developer ID. macOS warns the first time you open it (<em>"Apple could not verify…"</em>). Strip the quarantine attribute to get past it:':
+      'DMG는 기본적으로 애드혹 서명되어 있습니다 — 유료 Apple Developer ID 없이 프로젝트가 제공할 수 있는 것은 여기까지입니다. macOS는 처음 열 때 경고를 표시합니다(<em>"Apple에서 확인할 수 없습니다…"</em>). 이를 통과하려면 격리(quarantine) 속성을 제거하세요:',
+    "Alternatively, open <strong>System Settings → Privacy &amp; Security</strong>, find the blocked app, and click <em>Open Anyway</em>. Code signing and Apple notarization are opt-in for the maintainer — when configured, this warning goes away for everyone.":
+      "또는 <strong>시스템 설정 → 개인정보 보호 및 보안</strong>을 열어 차단된 앱을 찾은 다음 <em>확인 없이 열기</em>를 클릭하세요. 코드 서명과 Apple 공증은 유지관리자가 선택적으로 설정하는 항목입니다 — 설정이 완료되면 모든 사용자에게서 이 경고가 사라집니다.",
+    "Run <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> — a per-user NSIS install (no admin), or run the <code>*-portable.exe</code> to skip installing":
+      "<code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>를 실행하세요 — 사용자별 NSIS 설치(관리자 권한 불필요)이며, 설치를 건너뛰려면 <code>*-portable.exe</code>를 실행하세요",
+    "The EXE is unsigned by default, so SmartScreen may warn — click <em>More info → Run anyway</em>":
+      "EXE는 기본적으로 서명되지 않았으므로 SmartScreen이 경고를 표시할 수 있습니다 — <em>추가 정보 → 실행</em>을 클릭하세요",
+    "Open from the Start menu / desktop shortcut — the notification-area (tray) icon appears and the dashboard window loads":
+      "시작 메뉴 / 바탕화면 바로 가기에서 여세요 — 알림 영역(트레이) 아이콘이 나타나고 대시보드 창이 로드됩니다",
+    '<span class="caption-icon">1️⃣</span> <span>NSIS installer, step 1 — <strong>Choose Installation Options</strong>: pick per-user setup and optional shortcuts.</span>':
+      '<span class="caption-icon">1️⃣</span> <span>NSIS 설치 프로그램, 1단계 — <strong>설치 옵션 선택</strong>: 사용자별 설치와 선택적 바로 가기를 지정합니다.</span>',
+    '<span class="caption-icon">2️⃣</span> <span>NSIS installer, step 2 — <strong>Choose Install Location</strong>: defaults to <code>%LOCALAPPDATA%\\Programs\\Claude Code Monitor</code>, or point it anywhere.</span>':
+      '<span class="caption-icon">2️⃣</span> <span>NSIS 설치 프로그램, 2단계 — <strong>설치 위치 선택</strong>: 기본값은 <code>%LOCALAPPDATA%\\Programs\\Claude Code Monitor</code>이며, 원하는 위치로 변경할 수도 있습니다.</span>',
+    '<span class="caption-icon">3️⃣</span> <span>NSIS installer, step 3 — <strong>Completing Setup</strong>: click <em>Finish</em> to launch the app and drop the tray icon in the notification area.</span>':
+      '<span class="caption-icon">3️⃣</span> <span>NSIS 설치 프로그램, 3단계 — <strong>설치 완료</strong>: <em>마침</em>을 클릭하면 앱이 실행되고 알림 영역에 트레이 아이콘이 표시됩니다.</span>',
+    "SmartScreen warning on first launch": "최초 실행 시 SmartScreen 경고",
+    'The installer and portable EXE are <strong>unsigned</strong> by default — that is all the project can offer without a paid code-signing certificate. Windows <strong>SmartScreen</strong> may show <em>"Windows protected your PC"</em> the first time you run it; click <strong>More info → Run anyway</strong>. The installer lays the app down <strong>per-user</strong> under <code>%LOCALAPPDATA%\\Programs\\Claude Code Monitor</code> (and lets you choose the install directory) and sets an <code>AppUserModelId</code> (<code>com.hoangsonww.ccam.desktop</code>) so native toast notifications are attributed correctly and the window groups under one taskbar entry.':
+      '설치 프로그램과 포터블 EXE는 기본적으로 <strong>서명되지 않았습니다</strong> — 유료 코드 서명 인증서 없이 프로젝트가 제공할 수 있는 것은 여기까지입니다. Windows <strong>SmartScreen</strong>이 처음 실행할 때 <em>"Windows에서 PC를 보호했습니다"</em>라는 메시지를 표시할 수 있습니다. 이때 <strong>추가 정보 → 실행</strong>을 클릭하세요. 설치 프로그램은 앱을 <code>%LOCALAPPDATA%\\Programs\\Claude Code Monitor</code> 아래에 <strong>사용자별</strong>로 배치하며(설치 디렉터리를 직접 선택할 수도 있습니다), <code>AppUserModelId</code>(<code>com.hoangsonww.ccam.desktop</code>)를 설정하여 네이티브 토스트 알림이 올바르게 귀속되고 창이 하나의 작업 표시줄 항목으로 그룹화되도록 합니다.',
+    "Bundle size": "번들 크기",
+    "The DMG is roughly 80&nbsp;MB, about 250&nbsp;MB installed on disk — the standard Electron tax; the Windows installer is comparable. The app runs natively on <strong>macOS and Windows</strong>; Linux is tracked as a follow-up. Logs live at <code>~/Library/Logs/Claude Code Monitor/desktop.log</code> on macOS or <code>%APPDATA%\\Claude Code Monitor\\logs\\desktop.log</code> on Windows (reach them from the tray menu → <em>Show Logs</em>).":
+      "DMG 크기는 약 80&nbsp;MB이며, 디스크에 설치되면 약 250&nbsp;MB가 됩니다 — Electron을 사용할 때 흔히 발생하는 용량 부담이며, Windows 설치 프로그램도 비슷한 수준입니다. 앱은 <strong>macOS와 Windows</strong>에서 네이티브로 실행되며, Linux 지원은 후속 작업으로 추적 중입니다. 로그는 macOS의 경우 <code>~/Library/Logs/Claude Code Monitor/desktop.log</code>, Windows의 경우 <code>%APPDATA%\\Claude Code Monitor\\logs\\desktop.log</code>에 저장됩니다(트레이 메뉴 → <em>Show Logs</em>에서 바로 접근할 수 있습니다).",
+    '📖 User-facing guide: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a> · architecture &amp; contributor reference: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/desktop/README.md"><code>desktop/README.md</code></a>':
+      '📖 사용자용 가이드: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/DESKTOP.md"><code>DESKTOP.md</code></a> · 아키텍처 및 기여자 참고 자료: <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/blob/master/desktop/README.md"><code>desktop/README.md</code></a>',
+    '<span class="caption-icon">⚙️</span> Settings — model pricing editor, hook installation toggle, JSON data export, session cleanup, browser notification preferences, and system info panel with DB stats':
+      '<span class="caption-icon">⚙️</span> Settings — 모델 가격 편집기, 훅 설치 토글, JSON 데이터 내보내기, 세션 정리, 브라우저 알림 환경설정, DB 통계가 포함된 시스템 정보 패널',
+    "The <code>/settings</code> route provides a comprehensive management interface with six sections:":
+      "<code>/settings</code> 경로는 여섯 개의 섹션으로 구성된 종합 관리 인터페이스를 제공합니다.",
+    "Editable table of per-model pricing rules. Each Claude model variant has its own explicit pattern (e.g., <code>claude-opus-4-6%</code>). Rates cover input, output, cache read, and cache write tokens. Each rule's editor also has a collapsible <strong>Introductory rates</strong> block — a <code>YYYY-MM-DD</code> promo cutoff plus per-category intro prices (input / output / cache-read / cache-write 5m &amp; 1h); an empty date means no promo, and any future model-launch promo needs no code change. Reset to defaults or add custom models. The section header carries an info popover (the <code>i</code> icon) that explains how rule lookup works (first matching pattern wins), the SQL-style <code>%</code> wildcard syntax with concrete examples (<code>claude-opus-4-7%</code>, <code>claude-%-haiku</code>, exact ids), and reminds the user that prices must be updated manually when Anthropic publishes new rates — already-stored sessions keep the price applied at ingest time. The CLAUDE_HOME panel and Import History flow are fully i18n-driven across en/vi/zh.":
+      "모델별 가격 규칙을 편집할 수 있는 표입니다. 각 Claude 모델 변형은 고유한 명시적 패턴을 가집니다(예: <code>claude-opus-4-6%</code>). 요율은 입력, 출력, 캐시 읽기, 캐시 쓰기 토큰을 포함합니다. 각 규칙의 편집기에는 접을 수 있는 <strong>도입 요율(Introductory rates)</strong> 블록도 있습니다 — <code>YYYY-MM-DD</code> 형식의 프로모션 종료일과 카테고리별 도입 가격(입력 / 출력 / 캐시 읽기 / 캐시 쓰기 5분 &amp; 1시간)으로 구성되며, 날짜가 비어 있으면 프로모션이 없다는 뜻이고, 향후 새 모델 출시 프로모션에도 코드 변경이 필요하지 않습니다. 기본값으로 재설정하거나 사용자 지정 모델을 추가할 수 있습니다. 섹션 헤더에는 정보 팝오버(<code>i</code> 아이콘)가 있어 규칙 조회 방식(처음으로 일치하는 패턴이 우선함), SQL 스타일 <code>%</code> 와일드카드 구문과 구체적인 예시(<code>claude-opus-4-7%</code>, <code>claude-%-haiku</code>, 정확한 id), 그리고 Anthropic이 새 요율을 공개하면 가격을 수동으로 업데이트해야 한다는 점(이미 저장된 세션은 수집 시점에 적용된 가격을 그대로 유지함)을 설명합니다. CLAUDE_HOME 패널과 Import History 흐름은 en/vi/zh 전반에 걸쳐 완전히 i18n으로 처리됩니다.",
+    "Shows per-hook installation status (SessionStart, PreToolUse, PostToolUse, Stop, SubagentStop, Notification, SessionEnd). One-click reinstall if hooks are missing or outdated. Validates paths and permissions automatically.":
+      "훅별 설치 상태(SessionStart, PreToolUse, PostToolUse, Stop, SubagentStop, Notification, SessionEnd)를 보여줍니다. 훅이 누락되었거나 오래된 경우 클릭 한 번으로 재설치할 수 있습니다. 경로와 권한을 자동으로 검증합니다.",
+    "View database row counts and size. Session cleanup: abandon stale active sessions after N hours, purge old completed sessions after N days. Danger zone: clear all data with confirmation dialog to prevent accidental loss.":
+      "데이터베이스의 행 수와 크기를 확인할 수 있습니다. 세션 정리: N시간이 지난 오래된 활성 세션을 종료 처리하고, N일이 지난 완료된 세션을 삭제합니다. 위험 구역: 실수로 인한 데이터 손실을 방지하기 위해 확인 대화상자와 함께 모든 데이터를 삭제할 수 있습니다.",
+    "Download all sessions, agents, events, token usage, and pricing rules as a single JSON file for backup or analysis. Includes full event history, model metadata, and cost breakdowns in one portable archive.":
+      "모든 세션, 에이전트, 이벤트, 토큰 사용량, 가격 규칙을 백업이나 분석을 위해 하나의 JSON 파일로 다운로드할 수 있습니다. 전체 이벤트 히스토리, 모델 메타데이터, 비용 내역을 하나의 이동 가능한 아카이브에 포함합니다.",
+    "Dedicated Health tab on the Dashboard with a composite health score (weighted from success rate, cache hit rate, error rate, and heap usage), storage engine donut chart, tool invocation frequency bars, subagent effectiveness, model token distribution, and compaction impact — all with cursor-following tooltips and 5-second auto-refresh.":
+      "대시보드에는 (성공률, 캐시 적중률, 오류율, 힙 사용량에 가중치를 부여한) 종합 상태 점수, 저장소 엔진 도넛 차트, 도구 호출 빈도 막대그래프, 서브에이전트 효과, 모델 토큰 분포, 압축(compaction) 영향을 보여 주는 전용 Health 탭이 있으며, 모두 커서를 따라다니는 툴팁과 5초 자동 새로고침을 지원합니다.",
+    "Configure native browser notifications with per-event toggles for session starts, completions, errors, and subagent spawns. Automatic permission management with test-send button and graceful fallback when denied.":
+      "세션 시작, 완료, 오류, 서브에이전트 생성에 대해 이벤트별로 토글할 수 있는 네이티브 브라우저 알림을 설정할 수 있습니다. 권한이 거부되었을 때도 우아하게 대체되며, 테스트 전송 버튼으로 권한을 자동 관리합니다.",
+    "Per-model pricing — no catch-all grouping": "모델별 가격 책정 — 뭉뚱그린 그룹화 없음",
+    "Each Claude model variant (e.g., Opus 4.6 vs Opus 4.1) has its own explicit pricing pattern because different model versions have different rates. The cost engine uses specificity sorting — longer patterns match before shorter ones.":
+      "각 Claude 모델 변형(예: Opus 4.6과 Opus 4.1)은 모델 버전마다 요율이 다르기 때문에 각자 명시적인 가격 패턴을 가집니다. 비용 엔진은 구체성 기준 정렬을 사용하여, 더 긴 패턴이 더 짧은 패턴보다 먼저 일치합니다.",
+    "Turns the dashboard from passive viewing into active monitoring. A rules-based alerting engine evaluates the live event stream <strong>server-side</strong>, and fired alerts fan out to outbound <strong>webhook channels</strong>. Everything lives in one place — <strong>Settings → Alerts</strong> — behind a segmented control with three tabs: <strong>Rules</strong> (what triggers an alert), <strong>Channels</strong> (where alerts are delivered), and <strong>Activity</strong> (the live fired-alert feed with acknowledge / acknowledge-all).":
+      "대시보드를 수동적인 열람 도구에서 능동적인 모니터링 도구로 바꿔 줍니다. 규칙 기반 알림 엔진이 <strong>서버 측</strong>에서 실시간 이벤트 스트림을 평가하며, 발생한 알림은 외부 <strong>웹훅 채널</strong>로 팬아웃됩니다. 모든 기능은 <strong>Settings → Alerts</strong> 한 곳에 모여 있으며, 세 개의 탭으로 구성된 세그먼트 컨트롤 뒤에 배치됩니다: <strong>Rules</strong>(무엇이 알림을 발생시키는지), <strong>Channels</strong>(알림이 전달되는 곳), <strong>Activity</strong>(확인 / 모두 확인 기능이 있는 실시간 발생 알림 피드).",
+    'Four condition types: <strong>event pattern</strong> (match <code>event_type</code> / <code>tool_name</code> / a summary substring, optionally requiring ≥ N matches within a rolling window — e.g. "5 errors in 2 minutes"), <strong>inactivity</strong> (an active session goes quiet for N minutes), <strong>status duration</strong> (an agent is stuck in <code>working</code> / <code>waiting</code> for N minutes), and <strong>token threshold</strong> (a session\'s cumulative tokens cross a limit). Each rule has a configurable <strong>cooldown</strong> that dedups repeat alerts per (rule, session, agent).':
+      '네 가지 조건 유형이 있습니다: <strong>이벤트 패턴</strong>(<code>event_type</code> / <code>tool_name</code> / 요약 문자열 일부를 매칭하며, 필요 시 롤링 윈도우 내에서 N회 이상 일치하도록 설정 가능 — 예: "2분 내 오류 5회"), <strong>비활성</strong>(활성 세션이 N분 동안 조용해짐), <strong>상태 지속 시간</strong>(에이전트가 <code>working</code> / <code>waiting</code> 상태로 N분 동안 멈춰 있음), <strong>토큰 임계값</strong>(세션의 누적 토큰이 한도를 초과함)입니다. 각 규칙에는 (규칙, 세션, 에이전트) 조합별로 반복 알림을 중복 제거하는 설정 가능한 <strong>쿨다운</strong>이 있습니다.',
+    "Event-driven rules (<code>event_pattern</code>, <code>token_threshold</code>) run on every hook ingest — <em>after</em> the transaction commits and the response is sent, fully try/catch-guarded, so alerting can never slow or fail hook delivery. Time-based rules (<code>inactivity</code>, <code>status_duration</code>) run on an unref'd 60-second sweep. Enabled rules are cached in memory and invalidated on every edit. Fired alerts persist to <code>alert_events</code> and broadcast an <code>alert_triggered</code> WebSocket message.":
+      "이벤트 기반 규칙(<code>event_pattern</code>, <code>token_threshold</code>)은 모든 훅 수집 시마다 실행되며 — 트랜잭션이 커밋되고 응답이 전송된 <em>이후</em>에, 전체적으로 try/catch로 보호되어 실행되므로 알림 기능이 훅 전달을 절대 지연시키거나 실패하게 만들지 않습니다. 시간 기반 규칙(<code>inactivity</code>, <code>status_duration</code>)은 unref 처리된 60초 주기 스윕으로 실행됩니다. 활성화된 규칙은 메모리에 캐시되며 편집할 때마다 무효화됩니다. 발생한 알림은 <code>alert_events</code>에 영구 저장되고 <code>alert_triggered</code> WebSocket 메시지로 브로드캐스트됩니다.",
+    "Slack, Discord, Microsoft Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, and Pipedream — plus a generic JSON endpoint. A declarative <strong>provider registry</strong> describes each one's payload formatter, URL resolution, auth headers, and credential fields, so adding a provider is a single server-side entry that surfaces in the UI with no front-end change.":
+      "Slack, Discord, Microsoft Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream을 지원하며, 여기에 범용 JSON 엔드포인트도 추가되어 있습니다. 선언적 <strong>provider registry</strong>가 각 제공자의 페이로드 포맷터, URL 결정 방식, 인증 헤더, 자격 증명 필드를 기술하므로, 프로바이더를 추가하는 작업은 프런트엔드 변경 없이 UI에 자동으로 반영되는 서버 측 항목 하나만 추가하면 됩니다.",
+    'Each delivery POSTs with an <code>AbortController</code> timeout and bounded retry/backoff (retries transport errors, 429, and 5xx — never other 4xx), then records the attempt-chain in <code>webhook_deliveries</code>. A provider can also veto a 2xx whose body signals failure (Splunk On-Call returns 200 with <code>result:"failure"</code>). Delivery is <strong>detached and fail-safe</strong> — it never throws into, slows, or blocks the alert path.':
+      '각 전달은 <code>AbortController</code> 타임아웃과 제한된 재시도/백오프를 적용하여 POST 요청을 보내며(전송 오류, 429, 5xx는 재시도하지만 그 외 4xx는 재시도하지 않습니다), 시도 체인을 <code>webhook_deliveries</code>에 기록합니다. 프로바이더는 본문이 실패를 나타내는 2xx 응답도 거부(veto)할 수 있습니다(Splunk On-Call은 <code>result:"failure"</code>와 함께 200을 반환합니다). 전달은 <strong>분리되어 있고 페일세이프</strong>합니다 — 알림 경로에 예외를 던지거나 지연시키거나 차단하는 일이 결코 없습니다.',
+    "Target URLs are masked (host + last 4 chars), and secrets / credential fields (routing keys, API keys, bot tokens) plus custom-header values are redacted in every API response — the full URL and secrets are stored server-side and never leave it. Generic endpoints support optional <strong>HMAC-SHA256</strong> body signing (<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>) so receivers can verify authenticity.":
+      "대상 URL은 마스킹되어(호스트 + 마지막 4자) 표시되며, 시크릿 / 자격 증명 필드(라우팅 키, API 키, 봇 토큰)와 사용자 지정 헤더 값도 모든 API 응답에서 마스킹됩니다 — 전체 URL과 시크릿은 서버 측에만 저장되며 밖으로 나가지 않습니다. 범용 엔드포인트는 선택적으로 <strong>HMAC-SHA256</strong> 본문 서명(<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>)을 지원하여 수신자가 진위를 검증할 수 있습니다.",
+    'Every alert-rule field has a help tooltip — the event-type, tool-name, and summary-contains fields include example chips of real hook events and built-in tool names. Each webhook provider ships a collapsible step-by-step setup guide linking to the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic alert and reports the delivery result inline, and targets can be scoped to specific rules. Fully localized (en / zh / vi / ko).':
+      '모든 알림 규칙 필드에는 도움말 툴팁이 있습니다 — 이벤트 유형, 도구 이름, 요약 포함 필드에는 실제 훅 이벤트와 내장 도구 이름의 예시 칩이 함께 제공됩니다. 각 웹훅 프로바이더는 공식 문서로 연결되는 접을 수 있는 단계별 설정 가이드를 제공합니다. 클릭 한 번으로 실행하는 <strong>"테스트 전송"</strong> 기능은 가상의 알림을 발생시켜 전달 결과를 즉시 표시하며, 대상을 특정 규칙으로 범위를 제한할 수도 있습니다. en / zh / vi로 완전히 현지화되어 있습니다.',
+    "Provider(s)": "프로바이더",
+    "Payload format": "페이로드 형식",
+    "URL / credentials": "URL / 자격 증명",
+    "Block Kit (header + section + context)": "Block Kit (header + section + context)",
+    "Rich embed": "리치 임베드(Rich embed)",
+    "Adaptive Card in a Workflows <code>message</code> envelope":
+      "Workflows <code>message</code> 봉투에 담긴 Adaptive Card",
+    "Power Automate Workflows URL": "Power Automate Workflows URL",
+    "Text message (basic markdown)": "텍스트 메시지(기본 마크다운)",
+    "Space webhook URL": "스페이스 웹훅 URL",
+    "Slack-style legacy attachments": "Slack 스타일의 레거시 attachments",
+    "Bot API <code>sendMessage</code> (HTML)": "Bot API <code>sendMessage</code> (HTML)",
+    "Bot token + chat ID (URL derived)": "봇 토큰 + 채팅 ID (URL에서 파생)",
+    "Events API v2 trigger (with <code>dedup_key</code>)":
+      "Events API v2 트리거(<code>dedup_key</code> 포함)",
+    "Routing key (URL prefilled)": "라우팅 키(URL 사전 입력됨)",
+    "Alert API": "Alert API",
+    "API key (GenieKey header) + region": "API 키(GenieKey 헤더) + 리전",
+    "VictorOps REST": "VictorOps REST",
+    "REST endpoint URL (key embedded)": "REST 엔드포인트 URL(키 내장)",
+    "Stable <code>{ event, alert }</code> JSON envelope":
+      "안정적인 <code>{ event, alert }</code> JSON 봉투",
+    "Endpoint URL (+ optional HMAC &amp; headers)": "엔드포인트 URL(+ 선택적 HMAC 및 헤더)",
+    "Additive &amp; non-blocking by design": "설계상 추가적이며 논블로킹입니다",
+    "Two new tables — <code>webhook_targets</code> (config; survives Clear Data like alert rules) and <code>webhook_deliveries</code> (audit log) — with no changes to existing tables, response shapes, or WebSocket message types. Webhook dispatch is fire-and-forget off the alert path, so a slow or failing endpoint can never slow or break alert firing or hook ingestion.":
+      "새로 추가된 두 개의 테이블 — <code>webhook_targets</code>(설정 정보로, 알림 규칙과 마찬가지로 Clear Data 이후에도 유지됨)와 <code>webhook_deliveries</code>(감사 로그) — 외에 기존 테이블, 응답 형식, WebSocket 메시지 유형에는 어떠한 변경도 없습니다. 웹훅 전달은 알림 경로에서 벗어난 fire-and-forget 방식이므로, 느리거나 실패하는 엔드포인트가 알림 발생이나 훅 수집을 지연시키거나 망가뜨리는 일은 결코 없습니다.",
+    "Provider setup steps can drift": "프로바이더 설정 절차는 변경될 수 있습니다",
+    "Microsoft retired classic Office 365 connectors in 2025, so Teams uses an Adaptive Card delivered via Power Automate <strong>Workflows</strong>. More broadly, provider setup UIs change often — the in-app guides say so and link to each provider's official docs. Always confirm against the source.":
+      "Microsoft가 2025년에 기존 Office 365 커넥터를 폐지했기 때문에, Teams는 Power Automate <strong>Workflows</strong>를 통해 전달되는 Adaptive Card를 사용합니다. 더 넓게 보면, 프로바이더의 설정 UI는 자주 바뀝니다 — 앱 내 가이드에도 이 점이 명시되어 있으며 각 프로바이더의 공식 문서로 연결됩니다. 항상 원본 문서를 통해 확인하시기 바랍니다.",
+    '<span class="caption-icon">⬆</span> Update Notifier — version comparison modal with one-click copy of the update command. No automatic self-restart; you stay in control of when upgrades happen':
+      '<span class="caption-icon">⬆</span> Update Notifier — 업데이트 명령을 클릭 한 번으로 복사할 수 있는 버전 비교 모달입니다. 자동 재시작은 없으며, 업그레이드 시점은 항상 사용자가 직접 결정합니다',
+    "A detection-only subsystem that tells the user when the dashboard's git checkout is behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an <code>upstream</code> remote is configured (the standard convention for forks), it takes priority over <code>origin</code>; the chosen remote's <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref. The printed command adapts to the user's situation — <code>git pull --ff-only</code> only when their branch actually tracks the canonical ref, otherwise <code>git fetch</code> (with a fast-forward merge in the fork case). The server <strong>never</strong> pulls or restarts itself — the user runs the command in a terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.":
+      "대시보드의 git 체크아웃이 표준 기본 브랜치보다 뒤처져 있을 때 사용자에게 알려 주기만 하는 탐지 전용 서브시스템입니다. <strong>브랜치 및 포크를 인식합니다:</strong> <code>upstream</code> 원격 저장소가 설정되어 있으면(포크에서의 표준 관례) <code>origin</code>보다 우선시되며, 선택된 원격 저장소의 <code>master</code> / <code>main</code> / <code>HEAD</code>가 비교 기준(ref)이 됩니다. 표시되는 명령은 사용자의 상황에 맞춰 달라집니다 — 브랜치가 실제로 표준 ref를 추적하는 경우에만 <code>git pull --ff-only</code>를 사용하고, 그렇지 않으면 <code>git fetch</code>를 사용합니다(포크의 경우 fast-forward 병합 포함). 서버는 <strong>절대</strong> 스스로 pull하거나 재시작하지 않으며 — 사용자가 터미널에서 직접 명령을 실행합니다 — 따라서 이 메커니즘이 개발 세션이나 pm2/systemd/launchd/Docker 관리 체계를 깨뜨리거나 고아 프로세스를 남길 수 없습니다.",
+    "A shell-less <code>git fetch</code> with a 120-second timeout, followed by a <code>rev-list</code> against the tracked upstream. Each call runs from <code>server/lib/update-check.js</code> and returns a structured payload — never throws — so a flaky remote can&apos;t stall the dashboard.":
+      "셸을 거치지 않는 <code>git fetch</code>를 120초 타임아웃으로 실행한 다음, 추적 중인 upstream을 대상으로 <code>rev-list</code>를 수행합니다. 각 호출은 <code>server/lib/update-check.js</code>에서 실행되며 구조화된 페이로드를 반환할 뿐 절대 예외를 던지지 않으므로, 불안정한 원격 저장소가 대시보드를 멈추게 할 수 없습니다.",
+    "<code>update-scheduler.js</code> polls every five minutes with <code>.unref()</code> timers so it never blocks shutdown, de-duplicates with a fingerprint over the status payload, and announces up-to-date → behind transitions in a framed stdout block. Disable entirely with <code>DASHBOARD_UPDATE_CHECK=0</code>.":
+      "<code>update-scheduler.js</code>는 종료를 절대 막지 않는 <code>.unref()</code> 타이머로 5분마다 폴링하며, 상태 페이로드에 대한 지문(fingerprint)으로 중복을 제거하고, 최신 → 뒤처짐으로의 전환을 테두리로 감싼 stdout 블록으로 알립니다. <code>DASHBOARD_UPDATE_CHECK=0</code>으로 완전히 비활성화할 수 있습니다.",
+    "Each status payload carries a <code>manual_command</code> shaped for the user's actual situation: <code>git pull --ff-only</code> on a tracked canonical branch, <code>git fetch &amp;&amp; git merge --ff-only</code> for forks where local tracks the wrong remote, and a plain <code>git fetch</code> on a feature branch where pulling would update the wrong branch. Install / build steps are appended only when the working tree is actually being rewritten.":
+      "각 상태 페이로드에는 사용자의 실제 상황에 맞춰진 <code>manual_command</code>가 포함됩니다: 추적 중인 표준 브랜치에서는 <code>git pull --ff-only</code>, 로컬이 잘못된 원격 저장소를 추적하고 있는 포크에서는 <code>git fetch &amp;&amp; git merge --ff-only</code>, pull이 잘못된 브랜치를 업데이트하게 되는 기능 브랜치에서는 단순한 <code>git fetch</code>가 사용됩니다. 설치 / 빌드 단계는 워킹 트리가 실제로 다시 작성될 때만 추가됩니다.",
+    "A modal opens automatically when upstream is ahead; ESC or a backdrop click dismisses it. A persistent sidebar button stays in the footer — emerald when behind, amber when the last check errored — so users can always trigger a fresh check on demand.":
+      "upstream이 앞서 있으면 모달이 자동으로 열리며, ESC 키나 배경 클릭으로 닫을 수 있습니다. 푸터에는 항상 표시되는 사이드바 버튼이 있어 — 뒤처져 있으면 에메랄드색, 마지막 확인에서 오류가 발생했으면 호박색으로 표시되며 — 사용자가 언제든 새로운 확인을 직접 실행할 수 있습니다.",
+    "Non-git installs, no remotes configured, offline fetches, and unresolvable upstream refs all return tagged payloads instead of throwing. The sidebar badge turns amber on fetch errors and the modal stays suppressed until a successful check arrives — no spinners, no stuck state.":
+      "git 설치가 아닌 경우, 원격 저장소가 설정되지 않은 경우, 오프라인 상태에서의 fetch, 해석할 수 없는 upstream ref는 모두 예외를 던지는 대신 태그가 지정된 페이로드를 반환합니다. 사이드바 배지는 fetch 오류 시 호박색으로 바뀌며, 성공적인 확인이 이루어지기 전까지 모달은 표시되지 않습니다 — 스피너도, 멈춘 상태도 없습니다.",
+    "Dismissal is keyed by the upstream SHA in <code>localStorage</code>, so closing the modal silences it only for <em>that</em> commit — a newer upstream commit re-opens it automatically. Clicking the sidebar button is an explicit intent signal and clears the stored dismissal before firing a fresh check.":
+      "닫기 상태는 <code>localStorage</code>에 upstream SHA를 키로 저장되므로, 모달을 닫아도 <em>해당</em> 커밋에 대해서만 잠잠해집니다 — 더 새로운 upstream 커밋이 생기면 자동으로 다시 열립니다. 사이드바 버튼을 클릭하는 것은 명시적인 의도 신호로 간주되어, 새로운 확인을 실행하기 전에 저장된 닫기 상태를 초기화합니다.",
+    "Read-only check — runs <code>git fetch</code>, compares, returns the payload.":
+      "읽기 전용 확인입니다 — <code>git fetch</code>를 실행하고 비교한 다음 페이로드를 반환합니다.",
+    "Same check, and broadcasts <code>update_status</code> over WebSocket so every connected client re-syncs at once.":
+      "동일한 확인을 수행하며, <code>update_status</code>를 WebSocket으로 브로드캐스트하여 연결된 모든 클라이언트가 즉시 다시 동기화되도록 합니다.",
+    "<strong>Detection-only by design</strong>": "<strong>설계상 탐지 전용입니다</strong>",
+    "There is no <code>POST /api/updates/apply</code> and no in-process restart helper. A process cannot reliably replace itself without an external supervisor, and <code>npm run dev</code>, <code>npm start</code>, pm2, systemd, launchd, and Docker each need different restart logic. Detection-only keeps the mechanism portable across every supervisor and OS, and leaves the dashboard's lifecycle owned by whatever started it. The user runs the printed command in their own shell.":
+      "<code>POST /api/updates/apply</code>는 존재하지 않으며, 프로세스 내부의 재시작 도우미도 없습니다. 프로세스는 외부 감독자(supervisor) 없이는 스스로를 안정적으로 교체할 수 없으며, <code>npm run dev</code>, <code>npm start</code>, pm2, systemd, launchd, Docker는 각각 다른 재시작 로직을 필요로 합니다. 탐지 전용으로 설계함으로써 이 메커니즘은 모든 감독자와 OS에서 이식 가능하게 유지되며, 대시보드의 라이프사이클은 그것을 시작한 주체가 계속 소유하게 됩니다. 사용자는 표시된 명령을 자신의 셸에서 직접 실행합니다.",
+    '<span class="caption-icon">◈</span> Connection Status — sidebar-launched details modal with WebSocket endpoint, connection uptime, 60-second throughput sparkline, top event-type breakdown, and recent activity list':
+      '<span class="caption-icon">◈</span> Connection Status — WebSocket 엔드포인트, 연결 가동 시간, 60초 처리량 스파크라인, 상위 이벤트 유형 분석, 최근 활동 목록을 보여 주는 사이드바에서 실행되는 상세 정보 모달입니다',
+    'The <strong>Live</strong> / <strong>Disconnected</strong> pill in the sidebar footer opens a small details panel about the dashboard\'s WebSocket transport. It surfaces the active <code>ws://</code> endpoint, how long the current socket has been up, total events received, the top event types as a horizontal bar chart, a 60-second throughput sparkline, and the most recent 8 events as an activity list. Cumulative stats (totals, type breakdown, recent list) persist across reloads via <code>localStorage</code> under <code>sidebar-connection-stats</code>; the rolling sparkline and "connected since" timer are intentionally ephemeral since they only make sense relative to "now". A <strong>Reset</strong> button clears everything on demand.':
+      '사이드바 하단의 <strong>Live</strong> / <strong>Disconnected</strong> 알약형 버튼을 클릭하면 대시보드의 WebSocket 전송에 관한 작은 상세 패널이 열립니다. 이 패널에는 현재 활성화된 <code>ws://</code> 엔드포인트, 현재 소켓의 연결 유지 시간, 수신된 총 이벤트 수, 상위 이벤트 유형을 나타내는 가로 막대 차트, 60초 처리량 스파크라인, 그리고 가장 최근 8개 이벤트를 담은 활동 목록이 표시됩니다. 누적 통계(총계, 유형별 분류, 최근 목록)는 <code>localStorage</code>의 <code>sidebar-connection-stats</code> 키 아래에 저장되어 새로고침 후에도 유지되지만, 롤링 스파크라인과 "연결 이후" 타이머는 "현재 시점"을 기준으로만 의미가 있으므로 의도적으로 일시적인 상태로 유지됩니다. <strong>Reset</strong> 버튼을 누르면 필요할 때 언제든 모든 내용을 지울 수 있습니다.',
+    "Implementation note: per-event state lives in <code>useRef</code> buffers on the sidebar so the WS firehose never re-renders the navigation tree — the modal does its own one-second tick to sample the refs while open. Writes are throttled (single-flight timer, 2 s window) and flushed on <code>pagehide</code> / <code>visibilitychange</code> so the latest events aren't lost to the throttle window. The modal itself is portalled to <code>document.body</code> so the sidebar's stacking context can't trap it.":
+      "구현 참고 사항: 이벤트별 상태는 사이드바의 <code>useRef</code> 버퍼에 보관되므로 WS 이벤트 폭주가 내비게이션 트리를 다시 렌더링하는 일은 없습니다 — 모달이 열려 있는 동안에는 모달이 직접 1초 간격으로 해당 ref 값을 샘플링합니다. 쓰기 작업은 스로틀링되며(단일 실행 타이머, 2초 창), <code>pagehide</code> / <code>visibilitychange</code> 시점에 플러시되어 최신 이벤트가 스로틀링 구간 때문에 손실되지 않습니다. 모달 자체는 <code>document.body</code>로 포털링되어 있어 사이드바의 스태킹 컨텍스트에 갇히지 않습니다.",
+    "The entire UI ships in <strong>four languages — English, 简体中文, Tiếng Việt, and 한국어</strong> — built on <code>i18next</code> + <code>react-i18next</code> with <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts rule-help tooltips + webhook setup guides are translated. Switch languages from the sidebar (EN / 中文 / VI / 한국어) — the choice persists in <code>localStorage</code>.":
+      "전체 UI는 <strong>네 가지 언어 — English, 简体中文, Tiếng Việt, 한국어</strong> — 로 제공되며, <code>i18next</code> + <code>react-i18next</code>를 기반으로 <code>i18next-browser-languagedetector</code>와 함께 구축되었습니다. 번역 범위는 전 영역에 걸쳐 있습니다. 모든 페이지, 차트 툴팁, Settings 흐름, Workflow 내러티브, Config Explorer 탭, Run 페이지, 그리고 Alerts 규칙 도움말 툴팁과 webhook 설정 가이드까지 모두 번역되어 있습니다. 사이드바에서 언어를 전환할 수 있으며(EN / 中文 / VI / 한국어), 선택한 언어는 <code>localStorage</code>에 저장됩니다.",
+    'Translations are split into per-area JSON namespaces (<code>common</code>, <code>nav</code>, <code>dashboard</code>, <code>sessions</code>, <code>analytics</code>, <code>workflows</code>, <code>settings</code>, <code>kanban</code>, <code>run</code>, <code>ccConfig</code>, <code>alerts</code>, <code>errors</code>, <code>updates</code>) under <code>client/src/i18n/locales/&lt;lng&gt;/</code>. Components load only the namespaces they need via <code>useTranslation("…")</code>.':
+      '번역은 영역별 JSON 네임스페이스(<code>common</code>, <code>nav</code>, <code>dashboard</code>, <code>sessions</code>, <code>analytics</code>, <code>workflows</code>, <code>settings</code>, <code>kanban</code>, <code>run</code>, <code>ccConfig</code>, <code>alerts</code>, <code>errors</code>, <code>updates</code>)로 나뉘어 <code>client/src/i18n/locales/&lt;lng&gt;/</code> 아래에 위치합니다. 각 컴포넌트는 <code>useTranslation("…")</code>를 통해 필요한 네임스페이스만 불러옵니다.',
+    "Language is detected from <code>localStorage</code> (<code>i18nextLng</code>) then the browser's <code>navigator</code> setting, and the choice is cached back to <code>localStorage</code>. <code>fallbackLng</code> is English and <code>nonExplicitSupportedLngs</code> resolves regional tags (e.g. <code>vi-VN</code> → <code>vi</code>), so any unmapped key falls back gracefully rather than rendering a raw key.":
+      "언어는 먼저 <code>localStorage</code>(<code>i18nextLng</code>)에서 감지된 후 브라우저의 <code>navigator</code> 설정에서 감지되며, 선택한 값은 다시 <code>localStorage</code>에 캐시됩니다. <code>fallbackLng</code>는 영어이고, <code>nonExplicitSupportedLngs</code>는 지역 태그를 해석합니다(예: <code>vi-VN</code> → <code>vi</code>). 따라서 매핑되지 않은 키가 있어도 원시 키를 그대로 렌더링하지 않고 우아하게 폴백됩니다.",
+    "Numbers, costs, dates, and relative times format against the active locale via a shared <code>getCurrentLocale()</code> helper, and plurals use i18next's <code>_one</code> / <code>_other</code> suffixes. Interpolated values (<code>{{count}}</code>, <code>{{provider}}</code>, …) keep sentences natural across languages.":
+      "숫자, 비용, 날짜, 상대 시간은 공유된 <code>getCurrentLocale()</code> 헬퍼를 통해 현재 로케일에 맞춰 형식화되며, 복수형은 i18next의 <code>_one</code> / <code>_other</code> 접미사를 사용합니다. 보간된 값(<code>{{count}}</code>, <code>{{provider}}</code> 등)은 여러 언어에서도 문장이 자연스럽게 유지되도록 합니다.",
+    "Domain terms that are proper nouns or code stay untranslated in every locale — <em>Agent</em>, <em>Subagent</em>, hook event names (<code>PostToolUse</code>), tool names (<code>Bash</code>), and webhook provider names (Slack, PagerDuty). Only the surrounding prose is localized, so instructions stay accurate.":
+      "고유명사나 코드에 해당하는 도메인 용어는 모든 로케일에서 번역되지 않고 그대로 유지됩니다 — <em>Agent</em>, <em>Subagent</em>, hook 이벤트 이름(<code>PostToolUse</code>), 도구 이름(<code>Bash</code>), webhook 제공자 이름(Slack, PagerDuty) 등입니다. 주변의 설명 문구만 현지화되므로 안내 내용은 정확하게 유지됩니다.",
+    "<strong>Adding a language</strong>": "<strong>언어 추가하기</strong>",
+    "Copy <code>client/src/i18n/locales/en/</code> to a new locale folder, translate the JSON values (leaving keys and technical terms intact), then register the bundle and add the tag to <code>supportedLngs</code> in <code>client/src/i18n/index.ts</code>. Missing keys fall back to English automatically, so even a partial translation ships cleanly.":
+      "<code>client/src/i18n/locales/en/</code>을 새 로케일 폴더로 복사하고, JSON 값을 번역합니다(키와 기술 용어는 그대로 유지). 그런 다음 번들을 등록하고 <code>client/src/i18n/index.ts</code>의 <code>supportedLngs</code>에 해당 태그를 추가합니다. 누락된 키는 자동으로 영어로 대체되므로, 부분적으로만 번역되어 있어도 문제없이 배포할 수 있습니다.",
+    "<strong>Tabby</strong> is a cute SVG cat companion pinned to the <strong>edges of every page</strong> of the dashboard. It is always present and turns the live session stream into glanceable, ambient feedback — calm when idle, alert when something needs attention, and celebratory when a run finishes. Tabby is built entirely on the existing <code>eventBus</code> WebSocket stream: <strong>no new backend, no API key, and no new dependencies</strong>. The component lives in <code>client/src/components/Tabby/</code> and can be toggled on or off in Settings page.":
+      "<strong>Tabby</strong>는 대시보드의 <strong>모든 페이지 가장자리</strong>에 고정되어 있는 귀여운 SVG 고양이 동반자입니다. Tabby는 항상 존재하며, 실시간 세션 스트림을 한눈에 파악할 수 있는 은은한 피드백으로 바꿔줍니다 — 유휴 상태일 때는 차분하고, 주의가 필요할 때는 경계하며, 실행이 완료되면 축하합니다. Tabby는 기존의 <code>eventBus</code> WebSocket 스트림 위에 완전히 구축되어 있습니다. <strong>새로운 백엔드도, API 키도, 새로운 의존성도 필요하지 않습니다.</strong> 이 컴포넌트는 <code>client/src/components/Tabby/</code>에 있으며 Settings 페이지에서 켜거나 끌 수 있습니다.",
+    '<span class="caption-icon">📥</span> Tabby Companion — a cute SVG cat in the edges of every page, reacting in real time to the live session stream with eight distinct moods and animations, auto-surfacing speech bubbles for notable events, and serving as the gateway to a status panel and Ask box':
+      '<span class="caption-icon">📥</span> Tabby Companion — 모든 페이지 가장자리에 있는 귀여운 SVG 고양이로, 여덟 가지 고유한 기분과 애니메이션으로 실시간 세션 스트림에 실시간으로 반응하고, 주목할 만한 이벤트에 대해 말풍선을 자동으로 표시하며, 상태 패널과 Ask 박스로 이어지는 관문 역할을 합니다',
+    "Tabby derives one of eight moods from the live session WebSocket stream, each with its own animation. The eyes track your cursor, and the active mood drives a distinct motion cue.":
+      "Tabby는 실시간 세션 WebSocket 스트림으로부터 여덟 가지 기분 중 하나를 도출하며, 각 기분마다 고유한 애니메이션을 가지고 있습니다. 눈은 커서를 따라 움직이며, 현재 활성화된 기분에 따라 고유한 동작 신호가 나타납니다.",
+    "Notable events — session started or finished, errors, and run completed — automatically surface a speech bubble. Bubbles are <strong>throttled and coalesced</strong> so bursts of events never spam you, and they can be muted on demand. Everything reflects in real time over the existing <code>eventBus</code> WebSocket channel, with no polling and no extra services.":
+      "세션 시작 또는 종료, 오류, 실행 완료와 같은 주목할 만한 이벤트가 발생하면 자동으로 말풍선이 표시됩니다. 말풍선은 <strong>스로틀링되고 병합되어</strong> 이벤트가 몰리더라도 스팸처럼 쏟아지지 않으며, 필요에 따라 음소거할 수도 있습니다. 모든 동작은 기존의 <code>eventBus</code> WebSocket 채널을 통해 실시간으로 반영되며, 폴링이나 추가 서비스는 전혀 필요하지 않습니다.",
+    "Click the cat — or press <code>⌘B</code> / <code>Ctrl+B</code> — to open Tabby's panel (<code>Esc</code> closes it). The panel groups a live status line, quick actions, and an Ask box.":
+      "고양이를 클릭하거나 <code>⌘B</code> / <code>Ctrl+B</code>를 눌러 Tabby의 패널을 엽니다(<code>Esc</code>로 닫습니다). 이 패널에는 실시간 상태 표시줄, 빠른 작업, Ask 박스가 함께 모여 있습니다.",
+    "<strong>Live status line:</strong> <em>N live · M errored · connection state</em>, updated from cached data.":
+      "<strong>실시간 상태 표시줄:</strong> <em>N live · M errored · connection state</em>로, 캐시된 데이터를 기반으로 갱신됩니다.",
+    "<strong>Quick actions:</strong> jump to Run Claude, Activity, Sessions, or errored sessions; mute bubbles; clear alerts.":
+      "<strong>빠른 작업:</strong> Run Claude, Activity, Sessions 또는 오류가 발생한 세션으로 바로 이동하기, 말풍선 음소거하기, 알림 지우기.",
+    "<strong>Ask box:</strong> answers simple status questions locally from cached data (&ldquo;what's running&rdquo;, &ldquo;any errors&rdquo;, &ldquo;status&rdquo;).":
+      "<strong>Ask 박스:</strong> 캐시된 데이터를 바탕으로 간단한 상태 질문에 로컬에서 답변합니다(&ldquo;what's running&rdquo;, &ldquo;any errors&rdquo;, &ldquo;status&rdquo; 등).",
+    "The Ask box answers status questions instantly and offline from cached data. For anything beyond a simple status question, Tabby hands off to the existing <strong>Run Claude</strong> page (<code>/run?prompt=...</code>) to spawn a real Claude Code session — so there is never a separate model call, key, or service to manage.":
+      "Ask 박스는 캐시된 데이터를 바탕으로 즉시, 오프라인 상태에서도 상태 질문에 답변합니다. 단순한 상태 질문을 넘어서는 요청의 경우, Tabby는 기존의 <strong>Run Claude</strong> 페이지(<code>/run?prompt=...</code>)로 넘겨 실제 Claude Code 세션을 실행시킵니다 — 따라서 별도로 관리해야 할 모델 호출, 키, 서비스는 결코 존재하지 않습니다.",
+    "Fully keyboard operable: <code>⌘B</code> / <code>Ctrl+B</code> to open, <code>Esc</code> to close.":
+      "완전한 키보드 조작이 가능합니다: 열려면 <code>⌘B</code> / <code>Ctrl+B</code>, 닫으려면 <code>Esc</code>.",
+    "Status and bubbles announce via <code>aria-live</code> for screen readers.":
+      "상태와 말풍선은 스크린 리더를 위해 <code>aria-live</code>를 통해 안내됩니다.",
+    "Respects <code>prefers-reduced-motion</code> to calm animations.":
+      "애니메이션을 줄이기 위해 <code>prefers-reduced-motion</code>을 준수합니다.",
+    "Degrades gracefully to a calm, dimmed disconnected state when offline.":
+      "오프라인 상태일 때는 차분하고 어두워진 연결 끊김 상태로 우아하게 저하됩니다.",
+    Endpoint: "엔드포인트",
+    Mood: "기분",
+    "When it appears": "나타나는 시점",
+    Animation: "애니메이션",
+    Idle: "Idle",
+    "Nothing notable happening": "특별히 주목할 만한 일이 없음",
+    "Gentle tail flick": "부드러운 꼬리 흔들기",
+    Watching: "Watching",
+    "Sessions active, observing the stream": "세션이 활성 상태이며 스트림을 관찰 중",
+    "Ear perk, cursor-tracking eyes": "귀를 쫑긋 세우고, 커서를 따라가는 눈",
+    Happy: "Happy",
+    "A run completed successfully": "실행이 성공적으로 완료됨",
+    Sparkle: "반짝임",
+    Worried: "Worried",
+    "Something looks off": "무언가 이상해 보임",
+    "Head bob": "고개 끄덕임",
+    Stuck: "Stuck",
+    "A session appears blocked": "세션이 막힌 것으로 보임",
+    "Shake + alert <code>!</code>": "흔들림 + 경고 <code>!</code>",
+    Thinking: "Thinking",
+    "Work in progress": "작업 진행 중",
+    Sleeping: "Sleeping",
+    "Quiet for a while": "한동안 조용함",
+    Zzz: "Zzz",
+    Disconnected: "Disconnected",
+    "WebSocket offline": "WebSocket 오프라인",
+    "Calm, dimmed state": "차분하고 어두워진 상태",
+    "Development vs production deployment topology": "개발 환경과 프로덕션 배포 구조 비교",
+    Aspect: "항목",
+    Development: "개발",
+    Production: "프로덕션",
+    Processes: "프로세스",
+    "2 (Express + Vite)": "2개(Express + Vite)",
+    "1 (Express only)": "1개(Express만)",
+    "Client URL": "클라이언트 URL",
+    "API proxy": "API 프록시",
+    "Vite proxies <code>/api</code> + <code>/ws</code> to :4820":
+      "Vite가 <code>/api</code> + <code>/ws</code>를 :4820으로 프록시",
+    "Same origin, no proxy": "동일 출처, 프록시 없음",
+    "File watching": "파일 감시",
+    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    None: "없음",
+    "Source maps": "소스 맵",
+    Inline: "인라인",
+    "External files": "외부 파일",
+    "<strong>A third way to run: the Desktop App (macOS &amp; Windows)</strong>":
+      "<strong>세 번째 실행 방법: 데스크톱 앱(macOS &amp; Windows)</strong>",
+    'Beyond development and standalone production, the dashboard also ships as a native desktop app — a macOS <code>.app</code> and a Windows <code>.exe</code> — that embeds the same production server in-process, no terminal required. See the <a href="#desktop-app">Desktop App (macOS &amp; Windows)</a> section for download, build, and install instructions.':
+      '개발 모드와 독립형 프로덕션 모드 외에도, 대시보드는 네이티브 데스크톱 앱 — macOS용 <code>.app</code>과 Windows용 <code>.exe</code> — 형태로도 제공되며, 동일한 프로덕션 서버를 프로세스 내에 내장하고 있어 터미널이 필요하지 않습니다. 다운로드, 빌드, 설치 방법은 <a href="#desktop-app">데스크톱 앱(macOS &amp; Windows)</a> 섹션을 참고하십시오.',
+    "The production image is OCI-compatible and works with both Docker and Podman. The server listens on <code>4820</code>, reads legacy Claude history from a read-only mount, and persists SQLite data under <code>/app/data</code>.":
+      "프로덕션 이미지는 OCI와 호환되며 Docker와 Podman 모두에서 동작합니다. 서버는 <code>4820</code> 포트에서 대기하고, 읽기 전용 마운트에서 레거시 Claude 기록을 읽으며, SQLite 데이터를 <code>/app/data</code> 아래에 영구 저장합니다.",
+    "Container image build and runtime mounts": "컨테이너 이미지 빌드 및 런타임 마운트",
+    Mount: "마운트",
+    "Read historical Claude session files for import without modifying them":
+      "과거 Claude 세션 파일을 수정하지 않고 가져오기 위해 읽음",
+    "Persist the SQLite database across rebuilds and container restarts":
+      "재빌드 및 컨테이너 재시작 전반에 걸쳐 SQLite 데이터베이스를 영구 저장",
+    "<strong>Hooks still run on the host</strong>":
+      "<strong>Hook은 여전히 호스트에서 실행됩니다</strong>",
+    "Claude Code fires hooks from the host machine, not from inside the container. After the container is healthy on <code>http://localhost:4820</code>, run <code>npm run install-hooks</code> on the host so hook events post back to the containerized server.":
+      "Claude Code는 컨테이너 내부가 아니라 호스트 머신에서 hook을 실행합니다. 컨테이너가 <code>http://localhost:4820</code>에서 정상적으로 동작하면, 호스트에서 <code>npm run install-hooks</code>를 실행하여 hook 이벤트가 컨테이너화된 서버로 다시 전달되도록 합니다.",
+    "A multi-stage <code>Dockerfile</code> and <code>docker-compose.yml</code> are included. Both <strong>Docker</strong> and <strong>Podman</strong> are fully supported — the image is OCI-compliant.":
+      "다단계 <code>Dockerfile</code>과 <code>docker-compose.yml</code>이 포함되어 있습니다. <strong>Docker</strong>와 <strong>Podman</strong> 모두 완전히 지원되며 — 이 이미지는 OCI를 준수합니다.",
+    "Read-only access to legacy session history for automatic import on startup":
+      "시작 시 자동 가져오기를 위한 레거시 세션 기록에 대한 읽기 전용 접근",
+    "Persists the SQLite database across container restarts":
+      "컨테이너 재시작 전반에 걸쳐 SQLite 데이터베이스를 영구 저장",
+    "The Dockerfile uses three stages to minimize the final image size:":
+      "Dockerfile은 최종 이미지 크기를 최소화하기 위해 세 단계를 사용합니다.",
+    Stage: "단계",
+    "Installs production <code>node_modules</code> on <code>node:22-alpine</code>. <code>better-sqlite3</code> is optional — if prebuilds are unavailable, the server falls back to built-in <code>node:sqlite</code>":
+      "<code>node:22-alpine</code>에 프로덕션용 <code>node_modules</code>를 설치합니다. <code>better-sqlite3</code>는 선택 사항입니다 — 사전 빌드가 없을 경우 서버는 내장된 <code>node:sqlite</code>로 대체됩니다",
+    "Runs <code>npm ci</code> + <code>vite build</code> to produce optimized static assets":
+      "<code>npm ci</code> + <code>vite build</code>를 실행하여 최적화된 정적 자산을 생성합니다",
+    "Clean <code>node:22-alpine</code> with only <code>node_modules</code>, server code, and <code>client/dist</code>":
+      "<code>node_modules</code>, 서버 코드, <code>client/dist</code>만 포함한 깔끔한 <code>node:22-alpine</code>",
+    "<strong>Hook note</strong>": "<strong>Hook 참고 사항</strong>",
+    "Claude Code hooks run on the host, not inside the container. The containerized server receives hook events via HTTP on <code>localhost:4820</code>. Run <code>npm run install-hooks</code> on the host after starting the container.":
+      "Claude Code의 hook은 컨테이너 내부가 아니라 호스트에서 실행됩니다. 컨테이너화된 서버는 <code>localhost:4820</code>에서 HTTP를 통해 hook 이벤트를 수신합니다. 컨테이너를 시작한 후 호스트에서 <code>npm run install-hooks</code>를 실행하십시오.",
+    Metric: "지표",
+    "Server startup": "서버 시작",
+    "SQLite opens instantly; schema migration is idempotent":
+      "SQLite는 즉시 열리며, 스키마 마이그레이션은 멱등적입니다",
+    "Hook latency": "Hook 지연 시간",
+    "Transaction + broadcast, no async I/O beyond SQLite":
+      "트랜잭션 + 브로드캐스트, SQLite 이외의 비동기 I/O 없음",
+    "Client JS bundle": "클라이언트 JS 번들",
+    "WebSocket latency": "WebSocket 지연 시간",
+    "Local loopback, JSON serialization only": "로컬 루프백, JSON 직렬화만 수행",
+    "SQLite write throughput": "SQLite 쓰기 처리량",
+    "WAL mode on SSD; far exceeds any hook event rate":
+      "SSD에서의 WAL 모드; 어떤 hook 이벤트 발생률도 훨씬 능가함",
+    "Max events before slowdown": "성능 저하가 시작되는 최대 이벤트 수",
+    "Pagination prevents full-table scans": "페이지네이션으로 전체 테이블 스캔을 방지",
+    "Server memory": "서버 메모리",
+    "SQLite in-process, no ORM overhead": "프로세스 내 SQLite, ORM 오버헤드 없음",
+    "Client memory": "클라이언트 메모리",
+    "React + Tailwind, minimal runtime deps": "React + Tailwind, 최소한의 런타임 의존성",
+    "Input validation": "입력 검증",
+    "Required fields checked before DB operations; CHECK constraints on status enums":
+      "DB 작업 전에 필수 필드를 검사; 상태 열거형에 대한 CHECK 제약 조건 적용",
+    "Hook safety": "Hook 안전성",
+    "Hook handler always exits 0; 5s max lifetime; uses <code>127.0.0.1</code> not external hosts":
+      "Hook 핸들러는 항상 종료 코드 0으로 종료됨; 최대 수명 5초; 외부 호스트가 아닌 <code>127.0.0.1</code> 사용",
+    CORS: "CORS",
+    "Restricted to loopback origins, so cross-origin pages can't read responses; no-Origin clients like curl still work":
+      "루프백 출처로 제한되어 있어 교차 출처 페이지는 응답을 읽을 수 없습니다. curl처럼 Origin이 없는 클라이언트는 계속 동작합니다",
+    Authentication: "인증",
+    "Off by default since the loopback bind is the trust boundary; set <code>DASHBOARD_TOKEN</code> to require a bearer token on every <code>/api/*</code> request and the WebSocket when exposing on a LAN.":
+      "루프백 바인딩 자체가 신뢰 경계이므로 기본적으로 비활성화되어 있습니다. LAN에 노출할 때는 <code>DASHBOARD_TOKEN</code>을 설정하여 모든 <code>/api/*</code> 요청과 WebSocket에 bearer 토큰을 요구하도록 하십시오.",
+    Secrets: "비밀 정보",
+    "No API keys, tokens, or credentials stored or transmitted anywhere":
+      "API 키, 토큰, 자격 증명이 어디에도 저장되거나 전송되지 않음",
+    "Dependency surface": "의존성 표면",
+    "5 runtime server deps, 6 runtime client deps (includes D3.js for Workflows) — minimal attack surface":
+      "런타임 서버 의존성 5개, 런타임 클라이언트 의존성 6개(Workflows용 D3.js 포함) — 최소한의 공격 표면",
+    "Hooks only apply to sessions started <em>after</em> installation. Restart Claude Code after starting the dashboard.":
+      "Hook은 설치 <em>이후</em>에 시작된 세션에만 적용됩니다. 대시보드를 시작한 뒤에는 Claude Code를 재시작하십시오.",
+    "On some systems the shell environment when Claude Code fires hooks may not include the full PATH. Test with <code>node --version</code>. If not found, use the absolute path to <code>node</code> in the hook command.":
+      "일부 시스템에서는 Claude Code가 hook을 실행할 때의 셸 환경에 전체 PATH가 포함되어 있지 않을 수 있습니다. <code>node --version</code>으로 테스트해 보십시오. 찾을 수 없다면 hook 명령에 <code>node</code>의 절대 경로를 사용하십시오.",
+    Problem: "문제",
+    Solution: "해결 방법",
+    "<code>better-sqlite3</code> errors during install":
+      "설치 중 <code>better-sqlite3</code> 오류 발생",
+    "This is non-fatal — <code>better-sqlite3</code> is an optional dependency. On Node 22+ the server automatically falls back to built-in <code>node:sqlite</code>. On older Node versions, install Python 3 + C++ build tools, then run <code>npm rebuild better-sqlite3</code>. For the desktop app, the <code>desktop:install</code> preflight prints copy-pasteable per-OS setup guidance (incl. a no-toolchain alternative) when the native build fails.":
+      "이는 치명적인 오류가 아닙니다 — <code>better-sqlite3</code>는 선택적 의존성입니다. Node 22 이상에서는 서버가 자동으로 내장된 <code>node:sqlite</code>로 대체됩니다. 이전 버전의 Node를 사용하는 경우 Python 3와 C++ 빌드 도구를 설치한 다음 <code>npm rebuild better-sqlite3</code>를 실행하십시오. 데스크톱 앱의 경우, 네이티브 빌드가 실패하면 <code>desktop:install</code> 사전 점검 과정에서 운영체제별로 그대로 복사해 붙여넣을 수 있는 설정 안내(툴체인이 필요 없는 대안 포함)를 출력합니다.",
+    'Dashboard shows "Disconnected"': '대시보드에 "Disconnected"가 표시됨',
+    "Server is not running. Start it with <code>npm run dev</code>. Client auto-reconnects every 2s.":
+      "서버가 실행되고 있지 않습니다. <code>npm run dev</code>로 서버를 시작하십시오. 클라이언트는 2초마다 자동으로 재연결을 시도합니다.",
+    "Events Today shows 0": "Events Today가 0으로 표시됨",
+    "Ensure you are on the latest version (timezone bug was fixed). Restart the server.":
+      "최신 버전을 사용하고 있는지 확인하십시오(시간대 버그가 수정되었습니다). 서버를 재시작하십시오.",
+    "Port 4820 already in use": "포트 4820이 이미 사용 중",
+    "Run <code>DASHBOARD_PORT=4821 npm run dev</code>, update Vite proxy in <code>client/vite.config.ts</code>, and re-run <code>npm run install-hooks</code>.":
+      "<code>DASHBOARD_PORT=4821 npm run dev</code>를 실행하고, <code>client/vite.config.ts</code>의 Vite 프록시를 업데이트한 다음 <code>npm run install-hooks</code>를 다시 실행하십시오.",
+    "Stale seed data shown": "오래된 시드 데이터가 표시됨",
+    "Run <code>npm run clear-data</code> to wipe all rows, then restart.":
+      "<code>npm run clear-data</code>를 실행하여 모든 행을 지운 다음 재시작하십시오.",
+    "Hooks show validation error about matcher": "Hook에 matcher 관련 검증 오류가 표시됨",
+    'Ensure you\'re on the latest version — the hook format was updated to use <code>matcher: "*"</code> string (not object).':
+      '최신 버전을 사용하고 있는지 확인하세요 — 훅 형식이 <code>matcher: "*"</code> 문자열을 사용하도록 업데이트되었습니다(객체가 아님).',
+    '"SQLite backend not available" on startup': '시작 시 "SQLite backend not available" 오류',
+    "Neither <code>better-sqlite3</code> nor <code>node:sqlite</code> could load. Upgrade to Node.js 22+ (recommended), or install Python 3 + C++ build tools and run <code>npm rebuild better-sqlite3</code>.":
+      "<code>better-sqlite3</code>와 <code>node:sqlite</code> 모두 로드할 수 없습니다. Node.js 22+로 업그레이드하거나(권장), Python 3와 C++ 빌드 도구를 설치한 후 <code>npm rebuild better-sqlite3</code>를 실행하세요.",
+    "Docker container runs but no sessions appear":
+      "Docker 컨테이너는 실행되지만 세션이 표시되지 않음",
+    "Hooks run on the host, not inside the container. Run <code>npm run install-hooks</code> on the host after the container starts. Verify hooks in <code>~/.claude/settings.json</code> point to <code>localhost:4820</code>.":
+      "훅은 컨테이너 내부가 아니라 호스트에서 실행됩니다. 컨테이너가 시작된 후 호스트에서 <code>npm run install-hooks</code>를 실행하세요. <code>~/.claude/settings.json</code>의 훅이 <code>localhost:4820</code>을 가리키는지 확인하세요.",
+    Technology: "기술",
+    "Why This Over Alternatives": "대안 대신 이것을 선택한 이유",
+    "Zero-config, embedded, no server process. WAL mode gives concurrent reads. Synchronous API is simpler than async for this use case. <code>better-sqlite3</code> is preferred when prebuilds are available; falls back to Node.js built-in <code>node:sqlite</code> on Node 22+ when the native module cannot be compiled.":
+      "설정이 필요 없고, 내장형이며, 별도의 서버 프로세스가 없습니다. WAL 모드는 동시 읽기를 지원합니다. 이 사용 사례에서는 동기 API가 비동기보다 더 단순합니다. 프리빌드가 제공되는 경우 <code>better-sqlite3</code>를 우선 사용하며, 네이티브 모듈을 컴파일할 수 없는 경우 Node 22+에 내장된 <code>node:sqlite</code>로 대체됩니다.",
+    "Battle-tested, minimal, well-understood. Fastify would be overkill; raw <code>http</code> module would require too much boilerplate for routing.":
+      "검증되었고, 최소한이며, 널리 이해되고 있습니다. Fastify는 과할 수 있고, 원시 <code>http</code> 모듈은 라우팅에 너무 많은 보일러플레이트 코드가 필요합니다.",
+    "Fastest, most lightweight WebSocket library for Node. No Socket.IO overhead needed — we only push typed JSON messages one-way.":
+      "Node에서 가장 빠르고 가벼운 WebSocket 라이브러리입니다. 타입이 지정된 JSON 메시지를 단방향으로 전송하기만 하므로 Socket.IO의 오버헤드가 필요하지 않습니다.",
+    "Stable, widely known, strong TypeScript support. No Server Components or RSC needed for a client-rendered local SPA.":
+      "안정적이고, 널리 알려져 있으며, TypeScript 지원이 뛰어납니다. 클라이언트 렌더링 방식의 로컬 SPA에는 Server Components나 RSC가 필요하지 않습니다.",
+    "Fast builds, native ESM, excellent dev experience. Proxy config handles the dev server split cleanly with no ejection.":
+      "빌드 속도가 빠르고, 네이티브 ESM을 지원하며, 개발 경험이 뛰어납니다. 프록시 설정이 개발 서버 분리를 이젝트(eject) 없이 깔끔하게 처리합니다.",
+    "Utility-first approach keeps styles colocated with markup. No CSS module boilerplate. Custom dark theme config for the dark UI.":
+      "유틸리티 우선 접근 방식으로 스타일을 마크업과 함께 배치할 수 있습니다. CSS 모듈 보일러플레이트가 필요 없습니다. 다크 UI를 위한 커스텀 다크 테마 설정을 제공합니다.",
+    "Standard routing for React SPAs. Layout routes with <code>&lt;Outlet&gt;</code> give clean shell composition without prop drilling.":
+      "React SPA를 위한 표준 라우팅입니다. <code>&lt;Outlet&gt;</code>을 사용한 레이아웃 라우트는 prop drilling 없이 깔끔한 셸 구성을 제공합니다.",
+    "Tree-shakeable icon library — only imports what's used (~20 icons). No heavy icon font.":
+      "트리 셰이킹이 가능한 아이콘 라이브러리로, 사용되는 아이콘만 임포트합니다(약 20개). 무거운 아이콘 폰트가 필요 없습니다.",
+    "Catches null/undefined bugs at compile time. <code>noUncheckedIndexedAccess</code> prevents array bounds issues in analytics aggregations.":
+      "컴파일 타임에 null/undefined 버그를 잡아냅니다. <code>noUncheckedIndexedAccess</code>는 분석 집계에서 배열 범위 문제를 방지합니다.",
+    "Industry-standard data visualization library. Powers the Workflows page's 11 interactive sections — DAG layouts, Sankey diagrams, force-directed graphs, bubble charts, and swim-lane timelines. No wrapper libraries needed; direct SVG rendering keeps bundle impact minimal.":
+      "업계 표준 데이터 시각화 라이브러리입니다. Workflows 페이지의 11개 인터랙티브 섹션(DAG 레이아웃, Sankey 다이어그램, force-directed 그래프, 버블 차트, 스윔레인 타임라인)을 구동합니다. 래퍼 라이브러리가 필요 없으며, 직접 SVG 렌더링으로 번들 크기에 미치는 영향을 최소화합니다.",
+    "Available on virtually all systems. Handles ANSI and JSON natively with stdlib only. No install step required.":
+      "거의 모든 시스템에서 사용할 수 있습니다. stdlib만으로 ANSI와 JSON을 네이티브하게 처리합니다. 별도의 설치 단계가 필요하지 않습니다.",
+    "Local-first monitoring for Claude Code sessions, agents, and tool events. Built for real-time visibility with zero external dependencies.":
+      "Claude Code 세션, 에이전트, 도구 이벤트를 위한 로컬 우선 모니터링입니다. 외부 의존성 없이 실시간 가시성을 제공하도록 구축되었습니다.",
+    Install: "설치",
+    Setup: "설정",
+    "About the Creator": "제작자 소개",
+    '<span class="caption-icon">⭐</span> <span> Enjoying the project? <a class="star-history-caption-link" href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" target="_blank" rel="noopener noreferrer">Give it a star on GitHub</a> and help more builders discover it. </span>':
+      '<span class="caption-icon">⭐</span> <span> 이 프로젝트가 마음에 드시나요? <a class="star-history-caption-link" href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" target="_blank" rel="noopener noreferrer">GitHub에서 별을 눌러주시면</a> 더 많은 개발자가 이 프로젝트를 발견하는 데 도움이 됩니다. </span>',
+    'Clears the waiting flag and promotes the main agent to <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span>. The only reliable signal that text-only assistant turns have started — they emit no <code>PreToolUse</code> before <code>Stop</code>.':
+      '대기 플래그를 해제하고 메인 에이전트를 <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span> 상태로 전환합니다. 텍스트 전용 어시스턴트 턴이 시작되었음을 알리는 유일하게 신뢰할 수 있는 신호입니다 — 이러한 턴은 <code>Stop</code> 이전에 <code>PreToolUse</code>를 전혀 발생시키지 않습니다.',
+    'Clears the waiting flag, sets agent → <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span>, <code>current_tool</code> set. If tool is <code>Agent</code>, subagent record created.':
+      '대기 플래그를 해제하고, 에이전트를 <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span> 상태로 설정하며, <code>current_tool</code>을 설정합니다. 도구가 <code>Agent</code>인 경우 서브에이전트 레코드가 생성됩니다.',
+    'Clears the waiting flag (covers permission-prompt approvals mid-tool). <code>current_tool</code> cleared. Agent stays <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span>.':
+      '대기 플래그를 해제합니다(도구 실행 중 권한 프롬프트 승인 케이스 포함). <code>current_tool</code>이 지워집니다. 에이전트는 <span class="status-chip chip-working"><span class="chip-dot"></span>Working</span> 상태를 유지합니다.',
+    'Non-error: main agent → <code>waiting</code> — UI shows <span class="status-chip chip-waiting"><span class="chip-dot"></span>Waiting</span> until the next user input. <code>stop_reason=error</code>: marks the agent and session <span class="status-chip chip-error"><span class="chip-dot"></span>Error</span>. Background subagents keep running.':
+      '오류가 아닌 경우: 메인 에이전트가 <code>waiting</code> 상태가 되며, UI는 다음 사용자 입력이 있을 때까지 <span class="status-chip chip-waiting"><span class="chip-dot"></span>Waiting</span>을 표시합니다. <code>stop_reason=error</code>인 경우: 에이전트와 세션을 <span class="status-chip chip-error"><span class="chip-dot"></span>Error</span>로 표시합니다. 백그라운드 서브에이전트는 계속 실행됩니다.',
+    'Matched subagent → <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span>. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session\'s <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent\'s own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks.':
+      '일치하는 서브에이전트가 <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span> 상태가 됩니다. 대기 플래그는 의도적으로 <strong>해제하지 않습니다</strong> — 백그라운드 서브에이전트의 완료는 사용자(human)에 대해 아무것도 알려주지 않기 때문입니다. 또한 세션의 <code>subagents/agent-*.jsonl</code> 파일을 순회하며 <code>tool_use_id</code>로 <code>tool_use</code> ↔ <code>tool_result</code> 블록을 짝짓고, 각 서브에이전트 고유의 <code>agent_id</code> 아래에 도구별 <code>PreToolUse</code> + <code>PostToolUse</code> 이벤트를 발생시키는 fire-and-forget 방식의 JSONL 스캔(<code>scanAndImportSubagents</code>)도 시작합니다 — 서브에이전트가 내부적으로 수행하며 훅을 전혀 발생시키지 않는 도구 호출을 드러냅니다.',
+    'Creates a compaction subagent → <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span>. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (cadence ~¼ of <code>DASHBOARD_STALE_MINUTES</code>) catches compactions when no hooks fire.':
+      '압축(compaction) 서브에이전트를 생성하여 <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span> 상태로 표시합니다. 트랜스크립트의 <code>isCompactSummary</code> 항목을 통해 감지됩니다. 토큰 기준값은 압축 이전의 합계를 보존합니다. 주기적 스캐너(주기는 <code>DASHBOARD_STALE_MINUTES</code>의 약 1/4)가 훅이 발생하지 않는 압축을 포착합니다.',
+    'Drops the waiting flag. If the session is already in <span class="status-chip chip-error"><span class="chip-dot"></span>Error</span>, the error state is preserved; otherwise marks all agents and the session as <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span>. Evicts the session\'s transcript from the shared cache.':
+      '대기 플래그를 해제합니다. 세션이 이미 <span class="status-chip chip-error"><span class="chip-dot"></span>Error</span> 상태라면 오류 상태를 유지하고, 그렇지 않으면 모든 에이전트와 세션을 <span class="status-chip chip-completed"><span class="chip-dot"></span>Completed</span>로 표시합니다. 공유 캐시에서 세션의 트랜스크립트를 제거합니다.',
+    "SQLite connection, WAL/FK pragmas, schema migrations (<code>CREATE TABLE IF NOT EXISTS</code>), all prepared statements as a reusable <code>stmts</code> object. Tries <code>better-sqlite3</code> first, falls back to built-in <code>node:sqlite</code> via <code>compat-sqlite.js</code>":
+      "SQLite 연결, WAL/FK 프래그마, 스키마 마이그레이션(<code>CREATE TABLE IF NOT EXISTS</code>), 재사용 가능한 <code>stmts</code> 객체로 관리되는 모든 프리페어드 스테이트먼트를 담당합니다. <code>better-sqlite3</code>를 먼저 시도하고, <code>compat-sqlite.js</code>를 통해 내장 <code>node:sqlite</code>로 대체됩니다.",
+    "Each page pulls initial data from REST then subscribes to eventBus for live updates":
+      "각 페이지는 REST에서 초기 데이터를 가져온 후 실시간 업데이트를 위해 eventBus를 구독합니다",
+    "Entity Relationship Diagram — SQLite schema": "엔터티 관계 다이어그램 — SQLite 스키마",
+    "Working Dir": "작업 디렉터리",
+    "Git Branch": "Git 브랜치",
+    "Context Bar": "컨텍스트 바",
+    "Token Counts": "토큰 수",
+    "Session Cost": "세션 비용",
+    "Statusline rendering pipeline — invoked on each Claude Code update":
+      "상태줄(Statusline) 렌더링 파이프라인 — Claude Code가 업데이트될 때마다 호출됨",
+    "Aggregates data from multiple API endpoints to display high-signal metrics directly in the sidebar:":
+      "여러 API 엔드포인트의 데이터를 집계하여 사이드바에 핵심 지표를 직접 표시합니다:",
+    "Zero-Config Setup": "제로 설정(Zero-Config)",
+    "One-line mental model": "한 줄로 정리하는 개념 모델",
+    "Your data survives reinstalls and updates": "데이터는 재설치 및 업데이트 후에도 유지됩니다",
+    "The <code>claude</code> CLI is found automatically":
+      "<code>claude</code> CLI가 자동으로 감지됩니다",
+    'Open <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Releases → latest </a> and download the asset for your platform. The macOS and Windows Desktop CI jobs auto-publish a new <code>vX.Y.Z</code> release every time the version in <code>package.json</code> is bumped on <code>master</code>, so this link always points at the current build. Releases are public — no GitHub sign-in required.':
+      '<a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases/latest" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Releases → 최신 버전 </a> 링크를 열어 사용 중인 플랫폼에 맞는 에셋을 다운로드하세요. macOS 및 Windows Desktop CI 작업은 <code>master</code> 브랜치에서 <code>package.json</code>의 버전이 올라갈 때마다 새로운 <code>vX.Y.Z</code> 릴리스를 자동으로 게시하므로, 이 링크는 항상 최신 빌드를 가리킵니다. 릴리스는 공개되어 있으므로 GitHub 로그인이 필요하지 않습니다.',
+    'Want a build straight off the tip of <code>master</code>, ahead of the next tagged release? Every green run of the <code>🍎 macOS Desktop (DMG)</code> job on <code>macos-latest</code> uploads the universal DMG as the <code>ClaudeCodeMonitor-dmg</code> workflow artifact, and the <code>🪟 Windows Desktop (EXE)</code> job on <code>windows-latest</code> uploads the installer + portable EXEs as the <code>ClaudeCodeMonitor-win</code> artifact. Open the <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg> latest passing run </a>, scroll to its Artifacts section, and download <code>ClaudeCodeMonitor-dmg</code> or <code>ClaudeCodeMonitor-win</code>. (GitHub sign-in required; 14-day retention.)':
+      '다음 태그 릴리스보다 앞선, <code>master</code>의 최신 커밋에서 곧바로 빌드한 버전을 원하시나요? <code>macos-latest</code>에서 실행되는 <code>🍎 macOS Desktop (DMG)</code> 작업이 성공할 때마다 유니버설 DMG가 <code>ClaudeCodeMonitor-dmg</code> 워크플로 아티팩트로 업로드되고, <code>windows-latest</code>에서 실행되는 <code>🪟 Windows Desktop (EXE)</code> 작업은 인스톨러와 포터블 EXE를 <code>ClaudeCodeMonitor-win</code> 아티팩트로 업로드합니다. <a href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor/actions/workflows/ci.yml?query=branch%3Amaster+is%3Asuccess" target="_blank" rel="noopener noreferrer" class="dl-chip"> <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg> 최근 성공한 실행 </a> 페이지를 열어 Artifacts 섹션까지 스크롤한 다음 <code>ClaudeCodeMonitor-dmg</code> 또는 <code>ClaudeCodeMonitor-win</code>을 다운로드하세요. (GitHub 로그인 필요, 14일간 보관.)',
+    "Incoming Webhook URL": "수신 웹훅 URL",
+    "Webhook URL": "웹훅 URL",
+    "Detection pipeline from scheduler to UI": "스케줄러에서 UI까지 이어지는 감지 파이프라인",
+    "A shell-less <code>git fetch</code> with a 120-second timeout, followed by a <code>rev-list</code> against the tracked upstream. Each call runs from <code>server/lib/update-check.js</code> and returns a structured payload — never throws — so a flaky remote can't stall the dashboard.":
+      "셸을 거치지 않는(shell-less) <code>git fetch</code>를 120초 타임아웃으로 실행한 뒤, 추적 중인 업스트림을 대상으로 <code>rev-list</code>를 수행합니다. 각 호출은 <code>server/lib/update-check.js</code>에서 실행되며 구조화된 페이로드를 반환합니다 — 절대 예외를 던지지 않으므로 원격 저장소가 불안정하더라도 대시보드가 멈추지 않습니다.",
+    "Detection-only by design": "설계상 감지 전용",
+    "Adding a language": "언어 추가하기",
+    "<strong>Ask box:</strong> answers simple status questions locally from cached data (“what's running”, “any errors”, “status”).":
+      "<strong>Ask 박스:</strong> 캐시된 데이터를 기반으로 로컬에서 간단한 상태 질문에 답합니다(“무엇이 실행 중인가요”, “오류가 있나요”, “상태”).",
+    "A third way to run: the Desktop App (macOS &amp; Windows)":
+      "실행하는 세 번째 방법: 데스크톱 앱(macOS 및 Windows)",
+    "Hooks still run on the host": "훅은 여전히 호스트에서 실행됩니다",
+    "Hook note": "훅 참고 사항",
+    "SQL injection": "SQL 인젝션",
+    "All queries use prepared statements with parameterized values — no string interpolation":
+      "모든 쿼리는 매개변수화된 값을 사용하는 프리페어드 스테이트먼트를 사용합니다 — 문자열 보간을 사용하지 않습니다",
+    "Request size": "요청 크기",
+    "Express JSON body parser limited to 1MB": "Express JSON 본문 파서는 1MB로 제한됩니다",
+    "Dashboard — stats, active agents, recent events":
+      "Dashboard — 통계, 활성 에이전트, 최근 이벤트",
+    "KanbanBoard — agent status columns": "KanbanBoard — 에이전트 상태별 열",
+    "Sessions — searchable, filterable table": "Sessions — 검색 및 필터링이 가능한 테이블",
+    "SessionDetail — agents + full event timeline":
+      "SessionDetail — 에이전트 및 전체 이벤트 타임라인",
+    "ActivityFeed — real-time streaming event log": "ActivityFeed — 실시간 스트리밍 이벤트 로그",
+    "Analytics — token usage, heatmap (day-of-week aligned), tool charts, donut charts":
+      "Analytics — 토큰 사용량, 히트맵(요일별 정렬), 도구 차트, 도넛 차트",
+    "Workflows — D3.js visualizations, cross-filtering, status filter, session drill-in":
+      "Workflows — D3.js 시각화, 교차 필터링, 상태 필터, 세션 드릴인",
+    "Settings — model pricing, hook status, data export, session cleanup":
+      "Settings — 모델 가격, 훅 상태, 데이터 내보내기, 세션 정리",
+    'Returns <code>{ "status": "ok", "timestamp": "..." }</code>':
+      '<code>{ "status": "ok", "timestamp": "..." }</code>를 반환합니다',
+    "List sessions with agent counts and per-session cost. Params: <code>status</code>, <code>q</code> (case-insensitive search across <code>id</code>/<code>name</code>/<code>cwd</code>), <code>limit</code> (default 50, max 10000), <code>offset</code>. Response includes <code>total</code> for paginators.":
+      "에이전트 수와 세션별 비용을 포함하여 세션 목록을 조회합니다. 매개변수: <code>status</code>, <code>q</code>(<code>id</code>/<code>name</code>/<code>cwd</code>에 대한 대소문자 구분 없는 검색), <code>limit</code>(기본값 50, 최대 10000), <code>offset</code>. 응답에는 페이지네이션을 위한 <code>total</code>이 포함됩니다.",
+    "Session detail with agents and events": "에이전트와 이벤트를 포함한 세션 상세 정보",
+    "Create session (idempotent on <code>id</code>)": "세션 생성(<code>id</code> 기준 멱등적)",
+    "Update session status / metadata": "세션 상태/메타데이터 업데이트",
+    "List agents — params: <code>status</code>, <code>session_id</code>, <code>limit</code>, <code>offset</code>":
+      "에이전트 목록 조회 — 매개변수: <code>status</code>, <code>session_id</code>, <code>limit</code>, <code>offset</code>",
+    "Single agent detail": "단일 에이전트 상세 정보",
+    "Create agent": "에이전트 생성",
+    "Update agent status / task / current_tool": "에이전트 상태/작업/current_tool 업데이트",
+    "List events newest-first — params: <code>session_id</code>, <code>limit</code>, <code>offset</code>":
+      "최신순으로 이벤트 목록 조회 — 매개변수: <code>session_id</code>, <code>limit</code>, <code>offset</code>",
+    "Aggregate counts + status distributions + WS connections":
+      "집계된 카운트, 상태 분포, WS 연결 수",
+    "Token totals, tool usage, daily trends, agent types, event types, averages":
+      "토큰 합계, 도구 사용량, 일별 추세, 에이전트 유형, 이벤트 유형, 평균값",
+    "Receive and process a Claude Code hook event (called by hook-handler.js)":
+      "Claude Code 훅 이벤트를 수신하고 처리합니다(hook-handler.js에서 호출)",
+    "List all model pricing rules": "모든 모델 가격 규칙 조회",
+    "Create or update a pricing rule": "가격 규칙 생성 또는 업데이트",
+    "Delete a pricing rule": "가격 규칙 삭제",
+    "Total cost across all sessions": "모든 세션에 대한 총 비용",
+    "Cost breakdown for a specific session": "특정 세션의 비용 내역",
+    "System info, DB stats, hook installation status": "시스템 정보, DB 통계, 훅 설치 상태",
+    "Delete all sessions, agents, events, token usage":
+      "모든 세션, 에이전트, 이벤트, 토큰 사용량 삭제",
+    "Reinstall Claude Code hooks": "Claude Code 훅 재설치",
+    "Reset pricing rules to defaults": "가격 규칙을 기본값으로 재설정",
+    "Export all data as JSON download": "모든 데이터를 JSON 파일로 내보내기",
+    "Abandon stale sessions (by hours), purge old data (by days)":
+      "오래된 세션 중단 처리(시간 단위), 오래된 데이터 삭제(일 단위)",
+    "OS-aware paths, archive command, supported extensions, step-by-step instructions; includes live stats for the default <code>~/.claude/projects</code> folder":
+      "OS별 경로, 아카이브 명령어, 지원되는 확장자, 단계별 안내를 제공합니다. 기본 <code>~/.claude/projects</code> 폴더에 대한 실시간 통계도 포함됩니다",
+    "Re-scan the default <code>~/.claude/projects</code> directory; safe to re-run (idempotent via session-ID dedup)":
+      "기본 <code>~/.claude/projects</code> 디렉터리를 다시 스캔합니다. 세션 ID 기반 중복 제거로 멱등적이므로 반복 실행해도 안전합니다",
+    "Scan any absolute directory (body <code>{ path }</code>); tilde (<code>~</code>) is expanded; walks subdirectories recursively and imports every <code>.jsonl</code> found":
+      "임의의 절대 경로 디렉터리를 스캔합니다(요청 본문 <code>{ path }</code>). 물결표(<code>~</code>)는 확장되며, 하위 디렉터리를 재귀적으로 순회하여 발견되는 모든 <code>.jsonl</code> 파일을 임포트합니다",
+    "Multipart upload of <code>.jsonl</code>, <code>.meta.json</code>, <code>.zip</code>, <code>.tar</code>, <code>.tar.gz</code>, <code>.tgz</code>, <code>.gz</code>. Per-request staging dir, path-traversal and extraction-size guards. Returns 413 <code>EXTRACTION_LIMIT_EXCEEDED</code> on suspected bomb archives":
+      "<code>.jsonl</code>, <code>.meta.json</code>, <code>.zip</code>, <code>.tar</code>, <code>.tar.gz</code>, <code>.tgz</code>, <code>.gz</code> 파일의 멀티파트 업로드를 지원합니다. 요청별 스테이징 디렉터리, 경로 순회(path-traversal) 및 압축 해제 크기 방어 기능이 있습니다. 압축 폭탄(bomb archive)으로 의심되는 경우 413 <code>EXTRACTION_LIMIT_EXCEEDED</code>를 반환합니다",
+    "Aggregate workflow data — orchestration graphs, tool flows, effectiveness, patterns, model delegation, error propagation, concurrency, complexity, compaction impact. Accepts <code>?status=active|completed</code> query param to filter by workflow status":
+      "워크플로 데이터를 집계합니다 — 오케스트레이션 그래프, 도구 흐름, 효과성, 패턴, 모델 위임, 오류 전파, 동시성, 복잡도, 압축 영향 등을 포함합니다. 워크플로 상태로 필터링하기 위한 <code>?status=active|completed</code> 쿼리 매개변수를 지원합니다",
+    "Per-session drill-in — agent tree, tool timeline, event details":
+      "세션별 드릴인 — 에이전트 트리, 도구 타임라인, 이벤트 상세 정보",
+    "Fired-alert feed, newest first (<code>?unacked=true</code>, <code>limit</code>, <code>offset</code>; carries <code>total</code> and <code>unacked</code> counts)":
+      "발생한 알림 피드를 최신순으로 조회합니다(<code>?unacked=true</code>, <code>limit</code>, <code>offset</code>; <code>total</code> 및 <code>unacked</code> 개수를 포함)",
+    "Acknowledge one alert": "알림 하나 확인 처리",
+    "Acknowledge every unacked alert": "확인되지 않은 모든 알림 확인 처리",
+    "List alert rules": "알림 규칙 목록 조회",
+    "Create a rule (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)":
+      "규칙 생성(<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)",
+    "Update name / config / enabled / cooldown": "이름/설정/활성화 여부/쿨다운 업데이트",
+    "Delete a rule and its fired-alert history": "규칙과 해당 알림 발생 이력 삭제",
+    "Supported providers + their config fields (drives the UI form)":
+      "지원되는 제공업체 및 해당 설정 필드 목록(UI 폼을 구성하는 데 사용됨)",
+    "List webhook targets (URLs masked, secrets redacted)":
+      "웹훅 대상 목록 조회(URL은 마스킹, 시크릿은 삭제 표시됨)",
+    "Create a target — 14 first-class providers (Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream) + a generic JSON endpoint":
+      "대상 생성 — 14개의 기본 지원 제공업체(Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream)와 범용 JSON 엔드포인트를 지원합니다",
+    "Update name / url / enabled / secret / headers / config / rule scope (<code>type</code> is immutable)":
+      "이름/URL/활성화 여부/시크릿/헤더/설정/규칙 범위 업데이트(<code>type</code>은 변경 불가)",
+    "Delete a target and its delivery log": "대상과 해당 전송 로그 삭제",
+    "Send a synthetic test alert and report the result":
+      "테스트용 알림을 전송하고 결과를 보고합니다",
+    "Recent delivery log for a target": "대상에 대한 최근 전송 로그",
+    Documentation: "문서",
+    Architecture: "아키텍처",
+    "Relevant Links": "관련 링크",
+    "GitHub Repo": "GitHub 저장소",
+    '<span class="caption-icon">🔔</span> <span><strong>Settings · Alerts</strong> — rules-based alerting engine and outbound webhooks in one place: alert rules (event pattern / inactivity / stuck agent / token threshold) with per-rule cooldown, a live fired-alert feed, and 14 first-class webhook providers plus a generic JSON endpoint with optional HMAC signing</span>':
+      '<span class="caption-icon">🔔</span> <span><strong>Settings · Alerts</strong> — 규칙 기반 알림 엔진과 아웃바운드 웹훅을 한곳에서 관리합니다: 규칙별 쿨다운이 설정된 알림 규칙(이벤트 패턴 / 비활성 / 정체된 에이전트 / 토큰 임계값), 실시간 알림 발생 피드, 그리고 선택적 HMAC 서명을 지원하는 14개의 기본 지원 웹훅 제공업체와 범용 JSON 엔드포인트를 제공합니다</span>',
+    '<span class="caption-icon">📗</span> <span><strong>API Docs · ReDoc</strong> — a self-hosted, read-optimized rendering of the full OpenAPI 3.0 spec at <code>/api/redoc</code>, served entirely offline with no CDN. Complements the interactive Swagger UI at <code>/api/docs</code>; every backend route is documented with parameters, schemas, and examples</span>':
+      '<span class="caption-icon">📗</span> <span><strong>API Docs · ReDoc</strong> — <code>/api/redoc</code>에서 제공되는, 읽기에 최적화된 자체 호스팅 방식의 전체 OpenAPI 3.0 스펙 렌더링으로, CDN 없이 완전히 오프라인에서 제공됩니다. <code>/api/docs</code>의 인터랙티브 Swagger UI를 보완하며, 모든 백엔드 라우트가 매개변수, 스키마, 예제와 함께 문서화되어 있습니다</span>',
+    '<span class="caption-icon">📘</span> <span><strong>API Docs · Swagger UI</strong> — interactive OpenAPI 3.0 playground at <code>/api/docs</code>: collapsible endpoint groups, request/response schemas, auth headers, and try-it-out request execution against the live local server</span>':
+      '<span class="caption-icon">📘</span> <span><strong>API Docs · Swagger UI</strong> — <code>/api/docs</code>에서 제공되는 인터랙티브 OpenAPI 3.0 플레이그라운드로, 접고 펼칠 수 있는 엔드포인트 그룹, 요청/응답 스키마, 인증 헤더, 그리고 실제 로컬 서버에 대해 실행해볼 수 있는 try-it-out 기능을 제공합니다</span>',
+    '<span class="caption-icon">📗</span> <span>ReDoc at <code>/api/redoc</code> — a self-hosted, read-optimized three-panel rendering of the same OpenAPI spec: deep-linkable sections, search, and full schema/example detail. Works entirely offline (no CDN)</span>':
+      '<span class="caption-icon">📗</span> <span><code>/api/redoc</code>의 ReDoc — 동일한 OpenAPI 스펙을 읽기에 최적화된 3단 패널로 자체 호스팅하여 렌더링합니다: 딥링크 가능한 섹션, 검색, 그리고 전체 스키마/예제 상세 정보를 제공합니다. CDN 없이 완전히 오프라인에서 동작합니다</span>',
+    '<span class="caption-icon">🔔</span> Settings · Alerts — the rules-based alerting engine, a live fired-alert feed, and outbound webhook channels (14 first-class providers + a generic JSON endpoint) managed together in one place':
+      '<span class="caption-icon">🔔</span> Settings · Alerts — 규칙 기반 알림 엔진, 실시간 알림 발생 피드, 그리고 아웃바운드 웹훅 채널(14개의 기본 지원 제공업체 + 범용 JSON 엔드포인트)을 한곳에서 함께 관리합니다',
+    'Surfaces "dynamic workflows" — the fleets of sub-agents spawned by the <code>Workflow</code> tool and self-paced <code>/loop</code> runs. These emit no hooks, so they are reconstructed from the on-disk run journal written when a workflow finishes (<code>workflows/wf_&lt;runId&gt;.json</code>) plus the inner <code>subagents/agent-*.jsonl</code> transcripts. Each run shows its phases and a per-agent token / tool-call / duration breakdown; a running workflow is detected from its launch script before the journal exists. Runs appear in a panel on the Workflows page and as a linked subsection on each session.':
+      '"동적 워크플로(dynamic workflows)" — <code>Workflow</code> 도구와 자체 페이싱되는 <code>/loop</code> 실행에 의해 생성되는 서브에이전트 플릿(fleet)을 표시합니다. 이들은 훅을 전혀 발생시키지 않으므로, 워크플로가 완료될 때 기록되는 온디스크 실행 저널(<code>workflows/wf_&lt;runId&gt;.json</code>)과 내부 <code>subagents/agent-*.jsonl</code> 트랜스크립트로부터 재구성됩니다. 각 실행은 자신의 단계(phase)와 에이전트별 토큰/도구 호출/소요 시간 내역을 보여주며, 실행 중인 워크플로는 저널이 생성되기 전에도 실행 스크립트를 통해 감지됩니다. 실행 내역은 Workflows 페이지의 패널과 각 세션에 연결된 하위 섹션으로 표시됩니다.',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs</strong> — "dynamic workflows" spawned by the Workflow tool, reconstructed from on-disk run journals: status, agent count, tokens, and tool calls, expandable into a per-agent breakdown (phase, state, tokens, tools, duration) with humanized result previews</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs</strong> — Workflow 도구에 의해 생성되고 온디스크 실행 저널로부터 재구성되는 "동적 워크플로": 상태, 에이전트 수, 토큰, 도구 호출을 보여주며, 사람이 읽기 쉬운 결과 미리보기와 함께 에이전트별 내역(단계, 상태, 토큰, 도구, 소요 시간)으로 펼쳐볼 수 있습니다</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — the same fleets linked to their launching session, so a session\'s dynamic-workflow sub-agents and their folded-in token cost are visible inline</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — 동일한 플릿을 이를 실행한 세션에 연결하여, 세션의 동적 워크플로 서브에이전트와 그에 포함된 토큰 비용을 인라인으로 확인할 수 있습니다</span>',
+    '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — a run opened up: clickable color-coded phase filters, the per-agent metrics table, and a full list of clickable result items that expand to each agent\'s complete prompt and result</span>':
+      '<span class="caption-icon">🧬</span> <span><strong>Workflow Runs · expanded</strong> — 펼쳐본 실행 화면: 클릭 가능한 색상별 단계 필터, 에이전트별 지표 테이블, 그리고 클릭하면 각 에이전트의 전체 프롬프트와 결과로 펼쳐지는 결과 항목 전체 목록을 제공합니다</span>',
+  },
   plain: {
     zh: {
       "System Overview": "系统概览",
@@ -2790,6 +4008,185 @@ window.__WIKI_CONTENT_I18N = {
       "Common Issues": "Các vấn đề thường gặp",
       "Technology Choices": "Lựa chọn công nghệ",
       "Workflow Runs": "Lần chạy quy trình",
+    },
+    ko: {
+      "System Overview": "시스템 개요",
+      "What's Included": "포함된 기능",
+      "Live Dashboard": "실시간 대시보드",
+      "Kanban Board": "Kanban 보드",
+      "Sessions Table": "세션 테이블",
+      "Session Detail": "세션 상세",
+      "Alerts & Webhooks": "알림 & Webhook",
+      "Desktop App (macOS & Windows)": "데스크톱 앱 (macOS & Windows)",
+      "Activity Feed": "활동 피드",
+      Analytics: "분석",
+      "WebSocket Push": "WebSocket 푸시",
+      Statusline: "Statusline",
+      "History Import": "히스토리 가져오기",
+      "Transcript Cache": "트랜스크립트 캐시",
+      "Bounded Cache Memory": "제한된 캐시 메모리",
+      "Constant-Time Sweep": "상수 시간 스윕",
+      "Subagent Hierarchy": "서브에이전트 계층 구조",
+      "Cost Tracking": "비용 추적",
+      "Settings & Management": "설정 & 관리",
+      "Local MCP Server": "로컬 MCP 서버",
+      "Claude + Codex Extensions": "Claude + Codex 확장",
+      "Workflow Graphs": "워크플로 그래프",
+      "Workflow Analytics": "워크플로 분석",
+      "Session Drill-In": "세션 드릴다운",
+      "Browser Notifications": "브라우저 알림",
+      "Docker Deployment": "Docker 배포",
+      "Plugin Marketplace": "플러그인 마켓플레이스",
+      "Run Claude": "Claude 실행",
+      "Claude Config Explorer": "Claude 설정 탐색기",
+      "Responsive Design": "반응형 디자인",
+      "Concurrency Timeline": "동시성 타임라인",
+      "VS Code Extension": "VS Code 확장",
+      "Error Propagation Map": "오류 전파 맵",
+      "Progressive Web App": "프로그레시브 웹 앱",
+      "Fresh-by-Default Caching": "기본 신선 캐싱",
+      "Auto-Reload on Update": "업데이트 시 자동 새로고침",
+      Screenshots: "스크린샷",
+      "GitHub Star History": "GitHub Star 히스토리",
+      "Hook Events Captured": "캡처되는 Hook 이벤트",
+      "Quick Start": "빠른 시작",
+      Clone: "클론",
+      Install: "설치",
+      Start: "시작",
+      "Use Claude": "Claude 사용",
+      "Alternative: Docker / Podman": "대안: Docker / Podman",
+      "Optional: Enable MCP and Agent Extensions": "선택 사항: MCP 및 에이전트 확장 활성화",
+      Verification: "검증",
+      Configuration: "설정",
+      "Environment Variables": "환경 변수",
+      "Hook Configuration": "Hook 설정",
+      "Scripts Reference": "스크립트 참조",
+      "System Architecture": "시스템 아키텍처",
+      "Agent State Machine": "에이전트 상태 머신",
+      "Session State Machine": "세션 상태 머신",
+      "Data Flow": "데이터 흐름",
+      "Event Ingestion Pipeline": "이벤트 수집 파이프라인",
+      "Client Data Loading Pattern": "클라이언트 데이터 로딩 패턴",
+      "Server Architecture": "서버 아키텍처",
+      "Server Modules": "서버 모듈",
+      "Client Architecture": "클라이언트 아키텍처",
+      "Client Routes": "클라이언트 라우트",
+      "Key Client Modules": "주요 클라이언트 모듈",
+      "PWA & Service Worker": "PWA & 서비스 워커",
+      "State Management": "상태 관리",
+      "Database Design": "데이터베이스 설계",
+      Indexes: "인덱스",
+      "SQLite Configuration": "SQLite 설정",
+      "API Reference": "API 참조",
+      Health: "헬스 체크",
+      Sessions: "세션",
+      Agents: "에이전트",
+      "Events, Stats, Analytics": "이벤트, 통계, 분석",
+      "Hooks Ingestion": "Hook 수집",
+      Pricing: "가격 책정",
+      Settings: "설정",
+      "Import History": "가져오기 기록",
+      Workflows: "워크플로",
+      Alerts: "알림",
+      Webhooks: "Webhook",
+      "WebSocket Protocol": "WebSocket 프로토콜",
+      "Message Envelope": "메시지 엔벨로프",
+      "Hook Integration": "Hook 통합",
+      "Hook Handler Design": "Hook 핸들러 설계",
+      "Hook Installation Flow": "Hook 설치 흐름",
+      "Import Pipeline": "가져오기 파이프라인",
+      "Three Modes, One Pipeline": "세 가지 모드, 하나의 파이프라인",
+      "Upload Request Sequence": "업로드 요청 시퀀스",
+      "Idempotence & Cost Accuracy": "멱등성 & 비용 정확성",
+      "Supported Source Layouts": "지원되는 소스 레이아웃",
+      "Safety Model": "안전 모델",
+      "WebSocket Progress Events": "WebSocket 진행 이벤트",
+      "MCP & Agent Extensions": "MCP & 에이전트 확장",
+      "Local MCP Server Runtime": "로컬 MCP 서버 런타임",
+      "Agent Extension Layout": "에이전트 확장 레이아웃",
+      "Root Helper Scripts": "루트 헬퍼 스크립트",
+      Installation: "설치",
+      "Available Plugins": "사용 가능한 플러그인",
+      "Skill Usage Examples": "스킬 사용 예시",
+      "CLI Tools": "CLI 도구",
+      "Plugin Architecture": "플러그인 아키텍처",
+      "Data Model Reference": "데이터 모델 참조",
+      "Statusline Utility": "Statusline 유틸리티",
+      "Detailed Components": "세부 구성 요소",
+      "In-Process Architecture": "인프로세스 아키텍처",
+      "What It Adds": "추가되는 기능",
+      "Menu-Bar / Notification-Area (Tray) Icon": "메뉴 바 / 알림 영역(트레이) 아이콘",
+      "Native Application Menu": "네이티브 애플리케이션 메뉴",
+      "Auto-Start at Login": "로그인 시 자동 시작",
+      "Close Hides, Server Stays Up": "닫아도 숨김, 서버는 계속 실행",
+      "Runs Alongside the Web Dashboard": "웹 대시보드와 함께 실행",
+      "Single-Instance Lock": "단일 인스턴스 잠금",
+      "First-Boot Bootstrap": "최초 부팅 부트스트랩",
+      "Data Persistence & CLI Reliability": "데이터 지속성 & CLI 안정성",
+      "Port Discovery": "포트 검색",
+      "How to Get It": "받는 방법",
+      "Option A — download the latest GitHub Release (recommended)":
+        "방법 A — 최신 GitHub Release 다운로드 (권장)",
+      "Option B — per-commit CI artifact": "방법 B — 커밋별 CI 아티팩트",
+      "Option C — build locally": "방법 C — 로컬 빌드",
+      macOS: "macOS",
+      "Open the DMG": "DMG 파일 열기",
+      "Drag to Applications": "Applications로 드래그",
+      "Clear Quarantine": "격리 속성 제거",
+      Launch: "실행",
+      Windows: "Windows",
+      "Run the Installer": "설치 프로그램 실행",
+      "Clear SmartScreen": "SmartScreen 차단 해제",
+      "Settings Page": "설정 페이지",
+      "Model Pricing": "모델 가격",
+      "Data Management": "데이터 관리",
+      "Data Export": "데이터 내보내기",
+      "System Health": "시스템 상태",
+      "Notification Preferences": "알림 설정",
+      "Rule types": "규칙 유형",
+      "Evaluation engine": "평가 엔진",
+      "14 first-class providers": "14개의 퍼스트클래스 프로바이더",
+      "Delivery engine": "전달 엔진",
+      Security: "보안",
+      "Guided setup": "가이드 설정",
+      "Provider payloads": "프로바이더 페이로드",
+      "Update Notifier": "업데이트 알리미",
+      "Non-Blocking Detection": "논블로킹 감지",
+      "5-min Scheduler": "5분 스케줄러",
+      "Situation-Aware Command": "상황 인식 명령",
+      "Two UI Surfaces": "두 가지 UI 화면",
+      "Soft Failure Semantics": "소프트 실패 시맨틱스",
+      "Dismissal Memory": "닫힘 상태 기억",
+      "API Surface": "API 표면",
+      "Connection Status": "연결 상태",
+      "Internationalization (i18n)": "국제화 (i18n)",
+      "Namespaced resources": "네임스페이스화된 리소스",
+      "Detection & fallback": "감지 & 폴백",
+      "Locale-aware formatting": "로케일 인식 포맷팅",
+      "Technical terms preserved": "보존되는 기술 용어",
+      "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby — 반응형 고양이 동반자",
+      "Reactive Mascot — Eight Moods": "반응형 마스코트 — 여덟 가지 감정",
+      "Auto-Surface Speech Bubbles": "말풍선 자동 표시",
+      "The ⌘B Panel": "⌘B 패널",
+      "Ask → Run Claude Handoff": "Ask → Run Claude 핸드오프",
+      "Accessibility & Resilience": "접근성 & 복원력",
+      "Deployment Modes": "배포 모드",
+      "Container Runtime (Docker / Podman)": "컨테이너 런타임 (Docker / Podman)",
+      "Docker / Podman": "Docker / Podman",
+      "Plain Docker / Podman (no Compose)": "순수 Docker / Podman (Compose 미사용)",
+      "Volume Mounts": "볼륨 마운트",
+      "Multi-Stage Build": "멀티 스테이지 빌드",
+      "Performance Characteristics": "성능 특성",
+      Troubleshooting: "문제 해결",
+      "No sessions appearing after starting Claude Code":
+        "Claude Code 시작 후 세션이 나타나지 않음",
+      "Check 1 — Is the server running?": "확인 1 — 서버가 실행 중인가요?",
+      "Check 2 — Are hooks installed?": "확인 2 — Hook이 설치되어 있나요?",
+      "Check 3 — Start a new Claude Code session": "확인 3 — 새 Claude Code 세션 시작",
+      "Check 4 — Is Node.js in PATH?": "확인 4 — Node.js가 PATH에 있나요?",
+      "Common Issues": "일반적인 문제",
+      "Technology Choices": "기술 선택",
+      "Workflow Runs": "워크플로 실행",
     },
   },
 };

@@ -1,0 +1,10 @@
+{
+  "title": "활동 피드",
+  "subtitle": "모든 Agent 이벤트의 실시간 스트림",
+  "paused": "(일시중지됨 - {{count}}개 버퍼링됨)",
+  "resume": "재개",
+  "pause": "일시중지",
+  "noActivity": "아직 활동이 없습니다",
+  "noActivityDesc": "Claude Code Agent가 작업하면 여기에 실시간으로 이벤트가 표시됩니다.",
+  "viewSession": "세션"
+}

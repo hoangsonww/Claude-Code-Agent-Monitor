@@ -1,0 +1,253 @@
+{
+  "title": "Claude 설정 탐색기",
+  "subtitle": "플러그인, 스킬, Subagent, MCP 서버, hooks, 설정 등 Claude Code 구성을 한눈에 확인하세요.",
+  "refresh": "새로고침",
+  "refreshing": "새로고침 중…",
+  "lastUpdated": "마지막 업데이트: {{time}}",
+  "loadError": "불러오기 실패: {{message}}",
+  "scope": {
+    "all": "전체 범위",
+    "user": "사용자",
+    "project": "프로젝트",
+    "projectLocal": "프로젝트(로컬)",
+    "home": "Home"
+  },
+  "tabs": {
+    "overview": "개요",
+    "skills": "스킬",
+    "agents": "Subagent",
+    "commands": "슬래시 명령",
+    "outputStyles": "출력 스타일",
+    "plugins": "플러그인",
+    "marketplaces": "마켓플레이스",
+    "mcp": "MCP 서버",
+    "hooks": "Hooks",
+    "keybindings": "키바인딩",
+    "settings": "설정",
+    "memory": "메모리"
+  },
+  "overview": {
+    "rootsTitle": "루트 경로",
+    "claudeHome": "Claude home",
+    "projectClaudeDir": "프로젝트 .claude",
+    "projectRoot": "프로젝트 루트",
+    "claudeJson": "claude.json",
+    "summary": "빠른 요약",
+    "user": "사용자",
+    "project": "프로젝트",
+    "items": "개 항목"
+  },
+  "common": {
+    "search": "이름으로 검색…",
+    "empty": "아직 항목이 없습니다.",
+    "viewSource": "소스 보기",
+    "close": "닫기",
+    "copyPath": "경로 복사",
+    "copied": "복사됨",
+    "truncated": "(미리보기가 잘렸습니다)",
+    "size": "크기",
+    "modified": "수정됨",
+    "scopeLabel": "범위",
+    "noFrontmatter": "프론트매터 없음",
+    "redactedNotice": "/token|secret|password|key|auth/i와 일치하는 값은 서버 측에서 마스킹 처리됩니다."
+  },
+  "skills": {
+    "name": "이름",
+    "description": "설명"
+  },
+  "agents": {
+    "name": "이름",
+    "model": "모델",
+    "tools": "도구"
+  },
+  "plugins": {
+    "manifest": "매니페스트",
+    "marketplace": "마켓플레이스",
+    "version": "버전",
+    "installedAt": "설치일",
+    "lastUpdated": "업데이트됨",
+    "installPath": "설치 경로",
+    "missing": "설치 경로 없음",
+    "manifestMissing": "{{path}}에서 installed_plugins.json을 찾을 수 없습니다",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "contributes": "제공 항목",
+    "skills_one": "스킬 {{count}}개",
+    "skills_other": "스킬 {{count}}개",
+    "agents_one": "Agent {{count}}개",
+    "agents_other": "Agent {{count}}개",
+    "commands_one": "명령 {{count}}개",
+    "commands_other": "명령 {{count}}개",
+    "outputStyles_one": "출력 스타일 {{count}}개",
+    "outputStyles_other": "출력 스타일 {{count}}개",
+    "hooks_one": "hook 스크립트 {{count}}개",
+    "hooks_other": "hook 스크립트 {{count}}개",
+    "author": "작성자",
+    "homepage": "홈페이지",
+    "license": "라이선스",
+    "description": "설명"
+  },
+  "marketplaces": {
+    "manifest": "알려진 마켓플레이스 매니페스트",
+    "noMarketplaces": "등록된 마켓플레이스가 없습니다.",
+    "source": "소스",
+    "lastUpdated": "마지막 동기화",
+    "pluginCount": "플러그인",
+    "owner": "소유자",
+    "installLocation": "설치 경로",
+    "addCmd": "claude plugin marketplace add <repo>"
+  },
+  "keybindings": {
+    "file": "소스 파일",
+    "missing": "{{path}}에서 keybindings.json을 찾을 수 없습니다",
+    "context": "컨텍스트",
+    "key": "키",
+    "action": "동작",
+    "docsLink": "키바인딩 문서 보기"
+  },
+  "statusline": {
+    "title": "상태 표시줄",
+    "configured": "설정된 상태 표시줄 명령",
+    "scripts": "CLAUDE_HOME에서 찾은 상태 표시줄 스크립트",
+    "noStatusline": "설정된 상태 표시줄이 없습니다."
+  },
+  "hookScripts": {
+    "title": "~/.claude/hooks/ 스크립트",
+    "subtitle": "hook 명령이 참조하는 헬퍼 스크립트입니다. settings.json의 `hooks.<event>.hooks[].command`가 호출할 때 실행됩니다.",
+    "empty": "~/.claude/hooks/에 스크립트가 없습니다."
+  },
+  "mcp": {
+    "userScope": "사용자 범위 서버",
+    "projectScope": "프로젝트 범위 서버",
+    "command": "명령",
+    "args": "인자",
+    "env": "환경변수 이름",
+    "url": "URL",
+    "headers": "헤더 이름",
+    "kind": "종류",
+    "source": "소스",
+    "noServers": "MCP 서버를 찾을 수 없습니다."
+  },
+  "hooks": {
+    "noHooks": "설정된 hooks가 없습니다.",
+    "matcher": "매처",
+    "command": "명령",
+    "type": "유형",
+    "timeout": "타임아웃",
+    "fileMissing": "(이 범위에 설정 파일 없음)"
+  },
+  "settings": {
+    "fileMissing": "(이 범위에 설정 파일 없음)"
+  },
+  "memory": {
+    "userScope": "사용자 메모리",
+    "projectScope": "프로젝트 메모리",
+    "missing": "CLAUDE.md를 찾을 수 없습니다.",
+    "autoTitle": "프로젝트 메모리 저장소",
+    "autoSubtitle": "~/.claude/projects/<project>/memory/ 아래에 프로젝트별로 파일 기반 메모리를 저장합니다 - MEMORY.md 색인 파일과 기억된 사실마다 하나씩의 파일로 구성됩니다. 여기서는 읽기 전용입니다.",
+    "noMatches": "검색과 일치하는 메모리 파일이 없습니다.",
+    "indexFiles": "색인",
+    "fileCount_one": "파일 {{count}}개",
+    "fileCount_other": "파일 {{count}}개",
+    "factFiles_one": "사실 {{count}}개",
+    "factFiles_other": "사실 {{count}}개",
+    "newFile": "새 파일",
+    "newFileTitle": "{{project}}에 새 메모리 파일 만들기",
+    "namePlaceholder": "예: my_fact.md",
+    "nameHelp": ".md로 끝나는 파일 이름(생략 시 자동으로 .md가 추가됩니다).",
+    "projectLabel": "프로젝트",
+    "projectHelp": "이 프로젝트의 메모리 디렉터리에 생성됩니다."
+  },
+  "edit": {
+    "newButton": "새로 만들기",
+    "editButton": "편집",
+    "deleteButton": "삭제",
+    "save": "저장",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "deleting": "삭제 중…",
+    "newTitle": "새 {{type}} 만들기",
+    "editTitle": "{{name}} 편집",
+    "namePlaceholder": "이름(kebab-case, 공백 없음)",
+    "nameLabel": "이름",
+    "nameHelp": "영문자, 숫자, 점, 하이픈, 밑줄만 사용. 최대 64자.",
+    "contentLabel": "내용",
+    "scopePicker": "범위",
+    "writeError": "저장 실패: {{message}}",
+    "deleteError": "삭제 실패: {{message}}",
+    "saveSuccess": "저장됨 · 백업 위치 {{path}}",
+    "saveSuccessNew": "생성되었습니다.",
+    "deleteSuccess": "삭제됨 · 백업 위치 {{path}}",
+    "confirmDelete": "이 항목을 삭제하시겠습니까?",
+    "confirmDeleteBody": "삭제하기 전에 파일(또는 번들 자산을 포함한 skill 폴더 전체)을 타임스탬프가 찍힌 백업으로 먼저 이동합니다. 백업은 Claude Code가 스캔하지 않는 디렉터리에 위치하므로 해당 항목은 CLI에서 사라집니다.",
+    "confirmDeletePath": "경로: {{path}}",
+    "confirmDeleteAction": "예, 백업 후 삭제",
+    "templates": {
+      "skills": "---\nname: my-skill\ndescription: 한 줄 설명(Claude가 스킬을 선택할 때 표시됨)\n---\n\n본문 - 이 스킬이 하는 일, 사용 시점, 예시.\n",
+      "agents": "---\nname: my-agent\ndescription: 이 subagent를 호출할 시점\ntools: Read, Grep\nmodel: sonnet\n---\n\nsubagent를 위한 시스템 프롬프트.\n",
+      "commands": "---\ndescription: 슬래시 메뉴에 표시되는 한 줄 설명\n---\n\n/my-command가 하는 일.\n",
+      "output-styles": "---\nname: my-style\ndescription: 출력 스타일 설명\n---\n\n스타일 지침.\n",
+      "memory": "# 프로젝트 메모리\n\nClaude가 세션 시작 시 이 내용을 읽습니다.\n",
+      "auto-memory": "---\nname: my-fact\ndescription: 기억할 사실에 대한 한 줄 요약\nmetadata:\n  type: feedback\n---\n\n기억할 내용.\n"
+    }
+  },
+  "backups": {
+    "title": "백업",
+    "empty": "아직 백업이 없습니다 - 편집하거나 삭제할 때마다 타임스탬프가 찍힌 백업이 여기에 생성됩니다.",
+    "viewLink": "백업 기록 보기",
+    "openButton": "백업",
+    "subtitle": "에디터에서 저장/삭제할 때마다 먼저 이곳에 사본을 기록합니다. 백업 폴더는 Claude Code가 스캔하지 않는 위치에 있으므로 CLI에 잔여물로 다시 나타나지 않습니다.",
+    "restoreHint": "백업을 원래 위치로 이름을 바꿔서 복원하세요:",
+    "size": "크기",
+    "created": "생성됨",
+    "type": "유형",
+    "scopeLabel": "범위",
+    "filterAll": "전체 유형"
+  },
+  "explain": {
+    "hooks": {
+      "title": "Hooks는 의도적으로 이 화면에서 읽기 전용입니다",
+      "body": "Hooks는 Claude Code가 끊임없이 기록하는 settings.json 파일의 `hooks` 블록에 있습니다. 대시보드에서 편집하면 실행 중인 CLI와 경합해 대시보드 자체의 수집 기능(아래의 `hook-handler.js` 항목)이 조용히 깨질 수 있습니다.",
+      "howTo": "다음 방법 중 하나로 직접 편집하세요:",
+      "cmd1": "claude config /hooks",
+      "cmd1Note": "Claude Code 내부의 대화형 hook 편집기",
+      "cmd2": "$EDITOR ~/.claude/settings.json",
+      "cmd2Note": "사용자 수준 hooks 블록을 직접 편집",
+      "cmd3": "$EDITOR .claude/settings.json",
+      "cmd3Note": "프로젝트 수준 hooks 블록을 직접 편집"
+    },
+    "settings": {
+      "title": "Settings는 의도적으로 이 화면에서 읽기 전용입니다",
+      "body": "이 JSON 파일들은 모델 변경, 테마 전환, 플러그인 활성화 등이 있을 때마다 실행 중인 `claude` CLI에 의해 다시 작성됩니다. 대시보드에서 쓰기를 하면 CLI와 경합해 상태를 잃게 됩니다.",
+      "howTo": "Claude Code 자체를 통해 설정을 편집하세요:",
+      "cmd1": "claude config set <key> <value>",
+      "cmd1Note": "개별 키를 안전하게 설정",
+      "cmd2": "/config",
+      "cmd2Note": "CLI 내부에서 대화형 설정 UI 열기",
+      "cmd3": "$EDITOR ~/.claude/settings.json",
+      "cmd3Note": "직접 편집(단, claude 프로세스가 실행 중이 아닐 때만)"
+    },
+    "plugins": {
+      "title": "플러그인은 CLI가 관리합니다",
+      "body": "플러그인은 자체 레지스트리를 가진 번들입니다 - `installed_plugins.json`과 `plugins/cache/` 아래의 설치 경로로 구성됩니다. 대시보드는 이를 읽기만 하며, 레지스트리 일관성을 유지하기 위해 설치/제거는 `claude plugin …`에 위임합니다.",
+      "install": "플러그인 설치:",
+      "installCmd": "claude plugin install <marketplace>/<plugin>",
+      "uninstall": "이 플러그인 제거:",
+      "uninstallButton": "제거 명령 복사"
+    },
+    "mcp": {
+      "title": "MCP 서버는 CLI가 관리합니다",
+      "body": "MCP 서버 설정은 실행 중인 CLI가 끊임없이 쓰는 것과 같은 파일인 `~/.claude.json`에 있습니다. 대시보드의 동시 쓰기는 프로젝트 상태를 손상시킬 수 있으므로 추가/제거는 Claude Code 자체를 통해 이루어집니다.",
+      "list": "설정된 서버 목록 보기:",
+      "listCmd": "claude mcp list",
+      "add": "서버 추가:",
+      "addCmd": "claude mcp add <name> <command> [args…]",
+      "remove": "이 서버 제거:",
+      "removeButton": "제거 명령 복사"
+    }
+  },
+  "snippet": {
+    "copy": "복사",
+    "copied": "복사됨"
+  }
+}

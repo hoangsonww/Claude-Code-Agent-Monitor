@@ -538,6 +538,7 @@
           <button type="button" class="lang-btn" data-lang="en">EN</button>
           <button type="button" class="lang-btn" data-lang="zh">中文</button>
           <button type="button" class="lang-btn" data-lang="vi">VI</button>
+          <button type="button" class="lang-btn" data-lang="ko">한국어</button>
         </div>
 
         <div class="sidebar-nav">
@@ -2260,7 +2261,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 working --> working: PostToolUse (tool completed)
                 working --> waiting: Stop (non-error)
                 working --> waiting: Notification (input prompt)
-                working --> waiting: Esc cancel (watchdog: marker or idle timeout)
+                working --> waiting: Esc cancel (watchdog marker or idle timeout)
                 waiting --> error: Stop with error
                 working --> error: Stop with error
                 waiting --> error: API error (watchdog)
@@ -2288,7 +2289,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
                 active --> waiting: Stop (non-error, flag re-stamped)
                 active --> waiting: Permission Notification (agent → waiting)
-                active --> waiting: Esc cancel (watchdog: marker or idle timeout)
+                active --> waiting: Esc cancel (watchdog marker or idle timeout)
                 active --> error: Stop (stop_reason=error)
                 active --> error: API error (watchdog)
                 waiting --> error: API error (watchdog)
@@ -4967,7 +4968,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 names. Each webhook provider ships a collapsible step-by-step setup guide linking to
                 the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic
                 alert and reports the delivery result inline, and targets can be scoped to specific
-                rules. Fully localized (en / zh / vi).
+                rules. Fully localized (en / zh / vi / ko).
               </p>
             </div>
           </div>
@@ -5234,12 +5235,12 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <h2>Internationalization (i18n)</h2>
 
           <p>
-            The entire UI ships in <strong>three languages — English, 简体中文, and Tiếng Việt</strong>
+            The entire UI ships in <strong>four languages — English, 简体中文, Tiếng Việt, and 한국어</strong>
             — built on <code>i18next</code> + <code>react-i18next</code> with
             <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart
             tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts
             rule-help tooltips + webhook setup guides are translated. Switch languages from the
-            sidebar (EN / 中文 / VI) — the choice persists in <code>localStorage</code>.
+            sidebar (EN / 中文 / VI / 한국어) — the choice persists in <code>localStorage</code>.
           </p>
 
           <div class="feature-grid">
@@ -6089,7 +6090,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=22" defer></script>
+    <script src="i18n-content.js?v=23" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

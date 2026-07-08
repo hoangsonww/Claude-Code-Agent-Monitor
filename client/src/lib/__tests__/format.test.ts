@@ -112,6 +112,9 @@ describe("locale-aware date formatting", () => {
     await i18n.changeLanguage("vi");
     expect(getCurrentLocale()).toBe("vi-VN");
 
+    await i18n.changeLanguage("ko");
+    expect(getCurrentLocale()).toBe("ko-KR");
+
     await i18n.changeLanguage("en");
     expect(getCurrentLocale()).toBe("en-US");
   });

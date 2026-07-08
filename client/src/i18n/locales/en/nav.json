@@ -55,11 +55,13 @@
   "languageNames": {
     "en": "English",
     "zh": "Chinese",
-    "vi": "Vietnamese"
+    "vi": "Vietnamese",
+    "ko": "Korean"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
-    "vi": "VI"
+    "vi": "VI",
+    "ko": "한국어"
   }
 }

@@ -16,12 +16,16 @@ describe("i18n resources", () => {
     expect(i18n.t("nav:languageShort.vi")).toBe("VI");
   });
 
-  it("should keep Agent terminology untranslated in zh and vi locales", async () => {
+  it("should keep Agent terminology untranslated in zh, vi, and ko locales", async () => {
     await i18n.changeLanguage("zh");
     expect(i18n.t("common:agent")).toBe("Agent");
     expect(i18n.t("common:subagent")).toBe("Subagent");
 
     await i18n.changeLanguage("vi");
+    expect(i18n.t("common:agent")).toBe("Agent");
+    expect(i18n.t("common:subagent")).toBe("Subagent");
+
+    await i18n.changeLanguage("ko");
     expect(i18n.t("common:agent")).toBe("Agent");
     expect(i18n.t("common:subagent")).toBe("Subagent");
   });
@@ -31,6 +35,21 @@ describe("i18n resources", () => {
 
     expect(i18n.resolvedLanguage?.startsWith("vi")).toBe(true);
     expect(i18n.t("nav:dashboard")).toBe("Tổng quan");
+  });
+
+  it("should provide Korean translations for navigation keys", async () => {
+    await i18n.changeLanguage("ko");
+
+    expect(i18n.t("nav:dashboard")).toBe("대시보드");
+    expect(i18n.t("nav:agentBoard")).toBe("칸반 보드");
+    expect(i18n.t("nav:languageShort.ko")).toBe("한국어");
+  });
+
+  it("should support non-explicit Korean locale tags", async () => {
+    await i18n.changeLanguage("ko-KR");
+
+    expect(i18n.resolvedLanguage?.startsWith("ko")).toBe(true);
+    expect(i18n.t("nav:dashboard")).toBe("대시보드");
   });
 
   it("pluralizes the subagent count labels in English", async () => {

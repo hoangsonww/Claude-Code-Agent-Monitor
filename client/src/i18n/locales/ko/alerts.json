@@ -1,0 +1,80 @@
+{
+  "title": "알림",
+  "subtitle": "세션, Agent, 이벤트, 토큰 사용량에 대한 규칙 기반 알림",
+  "refresh": "새로고침",
+  "ackAll": "전체 확인 ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "이벤트 패턴",
+    "inactivity": "비활성",
+    "status_duration": "정체된 Agent",
+    "token_threshold": "토큰 임계값"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "수집된 이벤트가 패턴과 일치하면 발생합니다. 개수를 1 초과로 설정하면 지정한 시간 창 내에 N번 일치할 때만 발생합니다(예: 2분 내 5회 이상 오류 발생).",
+    "inactivity": "활성 세션이 설정한 분(minute) 동안 이벤트를 받지 못하면 발생합니다.",
+    "status_duration": "Agent가 설정한 분(minute) 동안 활동 없이 선택한 상태에 머물러 있으면 발생합니다.",
+    "token_threshold": "세션의 총 토큰 사용량(입력 + 출력 + 캐시)이 임계값을 초과하면 발생합니다."
+  },
+  "ruleDesc": {
+    "eventPattern": "{{pattern}}과(와) 일치",
+    "eventPatternCount": "{{window}}분 내 {{pattern}} ≥{{count}}회",
+    "inactivity": "{{minutes}}분 동안 세션 활동 없음",
+    "statusDuration": "Agent가 {{status}} 상태로 {{minutes}}분 동안 정체",
+    "tokenThreshold": "세션 토큰이 {{tokens}} 초과"
+  },
+  "rules": {
+    "title": "알림 규칙",
+    "add": "규칙 추가",
+    "cancel": "취소",
+    "create": "규칙 생성",
+    "saving": "저장 중…",
+    "empty": "아직 알림 규칙이 없습니다. 규칙을 추가해 정체된 Agent, 오류 폭증, 유휴 세션, 토큰 급증을 모니터링하세요.",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "enable": "규칙 활성화",
+    "disable": "규칙 비활성화",
+    "delete": "규칙 삭제",
+    "confirmDelete": "규칙 \"{{name}}\"과(와) 관련 알림 기록을 삭제하시겠습니까?",
+    "cooldown": "쿨다운 {{seconds}}초",
+    "form": {
+      "name": "규칙 이름",
+      "namePlaceholder": "예: 오류 폭증",
+      "type": "규칙 유형",
+      "eventType": "이벤트 유형(정확히 일치)",
+      "toolName": "도구 이름(정확히 일치)",
+      "summaryContains": "요약에 포함된 문자열",
+      "count": "트리거 횟수",
+      "windowMinutes": "시간 창(분)",
+      "agentStatus": "Agent 상태",
+      "minutes": "분",
+      "totalTokens": "전체 토큰",
+      "cooldown": "쿨다운(초)"
+    },
+    "deleteTitle": "알림 규칙을 삭제하시겠습니까?",
+    "help": {
+      "name": "이 규칙의 라벨입니다. 알림 피드에 표시되며 웹훅 페이로드(rule_name)에 포함됩니다. 예: 'Repeated Bash errors'.",
+      "type": "이 규칙이 감시하는 대상입니다. event_pattern은 실시간 이벤트 스트림과 일치하는지, inactivity는 활성 세션이 조용해졌는지, status_duration은 Agent가 특정 상태에 정체되었는지, token_threshold는 세션의 토큰 사용량이 한도를 초과했는지를 감시합니다.",
+      "eventType": "일치시킬 Claude Code hook 이벤트입니다. 비워 두면 모든 이벤트 유형과 일치합니다. 대소문자를 구분하여 정확히 일치해야 합니다.",
+      "toolName": "Agent가 호출한 도구입니다(PreToolUse / PostToolUse 이벤트 기준). 비워 두면 모든 도구와 일치합니다. 정확히 일치해야 합니다.",
+      "summaryContains": "이벤트 요약 텍스트에 대한 대소문자 구분 없는 부분 문자열 일치입니다. 오류나 특정 문구를 잡아내는 데 유용합니다. 비워 두면 건너뜁니다.",
+      "count": "알림이 발생하기 전까지 필요한 일치 이벤트 수입니다. 1이면 첫 번째 일치에서 바로 발생합니다. 1보다 크게 설정하면 폭증(예: 반복되는 오류)을 감지할 수 있습니다.",
+      "window": "개수를 세는 데 사용되는 롤링 조회 창입니다. 예: 개수 5 + 창 2는 '2분 내 아무 시점에서든 5번 일치'를 의미합니다.",
+      "status": "감시할 Agent 상태입니다. 'working'은 작업 도중 멈춘 Agent를, 'waiting'은 입력/권한 대기 중인 Agent를 감지합니다.",
+      "minutesInactivity": "활성 세션이 이 분(minute) 동안 이벤트가 없으면 발생합니다(정체되었거나 잊힌 세션).",
+      "minutesStatus": "Agent가 선택한 상태에 활동 없이 이 분(minute) 동안 머물러 있으면 발생합니다(정체된 Agent).",
+      "totalTokens": "세션의 누적 토큰(입력 + 출력 + 캐시 읽기 + 캐시 쓰기)이 이 수치를 초과하면 발생합니다. 예: 1000000 = 100만 토큰.",
+      "cooldown": "동일한 규칙 + 세션 + Agent에 대해 반복 알림 사이의 최소 대기 시간(초)입니다. 시끄러운 중복 알림을 방지합니다. 기본값 300(5분); 0 = 쿨다운 없음."
+    }
+  },
+  "feed": {
+    "title": "알림 피드",
+    "unackedCount": "확인 안 됨 {{count}}건",
+    "unackedOnly": "확인 안 된 것만",
+    "ack": "확인",
+    "viewSession": "세션 보기",
+    "loadMore": "더 보기 ({{total}}개 중 {{shown}}개)",
+    "emptyTitle": "알림 없음",
+    "emptyDescription": "규칙에 의해 발생한 알림이 여기에 실시간으로 표시됩니다.",
+    "emptyUnacked": "모두 확인되었습니다. 새 알림이 발생하면 여기에 표시됩니다."
+  }
+}

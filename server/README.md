@@ -879,7 +879,7 @@ stateDiagram-v2
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop (non-error, flag re-stamped)
     active --> waiting: Permission Notification (agent → waiting)
-    active --> waiting: Esc cancel (watchdog: marker or idle timeout)
+    active --> waiting: Esc cancel (watchdog marker or idle timeout)
     active --> error: Stop (stop_reason=error)
     active --> error: API error detected (watchdog)
     waiting --> error: API error detected (watchdog)
@@ -908,7 +908,7 @@ stateDiagram-v2
     working --> working: PostToolUse (tool completed)
     working --> waiting: Stop (non-error)
     working --> waiting: Notification (input prompt)
-    working --> waiting: Esc cancel (watchdog: marker or idle timeout)
+    working --> waiting: Esc cancel (watchdog marker or idle timeout)
     waiting --> error: Stop with error
     working --> error: Stop with error
     waiting --> error: API error detected (watchdog)

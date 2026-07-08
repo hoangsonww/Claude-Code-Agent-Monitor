@@ -1,0 +1,22 @@
+{
+  "title": "대시보드",
+  "subtitle": "Claude Code Agent 활동의 실시간 개요",
+  "totalSessions": "전체 세션",
+  "activeAgents": "활성 Agent",
+  "activeSubagents": "활성 Subagent",
+  "eventsToday": "오늘의 이벤트",
+  "totalEvents": "전체 이벤트",
+  "totalCost": "총 비용",
+  "viewBoard": "보드 보기",
+  "viewAll": "전체 보기",
+  "activeAgentsSection": "활성 Agent",
+  "recentActivity": "최근 활동",
+  "noAgents": "활성 Agent가 없습니다",
+  "noAgentsDesc": "Claude Code 세션이 실행 중이면 Agent가 여기에 표시됩니다.",
+  "noActivity": "아직 활동이 없습니다",
+  "noActivityDesc": "Claude Code 세션의 이벤트가 여기에 실시간으로 스트리밍됩니다.",
+  "failedConnect": "서버에 연결하지 못했습니다",
+  "failedLoad": "데이터를 불러오지 못했습니다",
+  "activeTrend": " 활성",
+  "totalTrend": " 활성 세션 기준"
+}
