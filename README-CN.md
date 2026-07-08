@@ -607,6 +607,10 @@ flowchart LR
 
 ---
 
+## `ccam` CLI
+
+仪表盘的完整功能面同样可以在终端中使用——零依赖的 **`ccam`** CLI（`bin/ccam.js`），由 `npm run setup` 自动链接（通过 `npm link`）。此后可在任意目录运行 `ccam <命令>`：`health`、`stats`、`kanban`、`tail`、`sessions`、`session <id>`、`agents`、`events`、`analytics`、`workflows`、`runs`、`cost`、`alerts`（含 `ack`/`ack-all`）、`rules`、`webhooks`（含 `test`）、`pricing`（list/set/delete/reset）、`import`（rescan/path）、`doctor`、`info`、`export`、`cleanup`、`reinstall-hooks`、`clear-data --yes`、`open`。CLI 通过 `~/.claude/.agent-dashboard.json` 自动发现正在运行的服务器（可用 `CLAUDE_DASHBOARD_PORT`/`DASHBOARD_PORT` 覆盖，默认 4820）；唯一的破坏性命令（`clear-data`）没有 `--yes` 时拒绝执行。详见 `ccam help`。
+
 ## npm 脚本
 
 | 命令 | 描述 |

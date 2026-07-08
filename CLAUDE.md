@@ -25,6 +25,7 @@
 - Client tests: `npm run test:client`
 - MCP install/build/start: `npm run mcp:install`, `npm run mcp:build`, `npm run mcp:start`
 - MCP typecheck: `npm run mcp:typecheck`
+- CLI (after setup): `ccam <command>` — terminal access to the full dashboard surface (`bin/ccam.js`; `ccam help` lists commands)
 
 ## Testing and verification policy
 - Backend changes: run `npm run test:server` before finishing.

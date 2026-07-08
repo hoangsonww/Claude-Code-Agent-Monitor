@@ -608,6 +608,10 @@ flowchart LR
 
 ---
 
+## CLI `ccam`
+
+Toàn bộ bề mặt tính năng của dashboard cũng dùng được từ terminal qua CLI **`ccam`** không phụ thuộc thư viện ngoài (`bin/ccam.js`), được liên kết tự động bởi `npm run setup` (qua `npm link`). Sau đó `ccam <lệnh>` chạy từ bất kỳ thư mục nào: `health`, `stats`, `kanban`, `tail`, `sessions`, `session <id>`, `agents`, `events`, `analytics`, `workflows`, `runs`, `cost`, `alerts` (+ `ack`/`ack-all`), `rules`, `webhooks` (+ `test`), `pricing` (list/set/delete/reset), `import` (rescan/path), `doctor`, `info`, `export`, `cleanup`, `reinstall-hooks`, `clear-data --yes`, `open`. CLI tự tìm server đang chạy qua `~/.claude/.agent-dashboard.json` (ghi đè bằng `CLAUDE_DASHBOARD_PORT`/`DASHBOARD_PORT`, mặc định 4820); lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes`. Xem `ccam help`.
+
 ## Tập lệnh npm
 
 | Yêu cầu                 | Sự miêu tả                                                |

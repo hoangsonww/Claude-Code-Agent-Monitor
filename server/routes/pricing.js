@@ -319,7 +319,17 @@ router.put("/", (req, res) => {
 
 // DELETE /api/pricing/:pattern - Delete a pricing rule
 router.delete("/:pattern", (req, res) => {
-  const pattern = decodeURIComponent(req.params.pattern);
+  // Express has already percent-decoded route params, so a client that
+  // properly encodeURIComponent()s a pattern like "claude-opus-4-6%" hands us
+  // the raw "%" here — a second decodeURIComponent() then throws URIError
+  // (malformed escape) and the route 500s. Try the legacy double-decode for
+  // backward compatibility, but fall back to the already-decoded value.
+  let pattern;
+  try {
+    pattern = decodeURIComponent(req.params.pattern);
+  } catch {
+    pattern = req.params.pattern;
+  }
   const existing = stmts.getPricing.get(pattern);
   if (!existing) {
     return res
