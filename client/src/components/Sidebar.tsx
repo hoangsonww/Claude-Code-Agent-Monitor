@@ -57,7 +57,7 @@ const NAV_KEYS = [
 const STORAGE_KEY = "sidebar-collapsed";
 const STATS_STORAGE_KEY = "sidebar-connection-stats";
 const RECENT_EVENTS_CAP = 8;
-const SUPPORTED_LANGUAGES = ["en", "zh", "vi"] as const;
+const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko"] as const;
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 interface PersistedStats {
@@ -119,7 +119,7 @@ function loadStats(): PersistedStats {
 
 function normalizeLanguage(language: string): SupportedLanguage {
   const base = language.toLowerCase().split("-")[0];
-  if (base === "zh" || base === "vi" || base === "en") {
+  if (base === "zh" || base === "vi" || base === "en" || base === "ko") {
     return base;
   }
   return "en";
@@ -435,7 +435,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
             <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
               {t("nav:language")}
             </p>
-            <div className="mt-2 grid grid-cols-3 gap-1">
+            <div className="mt-2 grid grid-cols-4 gap-1">
               {SUPPORTED_LANGUAGES.map((language) => {
                 const active = language === currentLanguage;
                 return (

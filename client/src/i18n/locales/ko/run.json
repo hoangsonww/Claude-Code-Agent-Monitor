@@ -1,0 +1,161 @@
+{
+  "title": "Claude 실행",
+  "subtitle": "대시보드 안에서 바로 Claude Code 세션을 시작하세요. 실시간 스트리밍 출력, 멀티턴 대화, 그리고 터미널 세션과 동일한 hooks 기반 분석을 제공합니다.",
+  "mode": {
+    "label": "모드",
+    "conversation": "대화",
+    "conversationHint": "멀티턴 - Agent가 작업하는 동안 계속해서 후속 메시지를 입력할 수 있습니다.",
+    "headless": "단발성",
+    "headlessHint": "단일 프롬프트, 단일 응답. 생성 후 stdin이 닫힙니다."
+  },
+  "fields": {
+    "prompt": "프롬프트",
+    "promptPlaceholder": "Claude에게 무엇이든 물어보세요…",
+    "cwd": "작업 디렉터리",
+    "cwdHint": "절대 경로. 기본값은 대시보드 자체의 작업 디렉터리입니다.",
+    "cwdPlaceholder": "검색하려면 입력하거나 절대 경로를 붙여넣으세요…",
+    "cwdGroups": {
+      "dashboard": "대시보드 서버",
+      "home": "Home",
+      "recent": "최근 - Claude Code가 사용함"
+    },
+    "cwdNoMatches": "일치하는 항목이 없습니다. 절대 경로를 입력해 직접 사용하세요.",
+    "model": "모델",
+    "modelInheritLabel": "설정에서 상속",
+    "modelCustom": "직접 입력…",
+    "modelCustomPlaceholder": "모델 ID(예: claude-opus-4-7-20260101)",
+    "permissionMode": "권한 모드",
+    "permissionAcceptEdits": "acceptEdits(권장)",
+    "permissionDefault": "default(대화형 프롬프트 - 헤드리스에서는 세션이 멈출 수 있음)",
+    "permissionPlan": "plan(읽기 전용 계획 수립)",
+    "permissionBypass": "bypassPermissions(위험 - 확인 없이 모든 작업 허용)",
+    "effort": "사고 노력 수준",
+    "effortHint": "모델이 답변 전에 얼마나 많이 추론할지를 결정합니다. 높을수록 더 많은 사고 토큰을 사용해 느리지만 더 깊게 생각합니다. 비워 두면 모델의 기본값을 상속합니다."
+  },
+  "actions": {
+    "start": "실행",
+    "starting": "시작하는 중…",
+    "send": "보내기",
+    "sending": "보내는 중…",
+    "stop": "중지",
+    "stopping": "중지하는 중…",
+    "newRun": "새 실행",
+    "viewSession": "세션 보기"
+  },
+  "status": {
+    "idle": "대기",
+    "spawning": "생성 중…",
+    "running": "실행 중",
+    "completed": "완료됨",
+    "error": "오류",
+    "killed": "종료됨",
+    "abandoned": "중단됨"
+  },
+  "binary": {
+    "missing": "`claude` CLI가 PATH에 없습니다. Claude Code를 설치하거나 대시보드가 실행할 수 있도록 PATH를 설정하세요.",
+    "found": "{{path}} 사용 중"
+  },
+  "concurrency": {
+    "active_one": "이미 진행 중인 실행 {{count}}개",
+    "active_other": "이미 진행 중인 실행 {{count}}개",
+    "viewActive": "진행 중인 실행 보기",
+    "atCap": "동시 실행 한도에 도달했습니다({{max}}). 새로 시작하려면 실행 중인 항목 하나를 중지하세요."
+  },
+  "hint": {
+    "shortcut": "Cmd+Enter / Ctrl+Enter로 전송",
+    "permissionWarning": "bypassPermissions는 확인 없이 모든 도구 호출을 허용합니다. 신뢰할 수 있는 프롬프트에만 사용하세요.",
+    "headlessExplain": "헤드리스 모드는 원하는 작업을 정확히 알고 있는 스크립트화된 작업에 가장 적합합니다. 이 세션은 후속 질문을 할 수 없으며, acceptEdits를 유지하지 않으면 권한 프롬프트에서 멈춥니다."
+  },
+  "empty": {
+    "title": "아직 아무것도 없습니다",
+    "body": "프롬프트를 입력하고 실행을 클릭하세요. 모델이 생각하고, 도구를 호출하고, 답변하는 동안 출력이 여기에 스트리밍됩니다."
+  },
+  "events": {
+    "you": "나",
+    "claude": "Claude",
+    "tool": "도구",
+    "toolResult": "도구 결과",
+    "system": "시스템",
+    "thinking": "생각 중",
+    "expand": "펼치기",
+    "collapse": "접기"
+  },
+  "footer": {
+    "duration": "지속 시간",
+    "cost": "비용",
+    "turns": "턴",
+    "exitCode": "종료 코드",
+    "sessionId": "세션 ID"
+  },
+  "errors": {
+    "startFailed": "실행을 시작하지 못했습니다: {{message}}",
+    "sendFailed": "전송하지 못했습니다: {{message}}",
+    "killFailed": "중지하지 못했습니다: {{message}}",
+    "attachFailed": "실행에 연결하지 못했습니다: {{message}}"
+  },
+  "runs": {
+    "switcher": "진행 중인 실행",
+    "switcherEmpty": "진행 중인 실행 없음",
+    "attached": "기존 실행에 연결됨",
+    "started": "{{when}} 시작됨",
+    "viewActive": "진행 중인 실행 보기",
+    "viewActive_other": "진행 중인 실행 {{count}}개",
+    "scopeNote": "이 대시보드에서 시작한 실행만 표시됩니다.",
+    "allSessionsLink": "모든 Claude Code 세션 보기 →",
+    "viewLabel": "보기"
+  },
+  "resume": {
+    "label": "원본 세션",
+    "freshOption": "새 세션",
+    "freshHint": "새로운 Claude Code 세션을 시작합니다.",
+    "resumeOption": "기존 세션 재개",
+    "resumeHint": "기록에서 세션을 선택해 대화를 이어갑니다. 작업 디렉터리는 원본으로 고정됩니다.",
+    "pickSession": "세션 선택…",
+    "search": "ID, 작업 디렉터리, 상태로 검색…",
+    "noSessions": "세션을 찾을 수 없습니다.",
+    "originalCwd": "원본 작업 디렉터리",
+    "preview": "마지막 활동",
+    "selectedBadge": "재개 중",
+    "clear": "선택 해제"
+  },
+  "limitations": {
+    "title": "브라우저에서 Claude 실행하기",
+    "subtitle": "동일한 바이너리, 다른 화면",
+    "peek": "대부분의 TUI 기능이 그대로 유지됩니다. 일부 대화형 기능만 그렇지 않습니다.",
+    "why": "이유",
+    "intro": "내부적으로는 터미널이 사용하는 것과 동일한 `claude` 바이너리를 실행합니다 - 하지만 stream-json(Claude가 제공하는 유일한 프로그래밍 인터페이스)은 단방향 소방호스일 뿐, 대화형 TUI가 아닙니다. 실행 중인 터미널 세션에 의존하는 기능들 - 즉시 표시되는 권한 프롬프트, 키바인딩 오버레이, 세션 중간의 설정 변경 - 은 대화 도중이 아니라 생성 시점에 미리 설정해야 합니다.",
+    "supported": "여기서 작동함",
+    "limited": "CLI 전용",
+    "tldr": "여기에 없는 기능이 필요하면 `claude --resume <session-id>`로 터미널에서 동일한 세션을 열어보세요 - 양쪽 모두 디스크에서 같은 JSONL 트랜스크립트를 공유하므로, 화면을 전환해도 컨텍스트를 잃지 않습니다.",
+    "dismiss": "확인",
+    "minimize": "최소화",
+    "restore": "브라우저 내 실행 노트 표시",
+    "expand": "더 보기",
+    "collapse": "접기"
+  },
+  "tokens": {
+    "label": "컨텍스트",
+    "input": "입력",
+    "output": "출력",
+    "cacheRead": "캐시 적중",
+    "cost": "비용"
+  },
+  "autocomplete": {
+    "slashHint": "/를 입력해 슬래시 명령 사용",
+    "fileHint": "@를 입력해 파일 참조",
+    "noMatches": "일치하는 항목 없음",
+    "groupBuiltin": "내장(CLI 전용 - 여기서는 실행되지 않음)",
+    "groupUser": "사용자 명령",
+    "groupProject": "프로젝트 명령",
+    "groupFiles": "작업 디렉터리의 파일"
+  },
+  "statusHeader": {
+    "model": "모델",
+    "effort": "노력 수준",
+    "permissionMode": "모드",
+    "cwd": "작업 디렉터리",
+    "session": "세션",
+    "envelopes": "이벤트",
+    "duration": "경과 시간"
+  }
+}

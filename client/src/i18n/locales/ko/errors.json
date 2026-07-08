@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "페이지를 찾을 수 없습니다",
+    "description": "요청하신 경로가 존재하지 않습니다. 내비게이션을 사용해 유효한 페이지로 돌아가세요.",
+    "goDashboard": "대시보드로 이동",
+    "goBack": "뒤로 가기"
+  },
+  "notifications": {
+    "newSession": "새 세션",
+    "sessionDefault": "세션 ",
+    "sessionError": "세션 오류",
+    "subagentSpawned": "Subagent 생성됨",
+    "finishedResponding": "Claude 응답 완료",
+    "readyForInput": "입력 대기 중",
+    "sessionCompleted": "세션 완료됨",
+    "sessionClosed": "세션 종료됨",
+    "defaultTitle": "Claude Code",
+    "defaultBody": "알림"
+  },
+  "toolLegend": {
+    "read": "읽기",
+    "write": "쓰기",
+    "edit": "편집",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "기타"
+  }
+}

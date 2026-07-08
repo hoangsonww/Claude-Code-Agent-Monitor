@@ -1,6 +1,6 @@
 /**
  * @file index.ts
- * @description Initializes the i18n internationalization framework for the agent dashboard application, setting up language resources for English, Chinese, and Vietnamese locales. It configures language detection, fallback options, and namespaces for organized translation keys. This module allows the application to support multiple languages and provides a seamless experience for users across different regions.
+ * @description Initializes the i18n internationalization framework for the agent dashboard application, setting up language resources for English, Chinese, Vietnamese, and Korean locales. It configures language detection, fallback options, and namespaces for organized translation keys. This module allows the application to support multiple languages and provides a seamless experience for users across different regions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -53,6 +53,22 @@ import alerts_vi from "./locales/vi/alerts.json";
 import splash_en from "./locales/en/splash.json";
 import splash_zh from "./locales/zh/splash.json";
 import splash_vi from "./locales/vi/splash.json";
+
+import common_ko from "./locales/ko/common.json";
+import nav_ko from "./locales/ko/nav.json";
+import dashboard_ko from "./locales/ko/dashboard.json";
+import sessions_ko from "./locales/ko/sessions.json";
+import activity_ko from "./locales/ko/activity.json";
+import analytics_ko from "./locales/ko/analytics.json";
+import workflows_ko from "./locales/ko/workflows.json";
+import settings_ko from "./locales/ko/settings.json";
+import kanban_ko from "./locales/ko/kanban.json";
+import errors_ko from "./locales/ko/errors.json";
+import updates_ko from "./locales/ko/updates.json";
+import ccConfig_ko from "./locales/ko/ccConfig.json";
+import run_ko from "./locales/ko/run.json";
+import alerts_ko from "./locales/ko/alerts.json";
+import splash_ko from "./locales/ko/splash.json";
 
 i18n
   .use(LanguageDetector)
@@ -110,8 +126,25 @@ i18n
         alerts: alerts_vi,
         splash: splash_vi,
       },
+      ko: {
+        common: common_ko,
+        nav: nav_ko,
+        dashboard: dashboard_ko,
+        sessions: sessions_ko,
+        activity: activity_ko,
+        analytics: analytics_ko,
+        workflows: workflows_ko,
+        settings: settings_ko,
+        kanban: kanban_ko,
+        errors: errors_ko,
+        updates: updates_ko,
+        ccConfig: ccConfig_ko,
+        run: run_ko,
+        alerts: alerts_ko,
+        splash: splash_ko,
+      },
     },
-    supportedLngs: ["en", "zh", "vi"],
+    supportedLngs: ["en", "zh", "vi", "ko"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [

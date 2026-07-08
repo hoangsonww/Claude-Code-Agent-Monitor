@@ -1204,6 +1204,182 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Workflow Graphs": "Đồ thị quy trình",
       Workflows: "Quy trình",
     },
+    ko: {
+      "Search docs...": "문서 검색…",
+      "No results found": "검색 결과 없음",
+      "Project Wiki": "프로젝트 위키",
+      "Real-time · Local-first · Zero-config": "실시간 · 로컬 우선 · 제로 설정",
+      "A professional monitoring platform for Claude Code agent activity. Captures sessions, agents, and tool events via native hooks, persists them in SQLite, and streams updates to a React UI over WebSocket — with no external services required.":
+        "Claude Code 에이전트 활동을 위한 전문 모니터링 플랫폼입니다. 네이티브 hook을 통해 세션, 에이전트, 도구 이벤트를 캡처해 SQLite에 저장하고, WebSocket으로 React UI에 업데이트를 스트리밍합니다 — 외부 서비스가 전혀 필요 없습니다.",
+      "Getting Started": "시작하기",
+      "Data & APIs": "데이터 & API",
+      "Ops & Reference": "운영 & 참조",
+      "◈ Architecture": "◈ 아키텍처",
+      "◈ Components & UI": "◈ 컴포넌트 & UI",
+      "◈ Configuration": "◈ 설정",
+      "◈ Data": "◈ 데이터",
+      "◈ Features": "◈ 기능",
+      "◈ Getting Started": "◈ 시작하기",
+      "◈ Integrations": "◈ 통합",
+      "◈ Introduction": "◈ 소개",
+      "◈ Operations": "◈ 운영",
+      "◈ Reference": "◈ 참조",
+      "Quick Start": "빠른 시작",
+      "Scripts Reference": "스크립트 참조",
+      "System Overview": "시스템 개요",
+      "What's Included": "포함된 기능",
+      "System Architecture": "시스템 아키텍처",
+      "Data Flow": "데이터 흐름",
+      "Server Architecture": "서버 아키텍처",
+      "Client Architecture": "클라이언트 아키텍처",
+      "State Management": "상태 관리",
+      "Database Design": "데이터베이스 설계",
+      "API Reference": "API 참조",
+      "WebSocket Protocol": "WebSocket 프로토콜",
+      "Hook Integration": "Hook 통합",
+      "Import Pipeline": "가져오기 파이프라인",
+      "MCP & Agent Extensions": "MCP & 에이전트 확장",
+      "Plugin Marketplace": "플러그인 마켓플레이스",
+      "Statusline Utility": "Statusline 유틸리티",
+      "VS Code Extension": "VS Code 확장",
+      "Desktop App (macOS & Windows)": "데스크톱 앱 (macOS & Windows)",
+      "Settings Page": "설정 페이지",
+      "Alerts & Webhooks": "알림 & Webhook",
+      "Update Notifier": "업데이트 알리미",
+      "Connection Status": "연결 상태",
+      "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby — 반응형 고양이 동반자",
+      "Internationalization (i18n)": "국제화 (i18n)",
+      "Deployment Modes": "배포 모드",
+      "Docker / Podman": "Docker / Podman",
+      "Performance Characteristics": "성능 특성",
+      "Security Considerations": "보안 고려사항",
+      "Tech Choices": "기술 선택",
+      "Technology Choices": "기술 선택",
+      "Check 1 — Is the server running?": "확인 1 — 서버가 실행 중인가요?",
+      "Check 2 — Are hooks installed?": "확인 2 — Hook이 설치되어 있나요?",
+      "Check 3 — Start a new Claude Code session": "확인 3 — 새 Claude Code 세션 시작",
+      "Check 4 — Is Node.js in PATH?": "확인 4 — Node.js가 PATH에 있나요?",
+      "Option A — download the latest GitHub Release (recommended)":
+        "방법 A — 최신 GitHub Release 다운로드 (권장)",
+      "Option B — per-commit CI artifact": "방법 B — 커밋별 CI 아티팩트",
+      "Option C — build locally": "방법 C — 로컬 빌드",
+      "14 first-class providers": "14개의 퍼스트클래스 프로바이더",
+      "5-min Scheduler": "5분 스케줄러",
+      "Accessibility & Resilience": "접근성 & 복원력",
+      "Activity Feed": "활동 피드",
+      "Agent Extension Layout": "에이전트 확장 레이아웃",
+      "Agent State Machine": "에이전트 상태 머신",
+      "Alternative: Docker / Podman": "대안: Docker / Podman",
+      "API Surface": "API 표면",
+      "Ask → Run Claude Handoff": "Ask → Run Claude 핸드오프",
+      "Auto-Reload on Update": "업데이트 시 자동 새로고침",
+      "Auto-Start at Login": "로그인 시 자동 시작",
+      "Auto-Surface Speech Bubbles": "말풍선 자동 표시",
+      "Available Plugins": "사용 가능한 플러그인",
+      "Bounded Cache Memory": "제한된 캐시 메모리",
+      "Browser Notifications": "브라우저 알림",
+      "Claude + Codex Extensions": "Claude + Codex 확장",
+      "Claude Config Explorer": "Claude 설정 탐색기",
+      "Clear Quarantine": "격리 속성 제거",
+      "Clear SmartScreen": "SmartScreen 차단 해제",
+      "CLI Tools": "CLI 도구",
+      "Client Data Loading Pattern": "클라이언트 데이터 로딩 패턴",
+      "Client Routes": "클라이언트 라우트",
+      "Close Hides, Server Stays Up": "닫아도 숨김, 서버는 계속 실행",
+      "Common Issues": "일반적인 문제",
+      "Concurrency Timeline": "동시성 타임라인",
+      "Constant-Time Sweep": "상수 시간 스윕",
+      "Container Runtime (Docker / Podman)": "컨테이너 런타임 (Docker / Podman)",
+      "Continuous Project Sync": "지속적 프로젝트 동기화",
+      "Cost Tracking": "비용 추적",
+      "Data Export": "데이터 내보내기",
+      "Data Management": "데이터 관리",
+      "Data Model Reference": "데이터 모델 참조",
+      "Data Persistence & CLI Reliability": "데이터 지속성 & CLI 안정성",
+      "Delivery engine": "전달 엔진",
+      "Detection & fallback": "감지 & 폴백",
+      "Dismissal Memory": "닫힘 상태 기억",
+      "Docker Deployment": "Docker 배포",
+      "Drag to Applications": "Applications로 드래그",
+      "Environment Variables": "환경 변수",
+      "Error Propagation Map": "오류 전파 맵",
+      "Evaluation engine": "평가 엔진",
+      "Event Ingestion Pipeline": "이벤트 수집 파이프라인",
+      "Events, Stats, Analytics": "이벤트, 통계, 분석",
+      "First-Boot Bootstrap": "최초 부팅 부트스트랩",
+      "Fresh-by-Default Caching": "기본 신선 캐싱",
+      "GitHub Star History": "GitHub Star 히스토리",
+      "Guided setup": "가이드 설정",
+      "History Import": "히스토리 가져오기",
+      "Hook Configuration": "Hook 설정",
+      "Hook Events Captured": "캡처되는 Hook 이벤트",
+      "Hook Handler Design": "Hook 핸들러 설계",
+      "Hook Installation Flow": "Hook 설치 흐름",
+      "Hooks Ingestion": "Hook 수집",
+      "How to Get It": "받는 방법",
+      "Idempotence & Cost Accuracy": "멱등성 & 비용 정확성",
+      "Import History": "가져오기 기록",
+      "In-Process Architecture": "인프로세스 아키텍처",
+      "Kanban Board": "Kanban 보드",
+      "Key Client Modules": "주요 클라이언트 모듈",
+      "Live Dashboard": "실시간 대시보드",
+      "Local MCP Server": "로컬 MCP 서버",
+      "Local MCP Server Runtime": "로컬 MCP 서버 런타임",
+      "Locale-aware formatting": "로케일 인식 포맷팅",
+      "Menu-Bar / Notification-Area (Tray) Icon": "메뉴 바 / 알림 영역(트레이) 아이콘",
+      "Message Envelope": "메시지 엔벨로프",
+      "Model Pricing": "모델 가격",
+      "Multi-Stage Build": "멀티 스테이지 빌드",
+      "Namespaced resources": "네임스페이스화된 리소스",
+      "Native Application Menu": "네이티브 애플리케이션 메뉴",
+      "No sessions appearing after starting Claude Code":
+        "Claude Code 시작 후 세션이 나타나지 않음",
+      "Non-Blocking Detection": "논블로킹 감지",
+      "Notification Preferences": "알림 설정",
+      "Open the DMG": "DMG 파일 열기",
+      "Optional: Enable MCP and Agent Extensions": "선택 사항: MCP 및 에이전트 확장 활성화",
+      "Plain Docker / Podman (no Compose)": "순수 Docker / Podman (Compose 미사용)",
+      "Plugin Architecture": "플러그인 아키텍처",
+      "Port Discovery": "포트 검색",
+      "Progressive Web App": "프로그레시브 웹 앱",
+      "Provider payloads": "프로바이더 페이로드",
+      "PWA & Service Worker": "PWA & 서비스 워커",
+      "Reactive Mascot — Eight Moods": "반응형 마스코트 — 여덟 가지 감정",
+      "Responsive Design": "반응형 디자인",
+      "Root Helper Scripts": "루트 헬퍼 스크립트",
+      "Rule types": "규칙 유형",
+      "Run Claude": "Claude 실행",
+      "Run the Installer": "설치 프로그램 실행",
+      "Runs Alongside the Web Dashboard": "웹 대시보드와 함께 실행",
+      "Safety Model": "안전 모델",
+      "Server Modules": "서버 모듈",
+      "Session Detail": "세션 상세",
+      "Session Drill-In": "세션 드릴다운",
+      "Session State Machine": "세션 상태 머신",
+      "Sessions Table": "세션 테이블",
+      "Settings & Management": "설정 & 관리",
+      "Single-Instance Lock": "단일 인스턴스 잠금",
+      "Situation-Aware Command": "상황 인식 명령",
+      "Skill Usage Examples": "스킬 사용 예시",
+      "Soft Failure Semantics": "소프트 실패 시맨틱스",
+      "SQLite Configuration": "SQLite 설정",
+      "Subagent Hierarchy": "서브에이전트 계층 구조",
+      "Supported Source Layouts": "지원되는 소스 레이아웃",
+      "System Health": "시스템 상태",
+      "Technical terms preserved": "보존된 기술 용어",
+      "The ⌘B Panel": "⌘B 패널",
+      "Three Modes, One Pipeline": "세 가지 모드, 하나의 파이프라인",
+      "Transcript Cache": "트랜스크립트 캐시",
+      "Two UI Surfaces": "두 가지 UI 화면",
+      "Upload Request Sequence": "업로드 요청 시퀀스",
+      "Use Claude": "Claude 사용",
+      "Volume Mounts": "볼륨 마운트",
+      "WebSocket Progress Events": "WebSocket 진행 이벤트",
+      "WebSocket Push": "WebSocket 푸시",
+      "What It Adds": "추가되는 기능",
+      "Workflow Analytics": "워크플로 분석",
+      "Workflow Graphs": "워크플로 그래프",
+    },
   };
 
   const PLAIN =
@@ -1230,13 +1406,13 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   // source for each element is cached in a Map so re-applying a language always
   // translates from English (idempotent). Data ships in i18n-content.js.
   const CONTENT = (typeof window !== "undefined" && window.__WIKI_CONTENT_I18N) || {};
-  const H = { zh: CONTENT.zh || {}, vi: CONTENT.vi || {} };
+  const H = { zh: CONTENT.zh || {}, vi: CONTENT.vi || {}, ko: CONTENT.ko || {} };
   const trH = (lang, en) => (lang === "en" ? en : (H[lang] && H[lang][norm(en)]) || en);
   // Heading / section-label translations from the content bundle fill any gaps
   // in T. Existing T entries always win, so this never regresses the scannable
   // layer — it only adds headings T didn't already cover.
   if (CONTENT.plain) {
-    ["zh", "vi"].forEach((lng) => {
+    ["zh", "vi", "ko"].forEach((lng) => {
       const src = CONTENT.plain[lng] || {};
       for (const k in src) if (!(k in T[lng])) T[lng][k] = src[k];
     });
@@ -1279,7 +1455,8 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
     });
     const search = document.getElementById("sidebar-search");
     if (search) search.placeholder = tr(lang, "Search docs...");
-    document.documentElement.lang = lang === "zh" ? "zh-CN" : lang === "vi" ? "vi" : "en";
+    document.documentElement.lang =
+      lang === "zh" ? "zh-CN" : lang === "vi" ? "vi" : lang === "ko" ? "ko" : "en";
     document
       .querySelectorAll(".lang-btn")
       .forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
@@ -1289,7 +1466,14 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   let lang = localStorage.getItem("wiki-lang");
   if (!lang) {
     const n = (navigator.language || "en").toLowerCase();
-    lang = n.indexOf("zh") === 0 ? "zh" : n.indexOf("vi") === 0 ? "vi" : "en";
+    lang =
+      n.indexOf("zh") === 0
+        ? "zh"
+        : n.indexOf("vi") === 0
+          ? "vi"
+          : n.indexOf("ko") === 0
+            ? "ko"
+            : "en";
   }
 
   document.querySelectorAll(".lang-btn").forEach((b) => {

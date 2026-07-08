@@ -216,11 +216,11 @@ graph TB
 | **Database** | SQLite 3 (better-sqlite3 or node:sqlite) |
 | **Integration** | Claude Code Hooks, MCP Server |
 
-### Internationalization Support (en/zh/vi)
+### Internationalization Support (en/zh/vi/ko)
 
 ```mermaid
 flowchart LR
-    A["User language preference<br/>en / zh / vi"] --> B["i18next detector<br/>localStorage + navigator"]
+    A["User language preference<br/>en / zh / vi / ko"] --> B["i18next detector<br/>localStorage + navigator"]
     B --> C["Namespace JSON resources"]
     C --> D["React useTranslation hooks"]
     D --> E["Localized UI + a11y labels"]

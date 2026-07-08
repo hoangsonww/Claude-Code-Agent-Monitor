@@ -62,11 +62,12 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/activity");
   });
 
-  it("should render three language options in expanded mode", () => {
+  it("should render four language options in expanded mode", () => {
     renderSidebar(true);
     expect(screen.getByRole("button", { name: "English" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chinese" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Vietnamese" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Korean" })).toBeInTheDocument();
   });
 
   it("should switch to Vietnamese when Vietnamese option is clicked", async () => {
@@ -78,6 +79,18 @@ describe("Sidebar", () => {
     await waitFor(() => {
       expect(screen.getByText("Tổng quan")).toBeInTheDocument();
       expect(screen.getByText("Bảng Kanban")).toBeInTheDocument();
+    });
+  });
+
+  it("should switch to Korean when Korean option is clicked", async () => {
+    const user = userEvent.setup();
+    renderSidebar(true);
+
+    await user.click(screen.getByRole("button", { name: "Korean" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("대시보드")).toBeInTheDocument();
+      expect(screen.getByText("칸반 보드")).toBeInTheDocument();
     });
   });
 

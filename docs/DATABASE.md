@@ -193,7 +193,7 @@ stateDiagram-v2
     [*] --> waiting: SessionStart (status=active + awaiting_input_since)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop (non-error) / Permission Notification
-    active --> waiting: Esc cancel (watchdog: marker or idle timeout)
+    active --> waiting: Esc cancel (watchdog marker or idle timeout)
     active --> error: Stop (stop_reason=error)
     waiting --> completed: SessionEnd
     active --> completed: SessionEnd
