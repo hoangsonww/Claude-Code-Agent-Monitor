@@ -1055,6 +1055,18 @@ Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI lim
 
 Both paths move the session to **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped) — the same state a normal `Stop` produces — and log an `Interrupted` event. If the user resumes (a new prompt lands in the transcript), `pendingInterrupt` flips back to false and the fresh hook keeps the session non-stale.
 
+### Dead-Session Liveness Reap
+
+`SessionEnd` is the **only** signal that a session closed, and hooks are fire-and-forget — if the dashboard was down when the user quit (Ctrl+C, terminal closed), the event is lost forever and the session previously sat in **Waiting** until the stale sweep (3 h by default). The same 15 s watchdog now supplies the missing ground truth with a **process-liveness probe** (`server/lib/session-liveness.js`): it lists running `claude` CLI processes (`ps -Ao pid=,args=` + `lsof -d cwd` on macOS, `/proc/<pid>/cwd` on Linux) and completes any `active` session whose `cwd` has no live claude process — the same terminal state a real `SessionEnd` produces (agents → `completed`, `ended_at` stamped, `awaiting_input_since` cleared, a synthetic `SessionEnd` event with `data.source = "liveness-probe"`, broadcasts for live UI updates).
+
+Fail-safe guards, in order:
+
+- The probe must be **trustworthy**: it reports "no answer" (and the reap changes nothing) on Windows, inside containers (host processes are invisible), when `ps`/`lsof` fail, or when explicitly disabled via `DASHBOARD_LIVENESS_PROBE=0` — the escape hatch for setups where hooks arrive from another machine, where local processes prove nothing.
+- The session must have a `cwd` to match on.
+- **Both** the session's last hook write (`updated_at`) and its transcript mtime must be older than `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`), so mid-turn, just-imported, or just-resumed sessions never flicker out on a transient probe miss (e.g. `claude --resume` run from a different directory than the recorded session cwd).
+- A false completion self-heals: the next hook event reactivates the session via the existing reactivation path.
+- Only `status = 'active'` rows are considered; `error` sessions keep their existing recovery paths.
+
 ### API Error → Error State Flow
 
 API errors detected in JSONL transcripts (`isApiErrorMessage` entries: quota limits, rate limits, `invalid_request`) now **immediately mark the session and agent as `error`**. Previously, these errors were recorded as `APIError` events but did not change session/agent status.
@@ -1297,6 +1309,8 @@ DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
 
 # Background services
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
+DASHBOARD_LIVENESS_PROBE=1         # 0 disables the dead-session liveness reap (use when hooks arrive from another machine)
+DASHBOARD_LIVENESS_IDLE_SECONDS=60 # Idle gate before the liveness reap may complete a process-less session
 
 # Logging
 LOG_LEVEL=info                     # Log level (debug, info, warn, error)

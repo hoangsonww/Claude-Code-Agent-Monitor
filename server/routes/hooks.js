@@ -12,6 +12,9 @@ const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
+// Required as a module object (not destructured) so tests can swap
+// `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
+const liveness = require("../lib/session-liveness");
 
 const router = Router();
 
@@ -1056,6 +1059,18 @@ const WORKING_IDLE_MS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 120_000; // default 2 min
 })();
 
+// Idle gate for the liveness reap below. A session is only completed by the
+// process probe when BOTH its last hook write (updated_at) and its transcript
+// mtime are at least this old, so a session mid-spawn, mid-turn, or freshly
+// imported never flickers out on a transient probe miss (e.g. `claude
+// --resume` run from a different directory than the recorded session cwd — a
+// mismatch that self-heals via hook reactivation on the next prompt).
+// Configurable via DASHBOARD_LIVENESS_IDLE_SECONDS; default 60 s.
+const LIVENESS_IDLE_MS = (() => {
+  const raw = parseInt(process.env.DASHBOARD_LIVENESS_IDLE_SECONDS, 10);
+  return Number.isFinite(raw) && raw > 0 ? raw * 1000 : 60_000;
+})();
+
 // True when the transcript's latest API error is unrecovered — i.e. it sits at
 // the tail with no successful turn after it. Claude auto-retries transient API
 // errors (e.g. "Connection closed mid-response") and keeps going, so an error
@@ -1260,9 +1275,105 @@ function watchdogCheck() {
         }
       }
     }
+
+    // ── Liveness reap: complete sessions whose claude process is gone ──────
+    // SessionEnd is the ONLY signal that a session closed, and the hook that
+    // carries it is fire-and-forget — if the dashboard was down when the user
+    // quit (Ctrl+C, terminal closed), the event is lost forever and the
+    // session sits in Waiting until the 3 h stale sweep. The probe supplies
+    // the missing ground truth: when NO running `claude` CLI process has the
+    // session's cwd as its working directory, the session cannot be alive —
+    // land it in the same `completed` state a real SessionEnd produces.
+    //
+    // Guards, in order:
+    //   - probe must be trustworthy (`available` — false on Windows, in
+    //     containers, when ps/lsof fail, or when DASHBOARD_LIVENESS_PROBE=0
+    //     is set for remote-hook setups where local processes prove nothing);
+    //   - session must have a cwd to match on;
+    //   - BOTH the last hook write and the transcript mtime must be older
+    //     than LIVENESS_IDLE_MS, so mid-turn / just-imported / just-resumed
+    //     sessions never flicker out on a transient mismatch. A false
+    //     completion self-heals anyway: the next hook event reactivates the
+    //     session via the existing needsReactivation path.
+    livenessReap();
   } catch (err) {
     // Watchdog is best-effort — log but never crash the server
     console.warn("[WATCHDOG] Error during check:", err?.message || err);
+  }
+}
+
+function livenessReap() {
+  const fs = require("fs");
+  const path = require("path");
+
+  const activeSessions = db
+    .prepare(
+      `SELECT id, name, cwd, transcript_path, updated_at FROM sessions
+       WHERE status = 'active' AND cwd IS NOT NULL AND cwd <> ''`
+    )
+    .all();
+  if (activeSessions.length === 0) return; // nothing to check — skip the ps/lsof cost
+
+  const probe = liveness.probeLiveCwds();
+  if (!probe.available) return;
+  const now = Date.now();
+  for (const sess of activeSessions) {
+    let resolvedCwd;
+    try {
+      resolvedCwd = path.resolve(sess.cwd);
+    } catch {
+      continue;
+    }
+    if (probe.cwds.has(resolvedCwd)) continue;
+
+    let lastActivityMs = Date.parse(sess.updated_at) || 0;
+    if (sess.transcript_path) {
+      try {
+        lastActivityMs = Math.max(lastActivityMs, fs.statSync(sess.transcript_path).mtimeMs);
+      } catch {
+        /* transcript gone — fall back to updated_at alone */
+      }
+    }
+    if (now - lastActivityMs < LIVENESS_IDLE_MS) continue;
+
+    // Mirror the SessionEnd case: all DB writes first, then broadcasts.
+    const ts = new Date().toISOString();
+    clearAwaitingInput(sess.id, null, false);
+    const agents = stmts.listAgentsBySession.all(sess.id);
+    for (const agent of agents) {
+      if (agent.status !== "completed" && agent.status !== "error") {
+        stmts.updateAgent.run(null, "completed", null, null, ts, null, agent.id);
+      }
+    }
+    stmts.updateSession.run(null, "completed", ts, null, sess.id);
+
+    const label = sess.name || `Session ${sess.id.slice(0, 8)}`;
+    const summary = `Session closed: ${label} (no running claude process)`;
+    const mainAgentId = `${sess.id}-main`;
+    stmts.insertEvent.run(
+      sess.id,
+      stmts.getAgent.get(mainAgentId) ? mainAgentId : null,
+      "SessionEnd",
+      null,
+      summary,
+      JSON.stringify({ session_id: sess.id, source: "liveness-probe" })
+    );
+
+    broadcast("session_updated", stmts.getSession.get(sess.id));
+    for (const agent of agents) {
+      if (agent.status !== "completed" && agent.status !== "error") {
+        broadcast("agent_updated", stmts.getAgent.get(agent.id));
+      }
+    }
+    broadcast("new_event", {
+      session_id: sess.id,
+      agent_id: stmts.getAgent.get(mainAgentId) ? mainAgentId : null,
+      event_type: "SessionEnd",
+      tool_name: null,
+      summary,
+      created_at: ts,
+    });
+    console.log(`[WATCHDOG] Liveness reap: completed dead session ${sess.id} (${label})`);
   }
 }
 
@@ -1272,4 +1383,5 @@ if (watchdogTimer.unref) watchdogTimer.unref();
 
 router.transcriptCache = transcriptCache;
 router.watchdogCheck = watchdogCheck;
+router.livenessReap = livenessReap;
 module.exports = router;

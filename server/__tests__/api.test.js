@@ -14,6 +14,11 @@ const pkg = require("../../package.json");
 // Set up test database BEFORE requiring any server modules
 const TEST_DB = path.join(os.tmpdir(), `dashboard-test-${Date.now()}-${process.pid}.db`);
 process.env.DASHBOARD_DB_PATH = TEST_DB;
+// Disable the watchdog's process-liveness reap: these suites exercise the
+// idle-timeout / interrupt / error-recovery paths with synthetic sessions that
+// have no real `claude` process, which the probe would otherwise (correctly)
+// complete out from under the assertions. Liveness has its own test file.
+process.env.DASHBOARD_LIVENESS_PROBE = "0";
 
 const { createApp, startServer } = require("../index");
 const { db, stmts } = require("../db");

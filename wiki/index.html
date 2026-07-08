@@ -1892,6 +1892,20 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   </td>
                 </tr>
                 <tr>
+                  <td><code>DASHBOARD_LIVENESS_PROBE</code></td>
+                  <td><code>1</code></td>
+                  <td>
+                    Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_LIVENESS_IDLE_SECONDS</code></td>
+                  <td><code>60</code></td>
+                  <td>
+                    Idle gate before the liveness reap may complete a process-less session — both the last hook write and the transcript mtime must be at least this old
+                  </td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_SESSION_SYNC_MS</code></td>
                   <td><code>30000</code></td>
                   <td>
@@ -6075,7 +6089,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=19" defer></script>
+    <script src="i18n-content.js?v=20" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

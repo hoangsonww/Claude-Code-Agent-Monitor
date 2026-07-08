@@ -653,6 +653,12 @@ Cancelling a turn with `Esc` fires **no hook at all** (a documented Claude Code 
 
 Both paths land the session in **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped — identical to a non-error `Stop`) and log an `Interrupted` event. A resume (new prompt in the transcript) clears `pendingInterrupt` and the fresh hook keeps the session non-stale.
 
+### Missed SessionEnd (dashboard down) — liveness reap
+
+`SessionEnd` is the only signal that a session closed, and hooks are fire-and-forget: if the dashboard was **not running** when the user quit (Ctrl+C, terminal closed), the POST fails silently and the event is lost forever — the session previously sat in **Waiting** until the stale sweep (3 h by default). The same 15 s watchdog closes the gap with a **process-liveness probe** (`server/lib/session-liveness.js`): it enumerates running `claude` CLI processes and their working directories (`ps` + `lsof` on macOS, `/proc/<pid>/cwd` on Linux) and completes any `active` session whose `cwd` has no live claude process — the same terminal state a real `SessionEnd` produces, plus a synthetic `SessionEnd` event (`data.source = "liveness-probe"`) on the timeline.
+
+Fail-safe guards: the probe reports "no answer" (nothing changes) on Windows, inside containers (host processes are invisible), on `ps`/`lsof` failure, or when disabled via `DASHBOARD_LIVENESS_PROBE=0` (the escape hatch for hooks arriving from another machine); the session must have a `cwd`; and **both** its last hook write and its transcript mtime must be older than `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`) so mid-turn / just-imported / just-resumed sessions never flicker out. A false completion self-heals — the next hook event reactivates the session.
+
 ---
 
 ## Error Handling
