@@ -11,8 +11,11 @@ import { Logger } from "../core/logger.js";
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RequestOptions {
+  /** Query params; `undefined`/`null` values are omitted, not stringified. */
   query?: Record<string, string | number | boolean | undefined>;
+  /** Request body, JSON-stringified as-is; omitted when `undefined`. */
   body?: unknown;
+  /** Marks the request retry-eligible; set only by `get`/`delete` below. */
   idempotent?: boolean;
 }
 
@@ -22,8 +25,17 @@ interface ApiErrorOptions {
   details?: unknown;
 }
 
+/**
+ * Error type for every failed dashboard API call — non-2xx responses,
+ * timeouts, and network failures all normalize to this shape.
+ * {@link errorResult} surfaces `code`/`status`/`details` to the MCP client
+ * instead of collapsing to a generic internal error.
+ */
 export class ApiError extends Error {
   status?: number;
+  /** Forwarded from the dashboard's error envelope, a synthesized
+   * `HTTP_<status>`, or this client's own code (`INVALID_PATH`, `TIMEOUT`,
+   * `REQUEST_FAILED`, `UNREACHABLE_STATE`). */
   code?: string;
   details?: unknown;
 
@@ -36,42 +48,71 @@ export class ApiError extends Error {
   }
 }
 
+/** True for a DOM/Node `AbortError` from {@link DashboardApiClient.request}'s
+ * per-attempt timeout controller. */
 function isAbortError(error: unknown): boolean {
   return (
     typeof error === "object" && error !== null && "name" in error && error.name === "AbortError"
   );
 }
 
+/** Statuses treated as transient/retryable: 408, 429, or any 5xx. */
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
+/**
+ * Thin HTTP client every MCP tool handler uses to reach the dashboard's
+ * local Express API — the sole network boundary of the server. Requests
+ * resolve against `config.dashboardBaseUrl` and are restricted to `/api/*`
+ * (see {@link buildUrl}).
+ *
+ * **Retry semantics**: only GET/DELETE mark themselves `idempotent`, so only
+ * they retry automatically — `config.retryCount` extra attempts (default 2)
+ * on a timeout or HTTP 408/429/5xx, each retry waiting
+ * `config.retryBackoffMs * 2^(attempt-1)` (default 250ms, 500ms, ...,
+ * exponential, no jitter). POST/PUT/PATCH are never retried, even for the
+ * same transient statuses — a duplicated write is worse than one surfaced
+ * failure.
+ */
 export class DashboardApiClient {
   constructor(
     private readonly config: AppConfig,
     private readonly logger: Logger
   ) {}
 
+  /** GET — idempotent, eligible for automatic retry. */
   async get<T>(path: string, options: Omit<RequestOptions, "body"> = {}): Promise<T> {
     return this.request<T>("GET", path, { ...options, idempotent: true });
   }
 
+  /** POST — never retried; used for creates and mutation-gated actions. */
   async post<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>("POST", path, options);
   }
 
+  /** PUT — full upsert semantics (e.g. pricing rules); never retried. */
   async put<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>("PUT", path, options);
   }
 
+  /** PATCH — partial update; never retried. */
   async patch<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>("PATCH", path, options);
   }
 
+  /** DELETE — idempotent, eligible for automatic retry. */
   async delete<T>(path: string, options: Omit<RequestOptions, "body"> = {}): Promise<T> {
     return this.request<T>("DELETE", path, options);
   }
 
+  /**
+   * Resolves `path` against the dashboard base URL and applies query
+   * params, enforcing that only `/api/*` paths can ever be requested — a
+   * hard client-side allowlist independent of the dashboard's own routing.
+   * @throws {ApiError} code `INVALID_PATH` if the resolved pathname doesn't
+   *   start with `/api/`.
+   */
   private buildUrl(path: string, query?: RequestOptions["query"]): URL {
     const url = new URL(path, this.config.dashboardBaseUrl);
     if (!url.pathname.startsWith("/api/")) {
@@ -91,6 +132,18 @@ export class DashboardApiClient {
     return url;
   }
 
+  /**
+   * Core request implementation shared by all five methods. Each attempt
+   * gets its own {@link AbortController} armed with `config.requestTimeoutMs`
+   * and best-effort JSON-parses the response (see {@link tryParseJson}).
+   * `maxAttempts` is `config.retryCount + 1` when `options.idempotent`,
+   * else `1`. On error, {@link shouldRetry} decides whether to back off and
+   * loop or fall through to normalization: a non-ok response becomes an
+   * {@link ApiError} via {@link toApiError}; an abort becomes `TIMEOUT`; any
+   * other throw becomes `REQUEST_FAILED`.
+   * @throws {ApiError} on any non-2xx response, timeout, or network failure
+   *   surviving the retry loop.
+   */
   private async request<T>(method: HttpMethod, path: string, options: RequestOptions): Promise<T> {
     const maxAttempts = options.idempotent ? this.config.retryCount + 1 : 1;
     const url = this.buildUrl(path, options.query);
@@ -156,6 +209,10 @@ export class DashboardApiClient {
     throw new ApiError("Unreachable request state", { code: "UNREACHABLE_STATE" });
   }
 
+  /** Never retries on the last attempt; always retries an abort/timeout;
+   * for an {@link ApiError} with a status, retries only if
+   * {@link isRetryableStatus}; any other exception type is treated as
+   * transient too. */
   private shouldRetry(error: unknown, attempt: number, maxAttempts: number): boolean {
     if (attempt >= maxAttempts) return false;
     if (isAbortError(error)) return true;
@@ -165,6 +222,9 @@ export class DashboardApiClient {
     return true;
   }
 
+  /** Builds an {@link ApiError} from a non-ok response, preferring the
+   * dashboard's `{ error: { code, message } }` envelope when present,
+   * falling back to a generic `HTTP_<status>`. */
   private toApiError(method: HttpMethod, url: URL, status: number, body: unknown): ApiError {
     const fallbackMessage = `${method} ${url.pathname} failed with HTTP ${status}`;
 
@@ -186,6 +246,7 @@ export class DashboardApiClient {
     return new ApiError(fallbackMessage, { status, code: `HTTP_${status}`, details: body });
   }
 
+  /** Parses `input` as JSON, returning the raw string unchanged if invalid. */
   private tryParseJson(input: string): unknown {
     try {
       return JSON.parse(input);
@@ -194,6 +255,7 @@ export class DashboardApiClient {
     }
   }
 
+  /** Normalizes any thrown value to a loggable string message. */
   private getErrorMessage(error: unknown): string {
     if (error instanceof Error) return error.message;
     if (typeof error === "string") return error;

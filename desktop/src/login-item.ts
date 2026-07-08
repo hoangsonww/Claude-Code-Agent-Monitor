@@ -23,15 +23,34 @@ import { app } from "electron";
  */
 const WIN_LAUNCH_FLAG = "--ccam-hidden";
 
+/** True on macOS and Windows — the only platforms Electron can register an
+ * auto-start entry for. Every exported function below is a no-op on Linux. */
 function supported(): boolean {
   return process.platform === "darwin" || process.platform === "win32";
 }
 
+/**
+ * Read the current auto-start state directly from the OS (macOS Login Items
+ * or the Windows `Run` key), not from any value cached by this module — so it
+ * stays correct even if the user disables the entry from outside the app
+ * (e.g. macOS System Settings, or Windows Task Manager → Startup).
+ */
 export function isOpenAtLogin(): boolean {
   if (!supported()) return false;
   return app.getLoginItemSettings().openAtLogin;
 }
 
+/**
+ * Enable or disable launching the app at login. Delegates entirely to
+ * `app.setLoginItemSettings`, which picks the platform mechanism:
+ *   - **Windows** — writes/removes the per-user
+ *     `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` entry, tagged with
+ *     `WIN_LAUNCH_FLAG` so a subsequent launch can be recognised as
+ *     login-triggered (see `launchedAtLogin`).
+ *   - **macOS** — registers via the modern `SMAppService` API and starts the
+ *     app hidden (see the `openAsHidden` comment below).
+ * No-op on Linux, where Electron has no supported mechanism.
+ */
 export function setOpenAtLogin(enabled: boolean): void {
   if (!supported()) return;
   if (process.platform === "win32") {
@@ -52,6 +71,11 @@ export function setOpenAtLogin(enabled: boolean): void {
   });
 }
 
+/**
+ * Flip the auto-start setting and return the new state. Used by both the
+ * tray "Open at Login" checkbox and the application menu item — each reads
+ * `isOpenAtLogin()` to render its own checked state, then calls this on click.
+ */
 export function toggleOpenAtLogin(): boolean {
   const next = !isOpenAtLogin();
   setOpenAtLogin(next);

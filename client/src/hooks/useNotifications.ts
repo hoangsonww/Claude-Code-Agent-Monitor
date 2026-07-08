@@ -12,7 +12,11 @@ import type { WSMessage, Session, Agent, DashboardEvent } from "../lib/types";
 
 const NOTIF_KEY = "agent-monitor-notifications";
 
+/** User's browser-notification preferences, persisted to `localStorage` under
+ *  {@link NOTIF_KEY} (written by the Settings page's notifications panel). */
 interface NotifPrefs {
+  /** Master switch; when false, no notification types fire regardless of the
+   *  per-event flags below. */
   enabled: boolean;
   onNewSession: boolean;
   onSessionError: boolean;
@@ -20,6 +24,10 @@ interface NotifPrefs {
   onSubagentSpawn: boolean;
 }
 
+/** Reads {@link NotifPrefs} from `localStorage`, merging over safe defaults so
+ *  a partial/older saved object (or none at all) still yields a valid result.
+ *  `enabled` defaults to false (opt-in) even in the "no saved value" branch,
+ *  while individual event toggles default to a sensible starting mix. */
 function loadPrefs(): NotifPrefs {
   try {
     const raw = localStorage.getItem(NOTIF_KEY);
@@ -50,6 +58,14 @@ function loadPrefs(): NotifPrefs {
   }
 }
 
+/**
+ * Shows a browser notification, preferring a server-relayed push (so it can
+ * arrive even if this tab isn't the active one, or the browser is backgrounded)
+ * and falling back to a local service-worker/`Notification` call if the
+ * server is unreachable. No-ops when the user hasn't granted permission.
+ * @param title Notification title.
+ * @param body Notification body text.
+ */
 async function notify(title: string, body: string) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
@@ -73,6 +89,15 @@ async function notify(title: string, body: string) {
   }
 }
 
+/**
+ * Wires the dashboard's {@link eventBus} up to browser notifications, per the
+ * user's saved {@link NotifPrefs}. Mount once at the app root (it has no
+ * return value and no props) - it re-reads preferences from `localStorage` on
+ * every incoming message, so toggling a Settings checkbox takes effect
+ * immediately without remounting. Also opportunistically (re-)subscribes to
+ * Web Push on mount when notifications are enabled and permission has
+ * already been granted, so push delivery survives a page reload.
+ */
 export function useNotifications() {
   useEffect(() => {
     const prefs = loadPrefs();

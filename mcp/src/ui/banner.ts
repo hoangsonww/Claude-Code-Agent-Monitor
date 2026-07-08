@@ -1,11 +1,15 @@
 /**
- * @file StatCard.tsx
- * @description A reusable React component that displays a statistic with a label, value, icon, and optional trend information. It is designed to be used in dashboards or analytics pages to present key metrics in a visually appealing way. The component also supports showing raw values as tooltips on hover for more detailed information.
+ * @file banner.ts
+ * @description Console startup UI for the MCP server's non-stdio transports (HTTP and REPL):
+ * the ASCII-art wordmark, a boxed server-info panel (version, transport, dashboard URL, port,
+ * tool count, mutation/destructive policy state), a "ready" line, and a shutdown message. The
+ * stdio transport never calls any of these, since stdout there is the MCP JSON-RPC channel.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import * as c from "./colors.js";
 
+/** ASCII-art wordmark rendered by {@link printBanner} with a color gradient. */
 const BANNER = `
 $$\\      $$\\  $$$$$$\\  $$$$$$$\\        $$$$$$$$\\                  $$\\           
 $$$\\    $$$ |$$  __$$\\ $$  __$$\\       \\__$$  __|                 $$ |          
@@ -16,6 +20,8 @@ $$ |\\$  /$$ |$$ |  $$\\ $$ |               $$ |$$ |  $$ |$$ |  $$ |$$ | \\____$
 $$ | \\_/ $$ |\\$$$$$$  |$$ |               $$ |\\$$$$$$  |\\$$$$$$  |$$ |$$$$$$$  |
 \\__|     \\__| \\______/ \\__|               \\__| \\______/  \\______/ \\__|\\_______/ `;
 
+/** Prints {@link BANNER} one line per gradient color (cyan to magenta).
+ * Called at HTTP/REPL startup only. */
 export function printBanner(): void {
   const gradient = [c.brightCyan, c.cyan, c.brightBlue, c.blue, c.brightMagenta, c.magenta];
   const lines = BANNER.split("\n").filter((l) => l.length > 0);
@@ -27,6 +33,10 @@ export function printBanner(): void {
   process.stdout.write("\n");
 }
 
+/** Prints a boxed config summary beneath the banner, shared by HTTP (`port`
+ * set) and REPL (`port` omitted). Mutations/Destructive rows mirror the
+ * `policy/tool-guards.ts` flags, warning-colored when enabled. Ends with a
+ * reminder that the dashboard must already be running at the printed URL. */
 export function printServerInfo(info: {
   transport: string;
   version: string;
@@ -68,6 +78,8 @@ export function printServerInfo(info: {
   process.stdout.write(divider + "\n\n");
 }
 
+/** Prints "Server ready" once the HTTP server has bound to its port; not
+ * used by the REPL transport. */
 export function printReady(transport: string): void {
   const icon = "✔";
   process.stdout.write(
@@ -75,6 +87,8 @@ export function printReady(transport: string): void {
   );
 }
 
+/** Prints "Shutting down...". Called from HTTP/REPL shutdown paths and
+ * `index.ts`'s SIGINT/SIGTERM handler; never from stdio. */
 export function printShutdown(): void {
   process.stdout.write(`\n  ${c.warn("⏻")} ${c.bold(c.brightWhite("Shutting down..."))}\n`);
 }

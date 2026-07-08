@@ -17,11 +17,40 @@ import type { Logger } from "../core/logger.js";
 import { printBanner, printServerInfo, printReady, printShutdown } from "../ui/banner.js";
 import * as c from "../ui/colors.js";
 
+/** One tracked client connection: the underlying MCP SDK transport plus
+ * which protocol it speaks, so a request for a known session id can be
+ * rejected if it mismatches the protocol that session was initialized with. */
 interface TransportEntry {
   transport: Transport;
   type: "streamable" | "sse";
 }
 
+/**
+ * Starts the HTTP transport, exposing the current Streamable HTTP protocol
+ * (2025-11-25) and the legacy HTTP+SSE protocol (2024-11-05) side by side on
+ * one Express app. Unlike stdio (one `McpServer` for the whole process),
+ * **every new client session gets its own freshly-built `McpServer`** via
+ * `buildServerFn`, isolated from other sessions but sharing the same
+ * {@link AppConfig}/`DashboardApiClient`.
+ *
+ * Endpoints:
+ * - `GET /health` — liveness/uptime/session-count probe for this MCP
+ *   process, distinct from `dashboard_health_check` (which checks the
+ *   dashboard itself).
+ * - `ALL /mcp` — Streamable HTTP: a POST `initialize` with no
+ *   `mcp-session-id` starts a new session; later requests must carry that
+ *   header and route to the matching transport, rejected with a JSON-RPC
+ *   `-32000` error on a protocol mismatch.
+ * - `GET /sse` — legacy SSE: a long-lived stream, one `SSEServerTransport` +
+ *   `McpServer` pair per connection.
+ * - `POST /messages?sessionId=...` — legacy SSE's client-to-server companion
+ *   endpoint (SSE itself is server-to-client only).
+ *
+ * On successful bind, prints the banner/info panel/endpoint table to
+ * stdout — this transport owns stdout, unlike stdio's protocol stream.
+ * @returns The Express `app` and a `shutdown` closing every tracked
+ *   transport before the HTTP server itself.
+ */
 export async function startHttpServer(
   config: AppConfig,
   buildServerFn: () => McpServer,

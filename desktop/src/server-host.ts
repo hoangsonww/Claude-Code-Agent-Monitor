@@ -73,9 +73,19 @@ export interface ServerHandle {
   port: number;
   /** True when the server is owned by us (and we should stop it on quit). */
   ownedByUs: boolean;
+  /** Gracefully close the HTTP server. A no-op when `ownedByUs` is false —
+   * an adopted server belongs to whatever process started it, and this app
+   * must never shut it down out from under that process. */
   stop: () => Promise<void>;
 }
 
+/**
+ * The subset of `server/index.js`'s exports this file calls. Kept as an
+ * `unknown`-typed shim (rather than importing the JS module's real types)
+ * because `server/` is plain JavaScript with no `.d.ts`, and the desktop
+ * workspace's `tsconfig.json` builds in `strict` mode — this interface is the
+ * hand-written contract between the two.
+ */
 interface ServerModule {
   createApp: () => unknown;
   startServer: (app: unknown, port: number) => Promise<http.Server>;
@@ -130,14 +140,19 @@ function bootstrapOwnedServer(appRoot: string, serverModule: ServerModule): void
  * `null` until the first successful poll completes.
  */
 export interface ServerSnapshot {
+  /** Count of sessions the dashboard currently considers active. */
   activeSessions: number;
+  /** Count of agents specifically in the `working` status (not idle/waiting). */
   workingAgents: number;
+  /** Hook events received since the user's local midnight. */
   eventsToday: number;
 }
 
 let lastSnapshot: ServerSnapshot | null = null;
 let snapshotTimer: ReturnType<typeof setInterval> | null = null;
 
+/** Synchronous accessor for the tray menu's build step — always returns the
+ * last value `refreshServerSnapshot` cached, never blocks on a network call. */
 export function getServerSnapshot(): ServerSnapshot | null {
   return lastSnapshot;
 }
@@ -261,6 +276,19 @@ function resolveAppRoot(): string {
   return path.resolve(__dirname, "..", "..");
 }
 
+/**
+ * Classify a TCP port on `127.0.0.1` in two steps:
+ *   1. Attempt a raw socket connection — if nothing answers, the port is
+ *      `"free"`.
+ *   2. If something is listening, `GET /api/health` and check for
+ *      `{ status: "ok" }` — a match means it is *our* kind of server
+ *      (`"healthy"`, safe to adopt); anything else (wrong app, wrong
+ *      response, timeout) means the port is occupied by something unrelated
+ *      (`"busy"`, must be avoided).
+ *
+ * Used both for startup port selection (`pickFreePort`) and for deciding
+ * whether to adopt an already-running server (`startEmbeddedServer`).
+ */
 async function probePort(port: number, timeoutMs = 1500): Promise<"healthy" | "busy" | "free"> {
   // 1. Is anything listening? Try to connect.
   const reachable = await new Promise<boolean>((resolve) => {
@@ -305,6 +333,17 @@ async function probePort(port: number, timeoutMs = 1500): Promise<"healthy" | "b
   return healthy ? "healthy" : "busy";
 }
 
+/**
+ * Choose a port for a server we are about to start ourselves (i.e. we already
+ * know `PREFERRED_PORT` has nothing healthy to adopt). Tries, in order:
+ *   1. `PREFERRED_PORT` (4820) — the project's documented default.
+ *   2. The next nine ports (4821–4829) — small, predictable fallbacks that
+ *      are still easy for a user to guess/bookmark.
+ *   3. The full `FALLBACK_PORT_RANGE` (49152–49500, the IANA dynamic/private
+ *      range) — scanned sequentially as a last resort.
+ *
+ * @throws If every port in both ranges is occupied (practically never).
+ */
 async function pickFreePort(): Promise<number> {
   // Prefer the project's documented port. Otherwise scan a private range.
   const initial = await probePort(PREFERRED_PORT);
@@ -320,6 +359,14 @@ async function pickFreePort(): Promise<number> {
   throw new Error("Could not find a free TCP port for the dashboard server.");
 }
 
+/**
+ * Block until `probePort` reports `"healthy"` for the port we just bound, or
+ * throw once `timeoutMs` (default `HEALTH_TIMEOUT_MS`, 30s) elapses. Called
+ * right after `startServer()` returns, before the caller treats the server as
+ * usable — Express's `listen()` callback fires as soon as the socket is
+ * bound, which can be before the app has finished any async initialization
+ * that gates `/api/health`.
+ */
 async function waitForHealthy(port: number, timeoutMs = HEALTH_TIMEOUT_MS): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

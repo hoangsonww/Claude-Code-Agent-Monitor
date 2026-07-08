@@ -32,6 +32,9 @@ function getCurrentLanguage(): SupportedLanguage {
   return "en";
 }
 
+/** Maps the active i18next language to a `toLocaleString` BCP-47 locale tag,
+ *  so date/number formatting matches the UI's chosen language. Falls back to
+ *  "en-US" for any language not explicitly supported. */
 export function getCurrentLocale(): string {
   const language = getCurrentLanguage();
   if (language === "zh") return "zh-CN";
@@ -40,11 +43,14 @@ export function getCurrentLocale(): string {
   return "en-US";
 }
 
+/** Formats an ISO/SQLite timestamp as a locale-aware clock time, e.g. "8:49 AM". */
 export function formatTime(iso: string): string {
   const d = parseDate(iso);
   return d.toLocaleTimeString(getCurrentLocale(), { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Formats an ISO/SQLite timestamp as "Apr 18, 8:49 AM" - the default compact
+ *  timestamp used across list rows. */
 export function formatDateTime(iso: string): string {
   const d = parseDate(iso);
   return d.toLocaleString(getCurrentLocale(), {
@@ -80,11 +86,16 @@ export function formatDateTimeFull(iso: string): string {
   });
 }
 
+/** Formats the elapsed time between two ISO/SQLite timestamps as "Nh Nm" /
+ *  "Nm Ns" / "Ns" (see {@link formatMs}). Negative spans (end before start,
+ *  e.g. clock skew) clamp to "0s". */
 export function formatDuration(start: string, end: string): string {
   const ms = parseDate(end).getTime() - parseDate(start).getTime();
   return formatMs(ms);
 }
 
+/** Formats a millisecond duration as the coarsest two-unit representation:
+ *  "Nh Nm" once >= 1 hour, "Nm Ns" once >= 1 minute, else "Ns". */
 export function formatMs(ms: number): string {
   if (ms < 0) return "0s";
   const totalSec = Math.floor(ms / 1000);
@@ -97,6 +108,8 @@ export function formatMs(ms: number): string {
   return `${seconds}s`;
 }
 
+/** Formats how long ago an ISO/SQLite timestamp was, as a translated relative
+ *  string ("just now", "5m ago", "3h ago", "2d ago") using {@link i18n}. */
 export function timeAgo(iso: string): string {
   const ms = Date.now() - parseDate(iso).getTime();
   const seconds = Math.floor(ms / 1000);
@@ -109,6 +122,8 @@ export function timeAgo(iso: string): string {
   return i18n.t("common:time.dAgo", { count: days });
 }
 
+/** Truncates `str` to at most `max` characters, appending an ellipsis ("\u2026")
+ *  in place of the last character when truncation occurs. */
 export function truncate(str: string, max: number): string {
   if (str.length <= max) return str;
   return str.slice(0, max - 1) + "\u2026";

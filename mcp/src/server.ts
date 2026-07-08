@@ -10,6 +10,15 @@ import { DashboardApiClient } from "./clients/dashboard-api-client.js";
 import { Logger } from "./core/logger.js";
 import { registerAllTools } from "./tools/index.js";
 
+/**
+ * Constructs one fully-configured `McpServer` with every `dashboard_*` tool
+ * registered. A factory, not a singleton: stdio calls it once, while the
+ * HTTP transport calls it once per new client session (Streamable HTTP or
+ * legacy SSE), giving each session isolated server state while sharing the
+ * same {@link AppConfig}/{@link DashboardApiClient}.
+ * @returns A new `McpServer` with all six tool domains registered, ready to
+ *   `connect()` to a transport.
+ */
 export function buildServer(config: AppConfig, api: DashboardApiClient, logger: Logger): McpServer {
   const server = new McpServer({
     name: config.serverName,

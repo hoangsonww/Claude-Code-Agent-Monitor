@@ -9,8 +9,23 @@ import type { WSMessage } from "../lib/types";
 import { eventBus } from "../lib/eventBus";
 import { dashboardToken } from "../lib/api";
 
+/** Callback invoked with each parsed {@link WSMessage} the socket receives. */
 type MessageHandler = (msg: WSMessage) => void;
 
+/**
+ * Owns the dashboard's single WebSocket connection: connects to `/ws` on the
+ * current origin (matching the page's http/https scheme to ws/wss and
+ * attaching the dashboard auth token when one is configured), forwards parsed
+ * messages to `onMessage` and to the shared {@link eventBus}, and
+ * auto-reconnects with capped exponential backoff on close - plus an
+ * immediate reconnect attempt on tab focus/network-online/visibility-change
+ * so the socket recovers quickly after a server restart or laptop sleep.
+ * Guards against React 18 StrictMode's mount→cleanup→remount cycle opening a
+ * duplicate socket (see the inline comment in `connect`).
+ * @param onMessage Called with every message parsed from the socket; the
+ *   latest reference is used even across reconnects (no stale closures).
+ * @returns `{ connected }` - the current live connection state, for a status indicator.
+ */
 export function useWebSocket(onMessage: MessageHandler) {
   const wsRef = useRef<WebSocket | null>(null);
   const handlersRef = useRef<MessageHandler>(onMessage);

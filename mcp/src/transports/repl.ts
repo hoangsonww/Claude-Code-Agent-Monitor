@@ -20,6 +20,8 @@ import {
 } from "../ui/formatter.js";
 import type { ToolHandler } from "../core/tool-registry.js";
 
+/** A `ToolEntry` (`name`/`description`/`handler`) tagged with a `domain` for
+ * REPL display/completion only — the domain has no effect on invocation. */
 interface ToolEntry {
   name: string;
   description: string;
@@ -27,6 +29,9 @@ interface ToolEntry {
   domain: string;
 }
 
+/** Static `dashboard_<tool> -> domain` lookup mirroring `tools/domains/*.ts`
+ * module boundaries, kept literal since `collectAllTools` has no domain
+ * concept. Must be updated by hand alongside `index.ts`'s identical copy. */
 const TOOL_DOMAINS: Record<string, string> = {
   dashboard_health_check: "observability",
   dashboard_get_stats: "observability",
@@ -65,11 +70,20 @@ const DOMAIN_COLORS: Record<string, (t: string) => string> = {
   maintenance: c.brightRed,
 };
 
+/** Renders a `[domain]` badge in that domain's color, or muted if unknown. */
 function domainBadge(domain: string): string {
   const colorFn = DOMAIN_COLORS[domain] ?? c.muted;
   return colorFn(`[${domain}]`);
 }
 
+/**
+ * Starts the interactive REPL and owns the process lifecycle from here —
+ * `index.ts` returns immediately, since `readline`'s `"close"` event is this
+ * transport's shutdown path. Unlike stdio/http, it never constructs an
+ * `McpServer`: `tools` (from `collectAllTools`) is a flat, directly-
+ * invokable handler list, so typing a tool name calls its handler
+ * in-process, subject to the same `AppConfig` policy flags.
+ */
 export async function startRepl(
   config: AppConfig,
   api: DashboardApiClient,
@@ -142,6 +156,13 @@ export async function startRepl(
   });
 }
 
+/**
+ * Dispatches one entered line to a built-in command, or to
+ * {@link invokeToolByName} if it matches a known tool name. Built-ins always
+ * take precedence. `health`/`stats`/`status` are shortcuts invoking
+ * `dashboard_health_check`/`dashboard_get_stats`/
+ * `dashboard_get_operational_snapshot` with no arguments.
+ */
 async function handleCommand(
   input: string,
   config: AppConfig,
@@ -204,6 +225,10 @@ async function handleCommand(
   }
 }
 
+/** Invokes a tool handler by name directly (no MCP protocol), printing an
+ * "Invoking..." line then the formatted result/error. This is the REPL's
+ * own error boundary — a thrown error is caught/logged here, not converted
+ * to a `CallToolResult`. Args pass through unvalidated (no Zod check). */
 async function invokeToolByName(
   name: string,
   args: Record<string, unknown>,
@@ -234,6 +259,9 @@ async function invokeToolByName(
   }
 }
 
+/** Parses REPL tool args as a JSON object literal, or (if that fails)
+ * space-separated `key=value` pairs with `true`/`false`/numeric coercion.
+ * Not schema-aware. Empty input returns `{}`. */
 function parseArgs(raw: string): Record<string, unknown> {
   if (!raw) return {};
   try {
@@ -262,6 +290,7 @@ function parseArgs(raw: string): Record<string, unknown> {
   }
 }
 
+/** Prints the built-in command reference and example tool invocations. */
 function printHelp(): void {
   process.stdout.write(sectionHeader("Available Commands"));
 
@@ -291,6 +320,8 @@ function printHelp(): void {
   process.stdout.write(`    ${c.green("dashboard_list_agents status=working limit=10")}\n\n`);
 }
 
+/** Prints a table of tools (name, domain, truncated description) for
+ * `tools`/`tools <domain>` (case-insensitive domain match). */
 function printToolList(tools: ToolEntry[], domainFilter?: string): void {
   const filtered = domainFilter
     ? tools.filter((t) => t.domain === domainFilter.toLowerCase())
@@ -333,6 +364,7 @@ function printToolList(tools: ToolEntry[], domainFilter?: string): void {
   );
 }
 
+/** Prints tool counts per domain (sorted) for the `domains` command. */
 function printDomains(tools: ToolEntry[]): void {
   const domainCounts = new Map<string, number>();
   for (const t of tools) {
@@ -351,6 +383,8 @@ function printDomains(tools: ToolEntry[]): void {
   );
 }
 
+/** Prints the resolved {@link AppConfig} for `config`, including the live
+ * Mutations/Destructive policy state (warning color when enabled). */
 function printConfig(config: AppConfig): void {
   process.stdout.write(sectionHeader("Configuration"));
   const pairs: [string, string][] = [
@@ -374,11 +408,16 @@ function printConfig(config: AppConfig): void {
 
 // ── Exported helper to collect tools from registration ────────
 
+/** Registrar-shaped helper for building a domain-tagged {@link ToolEntry}
+ * list directly. Not currently wired into REPL startup — `index.ts` instead
+ * combines `collectAllTools` with its own copy of `TOOL_DOMAINS`. */
 export interface ReplToolCollector {
   tools: ToolEntry[];
   register: (name: string, description: string, handler: ToolHandler) => void;
 }
 
+/** Constructs an empty {@link ReplToolCollector}, tagging each registered
+ * tool via {@link TOOL_DOMAINS} (falling back to `"unknown"`). */
 export function createReplToolCollector(): ReplToolCollector {
   const tools: ToolEntry[] = [];
   return {

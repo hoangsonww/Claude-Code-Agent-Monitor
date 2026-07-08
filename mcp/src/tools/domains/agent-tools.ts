@@ -10,10 +10,23 @@ import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { AgentStatusSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
 
+/**
+ * Registers the four agent-management tools backing `/api/agents/*`. List/
+ * get are unconditional reads; create/update call
+ * {@link assertMutationsEnabled} first. Agents mirror Claude Code's own
+ * main-agent/subagent model: one main agent plus zero or more subagents
+ * (`type: "subagent"`, optional `subagent_type`, linked via `parent_agent_id`).
+ */
 export function registerAgentTools(context: ToolContext): void {
   const { api, logger, server, config } = context;
   const register = createToolRegistrar(server, logger);
 
+  // Policy: none. Input: limit (1-500, default 50), offset (default 0),
+  // status/session_id (optional). Calls GET /api/agents?... — the dashboard
+  // honors only ONE of status/session_id per call (session_id wins,
+  // ignoring limit/offset), so passing both doesn't intersect-filter.
+  // Output: { agents, limit, offset }, each agent's own cost attached (from
+  // its metadata token buckets, not its session's total).
   register(
     "dashboard_list_agents",
     "List agents with optional status/session filters and pagination.",
@@ -37,6 +50,9 @@ export function registerAgentTools(context: ToolContext): void {
     }
   );
 
+  // Policy: none. Input: agent_id (required). Calls GET /api/agents/:id.
+  // Output: { agent } — 404s (ApiError, NOT_FOUND) if missing; unlike
+  // dashboard_list_agents, no per-agent cost is attached.
   register(
     "dashboard_get_agent",
     "Get a single agent by ID.",
@@ -49,6 +65,10 @@ export function registerAgentTools(context: ToolContext): void {
     }
   );
 
+  // Policy: MUTATIONS required. Input: id/session_id/name (required); type
+  // (default "main"), subagent_type, status (default "waiting"), task,
+  // parent_agent_id, metadata (all optional). Calls POST /api/agents.
+  // Output: { agent, created } — an existing id returns as-is (created: false).
   register(
     "dashboard_create_agent",
     "Create a new agent in a session.",
@@ -81,6 +101,10 @@ export function registerAgentTools(context: ToolContext): void {
     }
   );
 
+  // Policy: MUTATIONS required. Input: agent_id (required);
+  // name/status/task/current_tool/ended_at/metadata optional — current_tool
+  // is nullable (explicitly clearable) and preserved when omitted entirely.
+  // Calls PATCH /api/agents/:id. Output: { agent } — 404s if missing.
   register(
     "dashboard_update_agent",
     "Update an existing agent's lifecycle state and metadata.",

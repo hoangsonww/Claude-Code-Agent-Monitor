@@ -7,6 +7,13 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ApiError } from "../clients/dashboard-api-client.js";
 
+/**
+ * Wraps a successful handler return value into the MCP `CallToolResult`
+ * shape. Called only from {@link createToolRegistrar}'s handler wrapper.
+ * The result is a single `text` block: the tool name as a title, then the
+ * payload pretty-printed as JSON — a display convenience, not a
+ * machine-readable envelope.
+ */
 export function jsonResult(title: string, payload: unknown): CallToolResult {
   return {
     content: [
@@ -18,6 +25,15 @@ export function jsonResult(title: string, payload: unknown): CallToolResult {
   };
 }
 
+/**
+ * Converts a thrown error into an `isError: true` `CallToolResult`, called
+ * only from {@link createToolRegistrar}'s catch block so a failing tool
+ * always resolves rather than rejects. An {@link ApiError} (raised by
+ * {@link DashboardApiClient} for any non-2xx response, timeout, or network
+ * failure) surfaces its own `code`/`status`/`details`; any other error
+ * (including policy-guard failures) collapses to a generic `INTERNAL_ERROR`
+ * with just the message.
+ */
 export function errorResult(error: unknown): CallToolResult {
   if (error instanceof ApiError) {
     return {

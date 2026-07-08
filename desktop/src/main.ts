@@ -32,11 +32,20 @@ import { ensureUserPath } from "./shell-path";
 import { createTray } from "./tray";
 import { appIconPath, createDashboardWindow } from "./window";
 
+/** Single mutable record of process-wide state, held in the module-level
+ * `state` singleton below rather than passed around — this main-process
+ * entry point has exactly one window, one tray, and one server, so a class
+ * or a dependency-injected context would add indirection without benefit. */
 interface AppState {
+  /** `null` until `startEmbeddedServer()` resolves during `boot()`. */
   serverHandle: ServerHandle | null;
+  /** `null` when hidden/not-yet-created; a live window still counts even
+   * while hidden by a `close` — see the `win.on("close", ...)` handler. */
   win: BrowserWindow | null;
   // Hold a reference to the tray so the GC doesn't collect it (electron quirk).
   tray: Electron.Tray | null;
+  /** Set once teardown has begun (inside `requestQuit`'s confirm callback or
+   * the bypass path in `before-quit`); gates re-entrant quit handling. */
   quitting: boolean;
   /** True while the quit-confirmation dialog is open; a second ⌘Q in this
    * window bypasses the dialog and lets macOS quit immediately. */
@@ -90,6 +99,17 @@ function requestQuit(): void {
     });
 }
 
+/**
+ * The single entry point every "open the dashboard" action goes through
+ * (dock/tray click, menu item, `second-instance`, macOS `activate`). Delegates
+ * to `focusOrCreateWindow` to reuse an existing window when possible, and
+ * otherwise builds one with `createDashboardWindow` and wires its `close`
+ * handler to hide-not-destroy (see the inline comment below).
+ *
+ * @throws If called before `startEmbeddedServer()` has resolved — there is no
+ *   URL to point the window at yet. `boot()` guarantees this can't happen on
+ *   the normal startup path.
+ */
 function ensureWindow(): BrowserWindow {
   if (!state.serverHandle) {
     throw new Error("Cannot create window before the server is up.");
@@ -114,6 +134,15 @@ function ensureWindow(): BrowserWindow {
   });
 }
 
+/**
+ * Handler for the "Restart Server" menu/tray action. Stops the current
+ * server only if we own it (an adopted external server is left untouched —
+ * we have no business killing a process we didn't start), starts a fresh
+ * one via `startEmbeddedServer()` (which re-runs port adoption/selection
+ * from scratch), reloads the dashboard window at the new URL if one is
+ * open, and surfaces a native notification so the user has confirmation the
+ * click did something.
+ */
 async function restartServer(): Promise<void> {
   log.info("restarting server");
   if (state.serverHandle?.ownedByUs) {
@@ -128,6 +157,8 @@ async function restartServer(): Promise<void> {
   new Notification({ title: APP_NAME, body: "Server restarted." }).show();
 }
 
+/** Reveal `desktop.log` in the OS file browser (Finder/Explorer), or log a
+ * no-op note if no line has been written yet (so `log.path()` is empty). */
 function openLogs(): void {
   const p = log.path();
   if (p) {
@@ -137,14 +168,29 @@ function openLogs(): void {
   }
 }
 
+/** Open the dashboard's URL in the user's default system browser. A no-op
+ * before the server has started, since there is no URL yet. */
 function openInBrowser(): void {
   if (state.serverHandle) void shell.openExternal(state.serverHandle.url);
 }
 
+/** Show a blocking native error dialog. Used only for conditions the user
+ * must see immediately and cannot recover from without restarting the app
+ * (e.g. the embedded server failing to boot at all). */
 function showFatalDialog(message: string, detail?: string): void {
   dialog.showErrorBox(`${APP_NAME} — Error`, detail ? `${message}\n\n${detail}` : message);
 }
 
+/**
+ * Runs once, after Electron fires `app.whenReady()`. Performs the full
+ * startup sequence documented in the file header: recover the shell `PATH`,
+ * boot (or adopt) the embedded server, install the application menu and
+ * tray, start the tray's snapshot poller, then open the dashboard window —
+ * unless this launch was triggered by the OS at login, in which case the app
+ * stays tray-only. A server-boot failure here is fatal: it shows a blocking
+ * error dialog and exits the process, since there is nothing useful the app
+ * can do without its server.
+ */
 async function boot(): Promise<void> {
   // macOS only shows the bundle's .icns in the Dock; an unpackaged `desktop:dev`
   // run otherwise displays the generic Electron icon. Set it explicitly so the
@@ -225,6 +271,17 @@ async function boot(): Promise<void> {
   }
 }
 
+/**
+ * Register the app-level lifecycle handlers. Called synchronously before
+ * `app.whenReady()` so the single-instance lock and `before-quit` interception
+ * are in place from the very first tick — there is no window yet to race
+ * against.
+ *
+ * `requestSingleInstanceLock()` is what makes a second launch (a second Dock
+ * click, or double-clicking the Start-Menu shortcut again) just focus the
+ * existing window instead of spawning a second tray + embedded server, which
+ * would otherwise fight over the same port and SQLite file.
+ */
 function wireLifecycle(): void {
   // Single-instance lock: second launches just focus the first window.
   const gotLock = app.requestSingleInstanceLock();

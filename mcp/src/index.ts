@@ -14,6 +14,12 @@ import { startRepl } from "./transports/repl.js";
 import { collectAllTools } from "./transports/tool-collector.js";
 import { printBanner, printServerInfo, printReady, printShutdown } from "./ui/banner.js";
 
+/**
+ * Determines the final {@link TransportMode}, letting CLI flags override the
+ * `MCP_TRANSPORT` env value passed as `env`. Priority: explicit
+ * `--transport=<mode>`, then bare `--repl`/`--http`, then `env`. An
+ * unrecognized `--transport=` value falls through rather than throwing.
+ */
 function resolveTransport(env: TransportMode): TransportMode {
   const cliArg = process.argv.find((a) => a.startsWith("--transport="));
   if (cliArg) {
@@ -25,6 +31,22 @@ function resolveTransport(env: TransportMode): TransportMode {
   return env;
 }
 
+/**
+ * Process entry point. Loads config, resolves the transport, and starts one
+ * of three modes: **stdio** (default) — one `McpServer` via
+ * {@link buildServer} over `StdioServerTransport`, how an MCP host like
+ * Claude Code talks to this process, no console UI since stdout is the
+ * JSON-RPC channel; **http** — {@link startHttpServer} builds a fresh
+ * `McpServer` per client session; **repl** — tags each
+ * {@link collectAllTools} tool with its domain and hands off to
+ * {@link startRepl}, which owns the lifecycle from there (this function
+ * returns immediately, skipping the signal setup below).
+ *
+ * For stdio/http, installs `SIGINT`/`SIGTERM` handlers invoking the
+ * transport's `shutdownFn`, plus `unhandledRejection`/`uncaughtException`
+ * handlers logging via {@link Logger} — the latter sets `process.exitCode = 1`
+ * without exiting immediately, letting in-flight work finish.
+ */
 async function main() {
   const config = loadConfig();
   const transport = resolveTransport(config.transport);
@@ -133,6 +155,9 @@ async function main() {
   });
 }
 
+// Top-level guard for startup failures (e.g. loadConfig() rejecting an
+// invalid MCP_DASHBOARD_BASE_URL). Hand-writes one Logger.error-shaped JSON
+// line to stderr, since no Logger instance may exist yet, then exits non-zero.
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(

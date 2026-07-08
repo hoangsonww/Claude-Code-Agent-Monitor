@@ -12,6 +12,9 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+/** Syntax category assigned to a {@link Token}. Not every tokenizer emits
+ *  every type - e.g. "tag"/"attr" are HTML-only, "diff-*" are diff-only,
+ *  "variable" is shell-only. {@link tokenClass} maps each to a colour class. */
 export type TokenType =
   | "plain"
   | "comment"
@@ -31,11 +34,15 @@ export type TokenType =
   | "diff-del"
   | "diff-meta";
 
+/** One lexical unit produced by {@link highlight} - a run of source text
+ *  tagged with the colour category it should render as. */
 export interface Token {
   type: TokenType;
   text: string;
 }
 
+/** One entry in a per-language tokenizer's ordered rule list: match `pattern`
+ *  (a sticky `/y` regex) at the cursor and, if it wins, tag the match `type`. */
 interface Rule {
   type: TokenType;
   pattern: RegExp;
@@ -258,11 +265,13 @@ const SH_BUILTINS = new Set([
   "tee",
 ]);
 
+/** Escapes regex metacharacters so `s` can be embedded in a `RegExp` literally. */
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Apply an ordered list of rules to source. Earlier rules win. */
+/** Apply an ordered list of rules to source. Earlier rules win. Any character
+ *  matched by no rule is appended as/into a "plain" token. */
 function tokenizeWith(source: string, rules: Rule[]): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -290,6 +299,7 @@ function tokenizeWith(source: string, rules: Rule[]): Token[] {
   return tokens;
 }
 
+/** Tokenizer for JavaScript/TypeScript ("js"/"ts" canonical languages). */
 function tokenizeJS(source: string): Token[] {
   const rules: Rule[] = [
     { type: "comment", pattern: /\/\/[^\n]*|\/\*[\s\S]*?\*\//y },
@@ -307,6 +317,7 @@ function tokenizeJS(source: string): Token[] {
   return refineIdentifiers(tokenizeWith(source, rules), JS_KEYWORDS, JS_BUILTINS, JS_LITERALS);
 }
 
+/** Tokenizer for Python source ("python" canonical language). */
 function tokenizePython(source: string): Token[] {
   const rules: Rule[] = [
     { type: "comment", pattern: /#[^\n]*/y },
@@ -323,6 +334,8 @@ function tokenizePython(source: string): Token[] {
   return refineIdentifiers(tokenizeWith(source, rules), PY_KEYWORDS, PY_BUILTINS, PY_LITERALS);
 }
 
+/** Tokenizer for JSON/JSONC ("json" canonical language). Object keys are
+ *  re-tagged "property" (see below) instead of "string" for a distinct colour. */
 function tokenizeJSON(source: string): Token[] {
   const rules: Rule[] = [
     { type: "string", pattern: /"(?:\\.|[^"\\])*"(?=\s*:)/y }, // key
@@ -349,6 +362,7 @@ function tokenizeJSON(source: string): Token[] {
   return tokens;
 }
 
+/** Tokenizer for shell scripts ("bash" canonical language, covers sh/zsh/console). */
 function tokenizeShell(source: string): Token[] {
   const rules: Rule[] = [
     { type: "comment", pattern: /#[^\n]*/y },
@@ -372,6 +386,9 @@ function tokenizeShell(source: string): Token[] {
   return tokens;
 }
 
+/** Tokenizer for HTML/XML/SVG ("html" canonical language). Uses one regex
+ *  scan (not the shared `Rule[]` engine) since tags/attrs need multi-group
+ *  matches; delegates attribute parsing to {@link tokenizeHTMLAttrs}. */
 function tokenizeHTML(source: string): Token[] {
   const tokens: Token[] = [];
   const re =
@@ -389,6 +406,8 @@ function tokenizeHTML(source: string): Token[] {
   return tokens;
 }
 
+/** Tokenizes one HTML tag's attribute-list substring (name=value pairs) for
+ *  {@link tokenizeHTML}. */
 function tokenizeHTMLAttrs(src: string): Token[] {
   const tokens: Token[] = [];
   const re = /(\s+)([a-zA-Z_:][\w:.-]*)(\s*=\s*)?("[^"]*"|'[^']*'|[^\s>]+)?/g;
@@ -402,6 +421,7 @@ function tokenizeHTMLAttrs(src: string): Token[] {
   return tokens;
 }
 
+/** Tokenizer for CSS ("css" canonical language, covers scss/less too). */
 function tokenizeCSS(source: string): Token[] {
   const rules: Rule[] = [
     { type: "comment", pattern: /\/\*[\s\S]*?\*\//y },
@@ -414,6 +434,9 @@ function tokenizeCSS(source: string): Token[] {
   return tokenizeWith(source, rules);
 }
 
+/** Tokenizer for SQL ("sql" canonical language). Unlike the other tokenizers,
+ *  the keyword set is local (`KW`) rather than a module-level constant, since
+ *  SQL is the only language whose reserved words are checked case-insensitively. */
 function tokenizeSQL(source: string): Token[] {
   const KW = new Set([
     "select",
@@ -485,6 +508,9 @@ function tokenizeSQL(source: string): Token[] {
   return tokens;
 }
 
+/** Tokenizer for YAML ("yaml" canonical language). Line-based rather than
+ *  regex-rule-based: each line is matched once against a `key: value` pattern
+ *  and the value is sniffed for string/number/boolean shape. */
 function tokenizeYAML(source: string): Token[] {
   const tokens: Token[] = [];
   const lines = source.split("\n");
@@ -517,6 +543,8 @@ function tokenizeYAML(source: string): Token[] {
   return tokens;
 }
 
+/** Tokenizer for unified diffs ("diff" canonical language, covers .patch
+ *  too). Purely line-prefix-based: `+`/`-`/`@@`/`+++`/`---`/`diff `. */
 function tokenizeDiff(source: string): Token[] {
   const tokens: Token[] = [];
   const lines = source.split("\n");
@@ -541,6 +569,10 @@ function tokenizeDiff(source: string): Token[] {
   return tokens;
 }
 
+/** Post-processes a token stream's generic "keyword" tokens (emitted by the
+ *  identifier-matching rule shared across JS/Python) into their final type:
+ *  "keyword" if actually reserved, "builtin" for known globals, "boolean" for
+ *  literal constants (true/false/null/…), or "plain" for ordinary identifiers. */
 function refineIdentifiers(
   tokens: Token[],
   keywords: Set<string>,
@@ -558,7 +590,14 @@ function refineIdentifiers(
   return tokens;
 }
 
-/** Normalize a user-supplied lang tag to a canonical key. */
+/**
+ * Normalize a user-supplied lang tag (fenced-code-block language, e.g. from a
+ * transcript's ```jsx block) to one of this module's canonical keys.
+ * @param lang Raw language tag, case-insensitive (e.g. "JS", "py", "yml").
+ * @returns A canonical key ("js", "ts", "python", "json", "bash", "html",
+ *   "css", "sql", "yaml", "diff"), or the lowercased input itself (or "plain"
+ *   if empty) when it doesn't match any known alias.
+ */
 export function canonicalLang(lang: string): string {
   const l = lang.toLowerCase().trim();
   if (l === "js" || l === "jsx" || l === "javascript" || l === "mjs" || l === "cjs") return "js";
@@ -574,7 +613,15 @@ export function canonicalLang(lang: string): string {
   return l || "plain";
 }
 
-/** Tokenize source code for the given language. Returns plain tokens for unknown languages. */
+/**
+ * Tokenize source code for the given language. This is the module's main
+ * entry point, consumed by CodeBlock.tsx to render each token as a coloured
+ * span (via {@link tokenClass}).
+ * @param source Raw source text to tokenize.
+ * @param lang Language tag, normalized internally via {@link canonicalLang}.
+ * @returns An ordered list of {@link Token}s. Falls back to a single "plain"
+ *   token wrapping the entire source for languages with no dedicated tokenizer.
+ */
 export function highlight(source: string, lang: string): Token[] {
   const canon = canonicalLang(lang);
   switch (canon) {
@@ -602,7 +649,12 @@ export function highlight(source: string, lang: string): Token[] {
   }
 }
 
-/** Map a token type to a Tailwind colour class. */
+/**
+ * Map a token type to a Tailwind colour class for rendering.
+ * @param type A {@link TokenType} produced by {@link highlight}.
+ * @returns Tailwind utility classes (text colour, and a background tint for
+ *   diff add/remove lines); falls back to a neutral gray for "plain"/unknown.
+ */
 export function tokenClass(type: TokenType): string {
   switch (type) {
     case "comment":

@@ -13,6 +13,9 @@ import * as path from "node:path";
 import { APP_NAME, DEFAULT_WINDOW } from "./constants";
 import { log } from "./logger";
 
+/** Persisted window geometry. `x`/`y` are omitted until the window has been
+ * moved at least once — a fresh install lets Electron pick the OS default
+ * placement rather than forcing `(0, 0)`. */
 interface WindowState {
   width: number;
   height: number;
@@ -20,6 +23,9 @@ interface WindowState {
   y?: number;
 }
 
+/** Absolute path to the JSON file geometry is persisted to, under this
+ * platform's `userData` directory (e.g. `~/Library/Application Support/…`
+ * on macOS, `%APPDATA%` on Windows). */
 function statePath(): string {
   return path.join(app.getPath("userData"), "window-state.json");
 }
@@ -46,6 +52,13 @@ export function appIconPath(): string | undefined {
   return fs.existsSync(p) ? p : undefined;
 }
 
+/**
+ * Read the persisted window geometry, falling back field-by-field to
+ * `DEFAULT_WINDOW` (and to `undefined` for position) whenever the file is
+ * missing, unreadable, or contains a field of the wrong type — so a
+ * corrupted or partially-written state file degrades gracefully instead of
+ * preventing the window from opening at all.
+ */
 function loadState(): WindowState {
   try {
     const raw = fs.readFileSync(statePath(), "utf8");
@@ -61,6 +74,14 @@ function loadState(): WindowState {
   }
 }
 
+/**
+ * Write the window's current bounds to `statePath()`. Skipped while the
+ * window is destroyed or minimized, since `getBounds()` on a minimized
+ * window reports the pre-minimize size on some platforms — persisting it
+ * would silently discard the user's last real resize/move. Failures (e.g.
+ * a read-only `userData` dir) are logged, not thrown — losing the saved
+ * geometry is cosmetic, not fatal.
+ */
 function saveState(win: BrowserWindow): void {
   if (win.isDestroyed() || win.isMinimized()) return;
   const { width, height, x, y } = win.getBounds();
@@ -71,6 +92,17 @@ function saveState(win: BrowserWindow): void {
   }
 }
 
+/**
+ * Create the single dashboard `BrowserWindow` and point it at the embedded
+ * server's origin. Restores the last persisted size/position (see
+ * `loadState`), re-saves it (debounced) on every resize/move/close, routes
+ * all external navigation to the system browser instead of inside Electron,
+ * and defers `show()` until `ready-to-show` so the window never flashes an
+ * unstyled blank frame while the page loads.
+ *
+ * @param targetUrl The embedded server's origin, e.g. `http://127.0.0.1:4820`.
+ * @returns The newly created, not-yet-visible `BrowserWindow`.
+ */
 export function createDashboardWindow(targetUrl: string): BrowserWindow {
   const state = loadState();
 

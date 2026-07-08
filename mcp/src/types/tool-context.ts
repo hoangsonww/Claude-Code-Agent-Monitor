@@ -9,9 +9,20 @@ import type { AppConfig } from "../config/app-config.js";
 import type { DashboardApiClient } from "../clients/dashboard-api-client.js";
 import type { Logger } from "../core/logger.js";
 
+/**
+ * Shared dependency bundle injected into every `register*Tools` function
+ * under `tools/domains/`. Adding a new dependency only requires updating
+ * this interface and `server.ts` (the sole place that constructs it).
+ */
 export interface ToolContext {
+  /** MCP server tool modules call `registerTool` on, via a {@link ToolRegistrar}. */
   server: McpServer;
+  /** Resolved config — dashboard URL, timeouts/retries, mutation/destructive
+   * policy flags checked by `policy/tool-guards.ts`. */
   config: AppConfig;
+  /** HTTP client to the dashboard's `/api/*` Express API — the only way
+   * tools read or write dashboard state. */
   api: DashboardApiClient;
+  /** Shared structured JSON logger (stderr). */
   logger: Logger;
 }
