@@ -614,6 +614,58 @@ For git clones, the server periodically `git fetch`es `origin` and compares your
 
 ---
 
+## `ccam` CLI
+
+The dashboard's full feature surface is also available from any terminal via the dependency-free **`ccam`** CLI (`bin/ccam.js`). It is linked automatically by `npm run setup` (via `npm link`), after which `ccam <command>` works from any directory. It discovers the running dashboard through `~/.claude/.agent-dashboard.json` (the same live-server registry the hook handler uses), with `CLAUDE_DASHBOARD_PORT` / `DASHBOARD_PORT` env overrides, falling back to `http://127.0.0.1:4820`.
+
+```bash
+# Monitoring
+ccam health                       # is the dashboard up?
+ccam stats                        # totals, today's events, status distributions
+ccam kanban                       # sessions + agents grouped by status columns
+ccam tail [--session <id>]        # live event feed in the terminal (Ctrl+C stops)
+
+# Data
+ccam sessions [--status s] [--q text] [--limit n]
+ccam session <id>                 # detail: agent tree, cost, recent events
+ccam agents   [--status s] [--session id]
+ccam events   [--session id] [--limit n]
+
+# Insights
+ccam analytics                    # token totals, top tools, agent types
+ccam workflows [--session id]     # workflow intelligence stats and patterns
+ccam runs [--session id]          # dynamic Workflow-tool runs
+ccam cost                         # total estimated cost with per-model breakdown
+
+# Alerts & webhooks
+ccam alerts [--unacked]           # fired-alert feed
+ccam alerts ack <id> | ack-all    # acknowledge alerts
+ccam rules                        # list alert rules
+ccam webhooks                     # list webhook targets
+ccam webhooks test <id>           # send a synthetic test alert
+
+# Pricing
+ccam pricing                      # list model pricing rules
+ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+ccam pricing delete <pattern>
+ccam pricing reset
+
+# Import
+ccam import rescan                # re-scan ~/.claude/projects
+ccam import path <dir>            # import every .jsonl under a directory
+
+# Administration
+ccam doctor                       # connectivity, hooks, and database diagnosis
+ccam info                         # raw system info JSON
+ccam export [file.json]           # full JSON data export
+ccam cleanup --hours N --days M   # abandon stale / purge old sessions
+ccam reinstall-hooks              # reinstall Claude Code hooks
+ccam clear-data --yes             # delete ALL data (requires --yes)
+ccam open                         # open the dashboard in your browser
+```
+
+Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
+
 ## npm Scripts
 
 | Command                 | Description                                                |

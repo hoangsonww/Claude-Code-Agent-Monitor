@@ -549,6 +549,7 @@
           <a href="#quickstart" class="nav-link"><span class="nav-icon">◈</span>Quick Start</a>
           <a href="#configuration" class="nav-link"><span class="nav-icon">◈</span>Configuration</a>
           <a href="#scripts" class="nav-link"><span class="nav-icon">◈</span>Scripts Reference</a>
+          <a href="#cli" class="nav-link"><span class="nav-icon">◈</span>ccam CLI</a>
 
           <div class="nav-section">Architecture</div>
           <a href="#arch-overview" class="nav-link"
@@ -1281,6 +1282,19 @@
                     never loses history. Slash-command autocomplete, file references, live
                     token/context-window meter, and a thinking-effort dial bring TUI parity
                     to the browser. Same-origin guard blocks drive-by spawns.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-cyan">⌨️</div>
+                  <h3 id="feat-ccam-cli">ccam CLI</h3>
+                  <p>
+                    The whole dashboard as terminal commands — <code>ccam stats</code>,
+                    <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>,
+                    <code>analytics</code>, <code>alerts</code>, <code>pricing</code>,
+                    <code>import</code>, <code>doctor</code>, <code>export</code> and more.
+                    Zero dependencies, linked by <code>npm run setup</code>, auto-discovers the
+                    running server, and pipes cleanly (colors off when not a TTY). The one
+                    destructive command is gated behind <code>--yes</code>.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2165,6 +2179,103 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 </tr>
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section id="cli">
+          <div class="section-label">◈ Reference</div>
+          <h2>ccam CLI</h2>
+          <p>
+            The full dashboard feature surface is also available from any terminal through the
+            dependency-free <code>ccam</code> CLI (<code>bin/ccam.js</code>). It is linked
+            automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>),
+            discovers the running server through the same
+            <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses
+            (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>),
+            and degrades its colored tables to plain text when piped — so it is equally at home
+            in an interactive shell, <code>grep</code> pipelines, or CI.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Group</th>
+                  <th>Commands</th>
+                  <th>What you get</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Monitoring</td>
+                  <td><code>health</code> · <code>stats</code> · <code>kanban</code> · <code>tail</code></td>
+                  <td>
+                    Reachability, totals and status distributions, the Kanban board rendered as
+                    text columns, and a live event feed that polls for new rows every 2 seconds
+                  </td>
+                </tr>
+                <tr>
+                  <td>Data</td>
+                  <td><code>sessions</code> · <code>session &lt;id&gt;</code> · <code>agents</code> · <code>events</code></td>
+                  <td>
+                    Filterable tables plus a per-session deep dive with an indented agent tree,
+                    per-session cost, and the most recent events
+                  </td>
+                </tr>
+                <tr>
+                  <td>Insights</td>
+                  <td><code>analytics</code> · <code>workflows</code> · <code>runs</code> · <code>cost</code></td>
+                  <td>
+                    Token totals and top tools, workflow-intelligence stats with detected
+                    patterns, dynamic Workflow-tool runs, and the per-model cost breakdown
+                  </td>
+                </tr>
+                <tr>
+                  <td>Alerts &amp; Webhooks</td>
+                  <td><code>alerts</code> · <code>alerts ack</code> · <code>rules</code> · <code>webhooks</code> · <code>webhooks test</code></td>
+                  <td>
+                    The fired-alert feed with acknowledge / acknowledge-all, the rule list, and
+                    synthetic test deliveries against any webhook target
+                  </td>
+                </tr>
+                <tr>
+                  <td>Pricing</td>
+                  <td><code>pricing</code> · <code>pricing set / delete / reset</code></td>
+                  <td>Full pricing-rule CRUD with per-mtok rates, straight from the terminal</td>
+                </tr>
+                <tr>
+                  <td>Import</td>
+                  <td><code>import rescan</code> · <code>import path &lt;dir&gt;</code></td>
+                  <td>
+                    The same idempotent ingestion pipeline the Settings page uses, reporting
+                    imported / backfilled / skipped / error counts
+                  </td>
+                </tr>
+                <tr>
+                  <td>Administration</td>
+                  <td><code>doctor</code> · <code>info</code> · <code>export</code> · <code>cleanup</code> · <code>reinstall-hooks</code> · <code>clear-data --yes</code> · <code>open</code></td>
+                  <td>
+                    Connectivity and hook diagnosis, raw system info, full JSON export, session
+                    cleanup, hook reinstallation, and a guarded wipe that refuses to run without
+                    <code>--yes</code>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout callout-info">
+            <div class="callout-icon">ℹ</div>
+            <div class="callout-body">
+              <strong>Safe by default</strong>
+              <p>
+                Read commands only issue GETs; mutating commands map one-to-one to explicit
+                dashboard actions; and the single destructive command,
+                <code>clear-data</code>, always refuses to run without an explicit
+                <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any
+                failure. See <code>docs/CLI.md</code> for the complete reference.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -6090,7 +6201,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=23" defer></script>
+    <script src="i18n-content.js?v=24" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

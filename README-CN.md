@@ -607,6 +607,58 @@ flowchart LR
 
 ---
 
+## `ccam` CLI
+
+仪表盘的完整功能面同样可以在终端中使用——零依赖的 **`ccam`** CLI（`bin/ccam.js`），由 `npm run setup` 自动链接（失败即降级的 `npm link`）。CLI 通过 `~/.claude/.agent-dashboard.json`（与 hook 处理器相同的注册表）自动发现正在运行的服务器，可用 `CLAUDE_DASHBOARD_PORT`/`DASHBOARD_PORT` 覆盖，默认 `http://127.0.0.1:4820`。
+
+```bash
+# 监控
+ccam health                       # 仪表盘是否在运行？
+ccam stats                        # 总量、今日事件、状态分布
+ccam kanban                       # 会话 + agent 按状态列分组
+ccam tail [--session <id>]        # 终端里的实时事件流（Ctrl+C 停止）
+
+# 数据
+ccam sessions [--status s] [--q text] [--limit n]
+ccam session <id>                 # 详情：agent 树、成本、最近事件
+ccam agents   [--status s] [--session id]
+ccam events   [--session id] [--limit n]
+
+# 洞察
+ccam analytics                    # token 总量、常用工具、agent 类型
+ccam workflows [--session id]     # 工作流智能统计与模式
+ccam runs [--session id]          # 动态 Workflow 工具运行
+ccam cost                         # 按模型细分的总预估成本
+
+# 告警 & webhook
+ccam alerts [--unacked]           # 触发告警流
+ccam alerts ack <id> | ack-all    # 确认告警
+ccam rules                        # 告警规则列表
+ccam webhooks                     # webhook 目标列表
+ccam webhooks test <id>           # 发送合成测试告警
+
+# 价格
+ccam pricing                      # 定价规则列表
+ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+ccam pricing delete <pattern>
+ccam pricing reset
+
+# 导入
+ccam import rescan                # 重新扫描 ~/.claude/projects
+ccam import path <dir>            # 导入目录下所有 .jsonl
+
+# 管理
+ccam doctor                       # 连接、hook 与数据库诊断
+ccam info                         # 原始系统信息 JSON
+ccam export [file.json]           # 导出全部数据为 JSON
+ccam cleanup --hours N --days M   # 放弃滞留会话 / 清理旧会话
+ccam reinstall-hooks              # 重新安装 Claude Code hook
+ccam clear-data --yes             # 删除全部数据（必须 --yes）
+ccam open                         # 在浏览器中打开仪表盘
+```
+
+读取类命令始终安全；唯一的破坏性命令（`clear-data`）没有显式 `--yes` 时拒绝执行。若 `ccam` 不在 PATH 上，在仓库根目录运行一次 `npm link`。完整参考——标志、服务器发现顺序、安全模型、退出码——见 [docs/CLI.md](./docs/CLI.md)。
+
 ## npm 脚本
 
 | 命令 | 描述 |

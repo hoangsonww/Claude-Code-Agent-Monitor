@@ -1,6 +1,9 @@
 {
   "name": "agent-dashboard",
   "version": "1.3.0",
+  "bin": {
+    "ccam": "bin/ccam.js"
+  },
   "description": "Real-time dashboard for tracking Claude Code agent activity",
   "private": true,
   "type": "commonjs",
@@ -56,7 +59,7 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "setup": "npm install && (cd client && npm install) && (cd vscode-extension && npm install)",
+    "setup": "npm install && (cd client && npm install) && (cd vscode-extension && npm install) && npm run link-cli",
     "update:pull-setup": "git pull --ff-only && npm run setup",
     "mcp:install": "npm --prefix mcp install",
     "mcp:build": "npm --prefix mcp run build",
@@ -89,7 +92,8 @@
     "test:mcp": "npm --prefix mcp run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "openapi:yaml": "node scripts/generate-openapi-yaml.js"
+    "openapi:yaml": "node scripts/generate-openapi-yaml.js",
+    "link-cli": "npm link || node -e \"console.warn('ccam CLI not linked globally (no permission?). Link manually with: npm link')\""
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
