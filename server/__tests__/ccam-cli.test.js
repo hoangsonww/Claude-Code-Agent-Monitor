@@ -331,6 +331,123 @@ describe("ccam CLI — import & administration", () => {
   });
 });
 
+describe("ccam CLI — offline mode (server down, DB read directly)", () => {
+  // The online admin suite ends with clear-data, so re-seed one session here
+  // (through the live server) for the offline reads to find.
+  before(async () => {
+    const code = await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: "cli-test-offline-0002", cwd: "/tmp/ccam-cli-off" },
+    });
+    assert.equal(code, 200);
+  });
+
+  /** Run the CLI with an unreachable port so it falls back to offline reads
+   *  of the SAME database file the in-test server uses (WAL second reader). */
+  function offline(...args) {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, ...args], {
+        env: { ...process.env, DASHBOARD_PORT: "1" },
+      });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      const killer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+      child.on("close", (code) => {
+        clearTimeout(killer);
+        resolve({ code, out, err });
+      });
+    });
+  }
+
+  it("sessions falls back to offline reads with the banner", async () => {
+    const { code, out } = await offline("sessions", "--limit", "5");
+    assert.equal(code, 0);
+    assert.match(out, /Offline mode/);
+    assert.match(out, /ccam start/);
+    assert.match(out, /cli-test/);
+    assert.match(out, /of 1 session/);
+  });
+
+  it("stats works offline", async () => {
+    const { code, out } = await offline("stats");
+    assert.equal(code, 0);
+    assert.match(out, /Total sessions/);
+    assert.match(out, /offline/);
+  });
+
+  it("session <id> works offline and flags cost as server-only", async () => {
+    const { code, out } = await offline("session", "cli-test-offline-0002");
+    assert.equal(code, 0);
+    assert.match(out, /Agents/);
+    assert.match(out, /cost: requires the server/);
+  });
+
+  it("kanban works offline", async () => {
+    const { code, out } = await offline("kanban");
+    assert.equal(code, 0);
+    assert.match(out, /Sessions/);
+    assert.match(out, /Agents/);
+  });
+
+  it("pricing list works offline; pricing set is refused with a reason", async () => {
+    const list = await offline("pricing");
+    assert.equal(list.code, 0);
+    assert.match(list.out, /claude/);
+    const set = await offline("pricing", "set", "x%", "--input", "1", "--output", "1");
+    assert.equal(set.code, 1);
+    assert.match(set.err, /pricing changes must go through the server/);
+  });
+
+  it("rules and alerts list offline", async () => {
+    const rules = await offline("rules");
+    assert.equal(rules.code, 0);
+    const alerts = await offline("alerts");
+    assert.equal(alerts.code, 0);
+    assert.match(alerts.out, /unacknowledged of/);
+  });
+
+  it("export works offline and marks the payload", async () => {
+    const file = path.join(TMP, "offline-export.json");
+    const { code } = await offline("export", file);
+    assert.equal(code, 0);
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    assert.equal(data.exported_offline, true);
+    assert.ok(JSON.stringify(data.sessions).includes("cli-test-offline-0002"));
+  });
+
+  it("doctor works offline and reports the server as down", async () => {
+    const { code, out } = await offline("doctor");
+    assert.equal(code, 0);
+    assert.match(out, /NOT running/);
+    assert.match(out, /Database/);
+    assert.match(out, /rows: sessions/);
+  });
+
+  it("cost refuses offline with the server-side-math reason", async () => {
+    const { code, err } = await offline("cost");
+    assert.equal(code, 1);
+    assert.match(err, /cost math .* runs server-side/);
+  });
+
+  it("clear-data --yes refuses offline — data stays intact", async () => {
+    const { code, err } = await offline("clear-data", "--yes");
+    assert.equal(code, 1);
+    assert.match(err, /data wipes must go through the server/);
+    const { out } = await offline("sessions");
+    assert.match(out, /of 1 session/);
+  });
+
+  it("analytics/workflows/tail refuse offline with reasons", async () => {
+    for (const cmd of ["analytics", "workflows", "tail"]) {
+      const { code, err } = await offline(cmd);
+      assert.equal(code, 1, `${cmd} should refuse offline`);
+      assert.match(err, /No offline fallback/);
+    }
+  });
+});
+
 describe("ccam CLI — help & errors", () => {
   it("help lists every command group", async () => {
     const { code, out } = await ccam("help");

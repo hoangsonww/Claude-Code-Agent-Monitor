@@ -87,6 +87,21 @@ The CLI talks to the local dashboard server — **API-backed commands require it
 | `ccam status` | At-a-glance up/down indicator (`●` running / `○` not running); exits `1` when down |
 | `ccam start [--port N]` | Start the production server **in the background** (detached; survives closing the terminal), wait up to 30 s for `/api/health`, print the URL + PID and the `kill <pid>` stop command. Logs append to `data/ccam-server.log`. No-ops with a pointer when a server is already up. Requires a built client (`npm run build` once) |
 
+### Offline Mode
+
+When the server is down, **read-only commands automatically fall back to reading `data/dashboard.db` directly** (SQLite; a safe second reader). Every offline run starts with a banner:
+
+```
+⚠ Offline mode — server not running; reading data/dashboard.db directly.
+  Data is as of the last capture — live capture and full features need the server: ccam start
+```
+
+| Works offline | Server required (with the printed reason) |
+| ------------- | ----------------------------------------- |
+| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `cleanup`, `clear-data`, `reinstall-hooks`, `info`, `health` |
+
+\* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
+
 ### Monitoring
 
 | Command | Description |

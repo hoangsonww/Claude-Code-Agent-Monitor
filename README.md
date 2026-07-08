@@ -668,7 +668,7 @@ ccam clear-data --yes             # delete ALL data (requires --yes)
 ccam open                         # open the dashboard in your browser
 ```
 
-API-backed commands need the server running — when it isn't, they print a consistent `○ Dashboard server is NOT running` indicator with the start commands, and `ccam start` brings a production server up in the background. Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
+API-backed commands need the server running — when it isn't, **read-only commands fall back to reading `data/dashboard.db` directly** (with an explicit `⚠ Offline mode` banner), while commands that can't run correctly without the server (live `tail`, analytics/cost math, mutations) print the `○ Dashboard server is NOT running` indicator with the specific reason and the start commands; `ccam start` brings a production server up in the background. Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
 
 ## npm Scripts
 

@@ -2264,6 +2264,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             </table>
           </div>
 
+              <p>
+                The CLI also manages the server itself: <code>ccam status</code> shows an
+                up/down indicator and <code>ccam start</code> boots a detached production
+                server. When the server is down, read-only commands fall back to reading
+                <code>data/dashboard.db</code> directly under an explicit offline banner,
+                while live or server-computed commands refuse with the specific reason.
+              </p>
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
@@ -6201,7 +6208,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=24" defer></script>
+    <script src="i18n-content.js?v=25" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

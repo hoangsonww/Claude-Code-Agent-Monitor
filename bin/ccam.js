@@ -88,7 +88,11 @@ function baseUrl() {
   return "http://127.0.0.1:4820";
 }
 
-/** Perform an API request; exits with a clear hint when the server is down. */
+/** Thrown when the dashboard server does not answer — the dispatcher decides
+ *  whether the active command has an offline fallback or must abort. */
+class ServerDownError extends Error {}
+
+/** Perform an API request; throws ServerDownError when the server is down. */
 async function api(method, pathname, body) {
   const url = `${baseUrl()}${pathname}`;
   let res;
@@ -100,7 +104,7 @@ async function api(method, pathname, body) {
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    serverDownExit();
+    throw new ServerDownError();
   }
   let data = null;
   try {
@@ -124,8 +128,9 @@ const post = (p, b) => api("POST", p, b);
  * identical everywhere: the ccam CLI talks to the local dashboard server,
  * and `ccam start` (or npm run dev / npm start) brings one up.
  */
-function serverDownExit() {
+function serverDownExit(reason) {
   console.error(`${c.red("○ Dashboard server is NOT running")} ${c.dim(`(tried ${baseUrl()})`)}`);
+  if (reason) console.error(c.dim(`  No offline fallback for this command: ${reason}.`));
   console.error(c.dim("  This command needs the server. Start it with one of:"));
   console.error(
     `    ${c.bold("ccam start")}        ${c.dim("# production server in the background")}`
@@ -203,6 +208,144 @@ const fmtTokens = (n) => {
   return String(v);
 };
 
+// ── Offline mode ────────────────────────────────────────────────────────────
+// When the server is down, read-only commands fall back to reading the
+// SQLite database directly (readonly, second reader is safe under WAL).
+// Commands that need server-side logic (cost math, analytics aggregation,
+// live capture, mutations with broadcasts) refuse instead — running them
+// against the raw DB would produce unreliable or divergent results.
+
+/** DB path resolution mirrors server/db.js: env override, then data/. */
+function dbPath() {
+  return process.env.DASHBOARD_DB_PATH || path.join(REPO_ROOT, "data", "dashboard.db");
+}
+
+/**
+ * Open the dashboard database for reading. Tries better-sqlite3 from the
+ * repo's node_modules first, then Node's built-in node:sqlite (Node 22+).
+ * Never creates a database file (existence is checked first), and the CLI
+ * only ever issues SELECTs through the returned handle. The connection is
+ * deliberately NOT opened with SQLite's readonly flag: a strict readonly
+ * connection cannot attach a live WAL's shared-memory index and would
+ * silently read the pre-WAL (stale/empty) state when another process has the
+ * database open — a normal connection under WAL reads consistently instead.
+ */
+function openDbReadonly() {
+  const file = dbPath();
+  if (!fs.existsSync(file)) return null;
+  try {
+    const Database = require(path.join(REPO_ROOT, "node_modules", "better-sqlite3"));
+    const db = new Database(file, { fileMustExist: true });
+    return { all: (sql, ...p) => db.prepare(sql).all(...p) };
+  } catch {
+    /* fall through to node:sqlite */
+  }
+  try {
+    const { DatabaseSync } = require("node:sqlite");
+    const db = new DatabaseSync(file);
+    return { all: (sql, ...p) => db.prepare(sql).all(...p) };
+  } catch {
+    return null;
+  }
+}
+
+/** One-time banner explaining that results come straight from the DB file. */
+function offlineBanner() {
+  console.log(
+    `${c.yellow("⚠ Offline mode")} ${c.dim(`— server not running; reading ${dbPath()} directly.`)}`
+  );
+  console.log(
+    c.dim("  Data is as of the last capture — live capture and full features need the server: ") +
+      c.bold("ccam start")
+  );
+  console.log();
+}
+
+/** Offline data providers shaped exactly like their API counterparts. */
+const offlineData = {
+  sessions(db, flags) {
+    const conds = [];
+    const params = [];
+    if (flags.status) {
+      conds.push("s.status = ?");
+      params.push(flags.status);
+    }
+    if (flags.q) {
+      conds.push("(s.id LIKE ? OR s.name LIKE ? OR s.cwd LIKE ?)");
+      const like = `%${flags.q}%`;
+      params.push(like, like, like);
+    }
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+    const limit = Number(flags.limit || 20);
+    const rows = db.all(
+      `SELECT s.*, (SELECT COUNT(*) FROM agents a WHERE a.session_id = s.id) AS agent_count
+       FROM sessions s ${where} ORDER BY s.updated_at DESC LIMIT ?`,
+      ...params,
+      limit
+    );
+    const total = db.all(`SELECT COUNT(*) AS n FROM sessions s ${where}`, ...params)[0].n;
+    return { sessions: rows, total };
+  },
+  agents(db, flags) {
+    const conds = [];
+    const params = [];
+    if (flags.status) {
+      conds.push("status = ?");
+      params.push(flags.status);
+    }
+    if (flags.session) {
+      conds.push("session_id = ?");
+      params.push(flags.session);
+    }
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+    return {
+      agents: db.all(
+        `SELECT * FROM agents ${where} ORDER BY started_at DESC LIMIT ?`,
+        ...params,
+        Number(flags.limit || 20)
+      ),
+    };
+  },
+  events(db, flags) {
+    const conds = [];
+    const params = [];
+    if (flags.session) {
+      conds.push("session_id = ?");
+      params.push(flags.session);
+    }
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+    return {
+      events: db.all(
+        `SELECT * FROM events ${where} ORDER BY created_at DESC LIMIT ?`,
+        ...params,
+        Number(flags.limit || 20)
+      ),
+    };
+  },
+  stats(db) {
+    const one = (sql, ...p) => db.all(sql, ...p)[0].n;
+    const dist = {};
+    for (const r of db.all("SELECT status, COUNT(*) AS n FROM sessions GROUP BY status")) {
+      dist[r.status] = r.n;
+    }
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    return {
+      total_sessions: one("SELECT COUNT(*) AS n FROM sessions"),
+      active_sessions: one("SELECT COUNT(*) AS n FROM sessions WHERE status = 'active'"),
+      total_agents: one("SELECT COUNT(*) AS n FROM agents"),
+      active_agents: one("SELECT COUNT(*) AS n FROM agents WHERE status = 'working'"),
+      total_events: one("SELECT COUNT(*) AS n FROM events"),
+      events_today: one(
+        "SELECT COUNT(*) AS n FROM events WHERE created_at >= ?",
+        midnight.toISOString()
+      ),
+      ws_connections: 0,
+      sessions_by_status: dist,
+    };
+  },
+};
+
 // ── Monitoring ──────────────────────────────────────────────────────────────
 
 async function cmdHealth() {
@@ -210,9 +353,8 @@ async function cmdHealth() {
   console.log(`${c.green("●")} Dashboard ${c.bold("up")} at ${baseUrl()} (${h.timestamp})`);
 }
 
-async function cmdStats() {
-  const s = await get("/api/stats");
-  console.log(c.bold("Dashboard stats") + c.dim(` — ${baseUrl()}`));
+function renderStats(s, source) {
+  console.log(c.bold("Dashboard stats") + c.dim(` — ${source}`));
   table(
     ["Metric", "Value"],
     [
@@ -231,12 +373,12 @@ async function cmdStats() {
   if (dist) console.log(`\nSessions by status: ${dist}`);
 }
 
+async function cmdStats() {
+  renderStats(await get("/api/stats"), baseUrl());
+}
+
 /** Text rendering of the Kanban board: sessions and agents grouped by status. */
-async function cmdKanban() {
-  const [sess, ag] = await Promise.all([
-    get("/api/sessions?limit=200"),
-    get("/api/agents?limit=400"),
-  ]);
+function renderKanban(sess, ag) {
   const group = (items, key) => {
     const g = {};
     for (const it of items) (g[it[key]] ||= []).push(it);
@@ -265,6 +407,14 @@ async function cmdKanban() {
   }
 }
 
+async function cmdKanban() {
+  const [sess, ag] = await Promise.all([
+    get("/api/sessions?limit=200"),
+    get("/api/agents?limit=400"),
+  ]);
+  renderKanban(sess, ag);
+}
+
 /**
  * Live event feed (the Activity Feed, in the terminal). Polls /api/events on
  * a short interval and prints only rows newer than the last one seen —
@@ -275,6 +425,7 @@ async function cmdTail(flags) {
   if (flags.session) params.set("session_id", flags.session);
   params.set("limit", "25");
   let lastSeen = null;
+  await get(`/api/health`); // fail fast (and route offline messaging) before announcing
   console.log(c.dim(`Tailing events from ${baseUrl()} — Ctrl+C to stop`));
   for (;;) {
     const data = await get(`/api/events?${params}`);
@@ -296,12 +447,7 @@ async function cmdTail(flags) {
 
 // ── Data browsing ───────────────────────────────────────────────────────────
 
-async function cmdSessions(flags) {
-  const params = new URLSearchParams();
-  if (flags.status) params.set("status", flags.status);
-  if (flags.q) params.set("q", flags.q);
-  params.set("limit", flags.limit || "20");
-  const data = await get(`/api/sessions?${params}`);
+function renderSessions(data) {
   const rows = (data.sessions || []).map((s) => [
     s.id.slice(0, 8),
     colorStatus(s.status),
@@ -312,6 +458,14 @@ async function cmdSessions(flags) {
   ]);
   table(["ID", "Status", "Name", "Agents", "Duration", "Model"], rows);
   console.log(c.dim(`\n${rows.length} of ${data.total ?? rows.length} session(s)`));
+}
+
+async function cmdSessions(flags) {
+  const params = new URLSearchParams();
+  if (flags.status) params.set("status", flags.status);
+  if (flags.q) params.set("q", flags.q);
+  params.set("limit", flags.limit || "20");
+  renderSessions(await get(`/api/sessions?${params}`));
 }
 
 /** Session detail: metadata, cost, agent tree, and the most recent events. */
@@ -369,12 +523,7 @@ async function cmdSession(positional) {
   }
 }
 
-async function cmdAgents(flags) {
-  const params = new URLSearchParams();
-  if (flags.status) params.set("status", flags.status);
-  if (flags.session) params.set("session_id", flags.session);
-  params.set("limit", flags.limit || "20");
-  const data = await get(`/api/agents?${params}`);
+function renderAgents(data) {
   const rows = (data.agents || []).map((a) => [
     a.id.slice(0, 8),
     colorStatus(a.status),
@@ -386,11 +535,15 @@ async function cmdAgents(flags) {
   table(["ID", "Status", "Type", "Name", "Tool", "Duration"], rows);
 }
 
-async function cmdEvents(flags) {
+async function cmdAgents(flags) {
   const params = new URLSearchParams();
+  if (flags.status) params.set("status", flags.status);
   if (flags.session) params.set("session_id", flags.session);
   params.set("limit", flags.limit || "20");
-  const data = await get(`/api/events?${params}`);
+  renderAgents(await get(`/api/agents?${params}`));
+}
+
+function renderEvents(data) {
   const rows = (data.events || []).map((e) => [
     fmtTime(e.created_at),
     e.event_type,
@@ -398,6 +551,13 @@ async function cmdEvents(flags) {
     (e.summary || "").slice(0, 60),
   ]);
   table(["Time", "Type", "Tool", "Summary"], rows);
+}
+
+async function cmdEvents(flags) {
+  const params = new URLSearchParams();
+  if (flags.session) params.set("session_id", flags.session);
+  params.set("limit", flags.limit || "20");
+  renderEvents(await get(`/api/events?${params}`));
 }
 
 // ── Insights ────────────────────────────────────────────────────────────────
@@ -626,8 +786,8 @@ async function cmdImport(flags, positional) {
 // ── Administration ──────────────────────────────────────────────────────────
 
 async function cmdDoctor() {
-  console.log(c.bold("ccam doctor") + c.dim(` — ${baseUrl()}`));
   await get("/api/health");
+  console.log(c.bold("ccam doctor") + c.dim(` — ${baseUrl()}`));
   console.log(`${c.green("✔")}  API reachable  ${baseUrl()}`);
   const info = await get("/api/settings/info");
   const hooks = info.hooks || {};
@@ -835,6 +995,225 @@ ${c.bold("Note:")} ccam talks to the local dashboard server — API-backed comma
 require it to be running (${c.bold("ccam start")} brings one up in the background).`);
 }
 
+// ── Offline command handlers & dispatch ────────────────────────────────────
+// Each handler mirrors its online command's output using offlineData
+// providers. Commands absent from this map cannot run correctly without the
+// server (live capture, server-side aggregation/cost math, or mutations that
+// must go through the server's transaction + broadcast path) — the
+// dispatcher tells the user so, with the reason.
+
+const OFFLINE_HANDLERS = {
+  async stats() {
+    const db = requireDb();
+    renderStats(offlineData.stats(db), `${dbPath()} (offline)`);
+  },
+  async sessions(flags) {
+    renderSessions(offlineData.sessions(requireDb(), flags));
+  },
+  async agents(flags) {
+    renderAgents(offlineData.agents(requireDb(), flags));
+  },
+  async events(flags) {
+    renderEvents(offlineData.events(requireDb(), flags));
+  },
+  async kanban() {
+    const db = requireDb();
+    renderKanban(
+      offlineData.sessions(db, { limit: "200" }),
+      offlineData.agents(db, { limit: "400" })
+    );
+  },
+  async session(flags, positional) {
+    const id = positional[0];
+    if (!id) {
+      console.error(c.red("✖ Usage: ccam session <session-id>"));
+      process.exit(1);
+    }
+    const db = requireDb();
+    const rows = db.all("SELECT * FROM sessions WHERE id = ?", id);
+    if (!rows.length) {
+      console.error(c.red(`✖ Session not found: ${id}`));
+      process.exit(1);
+    }
+    const s = rows[0];
+    console.log(`${c.bold(s.name || s.id)} ${c.dim(`(${s.id})`)}`);
+    console.log(
+      `status ${colorStatus(s.status)} · model ${fmtModel(s.model)} · ` +
+        `duration ${fmtDuration(s.started_at, s.ended_at)} · cwd ${s.cwd || "-"}`
+    );
+    console.log(c.dim("cost: requires the server (pricing math runs server-side)"));
+    const agents = db.all("SELECT * FROM agents WHERE session_id = ? ORDER BY started_at ASC", id);
+    if (agents.length) {
+      console.log(`\n${c.bold("Agents")} (${agents.length})`);
+      const byParent = {};
+      for (const a of agents) (byParent[a.parent_agent_id || ""] ||= []).push(a);
+      const walk = (parentId, depth) => {
+        for (const a of byParent[parentId] || []) {
+          const pad = "  ".repeat(depth + 1);
+          const tool = a.current_tool ? c.cyan(` [${a.current_tool}]`) : "";
+          console.log(
+            `${pad}${colorStatus(a.status)} ${a.type === "main" ? c.bold(a.name) : a.name}${tool} ${c.dim(fmtDuration(a.started_at, a.ended_at))}`
+          );
+          walk(a.id, depth + 1);
+        }
+      };
+      walk("", 0);
+    }
+    const events = db.all(
+      "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC LIMIT 10",
+      id
+    );
+    if (events.length) {
+      console.log(`\n${c.bold("Recent events")}`);
+      for (const e of events) {
+        console.log(
+          `  ${c.dim(fmtTime(e.created_at))}  ${c.cyan(e.event_type)}  ${(e.summary || "").slice(0, 70)}`
+        );
+      }
+    }
+  },
+  async pricing(flags, positional) {
+    if (positional[0]) {
+      serverDownExit(
+        "pricing changes must go through the server (cache invalidation + broadcasts)"
+      );
+    }
+    const db = requireDb();
+    const rows = db
+      .all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC")
+      .map((p) => [
+        p.model_pattern,
+        (p.display_name || "").slice(0, 24),
+        `$${p.input_per_mtok}`,
+        `$${p.output_per_mtok}`,
+        `$${p.cache_read_per_mtok}`,
+        `$${p.cache_write_per_mtok}`,
+      ]);
+    table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+  },
+  async alerts(flags, positional) {
+    if (positional[0]) {
+      serverDownExit("acknowledging alerts is a server-side mutation");
+    }
+    const db = requireDb();
+    const conds = flags.unacked ? "WHERE acknowledged_at IS NULL" : "";
+    const rows = db
+      .all(
+        `SELECT * FROM alert_events ${conds} ORDER BY triggered_at DESC LIMIT ?`,
+        Number(flags.limit || 20)
+      )
+      .map((a) => [
+        a.id,
+        a.acknowledged_at ? c.dim("acked") : c.yellow("open"),
+        fmtTime(a.triggered_at),
+        (a.rule_name || "").slice(0, 24),
+        (a.message || "").slice(0, 52),
+      ]);
+    const unacked = db.all(
+      "SELECT COUNT(*) AS n FROM alert_events WHERE acknowledged_at IS NULL"
+    )[0].n;
+    const total = db.all("SELECT COUNT(*) AS n FROM alert_events")[0].n;
+    table(["ID", "State", "Triggered", "Rule", "Message"], rows);
+    console.log(c.dim(`\n${unacked} unacknowledged of ${total}`));
+  },
+  async rules() {
+    const db = requireDb();
+    const rows = db
+      .all("SELECT * FROM alert_rules ORDER BY id")
+      .map((r) => [
+        r.id,
+        r.enabled ? c.green("on") : c.dim("off"),
+        r.rule_type,
+        (r.name || "").slice(0, 32),
+        `${r.cooldown_minutes ?? "-"}m`,
+      ]);
+    table(["ID", "Enabled", "Type", "Name", "Cooldown"], rows);
+  },
+  async export(flags, positional) {
+    const db = requireDb();
+    const file = positional[0] || `ccam-export-${new Date().toISOString().slice(0, 10)}.json`;
+    const payload = {
+      exported_at: new Date().toISOString(),
+      exported_offline: true,
+      sessions: db.all("SELECT * FROM sessions ORDER BY started_at DESC"),
+      agents: db.all("SELECT * FROM agents ORDER BY started_at DESC"),
+      events: db.all("SELECT * FROM events ORDER BY created_at DESC"),
+      token_usage: db.all("SELECT * FROM token_usage"),
+      model_pricing: db.all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC"),
+    };
+    fs.writeFileSync(file, JSON.stringify(payload, null, 2));
+    console.log(
+      `${c.green("✔")} Exported to ${c.bold(file)} (${(fs.statSync(file).size / 1048576).toFixed(1)} MB)`
+    );
+  },
+  async doctor() {
+    console.log(c.bold("ccam doctor") + c.dim(" — offline"));
+    console.log(
+      `${c.red("○")}  Dashboard server  NOT running ${c.dim(`(tried ${baseUrl()})`)} — start with: ${c.bold("ccam start")}`
+    );
+    const file = dbPath();
+    if (fs.existsSync(file)) {
+      const db = requireDb();
+      console.log(
+        `${c.green("✔")}  Database  ${file} (${(fs.statSync(file).size / 1048576).toFixed(1)} MB)`
+      );
+      for (const t of ["sessions", "agents", "events", "model_pricing", "token_usage"]) {
+        try {
+          console.log(
+            `${c.dim("·")}    rows: ${t}  ${db.all(`SELECT COUNT(*) AS n FROM ${t}`)[0].n}`
+          );
+        } catch {
+          /* table may not exist on very old DBs */
+        }
+      }
+    } else {
+      console.log(`${c.red("✖")}  Database  not found at ${file}`);
+    }
+    try {
+      const settingsPath = path.join(
+        process.env.CLAUDE_HOME || path.join(require("node:os").homedir(), ".claude"),
+        "settings.json"
+      );
+      const installed =
+        fs.existsSync(settingsPath) &&
+        fs.readFileSync(settingsPath, "utf8").includes("hook-handler.js");
+      console.log(
+        `${installed ? c.green("✔") : c.red("✖")}  Claude Code hooks  ${installed ? `installed (${settingsPath})` : "NOT installed — run: npm run install-hooks"}`
+      );
+    } catch {
+      console.log(`${c.dim("·")}  Claude Code hooks  could not be checked`);
+    }
+  },
+};
+
+/** Reasons shown when a server-only command is attempted offline. */
+const SERVER_ONLY_REASONS = {
+  tail: "live capture needs the running server (hooks only post to a live server)",
+  analytics: "analytics aggregation runs server-side",
+  workflows: "workflow intelligence is computed server-side",
+  runs: "workflow-run reconstruction runs server-side",
+  cost: "cost math (pricing rules, compaction baselines) runs server-side",
+  webhooks: "webhook configuration and test deliveries are server-side",
+  import: "imports must go through the server's ingestion pipeline",
+  cleanup: "cleanup is a server-side mutation",
+  "clear-data": "data wipes must go through the server",
+  "reinstall-hooks": "hook installation is performed by the server",
+  info: "system info (uptime, memory, WS connections) only exists on a running server",
+  health: "health is, by definition, a check against the running server",
+};
+
+/** Open the DB read-only or exit with guidance. */
+function requireDb() {
+  const db = openDbReadonly();
+  if (!db) {
+    console.error(c.red(`✖ No readable database at ${dbPath()}`));
+    console.error(c.dim("  Nothing has been captured yet, or no SQLite driver is available."));
+    console.error(c.dim("  Start the server to begin capturing: ccam start"));
+    process.exit(1);
+  }
+  return db;
+}
+
 // ── Entry point ─────────────────────────────────────────────────────────────
 
 async function main() {
@@ -905,7 +1284,23 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
+  if (err instanceof ServerDownError) {
+    const cmd = process.argv[2];
+    const { flags, positional } = parseArgs(process.argv.slice(3));
+    const handler = OFFLINE_HANDLERS[cmd];
+    if (handler) {
+      offlineBanner();
+      try {
+        await handler(flags, positional);
+        return;
+      } catch (offErr) {
+        console.error(c.red(`✖ Offline read failed: ${offErr?.message || offErr}`));
+        process.exit(1);
+      }
+    }
+    serverDownExit(SERVER_ONLY_REASONS[cmd]);
+  }
   console.error(c.red(`✖ ${err?.message || err}`));
   process.exit(1);
 });

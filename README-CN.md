@@ -661,7 +661,7 @@ ccam clear-data --yes             # 删除全部数据（必须 --yes）
 ccam open                         # 在浏览器中打开仪表盘
 ```
 
-基于 API 的命令需要服务器在运行——未运行时它们会打印一致的 `○ Dashboard server is NOT running` 指示并给出启动命令，`ccam start` 可在后台拉起生产服务器。读取类命令始终安全；唯一的破坏性命令（`clear-data`）没有显式 `--yes` 时拒绝执行。若 `ccam` 不在 PATH 上，在仓库根目录运行一次 `npm link`。完整参考——标志、服务器发现顺序、安全模型、退出码——见 [docs/CLI.md](./docs/CLI.md)。
+基于 API 的命令需要服务器在运行——未运行时，**只读命令会自动回退为直接读取 `data/dashboard.db`**（并显示明确的 `⚠ Offline mode` 横幅），而无法在无服务器时正确运行的命令（实时 `tail`、分析/成本计算、写操作）会打印 `○ Dashboard server is NOT running` 指示、具体原因和启动命令；`ccam start` 可在后台拉起生产服务器。读取类命令始终安全；唯一的破坏性命令（`clear-data`）没有显式 `--yes` 时拒绝执行。若 `ccam` 不在 PATH 上，在仓库根目录运行一次 `npm link`。完整参考——标志、服务器发现顺序、安全模型、退出码——见 [docs/CLI.md](./docs/CLI.md)。
 
 ## npm 脚本
 
