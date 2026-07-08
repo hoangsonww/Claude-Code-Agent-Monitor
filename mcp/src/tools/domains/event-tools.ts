@@ -10,10 +10,21 @@ import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { HookTypeSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
 
+/**
+ * Registers the two event-related tools: a read-only list and a mutation
+ * that feeds the same ingestion pipeline the installed Claude Code hooks
+ * use (`scripts/hook-handler.js` → `POST /api/hooks/event`) — the one domain
+ * where a tool can inject data into the dashboard's real-time pipeline
+ * (websocket broadcast + alert evaluation), useful for testing hook
+ * behavior without a live Claude Code session.
+ */
 export function registerEventTools(context: ToolContext): void {
   const { api, logger, server, config } = context;
   const register = createToolRegistrar(server, logger);
 
+  // Policy: none. Input: limit (1-200, default 50), offset (default 0),
+  // session_id (optional). Calls GET /api/events?limit&offset&session_id.
+  // Output: paginated event rows, most recent first.
   register(
     "dashboard_list_events",
     "List events with optional session filter and pagination.",
@@ -35,6 +46,18 @@ export function registerEventTools(context: ToolContext): void {
     }
   );
 
+  // Policy: MUTATIONS required. Input: hook_type (one of the seven Claude
+  // Code hook names); data (arbitrary JSON — MUST include session_id, which
+  // the dashboard uses to target the session). Calls POST /api/hooks/event,
+  // the same endpoint scripts/hook-handler.js posts to on every real hook
+  // firing. Output: { ok: true, event }. Side effects: bumps the session's
+  // updated_at, broadcasts "new_event" over websocket, fire-and-forget
+  // evaluates alert rules (failures swallowed), and — only for
+  // "SubagentStop" with a transcript_path — scans that session's subagent
+  // JSONL files for tool calls not yet recorded as events (the only path
+  // that attributes subagent tool_use to the right agent_id, since those
+  // never fire their own hooks). Throws (ApiError, MISSING_SESSION) if data
+  // has no session_id.
   register(
     "dashboard_ingest_hook_event",
     "Ingest one Claude Code hook event into the dashboard pipeline.",

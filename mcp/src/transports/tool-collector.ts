@@ -24,6 +24,19 @@ import {
 /**
  * Collect all tool handlers without requiring an MCP Server instance.
  * Used by REPL mode to invoke tools directly.
+ *
+ * A hand-maintained, server-less mirror of `tools/index.ts`'s
+ * `registerAllTools`/`tools/domains/*.ts`: it re-declares the same 26
+ * `dashboard_*` tools using {@link createCollectorRegistrar} instead of
+ * {@link createToolRegistrar}, so no `McpServer` or MCP protocol overhead is
+ * needed — the REPL calls handlers directly and renders results with its
+ * own formatter. Since this duplicates rather than imports the domain
+ * modules' definitions, a change to a tool's args/defaults/endpoint must be
+ * mirrored here by hand. `index.ts`'s HTTP startup also calls this once,
+ * purely for an accurate startup-banner tool count — each HTTP/SSE session
+ * still gets its own protocol-registered tools via `buildServer`.
+ * @param logger Unused here — {@link createCollectorRegistrar} doesn't wrap
+ *   handlers in logging, so errors propagate as real exceptions to the REPL.
  */
 export function collectAllTools(
   config: AppConfig,

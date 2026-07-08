@@ -11,9 +11,14 @@
 
 import type { DashboardEvent } from "./types";
 
+/** Rendered result of {@link buildEventSummary}: an emoji icon, a one-line
+ *  headline, and zero or more supporting detail lines shown underneath it. */
 export type EventSummary = {
+  /** Single emoji representing the event kind (tool-specific or lifecycle). */
   icon: string;
+  /** Primary one-line description, e.g. "Edited SessionDetail.tsx". */
   headline: string;
+  /** Secondary detail lines (diff stats, line counts, error flags, …); may be empty. */
   bullets: string[];
 };
 
@@ -35,6 +40,7 @@ function trunc(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + "..." : text;
 }
 
+/** Parses `event.data` (JSON) into a plain object, or null on empty/invalid data. */
 function parseData(event: DashboardEvent): Record<string, unknown> | null {
   if (!event.data) return null;
   try {
@@ -45,6 +51,7 @@ function parseData(event: DashboardEvent): Record<string, unknown> | null {
   }
 }
 
+/** Counts hunks and +/- lines in an Edit tool response's `structuredPatch`. */
 function countHunks(structuredPatch: unknown): { hunks: number; added: number; removed: number } {
   if (!Array.isArray(structuredPatch)) return { hunks: 0, added: 0, removed: 0 };
   let added = 0;
@@ -61,6 +68,8 @@ function countHunks(structuredPatch: unknown): { hunks: number; added: number; r
   return { hunks: structuredPatch.length, added, removed };
 }
 
+/** Finds the nearest function/class/const definition line surrounding an
+ *  Edit hunk, so the summary can show "Inside: function foo(...)". */
 function firstEnclosingContext(structuredPatch: unknown): string | null {
   // Look for a context line that looks like a function/class/const definition.
   if (!Array.isArray(structuredPatch)) return null;
@@ -78,17 +87,30 @@ function firstEnclosingContext(structuredPatch: unknown): string | null {
   return null;
 }
 
+/** Counts lines in `text` (empty string counts as 0, not 1). */
 function lineCount(text: string): number {
   if (!text) return 0;
   return text.split(/\r?\n/).length;
 }
 
+/** Formats a millisecond duration as "Nms" / "N.Ns" / "Nm Ns", for TurnDuration events. */
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
 }
 
+/**
+ * Builds the icon/headline/bullets summary shown at the top of the expanded
+ * EventDetail panel. Dispatches first on `event_type` for lifecycle events
+ * (Stop, TurnDuration, Compaction, Notification, SessionStart/End, APIError),
+ * then on `tool_name` for tool events - parsing `data`'s `tool_input`/
+ * `tool_response` to surface tool-specific facts (diff stats for Edit, line
+ * counts for Read/Write, match counts for Grep/Glob, etc.).
+ * @param event The raw event to summarize.
+ * @returns An {@link EventSummary}, or null when there's no tool name and no
+ *   recognized event type to build anything useful from.
+ */
 export function buildEventSummary(event: DashboardEvent): EventSummary | null {
   const data = parseData(event);
 
@@ -355,6 +377,9 @@ export function buildEventSummary(event: DashboardEvent): EventSummary | null {
   }
 }
 
+/** Turns an `mcp__server__tool_name` tool name into "Server · tool name" for
+ *  the MCP-tool summary headline (duplicates the dedupe/casing logic in
+ *  event-grouping.ts's `humanizeMcpServer`, kept local to avoid a cross-import). */
 function humanizeMcp(toolName: string): string {
   const parts = toolName.split("__").filter(Boolean);
   if (parts.length < 3) return toolName;
@@ -370,11 +395,14 @@ function humanizeMcp(toolName: string): string {
   return `${server} · ${toolPart}`;
 }
 
+/** Extracts the first whitespace-delimited token of a shell command (the binary). */
 function firstWord(command: string): string {
   const m = command.trim().match(/^(\S+)/);
   return m ? (m[1] ?? command) : command;
 }
 
+/** Returns the first non-empty string value found in `obj` among `priority`
+ *  keys, in order - used to surface the most relevant MCP call/response field. */
 function firstStringField(obj: Record<string, unknown>, priority: string[]): string | null {
   for (const k of priority) {
     const v = obj[k];
@@ -383,6 +411,8 @@ function firstStringField(obj: Record<string, unknown>, priority: string[]): str
   return null;
 }
 
+/** Best-effort match count from a Grep tool response, checking a few
+ *  known response shapes (array, `.matches`, `.files`, `.count`, `.numFiles`). */
 function countGrepMatches(response: unknown): number | null {
   if (!response) return null;
   if (Array.isArray(response)) return response.length;
@@ -395,6 +425,7 @@ function countGrepMatches(response: unknown): number | null {
   return null;
 }
 
+/** Best-effort file count from a Glob tool response (array, `.files`, or `.paths`). */
 function countFiles(response: unknown): number | null {
   if (Array.isArray(response)) return response.length;
   const r = obj(response);

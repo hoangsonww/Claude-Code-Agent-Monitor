@@ -4,11 +4,18 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+/** Whether ANSI colors should be emitted: `NO_COLOR` always disables;
+ * `FORCE_COLOR=0` disables, any other `FORCE_COLOR` enables regardless of
+ * TTY; otherwise enabled only on an interactive stdout TTY. Computed once
+ * at module load. */
 const isColorSupported =
   process.env.FORCE_COLOR !== "0" &&
   process.env.NO_COLOR === undefined &&
   (process.env.FORCE_COLOR !== undefined || (process.stdout.isTTY ?? false));
 
+/** Builds a styling function wrapping text in ANSI open/close codes, or an
+ * identity function when colors are unsupported — every color/modifier
+ * below is built with this, so disabling color no-ops all of them at once. */
 function wrap(open: string, close: string): (text: string) => string {
   if (!isColorSupported) return (text) => text;
   return (text) => `\x1b[${open}m${text}\x1b[${close}m`;
@@ -52,24 +59,33 @@ export const bgWhite = wrap("47", "49");
 export const bgGray = wrap("100", "49");
 
 // 256-color support
+
+/** Foreground-color function for an xterm 256-color index; not currently
+ * used by any composable style below. */
 export function fg256(code: number): (text: string) => string {
   if (!isColorSupported) return (text) => text;
   return (text) => `\x1b[38;5;${code}m${text}\x1b[39m`;
 }
 
+/** Background-color function for an xterm 256-color index. */
 export function bg256(code: number): (text: string) => string {
   if (!isColorSupported) return (text) => text;
   return (text) => `\x1b[48;5;${code}m${text}\x1b[49m`;
 }
 
 // Utility
+/** Raw ANSI "reset all styles" sequence, or `""` when colors are disabled. */
 export const reset = isColorSupported ? "\x1b[0m" : "";
 
+/** Strips ANSI SGR sequences from `text`. Used throughout `ui/formatter.ts`
+ * to measure/pad colored strings by visible length, not byte length. */
 export function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 // Composable styles
+/** Semantic style aliases used throughout `ui/banner.ts`, `ui/formatter.ts`,
+ * and `transports/repl.ts` so call sites express intent, not a specific color. */
 export const success = (t: string) => bold(green(t));
 export const error = (t: string) => bold(red(t));
 export const warn = (t: string) => bold(yellow(t));

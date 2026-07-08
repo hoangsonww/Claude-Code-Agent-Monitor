@@ -10,10 +10,20 @@ import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { SessionStatusSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
 
+/**
+ * Registers the four session-management tools backing `/api/sessions/*`.
+ * List/get are read-only; create/update both call
+ * {@link assertMutationsEnabled} first. None are gated by the
+ * destructive-tools flag.
+ */
 export function registerSessionTools(context: ToolContext): void {
   const { api, logger, server, config } = context;
   const register = createToolRegistrar(server, logger);
 
+  // Policy: none. Input: limit (1-200, default 50), offset (default 0),
+  // status (optional; omitted means all). Calls
+  // GET /api/sessions?limit&offset&status. Output: { sessions, total, limit,
+  // offset }.
   register(
     "dashboard_list_sessions",
     "List sessions with optional status filter and pagination.",
@@ -30,6 +40,11 @@ export function registerSessionTools(context: ToolContext): void {
     }
   );
 
+  // Policy: none. Input: session_id (required). Calls
+  // GET /api/sessions/:id. Output: { session, agents, events, workflows } —
+  // agents carry their own cost (from agent.metadata token buckets),
+  // workflows are any Workflow-tool runs launched in this session. 404s
+  // (ApiError, NOT_FOUND) if missing.
   register(
     "dashboard_get_session",
     "Get one session with its full agents list and event timeline.",
@@ -42,6 +57,11 @@ export function registerSessionTools(context: ToolContext): void {
     }
   );
 
+  // Policy: MUTATIONS required. Input: id (required); name/cwd/model/
+  // metadata (optional). Calls POST /api/sessions. Output: { session,
+  // created } — an existing id returns as-is (created: false), matching how
+  // the hook pipeline lazily creates sessions without erroring on a
+  // duplicate id; a new session starts as "active".
   register(
     "dashboard_create_session",
     "Create a new session record if it does not already exist.",
@@ -66,6 +86,9 @@ export function registerSessionTools(context: ToolContext): void {
     }
   );
 
+  // Policy: MUTATIONS required. Input: session_id (required);
+  // name/status/ended_at/metadata (optional; ended_at is ISO-8601). Calls
+  // PATCH /api/sessions/:id. Output: the updated session record.
   register(
     "dashboard_update_session",
     "Update session metadata or lifecycle status.",

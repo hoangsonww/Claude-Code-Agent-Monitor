@@ -14,17 +14,33 @@ export const APP_NAME = "Claude Code Monitor";
  */
 export const APP_ID = "com.hoangsonww.ccam.desktop";
 
-/** Preferred dashboard port — matches the project's documented default. */
+/**
+ * Preferred dashboard port — matches the project's documented default. Also
+ * the only port `server-host.ts`'s `startEmbeddedServer` will *adopt* an
+ * already-healthy server on; a server found on any other port is never
+ * treated as "ours" to reuse.
+ */
 export const PREFERRED_PORT = 4820;
 
-/** Highest port we'll try as a fallback when 4820 (and friends) are taken. */
+/**
+ * Last-resort port scan range when `PREFERRED_PORT` and its nine immediate
+ * fallbacks (4821–4829) are all taken. Set to the IANA-registered
+ * dynamic/private port range (49152–65535, truncated here to 49500 — far more
+ * headroom than `pickFreePort()` should ever need) so we never guess at a
+ * port some other, unrelated service might be registered on.
+ */
 export const FALLBACK_PORT_RANGE = { min: 49152, max: 49500 } as const;
 
 /**
- * How long we wait for the embedded server to answer `/api/health` before
- * giving up and surfacing an error dialog to the user.
+ * How long `server-host.ts`'s `waitForHealthy()` polls a freshly bound port
+ * for `/api/health` before giving up and surfacing an error dialog to the
+ * user. 30s comfortably covers a cold start on a slow disk (SQLite file
+ * creation, migrations) without leaving the user staring at a spinner
+ * indefinitely if something is actually broken.
  */
 export const HEALTH_TIMEOUT_MS = 30_000;
 
-/** Default window size. Persisted to electron's userData after first launch. */
+/** Default window size, used only when no `window-state.json` exists yet
+ * (first launch). Persisted to `app.getPath('userData')` after that — see
+ * `window.ts`'s `loadState`/`saveState`. */
 export const DEFAULT_WINDOW = { width: 1280, height: 800 } as const;

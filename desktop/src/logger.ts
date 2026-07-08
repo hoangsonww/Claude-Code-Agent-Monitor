@@ -15,6 +15,12 @@ import * as path from "node:path";
 let stream: fs.WriteStream | null = null;
 let logPath = "";
 
+/**
+ * Lazily open the append-mode write stream to `desktop.log`, creating the
+ * `app.getPath('logs')` directory if this is the first write of the process.
+ * Cached in the module-level `stream` so every subsequent `write()` call
+ * reuses the same file descriptor instead of re-opening the file.
+ */
 function ensureStream(): fs.WriteStream {
   if (stream) return stream;
   const dir = app.getPath("logs");
@@ -24,6 +30,16 @@ function ensureStream(): fs.WriteStream {
   return stream;
 }
 
+/**
+ * Format one log line (ISO timestamp + level + space-joined parts) and fan it
+ * out to the log file and, conditionally, to the process streams:
+ *   - `error` always echoes to `stderr`, so a crash is visible even without
+ *     `CCAM_DESKTOP_VERBOSE` (e.g. when Electron is launched from a terminal).
+ *   - `info`/`warn` only echo to `stdout` when `CCAM_DESKTOP_VERBOSE` is set,
+ *     keeping a normal launch quiet.
+ * The file write is wrapped in try/catch — a logging failure (e.g. a full
+ * disk) must never take down the app.
+ */
 function write(level: "info" | "warn" | "error", parts: unknown[]): void {
   const line = `${new Date().toISOString()} [${level}] ${parts
     .map((p) => (typeof p === "string" ? p : safeStringify(p)))
@@ -40,6 +56,8 @@ function write(level: "info" | "warn" | "error", parts: unknown[]): void {
   }
 }
 
+/** `JSON.stringify` a non-string log argument, falling back to `String()` for
+ * values it can't serialize (e.g. circular objects or `BigInt`). */
 function safeStringify(value: unknown): string {
   try {
     return JSON.stringify(value);
@@ -48,6 +66,12 @@ function safeStringify(value: unknown): string {
   }
 }
 
+/**
+ * The desktop shell's only logging surface. Electron's main process has no
+ * attached console when launched from Finder/Dock, so every call here is
+ * durably persisted to `desktop.log` (see `ensureStream`) in addition to the
+ * conditional stdout/stderr echo described in `write`.
+ */
 export const log = {
   info: (...parts: unknown[]) => write("info", parts),
   warn: (...parts: unknown[]) => write("warn", parts),

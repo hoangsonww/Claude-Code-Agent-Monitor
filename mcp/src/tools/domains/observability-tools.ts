@@ -8,10 +8,20 @@ import { z } from "zod";
 import type { ToolContext } from "../../types/tool-context.js";
 import { createToolRegistrar } from "../../core/tool-registry.js";
 
+/**
+ * Registers the six read-only observability tools. None call
+ * {@link assertMutationsEnabled}/{@link assertDestructiveEnabled} — all are
+ * plain GETs, always available regardless of policy flags.
+ * `dashboard_get_operational_snapshot` is the only one fanning out to
+ * multiple endpoints in parallel rather than proxying a single one.
+ */
 export function registerObservabilityTools(context: ToolContext): void {
   const { api, logger, server } = context;
   const register = createToolRegistrar(server, logger);
 
+  // Calls GET /api/health. Output: dashboard liveness payload — a fast
+  // pre-flight check, since every other tool needs the dashboard running at
+  // config.dashboardBaseUrl or it fails with an ApiError network/timeout.
   register(
     "dashboard_health_check",
     "Check health of the local Agent Dashboard API.",
@@ -19,6 +29,8 @@ export function registerObservabilityTools(context: ToolContext): void {
     async () => api.get("/api/health")
   );
 
+  // Calls GET /api/stats. Output: session/agent counts by status,
+  // events-today, and live websocket connection count.
   register(
     "dashboard_get_stats",
     "Get dashboard overview stats including session/agent counts and websocket connections.",
@@ -26,6 +38,9 @@ export function registerObservabilityTools(context: ToolContext): void {
     async () => api.get("/api/stats")
   );
 
+  // Calls GET /api/analytics. Output: token totals/cost, per-tool usage
+  // counts, daily event/session counts, agent type distribution, and
+  // event-type breakdown — backs the dashboard's Analytics page.
   register(
     "dashboard_get_analytics",
     "Get analytics summary including token totals, usage trends, and distributions.",
@@ -33,6 +48,9 @@ export function registerObservabilityTools(context: ToolContext): void {
     async () => api.get("/api/analytics")
   );
 
+  // Calls GET /api/settings/info. Output: SQLite path/size/counts/pragmas,
+  // recent ingestion load (5/15/60 min), Claude Code hook install status,
+  // and Node/OS process info (uptime, memory, cpu, ws connections).
   register(
     "dashboard_get_system_info",
     "Get system info, DB stats, and hook installation status.",
@@ -40,6 +58,10 @@ export function registerObservabilityTools(context: ToolContext): void {
     async () => api.get("/api/settings/info")
   );
 
+  // Calls GET /api/settings/export. Output: the full dashboard dataset —
+  // sessions, agents, events, token_usage, pricing rules — same payload the
+  // UI's "Export Data" button downloads (its attachment header has no
+  // effect on this client).
   register(
     "dashboard_export_data",
     "Export complete dashboard data payload (sessions, agents, events, tokens, pricing).",
@@ -47,6 +69,12 @@ export function registerObservabilityTools(context: ToolContext): void {
     async () => api.get("/api/settings/export")
   );
 
+  // Input: three optional per-section limits, each defaulted below. Fans
+  // out via Promise.all to GET /api/stats, /api/analytics, /api/events,
+  // /api/sessions?status=active, and /api/agents queried twice
+  // (status=working, status=connected — the dashboard filters one status
+  // per call). Output: one combined { stats, analytics, recent_events,
+  // active_sessions, active_agents: {working, connected}, generated_at }.
   register(
     "dashboard_get_operational_snapshot",
     "Get a high-signal operational snapshot combining stats, analytics, active sessions, active agents, and recent events.",

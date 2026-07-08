@@ -1,15 +1,10 @@
-# Force LF line endings for all text files, regardless of OS
-* text=auto eol=lf
+# GitHub Linguist overrides — keep language stats honest.
+#
+# wiki/mermaid.min.js is a vendored, minified third-party library (Mermaid);
+# it is not project source code and must not count toward language stats.
+wiki/mermaid.min.js linguist-vendored
 
-# Explicitly mark binary files to prevent corruption
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.svg binary
-*.woff binary
-*.woff2 binary
-*.ttf binary
-*.eot binary
-*.db binary
+# wiki/i18n-content.js is machine-assembled translation data (see its header:
+# "AUTO-GENERATED wiki body-content translations ... Do not hand-edit").
+# It is a data bundle keyed by English innerHTML, not hand-written JavaScript.
+wiki/i18n-content.js linguist-generated

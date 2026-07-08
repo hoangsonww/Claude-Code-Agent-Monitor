@@ -4,6 +4,14 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+/**
+ * Decodes a URL-safe base64 VAPID public key (as served by
+ * GET /api/push/vapid-public-key) into the raw byte buffer the Push API's
+ * `applicationServerKey` option requires.
+ * @param base64String URL-safe base64 string (`-`/`_` instead of `+`/`/`,
+ *   `=` padding optional - this re-pads before decoding).
+ * @returns The decoded bytes as an `ArrayBuffer`.
+ */
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -15,6 +23,15 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return outputArray.buffer;
 }
 
+/**
+ * Subscribes the browser to Web Push notifications, if not already
+ * subscribed. No-ops silently when the browser lacks Service Worker/Push API
+ * support, or when a subscription already exists (idempotent - safe to call
+ * on every app load / every time notifications are enabled in settings).
+ * Fetches the server's VAPID public key, creates the push subscription via
+ * the active service worker, then registers it with the backend so
+ * `/api/push/send` can target this browser.
+ */
 export async function subscribeToPush(): Promise<void> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
@@ -37,6 +54,12 @@ export async function subscribeToPush(): Promise<void> {
   });
 }
 
+/**
+ * Unsubscribes the browser from Web Push notifications, if currently
+ * subscribed, and tells the backend to forget the endpoint (so it stops
+ * attempting deliveries to it). No-ops silently when there's no active
+ * subscription or the browser lacks Service Worker support.
+ */
 export async function unsubscribeFromPush(): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
 

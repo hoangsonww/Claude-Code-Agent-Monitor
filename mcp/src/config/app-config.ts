@@ -4,24 +4,60 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+/** Minimum severity a log line must meet to be written to stderr; see {@link Logger}. */
 export type LogLevel = "debug" | "info" | "warn" | "error";
+/** Transport `index.ts` starts: `"stdio"` (default, MCP-host subprocess),
+ * `"http"` (Streamable HTTP + legacy SSE server), or `"repl"` (interactive CLI). */
 export type TransportMode = "stdio" | "http" | "repl";
 
+/**
+ * Fully-resolved runtime configuration produced by {@link loadConfig}. Every
+ * field has a safe default so the server boots with no env vars set.
+ */
 export interface AppConfig {
+  /** From `MCP_SERVER_NAME`, default `"agent-dashboard-mcp"`. */
   serverName: string;
+  /** From `MCP_SERVER_VERSION`, default `"1.0.0"`. */
   serverVersion: string;
+  /** Base URL of the local dashboard API {@link DashboardApiClient} calls.
+   * Must be http(s) targeting a loopback/local-container host (see
+   * {@link parseDashboardUrl}) — a hard boundary against reaching a remote
+   * origin. From `MCP_DASHBOARD_BASE_URL`, default `http://127.0.0.1:4820`. */
   dashboardBaseUrl: URL;
+  /** Per-attempt timeout (ms) before a request aborts as `TIMEOUT`. From
+   * `MCP_DASHBOARD_TIMEOUT_MS`, default `10_000`, clamped `[500, 120_000]`. */
   requestTimeoutMs: number;
+  /** Extra attempts after the first for idempotent (GET/DELETE) requests on
+   * a retryable error (timeout, HTTP 408/429/5xx); POST/PUT/PATCH always run
+   * once. From `MCP_DASHBOARD_RETRY_COUNT`, default `2`, clamped `[0, 5]`. */
   retryCount: number;
+  /** Base backoff delay (ms), doubled per retry (`* 2^(attempt-1)`). From
+   * `MCP_DASHBOARD_RETRY_BACKOFF_MS`, default `250`, clamped `[50, 10_000]`. */
   retryBackoffMs: number;
+  /** Master gate for every write tool; `false` makes the server read-only
+   * (see `policy/tool-guards.ts`). From `MCP_DASHBOARD_ALLOW_MUTATIONS`,
+   * default `false`. */
   allowMutations: boolean;
+  /** Gate for `dashboard_clear_all_data` only; requires `allowMutations`
+   * too. From `MCP_DASHBOARD_ALLOW_DESTRUCTIVE`, default `false`. */
   allowDestructive: boolean;
+  /** From `MCP_LOG_LEVEL`, default `"info"`. */
   logLevel: LogLevel;
+  /** Default transport before `index.ts`'s CLI-flag overrides. From
+   * `MCP_TRANSPORT`, default `"stdio"`. */
   transport: TransportMode;
+  /** HTTP transport bind port (ignored for stdio/repl). From
+   * `MCP_HTTP_PORT`, default `8819`, clamped `[1, 65535]`. */
   httpPort: number;
+  /** HTTP transport bind host (ignored for stdio/repl). From
+   * `MCP_HTTP_HOST`, default `"127.0.0.1"`. */
   httpHost: string;
 }
 
+/** Allowlist of hostnames the dashboard URL may target: loopback addresses
+ * plus the special Docker/Podman host-mapping names, so the MCP server can
+ * run containerized and still reach a dashboard on the host. Anything else
+ * is rejected by {@link parseDashboardUrl}. */
 const LOCAL_DASHBOARD_HOSTS = new Set([
   "127.0.0.1",
   "localhost",
@@ -32,6 +68,8 @@ const LOCAL_DASHBOARD_HOSTS = new Set([
 ]);
 const VALID_LOG_LEVELS = new Set<LogLevel>(["debug", "info", "warn", "error"]);
 
+/** Parses `1/true/yes/on` / `0/false/no/off` (case-insensitive); anything
+ * else, including `undefined`, resolves to `fallback`. */
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
   const normalized = value.trim().toLowerCase();
@@ -40,6 +78,8 @@ function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+/** Parses and clamps an integer env var into `[min, max]`; non-numeric or
+ * missing input falls back to `fallback` rather than throwing. */
 function parseInteger(
   value: string | undefined,
   fallback: number,
@@ -52,11 +92,19 @@ function parseInteger(
   return Math.min(max, Math.max(min, parsed));
 }
 
+/** Normalizes `MCP_LOG_LEVEL`, falling back to `"info"`. */
 function parseLogLevel(value: string | undefined): LogLevel {
   const normalized = value?.trim().toLowerCase() as LogLevel | undefined;
   return normalized && VALID_LOG_LEVELS.has(normalized) ? normalized : "info";
 }
 
+/**
+ * Parses and validates `MCP_DASHBOARD_BASE_URL`. Unlike the other parsers
+ * here, invalid input throws rather than falling back — an unsafe dashboard
+ * target is startup-fatal, not something to paper over.
+ * @throws {Error} on an invalid URL, a non-http(s) scheme, or a hostname
+ *   outside {@link LOCAL_DASHBOARD_HOSTS}.
+ */
 function parseDashboardUrl(raw: string | undefined): URL {
   const value = (raw ?? "http://127.0.0.1:4820").trim();
   let url: URL;
@@ -81,12 +129,20 @@ function parseDashboardUrl(raw: string | undefined): URL {
   return url;
 }
 
+/** Normalizes `MCP_TRANSPORT`, falling back to `"stdio"`. This is only the
+ * default — `index.ts`'s `resolveTransport` may override it with CLI flags. */
 function parseTransport(value: string | undefined): TransportMode {
   const normalized = value?.trim().toLowerCase();
   if (normalized === "http" || normalized === "repl" || normalized === "stdio") return normalized;
   return "stdio";
 }
 
+/**
+ * Reads and normalizes all `MCP_*` env vars into one {@link AppConfig}.
+ * Called once at startup in `index.ts`; the result is treated as immutable.
+ * @param env Defaults to `process.env`; injectable for tests.
+ * @throws {Error} if `MCP_DASHBOARD_BASE_URL` is set but invalid/non-local.
+ */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     serverName: env.MCP_SERVER_NAME?.trim() || "agent-dashboard-mcp",

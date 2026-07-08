@@ -12,7 +12,10 @@
 import type { DashboardEvent } from "./types";
 
 /** Best-effort status tag per event_type - drives the status badge shown on
- *  each row in the ActivityFeed / SessionDetail event streams. */
+ *  each row in the ActivityFeed / SessionDetail event streams.
+ * @param type A `DashboardEvent.event_type` value (e.g. "PreToolUse", "Stop").
+ * @returns The badge status; unrecognized types default to "waiting" rather
+ *   than throwing, since new hook event types should degrade gracefully. */
 export function statusFromEventType(type: string): "working" | "waiting" | "completed" | "error" {
   switch (type) {
     case "PreToolUse":
@@ -50,6 +53,9 @@ function humanizeMcpTool(raw: string): string {
   return raw.replace(/_+/g, " ").trim().toLowerCase();
 }
 
+/** Splits an `mcp__<server>__<tool...>` tool name into its humanized server
+ *  and tool parts. Returns null for anything that isn't a well-formed MCP
+ *  tool name (no `mcp__` prefix, or fewer than 3 `__`-separated segments). */
 function parseMcpToolName(tool: string): { server: string; tool: string } | null {
   if (!tool.startsWith("mcp__")) return null;
   const parts = tool.split("__").filter(Boolean);
@@ -80,6 +86,9 @@ const CONTEXT_FIELDS = [
   "command",
 ];
 
+/** Implements the {@link CONTEXT_FIELDS} lookup described above: returns the
+ *  first matching field's string value, or (failing that) the first short
+ *  (<120 char) string value found anywhere in `input`. Null if none qualify. */
 function buildContextHeadline(input: Record<string, unknown>): string | null {
   for (const field of CONTEXT_FIELDS) {
     const v = input[field];
@@ -150,6 +159,8 @@ function parseShellHeadline(command: string): string | null {
   return bin;
 }
 
+/** Last path segment (POSIX or Windows separators). Returns `path` unchanged
+ *  if it has no separators. */
 function basename(path: string): string {
   const parts = path.split(/[/\\]/).filter(Boolean);
   return parts.length > 0 ? (parts[parts.length - 1] ?? path) : path;
@@ -165,6 +176,8 @@ function shortPath(path: string): string {
   return parts.slice(-2).join("/");
 }
 
+/** Extracts the host from a URL string (e.g. WebFetch's target), falling back
+ *  to the raw string if it doesn't parse as a URL. */
 function hostFromUrl(url: string): string {
   try {
     return new URL(url).host;
@@ -173,6 +186,9 @@ function hostFromUrl(url: string): string {
   }
 }
 
+/** Parses `event.data` and pulls out its `tool_input` object, if any. Returns
+ *  null when there's no data, it isn't valid JSON, or `tool_input` isn't a
+ *  plain object (e.g. absent, or an array). */
 function extractToolInput(event: DashboardEvent): Record<string, unknown> | null {
   if (!event.data) return null;
   try {
@@ -191,7 +207,10 @@ function extractToolInput(event: DashboardEvent): Record<string, unknown> | null
  *  dispatches per-tool to surface what actually happened (e.g. "Bash · git
  *  commit", "GitLab · get merge request · !174", "Edit SessionDetail.tsx"),
  *  instead of the generic "Using tool: X" summary. MCP tools are rendered
- *  dynamically from their namespaced name - no per-server static mapping. */
+ *  dynamically from their namespaced name - no per-server static mapping.
+ * @param event The event to title. Non-tool events fall back to `summary`
+ *   (or `event_type` if there's no summary either).
+ * @returns A one-line title, never empty. */
 export function buildEventTitle(event: DashboardEvent): string {
   if (!event.tool_name) return event.summary || event.event_type;
 
@@ -371,7 +390,16 @@ export function agentPillLabel(agentId: string | null, info: AgentInfo | undefin
  *  parent_agent_id, the chain is walked from the root subagent down to the
  *  current agent and joined with " › " - so an event triggered by a deeply
  *  nested subagent reads "main › coder › explorer" instead of just "explorer".
- *  Cycles and missing parents fall back gracefully to the single-segment label. */
+ *  Cycles and missing parents fall back gracefully to the single-segment label.
+ * @param agentId The event's `agent_id`; null yields null (no origin to show).
+ * @param infoOrMap Either one agent's {@link AgentInfo} (legacy single-segment
+ *   behavior) or a `Map<agentId, AgentInfo>` covering the session (enables the
+ *   parent-chain walk).
+ * @returns "main", a single subagent segment, a "main › a › b" chain, or the
+ *   {@link shortAgentLabel} fallback when no info is available.
+ * @example
+ * agentOriginLabel("sub-42", agentInfoById) // "main › coder › explorer"
+ */
 export function agentOriginLabel(
   agentId: string | null,
   infoOrMap: AgentInfo | Map<string, AgentInfo> | undefined

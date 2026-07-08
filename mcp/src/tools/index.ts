@@ -12,6 +12,13 @@ import { registerEventTools } from "./domains/event-tools.js";
 import { registerPricingTools } from "./domains/pricing-tools.js";
 import { registerMaintenanceTools } from "./domains/maintenance-tools.js";
 
+/**
+ * Registers all 26 `dashboard_*` tools with the given {@link ToolContext} in
+ * one call. `server.ts`'s `buildServer` calls this per `McpServer` instance;
+ * `transports/tool-collector.ts`'s `collectAllTools` independently
+ * re-implements the same registrations for REPL mode (no live server), so
+ * the two files must be kept in sync by hand when a tool changes.
+ */
 export function registerAllTools(context: ToolContext): void {
   registerObservabilityTools(context);
   registerSessionTools(context);
