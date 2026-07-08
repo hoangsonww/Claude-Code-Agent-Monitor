@@ -1067,7 +1067,7 @@ Fail-safe guards, in order:
 - A false completion self-heals: the next hook event reactivates the session via the existing reactivation path.
 - Only `status = 'active'` rows are considered; `error` sessions keep their existing recovery paths.
 
-Cadence: every 15 s watchdog tick, plus a **one-shot early pass ~5 s after startup** (`startBackgroundServices`) so sessions that died while the dashboard was down clear before the user's first look at the UI.
+Cadence: **immediately at startup** (dead sessions already in the DB from a previous run clear before they ever render), **again ~5 s after startup** (covering rows the startup project sync just imported), and on every 15 s watchdog tick as the safety net for anything later (`kill -9` / crashes fire no `SessionEnd` either). Both boot passes live in `startBackgroundServices` and are fail-safe.
 
 ### API Error → Error State Flow
 

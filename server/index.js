@@ -273,20 +273,30 @@ function startBackgroundServices() {
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();
 
-  // One-shot early liveness reap ~5 s after boot. The startup session sync
-  // imports recently-active transcripts as active/waiting; when the user quit
-  // Claude Code while the dashboard was DOWN, the SessionEnd hook was lost and
-  // only the process probe can tell the session is dead. The 15 s watchdog
-  // catches these on its first tick anyway — this early pass just clears dead
-  // rows before the user's first look at the UI. Fail-safe and unref'd.
+  // Boot liveness reap. When the user quit Claude Code while the dashboard
+  // was DOWN, the SessionEnd hook was lost and only the process probe can
+  // tell the session is dead — without this, such sessions sit in Waiting
+  // until a watchdog tick. Two passes, both fail-safe and off the startup
+  // critical path:
+  //   1. Immediately (next tick): reaps dead sessions ALREADY in the DB from
+  //      a previous dashboard run — the common "app was up, app stopped,
+  //      session quit, app starts" flow — so they never render as Waiting at
+  //      all.
+  //   2. ~5 s later: reaps sessions the startup project sync just IMPORTED
+  //      (rows that didn't exist at boot). The 15 s watchdog remains the
+  //      safety net for anything later (kill -9 / crashes fire no SessionEnd
+  //      either), and its probe is skipped whenever no active session
+  //      qualifies, so the steady-state cost is nil.
   {
-    const t = setTimeout(() => {
+    const bootReap = (label) => {
       try {
         require("./routes/hooks").livenessReap();
       } catch (err) {
-        console.warn("boot liveness reap failed:", err?.message || err);
+        console.warn(`${label} liveness reap failed:`, err?.message || err);
       }
-    }, 5_000);
+    };
+    setImmediate(() => bootReap("boot"));
+    const t = setTimeout(() => bootReap("post-import"), 5_000);
     if (t.unref) t.unref();
   }
 
