@@ -1063,9 +1063,11 @@ Fail-safe guards, in order:
 
 - The probe must be **trustworthy**: it reports "no answer" (and the reap changes nothing) on Windows, inside containers (host processes are invisible), when `ps`/`lsof` fail, or when explicitly disabled via `DASHBOARD_LIVENESS_PROBE=0` — the escape hatch for setups where hooks arrive from another machine, where local processes prove nothing.
 - The session must have a `cwd` to match on.
-- **Both** the session's last hook write (`updated_at`) and its transcript mtime must be older than `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`), so mid-turn, just-imported, or just-resumed sessions never flicker out on a transient probe miss (e.g. `claude --resume` run from a different directory than the recorded session cwd).
+- On **watchdog ticks only** (both startup passes skip this gate — at boot the probe alone decides, so a session quit moments before launch clears immediately): the session's **transcript mtime** must be older than `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`) — the transcript is the ground-truth activity clock (Claude Code appends to it every turn and it stops moving the instant the process dies); `updated_at` is only the fallback for sessions with no transcript on disk. Keying on `updated_at` would leave a freshly imported dead session in Waiting for a full extra gate period after every boot, since import/backfill passes bump it at startup. A mid-turn session with a mismatched cwd (e.g. `claude --resume` run from a different directory) keeps its transcript mtime fresh and is spared.
 - A false completion self-heals: the next hook event reactivates the session via the existing reactivation path.
 - Only `status = 'active'` rows are considered; `error` sessions keep their existing recovery paths.
+
+Cadence: **immediately at startup** (dead sessions already in the DB from a previous run clear before they ever render), **again ~5 s after startup** (covering rows the startup project sync just imported), and on every 15 s watchdog tick as the safety net for anything later (`kill -9` / crashes fire no `SessionEnd` either). Both boot passes live in `startBackgroundServices` and are fail-safe.
 
 ### API Error → Error State Flow
 

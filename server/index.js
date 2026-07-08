@@ -273,6 +273,38 @@ function startBackgroundServices() {
   // One-time legacy-session backfill (a no-op once its marker file exists).
   autoImportLegacySessions();
 
+  // Boot liveness reap. When the user quit Claude Code while the dashboard
+  // was DOWN, the SessionEnd hook was lost and only the process probe can
+  // tell the session is dead — without this, such sessions sit in Waiting
+  // until a watchdog tick. Two passes, both fail-safe and off the startup
+  // critical path:
+  //   1. Immediately (next tick): reaps dead sessions ALREADY in the DB from
+  //      a previous dashboard run — the common "app was up, app stopped,
+  //      session quit, app starts" flow — so they never render as Waiting at
+  //      all.
+  //   2. ~5 s later: reaps sessions the startup project sync just IMPORTED
+  //      (rows that didn't exist at boot). The 15 s watchdog remains the
+  //      safety net for anything later (kill -9 / crashes fire no SessionEnd
+  //      either), and its probe is skipped whenever no active session
+  //      qualifies, so the steady-state cost is nil.
+  // Both boot passes run with ignoreIdleGate: at boot the probe alone is the
+  // truth — a session quit even ONE second before launch must clear
+  // immediately, not after the LIVENESS_IDLE_SECONDS gate ages out (the gate
+  // exists to protect long-running steady-state work on watchdog ticks, and
+  // there is no in-flight work at boot).
+  {
+    const bootReap = (label) => {
+      try {
+        require("./routes/hooks").livenessReap({ ignoreIdleGate: true });
+      } catch (err) {
+        console.warn(`${label} liveness reap failed:`, err?.message || err);
+      }
+    };
+    setImmediate(() => bootReap("boot"));
+    const t = setTimeout(() => bootReap("post-import"), 5_000);
+    if (t.unref) t.unref();
+  }
+
   // Backfill per-agent token metadata onto subagent rows that predate per-agent
   // cost tracking, so their cards show their own cost instead of nothing. Runs
   // deferred and non-blocking; self-limiting (rows with a tokens key are
