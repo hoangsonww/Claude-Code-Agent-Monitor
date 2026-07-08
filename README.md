@@ -664,7 +664,7 @@ ccam clear-data --yes             # delete ALL data (requires --yes)
 ccam open                         # open the dashboard in your browser
 ```
 
-Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root.
+Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
 
 ## npm Scripts
 

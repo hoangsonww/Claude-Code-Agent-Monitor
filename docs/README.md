@@ -8,6 +8,7 @@ Comprehensive documentation for the Agent Dashboard project.
 
 - [Architecture Overview](../ARCHITECTURE.md) - System design and technical reference
 - [I18N Architecture](./I18N.md) - Internationalization architecture and usage guide
+- [CLI Reference](./CLI.md) - The `ccam` terminal CLI: every command, discovery, safety model
 - [Setup Guide](../SETUP.md) - Installation and configuration
 - [Installation](../INSTALL.md) - Detailed installation instructions
 
@@ -51,6 +52,7 @@ graph TB
 | [MCP.md](./MCP.md) | MCP server setup and tool reference | MCP integrators |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Production deployment strategies | DevOps engineers |
 | [I18N.md](./I18N.md) | Language architecture, locale strategy, and rollout checklist | Frontend and product teams |
+| [CLI.md](./CLI.md) | `ccam` command reference — monitoring, browsing, insights, alerts, pricing, import, administration | Terminal users and CI scripting |
 
 ---
 

@@ -3,6 +3,37 @@
  * 'plain' fills heading/label gaps in script.js's T (existing T wins). */
 window.__WIKI_CONTENT_I18N = {
   zh: {
+    "The full dashboard feature surface is also available from any terminal through the dependency-free <code>ccam</code> CLI (<code>bin/ccam.js</code>). It is linked automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>), discovers the running server through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>), and degrades its colored tables to plain text when piped — so it is equally at home in an interactive shell, <code>grep</code> pipelines, or CI.":
+      "仪表盘的完整功能面同样可以在任意终端中使用——通过零依赖的 <code>ccam</code> CLI（<code>bin/ccam.js</code>）。它由 <code>npm run setup</code> 自动链接（通过失败即降级的 <code>npm link</code>），并通过与 hook 处理器相同的 <code>~/.claude/.agent-dashboard.json</code> 注册表发现正在运行的服务器（可用 <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code> 覆盖）；输出被管道接收时彩色表格会自动降级为纯文本——因此它同样适用于交互式 shell、<code>grep</code> 管道或 CI。",
+    Group: "分组",
+    Commands: "命令",
+    "What you get": "提供的能力",
+    Monitoring: "监控",
+    "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
+      "可达性检查、总量与状态分布、以文本列渲染的 Kanban 看板，以及每 2 秒轮询新行的实时事件流",
+    Data: "数据",
+    "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
+      "可筛选的表格，外加按会话的深入视图：缩进的 agent 树、单会话成本以及最近的事件",
+    Insights: "洞察",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
+      "Token 总量与最常用工具、带已检测模式的工作流智能统计、动态 Workflow 工具运行，以及按模型的成本细分",
+    "Alerts &amp; Webhooks": "告警 &amp; Webhook",
+    "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
+      "触发告警流（支持单条/全部确认）、规则列表，以及对任意 webhook 目标的合成测试投递",
+    Pricing: "价格",
+    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
+      "完整的定价规则增删改查（按每百万 token 费率），直接在终端完成",
+    Import: "导入",
+    "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
+      "与 Settings 页面相同的幂等摄取管道，报告 imported / backfilled / skipped / error 计数",
+    Administration: "管理",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "连接与 hook 诊断、原始系统信息、完整 JSON 导出、会话清理、hook 重新安装，以及一个没有 <code>--yes</code> 就拒绝执行的受保护清空操作",
+    "Safe by default": "默认安全",
+    "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
+      "读取类命令只发出 GET；变更类命令与仪表盘上的显式操作一一对应；唯一的破坏性命令 <code>clear-data</code> 在没有显式 <code>--yes</code> 标志时始终拒绝执行。退出码对脚本友好：成功为 0，任何失败为 1。完整参考见 <code>docs/CLI.md</code>。",
+    "The whole dashboard as terminal commands — <code>ccam stats</code>, <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>, <code>analytics</code>, <code>alerts</code>, <code>pricing</code>, <code>import</code>, <code>doctor</code>, <code>export</code> and more. Zero dependencies, linked by <code>npm run setup</code>, auto-discovers the running server, and pipes cleanly (colors off when not a TTY). The one destructive command is gated behind <code>--yes</code>.":
+      "把整个仪表盘变成终端命令——<code>ccam stats</code>、<code>kanban</code>、<code>tail</code>、<code>session &lt;id&gt;</code>、<code>analytics</code>、<code>alerts</code>、<code>pricing</code>、<code>import</code>、<code>doctor</code>、<code>export</code> 等等。零依赖，由 <code>npm run setup</code> 链接，自动发现正在运行的服务器，管道输出干净（非 TTY 时关闭颜色）。唯一的破坏性命令由 <code>--yes</code> 把关。",
     '<span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed':
       '<span class="caption-icon">📡</span> 实时仪表盘 — 实时的 agent 卡片、统计数据和活动流',
     "Claude Code Agent Monitor integrates with Claude Code through its native hook system. When Claude Code performs any action — tool use, session start, subagent orchestration, session end — it fires a hook that calls a small Node.js script bundled with this project. That script forwards the event over HTTP to the dashboard server, which stores it in SQLite and broadcasts it to the browser over WebSocket.":
@@ -1202,6 +1233,37 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🧬</span> <span><strong>工作流运行 · 展开</strong> — 展开的一次运行：可点击的彩色阶段筛选、按 Agent 的指标表，以及完整的可点击结果项列表，点击即可展开每个 Agent 的完整提示词与结果</span>',
   },
   vi: {
+    "The full dashboard feature surface is also available from any terminal through the dependency-free <code>ccam</code> CLI (<code>bin/ccam.js</code>). It is linked automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>), discovers the running server through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>), and degrades its colored tables to plain text when piped — so it is equally at home in an interactive shell, <code>grep</code> pipelines, or CI.":
+      "Toàn bộ bề mặt tính năng của dashboard cũng dùng được từ bất kỳ terminal nào thông qua CLI <code>ccam</code> không phụ thuộc thư viện ngoài (<code>bin/ccam.js</code>). Nó được liên kết tự động bởi <code>npm run setup</code> (qua <code>npm link</code> kiểu fail-soft), tìm server đang chạy qua chính sổ đăng ký <code>~/.claude/.agent-dashboard.json</code> mà hook handler sử dụng (ghi đè bằng <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>), và tự hạ bảng màu xuống văn bản thuần khi bị pipe — nên nó phù hợp như nhau với shell tương tác, pipeline <code>grep</code> hay CI.",
+    Group: "Nhóm",
+    Commands: "Lệnh",
+    "What you get": "Bạn nhận được gì",
+    Monitoring: "Giám sát",
+    "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
+      "Kiểm tra khả năng kết nối, tổng số và phân bố trạng thái, bảng Kanban hiển thị dạng cột văn bản, cùng luồng sự kiện trực tiếp poll dòng mới mỗi 2 giây",
+    Data: "Dữ liệu",
+    "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
+      "Các bảng có bộ lọc, cộng thêm góc nhìn sâu theo phiên: cây agent thụt lề, chi phí từng phiên và các sự kiện gần nhất",
+    Insights: "Phân tích",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
+      "Tổng token và các công cụ dùng nhiều nhất, thống kê workflow-intelligence với các mẫu được phát hiện, các lần chạy Workflow động, và phân tích chi phí theo model",
+    "Alerts &amp; Webhooks": "Cảnh báo &amp; Webhook",
+    "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
+      "Luồng cảnh báo đã kích hoạt (xác nhận từng cái / tất cả), danh sách quy tắc, và gửi thử tổng hợp tới bất kỳ đích webhook nào",
+    Pricing: "Giá",
+    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
+      "CRUD đầy đủ cho quy tắc định giá theo mỗi triệu token, ngay trong terminal",
+    Import: "Nhập",
+    "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
+      "Cùng một đường ống nhập liệu bất biến mà trang Settings sử dụng, báo cáo số lượng imported / backfilled / skipped / error",
+    Administration: "Quản trị",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "Chẩn đoán kết nối và hook, thông tin hệ thống thô, xuất JSON đầy đủ, dọn dẹp phiên, cài lại hook, và thao tác xóa được bảo vệ — từ chối chạy nếu thiếu <code>--yes</code>",
+    "Safe by default": "An toàn theo mặc định",
+    "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
+      "Các lệnh đọc chỉ gửi GET; các lệnh thay đổi tương ứng một-một với thao tác rõ ràng trên dashboard; và lệnh phá hủy duy nhất, <code>clear-data</code>, luôn từ chối chạy nếu không có cờ <code>--yes</code> tường minh. Mã thoát thân thiện với script: 0 khi thành công, 1 cho mọi thất bại. Xem <code>docs/CLI.md</code> để có tài liệu đầy đủ.",
+    "The whole dashboard as terminal commands — <code>ccam stats</code>, <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>, <code>analytics</code>, <code>alerts</code>, <code>pricing</code>, <code>import</code>, <code>doctor</code>, <code>export</code> and more. Zero dependencies, linked by <code>npm run setup</code>, auto-discovers the running server, and pipes cleanly (colors off when not a TTY). The one destructive command is gated behind <code>--yes</code>.":
+      "Toàn bộ dashboard dưới dạng lệnh terminal — <code>ccam stats</code>, <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>, <code>analytics</code>, <code>alerts</code>, <code>pricing</code>, <code>import</code>, <code>doctor</code>, <code>export</code> và hơn nữa. Không phụ thuộc thư viện, được liên kết bởi <code>npm run setup</code>, tự phát hiện server đang chạy, và pipe sạch sẽ (tắt màu khi không phải TTY). Lệnh phá hủy duy nhất được chặn sau <code>--yes</code>.",
     '<span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed':
       '<span class="caption-icon">📡</span> Bảng điều khiển trực tiếp — thẻ agent, số liệu thống kê và luồng hoạt động theo thời gian thực',
     "Claude Code Agent Monitor integrates with Claude Code through its native hook system. When Claude Code performs any action — tool use, session start, subagent orchestration, session end — it fires a hook that calls a small Node.js script bundled with this project. That script forwards the event over HTTP to the dashboard server, which stores it in SQLite and broadcasts it to the browser over WebSocket.":
@@ -2432,6 +2494,37 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình · mở rộng</strong> — một lần chạy được mở ra: bộ lọc giai đoạn có màu và bấm được, bảng số liệu theo từng agent, và danh sách đầy đủ các mục kết quả bấm được để mở ra lời nhắc và kết quả đầy đủ của từng agent</span>',
   },
   ko: {
+    "The full dashboard feature surface is also available from any terminal through the dependency-free <code>ccam</code> CLI (<code>bin/ccam.js</code>). It is linked automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>), discovers the running server through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>), and degrades its colored tables to plain text when piped — so it is equally at home in an interactive shell, <code>grep</code> pipelines, or CI.":
+      "대시보드의 전체 기능은 의존성 없는 <code>ccam</code> CLI(<code>bin/ccam.js</code>)를 통해 어떤 터미널에서도 사용할 수 있습니다. <code>npm run setup</code>이 자동으로 링크하며(실패해도 셋업을 막지 않는 <code>npm link</code>), hook 핸들러와 동일한 <code>~/.claude/.agent-dashboard.json</code> 레지스트리로 실행 중인 서버를 찾고(<code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>로 재정의 가능), 파이프로 연결되면 컬러 테이블을 일반 텍스트로 낮춥니다 — 대화형 셸, <code>grep</code> 파이프라인, CI 어디에서든 자연스럽게 동작합니다.",
+    Group: "그룹",
+    Commands: "명령",
+    "What you get": "제공 기능",
+    Monitoring: "모니터링",
+    "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
+      "연결 확인, 총계와 상태 분포, 텍스트 컬럼으로 렌더링되는 Kanban 보드, 그리고 2초마다 새 행을 폴링하는 실시간 이벤트 피드",
+    Data: "데이터",
+    "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
+      "필터링 가능한 테이블과 세션별 심층 보기: 들여쓰기된 에이전트 트리, 세션별 비용, 최근 이벤트",
+    Insights: "인사이트",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
+      "토큰 총량과 상위 도구, 감지된 패턴이 포함된 워크플로 인텔리전스 통계, 동적 Workflow 도구 실행, 모델별 비용 분석",
+    "Alerts &amp; Webhooks": "알림 &amp; Webhook",
+    "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
+      "발생 알림 피드(개별/전체 확인), 규칙 목록, 그리고 임의의 webhook 대상에 대한 합성 테스트 전송",
+    Pricing: "가격",
+    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
+      "백만 토큰당 요율 기반의 가격 규칙 CRUD를 터미널에서 바로 수행",
+    Import: "가져오기",
+    "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
+      "Settings 페이지와 동일한 멱등 수집 파이프라인으로, imported / backfilled / skipped / error 수를 보고합니다",
+    Administration: "관리",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "연결 및 hook 진단, 원시 시스템 정보, 전체 JSON 내보내기, 세션 정리, hook 재설치, 그리고 <code>--yes</code> 없이는 실행을 거부하는 보호된 전체 삭제",
+    "Safe by default": "기본적으로 안전",
+    "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
+      "읽기 명령은 GET만 보냅니다. 변경 명령은 대시보드의 명시적 작업과 일대일로 대응하며, 유일한 파괴적 명령인 <code>clear-data</code>는 명시적 <code>--yes</code> 플래그 없이는 항상 실행을 거부합니다. 종료 코드는 스크립트 친화적입니다: 성공 시 0, 모든 실패 시 1. 전체 참조는 <code>docs/CLI.md</code>를 보세요.",
+    "The whole dashboard as terminal commands — <code>ccam stats</code>, <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>, <code>analytics</code>, <code>alerts</code>, <code>pricing</code>, <code>import</code>, <code>doctor</code>, <code>export</code> and more. Zero dependencies, linked by <code>npm run setup</code>, auto-discovers the running server, and pipes cleanly (colors off when not a TTY). The one destructive command is gated behind <code>--yes</code>.":
+      "대시보드 전체를 터미널 명령으로 — <code>ccam stats</code>, <code>kanban</code>, <code>tail</code>, <code>session &lt;id&gt;</code>, <code>analytics</code>, <code>alerts</code>, <code>pricing</code>, <code>import</code>, <code>doctor</code>, <code>export</code> 등. 의존성 없음, <code>npm run setup</code>이 링크, 실행 중인 서버 자동 발견, 파이프 출력 깔끔(TTY가 아니면 색상 해제). 유일한 파괴적 명령은 <code>--yes</code>로 보호됩니다.",
     '<span class="caption-icon">📡</span> Live dashboard — real-time agent cards, stats, and activity feed':
       '<span class="caption-icon">📡</span> 라이브 대시보드 — 실시간 에이전트 카드, 통계, 활동 피드',
     "Claude Code Agent Monitor integrates with Claude Code through its native hook system. When Claude Code performs any action — tool use, session start, subagent orchestration, session end — it fires a hook that calls a small Node.js script bundled with this project. That script forwards the event over HTTP to the dashboard server, which stores it in SQLite and broadcasts it to the browser over WebSocket.":

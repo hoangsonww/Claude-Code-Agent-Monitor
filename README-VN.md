@@ -610,7 +610,55 @@ flowchart LR
 
 ## CLI `ccam`
 
-Toàn bộ bề mặt tính năng của dashboard cũng dùng được từ terminal qua CLI **`ccam`** không phụ thuộc thư viện ngoài (`bin/ccam.js`), được liên kết tự động bởi `npm run setup` (qua `npm link`). Sau đó `ccam <lệnh>` chạy từ bất kỳ thư mục nào: `health`, `stats`, `kanban`, `tail`, `sessions`, `session <id>`, `agents`, `events`, `analytics`, `workflows`, `runs`, `cost`, `alerts` (+ `ack`/`ack-all`), `rules`, `webhooks` (+ `test`), `pricing` (list/set/delete/reset), `import` (rescan/path), `doctor`, `info`, `export`, `cleanup`, `reinstall-hooks`, `clear-data --yes`, `open`. CLI tự tìm server đang chạy qua `~/.claude/.agent-dashboard.json` (ghi đè bằng `CLAUDE_DASHBOARD_PORT`/`DASHBOARD_PORT`, mặc định 4820); lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes`. Xem `ccam help`.
+Toàn bộ bề mặt tính năng của dashboard cũng dùng được từ terminal qua CLI **`ccam`** không phụ thuộc thư viện ngoài (`bin/ccam.js`), được liên kết tự động bởi `npm run setup` (qua `npm link` kiểu fail-soft). CLI tự tìm server đang chạy qua `~/.claude/.agent-dashboard.json` (cùng sổ đăng ký mà hook handler dùng; ghi đè bằng `CLAUDE_DASHBOARD_PORT`/`DASHBOARD_PORT`, mặc định `http://127.0.0.1:4820`).
+
+```bash
+# Giám sát
+ccam health                       # dashboard có đang chạy không?
+ccam stats                        # tổng số, sự kiện hôm nay, phân bố trạng thái
+ccam kanban                       # phiên + agent nhóm theo cột trạng thái
+ccam tail [--session <id>]        # luồng sự kiện trực tiếp trong terminal (Ctrl+C để dừng)
+
+# Dữ liệu
+ccam sessions [--status s] [--q text] [--limit n]
+ccam session <id>                 # chi tiết: cây agent, chi phí, sự kiện gần nhất
+ccam agents   [--status s] [--session id]
+ccam events   [--session id] [--limit n]
+
+# Phân tích
+ccam analytics                    # tổng token, công cụ hàng đầu, loại agent
+ccam workflows [--session id]     # thống kê workflow-intelligence và các mẫu
+ccam runs [--session id]          # các lần chạy Workflow động
+ccam cost                         # tổng chi phí ước tính theo model
+
+# Cảnh báo & webhook
+ccam alerts [--unacked]           # luồng cảnh báo đã kích hoạt
+ccam alerts ack <id> | ack-all    # xác nhận cảnh báo
+ccam rules                        # danh sách quy tắc cảnh báo
+ccam webhooks                     # danh sách đích webhook
+ccam webhooks test <id>           # gửi cảnh báo thử tổng hợp
+
+# Giá
+ccam pricing                      # danh sách quy tắc định giá
+ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+ccam pricing delete <pattern>
+ccam pricing reset
+
+# Nhập
+ccam import rescan                # quét lại ~/.claude/projects
+ccam import path <dir>            # nhập mọi .jsonl dưới một thư mục
+
+# Quản trị
+ccam doctor                       # chẩn đoán kết nối, hook và cơ sở dữ liệu
+ccam info                         # JSON thông tin hệ thống thô
+ccam export [file.json]           # xuất toàn bộ dữ liệu dạng JSON
+ccam cleanup --hours N --days M   # bỏ phiên treo / dọn phiên cũ
+ccam reinstall-hooks              # cài lại hook Claude Code
+ccam clear-data --yes             # xóa TOÀN BỘ dữ liệu (bắt buộc --yes)
+ccam open                         # mở dashboard trong trình duyệt
+```
+
+Các lệnh đọc luôn an toàn; lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes` tường minh. Nếu `ccam` chưa có trên PATH, chạy `npm link` một lần từ thư mục gốc của repo. Tài liệu đầy đủ — cờ, thứ tự phát hiện server, mô hình an toàn, mã thoát — tại [docs/CLI.md](./docs/CLI.md).
 
 ## Tập lệnh npm
 
