@@ -662,7 +662,7 @@ ccam clear-data --yes             # xóa TOÀN BỘ dữ liệu (bắt buộc --
 ccam open                         # mở dashboard trong trình duyệt
 ```
 
-Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, **các lệnh chỉ-đọc tự động chuyển sang đọc trực tiếp `data/dashboard.db`** (kèm banner `⚠ Offline mode` rõ ràng), còn các lệnh không thể chạy đúng nếu thiếu server (`tail` trực tiếp, analytics/tính chi phí, các thao tác ghi) in chỉ báo `○ Dashboard server is NOT running` cùng lý do cụ thể và lệnh khởi động; `ccam start` đưa server production lên chạy nền. Các lệnh đọc luôn an toàn; lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes` tường minh. Nếu `ccam` chưa có trên PATH, chạy `npm link` một lần từ thư mục gốc của repo. Tài liệu đầy đủ — cờ, thứ tự phát hiện server, mô hình an toàn, mã thoát — tại [docs/CLI.md](./docs/CLI.md).
+Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, **các lệnh chỉ-đọc tự động chuyển sang đọc trực tiếp `data/dashboard.db`** (kèm banner `⚠ Offline mode` rõ ràng, và các phiên `active` đã chết trong DB được hiệu chỉnh khi hiển thị bằng chính probe kiểm tra tiến trình mà watchdog của server sử dụng), còn các lệnh không thể chạy đúng nếu thiếu server (`tail` trực tiếp, analytics/tính chi phí, các thao tác ghi) in chỉ báo `○ Dashboard server is NOT running` cùng lý do cụ thể và lệnh khởi động; `ccam start` đưa server production lên chạy nền. Các lệnh đọc luôn an toàn; lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes` tường minh. Nếu `ccam` chưa có trên PATH, chạy `npm link` một lần từ thư mục gốc của repo. Tài liệu đầy đủ — cờ, thứ tự phát hiện server, mô hình an toàn, mã thoát — tại [docs/CLI.md](./docs/CLI.md).
 
 ## Tập lệnh npm
 

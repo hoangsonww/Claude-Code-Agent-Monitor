@@ -261,6 +261,77 @@ function offlineBanner() {
   console.log();
 }
 
+/**
+ * Display-side staleness correction. While the server is down, its
+ * dead-session liveness reap is not running, so sessions that were quit
+ * after the server stopped still sit in the DB as active/waiting. Rather
+ * than print those stale statuses, run the SAME process-liveness probe the
+ * server's watchdog uses (server/lib/session-liveness.js) and correct the
+ * DISPLAYED status of any active session whose cwd has no running `claude`
+ * process — the database itself is never modified (that stays the server's
+ * job). Returns the number of corrected sessions, the set of their ids (so
+ * agent rows can be corrected consistently), and whether the probe could
+ * answer at all (it can't on Windows or inside containers — in that case a
+ * staleness caveat is printed instead).
+ */
+function livenessCorrect(sessions) {
+  let probe;
+  try {
+    probe = require(path.join(REPO_ROOT, "server", "lib", "session-liveness.js")).probeLiveCwds();
+  } catch {
+    probe = { available: false };
+  }
+  const hadActive = sessions.some((s) => s.status === "active");
+  if (!probe.available) return { available: false, hadActive, corrected: 0, deadIds: new Set() };
+  const deadIds = new Set();
+  for (const s of sessions) {
+    if (s.status !== "active" || !s.cwd) continue;
+    let resolved;
+    try {
+      resolved = path.resolve(s.cwd);
+    } catch {
+      continue;
+    }
+    if (!probe.cwds.has(resolved)) {
+      s.status = "completed";
+      s.awaiting_input_since = null;
+      deadIds.add(s.id);
+    }
+  }
+  return { available: true, corrected: deadIds.size, deadIds };
+}
+
+/** Correct agent rows belonging to sessions the probe found dead. */
+function livenessCorrectAgents(agents, deadIds) {
+  let n = 0;
+  for (const a of agents) {
+    if (deadIds.has(a.session_id) && a.status !== "completed" && a.status !== "error") {
+      a.status = "completed";
+      a.awaiting_input_since = null;
+      n++;
+    }
+  }
+  return n;
+}
+
+/** Footnote for corrected output / caveat when the probe cannot answer. */
+function livenessNote(result) {
+  if (!result.available) {
+    if (!result.hadActive) return; // nothing that could be stale was shown
+    console.log(
+      c.dim(
+        "※ Statuses are as stored: sessions that ended while the server was down may still show active/waiting (liveness probe unavailable on this platform)."
+      )
+    );
+  } else if (result.corrected > 0) {
+    console.log(
+      c.dim(
+        `※ ${result.corrected} session(s) displayed as completed by the process-liveness probe — no running claude process owns them. The database is only updated once the server runs again.`
+      )
+    );
+  }
+}
+
 /** Offline data providers shaped exactly like their API counterparts. */
 const offlineData = {
   sessions(db, flags) {
@@ -1005,23 +1076,46 @@ require it to be running (${c.bold("ccam start")} brings one up in the backgroun
 const OFFLINE_HANDLERS = {
   async stats() {
     const db = requireDb();
-    renderStats(offlineData.stats(db), `${dbPath()} (offline)`);
+    const s = offlineData.stats(db);
+    // Correct the status distribution the same way the session list is
+    // corrected, so counts and rows never disagree.
+    const rows = db.all("SELECT id, status, cwd FROM sessions");
+    const fix = livenessCorrect(rows);
+    if (fix.available) {
+      const dist = {};
+      for (const r of rows) dist[r.status] = (dist[r.status] || 0) + 1;
+      s.sessions_by_status = dist;
+      s.active_sessions = dist.active || 0;
+    }
+    renderStats(s, `${dbPath()} (offline)`);
+    livenessNote(fix);
   },
   async sessions(flags) {
-    renderSessions(offlineData.sessions(requireDb(), flags));
+    const data = offlineData.sessions(requireDb(), flags);
+    const fix = livenessCorrect(data.sessions);
+    renderSessions(data);
+    livenessNote(fix);
   },
   async agents(flags) {
-    renderAgents(offlineData.agents(requireDb(), flags));
+    const db = requireDb();
+    const data = offlineData.agents(db, flags);
+    const sessions = db.all("SELECT id, status, cwd FROM sessions WHERE status = 'active'");
+    const fix = livenessCorrect(sessions);
+    if (fix.deadIds.size) livenessCorrectAgents(data.agents, fix.deadIds);
+    renderAgents(data);
+    livenessNote(fix);
   },
   async events(flags) {
     renderEvents(offlineData.events(requireDb(), flags));
   },
   async kanban() {
     const db = requireDb();
-    renderKanban(
-      offlineData.sessions(db, { limit: "200" }),
-      offlineData.agents(db, { limit: "400" })
-    );
+    const sess = offlineData.sessions(db, { limit: "200" });
+    const ag = offlineData.agents(db, { limit: "400" });
+    const fix = livenessCorrect(sess.sessions);
+    if (fix.deadIds.size) livenessCorrectAgents(ag.agents, fix.deadIds);
+    renderKanban(sess, ag);
+    livenessNote(fix);
   },
   async session(flags, positional) {
     const id = positional[0];
@@ -1036,6 +1130,7 @@ const OFFLINE_HANDLERS = {
       process.exit(1);
     }
     const s = rows[0];
+    const fix = livenessCorrect([s]);
     console.log(`${c.bold(s.name || s.id)} ${c.dim(`(${s.id})`)}`);
     console.log(
       `status ${colorStatus(s.status)} · model ${fmtModel(s.model)} · ` +
@@ -1043,6 +1138,7 @@ const OFFLINE_HANDLERS = {
     );
     console.log(c.dim("cost: requires the server (pricing math runs server-side)"));
     const agents = db.all("SELECT * FROM agents WHERE session_id = ? ORDER BY started_at ASC", id);
+    if (fix.deadIds.size) livenessCorrectAgents(agents, fix.deadIds);
     if (agents.length) {
       console.log(`\n${c.bold("Agents")} (${agents.length})`);
       const byParent = {};
@@ -1071,6 +1167,7 @@ const OFFLINE_HANDLERS = {
         );
       }
     }
+    livenessNote(fix);
   },
   async pricing(flags, positional) {
     if (positional[0]) {

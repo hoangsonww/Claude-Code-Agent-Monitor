@@ -102,6 +102,8 @@ When the server is down, **read-only commands automatically fall back to reading
 
 \* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
 
+**Status correctness offline:** while the server is down its dead-session liveness reap isn't running, so the DB can hold `active`/`waiting` rows for sessions that have since exited. Offline output therefore runs the **same process-liveness probe** the server's watchdog uses and corrects the *displayed* status of any active session whose cwd has no running `claude` process (footnote: `※ N session(s) displayed as completed by the process-liveness probe`) — the database itself is never modified. Where the probe can't answer (Windows, containers), a `※ Statuses are as stored…` caveat is printed instead whenever active rows are shown.
+
 ### Monitoring
 
 | Command | Description |

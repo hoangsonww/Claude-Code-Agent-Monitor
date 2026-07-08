@@ -439,6 +439,52 @@ describe("ccam CLI — offline mode (server down, DB read directly)", () => {
     assert.match(out, /of 1 session/);
   });
 
+  it("prints the staleness caveat when the liveness probe is unavailable", async () => {
+    // The suite env sets DASHBOARD_LIVENESS_PROBE=0, so the probe reports
+    // unavailable and offline output must carry the "statuses as stored"
+    // caveat instead of silently showing possibly-stale active rows.
+    const { code, out } = await offline("sessions");
+    assert.equal(code, 0);
+    assert.match(out, /Statuses are as stored/);
+  });
+
+  it("corrects dead active sessions display-side when the probe can answer", async (t) => {
+    // Only meaningful where the real probe works (macOS/Linux, not container).
+    const { spawnSync } = require("child_process");
+    const avail = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        "const p=require(process.argv[1]).probeLiveCwds();console.log(p.available)",
+        path.resolve(__dirname, "..", "lib", "session-liveness.js"),
+      ],
+      { encoding: "utf8", env: { ...process.env, DASHBOARD_LIVENESS_PROBE: "" } }
+    ).stdout.trim();
+    if (avail !== "true") {
+      t.skip("liveness probe unavailable on this platform");
+      return;
+    }
+    // Run offline WITHOUT the probe kill-switch: the seeded session's cwd
+    // (/tmp/ccam-cli-off) has no running claude process, so its stored
+    // "active" status must be DISPLAYED as completed, with the footnote —
+    // and the database itself must keep the stored status.
+    const r = await new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, "sessions"], {
+        env: { ...process.env, DASHBOARD_PORT: "1", DASHBOARD_LIVENESS_PROBE: "" },
+      });
+      let out = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.on("close", (code) => resolve({ code, out }));
+    });
+    assert.equal(r.code, 0);
+    assert.match(r.out, /displayed as completed by the process-liveness probe/);
+    // DB unchanged: the stored status is still whatever the server left there.
+    const stored = db
+      .prepare("SELECT status FROM sessions WHERE id = 'cli-test-offline-0002'")
+      .get();
+    assert.equal(stored.status, "active");
+  });
+
   it("analytics/workflows/tail refuse offline with reasons", async () => {
     for (const cmd of ["analytics", "workflows", "tail"]) {
       const { code, err } = await offline(cmd);
