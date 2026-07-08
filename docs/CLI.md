@@ -40,7 +40,7 @@ flowchart LR
     ENV --> API["Dashboard REST API"]
     REG --> API
     DEF --> API
-    API --> OUT["Padded tables / colored status /\nplain text when piped"]
+    API --> OUT["Box-drawn tables / status icons / bar charts /\nplain text when piped"]
 ```
 
 ## Installation & Linking
@@ -117,8 +117,8 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam sessions [--status s] [--q text] [--limit n]` | Server-filtered session table: short ID, status, name, agent count, duration, model |
-| `ccam session <id>` | Deep dive: metadata line, per-session cost, an indented parent→child **agent tree** with live tools, and the most recent events |
+| `ccam sessions [--status s] [--q text] [--limit n]` | Server-filtered session table: short ID, status, name, agent count, duration, model, relative last-update |
+| `ccam session <id>` | Deep dive: metadata card, per-session cost, a parent→child **agent tree** (`├─`/`└─`) with live tools, and the most recent events |
 | `ccam agents [--status s] [--session id] [--limit n]` | Agent table with type, current tool, and duration |
 | `ccam events [--session id] [--limit n]` | Newest-first event log with type, tool, and summary |
 
@@ -129,7 +129,7 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam analytics` | Token totals (input / output / cache read / cache write), top tools by call count, agent-type distribution, average events per session |
 | `ccam workflows [--session id]` | Workflow-intelligence stats (sessions analyzed, subagents, success rate, depth, compactions) and the top detected patterns; `--session` drills into one session |
 | `ccam runs [--session id]` | Dynamic Workflow-tool runs: status, agent count, tokens, tool calls, duration |
-| `ccam cost` | Total estimated cost with the per-model breakdown |
+| `ccam cost` | Total estimated cost with a per-model bar-chart breakdown |
 
 ### Alerts & Webhooks
 
@@ -169,6 +169,7 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam reinstall-hooks` | Rewrite the Claude Code hook entries in `~/.claude/settings.json` |
 | `ccam clear-data --yes` | Delete **all** data (schema preserved). Refuses to run without `--yes` |
 | `ccam open` | Open the dashboard in your default browser (`open` / `xdg-open` / `start`) |
+| `ccam version` | Print the ccam version (also `--version` / `-v`) |
 | `ccam help` | Full command reference (also shown with no arguments) |
 
 ## Safety Model
@@ -179,8 +180,25 @@ When the server is down, **read-only commands automatically fall back to reading
 
 ## Output & Scripting
 
-- Tables are plain text padded to the widest cell; status values are color-coded (green working/active, yellow waiting, red error, dim terminal states).
-- **ANSI colors are disabled automatically when stdout is not a TTY**, so `ccam sessions | grep error` and `ccam info | jq .db.counts` behave.
+The CLI renders a full terminal UI while staying 100% script-friendly:
+
+- **Box-drawn tables** with bold headers, right-aligned numeric columns, and terminal-width fitting — over-wide columns are clipped with an ellipsis so the frame never wraps mid-row.
+- **Status icons + colors** everywhere a status appears: `● active` (green), `◐ working` (green), `○ waiting` (yellow), `✔ completed` (dim), `✖ error` (red), `◦ abandoned` (dim).
+- **Inline bar charts** for the sessions-by-status distribution (`stats`), top tools and agent types (`analytics`), and the per-model cost breakdown (`cost`).
+- **Real tree rendering** (`├─`/`└─` with continuation rails) for the agent hierarchy in `session <id>`, and status lanes with branch rows in `kanban`.
+- Session tables include a relative **Updated** column (`4m ago`) so freshness is visible at a glance; event types are color-coded consistently across `events`, `tail`, and `session <id>`.
+- `ccam start` animates a spinner on a TTY (dot-trail when piped).
+
+Color rules (informal CLI conventions):
+
+| Condition | Effect |
+| --------- | ------ |
+| stdout is a TTY | Colors **on** |
+| Output piped / redirected | Colors **off** automatically — `ccam sessions \| grep error` and `ccam info \| jq .db.counts` see plain text |
+| `NO_COLOR=1` env or `--no-color` anywhere on the command line | Colors **off** |
+| `FORCE_COLOR=1` or `CCAM_COLOR=1` | Colors **on** even when piped (useful under `watch`/CI) |
+
+- `ccam version` (also `--version` / `-v`) prints the package version.
 - Exit codes: `0` success, `1` for unreachable server, API errors, usage errors, unknown commands, or a failed `webhooks test` — safe to use in scripts and CI.
 
 ## Troubleshooting

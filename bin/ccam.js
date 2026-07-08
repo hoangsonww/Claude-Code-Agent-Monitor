@@ -39,33 +39,95 @@ const { spawn } = require("node:child_process");
 // `npm link` creates (which points back into the checkout).
 const REPO_ROOT = path.resolve(path.dirname(fs.realpathSync(__filename)), "..");
 
-/** ANSI helpers — degrade to plain text when stdout is not a TTY. */
-const tty = process.stdout.isTTY;
+// ── Presentation layer ──────────────────────────────────────────────────────
+// Styling follows the informal CLI conventions: colors are enabled on a TTY,
+// disabled when output is piped or redirected, force-disabled by the NO_COLOR
+// env var (https://no-color.org) or a --no-color flag anywhere on the command
+// line, and force-enabled by FORCE_COLOR / CCAM_COLOR=1 (useful for `watch`
+// or CI logs that render ANSI). Every helper degrades to plain text, so piped
+// output stays grep/script-friendly byte-for-byte.
+const useColor = (() => {
+  if (process.env.NO_COLOR || process.argv.includes("--no-color")) return false;
+  const force = process.env.FORCE_COLOR;
+  if (force != null && force !== "" && force !== "0" && force !== "false") return true;
+  if (process.env.CCAM_COLOR === "1") return true;
+  return Boolean(process.stdout.isTTY);
+})();
+
+/** Build a style function from SGR open/close codes (close restores state so
+ *  styles nest — e.g. bold inside a colored string). */
+const sgr = (open, close) => (s) => (useColor ? `\x1b[${open}m${s}\x1b[${close}m` : String(s));
 const c = {
-  bold: (s) => (tty ? `\x1b[1m${s}\x1b[0m` : s),
-  dim: (s) => (tty ? `\x1b[2m${s}\x1b[0m` : s),
-  green: (s) => (tty ? `\x1b[32m${s}\x1b[0m` : s),
-  yellow: (s) => (tty ? `\x1b[33m${s}\x1b[0m` : s),
-  red: (s) => (tty ? `\x1b[31m${s}\x1b[0m` : s),
-  cyan: (s) => (tty ? `\x1b[36m${s}\x1b[0m` : s),
-  magenta: (s) => (tty ? `\x1b[35m${s}\x1b[0m` : s),
+  bold: sgr(1, 22),
+  dim: sgr(2, 22),
+  italic: sgr(3, 23),
+  underline: sgr(4, 24),
+  red: sgr(31, 39),
+  green: sgr(32, 39),
+  yellow: sgr(33, 39),
+  blue: sgr(34, 39),
+  magenta: sgr(35, 39),
+  cyan: sgr(36, 39),
+  gray: sgr(90, 39),
 };
 
-const STATUS_COLOR = {
-  active: c.green,
-  working: c.green,
-  waiting: c.yellow,
-  completed: c.dim,
-  error: c.red,
-  abandoned: c.dim,
-  connected: c.green,
-  idle: c.dim,
-  running: c.green,
+/** Per-status icon + color, shared by every table, lane, and detail view. */
+const STATUS_THEME = {
+  active: { icon: "●", paint: c.green },
+  working: { icon: "◐", paint: c.green },
+  waiting: { icon: "○", paint: c.yellow },
+  completed: { icon: "✔", paint: c.gray },
+  error: { icon: "✖", paint: c.red },
+  abandoned: { icon: "◦", paint: c.gray },
+  connected: { icon: "●", paint: c.green },
+  idle: { icon: "·", paint: c.gray },
+  running: { icon: "●", paint: c.green },
 };
 
 function colorStatus(s) {
-  const fn = STATUS_COLOR[s] || ((x) => x);
-  return fn(s || "-");
+  const t = STATUS_THEME[s];
+  return t ? t.paint(`${t.icon} ${s}`) : s || "-";
+}
+
+/** Hook/event types get stable colors so the feed is scannable at a glance. */
+const EVENT_COLOR = {
+  SessionStart: c.green,
+  SessionEnd: c.gray,
+  Stop: c.magenta,
+  SubagentStop: c.magenta,
+  PreToolUse: c.cyan,
+  PostToolUse: c.blue,
+  UserPromptSubmit: c.yellow,
+  Notification: c.yellow,
+  PreCompact: c.gray,
+};
+const paintEvent = (t) => (EVENT_COLOR[t] || c.cyan)(t);
+
+/** Section heading: a colored sidebar glyph + bold title + dim subtitle. */
+function heading(title, sub) {
+  console.log(c.cyan("▍") + c.bold(title) + (sub ? c.dim(` — ${sub}`) : ""));
+}
+
+/** Aligned key/value line used by detail views. */
+function kvLine(key, value, keyWidth = 9) {
+  console.log(`  ${c.dim(String(key).padEnd(keyWidth))} ${value}`);
+}
+
+/** Horizontal bar for inline charts: value scaled against max. */
+function bar(value, max, width = 16, paint = c.cyan) {
+  const v = Number(value) || 0;
+  const m = Math.max(Number(max) || 0, 1);
+  // Any non-zero value renders at least one block so small counts stay visible
+  // next to a dominant maximum.
+  let filled = Math.min(width, Math.round((v / m) * width));
+  if (v > 0 && filled === 0) filled = 1;
+  return paint("█".repeat(Math.max(0, filled))) + c.dim("░".repeat(Math.max(0, width - filled)));
+}
+
+/** Usable terminal width, with a sane default when not a TTY (pipes, tests). */
+function termWidth() {
+  const w = process.stdout.columns;
+  return Number.isFinite(w) && w > 40 ? w : 120;
 }
 
 /**
@@ -176,15 +238,61 @@ function parseArgs(argv) {
 
 const stripAnsi = (s) => String(s ?? "").replace(/\x1b\[[0-9;]*m/g, "");
 
-/** Render rows as a padded plain-text table sized to the widest cell. */
+/**
+ * Render rows as a box-drawn table: bold headers, dim borders, right-aligned
+ * numeric columns, and width fitting — when the natural table is wider than
+ * the terminal, the widest column is progressively narrowed and its cells
+ * clipped with an ellipsis, so the frame never wraps mid-row.
+ */
 function table(headers, rows) {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => stripAnsi(r[i]).length), 1)
+  const cells = rows.map((r) => r.map((x) => String(x ?? "")));
+  // A column is numeric (→ right-aligned) when every non-empty cell looks
+  // like a number, money amount, token count, or percentage.
+  const numeric = headers.map(
+    (_, i) =>
+      cells.length > 0 &&
+      cells.every((r) => {
+        const v = stripAnsi(r[i]).trim();
+        return v === "" || v === "-" || /^\$?[\d,.]+[%kMB]?$/.test(v);
+      })
   );
-  const pad = (s, w) => String(s ?? "") + " ".repeat(Math.max(0, w - stripAnsi(s).length));
-  console.log(headers.map((h, i) => c.bold(pad(h, widths[i]))).join("  "));
-  console.log(c.dim(widths.map((w) => "─".repeat(w)).join("──")));
-  for (const r of rows) console.log(r.map((cell, i) => pad(cell, widths[i])).join("  "));
+  const widths = headers.map((h, i) =>
+    Math.max(stripAnsi(h).length, ...cells.map((r) => stripAnsi(r[i]).length), 1)
+  );
+  const frameWidth = () => widths.reduce((a, w) => a + w + 3, 1);
+  while (frameWidth() > termWidth() && Math.max(...widths) > 8) {
+    widths[widths.indexOf(Math.max(...widths))]--;
+  }
+  // Clipping drops per-cell styling for simplicity — a truncated cell is
+  // plain text with a trailing ellipsis.
+  const clip = (s, w) => {
+    const plain = stripAnsi(s);
+    return plain.length <= w ? s : `${plain.slice(0, Math.max(0, w - 1))}…`;
+  };
+  const pad = (s, w, right) => {
+    const v = clip(s, w);
+    const gap = " ".repeat(Math.max(0, w - stripAnsi(v).length));
+    return right ? gap + v : v + gap;
+  };
+  const rule = (l, m, r) => c.dim(l + widths.map((w) => "─".repeat(w + 2)).join(m) + r);
+  const line = (cols, styleFn) =>
+    c.dim("│") +
+    cols
+      .map(
+        (cell, i) =>
+          ` ${styleFn ? styleFn(pad(cell, widths[i], numeric[i])) : pad(cell, widths[i], numeric[i])} `
+      )
+      .join(c.dim("│")) +
+    c.dim("│");
+  console.log(rule("╭", "┬", "╮"));
+  console.log(line(headers, c.bold));
+  console.log(rule("├", "┼", "┤"));
+  for (const r of cells) console.log(line(r));
+  if (!cells.length) {
+    const inner = widths.reduce((a, w) => a + w + 2, 0) + widths.length - 1;
+    console.log(c.dim("│") + c.dim(pad("  (no rows)", inner)) + c.dim("│"));
+  }
+  console.log(rule("╰", "┴", "╯"));
 }
 
 function fmtDuration(startIso, endIso) {
@@ -198,6 +306,20 @@ function fmtDuration(startIso, endIso) {
 }
 
 const fmtTime = (iso) => (iso ? String(iso).replace("T", " ").slice(0, 19) : "-");
+/** Compact relative timestamp ("4m ago") for freshness-at-a-glance columns. */
+function fmtAgo(iso) {
+  if (!iso) return "-";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return "-";
+  if (ms < 0) return "now";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 const fmtModel = (m) => (m ? m.replace(/^claude-/, "").slice(0, 22) : "-");
 const fmtCost = (n) => `$${Number(n ?? 0).toFixed(4)}`;
 const fmtTokens = (n) => {
@@ -425,7 +547,7 @@ async function cmdHealth() {
 }
 
 function renderStats(s, source) {
-  console.log(c.bold("Dashboard stats") + c.dim(` — ${source}`));
+  heading("Dashboard stats", source);
   table(
     ["Metric", "Value"],
     [
@@ -438,43 +560,57 @@ function renderStats(s, source) {
       ["WS connections", s.ws_connections],
     ]
   );
-  const dist = Object.entries(s.sessions_by_status || {})
-    .map(([k, v]) => `${colorStatus(k)} ${v}`)
-    .join("  ");
-  if (dist) console.log(`\nSessions by status: ${dist}`);
+  const entries = Object.entries(s.sessions_by_status || {});
+  if (entries.length) {
+    console.log(`\n${c.bold("Sessions by status")}`);
+    const max = Math.max(...entries.map(([, v]) => v));
+    const w = Math.max(...entries.map(([k]) => k.length)) + 2;
+    for (const [k, v] of entries) {
+      const t = STATUS_THEME[k] || { icon: "·", paint: (x) => x };
+      console.log(`  ${t.paint(`${t.icon} ${k}`.padEnd(w))}  ${bar(v, max)} ${c.bold(String(v))}`);
+    }
+  }
 }
 
 async function cmdStats() {
   renderStats(await get("/api/stats"), baseUrl());
 }
 
-/** Text rendering of the Kanban board: sessions and agents grouped by status. */
+/** Text rendering of the Kanban board: sessions and agents grouped by status
+ *  lanes, each lane a colored header rule with tree-branch item rows. */
 function renderKanban(sess, ag) {
   const group = (items, key) => {
     const g = {};
     for (const it of items) (g[it[key]] ||= []).push(it);
     return g;
   };
-  console.log(c.bold("Sessions"));
+  const lane = (col, items, render) => {
+    const t = STATUS_THEME[col] || { icon: "·", paint: (x) => x };
+    const label = `${t.icon} ${col} (${items.length})`;
+    const ruleLen = Math.max(2, 34 - stripAnsi(label).length);
+    console.log(`\n  ${t.paint(label)} ${c.dim("─".repeat(ruleLen))}`);
+    const shown = items.slice(0, 10);
+    shown.forEach((it, i) => {
+      const branch = i === items.length - 1 ? "└─" : "├─";
+      render(it, c.dim(branch));
+    });
+    if (items.length > 10) console.log(c.dim(`  └─ … ${items.length - 10} more`));
+  };
+  heading("Sessions");
   const sg = group(sess.sessions || [], "status");
   for (const col of ["active", "waiting", "completed", "error", "abandoned"]) {
-    const items = sg[col] || [];
-    console.log(`\n  ${colorStatus(col)} (${items.length})`);
-    for (const s of items.slice(0, 10)) {
-      console.log(`    ${c.dim(s.id.slice(0, 8))}  ${(s.name || "").slice(0, 52)}`);
-    }
-    if (items.length > 10) console.log(c.dim(`    … ${items.length - 10} more`));
+    lane(col, sg[col] || [], (s, branch) => {
+      console.log(`  ${branch} ${c.dim(s.id.slice(0, 8))}  ${(s.name || "").slice(0, 52)}`);
+    });
   }
-  console.log(`\n${c.bold("Agents")}`);
+  console.log();
+  heading("Agents");
   const agr = group(ag.agents || [], "status");
   for (const col of ["working", "waiting", "completed", "error"]) {
-    const items = agr[col] || [];
-    console.log(`\n  ${colorStatus(col)} (${items.length})`);
-    for (const a of items.slice(0, 10)) {
+    lane(col, agr[col] || [], (a, branch) => {
       const tool = a.current_tool ? c.cyan(` [${a.current_tool}]`) : "";
-      console.log(`    ${c.dim(a.id.slice(0, 8))}  ${(a.name || "").slice(0, 48)}${tool}`);
-    }
-    if (items.length > 10) console.log(c.dim(`    … ${items.length - 10} more`));
+      console.log(`  ${branch} ${c.dim(a.id.slice(0, 8))}  ${(a.name || "").slice(0, 48)}${tool}`);
+    });
   }
 }
 
@@ -507,7 +643,7 @@ async function cmdTail(flags) {
       if (e.id != null && lastSeen != null && Number(e.id) <= Number(lastSeen)) continue;
       if (lastSeen !== null || events.indexOf(e) >= events.length - 10) {
         console.log(
-          `${c.dim(fmtTime(e.created_at))}  ${c.cyan((e.event_type || "").padEnd(16))}  ${(e.summary || "").slice(0, 90)}`
+          `${c.dim(fmtTime(e.created_at))}  ${paintEvent((e.event_type || "").padEnd(16))}  ${(e.summary || "").slice(0, 90)}`
         );
       }
       lastSeen = e.id != null ? Number(e.id) : key;
@@ -526,9 +662,52 @@ function renderSessions(data) {
     s.agent_count ?? "-",
     fmtDuration(s.started_at, s.ended_at),
     fmtModel(s.model),
+    c.dim(fmtAgo(s.updated_at || s.started_at)),
   ]);
-  table(["ID", "Status", "Name", "Agents", "Duration", "Model"], rows);
+  table(["ID", "Status", "Name", "Agents", "Duration", "Model", "Updated"], rows);
   console.log(c.dim(`\n${rows.length} of ${data.total ?? rows.length} session(s)`));
+}
+
+// ── Session detail building blocks (shared by online and offline paths so
+//    the two render byte-identically) ────────────────────────────────────────
+
+/** Title + aligned metadata card for one session row. */
+function renderSessionMeta(s) {
+  console.log(`${c.cyan("▍")}${c.bold(s.name || s.id)} ${c.dim(`(${s.id})`)}`);
+  kvLine("Status", colorStatus(s.status));
+  kvLine("Model", fmtModel(s.model));
+  kvLine("Duration", fmtDuration(s.started_at, s.ended_at));
+  kvLine("Cwd", s.cwd || "-");
+}
+
+/** Agent hierarchy as a real tree (├─/└─ with continuation rails). */
+function renderAgentTree(agents) {
+  console.log(`\n${c.cyan("▍")}${c.bold("Agents")} ${c.dim(`(${agents.length})`)}`);
+  const byParent = {};
+  for (const a of agents) (byParent[a.parent_agent_id || ""] ||= []).push(a);
+  const walk = (parentId, prefix) => {
+    const kids = byParent[parentId] || [];
+    kids.forEach((a, i) => {
+      const last = i === kids.length - 1;
+      const tool = a.current_tool ? c.cyan(` [${a.current_tool}]`) : "";
+      console.log(
+        `  ${c.dim(prefix + (last ? "└─ " : "├─ "))}${colorStatus(a.status)} ` +
+          `${a.type === "main" ? c.bold(a.name) : a.name}${tool} ${c.dim(fmtDuration(a.started_at, a.ended_at))}`
+      );
+      walk(a.id, prefix + (last ? "   " : "│  "));
+    });
+  };
+  walk("", "");
+}
+
+/** Recent-events block with per-type colors. */
+function renderEventLines(events) {
+  console.log(`\n${c.cyan("▍")}${c.bold("Recent events")}`);
+  for (const e of events) {
+    console.log(
+      `  ${c.dim(fmtTime(e.created_at))}  ${paintEvent((e.event_type || "").padEnd(16))}  ${(e.summary || "").slice(0, 70)}`
+    );
+  }
 }
 
 async function cmdSessions(flags) {
@@ -548,50 +727,20 @@ async function cmdSession(positional) {
   }
   const d = await get(`/api/sessions/${encodeURIComponent(id)}`);
   const s = d.session || d;
-  console.log(`${c.bold(s.name || s.id)} ${c.dim(`(${s.id})`)}`);
-  console.log(
-    `status ${colorStatus(s.status)} · model ${fmtModel(s.model)} · ` +
-      `duration ${fmtDuration(s.started_at, s.ended_at)} · cwd ${s.cwd || "-"}`
-  );
+  renderSessionMeta(s);
   let cost = null;
   try {
     cost = await get(`/api/pricing/cost/${encodeURIComponent(id)}`);
   } catch {
     /* pricing may 404 for unknown ids */
   }
-  if (cost) console.log(`cost ${c.cyan(fmtCost(cost.total_cost))}`);
+  if (cost) kvLine("Cost", c.cyan(c.bold(fmtCost(cost.total_cost))));
 
   const agents = d.agents || [];
-  if (agents.length) {
-    console.log(`\n${c.bold("Agents")} (${agents.length})`);
-    // Indent children under their parent to approximate the hierarchy tree.
-    const byParent = {};
-    for (const a of agents) (byParent[a.parent_agent_id || ""] ||= []).push(a);
-    const walk = (parentId, depth) => {
-      for (const a of byParent[parentId] || []) {
-        const pad = "  ".repeat(depth + 1);
-        const tool = a.current_tool ? c.cyan(` [${a.current_tool}]`) : "";
-        console.log(
-          `${pad}${colorStatus(a.status)} ${a.type === "main" ? c.bold(a.name) : a.name}${tool} ${c.dim(fmtDuration(a.started_at, a.ended_at))}`
-        );
-        walk(a.id, depth + 1);
-      }
-    };
-    walk("", 0);
-    // Orphans whose parent isn't in the list (defensive)
-    const seen = new Set(agents.map((a) => a.parent_agent_id || ""));
-    void seen;
-  }
+  if (agents.length) renderAgentTree(agents);
 
-  const events = (d.events || []).slice(0, Number(10));
-  if (events.length) {
-    console.log(`\n${c.bold("Recent events")}`);
-    for (const e of events) {
-      console.log(
-        `  ${c.dim(fmtTime(e.created_at))}  ${c.cyan(e.event_type)}  ${(e.summary || "").slice(0, 70)}`
-      );
-    }
-  }
+  const events = (d.events || []).slice(0, 10);
+  if (events.length) renderEventLines(events);
 }
 
 function renderAgents(data) {
@@ -635,7 +784,7 @@ async function cmdEvents(flags) {
 
 async function cmdAnalytics() {
   const a = await get("/api/analytics");
-  console.log(c.bold("Analytics") + c.dim(` — ${baseUrl()}`));
+  heading("Analytics", baseUrl());
   const t = a.tokens || {};
   table(
     ["Tokens", "Count"],
@@ -649,18 +798,25 @@ async function cmdAnalytics() {
   const tools = (a.tool_usage || []).slice(0, 10);
   if (tools.length) {
     console.log(`\n${c.bold("Top tools")}`);
-    table(
-      ["Tool", "Calls"],
-      tools.map((x) => [x.tool_name || x.tool, x.count])
-    );
+    const max = Math.max(...tools.map((x) => Number(x.count) || 0));
+    const w = Math.max(...tools.map((x) => String(x.tool_name || x.tool).length));
+    for (const x of tools) {
+      console.log(
+        `  ${String(x.tool_name || x.tool).padEnd(w)}  ${bar(x.count, max)} ${c.bold(String(x.count))}`
+      );
+    }
   }
   const types = (a.agent_types || []).slice(0, 8);
   if (types.length) {
     console.log(`\n${c.bold("Agent types")}`);
-    table(
-      ["Type", "Count"],
-      types.map((x) => [x.subagent_type || x.type || "main", x.count])
-    );
+    const max = Math.max(...types.map((x) => Number(x.count) || 0));
+    const w = Math.max(...types.map((x) => String(x.subagent_type || x.type || "main").length));
+    for (const x of types) {
+      const name = String(x.subagent_type || x.type || "main");
+      console.log(
+        `  ${name.padEnd(w)}  ${bar(x.count, max, 16, c.magenta)} ${c.bold(String(x.count))}`
+      );
+    }
   }
   if (a.avg_events_per_session != null) {
     console.log(`\nAvg events/session: ${c.cyan(Number(a.avg_events_per_session).toFixed(1))}`);
@@ -670,14 +826,14 @@ async function cmdAnalytics() {
 async function cmdWorkflows(flags) {
   if (flags.session) {
     const d = await get(`/api/workflows/session/${encodeURIComponent(flags.session)}`);
-    console.log(c.bold(`Workflow drill-in — session ${flags.session}`));
+    heading("Workflow drill-in", `session ${flags.session}`);
     const agents = d.agents || d.tree || [];
     console.log(`agents: ${Array.isArray(agents) ? agents.length : "-"}`);
     return;
   }
   const w = await get("/api/workflows");
   const s = w.stats || {};
-  console.log(c.bold("Workflow intelligence") + c.dim(` — ${baseUrl()}`));
+  heading("Workflow intelligence", baseUrl());
   table(
     ["Metric", "Value"],
     [
@@ -722,9 +878,18 @@ async function cmdRuns(flags) {
 
 async function cmdCost() {
   const cost = await get("/api/pricing/cost");
-  console.log(`${c.bold("Total estimated cost:")} ${c.cyan(fmtCost(cost.total_cost))}`);
-  const rows = (cost.breakdown || []).slice(0, 15).map((b) => [b.model, fmtCost(b.cost)]);
-  if (rows.length) table(["Model", "Cost"], rows);
+  console.log(`${c.bold("Total estimated cost:")} ${c.cyan(c.bold(fmtCost(cost.total_cost)))}`);
+  const breakdown = (cost.breakdown || []).slice(0, 15);
+  if (breakdown.length) {
+    console.log();
+    const max = Math.max(...breakdown.map((b) => Number(b.cost) || 0));
+    const w = Math.max(...breakdown.map((b) => fmtModel(b.model).length));
+    for (const b of breakdown) {
+      console.log(
+        `  ${fmtModel(b.model).padEnd(w)}  ${bar(b.cost, max, 20, c.green)} ${c.bold(fmtCost(b.cost))}`
+      );
+    }
+  }
 }
 
 // ── Alerts & webhooks ───────────────────────────────────────────────────────
@@ -858,7 +1023,7 @@ async function cmdImport(flags, positional) {
 
 async function cmdDoctor() {
   await get("/api/health");
-  console.log(c.bold("ccam doctor") + c.dim(` — ${baseUrl()}`));
+  heading("ccam doctor", baseUrl());
   console.log(`${c.green("✔")}  API reachable  ${baseUrl()}`);
   const info = await get("/api/settings/info");
   const hooks = info.hooks || {};
@@ -959,20 +1124,41 @@ async function cmdStart(flags) {
     cwd: REPO_ROOT,
   });
   child.unref();
-  process.stdout.write(c.dim(`Starting dashboard server (pid ${child.pid}, log ${logFile}) `));
+  // On a TTY, animate a braille spinner in place; when piped, fall back to a
+  // dot-per-poll trail so progress still shows without cursor control.
+  const spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const live = Boolean(process.stdout.isTTY);
+  let tick = 0;
+  const announce = `Starting dashboard server (pid ${child.pid}, log ${logFile})`;
+  if (live) {
+    process.stdout.write(`${c.cyan(spinner[0])} ${c.dim(announce)}`);
+  } else {
+    process.stdout.write(c.dim(`${announce} `));
+  }
+  const clearLine = () => {
+    if (live) process.stdout.write("\r\x1b[K");
+    else process.stdout.write("\n");
+  };
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     if (await serverIsUp()) {
+      clearLine();
       console.log(
-        `\n${c.green("●")} Dashboard ${c.bold("up")} at ${baseUrl()} ${c.dim(`(pid ${child.pid})`)}`
+        `${c.green("●")} Dashboard ${c.bold("up")} at ${c.bold(baseUrl())} ${c.dim(`(pid ${child.pid})`)}`
       );
       console.log(c.dim(`  Stop it with: kill ${child.pid}`));
       return;
     }
-    process.stdout.write(c.dim("."));
-    await new Promise((r) => setTimeout(r, 500));
+    tick++;
+    if (live) {
+      process.stdout.write(`\r${c.cyan(spinner[tick % spinner.length])} ${c.dim(announce)}`);
+    } else {
+      process.stdout.write(c.dim("."));
+    }
+    await new Promise((r) => setTimeout(r, live ? 250 : 500));
   }
-  console.error(`\n${c.red("✖ Server did not become healthy within 30 s")} — check ${logFile}`);
+  clearLine();
+  console.error(`${c.red("✖ Server did not become healthy within 30 s")} — check ${logFile}`);
   process.exit(1);
 }
 
@@ -1005,65 +1191,77 @@ function cmdOpen() {
 }
 
 function cmdHelp() {
-  console.log(`${c.bold("ccam")} — Claude Code Agent Monitor CLI
+  const cmd = (name, args, desc) => {
+    const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
+    const pad = " ".repeat(Math.max(2, 28 - stripAnsi(left).length));
+    return `  ${left}${pad}${desc}`;
+  };
+  const section = (title) => `\n${c.cyan("▍")}${c.bold(title)}`;
+  console.log(`${c.cyan("▍")}${c.bold("ccam")} — Claude Code Agent Monitor CLI
 
 ${c.bold("Usage:")} ccam <command> [options]
-
-${c.bold("Server")}
-  status                      Up/down indicator for the dashboard server
-  start [--port N]            Start the server in the background and wait for healthy
-
-${c.bold("Monitoring")}
-  health                      Check the dashboard is up
-  stats                       Totals, today's events, status distributions
-  kanban                      Sessions + agents grouped by status columns
-  tail [--session id]         Live event feed in the terminal (Ctrl+C stops)
-
-${c.bold("Data")}
-  sessions [opts]             List sessions   (--status, --q, --limit)
-  session <id>                Session detail: agents tree, cost, recent events
-  agents   [opts]             List agents     (--status, --session, --limit)
-  events   [opts]             List events     (--session, --limit)
-
-${c.bold("Insights")}
-  analytics                   Token totals, top tools, agent types
-  workflows [--session id]    Workflow intelligence stats and patterns
-  runs [--session id]         Dynamic Workflow-tool runs
-  cost                        Total estimated cost (per-model breakdown)
-
-${c.bold("Alerts & Webhooks")}
-  alerts [--unacked]          Fired-alert feed
-  alerts ack <id>             Acknowledge one alert
-  alerts ack-all              Acknowledge every unacked alert
-  rules                       List alert rules
-  webhooks                    List webhook targets
-  webhooks test <id>          Send a synthetic test alert to a target
-
-${c.bold("Pricing")}
-  pricing                     List model pricing rules
-  pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
-  pricing delete <pattern>    Delete a pricing rule
-  pricing reset               Reset pricing rules to defaults
-
-${c.bold("Import")}
-  import rescan               Re-scan ~/.claude/projects
-  import path <dir>           Import every .jsonl under a directory
-
-${c.bold("Administration")}
-  doctor                      Connectivity, hooks, and database diagnosis
-  info                        Raw system info JSON
-  export [file.json]          Export all data as JSON
-  cleanup --hours N --days M  Abandon stale / purge old sessions
-  reinstall-hooks             Reinstall Claude Code hooks
-  clear-data --yes            Delete ALL data (requires --yes)
-  open                        Open the dashboard in your browser
+${section("Server")}
+${cmd("status", "", "Up/down indicator for the dashboard server")}
+${cmd("start", "[--port N]", "Start the server in the background and wait for healthy")}
+${section("Monitoring")}
+${cmd("health", "", "Check the dashboard is up")}
+${cmd("stats", "", "Totals, today's events, status distribution chart")}
+${cmd("kanban", "", "Sessions + agents grouped by status columns")}
+${cmd("tail", "[--session id]", "Live event feed in the terminal (Ctrl+C stops)")}
+${section("Data")}
+${cmd("sessions", "[opts]", "List sessions   (--status, --q, --limit)")}
+${cmd("session <id>", "", "Session detail: agents tree, cost, recent events")}
+${cmd("agents", "[opts]", "List agents     (--status, --session, --limit)")}
+${cmd("events", "[opts]", "List events     (--session, --limit)")}
+${section("Insights")}
+${cmd("analytics", "", "Token totals, top-tool and agent-type charts")}
+${cmd("workflows", "[--session id]", "Workflow intelligence stats and patterns")}
+${cmd("runs", "[--session id]", "Dynamic Workflow-tool runs")}
+${cmd("cost", "", "Total estimated cost (per-model chart)")}
+${section("Alerts & Webhooks")}
+${cmd("alerts", "[--unacked]", "Fired-alert feed")}
+${cmd("alerts ack <id>", "", "Acknowledge one alert")}
+${cmd("alerts ack-all", "", "Acknowledge every unacked alert")}
+${cmd("rules", "", "List alert rules")}
+${cmd("webhooks", "", "List webhook targets")}
+${cmd("webhooks test <id>", "", "Send a synthetic test alert to a target")}
+${section("Pricing")}
+${cmd("pricing", "", "List model pricing rules")}
+${cmd("pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]")}
+${cmd("pricing delete <pattern>", "", "Delete a pricing rule")}
+${cmd("pricing reset", "", "Reset pricing rules to defaults")}
+${section("Import")}
+${cmd("import rescan", "", "Re-scan ~/.claude/projects")}
+${cmd("import path <dir>", "", "Import every .jsonl under a directory")}
+${section("Administration")}
+${cmd("doctor", "", "Connectivity, hooks, and database diagnosis")}
+${cmd("info", "", "Raw system info JSON")}
+${cmd("export", "[file.json]", "Export all data as JSON")}
+${cmd("cleanup", "--hours N --days M", "Abandon stale / purge old sessions")}
+${cmd("reinstall-hooks", "", "Reinstall Claude Code hooks")}
+${cmd("clear-data", "--yes", "Delete ALL data (requires --yes)")}
+${cmd("open", "", "Open the dashboard in your browser")}
+${cmd("version", "", "Print the ccam version (also: --version, -v)")}
 
 ${c.bold("Server discovery:")} CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env vars win,
 otherwise the live server is found via ~/.claude/.agent-dashboard.json,
 falling back to http://127.0.0.1:4820.
 
+${c.bold("Output:")} colors auto-enable on a TTY and turn off when piped.
+Disable with --no-color or NO_COLOR=1; force with FORCE_COLOR=1 / CCAM_COLOR=1.
+
 ${c.bold("Note:")} ccam talks to the local dashboard server — API-backed commands
 require it to be running (${c.bold("ccam start")} brings one up in the background).`);
+}
+
+/** Print the CLI/package version (single source of truth: package.json). */
+function cmdVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
+    console.log(`ccam ${pkg.version}`);
+  } catch {
+    console.log("ccam (version unknown)");
+  }
 }
 
 // ── Offline command handlers & dispatch ────────────────────────────────────
@@ -1131,42 +1329,16 @@ const OFFLINE_HANDLERS = {
     }
     const s = rows[0];
     const fix = livenessCorrect([s]);
-    console.log(`${c.bold(s.name || s.id)} ${c.dim(`(${s.id})`)}`);
-    console.log(
-      `status ${colorStatus(s.status)} · model ${fmtModel(s.model)} · ` +
-        `duration ${fmtDuration(s.started_at, s.ended_at)} · cwd ${s.cwd || "-"}`
-    );
-    console.log(c.dim("cost: requires the server (pricing math runs server-side)"));
+    renderSessionMeta(s);
+    kvLine("Cost", c.dim("requires the server (pricing math runs server-side)"));
     const agents = db.all("SELECT * FROM agents WHERE session_id = ? ORDER BY started_at ASC", id);
     if (fix.deadIds.size) livenessCorrectAgents(agents, fix.deadIds);
-    if (agents.length) {
-      console.log(`\n${c.bold("Agents")} (${agents.length})`);
-      const byParent = {};
-      for (const a of agents) (byParent[a.parent_agent_id || ""] ||= []).push(a);
-      const walk = (parentId, depth) => {
-        for (const a of byParent[parentId] || []) {
-          const pad = "  ".repeat(depth + 1);
-          const tool = a.current_tool ? c.cyan(` [${a.current_tool}]`) : "";
-          console.log(
-            `${pad}${colorStatus(a.status)} ${a.type === "main" ? c.bold(a.name) : a.name}${tool} ${c.dim(fmtDuration(a.started_at, a.ended_at))}`
-          );
-          walk(a.id, depth + 1);
-        }
-      };
-      walk("", 0);
-    }
+    if (agents.length) renderAgentTree(agents);
     const events = db.all(
       "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC LIMIT 10",
       id
     );
-    if (events.length) {
-      console.log(`\n${c.bold("Recent events")}`);
-      for (const e of events) {
-        console.log(
-          `  ${c.dim(fmtTime(e.created_at))}  ${c.cyan(e.event_type)}  ${(e.summary || "").slice(0, 70)}`
-        );
-      }
-    }
+    if (events.length) renderEventLines(events);
     livenessNote(fix);
   },
   async pricing(flags, positional) {
@@ -1244,7 +1416,7 @@ const OFFLINE_HANDLERS = {
     );
   },
   async doctor() {
-    console.log(c.bold("ccam doctor") + c.dim(" — offline"));
+    heading("ccam doctor", "offline");
     console.log(
       `${c.red("○")}  Dashboard server  NOT running ${c.dim(`(tried ${baseUrl()})`)} — start with: ${c.bold("ccam start")}`
     );
@@ -1314,7 +1486,11 @@ function requireDb() {
 // ── Entry point ─────────────────────────────────────────────────────────────
 
 async function main() {
-  const [cmd, ...rest] = process.argv.slice(2);
+  // --no-color is a global presentation flag (already consumed by the color
+  // detector at module load) — strip it so it can appear anywhere without
+  // being mistaken for a command or a subcommand flag.
+  const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+  const [cmd, ...rest] = argv;
   const { flags, positional } = parseArgs(rest);
   switch (cmd) {
     case "health":
@@ -1369,6 +1545,10 @@ async function main() {
       return cmdReinstallHooks();
     case "open":
       return cmdOpen();
+    case "version":
+    case "--version":
+    case "-v":
+      return cmdVersion();
     case "help":
     case "--help":
     case "-h":
@@ -1383,8 +1563,9 @@ async function main() {
 
 main().catch(async (err) => {
   if (err instanceof ServerDownError) {
-    const cmd = process.argv[2];
-    const { flags, positional } = parseArgs(process.argv.slice(3));
+    const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+    const cmd = argv[0];
+    const { flags, positional } = parseArgs(argv.slice(1));
     const handler = OFFLINE_HANDLERS[cmd];
     if (handler) {
       offlineBanner();

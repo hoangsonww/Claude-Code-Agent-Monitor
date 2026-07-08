@@ -381,7 +381,7 @@ describe("ccam CLI — offline mode (server down, DB read directly)", () => {
     const { code, out } = await offline("session", "cli-test-offline-0002");
     assert.equal(code, 0);
     assert.match(out, /Agents/);
-    assert.match(out, /cost: requires the server/);
+    assert.match(out, /Cost\s+requires the server/);
   });
 
   it("kanban works offline", async () => {
@@ -534,6 +534,38 @@ describe("ccam CLI — help & errors", () => {
     const { code, out } = await ccam();
     assert.equal(code, 0);
     assert.match(out, /Usage: ccam <command>/);
+  });
+
+  it("version prints the package version", async () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, "..", "..", "package.json"), "utf8")
+    );
+    const { code, out } = await ccam("version");
+    assert.equal(code, 0);
+    assert.equal(out.trim(), `ccam ${pkg.version}`);
+    const flag = await ccam("--version");
+    assert.equal(flag.out.trim(), `ccam ${pkg.version}`);
+  });
+
+  it("--no-color is accepted anywhere on the command line", async () => {
+    const before = await ccam("--no-color", "health");
+    assert.equal(before.code, 0);
+    assert.match(before.out, /Dashboard/);
+    const after = await ccam("sessions", "--no-color");
+    assert.equal(after.code, 0);
+    assert.match(after.out, /of 1 session/);
+  });
+
+  it("piped output contains no ANSI escape codes (colors off when not a TTY)", async () => {
+    const { out } = await ccam("stats");
+    assert.ok(!out.includes("\x1b["), "piped output must be plain text");
+  });
+
+  it("tables render with box-drawing borders and an Updated column", async () => {
+    const { out } = await ccam("sessions");
+    assert.ok(out.includes("╭"), "table should have a top border");
+    assert.ok(out.includes("│"), "table should have column separators");
+    assert.match(out, /Updated/);
   });
 
   it("unknown command exits 1 with an error", async () => {
