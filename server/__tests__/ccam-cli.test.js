@@ -331,6 +331,169 @@ describe("ccam CLI — import & administration", () => {
   });
 });
 
+describe("ccam CLI — offline mode (server down, DB read directly)", () => {
+  // The online admin suite ends with clear-data, so re-seed one session here
+  // (through the live server) for the offline reads to find.
+  before(async () => {
+    const code = await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: "cli-test-offline-0002", cwd: "/tmp/ccam-cli-off" },
+    });
+    assert.equal(code, 200);
+  });
+
+  /** Run the CLI with an unreachable port so it falls back to offline reads
+   *  of the SAME database file the in-test server uses (WAL second reader). */
+  function offline(...args) {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, ...args], {
+        env: { ...process.env, DASHBOARD_PORT: "1" },
+      });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      const killer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+      child.on("close", (code) => {
+        clearTimeout(killer);
+        resolve({ code, out, err });
+      });
+    });
+  }
+
+  it("sessions falls back to offline reads with the banner", async () => {
+    const { code, out } = await offline("sessions", "--limit", "5");
+    assert.equal(code, 0);
+    assert.match(out, /Offline mode/);
+    assert.match(out, /ccam start/);
+    assert.match(out, /cli-test/);
+    assert.match(out, /of 1 session/);
+  });
+
+  it("stats works offline", async () => {
+    const { code, out } = await offline("stats");
+    assert.equal(code, 0);
+    assert.match(out, /Total sessions/);
+    assert.match(out, /offline/);
+  });
+
+  it("session <id> works offline and flags cost as server-only", async () => {
+    const { code, out } = await offline("session", "cli-test-offline-0002");
+    assert.equal(code, 0);
+    assert.match(out, /Agents/);
+    assert.match(out, /Cost\s+requires the server/);
+  });
+
+  it("kanban works offline", async () => {
+    const { code, out } = await offline("kanban");
+    assert.equal(code, 0);
+    assert.match(out, /Sessions/);
+    assert.match(out, /Agents/);
+  });
+
+  it("pricing list works offline; pricing set is refused with a reason", async () => {
+    const list = await offline("pricing");
+    assert.equal(list.code, 0);
+    assert.match(list.out, /claude/);
+    const set = await offline("pricing", "set", "x%", "--input", "1", "--output", "1");
+    assert.equal(set.code, 1);
+    assert.match(set.err, /pricing changes must go through the server/);
+  });
+
+  it("rules and alerts list offline", async () => {
+    const rules = await offline("rules");
+    assert.equal(rules.code, 0);
+    const alerts = await offline("alerts");
+    assert.equal(alerts.code, 0);
+    assert.match(alerts.out, /unacknowledged of/);
+  });
+
+  it("export works offline and marks the payload", async () => {
+    const file = path.join(TMP, "offline-export.json");
+    const { code } = await offline("export", file);
+    assert.equal(code, 0);
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    assert.equal(data.exported_offline, true);
+    assert.ok(JSON.stringify(data.sessions).includes("cli-test-offline-0002"));
+  });
+
+  it("doctor works offline and reports the server as down", async () => {
+    const { code, out } = await offline("doctor");
+    assert.equal(code, 0);
+    assert.match(out, /NOT running/);
+    assert.match(out, /Database/);
+    assert.match(out, /rows: sessions/);
+  });
+
+  it("cost refuses offline with the server-side-math reason", async () => {
+    const { code, err } = await offline("cost");
+    assert.equal(code, 1);
+    assert.match(err, /cost math .* runs server-side/);
+  });
+
+  it("clear-data --yes refuses offline — data stays intact", async () => {
+    const { code, err } = await offline("clear-data", "--yes");
+    assert.equal(code, 1);
+    assert.match(err, /data wipes must go through the server/);
+    const { out } = await offline("sessions");
+    assert.match(out, /of 1 session/);
+  });
+
+  it("prints the staleness caveat when the liveness probe is unavailable", async () => {
+    // The suite env sets DASHBOARD_LIVENESS_PROBE=0, so the probe reports
+    // unavailable and offline output must carry the "statuses as stored"
+    // caveat instead of silently showing possibly-stale active rows.
+    const { code, out } = await offline("sessions");
+    assert.equal(code, 0);
+    assert.match(out, /Statuses are as stored/);
+  });
+
+  it("corrects dead active sessions display-side when the probe can answer", async (t) => {
+    // Only meaningful where the real probe works (macOS/Linux, not container).
+    const { spawnSync } = require("child_process");
+    const avail = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        "const p=require(process.argv[1]).probeLiveCwds();console.log(p.available)",
+        path.resolve(__dirname, "..", "lib", "session-liveness.js"),
+      ],
+      { encoding: "utf8", env: { ...process.env, DASHBOARD_LIVENESS_PROBE: "" } }
+    ).stdout.trim();
+    if (avail !== "true") {
+      t.skip("liveness probe unavailable on this platform");
+      return;
+    }
+    // Run offline WITHOUT the probe kill-switch: the seeded session's cwd
+    // (/tmp/ccam-cli-off) has no running claude process, so its stored
+    // "active" status must be DISPLAYED as completed, with the footnote —
+    // and the database itself must keep the stored status.
+    const r = await new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, "sessions"], {
+        env: { ...process.env, DASHBOARD_PORT: "1", DASHBOARD_LIVENESS_PROBE: "" },
+      });
+      let out = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.on("close", (code) => resolve({ code, out }));
+    });
+    assert.equal(r.code, 0);
+    assert.match(r.out, /displayed as completed by the process-liveness probe/);
+    // DB unchanged: the stored status is still whatever the server left there.
+    const stored = db
+      .prepare("SELECT status FROM sessions WHERE id = 'cli-test-offline-0002'")
+      .get();
+    assert.equal(stored.status, "active");
+  });
+
+  it("analytics/workflows/tail refuse offline with reasons", async () => {
+    for (const cmd of ["analytics", "workflows", "tail"]) {
+      const { code, err } = await offline(cmd);
+      assert.equal(code, 1, `${cmd} should refuse offline`);
+      assert.match(err, /No offline fallback/);
+    }
+  });
+});
+
 describe("ccam CLI — help & errors", () => {
   it("help lists every command group", async () => {
     const { code, out } = await ccam("help");
@@ -371,6 +534,38 @@ describe("ccam CLI — help & errors", () => {
     const { code, out } = await ccam();
     assert.equal(code, 0);
     assert.match(out, /Usage: ccam <command>/);
+  });
+
+  it("version prints the package version", async () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, "..", "..", "package.json"), "utf8")
+    );
+    const { code, out } = await ccam("version");
+    assert.equal(code, 0);
+    assert.equal(out.trim(), `ccam ${pkg.version}`);
+    const flag = await ccam("--version");
+    assert.equal(flag.out.trim(), `ccam ${pkg.version}`);
+  });
+
+  it("--no-color is accepted anywhere on the command line", async () => {
+    const before = await ccam("--no-color", "health");
+    assert.equal(before.code, 0);
+    assert.match(before.out, /Dashboard/);
+    const after = await ccam("sessions", "--no-color");
+    assert.equal(after.code, 0);
+    assert.match(after.out, /of 1 session/);
+  });
+
+  it("piped output contains no ANSI escape codes (colors off when not a TTY)", async () => {
+    const { out } = await ccam("stats");
+    assert.ok(!out.includes("\x1b["), "piped output must be plain text");
+  });
+
+  it("tables render with box-drawing borders and an Updated column", async () => {
+    const { out } = await ccam("sessions");
+    assert.ok(out.includes("╭"), "table should have a top border");
+    assert.ok(out.includes("│"), "table should have column separators");
+    assert.match(out, /Updated/);
   });
 
   it("unknown command exits 1 with an error", async () => {

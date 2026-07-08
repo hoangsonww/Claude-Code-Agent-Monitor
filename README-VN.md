@@ -660,9 +660,10 @@ ccam cleanup --hours N --days M   # bỏ phiên treo / dọn phiên cũ
 ccam reinstall-hooks              # cài lại hook Claude Code
 ccam clear-data --yes             # xóa TOÀN BỘ dữ liệu (bắt buộc --yes)
 ccam open                         # mở dashboard trong trình duyệt
+ccam version                      # in phiên bản CLI (cũng có --version / -v)
 ```
 
-Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, chúng in chỉ báo nhất quán `○ Dashboard server is NOT running` kèm các lệnh khởi động, và `ccam start` đưa server production lên chạy nền. Các lệnh đọc luôn an toàn; lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes` tường minh. Nếu `ccam` chưa có trên PATH, chạy `npm link` một lần từ thư mục gốc của repo. Tài liệu đầy đủ — cờ, thứ tự phát hiện server, mô hình an toàn, mã thoát — tại [docs/CLI.md](./docs/CLI.md).
+Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, **các lệnh chỉ-đọc tự động chuyển sang đọc trực tiếp `data/dashboard.db`** (kèm banner `⚠ Offline mode` rõ ràng, và các phiên `active` đã chết trong DB được hiệu chỉnh khi hiển thị bằng chính probe kiểm tra tiến trình mà watchdog của server sử dụng), còn các lệnh không thể chạy đúng nếu thiếu server (`tail` trực tiếp, analytics/tính chi phí, các thao tác ghi) in chỉ báo `○ Dashboard server is NOT running` cùng lý do cụ thể và lệnh khởi động; `ccam start` đưa server production lên chạy nền. Các lệnh đọc luôn an toàn; lệnh phá hủy duy nhất (`clear-data`) từ chối chạy nếu thiếu `--yes` tường minh. Đầu ra là một giao diện terminal đầy đủ — bảng kẻ khung với cột số căn phải, biểu tượng trạng thái (`● active`, `○ waiting`, `✔ completed`, `✖ error`), biểu đồ thanh inline cho stats/analytics/cost, và cây agent `├─`/`└─` thực thụ — với màu ANSI tự bật trên TTY, tắt khi pipe, và điều khiển được qua `--no-color` / `NO_COLOR` / `FORCE_COLOR`. Nếu `ccam` chưa có trên PATH, chạy `npm link` một lần từ thư mục gốc của repo. Tài liệu đầy đủ — cờ, thứ tự phát hiện server, mô hình an toàn, mã thoát — tại [docs/CLI.md](./docs/CLI.md).
 
 ## Tập lệnh npm
 

@@ -1293,7 +1293,9 @@
                     <code>analytics</code>, <code>alerts</code>, <code>pricing</code>,
                     <code>import</code>, <code>doctor</code>, <code>export</code> and more.
                     Zero dependencies, linked by <code>npm run setup</code>, auto-discovers the
-                    running server, and pipes cleanly (colors off when not a TTY). The one
+                    running server, renders a full terminal UI (box-drawn tables, status icons,
+                    inline bar charts, agent trees), and pipes cleanly (colors off when not a
+                    TTY). The one
                     destructive command is gated behind <code>--yes</code>.
                   </p>
                 </div>
@@ -2192,8 +2194,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             discovers the running server through the same
             <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses
             (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>),
-            and degrades its colored tables to plain text when piped — so it is equally at home
-            in an interactive shell, <code>grep</code> pipelines, or CI.
+            and renders a full terminal UI — box-drawn tables, status icons, inline bar
+            charts, and agent trees — that degrades to plain text when piped
+            (<code>--no-color</code> / <code>NO_COLOR</code> / <code>FORCE_COLOR</code>
+            respected), so it is equally at home in an interactive shell,
+            <code>grep</code> pipelines, or CI.
           </p>
 
           <div class="table-wrap">
@@ -2264,6 +2269,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             </table>
           </div>
 
+              <p>
+                The CLI also manages the server itself: <code>ccam status</code> shows an
+                up/down indicator and <code>ccam start</code> boots a detached production
+                server. When the server is down, read-only commands fall back to reading
+                <code>data/dashboard.db</code> directly under an explicit offline banner,
+                while live or server-computed commands refuse with the specific reason.
+              </p>
           <div class="callout callout-info">
             <div class="callout-icon">ℹ</div>
             <div class="callout-body">
@@ -6201,7 +6213,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=24" defer></script>
+    <script src="i18n-content.js?v=26" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

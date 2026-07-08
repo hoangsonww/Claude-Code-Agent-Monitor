@@ -666,9 +666,10 @@ ccam cleanup --hours N --days M   # abandon stale / purge old sessions
 ccam reinstall-hooks              # reinstall Claude Code hooks
 ccam clear-data --yes             # delete ALL data (requires --yes)
 ccam open                         # open the dashboard in your browser
+ccam version                      # print the CLI version (also --version / -v)
 ```
 
-API-backed commands need the server running — when it isn't, they print a consistent `○ Dashboard server is NOT running` indicator with the start commands, and `ccam start` brings a production server up in the background. Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
+API-backed commands need the server running — when it isn't, **read-only commands fall back to reading `data/dashboard.db` directly** (with an explicit `⚠ Offline mode` banner, and stored-but-dead `active` sessions corrected display-side by the same process-liveness probe the server's watchdog uses), while commands that can't run correctly without the server (live `tail`, analytics/cost math, mutations) print the `○ Dashboard server is NOT running` indicator with the specific reason and the start commands; `ccam start` brings a production server up in the background. Read commands are always safe; the one destructive command (`clear-data`) refuses to run without an explicit `--yes`. Output is a full terminal UI — box-drawn tables with right-aligned numeric columns, status icons (`● active`, `○ waiting`, `✔ completed`, `✖ error`), inline bar charts for stats/analytics/cost, and real `├─`/`└─` agent trees — with ANSI colors auto-enabled on a TTY, off when piped, and controllable via `--no-color` / `NO_COLOR` / `FORCE_COLOR`. If `ccam` is not on your PATH (e.g. `npm link` needed elevated permissions), run `npm link` once from the repo root. Full reference — flags, discovery order, safety model, scripting/exit codes, troubleshooting — in [docs/CLI.md](./docs/CLI.md).
 
 ## npm Scripts
 
