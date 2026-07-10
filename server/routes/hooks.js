@@ -15,6 +15,7 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { isCwdIgnored } = require("../lib/cwd-filter");
 
 const router = Router();
 
@@ -28,48 +29,6 @@ const STALE_MINUTES = (() => {
   const raw = parseInt(process.env.DASHBOARD_STALE_MINUTES, 10);
   return Number.isFinite(raw) && raw > 0 ? raw : 180;
 })();
-
-// ── CWD ignore filter (MONITOR_IGNORE_CWD) ──────────────────────────────────
-// Comma-separated list of path prefixes / patterns to exclude from ingestion.
-// Each entry is matched against the session's cwd after normalization:
-//   exact match          /home/user/private
-//   prefix + wildcard    /home/user/work/*   (any direct child)
-//   recursive wildcard   /home/user/work/**  (any descendant)
-// Hook events whose cwd matches are silently dropped — they are never stored in
-// the database, so they never appear in the UI, analytics, or exports.
-const IGNORE_CWD_PATTERNS = (() => {
-  const raw = process.env.MONITOR_IGNORE_CWD || "";
-  return raw
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      // Normalise to forward slashes for cross-platform matching
-      const norm = p.replace(/\\/g, "/").replace(/\/+$/, "");
-      if (norm.endsWith("/**")) {
-        // Any descendant: /a/b/** matches /a/b/c and /a/b/c/d
-        const prefix = norm.slice(0, -3);
-        return (cwd) => cwd === prefix || cwd.startsWith(prefix + "/");
-      }
-      if (norm.endsWith("/*")) {
-        // Direct children only: /a/b/* matches /a/b/c but not /a/b/c/d
-        const prefix = norm.slice(0, -2);
-        return (cwd) => {
-          if (!cwd.startsWith(prefix + "/")) return false;
-          return !cwd.slice(prefix.length + 1).includes("/");
-        };
-      }
-      // Exact match (case-sensitive, same as the filesystem)
-      return (cwd) => cwd === norm;
-    });
-})();
-
-/** Returns true when the given working directory should be excluded from ingest. */
-function isCwdIgnored(cwd) {
-  if (typeof cwd !== "string" || !cwd || IGNORE_CWD_PATTERNS.length === 0) return false;
-  const norm = cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-  return IGNORE_CWD_PATTERNS.some((test) => test(norm));
-}
 
 // Detect Notification messages that indicate Claude Code is blocked waiting
 // for the user (permission prompt or "waiting for your input" notice). Idle
