@@ -11,6 +11,7 @@
 # Run from the repo root. Exit code is non-zero if any term is missing from a
 # doc that the change-type mapping (see references/doc-map.md) says it belongs
 # in — but treat the matrix as advisory: not every term belongs in every file.
+# @author Son Nguyen <hoangson091104@gmail.com>
 
 set -u
 

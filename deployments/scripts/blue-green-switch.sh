@@ -7,6 +7,7 @@
 #   ./blue-green-switch.sh --env production --target blue --skip-health
 #   ./blue-green-switch.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
+# @author Son Nguyen <hoangson091104@gmail.com>
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

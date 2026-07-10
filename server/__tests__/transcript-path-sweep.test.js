@@ -3,6 +3,7 @@
  * from json_extract(events.data,...) to sessions.transcript_path. Tests by
  * checking the SQL strings that appear in the file rather than running the
  * full setInterval — the unit-level guarantee is what matters here.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it } = require("node:test");

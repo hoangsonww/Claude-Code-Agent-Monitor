@@ -1,3 +1,9 @@
+/**
+ * @file intents.test.ts
+ * @description Unit tests for Tabby's intent matcher — natural-language queries mapped to dashboard navigation and status intents.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it, expect } from "vitest";
 import { matchIntent } from "../intents";
 import type { TabbyStatus } from "../brain";

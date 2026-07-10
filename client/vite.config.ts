@@ -1,3 +1,9 @@
+/**
+ * @file vite.config.ts
+ * @description Vite build and dev-server configuration for the dashboard client — React plugin plus an API/WebSocket proxy that honours DASHBOARD_PORT.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 

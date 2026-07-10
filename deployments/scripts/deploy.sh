@@ -8,6 +8,7 @@
 #   ./deploy.sh --env staging --method helm --dry-run
 #   ./deploy.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
+# @author Son Nguyen <hoangson091104@gmail.com>
 set -euo pipefail
 
 # ── Constants ───────────────────────────────────────────────────────────────

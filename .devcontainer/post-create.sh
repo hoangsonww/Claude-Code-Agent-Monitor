@@ -4,6 +4,7 @@
 #
 # Deliberately does NOT install Claude Code hooks: hooks are a host-side concern
 # (issue #193) and `scripts/install-hooks.js` refuses to run inside a container.
+# @author Son Nguyen <hoangson091104@gmail.com>
 set -euo pipefail
 
 echo "▶ Installing server + client + vscode-extension dependencies (npm run setup)…"

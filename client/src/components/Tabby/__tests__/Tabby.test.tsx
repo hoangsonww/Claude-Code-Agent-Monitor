@@ -1,3 +1,9 @@
+/**
+ * @file Tabby.test.tsx
+ * @description Render tests for the Tabby companion component — mounting, mood rendering, the ⌘B panel toggle, and accessibility attributes.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act, cleanup, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";

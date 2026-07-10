@@ -7,6 +7,7 @@
 #   ./db-backup.sh --env production --output ./backups/ --upload s3://bucket/path
 #   ./db-backup.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
+# @author Son Nguyen <hoangson091104@gmail.com>
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

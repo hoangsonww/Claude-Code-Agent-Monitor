@@ -21,6 +21,8 @@ Intended to be referenced from Claude Code's ``statusLine`` setting (see
 :repository: https://github.com/hoangsonww/Claude-Code-Agent-Monitor
 :requires: Python 3.6+
 :encoding: utf-8
+
+@author Son Nguyen <hoangson091104@gmail.com>
 """
 
 __file_name__ = "statusline.py"
