@@ -186,6 +186,22 @@ const processEvent = db.transaction((hookType, data) => {
   if (!sessionId) return null;
 
   const session = ensureSession(sessionId, data);
+
+  // Remote household hooks (aideck-hook.js on other machines) cannot rely on
+  // the transcript being readable on THIS host (the JSONL lives on the remote
+  // machine's disk). They extract the transcript title locally and send it
+  // inline; apply it through the same precedence rules as the TranscriptCache
+  // path (custom wins, ai-title only fills auto/placeholder names).
+  if (data.remote_custom_title || data.remote_ai_title) {
+    syncSessionName(session, {
+      customTitle:
+        typeof data.remote_custom_title === "string"
+          ? data.remote_custom_title.slice(0, 200)
+          : null,
+      aiTitle: typeof data.remote_ai_title === "string" ? data.remote_ai_title.slice(0, 200) : null,
+    });
+  }
+
   let mainAgent = getMainAgent(sessionId);
   const mainAgentId = mainAgent?.id ?? null;
 
