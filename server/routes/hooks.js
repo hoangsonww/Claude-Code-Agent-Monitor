@@ -45,7 +45,7 @@ const IGNORE_CWD_PATTERNS = (() => {
     .filter(Boolean)
     .map((p) => {
       // Normalise to forward slashes for cross-platform matching
-      const norm = p.replace(/\/g, "/").replace(/\/+$/, "");
+      const norm = p.replace(/\\/g, "/").replace(/\/+$/, "");
       if (norm.endsWith("/**")) {
         // Any descendant: /a/b/** matches /a/b/c and /a/b/c/d
         const prefix = norm.slice(0, -3);
@@ -66,8 +66,8 @@ const IGNORE_CWD_PATTERNS = (() => {
 
 /** Returns true when the given working directory should be excluded from ingest. */
 function isCwdIgnored(cwd) {
-  if (!cwd || IGNORE_CWD_PATTERNS.length === 0) return false;
-  const norm = cwd.replace(/\/g, "/").replace(/\/+$/, "");
+  if (typeof cwd !== "string" || !cwd || IGNORE_CWD_PATTERNS.length === 0) return false;
+  const norm = cwd.replace(/\\/g, "/").replace(/\/+$/, "");
   return IGNORE_CWD_PATTERNS.some((test) => test(norm));
 }
 
