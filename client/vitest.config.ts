@@ -1,3 +1,9 @@
+/**
+ * @file vitest.config.ts
+ * @description Vitest configuration for the client test suite — jsdom environment, React plugin, and test globals.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 

@@ -1,3 +1,9 @@
+/**
+ * @file tailwind.config.js
+ * @description Tailwind CSS configuration — content globs and the dashboard's dark-theme design tokens.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],

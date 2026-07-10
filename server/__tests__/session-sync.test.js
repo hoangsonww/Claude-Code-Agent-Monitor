@@ -8,6 +8,7 @@
  * Runs in its own process (node --test isolates files), so pointing CLAUDE_HOME
  * and DASHBOARD_DB_PATH at temp locations before requiring the modules gives a
  * clean, isolated projects dir + database without touching the real ones.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

@@ -14,6 +14,7 @@
  * families before we ever try to bind catches that.
  *
  * Built atop the macOS desktop app groundwork in PR #151 by @shuvamk.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const net = require("node:net");

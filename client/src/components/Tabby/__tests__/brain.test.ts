@@ -1,3 +1,9 @@
+/**
+ * @file brain.test.ts
+ * @description Unit tests for the Tabby state brain — initial state, mood transitions driven by dashboard events, and status derivation.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   initialTabbyState,

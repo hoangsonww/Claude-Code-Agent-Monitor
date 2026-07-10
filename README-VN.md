@@ -69,9 +69,9 @@ Bảng điều khiển chuyên nghiệp để theo dõi và trực quan hóa cá
 ![Auto Release](https://img.shields.io/badge/CI-auto--release_to_GitHub-22c55e?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-**Hỗ trợ ngôn ngữ**: Tiếng Anh (`en`) · 中文 (`zh`) · Tiếng Việt (`vi`)
+**Hỗ trợ ngôn ngữ**: Tiếng Anh (`en`) · 中文 (`zh`) · Tiếng Việt (`vi`) · Tiếng Hàn (`ko`)
 
-Tài liệu đã bản địa hóa: [`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md)
+Tài liệu đã bản địa hóa: [`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md)
 
 ---
 

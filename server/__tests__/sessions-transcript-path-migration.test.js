@@ -2,6 +2,7 @@
  * @file Verifies the idempotent ALTER TABLE migration adds a transcript_path
  * column to sessions and that a fresh db.js load on an existing DB does not
  * throw or duplicate the column.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

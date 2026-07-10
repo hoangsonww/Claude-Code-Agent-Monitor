@@ -3,6 +3,7 @@
  * Colors mirror the app's theme tokens (accent #6366f1/#818cf8, surface scale)
  * with warm pink accents (ears, cheeks, nose) for cuteness. All continuous
  * motion is disabled under [data-reduced="1"] and prefers-reduced-motion.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 .tabby-cat {

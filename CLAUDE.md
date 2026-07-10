@@ -15,7 +15,8 @@
 - Preserve existing behavior unless explicitly asked to change it.
 - Prefer minimal, reversible diffs.
 - Never silently weaken safety controls around destructive actions.
-- Keep docs updated when behavior, commands, file locations, or workflows change.
+- Keep docs updated when behavior, commands, file locations, or workflows change — apply the `update-project-docs` skill automatically at the end of every change-set that alters behavior, config, interfaces, events, schema, CLI commands, or features (do not wait to be asked).
+- Every applicable source file you create or update (`.js/.ts/.tsx/.cjs/.mjs/.py/.sh/.css`) must start with the copyright/authorship header — file overview + the exact line `@author Son Nguyen <hoangson091104@gmail.com>`. Formats and audit script: `.claude/skills/file-headers/` (verify with `bash .claude/skills/file-headers/scripts/check-headers.sh`). This binds every coding agent (Claude Code, Codex, or others).
 
 ## Commands you should know
 - Setup: `npm run setup`

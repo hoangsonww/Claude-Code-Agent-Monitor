@@ -1,4 +1,8 @@
-/* Self-hosted Inter + JetBrains Mono — no Google Fonts dependency */
+/**
+ * @file fonts.css
+ * @description Self-hosted Inter + JetBrains Mono @font-face declarations — no Google Fonts dependency.
+ * @author Son Nguyen <hoangson091104@gmail.com>
+ */
 
 /* Inter */
 @font-face {

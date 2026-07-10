@@ -68,3 +68,4 @@ coverage/
 # Playwright MCP
 .playwright_mcp/
 .playwright-mcp/
+__pycache__/

@@ -7,6 +7,7 @@
 #   ./teardown.sh --env production --method terraform
 #   ./teardown.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
+# @author Son Nguyen <hoangson091104@gmail.com>
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

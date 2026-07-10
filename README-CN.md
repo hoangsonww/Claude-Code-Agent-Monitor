@@ -69,9 +69,9 @@
 ![Auto Release](https://img.shields.io/badge/CI-auto--release_to_GitHub-22c55e?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-**语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`)  
+**语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`) · 韩语 (`ko`)  
 
-切换文档：[`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md)
+切换文档：[`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md)
 
 ---
 
@@ -132,7 +132,7 @@ graph LR
 
 ### 多语言支持（i18n）
 
-Dashboard 内置多语言界面，支持 `en`、`zh`、`vi` 三种语言，适用于跨语言协作和团队共享。
+Dashboard 内置多语言界面，支持 `en`、`zh`、`vi`、`ko` 四种语言，适用于跨语言协作和团队共享。
 
 ```mermaid
 flowchart LR

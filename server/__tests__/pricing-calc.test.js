@@ -2,6 +2,7 @@
  * @file Unit tests for the enhanced pricing calculator and the shared token-usage
  * normalizer: 5m/1h cache-write split, server-tool surcharges, and the per-bucket
  * pricing modifiers (fast mode, US data residency, Batch API).
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it } = require("node:test");
