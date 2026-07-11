@@ -552,7 +552,7 @@ router.get("/:id/transcripts", async (req, res) => {
     delete t._sortTime;
   }
 
-  // Sort transcripts: main first, then by time ascending (consistent with agents list order)
+  // Sort transcripts: main first, then subagents by time descending (newest first)
   result.sort((a, b) => {
     if (a.type === "main") return -1;
     if (b.type === "main") return 1;
@@ -560,7 +560,7 @@ router.get("/:id/transcripts", async (req, res) => {
     const bAgent = dbAgents.find((ag) => ag.id === b.db_agent_id);
     const aTime = aAgent?.started_at ? new Date(aAgent.started_at).getTime() : 0;
     const bTime = bAgent?.started_at ? new Date(bAgent.started_at).getTime() : 0;
-    if (aTime && bTime) return aTime - bTime;
+    if (aTime && bTime) return bTime - aTime;
     if (aTime) return -1;
     if (bTime) return 1;
     return (a.name || "").localeCompare(b.name || "");
