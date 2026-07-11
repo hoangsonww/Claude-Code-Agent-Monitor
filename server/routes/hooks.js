@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require("uuid");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
+const broadcastQueue = require("../lib/broadcast-queue");
 const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
@@ -48,12 +49,10 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
   const cleared = stmts.clearSessionAgentsAwaitingInput.run(sessionId);
   const sessCleared = stmts.clearSessionAwaitingInput.run(sessionId);
   if (broadcastUpdates && cleared.changes > 0 && mainAgentId) {
-    const refreshedMain = stmts.getAgent.get(mainAgentId);
-    if (refreshedMain) broadcast("agent_updated", refreshedMain);
+    broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
   }
   if (broadcastUpdates && sessCleared.changes > 0) {
-    const refreshedSess = stmts.getSession.get(sessionId);
-    if (refreshedSess) broadcast("session_updated", refreshedSess);
+    broadcastQueue.enqueue("session_updated", { sessionId });
   }
 }
 
@@ -75,15 +74,17 @@ function recoverInterruptedSession(sessionId, fullSess, mainAgentId, reasonSuffi
   const summary = reasonSuffix ? `${label} - ${reasonSuffix}` : `${label} - interrupted by user`;
   stmts.insertEvent.run(sessionId, mainAgentId, "Interrupted", null, summary, null);
 
-  broadcast("session_updated", stmts.getSession.get(sessionId));
-  if (mainAgentId) broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
-  broadcast("new_event", {
-    session_id: sessionId,
-    agent_id: mainAgentId,
-    event_type: "Interrupted",
-    tool_name: null,
-    summary,
-    created_at: ts,
+  broadcastQueue.enqueue("session_updated", { sessionId });
+  if (mainAgentId) broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
+  broadcastQueue.enqueue("new_event", {
+    data: {
+      session_id: sessionId,
+      agent_id: mainAgentId,
+      event_type: "Interrupted",
+      tool_name: null,
+      summary,
+      created_at: ts,
+    },
   });
 }
 
@@ -103,7 +104,7 @@ function ensureSession(sessionId, data) {
       console.error(`[HOOKS] Failed to create session ${sessionId} — insert returned no row`);
       return null;
     }
-    broadcast("session_created", session);
+    broadcastQueue.enqueue("session_created", { sessionId });
 
     // Create main agent for new session
     const mainAgentId = `${sessionId}-main`;
@@ -119,8 +120,7 @@ function ensureSession(sessionId, data) {
       null,
       null
     );
-    const mainAgent = stmts.getAgent.get(mainAgentId);
-    if (mainAgent) broadcast("agent_created", mainAgent);
+    broadcastQueue.enqueue("agent_created", { agentId: mainAgentId });
   }
 
   // First-seen transcript_path → write to session row so the periodic sweep
@@ -212,8 +212,7 @@ function syncSessionName(session, result) {
   if (!custom && !replaceable) return;
   const upd = stmts.updateSessionName.run(desired, session.id, desired);
   if (upd.changes > 0) {
-    const refreshed = stmts.getSession.get(session.id);
-    if (refreshed) broadcast("session_updated", refreshed);
+    broadcastQueue.enqueue("session_updated", { sessionId: session.id });
   }
 }
 
@@ -235,8 +234,7 @@ function applyFirstUserDescriptor(sessionId, result) {
   if (session && isAutoSessionName(session.name, session.id, session.cwd)) {
     const upd = stmts.updateSessionName.run(label, session.id, label);
     if (upd.changes > 0) {
-      const refreshed = stmts.getSession.get(session.id);
-      if (refreshed) broadcast("session_updated", refreshed);
+      broadcastQueue.enqueue("session_updated", { sessionId: session.id });
     }
   }
 
@@ -260,7 +258,7 @@ function applyFirstUserDescriptor(sessionId, result) {
     mainAgent.id
   );
   const refreshedAgent = stmts.getAgent.get(mainAgent.id);
-  if (refreshedAgent) broadcast("agent_updated", refreshedAgent);
+  if (refreshedAgent) broadcastQueue.enqueue("agent_updated", { agentId: mainAgent.id });
 }
 
 const processEvent = db.transaction((hookType, data) => {
@@ -290,12 +288,12 @@ const processEvent = db.transaction((hookType, data) => {
       (isStopLike && isImportedOrAbandoned));
   if (needsReactivation) {
     stmts.reactivateSession.run(sessionId);
-    broadcast("session_updated", stmts.getSession.get(sessionId));
+    broadcastQueue.enqueue("session_updated", { sessionId });
 
     if (mainAgent && mainAgent.status !== "working") {
       stmts.reactivateAgent.run(mainAgentId);
       mainAgent = stmts.getAgent.get(mainAgentId);
-      broadcast("agent_updated", mainAgent);
+      broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
     }
   }
 
@@ -359,7 +357,7 @@ const processEvent = db.transaction((hookType, data) => {
           parentId,
           input.metadata ? JSON.stringify(input.metadata) : null
         );
-        broadcast("agent_created", stmts.getAgent.get(subId));
+        broadcastQueue.enqueue("agent_created", { agentId: subId });
         agentId = subId;
         summary = `Subagent spawned: ${subName}`;
       }
@@ -385,7 +383,7 @@ const processEvent = db.transaction((hookType, data) => {
         (mainAgent.status === "working" || mainAgent.status === "waiting")
       ) {
         stmts.updateAgent.run(null, "working", null, toolName, null, null, mainAgentId);
-        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
       }
       break;
     }
@@ -416,7 +414,7 @@ const processEvent = db.transaction((hookType, data) => {
       // Skip if waiting (waiting for subagents) or already completed.
       if (mainAgent && mainAgent.status === "working") {
         stmts.updateAgent.run(null, null, null, null, null, null, mainAgentId);
-        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
       }
       break;
     }
@@ -463,9 +461,9 @@ const processEvent = db.transaction((hookType, data) => {
       }
 
       // Now broadcast — single agent_updated reflecting the final state.
-      broadcast("session_updated", stmts.getSession.get(sessionId));
+      broadcastQueue.enqueue("session_updated", { sessionId });
       if (mainAgentId) {
-        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
       }
       break;
     }
@@ -518,7 +516,7 @@ const processEvent = db.transaction((hookType, data) => {
           null,
           matchingSub.id
         );
-        broadcast("agent_updated", stmts.getAgent.get(matchingSub.id));
+        broadcastQueue.enqueue("agent_updated", { agentId: matchingSub.id });
         agentId = matchingSub.id;
         summary = `Subagent completed: ${matchingSub.name}`;
 
@@ -550,8 +548,8 @@ const processEvent = db.transaction((hookType, data) => {
       // Single broadcast pair with the final state — agents and sessions
       // are now connected/active with the waiting flag set, so WS clients
       // see the Waiting badge as soon as the SessionStart event lands.
-      broadcast("session_updated", stmts.getSession.get(sessionId));
-      if (mainAgentId) broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+      broadcastQueue.enqueue("session_updated", { sessionId });
+      if (mainAgentId) broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
 
       // Clean up orphaned sessions: when a user runs /resume inside a session,
       // the parent session never receives Stop or SessionEnd. Mark any active
@@ -563,11 +561,11 @@ const processEvent = db.transaction((hookType, data) => {
         for (const agent of staleAgents) {
           if (agent.status !== "completed" && agent.status !== "error") {
             stmts.updateAgent.run(null, "completed", null, null, now, null, agent.id);
-            broadcast("agent_updated", stmts.getAgent.get(agent.id));
+            broadcastQueue.enqueue("agent_updated", { agentId: agent.id });
           }
         }
         stmts.updateSession.run(null, "abandoned", now, null, stale.id);
-        broadcast("session_updated", stmts.getSession.get(stale.id));
+        broadcastQueue.enqueue("session_updated", { sessionId: stale.id });
       }
       break;
     }
@@ -595,11 +593,11 @@ const processEvent = db.transaction((hookType, data) => {
         if (agent.status !== "completed" && agent.status !== "error") {
           const agentFinal = finalSessionStatus === "error" ? "error" : "completed";
           stmts.updateAgent.run(null, agentFinal, null, null, now, null, agent.id);
-          broadcast("agent_updated", stmts.getAgent.get(agent.id));
+          broadcastQueue.enqueue("agent_updated", { agentId: agent.id });
         }
       }
       stmts.updateSession.run(null, finalSessionStatus, now, null, sessionId);
-      broadcast("session_updated", stmts.getSession.get(sessionId));
+      broadcastQueue.enqueue("session_updated", { sessionId });
 
       break;
     }
@@ -616,7 +614,7 @@ const processEvent = db.transaction((hookType, data) => {
       clearAwaitingInput(sessionId, mainAgentId, true);
       if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
         stmts.updateAgent.run(null, "working", null, null, null, null, mainAgentId);
-        broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
       }
       break;
     }
@@ -634,11 +632,11 @@ const processEvent = db.transaction((hookType, data) => {
         // user responds — at which point the next PreToolUse/Stop clears it.
         const ts = new Date().toISOString();
         stmts.setSessionAwaitingInput.run(ts, sessionId);
-        broadcast("session_updated", stmts.getSession.get(sessionId));
+        broadcastQueue.enqueue("session_updated", { sessionId });
         if (mainAgentId) {
           stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
           stmts.setAgentAwaitingInput.run(ts, mainAgentId);
-          broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+          broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
         }
         summary = msg;
       } else {
@@ -674,8 +672,7 @@ const processEvent = db.transaction((hookType, data) => {
       if (latestModel) {
         const upd = stmts.updateSessionModel.run(latestModel, sessionId, latestModel);
         if (upd.changes > 0) {
-          const refreshed = stmts.getSession.get(sessionId);
-          if (refreshed) broadcast("session_updated", refreshed);
+          broadcastQueue.enqueue("session_updated", { sessionId });
         }
       }
 
@@ -718,7 +715,7 @@ const processEvent = db.transaction((hookType, data) => {
           db.prepare(
             "UPDATE agents SET started_at = ?, ended_at = ?, updated_at = ? WHERE id = ?"
           ).run(ts, ts, ts, compactId);
-          broadcast("agent_created", stmts.getAgent.get(compactId));
+          broadcastQueue.enqueue("agent_created", { agentId: compactId });
 
           const compactSummary = `Context compacted - conversation history compressed (#${compaction.entries.indexOf(entry) + 1})`;
           stmts.insertEvent.run(
@@ -734,13 +731,15 @@ const processEvent = db.transaction((hookType, data) => {
               total_compactions: compaction.count,
             })
           );
-          broadcast("new_event", {
-            session_id: sessionId,
-            agent_id: compactId,
-            event_type: "Compaction",
-            tool_name: null,
-            summary: compactSummary,
-            created_at: ts,
+          broadcastQueue.enqueue("new_event", {
+            data: {
+              session_id: sessionId,
+              agent_id: compactId,
+              event_type: "Compaction",
+              tool_name: null,
+              summary: compactSummary,
+              created_at: ts,
+            },
           });
         }
       }
@@ -789,13 +788,15 @@ const processEvent = db.transaction((hookType, data) => {
             `${apiErr.type}: ${apiErr.message}`,
             JSON.stringify(apiErr)
           );
-          broadcast("new_event", {
-            session_id: sessionId,
-            agent_id: mainAgentId,
-            event_type: "APIError",
-            tool_name: null,
-            summary: `${apiErr.type}: ${apiErr.message}`,
-            created_at: apiErr.timestamp || new Date().toISOString(),
+          broadcastQueue.enqueue("new_event", {
+            data: {
+              session_id: sessionId,
+              agent_id: mainAgentId,
+              event_type: "APIError",
+              tool_name: null,
+              summary: `${apiErr.type}: ${apiErr.message}`,
+              created_at: apiErr.timestamp || new Date().toISOString(),
+            },
           });
           newErrorRecorded = true;
         }
@@ -814,12 +815,12 @@ const processEvent = db.transaction((hookType, data) => {
           const curSession = stmts.getSession.get(sessionId);
           if (curSession && curSession.status === "active") {
             stmts.updateSession.run(null, "error", null, null, sessionId);
-            broadcast("session_updated", stmts.getSession.get(sessionId));
+            broadcastQueue.enqueue("session_updated", { sessionId });
           }
           if (mainAgent && mainAgent.status !== "completed" && mainAgent.status !== "error") {
             stmts.updateAgent.run(null, "error", null, null, null, null, mainAgentId);
             clearAwaitingInput(sessionId, mainAgentId, false);
-            broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+            broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
           }
         }
       }
@@ -838,11 +839,11 @@ const processEvent = db.transaction((hookType, data) => {
         const curSession = stmts.getSession.get(sessionId);
         if (curSession && curSession.status === "error" && !isErrorAtTail(result)) {
           stmts.reactivateSession.run(sessionId);
-          broadcast("session_updated", stmts.getSession.get(sessionId));
+          broadcastQueue.enqueue("session_updated", { sessionId });
           const curMain = mainAgentId ? stmts.getAgent.get(mainAgentId) : null;
           if (curMain && curMain.status === "error") {
             stmts.reactivateAgent.run(mainAgentId);
-            broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+            broadcastQueue.enqueue("agent_updated", { agentId: mainAgentId });
           }
         }
       }
@@ -868,13 +869,15 @@ const processEvent = db.transaction((hookType, data) => {
             tdSummary,
             JSON.stringify({ durationMs: td.durationMs })
           );
-          broadcast("new_event", {
-            session_id: sessionId,
-            agent_id: mainAgentId,
-            event_type: "TurnDuration",
-            tool_name: null,
-            summary: tdSummary,
-            created_at: tdTs,
+          broadcastQueue.enqueue("new_event", {
+            data: {
+              session_id: sessionId,
+              agent_id: mainAgentId,
+              event_type: "TurnDuration",
+              tool_name: null,
+              summary: tdSummary,
+              created_at: tdTs,
+            },
           });
         }
       }
@@ -928,7 +931,7 @@ const processEvent = db.transaction((hookType, data) => {
     summary,
     created_at: new Date().toISOString(),
   };
-  broadcast("new_event", event);
+  broadcastQueue.enqueue("new_event", { data: event });
   return event;
 });
 
@@ -948,6 +951,10 @@ router.post("/event", (req, res) => {
   }
 
   res.json({ ok: true, event: result });
+
+  // Flush deferred broadcasts outside the transaction — reduces lock hold time
+  // and deduplicates redundant session/agent updates across a single hook event.
+  setImmediate(() => broadcastQueue.flush());
 
   // Evaluate event-driven alert rules after the ingest transaction committed
   // and the response is on its way — alerting must never slow down or fail
