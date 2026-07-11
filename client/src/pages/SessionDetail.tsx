@@ -686,12 +686,17 @@ export function SessionDetail() {
                       rootAgents.push(a);
                     }
                   }
-                  // Sort roots and children by started_at ascending (chronological order)
-                  rootAgents.sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
+                  // Sort roots: Main Agent first, then subagents by started_at descending (newest first)
+                  rootAgents.sort((a, b) => {
+                    if (a.type === "main") return -1;
+                    if (b.type === "main") return 1;
+                    return (b.started_at || "").localeCompare(a.started_at || "");
+                  });
+                  // Children: newest subagents first within each parent
                   for (const key of childrenByParent.keys()) {
                     childrenByParent
                       .get(key)!
-                      .sort((a, b) => (a.started_at || "").localeCompare(b.started_at || ""));
+                      .sort((a, b) => (b.started_at || "").localeCompare(a.started_at || ""));
                   }
 
                   // Count all descendants (recursive) for collapsed badge.
