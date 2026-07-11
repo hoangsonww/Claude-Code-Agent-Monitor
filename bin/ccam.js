@@ -739,7 +739,12 @@ async function cmdSession(positional) {
   const agents = d.agents || [];
   if (agents.length) renderAgentTree(agents);
 
-  const events = (d.events || []).slice(0, 10);
+  // Fetch recent events separately (no longer embedded in session detail)
+  let events = [];
+  try {
+    const eventData = await get(`/api/events?session_id=${id}&limit=10`);
+    events = (eventData.events || []).slice(0, 10);
+  } catch { /* non-fatal */ }
   if (events.length) renderEventLines(events);
 }
 

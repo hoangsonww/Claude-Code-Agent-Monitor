@@ -247,7 +247,6 @@ router.get("/:id", (req, res) => {
   // Each agent's OWN cost (from its metadata token buckets) so subagent cards on
   // the session-detail tree show their real cost, not the session total.
   const agents = attachAgentCosts(stmts.listAgentsBySession.all(req.params.id));
-  const events = stmts.listEventsBySession.all(req.params.id);
   // Workflow-tool runs launched within this session (issue #167). Parse the
   // JSON-blob columns so the client gets arrays, not strings.
   const workflows = stmts.listWorkflowsBySession.all(req.params.id).map((w) => {
@@ -265,7 +264,7 @@ router.get("/:id", (req, res) => {
     }
     return { ...w, phases, progress };
   });
-  res.json({ session, agents, events, workflows });
+  res.json({ session, agents, workflows });
 });
 
 /**

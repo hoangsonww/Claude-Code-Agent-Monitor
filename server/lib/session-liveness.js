@@ -23,6 +23,13 @@ const { isInsideContainer } = require("../../scripts/install-hooks");
 
 const UNAVAILABLE = () => ({ available: false, cwds: new Set() });
 
+// Cache probe results for 30s to avoid running ps + lsof every 15s watchdog
+// tick. These commands are synchronous and expensive on macOS with 20+ claude
+// processes, blocking the event loop and starving HTTP requests.
+const PROBE_CACHE_TTL_MS = 30_000;
+let cachedProbe = null;
+let cachedProbeTime = 0;
+
 /**
  * True when a `ps` args string is a Claude Code CLI process. Matches the
  * bare binary (`claude`, `/usr/local/bin/claude`) and interpreter-launched
@@ -57,6 +64,13 @@ function probeDisabledByEnv() {
  */
 function probeLiveCwds() {
   if (probeDisabledByEnv()) return UNAVAILABLE();
+  if (process.platform === "win32") return UNAVAILABLE();
+  if (isInsideContainer()) return UNAVAILABLE();
+
+  // Return cached result if still fresh (these early-return checks are not
+  // cached because the env/container state may change between calls in tests)
+  const now = Date.now();
+  if (cachedProbe && now - cachedProbeTime < PROBE_CACHE_TTL_MS) return cachedProbe;
   if (process.platform === "win32") return UNAVAILABLE();
   if (isInsideContainer()) return UNAVAILABLE();
 
@@ -110,7 +124,10 @@ function probeLiveCwds() {
   for (const line of lsofOut.split("\n")) {
     if (line.startsWith("n") && line.length > 1) cwds.add(path.resolve(line.slice(1)));
   }
-  return { available: true, cwds };
+  const result = { available: true, cwds };
+  cachedProbe = result;
+  cachedProbeTime = now;
+  return result;
 }
 
-module.exports = { probeLiveCwds, isClaudeCommand };
+module.exports = { probeLiveCwds, isClaudeCommand, _clearCache: () => { cachedProbe = null; cachedProbeTime = 0; } };
