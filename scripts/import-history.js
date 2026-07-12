@@ -33,6 +33,17 @@ const { extractFirstUserText } = require("../server/lib/transcript-cache");
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
 
+// Max session files a directory sweep scans synchronously before it yields to
+// the event loop. The desktop app hosts this Express server IN the Electron main
+// process (see desktop/src/server-host.ts), so a long synchronous scan of a
+// large ~/.claude/projects tree — one statSync + one getSession query per file —
+// would freeze the whole app window, not just delay an API response. Yielding
+// every N files keeps each synchronous burst short so a multi-thousand-session
+// history never monopolizes the loop. Under `npm start` the server is its own
+// process, so the same scan can't freeze the UI there — which is exactly why
+// the issue only reproduces in the packaged app (#223).
+const SWEEP_YIELD_EVERY_FILES = 100;
+
 /**
  * Snapshot an imported session's JSONL transcript (and its subagent
  * transcripts) into the dashboard's own data dir so the Conversation tab can
@@ -1841,6 +1852,10 @@ async function syncDefaultProjects(dbModule, options = {}) {
     return { changed };
   }
 
+  // Files scanned so far this sweep, across all project dirs — drives the
+  // cooperative yield below so a huge history never blocks the event loop.
+  let scanned = 0;
+
   for (const projDir of projectDirs) {
     const projPath = path.join(PROJECTS_DIR, projDir);
     let files;
@@ -1851,6 +1866,18 @@ async function syncDefaultProjects(dbModule, options = {}) {
     }
 
     for (const file of files) {
+      // Cooperative yield BEFORE the per-file work, so it covers the unchanged
+      // -file fast paths below (statSync + a getSession query) that otherwise
+      // never await. Without this, a cold-cache sweep of a large projects tree
+      // runs thousands of files back-to-back with no yield and freezes the
+      // desktop app's window (its server shares the Electron main event loop —
+      // see SWEEP_YIELD_EVERY_FILES). The heavy-parse path keeps its own yield
+      // further down; this one is what makes the common skip path cooperative.
+      if (scanned > 0 && scanned % SWEEP_YIELD_EVERY_FILES === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      scanned++;
+
       const sourcePath = path.join(projPath, file);
       let mtime;
       try {
