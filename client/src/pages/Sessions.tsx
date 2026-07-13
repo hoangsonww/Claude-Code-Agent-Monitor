@@ -140,18 +140,25 @@ export function Sessions() {
   // saturating the server's event loop and making the UI unresponsive.
   useEffect(() => {
     let timer: number | null = null;
+    let pendingRunStatus = false;
+    const fire = () => {
+      timer = null;
+      load();
+      if (pendingRunStatus) { pendingRunStatus = false; loadDashboardRuns(); }
+    };
     return eventBus.subscribe((msg) => {
       if (msg.type === "session_created" || msg.type === "session_updated") {
-        if (!timer) timer = window.setTimeout(() => { timer = null; load(); }, 800);
+        if (!timer) timer = window.setTimeout(fire, 800);
       }
       if (msg.type === "new_event") {
         const ev = msg.data as DashboardEvent;
         if (ev.event_type === "Stop" || ev.event_type === "SessionEnd") {
-          if (!timer) timer = window.setTimeout(() => { timer = null; load(); }, 800);
+          if (!timer) timer = window.setTimeout(fire, 800);
         }
       }
       if (msg.type === "run_status") {
-        loadDashboardRuns();
+        pendingRunStatus = true;
+        if (!timer) timer = window.setTimeout(fire, 800);
       }
     });
   }, [load]);
