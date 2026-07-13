@@ -36,32 +36,37 @@ function flush() {
   const items = pending;
   pending = [];
 
-  // Deduplicate: for DB-backed types, keep only the last entry per (type, id).
-  // Inline-data types ("new_event") are never deduped.
-  const seen = new Map();
-  const deduped = [];
-
+  // Deduplicate: for DB-backed types, keep only the last entry per (type, id)
+  // but preserve the original insertion order. Inline-data types ("new_event")
+  // are never deduped.
+  // Two-pass approach: first pass records the last index for each dedup key;
+  // second pass filters to only those indices (plus keyless inline items),
+  // preserving the relative order items were enqueued in.
+  const seen = new Map(); // key → last index
   for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const key = dedupeKey(item);
-    if (key) {
-      seen.set(key, i);
-    } else {
-      // Inline data — always keep
-      deduped.push(item);
+    const key = dedupeKey(items[i]);
+    if (key) seen.set(key, i); // overwrite — keeps the last occurrence
+  }
+  const kept = new Set(seen.values()); // indices of dedup-able items to keep
+  const deduped = [];
+  for (let i = 0; i < items.length; i++) {
+    const key = dedupeKey(items[i]);
+    if (!key || kept.has(i)) {
+      deduped.push(items[i]);
     }
   }
 
-  // Append the last occurrence of each dedup-able key
-  for (const idx of seen.values()) {
-    deduped.push(items[idx]);
-  }
-
-  // Send broadcasts (DB reads happen here, outside the transaction)
+  // Send broadcasts (DB reads happen here, outside the transaction).
+  // Each item is dispatched independently so a single failure doesn't
+  // block the rest of the queue or crash the process.
   for (const item of deduped) {
-    const data = loadData(item);
-    if (data !== undefined && data !== null) {
-      broadcast(item.type, data);
+    try {
+      const data = loadData(item);
+      if (data !== undefined && data !== null) {
+        broadcast(item.type, data);
+      }
+    } catch (err) {
+      console.error("[broadcast-queue] flush error for %s:", item.type, err?.message || err);
     }
   }
 }
@@ -89,6 +94,7 @@ function size() {
  */
 function dedupeKey(item) {
   const { type, ref } = item;
+  if (!ref) return null; // defensive: null/undefined ref — treat as non-dedup-able
   if (ref.data !== undefined) return null; // inline payload, don't dedup
   if (ref.sessionId) return `${type}:session:${ref.sessionId}`;
   if (ref.agentId) return `${type}:agent:${ref.agentId}`;
@@ -101,6 +107,9 @@ function dedupeKey(item) {
  */
 function loadData(item) {
   const { type, ref } = item;
+
+  // Defensive: null/undefined ref means nothing to load
+  if (!ref) return null;
 
   // Inline payload — no DB read needed
   if (ref.data !== undefined) return ref.data;
