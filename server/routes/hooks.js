@@ -943,7 +943,16 @@ router.post("/event", (req, res) => {
     });
   }
 
-  const result = processEvent(hook_type, data);
+  let result;
+  try {
+    result = processEvent(hook_type, data);
+  } catch (err) {
+    // Transaction rolled back — purge any queued broadcasts that were
+    // enqueued inside the failed transaction so they are not flushed
+    // on the next setImmediate tick.
+    broadcastQueue.clear();
+    throw err;
+  }
   if (!result) {
     return res.status(400).json({
       error: { code: "MISSING_SESSION", message: "session_id is required in data" },
