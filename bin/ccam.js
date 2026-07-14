@@ -17,6 +17,7 @@
  * Import                import rescan · import path <dir>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
  *                       clear-data --yes · open
+ * Interactive            repl
  *
  * Port resolution mirrors the hook handler: an explicit
  * CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env var wins, otherwise the live
@@ -1190,6 +1191,225 @@ function cmdOpen() {
   console.log(`${c.green("✔")} Opening ${url}`);
 }
 
+// ── Interactive REPL ────────────────────────────────────────────────────────
+
+/**
+ * Starts an interactive REPL shell that lets users query the dashboard API
+ * directly from the terminal. Provides built-in shortcuts for common
+ * operations (health, stats, sessions, agents, events, cost), generic
+ * GET/POST execution for any API path, and shell-like conveniences
+ * (clear screen, help, history navigation via arrow keys).
+ */
+async function cmdRepl(flags) {
+  const readline = require("node:readline");
+
+  // Ensure the server is reachable before entering the REPL
+  if (!(await serverIsUp())) {
+    serverDownExit("repl requires a live dashboard server");
+    return;
+  }
+
+  const health = await get("/api/health");
+  console.log(
+    `\n${c.cyan("▍")}${c.bold("ccam repl")} — interactive shell` +
+    c.dim(` — dashboard up at ${baseUrl()} (${health.timestamp})`)
+  );
+  console.log(
+    c.dim(`  Type ${c.cyan("help")} for commands, ${c.cyan(".api <path>")} for raw API calls, ${c.cyan("exit")} to quit.\n`)
+  );
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: `${c.cyan("ccam")}${c.dim("›")} `,
+    completer: (line) => {
+      const builtins = [
+        "help", "health", "status", "stats", "sessions", "session ",
+        "agents", "events", "cost", "analytics", "workflows",
+        "alerts", "rules", "pricing", "doctor",
+        ".api ", ".post ", ".headers", ".clear", ".baseurl", "exit", "quit",
+      ];
+      const hits = builtins.filter((cmd) => cmd.startsWith(line.trim()));
+      return [hits.length ? hits : builtins, line];
+    },
+  });
+
+  rl.prompt();
+
+  rl.on("line", async (line) => {
+    const input = line.trim();
+    if (!input) {
+      rl.prompt();
+      return;
+    }
+    try {
+      await handleReplCommand(input);
+    } catch (err) {
+      if (err instanceof ServerDownError) {
+        console.error(c.red("✖ Dashboard server went away — type .api <path> to retry or exit to quit"));
+      } else {
+        console.error(c.red(`✖ ${err?.message || err}`));
+      }
+    }
+    rl.prompt();
+  });
+
+  rl.on("close", () => {
+    console.log(c.dim("\n  Bye."));
+    process.exit(0);
+  });
+}
+
+/** Dispatches a single REPL input line. */
+async function handleReplCommand(input) {
+  const [cmd, ...rest] = input.split(/\s+/);
+  const arg = rest.join(" ").trim();
+
+  switch (cmd) {
+    case "help":
+      return printReplHelp();
+
+    case "health":
+      return cmdHealth();
+
+    case "status":
+      return cmdStatus();
+
+    case "stats":
+      return cmdStats();
+
+    case "sessions":
+      return cmdSessions({ limit: "10", ...parseReplFlags(rest) });
+
+    case "session":
+      if (!arg) { console.log(c.dim("  Usage: session <id>")); return; }
+      return cmdSession([arg]);
+
+    case "agents":
+      return cmdAgents({ limit: "10", ...parseReplFlags(rest) });
+
+    case "events":
+      return cmdEvents({ limit: "15", ...parseReplFlags(rest) });
+
+    case "cost":
+      return cmdCost();
+
+    case "analytics":
+      return cmdAnalytics();
+
+    case "workflows":
+      return cmdWorkflows(parseReplFlags(rest));
+
+    case "alerts":
+      return cmdAlerts(parseReplFlags(rest), arg ? [arg] : []);
+
+    case "rules":
+      return cmdRules();
+
+    case "pricing":
+      return cmdPricing(parseReplFlags(rest), arg ? [arg] : []);
+
+    case "doctor":
+      return cmdDoctor();
+
+    // ── Meta commands ──────────────────────────────────────────────
+    case ".api": {
+      if (!arg) { console.log(c.dim("  Usage: .api <path>  (e.g. .api /api/stats)")); return; }
+      const data = await get(arg);
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    case ".post": {
+      const [path, ...jsonParts] = arg.split(/\s+/);
+      if (!path) { console.log(c.dim("  Usage: .post <path> [json-body]")); return; }
+      const bodyStr = jsonParts.join(" ");
+      let body = undefined;
+      if (bodyStr) {
+        try { body = JSON.parse(bodyStr); }
+        catch { console.error(c.red("✖ Invalid JSON body")); return; }
+      }
+      const data = await post(path, body);
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    case ".headers": {
+      try {
+        const res = await fetch(`${baseUrl()}/api/health`, { signal: AbortSignal.timeout(2_500) });
+        console.log(Object.fromEntries(res.headers.entries()));
+      } catch { console.error(c.red("✖ Could not reach server")); }
+      return;
+    }
+
+    case ".clear":
+      process.stdout.write("\x1b[2J\x1b[0;0H");
+      return;
+
+    case ".baseurl":
+      console.log(baseUrl());
+      return;
+
+    case "exit":
+    case "quit":
+    case "q":
+      console.log(c.dim("  Bye."));
+      process.exit(0);
+
+    default:
+      console.log(c.dim(`  Unknown command: ${c.bold(cmd)} — type ${c.cyan("help")} for available commands`));
+  }
+}
+
+/** Parse key=value or --key value pairs from a rest array (REPL convenience). */
+function parseReplFlags(tokens) {
+  const flags = {};
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.startsWith("--")) {
+      const key = t.slice(2);
+      const next = tokens[i + 1];
+      if (next && !next.startsWith("--")) { flags[key] = next; i++; }
+      else flags[key] = true;
+    } else if (t.includes("=")) {
+      const eq = t.indexOf("=");
+      flags[t.slice(0, eq)] = t.slice(eq + 1);
+    }
+  }
+  return flags;
+}
+
+/** Prints the REPL-specific help (not the top-level ccam help). */
+function printReplHelp() {
+  const row = (name, desc) => `    ${c.cyan(name.padEnd(20))} ${c.dim(desc)}`;
+  console.log(`${c.cyan("▍")}${c.bold("REPL Commands")}
+
+${c.bold("Dashboard shortcuts:")}
+${row("health", "Check the dashboard is up")}
+${row("status", "Up/down indicator")}
+${row("stats", "Totals, today's events, charts")}
+${row("sessions", "List recent sessions (--limit, --status)")}
+${row("session <id>", "Session detail")}
+${row("agents", "List agents (--limit, --status)")}
+${row("events", "List recent events (--limit, --session)")}
+${row("cost", "Total estimated cost")}
+${row("analytics", "Token totals, charts")}
+${row("workflows", "Workflow intelligence")}
+${row("alerts", "Fired-alert feed")}
+${row("rules", "Alert rules")}
+${row("pricing", "Model pricing rules")}
+${row("doctor", "Connectivity diagnosis")}
+
+${c.bold("Meta commands:")}
+${row(".api <path>", "Raw GET request (e.g. .api /api/stats)")}
+${row(".post <path> [json]", "Raw POST request")}
+${row(".headers", "Show response headers from server")}
+${row(".baseurl", "Print the resolved base URL")}
+${row(".clear", "Clear the screen")}
+${row("exit / quit / q", "Quit the REPL")}
+`);
+}
+
 function cmdHelp() {
   const cmd = (name, args, desc) => {
     const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
@@ -1241,6 +1461,7 @@ ${cmd("cleanup", "--hours N --days M", "Abandon stale / purge old sessions")}
 ${cmd("reinstall-hooks", "", "Reinstall Claude Code hooks")}
 ${cmd("clear-data", "--yes", "Delete ALL data (requires --yes)")}
 ${cmd("open", "", "Open the dashboard in your browser")}
+${cmd("repl", "", "Interactive REPL shell for dashboard API queries")}
 ${cmd("version", "", "Print the ccam version (also: --version, -v)")}
 
 ${c.bold("Server discovery:")} CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env vars win,
@@ -1545,6 +1766,8 @@ async function main() {
       return cmdReinstallHooks();
     case "open":
       return cmdOpen();
+    case "repl":
+      return cmdRepl(flags);
     case "version":
     case "--version":
     case "-v":
