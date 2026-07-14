@@ -13,7 +13,7 @@
  * prepared statements are compiled at module load time, right after the
  * migrations run, this crashed startup for such legacy DBs.
  *
- * @author Claude Fable 5 <noreply@anthropic.com>
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

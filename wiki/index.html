@@ -1568,7 +1568,7 @@
                   <td><code>SessionStart</code></td>
                   <td>Claude Code session begins</td>
                   <td>
-                    Creates session and main agent. Stamps <code>awaiting_input_since</code> so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt). Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).
+                    Creates session and main agent. Stamps <code>awaiting_input_since</code> (with <code>awaiting_reason</code> = <code>session_start</code>) so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt). Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).
                   </td>
                 </tr>
                 <tr>
@@ -1628,7 +1628,7 @@
                 <tr>
                   <td><code>Notification</code></td>
                   <td>Agent sends notification</td>
-                  <td>Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") set the agent to <code>waiting</code> and stamp <code>awaiting_input_since</code>. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.</td>
+                  <td>Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") set the agent to <code>waiting</code> and stamp <code>awaiting_input_since</code> (with <code>awaiting_reason</code> = <code>notification</code>). Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.</td>
                 </tr>
                 <tr>
                   <td><code>Compaction</code></td>
@@ -2430,7 +2430,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 abandoned --> [*]
             </div>
             <p class="diagram-label">
-              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set. <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting.
+              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting.
             </p>
           </div>
         </section>
@@ -2917,6 +2917,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT ended_at "ISO 8601 or NULL"
                   TEXT metadata "JSON blob"
                   TEXT awaiting_input_since "ISO 8601 or NULL — Waiting flag"
+                  TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
                 }
 
                 agents {
@@ -2933,6 +2934,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT parent_agent_id FK "References agents.id"
                   TEXT metadata "JSON blob"
                   TEXT awaiting_input_since "ISO 8601 or NULL — main-agent Waiting flag"
+                  TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
                 }
 
                 events {
@@ -6213,7 +6215,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=26" defer></script>
+    <script src="i18n-content.js?v=28" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

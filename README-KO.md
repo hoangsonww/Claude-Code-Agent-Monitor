@@ -1240,13 +1240,13 @@ stateDiagram-v2
 
 | Hook 유형           | 트리거                         | 대시보드 동작                                                                                 |
 | ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `SessionStart`      | Claude Code 세션 시작          | 세션과 메인 에이전트를 생성합니다. `awaiting_input_since`를 기록하여 새 세션이 **Waiting** 상태로 시작되게 합니다. 재개된 세션을 다시 활성화합니다. `DASHBOARD_STALE_MINUTES`(기본 180) 동안 활동이 없는 고아 세션은 중단 처리합니다 |
+| `SessionStart`      | Claude Code 세션 시작          | 세션과 메인 에이전트를 생성합니다. `awaiting_input_since`를(`awaiting_reason=session_start`와 함께) 기록하여 새 세션이 **Waiting** 상태로 시작되게 합니다. 재개된 세션을 다시 활성화합니다. `DASHBOARD_STALE_MINUTES`(기본 180) 동안 활동이 없는 고아 세션은 중단 처리합니다 |
 | `UserPromptSubmit`  | 사용자가 프롬프트에서 Enter를 누름 | 대기 플래그를 지우고 메인 에이전트를 `working`으로 승격합니다 — 텍스트 전용 어시스턴트 턴은 `PreToolUse`를 발생시키지 않으므로, 이것이 해당 턴이 시작되었음을 알리는 유일한 신호입니다 |
 | `PreToolUse`        | 에이전트가 도구 사용을 시작함  | 대기 플래그를 지우고, 에이전트를 `working`으로 설정하며, `current_tool`을 설정합니다. 도구가 `Agent`인 경우 서브에이전트 레코드를 생성합니다 |
 | `PostToolUse`       | 도구 실행 완료                 | 대기 플래그를 지웁니다(도구 실행 도중 Notification이 플래그를 기록한 권한 프롬프트 승인 상황을 처리). `current_tool`을 지웁니다. 에이전트는 `working` 상태를 유지합니다 |
 | `Stop`              | Claude가 응답을 마침           | 오류가 아닌 경우: 메인 에이전트 → `waiting` — Claude가 자기 턴을 마쳤고, 이제 공은 사용자에게 넘어갔습니다. `stop_reason=error`인 경우: 에이전트와 세션을 `error`로 표시합니다. 백그라운드 서브에이전트는 계속 실행됩니다 |
 | `SubagentStop`      | 백그라운드 에이전트 완료       | 설명, 유형 또는 작업으로 서브에이전트를 매칭하여 완료 처리합니다. 대기 플래그는 의도적으로 지우지 않습니다 — 서브에이전트가 끝났다는 사실은 사용자에 대해 아무것도 알려주지 않기 때문입니다. **실행 후 잊는(fire-and-forget) JSONL 스캔을 트리거합니다**(`scanAndImportSubagents`). 이 스캔은 서브에이전트 자신의 `agent_id` 아래에 도구별 `PreToolUse` + `PostToolUse` 이벤트를 발생시켜, 타임라인이 생성 마커만이 아니라 서브에이전트가 실행한 모든 도구를 표시하게 합니다 |
-| `Notification`      | 에이전트 알림                  | 이벤트를 기록합니다. 권한/입력 프롬프트 메시지는 에이전트를 `waiting`으로 설정하고 `awaiting_input_since`를 기록합니다(패턴으로 매칭: `permission`, `waiting for input`, `needs your approval`, …). 컴팩션 알림은 `Compaction` 이벤트로 태그됩니다. 활성화된 경우 브라우저 알림을 트리거합니다 |
+| `Notification`      | 에이전트 알림                  | 이벤트를 기록합니다. 권한/입력 프롬프트 메시지는 에이전트를 `waiting`으로 설정하고 `awaiting_input_since`를 기록합니다(`awaiting_reason=notification`과 함께, 패턴으로 매칭: `permission`, `waiting for input`, `needs your approval`, …). 컴팩션 알림은 `Compaction` 이벤트로 태그됩니다. 활성화된 경우 브라우저 알림을 트리거합니다 |
 | `SessionEnd`        | Claude Code CLI 프로세스 종료  | 대기 플래그를 제거합니다. 세션이 이미 `error` 상태이면 오류 상태가 보존되고, 그렇지 않으면 모든 에이전트와 세션을 `completed`로 표시합니다 |
 | `Compaction`   | JSONL에서 `/compact` 감지됨    | 컴팩션 서브에이전트(유형 `compaction`)와 Compaction 이벤트를 생성합니다. 트랜스크립트 JSONL의 `isCompactSummary` 항목을 통해 감지됩니다. 활성 세션에 대해서는 주기적 스캐너로도 감지됩니다 |
 | `APIError`     | JSONL 트랜스크립트의 API 오류  | `isApiErrorMessage` 항목(할당량, 속도 제한, invalid_request)과 원시 `type: "error"` 응답에서 추출됩니다. **이제 세션과 에이전트를 즉시 `error`로 표시합니다** — 이전에는 상태 변경 없이 이벤트로만 기록되었습니다. 오류 세부 정보와 함께 이벤트로 저장됩니다 |
@@ -1661,6 +1661,7 @@ erDiagram
         TEXT ended_at "ISO 8601 or NULL"
         TEXT metadata "JSON blob"
         TEXT awaiting_input_since "ISO 8601 or NULL — set when Waiting"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     agents {
@@ -1671,6 +1672,7 @@ erDiagram
         TEXT status "working|waiting|completed|error"
         TEXT current_tool "Active tool or NULL"
         TEXT awaiting_input_since "ISO 8601 or NULL — supplementary wait timestamp"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     events {

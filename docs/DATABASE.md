@@ -162,6 +162,7 @@ CREATE TABLE sessions (
     metadata TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- NULL unless Waiting
+    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
     transcript_path TEXT                                              -- absolute path to JSONL transcript
 );
 ```
@@ -180,6 +181,7 @@ CREATE TABLE sessions (
 | `metadata` | TEXT | YES | JSON blob for extras (turn duration totals, thinking blocks, …) |
 | `updated_at` | TEXT | NO | Bumped on every event for staleness detection |
 | `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise |
 | `transcript_path` | TEXT | YES | Absolute path to the session's JSONL transcript. Written by `routes/hooks.js` on the first event that carries it (subsequent events no-op via a SQL guard) and read by the periodic compaction sweep — so the sweep touches only active session rows instead of scanning the entire `events` table for `json_extract(data,'$.transcript_path')`. Backfilled once from `events` by the `db.js` migration |
 
 **Constraints:**
@@ -230,6 +232,7 @@ CREATE TABLE agents (
     metadata TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- main-agent waiting flag
+    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
 );
@@ -250,6 +253,7 @@ CREATE TABLE agents (
 | `parent_agent_id` | TEXT | YES | FK to the spawning agent for nested subagent trees (`ON DELETE SET NULL`). Set to the main agent at insert, then repointed to the true spawner by `reconcileSubagentParents` from each subagent transcript's Task tool result (`toolUseResult.agentId`), so subagents-of-subagents nest correctly instead of flattening under main |
 | `metadata` | TEXT | YES | JSON blob for extras. For subagents it carries `model` (the subagent's own model, issue #185) and `tokens` — an array of per-agent token buckets parsed from the subagent's transcript. The agent-list endpoints price `tokens` at the current rates to attach a per-agent `cost` (so a subagent card shows its OWN cost, not the session total). Empty `[]` means the subagent did no billable work; absent means its transcript wasn't available to parse |
 | `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent. NULL on subagents |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since`; explains why the main agent is waiting. NULL on subagents |
 
 **Lifecycle:**
 

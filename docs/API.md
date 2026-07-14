@@ -167,6 +167,7 @@ classDiagram
         +string ended_at
         +string updated_at
         +string awaiting_input_since "null unless Waiting"
+        +string awaiting_reason "notification|stop|session_start|interrupted; null unless Waiting"
         +number cost
         +number agent_count
     }
@@ -325,6 +326,7 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
       "updated_at": "2024-03-18T12:05:00Z",
       "parent_agent_id": null,
       "awaiting_input_since": "2024-03-18T12:05:00Z",
+      "awaiting_reason": "stop",
       "cost": 0
     }
   ]

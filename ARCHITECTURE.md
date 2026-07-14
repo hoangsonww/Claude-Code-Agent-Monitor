@@ -768,6 +768,7 @@ erDiagram
         TEXT ended_at "ISO 8601 or NULL"
         TEXT metadata "JSON blob"
         TEXT awaiting_input_since "ISO 8601 or NULL — set by waiting Notifications"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     agents {
@@ -784,6 +785,7 @@ erDiagram
         TEXT parent_agent_id FK "References agents.id"
         TEXT metadata "JSON blob"
         TEXT awaiting_input_since "ISO 8601 or NULL — main-agent waiting flag"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     events {
