@@ -2203,10 +2203,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <p>
             For a live monitoring session, <code>ccam repl</code> (aliases
             <code>shell</code> / <code>i</code>) opens an interactive shell where you type
-            commands without the <code>ccam</code> prefix — with tab-completion, persisted
-            arrow-key history, and a live server-status prompt (<code>●</code> up /
-            <code>○</code> offline). Each entered line runs as an isolated child process, so an
-            offline refusal or a blocking <code>tail</code> never takes the shell down.
+            commands without the <code>ccam</code> prefix — with a CCAM welcome banner,
+            tab-completion, persisted arrow-key history, a live server-status prompt
+            (<code>●</code> up / <code>○</code> offline), a grouped <code>help</code> /
+            <code>help &lt;cmd&gt;</code> menu, and a <code>watch [secs] &lt;cmd&gt;</code>
+            built-in that auto-refreshes any command. Each entered line runs as an isolated
+            child process, so an offline refusal or a blocking <code>tail</code> never takes
+            the shell down.
           </p>
 
           <div class="table-wrap">
@@ -6221,7 +6224,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=27" defer></script>
+    <script src="i18n-content.js?v=28" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

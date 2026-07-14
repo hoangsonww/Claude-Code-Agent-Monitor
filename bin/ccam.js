@@ -1198,60 +1198,100 @@ function cmdOpen() {
   console.log(`${c.green("✔")} Opening ${url}`);
 }
 
-function cmdHelp() {
-  const cmd = (name, args, desc) => {
-    const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
-    const pad = " ".repeat(Math.max(2, 28 - stripAnsi(left).length));
-    return `  ${left}${pad}${desc}`;
-  };
-  const section = (title) => `\n${c.cyan("▍")}${c.bold(title)}`;
-  console.log(`${c.cyan("▍")}${c.bold("ccam")} — Claude Code Agent Monitor CLI
+// ── Command catalog ─────────────────────────────────────────────────────────
+// One source of truth for every command's group, invocation, and one-line
+// description. The one-shot `help`, the REPL's categorized help / `commands` /
+// per-command `help <cmd>`, the tab-completer's command list, and unknown-
+// command detection are all derived from this so they can never drift apart.
+// Each item: [invocation, argsHint, description].
+const COMMAND_GROUPS = [
+  [
+    "Server",
+    [
+      ["status", "", "Up/down indicator for the dashboard server"],
+      ["start", "[--port N]", "Start the server in the background and wait for healthy"],
+      ["repl", "", "Open the interactive shell (also: shell, i)"],
+    ],
+  ],
+  [
+    "Monitoring",
+    [
+      ["health", "", "Check the dashboard is up"],
+      ["stats", "", "Totals, today's events, status distribution chart"],
+      ["kanban", "", "Sessions + agents grouped by status columns"],
+      ["tail", "[--session id]", "Live event feed in the terminal (Ctrl+C stops)"],
+    ],
+  ],
+  [
+    "Data",
+    [
+      ["sessions", "[opts]", "List sessions   (--status, --q, --limit)"],
+      ["session <id>", "", "Session detail: agents tree, cost, recent events"],
+      ["agents", "[opts]", "List agents     (--status, --session, --limit)"],
+      ["events", "[opts]", "List events     (--session, --limit)"],
+    ],
+  ],
+  [
+    "Insights",
+    [
+      ["analytics", "", "Token totals, top-tool and agent-type charts"],
+      ["workflows", "[--session id]", "Workflow intelligence stats and patterns"],
+      ["runs", "[--session id]", "Dynamic Workflow-tool runs"],
+      ["cost", "", "Total estimated cost (per-model chart)"],
+    ],
+  ],
+  [
+    "Alerts & Webhooks",
+    [
+      ["alerts", "[--unacked]", "Fired-alert feed"],
+      ["alerts ack <id>", "", "Acknowledge one alert"],
+      ["alerts ack-all", "", "Acknowledge every unacked alert"],
+      ["rules", "", "List alert rules"],
+      ["webhooks", "", "List webhook targets"],
+      ["webhooks test <id>", "", "Send a synthetic test alert to a target"],
+    ],
+  ],
+  [
+    "Pricing",
+    [
+      ["pricing", "", "List model pricing rules"],
+      ["pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]"],
+      ["pricing delete <pattern>", "", "Delete a pricing rule"],
+      ["pricing reset", "", "Reset pricing rules to defaults"],
+    ],
+  ],
+  [
+    "Import",
+    [
+      ["import rescan", "", "Re-scan ~/.claude/projects"],
+      ["import path <dir>", "", "Import every .jsonl under a directory"],
+    ],
+  ],
+  [
+    "Administration",
+    [
+      ["doctor", "", "Connectivity, hooks, and database diagnosis"],
+      ["info", "", "Raw system info JSON"],
+      ["export", "[file.json]", "Export all data as JSON"],
+      ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
+      ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
+      ["clear-data", "--yes", "Delete ALL data (requires --yes)"],
+      ["open", "", "Open the dashboard in your browser"],
+      ["version", "", "Print the ccam version (also: --version, -v)"],
+    ],
+  ],
+];
 
-${c.bold("Usage:")} ccam <command> [options]
-${section("Server")}
-${cmd("status", "", "Up/down indicator for the dashboard server")}
-${cmd("start", "[--port N]", "Start the server in the background and wait for healthy")}
-${cmd("repl", "", "Open the interactive shell (also: shell, i)")}
-${section("Monitoring")}
-${cmd("health", "", "Check the dashboard is up")}
-${cmd("stats", "", "Totals, today's events, status distribution chart")}
-${cmd("kanban", "", "Sessions + agents grouped by status columns")}
-${cmd("tail", "[--session id]", "Live event feed in the terminal (Ctrl+C stops)")}
-${section("Data")}
-${cmd("sessions", "[opts]", "List sessions   (--status, --q, --limit)")}
-${cmd("session <id>", "", "Session detail: agents tree, cost, recent events")}
-${cmd("agents", "[opts]", "List agents     (--status, --session, --limit)")}
-${cmd("events", "[opts]", "List events     (--session, --limit)")}
-${section("Insights")}
-${cmd("analytics", "", "Token totals, top-tool and agent-type charts")}
-${cmd("workflows", "[--session id]", "Workflow intelligence stats and patterns")}
-${cmd("runs", "[--session id]", "Dynamic Workflow-tool runs")}
-${cmd("cost", "", "Total estimated cost (per-model chart)")}
-${section("Alerts & Webhooks")}
-${cmd("alerts", "[--unacked]", "Fired-alert feed")}
-${cmd("alerts ack <id>", "", "Acknowledge one alert")}
-${cmd("alerts ack-all", "", "Acknowledge every unacked alert")}
-${cmd("rules", "", "List alert rules")}
-${cmd("webhooks", "", "List webhook targets")}
-${cmd("webhooks test <id>", "", "Send a synthetic test alert to a target")}
-${section("Pricing")}
-${cmd("pricing", "", "List model pricing rules")}
-${cmd("pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]")}
-${cmd("pricing delete <pattern>", "", "Delete a pricing rule")}
-${cmd("pricing reset", "", "Reset pricing rules to defaults")}
-${section("Import")}
-${cmd("import rescan", "", "Re-scan ~/.claude/projects")}
-${cmd("import path <dir>", "", "Import every .jsonl under a directory")}
-${section("Administration")}
-${cmd("doctor", "", "Connectivity, hooks, and database diagnosis")}
-${cmd("info", "", "Raw system info JSON")}
-${cmd("export", "[file.json]", "Export all data as JSON")}
-${cmd("cleanup", "--hours N --days M", "Abandon stale / purge old sessions")}
-${cmd("reinstall-hooks", "", "Reinstall Claude Code hooks")}
-${cmd("clear-data", "--yes", "Delete ALL data (requires --yes)")}
-${cmd("open", "", "Open the dashboard in your browser")}
-${cmd("version", "", "Print the ccam version (also: --version, -v)")}
+/** Render one catalog line: `  cmd  args        description`. */
+function catalogRow(name, args, desc) {
+  const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
+  const pad = " ".repeat(Math.max(2, 30 - stripAnsi(left).length));
+  return `  ${left}${pad}${desc}`;
+}
 
+/** The shared discovery/output/note footer shown under the command list. */
+function helpFooter() {
+  return `
 ${c.bold("Server discovery:")} CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env vars win,
 otherwise the live server is found via ~/.claude/.agent-dashboard.json,
 falling back to http://127.0.0.1:4820.
@@ -1260,7 +1300,24 @@ ${c.bold("Output:")} colors auto-enable on a TTY and turn off when piped.
 Disable with --no-color or NO_COLOR=1; force with FORCE_COLOR=1 / CCAM_COLOR=1.
 
 ${c.bold("Note:")} ccam talks to the local dashboard server — API-backed commands
-require it to be running (${c.bold("ccam start")} brings one up in the background).`);
+require it to be running (${c.bold("ccam start")} brings one up in the background).
+Prefer an interactive session? Run ${c.bold("ccam repl")} for a shell with completion,
+history, and a live status prompt.`;
+}
+
+function cmdHelp() {
+  const section = (title) => `\n${c.cyan("▍")}${c.bold(title)}`;
+  const body = COMMAND_GROUPS.map(
+    ([group, items]) =>
+      `${section(group)}\n` + items.map(([n, a, d]) => catalogRow(n, a, d)).join("\n")
+  ).join("\n");
+  console.log(
+    `${c.cyan("▍")}${c.bold("ccam")} — Claude Code Agent Monitor CLI\n\n` +
+      `${c.bold("Usage:")} ccam <command> [options]\n` +
+      body +
+      "\n" +
+      helpFooter()
+  );
 }
 
 /** Read the package version (single source of truth: package.json). */
@@ -1555,26 +1612,115 @@ function replCompleter(line) {
   return [[], word];
 }
 
-/** REPL-specific help: the built-ins plus a pointer to the full command list. */
+// The CCAM word-mark, shown once when the interactive shell starts (and via
+// the `banner` built-in). Kept as raw text so the backslashes render verbatim.
+const BANNER_ART = String.raw`
+          _____                    _____                    _____                    _____
+         /\    \                  /\    \                  /\    \                  /\    \
+        /::\    \                /::\    \                /::\    \                /::\____\
+       /::::\    \              /::::\    \              /::::\    \              /::::|   |
+      /::::::\    \            /::::::\    \            /::::::\    \            /:::::|   |
+     /:::/\:::\    \          /:::/\:::\    \          /:::/\:::\    \          /::::::|   |
+    /:::/  \:::\    \        /:::/  \:::\    \        /:::/__\:::\    \        /:::/|::|   |
+   /:::/    \:::\    \      /:::/    \:::\    \      /::::\   \:::\    \      /:::/ |::|   |
+  /:::/    / \:::\    \    /:::/    / \:::\    \    /::::::\   \:::\    \    /:::/  |::|___|______
+ /:::/    /   \:::\    \  /:::/    /   \:::\    \  /:::/\:::\   \:::\    \  /:::/   |::::::::\    \
+/:::/____/     \:::\____\/:::/____/     \:::\____\/:::/  \:::\   \:::\____\/:::/    |:::::::::\____\
+\:::\    \      \::/    /\:::\    \      \::/    /\::/    \:::\  /:::/    /\::/    / ~~~~~/:::/    /
+ \:::\    \      \/____/  \:::\    \      \/____/  \/____/ \:::\/:::/    /  \/____/      /:::/    /
+  \:::\    \               \:::\    \                       \::::::/    /               /:::/    /
+   \:::\    \               \:::\    \                       \::::/    /               /:::/    /
+    \:::\    \               \:::\    \                      /:::/    /               /:::/    /
+     \:::\    \               \:::\    \                    /:::/    /               /:::/    /
+      \:::\    \               \:::\    \                  /:::/    /               /:::/    /
+       \:::\____\               \:::\____\                /:::/    /               /:::/    /
+        \::/    /                \::/    /                \::/    /                \::/    /
+         \/____/                  \/____/                  \/____/                  \/____/
+`;
+
+/** Print the entry banner: the word-mark (when the terminal is wide enough),
+ *  a tagline with version and live status, and the one-line orientation tips. */
+function replBanner(up) {
+  const v = pkgVersion();
+  if (termWidth() >= 100) {
+    console.log(c.cyan(BANNER_ART));
+  } else {
+    console.log(`\n${c.cyan("▍")}${c.bold("ccam")}`);
+  }
+  const dot = up ? c.green("●") : c.red("○");
+  const where = up ? baseUrl().replace(/^https?:\/\//, "") : "offline";
+  console.log(
+    `  ${c.bold("Claude Code Agent Monitor")} ${c.dim("· interactive shell")}` +
+      (v ? c.dim(` · v${v}`) : "") +
+      `   ${dot} ${c.dim(where)}`
+  );
+  console.log(
+    c.dim("  Type commands without the 'ccam' prefix — e.g. ") + c.bold("sessions --limit 5")
+  );
+  console.log(
+    c.dim("  ") +
+      c.bold("help") +
+      c.dim(" all commands · ") +
+      c.bold("help <cmd>") +
+      c.dim(" details · Tab completes · ↑/↓ history · ") +
+      c.bold("exit") +
+      c.dim(" to quit")
+  );
+  console.log();
+}
+
+/** Categorized REPL help: shell built-ins first, then the full command
+ *  catalog (identical groups/descriptions to `ccam help`). */
 function replHelp() {
-  const row = (name, desc) => `  ${c.cyan(name.padEnd(18))}${desc}`;
-  console.log(`\n${c.cyan("▍")}${c.bold("ccam shell")} ${c.dim("— interactive commands")}`);
-  console.log(c.dim("  Type any ccam command without the prefix. Examples:"));
+  const row = (name, desc) => `  ${c.cyan(name.padEnd(20))}${desc}`;
+  console.log(`\n${c.cyan("▍")}${c.bold("ccam shell")} ${c.dim("— built-ins")}`);
+  console.log(row("help", "This help. " + c.dim("`help <command>` shows one command's details")));
+  console.log(row("commands", "Compact list of every command, grouped"));
   console.log(
-    `    ${c.bold("sessions --limit 5")}   ${c.bold("session <id>")}   ${c.bold("kanban")}   ${c.bold("cost")}`
+    row("watch <cmd> [secs]", "Re-run a command on a timer, screen-clearing (Ctrl+C stops)")
   );
-  console.log(`\n${c.bold("Shell built-ins")}`);
-  console.log(row("help, ?", "This help. `help <command>` shows the full CLI reference section"));
-  console.log(row("commands", "List every available command"));
-  console.log(row("clear, cls", "Clear the screen"));
   console.log(row("history", "Show recent command history"));
+  console.log(row("banner", "Reprint the welcome banner"));
+  console.log(row("clear, cls", "Clear the screen"));
   console.log(row("exit, quit, q", "Leave the shell (also Ctrl+D)"));
-  console.log(`\n${c.dim("Tab completes commands, subcommands, and flags · ↑/↓ walks history.")}`);
+
+  for (const [group, items] of COMMAND_GROUPS) {
+    console.log(`\n${c.cyan("▍")}${c.bold(group)}`);
+    for (const [name, args, desc] of items) console.log(catalogRow(name, args, desc));
+  }
   console.log(
-    c.dim(
-      "Read commands work offline; server-only commands print the reason. `tail` streams until Ctrl+C.\n"
-    )
+    `\n${c.dim("Read commands work offline; server-only commands print the reason. Each line runs isolated, so nothing takes the shell down.")}\n`
   );
+}
+
+/** Detailed help for one command (or command prefix): every catalog entry
+ *  whose invocation starts with the token. Returns false if none matched. */
+function commandHelp(token) {
+  const matches = [];
+  for (const [group, items] of COMMAND_GROUPS) {
+    for (const [name, args, desc] of items) {
+      if (name === token || name.startsWith(token + " ")) matches.push([group, name, args, desc]);
+    }
+  }
+  if (!matches.length) return false;
+  console.log(`\n${c.cyan("▍")}${c.bold(token)} ${c.dim(`— ${matches[0][0]}`)}`);
+  for (const [, name, args, desc] of matches) {
+    console.log(catalogRow(name, args, desc));
+  }
+  const subs = SUBCOMMANDS[token];
+  if (subs) console.log(c.dim(`  subcommands: ${subs.join(", ")}`));
+  console.log();
+  return true;
+}
+
+/** Compact grouped command list for the `commands` built-in. */
+function replCommandsList() {
+  for (const [group, items] of COMMAND_GROUPS) {
+    const names = items
+      .map(([n]) => c.cyan(n.split(" ")[0]))
+      .filter((v, i, a) => a.indexOf(v) === i);
+    console.log(`  ${c.bold(group.padEnd(20))}${[...new Set(names)].join("  ")}`);
+  }
 }
 
 /**
@@ -1594,22 +1740,6 @@ async function cmdRepl() {
     history = fs.readFileSync(historyFile, "utf8").split("\n").filter(Boolean).slice(-500);
   } catch {
     /* no history yet */
-  }
-
-  if (isTty) {
-    console.log();
-    console.log(`${c.cyan("▍")}${c.bold("ccam")} interactive shell ${c.dim(`· v${pkgVersion()}`)}`);
-    console.log(
-      c.dim("  Commands run without the 'ccam' prefix — e.g. ") + c.bold("sessions --limit 5")
-    );
-    console.log(
-      c.dim("  Tab completes · ↑/↓ history · ") +
-        c.bold("help") +
-        c.dim(" for built-ins · ") +
-        c.bold("exit") +
-        c.dim(" or Ctrl+D to quit")
-    );
-    console.log();
   }
 
   const rl = readline.createInterface({
@@ -1676,6 +1806,50 @@ async function cmdRepl() {
     });
   }
 
+  /**
+   * `watch <cmd…>` — re-run a command on a timer, clearing the screen each
+   * tick, until Ctrl+C. A dedicated SIGINT listener sets an abort flag so the
+   * loop unwinds cleanly (during a child the signal also reaches the child;
+   * between ticks the interruptible sleep notices the flag) — the shell
+   * itself always survives.
+   */
+  async function runWatch(argv, intervalMs) {
+    let abort = false;
+    const onSig = () => {
+      abort = true;
+    };
+    process.prependListener("SIGINT", onSig);
+    try {
+      while (!abort) {
+        if (isTty) process.stdout.write("\x1b[2J\x1b[H");
+        console.log(
+          c.dim(
+            `⟳ watch: ccam ${argv.join(" ")} — every ${Math.round(intervalMs / 1000)}s · ${new Date().toLocaleTimeString()} · Ctrl+C to stop`
+          )
+        );
+        await runChild(argv);
+        if (abort) break;
+        await new Promise((r) => {
+          const poll = setInterval(() => {
+            if (abort) {
+              clearInterval(poll);
+              r();
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(poll);
+            r();
+          }, intervalMs);
+        });
+      }
+    } finally {
+      process.removeListener("SIGINT", onSig);
+    }
+  }
+
+  // Welcome banner (word-mark + status + tips) on an interactive terminal.
+  if (isTty) replBanner(await serverUpCached());
+
   // `for await` pulls one line at a time and only requests the next once the
   // body finishes — this serializes command execution (crucial for piped
   // input, where naive 'line' listeners would interleave async handlers).
@@ -1696,8 +1870,43 @@ async function cmdRepl() {
       await renderPrompt();
       continue;
     }
+    if (head === "banner") {
+      replBanner(await serverUpCached());
+      await renderPrompt();
+      continue;
+    }
+    if (head === "help" || head === "?") {
+      // `help` → everything; `help <cmd>` → that command's details.
+      if (toks.length === 1) replHelp();
+      else if (!commandHelp(toks[1])) {
+        console.log(c.dim(`No such command: ${toks[1]}. Type `) + c.bold("commands") + c.dim("."));
+      }
+      await renderPrompt();
+      continue;
+    }
     if (head === "commands") {
-      console.log(COMMANDS.map((cmd) => c.cyan(cmd)).join("  "));
+      replCommandsList();
+      await renderPrompt();
+      continue;
+    }
+    if (head === "watch") {
+      if (!isTty) {
+        console.log(c.dim("watch needs an interactive terminal."));
+        await renderPrompt();
+        continue;
+      }
+      // `watch <cmd…>` (default 2s) or `watch <secs> <cmd…>`.
+      let rest2 = toks.slice(1);
+      let secs = 2;
+      if (rest2.length && /^\d+$/.test(rest2[0])) {
+        secs = Math.max(1, Number(rest2[0]));
+        rest2 = rest2.slice(1);
+      }
+      if (!rest2.length) {
+        console.log(c.dim("Usage: watch [seconds] <command …>   e.g. watch 5 stats"));
+      } else {
+        await runWatch(rest2, secs * 1000);
+      }
       await renderPrompt();
       continue;
     }
@@ -1706,11 +1915,6 @@ async function cmdRepl() {
       recent.forEach((h, i) =>
         console.log(`${c.dim(String(history.length - recent.length + i + 1).padStart(4))}  ${h}`)
       );
-      await renderPrompt();
-      continue;
-    }
-    if ((head === "help" || head === "?") && toks.length === 1) {
-      replHelp();
       await renderPrompt();
       continue;
     }
@@ -1746,39 +1950,17 @@ async function cmdRepl() {
 // prompt. Handlers that need the server throw ServerDownError; the caller
 // decides whether to fall back to an offline reader or report the refusal.
 
-/** All top-level command tokens, for help text, the REPL completer, and
- *  unknown-command detection. Kept in one place so they never drift. */
-const COMMANDS = [
-  "status",
-  "start",
-  "health",
-  "stats",
-  "kanban",
-  "tail",
-  "sessions",
-  "session",
-  "agents",
-  "events",
-  "analytics",
-  "workflows",
-  "runs",
-  "cost",
-  "alerts",
-  "rules",
-  "webhooks",
-  "pricing",
-  "import",
-  "doctor",
-  "info",
-  "export",
-  "cleanup",
-  "reinstall-hooks",
-  "clear-data",
-  "open",
-  "version",
-  "repl",
-  "help",
-];
+/** All top-level command tokens, derived from COMMAND_GROUPS (first word of
+ *  each invocation) plus the always-available `help`. Used by the REPL
+ *  completer and unknown-command detection so they never drift from help. */
+const COMMANDS = (() => {
+  const set = new Set();
+  for (const [, items] of COMMAND_GROUPS) {
+    for (const [name] of items) set.add(name.split(" ")[0]);
+  }
+  set.add("help");
+  return [...set];
+})();
 
 /** Subcommand tokens per command, used by the REPL's tab completer. */
 const SUBCOMMANDS = {

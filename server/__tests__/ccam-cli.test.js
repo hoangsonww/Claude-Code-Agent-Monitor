@@ -664,10 +664,25 @@ describe("ccam CLI — interactive REPL", () => {
     assert.match(out, /repl/);
   });
 
-  it("the `help` built-in shows shell help, not the CLI reference", async () => {
+  it("the `help` built-in shows shell built-ins and the grouped catalog", async () => {
     const { out } = await repl("help\nexit\n");
-    assert.match(out, /interactive commands/);
     assert.match(out, /built-ins/i);
+    assert.match(out, /Server/); // catalog group headers are present
+    assert.match(out, /Administration/);
+    assert.match(out, /watch/); // the new built-in is documented
+  });
+
+  it("`help <command>` shows that command's details", async () => {
+    const { out } = await repl("help sessions\nexit\n");
+    assert.match(out, /sessions/);
+    assert.match(out, /--status/); // the args hint / description is shown
+  });
+
+  it("`commands` groups every command under its category", async () => {
+    const { out } = await repl("commands\nexit\n");
+    assert.match(out, /Server/);
+    assert.match(out, /Insights/);
+    assert.match(out, /sessions/);
   });
 
   it("an unknown command does not kill the shell — later commands still run", async () => {

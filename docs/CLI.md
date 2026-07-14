@@ -93,25 +93,40 @@ The CLI talks to the local dashboard server — **API-backed commands require it
 
 ### Interactive REPL
 
-`ccam repl` (also `ccam shell` / `ccam i`) opens a persistent prompt where you type commands **without the `ccam` prefix** — ideal for a monitoring session where you run `sessions`, drill into a `session <id>`, check `kanban`, then `cost`, without re-typing `ccam` each time.
+`ccam repl` (also `ccam shell` / `ccam i`) opens a persistent prompt where you type commands **without the `ccam` prefix** — ideal for a monitoring session where you run `sessions`, drill into a `session <id>`, check `kanban`, then `cost`, without re-typing `ccam` each time. On entry it prints a **CCAM word-mark welcome banner** with the version and live server status.
 
 ```
-▍ccam interactive shell · v1.3.0
-  Commands run without the 'ccam' prefix — e.g. sessions --limit 5
-  Tab completes · ↑/↓ history · help for built-ins · exit or Ctrl+D to quit
+          _____                    _____                    _____                    _____
+         /\    \                  /\    \                  /\    \                  /\    \
+        /::\    \                /::\    \                /::\    \                /::\____\
+        …  (CCAM word-mark)  …
+  Claude Code Agent Monitor · interactive shell · v1.3.0   ● 127.0.0.1:4820
+  Type commands without the 'ccam' prefix — e.g. sessions --limit 5
+  help all commands · help <cmd> details · Tab completes · ↑/↓ history · exit to quit
 
 ● ccam 127.0.0.1:4820 › sessions --limit 3
 … table …
-● ccam 127.0.0.1:4820 › cost
-… chart …
 ○ ccam offline › stats        # prompt dot turns red when the server is down
 ```
 
 - **Live status prompt** — a green `●` + resolved host when the server is up, a red `○` + `offline` when it isn't (probed with a short, cached health check).
 - **Tab completion** for commands, subcommands (`alerts ack`, `pricing set`, …), and flags (`--limit`, `--status`, …).
 - **Arrow-key history**, persisted across sessions to `data/.ccam_repl_history`.
-- **Shell built-ins:** `help` / `?` (shell help), `commands` (list every command), `history`, `clear` / `cls`, `exit` / `quit` / `q` (or `Ctrl+D`).
-- **Robust isolation** — each entered line runs as a short-lived child `ccam` process, so a non-zero exit, an offline refusal, or a blocking `tail` (streams until `Ctrl+C`) can **never** take the shell down with it. Offline reads and server-only refusals behave exactly as they do on the one-shot CLI.
+- **Full command surface** — every command in this reference works inside the shell exactly as on the one-shot CLI (they are dispatched as child `ccam` processes).
+- **Shell built-ins:**
+
+  | Built-in | Description |
+  | -------- | ----------- |
+  | `help` / `?` | Shell built-ins **plus the full grouped command catalog** |
+  | `help <command>` | Details (invocation + description) for one command |
+  | `commands` | Compact list of every command, grouped by category |
+  | `watch [seconds] <command …>` | Re-run a command on a timer (default 2 s), clearing the screen each tick, until `Ctrl+C` — a terminal live view (e.g. `watch 5 kanban`) |
+  | `history` | Recent command history |
+  | `banner` | Reprint the welcome banner |
+  | `clear` / `cls` | Clear the screen |
+  | `exit` / `quit` / `q` | Leave the shell (also `Ctrl+D`) |
+
+- **Robust isolation** — each entered line runs as a short-lived child `ccam` process, so a non-zero exit, an offline refusal, or a blocking `tail` / `watch` (both stop on `Ctrl+C`) can **never** take the shell down with it. Offline reads and server-only refusals behave exactly as they do on the one-shot CLI.
 - Works with piped input too (`printf 'stats\nexit\n' | ccam repl`) for scripting, running each line in order and exiting at EOF.
 
 ### Offline Mode
