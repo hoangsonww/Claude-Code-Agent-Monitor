@@ -6,8 +6,10 @@
  * A dependency-free umbrella CLI that brings the full dashboard feature
  * surface to the terminal. After the normal project setup (`npm run setup`,
  * which links this binary via `npm link`), every command is available
- * directly from any shell as `ccam <command>`.
+ * directly from any shell as `ccam <command>`, or interactively at the
+ * `ccam ›` prompt via `ccam repl`.
  *
+ * Server                status · start · repl (interactive shell)
  * Monitoring            health · stats · kanban · tail
  * Data browsing         sessions · session <id> · agents · events
  * Insights              analytics · workflows · runs · cost
@@ -16,7 +18,13 @@
  * Pricing               pricing · pricing set/delete/reset
  * Import                import rescan · import path <dir>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
- *                       clear-data --yes · open
+ *                       clear-data --yes · open · version
+ *
+ * The REPL (`ccam repl`, aliases `shell` / `i`) runs each entered line as a
+ * short-lived child `ccam` process, so its behavior is identical to the
+ * one-shot CLI and no single command — a non-zero exit, a blocking `tail`, an
+ * offline refusal — can take the shell down with it. It adds tab-completion,
+ * persisted arrow-key history, and a live server-status prompt.
  *
  * Port resolution mirrors the hook handler: an explicit
  * CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env var wins, otherwise the live
@@ -1203,6 +1211,7 @@ ${c.bold("Usage:")} ccam <command> [options]
 ${section("Server")}
 ${cmd("status", "", "Up/down indicator for the dashboard server")}
 ${cmd("start", "[--port N]", "Start the server in the background and wait for healthy")}
+${cmd("repl", "", "Open the interactive shell (also: shell, i)")}
 ${section("Monitoring")}
 ${cmd("health", "", "Check the dashboard is up")}
 ${cmd("stats", "", "Totals, today's events, status distribution chart")}
@@ -1254,14 +1263,19 @@ ${c.bold("Note:")} ccam talks to the local dashboard server — API-backed comma
 require it to be running (${c.bold("ccam start")} brings one up in the background).`);
 }
 
-/** Print the CLI/package version (single source of truth: package.json). */
-function cmdVersion() {
+/** Read the package version (single source of truth: package.json). */
+function pkgVersion() {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
-    console.log(`ccam ${pkg.version}`);
+    return JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")).version;
   } catch {
-    console.log("ccam (version unknown)");
+    return null;
   }
+}
+
+/** Print the CLI/package version. */
+function cmdVersion() {
+  const v = pkgVersion();
+  console.log(v ? `ccam ${v}` : "ccam (version unknown)");
 }
 
 // ── Offline command handlers & dispatch ────────────────────────────────────
@@ -1483,13 +1497,302 @@ function requireDb() {
   return db;
 }
 
-// ── Entry point ─────────────────────────────────────────────────────────────
+// ── Interactive REPL (ccam shell) ───────────────────────────────────────────
+// `ccam repl` opens a persistent prompt where commands are typed WITHOUT the
+// `ccam` prefix. Each command runs as a short-lived child `ccam` process, so
+// behavior is byte-identical to the one-shot CLI and a command that exits
+// non-zero, blocks (tail), or refuses offline can never take the shell down
+// with it. Colors, tab-completion, arrow-key history (persisted), and a live
+// server-status prompt make it a comfortable place to live while monitoring.
 
-async function main() {
-  // --no-color is a global presentation flag (already consumed by the color
-  // detector at module load) — strip it so it can appear anywhere without
-  // being mistaken for a command or a subcommand flag.
-  const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+/** Split a REPL input line into argv, honoring single/double quotes so
+ *  `session "my id"` and `pricing set 'foo%'` tokenize correctly. */
+function tokenizeLine(line) {
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  const out = [];
+  let m;
+  while ((m = re.exec(line)) !== null) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
+/** Known flags, offered by the completer after a command word. */
+const REPL_FLAGS = [
+  "--status",
+  "--session",
+  "--limit",
+  "--q",
+  "--unacked",
+  "--yes",
+  "--port",
+  "--hours",
+  "--days",
+  "--input",
+  "--output",
+  "--cache-read",
+  "--cache-write",
+  "--name",
+  "--no-color",
+];
+
+/** readline completer: commands on the first word, subcommands on the second,
+ *  flags once a `--` token is being typed. Returns [hits, prefix]. */
+function replCompleter(line) {
+  const toks = line.split(/\s+/);
+  const word = toks[toks.length - 1];
+  if (toks.length <= 1) {
+    const hits = COMMANDS.filter((cmd) => cmd.startsWith(word));
+    return [hits.length ? hits : COMMANDS, word];
+  }
+  const subs = SUBCOMMANDS[toks[0]];
+  if (subs && toks.length === 2 && !word.startsWith("--")) {
+    const hits = subs.filter((s) => s.startsWith(word));
+    return [hits.length ? hits : subs, word];
+  }
+  if (word.startsWith("--")) {
+    const hits = REPL_FLAGS.filter((f) => f.startsWith(word));
+    return [hits.length ? hits : REPL_FLAGS, word];
+  }
+  return [[], word];
+}
+
+/** REPL-specific help: the built-ins plus a pointer to the full command list. */
+function replHelp() {
+  const row = (name, desc) => `  ${c.cyan(name.padEnd(18))}${desc}`;
+  console.log(`\n${c.cyan("▍")}${c.bold("ccam shell")} ${c.dim("— interactive commands")}`);
+  console.log(c.dim("  Type any ccam command without the prefix. Examples:"));
+  console.log(
+    `    ${c.bold("sessions --limit 5")}   ${c.bold("session <id>")}   ${c.bold("kanban")}   ${c.bold("cost")}`
+  );
+  console.log(`\n${c.bold("Shell built-ins")}`);
+  console.log(row("help, ?", "This help. `help <command>` shows the full CLI reference section"));
+  console.log(row("commands", "List every available command"));
+  console.log(row("clear, cls", "Clear the screen"));
+  console.log(row("history", "Show recent command history"));
+  console.log(row("exit, quit, q", "Leave the shell (also Ctrl+D)"));
+  console.log(`\n${c.dim("Tab completes commands, subcommands, and flags · ↑/↓ walks history.")}`);
+  console.log(
+    c.dim(
+      "Read commands work offline; server-only commands print the reason. `tail` streams until Ctrl+C.\n"
+    )
+  );
+}
+
+/**
+ * The interactive shell. Reads lines, dispatches each as a child `ccam`
+ * process (inheriting stdio so tables/colors/streaming render natively),
+ * and keeps a persisted history. On a TTY the prompt shows live server
+ * status (● up / ○ offline) and the resolved host; piped input (tests,
+ * scripts) runs each line and exits at EOF.
+ */
+async function cmdRepl() {
+  const readline = require("node:readline");
+  const isTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const historyFile = path.join(REPO_ROOT, "data", ".ccam_repl_history");
+
+  let history = [];
+  try {
+    history = fs.readFileSync(historyFile, "utf8").split("\n").filter(Boolean).slice(-500);
+  } catch {
+    /* no history yet */
+  }
+
+  if (isTty) {
+    console.log();
+    console.log(`${c.cyan("▍")}${c.bold("ccam")} interactive shell ${c.dim(`· v${pkgVersion()}`)}`);
+    console.log(
+      c.dim("  Commands run without the 'ccam' prefix — e.g. ") + c.bold("sessions --limit 5")
+    );
+    console.log(
+      c.dim("  Tab completes · ↑/↓ history · ") +
+        c.bold("help") +
+        c.dim(" for built-ins · ") +
+        c.bold("exit") +
+        c.dim(" or Ctrl+D to quit")
+    );
+    console.log();
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: isTty,
+    completer: isTty ? replCompleter : undefined,
+    history: history.slice().reverse(), // readline wants most-recent first
+    historySize: 500,
+    prompt: "",
+  });
+
+  // Cache the health probe briefly so the prompt does not hammer the server.
+  let statusCache = { at: 0, up: false };
+  async function serverUpCached() {
+    const now = Date.now();
+    if (now - statusCache.at < 3000) return statusCache.up;
+    const up = await serverIsUp();
+    statusCache = { at: now, up };
+    return up;
+  }
+
+  async function renderPrompt() {
+    if (!isTty) return; // piped input needs no prompt
+    const up = await serverUpCached();
+    const dot = up ? c.green("●") : c.red("○");
+    const where = up ? c.dim(baseUrl().replace(/^https?:\/\//, "")) : c.dim("offline");
+    rl.setPrompt(`${dot} ${c.bold("ccam")} ${where} ${c.cyan("›")} `);
+    rl.prompt();
+  }
+
+  // Ctrl+C must never kill the shell: a no-op process handler keeps the
+  // parent alive while a child (e.g. `tail`) is the real SIGINT target; the
+  // readline SIGINT event (fires only at the prompt) just resets the line.
+  let childActive = false;
+  const sigintNoop = () => {};
+  process.on("SIGINT", sigintNoop);
+  rl.on("SIGINT", () => {
+    if (childActive) return;
+    console.log(c.dim("  (type exit or press Ctrl+D to quit)"));
+    renderPrompt();
+  });
+
+  /** Run one child `ccam` invocation with inherited stdio. */
+  function runChild(argv) {
+    return new Promise((resolve) => {
+      childActive = true;
+      const env = { ...process.env };
+      if (useColor) env.FORCE_COLOR = "1";
+      env.CCAM_REPL = "1";
+      const child = spawn(process.execPath, [__filename, ...argv], {
+        stdio: "inherit",
+        env,
+      });
+      child.on("close", () => {
+        childActive = false;
+        resolve();
+      });
+      child.on("error", (err) => {
+        childActive = false;
+        console.error(c.red(`✖ ${err?.message || err}`));
+        resolve();
+      });
+    });
+  }
+
+  // `for await` pulls one line at a time and only requests the next once the
+  // body finishes — this serializes command execution (crucial for piped
+  // input, where naive 'line' listeners would interleave async handlers).
+  await renderPrompt();
+  for await (const raw of rl) {
+    const line = raw.trim();
+    if (!line) {
+      await renderPrompt();
+      continue;
+    }
+    const toks = tokenizeLine(line);
+    const head = toks[0];
+
+    // Shell built-ins run in-process (no child spawn).
+    if (["exit", "quit", "q", ":q"].includes(head)) break;
+    if (head === "clear" || head === "cls") {
+      if (isTty) process.stdout.write("\x1b[2J\x1b[H");
+      await renderPrompt();
+      continue;
+    }
+    if (head === "commands") {
+      console.log(COMMANDS.map((cmd) => c.cyan(cmd)).join("  "));
+      await renderPrompt();
+      continue;
+    }
+    if (head === "history") {
+      const recent = history.slice(-30);
+      recent.forEach((h, i) =>
+        console.log(`${c.dim(String(history.length - recent.length + i + 1).padStart(4))}  ${h}`)
+      );
+      await renderPrompt();
+      continue;
+    }
+    if ((head === "help" || head === "?") && toks.length === 1) {
+      replHelp();
+      await renderPrompt();
+      continue;
+    }
+    if (head === "repl" || head === "shell" || head === "i") {
+      console.log(c.dim("Already in the ccam shell."));
+      await renderPrompt();
+      continue;
+    }
+
+    // Record history (skip consecutive duplicates), then dispatch as a child.
+    if (history[history.length - 1] !== line) {
+      history.push(line);
+      try {
+        fs.mkdirSync(path.dirname(historyFile), { recursive: true });
+        fs.appendFileSync(historyFile, line + "\n");
+      } catch {
+        /* history is best-effort */
+      }
+    }
+    await runChild(toks);
+    await renderPrompt();
+  }
+
+  rl.close();
+  if (isTty) console.log(c.dim("Bye."));
+  process.removeListener("SIGINT", sigintNoop);
+}
+
+// ── Command dispatch ────────────────────────────────────────────────────────
+// The single source of truth for "argv → command handler". Both the top-level
+// entry point and the interactive REPL route through here, so every command
+// behaves identically whether typed as `ccam <cmd>` or entered at the `ccam ›`
+// prompt. Handlers that need the server throw ServerDownError; the caller
+// decides whether to fall back to an offline reader or report the refusal.
+
+/** All top-level command tokens, for help text, the REPL completer, and
+ *  unknown-command detection. Kept in one place so they never drift. */
+const COMMANDS = [
+  "status",
+  "start",
+  "health",
+  "stats",
+  "kanban",
+  "tail",
+  "sessions",
+  "session",
+  "agents",
+  "events",
+  "analytics",
+  "workflows",
+  "runs",
+  "cost",
+  "alerts",
+  "rules",
+  "webhooks",
+  "pricing",
+  "import",
+  "doctor",
+  "info",
+  "export",
+  "cleanup",
+  "reinstall-hooks",
+  "clear-data",
+  "open",
+  "version",
+  "repl",
+  "help",
+];
+
+/** Subcommand tokens per command, used by the REPL's tab completer. */
+const SUBCOMMANDS = {
+  alerts: ["ack", "ack-all"],
+  pricing: ["set", "delete", "reset"],
+  webhooks: ["test"],
+  import: ["rescan", "path"],
+};
+
+/** Run one parsed command. Returns the handler's promise; may throw
+ *  ServerDownError (for the caller's offline routing) or call process.exit
+ *  for usage/validation failures. `cmd === "repl"` is handled by the entry
+ *  points, not here, to avoid recursive REPLs. */
+async function runCommand(argv) {
   const [cmd, ...rest] = argv;
   const { flags, positional } = parseArgs(rest);
   switch (cmd) {
@@ -1561,23 +1864,47 @@ async function main() {
   }
 }
 
+/**
+ * Route a ServerDownError: run the command's offline handler under the
+ * offline banner if one exists, otherwise print the server-required refusal.
+ * Shared by the top-level entry and (indirectly, via a child process) the
+ * REPL. `throwOnExit` makes the terminal refusal throw instead of exiting so
+ * an embedding loop can stay alive.
+ */
+async function handleServerDown(argv) {
+  const cmd = argv[0];
+  const { flags, positional } = parseArgs(argv.slice(1));
+  const handler = OFFLINE_HANDLERS[cmd];
+  if (handler) {
+    offlineBanner();
+    try {
+      await handler(flags, positional);
+      return;
+    } catch (offErr) {
+      console.error(c.red(`✖ Offline read failed: ${offErr?.message || offErr}`));
+      process.exit(1);
+    }
+  }
+  serverDownExit(SERVER_ONLY_REASONS[cmd]);
+}
+
+// ── Entry point ─────────────────────────────────────────────────────────────
+
+async function main() {
+  // --no-color is a global presentation flag (already consumed by the color
+  // detector at module load) — strip it so it can appear anywhere without
+  // being mistaken for a command or a subcommand flag.
+  const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+  const cmd = argv[0];
+  if (cmd === "repl" || cmd === "shell" || cmd === "i") return cmdRepl();
+  return runCommand(argv);
+}
+
 main().catch(async (err) => {
   if (err instanceof ServerDownError) {
     const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
-    const cmd = argv[0];
-    const { flags, positional } = parseArgs(argv.slice(1));
-    const handler = OFFLINE_HANDLERS[cmd];
-    if (handler) {
-      offlineBanner();
-      try {
-        await handler(flags, positional);
-        return;
-      } catch (offErr) {
-        console.error(c.red(`✖ Offline read failed: ${offErr?.message || offErr}`));
-        process.exit(1);
-      }
-    }
-    serverDownExit(SERVER_ONLY_REASONS[cmd]);
+    await handleServerDown(argv);
+    return;
   }
   console.error(c.red(`✖ ${err?.message || err}`));
   process.exit(1);

@@ -616,3 +616,72 @@ describe("ccam CLI — help & errors", () => {
     assert.match(out, /already running/);
   });
 });
+
+describe("ccam CLI — interactive REPL", () => {
+  /**
+   * Drive `ccam repl` with piped stdin (non-TTY). Each typed line is executed
+   * as a child `ccam` process, so grandchildren reach the in-test server via
+   * the DASHBOARD_PORT override; async spawn keeps the event loop free.
+   */
+  function repl(input, port = PORT) {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, "repl"], {
+        env: { ...process.env, DASHBOARD_PORT: String(port) },
+      });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      const killer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+      child.on("close", (code) => {
+        clearTimeout(killer);
+        resolve({ code, out, err });
+      });
+      child.stdin.write(input);
+      child.stdin.end();
+    });
+  }
+
+  it("runs piped commands in order and exits at EOF", async () => {
+    const { code, out } = await repl("version\nstats\nexit\n");
+    assert.equal(code, 0);
+    // version output precedes the stats table → sequential execution.
+    const vIdx = out.indexOf("ccam ");
+    const sIdx = out.indexOf("Total sessions");
+    assert.ok(vIdx >= 0 && sIdx >= 0 && vIdx < sIdx, `order: v=${vIdx} s=${sIdx}`);
+  });
+
+  it("dispatches real commands (sessions) through child processes", async () => {
+    const { code, out } = await repl("sessions --limit 5\nexit\n");
+    assert.equal(code, 0);
+    assert.match(out, /of \d+ session/);
+  });
+
+  it("the `commands` built-in lists every command", async () => {
+    const { out } = await repl("commands\nexit\n");
+    assert.match(out, /sessions/);
+    assert.match(out, /kanban/);
+    assert.match(out, /repl/);
+  });
+
+  it("the `help` built-in shows shell help, not the CLI reference", async () => {
+    const { out } = await repl("help\nexit\n");
+    assert.match(out, /interactive commands/);
+    assert.match(out, /built-ins/i);
+  });
+
+  it("an unknown command does not kill the shell — later commands still run", async () => {
+    const { code, out, err } = await repl("frobnicate\nstats\nexit\n");
+    assert.equal(code, 0);
+    assert.match(err, /Unknown command/); // the refusal lands on stderr
+    assert.match(out, /Total sessions/); // the shell survived and ran stats
+  });
+
+  it("a server-only refusal (offline) does not kill the shell", async () => {
+    // Point the shell at a dead port: `cost` refuses, but the shell survives
+    // to run `exit` and close cleanly.
+    const { code, out, err } = await repl("cost\nexit\n", 1);
+    assert.equal(code, 0);
+    assert.match(err + out, /runs server-side|NOT running/);
+  });
+});
