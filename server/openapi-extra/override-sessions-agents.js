@@ -53,6 +53,7 @@ const exampleSession = {
   last_activity: "2026-06-25T14:31:50.119Z",
   cost: 0.8421,
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleCompletedSession = {
@@ -69,6 +70,7 @@ const exampleCompletedSession = {
   last_activity: "2026-06-24T09:48:32.501Z",
   cost: 0.1532,
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleMainAgent = {
@@ -86,6 +88,7 @@ const exampleMainAgent = {
   metadata: '{"model":"claude-opus-4-20250514"}',
   updated_at: "2026-06-25T14:31:50.119Z",
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleSubagent = {
@@ -103,6 +106,7 @@ const exampleSubagent = {
   metadata: null,
   updated_at: "2026-06-25T14:14:09.882Z",
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleEvent = {

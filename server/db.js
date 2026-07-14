@@ -626,6 +626,23 @@ try {
   db.prepare("ALTER TABLE agents ADD COLUMN awaiting_input_since TEXT").run();
 }
 
+// Migrate: add `awaiting_reason` columns to sessions and agents. Explains WHY
+// a row is awaiting input alongside the `awaiting_input_since` timestamp:
+// 'notification' (Claude asked the user something), 'stop' (turn completed),
+// 'session_start' (new/resumed session waiting for the first prompt), or
+// 'interrupted' (watchdog/Esc recovery). Set wherever awaiting_input_since is
+// set, cleared (NULL) wherever it is cleared.
+try {
+  db.prepare("SELECT awaiting_reason FROM sessions LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE sessions ADD COLUMN awaiting_reason TEXT").run();
+}
+try {
+  db.prepare("SELECT awaiting_reason FROM agents LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE agents ADD COLUMN awaiting_reason TEXT").run();
+}
+
 // Migrate: add `transcript_path` to sessions for fast active-session sweep.
 // Before this, the periodic compaction sweep had to do
 //   SELECT DISTINCT json_extract(events.data, '$.transcript_path') ...
@@ -733,6 +750,7 @@ db.exec(
         metadata TEXT,
         updated_at TEXT NOT NULL DEFAULT '',
         awaiting_input_since TEXT,
+        awaiting_reason TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
         FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
       );
@@ -744,7 +762,7 @@ db.exec(
           ELSE status
         END,
         task, current_tool, started_at, ended_at, parent_agent_id, metadata,
-        updated_at, awaiting_input_since
+        updated_at, awaiting_input_since, awaiting_reason
       FROM agents;
       DROP TABLE agents;
       ALTER TABLE agents_new RENAME TO agents;
@@ -953,20 +971,22 @@ const stmts = {
   // Awaiting-input state. Stamping awaiting_input_since marks the row as
   // "waiting" for user attention without touching the underlying status
   // enum (kept stable for legacy CHECK constraints and aggregations).
+  // awaiting_reason records WHY ('notification' | 'stop' | 'session_start' |
+  // 'interrupted'), and is cleared back to NULL alongside the timestamp.
   setSessionAwaitingInput: db.prepare(
-    "UPDATE sessions SET awaiting_input_since = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+    "UPDATE sessions SET awaiting_input_since = ?, awaiting_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
   clearSessionAwaitingInput: db.prepare(
-    "UPDATE sessions SET awaiting_input_since = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND awaiting_input_since IS NOT NULL"
+    "UPDATE sessions SET awaiting_input_since = NULL, awaiting_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND awaiting_input_since IS NOT NULL"
   ),
   setAgentAwaitingInput: db.prepare(
-    "UPDATE agents SET awaiting_input_since = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+    "UPDATE agents SET awaiting_input_since = ?, awaiting_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
   clearAgentAwaitingInput: db.prepare(
-    "UPDATE agents SET awaiting_input_since = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND awaiting_input_since IS NOT NULL"
+    "UPDATE agents SET awaiting_input_since = NULL, awaiting_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND awaiting_input_since IS NOT NULL"
   ),
   clearSessionAgentsAwaitingInput: db.prepare(
-    "UPDATE agents SET awaiting_input_since = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE session_id = ? AND awaiting_input_since IS NOT NULL"
+    "UPDATE agents SET awaiting_input_since = NULL, awaiting_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE session_id = ? AND awaiting_input_since IS NOT NULL"
   ),
   // Find the deepest currently-working subagent in a session using a recursive CTE.
   // Used to infer which agent is spawning a new subagent when hook events don't
