@@ -2200,6 +2200,17 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             respected), so it is equally at home in an interactive shell,
             <code>grep</code> pipelines, or CI.
           </p>
+          <p>
+            For a live monitoring session, <code>ccam repl</code> (aliases
+            <code>shell</code> / <code>i</code>) opens an interactive shell where you type
+            commands without the <code>ccam</code> prefix — with a CCAM welcome banner,
+            tab-completion, persisted arrow-key history, a live server-status prompt
+            (<code>●</code> up / <code>○</code> offline), a grouped <code>help</code> /
+            <code>help &lt;cmd&gt;</code> menu, and a <code>watch [secs] &lt;cmd&gt;</code>
+            built-in that auto-refreshes any command. Each entered line runs as an isolated
+            child process, so an offline refusal or a blocking <code>tail</code> never takes
+            the shell down.
+          </p>
 
           <div class="table-wrap">
             <table>
@@ -2211,6 +2222,15 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 </tr>
               </thead>
               <tbody>
+                <tr>
+                  <td>Server</td>
+                  <td><code>status</code> · <code>start</code> · <code>repl</code></td>
+                  <td>
+                    Up/down indicator, a background server start that waits for health, and the
+                    interactive <code>ccam repl</code> shell — tab-completion, persisted history, a
+                    live server-status prompt, and a <code>watch</code> auto-refresh
+                  </td>
+                </tr>
                 <tr>
                   <td>Monitoring</td>
                   <td><code>health</code> · <code>stats</code> · <code>kanban</code> · <code>tail</code></td>
@@ -6213,7 +6233,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=26" defer></script>
+    <script src="i18n-content.js?v=29" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {
