@@ -1357,7 +1357,11 @@ function livenessReap({ ignoreIdleGate = false } = {}) {
     // deployment (this host has BOTH local sessions the probe should keep
     // reaping, AND remote household-hook sessions it must leave alone)
     // without sacrificing local crash detection via DASHBOARD_LIVENESS_PROBE=0.
-    if (!sess.cwd.startsWith("/")) continue;
+    // path.isAbsolute() resolves with POSIX semantics here (this function
+    // never reaches this point on win32 — probe.available is only true once
+    // probeLiveCwds() has already ruled that out), so it's equivalent to a
+    // leading-"/" check but self-documenting rather than a raw string test.
+    if (!path.isAbsolute(sess.cwd)) continue;
 
     let resolvedCwd;
     try {
