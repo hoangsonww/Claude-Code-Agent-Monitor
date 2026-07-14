@@ -236,8 +236,8 @@ window.__WIKI_CONTENT_I18N = {
       "MCP HTTP+SSE 服务器的端口（仅当 <code>MCP_TRANSPORT=http</code> 时）",
     "Bind address for the MCP HTTP server": "MCP HTTP 服务器的绑定地址",
     "Path to the SQLite database file": "SQLite 数据库文件的路径",
-    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
-      "设为 <code>0</code> 可禁用死亡会话的存活性回收——看门狗会把没有正在运行的 <code>claude</code> 进程的活动会话标记为完成；在 Windows 和容器内自动禁用",
+    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.":
+      "设为 <code>0</code> 可禁用死亡会话的存活性回收——看门狗会把没有正在运行的 <code>claude</code> 进程的活动会话标记为完成；在 Windows 和容器内自动禁用。从其他机器转发而来的会话（household hooks）会报告非 POSIX 的 <code>cwd</code>，因此会被自动跳过，所以本地 + 转发混合部署不再需要关闭此项。",
     "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
       "看门狗节拍存活性回收的空闲门槛——transcript 必须至少有这么长时间未被写入（无 transcript 时以最后一次 hook 写入为后备时钟）；启动时的回收会跳过该门槛",
     "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
@@ -1468,8 +1468,8 @@ window.__WIKI_CONTENT_I18N = {
       "Cổng cho máy chủ MCP HTTP+SSE (chỉ khi <code>MCP_TRANSPORT=http</code>)",
     "Bind address for the MCP HTTP server": "Địa chỉ bind cho máy chủ MCP HTTP",
     "Path to the SQLite database file": "Đường dẫn tới tệp cơ sở dữ liệu SQLite",
-    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
-      "Đặt <code>0</code> để tắt cơ chế thu dọn phiên đã chết — watchdog sẽ hoàn tất các phiên đang hoạt động không còn tiến trình <code>claude</code> nào chạy; tự động tắt trên Windows và trong container",
+    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.":
+      "Đặt <code>0</code> để tắt cơ chế thu dọn phiên đã chết — watchdog sẽ hoàn tất các phiên đang hoạt động không còn tiến trình <code>claude</code> nào chạy; tự động tắt trên Windows và trong container. Các phiên được chuyển tiếp từ máy khác (household hooks) báo cáo <code>cwd</code> không theo chuẩn POSIX nên được tự động bỏ qua, vì vậy triển khai hỗn hợp cục bộ + chuyển tiếp không còn cần tắt tùy chọn này.",
     "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
       "Ngưỡng nhàn rỗi cho thu dọn ở nhịp watchdog — transcript phải không được ghi trong ít nhất khoảng này (lấy lần ghi hook cuối làm đồng hồ dự phòng); các lượt thu dọn lúc khởi động bỏ qua ngưỡng này",
     "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
@@ -2731,8 +2731,8 @@ window.__WIKI_CONTENT_I18N = {
       "MCP HTTP+SSE 서버용 포트(<code>MCP_TRANSPORT=http</code>인 경우에만 사용)",
     "Bind address for the MCP HTTP server": "MCP HTTP 서버의 바인드 주소",
     "Path to the SQLite database file": "SQLite 데이터베이스 파일 경로",
-    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers":
-      "<code>0</code>으로 설정하면 죽은 세션에 대한 생존 확인 정리(reap) 기능이 비활성화됩니다 — 워치독은 실행 중인 <code>claude</code> 프로세스가 없는 활성 세션을 완료 처리합니다. Windows와 컨테이너에서는 자동으로 비활성화됩니다",
+    "Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.":
+      "<code>0</code>으로 설정하면 죽은 세션에 대한 생존 확인 정리(reap) 기능이 비활성화됩니다 — 워치독은 실행 중인 <code>claude</code> 프로세스가 없는 활성 세션을 완료 처리합니다. Windows와 컨테이너에서는 자동으로 비활성화됩니다. 다른 머신에서 전달된 세션(household hooks)은 POSIX가 아닌 <code>cwd</code>를 보고하므로 자동으로 건너뛰며, 따라서 로컬 + 전달 혼합 배포에서는 더 이상 이 기능을 끌 필요가 없습니다.",
     "Idle gate for watchdog-tick liveness reaps — the transcript must not have been written for at least this long (last hook write is the fallback clock); startup passes skip the gate":
       "워치독 틱의 생존 확인 정리를 위한 유휴 게이트 — 트랜스크립트가 최소 이 시간 동안 기록되지 않아야 합니다(마지막 훅 기록 시각이 대체 기준이 됩니다). 시작 시점의 패스는 이 게이트를 건너뜁니다",
     "Idle-working timeout the watchdog uses to recover an <code>Esc</code> cancel that left no transcript marker":
