@@ -517,6 +517,7 @@ const paths = {
                     metadata: null,
                     updated_at: "2026-06-25T18:08:12.000Z",
                     awaiting_input_since: null,
+                    awaiting_reason: null,
                   },
                 ],
                 events: [

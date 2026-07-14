@@ -239,6 +239,13 @@ function createOpenApiSpec() {
               description:
                 "ISO timestamp set when Claude Code is blocked waiting for the user (permission prompt or input request). Null when not waiting; cleared on the next non-Notification hook event.",
             },
+            awaiting_reason: {
+              type: "string",
+              enum: ["notification", "stop", "session_start", "interrupted"],
+              nullable: true,
+              description:
+                "Why the session is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
+            },
           },
         },
         Agent: {
@@ -271,6 +278,13 @@ function createOpenApiSpec() {
               nullable: true,
               description:
                 "ISO timestamp set when this agent is blocked waiting for user input. Cleared on the next non-Notification hook event for the session.",
+            },
+            awaiting_reason: {
+              type: "string",
+              enum: ["notification", "stop", "session_start", "interrupted"],
+              nullable: true,
+              description:
+                "Why this agent is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
             },
           },
         },

@@ -1162,13 +1162,13 @@ Bảng điều khiển xử lý các loại hook Claude Code này:
 
 | Loại hook         | Trigger                        | Hành động trên dashboard                                                                             |
 | ----------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` để phiên mới rơi vào **Đang chờ**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
+| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` (với `awaiting_reason=session_start`) để phiên mới rơi vào **Đang chờ**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
 | `UserPromptSubmit`| Người dùng nhấn enter          | Xóa cờ chờ và đẩy Agent chính sang `working` — tín hiệu duy nhất cho biết các lượt văn bản thuần đã bắt đầu, vì chúng không phát ra `PreToolUse` |
 | `PreToolUse`      | Agent bắt đầu sử dụng tool     | Xóa cờ chờ, đặt Agent thành `working`, đặt `current_tool`. Nếu tool là `Agent`, tạo bản ghi Subagent |
 | `PostToolUse`     | Tool hoàn tất                  | Xóa cờ chờ (xử lý các phê duyệt prompt xin quyền mà Notification đã đóng dấu giữa lúc tool đang chạy). Xóa `current_tool`. Agent ở lại `working` |
 | `Stop`            | Claude trả lời xong            | Không lỗi: Agent chính → `waiting` — Claude xong lượt, đến lượt người dùng. `stop_reason=error`: đánh dấu Agent và phiên `error`. Subagent nền vẫn tiếp tục chạy |
 | `SubagentStop`    | Subagent nền đã hoàn tất       | Khớp và hoàn thành Subagent theo mô tả, loại hoặc nhiệm vụ. Cố tình KHÔNG xóa cờ chờ — Subagent xong không nói lên gì về người dùng. **Kích hoạt quét JSONL fire-and-forget** (`scanAndImportSubagents`) phát các sự kiện `PreToolUse` + `PostToolUse` cho từng tool dưới `agent_id` của chính subagent, để Timeline hiển thị đầy đủ tool subagent đã chạy chứ không chỉ marker spawn |
-| `Notification`    | Notification Agent             | Ghi sự kiện. Tin nhắn xin quyền/yêu cầu input đặt agent sang `waiting` và đóng dấu `awaiting_input_since` (mẫu: `permission`, `waiting for input`, `needs your approval`, …). Notification liên quan đến nén được gắn thẻ `Compaction`. Kích hoạt notification trình duyệt nếu được bật |
+| `Notification`    | Notification Agent             | Ghi sự kiện. Tin nhắn xin quyền/yêu cầu input đặt agent sang `waiting` và đóng dấu `awaiting_input_since` (với `awaiting_reason=notification`, mẫu: `permission`, `waiting for input`, `needs your approval`, …). Notification liên quan đến nén được gắn thẻ `Compaction`. Kích hoạt notification trình duyệt nếu được bật |
 | `SessionEnd`      | CLI Claude Code thoát          | Xóa cờ chờ. Nếu phiên đang ở trạng thái `error`, trạng thái lỗi được giữ nguyên; ngược lại đánh dấu tất cả Agent + phiên là `completed` |
 | `Compaction`   | `/compact` được phát hiện trong JSONL   | Tạo một tác nhân phụ nén (loại `compaction`) và sự kiện Nén. Được phát hiện qua các mục `isCompactSummary` trong bản ghi JSONL. Cũng được phát hiện bởi máy quét định kỳ cho các phiên hoạt động |
 | `APIError`     | Lỗi API trong bản ghi JSONL  | Được trích xuất từ các mục nhập `isApiErrorMessage` (hạn ngạch, giới hạn tỷ lệ, yêu cầu không hợp lệ) và phản hồi thô `type: "error"`. **Ngay lập tức đánh dấu phiên và agent là `error`** — trước đây chỉ ghi nhận sự kiện mà không thay đổi trạng thái. Được lưu trữ dưới dạng sự kiện với chi tiết lỗi |
@@ -1602,6 +1602,7 @@ erDiagram
         TEXT ended_at "ISO 8601 or NULL"
         TEXT metadata "JSON blob"
         TEXT awaiting_input_since "ISO 8601 hoặc NULL — đặt khi Đang chờ"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     agents {
@@ -1612,6 +1613,7 @@ erDiagram
         TEXT status "working|waiting|completed|error"
         TEXT current_tool "Active tool or NULL"
         TEXT awaiting_input_since "ISO 8601 hoặc NULL — dấu thời gian chờ bổ sung"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     events {

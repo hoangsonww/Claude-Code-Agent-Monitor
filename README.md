@@ -1241,13 +1241,13 @@ The dashboard processes these Claude Code hook types:
 
 | Hook Type           | Trigger                        | Dashboard Action                                                                             |
 | ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `SessionStart`      | Claude Code session begins     | Creates session and main agent. Stamps `awaiting_input_since` so a fresh session lands in **Waiting**. Reactivates resumed sessions. Abandons orphaned sessions with no activity for `DASHBOARD_STALE_MINUTES` (default 180) |
+| `SessionStart`      | Claude Code session begins     | Creates session and main agent. Stamps `awaiting_input_since` (with `awaiting_reason=session_start`) so a fresh session lands in **Waiting**. Reactivates resumed sessions. Abandons orphaned sessions with no activity for `DASHBOARD_STALE_MINUTES` (default 180) |
 | `UserPromptSubmit`  | User hits enter on a prompt    | Clears the waiting flag and promotes the main agent to `working` — the only signal that text-only assistant turns have started, since they emit no `PreToolUse` |
 | `PreToolUse`        | Agent starts using a tool      | Clears the waiting flag, sets agent to `working`, sets `current_tool`. If tool is `Agent`, creates a subagent record |
 | `PostToolUse`       | Tool execution completed       | Clears the waiting flag (handles permission-prompt approvals where the Notification stamped it mid-tool). Clears `current_tool`. Agent stays `working` |
 | `Stop`              | Claude finishes responding     | Non-error: main agent → `waiting` — Claude finished its turn, ball is in the user's court. `stop_reason=error`: marks the agent and session `error`. Background subagents keep running |
 | `SubagentStop`      | Background agent finished      | Matches and completes the subagent by description, type, or task. Deliberately does NOT clear the waiting flag — a subagent finishing tells us nothing about the human. **Triggers a fire-and-forget JSONL scan** (`scanAndImportSubagents`) that emits per-tool `PreToolUse` + `PostToolUse` events under the subagent's own `agent_id` so the Timeline shows every tool the subagent ran, not just the spawn marker |
-| `Notification`      | Agent notification             | Logs event. Permission/input-prompt messages set the agent to `waiting` and stamp `awaiting_input_since` (matched by pattern: `permission`, `waiting for input`, `needs your approval`, …). Compaction notifications are tagged as `Compaction` events. Triggers a browser notification if enabled |
+| `Notification`      | Agent notification             | Logs event. Permission/input-prompt messages set the agent to `waiting` and stamp `awaiting_input_since` (with `awaiting_reason=notification`, matched by pattern: `permission`, `waiting for input`, `needs your approval`, …). Compaction notifications are tagged as `Compaction` events. Triggers a browser notification if enabled |
 | `SessionEnd`        | Claude Code CLI process exits  | Drops the waiting flag. If the session is already in `error`, the error state is preserved; otherwise marks all agents and the session as `completed` |
 | `Compaction`   | `/compact` detected in JSONL   | Creates a compaction subagent (type `compaction`) and Compaction event. Detected via `isCompactSummary` entries in the transcript JSONL. Also detected by periodic scanner for active sessions |
 | `APIError`     | API error in JSONL transcript  | Extracted from `isApiErrorMessage` entries (quota, rate limit, invalid_request) and raw `type: "error"` responses. **Now immediately marks the session and agent as `error`** — previously recorded as events without changing status. Stored as event with error details |
@@ -1662,6 +1662,7 @@ erDiagram
         TEXT ended_at "ISO 8601 or NULL"
         TEXT metadata "JSON blob"
         TEXT awaiting_input_since "ISO 8601 or NULL — set when Waiting"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     agents {
@@ -1672,6 +1673,7 @@ erDiagram
         TEXT status "working|waiting|completed|error"
         TEXT current_tool "Active tool or NULL"
         TEXT awaiting_input_since "ISO 8601 or NULL — supplementary wait timestamp"
+        TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
     }
 
     events {

@@ -242,7 +242,7 @@ Triggered when a Claude Code session starts (fresh launch, `--resume`, `/clear`,
 
 **Purpose:**
 - Create the session and main-agent records on first contact
-- Stamp `awaiting_input_since` so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt
+- Stamp `awaiting_input_since` (with `awaiting_reason` = `session_start`) so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt
 - Reactivate completed/abandoned sessions on resume
 - Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed`
 
@@ -264,7 +264,7 @@ Triggered the moment the user hits enter on a prompt — fires *before* Claude d
 ```
 
 **Purpose:**
-- Clear `awaiting_input_since` on the session and main agent
+- Clear `awaiting_input_since` (and `awaiting_reason` — both reset to NULL together) on the session and main agent
 - Promote the main agent to `working` so the dashboard reflects "Claude is now thinking on this" through the entire response — including text-only replies that emit no `PreToolUse` before `Stop`
 
 ---
@@ -286,7 +286,7 @@ Triggered before a tool executes.
 ```
 
 **Purpose:**
-- Clear `awaiting_input_since` (Claude can only call a tool after fresh user input)
+- Clear `awaiting_input_since` (and `awaiting_reason` — both reset to NULL together; Claude can only call a tool after fresh user input)
 - Set agent to `working`, set `current_tool`
 - Track tool execution start time
 - If tool name is `Agent`, create a subagent record
@@ -314,7 +314,7 @@ Triggered after a tool completes execution.
 ```
 
 **Purpose:**
-- Clear `awaiting_input_since` (covers permission-prompt approval mid-tool)
+- Clear `awaiting_input_since` (and `awaiting_reason` — both reset to NULL together; covers permission-prompt approval mid-tool)
 - Clear `current_tool` on agent (agent stays `working`)
 - Update agent token counts via shared transcript cache
 - Calculate and update cost
@@ -355,8 +355,8 @@ Triggered when Claude finishes a turn (NOT when the session is closed).
 ```
 
 **Purpose:**
-- Non-error: set main agent to `idle` and stamp `awaiting_input_since` — Claude finished its turn, ball is in the user's court. The session shows as **Waiting** until `UserPromptSubmit` / `PreToolUse` fires
-- Error (`stop_reason="error"`): drop `awaiting_input_since`, mark the session `error`
+- Non-error: set main agent to `idle` and stamp `awaiting_input_since` (with `awaiting_reason` = `stop`) — Claude finished its turn, ball is in the user's court. The session shows as **Waiting** until `UserPromptSubmit` / `PreToolUse` fires
+- Error (`stop_reason="error"`): drop `awaiting_input_since` (and `awaiting_reason`, cleared to NULL together), mark the session `error`
 - Background subagents continue running — they complete individually via `SubagentStop`, never via `Stop`
 
 > **Note:** `Stop` does **not** fire when the user cancels a turn with `Esc` — interrupts emit no hook at all. The dashboard instead recovers cancelled turns from the transcript (see [User interrupts (Esc)](#user-interrupts-esc--no-hook-fires)).
@@ -381,7 +381,7 @@ Triggered when a sub-agent (explore, task, etc.) completes.
 
 **Purpose:**
 - Match the finishing subagent by description, type, or task and mark it `completed`
-- **Deliberately does NOT clear `awaiting_input_since`** — a backgrounded subagent finishing tells us nothing about whether the human has responded
+- **Deliberately does NOT clear `awaiting_input_since`** (nor `awaiting_reason`) — a backgrounded subagent finishing tells us nothing about whether the human has responded
 - **Triggers a fire-and-forget JSONL scan** (`scanAndImportSubagents` from `scripts/import-history.js`) after `res.json()` returns. The scan walks the session's `subagents/agent-*.jsonl` files, pairs each assistant `tool_use` block with the next matching user `tool_result` block by `tool_use_id`, and emits per-tool `PreToolUse` + `PostToolUse` events under the subagent's own `agent_id`. Idempotent (`data LIKE '%"tool_use_id":"X"%'` dedup) and merges into a hook-created live row when one matches by `subagent_type + started_at` within 30 s — closes the gap where subagent-internal tool calls would otherwise be invisible to the dashboard
 - **Attributes per-subagent tokens to each subagent's OWN model** (issue #185). Each subagent transcript carries its own `msg.usage` under its own `msg.model`; the scan writes those token buckets to `token_usage` keyed by the real model (e.g. a Haiku QA agent under an Opus orchestrator) so cost is no longer priced at the orchestrator's rate. The subagent's resolved model is also stamped onto its agent row (`metadata.model`). Buckets whose model equals the parent session's model are deliberately **skipped** here — that bucket is owned by the main-transcript writer, and double-writing it would trip `replaceTokenUsage`'s compaction baseline-shift; same-model subagents are reconciled by the authoritative `importSession` / `reconcileTokens` path instead
 - **Rebuilds the nested-subagent hierarchy** (`reconcileSubagentParents`). Subagent rows are inserted flat under the main agent because no single hook event or JSONL file carries the spawner's identity. Each subagent transcript, however, records every child it spawned via the Task tool as `toolUseResult.agentId` (surfaced by `parseSubagentFile` as `spawnedChildren`). The scan inverts these into a child→parent map and repoints `parent_agent_id` (via `setAgentParent`) so a subagent that spawns its own subagents nests under its **true** spawner instead of collapsing to a single level under main; any subagent no other subagent claims stays under main. Idempotent and additive (only rewrites `parent_agent_id`, never inserts/deletes), it also corrects the live PreToolUse-`Agent` parent heuristic's guesses once transcripts land. `scanAndImportSubagents` returns `reparented` alongside `created`; the `SubagentStop` refetch nudge fires when either is non-zero so a pure re-parent still refreshes the tree
@@ -407,7 +407,7 @@ Triggered when Claude Code sends a system notification.
 
 **Purpose:**
 - Log the event for the activity feed
-- If the message matches a permission/input-prompt pattern (`permission`, `waiting for input`, `needs your approval`, `awaiting your response`, …), stamp `awaiting_input_since` so the session lands in **Waiting**
+- If the message matches a permission/input-prompt pattern (`permission`, `waiting for input`, `needs your approval`, `awaiting your response`, …), stamp `awaiting_input_since` (with `awaiting_reason` = `notification`) so the session lands in **Waiting**
 - If the message matches a compaction pattern, tag as a `Compaction` event
 - Trigger a browser notification when the user has notifications enabled
 
@@ -428,7 +428,7 @@ Triggered when a Claude Code session ends.
 ```
 
 **Purpose:**
-- Drop `awaiting_input_since` on the session and any agents that still have it
+- Drop `awaiting_input_since` (and `awaiting_reason`, cleared to NULL together) on the session and any agents that still have it
 - Mark all agents and the session as `completed` — **unless the session is in `error` AND that error is still unrecovered at the transcript tail** (`isErrorAtTail`: the latest API error has no successful turn after it), in which case `error` is preserved. A transient error the CLI retried past (successful assistant turns after the last error) finalizes as `completed` instead of freezing in a stale `error`
 - Evict the session's transcript from the shared transcript cache
 
@@ -651,7 +651,7 @@ Cancelling a turn with `Esc` fires **no hook at all** (a documented Claude Code 
 1. **Marker path** — when the cancel happens *after* some output, Claude Code appends a `[Request interrupted by user]` user entry (with an `interruptedMessageId`). `TranscriptCache` reports `pendingInterrupt`, computed from transcript ordering alone: the latest interrupt timestamp vs the latest real turn activity, both on Claude Code's clock. (It is **not** compared against the session's last hook event — those clocks differ, and for a sub-second cancel the `UserPromptSubmit` event is recorded *after* the transcript interrupt, the precise case that used to stay stuck.) The session moves to **Waiting** within ~15 s.
 2. **Idle-working timeout** — when Esc is pressed *before any output*, Claude Code writes **no marker**; the only evidence is silence. When the main agent has been `working` with `current_tool` null and **neither a hook event nor the transcript mtime** has advanced for `DASHBOARD_WORKING_IDLE_SECONDS` (default `120`), the turn is treated as dead. A streaming/long-output turn (transcript still growing) and an in-flight tool call are exempt by those guards; a rare false flip self-heals on the next real hook.
 
-Both paths land the session in **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped — identical to a non-error `Stop`) and log an `Interrupted` event. A resume (new prompt in the transcript) clears `pendingInterrupt` and the fresh hook keeps the session non-stale.
+Both paths land the session in **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped with `awaiting_reason` = `interrupted` — identical to a non-error `Stop` aside from the reason) and log an `Interrupted` event. A resume (new prompt in the transcript) clears `pendingInterrupt` and the fresh hook keeps the session non-stale.
 
 ### Missed SessionEnd (dashboard down) — liveness reap
 
