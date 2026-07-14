@@ -134,19 +134,31 @@ export function Sessions() {
     setPage(0);
   }, [filter, search, cwd, sortBy, sortDesc]);
 
+  // Debounced WS-driven reload: collapse rapid bursts of session_updated /
+  // new_event messages into a single load() call. Without this, 22+ concurrent
+  // Claude processes issuing hooks each trigger an immediate API request,
+  // saturating the server's event loop and making the UI unresponsive.
   useEffect(() => {
+    let timer: number | null = null;
+    let pendingRunStatus = false;
+    const fire = () => {
+      timer = null;
+      load();
+      if (pendingRunStatus) { pendingRunStatus = false; loadDashboardRuns(); }
+    };
     return eventBus.subscribe((msg) => {
       if (msg.type === "session_created" || msg.type === "session_updated") {
-        load();
+        if (!timer) timer = window.setTimeout(fire, 800);
       }
       if (msg.type === "new_event") {
         const ev = msg.data as DashboardEvent;
         if (ev.event_type === "Stop" || ev.event_type === "SessionEnd") {
-          load();
+          if (!timer) timer = window.setTimeout(fire, 800);
         }
       }
       if (msg.type === "run_status") {
-        loadDashboardRuns();
+        pendingRunStatus = true;
+        if (!timer) timer = window.setTimeout(fire, 800);
       }
     });
   }, [load]);

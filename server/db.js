@@ -125,7 +125,11 @@ const db = new Database(DB_PATH);
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
-db.pragma("busy_timeout = 5000");
+// Temporary mitigation for lock contention under heavy concurrent writes.
+// 60 s busy_timeout prevents SQLITE_BUSY failures when the WAL writer and
+// checkpoint thread compete with the event loop, but the root cause (long
+// transactions holding the write lock) should be addressed separately.
+db.pragma("busy_timeout = 60000");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (

@@ -39,6 +39,7 @@ const liveness = require("../lib/session-liveness");
 const hooksRouter = require("../routes/hooks");
 
 const realProbe = liveness.probeLiveCwds;
+const _clearProbeCache = liveness._clearCache;
 
 const enc = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 const PROJECTS = path.join(CLAUDE_HOME, "projects");
@@ -127,6 +128,7 @@ after(() => {
 
 beforeEach(() => {
   liveness.probeLiveCwds = realProbe;
+  _clearProbeCache();
 });
 
 describe("isClaudeCommand — claude CLI process matcher", () => {

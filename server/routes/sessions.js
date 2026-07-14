@@ -247,7 +247,6 @@ router.get("/:id", (req, res) => {
   // Each agent's OWN cost (from its metadata token buckets) so subagent cards on
   // the session-detail tree show their real cost, not the session total.
   const agents = attachAgentCosts(stmts.listAgentsBySession.all(req.params.id));
-  const events = stmts.listEventsBySession.all(req.params.id);
   // Workflow-tool runs launched within this session (issue #167). Parse the
   // JSON-blob columns so the client gets arrays, not strings.
   const workflows = stmts.listWorkflowsBySession.all(req.params.id).map((w) => {
@@ -265,7 +264,7 @@ router.get("/:id", (req, res) => {
     }
     return { ...w, phases, progress };
   });
-  res.json({ session, agents, events, workflows });
+  res.json({ session, agents, workflows });
 });
 
 /**
@@ -552,7 +551,7 @@ router.get("/:id/transcripts", async (req, res) => {
     delete t._sortTime;
   }
 
-  // Sort transcripts: main first, then by time ascending (consistent with agents list order)
+  // Sort transcripts: main first, then subagents by time descending (newest first)
   result.sort((a, b) => {
     if (a.type === "main") return -1;
     if (b.type === "main") return 1;
@@ -560,7 +559,7 @@ router.get("/:id/transcripts", async (req, res) => {
     const bAgent = dbAgents.find((ag) => ag.id === b.db_agent_id);
     const aTime = aAgent?.started_at ? new Date(aAgent.started_at).getTime() : 0;
     const bTime = bAgent?.started_at ? new Date(bAgent.started_at).getTime() : 0;
-    if (aTime && bTime) return aTime - bTime;
+    if (aTime && bTime) return bTime - aTime;
     if (aTime) return -1;
     if (bTime) return 1;
     return (a.name || "").localeCompare(b.name || "");
