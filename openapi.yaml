@@ -229,6 +229,15 @@ components:
           format: date-time
           nullable: true
           description: ISO timestamp set when Claude Code is blocked waiting for the user (permission prompt or input request). Null when not waiting; cleared on the next non-Notification hook event.
+        awaiting_reason:
+          type: string
+          enum:
+            - notification
+            - stop
+            - session_start
+            - interrupted
+          nullable: true
+          description: 'Why the session is awaiting input: ''notification'' (Claude asked the user something), ''stop'' (turn completed, waiting for the next prompt), ''session_start'' (new/resumed session waiting for the first prompt), or ''interrupted'' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.'
     Agent:
       type: object
       required:
@@ -289,6 +298,15 @@ components:
           format: date-time
           nullable: true
           description: ISO timestamp set when this agent is blocked waiting for user input. Cleared on the next non-Notification hook event for the session.
+        awaiting_reason:
+          type: string
+          enum:
+            - notification
+            - stop
+            - session_start
+            - interrupted
+          nullable: true
+          description: 'Why this agent is awaiting input: ''notification'' (Claude asked the user something), ''stop'' (turn completed, waiting for the next prompt), ''session_start'' (new/resumed session waiting for the first prompt), or ''interrupted'' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.'
     DashboardEvent:
       type: object
       required:
@@ -3658,6 +3676,7 @@ paths:
                     last_activity: '2026-06-25T14:31:50.119Z'
                     cost: 0.8421
                     awaiting_input_since: null
+                    awaiting_reason: null
                   - id: 1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9
                     name: Fix flaky transcript pagination test
                     status: completed
@@ -3671,6 +3690,7 @@ paths:
                     last_activity: '2026-06-24T09:48:32.501Z'
                     cost: 0.1532
                     awaiting_input_since: null
+                    awaiting_reason: null
                 limit: 50
                 offset: 0
                 total: 137
@@ -3716,6 +3736,7 @@ paths:
                   last_activity: '2026-06-25T14:31:50.119Z'
                   cost: 0.8421
                   awaiting_input_since: null
+                  awaiting_reason: null
                 created: false
         '201':
           description: Session created
@@ -3738,6 +3759,7 @@ paths:
                   last_activity: '2026-06-25T14:02:11.004Z'
                   cost: 0
                   awaiting_input_since: null
+                  awaiting_reason: null
                 created: true
         '400':
           description: Invalid request body
@@ -3781,6 +3803,7 @@ paths:
                   last_activity: '2026-06-25T14:31:50.119Z'
                   cost: 0.8421
                   awaiting_input_since: null
+                  awaiting_reason: null
                 agents:
                   - id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                     session_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
@@ -3796,6 +3819,7 @@ paths:
                     metadata: '{"model":"claude-opus-4-20250514"}'
                     updated_at: '2026-06-25T14:31:50.119Z'
                     awaiting_input_since: null
+                    awaiting_reason: null
                   - id: ad18a79192af10ed1
                     session_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
                     name: Explore pricing module
@@ -3810,6 +3834,7 @@ paths:
                     metadata: null
                     updated_at: '2026-06-25T14:14:09.882Z'
                     awaiting_input_since: null
+                    awaiting_reason: null
                 events:
                   - id: 48213
                     session_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
@@ -3873,6 +3898,7 @@ paths:
                   last_activity: '2026-06-25T15:07:44.220Z'
                   cost: 0.8421
                   awaiting_input_since: null
+                  awaiting_reason: null
         '404':
           description: Session not found
           content:
@@ -4135,6 +4161,7 @@ paths:
                     metadata: '{"model":"claude-opus-4-20250514"}'
                     updated_at: '2026-06-25T14:31:50.119Z'
                     awaiting_input_since: null
+                    awaiting_reason: null
                   - id: ad18a79192af10ed1
                     session_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
                     name: Explore pricing module
@@ -4149,6 +4176,7 @@ paths:
                     metadata: null
                     updated_at: '2026-06-25T14:14:09.882Z'
                     awaiting_input_since: null
+                    awaiting_reason: null
                 limit: 50
                 offset: 0
     post:
@@ -4197,6 +4225,7 @@ paths:
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
+                  awaiting_reason: null
                 created: false
         '201':
           description: Agent created
@@ -4220,6 +4249,7 @@ paths:
                   metadata: '{"spawned_by":"Task"}'
                   updated_at: '2026-06-25T14:10:22.310Z'
                   awaiting_input_since: null
+                  awaiting_reason: null
                 created: true
         '400':
           description: Invalid request body
@@ -4264,6 +4294,7 @@ paths:
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
+                  awaiting_reason: null
         '404':
           description: Agent not found
           content:
@@ -4316,6 +4347,7 @@ paths:
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
+                  awaiting_reason: null
         '404':
           description: Agent not found
           content:
@@ -8408,6 +8440,7 @@ paths:
                     metadata: null
                     updated_at: '2026-06-25T18:08:12.000Z'
                     awaiting_input_since: null
+                    awaiting_reason: null
                 events:
                   - id: 90211
                     session_id: 5f3c0e2a-1b9d-4c77-8a21-9e0f7b6d4c11

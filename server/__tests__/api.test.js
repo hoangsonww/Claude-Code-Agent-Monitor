@@ -809,6 +809,7 @@ describe("Hook Event Processing", () => {
     // A non-waiting Notification should NOT stamp awaiting_input_since.
     const sessRes = await fetch("/api/sessions/hook-sess-1");
     assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
   });
 
   it("should mark session and main agent as awaiting input on permission-prompt Notification", async () => {
@@ -832,10 +833,12 @@ describe("Hook Event Processing", () => {
       sessRes.body.session.awaiting_input_since,
       "session should be flagged as awaiting input"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "notification");
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-wait");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.ok(main.awaiting_input_since, "main agent should be flagged as awaiting input");
+    assert.equal(main.awaiting_reason, "notification");
   });
 
   it("should clear awaiting_input_since when the user resumes (next PreToolUse)", async () => {
@@ -859,10 +862,12 @@ describe("Hook Event Processing", () => {
 
     const after = await fetch("/api/sessions/hook-sess-wait");
     assert.equal(after.body.session.awaiting_input_since, null);
+    assert.equal(after.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-wait");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.awaiting_reason, null);
   });
 
   it("should keep session active and set main agent waiting on Stop", async () => {
@@ -901,6 +906,8 @@ describe("Hook Event Processing", () => {
       main.awaiting_input_since,
       "main agent should be flagged waiting after non-error Stop"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "stop");
+    assert.equal(main.awaiting_reason, "stop");
   });
 
   it("should mark a brand-new SessionStart as Waiting (sitting at the prompt)", async () => {
@@ -920,10 +927,12 @@ describe("Hook Event Processing", () => {
       sessRes.body.session.awaiting_input_since,
       "fresh session should be flagged Waiting at SessionStart"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "session_start");
 
     const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.ok(main.awaiting_input_since, "fresh main agent should be flagged Waiting");
+    assert.equal(main.awaiting_reason, "session_start");
   });
 
   it("should clear awaiting_input_since and promote main to working on UserPromptSubmit", async () => {
@@ -1038,6 +1047,7 @@ describe("Hook Event Processing", () => {
     // Confirm the flag carried forward from the previous Stop test.
     const before = await fetch("/api/sessions/hook-sess-1");
     assert.ok(before.body.session.awaiting_input_since);
+    assert.equal(before.body.session.awaiting_reason, "stop");
 
     await post("/api/hooks/event", {
       hook_type: "PreToolUse",
@@ -1046,10 +1056,12 @@ describe("Hook Event Processing", () => {
 
     const after = await fetch("/api/sessions/hook-sess-1");
     assert.equal(after.body.session.awaiting_input_since, null);
+    assert.equal(after.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-1");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.awaiting_reason, null);
   });
 
   it("should mark session as error when stop_reason is error", async () => {
@@ -1065,6 +1077,8 @@ describe("Hook Event Processing", () => {
 
     const sessRes = await fetch("/api/sessions/hook-sess-err");
     assert.equal(sessRes.body.session.status, "error");
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
   });
 
   it("should not create duplicate session on repeated events", async () => {
@@ -1379,6 +1393,10 @@ describe("Hook Event Processing", () => {
       "Session should be completed after SessionEnd"
     );
     assert.ok(sessRes.body.session.ended_at, "Session should have ended_at");
+    // SessionEnd clears any leftover waiting flag (and its reason) so the
+    // row lands in its final column without a stale awaiting_reason.
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-end");
     agentsRes.body.agents.forEach((a) => {
@@ -2158,8 +2176,10 @@ describe("Watchdog user-interrupt recovery", () => {
       const main = getMain(sessionId);
       assert.strictEqual(sess.status, "active", "session stays active (not closed)");
       assert.ok(sess.awaiting_input_since, "session should now be awaiting input");
+      assert.strictEqual(sess.awaiting_reason, "interrupted");
       assert.strictEqual(main.status, "waiting", "main agent should be waiting after interrupt");
       assert.ok(main.awaiting_input_since, "main agent should be flagged awaiting input");
+      assert.strictEqual(main.awaiting_reason, "interrupted");
 
       const evt = db
         .prepare("SELECT * FROM events WHERE session_id = ? AND event_type = 'Interrupted'")
@@ -2257,8 +2277,10 @@ describe("Watchdog user-interrupt recovery", () => {
       const sess = stmts.getSession.get(sessionId);
       const main = getMain(sessionId);
       assert.ok(sess.awaiting_input_since, "session should be awaiting input after idle timeout");
+      assert.strictEqual(sess.awaiting_reason, "interrupted");
       assert.strictEqual(main.status, "waiting", "main agent should be waiting after idle timeout");
       assert.ok(main.awaiting_input_since);
+      assert.strictEqual(main.awaiting_reason, "interrupted");
     } finally {
       try {
         fs.unlinkSync(tmpTranscript);

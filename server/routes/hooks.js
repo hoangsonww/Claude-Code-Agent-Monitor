@@ -68,8 +68,8 @@ function recoverInterruptedSession(sessionId, fullSess, mainAgentId, reasonSuffi
   if (mainAgentId) {
     stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
   }
-  stmts.setSessionAwaitingInput.run(ts, sessionId);
-  if (mainAgentId) stmts.setAgentAwaitingInput.run(ts, mainAgentId);
+  stmts.setSessionAwaitingInput.run(ts, "interrupted", sessionId);
+  if (mainAgentId) stmts.setAgentAwaitingInput.run(ts, "interrupted", mainAgentId);
 
   const label = fullSess?.name || `Session ${sessionId.slice(0, 8)}`;
   const summary = reasonSuffix ? `${label} - ${reasonSuffix}` : `${label} - interrupted by user`;
@@ -474,8 +474,8 @@ const processEvent = db.transaction((hookType, data) => {
         // Stamp the waiting flag in the same DB pass as the status update so
         // the post-write read returns a consistent (waiting, awaiting=set)
         // row.
-        stmts.setSessionAwaitingInput.run(now, sessionId);
-        if (mainAgentId) stmts.setAgentAwaitingInput.run(now, mainAgentId);
+        stmts.setSessionAwaitingInput.run(now, "stop", sessionId);
+        if (mainAgentId) stmts.setAgentAwaitingInput.run(now, "stop", mainAgentId);
       }
 
       // Now broadcast — single agent_updated reflecting the final state.
@@ -560,8 +560,9 @@ const processEvent = db.transaction((hookType, data) => {
       // user hits enter) or PreToolUse (when Claude actually runs a tool)
       // will clear the flag.
       const sessionStartTs = new Date().toISOString();
-      stmts.setSessionAwaitingInput.run(sessionStartTs, sessionId);
-      if (mainAgentId) stmts.setAgentAwaitingInput.run(sessionStartTs, mainAgentId);
+      stmts.setSessionAwaitingInput.run(sessionStartTs, "session_start", sessionId);
+      if (mainAgentId)
+        stmts.setAgentAwaitingInput.run(sessionStartTs, "session_start", mainAgentId);
 
       // Single broadcast pair with the final state — agents and sessions
       // are now connected/active with the waiting flag set, so WS clients
@@ -649,11 +650,11 @@ const processEvent = db.transaction((hookType, data) => {
         // so the dashboard can surface a yellow "Waiting" badge until the
         // user responds — at which point the next PreToolUse/Stop clears it.
         const ts = new Date().toISOString();
-        stmts.setSessionAwaitingInput.run(ts, sessionId);
+        stmts.setSessionAwaitingInput.run(ts, "notification", sessionId);
         broadcast("session_updated", stmts.getSession.get(sessionId));
         if (mainAgentId) {
           stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
-          stmts.setAgentAwaitingInput.run(ts, mainAgentId);
+          stmts.setAgentAwaitingInput.run(ts, "notification", mainAgentId);
           broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
         }
         summary = msg;

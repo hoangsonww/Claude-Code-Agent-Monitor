@@ -192,6 +192,7 @@ describe("watchdog liveness reap", () => {
     await seedSession(sid, cwd);
     assert.equal(stmts.getSession.get(sid).status, "active");
     assert.ok(stmts.getSession.get(sid).awaiting_input_since, "seeded as Waiting");
+    assert.equal(stmts.getSession.get(sid).awaiting_reason, "stop", "seeded via Stop hook");
 
     liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
     hooksRouter.livenessReap();
@@ -200,9 +201,11 @@ describe("watchdog liveness reap", () => {
     assert.equal(sess.status, "completed");
     assert.ok(sess.ended_at, "ended_at stamped");
     assert.equal(sess.awaiting_input_since, null, "Waiting flag cleared");
+    assert.equal(sess.awaiting_reason, null, "awaiting_reason cleared alongside the flag");
     const main = stmts.getAgent.get(`${sid}-main`);
     assert.equal(main.status, "completed");
     assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.awaiting_reason, null);
     const evt = db
       .prepare(
         "SELECT * FROM events WHERE session_id = ? AND event_type = 'SessionEnd' ORDER BY created_at DESC LIMIT 1"
