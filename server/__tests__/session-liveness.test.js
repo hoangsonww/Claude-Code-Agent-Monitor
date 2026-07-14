@@ -224,6 +224,33 @@ describe("watchdog liveness reap", () => {
     assert.equal(stmts.getSession.get(sid).status, "active");
   });
 
+  it("spares a household-hook session with a non-POSIX (Windows) cwd, even with zero live local processes", async () => {
+    // A session forwarded from a Windows machine reports cwd in that origin
+    // machine's own syntax. path.resolve() on this (POSIX) host doesn't
+    // recognize it as absolute, so it can never match anything the local
+    // /proc or lsof scan produces — that mismatch must not be treated as
+    // "process is dead".
+    const sid = "wind0000-0000-0000-0000-00000000000c";
+    const cwd = "D:\\Git\\ai-deck";
+    await seedSession(sid, cwd);
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
+    hooksRouter.livenessReap();
+
+    assert.equal(stmts.getSession.get(sid).status, "active");
+  });
+
+  it("still reaps a genuinely local (POSIX) cwd not in probe.cwds — regression guard", async () => {
+    const sid = "posx0000-0000-0000-0000-00000000000d";
+    const cwd = "/home/claude/projects/some-repo";
+    await seedSession(sid, cwd);
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
+    hooksRouter.livenessReap();
+
+    assert.equal(stmts.getSession.get(sid).status, "completed");
+  });
+
   it("does nothing when the probe is unavailable", async () => {
     const sid = "unav0000-0000-0000-0000-000000000003";
     const cwd = "/tmp/liveness-unavailable";
