@@ -15,6 +15,8 @@ window.__WIKI_CONTENT_I18N = {
     Monitoring: "监控",
     "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
       "可达性检查、总量与状态分布、以文本列渲染的 Kanban 看板，以及每 2 秒轮询新行的实时事件流",
+    "Up/down indicator, a background server start that waits for health, and the interactive <code>ccam repl</code> shell — tab-completion, persisted history, a live server-status prompt, and a <code>watch</code> auto-refresh":
+      "上线/下线指示器、在后台启动服务器并等待其健康就绪，以及交互式 <code>ccam repl</code> shell——Tab 补全、可持久化历史、实时服务器状态提示符，以及 <code>watch</code> 自动刷新",
     Data: "数据",
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "可筛选的表格，外加按会话的深入视图：缩进的 agent 树、单会话成本以及最近的事件",
@@ -1249,6 +1251,8 @@ window.__WIKI_CONTENT_I18N = {
     Monitoring: "Giám sát",
     "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
       "Kiểm tra khả năng kết nối, tổng số và phân bố trạng thái, bảng Kanban hiển thị dạng cột văn bản, cùng luồng sự kiện trực tiếp poll dòng mới mỗi 2 giây",
+    "Up/down indicator, a background server start that waits for health, and the interactive <code>ccam repl</code> shell — tab-completion, persisted history, a live server-status prompt, and a <code>watch</code> auto-refresh":
+      "Chỉ báo bật/tắt, khởi động server chạy nền và chờ đến khi khỏe mạnh, và shell tương tác <code>ccam repl</code> — tự hoàn thành bằng Tab, lịch sử được lưu lại, dấu nhắc trạng thái server trực tiếp, và tự làm mới bằng <code>watch</code>",
     Data: "Dữ liệu",
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "Các bảng có bộ lọc, cộng thêm góc nhìn sâu theo phiên: cây agent thụt lề, chi phí từng phiên và các sự kiện gần nhất",
@@ -2514,6 +2518,8 @@ window.__WIKI_CONTENT_I18N = {
     Monitoring: "모니터링",
     "Reachability, totals and status distributions, the Kanban board rendered as text columns, and a live event feed that polls for new rows every 2 seconds":
       "연결 확인, 총계와 상태 분포, 텍스트 컬럼으로 렌더링되는 Kanban 보드, 그리고 2초마다 새 행을 폴링하는 실시간 이벤트 피드",
+    "Up/down indicator, a background server start that waits for health, and the interactive <code>ccam repl</code> shell — tab-completion, persisted history, a live server-status prompt, and a <code>watch</code> auto-refresh":
+      "실행 여부 표시기, 헬스 상태를 기다리는 백그라운드 서버 시작, 그리고 대화형 <code>ccam repl</code> 셸 — Tab 자동 완성, 저장되는 히스토리, 실시간 서버 상태 프롬프트, 그리고 <code>watch</code> 자동 새로고침",
     Data: "데이터",
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "필터링 가능한 테이블과 세션별 심층 보기: 들여쓰기된 에이전트 트리, 세션별 비용, 최근 이벤트",
