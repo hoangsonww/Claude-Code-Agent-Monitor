@@ -1912,7 +1912,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_LIVENESS_PROBE</code></td>
                   <td><code>1</code></td>
                   <td>
-                    Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers
+                    Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.
                   </td>
                 </tr>
                 <tr>
