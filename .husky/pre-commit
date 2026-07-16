@@ -23,10 +23,14 @@ cd "$ROOT"
 STAGED="$(git diff --cached --name-only --diff-filter=ACMR)"
 if [ -n "$STAGED" ]; then
   PRETTIER="$ROOT/node_modules/.bin/prettier"
-  [ -x "$PRETTIER" ] || PRETTIER="npx --no-install prettier"
+  if [ -x "$PRETTIER" ]; then
+    set -- "$PRETTIER"
+  else
+    set -- npx --no-install prettier
+  fi
 
   echo "🎨 Formatting staged files with Prettier..."
-  git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 $PRETTIER --write --ignore-unknown
+  git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 "$@" --write --ignore-unknown
   git diff --cached --name-only --diff-filter=ACMR -z | xargs -0 git add
 else
   echo "🎨 No staged files to format."
