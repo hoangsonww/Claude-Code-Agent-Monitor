@@ -13,15 +13,15 @@ const {
   normalizeTier,
   accumulateBucket,
 } = require("./token-usage");
+const {
+  hasInterruptText,
+  isCompactionEntry,
+  isTurnActivityEntry,
+  extractTurnDuration,
+  extractApiError,
+} = require("./transcript-line-classifier");
 
 const MAX_CACHE_ENTRIES = 200;
-
-// Marker text Claude Code writes into the transcript when a turn is cancelled
-// by the user (Esc). The synthetic entry is `type:"user"` and also carries an
-// `interruptedMessageId` field; we accept either signal so detection survives
-// minor format drift. No hook fires on interrupt, so this is the only on-disk
-// evidence the watchdog can use to un-stick a session left in "working".
-const INTERRUPT_RE = /\[Request interrupted by user/i;
 
 // True when the transcript's tail is a user-interrupt that was never followed
 // by real turn activity (a new prompt or model output). Both timestamps come
@@ -32,18 +32,6 @@ function computePendingInterrupt(lastInterruptTs, lastTurnTs) {
   if (!lastInterruptTs) return false;
   if (!lastTurnTs) return true;
   return lastInterruptTs >= lastTurnTs;
-}
-
-function hasInterruptText(message) {
-  if (!message || typeof message !== "object") return false;
-  const c = message.content;
-  if (typeof c === "string") return INTERRUPT_RE.test(c);
-  if (Array.isArray(c)) {
-    for (const block of c) {
-      if (block && typeof block.text === "string" && INTERRUPT_RE.test(block.text)) return true;
-    }
-  }
-  return false;
 }
 
 // Hard cap on the length of each per-entry growable array (turnDurations,
@@ -433,7 +421,7 @@ class TranscriptCache {
     // prompt. Tracking its latest timestamp lets _finalizeState decide whether
     // a later interrupt was superseded by the user resuming (new prompt /
     // model output) or is still the unrecovered tail of the transcript.
-    if ((entry.type === "assistant" || entry.type === "user") && entry.timestamp) {
+    if (isTurnActivityEntry(entry)) {
       if (!state.lastTurnTs || entry.timestamp > state.lastTurnTs)
         state.lastTurnTs = entry.timestamp;
     }
@@ -446,7 +434,7 @@ class TranscriptCache {
       if (firstText) state.firstUserMessage = firstText;
     }
 
-    if (entry.isCompactSummary) {
+    if (isCompactionEntry(entry)) {
       if (!state.compaction) state.compaction = { count: 0, entries: [] };
       state.compaction.count++;
       state.compaction.entries.push({
@@ -458,39 +446,18 @@ class TranscriptCache {
       }
     }
 
-    if (entry.type === "system" && entry.subtype === "turn_duration" && entry.durationMs) {
-      const turnTs = entry.timestamp
-        ? typeof entry.timestamp === "number"
-          ? new Date(entry.timestamp).toISOString()
-          : entry.timestamp
-        : null;
-      state.turnDurations.push({ durationMs: entry.durationMs, timestamp: turnTs });
+    const turnDuration = extractTurnDuration(entry);
+    if (turnDuration) {
+      state.turnDurations.push(turnDuration);
       if (state.turnDurations.length >= PARSE_TRIM_WATERMARK) {
         this._trimArray(state.turnDurations);
       }
     }
 
     const msg = entry.message || entry;
-    if (msg.type === "error" && msg.error) {
-      state.errors.push({
-        type: msg.error.type || "unknown_error",
-        message: msg.error.message || "Unknown API error",
-        timestamp: entry.timestamp || null,
-      });
-      if (state.errors.length >= PARSE_TRIM_WATERMARK) {
-        this._trimArray(state.errors);
-      }
-      return;
-    }
-
-    if (entry.isApiErrorMessage) {
-      const errContent = Array.isArray(entry.message?.content) ? entry.message.content : [];
-      const errText = errContent[0]?.text ? errContent[0].text.slice(0, 500) : "Unknown error";
-      state.errors.push({
-        type: entry.error || "unknown_error",
-        message: errText,
-        timestamp: entry.timestamp || null,
-      });
+    const apiError = extractApiError(entry);
+    if (apiError) {
+      state.errors.push(apiError);
       if (state.errors.length >= PARSE_TRIM_WATERMARK) {
         this._trimArray(state.errors);
       }
