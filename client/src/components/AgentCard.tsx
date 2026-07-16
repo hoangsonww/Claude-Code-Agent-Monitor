@@ -154,7 +154,9 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             {subtitle && <p className="text-[11px] text-gray-500 truncate">{subtitle}</p>}
           </div>
         </div>
-        <AgentStatusBadge status={status} reason={agentAwaitingReason(agent)} />
+        {/* compact: cards are narrow — inline reason chip would squeeze the
+            title, so the reason stays hover-tooltip-only here. */}
+        <AgentStatusBadge status={status} reason={agentAwaitingReason(agent)} compact />
       </div>
 
       {agent.task && (

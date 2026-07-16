@@ -269,7 +269,7 @@ describe("AgentCard", () => {
     expect(card?.className).toContain("border-l-yellow-500/60");
   });
 
-  it("renders the awaiting reason next to the Waiting badge", () => {
+  it("keeps the card badge compact: reason is tooltip-only, no inline chip", () => {
     renderCard(
       <AgentCard
         agent={makeAgent({
@@ -280,7 +280,9 @@ describe("AgentCard", () => {
       />
     );
     expect(screen.getByText("Waiting")).toBeInTheDocument();
-    expect(screen.getByText("Needs input")).toBeInTheDocument();
+    // Cards are narrow — the inline chip would squeeze the title, so the
+    // reason must NOT render inline here (hover tooltip only).
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
   });
 
   it("degrades to a plain Waiting badge on an unknown awaiting_reason", () => {

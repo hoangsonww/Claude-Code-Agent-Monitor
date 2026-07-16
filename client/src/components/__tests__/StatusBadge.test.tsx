@@ -140,4 +140,20 @@ describe("awaiting-reason suffix", () => {
     const { container: calm } = render(<AgentStatusBadge status="waiting" reason="stop" />);
     expect(calm.querySelector(".text-amber-300")).not.toBeInTheDocument();
   });
+
+  it("compact mode suppresses the inline chip but keeps the hover tooltip", () => {
+    const { container } = render(
+      <AgentStatusBadge status="waiting" reason="notification" compact />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+    fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
+    expect(screen.getByText(/Blocked on a permission prompt/)).toBeInTheDocument();
+  });
+
+  it("compact mode works on SessionStatusBadge too", () => {
+    render(<SessionStatusBadge status="waiting" reason="stop" compact />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Turn done")).not.toBeInTheDocument();
+  });
 });

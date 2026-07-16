@@ -635,7 +635,7 @@ interface AgentCardProps {
 
 #### StatusBadge
 
-Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatusBadge`). When a row is in the yellow **Waiting** overlay (`awaiting_input_since` set), an optional `reason` prop appends WHY as an icon + short label with a hover tooltip carrying the full explanation:
+Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatusBadge`). When a row is in the yellow **Waiting** overlay (`awaiting_input_since` set), an optional `reason` prop explains WHY: a hover tooltip carries the full explanation, and — unless `compact` is set — a small nested chip (icon + short label) renders inline. Card layouts (Kanban / Dashboard trees) pass `compact` so the chip never squeezes the card title; the Sessions table and session-detail header show the full chip:
 
 | `awaiting_reason` | Label | Meaning |
 | ----------------- | ----- | ------- |
@@ -650,6 +650,7 @@ interface AgentStatusBadgeProps {
   status: EffectiveAgentStatus;
   pulse?: boolean;
   reason?: AwaitingReason | null; // from agentAwaitingReason(agent)
+  compact?: boolean; // tooltip-only (no inline chip) for tight card layouts
 }
 ```
 

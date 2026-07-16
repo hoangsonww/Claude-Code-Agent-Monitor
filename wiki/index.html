@@ -912,7 +912,7 @@
                     any column header for lifecycle tooltips explaining each state transition.
                     Cards surface model name, cumulative cost, and the current tool being called.
                     Counts update in real time via WebSocket so the board is always in sync with
-                    the live event store. Waiting badges also say why — needs input, turn done, at prompt, or interrupted — with a hover tooltip explaining the state.
+                    the live event store. Hover a Waiting badge to see why — needs input, turn done, at prompt, or interrupted.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2450,7 +2450,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 abandoned --> [*]
             </div>
             <p class="diagram-label">
-              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting. The dashboard surfaces the reason on every Waiting badge (icon + short label + tooltip) and in a waiting-for-input banner on the session detail page.
+              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting. The dashboard surfaces the reason on every Waiting badge (hover tooltip, plus an inline chip on the Sessions table and session detail header) and in a waiting-for-input banner on the session detail page.
             </p>
           </div>
         </section>
