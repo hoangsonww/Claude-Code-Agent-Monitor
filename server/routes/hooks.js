@@ -1185,12 +1185,25 @@ router.post("/event", (req, res) => {
 //      forwarded through /event). This route never calls ensureSession —
 //      insertSession is not an upsert, so racing it here against a live
 //      SessionStart could create a duplicate/conflicting row.
-//   4. Items are validated BEFORE the transaction (per-item soft-fail):
+//   4. The session's main agent (`${sessionId}-main`) must exist too. A
+//      SessionStart-created session always has one (ensureSession inserts
+//      both rows together), but a session created via the bare
+//      POST /api/sessions route does not — that route only inserts the
+//      session. Resolving mainAgentId without verifying the row exists let
+//      tool_events/turns/subagents insertEvent() calls throw a FOREIGN KEY
+//      constraint failure INSIDE the transaction below, rolling back an
+//      otherwise-good batch with no structured error. 404s as
+//      UNKNOWN_MAIN_AGENT before anything is written.
+//   5. Items are validated BEFORE the transaction (per-item soft-fail):
 //      malformed entries are skipped and reported in `errors`, valid ones are
 //      written atomically in a single db.transaction (mirrors processEvent's
 //      shape above), so one bad item can never roll back the rest of an
 //      otherwise-good batch nor partially apply a batch that IS entirely
-//      good.
+//      good. Any OTHER exception out of that transaction (e.g. a
+//      caller-supplied tool_event.agent_id that doesn't exist) is caught
+//      around the runBatch() call and mapped to a structured JSON 500
+//      (INGEST_BATCH_FAILED) rather than falling through to Express'
+//      generic HTML error handler.
 //
 // Two further OPTIONAL top-level fields close the parity gap with the local
 // pipeline (verified against a live .213 session whose forwarder-derived copy
@@ -1286,6 +1299,30 @@ router.post("/ingest-batch", (req, res) => {
     });
   }
 
+  // A session created via SessionStart always gets a `${sessionId}-main`
+  // agent row (ensureSession above). But a session can also come into
+  // existence via POST /api/sessions (server/routes/sessions.js), which
+  // inserts the session row only and never calls insertAgent — so a session
+  // can legitimately exist here with no main agent. Prior to this check,
+  // that case fell through to a synthesized mainAgentId that was never
+  // verified against the agents table: the first insertEvent referencing it
+  // (tool_events/turns) threw a FOREIGN KEY constraint failure *inside*
+  // db.transaction, which auto-rolled back the entire batch — including
+  // otherwise-valid items — and produced no `error.code` a caller could
+  // branch on (see the try/catch around runBatch() below). Gate it here,
+  // before any item is written, same as the other hard per-batch checks
+  // above.
+  const mainAgent = getMainAgent(sessionId);
+  if (!mainAgent) {
+    return res.status(404).json({
+      error: {
+        code: "UNKNOWN_MAIN_AGENT",
+        message: `session ${sessionId} has no main agent (${sessionId}-main) — session must be created via the SessionStart hook, not POST /api/sessions`,
+      },
+    });
+  }
+  const mainAgentId = mainAgent.id;
+
   // ── Validate items before the transaction (per-item soft-fail) ──────────
   const errors = [];
   const validTokens = [];
@@ -1324,8 +1361,6 @@ router.post("/ingest-batch", (req, res) => {
     validSubagents.push(s);
   }
 
-  const mainAgent = getMainAgent(sessionId);
-  const mainAgentId = mainAgent ? mainAgent.id : `${sessionId}-main`;
   let written = 0;
 
   const runBatch = db.transaction(() => {
@@ -1495,7 +1530,25 @@ router.post("/ingest-batch", (req, res) => {
     stmts.touchSession.run(sessionId);
   });
 
-  runBatch();
+  // The per-item validation above only checks shape (missing uuid/agent_id/
+  // model). It can't catch every way a batch item breaks a DB constraint
+  // (e.g. an explicit tool_event.agent_id that doesn't exist in `agents`)
+  // and better-sqlite3/node:sqlite both throw synchronously on constraint
+  // violations, which db.transaction rethrows after rolling back. Without
+  // this catch, that exception fell through to Express' default error
+  // handler — a generic HTML 500, not this route's {error:{code,message}}
+  // JSON contract — breaking any forwarder that parses res.body.error.code.
+  try {
+    runBatch();
+  } catch (err) {
+    console.error(`[HOOKS] ingest-batch transaction failed for session ${sessionId}:`, err);
+    return res.status(500).json({
+      error: {
+        code: "INGEST_BATCH_FAILED",
+        message: err && err.message ? err.message : "ingest-batch transaction failed",
+      },
+    });
+  }
 
   res.json({ ok: true, written, failed: errors.length, errors });
 });

@@ -154,6 +154,60 @@ describe("POST /api/hooks/ingest-batch", () => {
     assert.equal(tokenRow(id, "claude-x"), undefined, "no token row should have been written");
   });
 
+  it("404s UNKNOWN_MAIN_AGENT when the session exists but has no main agent row (POST /api/sessions path), and does not partially write the batch", async () => {
+    const id = sid();
+    // Bypass SessionStart entirely — this is the pre-existing route that
+    // creates a session row without ever inserting the `${id}-main` agent
+    // row (server/routes/sessions.js POST / calls insertSession only).
+    const created = await req("POST", "/api/sessions", { id, cwd: WIN_CWD });
+    assert.equal(created.status, 201);
+    assert.equal(stmts.getAgent.get(`${id}-main`), undefined, "test setup: no main agent expected");
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-orphan-session", input: 10 }],
+      tool_events: [{ uuid: "orphan-evt-1", tool_name: "Read" }],
+    });
+
+    // Contract: a structured JSON error, never Express' default HTML 500 —
+    // and specifically not a 500 at all, since this is now caught before
+    // the transaction runs.
+    assert.equal(res.status, 404);
+    assert.equal(typeof res.body, "object", "response must be parsed JSON, not raw HTML");
+    assert.equal(res.body.error.code, "UNKNOWN_MAIN_AGENT");
+
+    // Nothing from the batch should have landed — not even the valid token
+    // row that preceded the (formerly) transaction-killing tool_event.
+    assert.equal(tokenRow(id, "claude-orphan-session"), undefined);
+    const toolCount = db
+      .prepare("SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'ToolEvent'")
+      .get(id).c;
+    assert.equal(toolCount, 0);
+  });
+
+  it("maps an unexpected DB-constraint failure inside the transaction (e.g. a bogus tool_event.agent_id) to a structured 500, not HTML — session DOES have a main agent here", async () => {
+    const id = sid();
+    await seedSession(id); // main agent exists — the UNKNOWN_MAIN_AGENT gate does not fire
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tool_events: [{ uuid: "bad-agent-evt", agent_id: "no-such-agent-row", tool_name: "Bash" }],
+    });
+
+    assert.equal(res.status, 500);
+    assert.equal(typeof res.body, "object", "response must be parsed JSON, not raw HTML");
+    assert.equal(res.body.error.code, "INGEST_BATCH_FAILED");
+
+    const toolCount = db
+      .prepare("SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'ToolEvent'")
+      .get(id).c;
+    assert.equal(toolCount, 0, "the failed transaction must not have partially written");
+  });
+
   it("400s when transcript_path is missing", async () => {
     const id = sid();
     await seedSession(id);
