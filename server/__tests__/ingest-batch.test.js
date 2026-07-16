@@ -1,0 +1,344 @@
+/**
+ * @file Tests for POST /api/hooks/ingest-batch — bulk ingestion for a future
+ * remote/household forwarder that has been collecting hook-derived facts
+ * (whole-file token totals, tool events, turn durations, subagent
+ * completions) about a session whose JSONL transcript lives on another
+ * machine's disk. Mirrors the setup/request-helper pattern in
+ * remote-subagent-synth.test.js: in-process server, temp CLAUDE_HOME/DATA_DIR,
+ * sessions seeded via the real SessionStart hook path (so the route is
+ * exercised the way a real forwarder would hit it — session already known,
+ * transcript unreadable on this host).
+ */
+
+const { describe, it, before, after } = require("node:test");
+const assert = require("node:assert/strict");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const http = require("http");
+const { SCHEMA_VERSION } = require("../lib/transcript-line-classifier");
+
+const STAMP = `ingest-batch-${Date.now()}-${process.pid}`;
+const TMP = path.join(os.tmpdir(), STAMP);
+process.env.DASHBOARD_DB_PATH = path.join(TMP, "dashboard.db");
+process.env.CLAUDE_HOME = path.join(TMP, "home");
+process.env.DASHBOARD_DATA_DIR = path.join(TMP, "data");
+fs.mkdirSync(TMP, { recursive: true });
+
+const { createApp, startServer } = require("../index");
+const dbModule = require("../db");
+const { db, stmts } = dbModule;
+
+let server;
+let BASE;
+
+function req(method, urlPath, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlPath, BASE);
+    const payload = body !== undefined ? JSON.stringify(body) : null;
+    const r = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method,
+        headers: payload
+          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
+          : {},
+      },
+      (res) => {
+        let b = "";
+        res.on("data", (c) => (b += c));
+        res.on("end", () => {
+          let parsed;
+          try {
+            parsed = JSON.parse(b || "{}");
+          } catch {
+            parsed = b;
+          }
+          resolve({ status: res.statusCode, body: parsed });
+        });
+      }
+    );
+    r.on("error", reject);
+    if (payload) r.write(payload);
+    r.end();
+  });
+}
+
+// A path guaranteed not to exist on this host — stands in for a remote
+// machine's transcript that this monitor cannot read.
+const UNREADABLE = "C:\\Users\\matsp\\.claude\\projects\\enc\\does-not-exist.jsonl";
+const WIN_CWD = "C:\\Users\\matsp\\chats\\ingest-batch-session";
+
+let seq = 0;
+function sid() {
+  seq++;
+  return `30000000-0000-0000-0000-${String(seq).padStart(12, "0")}`;
+}
+
+/** Create a session (+ main agent) via the real SessionStart hook path, transcript unreadable here. */
+async function seedSession(sessionId, transcriptPath = UNREADABLE) {
+  await req("POST", "/api/hooks/event", {
+    hook_type: "SessionStart",
+    data: { session_id: sessionId, cwd: WIN_CWD, transcript_path: transcriptPath },
+  });
+}
+
+function tokenRow(sessionId, model) {
+  return db
+    .prepare(
+      "SELECT * FROM token_usage WHERE session_id = ? AND model = ? AND speed = 'standard' AND inference_geo = 'global' AND service_tier = 'standard'"
+    )
+    .get(sessionId, model);
+}
+
+function effectiveInput(row) {
+  return (row?.input_tokens || 0) + (row?.baseline_input || 0);
+}
+
+before(async () => {
+  server = await startServer(createApp(), 0);
+  BASE = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(() => {
+  if (server) server.close();
+  if (db) db.close();
+  try {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+});
+
+describe("POST /api/hooks/ingest-batch", () => {
+  it("404s when the session is unknown (never calls ensureSession itself)", async () => {
+    const id = sid();
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [],
+    });
+    assert.equal(res.status, 404);
+    assert.equal(res.body.error.code, "UNKNOWN_SESSION");
+  });
+
+  it("409s on a schema_version mismatch", async () => {
+    const id = sid();
+    await seedSession(id);
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: "999",
+      tokens: [],
+    });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error.code, "SCHEMA_VERSION_MISMATCH");
+  });
+
+  it("409s (skips) when the transcript IS readable on this host — local pipeline owns it", async () => {
+    const id = sid();
+    await seedSession(id);
+    const localPath = path.join(TMP, `${id}.jsonl`);
+    fs.writeFileSync(localPath, "{}\n");
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: localPath,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-x", input: 100 }],
+    });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error.code, "LOCAL_TRANSCRIPT_OWNS_SESSION");
+    assert.equal(tokenRow(id, "claude-x"), undefined, "no token row should have been written");
+  });
+
+  it("400s when transcript_path is missing", async () => {
+    const id = sid();
+    await seedSession(id);
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      schema_version: SCHEMA_VERSION,
+      tokens: [],
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+  });
+
+  it("token replace is idempotent (high-water mark): same totals twice → unchanged; larger totals → updated", async () => {
+    const id = sid();
+    await seedSession(id);
+    const model = "claude-ingest-test";
+
+    const batch1 = {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model, input: 1000, output: 200, cacheRead: 50 }],
+    };
+    let res = await req("POST", "/api/hooks/ingest-batch", batch1);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 1);
+    assert.equal(effectiveInput(tokenRow(id, model)), 1000);
+
+    // Re-post the exact same totals — high-water-mark replace means the
+    // effective value must not grow (would double-count a whole-file total).
+    res = await req("POST", "/api/hooks/ingest-batch", batch1);
+    assert.equal(res.status, 200);
+    assert.equal(effectiveInput(tokenRow(id, model)), 1000);
+
+    // Larger totals (transcript grew) → the row updates to the new total.
+    const batch2 = {
+      ...batch1,
+      tokens: [{ model, input: 2500, output: 400, cacheRead: 50 }],
+    };
+    res = await req("POST", "/api/hooks/ingest-batch", batch2);
+    assert.equal(res.status, 200);
+    assert.equal(effectiveInput(tokenRow(id, model)), 2500);
+  });
+
+  it("dedupes tool_events by uuid — a redelivered item is a no-op", async () => {
+    const id = sid();
+    await seedSession(id);
+    const item = {
+      uuid: "tool-evt-1",
+      tool_name: "Bash",
+      status: "completed",
+      timestamp: new Date().toISOString(),
+    };
+
+    let res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tool_events: [item],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 1);
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tool_events: [item],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 0, "redelivered tool_event should not be re-inserted");
+
+    const count = db
+      .prepare("SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'ToolEvent'")
+      .get(id).c;
+    assert.equal(count, 1);
+  });
+
+  it("dedupes turns by uuid — a redelivered item is a no-op", async () => {
+    const id = sid();
+    await seedSession(id);
+    const item = { uuid: "turn-1", duration_ms: 4200, timestamp: new Date().toISOString() };
+
+    let res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      turns: [item],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 1);
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      turns: [item],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 0);
+
+    const count = db
+      .prepare(
+        "SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'TurnDuration'"
+      )
+      .get(id).c;
+    assert.equal(count, 1);
+  });
+
+  it("subagent idempotency — same agent_id twice creates exactly one row, type='subagent' satisfies the CHECK constraint", async () => {
+    const id = sid();
+    await seedSession(id);
+    const sub = {
+      agent_id: "sub-batch-1",
+      agent_type: "code-reviewer",
+      last_assistant_message: "Reviewed the diff.",
+      prompt: "Review this diff",
+    };
+
+    let res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      subagents: [sub],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 1);
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      subagents: [sub],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 0, "redelivered subagent should not count as written");
+
+    const rows = db
+      .prepare("SELECT * FROM agents WHERE session_id = ? AND type = 'subagent'")
+      .all(id);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, `${id}-sub-sub-batch-1`);
+    assert.equal(rows[0].type, "subagent");
+    assert.equal(rows[0].status, "completed");
+    assert.equal(rows[0].name, "code-reviewer");
+    assert.equal(rows[0].subagent_type, "code-reviewer");
+    assert.ok(rows[0].ended_at);
+  });
+
+  it("per-item soft-fail: invalid items are reported and skipped, valid items in the same batch still land", async () => {
+    const id = sid();
+    await seedSession(id);
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-soft-fail-ok", input: 10 }, { input: 10 /* missing model */ }],
+      tool_events: [
+        { uuid: "soft-ok-1", tool_name: "Read" },
+        { tool_name: "NoUuid" /* missing uuid */ },
+      ],
+      turns: [{ uuid: "soft-ok-turn", duration_ms: 100 }, { duration_ms: 100 /* missing uuid */ }],
+      subagents: [
+        { agent_id: "soft-ok-sub" },
+        { last_assistant_message: "no agent_id" /* missing agent_id */ },
+      ],
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.failed, 4);
+    assert.equal(res.body.errors.length, 4);
+    assert.equal(res.body.written, 4);
+
+    assert.ok(tokenRow(id, "claude-soft-fail-ok"));
+    const toolCount = db
+      .prepare("SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'ToolEvent'")
+      .get(id).c;
+    assert.equal(toolCount, 1);
+    const turnCount = db
+      .prepare(
+        "SELECT COUNT(*) AS c FROM events WHERE session_id = ? AND event_type = 'TurnDuration'"
+      )
+      .get(id).c;
+    assert.equal(turnCount, 1);
+    assert.ok(stmts.getAgent.get(`${id}-sub-soft-ok-sub`));
+  });
+});
