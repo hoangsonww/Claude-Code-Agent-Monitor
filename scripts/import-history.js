@@ -868,7 +868,12 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
 
   const jsonlSubId = `${sessionId}-jsonl-${subData.agentId}`;
   const liveSub = findLiveSubagentForJsonl(dbModule, sessionId, subData);
-  const targetAgentId = liveSub ? liveSub.id : jsonlSubId;
+  // A remote/transcript-less synth row (SubagentStop fallback in routes/hooks.js,
+  // id `<sessionId>-sub-<agent_id>`) may already represent this subagent. If the
+  // transcript later becomes readable on this host and the scan runs, merge into
+  // that row rather than inserting a parallel jsonl-keyed one. No-op when absent.
+  const synthSub = stmts.getAgent.get(`${sessionId}-sub-${subData.agentId}`);
+  const targetAgentId = liveSub ? liveSub.id : synthSub ? synthSub.id : jsonlSubId;
   const existingJsonl = stmts.getAgent.get(jsonlSubId);
 
   const subName = subData.agentType ? subData.agentType : `Subagent ${subData.agentId.slice(0, 8)}`;
@@ -881,7 +886,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   // Live subagents (created via the PreToolUse "Agent" hook) are detected by
   // findLiveSubagentForJsonl above; in that case tool events are emitted under
   // the live row's id and no parallel JSONL-keyed row is needed.
-  if (!liveSub && !existingJsonl) {
+  if (!liveSub && !synthSub && !existingJsonl) {
     stmts.insertAgent.run(
       jsonlSubId,
       sessionId,

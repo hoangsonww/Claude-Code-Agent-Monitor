@@ -9,6 +9,10 @@ const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
 const TranscriptCache = require("../lib/transcript-cache");
+// Shared with the transcript path so payload-derived descriptors normalize
+// (whitespace collapse, 500-char cap, synthetic/tool-result skip) identically.
+const { extractFirstUserText } = TranscriptCache;
+const fs = require("fs");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
@@ -173,6 +177,24 @@ function firstUserLabel(result) {
 }
 
 /**
+ * Derive a descriptor label from a raw UserPromptSubmit `prompt` payload, reusing
+ * the shared extractFirstUserText so a payload-derived descriptor is byte-identical
+ * to the transcript-derived one (same whitespace collapse, 500-char cap, and
+ * synthetic/tool-result skip). Additionally skips bare slash-command prompts
+ * (e.g. "/lagre", "/kunnskap args") — in the transcript these arrive as filtered
+ * <command-name> plumbing, so the descriptor must not adopt them from the raw
+ * payload either. The slash test intentionally does NOT match a POSIX path like
+ * "/home/claude/..." (the char after the first segment is "/", not whitespace/end).
+ * Returns null when the prompt is not a usable first message.
+ */
+function descriptorFromPrompt(prompt) {
+  const text = extractFirstUserText({ message: { role: "user", content: prompt } });
+  if (!text) return null;
+  if (/^\/[A-Za-z0-9_:-]+(?:\s|$)/.test(text)) return null;
+  return text;
+}
+
+/**
  * True when the main agent's name is still an auto-generated label:
  * "Main Agent" (seed/API fallback) or "Main Agent - <auto session label>"
  * (hook / import creation paths). A suffix that is a real title — or the
@@ -281,6 +303,13 @@ const processEvent = db.transaction((hookType, data) => {
           ? data.remote_custom_title.slice(0, 200)
           : null,
       aiTitle: typeof data.remote_ai_title === "string" ? data.remote_ai_title.slice(0, 200) : null,
+      // The remote descriptor fallback (UserPromptSubmit handling below) may have
+      // named this session from an earlier prompt. Surface that label so
+      // syncSessionName's replaceable check lets a later ai-title take over a
+      // descriptor-derived name — exactly as it does on the local transcript path.
+      // The main agent's task holds the full first-user message written there, and
+      // firstUserLabel reproduces the same label that was written to sessions.name.
+      firstUserMessage: getMainAgent(sessionId)?.task || null,
     });
   }
 
@@ -540,6 +569,61 @@ const processEvent = db.transaction((hookType, data) => {
 
         // Session stays active — SubagentStop just means one subagent finished,
         // the session is not over until the user explicitly closes it.
+      } else if (
+        typeof data.agent_id === "string" &&
+        data.agent_id &&
+        typeof data.transcript_path === "string" &&
+        data.transcript_path &&
+        !fs.existsSync(data.transcript_path)
+      ) {
+        // Remote/transcript-less synth. For household sessions the subagent
+        // sidechains live in the origin machine's JSONL, so neither PreToolUse
+        // (subagent creation) nor the post-commit transcript scan ever creates a
+        // subagent row here — the SubagentStop would otherwise vanish and the
+        // session shows only its main agent. Gated on the transcript_path this
+        // event carries NOT being readable on this host — the exact condition
+        // being compensated for, origin/host-agnostic (Windows or remote-POSIX
+        // alike), and false for local sessions whose JSONL is on disk, so the
+        // richer local PreToolUse/transcript-scan pipeline is never duplicated.
+        // Synthesize a completed subagent row so the agent count + tree reflect
+        // the real fan-out. Idempotent by agent_id. agent_type is usually absent
+        // on this event, so the label falls back to the inline last-assistant
+        // message; started_at≈ended_at since the true start isn't known here.
+        const subId = `${sessionId}-sub-${data.agent_id}`;
+        if (stmts.getAgent.get(subId)) {
+          agentId = subId; // already synthesized (redelivered event) — no dup
+        } else {
+          const rawLabel =
+            (typeof data.description === "string" && data.description) ||
+            (typeof data.agent_type === "string" && data.agent_type) ||
+            (typeof data.subagent_type === "string" && data.subagent_type) ||
+            (typeof data.last_assistant_message === "string" && data.last_assistant_message) ||
+            "Subagent";
+          const collapsed = rawLabel.replace(/\s+/g, " ").trim() || "Subagent";
+          const label = collapsed.length > 60 ? collapsed.slice(0, 57) + "..." : collapsed;
+          const subType =
+            (typeof data.agent_type === "string" && data.agent_type) ||
+            (typeof data.subagent_type === "string" && data.subagent_type) ||
+            null;
+          stmts.insertAgent.run(
+            subId,
+            sessionId,
+            label,
+            "subagent",
+            subType,
+            "completed",
+            typeof data.prompt === "string" ? data.prompt.slice(0, 500) : null,
+            mainAgentId,
+            null
+          );
+          // Stamp ended_at (insertAgent only sets started_at) via the shared
+          // prepared statement — current_tool is written verbatim as null, fine
+          // for a just-created row that never had one.
+          stmts.updateAgent.run(null, null, null, null, new Date().toISOString(), null, subId);
+          broadcast("agent_created", stmts.getAgent.get(subId));
+          agentId = subId;
+          summary = `Subagent completed: ${label}`;
+        }
       }
       break;
     }
@@ -916,6 +1000,23 @@ const processEvent = db.transaction((hookType, data) => {
         }
       }
     }
+  }
+
+  // Remote/transcript-less fallback for the session descriptor. When the JSONL
+  // lives on another machine's disk (household/remote sessions whose paths point
+  // off this host), transcriptCache.extract() above returns null and the
+  // descriptor block never runs, so the session stays "Session <hex>" and the
+  // main agent's task stays empty. Claude Code's UserPromptSubmit payload carries
+  // the raw prompt inline, so we can still fill placeholder session/main-agent
+  // names + the main-agent task from it. descriptorFromPrompt applies the SAME
+  // normalization/filtering as the transcript path, so the two produce
+  // byte-identical labels — which keeps a later ai-title takeover working and
+  // makes this a strict no-op for local sessions (applyFirstUserDescriptor only
+  // fills auto/placeholder rows; it also heals a transient local transcript-read
+  // miss on a brand-new session whose JSONL isn't flushed yet at first prompt).
+  if (hookType === "UserPromptSubmit") {
+    const label = descriptorFromPrompt(data.prompt);
+    if (label) applyFirstUserDescriptor(sessionId, { firstUserMessage: label });
   }
 
   // Evict transcript from cache on SessionEnd — session is done, no more reads expected.

@@ -222,6 +222,90 @@ describe("hook ingestor — descriptor fills placeholders", () => {
     assert.equal(main.task, "add dark mode to settings");
   });
 
+  it("remote fallback: fills placeholders from data.prompt when the transcript is unreadable on this host", async () => {
+    // Household/remote session: the JSONL lives on the origin machine, so
+    // transcript_path does not resolve on this host and extract() yields null.
+    const cwd = "C:\\Users\\matsp\\chats\\veeam-smb-repo-add";
+    const sid = "10000000-0000-0000-0000-00000000000a";
+    const tpath = "C:\\Users\\matsp\\.claude\\projects\\enc\\" + sid + ".jsonl";
+    const res = await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath, prompt: "set up the veeam smb repo" },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(stmts.getSession.get(sid).name, "set up the veeam smb repo");
+    const main = stmts.getAgent.get(`${sid}-main`);
+    assert.equal(main.name, "Main Agent - set up the veeam smb repo");
+    assert.equal(main.task, "set up the veeam smb repo");
+  });
+
+  it("remote fallback: a readable local transcript still wins over data.prompt", async () => {
+    // Both a readable transcript AND an inline prompt are present — the
+    // transcript is the source of truth; the payload fallback must no-op.
+    const cwd = "/tmp/fud-hook-both";
+    const sid = "10000000-0000-0000-0000-00000000000b";
+    const tpath = writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "descriptor from transcript" } },
+    ]);
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath, prompt: "prompt from payload" },
+    });
+    assert.equal(stmts.getSession.get(sid).name, "descriptor from transcript");
+    assert.equal(stmts.getAgent.get(`${sid}-main`).task, "descriptor from transcript");
+  });
+
+  it("remote fallback: a later ai-title takes over a descriptor-filled name", async () => {
+    const cwd = "C:\\Users\\matsp\\chats\\veeam";
+    const sid = "10000000-0000-0000-0000-00000000000c";
+    const tpath = "C:\\Users\\matsp\\.claude\\projects\\enc\\" + sid + ".jsonl";
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath, prompt: "set up the veeam smb repo" },
+    });
+    assert.equal(stmts.getSession.get(sid).name, "set up the veeam smb repo");
+    // aideck-hook forwards remote_ai_title on a later event once Claude generates
+    // it — it must be able to replace the descriptor-derived name (regression).
+    await req("POST", "/api/hooks/event", {
+      hook_type: "Stop",
+      data: {
+        session_id: sid,
+        cwd,
+        transcript_path: tpath,
+        remote_ai_title: "Veeam SMB repo setup",
+      },
+    });
+    assert.equal(stmts.getSession.get(sid).name, "Veeam SMB repo setup");
+  });
+
+  it("remote fallback: a bare slash-command prompt is NOT adopted as the name", async () => {
+    const cwd = "C:\\Users\\matsp\\chats\\lagre";
+    const sid = "10000000-0000-0000-0000-00000000000d";
+    const tpath = "C:\\Users\\matsp\\.claude\\projects\\enc\\" + sid + ".jsonl";
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath, prompt: "/lagre" },
+    });
+    // Stays the placeholder — matches the transcript path (which filters
+    // <command-name> plumbing) and keeps a later ai-title takeover available.
+    assert.equal(stmts.getSession.get(sid).name, `Session ${sid.slice(0, 8)}`);
+  });
+
+  it("remote fallback: collapses whitespace/newlines and caps the task at 500 chars", async () => {
+    const cwd = "C:\\Users\\matsp\\chats\\multi";
+    const sid = "10000000-0000-0000-0000-00000000000e";
+    const tpath = "C:\\Users\\matsp\\.claude\\projects\\enc\\" + sid + ".jsonl";
+    const prompt = "fix\nthe   login\nbug" + " x".repeat(600); // > 500 chars after collapse
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath, prompt },
+    });
+    const name = stmts.getSession.get(sid).name;
+    assert.ok(!name.includes("\n"), "no raw newline in the name");
+    assert.ok(name.startsWith("fix the login bug"), "whitespace runs collapsed to single spaces");
+    assert.ok(stmts.getAgent.get(`${sid}-main`).task.length <= 500, "task capped at 500 chars");
+  });
+
   it("truncates long prompts to 60 chars for names but keeps the task longer", async () => {
     const cwd = "/tmp/fud-hook-trunc";
     const sid = "10000000-0000-0000-0000-000000000002";
