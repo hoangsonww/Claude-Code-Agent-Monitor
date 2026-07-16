@@ -426,7 +426,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -434,13 +434,13 @@ docker run -d --name agent-monitor \
 # Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
 ```
 
-The dashboard is then available at `http://localhost:4820`. The server binds `127.0.0.1` by default, so to make it reachable beyond the container's own loopback set `DASHBOARD_HOST=0.0.0.0` **and** `DASHBOARD_TOKEN` (see [Configuration](#configuration) and [`.github/SECURITY.md`](./.github/SECURITY.md)).
+The dashboard is then available at `http://localhost:4820`. The image binds `0.0.0.0` **inside the container** (`DASHBOARD_HOST`) and writes SQLite to the `/app/data` volume (`DASHBOARD_DATA_DIR`) — both baked into the `Dockerfile` so Compose and plain `docker run` work as-is. The trust boundary is the **host** port publish: the examples publish on `127.0.0.1` only, so the dashboard is not LAN-reachable out of the box. To expose it on a LAN, publish on `0.0.0.0` (drop the `127.0.0.1:` prefix, e.g. `-p 4820:4820`) **and** set `DASHBOARD_TOKEN` (see [Configuration](#configuration) and [`.github/SECURITY.md`](./.github/SECURITY.md)).
 
 **Volume mounts:**
 

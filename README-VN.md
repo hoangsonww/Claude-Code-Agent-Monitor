@@ -407,7 +407,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -415,16 +415,13 @@ docker run -d --name agent-monitor \
 # Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
 ```
 
-Bảng điều khiển sau đó có sẵn tại `http://localhost:4820`.
-
-> [!QUAN TRỌNG]
-> **Phơi bày mạng:** Theo mặc định, máy chủ chỉ bind `127.0.0.1` (loopback) nên không truy cập được từ mạng (GHSA-gr74-4xfh-6jw9). Để mở ra LAN, đặt cả `DASHBOARD_HOST` (ví dụ `0.0.0.0`) **và** `DASHBOARD_TOKEN` — khi token được đặt, mọi yêu cầu `/api/*` cùng kết nối WebSocket đều phải xuất trình nó. Liệt kê các hostname LAN trong `DASHBOARD_ALLOWED_HOSTS` (phân tách bằng dấu phẩy). Xem `.env.example` và [`.github/SECURITY.md`](./.github/SECURITY.md) để biết chi tiết.
+Bảng điều khiển sau đó có sẵn tại `http://localhost:4820`. Image bind `0.0.0.0` **bên trong container** (`DASHBOARD_HOST`) và ghi SQLite vào volume `/app/data` (`DASHBOARD_DATA_DIR`) — cả hai đều được nướng sẵn vào `Dockerfile` nên Compose và `docker run` đơn giản đều hoạt động ngay lập tức. Ranh giới tin cậy là việc publish cổng trên **host**: các ví dụ chỉ publish trên `127.0.0.1`, nên bảng điều khiển không truy cập được từ mạng LAN theo mặc định. Để mở ra LAN, hãy publish trên `0.0.0.0` (bỏ tiền tố `127.0.0.1:`, ví dụ `-p 4820:4820`) **và** đặt `DASHBOARD_TOKEN` (xem [Cấu hình](#cấu-hình) và [`.github/SECURITY.md`](./.github/SECURITY.md)).
 
 **Gắn kết âm lượng:**
 

@@ -3,13 +3,19 @@ services:
     build: .
     container_name: agent-monitor
     ports:
-      - "${DASHBOARD_PORT:-4820}:4820"
+      # Publish on the host loopback only, so the dashboard is not reachable
+      # from the LAN out of the box (matches the server's default trust
+      # boundary — GHSA-gr74-4xfh-6jw9). To expose it on a LAN, change this to
+      # "${DASHBOARD_PORT:-4820}:4820" and set DASHBOARD_TOKEN below.
+      - "127.0.0.1:${DASHBOARD_PORT:-4820}:4820"
     volumes:
       - dashboard-data:/app/data
       - ${CLAUDE_HOME:-~/.claude}:/root/.claude:ro
     environment:
       - NODE_ENV=production
       - DASHBOARD_PORT=4820
+      # DASHBOARD_HOST=0.0.0.0 and DASHBOARD_DATA_DIR=/app/data are baked into
+      # the image (see Dockerfile) so both `docker run` and Compose work as-is.
     restart: unless-stopped
 
 volumes:

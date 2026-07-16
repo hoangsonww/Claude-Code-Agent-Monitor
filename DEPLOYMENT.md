@@ -103,7 +103,7 @@ curl http://localhost:4820/api/health
 docker compose logs -f
 ```
 
-The included `docker-compose.yml` at the project root runs the dashboard on port `4820` with a persistent `./data` volume for SQLite.
+The included `docker-compose.yml` at the project root runs the dashboard on port `4820` with a persistent named volume (`dashboard-data` → `/app/data`) for SQLite. The image binds `0.0.0.0` inside the container and writes data to `/app/data` (both baked into the `Dockerfile`); Compose publishes the port on `127.0.0.1` only, so the dashboard is local-only out of the box. To expose it on a LAN, change the `ports` mapping to `"${DASHBOARD_PORT:-4820}:4820"` and set `DASHBOARD_TOKEN`.
 
 ---
 

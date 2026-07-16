@@ -434,7 +434,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -442,13 +442,13 @@ docker run -d --name agent-monitor \
 # Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
 ```
 
-Dashboard 可通过 `http://localhost:4820` 访问。
+随后即可通过 `http://localhost:4820` 访问 Dashboard。镜像在**容器内部**绑定 `0.0.0.0`（`DASHBOARD_HOST`），并将 SQLite 写入 `/app/data` 卷（`DASHBOARD_DATA_DIR`）—— 两者都已固化在 `Dockerfile` 中，因此 Compose 和纯 `docker run` 都能开箱即用。信任边界在于**宿主机**的端口发布：示例仅发布在 `127.0.0.1` 上，因此 Dashboard 开箱即用时无法从局域网访问。若要在局域网中暴露，请在 `0.0.0.0` 上发布（去掉 `127.0.0.1:` 前缀，例如 `-p 4820:4820`）**并**设置 `DASHBOARD_TOKEN`。
 
 **卷挂载：**
 
