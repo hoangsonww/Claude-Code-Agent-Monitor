@@ -10,7 +10,11 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { FolderOpen, Bot, Clock, Coins, Cpu } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
-import { effectiveSessionStatus, isSessionAwaitingInput } from "../lib/types";
+import {
+  effectiveSessionStatus,
+  isSessionAwaitingInput,
+  sessionAwaitingReason,
+} from "../lib/types";
 import type { Session } from "../lib/types";
 import { formatDuration, timeAgo, formatModelName } from "../lib/format";
 
@@ -65,7 +69,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
             </p>
           </div>
         </div>
-        <SessionStatusBadge status={status} />
+        <SessionStatusBadge status={status} reason={sessionAwaitingReason(session)} />
       </div>
 
       {session.cwd && (

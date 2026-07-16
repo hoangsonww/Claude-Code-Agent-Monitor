@@ -46,6 +46,24 @@
     "active": "Đang hoạt động",
     "abandoned": "Bị bỏ dở"
   },
+  "awaitingReason": {
+    "notification": {
+      "label": "Cần phản hồi",
+      "desc": "Đang bị chặn bởi lời nhắc cấp quyền hoặc yêu cầu nhập — Claude không thể tiếp tục cho đến khi bạn phản hồi."
+    },
+    "stop": {
+      "label": "Xong lượt",
+      "desc": "Claude đã trả lời xong; phiên sẽ chờ cho đến khi bạn gửi prompt tiếp theo."
+    },
+    "session_start": {
+      "label": "Chờ prompt",
+      "desc": "Phiên vừa khởi động hoặc tiếp tục và đang ở prompt trống — chưa có yêu cầu nào được gửi."
+    },
+    "interrupted": {
+      "label": "Bị ngắt",
+      "desc": "Lượt vừa rồi bị ngắt (Esc hoặc hook được khôi phục) — Claude đang chờ chỉ dẫn của bạn."
+    }
+  },
   "time": {
     "justNow": "vừa xong",
     "mAgo": "{{count}} phút trước",

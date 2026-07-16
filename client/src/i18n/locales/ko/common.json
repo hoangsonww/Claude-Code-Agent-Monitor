@@ -46,6 +46,24 @@
     "active": "활성",
     "abandoned": "중단됨"
   },
+  "awaitingReason": {
+    "notification": {
+      "label": "입력 필요",
+      "desc": "권한 프롬프트 또는 입력 요청에 막혀 있습니다 — 응답하기 전까지 Claude가 계속 진행할 수 없습니다."
+    },
+    "stop": {
+      "label": "턴 완료",
+      "desc": "Claude가 답변을 마쳤습니다. 다음 프롬프트를 보낼 때까지 세션이 대기합니다."
+    },
+    "session_start": {
+      "label": "프롬프트 대기",
+      "desc": "세션이 방금 시작(또는 재개)되어 빈 프롬프트 상태입니다 — 아직 아무것도 요청하지 않았습니다."
+    },
+    "interrupted": {
+      "label": "중단됨",
+      "desc": "마지막 턴이 중단되었습니다(Esc 또는 복구된 훅) — Claude가 지시를 기다리고 있습니다."
+    }
+  },
   "time": {
     "justNow": "방금 전",
     "mAgo": "{{count}}분 전",

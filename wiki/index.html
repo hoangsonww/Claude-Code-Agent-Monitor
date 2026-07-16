@@ -912,7 +912,7 @@
                     any column header for lifecycle tooltips explaining each state transition.
                     Cards surface model name, cumulative cost, and the current tool being called.
                     Counts update in real time via WebSocket so the board is always in sync with
-                    the live event store.
+                    the live event store. Waiting badges also say why — needs input, turn done, at prompt, or interrupted — with a hover tooltip explaining the state.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -944,7 +944,7 @@
                     viewer renders markdown with syntax highlighting, per-tool styled blocks,
                     slash-command pills with their captured TUI output, and inline session-rename
                     markers. Export the entire session as JSON or share the permalink for async
-                    review.
+                    review. When the session is waiting on you, a yellow banner under the header names the reason and how long it has been waiting.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2450,7 +2450,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 abandoned --> [*]
             </div>
             <p class="diagram-label">
-              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting.
+              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting. The dashboard surfaces the reason on every Waiting badge (icon + short label + tooltip) and in a waiting-for-input banner on the session detail page.
             </p>
           </div>
         </section>
@@ -6235,7 +6235,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=29" defer></script>
+    <script src="i18n-content.js?v=30" defer></script>
     <script src="script.js?v=30" defer></script>
     <script>
       (function () {

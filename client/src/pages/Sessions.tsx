@@ -23,7 +23,11 @@ import { SessionStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
-import { effectiveSessionStatus, isSessionAwaitingInput } from "../lib/types";
+import {
+  effectiveSessionStatus,
+  isSessionAwaitingInput,
+  sessionAwaitingReason,
+} from "../lib/types";
 import type { Session, DashboardEvent } from "../lib/types";
 
 const PAGE_SIZE = 10;
@@ -364,7 +368,10 @@ export function Sessions() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <SessionStatusBadge status={effectiveSessionStatus(session)} />
+                      <SessionStatusBadge
+                        status={effectiveSessionStatus(session)}
+                        reason={sessionAwaitingReason(session)}
+                      />
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-400">
                       {formatDateTime(session.last_activity || session.started_at)}

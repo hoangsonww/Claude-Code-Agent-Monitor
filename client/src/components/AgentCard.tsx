@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, GitBranch, Clock, Wrench, Cpu, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AgentStatusBadge } from "./StatusBadge";
-import { effectiveAgentStatus, isAgentAwaitingInput } from "../lib/types";
+import { effectiveAgentStatus, isAgentAwaitingInput, agentAwaitingReason } from "../lib/types";
 import type { Agent, Session } from "../lib/types";
 import { formatDuration, timeAgo, formatModelName, pathBasename, fmtCost } from "../lib/format";
 
@@ -154,7 +154,7 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             {subtitle && <p className="text-[11px] text-gray-500 truncate">{subtitle}</p>}
           </div>
         </div>
-        <AgentStatusBadge status={status} />
+        <AgentStatusBadge status={status} reason={agentAwaitingReason(agent)} />
       </div>
 
       {agent.task && (

@@ -46,6 +46,24 @@
     "active": "Active",
     "abandoned": "Abandoned"
   },
+  "awaitingReason": {
+    "notification": {
+      "label": "Needs input",
+      "desc": "Blocked on a permission prompt or an input request — Claude can't continue until you respond."
+    },
+    "stop": {
+      "label": "Turn done",
+      "desc": "Claude finished its reply; the session is idle until you send the next prompt."
+    },
+    "session_start": {
+      "label": "At prompt",
+      "desc": "The session just started or resumed and is sitting at an empty prompt — nothing has been asked yet."
+    },
+    "interrupted": {
+      "label": "Interrupted",
+      "desc": "The last turn was interrupted (Esc or a recovered hook) — Claude is waiting for direction."
+    }
+  },
   "time": {
     "justNow": "just now",
     "mAgo": "{{count}}m ago",

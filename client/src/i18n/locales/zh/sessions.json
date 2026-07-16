@@ -21,6 +21,10 @@
   "tableDirectory": "目录",
   "defaultName": "会话 ",
   "detail": {
+    "waitingBanner": {
+      "title": "正在等待你的输入",
+      "generic": "在你于终端中响应之前，此会话的 Claude Code 将保持暂停。"
+    },
     "failedLoad": "会话加载失败",
     "loading": "正在加载会话...",
     "notFound": "未找到会话",

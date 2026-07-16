@@ -46,6 +46,24 @@
     "active": "活跃",
     "abandoned": "已废弃"
   },
+  "awaitingReason": {
+    "notification": {
+      "label": "需要输入",
+      "desc": "被权限确认或输入请求阻塞 — 在你响应之前 Claude 无法继续。"
+    },
+    "stop": {
+      "label": "回合结束",
+      "desc": "Claude 已完成回复；会话将保持空闲，直到你发送下一条提示。"
+    },
+    "session_start": {
+      "label": "等待提示",
+      "desc": "会话刚启动或恢复，正停留在空提示符 — 尚未提出任何请求。"
+    },
+    "interrupted": {
+      "label": "已中断",
+      "desc": "上一回合被中断（Esc 或恢复的钩子）— Claude 正在等待你的指示。"
+    }
+  },
   "time": {
     "justNow": "刚刚",
     "mAgo": "{{count}}分钟前",

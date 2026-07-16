@@ -2733,7 +2733,8 @@
               Abandoned columns with card cost, model, and current tool at a glance. WebSocket-scoped
               updates avoid unnecessary refetches. A background watchdog catches turns cancelled with
               Esc - which fire no hook - and moves them out of Working into Waiting, so the board never
-              shows a phantom busy session.
+              shows a phantom busy session. Every Waiting badge also says why - needs input, turn
+              done, at prompt, or interrupted - with a hover tooltip.
             </p>
           </div>
           <div class="feature-card">

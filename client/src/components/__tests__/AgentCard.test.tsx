@@ -269,6 +269,34 @@ describe("AgentCard", () => {
     expect(card?.className).toContain("border-l-yellow-500/60");
   });
 
+  it("renders the awaiting reason next to the Waiting badge", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({
+          status: "waiting",
+          awaiting_input_since: "2026-03-05T10:01:00.000Z",
+          awaiting_reason: "notification",
+        })}
+      />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.getByText("Needs input")).toBeInTheDocument();
+  });
+
+  it("degrades to a plain Waiting badge on an unknown awaiting_reason", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({
+          status: "waiting",
+          awaiting_input_since: "2026-03-05T10:01:00.000Z",
+          awaiting_reason: "some_future_reason",
+        })}
+      />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+  });
+
   it("ignores awaiting_input_since once the agent has completed", () => {
     renderCard(
       <AgentCard

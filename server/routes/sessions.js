@@ -35,7 +35,20 @@ const router = Router();
 // (turn_duration, stop_hook_summary, away_summary, …) is dropped as noise.
 // (ai-title is intentionally excluded: it repeats on nearly every turn and
 // would flood the stream; it drives the session NAME instead, not the chat.)
-const TRANSCRIPT_RENDER_TYPES = new Set(["user", "assistant", "custom-title", "system"]);
+// `attachment` is included ONLY for its `queued_command` subtype: a message the
+// human typed mid-turn (while Claude was still working) is written to the JSONL
+// as `queue-operation` bookkeeping lines plus a `queued_command` attachment at
+// the point the model actually saw it — there is NO `type:"user"` line for it,
+// so without this the Conversation tab silently drops mid-turn messages. Every
+// other attachment subtype (task_reminder, hook_success, skill_listing, …) is
+// harness noise and stays hidden.
+const TRANSCRIPT_RENDER_TYPES = new Set([
+  "user",
+  "assistant",
+  "custom-title",
+  "system",
+  "attachment",
+]);
 
 /**
  * Classify the TRUE sender of a transcript entry. A JSONL `type:"user"` line is
@@ -76,6 +89,9 @@ function classifyTranscriptSender(entry, isSubagentFile) {
   if (lead.startsWith("<task-notification>") || lead.startsWith("<task-notification ")) {
     return "system";
   }
+  // Background-task event banner ("[SYSTEM NOTIFICATION - NOT USER INPUT] …")
+  // that newer harness builds prefix ahead of the <task-notification> payload.
+  if (lead.startsWith("[SYSTEM NOTIFICATION")) return "system";
 
   // In a subagent transcript, a user line with no human prompt provenance is the
   // task injected by the Task/Agent tool. A real human message to the subagent
@@ -670,6 +686,35 @@ router.get("/:id/transcript", async (req, res) => {
           sender: "user", // local slash-command I/O is the human's own action
           timestamp: entry.timestamp || null,
           content: [{ type: "text", text: truncate(sysText, 10240) }],
+          line: num,
+        };
+      }
+
+      // Mid-turn queued message: journaled as a `queued_command` attachment
+      // (never as a `user` line). Surface it at the position the model actually
+      // received it. NOT everything in the queue is the human, though — the
+      // harness delivers its own injections (task-notifications from background
+      // agents, "[SYSTEM NOTIFICATION …]" banners) through the same queue, and
+      // those attachments carry NO `origin` field, while a genuinely typed
+      // message carries `origin.kind = "human"`. So: harness-marker text or a
+      // non-human origin → "system"; everything else → "user". Other attachment
+      // subtypes are harness noise → dropped.
+      if (entry.type === "attachment") {
+        const att = entry.attachment;
+        if (!att || att.type !== "queued_command") return null;
+        const prompt = typeof att.prompt === "string" ? att.prompt : "";
+        if (!prompt.trim()) return null;
+        const lead = prompt.replace(/^\s+/, "");
+        // Same harness markers classifyTranscriptSender strips off user lines.
+        const isHarnessText =
+          lead.startsWith("<task-notification") || lead.startsWith("[SYSTEM NOTIFICATION");
+        const kind = att.origin && typeof att.origin.kind === "string" ? att.origin.kind : null;
+        const isSystem = isHarnessText || (kind !== null && kind !== "human");
+        return {
+          type: "user",
+          sender: isSystem ? "system" : "user",
+          timestamp: entry.timestamp || att.timestamp || null,
+          content: [{ type: "text", text: truncate(prompt, 10240) }],
           line: num,
         };
       }
