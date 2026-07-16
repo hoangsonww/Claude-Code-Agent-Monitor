@@ -157,6 +157,24 @@ function isDirLike(ent, absPath) {
   }
 }
 
+/**
+ * File counterpart of {@link isDirLike}: true if `ent` is a regular file, OR a
+ * symlink that resolves to one. Same Dirent quirk — `ent.isFile()` returns
+ * false for a symlink even when it points at a file, so agents/commands/hook
+ * scripts installed via `ln -s` were invisible to the Config Explorer while
+ * Claude Code itself resolves and uses them. Broken symlinks are treated as
+ * non-files rather than throwing.
+ */
+function isFileLike(ent, absPath) {
+  if (ent.isFile()) return true;
+  if (!ent.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(absPath).isFile();
+  } catch {
+    return false;
+  }
+}
+
 // ── Skills ──────────────────────────────────────────────────────────────
 
 function readSkillsAt(scope, claudeDir) {
@@ -203,8 +221,9 @@ function readMdFilesAt(scope, claudeDir, subdir) {
   const entries = listDir(dir);
   const out = [];
   for (const ent of entries) {
-    if (!ent.isFile() || !ent.name.endsWith(".md")) continue;
+    if (!ent.name.endsWith(".md")) continue;
     const file = path.join(dir, ent.name);
+    if (!isFileLike(ent, file)) continue;
     const read = safeReadText(file);
     if (!read) continue;
     const { frontmatter, body } = parseFrontmatter(read.text);
@@ -245,7 +264,7 @@ function countMdIn(dir) {
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(".md")).length;
+      .filter((e) => e.name.endsWith(".md") && isFileLike(e, path.join(dir, e.name))).length;
   } catch {
     return 0;
   }
@@ -284,7 +303,7 @@ function readPluginContributions(installPath) {
       try {
         return fs
           .readdirSync(path.join(installPath, "hooks"), { withFileTypes: true })
-          .filter((e) => e.isFile()).length;
+          .filter((e) => isFileLike(e, path.join(installPath, "hooks", e.name))).length;
       } catch {
         return 0;
       }
@@ -602,7 +621,7 @@ function readHookScripts() {
   return {
     dir,
     items: entries
-      .filter((e) => e.isFile())
+      .filter((e) => isFileLike(e, path.join(dir, e.name)))
       .map((e) => {
         const file = path.join(dir, e.name);
         let stat;
@@ -806,6 +825,7 @@ module.exports = {
   parseFrontmatter,
   redactSettings,
   isUnder,
+  isFileLike,
   MAX_FILE_BYTES,
   HOOK_EVENT_TYPES,
 };
