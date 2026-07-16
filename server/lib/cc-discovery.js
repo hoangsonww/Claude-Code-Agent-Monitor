@@ -140,6 +140,23 @@ function listDir(absPath) {
   }
 }
 
+/**
+ * True if `ent` is a directory, OR a symlink that resolves to one.
+ * Dirent.isDirectory() returns false for symlinks even when they point at a
+ * directory (e.g. a skill installed via `ln -s` so it can live in a git
+ * repo) — this follows the link with statSync so those aren't skipped.
+ * Broken symlinks are treated as non-directories rather than throwing.
+ */
+function isDirLike(ent, absPath) {
+  if (ent.isDirectory()) return true;
+  if (!ent.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(absPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 // ── Skills ──────────────────────────────────────────────────────────────
 
 function readSkillsAt(scope, claudeDir) {
@@ -147,8 +164,8 @@ function readSkillsAt(scope, claudeDir) {
   const entries = listDir(dir);
   const skills = [];
   for (const ent of entries) {
-    if (!ent.isDirectory()) continue;
     const skillDir = path.join(dir, ent.name);
+    if (!isDirLike(ent, skillDir)) continue;
     const skillFile = path.join(skillDir, "SKILL.md");
     const read = safeReadText(skillFile);
     if (!read) continue;
@@ -237,7 +254,7 @@ function countMdIn(dir) {
 function countSkillDirsIn(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => {
-      if (!e.isDirectory()) return false;
+      if (!isDirLike(e, path.join(dir, e.name))) return false;
       try {
         return fs.statSync(path.join(dir, e.name, "SKILL.md")).isFile();
       } catch {

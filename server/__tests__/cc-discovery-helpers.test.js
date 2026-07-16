@@ -11,11 +11,14 @@
 
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const {
   parseFrontmatter,
   redactSettings,
   isUnder,
+  readSkills,
   MAX_FILE_BYTES,
   HOOK_EVENT_TYPES,
 } = require("../lib/cc-discovery");
@@ -210,6 +213,42 @@ describe("isUnder", () => {
     const outside = path.resolve("/tmp/elsewhere/file");
     assert.equal(isUnder(root, inside), true);
     assert.equal(isUnder(root, outside), false);
+  });
+});
+
+describe("readSkills (symlinked skill directories)", () => {
+  it("includes a skill directory that is a symlink to a real directory", () => {
+    // Dirent.isDirectory() returns false for a symlink even when it points
+    // to a directory (Node fs quirk) — readSkillsAt must still follow it.
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cc-discovery-symlink-"));
+    const realDir = path.join(tmp, "real-skills", "second-brain");
+    fs.mkdirSync(realDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(realDir, "SKILL.md"),
+      "---\nname: second-brain\n---\n\nBody text.\n"
+    );
+    const projectRoot = path.join(tmp, "project");
+    const skillsDir = path.join(projectRoot, ".claude", "skills");
+    fs.mkdirSync(skillsDir, { recursive: true });
+    fs.symlinkSync(realDir, path.join(skillsDir, "second-brain"), "dir");
+
+    const items = readSkills({ scope: "project", cwd: projectRoot });
+    const names = items.map((s) => s.name);
+    assert.ok(names.includes("second-brain"), `expected symlinked skill in ${names}`);
+  });
+
+  it("skips a broken symlink without throwing", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cc-discovery-broken-symlink-"));
+    const projectRoot = path.join(tmp, "project");
+    const skillsDir = path.join(projectRoot, ".claude", "skills");
+    fs.mkdirSync(skillsDir, { recursive: true });
+    fs.symlinkSync(path.join(tmp, "does-not-exist"), path.join(skillsDir, "broken"), "dir");
+
+    let items;
+    assert.doesNotThrow(() => {
+      items = readSkills({ scope: "project", cwd: projectRoot });
+    });
+    assert.ok(!items.map((s) => s.name).includes("broken"));
   });
 });
 
