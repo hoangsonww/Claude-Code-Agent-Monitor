@@ -341,4 +341,157 @@ describe("POST /api/hooks/ingest-batch", () => {
     assert.equal(turnCount, 1);
     assert.ok(stmts.getAgent.get(`${id}-sub-soft-ok-sub`));
   });
+
+  it("sets session.model via the same last-write-wins mechanism as the local pipeline", async () => {
+    const id = sid();
+    await seedSession(id);
+    assert.equal(stmts.getSession.get(id).model, null);
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      model: "claude-opus-4-6",
+    });
+    assert.equal(res.status, 200);
+    assert.equal(stmts.getSession.get(id).model, "claude-opus-4-6");
+  });
+
+  it("merges usage_extras/thinking_blocks into sessions.metadata in the exact local-pipeline shape", async () => {
+    const id = sid();
+    await seedSession(id);
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      usage_extras: {
+        service_tiers: ["standard"],
+        speeds: ["standard"],
+        inference_geos: [],
+        thinking_blocks: 4,
+      },
+    });
+    assert.equal(res.status, 200);
+
+    const meta = JSON.parse(stmts.getSession.get(id).metadata);
+    assert.deepEqual(meta, {
+      usage_extras: { service_tiers: ["standard"], speeds: ["standard"], inference_geos: [] },
+      thinking_blocks: 4,
+    });
+  });
+
+  it("usage_extras merge does not clobber other metadata keys", async () => {
+    const id = sid();
+    await seedSession(id);
+
+    // Seed an unrelated metadata key the way the local pipeline would
+    // (e.g. turn_count from the transcript-driven path).
+    const existing = { turn_count: 7, total_turn_duration_ms: 12345 };
+    stmts.updateSession.run(null, null, null, JSON.stringify(existing), id);
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      usage_extras: { service_tiers: ["batch"], speeds: [], inference_geos: ["us"] },
+    });
+    assert.equal(res.status, 200);
+
+    const meta = JSON.parse(stmts.getSession.get(id).metadata);
+    assert.equal(meta.turn_count, 7);
+    assert.equal(meta.total_turn_duration_ms, 12345);
+    assert.deepEqual(meta.usage_extras, {
+      service_tiers: ["batch"],
+      speeds: [],
+      inference_geos: ["us"],
+    });
+  });
+
+  it("model + usage_extras are idempotent — reposting the same values twice yields the same state", async () => {
+    const id = sid();
+    await seedSession(id);
+    const payload = {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      model: "claude-sonnet-5",
+      usage_extras: {
+        service_tiers: ["standard"],
+        speeds: ["fast"],
+        inference_geos: ["us"],
+        thinking_blocks: 2,
+      },
+    };
+
+    await req("POST", "/api/hooks/ingest-batch", payload);
+    const after1 = stmts.getSession.get(id);
+    await req("POST", "/api/hooks/ingest-batch", payload);
+    const after2 = stmts.getSession.get(id);
+
+    assert.equal(after1.model, "claude-sonnet-5");
+    assert.equal(after2.model, "claude-sonnet-5");
+    assert.deepEqual(JSON.parse(after1.metadata), JSON.parse(after2.metadata));
+    assert.equal(JSON.parse(after2.metadata).thinking_blocks, 2);
+  });
+
+  it("omitting model/usage_extras leaves session.model and metadata unchanged", async () => {
+    const id = sid();
+    await seedSession(id);
+    stmts.updateSessionModel.run("pre-existing-model", id, "pre-existing-model");
+    stmts.updateSession.run(null, null, null, JSON.stringify({ turn_count: 3 }), id);
+
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-x", input: 5 }],
+    });
+    assert.equal(res.status, 200);
+
+    const session = stmts.getSession.get(id);
+    assert.equal(session.model, "pre-existing-model");
+    assert.deepEqual(JSON.parse(session.metadata), { turn_count: 3 });
+  });
+
+  it("400s on invalid model/usage_extras types", async () => {
+    const id = sid();
+    await seedSession(id);
+
+    let res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      model: 42,
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      usage_extras: "not-an-object",
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      usage_extras: { service_tiers: "standard" },
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+
+    res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      usage_extras: { thinking_blocks: -1 },
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+  });
 });
