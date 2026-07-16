@@ -19,6 +19,10 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+// Schema-version constant for the POST /ingest-batch payload contract — shared
+// with server/lib/transcript-line-classifier.js so a bump there and the
+// version assert here can never drift apart.
+const { SCHEMA_VERSION } = require("../lib/transcript-line-classifier");
 
 const router = Router();
 
@@ -1154,6 +1158,262 @@ router.post("/event", (req, res) => {
         // non-fatal — partial workflow artifacts during a live run are expected
       });
   }
+});
+
+// ── Remote batch ingest ──────────────────────────────────────────────────
+// POST /api/hooks/ingest-batch — bulk ingestion for a future household/remote
+// forwarder that has been collecting hook-derived facts (token totals, tool
+// events, turn durations, subagent completions) about a session whose JSONL
+// transcript lives on another machine's disk. Mounted under /api/hooks (not a
+// new top-level prefix) so it inherits the same Traefik/DASHBOARD_TOKEN
+// exemption as /api/hooks/event (server/lib/security.js TOKEN_EXEMPT_PREFIXES
+// includes "/hooks") — a new prefix would 401 once an operator sets
+// DASHBOARD_TOKEN.
+//
+// Contract, enforced in order:
+//   1. transcript_path must be a non-empty string, and must NOT be readable
+//      on this host. If it IS readable, the local hook pipeline (the
+//      transcript-driven code above, and the regular SessionStart/Stop/etc.
+//      hook flow) already owns this session — accepting the batch too would
+//      double-write token_usage from two different scopes, which is exactly
+//      the 11x-baseline bug documented at db.js:1063-1082. Mirrors the
+//      SubagentStop remote synth gate (hooks.js "!fs.existsSync(...)").
+//   2. schema_version must match SCHEMA_VERSION (server/lib/
+//      transcript-line-classifier.js) — a mismatch is a breaking forwarder/
+//      server skew, not a per-item problem, so it 409s the whole batch.
+//   3. The session must already exist (created via a prior SessionStart hook
+//      forwarded through /event). This route never calls ensureSession —
+//      insertSession is not an upsert, so racing it here against a live
+//      SessionStart could create a duplicate/conflicting row.
+//   4. Items are validated BEFORE the transaction (per-item soft-fail):
+//      malformed entries are skipped and reported in `errors`, valid ones are
+//      written atomically in a single db.transaction (mirrors processEvent's
+//      shape above), so one bad item can never roll back the rest of an
+//      otherwise-good batch nor partially apply a batch that IS entirely
+//      good.
+router.post("/ingest-batch", (req, res) => {
+  const body = req.body || {};
+  const sessionId = body.session_id;
+  const transcriptPath = body.transcript_path;
+  const schemaVersion = body.schema_version;
+
+  if (typeof sessionId !== "string" || !sessionId) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "session_id is required" },
+    });
+  }
+  if (typeof transcriptPath !== "string" || !transcriptPath) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "transcript_path is required" },
+    });
+  }
+  if (schemaVersion !== SCHEMA_VERSION) {
+    return res.status(409).json({
+      error: {
+        code: "SCHEMA_VERSION_MISMATCH",
+        message: `expected schema_version "${SCHEMA_VERSION}", got ${JSON.stringify(schemaVersion)}`,
+      },
+    });
+  }
+  if (fs.existsSync(transcriptPath)) {
+    // Readable on this host → the local pipeline owns this session already.
+    return res.status(409).json({
+      error: {
+        code: "LOCAL_TRANSCRIPT_OWNS_SESSION",
+        message: "transcript_path is readable on this host; local hook pipeline owns this session",
+      },
+    });
+  }
+
+  const session = stmts.getSession.get(sessionId);
+  if (!session) {
+    return res.status(404).json({
+      error: {
+        code: "UNKNOWN_SESSION",
+        message: `session ${sessionId} not found — must be created via SessionStart first`,
+      },
+    });
+  }
+
+  // ── Validate items before the transaction (per-item soft-fail) ──────────
+  const errors = [];
+  const validTokens = [];
+  for (const [index, t] of (Array.isArray(body.tokens) ? body.tokens : []).entries()) {
+    if (!t || typeof t !== "object" || typeof t.model !== "string" || !t.model) {
+      errors.push({ kind: "tokens", index, error: "missing model" });
+      continue;
+    }
+    validTokens.push(t);
+  }
+
+  const validToolEvents = [];
+  for (const [index, e] of (Array.isArray(body.tool_events) ? body.tool_events : []).entries()) {
+    if (!e || typeof e !== "object" || typeof e.uuid !== "string" || !e.uuid) {
+      errors.push({ kind: "tool_events", index, error: "missing uuid" });
+      continue;
+    }
+    validToolEvents.push(e);
+  }
+
+  const validTurns = [];
+  for (const [index, t] of (Array.isArray(body.turns) ? body.turns : []).entries()) {
+    if (!t || typeof t !== "object" || typeof t.uuid !== "string" || !t.uuid) {
+      errors.push({ kind: "turns", index, error: "missing uuid" });
+      continue;
+    }
+    validTurns.push(t);
+  }
+
+  const validSubagents = [];
+  for (const [index, s] of (Array.isArray(body.subagents) ? body.subagents : []).entries()) {
+    if (!s || typeof s !== "object" || typeof s.agent_id !== "string" || !s.agent_id) {
+      errors.push({ kind: "subagents", index, error: "missing agent_id" });
+      continue;
+    }
+    validSubagents.push(s);
+  }
+
+  const mainAgent = getMainAgent(sessionId);
+  const mainAgentId = mainAgent ? mainAgent.id : `${sessionId}-main`;
+  let written = 0;
+
+  const runBatch = db.transaction(() => {
+    // Whole-file totals per bucket — replaceTokenUsage is already a
+    // high-water-mark replace (db.js:1063-1110), so re-posting the same
+    // totals is a no-op and posting larger totals updates in place. The
+    // gate above guarantees the local hook writer never touches the same
+    // (session, model, speed, geo, tier) bucket concurrently.
+    for (const t of validTokens) {
+      stmts.replaceTokenUsage.run(
+        sessionId,
+        t.model,
+        t.speed || "standard",
+        t.geo || "global",
+        t.tier || "standard",
+        t.input || 0,
+        t.output || 0,
+        t.cacheRead || 0,
+        t.cacheWrite || 0,
+        t.cacheWrite1h || 0,
+        t.webSearch || 0,
+        t.webFetch || 0,
+        t.codeExec || 0
+      );
+      written++;
+    }
+
+    // Dedup by uuid — same pattern as the APIError/TurnDuration dedup above,
+    // except keyed on the batch item's own uuid (stored in events.data)
+    // rather than a summary/timestamp match, since re-posted batches are
+    // expected (a forwarder re-sending its backlog) and carry a real id.
+    for (const e of validToolEvents) {
+      const exists = db
+        .prepare(
+          "SELECT 1 FROM events WHERE session_id = ? AND event_type = 'ToolEvent' AND json_extract(data, '$.uuid') = ? LIMIT 1"
+        )
+        .get(sessionId, e.uuid);
+      if (exists) continue;
+      const agentId = typeof e.agent_id === "string" && e.agent_id ? e.agent_id : mainAgentId;
+      const toolName = typeof e.tool_name === "string" ? e.tool_name : null;
+      const status = typeof e.status === "string" ? e.status : "completed";
+      stmts.insertEvent.run(
+        sessionId,
+        agentId,
+        "ToolEvent",
+        toolName,
+        `Tool ${status}: ${toolName || "unknown"}`,
+        JSON.stringify({ uuid: e.uuid, status, timestamp: e.timestamp || null })
+      );
+      broadcast("new_event", {
+        session_id: sessionId,
+        agent_id: agentId,
+        event_type: "ToolEvent",
+        tool_name: toolName,
+        summary: `Tool ${status}: ${toolName || "unknown"}`,
+        created_at: e.timestamp || new Date().toISOString(),
+      });
+      written++;
+    }
+
+    for (const t of validTurns) {
+      const exists = db
+        .prepare(
+          "SELECT 1 FROM events WHERE session_id = ? AND event_type = 'TurnDuration' AND json_extract(data, '$.uuid') = ? LIMIT 1"
+        )
+        .get(sessionId, t.uuid);
+      if (exists) continue;
+      const durationMs = t.duration_ms || 0;
+      const summary = `Turn completed in ${(durationMs / 1000).toFixed(1)}s`;
+      stmts.insertEvent.run(
+        sessionId,
+        mainAgentId,
+        "TurnDuration",
+        null,
+        summary,
+        JSON.stringify({ durationMs, uuid: t.uuid })
+      );
+      broadcast("new_event", {
+        session_id: sessionId,
+        agent_id: mainAgentId,
+        event_type: "TurnDuration",
+        tool_name: null,
+        summary,
+        created_at: t.timestamp || new Date().toISOString(),
+      });
+      written++;
+    }
+
+    // Idempotency key + field precedence mirror the SubagentStop remote synth
+    // above verbatim (description > agent_type > subagent_type >
+    // last_assistant_message > "Subagent" fallback label; agent_type >
+    // subagent_type for the stored subagent_type column).
+    for (const s of validSubagents) {
+      const subId = `${sessionId}-sub-${s.agent_id}`;
+      if (stmts.getAgent.get(subId)) {
+        // Already synthesized (redelivered batch item) — no dup, and not
+        // counted in `written` (same "already present → no-op" accounting
+        // as the tool_events/turns dedup above).
+        continue;
+      }
+
+      const rawLabel =
+        (typeof s.description === "string" && s.description) ||
+        (typeof s.agent_type === "string" && s.agent_type) ||
+        (typeof s.subagent_type === "string" && s.subagent_type) ||
+        (typeof s.last_assistant_message === "string" && s.last_assistant_message) ||
+        "Subagent";
+      const collapsed = rawLabel.replace(/\s+/g, " ").trim() || "Subagent";
+      const label = collapsed.length > 60 ? collapsed.slice(0, 57) + "..." : collapsed;
+      const subType =
+        (typeof s.agent_type === "string" && s.agent_type) ||
+        (typeof s.subagent_type === "string" && s.subagent_type) ||
+        null;
+
+      stmts.insertAgent.run(
+        subId,
+        sessionId,
+        label,
+        "subagent",
+        subType,
+        "completed",
+        typeof s.prompt === "string" ? s.prompt.slice(0, 500) : null,
+        mainAgentId,
+        null
+      );
+      // insertAgent only sets started_at — stamp ended_at too so a batch-
+      // synthesized subagent shows as completed with a real (if approximate)
+      // duration instead of an open-ended one.
+      stmts.updateAgent.run(null, null, null, null, new Date().toISOString(), null, subId);
+      broadcast("agent_created", stmts.getAgent.get(subId));
+      written++;
+    }
+
+    stmts.touchSession.run(sessionId);
+  });
+
+  runBatch();
+
+  res.json({ ok: true, written, failed: errors.length, errors });
 });
 
 // ── Watchdog: detect API errors in active sessions ─────────────────────────
