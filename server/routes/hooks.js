@@ -1191,6 +1191,24 @@ router.post("/event", (req, res) => {
 //      shape above), so one bad item can never roll back the rest of an
 //      otherwise-good batch nor partially apply a batch that IS entirely
 //      good.
+//
+// Two further OPTIONAL top-level fields close the parity gap with the local
+// pipeline (verified against a live .213 session whose forwarder-derived copy
+// was missing both):
+//   - "model": string — applied via the same stmts.updateSessionModel used by
+//     the transcript-driven `latestModel` write above (last-write-wins, only
+//     changes the row — and broadcasts — when the value actually differs).
+//   - "usage_extras": { service_tiers[], speeds[], inference_geos[],
+//     thinking_blocks } — merged into sessions.metadata in EXACTLY the shape
+//     the local pipeline writes (see the `result.usageExtras`/
+//     `thinkingBlockCount` block above): `metadata.usage_extras` holds the
+//     three arrays, `metadata.thinking_blocks` sits as a sibling key. Unlike
+//     the local path's per-hook thinking_blocks ACCUMULATION (additive,
+//     because each hook only sees a transcript delta), this batch field is a
+//     whole-session-to-date total — consistent with `tokens` being whole-file
+//     totals elsewhere in this contract — so it is a straight replace: a
+//     re-posted batch is idempotent, and other metadata keys are preserved
+//     (merged into the existing parsed object, never clobbered wholesale).
 router.post("/ingest-batch", (req, res) => {
   const body = req.body || {};
   const sessionId = body.session_id;
@@ -1206,6 +1224,39 @@ router.post("/ingest-batch", (req, res) => {
     return res.status(400).json({
       error: { code: "INVALID_INPUT", message: "transcript_path is required" },
     });
+  }
+  if (body.model !== undefined && typeof body.model !== "string") {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "model must be a string" },
+    });
+  }
+  if (body.usage_extras !== undefined) {
+    const ue = body.usage_extras;
+    if (!ue || typeof ue !== "object" || Array.isArray(ue)) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: "usage_extras must be an object" },
+      });
+    }
+    for (const key of ["service_tiers", "speeds", "inference_geos"]) {
+      if (ue[key] !== undefined && !Array.isArray(ue[key])) {
+        return res.status(400).json({
+          error: { code: "INVALID_INPUT", message: `usage_extras.${key} must be an array` },
+        });
+      }
+    }
+    if (
+      ue.thinking_blocks !== undefined &&
+      (typeof ue.thinking_blocks !== "number" ||
+        !Number.isFinite(ue.thinking_blocks) ||
+        ue.thinking_blocks < 0)
+    ) {
+      return res.status(400).json({
+        error: {
+          code: "INVALID_INPUT",
+          message: "usage_extras.thinking_blocks must be a non-negative number",
+        },
+      });
+    }
   }
   if (schemaVersion !== SCHEMA_VERSION) {
     return res.status(409).json({
@@ -1278,6 +1329,39 @@ router.post("/ingest-batch", (req, res) => {
   let written = 0;
 
   const runBatch = db.transaction(() => {
+    // Model sync — same prepared statement + last-write-wins semantics as the
+    // transcript-driven `latestModel` write above; a no-op (no broadcast)
+    // when the value is unchanged.
+    if (typeof body.model === "string" && body.model) {
+      const upd = stmts.updateSessionModel.run(body.model, sessionId, body.model);
+      if (upd.changes > 0) {
+        broadcast("session_updated", stmts.getSession.get(sessionId));
+      }
+    }
+
+    // usage_extras / thinking_blocks — merged into sessions.metadata in the
+    // same shape the local pipeline writes (metadata.usage_extras holds the
+    // three arrays, metadata.thinking_blocks is a sibling key). Re-parses the
+    // CURRENT row so other metadata keys (e.g. turn_count written by the
+    // local path) are preserved, not clobbered. No broadcast — mirrors the
+    // local metadata-merge block above, which doesn't broadcast either.
+    if (body.usage_extras) {
+      const metaSession = stmts.getSession.get(sessionId);
+      if (metaSession) {
+        const meta = metaSession.metadata ? JSON.parse(metaSession.metadata) : {};
+        const ue = body.usage_extras;
+        meta.usage_extras = {
+          service_tiers: Array.isArray(ue.service_tiers) ? ue.service_tiers : [],
+          speeds: Array.isArray(ue.speeds) ? ue.speeds : [],
+          inference_geos: Array.isArray(ue.inference_geos) ? ue.inference_geos : [],
+        };
+        if (typeof ue.thinking_blocks === "number") {
+          meta.thinking_blocks = ue.thinking_blocks;
+        }
+        stmts.updateSession.run(null, null, null, JSON.stringify(meta), sessionId);
+      }
+    }
+
     // Whole-file totals per bucket — replaceTokenUsage is already a
     // high-water-mark replace (db.js:1063-1110), so re-posting the same
     // totals is a no-op and posting larger totals updates in place. The
