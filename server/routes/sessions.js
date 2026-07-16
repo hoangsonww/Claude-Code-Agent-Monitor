@@ -170,11 +170,15 @@ router.get("/", (req, res) => {
         const placeholders = ids.map(() => "?").join(",");
         const chunkTokens = db
           .prepare(
-            `SELECT session_id, model,
+            `SELECT session_id, model, speed, inference_geo, service_tier,
               input_tokens + baseline_input as input_tokens,
               output_tokens + baseline_output as output_tokens,
               cache_read_tokens + baseline_cache_read as cache_read_tokens,
-              cache_write_tokens + baseline_cache_write as cache_write_tokens
+              cache_write_tokens + baseline_cache_write as cache_write_tokens,
+              cache_write_1h_tokens + baseline_cache_write_1h as cache_write_1h_tokens,
+              web_search_requests + baseline_web_search as web_search_requests,
+              web_fetch_requests + baseline_web_fetch as web_fetch_requests,
+              code_execution_requests + baseline_code_execution as code_execution_requests
             FROM token_usage WHERE session_id IN (${placeholders})`
           )
           .all(...ids);
@@ -220,11 +224,15 @@ router.get("/", (req, res) => {
       const placeholders = ids.map(() => "?").join(",");
       const allTokens = db
         .prepare(
-          `SELECT session_id, model,
+          `SELECT session_id, model, speed, inference_geo, service_tier,
             input_tokens + baseline_input as input_tokens,
             output_tokens + baseline_output as output_tokens,
             cache_read_tokens + baseline_cache_read as cache_read_tokens,
-            cache_write_tokens + baseline_cache_write as cache_write_tokens
+            cache_write_tokens + baseline_cache_write as cache_write_tokens,
+            cache_write_1h_tokens + baseline_cache_write_1h as cache_write_1h_tokens,
+            web_search_requests + baseline_web_search as web_search_requests,
+            web_fetch_requests + baseline_web_fetch as web_fetch_requests,
+            code_execution_requests + baseline_code_execution as code_execution_requests
           FROM token_usage WHERE session_id IN (${placeholders})`
         )
         .all(...ids);
