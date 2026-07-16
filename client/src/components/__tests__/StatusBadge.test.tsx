@@ -1,11 +1,11 @@
 /**
  * @file StatusBadge.test.tsx
- * @description Unit tests for the StatusBadge component, which includes AgentStatusBadge and SessionStatusBadge. These components are responsible for displaying the status of agents and sessions in the dashboard. The tests cover rendering of different statuses, application of pulse animation based on status, and respect for explicit pulse overrides. The tests use React Testing Library and Vitest for assertions and mocking.
+ * @description Unit tests for the StatusBadge component, which includes AgentStatusBadge and SessionStatusBadge. These components are responsible for displaying the status of agents and sessions in the dashboard. The tests cover rendering of different statuses, application of pulse animation based on status, respect for explicit pulse overrides, and the awaiting-reason suffix (icon + short label + hover tooltip) that explains WHY a row is in the Waiting state. The tests use React Testing Library and Vitest for assertions and mocking.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { AgentStatusBadge, SessionStatusBadge } from "../StatusBadge";
 
 describe("AgentStatusBadge", () => {
@@ -95,5 +95,65 @@ describe("SessionStatusBadge", () => {
     const dot = container.querySelector(".animate-pulse-dot");
     expect(dot).toBeInTheDocument();
     expect(container.querySelector(".bg-yellow-400")).toBeInTheDocument();
+  });
+});
+
+describe("awaiting-reason suffix", () => {
+  it("renders the reason label next to Waiting on AgentStatusBadge", () => {
+    render(<AgentStatusBadge status="waiting" reason="notification" />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.getByText("Needs input")).toBeInTheDocument();
+  });
+
+  it("renders the reason label next to Waiting on SessionStatusBadge", () => {
+    render(<SessionStatusBadge status="waiting" reason="stop" />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.getByText("Turn done")).toBeInTheDocument();
+  });
+
+  it("ignores the reason on non-waiting statuses", () => {
+    render(<AgentStatusBadge status="working" reason="notification" />);
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+    render(<SessionStatusBadge status="active" reason="stop" />);
+    expect(screen.queryByText("Turn done")).not.toBeInTheDocument();
+  });
+
+  it("renders no suffix when reason is null/omitted", () => {
+    render(<AgentStatusBadge status="waiting" reason={null} />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+    expect(screen.queryByText("Turn done")).not.toBeInTheDocument();
+  });
+
+  it("shows the full reason description in a tooltip on hover", () => {
+    const { container } = render(<AgentStatusBadge status="waiting" reason="interrupted" />);
+    expect(screen.getByText("Interrupted")).toBeInTheDocument();
+    // Tip attaches its handlers to the wrapper element and portals the tooltip
+    // body into document.body.
+    fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
+    expect(screen.getByText(/The last turn was interrupted/)).toBeInTheDocument();
+  });
+
+  it("marks urgent reasons with the hotter amber tint", () => {
+    const { container } = render(<AgentStatusBadge status="waiting" reason="notification" />);
+    expect(container.querySelector(".text-amber-300")).toBeInTheDocument();
+    const { container: calm } = render(<AgentStatusBadge status="waiting" reason="stop" />);
+    expect(calm.querySelector(".text-amber-300")).not.toBeInTheDocument();
+  });
+
+  it("compact mode suppresses the inline chip but keeps the hover tooltip", () => {
+    const { container } = render(
+      <AgentStatusBadge status="waiting" reason="notification" compact />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+    fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
+    expect(screen.getByText(/Blocked on a permission prompt/)).toBeInTheDocument();
+  });
+
+  it("compact mode works on SessionStatusBadge too", () => {
+    render(<SessionStatusBadge status="waiting" reason="stop" compact />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Turn done")).not.toBeInTheDocument();
   });
 });

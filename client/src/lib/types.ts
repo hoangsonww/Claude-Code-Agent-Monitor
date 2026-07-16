@@ -138,6 +138,31 @@ export type AgentType = "main" | "subagent";
  * entry to cover both the persisted-idle and the overlaid-blocked cases.
  */
 export const AWAITING_STATUS = "waiting" as const;
+
+/**
+ * WHY a session/agent is blocked on the human, mirroring the server's
+ * `awaiting_reason` column (set/cleared in lock-step with
+ * `awaiting_input_since` by `server/routes/hooks.js`):
+ *
+ * - `"notification"`  — a permission prompt or explicit input request; Claude
+ *    cannot continue until the user responds. The most actionable state.
+ * - `"stop"`          — Claude finished its turn; the session idles until the
+ *    next prompt is submitted.
+ * - `"session_start"` — the CLI just started/resumed and sits at an empty
+ *    prompt; nothing has been asked yet.
+ * - `"interrupted"`   — the turn was cut short (Esc, or the watchdog recovered
+ *    a lost Stop hook); Claude is waiting for direction.
+ */
+export type AwaitingReason = "notification" | "stop" | "session_start" | "interrupted";
+
+/** All known {@link AwaitingReason} values, used to validate the raw string the
+ *  server sends before the UI trusts it (see {@link normalizeAwaitingReason}). */
+export const AWAITING_REASONS: readonly AwaitingReason[] = [
+  "notification",
+  "stop",
+  "session_start",
+  "interrupted",
+] as const;
 /** {@link AgentStatus} widened with the transient {@link AWAITING_STATUS} overlay;
  *  the type the UI actually renders a badge for (see {@link effectiveAgentStatus}). */
 export type EffectiveAgentStatus = AgentStatus | typeof AWAITING_STATUS;
@@ -207,6 +232,11 @@ export interface Session {
    * next non-Notification hook event. Null when the session is not waiting.
    * Feeds {@link isSessionAwaitingInput} and the yellow "Waiting" overlay. */
   awaiting_input_since?: string | null;
+  /** WHY the session is waiting - one of {@link AwaitingReason}, set/cleared in
+   * lock-step with `awaiting_input_since`. Kept as a plain string here because
+   * the server may grow new values; normalize via {@link sessionAwaitingReason}
+   * before rendering. Null/absent when the session is not waiting. */
+  awaiting_reason?: string | null;
 }
 
 /**
@@ -272,6 +302,10 @@ export interface Agent {
    *  {@link isAgentAwaitingInput} / {@link effectiveAgentStatus}; ignored once
    *  the agent has reached a terminal status. */
   awaiting_input_since?: string | null;
+  /** Mirrors the parent session's `awaiting_reason` for main agents (subagents
+   * stay NULL); see {@link AwaitingReason}. Normalize via
+   * {@link agentAwaitingReason} before rendering. */
+  awaiting_reason?: string | null;
   /**
    * The agent's OWN cost (USD), computed server-side from its per-agent token
    * buckets. Present for subagents that carry usage in their metadata; 0/absent
@@ -318,6 +352,38 @@ export function effectiveAgentStatus(agent: Agent): EffectiveAgentStatus {
  *  is blocked on user input; otherwise passes the persisted status through unchanged. */
 export function effectiveSessionStatus(session: Session): EffectiveSessionStatus {
   return isSessionAwaitingInput(session) ? AWAITING_STATUS : session.status;
+}
+
+/**
+ * Validates the raw `awaiting_reason` string the server sent against the known
+ * {@link AwaitingReason} set. Unknown/future values degrade to null so the UI
+ * falls back to the plain "Waiting" badge instead of rendering a key miss.
+ */
+export function normalizeAwaitingReason(value: string | null | undefined): AwaitingReason | null {
+  return value && (AWAITING_REASONS as readonly string[]).includes(value)
+    ? (value as AwaitingReason)
+    : null;
+}
+
+/**
+ * The session's {@link AwaitingReason}, but ONLY while the session actually
+ * counts as waiting (per {@link isSessionAwaitingInput}) - a stale reason on a
+ * finished/idle session is never surfaced.
+ * @returns The normalized reason, or null when not waiting / reason unknown.
+ */
+export function sessionAwaitingReason(session: Session | undefined | null): AwaitingReason | null {
+  if (!session || !isSessionAwaitingInput(session)) return null;
+  return normalizeAwaitingReason(session.awaiting_reason);
+}
+
+/**
+ * The agent's {@link AwaitingReason}, gated on {@link isAgentAwaitingInput} the
+ * same way {@link sessionAwaitingReason} gates on the session predicate.
+ * @returns The normalized reason, or null when not waiting / reason unknown.
+ */
+export function agentAwaitingReason(agent: Agent | undefined | null): AwaitingReason | null {
+  if (!agent || !isAgentAwaitingInput(agent)) return null;
+  return normalizeAwaitingReason(agent.awaiting_reason);
 }
 
 // ───── Events ─────
@@ -1744,6 +1810,49 @@ export const STATUS_CONFIG: Record<
     color: "text-red-400",
     bg: "bg-red-500/10 border-red-500/20",
     dot: "bg-red-400",
+  },
+};
+
+// ───── Awaiting-reason presentation lookup ─────
+
+/**
+ * UI presentation lookup for {@link AwaitingReason}: the short badge-suffix
+ * label and the longer tooltip description, both as i18n keys passed to
+ * `i18n.t()`. `urgent` marks the reasons that mean "Claude is BLOCKED and needs
+ * you" (vs. merely idle between turns) so surfaces can emphasize them - e.g.
+ * a permission prompt is actionable in a way an empty prompt is not.
+ *
+ * Keyed by every {@link AwaitingReason} value so the record is exhaustive;
+ * unknown server values never reach this table ({@link normalizeAwaitingReason}
+ * filters them to null first).
+ */
+export const AWAITING_REASON_CONFIG: Record<
+  AwaitingReason,
+  { labelKey: string; descKey: string; urgent: boolean }
+> = {
+  // Permission prompt / input request: Claude literally cannot continue.
+  notification: {
+    labelKey: "common:awaitingReason.notification.label",
+    descKey: "common:awaitingReason.notification.desc",
+    urgent: true,
+  },
+  // Turn finished cleanly; ball is in the user's court but nothing is blocked.
+  stop: {
+    labelKey: "common:awaitingReason.stop.label",
+    descKey: "common:awaitingReason.stop.desc",
+    urgent: false,
+  },
+  // Fresh/resumed CLI sitting at an empty prompt.
+  session_start: {
+    labelKey: "common:awaitingReason.session_start.label",
+    descKey: "common:awaitingReason.session_start.desc",
+    urgent: false,
+  },
+  // Esc / recovered-hook interruption: the last turn never finished normally.
+  interrupted: {
+    labelKey: "common:awaitingReason.interrupted.label",
+    descKey: "common:awaitingReason.interrupted.desc",
+    urgent: true,
   },
 };
 

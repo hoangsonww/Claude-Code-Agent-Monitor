@@ -21,6 +21,10 @@
   "tableDirectory": "Directory",
   "defaultName": "Session ",
   "detail": {
+    "waitingBanner": {
+      "title": "Waiting for your input",
+      "generic": "Claude Code is paused in this session until you respond in the terminal."
+    },
     "failedLoad": "Failed to load session",
     "loading": "Loading session...",
     "notFound": "Session not found",

@@ -1,54 +1,116 @@
 /**
  * @file StatusBadge.tsx
- * @description Defines reusable React components for displaying the status of agents and sessions in a visually distinct way using badges. The AgentStatusBadge component shows the current status of an agent with an optional pulsing effect for active states, while the SessionStatusBadge component indicates the status of a session. Both components utilize predefined configurations for consistent styling across the application.
+ * @description Defines reusable React components for displaying the status of agents and sessions in a visually distinct way using badges. The AgentStatusBadge component shows the current status of an agent with an optional pulsing effect for active states, while the SessionStatusBadge component indicates the status of a session. When a row is in the yellow "Waiting" overlay state, both badges can additionally render WHY it waits (the server's awaiting_reason: needs input / turn done / at prompt / interrupted) as a nested icon+label chip with a hover tooltip carrying the full explanation — or, in `compact` mode for tight card layouts, as the hover tooltip alone. Both components utilize predefined configurations for consistent styling across the application.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 import { useTranslation } from "react-i18next";
-import { STATUS_CONFIG, SESSION_STATUS_CONFIG } from "../lib/types";
-import type { EffectiveAgentStatus, EffectiveSessionStatus } from "../lib/types";
+import { BellRing, MessageSquareReply, Terminal, OctagonPause } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { STATUS_CONFIG, SESSION_STATUS_CONFIG, AWAITING_REASON_CONFIG } from "../lib/types";
+import type { EffectiveAgentStatus, EffectiveSessionStatus, AwaitingReason } from "../lib/types";
+import { Tip } from "./Tip";
+
+/** Per-reason icon, kept here (not in types.ts) so the presentation lookup in
+ *  lib/ stays JSX-free. Matches the semantics documented on {@link AwaitingReason}.
+ *  Exported so richer surfaces (e.g. SessionDetail's waiting banner) reuse the
+ *  same icon per reason as the badges. */
+export const REASON_ICONS: Record<AwaitingReason, LucideIcon> = {
+  notification: BellRing, // blocked on a permission/input prompt - ring the bell
+  stop: MessageSquareReply, // Claude replied; your reply is the next move
+  session_start: Terminal, // fresh CLI sitting at an empty prompt
+  interrupted: OctagonPause, // turn cut short (Esc / recovered hook)
+};
+
+/**
+ * The "why" chip nested inside a Waiting badge: a small rounded pill with the
+ * reason's icon and short label. Urgent reasons (permission prompts,
+ * interruptions) get a hotter amber fill than the calm idle-between-turns
+ * ones so a scan of a list surfaces the rows that actually block on the human.
+ */
+function ReasonChip({ reason }: { reason: AwaitingReason }) {
+  const { t } = useTranslation();
+  const cfg = AWAITING_REASON_CONFIG[reason];
+  const Icon = REASON_ICONS[reason];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-4 ${
+        cfg.urgent
+          ? "bg-amber-500/15 border-amber-500/25 text-amber-300"
+          : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400/90"
+      }`}
+    >
+      <Icon className="w-2.5 h-2.5 flex-shrink-0" aria-hidden="true" />
+      {t(cfg.labelKey)}
+    </span>
+  );
+}
 
 interface AgentStatusBadgeProps {
   status: EffectiveAgentStatus;
   pulse?: boolean;
+  /** WHY the agent is waiting (from `agentAwaitingReason`); rendered as a
+   *  nested icon+label chip with a tooltip. Ignored unless `status` is "waiting". */
+  reason?: AwaitingReason | null;
+  /** Tooltip-only mode for tight layouts (Kanban/Dashboard cards): keeps the
+   *  hover explanation but suppresses the inline reason chip so the badge
+   *  never squeezes the card title. */
+  compact?: boolean;
 }
 
-export function AgentStatusBadge({ status, pulse }: AgentStatusBadgeProps) {
+export function AgentStatusBadge({ status, pulse, reason, compact }: AgentStatusBadgeProps) {
   const { t } = useTranslation();
   const config = STATUS_CONFIG[status];
   // "waiting" pulses by default so the user's eye is drawn to sessions that
   // need their attention, matching the pulsing for active/working states.
   const shouldPulse = pulse ?? (status === "working" || status === "waiting");
+  // Only decorate the Waiting overlay - a reason on any other status is stale.
+  const shownReason = status === "waiting" && reason ? reason : null;
 
   return (
-    <span className={`badge ${config.bg} ${config.color}`}>
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${config.dot} ${
-          shouldPulse ? "animate-pulse-dot" : ""
-        }`}
-      />
-      {t(config.labelKey)}
-    </span>
+    // Tip renders children unwrapped when raw is undefined (non-waiting rows).
+    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
+      <span className={`badge ${config.bg} ${config.color}`}>
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${config.dot} ${
+            shouldPulse ? "animate-pulse-dot" : ""
+          }`}
+        />
+        {t(config.labelKey)}
+        {shownReason && !compact && <ReasonChip reason={shownReason} />}
+      </span>
+    </Tip>
   );
 }
 
 interface SessionStatusBadgeProps {
   status: EffectiveSessionStatus;
   pulse?: boolean;
+  /** WHY the session is waiting (from `sessionAwaitingReason`); rendered as a
+   *  nested icon+label chip with a tooltip. Ignored unless `status` is "waiting". */
+  reason?: AwaitingReason | null;
+  /** Tooltip-only mode for tight layouts (Kanban/Dashboard cards): keeps the
+   *  hover explanation but suppresses the inline reason chip so the badge
+   *  never squeezes the card title. */
+  compact?: boolean;
 }
 
-export function SessionStatusBadge({ status, pulse }: SessionStatusBadgeProps) {
+export function SessionStatusBadge({ status, pulse, reason, compact }: SessionStatusBadgeProps) {
   const { t } = useTranslation();
   const config = SESSION_STATUS_CONFIG[status];
   const shouldPulse = pulse ?? status === "waiting";
+  const shownReason = status === "waiting" && reason ? reason : null;
   return (
-    <span className={`badge ${config.bg} ${config.color}`}>
-      {shouldPulse && (
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${config.dot} animate-pulse-dot`}
-          aria-hidden="true"
-        />
-      )}
-      {t(config.labelKey)}
-    </span>
+    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
+      <span className={`badge ${config.bg} ${config.color}`}>
+        {shouldPulse && (
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${config.dot} animate-pulse-dot`}
+            aria-hidden="true"
+          />
+        )}
+        {t(config.labelKey)}
+        {shownReason && !compact && <ReasonChip reason={shownReason} />}
+      </span>
+    </Tip>
   );
 }

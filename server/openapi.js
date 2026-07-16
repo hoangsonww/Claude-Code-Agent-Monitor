@@ -416,11 +416,27 @@ function createOpenApiSpec() {
           type: "object",
           required: ["type", "content"],
           properties: {
-            type: { type: "string", enum: ["user", "assistant"] },
+            type: {
+              type: "string",
+              enum: ["user", "assistant", "session_event"],
+              description:
+                "Raw line type. session_event is a synthetic marker (e.g. a /rename) injected by the server, not a real transcript line. Mid-turn queued messages (queued_command attachments) surface as type user.",
+            },
+            sender: {
+              type: "string",
+              enum: ["user", "assistant", "orchestrator", "system", "tool"],
+              description:
+                "TRUE sender of the line: the human (user), the agent (assistant), a subagent's task assigned by its parent (orchestrator), a harness injection such as a task-notification or [SYSTEM NOTIFICATION …] banner (system), or a tool_result echoed on a user line (tool).",
+            },
             timestamp: { type: "string", format: "date-time", nullable: true },
             content: {
               type: "array",
               items: { $ref: "#/components/schemas/TranscriptContent" },
+            },
+            line: {
+              type: "integer",
+              minimum: 1,
+              description: "JSONL line number the message was parsed from (pagination cursor).",
             },
             model: { type: "string" },
             usage: {
@@ -428,7 +444,18 @@ function createOpenApiSpec() {
               properties: {
                 input_tokens: { type: "integer", minimum: 0 },
                 output_tokens: { type: "integer", minimum: 0 },
+                cache_read_input_tokens: { type: "integer", minimum: 0 },
+                cache_creation_input_tokens: { type: "integer", minimum: 0 },
               },
+            },
+            event_kind: {
+              type: "string",
+              enum: ["rename"],
+              description: "For type === session_event: the TUI action this marker represents.",
+            },
+            title: {
+              type: "string",
+              description: "For type === session_event: the new session title.",
             },
           },
         },

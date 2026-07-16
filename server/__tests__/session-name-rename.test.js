@@ -6,6 +6,9 @@
  *     custom-title winning and ai-title only filling placeholder names.
  *   - GET /:id/transcript surfacing custom-title (/rename) as a synthetic
  *     `session_event` marker, deduped, with ai-title excluded.
+ *   - GET /:id/transcript surfacing mid-turn queued user messages
+ *     (attachment/queued_command) as user rows, with queue-operation
+ *     bookkeeping and other attachment subtypes dropped.
  * Uses Node's built-in test runner with temp CLAUDE_HOME / DASHBOARD_DATA_DIR.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -273,5 +276,141 @@ describe("GET /:id/transcript — local slash-command output (system/local_comma
     // Exactly two surfaced rows from the system lines (command + stdout), plus
     // the one real user message — the empty + noise lines add nothing.
     assert.equal(res.body.messages.length, 3);
+  });
+});
+
+describe("GET /:id/transcript — mid-turn queued user messages (attachment/queued_command)", () => {
+  it("surfaces a queued_command attachment as a user message; drops queue-operation and other attachments", async () => {
+    const cwd = "/tmp/cam-queued-msg";
+    const sid = "aaaa1111-2222-3333-4444-555566667777";
+    writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "start the docs sweep" } },
+      {
+        type: "assistant",
+        message: { role: "assistant", content: [{ type: "text", text: "working on it" }] },
+      },
+      // A message typed while Claude was mid-turn is journaled as queue-operation
+      // bookkeeping plus a queued_command attachment — there is NO user line.
+      {
+        type: "queue-operation",
+        operation: "enqueue",
+        content: "doc sweep too pls",
+        sessionId: sid,
+      },
+      {
+        type: "queue-operation",
+        operation: "remove",
+        content: "doc sweep too pls",
+        sessionId: sid,
+      },
+      {
+        type: "attachment",
+        attachment: {
+          type: "queued_command",
+          prompt: "doc sweep too pls",
+          commandMode: "prompt",
+          origin: { kind: "human" },
+          timestamp: "2026-07-16T02:40:45.596Z",
+        },
+        timestamp: "2026-07-16T02:40:45.596Z",
+        sessionId: sid,
+      },
+      // Non-queued_command attachments are harness noise — must NOT surface.
+      {
+        type: "attachment",
+        attachment: { type: "task_reminder", content: "reminder noise" },
+        sessionId: sid,
+      },
+      // A content-less queued_command must not become an empty row either.
+      {
+        type: "attachment",
+        attachment: { type: "queued_command", prompt: "   ", origin: { kind: "human" } },
+        sessionId: sid,
+      },
+    ]);
+    await req("POST", "/api/sessions", { id: sid, cwd });
+
+    const res = await req("GET", `/api/sessions/${sid}/transcript?limit=200`);
+    assert.equal(res.status, 200);
+    const queued = res.body.messages.filter((m) =>
+      m.content.some((c) => c.type === "text" && c.text === "doc sweep too pls")
+    );
+    assert.equal(queued.length, 1, "the mid-turn message surfaces exactly once");
+    assert.equal(queued[0].type, "user");
+    assert.equal(
+      queued[0].sender,
+      "user",
+      "a human-typed queued message is attributed to the user"
+    );
+    assert.equal(queued[0].timestamp, "2026-07-16T02:40:45.596Z");
+    assert.ok(
+      !res.body.messages.some((m) =>
+        m.content.some((c) => c.type === "text" && /reminder noise/.test(c.text || ""))
+      ),
+      "non-queued_command attachments stay hidden"
+    );
+    // start + working + the queued message; queue-operation lines, the noise
+    // attachment, and the blank prompt add nothing.
+    assert.equal(res.body.messages.length, 3);
+  });
+
+  it("attributes harness-injected queued_command lines (task-notifications) to system, not the user", async () => {
+    const cwd = "/tmp/cam-queued-sys";
+    const sid = "bbbb1111-2222-3333-4444-555566667777";
+    writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "kick off the agents" } },
+      // Background-agent task-notification delivered through the SAME queue as
+      // typed messages — real shape: attachment has NO origin field at all.
+      {
+        type: "attachment",
+        attachment: {
+          type: "queued_command",
+          prompt:
+            "<task-notification>\n<task-id>a30201bfc90e18271</task-id>\n<status>completed</status>\n</task-notification>",
+          commandMode: "prompt",
+          timestamp: "2026-07-16T02:47:36.000Z",
+        },
+        timestamp: "2026-07-16T02:47:36.000Z",
+        sessionId: sid,
+      },
+      // Banner-prefixed variant must also be system.
+      {
+        type: "attachment",
+        attachment: {
+          type: "queued_command",
+          prompt: "[SYSTEM NOTIFICATION - NOT USER INPUT]\nautomated background-task event",
+          commandMode: "prompt",
+        },
+        sessionId: sid,
+      },
+      // Explicit non-human origin → system too.
+      {
+        type: "attachment",
+        attachment: {
+          type: "queued_command",
+          prompt: "sdk enqueued follow-up",
+          origin: { kind: "sdk" },
+        },
+        sessionId: sid,
+      },
+      // Missing origin but plain human-looking text stays user (older builds).
+      {
+        type: "attachment",
+        attachment: { type: "queued_command", prompt: "and update the docs" },
+        sessionId: sid,
+      },
+    ]);
+    await req("POST", "/api/sessions", { id: sid, cwd });
+
+    const res = await req("GET", `/api/sessions/${sid}/transcript?limit=200`);
+    assert.equal(res.status, 200);
+    const bySnippet = (s) =>
+      res.body.messages.find((m) =>
+        m.content.some((c) => c.type === "text" && (c.text || "").includes(s))
+      );
+    assert.equal(bySnippet("<task-notification>").sender, "system");
+    assert.equal(bySnippet("[SYSTEM NOTIFICATION").sender, "system");
+    assert.equal(bySnippet("sdk enqueued follow-up").sender, "system");
+    assert.equal(bySnippet("and update the docs").sender, "user");
   });
 });

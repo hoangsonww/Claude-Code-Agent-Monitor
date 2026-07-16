@@ -21,6 +21,10 @@
   "tableDirectory": "Thư mục",
   "defaultName": "Phiên ",
   "detail": {
+    "waitingBanner": {
+      "title": "Đang chờ phản hồi của bạn",
+      "generic": "Claude Code đang tạm dừng trong phiên này cho đến khi bạn phản hồi trong terminal."
+    },
     "failedLoad": "Không thể tải phiên",
     "loading": "Đang tải phiên...",
     "notFound": "Không tìm thấy phiên",

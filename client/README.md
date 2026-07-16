@@ -633,6 +633,29 @@ interface AgentCardProps {
 }
 ```
 
+#### StatusBadge
+
+Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatusBadge`). When a row is in the yellow **Waiting** overlay (`awaiting_input_since` set), an optional `reason` prop explains WHY: a hover tooltip carries the full explanation, and — unless `compact` is set — a small nested chip (icon + short label) renders inline. Card layouts (Kanban / Dashboard trees) pass `compact` so the chip never squeezes the card title; the Sessions table and session-detail header show the full chip:
+
+| `awaiting_reason` | Label | Meaning |
+| ----------------- | ----- | ------- |
+| `notification` | Needs input | Blocked on a permission prompt / input request (urgent — amber) |
+| `stop` | Turn done | Claude finished its reply; idle until the next prompt |
+| `session_start` | At prompt | Fresh/resumed CLI sitting at an empty prompt |
+| `interrupted` | Interrupted | Turn cut short — Esc or a recovered hook (urgent — amber) |
+
+**Props:**
+```typescript
+interface AgentStatusBadgeProps {
+  status: EffectiveAgentStatus;
+  pulse?: boolean;
+  reason?: AwaitingReason | null; // from agentAwaitingReason(agent)
+  compact?: boolean; // tooltip-only (no inline chip) for tight card layouts
+}
+```
+
+Unknown/future server reasons degrade to a plain Waiting badge (`normalizeAwaitingReason` filters them to null). SessionDetail additionally renders a waiting-for-input banner (same reason + relative time) under the header via the shared `REASON_ICONS` map.
+
 #### ToolCard
 
 Displays tool execution details with timing and token usage.

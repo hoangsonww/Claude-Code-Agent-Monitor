@@ -21,6 +21,10 @@
   "tableDirectory": "디렉터리",
   "defaultName": "세션 ",
   "detail": {
+    "waitingBanner": {
+      "title": "입력을 기다리는 중",
+      "generic": "터미널에서 응답할 때까지 이 세션의 Claude Code가 일시 정지되어 있습니다."
+    },
     "failedLoad": "세션을 불러오지 못했습니다",
     "loading": "세션을 불러오는 중...",
     "notFound": "세션을 찾을 수 없습니다",
