@@ -277,6 +277,42 @@ describe("ccam CLI — pricing", () => {
     assert.equal(del.code, 0);
     assert.match(del.out, /deleted/);
   });
+
+  it("pricing set persists fast-mode and intro rates via flags", async () => {
+    const set = await ccam(
+      "pricing",
+      "set",
+      "ccam-fast-model%",
+      "--input",
+      "5",
+      "--output",
+      "25",
+      "--fast-input",
+      "10",
+      "--fast-output",
+      "50",
+      "--intro-input",
+      "2",
+      "--intro-output",
+      "10",
+      "--intro-until",
+      "2099-01-01"
+    );
+    assert.equal(set.code, 0, `stderr: ${set.err} stdout: ${set.out}`);
+    const list = await ccam("pricing");
+    assert.match(list.out, /ccam-fast-model%/);
+    assert.match(list.out, /\$10\/\$50/); // fast in/out column
+    assert.match(list.out, /\$2\/\$10/); // intro in/out column
+    assert.match(list.out, /2099-01-01/);
+    // A plain rate edit without intro flags must preserve the promo (the
+    // intro block is only sent when an --intro-* flag is present).
+    const edit = await ccam("pricing", "set", "ccam-fast-model%", "--input", "6", "--output", "30");
+    assert.equal(edit.code, 0);
+    const after = await ccam("pricing");
+    assert.match(after.out, /\$6/);
+    assert.match(after.out, /2099-01-01/);
+    await ccam("pricing", "delete", "ccam-fast-model%");
+  });
 });
 
 describe("ccam CLI — import & administration", () => {

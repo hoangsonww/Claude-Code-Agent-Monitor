@@ -987,6 +987,31 @@ async function cmdWebhooks(flags, positional) {
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
 
+/** Render pricing rules — shared by the online list and the offline fallback
+ *  so both show the full rate surface (standard, fast-mode, intro promo). */
+function renderPricingTable(rules) {
+  const fastCol = (p) =>
+    (p.fast_input_per_mtok || 0) > 0 ? `$${p.fast_input_per_mtok}/$${p.fast_output_per_mtok}` : "-";
+  const introCol = (p) =>
+    p.intro_until
+      ? `$${p.intro_input_per_mtok}/$${p.intro_output_per_mtok} ≤${p.intro_until}`
+      : "-";
+  const rows = (rules || []).map((p) => [
+    p.model_pattern,
+    (p.display_name || "").slice(0, 24),
+    `$${p.input_per_mtok}`,
+    `$${p.output_per_mtok}`,
+    `$${p.cache_read_per_mtok}`,
+    `$${p.cache_write_per_mtok}`,
+    fastCol(p),
+    introCol(p),
+  ]);
+  table(
+    ["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M", "Fast In/Out", "Intro In/Out"],
+    rows
+  );
+}
+
 async function cmdPricing(flags, positional) {
   const sub = positional[0];
   if (sub === "set" && positional[1]) {
@@ -998,6 +1023,30 @@ async function cmdPricing(flags, positional) {
       cache_read_per_mtok: Number(flags["cache-read"] ?? 0),
       cache_write_per_mtok: Number(flags["cache-write"] ?? 0),
     };
+    if (flags["cache-write-1h"] !== undefined)
+      body.cache_write_1h_per_mtok = Number(flags["cache-write-1h"]);
+    if (flags["fast-input"] !== undefined) body.fast_input_per_mtok = Number(flags["fast-input"]);
+    if (flags["fast-output"] !== undefined)
+      body.fast_output_per_mtok = Number(flags["fast-output"]);
+    // The intro block is only sent when at least one --intro-* flag is present:
+    // per the API contract, a PUT that omits every intro field preserves an
+    // existing promo, so a plain rate edit can never clobber one.
+    const INTRO_FLAGS = {
+      "intro-input": "intro_input_per_mtok",
+      "intro-output": "intro_output_per_mtok",
+      "intro-cache-read": "intro_cache_read_per_mtok",
+      "intro-cache-write": "intro_cache_write_per_mtok",
+      "intro-cache-write-1h": "intro_cache_write_1h_per_mtok",
+    };
+    const introProvided =
+      flags["intro-until"] !== undefined ||
+      Object.keys(INTRO_FLAGS).some((f) => flags[f] !== undefined);
+    if (introProvided) {
+      for (const [flag, field] of Object.entries(INTRO_FLAGS))
+        body[field] = Number(flags[flag] ?? 0);
+      // A bare --intro-until (no date) clears the promo, mirroring the API.
+      body.intro_until = typeof flags["intro-until"] === "string" ? flags["intro-until"] : "";
+    }
     await api("PUT", "/api/pricing", body);
     console.log(`${c.green("✔")} Pricing rule saved for ${c.bold(positional[1])}`);
     return;
@@ -1013,15 +1062,7 @@ async function cmdPricing(flags, positional) {
     return;
   }
   const data = await get("/api/pricing");
-  const rows = (data.pricing || data.rules || []).map((p) => [
-    p.model_pattern,
-    (p.display_name || "").slice(0, 24),
-    `$${p.input_per_mtok}`,
-    `$${p.output_per_mtok}`,
-    `$${p.cache_read_per_mtok}`,
-    `$${p.cache_write_per_mtok}`,
-  ]);
-  table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+  renderPricingTable(data.pricing || data.rules || []);
 }
 
 // ── Updates ─────────────────────────────────────────────────────────────────
@@ -1304,7 +1345,11 @@ const COMMAND_GROUPS = [
     "Pricing",
     [
       ["pricing", "", "List model pricing rules"],
-      ["pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]"],
+      [
+        "pricing set <pattern>",
+        "",
+        "--input/--output N, plus --cache-*, --fast-*, --intro-* --intro-until YYYY-MM-DD",
+      ],
       ["pricing delete <pattern>", "", "Delete a pricing rule"],
       ["pricing reset", "", "Reset pricing rules to defaults"],
     ],
@@ -1469,17 +1514,7 @@ const OFFLINE_HANDLERS = {
       );
     }
     const db = requireDb();
-    const rows = db
-      .all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC")
-      .map((p) => [
-        p.model_pattern,
-        (p.display_name || "").slice(0, 24),
-        `$${p.input_per_mtok}`,
-        `$${p.output_per_mtok}`,
-        `$${p.cache_read_per_mtok}`,
-        `$${p.cache_write_per_mtok}`,
-      ]);
-    table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+    renderPricingTable(db.all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC"));
   },
   async alerts(flags, positional) {
     if (positional[0]) {
@@ -1638,6 +1673,15 @@ const REPL_FLAGS = [
   "--output",
   "--cache-read",
   "--cache-write",
+  "--cache-write-1h",
+  "--fast-input",
+  "--fast-output",
+  "--intro-input",
+  "--intro-output",
+  "--intro-cache-read",
+  "--intro-cache-write",
+  "--intro-cache-write-1h",
+  "--intro-until",
   "--name",
   "--no-color",
 ];
