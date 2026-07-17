@@ -640,8 +640,9 @@ ccam events   [--session id] [--limit n]
 ccam analytics                    # token totals, top tools, agent types
 ccam workflows [--session id]     # workflow intelligence stats and patterns
 ccam runs [--session id]          # dynamic Workflow-tool runs
-ccam cost                         # total estimated cost with per-model breakdown
-                                  # (warns about models with usage but no pricing rule)
+ccam cost [--session <id>]        # total estimated cost with per-model breakdown
+                                  # (--session scopes to one; shows tool surcharges;
+                                  #  warns about models with usage but no pricing rule)
 
 # Alerts & webhooks
 ccam alerts [--unacked]           # fired-alert feed

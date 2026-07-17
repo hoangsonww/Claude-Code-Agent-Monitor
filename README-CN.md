@@ -633,8 +633,9 @@ ccam events   [--session id] [--limit n]
 ccam analytics                    # token 总量、常用工具、agent 类型
 ccam workflows [--session id]     # 工作流智能统计与模式
 ccam runs [--session id]          # 动态 Workflow 工具运行
-ccam cost                         # 按模型细分的总预估成本
-                                  # （对有用量但无定价规则的模型发出警告）
+ccam cost [--session <id>]        # 按模型细分的总预估成本
+                                  # （--session 限定为单个会话；显示服务器工具附加费用；
+                                  #  对有用量但无定价规则的模型发出警告）
 
 # 告警 & webhook
 ccam alerts [--unacked]           # 触发告警流

@@ -24,8 +24,8 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "可筛选的表格，外加按会话的深入视图：缩进的 agent 树、单会话成本以及最近的事件",
     Insights: "洞察",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
-      "Token 总量与最常用工具、带已检测模式的工作流智能统计、动态 Workflow 工具运行，以及按模型的成本细分——当某个模型有用量却没有匹配的定价规则时会发出警告（按 $0 计价并从总额中排除），并提示用 <code>ccam pricing set</code> 修复",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which can be scoped to a single session with <code>--session</code>, surfaces server-tool surcharges (web search / code execution), warns about models with usage but no matching pricing rule (priced at $0, excluded from the total), and points to <code>ccam pricing set</code>":
+      "Token 总量与最常用工具、带已检测模式的工作流智能统计、动态 Workflow 工具运行，以及按模型的成本细分——可用 <code>--session</code> 限定到单个会话，会显示服务器工具附加费用（网页搜索 / 代码执行），当某个模型有用量却没有匹配的定价规则时会发出警告（按 $0 计价并从总额中排除），并提示用 <code>ccam pricing set</code> 修复",
     "Alerts &amp; Webhooks": "告警 &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "触发告警流（支持单条/全部确认）、规则列表，以及对任意 webhook 目标的合成测试投递",
@@ -1265,8 +1265,8 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "Các bảng có bộ lọc, cộng thêm góc nhìn sâu theo phiên: cây agent thụt lề, chi phí từng phiên và các sự kiện gần nhất",
     Insights: "Phân tích",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
-      "Tổng token và các công cụ dùng nhiều nhất, thống kê workflow-intelligence với các mẫu được phát hiện, các lần chạy Workflow động, và phân tích chi phí theo model — cảnh báo khi một model có mức sử dụng nhưng không có quy tắc định giá khớp (tính giá $0, bị loại khỏi tổng) và chỉ tới <code>ccam pricing set</code>",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which can be scoped to a single session with <code>--session</code>, surfaces server-tool surcharges (web search / code execution), warns about models with usage but no matching pricing rule (priced at $0, excluded from the total), and points to <code>ccam pricing set</code>":
+      "Tổng token và các công cụ dùng nhiều nhất, thống kê workflow-intelligence với các mẫu được phát hiện, các lần chạy Workflow động, và phân tích chi phí theo model — có thể giới hạn vào một phiên duy nhất bằng <code>--session</code>, hiển thị phụ phí công cụ máy chủ (tìm kiếm web / thực thi mã), cảnh báo khi một model có mức sử dụng nhưng không có quy tắc định giá khớp (tính giá $0, bị loại khỏi tổng) và chỉ tới <code>ccam pricing set</code>",
     "Alerts &amp; Webhooks": "Cảnh báo &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "Luồng cảnh báo đã kích hoạt (xác nhận từng cái / tất cả), danh sách quy tắc, và gửi thử tổng hợp tới bất kỳ đích webhook nào",
@@ -2534,8 +2534,8 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "필터링 가능한 테이블과 세션별 심층 보기: 들여쓰기된 에이전트 트리, 세션별 비용, 최근 이벤트",
     Insights: "인사이트",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
-      "토큰 총량과 상위 도구, 감지된 패턴이 포함된 워크플로 인텔리전스 통계, 동적 Workflow 도구 실행, 모델별 비용 분석 — 사용량은 있지만 일치하는 가격 규칙이 없는 모델($0으로 계산되어 총액에서 제외)을 경고하고 <code>ccam pricing set</code>을 안내합니다",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which can be scoped to a single session with <code>--session</code>, surfaces server-tool surcharges (web search / code execution), warns about models with usage but no matching pricing rule (priced at $0, excluded from the total), and points to <code>ccam pricing set</code>":
+      "토큰 총량과 상위 도구, 감지된 패턴이 포함된 워크플로 인텔리전스 통계, 동적 Workflow 도구 실행, 모델별 비용 분석 — <code>--session</code>으로 단일 세션에 한정할 수 있고, 서버 도구 추가 요금(웹 검색 / 코드 실행)을 표시하며, 사용량은 있지만 일치하는 가격 규칙이 없는 모델($0으로 계산되어 총액에서 제외)을 경고하고 <code>ccam pricing set</code>을 안내합니다",
     "Alerts &amp; Webhooks": "알림 &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "발생 알림 피드(개별/전체 확인), 규칙 목록, 그리고 임의의 webhook 대상에 대한 합성 테스트 전송",

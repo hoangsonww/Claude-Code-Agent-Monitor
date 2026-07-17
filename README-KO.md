@@ -640,8 +640,9 @@ ccam events   [--session id] [--limit n]
 ccam analytics                    # 토큰 총계, 상위 도구, 에이전트 유형
 ccam workflows [--session id]     # 워크플로 인텔리전스 통계 및 패턴
 ccam runs [--session id]          # 동적 Workflow 도구 실행
-ccam cost                         # 모델별 내역이 포함된 총 예상 비용
-                                  # (사용량은 있지만 가격 책정 규칙이 없는 모델에 대해 경고)
+ccam cost [--session <id>]        # 모델별 내역이 포함된 총 예상 비용
+                                  # (--session 은 단일 세션으로 범위 지정; 서버 도구 추가 요금 표시;
+                                  #  사용량은 있지만 가격 책정 규칙이 없는 모델에 대해 경고)
 
 # 알림 및 웹훅
 ccam alerts [--unacked]           # 발생한 알림 피드
