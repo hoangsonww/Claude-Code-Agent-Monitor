@@ -1815,10 +1815,41 @@ async function importAllSessions(dbModule) {
       for (const session of batch) {
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
+      // Link Workflow-tool inner agents to their run. Workflow runs write a
+      // per-run journal + nested agent transcripts that emit NO hooks, so an
+      // offline/headless/CI/cluster run never had them ingested live — leaving
+      // every inner agent orphaned (workflow_run_id = NULL). Run it here, OUTSIDE
+      // the sqlite transaction (the ingest is async), mirroring the server's
+      // startup ingestAllWorkflows so a CLI rescan links them too. Idempotent and
+      // cheap for sessions with no workflow artifacts (early return).
+      await ingestWorkflowsForBatch(dbModule, batch);
     }
   }
 
   return { imported, skipped, errors };
+}
+
+/**
+ * Link Workflow-tool inner agents for a batch of just-imported sessions by
+ * running the shared workflow-journal ingest per session. Extracted so the
+ * default rescan (importAllSessions) and the arbitrary-directory import
+ * (importFromDirectory) link workflow fleets identically, matching the server's
+ * ingestWorkflowsForSession path. Lazy-requires workflow-ingest to avoid the
+ * import-history ⇆ workflow-ingest require cycle. Per-session failures are
+ * non-fatal: a malformed journal must never abort the import.
+ */
+async function ingestWorkflowsForBatch(dbModule, sessions) {
+  const { ingestWorkflowsForSession } = require("../server/lib/workflow-ingest");
+  for (const session of sessions) {
+    try {
+      await ingestWorkflowsForSession(dbModule, {
+        id: session.sessionId,
+        transcript_path: session._sourceJsonlPath,
+      });
+    } catch {
+      /* non-fatal — one bad workflow journal must not fail the whole import */
+    }
+  }
 }
 
 /**
@@ -2439,6 +2470,15 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
     }
+
+    // Link Workflow-tool inner agents to their run for any imported session that
+    // carries an on-disk workflow journal — the same offline/headless/CI/cluster
+    // gap importAllSessions closes, but for a directory import. Runs outside the
+    // DB transaction (async) and is idempotent.
+    await ingestWorkflowsForBatch(
+      dbModule,
+      parsedSessions.filter((s) => s._sourceJsonlPath)
+    );
   }
 
   // Orphan subagent JSONLs (parent session not present in DB or not among the
