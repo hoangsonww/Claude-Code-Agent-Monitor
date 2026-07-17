@@ -426,7 +426,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -434,13 +434,13 @@ docker run -d --name agent-monitor \
 # Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
 ```
 
-이후 대시보드는 `http://localhost:4820`에서 사용할 수 있습니다. 서버는 기본적으로 `127.0.0.1`에 바인딩되므로, 컨테이너 자체의 루프백 너머에서 접근할 수 있게 하려면 `DASHBOARD_HOST=0.0.0.0` **및** `DASHBOARD_TOKEN`을 설정하세요([설정](#설정)과 [`.github/SECURITY.md`](./.github/SECURITY.md) 참조).
+이후 대시보드는 `http://localhost:4820`에서 사용할 수 있습니다. 이미지는 **컨테이너 내부**에서 `0.0.0.0`에 바인딩하며(`DASHBOARD_HOST`) SQLite를 `/app/data` 볼륨에 기록합니다(`DASHBOARD_DATA_DIR`). 두 설정 모두 `Dockerfile`에 내장되어 있어 Compose와 일반 `docker run`이 그대로 동작합니다. 신뢰 경계는 **호스트** 포트 게시입니다. 예시는 `127.0.0.1`에만 게시하므로 대시보드는 기본적으로 LAN에서 접근할 수 없습니다. LAN에 노출하려면 `0.0.0.0`에 게시하고(`127.0.0.1:` 접두사를 제거, 예: `-p 4820:4820`) **및** `DASHBOARD_TOKEN`을 설정하세요([설정](#설정)과 [`.github/SECURITY.md`](./.github/SECURITY.md) 참조).
 
 **볼륨 마운트:**
 

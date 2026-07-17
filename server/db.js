@@ -6,6 +6,12 @@
 let Database;
 try {
   Database = require("better-sqlite3");
+  // `require` only loads better-sqlite3's JS; its native addon is resolved
+  // lazily on the first `new Database(...)`. Probe it here (a throwaway
+  // in-memory handle) so a missing or ABI-mismatched binary — e.g. installed
+  // for a different Node version — falls back to node:sqlite now, instead of
+  // crashing later at the real `new Database(DB_PATH)` outside any try/catch.
+  new Database(":memory:").close();
 } catch {
   try {
     Database = require("./compat-sqlite");

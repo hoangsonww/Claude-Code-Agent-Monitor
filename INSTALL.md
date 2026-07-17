@@ -399,7 +399,7 @@ Open **http://localhost:4820** in your browser.
 # Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -407,7 +407,7 @@ docker run -d --name agent-monitor \
 # Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -419,6 +419,9 @@ podman run -d --name agent-monitor \
 |---|---|
 | `~/.claude:/root/.claude:ro` | Lets the server import legacy Claude session history |
 | `agent-monitor-data:/app/data` | Persists the SQLite database across container restarts |
+
+> [!NOTE]
+> The image sets `DASHBOARD_HOST=0.0.0.0` and `DASHBOARD_DATA_DIR=/app/data` internally (baked into the `Dockerfile`). The `0.0.0.0` bind is required because a container's loopback is a separate namespace the published port cannot reach; the SQLite data dir is redirected off the read-only `~/.claude` mount onto the writable volume. The trust boundary is the **host** port publish — the examples use `-p 127.0.0.1:4820:4820`, so the dashboard is local-only. To expose it on a LAN, publish on `0.0.0.0` (`-p 4820:4820`) **and** set `DASHBOARD_TOKEN`.
 
 > [!IMPORTANT]
 > Claude Code hooks run on the host, not inside the container. After the container is healthy on `http://localhost:4820`, run `npm run install-hooks` on the host so Claude Code posts hook events back to the containerized server. The installer refuses to run inside a container (issue #193) to avoid writing a container-internal handler path into a bind-mounted `~/.claude`; use `CCAM_ALLOW_CONTAINER_HOOKS=1` only if you run Claude Code inside the same container.

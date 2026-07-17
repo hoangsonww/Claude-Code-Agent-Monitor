@@ -1758,7 +1758,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Plain Docker / Podman
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor</code></pre>
@@ -5781,7 +5781,7 @@ podman build -t agent-monitor .
 
 # Run the container
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor</code></pre>
@@ -5803,6 +5803,22 @@ docker run -d --name agent-monitor \
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="callout callout-info">
+            <div class="callout-icon">ℹ</div>
+            <div class="callout-body">
+              <strong>Local-only by default</strong>
+              <p>
+                The image bakes <code>DASHBOARD_HOST=0.0.0.0</code> (the server binds loopback by
+                default, but a container's loopback is a separate namespace the published port cannot
+                reach) and <code>DASHBOARD_DATA_DIR=/app/data</code> (the read-only
+                <code>~/.claude</code> mount cannot hold the SQLite data dir). The trust boundary is
+                the host port publish: the examples use <code>-p 127.0.0.1:4820:4820</code>, so the
+                dashboard is local-only. To expose it on a LAN, publish on <code>0.0.0.0</code>
+                (<code>-p 4820:4820</code>) and set <code>DASHBOARD_TOKEN</code>.
+              </p>
+            </div>
           </div>
 
           <h3>Multi-Stage Build</h3>
@@ -6235,8 +6251,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=30" defer></script>
-    <script src="script.js?v=30" defer></script>
+    <script src="i18n-content.js?v=31" defer></script>
+    <script src="script.js?v=31" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

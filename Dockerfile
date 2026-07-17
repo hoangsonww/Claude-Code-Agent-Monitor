@@ -37,4 +37,16 @@ EXPOSE 4820
 
 ENV NODE_ENV=production
 
+# In a container the app MUST bind all interfaces: the server binds loopback by
+# default (GHSA-gr74-4xfh-6jw9), but a container's loopback is a separate
+# namespace the published port cannot reach, so a loopback bind makes the port
+# unreachable. Inside a container the trust boundary is the *host* port publish
+# (keep it on 127.0.0.1 — see docker-compose.yml / INSTALL.md), not this bind.
+ENV DASHBOARD_HOST=0.0.0.0
+
+# The recommended ~/.claude bind mount is read-only, so the server cannot write
+# its default data dir (~/.claude/agent-dashboard). Persist to the mounted
+# volume at /app/data instead.
+ENV DASHBOARD_DATA_DIR=/app/data
+
 CMD ["node", "server/index.js"]

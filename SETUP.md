@@ -67,7 +67,7 @@ CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
 # Plain Docker
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -75,7 +75,7 @@ docker run -d --name agent-monitor \
 # Plain Podman
 podman build -t agent-monitor .
 podman run -d --name agent-monitor \
-  -p 4820:4820 \
+  -p 127.0.0.1:4820:4820 \
   -v "$HOME/.claude:/root/.claude:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor
@@ -84,6 +84,8 @@ podman run -d --name agent-monitor \
 Container-specific behavior:
 
 - The dashboard is available at `http://localhost:4820`
+- The image sets `DASHBOARD_HOST=0.0.0.0` (bind inside the container — its loopback is a separate namespace the published port cannot reach) and `DASHBOARD_DATA_DIR=/app/data` internally; both are baked into the `Dockerfile`
+- The examples publish on `127.0.0.1` only, so the dashboard is local-only. To expose it on a LAN, publish on `0.0.0.0` (`-p 4820:4820`) **and** set `DASHBOARD_TOKEN`
 - `~/.claude:/root/.claude:ro` is used for history import only
 - `agent-monitor-data:/app/data` persists the SQLite database
 - Claude Code hooks still execute on the host, so install them from the host with `npm run install-hooks`
