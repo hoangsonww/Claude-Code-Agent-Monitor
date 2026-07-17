@@ -469,7 +469,7 @@ Request body shape:
 | `GET`    | `/api/pricing/cost`       | Total cost across all sessions         |
 | `GET`    | `/api/pricing/cost/:id`   | Cost breakdown for one session         |
 
-`PUT /api/pricing` also accepts optional **time-limited introductory rates** (`intro_*_per_mtok` + an `intro_until` `YYYY-MM-DD` cutoff): usage on/before the cutoff is priced at the intro rate, after it at the standard rate. Intro columns are written only when the caller sends them, so a standard-rate edit never disturbs a promo. The agent-list endpoints (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (0 for main agents, whose cost is the session total).
+`PUT /api/pricing` also accepts optional **time-limited introductory rates** (`intro_*_per_mtok` + an `intro_until` `YYYY-MM-DD` cutoff): usage on/before the cutoff is priced at the intro rate, after it at the standard rate. Intro columns are written only when the caller sends them, so a standard-rate edit never disturbs a promo. Every rate field present must be a non-negative finite number — `NaN`/negative values are rejected with `400 INVALID_INPUT` before anything is written. The agent-list endpoints (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (0 for main agents, whose cost is the session total).
 
 ### Workflows
 
@@ -1263,7 +1263,7 @@ test("POST /api/hooks/event ingests hook payload", async () => {
 
 ## Terminal Access (`ccam` CLI)
 
-Everything this server exposes over REST is also reachable from a terminal via the repo's dependency-free `ccam` CLI (`bin/ccam.js`, linked by `npm run setup`): monitoring (`health`/`stats`/`kanban`/`tail`), data browsing, analytics/workflows/cost, alerts + webhook tests, pricing CRUD, imports, and administration (`doctor`/`export`/`cleanup`/`reinstall-hooks`/`clear-data --yes`). It resolves the live server through the same `~/.claude/.agent-dashboard.json` registry the hook handler uses. See [docs/CLI.md](../docs/CLI.md).
+Everything this server exposes over REST is also reachable from a terminal via the repo's dependency-free `ccam` CLI (`bin/ccam.js`, linked by `npm run setup`): monitoring (`health`/`stats`/`kanban`/`tail`), data browsing, analytics/workflows/cost, alerts + webhook tests, pricing CRUD, imports, and administration (`doctor`/`export`/`cleanup`/`reinstall-hooks`/`update-check`/`clear-data --yes`). It resolves the live server through the same `~/.claude/.agent-dashboard.json` registry the hook handler uses. See [docs/CLI.md](../docs/CLI.md).
 
 ## Deployment
 

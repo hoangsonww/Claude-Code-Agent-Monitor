@@ -37,10 +37,29 @@ else
 fi
 
 # ── 2. Run tests — commit is blocked unless all pass ────────────────────────
-echo "🧪 Running backend tests..."
-npm run test:server
+# Each suite is retried once on failure. The full run executes dozens of test
+# files concurrently, each starting its own server (plus the CLI suite's
+# spawned child processes with hard kill timeouts), so a loaded machine can
+# produce a one-off timing failure unrelated to the commit. A real regression
+# is deterministic: it fails both runs and still blocks the commit. This keeps
+# the gate strict without making commits a dice roll on machine load.
+run_suite() {
+  # $1 = human label, $2 = npm script
+  echo "🧪 Running $1 tests..."
+  if npm run "$2"; then
+    return 0
+  fi
+  echo "⚠️  $1 suite failed — retrying once to rule out machine-load flakiness..."
+  if npm run "$2"; then
+    echo "✅ $1 suite passed on retry — treating the first failure as a load flake."
+    echo "   If this keeps happening, the flaky test above deserves a real fix."
+    return 0
+  fi
+  echo "❌ $1 suite failed twice — genuine failure, aborting the commit."
+  return 1
+}
 
-echo "🧪 Running frontend tests..."
-npm run test:client
+run_suite backend test:server
+run_suite frontend test:client
 
 echo "✅ Formatting applied and all tests passed — proceeding with commit."

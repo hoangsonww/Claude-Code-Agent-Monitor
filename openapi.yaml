@@ -4745,7 +4745,7 @@ paths:
         - Pricing
       summary: Create/update pricing rule
       operationId: upsertPricingRule
-      description: 'Creates a pricing rule or updates the existing one with the same `model_pattern` (upsert keyed on `model_pattern`). `model_pattern` and `display_name` are required; every `*_per_mtok` rate is optional and defaults to 0 when omitted. Use the SQL `%` wildcard in `model_pattern` to match a model family (e.g. `claude-opus-4%`). Set `fast_input_per_mtok` / `fast_output_per_mtok` only if the model bills fast-mode usage at a premium; leave them 0 otherwise. Note the asymmetry with the list endpoint: the response wraps a SINGLE stored rule as `{ pricing: <rule> }` (not an array). A missing `model_pattern` or `display_name` returns 400 `INVALID_INPUT`.'
+      description: 'Creates a pricing rule or updates the existing one with the same `model_pattern` (upsert keyed on `model_pattern`). `model_pattern` and `display_name` are required; every `*_per_mtok` rate is optional and defaults to 0 when omitted. Use the SQL `%` wildcard in `model_pattern` to match a model family (e.g. `claude-opus-4%`). Set `fast_input_per_mtok` / `fast_output_per_mtok` only if the model bills fast-mode usage at a premium; leave them 0 otherwise. Note the asymmetry with the list endpoint: the response wraps a SINGLE stored rule as `{ pricing: <rule> }` (not an array). A missing `model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so does any `*_per_mtok` rate that is not a non-negative finite number (numeric strings are coerced; NaN and negative rates are rejected before anything is written).'
       requestBody:
         required: true
         content:

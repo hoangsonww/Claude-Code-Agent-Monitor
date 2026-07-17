@@ -18,7 +18,7 @@
  * Pricing               pricing · pricing set/delete/reset
  * Import                import rescan · import path <dir>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
- *                       clear-data --yes · open · version
+ *                       update-check · clear-data --yes · open · version
  *
  * The REPL (`ccam repl`, aliases `shell` / `i`) runs each entered line as a
  * short-lived child `ccam` process, so its behavior is identical to the
@@ -898,6 +898,27 @@ async function cmdCost() {
       );
     }
   }
+  // The API prices unmatched models at $0 and reports them in unpriced_models
+  // so the total stays honest — surface that here instead of silently showing
+  // an under-reported number (e.g. right after a brand-new model id ships).
+  const unpriced = cost.unpriced_models || [];
+  if (unpriced.length) {
+    console.log();
+    console.log(
+      c.yellow(
+        `⚠ ${unpriced.length} model(s) have usage but no pricing rule — excluded from the total:`
+      )
+    );
+    for (const u of unpriced) {
+      const tokens =
+        (u.input_tokens || 0) +
+        (u.output_tokens || 0) +
+        (u.cache_read_tokens || 0) +
+        (u.cache_write_tokens || 0);
+      console.log(`  ${c.bold(u.model)}  ${c.dim(`${fmtTokens(tokens)} tokens`)}`);
+    }
+    console.log(c.dim("  Add a rule with: ccam pricing set <pattern> --input N --output N"));
+  }
 }
 
 // ── Alerts & webhooks ───────────────────────────────────────────────────────
@@ -966,6 +987,31 @@ async function cmdWebhooks(flags, positional) {
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
 
+/** Render pricing rules — shared by the online list and the offline fallback
+ *  so both show the full rate surface (standard, fast-mode, intro promo). */
+function renderPricingTable(rules) {
+  const fastCol = (p) =>
+    (p.fast_input_per_mtok || 0) > 0 ? `$${p.fast_input_per_mtok}/$${p.fast_output_per_mtok}` : "-";
+  const introCol = (p) =>
+    p.intro_until
+      ? `$${p.intro_input_per_mtok}/$${p.intro_output_per_mtok} ≤${p.intro_until}`
+      : "-";
+  const rows = (rules || []).map((p) => [
+    p.model_pattern,
+    (p.display_name || "").slice(0, 24),
+    `$${p.input_per_mtok}`,
+    `$${p.output_per_mtok}`,
+    `$${p.cache_read_per_mtok}`,
+    `$${p.cache_write_per_mtok}`,
+    fastCol(p),
+    introCol(p),
+  ]);
+  table(
+    ["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M", "Fast In/Out", "Intro In/Out"],
+    rows
+  );
+}
+
 async function cmdPricing(flags, positional) {
   const sub = positional[0];
   if (sub === "set" && positional[1]) {
@@ -977,6 +1023,30 @@ async function cmdPricing(flags, positional) {
       cache_read_per_mtok: Number(flags["cache-read"] ?? 0),
       cache_write_per_mtok: Number(flags["cache-write"] ?? 0),
     };
+    if (flags["cache-write-1h"] !== undefined)
+      body.cache_write_1h_per_mtok = Number(flags["cache-write-1h"]);
+    if (flags["fast-input"] !== undefined) body.fast_input_per_mtok = Number(flags["fast-input"]);
+    if (flags["fast-output"] !== undefined)
+      body.fast_output_per_mtok = Number(flags["fast-output"]);
+    // The intro block is only sent when at least one --intro-* flag is present:
+    // per the API contract, a PUT that omits every intro field preserves an
+    // existing promo, so a plain rate edit can never clobber one.
+    const INTRO_FLAGS = {
+      "intro-input": "intro_input_per_mtok",
+      "intro-output": "intro_output_per_mtok",
+      "intro-cache-read": "intro_cache_read_per_mtok",
+      "intro-cache-write": "intro_cache_write_per_mtok",
+      "intro-cache-write-1h": "intro_cache_write_1h_per_mtok",
+    };
+    const introProvided =
+      flags["intro-until"] !== undefined ||
+      Object.keys(INTRO_FLAGS).some((f) => flags[f] !== undefined);
+    if (introProvided) {
+      for (const [flag, field] of Object.entries(INTRO_FLAGS))
+        body[field] = Number(flags[flag] ?? 0);
+      // A bare --intro-until (no date) clears the promo, mirroring the API.
+      body.intro_until = typeof flags["intro-until"] === "string" ? flags["intro-until"] : "";
+    }
     await api("PUT", "/api/pricing", body);
     console.log(`${c.green("✔")} Pricing rule saved for ${c.bold(positional[1])}`);
     return;
@@ -992,15 +1062,35 @@ async function cmdPricing(flags, positional) {
     return;
   }
   const data = await get("/api/pricing");
-  const rows = (data.pricing || data.rules || []).map((p) => [
-    p.model_pattern,
-    (p.display_name || "").slice(0, 24),
-    `$${p.input_per_mtok}`,
-    `$${p.output_per_mtok}`,
-    `$${p.cache_read_per_mtok}`,
-    `$${p.cache_write_per_mtok}`,
-  ]);
-  table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+  renderPricingTable(data.pricing || data.rules || []);
+}
+
+// ── Updates ─────────────────────────────────────────────────────────────────
+
+async function cmdUpdateCheck() {
+  console.log(c.dim("Checking the canonical remote — this can take a few seconds…"));
+  // POST /check (rather than GET /status) so a dashboard open in the browser
+  // sees the same fresh result via the update_status websocket broadcast.
+  const s = await post("/api/updates/check");
+  heading("Dashboard updates", s.repo_root || baseUrl());
+  if (!s.git_repo) {
+    console.log(`${c.yellow("○")}  ${s.message}`);
+    return;
+  }
+  if (s.fetch_error) {
+    console.log(`${c.yellow("!")}  ${s.message} ${c.dim(`(${s.fetch_error})`)}`);
+    return;
+  }
+  if (s.update_available) {
+    console.log(`${c.yellow("⬆")}  ${s.message}`);
+    if (s.situation_note) console.log(c.dim(`   ${s.situation_note}`));
+    if (s.manual_command) {
+      console.log(`\n  ${c.bold("To update, run:")}`);
+      console.log(`  ${c.cyan(s.manual_command)}`);
+    }
+  } else {
+    console.log(`${c.green("✔")}  ${s.message || "Your checkout is up to date."}`);
+  }
 }
 
 // ── Import ──────────────────────────────────────────────────────────────────
@@ -1255,7 +1345,11 @@ const COMMAND_GROUPS = [
     "Pricing",
     [
       ["pricing", "", "List model pricing rules"],
-      ["pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]"],
+      [
+        "pricing set <pattern>",
+        "",
+        "--input/--output N, plus --cache-*, --fast-*, --intro-* --intro-until YYYY-MM-DD",
+      ],
       ["pricing delete <pattern>", "", "Delete a pricing rule"],
       ["pricing reset", "", "Reset pricing rules to defaults"],
     ],
@@ -1275,6 +1369,7 @@ const COMMAND_GROUPS = [
       ["export", "[file.json]", "Export all data as JSON"],
       ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
       ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
+      ["update-check", "", "Check whether the dashboard checkout is behind upstream"],
       ["clear-data", "--yes", "Delete ALL data (requires --yes)"],
       ["open", "", "Open the dashboard in your browser"],
       ["version", "", "Print the ccam version (also: --version, -v)"],
@@ -1419,17 +1514,7 @@ const OFFLINE_HANDLERS = {
       );
     }
     const db = requireDb();
-    const rows = db
-      .all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC")
-      .map((p) => [
-        p.model_pattern,
-        (p.display_name || "").slice(0, 24),
-        `$${p.input_per_mtok}`,
-        `$${p.output_per_mtok}`,
-        `$${p.cache_read_per_mtok}`,
-        `$${p.cache_write_per_mtok}`,
-      ]);
-    table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+    renderPricingTable(db.all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC"));
   },
   async alerts(flags, positional) {
     if (positional[0]) {
@@ -1538,6 +1623,7 @@ const SERVER_ONLY_REASONS = {
   cleanup: "cleanup is a server-side mutation",
   "clear-data": "data wipes must go through the server",
   "reinstall-hooks": "hook installation is performed by the server",
+  "update-check": "the update check runs server-side (git fetch against the canonical remote)",
   info: "system info (uptime, memory, WS connections) only exists on a running server",
   health: "health is, by definition, a check against the running server",
 };
@@ -1587,6 +1673,15 @@ const REPL_FLAGS = [
   "--output",
   "--cache-read",
   "--cache-write",
+  "--cache-write-1h",
+  "--fast-input",
+  "--fast-output",
+  "--intro-input",
+  "--intro-output",
+  "--intro-cache-read",
+  "--intro-cache-write",
+  "--intro-cache-write-1h",
+  "--intro-until",
   "--name",
   "--no-color",
 ];
@@ -2028,6 +2123,8 @@ async function runCommand(argv) {
       return cmdClearData(flags);
     case "reinstall-hooks":
       return cmdReinstallHooks();
+    case "update-check":
+      return cmdUpdateCheck();
     case "open":
       return cmdOpen();
     case "version":

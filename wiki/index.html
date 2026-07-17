@@ -2252,7 +2252,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>analytics</code> · <code>workflows</code> · <code>runs</code> · <code>cost</code></td>
                   <td>
                     Token totals and top tools, workflow-intelligence stats with detected
-                    patterns, dynamic Workflow-tool runs, and the per-model cost breakdown
+                    patterns, dynamic Workflow-tool runs, and the per-model cost breakdown,
+                    which warns about models with usage but no matching pricing rule (priced
+                    at $0, excluded from the total) and points to <code>ccam pricing set</code>
                   </td>
                 </tr>
                 <tr>
@@ -2266,7 +2268,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td>Pricing</td>
                   <td><code>pricing</code> · <code>pricing set / delete / reset</code></td>
-                  <td>Full pricing-rule CRUD with per-mtok rates, straight from the terminal</td>
+                  <td>
+                    Full pricing-rule CRUD with per-mtok rates — including 1-hour cache-write,
+                    fast-tier, and time-limited intro rates — straight from the terminal, with
+                    Fast In/Out and Intro In/Out columns in the list view
+                  </td>
                 </tr>
                 <tr>
                   <td>Import</td>
@@ -2278,11 +2284,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 </tr>
                 <tr>
                   <td>Administration</td>
-                  <td><code>doctor</code> · <code>info</code> · <code>export</code> · <code>cleanup</code> · <code>reinstall-hooks</code> · <code>clear-data --yes</code> · <code>open</code></td>
+                  <td><code>doctor</code> · <code>info</code> · <code>export</code> · <code>cleanup</code> · <code>reinstall-hooks</code> · <code>update-check</code> · <code>clear-data --yes</code> · <code>open</code></td>
                   <td>
                     Connectivity and hook diagnosis, raw system info, full JSON export, session
-                    cleanup, hook reinstallation, and a guarded wipe that refuses to run without
-                    <code>--yes</code>
+                    cleanup, hook reinstallation, an update check that prints how far behind the
+                    canonical remote you are plus the copy-paste update command, and a guarded
+                    wipe that refuses to run without <code>--yes</code>
                   </td>
                 </tr>
               </tbody>
@@ -5212,6 +5219,13 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
             supervision, or leave orphaned processes.
           </p>
 
+          <p>
+            The same status is available from any terminal: <code>ccam update-check</code> asks
+            the server for the branch- and fork-aware comparison, prints the behind-by count and
+            the copy-paste update command, and triggers the <code>update_status</code> WebSocket
+            broadcast so any open dashboard tab refreshes at the same time.
+          </p>
+
           <div class="diagram-wrap">
             <!-- prettier-ignore -->
             <div class="mermaid">
@@ -6251,7 +6265,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=31" defer></script>
+    <script src="i18n-content.js?v=32" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {

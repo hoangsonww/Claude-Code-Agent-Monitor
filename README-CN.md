@@ -634,6 +634,7 @@ ccam analytics                    # token 总量、常用工具、agent 类型
 ccam workflows [--session id]     # 工作流智能统计与模式
 ccam runs [--session id]          # 动态 Workflow 工具运行
 ccam cost                         # 按模型细分的总预估成本
+                                  # （对有用量但无定价规则的模型发出警告）
 
 # 告警 & webhook
 ccam alerts [--unacked]           # 触发告警流
@@ -643,8 +644,10 @@ ccam webhooks                     # webhook 目标列表
 ccam webhooks test <id>           # 发送合成测试告警
 
 # 价格
-ccam pricing                      # 定价规则列表
+ccam pricing                      # 定价规则列表（含 fast-mode 与 intro 列）
 ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+                 [--cache-write-1h N] [--fast-input N --fast-output N]
+                 [--intro-input N --intro-output N … --intro-until YYYY-MM-DD]
 ccam pricing delete <pattern>
 ccam pricing reset
 
@@ -658,6 +661,7 @@ ccam info                         # 原始系统信息 JSON
 ccam export [file.json]           # 导出全部数据为 JSON
 ccam cleanup --hours N --days M   # 放弃滞留会话 / 清理旧会话
 ccam reinstall-hooks              # 重新安装 Claude Code hook
+ccam update-check                 # 检出是否落后于 upstream？（打印更新命令）
 ccam clear-data --yes             # 删除全部数据（必须 --yes）
 ccam open                         # 在浏览器中打开仪表盘
 ccam version                      # 打印 CLI 版本（也可用 --version / -v）

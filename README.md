@@ -641,6 +641,7 @@ ccam analytics                    # token totals, top tools, agent types
 ccam workflows [--session id]     # workflow intelligence stats and patterns
 ccam runs [--session id]          # dynamic Workflow-tool runs
 ccam cost                         # total estimated cost with per-model breakdown
+                                  # (warns about models with usage but no pricing rule)
 
 # Alerts & webhooks
 ccam alerts [--unacked]           # fired-alert feed
@@ -650,8 +651,10 @@ ccam webhooks                     # list webhook targets
 ccam webhooks test <id>           # send a synthetic test alert
 
 # Pricing
-ccam pricing                      # list model pricing rules
+ccam pricing                      # list model pricing rules (incl. fast-mode & intro columns)
 ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+                 [--cache-write-1h N] [--fast-input N --fast-output N]
+                 [--intro-input N --intro-output N … --intro-until YYYY-MM-DD]
 ccam pricing delete <pattern>
 ccam pricing reset
 
@@ -665,6 +668,7 @@ ccam info                         # raw system info JSON
 ccam export [file.json]           # full JSON data export
 ccam cleanup --hours N --days M   # abandon stale / purge old sessions
 ccam reinstall-hooks              # reinstall Claude Code hooks
+ccam update-check                 # is the checkout behind upstream? (prints the update command)
 ccam clear-data --yes             # delete ALL data (requires --yes)
 ccam open                         # open the dashboard in your browser
 ccam version                      # print the CLI version (also --version / -v)
