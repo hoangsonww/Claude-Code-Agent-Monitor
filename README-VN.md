@@ -632,6 +632,7 @@ ccam analytics                    # tổng token, công cụ hàng đầu, loạ
 ccam workflows [--session id]     # thống kê workflow-intelligence và các mẫu
 ccam runs [--session id]          # các lần chạy Workflow động
 ccam cost                         # tổng chi phí ước tính theo model
+                                  # (cảnh báo model có mức dùng nhưng chưa có quy tắc định giá)
 
 # Cảnh báo & webhook
 ccam alerts [--unacked]           # luồng cảnh báo đã kích hoạt
@@ -641,8 +642,10 @@ ccam webhooks                     # danh sách đích webhook
 ccam webhooks test <id>           # gửi cảnh báo thử tổng hợp
 
 # Giá
-ccam pricing                      # danh sách quy tắc định giá
+ccam pricing                      # danh sách quy tắc định giá (gồm cột fast-mode & intro)
 ccam pricing set <pattern> --input N --output N [--cache-read N --cache-write N]
+                 [--cache-write-1h N] [--fast-input N --fast-output N]
+                 [--intro-input N --intro-output N … --intro-until YYYY-MM-DD]
 ccam pricing delete <pattern>
 ccam pricing reset
 
@@ -656,6 +659,7 @@ ccam info                         # JSON thông tin hệ thống thô
 ccam export [file.json]           # xuất toàn bộ dữ liệu dạng JSON
 ccam cleanup --hours N --days M   # bỏ phiên treo / dọn phiên cũ
 ccam reinstall-hooks              # cài lại hook Claude Code
+ccam update-check                 # bản checkout có chậm hơn upstream? (in lệnh cập nhật)
 ccam clear-data --yes             # xóa TOÀN BỘ dữ liệu (bắt buộc --yes)
 ccam open                         # mở dashboard trong trình duyệt
 ccam version                      # in phiên bản CLI (cũng có --version / -v)

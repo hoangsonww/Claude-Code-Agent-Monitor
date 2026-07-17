@@ -24,20 +24,20 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "可筛选的表格，外加按会话的深入视图：缩进的 agent 树、单会话成本以及最近的事件",
     Insights: "洞察",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
-      "Token 总量与最常用工具、带已检测模式的工作流智能统计、动态 Workflow 工具运行，以及按模型的成本细分",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
+      "Token 总量与最常用工具、带已检测模式的工作流智能统计、动态 Workflow 工具运行，以及按模型的成本细分——当某个模型有用量却没有匹配的定价规则时会发出警告（按 $0 计价并从总额中排除），并提示用 <code>ccam pricing set</code> 修复",
     "Alerts &amp; Webhooks": "告警 &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "触发告警流（支持单条/全部确认）、规则列表，以及对任意 webhook 目标的合成测试投递",
     Pricing: "价格",
-    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
-      "完整的定价规则增删改查（按每百万 token 费率），直接在终端完成",
+    "Full pricing-rule CRUD with per-mtok rates — including 1-hour cache-write, fast-tier, and time-limited intro rates — straight from the terminal, with Fast In/Out and Intro In/Out columns in the list view":
+      "完整的定价规则增删改查（按每百万 token 费率）——包括 1 小时缓存写入、fast 层级以及限时 intro 费率——直接在终端完成，列表视图带有 Fast In/Out 与 Intro In/Out 列",
     Import: "导入",
     "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
       "与 Settings 页面相同的幂等摄取管道，报告 imported / backfilled / skipped / error 计数",
     Administration: "管理",
-    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
-      "连接与 hook 诊断、原始系统信息、完整 JSON 导出、会话清理、hook 重新安装，以及一个没有 <code>--yes</code> 就拒绝执行的受保护清空操作",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, an update check that prints how far behind the canonical remote you are plus the copy-paste update command, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "连接与 hook 诊断、原始系统信息、完整 JSON 导出、会话清理、hook 重新安装、一个会打印你落后规范远程多少提交并给出可复制更新命令的更新检查，以及一个没有 <code>--yes</code> 就拒绝执行的受保护清空操作",
     "Safe by default": "默认安全",
     "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
       "读取类命令只发出 GET；变更类命令与仪表盘上的显式操作一一对应；唯一的破坏性命令 <code>clear-data</code> 在没有显式 <code>--yes</code> 标志时始终拒绝执行。退出码对脚本友好：成功为 0，任何失败为 1。完整参考见 <code>docs/CLI.md</code>。",
@@ -852,6 +852,8 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">⬆</span> Update Notifier — 版本对比弹窗，可一键复制更新命令。没有自动自我重启；何时升级始终由你掌控',
     "A detection-only subsystem that tells the user when the dashboard's git checkout is behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an <code>upstream</code> remote is configured (the standard convention for forks), it takes priority over <code>origin</code>; the chosen remote's <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref. The printed command adapts to the user's situation — <code>git pull --ff-only</code> only when their branch actually tracks the canonical ref, otherwise <code>git fetch</code> (with a fast-forward merge in the fork case). The server <strong>never</strong> pulls or restarts itself — the user runs the command in a terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.":
       "一个仅做检测的子系统，当仪表盘的 git 检出落后于规范默认分支时通知用户。<strong>感知分支与 fork：</strong>如果配置了 <code>upstream</code> 远程（fork 的标准约定），它会优先于 <code>origin</code>；所选远程的 <code>master</code> / <code>main</code> / <code>HEAD</code> 即为对比基准。打印出的命令会根据用户的实际情况自适应——仅当其分支确实跟踪规范基准时才使用 <code>git pull --ff-only</code>，否则使用 <code>git fetch</code>（在 fork 情形下附带一次快进合并）。服务器<strong>绝不</strong>会自行拉取或重启——由用户在终端中运行该命令——因此该机制不会破坏开发会话、pm2/systemd/launchd/Docker 监管，也不会留下孤儿进程。",
+    "The same status is available from any terminal: <code>ccam update-check</code> asks the server for the branch- and fork-aware comparison, prints the behind-by count and the copy-paste update command, and triggers the <code>update_status</code> WebSocket broadcast so any open dashboard tab refreshes at the same time.":
+      "同样的状态也可以在任意终端中获取：<code>ccam update-check</code> 向服务器请求感知分支与 fork 的对比结果，打印落后的提交数和可复制粘贴的更新命令，并触发 <code>update_status</code> WebSocket 广播，让所有打开的仪表盘标签页同时刷新。",
     "A shell-less <code>git fetch</code> with a 120-second timeout, followed by a <code>rev-list</code> against the tracked upstream. Each call runs from <code>server/lib/update-check.js</code> and returns a structured payload — never throws — so a flaky remote can&apos;t stall the dashboard.":
       "一次无 shell 的 <code>git fetch</code>，带 120 秒超时，随后对所跟踪的上游执行 <code>rev-list</code>。每次调用都由 <code>server/lib/update-check.js</code> 发起并返回结构化的负载——绝不抛出异常——因此不稳定的远程无法卡住仪表盘。",
     "<code>update-scheduler.js</code> polls every five minutes with <code>.unref()</code> timers so it never blocks shutdown, de-duplicates with a fingerprint over the status payload, and announces up-to-date → behind transitions in a framed stdout block. Disable entirely with <code>DASHBOARD_UPDATE_CHECK=0</code>.":
@@ -1263,20 +1265,20 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "Các bảng có bộ lọc, cộng thêm góc nhìn sâu theo phiên: cây agent thụt lề, chi phí từng phiên và các sự kiện gần nhất",
     Insights: "Phân tích",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
-      "Tổng token và các công cụ dùng nhiều nhất, thống kê workflow-intelligence với các mẫu được phát hiện, các lần chạy Workflow động, và phân tích chi phí theo model",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
+      "Tổng token và các công cụ dùng nhiều nhất, thống kê workflow-intelligence với các mẫu được phát hiện, các lần chạy Workflow động, và phân tích chi phí theo model — cảnh báo khi một model có mức sử dụng nhưng không có quy tắc định giá khớp (tính giá $0, bị loại khỏi tổng) và chỉ tới <code>ccam pricing set</code>",
     "Alerts &amp; Webhooks": "Cảnh báo &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "Luồng cảnh báo đã kích hoạt (xác nhận từng cái / tất cả), danh sách quy tắc, và gửi thử tổng hợp tới bất kỳ đích webhook nào",
     Pricing: "Giá",
-    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
-      "CRUD đầy đủ cho quy tắc định giá theo mỗi triệu token, ngay trong terminal",
+    "Full pricing-rule CRUD with per-mtok rates — including 1-hour cache-write, fast-tier, and time-limited intro rates — straight from the terminal, with Fast In/Out and Intro In/Out columns in the list view":
+      "CRUD đầy đủ cho quy tắc định giá theo mỗi triệu token — bao gồm ghi cache 1 giờ, mức fast và giá intro có thời hạn — ngay trong terminal, với các cột Fast In/Out và Intro In/Out trong chế độ danh sách",
     Import: "Nhập",
     "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
       "Cùng một đường ống nhập liệu bất biến mà trang Settings sử dụng, báo cáo số lượng imported / backfilled / skipped / error",
     Administration: "Quản trị",
-    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
-      "Chẩn đoán kết nối và hook, thông tin hệ thống thô, xuất JSON đầy đủ, dọn dẹp phiên, cài lại hook, và thao tác xóa được bảo vệ — từ chối chạy nếu thiếu <code>--yes</code>",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, an update check that prints how far behind the canonical remote you are plus the copy-paste update command, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "Chẩn đoán kết nối và hook, thông tin hệ thống thô, xuất JSON đầy đủ, dọn dẹp phiên, cài lại hook, một lệnh kiểm tra cập nhật in ra số commit bạn đang tụt so với remote chuẩn kèm lệnh cập nhật sao chép-dán, và thao tác xóa được bảo vệ — từ chối chạy nếu thiếu <code>--yes</code>",
     "Safe by default": "An toàn theo mặc định",
     "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
       "Các lệnh đọc chỉ gửi GET; các lệnh thay đổi tương ứng một-một với thao tác rõ ràng trên dashboard; và lệnh phá hủy duy nhất, <code>clear-data</code>, luôn từ chối chạy nếu không có cờ <code>--yes</code> tường minh. Mã thoát thân thiện với script: 0 khi thành công, 1 cho mọi thất bại. Xem <code>docs/CLI.md</code> để có tài liệu đầy đủ.",
@@ -2102,6 +2104,8 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">⬆</span> Update Notifier — hộp thoại so sánh phiên bản với khả năng sao chép lệnh cập nhật chỉ bằng một cú nhấp. Không tự khởi động lại tự động; bạn luôn kiểm soát thời điểm nâng cấp diễn ra',
     "A detection-only subsystem that tells the user when the dashboard's git checkout is behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an <code>upstream</code> remote is configured (the standard convention for forks), it takes priority over <code>origin</code>; the chosen remote's <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref. The printed command adapts to the user's situation — <code>git pull --ff-only</code> only when their branch actually tracks the canonical ref, otherwise <code>git fetch</code> (with a fast-forward merge in the fork case). The server <strong>never</strong> pulls or restarts itself — the user runs the command in a terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.":
       "Một hệ thống con chỉ phát hiện, báo cho người dùng biết khi bản checkout git của bảng điều khiển bị tụt lại sau nhánh mặc định chính thức. <strong>Nhận biết nhánh và fork:</strong> nếu một remote <code>upstream</code> được cấu hình (quy ước tiêu chuẩn cho các fork), nó được ưu tiên hơn <code>origin</code>; <code>master</code> / <code>main</code> / <code>HEAD</code> của remote được chọn chính là tham chiếu so sánh. Lệnh được in ra thích ứng theo tình huống của người dùng — <code>git pull --ff-only</code> chỉ khi nhánh của họ thực sự theo dõi tham chiếu chính thức, ngược lại là <code>git fetch</code> (kèm một lần hợp nhất tua nhanh trong trường hợp fork). Máy chủ <strong>không bao giờ</strong> tự kéo về hay tự khởi động lại — người dùng chạy lệnh trong một terminal — nên cơ chế này không thể phá vỡ các phiên dev, sự giám sát của pm2/systemd/launchd/Docker, hay để lại các tiến trình mồ côi.",
+    "The same status is available from any terminal: <code>ccam update-check</code> asks the server for the branch- and fork-aware comparison, prints the behind-by count and the copy-paste update command, and triggers the <code>update_status</code> WebSocket broadcast so any open dashboard tab refreshes at the same time.":
+      "Trạng thái này cũng có thể xem từ bất kỳ terminal nào: <code>ccam update-check</code> hỏi máy chủ kết quả so sánh có nhận biết nhánh và fork, in ra số commit bị tụt lại cùng lệnh cập nhật sao chép-dán, và kích hoạt broadcast WebSocket <code>update_status</code> để mọi tab dashboard đang mở cùng làm mới.",
     "A shell-less <code>git fetch</code> with a 120-second timeout, followed by a <code>rev-list</code> against the tracked upstream. Each call runs from <code>server/lib/update-check.js</code> and returns a structured payload — never throws — so a flaky remote can&apos;t stall the dashboard.":
       "Một lệnh <code>git fetch</code> không qua shell với thời gian chờ 120 giây, theo sau là một <code>rev-list</code> đối chiếu với upstream được theo dõi. Mỗi lệnh gọi chạy từ <code>server/lib/update-check.js</code> và trả về một payload có cấu trúc — không bao giờ ném ngoại lệ — nên một remote chập chờn không thể làm treo bảng điều khiển.",
     "<code>update-scheduler.js</code> polls every five minutes with <code>.unref()</code> timers so it never blocks shutdown, de-duplicates with a fingerprint over the status payload, and announces up-to-date → behind transitions in a framed stdout block. Disable entirely with <code>DASHBOARD_UPDATE_CHECK=0</code>.":
@@ -2530,20 +2534,20 @@ window.__WIKI_CONTENT_I18N = {
     "Filterable tables plus a per-session deep dive with an indented agent tree, per-session cost, and the most recent events":
       "필터링 가능한 테이블과 세션별 심층 보기: 들여쓰기된 에이전트 트리, 세션별 비용, 최근 이벤트",
     Insights: "인사이트",
-    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown":
-      "토큰 총량과 상위 도구, 감지된 패턴이 포함된 워크플로 인텔리전스 통계, 동적 Workflow 도구 실행, 모델별 비용 분석",
+    "Token totals and top tools, workflow-intelligence stats with detected patterns, dynamic Workflow-tool runs, and the per-model cost breakdown, which warns about models with usage but no matching pricing rule (priced at $0, excluded from the total) and points to <code>ccam pricing set</code>":
+      "토큰 총량과 상위 도구, 감지된 패턴이 포함된 워크플로 인텔리전스 통계, 동적 Workflow 도구 실행, 모델별 비용 분석 — 사용량은 있지만 일치하는 가격 규칙이 없는 모델($0으로 계산되어 총액에서 제외)을 경고하고 <code>ccam pricing set</code>을 안내합니다",
     "Alerts &amp; Webhooks": "알림 &amp; Webhook",
     "The fired-alert feed with acknowledge / acknowledge-all, the rule list, and synthetic test deliveries against any webhook target":
       "발생 알림 피드(개별/전체 확인), 규칙 목록, 그리고 임의의 webhook 대상에 대한 합성 테스트 전송",
     Pricing: "가격",
-    "Full pricing-rule CRUD with per-mtok rates, straight from the terminal":
-      "백만 토큰당 요율 기반의 가격 규칙 CRUD를 터미널에서 바로 수행",
+    "Full pricing-rule CRUD with per-mtok rates — including 1-hour cache-write, fast-tier, and time-limited intro rates — straight from the terminal, with Fast In/Out and Intro In/Out columns in the list view":
+      "백만 토큰당 요율 기반의 가격 규칙 CRUD를 터미널에서 바로 수행 — 1시간 캐시 쓰기, fast 등급, 기간 한정 intro 요율까지 포함하며, 목록 보기에는 Fast In/Out과 Intro In/Out 열이 표시됩니다",
     Import: "가져오기",
     "The same idempotent ingestion pipeline the Settings page uses, reporting imported / backfilled / skipped / error counts":
       "Settings 페이지와 동일한 멱등 수집 파이프라인으로, imported / backfilled / skipped / error 수를 보고합니다",
     Administration: "관리",
-    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, and a guarded wipe that refuses to run without <code>--yes</code>":
-      "연결 및 hook 진단, 원시 시스템 정보, 전체 JSON 내보내기, 세션 정리, hook 재설치, 그리고 <code>--yes</code> 없이는 실행을 거부하는 보호된 전체 삭제",
+    "Connectivity and hook diagnosis, raw system info, full JSON export, session cleanup, hook reinstallation, an update check that prints how far behind the canonical remote you are plus the copy-paste update command, and a guarded wipe that refuses to run without <code>--yes</code>":
+      "연결 및 hook 진단, 원시 시스템 정보, 전체 JSON 내보내기, 세션 정리, hook 재설치, 표준 원격보다 얼마나 뒤처졌는지와 복사-붙여넣기 업데이트 명령을 출력하는 업데이트 확인, 그리고 <code>--yes</code> 없이는 실행을 거부하는 보호된 전체 삭제",
     "Safe by default": "기본적으로 안전",
     "Read commands only issue GETs; mutating commands map one-to-one to explicit dashboard actions; and the single destructive command, <code>clear-data</code>, always refuses to run without an explicit <code>--yes</code> flag. Exit codes are script-friendly: 0 on success, 1 on any failure. See <code>docs/CLI.md</code> for the complete reference.":
       "읽기 명령은 GET만 보냅니다. 변경 명령은 대시보드의 명시적 작업과 일대일로 대응하며, 유일한 파괴적 명령인 <code>clear-data</code>는 명시적 <code>--yes</code> 플래그 없이는 항상 실행을 거부합니다. 종료 코드는 스크립트 친화적입니다: 성공 시 0, 모든 실패 시 1. 전체 참조는 <code>docs/CLI.md</code>를 보세요.",
@@ -3366,6 +3370,8 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">⬆</span> Update Notifier — 업데이트 명령을 클릭 한 번으로 복사할 수 있는 버전 비교 모달입니다. 자동 재시작은 없으며, 업그레이드 시점은 항상 사용자가 직접 결정합니다',
     "A detection-only subsystem that tells the user when the dashboard's git checkout is behind the canonical default branch. <strong>Branch- and fork-aware:</strong> if an <code>upstream</code> remote is configured (the standard convention for forks), it takes priority over <code>origin</code>; the chosen remote's <code>master</code> / <code>main</code> / <code>HEAD</code> is the comparison ref. The printed command adapts to the user's situation — <code>git pull --ff-only</code> only when their branch actually tracks the canonical ref, otherwise <code>git fetch</code> (with a fast-forward merge in the fork case). The server <strong>never</strong> pulls or restarts itself — the user runs the command in a terminal — so the mechanism cannot break dev sessions, pm2/systemd/launchd/Docker supervision, or leave orphaned processes.":
       "대시보드의 git 체크아웃이 표준 기본 브랜치보다 뒤처져 있을 때 사용자에게 알려 주기만 하는 탐지 전용 서브시스템입니다. <strong>브랜치 및 포크를 인식합니다:</strong> <code>upstream</code> 원격 저장소가 설정되어 있으면(포크에서의 표준 관례) <code>origin</code>보다 우선시되며, 선택된 원격 저장소의 <code>master</code> / <code>main</code> / <code>HEAD</code>가 비교 기준(ref)이 됩니다. 표시되는 명령은 사용자의 상황에 맞춰 달라집니다 — 브랜치가 실제로 표준 ref를 추적하는 경우에만 <code>git pull --ff-only</code>를 사용하고, 그렇지 않으면 <code>git fetch</code>를 사용합니다(포크의 경우 fast-forward 병합 포함). 서버는 <strong>절대</strong> 스스로 pull하거나 재시작하지 않으며 — 사용자가 터미널에서 직접 명령을 실행합니다 — 따라서 이 메커니즘이 개발 세션이나 pm2/systemd/launchd/Docker 관리 체계를 깨뜨리거나 고아 프로세스를 남길 수 없습니다.",
+    "The same status is available from any terminal: <code>ccam update-check</code> asks the server for the branch- and fork-aware comparison, prints the behind-by count and the copy-paste update command, and triggers the <code>update_status</code> WebSocket broadcast so any open dashboard tab refreshes at the same time.":
+      "같은 상태를 어느 터미널에서나 확인할 수 있습니다: <code>ccam update-check</code>는 서버에 브랜치·포크를 인식하는 비교를 요청해 뒤처진 커밋 수와 복사-붙여넣기 업데이트 명령을 출력하고, <code>update_status</code> WebSocket 브로드캐스트를 트리거해 열려 있는 모든 대시보드 탭이 동시에 새로 고쳐지게 합니다.",
     "A shell-less <code>git fetch</code> with a 120-second timeout, followed by a <code>rev-list</code> against the tracked upstream. Each call runs from <code>server/lib/update-check.js</code> and returns a structured payload — never throws — so a flaky remote can&apos;t stall the dashboard.":
       "셸을 거치지 않는 <code>git fetch</code>를 120초 타임아웃으로 실행한 다음, 추적 중인 upstream을 대상으로 <code>rev-list</code>를 수행합니다. 각 호출은 <code>server/lib/update-check.js</code>에서 실행되며 구조화된 페이로드를 반환할 뿐 절대 예외를 던지지 않으므로, 불안정한 원격 저장소가 대시보드를 멈추게 할 수 없습니다.",
     "<code>update-scheduler.js</code> polls every five minutes with <code>.unref()</code> timers so it never blocks shutdown, de-duplicates with a fingerprint over the status payload, and announces up-to-date → behind transitions in a framed stdout block. Disable entirely with <code>DASHBOARD_UPDATE_CHECK=0</code>.":

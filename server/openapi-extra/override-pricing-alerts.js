@@ -193,7 +193,10 @@ module.exports = {
           "fast-mode usage at a premium; leave them 0 otherwise. " +
           "Note the asymmetry with the list endpoint: the response wraps a SINGLE " +
           "stored rule as `{ pricing: <rule> }` (not an array). A missing " +
-          "`model_pattern` or `display_name` returns 400 `INVALID_INPUT`.",
+          "`model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so " +
+          "does any `*_per_mtok` rate that is not a non-negative finite number " +
+          "(numeric strings are coerced; NaN and negative rates are rejected " +
+          "before anything is written).",
         requestBody: {
           required: true,
           content: {

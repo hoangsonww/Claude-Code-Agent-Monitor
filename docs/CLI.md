@@ -140,7 +140,7 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Works offline | Server required (with the printed reason) |
 | ------------- | ----------------------------------------- |
-| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `cleanup`, `clear-data`, `reinstall-hooks`, `info`, `health` |
+| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
 
 \* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
 
@@ -171,7 +171,7 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam analytics` | Token totals (input / output / cache read / cache write), top tools by call count, agent-type distribution, average events per session |
 | `ccam workflows [--session id]` | Workflow-intelligence stats (sessions analyzed, subagents, success rate, depth, compactions) and the top detected patterns; `--session` drills into one session |
 | `ccam runs [--session id]` | Dynamic Workflow-tool runs: status, agent count, tokens, tool calls, duration |
-| `ccam cost` | Total estimated cost with a per-model bar-chart breakdown |
+| `ccam cost` | Total estimated cost with a per-model bar-chart breakdown. Models with usage but **no matching pricing rule** (priced at $0 and excluded from the total) are listed in a warning with their token volume and the `ccam pricing set` invocation that fixes it |
 
 ### Alerts & Webhooks
 
@@ -188,8 +188,10 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam pricing` | All model pricing rules with per-mtok rates |
-| `ccam pricing set <pattern> --input N --output N [--cache-read N] [--cache-write N] [--name label]` | Create or update a rule (SQL `LIKE` pattern, e.g. `claude-opus-4-6%`) |
+| `ccam pricing` | All model pricing rules with per-mtok rates, including **Fast In/Out** and **Intro In/Out** columns for fast-mode premiums and time-limited promo pricing |
+| `ccam pricing set <pattern> --input N --output N [--cache-read N] [--cache-write N] [--cache-write-1h N] [--name label]` | Create or update a rule (SQL `LIKE` pattern, e.g. `claude-opus-4-6%`) |
+| `ccam pricing set <pattern> … [--fast-input N] [--fast-output N]` | Also set **fast-mode** premium rates on the rule |
+| `ccam pricing set <pattern> … [--intro-input N] [--intro-output N] [--intro-cache-read N] [--intro-cache-write N] [--intro-cache-write-1h N] --intro-until YYYY-MM-DD` | Set a **time-limited introductory (promo) rate block**. The intro fields are only sent when an `--intro-*` flag is present, so a plain rate edit never clobbers an existing promo; a bare `--intro-until` (no date) clears it |
 | `ccam pricing delete <pattern>` | Delete a rule |
 | `ccam pricing reset` | Restore the default rate table |
 
@@ -209,6 +211,7 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam export [file.json]` | Full JSON data export (sessions, agents, events, tokens, pricing) — defaults to a dated filename |
 | `ccam cleanup --hours N --days M` | Abandon active sessions idle for `N` hours and/or purge completed sessions older than `M` days |
 | `ccam reinstall-hooks` | Rewrite the Claude Code hook entries in `~/.claude/settings.json` |
+| `ccam update-check` | Ask the server whether the dashboard checkout is behind the canonical remote (branch- and fork-aware). Prints the behind-by count, a situation note for fork/feature-branch checkouts, and the **copy-paste update command** — the dashboard never restarts itself. Also refreshes the update banner in any open dashboard tab (same `update_status` broadcast) |
 | `ccam clear-data --yes` | Delete **all** data (schema preserved). Refuses to run without `--yes` |
 | `ccam open` | Open the dashboard in your default browser (`open` / `xdg-open` / `start`) |
 | `ccam version` | Print the ccam version (also `--version` / `-v`) |
