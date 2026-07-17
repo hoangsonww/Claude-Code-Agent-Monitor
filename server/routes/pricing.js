@@ -254,6 +254,38 @@ router.put("/", (req, res) => {
     });
   }
 
+  // Every rate field must be a non-negative finite number when present. A
+  // typo'd value (Number("abc") → NaN) or a negative rate would otherwise be
+  // written straight into model_pricing and silently corrupt every downstream
+  // cost calculation until someone noticed and fixed the row by hand.
+  const RATE_FIELDS = [
+    "input_per_mtok",
+    "output_per_mtok",
+    "cache_read_per_mtok",
+    "cache_write_per_mtok",
+    "cache_write_1h_per_mtok",
+    "fast_input_per_mtok",
+    "fast_output_per_mtok",
+    "intro_input_per_mtok",
+    "intro_output_per_mtok",
+    "intro_cache_read_per_mtok",
+    "intro_cache_write_per_mtok",
+    "intro_cache_write_1h_per_mtok",
+  ];
+  for (const field of RATE_FIELDS) {
+    const raw = req.body[field];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: `${field} must be a non-negative number` },
+      });
+    }
+  }
+  // Absent/empty rates default to 0; numeric strings are coerced so a rate can
+  // never be bound into the DB as text.
+  const num = (v) => (v === undefined || v === null || v === "" ? 0 : Number(v));
+
   // Only touch the intro columns when the caller actually sent at least one
   // intro field. This keeps the endpoint backward-compatible: existing clients
   // that PUT just the standard rates never clobber a promo, while the Settings
@@ -288,24 +320,24 @@ router.put("/", (req, res) => {
     stmts.upsertPricing.run(
       model_pattern,
       display_name,
-      input_per_mtok ?? 0,
-      output_per_mtok ?? 0,
-      cache_read_per_mtok ?? 0,
-      cache_write_per_mtok ?? 0,
-      cache_write_1h_per_mtok ?? 0,
-      fast_input_per_mtok ?? 0,
-      fast_output_per_mtok ?? 0
+      num(input_per_mtok),
+      num(output_per_mtok),
+      num(cache_read_per_mtok),
+      num(cache_write_per_mtok),
+      num(cache_write_1h_per_mtok),
+      num(fast_input_per_mtok),
+      num(fast_output_per_mtok)
     );
     if (introProvided) {
       // A cleared promo (no date) zeroes the intro rates too so a stale value
       // can't resurface if a date is re-added later without re-entering rates.
       const keepRates = !!normalizedIntroUntil;
       stmts.setIntroPricing.run(
-        keepRates ? (intro_input_per_mtok ?? 0) : 0,
-        keepRates ? (intro_output_per_mtok ?? 0) : 0,
-        keepRates ? (intro_cache_read_per_mtok ?? 0) : 0,
-        keepRates ? (intro_cache_write_per_mtok ?? 0) : 0,
-        keepRates ? (intro_cache_write_1h_per_mtok ?? 0) : 0,
+        keepRates ? num(intro_input_per_mtok) : 0,
+        keepRates ? num(intro_output_per_mtok) : 0,
+        keepRates ? num(intro_cache_read_per_mtok) : 0,
+        keepRates ? num(intro_cache_write_per_mtok) : 0,
+        keepRates ? num(intro_cache_write_1h_per_mtok) : 0,
         normalizedIntroUntil,
         model_pattern
       );
