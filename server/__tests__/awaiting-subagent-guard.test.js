@@ -85,7 +85,10 @@ async function sessionWaitingWithWorkingSubagent(sid, { notification }) {
   // Now block the MAIN agent. A waiting-for-user Notification stamps
   // reason='notification'; a Stop stamps the passive reason='stop'.
   if (notification) {
-    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
+    await hook("Notification", {
+      session_id: sid,
+      message: "Claude needs your permission to use Bash",
+    }); // actionable → reason=notification
   } else {
     await hook("Stop", { session_id: sid });
   }
@@ -155,7 +158,10 @@ describe("awaiting guard: subagent tool events vs. main-agent waiting", () => {
     const sid = "guard-notif-mainactor";
     await hook("SessionStart", { session_id: sid });
     await hook("UserPromptSubmit", { session_id: sid, prompt: "go" });
-    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
+    await hook("Notification", {
+      session_id: sid,
+      message: "Claude needs your permission to use Bash",
+    }); // actionable → reason=notification
     let sess = await sessionOf(sid);
     assert.ok(sess.awaiting_input_since && sess.awaiting_reason === "notification", "precondition");
 

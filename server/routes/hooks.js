@@ -794,16 +794,30 @@ const processEvent = db.transaction((hookType, data) => {
         eventType = "Compaction";
         summary = msg;
       } else if (isWaitingForUserMessage(msg)) {
-        // Claude Code is blocked waiting for the user (permission prompt or
-        // explicit "waiting for input" notice). Stamp session + main agent
-        // so the dashboard can surface a yellow "Waiting" badge until the
-        // user responds — at which point the next PreToolUse/Stop clears it.
+        // Claude Code is blocked waiting for the user. Two distinct cases share
+        // this branch (2026-07-17, home-network fork — see ai-deck decisions/):
+        //   - ACTIONABLE ("needs your permission", approval, a real question)
+        //     → reason 'notification': the user must respond → yellow "Waiting"
+        //     + toast. This is the "asked YOU something" signal.
+        //   - GENERIC IDLE-TIMEOUT ("Claude is waiting for your input", fires
+        //     after ~60 s idle at the prompt) → semantically identical to Stop:
+        //     the session simply finished and is sitting idle. Stamping it as
+        //     'notification' made a merely-idle session flip to the yellow
+        //     "asked you" state (and flashed ??? in AI-Deck) even though nothing
+        //     was asked. Stamp it as the passive 'stop' reason instead, so every
+        //     consumer (AI-Deck / deck-web) treats it as idle — no toast, no
+        //     false "waiting for you". No client change needed: 'stop' already
+        //     maps to idle everywhere.
+        const isIdleWait =
+          /\bwaiting for (your )?input\b/i.test(msg) &&
+          !/\b(permission|approval|needs?\s+your)\b/i.test(msg);
+        const reason = isIdleWait ? "stop" : "notification";
         const ts = new Date().toISOString();
-        stmts.setSessionAwaitingInput.run(ts, "notification", sessionId);
+        stmts.setSessionAwaitingInput.run(ts, reason, sessionId);
         broadcast("session_updated", stmts.getSession.get(sessionId));
         if (mainAgentId) {
           stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
-          stmts.setAgentAwaitingInput.run(ts, "notification", mainAgentId);
+          stmts.setAgentAwaitingInput.run(ts, reason, mainAgentId);
           broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
         }
         summary = msg;
