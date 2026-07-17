@@ -202,6 +202,23 @@ describe("ccam CLI — insights", () => {
     assert.equal(code, 0);
     assert.match(out, /Total estimated cost: \$/);
   });
+
+  it("cost warns about models with usage but no pricing rule", async () => {
+    // Usage on a model no default pattern matches: the API prices it at $0
+    // and reports it via unpriced_models; the CLI must surface that.
+    db.prepare(
+      "INSERT INTO token_usage (session_id, model, input_tokens, output_tokens) VALUES (?, ?, ?, ?)"
+    ).run("cli-test-session-0001", "ccam-mystery-model-9", 1200, 300);
+    try {
+      const { code, out } = await ccam("cost");
+      assert.equal(code, 0);
+      assert.match(out, /no pricing rule/);
+      assert.match(out, /ccam-mystery-model-9/);
+      assert.match(out, /ccam pricing set/);
+    } finally {
+      db.prepare("DELETE FROM token_usage WHERE model = 'ccam-mystery-model-9'").run();
+    }
+  });
 });
 
 describe("ccam CLI — alerts, rules, webhooks", () => {

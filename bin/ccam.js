@@ -898,6 +898,27 @@ async function cmdCost() {
       );
     }
   }
+  // The API prices unmatched models at $0 and reports them in unpriced_models
+  // so the total stays honest — surface that here instead of silently showing
+  // an under-reported number (e.g. right after a brand-new model id ships).
+  const unpriced = cost.unpriced_models || [];
+  if (unpriced.length) {
+    console.log();
+    console.log(
+      c.yellow(
+        `⚠ ${unpriced.length} model(s) have usage but no pricing rule — excluded from the total:`
+      )
+    );
+    for (const u of unpriced) {
+      const tokens =
+        (u.input_tokens || 0) +
+        (u.output_tokens || 0) +
+        (u.cache_read_tokens || 0) +
+        (u.cache_write_tokens || 0);
+      console.log(`  ${c.bold(u.model)}  ${c.dim(`${fmtTokens(tokens)} tokens`)}`);
+    }
+    console.log(c.dim("  Add a rule with: ccam pricing set <pattern> --input N --output N"));
+  }
 }
 
 // ── Alerts & webhooks ───────────────────────────────────────────────────────
