@@ -318,6 +318,16 @@ describe("ccam CLI — import & administration", () => {
     assert.ok(JSON.stringify(data).includes("cli-test-session-0001"));
   });
 
+  it("update-check reports the checkout's update status", async () => {
+    // The test process runs inside the real repo clone, so the route always
+    // reports git_repo: true; the CLI exits 0 whether the checkout is behind,
+    // current, or the remote is unreachable (fetch errors are informational).
+    const { code, out } = await ccam("update-check");
+    assert.equal(code, 0);
+    assert.match(out, /Dashboard updates/);
+    assert.match(out, /checkout|commit|remote|update/i);
+  });
+
   it("cleanup without flags exits 1 with usage", async () => {
     const { code, err } = await ccam("cleanup");
     assert.equal(code, 1);
@@ -540,6 +550,7 @@ describe("ccam CLI — help & errors", () => {
       "export",
       "cleanup",
       "reinstall-hooks",
+      "update-check",
       "clear-data",
       "open",
     ]) {

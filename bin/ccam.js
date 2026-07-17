@@ -18,7 +18,7 @@
  * Pricing               pricing · pricing set/delete/reset
  * Import                import rescan · import path <dir>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
- *                       clear-data --yes · open · version
+ *                       update-check · clear-data --yes · open · version
  *
  * The REPL (`ccam repl`, aliases `shell` / `i`) runs each entered line as a
  * short-lived child `ccam` process, so its behavior is identical to the
@@ -1024,6 +1024,34 @@ async function cmdPricing(flags, positional) {
   table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
 }
 
+// ── Updates ─────────────────────────────────────────────────────────────────
+
+async function cmdUpdateCheck() {
+  console.log(c.dim("Checking the canonical remote — this can take a few seconds…"));
+  // POST /check (rather than GET /status) so a dashboard open in the browser
+  // sees the same fresh result via the update_status websocket broadcast.
+  const s = await post("/api/updates/check");
+  heading("Dashboard updates", s.repo_root || baseUrl());
+  if (!s.git_repo) {
+    console.log(`${c.yellow("○")}  ${s.message}`);
+    return;
+  }
+  if (s.fetch_error) {
+    console.log(`${c.yellow("!")}  ${s.message} ${c.dim(`(${s.fetch_error})`)}`);
+    return;
+  }
+  if (s.update_available) {
+    console.log(`${c.yellow("⬆")}  ${s.message}`);
+    if (s.situation_note) console.log(c.dim(`   ${s.situation_note}`));
+    if (s.manual_command) {
+      console.log(`\n  ${c.bold("To update, run:")}`);
+      console.log(`  ${c.cyan(s.manual_command)}`);
+    }
+  } else {
+    console.log(`${c.green("✔")}  ${s.message || "Your checkout is up to date."}`);
+  }
+}
+
 // ── Import ──────────────────────────────────────────────────────────────────
 
 async function cmdImport(flags, positional) {
@@ -1296,6 +1324,7 @@ const COMMAND_GROUPS = [
       ["export", "[file.json]", "Export all data as JSON"],
       ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
       ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
+      ["update-check", "", "Check whether the dashboard checkout is behind upstream"],
       ["clear-data", "--yes", "Delete ALL data (requires --yes)"],
       ["open", "", "Open the dashboard in your browser"],
       ["version", "", "Print the ccam version (also: --version, -v)"],
@@ -1559,6 +1588,7 @@ const SERVER_ONLY_REASONS = {
   cleanup: "cleanup is a server-side mutation",
   "clear-data": "data wipes must go through the server",
   "reinstall-hooks": "hook installation is performed by the server",
+  "update-check": "the update check runs server-side (git fetch against the canonical remote)",
   info: "system info (uptime, memory, WS connections) only exists on a running server",
   health: "health is, by definition, a check against the running server",
 };
@@ -2049,6 +2079,8 @@ async function runCommand(argv) {
       return cmdClearData(flags);
     case "reinstall-hooks":
       return cmdReinstallHooks();
+    case "update-check":
+      return cmdUpdateCheck();
     case "open":
       return cmdOpen();
     case "version":
