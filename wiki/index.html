@@ -2253,8 +2253,10 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>
                     Token totals and top tools, workflow-intelligence stats with detected
                     patterns, dynamic Workflow-tool runs, and the per-model cost breakdown,
-                    which warns about models with usage but no matching pricing rule (priced
-                    at $0, excluded from the total) and points to <code>ccam pricing set</code>
+                    which can be scoped to a single session with <code>--session</code>,
+                    surfaces server-tool surcharges (web search / code execution), warns about
+                    models with usage but no matching pricing rule (priced at $0, excluded from
+                    the total), and points to <code>ccam pricing set</code>
                   </td>
                 </tr>
                 <tr>
@@ -6265,7 +6267,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=32" defer></script>
+    <script src="i18n-content.js?v=33" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {

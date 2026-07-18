@@ -884,8 +884,15 @@ async function cmdRuns(flags) {
   table(["Run", "Status", "Name", "Agents", "Tokens", "Tools", "Duration"], rows);
 }
 
-async function cmdCost() {
-  const cost = await get("/api/pricing/cost");
+async function cmdCost(flags) {
+  // Mirror the two cost endpoints: the whole-database aggregate, or one
+  // session's cost when --session is given (same response shape, so the
+  // rendering below is shared).
+  const sessionId = flags.session;
+  const cost = sessionId
+    ? await get(`/api/pricing/cost/${encodeURIComponent(sessionId)}`)
+    : await get("/api/pricing/cost");
+  if (sessionId) heading("Session cost", sessionId);
   console.log(`${c.bold("Total estimated cost:")} ${c.cyan(c.bold(fmtCost(cost.total_cost)))}`);
   const breakdown = (cost.breakdown || []).slice(0, 15);
   if (breakdown.length) {
@@ -897,6 +904,20 @@ async function cmdCost() {
         `  ${fmtModel(b.model).padEnd(w)}  ${bar(b.cost, max, 20, c.green)} ${c.bold(fmtCost(b.cost))}`
       );
     }
+  }
+  // Server-tool surcharges billed on top of tokens (web search $/1k, code
+  // execution container-time beyond the org free allowance). The API always
+  // returns feature_costs; show the line only when something is actually
+  // billed so a plain token-only total stays uncluttered.
+  const fc = cost.feature_costs || {};
+  const featureLines = [];
+  if ((fc.web_search_cost || 0) > 0)
+    featureLines.push(`web search ${c.bold(fmtCost(fc.web_search_cost))}`);
+  if ((fc.code_execution_cost || 0) > 0)
+    featureLines.push(`code execution ${c.bold(fmtCost(fc.code_execution_cost))}`);
+  if (featureLines.length) {
+    console.log();
+    console.log(`${c.dim("Server-tool surcharges:")} ${featureLines.join(c.dim(" · "))}`);
   }
   // The API prices unmatched models at $0 and reports them in unpriced_models
   // so the total stays honest — surface that here instead of silently showing
@@ -1327,7 +1348,7 @@ const COMMAND_GROUPS = [
       ["analytics", "", "Token totals, top-tool and agent-type charts"],
       ["workflows", "[--session id]", "Workflow intelligence stats and patterns"],
       ["runs", "[--session id]", "Dynamic Workflow-tool runs"],
-      ["cost", "", "Total estimated cost (per-model chart)"],
+      ["cost", "[--session id]", "Total estimated cost (per-model chart; --session scopes to one)"],
     ],
   ],
   [
@@ -2100,7 +2121,7 @@ async function runCommand(argv) {
     case "runs":
       return cmdRuns(flags);
     case "cost":
-      return cmdCost();
+      return cmdCost(flags);
     case "alerts":
       return cmdAlerts(flags, positional);
     case "rules":

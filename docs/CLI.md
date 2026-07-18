@@ -171,7 +171,7 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam analytics` | Token totals (input / output / cache read / cache write), top tools by call count, agent-type distribution, average events per session |
 | `ccam workflows [--session id]` | Workflow-intelligence stats (sessions analyzed, subagents, success rate, depth, compactions) and the top detected patterns; `--session` drills into one session |
 | `ccam runs [--session id]` | Dynamic Workflow-tool runs: status, agent count, tokens, tool calls, duration |
-| `ccam cost` | Total estimated cost with a per-model bar-chart breakdown. Models with usage but **no matching pricing rule** (priced at $0 and excluded from the total) are listed in a warning with their token volume and the `ccam pricing set` invocation that fixes it |
+| `ccam cost [--session <id>]` | Total estimated cost with a per-model bar-chart breakdown; `--session` scopes it to one session (mirrors `/api/pricing/cost/:sessionId`). Any billed **server-tool surcharges** (web search $/1k, code-execution container-time) are shown on a surcharges line. Models with usage but **no matching pricing rule** (priced at $0 and excluded from the total) are listed in a warning with their token volume and the `ccam pricing set` invocation that fixes it |
 
 ### Alerts & Webhooks
 

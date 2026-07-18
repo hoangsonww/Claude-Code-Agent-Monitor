@@ -203,6 +203,32 @@ describe("ccam CLI — insights", () => {
     assert.match(out, /Total estimated cost: \$/);
   });
 
+  it("cost --session scopes the total to one session", async () => {
+    const { code, out } = await ccam("cost", "--session", "cli-test-session-0001");
+    assert.equal(code, 0);
+    assert.match(out, /Session cost/);
+    assert.match(out, /cli-test-session-0001/);
+    assert.match(out, /Total estimated cost: \$/);
+  });
+
+  it("cost surfaces server-tool surcharges when web search was billed", async () => {
+    // Feature surcharges accrue independent of per-model pricing rules, so a
+    // web_search_requests count alone drives the line ($10 / 1k searches).
+    db.prepare(
+      "INSERT INTO token_usage (session_id, model, web_search_requests) VALUES (?, ?, ?)"
+    ).run("cli-test-session-0001", "claude-sonnet-5", 200);
+    try {
+      const { code, out } = await ccam("cost", "--session", "cli-test-session-0001");
+      assert.equal(code, 0);
+      assert.match(out, /Server-tool surcharges/);
+      assert.match(out, /web search \$/);
+    } finally {
+      db.prepare(
+        "DELETE FROM token_usage WHERE session_id = 'cli-test-session-0001' AND model = 'claude-sonnet-5'"
+      ).run();
+    }
+  });
+
   it("cost warns about models with usage but no pricing rule", async () => {
     // Usage on a model no default pattern matches: the API prices it at $0
     // and reports it via unpriced_models; the CLI must surface that.
