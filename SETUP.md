@@ -484,7 +484,7 @@ These warnings are **harmless**. `better-sqlite3` is an optional dependency — 
 
 You do **not** need Python, Visual Studio Build Tools, or any C++ compiler to run this project on Node 22+.
 
-If you are on Node 18 or 20 and `better-sqlite3` prebuilds are not available for your platform, you have two options:
+If you are on Node 20 or 21 and `better-sqlite3` prebuilds are not available for your platform (there is no `node:sqlite` fallback below Node 22), you have two options:
 
 1. **Upgrade to Node.js 22+** — the built-in `node:sqlite` fallback requires no native compilation at all
 2. **Install build tools** and run `npm rebuild better-sqlite3`:

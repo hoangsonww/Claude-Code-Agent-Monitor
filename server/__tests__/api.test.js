@@ -935,6 +935,97 @@ describe("Hook Event Processing", () => {
     assert.equal(main.awaiting_reason, "session_start");
   });
 
+  it("should NOT flip a genuinely-working session to Waiting on SessionStart source=compact", async () => {
+    // Auto-compaction fires SessionStart(source=compact) MID-TURN while Claude
+    // is actively working. The session is genuinely Active and must stay Active
+    // — a compact must not re-stamp it 'session_start' Waiting. This is the
+    // "in-progress session shows as Waiting" bug.
+    const sid = "hook-sess-compact-active";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "startup" },
+    });
+    // User submits a prompt → clears the session_start flag, main → working.
+    await post("/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, prompt: "do a big task" },
+    });
+    const working = await fetch(`/api/sessions/${sid}`);
+    assert.equal(
+      working.body.session.awaiting_input_since,
+      null,
+      "precondition: session is Active (working) before compaction"
+    );
+
+    // Auto-compaction kicks in mid-turn.
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "compact" },
+    });
+
+    const afterSess = await fetch(`/api/sessions/${sid}`);
+    assert.equal(afterSess.body.session.status, "active");
+    assert.equal(
+      afterSess.body.session.awaiting_input_since,
+      null,
+      "mid-turn compact must NOT stamp the Waiting flag on a working session"
+    );
+    assert.equal(afterSess.body.session.awaiting_reason, null);
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.status, "working", "main agent should stay working through a compaction");
+    assert.equal(main.awaiting_input_since, null);
+  });
+
+  it("should PRESERVE the Waiting flag on SessionStart source=compact when idle at the prompt", async () => {
+    // /compact run while the session sits idle at the prompt: it was already
+    // Waiting (from the prior Stop) and must stay Waiting. Compact must neither
+    // promote the agent to working nor overwrite the awaiting_reason.
+    const sid = "hook-sess-compact-idle";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "startup" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, prompt: "answer this" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+    const before = await fetch(`/api/sessions/${sid}`);
+    assert.ok(before.body.session.awaiting_input_since, "precondition: Waiting after Stop");
+    assert.equal(before.body.session.awaiting_reason, "stop");
+
+    // /compact at idle.
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "compact" },
+    });
+
+    const after = await fetch(`/api/sessions/${sid}`);
+    assert.ok(
+      after.body.session.awaiting_input_since,
+      "idle compact must preserve the Waiting flag"
+    );
+    assert.equal(
+      after.body.session.awaiting_reason,
+      "stop",
+      "reason must remain 'stop', not be overwritten by 'session_start'"
+    );
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(
+      main.status,
+      "waiting",
+      "main agent should stay waiting through an idle compaction"
+    );
+    assert.ok(main.awaiting_input_since);
+  });
+
   it("should clear awaiting_input_since and promote main to working on UserPromptSubmit", async () => {
     // The bug this guards: text-only assistant turns emit no PreToolUse,
     // so without UserPromptSubmit the Waiting badge would persist for the

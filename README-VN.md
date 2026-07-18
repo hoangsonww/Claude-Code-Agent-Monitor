@@ -7,7 +7,7 @@ Bảng điều khiển chuyên nghiệp để theo dõi và trực quan hóa cá
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
 ![Claude Code Plugins](https://img.shields.io/badge/Claude_Code-Plugins_&_Skills-orange?style=flat-square&logo=anthropic&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=flat-square&logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express&logoColor=white)
 ![ws](https://img.shields.io/badge/ws-WebSocket_server-010101?style=flat-square&logo=socketdotio&logoColor=white)
@@ -319,7 +319,7 @@ Bảng điều khiển cung cấp một bộ tính năng toàn diện để giá
 
 ### Điều kiện tiên quyết
 
-- **Node.js** >= 18.0.0 (khuyến nghị 22+)
+- **Node.js** >= 20.0.0 (khuyến nghị 22+)
 - **npm** >= 9.0.0
 
 ### 1. Cài đặt
@@ -548,7 +548,8 @@ Trạng thái lưu trữ: `active | completed | error | abandoned`. Trạng thá
 
 ```mermaid
 stateDiagram-v2
-    [*] --> waiting: SessionStart (status=active + cờ)
+    [*] --> waiting: SessionStart startup/resume/clear (status=active + cờ)
+    active --> active: SessionStart compact (giữa lượt — giữ nguyên trạng thái, không cờ)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop, không lỗi (cờ được đóng dấu lại)
     active --> waiting: Notification xin quyền (agent → waiting)
@@ -1164,7 +1165,7 @@ Bảng điều khiển xử lý các loại hook Claude Code này:
 
 | Loại hook         | Trigger                        | Hành động trên dashboard                                                                             |
 | ----------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` (với `awaiting_reason=session_start`) để phiên mới rơi vào **Đang chờ**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
+| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` (với `awaiting_reason=session_start`) để phiên mới rơi vào **Đang chờ** — trừ SessionStart nguồn `compact` (nén giữa lượt), vốn giữ nguyên cờ để phiên đang chạy vẫn **Hoạt động**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
 | `UserPromptSubmit`| Người dùng nhấn enter          | Xóa cờ chờ và đẩy Agent chính sang `working` — tín hiệu duy nhất cho biết các lượt văn bản thuần đã bắt đầu, vì chúng không phát ra `PreToolUse` |
 | `PreToolUse`      | Agent bắt đầu sử dụng tool     | Xóa cờ chờ, đặt Agent thành `working`, đặt `current_tool`. Nếu tool là `Agent`, tạo bản ghi Subagent |
 | `PostToolUse`     | Tool hoàn tất                  | Xóa cờ chờ (xử lý các phê duyệt prompt xin quyền mà Notification đã đóng dấu giữa lúc tool đang chạy). Xóa `current_tool`. Agent ở lại `working` |

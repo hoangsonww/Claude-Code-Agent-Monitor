@@ -180,8 +180,8 @@ CREATE TABLE sessions (
 | `ended_at` | TEXT | YES | ISO 8601 timestamp on terminal transition |
 | `metadata` | TEXT | YES | JSON blob for extras (turn duration totals, thinking blocks, …) |
 | `updated_at` | TEXT | NO | Bumped on every event for staleness detection |
-| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise |
-| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise |
+| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise. A SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise. Exception: a `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
 | `transcript_path` | TEXT | YES | Absolute path to the session's JSONL transcript. Written by `routes/hooks.js` on the first event that carries it (subsequent events no-op via a SQL guard) and read by the periodic compaction sweep — so the sweep touches only active session rows instead of scanning the entire `events` table for `json_extract(data,'$.transcript_path')`. Backfilled once from `events` by the `db.js` migration |
 
 **Constraints:**
@@ -192,7 +192,8 @@ CREATE TABLE sessions (
 
 ```mermaid
 stateDiagram-v2
-    [*] --> waiting: SessionStart (status=active + awaiting_input_since)
+    [*] --> waiting: SessionStart startup/resume/clear (status=active + awaiting_input_since)
+    active --> active: SessionStart compact (mid-turn — state preserved)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop (non-error) / Permission Notification
     active --> waiting: Esc cancel (watchdog marker or idle timeout)

@@ -6,7 +6,7 @@ A step-by-step guide to get the Claude Code Agent Monitor up and running on your
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Node.js | 18+ (22+ recommended) | Required for server and client |
+| Node.js | 20+ (22+ recommended) | Required for server and client |
 | npm | 9+ | Comes with Node.js |
 | Claude Code | 2.x+ | Required for hook integration |
 | Python | 3.6+ | Optional — statusline utility only |
@@ -29,12 +29,15 @@ cd Claude-Code-Agent-Monitor
 npm run setup
 ```
 
-This installs all server and client dependencies in a single command. It is equivalent to:
+This installs all server and client dependencies, plus the VS Code extension, and links the `ccam` CLI.
+
+A plain root install already covers server **and** client — a `postinstall` hook installs the client dependencies automatically, so this alone is enough to build and run the dashboard:
 
 ```bash
 npm install
-cd client && npm install
 ```
+
+`npm run setup` additionally installs the VS Code extension and links the `ccam` CLI. (If you install with `--ignore-scripts`, the `postinstall` hook is skipped — run `cd client && npm install` manually in that case.)
 
 Or via Makefile (also installs MCP dependencies):
 
@@ -180,8 +183,8 @@ If you'd rather not keep a terminal window open, the project also ships an Elect
 |---|---|
 | Downloading a pre-built installer (macOS) | macOS — nothing else |
 | Downloading a pre-built installer (Windows) | Windows 10/11 (x64) — nothing else |
-| Building the DMG locally (macOS) | macOS, Node.js 18+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
-| Building the `.exe` locally (Windows) | Windows, Node.js 18+ (22+ recommended), npm 9+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
+| Building the DMG locally (macOS) | macOS, Node.js 20+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
+| Building the `.exe` locally (Windows) | Windows, Node.js 20+ (22+ recommended), npm 9+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
 
 ### Way 1 — Download a pre-built installer
 
@@ -460,7 +463,7 @@ This is expected and **non-fatal**. `better-sqlite3` is a native C++ module list
 
 At runtime the server uses this fallback chain:
 
-1. **`better-sqlite3`** — used when prebuilt binaries are available (Node 18/20/22 on Windows x64, macOS arm64/x64, Linux x64/arm64)
+1. **`better-sqlite3`** — used when prebuilt binaries are available (Node 20/22/24 on Windows x64, macOS arm64/x64, Linux x64/arm64)
 2. **`node:sqlite`** — Node.js built-in SQLite module, used automatically on Node 22+ when `better-sqlite3` is unavailable
 
 If you see an error box at startup saying *"SQLite backend not available"*, either:
