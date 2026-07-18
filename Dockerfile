@@ -10,6 +10,13 @@
 FROM node:22-alpine AS server-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# The root `postinstall` hook (scripts/postinstall.js) fires during `npm ci`, so
+# the file must exist here or npm aborts with MODULE_NOT_FOUND before installing
+# anything. It self-skips when client/ is absent (as it is in this stage), so
+# copying just the one script keeps this deps-cache layer from busting on
+# unrelated scripts/ edits. Do NOT use --ignore-scripts: that would also skip
+# better-sqlite3's prebuild fetch and silently drop the native SQLite driver.
+COPY scripts/postinstall.js ./scripts/postinstall.js
 RUN npm ci --omit=dev
 
 # ── Stage 2: Build React client ───────────────────────────────────────
