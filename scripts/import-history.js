@@ -2280,7 +2280,12 @@ function classifyJsonl(filePath) {
   // ancestor chain (rather than just parent/grandparent) stops workflow
   // inner-agent files from being misimported as bogus top-level sessions when a
   // user points the directory importer at a tree that contains workflow runs.
-  const segments = path.dirname(filePath).split(path.sep);
+  // Split on BOTH separators rather than the platform-specific path.sep:
+  // transcript paths can arrive in POSIX form even on Windows (forwarded
+  // household hooks, imported trees, the unit tests), and splitting a
+  // "/a/b/subagents/x.jsonl" path on "\\" would yield one giant segment that
+  // never equals "subagents", misclassifying every subagent as a session.
+  const segments = path.dirname(filePath).split(/[\\/]/);
   if (segments.includes("subagents")) return "subagent";
   return "session";
 }

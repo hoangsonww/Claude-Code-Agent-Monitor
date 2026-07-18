@@ -7,7 +7,7 @@ Bảng điều khiển chuyên nghiệp để theo dõi và trực quan hóa cá
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
 ![Claude Code Plugins](https://img.shields.io/badge/Claude_Code-Plugins_&_Skills-orange?style=flat-square&logo=anthropic&logoColor=white)
 ![Model Context Protocol](https://img.shields.io/badge/Model_Context_Protocol-1.0-0f766e?style=flat-square&logo=modelcontextprotocol&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D18-339933?style=flat-square&logo=node.js&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-%3E%3D3.6-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express&logoColor=white)
 ![ws](https://img.shields.io/badge/ws-WebSocket_server-010101?style=flat-square&logo=socketdotio&logoColor=white)
@@ -319,7 +319,7 @@ Bảng điều khiển cung cấp một bộ tính năng toàn diện để giá
 
 ### Điều kiện tiên quyết
 
-- **Node.js** >= 18.0.0 (khuyến nghị 22+)
+- **Node.js** >= 20.0.0 (khuyến nghị 22+)
 - **npm** >= 9.0.0
 
 ### 1. Cài đặt

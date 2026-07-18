@@ -1358,11 +1358,15 @@ function livenessReap({ ignoreIdleGate = false } = {}) {
     // deployment (this host has BOTH local sessions the probe should keep
     // reaping, AND remote household-hook sessions it must leave alone)
     // without sacrificing local crash detection via DASHBOARD_LIVENESS_PROBE=0.
-    // path.isAbsolute() resolves with POSIX semantics here (this function
-    // never reaches this point on win32 — probe.available is only true once
-    // probeLiveCwds() has already ruled that out), so it's equivalent to a
-    // leading-"/" check but self-documenting rather than a raw string test.
-    if (!path.isAbsolute(sess.cwd)) continue;
+    // The probe only ever reports POSIX cwds (/proc + lsof, and it bails out
+    // entirely on win32), so "could this cwd be local?" is precisely "is it
+    // POSIX-absolute?" — a leading-"/" check. Use path.posix.isAbsolute()
+    // explicitly rather than the platform-sensitive path.isAbsolute(): in
+    // production this only runs on POSIX hosts so the two are identical, but
+    // the unit tests mock probeLiveCwds() to exercise this reaper on a Windows
+    // host too, where bare path.isAbsolute("D:\\Git\\ai-deck") would be true
+    // and wrongly reap a forwarded remote session. posix keeps it host-agnostic.
+    if (!path.posix.isAbsolute(sess.cwd)) continue;
 
     let resolvedCwd;
     try {

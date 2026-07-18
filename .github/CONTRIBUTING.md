@@ -45,7 +45,7 @@ You sign **once** — the signature covers all of your current and future contri
 
 ### Prerequisites
 
-- Node.js 18+ (22+ recommended for automatic SQLite fallback)
+- Node.js 20+ (22+ recommended for automatic SQLite fallback)
 - npm 9+
 
 ### Setup
