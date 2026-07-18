@@ -547,26 +547,38 @@ const processEvent = db.transaction((hookType, data) => {
     case "SessionStart": {
       summary = data.source === "resume" ? "Session resumed" : "Session started";
 
-      // Reactivation is already handled above for non-active sessions.
-      // Promote main agent from waiting → working if needed.
-      if (mainAgent && mainAgent.status === "waiting") {
-        stmts.updateAgent.run(null, "working", null, null, null, null, mainAgentId);
+      // Claude Code fires SessionStart with source ∈ startup|resume|clear|compact.
+      // 'compact' is the odd one out: it fires MID-TURN when auto-compaction
+      // kicks in while Claude is actively working, so the session is NOT sitting
+      // at an empty prompt. Preserve the pre-compaction state verbatim — a
+      // session compacting mid-turn is genuinely Active (main agent 'working',
+      // no awaiting flag) and must stay Active; one that compacted while idle was
+      // already Waiting (awaiting flag from the prior Stop) and must stay Waiting.
+      // Without this guard a mid-turn compact stamps 'session_start' and flips a
+      // genuinely-working session to Waiting. startup/resume/clear DO land at a
+      // fresh prompt, so they still stamp the Waiting flag below.
+      if (data.source !== "compact") {
+        // Reactivation is already handled above for non-active sessions.
+        // Promote main agent from waiting → working if needed.
+        if (mainAgent && mainAgent.status === "waiting") {
+          stmts.updateAgent.run(null, "working", null, null, null, null, mainAgentId);
+        }
+
+        // A just-started or just-resumed session is sitting at a prompt
+        // waiting for the user's first message — Claude Code hasn't done
+        // anything yet. Stamp awaiting_input_since so it lands in Waiting
+        // from the moment the dashboard sees it. UserPromptSubmit (when the
+        // user hits enter) or PreToolUse (when Claude actually runs a tool)
+        // will clear the flag.
+        const sessionStartTs = new Date().toISOString();
+        stmts.setSessionAwaitingInput.run(sessionStartTs, "session_start", sessionId);
+        if (mainAgentId)
+          stmts.setAgentAwaitingInput.run(sessionStartTs, "session_start", mainAgentId);
       }
 
-      // A just-started or just-resumed session is sitting at a prompt
-      // waiting for the user's first message — Claude Code hasn't done
-      // anything yet. Stamp awaiting_input_since so it lands in Waiting
-      // from the moment the dashboard sees it. UserPromptSubmit (when the
-      // user hits enter) or PreToolUse (when Claude actually runs a tool)
-      // will clear the flag.
-      const sessionStartTs = new Date().toISOString();
-      stmts.setSessionAwaitingInput.run(sessionStartTs, "session_start", sessionId);
-      if (mainAgentId)
-        stmts.setAgentAwaitingInput.run(sessionStartTs, "session_start", mainAgentId);
-
-      // Single broadcast pair with the final state — agents and sessions
-      // are now connected/active with the waiting flag set, so WS clients
-      // see the Waiting badge as soon as the SessionStart event lands.
+      // Single broadcast pair with the final state — for non-compact sources the
+      // waiting flag is now set; for compact the pre-existing state is untouched.
+      // WS clients see the correct badge as soon as the SessionStart event lands.
       broadcast("session_updated", stmts.getSession.get(sessionId));
       if (mainAgentId) broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
 

@@ -875,7 +875,8 @@ const DEFAULT_PRICING = [
 
 ```mermaid
 stateDiagram-v2
-    [*] --> waiting: SessionStart (status=active + flag)
+    [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
+    active --> active: SessionStart compact (mid-turn — state preserved, no flag)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop (non-error, flag re-stamped)
     active --> waiting: Permission Notification (agent → waiting)
