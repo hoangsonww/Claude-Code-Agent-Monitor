@@ -1568,7 +1568,7 @@
                   <td><code>SessionStart</code></td>
                   <td>Claude Code session begins</td>
                   <td>
-                    Creates session and main agent. Stamps <code>awaiting_input_since</code> (with <code>awaiting_reason</code> = <code>session_start</code>) so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt). Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).
+                    Creates session and main agent. Stamps <code>awaiting_input_since</code> (with <code>awaiting_reason</code> = <code>session_start</code>) so the row lands in <strong>Waiting</strong> from the start (the CLI is at a prompt) — except a <code>compact</code>-source SessionStart (mid-turn auto-compaction), which leaves the flag untouched so a working session stays <strong>Active</strong>. Reactivates resumed sessions. Abandons orphaned sessions with no activity for <code>DASHBOARD_STALE_MINUTES</code> (default 180).
                   </td>
                 </tr>
                 <tr>
@@ -2435,7 +2435,8 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <!-- prettier-ignore -->
             <div class="mermaid">
               stateDiagram-v2
-                [*] --> waiting: SessionStart (status=active + flag)
+                [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
+                active --> active: SessionStart compact (mid-turn — state preserved, no flag)
                 waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
                 active --> waiting: Stop (non-error, flag re-stamped)
                 active --> waiting: Permission Notification (agent → waiting)
@@ -6265,7 +6266,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=32" defer></script>
+    <script src="i18n-content.js?v=33" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {

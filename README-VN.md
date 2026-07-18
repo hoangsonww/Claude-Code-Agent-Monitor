@@ -548,7 +548,8 @@ Trạng thái lưu trữ: `active | completed | error | abandoned`. Trạng thá
 
 ```mermaid
 stateDiagram-v2
-    [*] --> waiting: SessionStart (status=active + cờ)
+    [*] --> waiting: SessionStart startup/resume/clear (status=active + cờ)
+    active --> active: SessionStart compact (giữa lượt — giữ nguyên trạng thái, không cờ)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop, không lỗi (cờ được đóng dấu lại)
     active --> waiting: Notification xin quyền (agent → waiting)
@@ -1163,7 +1164,7 @@ Bảng điều khiển xử lý các loại hook Claude Code này:
 
 | Loại hook         | Trigger                        | Hành động trên dashboard                                                                             |
 | ----------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` (với `awaiting_reason=session_start`) để phiên mới rơi vào **Đang chờ**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
+| `SessionStart`    | Phiên Claude Code bắt đầu      | Tạo phiên và Agent chính. Đóng dấu `awaiting_input_since` (với `awaiting_reason=session_start`) để phiên mới rơi vào **Đang chờ** — trừ SessionStart nguồn `compact` (nén giữa lượt), vốn giữ nguyên cờ để phiên đang chạy vẫn **Hoạt động**. Kích hoạt lại các phiên đã tiếp tục. Bỏ các phiên mồ côi không hoạt động trong `DASHBOARD_STALE_MINUTES` (mặc định 180) |
 | `UserPromptSubmit`| Người dùng nhấn enter          | Xóa cờ chờ và đẩy Agent chính sang `working` — tín hiệu duy nhất cho biết các lượt văn bản thuần đã bắt đầu, vì chúng không phát ra `PreToolUse` |
 | `PreToolUse`      | Agent bắt đầu sử dụng tool     | Xóa cờ chờ, đặt Agent thành `working`, đặt `current_tool`. Nếu tool là `Agent`, tạo bản ghi Subagent |
 | `PostToolUse`     | Tool hoàn tất                  | Xóa cờ chờ (xử lý các phê duyệt prompt xin quyền mà Notification đã đóng dấu giữa lúc tool đang chạy). Xóa `current_tool`. Agent ở lại `working` |

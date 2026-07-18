@@ -547,7 +547,8 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> waiting: SessionStart (status=active + flag)
+    [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
+    active --> active: SessionStart compact (턴 도중 — 상태 유지, 플래그 없음)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
     active --> waiting: Stop, non-error (flag re-stamped)
     active --> waiting: Permission Notification (agent → waiting)
@@ -1245,7 +1246,7 @@ stateDiagram-v2
 
 | Hook 유형           | 트리거                         | 대시보드 동작                                                                                 |
 | ------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `SessionStart`      | Claude Code 세션 시작          | 세션과 메인 에이전트를 생성합니다. `awaiting_input_since`를(`awaiting_reason=session_start`와 함께) 기록하여 새 세션이 **Waiting** 상태로 시작되게 합니다. 재개된 세션을 다시 활성화합니다. `DASHBOARD_STALE_MINUTES`(기본 180) 동안 활동이 없는 고아 세션은 중단 처리합니다 |
+| `SessionStart`      | Claude Code 세션 시작          | 세션과 메인 에이전트를 생성합니다. `awaiting_input_since`를(`awaiting_reason=session_start`와 함께) 기록하여 새 세션이 **Waiting** 상태로 시작되게 합니다. 단, `compact` 소스 SessionStart(턴 도중 자동 압축)는 플래그를 그대로 두어 작업 중인 세션이 **Active** 상태를 유지합니다. 재개된 세션을 다시 활성화합니다. `DASHBOARD_STALE_MINUTES`(기본 180) 동안 활동이 없는 고아 세션은 중단 처리합니다 |
 | `UserPromptSubmit`  | 사용자가 프롬프트에서 Enter를 누름 | 대기 플래그를 지우고 메인 에이전트를 `working`으로 승격합니다 — 텍스트 전용 어시스턴트 턴은 `PreToolUse`를 발생시키지 않으므로, 이것이 해당 턴이 시작되었음을 알리는 유일한 신호입니다 |
 | `PreToolUse`        | 에이전트가 도구 사용을 시작함  | 대기 플래그를 지우고, 에이전트를 `working`으로 설정하며, `current_tool`을 설정합니다. 도구가 `Agent`인 경우 서브에이전트 레코드를 생성합니다 |
 | `PostToolUse`       | 도구 실행 완료                 | 대기 플래그를 지웁니다(도구 실행 도중 Notification이 플래그를 기록한 권한 프롬프트 승인 상황을 처리). `current_tool`을 지웁니다. 에이전트는 `working` 상태를 유지합니다 |

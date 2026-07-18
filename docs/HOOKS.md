@@ -226,7 +226,7 @@ ls -la .githooks/
 
 ### 1. SessionStart
 
-Triggered when a Claude Code session starts (fresh launch, `--resume`, `/clear`, etc.).
+Triggered when a Claude Code session starts. The `source` field distinguishes the trigger: `startup` (fresh launch), `resume` (`--resume`/`--continue`), `clear` (`/clear`), and `compact` — which fires **mid-turn** when auto-compaction kicks in while Claude is actively working, not at a fresh prompt.
 
 **Payload Example:**
 
@@ -242,7 +242,7 @@ Triggered when a Claude Code session starts (fresh launch, `--resume`, `/clear`,
 
 **Purpose:**
 - Create the session and main-agent records on first contact
-- Stamp `awaiting_input_since` (with `awaiting_reason` = `session_start`) so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt
+- Stamp `awaiting_input_since` (with `awaiting_reason` = `session_start`) so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt — **only for `startup`/`resume`/`clear`**. A `compact`-source SessionStart fires mid-turn while Claude is working, so it leaves the awaiting flag untouched: a genuinely-active session stays **Active** (not flipped to Waiting), and a session that compacted while idle keeps its existing Waiting flag and reason
 - Reactivate completed/abandoned sessions on resume
 - Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed`
 
