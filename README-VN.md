@@ -632,8 +632,9 @@ ccam events   [--session id] [--limit n]
 ccam analytics                    # tổng token, công cụ hàng đầu, loại agent
 ccam workflows [--session id]     # thống kê workflow-intelligence và các mẫu
 ccam runs [--session id]          # các lần chạy Workflow động
-ccam cost                         # tổng chi phí ước tính theo model
-                                  # (cảnh báo model có mức dùng nhưng chưa có quy tắc định giá)
+ccam cost [--session <id>]        # tổng chi phí ước tính theo model
+                                  # (--session giới hạn ở một phiên; hiển thị phụ phí công cụ máy chủ;
+                                  #  cảnh báo model có mức dùng nhưng chưa có quy tắc định giá)
 
 # Cảnh báo & webhook
 ccam alerts [--unacked]           # luồng cảnh báo đã kích hoạt
