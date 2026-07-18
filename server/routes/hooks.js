@@ -57,6 +57,51 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
   }
 }
 
+// Reason-aware guarded clear (2026-07-17, AI-Deck/deck-web fork patch — see
+// decisions/ in the home-network repo). PreToolUse/PostToolUse clear the
+// waiting flag on the assumption that a tool event means the human resumed.
+// That assumption breaks when the MAIN agent is blocked on the user
+// (AskUserQuestion / permission) while a BACKGROUND subagent keeps firing
+// PreToolUse/PostToolUse: the subagent's tool event is not the human
+// responding, yet it wiped the flag — so AI-Deck/deck-web lost the "waiting
+// for you" signal (it oscillated on/off in seconds).
+//
+// The existing subagent-actor heuristic (findDeepestWorkingAgent, used just
+// below in each case) already tells us when a subagent — not main — is the
+// actor. We reuse it here: when a subagent is the actor we clear ONLY passive
+// waits (stop/session_start/interrupted); a genuine 'notification' wait (main
+// blocked on the user) is preserved. When MAIN is the actor we clear
+// unconditionally, exactly as before — this keeps the documented
+// permission-mid-tool path (PostToolUse clearing an approved prompt) intact.
+//
+// Passive-clear-by-subagent is deliberate and desirable: it is what lets a
+// backgrounded subagent's activity flip a session that merely Stop-ed
+// (reason='stop') back to active — i.e. "done/idle only while no agent works".
+function clearAwaitingInputRespectingActor(
+  sessionId,
+  mainAgentId,
+  subagentIsActor,
+  broadcastUpdates
+) {
+  if (subagentIsActor) {
+    const sess = stmts.getSession.get(sessionId);
+    if (sess && sess.awaiting_reason === "notification") {
+      // Main is blocked on the user; a subagent tool event must not clear it.
+      return;
+    }
+  }
+  clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates);
+}
+
+// True when the deepest currently-working agent is a subagent while the main
+// agent is in 'waiting' — i.e. an incoming tool event is attributable to a
+// subagent, not to the main agent resuming. Mirrors the inline heuristic the
+// PreToolUse/PostToolUse cases already use for agent attribution.
+function subagentIsActorNow(sessionId, mainAgent) {
+  if (!mainAgent || mainAgent.status !== "waiting") return false;
+  return !!stmts.findDeepestWorkingAgent.get(sessionId, sessionId);
+}
+
 // Land a session that was cancelled with no hook (Esc) in the same
 // waiting + awaiting-input state a normal Stop produces, and log a timeline
 // event. Used by both watchdog recovery paths: the transcript-marker path
@@ -334,8 +379,17 @@ const processEvent = db.transaction((hookType, data) => {
 
       // PreToolUse means Claude is actively running a tool, ergo the user
       // has resumed (Stop only fires at end of turn — Claude can't start a
-      // new tool call without fresh user input). Clear waiting now.
-      clearAwaitingInput(sessionId, mainAgentId, true);
+      // new tool call without fresh user input). Clear waiting now — UNLESS a
+      // background subagent is the actor and main is blocked on the user
+      // (reason='notification'), in which case the flag is preserved
+      // (clearAwaitingInputRespectingActor). Computed before the clear because
+      // the Agent-spawn branch below mutates agent rows.
+      clearAwaitingInputRespectingActor(
+        sessionId,
+        mainAgentId,
+        subagentIsActorNow(sessionId, mainAgent),
+        true
+      );
 
       // If the tool is Agent, a subagent is being created
       if (toolName === "Agent") {
@@ -414,7 +468,14 @@ const processEvent = db.transaction((hookType, data) => {
       // Code prompts the user mid-tool). The Notification stamps waiting,
       // the user approves, the tool completes, PostToolUse arrives. Without
       // a clear here, we'd be stuck in waiting until the next PreToolUse.
-      clearAwaitingInput(sessionId, mainAgentId, true);
+      // Same actor-guard as PreToolUse: a background subagent's PostToolUse
+      // must not clear a genuine 'notification' wait held by the main agent.
+      clearAwaitingInputRespectingActor(
+        sessionId,
+        mainAgentId,
+        subagentIsActorNow(sessionId, mainAgent),
+        true
+      );
 
       // NOTE: PostToolUse for "Agent" tool fires immediately when a subagent is
       // backgrounded — it does NOT mean the subagent finished its work.
