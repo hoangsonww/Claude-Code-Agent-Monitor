@@ -237,7 +237,7 @@ The artifact lands in `desktop/release/`. Pick the build command that matches yo
 
 | Command | Platform / Architecture | Speed | Use when |
 |---|---|---|---|
-| `npm run desktop:dmg` | macOS — Universal (x64 + arm64) | **Slow** | Building a release DMG for everyone |
+| `npm run desktop:dmg` | macOS — both per-arch DMGs (arm64 + x64) | **Slower** | Building the release DMGs for everyone |
 | `npm run desktop:dmg:arm64` | macOS — Apple Silicon only | Fast (~1 min) | Building for your own Apple Silicon Mac |
 | `npm run desktop:dmg:x64` | macOS — Intel only | Fast (~1 min) | Building for your own Intel Mac |
 | `npm run desktop:win` | Windows — NSIS installer `.exe` (x64) | — | Building the per-user installer |
@@ -248,15 +248,16 @@ The artifact lands in `desktop/release/`. Pick the build command that matches yo
 | `npm run desktop:test` | — | — | Smoke test (spawn Electron, probe `/api/health`) |
 
 > [!IMPORTANT]
-> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. On macOS, the universal `npm run desktop:dmg` build is **intentionally slow** — it builds the app twice (one tree per architecture), merges both with `@electron/universal`, then signs every binary. Expect the silent `packaging arch=universal` step to sit for several minutes. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds both the universal DMG and the Windows `.exe`s for you (see Way 1).
+> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. On macOS, `npm run desktop:dmg` builds the app **twice** (one tree per architecture) and emits **both** per-arch DMGs (`arm64` + `x64`) — the release build. It does **not** merge them into a single universal binary; the two DMGs are what ship. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds both DMGs and the Windows `.exe`s for you (see Way 1).
 
 ### Install the app
 
-**macOS.** Each `desktop:dmg*` build wipes `release/` and emits a single DMG —
-`desktop:dmg:arm64` → `…-arm64.dmg`, `desktop:dmg:x64` → `…-x64.dmg`, universal
-`desktop:dmg` → `…-universal.dmg` — and its mounted-volume title states the
-architecture (e.g. *Claude Code Monitor (Apple Silicon)*). Install the one
-matching your Mac: an x64 build on Apple Silicon makes macOS prompt for Rosetta.
+**macOS.** Each `desktop:dmg*` build wipes `release/` first. `desktop:dmg:arm64`
+→ `…-arm64.dmg` and `desktop:dmg:x64` → `…-x64.dmg` each emit a single DMG whose
+mounted-volume title states the architecture (e.g. *Claude Code Monitor (Apple
+Silicon)*); `desktop:dmg` emits **both** (`…-arm64.dmg` + `…-x64.dmg`) for
+release. Install the one matching your Mac: an x64 build on Apple Silicon makes
+macOS prompt for Rosetta.
 
 ```bash
 open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # the arch you built
@@ -516,7 +517,7 @@ See [SETUP.md — Troubleshooting](./SETUP.md#troubleshooting) for detailed hook
 |---|---|---|
 | *"Apple could not verify…"* on first launch (macOS) | The DMG is ad-hoc signed (no paid Apple Developer ID) | `xattr -cr "/Applications/Claude Code Monitor.app"`, then open it — or use *System Settings → Privacy & Security → Open Anyway* |
 | *"Windows protected your PC"* on first launch (Windows) | The `.exe` is unsigned by default, so SmartScreen prompts | Click **More info → Run anyway** |
-| `npm run desktop:dmg` hangs on `packaging arch=universal` (macOS) | Not hung — the universal build merges two architectures and is intentionally slow | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
+| `npm run desktop:dmg` seems slow (macOS) | Not hung — it packages two architectures back-to-back (`arch=x64` then `arch=arm64`) | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
 | `entry file out/main.js does not exist` | `npm run clean` (in `desktop/`) deleted `out/`; `electron-builder` only packages, it does not compile | Re-run `npm run desktop:build` (or just use a `desktop:dmg*` / `desktop:win*` script, which chains the build) |
 | Desktop window opens but is blank | The embedded server failed `/api/health` within 30 s | Check the desktop log (`~/Library/Logs/Claude Code Monitor/desktop.log` on macOS, `%APPDATA%\Claude Code Monitor\logs\desktop.log` on Windows), then tray → *Restart Server* |
 | "Run Claude" says `claude` is not on your PATH | A Finder/Dock-launched macOS app only inherits launchd's minimal PATH, not your login-shell PATH (on Windows the process already inherits the user PATH) | The app recovers your login-shell PATH at startup so it can find and spawn the `claude` CLI. If it still fails, make sure `claude` is a real executable on your shell PATH — not a shell alias or function |

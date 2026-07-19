@@ -52,7 +52,7 @@ npm run desktop:dev      # tsc → launch Electron pointing at out/main.js
 npm run desktop:test     # smoke test (spawn Electron + probe /api/health)
 
 # Build a DMG (macOS):
-npm run desktop:dmg          # universal (x64 + arm64) — correct for release, SLOW
+npm run desktop:dmg          # both per-arch DMGs (arm64 + x64) — correct for release, SLOWER
 npm run desktop:dmg:arm64    # Apple Silicon only — fast, for your own machine
 npm run desktop:dmg:x64      # Intel only — fast
 
@@ -61,8 +61,9 @@ npm run desktop:win          # NSIS installer → release/ClaudeCodeMonitor-Setu
 npm run desktop:win:portable # no-install portable → release/ClaudeCodeMonitor-<ver>-x64-portable.exe
 ```
 
-> ⚠️ The **universal** macOS build is intentionally slow (it builds the app
-> twice and merges the two architectures). For running on your own Mac, use the
+> ⚠️ `desktop:dmg` is slower because it builds the app **twice** — once per
+> architecture — and emits **two** per-arch DMGs (`arm64` + `x64`). It does not
+> merge them into a universal binary. For running on your own Mac, use the
 > arch-specific command. See [Build performance](#build-performance--read-this).
 
 > 🪟 **Windows builds run on Windows** (DMGs build on macOS). `desktop:win`
@@ -543,9 +544,10 @@ flowchart LR
     style dmg fill:#238636,stroke:#196c2e,color:#fff
 ```
 
-A **universal** build runs the *packaging → rebuild → sign* steps **twice**
-(once per architecture), then `@electron/universal` merges the two app trees
-into a single fat binary before the DMG step.
+`desktop:dmg` runs the *packaging → rebuild → sign → DMG* steps **twice**
+(once per architecture) and emits two separate DMGs (`…-arm64.dmg` +
+`…-x64.dmg`). There is no `@electron/universal` merge step — the release ships
+the two per-arch DMGs rather than one fat universal binary.
 
 ---
 
@@ -562,7 +564,7 @@ and fails with *"entry file out/main.js does not exist"*).
 | `npm run desktop:build` | `npm run build` | Prebuild guard + `tsc` → `out/`. |
 | `npm run desktop:dev` | `npm run dev` | Build, then launch Electron against `out/main.js`. |
 | `npm run desktop:test` | `npm test` | Build, then run the smoke test. |
-| `npm run desktop:dmg` | `npm run dmg` | **macOS:** universal DMG (x64 + arm64). Correct for release. **Slow.** |
+| `npm run desktop:dmg` | `npm run dmg` | **macOS:** both per-arch DMGs (arm64 + x64). Correct for release. **Slower.** |
 | `npm run desktop:dmg:arm64` | `npm run dmg:arm64` | **macOS:** Apple-Silicon-only DMG. **Fast.** |
 | `npm run desktop:dmg:x64` | `npm run dmg:x64` | **macOS:** Intel-only DMG. **Fast.** |
 | `npm run desktop:win` | `npm run win` | **Windows:** NSIS installer `.exe` (x64). |
@@ -580,51 +582,46 @@ and fails with *"entry file out/main.js does not exist"*).
 
 ## Build performance — read this
 
-**DMG builds can be very slow.** This is expected — it is the standard Electron
-packaging cost, multiplied by the universal merge:
+**`desktop:dmg` is slower than a single-arch build.** This is expected — it is
+the standard Electron packaging cost, paid **once per architecture**:
 
 ```mermaid
 flowchart TD
-    u["npm run desktop:dmg (universal)"] --> b1["build full x64 app tree"]
-    u --> b2["build full arm64 app tree"]
-    b1 --> merge["@electron/universal merge<br/>walk both trees · lipo every native binary · dedup"]
-    b2 --> merge
-    merge --> sign["ad-hoc sign every binary"]
-    sign --> dmgstep["hdiutil → .dmg"]
+    u["npm run desktop:dmg (both arches)"] --> b1["build x64 app tree → sign → …-x64.dmg"]
+    u --> b2["build arm64 app tree → sign → …-arm64.dmg"]
 
     a["npm run desktop:dmg:arm64 (single arch)"] --> sb["build one app tree"]
     sb --> ssign["sign"]
-    ssign --> sdmg["hdiutil → .dmg"]
+    ssign --> sdmg["hdiutil → …-arm64.dmg"]
 
     style u fill:#9e6a03,stroke:#7d5300,color:#fff
     style a fill:#238636,stroke:#196c2e,color:#fff
 ```
 
-Why universal is slow:
+Why `desktop:dmg` is slow:
 
 1. **Everything happens twice** — electron-builder builds a full x64 app tree
-   *and* a full arm64 app tree, then `@electron/universal` walks both and
-   `lipo`s every native binary into a fat binary.
+   *and* a full arm64 app tree, rebuilding `better-sqlite3` and packaging a DMG
+   for each. (There is no universal merge; each arch produces its own DMG.)
 2. **The app tree is large** — the server's entire production dependency tree
    (`express`, `swagger-ui-express`, `ws`, …) ships as `extraResources`; that's
    tens of thousands of files, walked and copied for each architecture.
-3. **Per-binary code signing** runs over the whole merged bundle.
+3. **Per-binary code signing** runs over each architecture's bundle.
 
-Net effect: a ~250 MB app is built, copied, and signed several times over —
+Net effect: a ~250 MB app is built, copied, and signed once per architecture —
 gigabytes of disk I/O. The Electron runtime downloads (~110 MB each) are *not*
-the bottleneck; the silent `packaging arch=universal` merge is.
+the bottleneck; packaging two architectures back-to-back is.
 
 **Guidance:**
 
 - Building for **your own Mac** → use `desktop:dmg:arm64` (Apple Silicon) or
-  `desktop:dmg:x64` (Intel). One architecture, no merge — finishes in roughly a
-  minute instead of many.
-- Building a **release artifact for everyone** → use the universal
-  `desktop:dmg` and expect it to take a while. CI builds the universal DMG and
-  uploads it as the `ClaudeCodeMonitor-dmg` artifact, so you rarely need to
-  build it locally.
-- The bundle is **~80 MB DMG / ~250 MB on disk** regardless — the standard
-  Electron tax.
+  `desktop:dmg:x64` (Intel). One architecture — finishes in roughly a minute
+  instead of two.
+- Building the **release artifacts for everyone** → use `desktop:dmg` (builds
+  both arches) and expect it to take about twice as long. CI runs `desktop:dmg`
+  and uploads both DMGs as the `ClaudeCodeMonitor-dmg` artifact, so you rarely
+  need to build them locally.
+- Each DMG is **~80 MB / ~250 MB on disk** — the standard Electron tax.
 
 ---
 
@@ -681,7 +678,7 @@ flowchart LR
     job --> j1["npm ci (root, client, desktop)"]
     j1 --> j2["tsc build"]
     j2 --> j3["smoke test"]
-    j3 --> j4["build universal DMG<br/>(retry on flaky hdiutil detach)"]
+    j3 --> j4["build both per-arch DMGs<br/>(retry on flaky hdiutil detach)"]
     j4 --> j5["upload ClaudeCodeMonitor-dmg artifact"]
     j5 --> rel["release job (master only)<br/>publish vX.Y.Z if new"]
 
@@ -774,7 +771,7 @@ Reach it from the tray menu → **Show Logs**.
 |---|---|
 | `entry file out/main.js does not exist` | You ran `electron-builder` without building first. Run `npm run build` (or use a `dmg*` script). |
 | Signing fails: `Application … could not be found` after retries | A keychain cert was auto-discovered. The `package` script now sets `CSC_IDENTITY_AUTO_DISCOVERY=false`; ensure you build via `npm run dmg*`, not bare `electron-builder`. |
-| DMG build hangs on `packaging arch=universal` | Not hung — the universal merge is slow. See [Build performance](#build-performance--read-this). Use `dmg:arm64` / `dmg:x64` for speed. |
+| DMG build seems slow | Not hung — `desktop:dmg` packages two architectures back-to-back. See [Build performance](#build-performance--read-this). Use `dmg:arm64` / `dmg:x64` for a single arch. |
 | `hdiutil detach … exit code 1` in CI | Flaky GitHub runner; the CI step already retries with Spotlight disabled. Re-run the job if it still fails. |
 | Dashboard window is blank | The embedded server failed `/api/health` within 30 s — check `desktop.log`. |
 | Gatekeeper blocks the app | Ad-hoc DMG. `xattr -cr "/Applications/Claude Code Monitor.app"`. |

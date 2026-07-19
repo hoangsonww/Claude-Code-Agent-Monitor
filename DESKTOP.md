@@ -48,7 +48,7 @@ npm run desktop:install      # installs Electron + electron-builder
 # Build for macOS (run ON macOS) — pick one:
 npm run desktop:dmg:arm64    # Apple Silicon only — FAST (~1 min); use this for your own Mac
 npm run desktop:dmg:x64      # Intel only — FAST
-npm run desktop:dmg          # universal (x64 + arm64) — SLOW; for distributing one DMG to everyone
+npm run desktop:dmg          # BOTH per-arch DMGs (arm64 + x64) — the release build; slower (packages each arch)
 
 # Build for Windows (run ON Windows) — pick one:
 npm run desktop:win          # NSIS installer → desktop/release/ClaudeCodeMonitor-Setup-<ver>-x64.exe
@@ -57,19 +57,19 @@ npm run desktop:win:portable # no-install portable → desktop/release/ClaudeCod
 # electron-builder packages for the HOST OS — you cannot build a Windows .exe
 # on macOS or a macOS .dmg on Windows.
 
-# Open the macOS DMG you just built. Each desktop:dmg* build wipes release/ first
-# and emits exactly one DMG, so match the suffix to the build above.
-open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # …-x64.dmg / …-universal.dmg for the others
+# Open the macOS DMG you just built. desktop:dmg:arm64 / :x64 wipe release/ and emit
+# one DMG; desktop:dmg wipes release/ and emits both (…-arm64.dmg + …-x64.dmg).
+open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # …-x64.dmg for the Intel build
 ```
 
-> **The universal `desktop:dmg` build is intentionally slow.** It builds the app
-> twice (once per architecture), merges both slices with `@electron/universal`,
-> and code-signs every binary — gigabytes of disk I/O, and the silent
-> `packaging arch=universal` step can run for several minutes. For running on
-> **your own Mac**, use the arch-specific command (`desktop:dmg:arm64` /
-> `desktop:dmg:x64`) — it finishes in about a minute. CI builds the universal
-> DMG for you and uploads it as the `ClaudeCodeMonitor-dmg` artifact, so you
-> rarely need to build it locally.
+> **`desktop:dmg` builds both architectures, so it takes longer.** It packages
+> and ad-hoc-signs the app **twice** — once for `arm64`, once for `x64` — and
+> emits two separate DMGs (`…-arm64.dmg` + `…-x64.dmg`). It does **not** merge
+> them into a single universal binary; the release ships the two per-arch DMGs.
+> For running on **your own Mac**, use the arch-specific command
+> (`desktop:dmg:arm64` / `desktop:dmg:x64`) — half the work, and it finishes in
+> about a minute. CI runs `desktop:dmg` for you and uploads both DMGs as the
+> `ClaudeCodeMonitor-dmg` artifact, so you rarely need to build them locally.
 
 ## What happens when you launch the app
 
@@ -180,7 +180,7 @@ npm run desktop:test
 # macOS — single-architecture DMG — fast (~1 min):
 npm run desktop:dmg:arm64    # or desktop:dmg:x64 for Intel
 
-# macOS — universal DMG — slow (builds + signs both architectures, then merges):
+# macOS — both per-arch DMGs — slower (builds + signs each architecture):
 npm run desktop:dmg
 
 # Windows — NSIS installer / no-install portable (run ON Windows):
@@ -221,7 +221,7 @@ The smoke test does not exercise the BrowserWindow (no display on headless CI). 
 
 - **Bundle size** ≈ 80 MB DMG, ≈ 250 MB on disk. The standard Electron tax. The Windows installer is comparable. Tauri would cut this dramatically but at the cost of a sidecar-process model and a Rust toolchain dependency — fair to revisit in a follow-up PR if bundle size becomes a real complaint.
 - **Native modules**: `better-sqlite3` is rebuilt against Electron's Node version automatically via `electron-builder install-app-deps` in the desktop workspace's `postinstall`. On Windows it is fetched as a **prebuilt Electron binary**, so no Visual Studio C++ toolchain is needed in the common case. If that build *does* fail (or the binary is missing afterward), `npm run desktop:install` — and any `desktop:*` build — prints the exact per-OS fix (Windows: Visual Studio Build Tools with the "Desktop development with C++" workload; macOS: `xcode-select --install`; Linux: build-essential + python3) plus a no-toolchain alternative (`npm install --ignore-scripts` → `node node_modules/electron/install.js` → `npx electron-builder install-app-deps`), and exits non-zero — failing loudly at install/build time rather than crashing at runtime. Even so, if the module is unavailable the server falls back to `node:sqlite` (per #37), so the app still boots.
-- **Universal binary**: `npm run desktop:dmg` produces a DMG containing both x64 and arm64 slices, which is slow to build. `npm run desktop:dmg:arm64` and `npm run desktop:dmg:x64` build a single-architecture DMG instead — much faster, and roughly half the size.
+- **Per-architecture DMGs**: `npm run desktop:dmg` builds **both** macOS DMGs (one `arm64`, one `x64`) — the release build, and slower because it packages each architecture separately. It does **not** produce a merged universal binary; the release ships the two per-arch DMGs. `npm run desktop:dmg:arm64` and `npm run desktop:dmg:x64` build a single architecture instead — much faster, and roughly half the disk.
 - **Auto-update**: not wired on either platform. The current update path is *re-download the latest installer* (DMG on macOS, `.exe` on Windows). `electron-updater` + GitHub Releases is the natural follow-up.
 
 ## Troubleshooting
@@ -230,7 +230,7 @@ The smoke test does not exercise the BrowserWindow (no display on headless CI). 
 |---|---|---|
 | "Apple could not verify…" on first launch (macOS) | Unnotarized DMG | `xattr -cr ~/Downloads/ClaudeCodeMonitor-*.dmg` |
 | "Windows protected your PC" on first launch (Windows) | The `.exe` is unsigned by default (SmartScreen) | Click **More info → Run anyway**. To remove the prompt for everyone, the maintainer can enable Authenticode signing via `CSC_LINK` + `CSC_KEY_PASSWORD` |
-| macOS prompts to install Rosetta when opening the app | You installed the **x64** build on an Apple Silicon Mac | Check your arch with `uname -m` (`arm64` → Apple Silicon, build with `desktop:dmg:arm64`). Each `desktop:dmg*` build now wipes `release/` and emits a single DMG whose mounted-volume title states the architecture — e.g. *Claude Code Monitor (Apple Silicon)* — so there is no ambiguous second window to drag from. If stale DMGs from an older build linger, clear them with `rm -rf desktop/release` and rebuild |
+| macOS prompts to install Rosetta when opening the app | You installed the **x64** build on an Apple Silicon Mac | Check your arch with `uname -m` (`arm64` → Apple Silicon, build with `desktop:dmg:arm64`). The arch-specific `desktop:dmg:arm64` / `desktop:dmg:x64` builds each wipe `release/` and emit a single DMG whose mounted-volume title states the architecture — e.g. *Claude Code Monitor (Apple Silicon)* — so there is no ambiguous window to drag from. (`desktop:dmg` emits both per-arch DMGs at once, for release.) If stale DMGs from an older build linger, clear them with `rm -rf desktop/release` and rebuild |
 | Window shows but content is blank (macOS) | Server didn't boot — check `~/Library/Logs/Claude Code Monitor/desktop.log` | Restart from tray → *Restart Server* |
 | Window shows but content is blank (Windows) | Server didn't boot — check `%APPDATA%\Claude Code Monitor\logs\desktop.log` | Restart from tray → *Restart Server* |
 | Tray icon missing (macOS) | The OS hides tray icons when the menu bar is full | Move other menu-bar items aside, or look in the overflow chevron |
@@ -241,7 +241,7 @@ The smoke test does not exercise the BrowserWindow (no display on headless CI). 
 | Desktop build/install fails on `better-sqlite3` / native binary missing | No C++ toolchain, or no prebuilt for your Node version | Run `npm run desktop:install` and follow the printed help, or use the no-toolchain alternative (`npm install --ignore-scripts` → `node node_modules/electron/install.js` → `npx electron-builder install-app-deps`); or use Node LTS 20/22 |
 | Port 4820 already in use, app refuses to start | Something other than the dashboard is on 4820 and it doesn't answer `/api/health` | The app will pick a fallback (4821–4829, then a random high port) — check the tray menu's port indicator |
 | Dashboard stays empty — 0 sessions, 0 agents, no real-time updates | The app bound a fallback port (4820 was taken), and the Claude Code hooks were posting events to the wrong port | Fixed — the server publishes its live port to `~/.claude/.agent-dashboard.json` and the hook handler reads it. After upgrading from a pre-fix build, **start a new Claude Code session** so the updated hooks take effect |
-| `desktop:dmg` seems stuck at `packaging arch=universal` | Not stuck — the universal merge is genuinely slow | Wait a few minutes, or build a single architecture with `desktop:dmg:arm64` / `desktop:dmg:x64` |
+| `desktop:dmg` seems slow | Not stuck — it packages two architectures back-to-back (`arch=x64` then `arch=arm64`) | Wait it out, or build a single architecture with `desktop:dmg:arm64` / `desktop:dmg:x64` |
 | Build fails: `entry file out/main.js does not exist` | `electron-builder` was run without compiling TypeScript first | Build via `npm run desktop:dmg*` (chains the build); don't invoke `electron-builder` bare |
 | Signing fails with `Application … could not be found` | A code-signing certificate in your keychain was auto-discovered | Fixed — the `package` script sets `CSC_IDENTITY_AUTO_DISCOVERY=false`; build via `npm run desktop:dmg*` |
 | "Run Claude" reports the `claude` CLI isn't on your PATH | A Finder/Dock-launched app inherits launchd's minimal PATH, not your shell PATH | Fixed — the app recovers your login-shell PATH at startup. If it persists, ensure `claude` is a real executable (not a shell alias/function) and on your shell PATH |
