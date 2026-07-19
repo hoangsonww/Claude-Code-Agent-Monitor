@@ -42,7 +42,7 @@ A professional dashboard to track and visualize your Claude Code agent sessions,
 ![macOS](https://img.shields.io/badge/macOS-Desktop_App-000000?style=flat-square&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-Desktop_App-0078D6?style=flat-square&logo=windows&logoColor=white)
 ![SMAppService](https://img.shields.io/badge/SMAppService-Login_Items-000000?style=flat-square&logo=apple&logoColor=white)
-![Universal DMG](https://img.shields.io/badge/Universal_DMG-arm64_%2B_x64-7c3aed?style=flat-square&logo=apple&logoColor=white)
+![macOS DMG](https://img.shields.io/badge/macOS_DMG-arm64_%2B_x64-7c3aed?style=flat-square&logo=apple&logoColor=white)
 ![NSIS Installer](https://img.shields.io/badge/Windows-NSIS_%2B_Portable-1f6feb?style=flat-square&logo=windows&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-1.0-646CFF?style=flat-square&logo=vitest&logoColor=white)
 ![React Testing Library](https://img.shields.io/badge/React_Testing_Library-13.0-FF5733?style=flat-square&logo=testinglibrary&logoColor=white)
@@ -711,7 +711,7 @@ API-backed commands need the server running — when it isn't, **read-only comma
 | `npm run desktop:dev`   | Build and launch the Electron desktop app for local iteration  |
 | `npm run desktop:build` | Compile the desktop TypeScript sources into `desktop/out/`      |
 | `npm run desktop:test`  | Run the desktop smoke test (spawn Electron, probe `/api/health`) |
-| `npm run desktop:dmg`   | Build the **universal** (x64 + arm64) macOS DMG — correct for release, **slow** |
+| `npm run desktop:dmg`   | Build **both** macOS DMGs (arm64 + x64) — correct for release, **slower** (packages each arch) |
 | `npm run desktop:dmg:arm64` | Build an Apple-Silicon-only DMG — **fast**, recommended for your own Mac |
 | `npm run desktop:dmg:x64` | Build an Intel-only DMG — **fast**                           |
 | `npm run desktop:win`   | Build a Windows **NSIS installer** `.exe` (x64) — run on Windows |
@@ -1566,7 +1566,7 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 ```
 
 > [!NOTE]
-> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. The macOS universal `npm run desktop:dmg` build is intentionally **slow** (it builds the app twice and merges with `@electron/universal`); for your own Mac use the single-arch `desktop:dmg:arm64` / `desktop:dmg:x64`. On Windows, `better-sqlite3` is fetched as a prebuilt Electron binary by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build does fail (no prebuilt binary, or a missing C++ toolchain), `desktop:install` prints the exact per-OS fix plus a no-toolchain alternative and fails loudly instead of leaving a broken install.
+> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. The macOS `npm run desktop:dmg` build packages the app **twice** (once per architecture) and emits **both** per-arch DMGs (`arm64` + `x64`) — the release build; it does not merge them into one universal binary. For your own Mac use the single-arch `desktop:dmg:arm64` / `desktop:dmg:x64`. On Windows, `better-sqlite3` is fetched as a prebuilt Electron binary by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build does fail (no prebuilt binary, or a missing C++ toolchain), `desktop:install` prints the exact per-OS fix plus a no-toolchain alternative and fails loudly instead of leaving a broken install.
 
 ### Install it
 
@@ -1618,7 +1618,7 @@ All commands run from the **repo root**:
 | `npm run desktop:build`     | Compile the desktop TypeScript sources into `desktop/out/`                    |
 | `npm run desktop:dev`       | Build and launch the Electron app for local iteration                         |
 | `npm run desktop:test`      | Run the smoke test (spawn Electron, probe `/api/health`, shut down)            |
-| `npm run desktop:dmg`       | **macOS:** build the **universal** (x64 + arm64) DMG — correct for release, **slow** |
+| `npm run desktop:dmg`       | **macOS:** build **both** DMGs (arm64 + x64) — correct for release, **slower** (packages each arch) |
 | `npm run desktop:dmg:arm64` | **macOS:** build an Apple-Silicon-only DMG — **fast** (~1 min), recommended for your own Mac |
 | `npm run desktop:dmg:x64`   | **macOS:** build an Intel-only DMG — **fast** (~1 min)                         |
 | `npm run desktop:win`       | **Windows:** build the NSIS installer `.exe` (x64)                             |

@@ -2142,7 +2142,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>desktop:dmg</code></td>
                   <td><code>npm run desktop:dmg</code></td>
-                  <td>Build a <strong>universal</strong> (x64 + arm64) DMG. Correct for release — intentionally slow</td>
+                  <td>Build <strong>both</strong> per-arch DMGs (arm64 + x64). Correct for release — slower (packages each arch)</td>
                 </tr>
                 <tr>
                   <td><code>desktop:dmg:arm64</code></td>
@@ -4742,7 +4742,7 @@ ccam-export all --output backup.json</code></pre>
           <p>
             Want a build straight off the tip of <code>master</code>, ahead of the next tagged
             release? Every green run of the <code>🍎 macOS Desktop (DMG)</code> job on
-            <code>macos-latest</code> uploads the universal DMG as the
+            <code>macos-latest</code> uploads both per-arch DMGs as the
             <code>ClaudeCodeMonitor-dmg</code> workflow artifact, and the
             <code>🪟 Windows Desktop (EXE)</code> job on <code>windows-latest</code> uploads the
             installer + portable EXEs as the <code>ClaudeCodeMonitor-win</code> artifact. Open
@@ -4778,16 +4778,16 @@ npm run desktop:install
 # 4a. ON macOS — build a DMG, pick ONE:
 npm run desktop:dmg:arm64    # Apple Silicon only — fast (~1 min), recommended
 npm run desktop:dmg:x64      # Intel only — fast
-npm run desktop:dmg          # universal (x64 + arm64) — for release, SLOW
+npm run desktop:dmg          # both per-arch DMGs (arm64 + x64) — for release, SLOWER
 
 # 4b. ON Windows — build an EXE, pick ONE:
 npm run desktop:win          # NSIS installer → ClaudeCodeMonitor-Setup-<ver>-x64.exe
 npm run desktop:win:portable # no-install portable → ClaudeCodeMonitor-<ver>-x64-portable.exe
 
 # electron-builder packages for the HOST OS — build DMGs on a Mac, EXEs on Windows.
-# Each desktop:dmg* build wipes release/ first and emits a single arch-labelled
-# DMG, so the volume title states the architecture (e.g. "Claude Code Monitor
-# (Apple Silicon)") — no ambiguity when more than one DMG is on disk.
+# desktop:dmg:arm64 / desktop:dmg:x64 each emit ONE arch-labelled DMG (the volume
+# title states the arch, e.g. "Claude Code Monitor (Apple Silicon)"). desktop:dmg
+# builds BOTH per-arch DMGs at once (arm64 + x64) — the release pair.
 open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # match the arch you built</code></pre>
 
           <div class="callout callout-warning">
@@ -4795,14 +4795,15 @@ open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # match the arch you built<
             <div class="callout-body">
               <strong>Use the arch-specific build on your own machine</strong>
               <p>
-                The universal <code>desktop:dmg</code> build is intentionally slow: it builds
-                the full app tree <em>twice</em> (once per architecture), merges both with
-                <code>@electron/universal</code>, and ad-hoc-signs every binary in the merged
-                bundle. For running on a single Mac, use <code>desktop:dmg:arm64</code>
+                <code>desktop:dmg</code> is slower because it builds the full app tree
+                <em>twice</em> (once per architecture) and ad-hoc-signs each — emitting two
+                separate per-arch DMGs (<code>…-arm64.dmg</code> + <code>…-x64.dmg</code>).
+                There is no <code>@electron/universal</code> merge; the release ships the two
+                per-arch DMGs. For running on a single Mac, use <code>desktop:dmg:arm64</code>
                 (Apple Silicon) or <code>desktop:dmg:x64</code> (Intel) — one architecture,
-                no merge, finishing in roughly a minute instead of many. Reserve the universal
-                build for release artifacts; CI already produces one as
-                <code>ClaudeCodeMonitor-dmg</code>, so you rarely need to build it yourself.
+                finishing in roughly a minute. CI runs <code>desktop:dmg</code> and uploads
+                both DMGs as <code>ClaudeCodeMonitor-dmg</code>, so you rarely need to build
+                them yourself.
               </p>
             </div>
           </div>
@@ -6268,7 +6269,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=33" defer></script>
+    <script src="i18n-content.js?v=34" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {

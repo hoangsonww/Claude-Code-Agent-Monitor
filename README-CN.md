@@ -42,7 +42,7 @@
 ![macOS](https://img.shields.io/badge/macOS-Desktop_App-000000?style=flat-square&logo=apple&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-Desktop_App-0078D6?style=flat-square&logo=windows&logoColor=white)
 ![SMAppService](https://img.shields.io/badge/SMAppService-Login_Items-000000?style=flat-square&logo=apple&logoColor=white)
-![Universal DMG](https://img.shields.io/badge/Universal_DMG-arm64_%2B_x64-7c3aed?style=flat-square&logo=apple&logoColor=white)
+![macOS DMG](https://img.shields.io/badge/macOS_DMG-arm64_%2B_x64-7c3aed?style=flat-square&logo=apple&logoColor=white)
 ![NSIS Installer](https://img.shields.io/badge/Windows-NSIS_%2B_Portable-1f6feb?style=flat-square&logo=windows&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-1.0-646CFF?style=flat-square&logo=vitest&logoColor=white)
 ![React Testing Library](https://img.shields.io/badge/React_Testing_Library-13.0-FF5733?style=flat-square&logo=testinglibrary&logoColor=white)
@@ -408,7 +408,7 @@ npm run desktop:win            # Windows：NSIS 安装包 .exe（在 Windows 上
 ```
 
 > [!TIP]
-> DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建 —— electron-builder 针对宿主操作系统打包。为自己的 Mac 构建时，请使用架构专用命令（`desktop:dmg:arm64` 或 `desktop:dmg:x64`），它们速度快得多；通用版 `desktop:dmg` 会把应用构建两次再合并，仅在制作发布产物时才需要。
+> DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建 —— electron-builder 针对宿主操作系统打包。为自己的 Mac 构建时，请使用架构专用命令（`desktop:dmg:arm64` 或 `desktop:dmg:x64`），它们速度快得多；`desktop:dmg` 会按架构把应用构建两次，产出两个按架构的 DMG（arm64 + x64，不做任何合并），仅在制作发布产物时才需要。
 
 完整的生命周期语义、托盘/菜单功能、签名与公证钩子详见下文的 [桌面应用（macOS 与 Windows）](#桌面应用macos-与-windows) 章节，以及 [`DESKTOP.md`](./DESKTOP.md)。
 
@@ -700,7 +700,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | `npm run desktop:build` | 预构建校验 + `tsc`，编译 Electron 主进程到 `desktop/out/` |
 | `npm run desktop:dev` | 构建后启动 Electron，加载本地桌面应用 |
 | `npm run desktop:test` | 运行桌面应用冒烟测试（启动 Electron 并探测 `/api/health`） |
-| `npm run desktop:dmg` | **macOS：** 构建**通用版** DMG（x64 + arm64）— 用于发布，**构建较慢** |
+| `npm run desktop:dmg` | **macOS：** 构建**两个按架构的** DMG（arm64 + x64）— 用于发布，**构建较慢** |
 | `npm run desktop:dmg:arm64` | **macOS：** 构建 Apple Silicon 专用 DMG — **快速** |
 | `npm run desktop:dmg:x64` | **macOS：** 构建 Intel 专用 DMG — **快速** |
 | `npm run desktop:win` | **Windows：** 构建 NSIS **安装包** `.exe`（x64）— 在 Windows 上运行 |
@@ -1452,7 +1452,7 @@ npm run desktop:win          # Windows：NSIS 安装包 → desktop/release/Clau
 ```
 
 > [!NOTE]
-> **DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建** —— electron-builder 针对宿主操作系统打包。macOS 的通用版 `npm run desktop:dmg` 构建**有意设计得很慢**（它会把应用构建两次，再用 `@electron/universal` 合并）；为自己的 Mac 构建时请使用单架构的 `desktop:dmg:arm64` / `desktop:dmg:x64`。在 Windows 上，`npm run desktop:install` 会把 `better-sqlite3` 作为 Electron 预编译二进制拉取，因此常见情况下无需 Visual Studio C++ 工具链。若构建确实失败（没有预编译二进制，或缺少 C++ 工具链），`desktop:install` 会打印准确的分平台修复步骤外加一个无工具链的替代方案，并**显式失败（fail loudly）**，而非留下一个损坏的安装。
+> **DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建** —— electron-builder 针对宿主操作系统打包。macOS 的 `npm run desktop:dmg` 构建**有意设计得很慢**（它会按架构把应用构建两次，产出两个按架构的 DMG——`ClaudeCodeMonitor-<ver>-arm64.dmg` 与 `ClaudeCodeMonitor-<ver>-x64.dmg`，并不做任何合并——发布时即随附这两个按架构的 DMG）；为自己的 Mac 构建时请使用单架构的 `desktop:dmg:arm64` / `desktop:dmg:x64`。在 Windows 上，`npm run desktop:install` 会把 `better-sqlite3` 作为 Electron 预编译二进制拉取，因此常见情况下无需 Visual Studio C++ 工具链。若构建确实失败（没有预编译二进制，或缺少 C++ 工具链），`desktop:install` 会打印准确的分平台修复步骤外加一个无工具链的替代方案，并**显式失败（fail loudly）**，而非留下一个损坏的安装。
 
 #### 原生依赖预检（preflight）
 
@@ -1543,17 +1543,17 @@ flowchart TD
 | `npm run desktop:build` | 预构建校验 + `tsc`，编译主进程到 `desktop/out/` |
 | `npm run desktop:dev` | 构建后启动 Electron 加载本地应用 |
 | `npm run desktop:test` | 冒烟测试（启动 Electron 并探测 `/api/health`），同样在 CI 上运行 |
-| `npm run desktop:dmg` | **macOS：** 构建**通用版** DMG（x64 + arm64）。用于发布。**构建较慢。** |
+| `npm run desktop:dmg` | **macOS：** 构建**两个按架构的** DMG（arm64 + x64）。用于发布。**构建较慢。** |
 | `npm run desktop:dmg:arm64` | **macOS：** 构建 Apple Silicon 专用 DMG。**快速。** |
 | `npm run desktop:dmg:x64` | **macOS：** 构建 Intel 专用 DMG。**快速。** |
 | `npm run desktop:win` | **Windows：** 构建 NSIS 安装包 `.exe`（x64）。 |
 | `npm run desktop:win:portable` | **Windows：** 构建免安装的便携版 `.exe`（x64）。 |
 
 > [!NOTE]
-> **DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建** —— electron-builder 针对宿主操作系统打包。macOS 的通用版 `npm run desktop:dmg` 构建**有意设计得很慢**（它会把应用构建两次，再用 `@electron/universal` 合并）；为自己的 Mac 构建时请使用单架构的 `desktop:dmg:arm64` / `desktop:dmg:x64`。在 Windows 上，`npm run desktop:install` 会把 `better-sqlite3` 作为 Electron 预编译二进制拉取，因此常见情况下无需 Visual Studio C++ 工具链。
+> **DMG 在 macOS 上构建，Windows `.exe` 在 Windows 上构建** —— electron-builder 针对宿主操作系统打包。macOS 的 `npm run desktop:dmg` 构建**有意设计得很慢**（它会按架构把应用构建两次，产出两个按架构的 DMG——`ClaudeCodeMonitor-<ver>-arm64.dmg` 与 `ClaudeCodeMonitor-<ver>-x64.dmg`，并不做任何合并——发布时即随附这两个按架构的 DMG）；为自己的 Mac 构建时请使用单架构的 `desktop:dmg:arm64` / `desktop:dmg:x64`。在 Windows 上，`npm run desktop:install` 会把 `better-sqlite3` 作为 Electron 预编译二进制拉取，因此常见情况下无需 Visual Studio C++ 工具链。
 >
 > - 为**自己的 Mac** 构建 → 使用 `desktop:dmg:arm64`（Apple Silicon）或 `desktop:dmg:x64`（Intel）。单架构、无合并，大约 1 分钟即可完成。
-> - 为**所有人构建发布产物** → 使用通用版 `desktop:dmg`，并预期它会耗时较久。CI 已经会构建 macOS DMG 与 Windows `.exe` 并分别上传为 `ClaudeCodeMonitor-dmg` 与 `ClaudeCodeMonitor-win` 产物，因此你很少需要在本地构建它们。
+> - 为**所有人构建发布产物** → 使用 `desktop:dmg`（产出两个按架构的 DMG：arm64 + x64），并预期它会耗时较久。CI 已经会构建 macOS DMG 与 Windows `.exe` 并分别上传为 `ClaudeCodeMonitor-dmg` 与 `ClaudeCodeMonitor-win` 产物，因此你很少需要在本地构建它们。
 > - 无论哪种方式，macOS DMG 体积约为 **80 MB / 安装后约 250 MB**，Windows 安装包体积相当 —— 这是标准的 Electron 体积成本。
 
 ### 原生模块与签名
@@ -1565,7 +1565,7 @@ flowchart TD
 
 ### 持续集成
 
-`.github/workflows/ci.yml` 中有两个经过**路径过滤**的桌面作业（一个 `changes` 作业用 `dorny/paths-filter` 检测 `desktop/**` 的改动；这些作业也会在任何 `push` 时、或 PR 带有 `desktop` 标签时运行）：运行在 `macos-latest` 上的 `🍎 macOS Desktop (DMG)` 作业会构建**通用版 DMG**（对偶发的 `hdiutil detach` 失败会重试）并上传为 `ClaudeCodeMonitor-dmg` 产物（两个单架构 DMG）；运行在 `windows-latest` 上的 `🪟 Windows Desktop (EXE)` 作业会构建并上传为 `ClaudeCodeMonitor-win` 产物（NSIS 安装包 + 便携版）。在向 `master` 推送版本号提升时，`release` 作业会把 macOS DMG 与 Windows `.exe` **都**附加到所发布的 `vX.Y.Z` GitHub Release。Windows 图标（`desktop/assets/icon.ico`）已提交到仓库中（可用 `npm run build:win-icon` 从 `icon.png` 重新生成，基于 PowerShell + .NET，无需额外工具）。
+`.github/workflows/ci.yml` 中有两个经过**路径过滤**的桌面作业（一个 `changes` 作业用 `dorny/paths-filter` 检测 `desktop/**` 的改动；这些作业也会在任何 `push` 时、或 PR 带有 `desktop` 标签时运行）：运行在 `macos-latest` 上的 `🍎 macOS Desktop (DMG)` 作业会构建**两个按架构的 DMG**（arm64 + x64；对偶发的 `hdiutil detach` 失败会重试）并上传为 `ClaudeCodeMonitor-dmg` 产物（两个单架构 DMG）；运行在 `windows-latest` 上的 `🪟 Windows Desktop (EXE)` 作业会构建并上传为 `ClaudeCodeMonitor-win` 产物（NSIS 安装包 + 便携版）。在向 `master` 推送版本号提升时，`release` 作业会把 macOS DMG 与 Windows `.exe` **都**附加到所发布的 `vX.Y.Z` GitHub Release。Windows 图标（`desktop/assets/icon.ico`）已提交到仓库中（可用 `npm run build:win-icon` 从 `icon.png` 重新生成，基于 PowerShell + .NET，无需额外工具）。
 
 ### 桌面应用故障排查
 
