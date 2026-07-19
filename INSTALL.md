@@ -240,6 +240,7 @@ The artifact lands in `desktop/release/`. Pick the build command that matches yo
 | `npm run desktop:dmg` | macOS — both per-arch DMGs (arm64 + x64) | **Slower** | Building the release DMGs for everyone |
 | `npm run desktop:dmg:arm64` | macOS — Apple Silicon only | Fast (~1 min) | Building for your own Apple Silicon Mac |
 | `npm run desktop:dmg:x64` | macOS — Intel only | Fast (~1 min) | Building for your own Intel Mac |
+| `npm run desktop:dmg:universal` | macOS — one merged universal DMG (arm64 + x86_64) | **Slowest** | Hand-distributing a single file that runs on any Mac (not what the release ships) |
 | `npm run desktop:win` | Windows — NSIS installer `.exe` (x64) | — | Building the per-user installer |
 | `npm run desktop:win:portable` | Windows — portable `.exe` (x64) | — | Building the no-install portable build |
 | `npm run desktop:install` | — | — | Install Electron + electron-builder deps; preflights the native `better-sqlite3` build and prints actionable setup help on failure |

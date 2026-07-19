@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard-desktop",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "Native macOS and Windows desktop shell for Claude Code Agent Monitor.",
   "author": "Son Nguyen <hoangson091104@gmail.com>",
@@ -22,6 +22,7 @@
     "dmg": "npm run package",
     "dmg:arm64": "rm -rf release && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64 --publish never --config.dmg.title='Claude Code Monitor (Apple Silicon)'",
     "dmg:x64": "rm -rf release && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 --publish never --config.dmg.title='Claude Code Monitor (Intel)'",
+    "dmg:universal": "rm -rf release && npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --universal --publish never --config.dmg.title='Claude Code Monitor (Universal)'",
     "win": "npm run build && electron-builder --win nsis --x64 --publish never",
     "win:portable": "npm run build && electron-builder --win portable --x64 --publish never",
     "test": "npm run build && node --test --test-reporter=spec tests/smoke.test.mjs",
