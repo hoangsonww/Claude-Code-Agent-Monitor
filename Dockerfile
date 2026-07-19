@@ -25,6 +25,10 @@ WORKDIR /app/client
 COPY client/package.json client/package-lock.json ./
 RUN npm ci
 COPY client/ ./
+# vite.config.ts stamps the UI version from the repo-root package.json (one level
+# up from the client dir). Provide it here so the built client shows the real
+# release version; the config falls back gracefully if it is ever absent.
+COPY package.json /app/package.json
 RUN npm run build
 
 # ── Stage 3: Production runtime ───────────────────────────────────────

@@ -12,11 +12,23 @@ import react from "@vitejs/plugin-react";
 // The dashboard's displayed version is the canonical project version from the
 // repo-root package.json (the version CI cuts releases from), injected at build
 // time as the `__APP_VERSION__` global so the UI footer always shows the real
-// version instead of a hardcoded string. Vite always runs from the client dir
-// (npm scripts `cd client` first), so the root manifest is one level up. The
-// global is declared in `client/src/vite-env.d.ts`.
-const APP_VERSION = JSON.parse(readFileSync(resolve(process.cwd(), "..", "package.json"), "utf8"))
-  .version as string;
+// version instead of a hardcoded string. Vite runs from the client dir, so the
+// root manifest is normally one level up; fall back to the client manifest, and
+// finally a placeholder, so the build never fails when the root file is absent
+// (e.g. a Docker stage that only copies client/). The global is declared in
+// `client/src/vite-env.d.ts`.
+function resolveAppVersion(): string {
+  for (const rel of ["../package.json", "package.json"]) {
+    try {
+      const { version } = JSON.parse(readFileSync(resolve(process.cwd(), rel), "utf8"));
+      if (version) return version as string;
+    } catch {
+      // Not found or unreadable at this path — try the next candidate.
+    }
+  }
+  return "0.0.0";
+}
+const APP_VERSION = resolveAppVersion();
 
 // Honour DASHBOARD_PORT so the proxy follows when `npm run dev:server` is
 // moved off the default 4820 (e.g. when an SSH `LocalForward` already holds

@@ -11,8 +11,19 @@ import react from "@vitejs/plugin-react";
 
 // Mirror vite.config.ts: inject the repo-root project version as `__APP_VERSION__`
 // so components that render it (e.g. the sidebar footer) behave the same in tests.
-const APP_VERSION = JSON.parse(readFileSync(resolve(process.cwd(), "..", "package.json"), "utf8"))
-  .version as string;
+// Fail-safe resolution (root -> client -> placeholder) matches vite.config.ts.
+function resolveAppVersion(): string {
+  for (const rel of ["../package.json", "package.json"]) {
+    try {
+      const { version } = JSON.parse(readFileSync(resolve(process.cwd(), rel), "utf8"));
+      if (version) return version as string;
+    } catch {
+      // Not found or unreadable at this path — try the next candidate.
+    }
+  }
+  return "0.0.0";
+}
+const APP_VERSION = resolveAppVersion();
 
 export default defineConfig({
   plugins: [react()],
