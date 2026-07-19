@@ -48,8 +48,11 @@ describe("Sidebar", () => {
   });
 
   it("should show version number", () => {
+    // `__APP_VERSION__` is injected by Vite from the repo-root package.json
+    // (see vite.config.ts) and replaced at transform time in tests too, so this
+    // stays correct as the project version changes.
     renderSidebar(true);
-    expect(screen.getByText("v1.0.0")).toBeInTheDocument();
+    expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
   });
 
   it("should have correct navigation hrefs", () => {
