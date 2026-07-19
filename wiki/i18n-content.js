@@ -318,6 +318,8 @@ window.__WIKI_CONTENT_I18N = {
       "构建仅适用于 Apple Silicon 的 DMG——速度快（约 1 分钟），推荐用于单台机器",
     "Build an Intel-only DMG — fast (macOS host)":
       "构建仅适用于 Intel 的 DMG——速度快（macOS 主机）",
+    "Build one merged universal DMG (arm64 + x86_64 in a single file). Optional, slowest — not what the release ships":
+      "构建一个合并的通用（universal）DMG（arm64 + x86_64，单个文件）。可选，最慢——不是发布版本附带的内容",
     "Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)":
       "构建 Windows NSIS 安装程序 <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>（Windows 主机）",
     "Build the no-install portable <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code> (Windows host)":
@@ -1560,6 +1562,8 @@ window.__WIKI_CONTENT_I18N = {
       "Build một DMG chỉ dành cho Apple Silicon — nhanh (~1 phút), khuyến nghị cho một máy duy nhất",
     "Build an Intel-only DMG — fast (macOS host)":
       "Build một DMG chỉ dành cho Intel — nhanh (host macOS)",
+    "Build one merged universal DMG (arm64 + x86_64 in a single file). Optional, slowest — not what the release ships":
+      "Tạo một DMG universal hợp nhất (arm64 + x86_64 trong một tệp). Tùy chọn, chậm nhất — không phải thứ bản phát hành đi kèm",
     "Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)":
       "Build trình cài đặt Windows NSIS <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (host Windows)",
     "Build the no-install portable <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code> (Windows host)":
@@ -2829,6 +2833,8 @@ window.__WIKI_CONTENT_I18N = {
       "Apple Silicon 전용 DMG를 빌드합니다 — 빠르며(약 1분), 단일 머신에서 사용을 권장합니다",
     "Build an Intel-only DMG — fast (macOS host)":
       "Intel 전용 DMG를 빌드합니다 — 빠름 (macOS 호스트)",
+    "Build one merged universal DMG (arm64 + x86_64 in a single file). Optional, slowest — not what the release ships":
+      "하나의 병합된 유니버설 DMG(arm64 + x86_64, 단일 파일)를 빌드. 선택 사항, 가장 느림 — 릴리스에 포함되는 것은 아님",
     "Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)":
       "Windows NSIS 설치 프로그램 <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code>를 빌드합니다 (Windows 호스트)",
     "Build the no-install portable <code>ClaudeCodeMonitor-&lt;ver&gt;-x64-portable.exe</code> (Windows host)":

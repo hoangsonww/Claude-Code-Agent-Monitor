@@ -49,6 +49,7 @@ npm run desktop:install      # installs Electron + electron-builder
 npm run desktop:dmg:arm64    # Apple Silicon only — FAST (~1 min); use this for your own Mac
 npm run desktop:dmg:x64      # Intel only — FAST
 npm run desktop:dmg          # BOTH per-arch DMGs (arm64 + x64) — the release build; slower (packages each arch)
+npm run desktop:dmg:universal # ONE merged universal DMG (arm64 + x86_64 in a single file) — optional, slowest
 
 # Build for Windows (run ON Windows) — pick one:
 npm run desktop:win          # NSIS installer → desktop/release/ClaudeCodeMonitor-Setup-<ver>-x64.exe
@@ -183,6 +184,9 @@ npm run desktop:dmg:arm64    # or desktop:dmg:x64 for Intel
 # macOS — both per-arch DMGs — slower (builds + signs each architecture):
 npm run desktop:dmg
 
+# macOS — one merged universal DMG (arm64 + x86_64 in a single file) — optional, slowest:
+npm run desktop:dmg:universal
+
 # Windows — NSIS installer / no-install portable (run ON Windows):
 npm run desktop:win          # NSIS installer .exe
 npm run desktop:win:portable # no-install portable .exe
@@ -221,7 +225,7 @@ The smoke test does not exercise the BrowserWindow (no display on headless CI). 
 
 - **Bundle size** ≈ 80 MB DMG, ≈ 250 MB on disk. The standard Electron tax. The Windows installer is comparable. Tauri would cut this dramatically but at the cost of a sidecar-process model and a Rust toolchain dependency — fair to revisit in a follow-up PR if bundle size becomes a real complaint.
 - **Native modules**: `better-sqlite3` is rebuilt against Electron's Node version automatically via `electron-builder install-app-deps` in the desktop workspace's `postinstall`. On Windows it is fetched as a **prebuilt Electron binary**, so no Visual Studio C++ toolchain is needed in the common case. If that build *does* fail (or the binary is missing afterward), `npm run desktop:install` — and any `desktop:*` build — prints the exact per-OS fix (Windows: Visual Studio Build Tools with the "Desktop development with C++" workload; macOS: `xcode-select --install`; Linux: build-essential + python3) plus a no-toolchain alternative (`npm install --ignore-scripts` → `node node_modules/electron/install.js` → `npx electron-builder install-app-deps`), and exits non-zero — failing loudly at install/build time rather than crashing at runtime. Even so, if the module is unavailable the server falls back to `node:sqlite` (per #37), so the app still boots.
-- **Per-architecture DMGs**: `npm run desktop:dmg` builds **both** macOS DMGs (one `arm64`, one `x64`) — the release build, and slower because it packages each architecture separately. It does **not** produce a merged universal binary; the release ships the two per-arch DMGs. `npm run desktop:dmg:arm64` and `npm run desktop:dmg:x64` build a single architecture instead — much faster, and roughly half the disk.
+- **Per-architecture DMGs**: `npm run desktop:dmg` builds **both** macOS DMGs (one `arm64`, one `x64`) — the release build, and slower because it packages each architecture separately. It does **not** produce a merged universal binary; the release ships the two per-arch DMGs. `npm run desktop:dmg:arm64` and `npm run desktop:dmg:x64` build a single architecture instead — much faster, and roughly half the disk. If you specifically want a **single merged universal binary** (both slices in one `.dmg`, `lipo`-fat), `npm run desktop:dmg:universal` produces one via `@electron/universal` — the slowest option, and not what the release ships, but handy for hand-distributing one file that runs on any Mac.
 - **Auto-update**: not wired on either platform. The current update path is *re-download the latest installer* (DMG on macOS, `.exe` on Windows). `electron-updater` + GitHub Releases is the natural follow-up.
 
 ## Troubleshooting

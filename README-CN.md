@@ -703,6 +703,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | `npm run desktop:dmg` | **macOS：** 构建**两个按架构的** DMG（arm64 + x64）— 用于发布，**构建较慢** |
 | `npm run desktop:dmg:arm64` | **macOS：** 构建 Apple Silicon 专用 DMG — **快速** |
 | `npm run desktop:dmg:x64` | **macOS：** 构建 Intel 专用 DMG — **快速** |
+| `npm run desktop:dmg:universal` | **macOS：** 构建**一个**合并的通用（universal）DMG（arm64 + x86_64，单个文件）——可选，**最慢**，不是发布版本附带的内容。 |
 | `npm run desktop:win` | **Windows：** 构建 NSIS **安装包** `.exe`（x64）— 在 Windows 上运行 |
 | `npm run desktop:win:portable` | **Windows：** 构建**免安装便携版** `.exe`（x64）— 在 Windows 上运行 |
 
@@ -1546,6 +1547,7 @@ flowchart TD
 | `npm run desktop:dmg` | **macOS：** 构建**两个按架构的** DMG（arm64 + x64）。用于发布。**构建较慢。** |
 | `npm run desktop:dmg:arm64` | **macOS：** 构建 Apple Silicon 专用 DMG。**快速。** |
 | `npm run desktop:dmg:x64` | **macOS：** 构建 Intel 专用 DMG。**快速。** |
+| `npm run desktop:dmg:universal` | **macOS：** 构建**一个**合并的通用（universal）DMG（arm64 + x86_64，单个文件）——可选，**最慢**，不是发布版本附带的内容。 |
 | `npm run desktop:win` | **Windows：** 构建 NSIS 安装包 `.exe`（x64）。 |
 | `npm run desktop:win:portable` | **Windows：** 构建免安装的便携版 `.exe`（x64）。 |
 
