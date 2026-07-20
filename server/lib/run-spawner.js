@@ -307,6 +307,12 @@ function spawnRun(args) {
     env: cleanSpawnEnv(),
     cwd: cwd || process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
+    // On Windows, the npm-installed `claude` binary is a .cmd shim, which
+    // CreateProcess can't launch directly (EINVAL) — spawn() only resolves
+    // that through cmd.exe when shell is enabled. Without this, every spawn
+    // here (new runs and --resume alike) fails with ENOENT and the handle
+    // never leaves "spawning", which is why Resume looked like an infinite spinner.
+    shell: process.platform === "win32",
   });
 
   const handle = {
