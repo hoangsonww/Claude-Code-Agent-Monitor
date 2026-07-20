@@ -714,6 +714,7 @@ API-backed commands need the server running — when it isn't, **read-only comma
 | `npm run desktop:dmg`   | Build **both** macOS DMGs (arm64 + x64) — correct for release, **slower** (packages each arch) |
 | `npm run desktop:dmg:arm64` | Build an Apple-Silicon-only DMG — **fast**, recommended for your own Mac |
 | `npm run desktop:dmg:x64` | Build an Intel-only DMG — **fast**                           |
+| `npm run desktop:dmg:universal` | Build one merged **universal** DMG (arm64 + x86_64) — optional, **slowest**, not what the release ships |
 | `npm run desktop:win`   | Build a Windows **NSIS installer** `.exe` (x64) — run on Windows |
 | `npm run desktop:win:portable` | Build a Windows **portable** (no-install) `.exe` (x64) — run on Windows |
 
@@ -1621,6 +1622,7 @@ All commands run from the **repo root**:
 | `npm run desktop:dmg`       | **macOS:** build **both** DMGs (arm64 + x64) — correct for release, **slower** (packages each arch) |
 | `npm run desktop:dmg:arm64` | **macOS:** build an Apple-Silicon-only DMG — **fast** (~1 min), recommended for your own Mac |
 | `npm run desktop:dmg:x64`   | **macOS:** build an Intel-only DMG — **fast** (~1 min)                         |
+| `npm run desktop:dmg:universal` | **macOS:** build one merged **universal** DMG (arm64 + x86_64) — optional, **slowest**, not what the release ships |
 | `npm run desktop:win`       | **Windows:** build the NSIS installer `.exe` (x64)                             |
 | `npm run desktop:win:portable` | **Windows:** build the no-install portable `.exe` (x64)                     |
 

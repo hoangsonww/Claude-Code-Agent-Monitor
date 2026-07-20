@@ -567,6 +567,7 @@ and fails with *"entry file out/main.js does not exist"*).
 | `npm run desktop:dmg` | `npm run dmg` | **macOS:** both per-arch DMGs (arm64 + x64). Correct for release. **Slower.** |
 | `npm run desktop:dmg:arm64` | `npm run dmg:arm64` | **macOS:** Apple-Silicon-only DMG. **Fast.** |
 | `npm run desktop:dmg:x64` | `npm run dmg:x64` | **macOS:** Intel-only DMG. **Fast.** |
+| `npm run desktop:dmg:universal` | `npm run dmg:universal` | **macOS:** one merged universal DMG (arm64 + x86_64 via `@electron/universal`). Optional — not what the release ships. **Slowest.** |
 | `npm run desktop:win` | `npm run win` | **Windows:** NSIS installer `.exe` (x64). |
 | `npm run desktop:win:portable` | `npm run win:portable` | **Windows:** no-install portable `.exe` (x64). |
 | — | `npm run build:icons` | **macOS:** regenerate `icon.icns` + tray PNGs from the SVGs. |

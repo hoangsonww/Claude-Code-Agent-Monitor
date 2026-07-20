@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "bin": {
     "ccam": "bin/ccam.js"
   },
@@ -79,6 +79,7 @@
     "desktop:dmg": "npm run build && cd desktop && npm run dmg",
     "desktop:dmg:arm64": "npm run build && cd desktop && npm run dmg:arm64",
     "desktop:dmg:x64": "npm run build && cd desktop && npm run dmg:x64",
+    "desktop:dmg:universal": "npm run build && cd desktop && npm run dmg:universal",
     "desktop:win": "npm run build && cd desktop && npm run win",
     "desktop:win:portable": "npm run build && cd desktop && npm run win:portable",
     "desktop:test": "cd desktop && npm test",

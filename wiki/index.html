@@ -2155,6 +2155,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Build an Intel-only DMG — fast (macOS host)</td>
                 </tr>
                 <tr>
+                  <td><code>desktop:dmg:universal</code></td>
+                  <td><code>npm run desktop:dmg:universal</code></td>
+                  <td>Build one merged universal DMG (arm64 + x86_64 in a single file). Optional, slowest — not what the release ships</td>
+                </tr>
+                <tr>
                   <td><code>desktop:win</code></td>
                   <td><code>npm run desktop:win</code></td>
                   <td>Build the Windows NSIS installer <code>ClaudeCodeMonitor-Setup-&lt;ver&gt;-x64.exe</code> (Windows host)</td>
@@ -6269,7 +6274,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=34" defer></script>
+    <script src="i18n-content.js?v=35" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {
