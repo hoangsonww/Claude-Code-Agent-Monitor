@@ -32,7 +32,12 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { spawn } = require("node:child_process");
+// cross-spawn (not node:child_process): on Windows the npm-installed `claude`
+// is a `.cmd` shim that plain spawn can't launch, and the naive fix (`shell:
+// true`) would run argv — including the user-controlled prompt/model — through
+// cmd.exe, opening a command-injection hole. cross-spawn resolves the shim and
+// escapes arguments safely without a shell. On macOS/Linux it is a plain spawn.
+const spawn = require("cross-spawn");
 const { randomUUID } = require("node:crypto");
 const { broadcast } = require("../websocket");
 const { createLineParser } = require("./stream-json-parser");
@@ -303,6 +308,8 @@ function spawnRun(args) {
 
   const id = randomUUID();
   const argv = buildArgv({ prompt, mode, model, permissionMode, resumeSessionId, effort });
+  // cross-spawn handles the Windows `.cmd` shim safely (see the require above);
+  // deliberately no `shell` option, so argv is never parsed by cmd.exe.
   const child = spawn("claude", argv, {
     env: cleanSpawnEnv(),
     cwd: cwd || process.cwd(),
