@@ -142,6 +142,7 @@
     "autoSubtitle": "位于 ~/.claude/projects/<项目>/memory/ 的按项目文件式记忆 —— 一个 MEMORY.md 索引外加每条记忆事实一个文件。此处为只读。",
     "noMatches": "没有与搜索匹配的记忆文件。",
     "indexFiles": "索引",
+    "jumpTo": "跳转到文件",
     "fileCount_one": "{{count}} 个文件",
     "fileCount_other": "{{count}} 个文件",
     "factFiles_one": "{{count}} 条事实",

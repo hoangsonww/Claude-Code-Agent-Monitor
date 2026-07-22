@@ -147,6 +147,7 @@
     "autoSubtitle": "Per-project file-based memory under ~/.claude/projects/<project>/memory/ — a MEMORY.md index plus one file per remembered fact. Read-only here.",
     "noMatches": "No memory files match your search.",
     "indexFiles": "Index",
+    "jumpTo": "Jump to file",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} files",
     "factFiles_one": "{{count}} fact",

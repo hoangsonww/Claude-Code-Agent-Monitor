@@ -142,6 +142,7 @@
     "autoSubtitle": "Bộ nhớ theo tệp cho từng dự án trong ~/.claude/projects/<dự-án>/memory/ — một chỉ mục MEMORY.md cùng một tệp cho mỗi sự kiện được ghi nhớ. Chỉ đọc tại đây.",
     "noMatches": "Không có tệp bộ nhớ nào khớp với tìm kiếm.",
     "indexFiles": "Chỉ mục",
+    "jumpTo": "Nhảy tới tệp",
     "fileCount_one": "{{count}} tệp",
     "fileCount_other": "{{count}} tệp",
     "factFiles_one": "{{count}} sự kiện",
