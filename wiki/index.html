@@ -2648,8 +2648,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>routes/settings.js</code></td>
                   <td>
                     System info (DB size, row counts, hook status, server uptime). Data export as
-                    JSON. Session cleanup (abandon stale active sessions, purge old completed
-                    sessions). Clear all data. Reset pricing to defaults. Reinstall hooks.
+                    one versioned JSON bundle and matching import/restore (<code>POST /api/settings/import</code>
+                    via <code>server/lib/data-transfer.js</code> — idempotent, session-atomic,
+                    non-destructive; consolidate machines). Session cleanup (abandon stale active
+                    sessions, purge old completed sessions). Clear all data. Reset pricing to
+                    defaults. Reinstall hooks.
                   </td>
                 </tr>
                 <tr>
@@ -3280,7 +3283,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <div class="route-item">
               <span class="method method-get">GET</span>
               <span class="route-path">/api/settings/export</span>
-              <span class="route-desc">Export all data as JSON download</span>
+              <span class="route-desc">Export all data (sessions, agents, events, tokens, workflows, runs, alert rules, pricing) as one versioned JSON download</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/settings/import</span>
+              <span class="route-desc">Restore an export bundle (multipart <code>file</code> or JSON <code>{ path }</code>) — idempotent, non-destructive; consolidate machines</span>
             </div>
             <div class="route-item">
               <span class="method method-post">POST</span>

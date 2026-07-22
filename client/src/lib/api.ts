@@ -676,6 +676,30 @@ export const api = {
      */
     exportData: () => `${BASE}/settings/export`,
     /**
+     * POST /api/settings/import (multipart) - restore a bundle previously
+     * produced by {@link exportData}. Idempotent and non-destructive: sessions
+     * already present are skipped whole, so importing a backup (or another
+     * machine's export) never duplicates or overwrites live data.
+     *
+     * Like {@link api.import.upload}, this bypasses {@link request} to send a
+     * `multipart/form-data` body (field name "file") and let the browser set the
+     * boundary. No auth token is attached (local/zero-config flow).
+     *
+     * @param file The `.json` export file the user selected.
+     * @returns {@link ImportBackupResult} — per-table restore counts.
+     * @throws {Error} On a non-2xx response, mirroring {@link request}.
+     */
+    importData: async (file: File): Promise<ImportBackupResult> => {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const res = await fetch(`${BASE}/settings/import`, { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error?.message || `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    /**
      * POST /api/settings/cleanup - DESTRUCTIVE: marks sessions idle longer
      * than `abandon_hours` as "abandoned", and purges rows older than
      * `purge_days`. Returns counts of what was abandoned/purged.
@@ -1966,4 +1990,27 @@ export interface ImportResult {
   entries_extracted?: number;
   /** Entries skipped during parsing (e.g. malformed lines). */
   entries_skipped?: number;
+}
+
+/** Result of POST /api/settings/import — restoring a full export bundle
+ *  ({@link api.settings.importData}). Session-scoped tables report rows that
+ *  were newly inserted; `sessions_skipped` counts sessions already present
+ *  (skipped whole to stay idempotent). Config tables report new rows only. */
+export interface ImportBackupResult {
+  ok: boolean;
+  /** The uploaded filename or server-side path the bundle was read from. */
+  source: string;
+  /** Bundle format marker, or null for a legacy (pre-versioning) export. */
+  format: string | null;
+  sessions_imported: number;
+  sessions_skipped: number;
+  agents: number;
+  events: number;
+  token_usage: number;
+  workflows: number;
+  dashboard_runs: number;
+  alert_rules: number;
+  model_pricing: number;
+  /** Bundle entries that could not be restored (e.g. a session with no id). */
+  errors: number;
 }
