@@ -1006,6 +1006,90 @@ async function cmdWebhooks(flags, positional) {
   table(["ID", "Enabled", "Provider", "Name", "URL"], rows);
 }
 
+// ── Remote data sources ─────────────────────────────────────────────────────
+
+/**
+ * `ccam remote-sources [list|add|test|sync|rm]` — manage the SSH machines this
+ * dashboard pulls Claude Code history from (server/routes/remote-sources.js).
+ * No secrets are handled here; auth defers to the host's SSH stack.
+ */
+async function cmdRemoteSources(flags, positional) {
+  const sub = positional[0] || "list";
+
+  if (sub === "add") {
+    if (!flags.label || !flags.host) {
+      console.error(c.red("✖ add requires --label and --host"));
+      console.error(
+        c.dim(
+          "  e.g. ccam remote-sources add --label 'Dev box' --host son@dev --port 22 --identity ~/.ssh/id_ed25519"
+        )
+      );
+      process.exit(1);
+    }
+    const body = {
+      label: String(flags.label),
+      host: String(flags.host),
+      ssh_port: flags.port != null ? Number(flags.port) : null,
+      identity_file: flags.identity != null ? String(flags.identity) : null,
+      remote_home: flags["remote-home"] != null ? String(flags["remote-home"]) : null,
+      enabled: flags.disabled ? false : true,
+    };
+    const r = await post("/api/remote-sources", body);
+    console.log(`${c.green("✔")} Added remote source ${c.bold(r.source.label)} (${r.source.id})`);
+    return;
+  }
+
+  if (sub === "test" && positional[1]) {
+    const r = await post(`/api/remote-sources/${positional[1]}/test`);
+    console.log(r.ok ? `${c.green("✔")} ${r.message}` : `${c.red("✖")} ${r.message}`);
+    process.exit(r.ok ? 0 : 1);
+  }
+
+  if (sub === "sync") {
+    if (positional[1]) {
+      const r = await post(`/api/remote-sources/${positional[1]}/sync`);
+      console.log(
+        `${c.green("✔")} Synced ${positional[1]}: ${r.imported ?? 0} imported, ${r.sessions_tagged ?? 0} tagged`
+      );
+    } else {
+      // No id → sync every source sequentially.
+      const { sources = [] } = await get("/api/remote-sources");
+      for (const s of sources) {
+        const r = await post(`/api/remote-sources/${s.id}/sync`);
+        console.log(
+          `  ${c.bold(s.label)}: ${r.imported ?? 0} imported, ${r.sessions_tagged ?? 0} tagged`
+        );
+      }
+      console.log(`${c.green("✔")} Synced ${sources.length} source(s)`);
+    }
+    return;
+  }
+
+  if (sub === "rm" && positional[1]) {
+    const purge = !!flags.purge;
+    const r = await api(
+      "DELETE",
+      `/api/remote-sources/${positional[1]}${purge ? "?purge=true" : ""}`
+    );
+    console.log(
+      `${c.green("✔")} Removed ${positional[1]}${purge ? ` (purged ${r.purged} session(s))` : " (data kept)"}`
+    );
+    return;
+  }
+
+  // Default: list.
+  const { sources = [] } = await get("/api/remote-sources");
+  const rows = sources.map((s) => [
+    s.id,
+    s.enabled ? c.green("on") : c.dim("off"),
+    s.status,
+    (s.label || "").slice(0, 24),
+    `${s.host}${s.ssh_port ? `:${s.ssh_port}` : ""}`,
+    s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : "-",
+  ]);
+  table(["ID", "Auto", "Status", "Label", "Host", "Last sync"], rows);
+}
+
 // ── Pricing ─────────────────────────────────────────────────────────────────
 
 /** Render pricing rules — shared by the online list and the offline fallback
@@ -1380,6 +1464,20 @@ const COMMAND_GROUPS = [
     [
       ["import rescan", "", "Re-scan ~/.claude/projects"],
       ["import path <dir>", "", "Import every .jsonl under a directory"],
+    ],
+  ],
+  [
+    "Remote sources",
+    [
+      ["remote-sources", "", "List remote (SSH) data sources + status"],
+      [
+        "remote-sources add",
+        "",
+        "--label X --host user@host [--port N --identity path --remote-home path]",
+      ],
+      ["remote-sources test <id>", "", "Probe SSH connectivity to a source"],
+      ["remote-sources sync [id]", "", "Pull history now (all sources if id omitted)"],
+      ["remote-sources rm <id>", "[--purge]", "Remove a source (--purge also deletes its data)"],
     ],
   ],
   [
@@ -2128,6 +2226,9 @@ async function runCommand(argv) {
       return cmdRules();
     case "webhooks":
       return cmdWebhooks(flags, positional);
+    case "remote-sources":
+    case "remotes":
+      return cmdRemoteSources(flags, positional);
     case "pricing":
       return cmdPricing(flags, positional);
     case "import":

@@ -10,6 +10,7 @@ const readline = require("readline");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
 const { calculateCost, attachAgentCosts } = require("./pricing");
+const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 const {
   getClaudeHome,
   getProjectsDir,
@@ -145,6 +146,13 @@ router.get("/", (req, res) => {
     where.push("s.cwd = ?");
     params.push(cwd);
   }
+  // Data-scope filter: restrict to sessions collected from a chosen set of
+  // machines (local + any configured remote sources). Absent = all sources.
+  const sourceFilter = sourceColumnClause(parseSources(req));
+  if (sourceFilter.clause) {
+    where.push(sourceFilter.clause);
+    params.push(...sourceFilter.params);
+  }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const total = db.prepare(`SELECT COUNT(*) as c FROM sessions s ${whereSql}`).get(...params).c;
@@ -248,11 +256,14 @@ router.get("/", (req, res) => {
   res.json({ sessions: rows, limit, offset, total });
 });
 
-router.get("/facets", (req, res) => {
+router.get("/facets", (_req, res) => {
   const rows = db
     .prepare("SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != '' ORDER BY cwd")
     .all();
-  res.json({ cwds: rows.map((r) => r.cwd) });
+  // Distinct origins present in the data, so the UI can offer a source facet /
+  // scope selector. Always includes at least 'local' (the column default).
+  const sources = stmts.distinctSessionSources.all().map((r) => r.source);
+  res.json({ cwds: rows.map((r) => r.cwd), sources });
 });
 
 router.get("/:id", (req, res) => {

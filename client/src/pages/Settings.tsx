@@ -50,6 +50,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  Cloud,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -58,6 +59,7 @@ import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
+import { RemoteSources } from "../components/RemoteSources";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
 import type { ModelPricing, WSMessage } from "../lib/types";
@@ -74,6 +76,12 @@ const SETTINGS_SECTIONS: {
   { id: "hooks", labelKey: "hooks.title", Icon: Plug },
   { id: "claude-home", labelKey: "claudeHome.title", Icon: FolderOpen },
   { id: "import", labelKey: "import.title", fallback: "Import", Icon: History },
+  {
+    id: "remote-sources",
+    labelKey: "remoteSources.title",
+    fallback: "Remote Data Sources",
+    Icon: Cloud,
+  },
   { id: "tabby", labelKey: "tabby.title", fallback: "Tabby", Icon: Cat },
   { id: "notifications", labelKey: "notifications.title", Icon: Bell },
   { id: "alerts", labelKey: "alertsHub.title", Icon: BellRing },
@@ -1316,6 +1324,11 @@ export function Settings() {
       {/* ─── IMPORT HISTORY ─── */}
       <section id="import" className="scroll-mt-24">
         <ImportHistory />
+      </section>
+
+      {/* ─── REMOTE DATA SOURCES ─── */}
+      <section id="remote-sources" className="scroll-mt-24">
+        <RemoteSources />
       </section>
 
       {/* ─── TABBY COMPANION ─── */}

@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Activity, Pause, Play, RefreshCw, ChevronRight, ExternalLink } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { useDataScope } from "../lib/dataScope";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { EventDetail } from "../components/EventDetail";
@@ -108,6 +109,9 @@ export function ActivityFeed() {
 
   apiParamsRef.current = apiParams;
 
+  // Global data scope; a change re-runs `load` (api injects the `sources` param).
+  const [scope] = useDataScope();
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -125,7 +129,7 @@ export function ActivityFeed() {
     } finally {
       setLoading(false);
     }
-  }, [apiParams, page]);
+  }, [apiParams, page, scope]);
 
   useEffect(() => {
     load();
@@ -210,6 +214,15 @@ export function ActivityFeed() {
 
   useEffect(() => {
     const unsubscribe = eventBus.subscribe((msg) => {
+      // A remote source finished syncing → new remote events may exist; do a
+      // filter-aware refresh (respects pause via refreshWithPagination's guard).
+      if (
+        msg.type === "remote_source.status" ||
+        (msg.type === "import.progress" && (msg.data as { phase?: string })?.phase === "complete")
+      ) {
+        if (!pausedRef.current) refreshWithPagination();
+        return;
+      }
       if (msg.type !== "new_event") return;
       const event = msg.data as DashboardEvent;
       if (pausedRef.current) {

@@ -95,9 +95,26 @@ import type {
   WorkflowRunDetail,
 } from "./types";
 
+import { activeSourcesParam } from "./dataScope";
+
 // Root path all endpoint paths are appended to. Kept relative (no host) so the
 // same client bundle works behind the Vite dev proxy and in same-origin prod.
 const BASE = "/api";
+
+/**
+ * Append the current global data-scope (see {@link activeSourcesParam}) as a
+ * `sources` query param, unless the caller already set one. Called by the
+ * scoped list/aggregate endpoints (sessions, events, agents, stats, analytics)
+ * so changing the scope narrows the whole app without every call site threading
+ * it. `mode: "all"` yields no param, so unscoped installs hit clean URLs.
+ */
+function applyScope(qs: URLSearchParams): URLSearchParams {
+  if (!qs.has("sources")) {
+    const sources = activeSourcesParam();
+    if (sources) qs.set("sources", sources);
+  }
+  return qs;
+}
 
 /**
  * Optional dashboard auth token (GHSA-gr74-4xfh-6jw9). Only needed when the
@@ -243,7 +260,11 @@ export const api = {
      * @returns {@link Stats} — the small set of headline counters (totals,
      *   active counts, events-today, etc.) shown in the dashboard header.
      */
-    get: () => request<Stats>(`/stats?tz_offset=${new Date().getTimezoneOffset()}`),
+    get: () => {
+      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      applyScope(qs);
+      return request<Stats>(`/stats?${qs.toString()}`);
+    },
   },
 
   // ─────────────────────────────── Sessions API ───────────────────────────────
@@ -256,9 +277,11 @@ export const api = {
      * returns the set of distinct project directories seen across sessions so
      * the UI can offer them as filter options.
      *
-     * @returns An object with `cwds`: the distinct working-directory strings.
+     * @returns An object with `cwds`: the distinct working-directory strings,
+     *   and `sources`: the distinct machine origins present in the data (always
+     *   includes at least `"local"`), for the data-scope selector.
      */
-    facets: () => request<{ cwds: string[] }>("/sessions/facets"),
+    facets: () => request<{ cwds: string[]; sources: string[] }>("/sessions/facets"),
     /**
      * GET /api/sessions - paginated, filterable, sortable session list.
      *
@@ -300,6 +323,7 @@ export const api = {
       if (params?.sort_desc !== undefined) qs.set("sort_desc", String(params.sort_desc));
       if (params?.limit) qs.set("limit", String(params.limit));
       if (params?.offset) qs.set("offset", String(params.offset));
+      applyScope(qs); // narrow to the active data scope (source machines)
       const queryString = qs.toString();
       // Omit the "?" entirely when there are no params, for a clean/cacheable URL.
       return request<{ sessions: Session[]; total: number; limit: number; offset: number }>(
@@ -425,6 +449,7 @@ export const api = {
       if (params?.session_id) qs.set("session_id", params.session_id);
       if (params?.limit) qs.set("limit", String(params.limit));
       if (params?.offset) qs.set("offset", String(params.offset));
+      applyScope(qs); // narrow to the active data scope (source machines)
       const q = qs.toString();
       return request<{ agents: Agent[] }>(`/agents${q ? `?${q}` : ""}`);
     },
@@ -487,6 +512,7 @@ export const api = {
       // `!= null` so an explicit 0 page size / offset is still sent.
       if (params?.limit != null) qs.set("limit", String(params.limit));
       if (params?.offset != null) qs.set("offset", String(params.offset));
+      applyScope(qs); // narrow to the active data scope (source machines)
       const q = qs.toString();
       return request<{
         events: DashboardEvent[];
@@ -520,7 +546,11 @@ export const api = {
      *
      * @returns {@link Analytics} — the chart-ready analytics payload.
      */
-    get: () => request<Analytics>(`/analytics?tz_offset=${new Date().getTimezoneOffset()}`),
+    get: () => {
+      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      applyScope(qs);
+      return request<Analytics>(`/analytics?${qs.toString()}`);
+    },
   },
 
   // ─────────────────────────────── Settings API ───────────────────────────────
@@ -1402,6 +1432,73 @@ export const api = {
       );
     },
   },
+
+  // ───────────────────────────── Remote Sources API ────────────────────────────
+  /** Remote (SSH) machines whose Claude Code history this dashboard pulls in.
+   *  Maps to `server/routes/remote-sources.js`; see also the global data-scope
+   *  selector ({@link "./dataScope"}) which decides which sources are shown. */
+  remoteSources: {
+    /**
+     * GET /api/remote-sources — list every configured source with live status.
+     * @returns `{ sources }` — the {@link RemoteSource} rows (config + status).
+     */
+    list: () => request<{ sources: RemoteSource[] }>("/remote-sources"),
+    /**
+     * POST /api/remote-sources — add a source. No secrets are sent; auth defers
+     * to the host's SSH stack (see the route/lib docs).
+     * @param data {@link RemoteSourceInput} — label + ssh destination (+ options).
+     * @returns `{ source }` — the created {@link RemoteSource}.
+     */
+    create: (data: RemoteSourceInput) =>
+      request<{ source: RemoteSource }>("/remote-sources", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    /**
+     * PATCH /api/remote-sources/:id — partial update (any subset of fields).
+     * @param id   The source id.
+     * @param data Partial {@link RemoteSourceInput}.
+     * @returns `{ source }` — the updated {@link RemoteSource}.
+     */
+    update: (id: string, data: Partial<RemoteSourceInput>) =>
+      request<{ source: RemoteSource }>(`/remote-sources/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    /**
+     * DELETE /api/remote-sources/:id — remove a source. Pass `purge` to also
+     * delete the sessions it imported (destructive); default detaches them to
+     * `local`.
+     * @param id    The source id.
+     * @param purge When true, also delete this source's imported sessions.
+     * @returns `{ ok, purged }` — success flag and count of purged sessions.
+     */
+    remove: (id: string, purge = false) =>
+      request<{ ok: boolean; purged: number }>(
+        `/remote-sources/${encodeURIComponent(id)}${purge ? "?purge=true" : ""}`,
+        { method: "DELETE" }
+      ),
+    /**
+     * POST /api/remote-sources/:id/test — probe SSH connectivity + remote dir.
+     * @param id The source id.
+     * @returns {@link RemoteSourceTestResult}.
+     */
+    test: (id: string) =>
+      request<RemoteSourceTestResult>(`/remote-sources/${encodeURIComponent(id)}/test`, {
+        method: "POST",
+      }),
+    /**
+     * POST /api/remote-sources/:id/sync — pull the remote history now. Progress
+     * also streams over the `import.progress` / `remote_source.status` WS
+     * messages; this resolves with the final counters.
+     * @param id The source id.
+     * @returns {@link RemoteSourceSyncResult}.
+     */
+    sync: (id: string) =>
+      request<RemoteSourceSyncResult>(`/remote-sources/${encodeURIComponent(id)}/sync`, {
+        method: "POST",
+      }),
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1966,4 +2063,73 @@ export interface ImportResult {
   entries_extracted?: number;
   /** Entries skipped during parsing (e.g. malformed lines). */
   entries_skipped?: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Remote Sources types — SSH machines whose Claude Code history is pulled in.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A configured remote source with its live sync status (server response). */
+export interface RemoteSource {
+  /** Stable id (`src_…`), also the value written to `sessions.source`. */
+  id: string;
+  /** Human-friendly name shown in the UI and on session source badges. */
+  label: string;
+  /** SSH destination: `user@host` or a `~/.ssh/config` alias. */
+  host: string;
+  /** Optional non-default SSH port. */
+  ssh_port: number | null;
+  /** Optional path to a private key the host already controls. */
+  identity_file: string | null;
+  /** Optional remote CLAUDE_HOME (default `~/.claude`). */
+  remote_home: string | null;
+  /** Whether the background poller pulls this source. */
+  enabled: boolean;
+  /** Last known sync state. */
+  status: "idle" | "syncing" | "ok" | "error";
+  /** Last error message, when `status === "error"`. */
+  last_error: string | null;
+  /** ISO timestamp of the last successful sync, or null. */
+  last_sync_at: string | null;
+  /** Import counters from the last successful sync, or null. */
+  last_sync_counts: {
+    imported?: number;
+    skipped?: number;
+    backfilled?: number;
+    errors?: number;
+    sessions_seen?: number;
+    sessions_tagged?: number;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Request body for creating/updating a remote source. */
+export interface RemoteSourceInput {
+  label: string;
+  host: string;
+  ssh_port?: number | null;
+  identity_file?: string | null;
+  remote_home?: string | null;
+  enabled?: boolean;
+}
+
+/** Result of a connectivity probe (POST /:id/test). */
+export interface RemoteSourceTestResult {
+  ok: boolean;
+  message: string;
+  remoteProjects?: string;
+}
+
+/** Result of an on-demand sync (POST /:id/sync). */
+export interface RemoteSourceSyncResult {
+  ok?: boolean;
+  imported?: number;
+  skipped?: number;
+  backfilled?: number;
+  errors?: number;
+  sessions_seen?: number;
+  sessions_tagged?: number;
+  /** Present when the sync was skipped because one was already running. */
+  skipped_reason?: string;
 }

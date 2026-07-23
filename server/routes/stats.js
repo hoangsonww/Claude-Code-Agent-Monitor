@@ -4,8 +4,10 @@
  */
 
 const { Router } = require("express");
-const { stmts } = require("../db");
+const { stmts, db } = require("../db");
 const { getConnectionCount } = require("../websocket");
+const { parseSources } = require("../lib/source-filter");
+const scoped = require("../lib/scoped-stats");
 
 const router = Router();
 
@@ -16,11 +18,20 @@ router.get("/", (req, res) => {
   const toLocal = `${-offsetMin} minutes`; // shift UTC → local
   const toUTC = `${offsetMin} minutes`; // shift local → UTC
 
-  const overview = stmts.stats.get();
-  const agentsByStatus = stmts.agentStatusCounts.all();
-  const sessionsByStatus = stmts.sessionStatusCounts.all();
+  // Data-scope: when the user restricts to a subset of source machines, compute
+  // every count against that subset; otherwise use the cached prepared stmts.
+  const sources = parseSources(req);
+  const overview = sources ? scoped.statsOverview(db, sources) : stmts.stats.get();
+  const agentsByStatus = sources
+    ? scoped.agentStatusCounts(db, sources)
+    : stmts.agentStatusCounts.all();
+  const sessionsByStatus = sources
+    ? scoped.sessionStatusCounts(db, sources)
+    : stmts.sessionStatusCounts.all();
 
-  const eventsToday = stmts.countEventsToday.get(toLocal, toUTC);
+  const eventsToday = sources
+    ? scoped.countEventsToday(db, sources, toLocal, toUTC)
+    : stmts.countEventsToday.get(toLocal, toUTC);
 
   res.json({
     ...overview,

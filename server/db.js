@@ -687,6 +687,43 @@ db.exec(
    WHERE status='active' AND transcript_path IS NOT NULL`
 );
 
+// Migrate: add `source` to sessions — the machine a session was collected from.
+// 'local' is this dashboard's own machine (the zero-config default that every
+// pre-existing and hook-ingested row keeps); a remote_sources.id marks a session
+// pulled from another machine over SSH (see server/lib/remote-sync.js). Additive
+// + NOT NULL DEFAULT 'local', so every historical row reads exactly as before and
+// the whole feature is invisible until the user configures a remote source.
+try {
+  db.prepare("SELECT source FROM sessions LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE sessions ADD COLUMN source TEXT NOT NULL DEFAULT 'local'").run();
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source)`);
+
+// Remote data sources: other machines whose Claude Code history this dashboard
+// pulls in over SSH. Config only — NO secrets are stored here: authentication
+// always defers to the host's own SSH stack (~/.ssh/config, ssh-agent, keys,
+// known_hosts), so `host` is an ssh destination (user@host or a config alias)
+// and `identity_file` is at most a path to a key the user already controls.
+// `status`/`last_*` columns are operational state the Settings UI renders.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS remote_sources (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    host TEXT NOT NULL,
+    ssh_port INTEGER,
+    identity_file TEXT,
+    remote_home TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle','syncing','ok','error')),
+    last_error TEXT,
+    last_sync_at TEXT,
+    last_sync_counts TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`);
+
 // Migrate webhook_targets for first-class providers. Earlier installs created
 // the table with a 4-value `type` CHECK (slack/discord/teams/generic) and no
 // `config` column. SQLite can't drop a CHECK in place, so rebuild the table
@@ -951,6 +988,44 @@ const stmts = {
   // of scanning events.
   setSessionTranscriptPath: db.prepare(
     "UPDATE sessions SET transcript_path = ? WHERE id = ? AND (transcript_path IS NULL OR transcript_path = '')"
+  ),
+  // Tag a session with the machine it was collected from (see remote-sync.js).
+  // Remote-pulled sessions are stamped after the shared importer runs over the
+  // per-source staging dir; local sessions keep the 'local' default.
+  setSessionSource: db.prepare("UPDATE sessions SET source = ? WHERE id = ?"),
+  // Distinct origins present in the data, for the Sessions source facet. Always
+  // includes at least 'local' via the column default.
+  distinctSessionSources: db.prepare(
+    "SELECT DISTINCT source FROM sessions WHERE source IS NOT NULL AND source != '' ORDER BY source"
+  ),
+
+  // ── Remote sources (SSH machines the dashboard pulls history from) ──────────
+  listRemoteSources: db.prepare("SELECT * FROM remote_sources ORDER BY created_at ASC"),
+  listEnabledRemoteSources: db.prepare(
+    "SELECT * FROM remote_sources WHERE enabled = 1 ORDER BY created_at ASC"
+  ),
+  getRemoteSource: db.prepare("SELECT * FROM remote_sources WHERE id = ?"),
+  insertRemoteSource: db.prepare(
+    `INSERT INTO remote_sources (id, label, host, ssh_port, identity_file, remote_home, enabled)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ),
+  updateRemoteSource: db.prepare(
+    `UPDATE remote_sources SET
+       label = COALESCE(?, label),
+       host = COALESCE(?, host),
+       ssh_port = ?,
+       identity_file = ?,
+       remote_home = ?,
+       enabled = COALESCE(?, enabled),
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE id = ?`
+  ),
+  deleteRemoteSource: db.prepare("DELETE FROM remote_sources WHERE id = ?"),
+  setRemoteSourceStatus: db.prepare(
+    `UPDATE remote_sources SET status = ?, last_error = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+  ),
+  setRemoteSourceSyncResult: db.prepare(
+    `UPDATE remote_sources SET status = ?, last_error = ?, last_sync_at = ?, last_sync_counts = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
   ),
 
   getAgent: db.prepare("SELECT * FROM agents WHERE id = ?"),

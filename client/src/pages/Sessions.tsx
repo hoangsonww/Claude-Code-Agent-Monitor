@@ -16,9 +16,12 @@ import {
   SortAsc,
   ChevronDown,
   Play,
+  Server,
 } from "lucide-react";
 import { api } from "../lib/api";
+import type { RemoteSource } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { useDataScope } from "../lib/dataScope";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
@@ -50,6 +53,12 @@ export function Sessions() {
   const [sortBy, setSortBy] = useState("time");
   const [sortDesc, setSortDesc] = useState(true);
   const [directories, setDirectories] = useState<string[]>([]);
+  // Global data scope (which source machines to show). Included in `load`'s deps
+  // so switching scope re-fetches; the actual `sources` param is injected by the
+  // api layer (see lib/api.ts applyScope).
+  const [scope] = useDataScope();
+  // source id → label, so remote-origin rows show a friendly badge.
+  const [sourceLabels, setSourceLabels] = useState<Map<string, string>>(() => new Map());
   // Set of session IDs that are currently being driven by an in-flight Run
   // handle on /run. Lets us badge those rows with a "Run" link.
   const [dashboardRunIds, setDashboardRunIds] = useState<Set<string>>(new Set());
@@ -78,6 +87,21 @@ export function Sessions() {
       })
       .catch(console.error);
   }, []);
+
+  // Load remote-source labels so remote-origin rows can show a friendly badge
+  // instead of a raw `src_…` id. Refreshed when a source's status changes.
+  const loadSourceLabels = useCallback(() => {
+    api.remoteSources
+      .list()
+      .then((res: { sources: RemoteSource[] }) => {
+        setSourceLabels(new Map(res.sources.map((s) => [s.id, s.label])));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    loadSourceLabels();
+  }, [loadSourceLabels]);
 
   // Server-side pagination: only the visible page is fetched. Cost
   // computation on the server scales with PAGE_SIZE, not with the total
@@ -127,7 +151,9 @@ export function Sessions() {
     } finally {
       setLoading(false);
     }
-  }, [filter, search, cwd, sortBy, sortDesc, page]);
+    // `scope` is a dep so a data-scope change re-fetches; the api layer injects
+    // the matching `sources` param.
+  }, [filter, search, cwd, sortBy, sortDesc, page, scope]);
 
   useEffect(() => {
     load();
@@ -152,8 +178,20 @@ export function Sessions() {
       if (msg.type === "run_status") {
         loadDashboardRuns();
       }
+      // A remote source finished syncing (or its status changed): new remote
+      // sessions may have landed, so refetch the list and refresh badge labels.
+      if (msg.type === "remote_source.status") {
+        loadSourceLabels();
+        load();
+      }
+      if (msg.type === "import.progress") {
+        const d = msg.data as { phase?: string };
+        if (d && d.phase === "complete") load();
+      }
     });
-  }, [load]);
+    // loadDashboardRuns is a stable useCallback declared below; referenced at
+    // event time only (not in deps) to avoid a temporal-dead-zone at render.
+  }, [load, loadSourceLabels]);
 
   // Pull active Run handles so we can mark which sessions are being driven
   // from /run right now. Refresh on mount, on run_status WS messages, and
@@ -350,6 +388,15 @@ export function Sessions() {
                           <p className="text-sm font-medium text-gray-200">
                             {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
                           </p>
+                          {session.source && session.source !== "local" && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
+                              title={t("remoteSourceBadgeTitle", "Collected from a remote machine")}
+                            >
+                              <Server className="w-2.5 h-2.5" />
+                              {sourceLabels.get(session.source) || session.source}
+                            </span>
+                          )}
                           {dashboardRunIds.has(session.id) && (
                             <Link
                               to={`/run?session=${encodeURIComponent(session.id)}`}

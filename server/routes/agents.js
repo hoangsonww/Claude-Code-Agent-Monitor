@@ -4,9 +4,10 @@
  */
 
 const { Router } = require("express");
-const { stmts } = require("../db");
+const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
 const { attachAgentCosts } = require("./pricing");
+const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
 
 const router = Router();
 
@@ -16,10 +17,27 @@ router.get("/", (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
   const session_id = req.query.session_id;
+  const sources = parseSources(req);
 
   let rows;
   if (session_id) {
+    // A session belongs to exactly one source, so no extra source filter needed.
     rows = stmts.listAgentsBySession.all(session_id);
+  } else if (sources) {
+    // Data-scope active: build a dynamic query restricting agents to sessions
+    // from the chosen machines. `agents` carries only session_id → subquery.
+    const scope = sessionIdInSourcesClause(sources, "session_id");
+    const clauses = [scope.clause];
+    const params = [...scope.params];
+    if (status) {
+      clauses.push("status = ?");
+      params.push(status);
+    }
+    rows = db
+      .prepare(
+        `SELECT * FROM agents WHERE ${clauses.join(" AND ")} ORDER BY started_at DESC LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset);
   } else if (status) {
     rows = stmts.listAgentsByStatus.all(status, limit, offset);
   } else {

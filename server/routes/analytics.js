@@ -5,6 +5,8 @@
 
 const { Router } = require("express");
 const { stmts, db } = require("../db");
+const { parseSources } = require("../lib/source-filter");
+const scoped = require("../lib/scoped-stats");
 
 const { calculateCost } = require("./pricing");
 
@@ -16,27 +18,46 @@ router.get("/", (req, res) => {
   const rawOffset = parseInt(req.query.tz_offset, 10);
   const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
 
-  const tokenTotals = stmts.getTokenTotals.get();
-  const toolUsage = stmts.toolUsageCounts.all();
-  const dailyEvents = stmts.dailyEventCounts.all(tzModifier);
-  const dailySessions = stmts.dailySessionCounts.all(tzModifier);
-  const agentTypes = stmts.agentTypeDistribution.all();
-  const overview = stmts.stats.get();
-  const agentsByStatus = stmts.agentStatusCounts.all();
-  const sessionsByStatus = stmts.sessionStatusCounts.all();
-  const totalSubagents = stmts.totalSubagentCount.get();
-  const eventTypes = stmts.eventTypeCounts.all();
-  const avgEvents = stmts.avgEventsPerSession.get();
+  // Data-scope: restrict every metric to a subset of source machines when the
+  // user has chosen one; otherwise use the cached prepared statements.
+  const sources = parseSources(req);
+  const tokenTotals = sources ? scoped.tokenTotals(db, sources) : stmts.getTokenTotals.get();
+  const toolUsage = sources ? scoped.toolUsageCounts(db, sources) : stmts.toolUsageCounts.all();
+  const dailyEvents = sources
+    ? scoped.dailyEventCounts(db, sources, tzModifier)
+    : stmts.dailyEventCounts.all(tzModifier);
+  const dailySessions = sources
+    ? scoped.dailySessionCounts(db, sources, tzModifier)
+    : stmts.dailySessionCounts.all(tzModifier);
+  const agentTypes = sources
+    ? scoped.agentTypeDistribution(db, sources)
+    : stmts.agentTypeDistribution.all();
+  const overview = sources ? scoped.statsOverview(db, sources) : stmts.stats.get();
+  const agentsByStatus = sources
+    ? scoped.agentStatusCounts(db, sources)
+    : stmts.agentStatusCounts.all();
+  const sessionsByStatus = sources
+    ? scoped.sessionStatusCounts(db, sources)
+    : stmts.sessionStatusCounts.all();
+  const totalSubagents = sources
+    ? scoped.totalSubagentCount(db, sources)
+    : stmts.totalSubagentCount.get();
+  const eventTypes = sources ? scoped.eventTypeCounts(db, sources) : stmts.eventTypeCounts.all();
+  const avgEvents = sources
+    ? scoped.avgEventsPerSession(db, sources)
+    : stmts.avgEventsPerSession.get();
 
   // Calculate total cost across all sessions
   const pricingRules = stmts.listPricing.all();
   // Join the owning session's start date so each bucket is priced at the rate
   // effective when it was used (date-effective promo rates, e.g. Sonnet 5 intro).
-  const allTokenUsage = db
-    .prepare(
-      "SELECT tu.*, DATE(s.started_at) as date FROM token_usage tu JOIN sessions s ON s.id = tu.session_id"
-    )
-    .all();
+  const allTokenUsage = sources
+    ? scoped.scopedTokenUsageWithDate(db, sources)
+    : db
+        .prepare(
+          "SELECT tu.*, DATE(s.started_at) as date FROM token_usage tu JOIN sessions s ON s.id = tu.session_id"
+        )
+        .all();
 
   let totalCost = 0;
   for (const usage of allTokenUsage) {

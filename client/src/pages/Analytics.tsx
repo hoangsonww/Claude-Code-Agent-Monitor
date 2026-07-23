@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
@@ -608,6 +609,8 @@ export function Analytics() {
     "cost"
   );
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
+  // Global data scope; a change re-runs `load` (api injects the `sources` param).
+  const [scope] = useDataScope();
 
   const load = useCallback(async () => {
     try {
@@ -621,7 +624,7 @@ export function Analytics() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     load();
@@ -635,7 +638,9 @@ export function Analytics() {
         msg.type === "session_created" ||
         msg.type === "session_updated" ||
         msg.type === "new_event" ||
-        msg.type === "agent_created"
+        msg.type === "agent_created" ||
+        msg.type === "remote_source.status" ||
+        (msg.type === "import.progress" && (msg.data as { phase?: string })?.phase === "complete")
       ) {
         load();
       }

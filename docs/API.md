@@ -15,6 +15,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Tools](#tools)
   - [Pricing](#pricing)
   - [Notifications](#notifications)
+  - [Remote Data Sources](#remote-data-sources)
 - [WebSocket API](#websocket-api)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
@@ -116,6 +117,7 @@ Returns all sessions, ordered by most recent activity.
 | `limit` | integer | 50 | Maximum sessions to return (1-1000) |
 | `offset` | integer | 0 | Pagination offset |
 | `status` | string | - | Filter by persisted status: `active`, `completed`, `error`, `abandoned`. The UI **Waiting** state is derived from the `awaiting_input_since` column and is not a queryable enum — filter `status=active` and inspect `awaiting_input_since` (non-null = Waiting) |
+| `sources` | string | - | Comma-separated data-source ids to include (the built-in local history is `local`; remote SSH machines use their `remote_sources.id`). Omit for all sources. Also accepted on `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics`. See [Remote Data Sources](#remote-data-sources) |
 
 **Example Request:**
 
@@ -722,6 +724,140 @@ curl http://localhost:4820/api/sessions/sess_abc123/notifications
 }
 ```
 
+### Remote Data Sources
+
+The `/api/remote-sources/*` namespace configures **remote SSH machines** the dashboard pulls Claude Code history from, so one dashboard can consolidate sessions from several machines. **No secrets are stored** — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, key files). Every imported session is tagged with the source's id in the `sessions.source` column (the built-in local history uses the id `local`), which powers the `sources` filter below.
+
+**RemoteSource shape:**
+
+```json
+{
+  "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+  "label": "Work laptop",
+  "host": "son@studio.local",
+  "ssh_port": 22,
+  "identity_file": "~/.ssh/id_ed25519",
+  "remote_home": "~/.claude",
+  "enabled": true,
+  "status": "ok",
+  "last_error": null,
+  "last_sync_at": "2026-07-22T18:41:55.117Z",
+  "last_sync_counts": {
+    "imported": 9,
+    "skipped": 41,
+    "backfilled": 0,
+    "errors": 0,
+    "sessions_seen": 50,
+    "sessions_tagged": 50
+  },
+  "created_at": "2026-07-20T09:15:00.000Z",
+  "updated_at": "2026-07-22T18:41:55.117Z"
+}
+```
+
+`ssh_port`, `identity_file`, `remote_home`, `last_error`, `last_sync_at`, and `last_sync_counts` are nullable. `status` is one of `idle`, `syncing`, `ok`, `error`.
+
+#### List Remote Sources
+
+```http
+GET /api/remote-sources
+```
+
+Returns all configured remote sources. Response: `{ "sources": RemoteSource[] }`.
+
+#### Create Remote Source
+
+```http
+POST /api/remote-sources
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `label` | string | Yes | Human-readable name |
+| `host` | string | Yes | SSH destination (`user@host`) or a `~/.ssh/config` alias |
+| `ssh_port` | integer | No | SSH port (defers to SSH default / config when omitted) |
+| `identity_file` | string | No | Private-key path passed to ssh (`-i`) |
+| `remote_home` | string | No | Remote Claude home (defaults to remote `~/.claude`) |
+| `enabled` | boolean | No | Whether the source is eligible for syncs (default `true`) |
+
+Returns `{ "source": RemoteSource }` with HTTP **201**.
+
+**Error Responses (400):** `{ "error": { "code", "message" } }` with one of:
+
+| Code | Meaning |
+|------|---------|
+| `INVALID_LABEL` | Missing/blank `label` |
+| `INVALID_HOST` | Missing/invalid `host` |
+| `INVALID_PORT` | `ssh_port` out of range |
+| `INVALID_IDENTITY_FILE` | Invalid `identity_file` value |
+| `INVALID_REMOTE_HOME` | Invalid `remote_home` value |
+
+#### Update Remote Source
+
+```http
+PATCH /api/remote-sources/:id
+```
+
+Partial update — only the keys present in the body change. Same fields (and the same validation codes) as create; both `label` and `host` are optional here. Returns `{ "source": RemoteSource }`, or **404** if the id is unknown.
+
+#### Delete Remote Source
+
+```http
+DELETE /api/remote-sources/:id
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `purge` | boolean | `false` | When `true`, also delete this source's imported sessions. When omitted/`false`, those sessions are **detached** — reassigned to the `local` source so history is preserved |
+
+Returns `{ "ok": true, "purged": <bool> }` (`purged` is `true` only when `?purge=true` deleted the sessions). **404** if the id is unknown.
+
+#### Test Remote Source
+
+```http
+POST /api/remote-sources/:id/test
+```
+
+Runs an SSH connectivity probe. Returns `{ "ok": <bool>, "message": <string>, "remoteProjects?": string[] }` — `remoteProjects` lists the discovered remote project directories on success. Does not import anything. **404** if the id is unknown.
+
+#### Sync Remote Source
+
+```http
+POST /api/remote-sources/:id/sync
+```
+
+Pulls Claude Code history from the remote over SSH now, through the same idempotent import pipeline used locally, tagging imported sessions with this source's id. Progress/completion is also broadcast over the WebSocket as [`remote_source.status`](#remote_sourcestatus) frames.
+
+**Example Response:**
+
+```json
+{
+  "ok": true,
+  "imported": 9,
+  "skipped": 41,
+  "backfilled": 0,
+  "errors": 0,
+  "sessions_seen": 50,
+  "sessions_tagged": 50
+}
+```
+
+**404** if the id is unknown; **500** with `{ error: { code: "SYNC_FAILED", message } }` on SSH/import failure.
+
+#### The `sources` filter
+
+`GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics` accept an optional `sources` query parameter: a comma-separated list of source ids to include (omit for all). `GET /api/sessions/facets` correspondingly returns a `sources: string[]` array (alongside `cwds`) listing the distinct `sessions.source` values so the UI can build the filter dropdown.
+
+```bash
+curl "http://localhost:4820/api/sessions?sources=local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11"
+```
+
+---
+
 ### Claude Config Explorer
 
 The `/api/cc-config/*` namespace powers the Claude Config Explorer page. All read endpoints are pure file reads under `CLAUDE_HOME` and the project's `.claude/` dir; mutations are limited to low-risk text-file artifacts (skills, subagents, slash commands, output styles, memory) and always create a timestamped backup before writing. Plugins, MCP servers, hooks-in-settings, and live `settings.json` files stay read-only because they are written concurrently by the running Claude Code CLI.
@@ -968,6 +1104,17 @@ Broadcast whenever Claude Code configuration changes — either by dashboard mut
 ```json
 { "type": "cc_config_changed", "data": { "source": "dashboard", "action": "write", "scope": "user", "type": "skill", "name": "my-skill" } }
 { "type": "cc_config_changed", "data": { "source": "fs", "paths": ["/Users/foo/.claude/settings.json"] } }
+```
+
+#### remote_source.status
+
+Broadcast when a remote data source changes sync state (during/after `POST /api/remote-sources/:id/sync`) or is deleted. `status` is one of `idle`, `syncing`, `ok`, `error`, or `deleted`. `error` and `last_sync_at` are optional and present when relevant. See [Remote Data Sources](#remote-data-sources).
+
+```json
+{ "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "syncing" } }
+{ "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "ok", "last_sync_at": "2026-07-22T18:41:55.117Z" } }
+{ "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "error", "error": "ssh exited with code 255" } }
+{ "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "deleted" } }
 ```
 
 ### Event Flow

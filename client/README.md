@@ -178,6 +178,7 @@ client/
 │   │   ├── EmptyState.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
+│   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
 │   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
 │   ├── pages/              # Route pages
@@ -195,6 +196,7 @@ client/
 │   │   ├── __tests__/      # Utility tests
 │   │   ├── api.ts          # REST API client
 │   │   ├── eventBus.ts     # WebSocket pub/sub + connection state
+│   │   ├── dataScope.ts    # Global data-scope store (app-wide ?sources= selection)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   └── types.ts        # TypeScript type definitions
 │   │
@@ -277,7 +279,7 @@ sequenceDiagram
 
 ## State Management
 
-The client uses **local component state** and **React hooks** for state management. No global state library (Redux, Zustand) is used to keep the architecture simple.
+The client uses **local component state** and **React hooks** for state management. No global state library (Redux, Zustand) is used to keep the architecture simple. The one small exception is the **data-scope store** (`lib/dataScope.ts`): a lightweight app-wide store holding the current set of data sources (`local` plus any configured [Remote Data Sources](../server/README.md#remote-data-sources)). Pages read it and append `?sources=` to their API requests, so a single selector narrows the whole app to one or more machines' data. Remote sources are managed from the Settings page via the `RemoteSources` component (`components/RemoteSources.tsx`), which drives the `/api/remote-sources` CRUD/test/sync endpoints and reflects live `remote_source.status` WebSocket updates.
 
 ### State Strategy
 
@@ -392,6 +394,7 @@ Server broadcasts these event types over WebSocket:
 | `agent.updated` | Agent object | PostToolUse/Stop hooks |
 | `tool.executed` | Tool execution record | PostToolUse hook |
 | `notification.received` | Notification object | Notification hook |
+| `remote_source.status` | `{ id, status, error?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`) | Remote Data Source sync poller + `/api/remote-sources` routes |
 
 ### EventBus Pattern
 

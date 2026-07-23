@@ -300,6 +300,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **子会话/恢复会话** | 新事件到达时自动重新激活会话,正确处理 `/resume` 和孤立会话。周期性清理(每 ¼ 个 `DASHBOARD_STALE_MINUTES`,夹在 60 秒–5 分钟之间)标记遗漏事件检测的废弃会话 |
 | **预存会话检测** | 服务器启动时已在运行的会话以"活跃"状态导入（基于近期 JSONL 文件修改时间）。Stop 事件也会重新激活已导入的完成/废弃会话，因此进行中的会话的第一个 Hook 始终会显示在 Dashboard 上 |
 | **持续项目同步** | 启动时对 `~/.claude/projects` 的自动导入是一次性的（由标记位把关），因此在首次启动**之后**才创建的项目文件夹——其会话从不经过 Hook 流入（例如 host-only Hook 被禁用）——在手动重新扫描之前都将不可见。后台同步（`startSessionSync`）通过三个共享同一个 mtime 缓存 + 单次合并扫描的触发器弥补了这个空隙：启动时的**立即**扫描、一个去抖的 **`fs.watch`**（新会话文件 / 项目文件夹一出现就触发；在 macOS/Windows 上递归监听，在 Linux 上监听根目录 + 直接子文件夹，以规避用户态递归监听器的隐患），以及一个**周期性轮询**（`DASHBOARD_SESSION_SYNC_MS`，默认 30 秒）。每次扫描只重新解析 mtime 前进过的文件，并广播 `session_created`/`session_updated`（外加主 Agent），让 UI 实时刷新；DB 中已有且未变更的会话会被跳过、不再重新解析，因此重启成本保持为 O(新增/变更文件) |
+| **远程数据源** | 通过 SSH 从其他机器收集 Claude Code 使用数据 —— dashboard 对每个远程主机的 `~/.claude/projects` 目录执行 `rsync` 并导入,按来源为会话打标签。提供全局数据范围选择器(仅本地 / 全部 / 指定来源),按所选来源收窄整个应用。通过后台轮询实现近实时 |
 | **响应式设计** | 适配移动端的布局，堆叠网格、可滚动表格和可折叠侧边栏 |
 | **界面本地化** | 内置语言切换，UI 文案与无障碍标签已覆盖英文（`en`）、中文（`zh`）、越南语（`vi`）和韩语（`ko`）。覆盖范围现已贯穿 Workflows 页面的所有 tooltip：统计卡片的计算说明与按值分桶的解读、每个图表的「此图展示什么 / 如何阅读 / 为何重要」浮层、所有图形悬停 tooltip（编排 DAG、工具流、Pipeline、模型委派、并发时间线）、Workflow Patterns 详情面板的叙述与建议、设置页 → 模型定价的信息浮层、CLAUDE_HOME 面板，以及完整的 Import History 流程 |
 | **种子数据** | 内置种子脚本，用于演示和开发 |
@@ -604,6 +605,9 @@ flowchart LR
 | `DASHBOARD_LIVENESS_PROBE` | `1`（开启） | 设为 `0` 可禁用看门狗的**死亡会话存活性回收**（基于 `ps`/`lsof` 的探测，将 `claude` 进程已不存在的 `active` 会话标记为完成——恢复仪表盘停机期间丢失的 `SessionEnd`）。从**另一台机器**（家庭 Hook）转发来的会话会报告非 POSIX 的 `cwd`，会被回收自动跳过，因此混合的本地 + 转发部署不再需要关闭此项；仅在纯远程部署（本地进程无法证明任何事情）时才禁用它。在 Windows 和容器内自动禁用 |
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | **看门狗节拍**存活性回收的空闲门槛：只有当会话的 Transcript 至少有这么长时间未被写入时（磁盘上没有 Transcript 时以最后一次 Hook 写入为后备时钟），才会将其标记为完成，因此回合中或刚 resume 的会话绝不会因一次瞬时的探测偏差而消失。启动时的回收跳过该门槛——boot 时由探测单独决定，因此启动前一刻退出的会话会立即清除 |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | 持续 `~/.claude/projects` 后台同步的轮询间隔（毫秒），用于显示启动后才加入、其会话从不经过 Hook 流入的项目。无论如何 `fs.watch` 监听器都会近乎即时触发；该轮询是安全兜底（监听器可能错过事件 / 在网络文件系统上不触发）。设为 `0` 可禁用轮询，同时让监听器保持运行 |
+| `DASHBOARD_REMOTE_SYNC_MS` | `60000` | 通过 `rsync` 拉取远程数据源的间隔（毫秒）。设为 `0` 可禁用远程源轮询 |
+| `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 每个远程源 `rsync` 的超时时间 |
+| `DASHBOARD_REMOTE_TEST_TIMEOUT_MS` | `15000` | 到源的 SSH 连接探测超时时间 |
 | `NODE_ENV` | `development` | 设为 `production` 以提供构建后的客户端 |
 
 ---
@@ -1049,6 +1053,17 @@ API 文档现已**全面覆盖**：每个后端路由都有文档说明（共 75
 | `GET` | `/api/settings/export` | 以 JSON 下载方式导出所有数据 |
 | `POST` | `/api/settings/cleanup` | 废弃过期会话、清除旧数据 |
 
+### 远程数据源
+
+| 方法 | 路径 | 描述 |
+| -------- | -------------------------------- | ---------------------------- |
+| `GET`    | `/api/remote-sources`            | 列出已配置的远程数据源 |
+| `POST`   | `/api/remote-sources`            | 添加新的远程源 |
+| `PATCH`  | `/api/remote-sources/:id`        | 更新某个远程源 |
+| `DELETE` | `/api/remote-sources/:id`        | 删除某个远程源 |
+| `POST`   | `/api/remote-sources/:id/test`   | 测试到该源的 SSH 连接 |
+| `POST`   | `/api/remote-sources/:id/sync`   | 立即触发该源的 `rsync` + 导入 |
+
 ### 导入历史（Import History）
 
 将已有的 Claude Code 会话从三种不同来源导入到仪表盘。三条路径都汇入
@@ -1141,7 +1156,7 @@ skipped / errors 计数）。
 }
 ```
 
-**消息类型：** `session_created`、`session_updated`、`agent_created`、`agent_updated`、`new_event`
+**消息类型：** `session_created`、`session_updated`、`agent_created`、`agent_updated`、`new_event`、`remote_source.status`
 
 ```mermaid
 stateDiagram-v2

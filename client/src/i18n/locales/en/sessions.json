@@ -35,5 +35,6 @@
     "costBreakdown": "Cost Breakdown",
     "eventTimeline": "Event Timeline",
     "noEvents": "No events recorded."
-  }
+  },
+  "remoteSourceBadgeTitle": "Collected from a remote machine"
 }
