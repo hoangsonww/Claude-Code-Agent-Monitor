@@ -16,7 +16,7 @@
  * Alerting              alerts · alerts ack <id> · alerts ack-all · rules
  * Webhooks              webhooks · webhooks test <id>
  * Pricing               pricing · pricing set/delete/reset
- * Import                import rescan · import path <dir>
+ * Import                import rescan · import path <dir> · import-data <file>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
  *                       update-check · clear-data --yes · open · version
  *
@@ -1265,6 +1265,29 @@ async function cmdExport(positional) {
   );
 }
 
+// Restore a bundle produced by `ccam export` (or the dashboard's Export data).
+// The local server reads the file from disk, so we pass an absolute path rather
+// than uploading — idempotent and non-destructive (existing sessions skipped).
+async function cmdImportData(positional) {
+  const target = positional[0];
+  if (!target) {
+    console.error(c.red("✖ Usage: ccam import-data <export.json>"));
+    process.exit(1);
+  }
+  const abs = path.resolve(process.cwd(), target);
+  if (!fs.existsSync(abs)) {
+    console.error(c.red(`✖ File not found: ${abs}`));
+    process.exit(1);
+  }
+  const r = await post("/api/settings/import", { path: abs });
+  console.log(
+    `${c.green("✔")} Restored: ${r.sessions_imported ?? 0} sessions added, ` +
+      `${r.sessions_skipped ?? 0} already present, ${r.events ?? 0} events, ` +
+      `${r.model_pricing ?? 0} pricing rules ` +
+      `(${r.agents ?? 0} agents · ${r.workflows ?? 0} workflows · ${r.dashboard_runs ?? 0} runs · ${r.alert_rules ?? 0} rules)`
+  );
+}
+
 async function cmdCleanup(flags) {
   const body = {};
   if (flags.hours) body.abandon_hours = Number(flags.hours);
@@ -1464,6 +1487,7 @@ const COMMAND_GROUPS = [
     [
       ["import rescan", "", "Re-scan ~/.claude/projects"],
       ["import path <dir>", "", "Import every .jsonl under a directory"],
+      ["import-data <file>", "", "Restore a dashboard export (.json) — merge machines"],
     ],
   ],
   [
@@ -1739,6 +1763,7 @@ const SERVER_ONLY_REASONS = {
   cost: "cost math (pricing rules, compaction baselines) runs server-side",
   webhooks: "webhook configuration and test deliveries are server-side",
   import: "imports must go through the server's ingestion pipeline",
+  "import-data": "restoring an export writes to the database through the server",
   cleanup: "cleanup is a server-side mutation",
   "clear-data": "data wipes must go through the server",
   "reinstall-hooks": "hook installation is performed by the server",
@@ -2239,6 +2264,8 @@ async function runCommand(argv) {
       return cmdInfo();
     case "export":
       return cmdExport(positional);
+    case "import-data":
+      return cmdImportData(positional);
     case "cleanup":
       return cmdCleanup(flags);
     case "clear-data":

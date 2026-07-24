@@ -532,7 +532,8 @@ Every status transition broadcasts `remote_source.status` `{ id, status, error?,
 | `POST` | `/api/settings/reimport`       | Re-import legacy sessions from `~/.claude/`      |
 | `POST` | `/api/settings/reinstall-hooks`| Reinstall Claude Code hooks                      |
 | `POST` | `/api/settings/reset-pricing`  | Reset pricing table to defaults                  |
-| `GET`  | `/api/settings/export`         | Export all data as JSON attachment               |
+| `GET`  | `/api/settings/export`         | Export all data (sessions, agents, events, token_usage, workflows, dashboard_runs, alert_rules, model_pricing) as one versioned JSON attachment |
+| `POST` | `/api/settings/import`         | Restore a bundle from `/export`. Multipart `file`, or JSON `{ path }` (server reads it). Idempotent + non-destructive: sessions already present are skipped whole |
 | `POST` | `/api/settings/cleanup`        | Abandon stale sessions and purge old data        |
 
 ### Claude Config Explorer (`/api/cc-config`)
