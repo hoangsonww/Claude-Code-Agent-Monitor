@@ -34,8 +34,12 @@ const {
 
 const router = Router();
 
-/** Shape a DB row for the API: bool `enabled`, parsed counts. */
-function serialize(row) {
+/**
+ * Shape a DB row for the API: bool `enabled`, parsed counts, and the live number
+ * of sessions currently attributed to this source (`session_count`) so the UI
+ * can show how much data each machine has contributed.
+ */
+function serialize(row, sessionCount = 0) {
   let lastCounts = null;
   try {
     lastCounts = row.last_sync_counts ? JSON.parse(row.last_sync_counts) : null;
@@ -54,9 +58,18 @@ function serialize(row) {
     last_error: row.last_error,
     last_sync_at: row.last_sync_at,
     last_sync_counts: lastCounts,
+    session_count: sessionCount,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+/** Map of source id -> current session count, in one grouped query. */
+function sessionCountsBySource() {
+  const rows = db.prepare("SELECT source, COUNT(*) AS c FROM sessions GROUP BY source").all();
+  const map = new Map();
+  for (const r of rows) map.set(r.source, r.c);
+  return map;
 }
 
 function handleValidation(res, err) {
@@ -67,10 +80,11 @@ function handleValidation(res, err) {
   return false;
 }
 
-// GET / — list all sources.
+// GET / — list all sources, each with its live session count.
 router.get("/", (_req, res) => {
   const rows = stmts.listRemoteSources.all();
-  res.json({ sources: rows.map(serialize) });
+  const counts = sessionCountsBySource();
+  res.json({ sources: rows.map((r) => serialize(r, counts.get(r.id) || 0)) });
 });
 
 // POST / — create a source.

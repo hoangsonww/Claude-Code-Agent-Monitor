@@ -2124,6 +2124,8 @@ export interface RemoteSource {
     sessions_seen?: number;
     sessions_tagged?: number;
   } | null;
+  /** Live number of sessions currently attributed to this source. */
+  session_count?: number;
   created_at: string;
   updated_at: string;
 }

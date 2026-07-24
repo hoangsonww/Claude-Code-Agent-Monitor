@@ -404,6 +404,7 @@
     "empty": "No remote sources yet.",
     "emptyHint": "Add a machine you reach over SSH to pull its Claude Code usage in.",
     "paused": "Auto-sync off",
+    "sessionCount": "{{n}} sessions",
     "lastSync": "Last sync: {{when}}",
     "neverSynced": "Never synced",
     "imported": "{{n}} imported",

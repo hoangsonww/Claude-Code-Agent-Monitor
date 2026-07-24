@@ -342,3 +342,20 @@ describe("source scoping across data endpoints", () => {
     assert.ok(res.body.agents.every((a) => a.session_id !== "scope-remote"));
   });
 });
+
+describe("/api/remote-sources session_count", () => {
+  it("reports the live number of sessions attributed to each source", async () => {
+    const c = await post("/api/remote-sources", { label: "Counted", host: "c@h" });
+    const id = c.body.source.id;
+    // A freshly-added source has no sessions yet.
+    assert.equal(c.body.source.session_count ?? 0, 0);
+    // Tag two sessions to it, then confirm the list reflects the count.
+    stmts.insertSession.run("rs-count-1", "s", "active", "/x", "claude-opus-4-8", null);
+    stmts.insertSession.run("rs-count-2", "s", "active", "/y", "claude-opus-4-8", null);
+    stmts.setSessionSource.run(id, "rs-count-1");
+    stmts.setSessionSource.run(id, "rs-count-2");
+    const list = await get("/api/remote-sources");
+    const row = list.body.sources.find((s) => s.id === id);
+    assert.equal(row.session_count, 2);
+  });
+});

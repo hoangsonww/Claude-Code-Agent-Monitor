@@ -471,6 +471,13 @@ export function RemoteSources() {
                           {t("remoteSources.paused", "Auto-sync off")}
                         </span>
                       )}
+                      {s.session_count != null && s.session_count > 0 && (
+                        <span className="text-[10px] text-gray-400 bg-surface-2 border border-border px-1.5 py-0.5 rounded-full">
+                          {t("remoteSources.sessionCount", "{{n}} sessions", {
+                            n: s.session_count,
+                          })}
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] text-gray-500 font-mono mt-1 truncate">
                       {s.host}
