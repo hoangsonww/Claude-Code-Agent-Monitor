@@ -465,12 +465,12 @@ export function CcConfig() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("common.search")}
-              className="bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
+              className="h-7 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
             />
             {isMutable(tab) && tab !== "memory" && (
               <button
                 onClick={() => openCreate(tabToArtifactType(tab))}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1.5"
+                className="h-7 text-[11px] font-medium px-2.5 rounded-md border border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3 h-3" />
                 {t("edit.newButton")}
