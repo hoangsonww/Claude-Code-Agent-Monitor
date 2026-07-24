@@ -293,7 +293,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **Transcript 缓存** | 从 JSONL Transcript 实时提取：Token、压缩、API 错误（`isApiErrorMessage` 条目存储为 `APIError` 事件）、回合耗时（存储为 `TurnDuration` 事件）、思考块计数和用量附加信息（service_tier、speed、inference_geo）。会话元数据实时丰富这些字段 |
 | **通知** | 基于 Web Push (VAPID) 的持久化浏览器通知。即使 Dashboard 标签页未聚焦或浏览器已关闭也能送达。特别针对 macOS 音效支持进行了配置。支持按事件配置开关及订阅管理 |
 | **更新提醒** | 服务端定期以非阻塞方式执行 `git fetch`，将本地检出与所选规范远程的默认分支对比。**支持分支与 fork：** 若同时存在 `upstream` 和 `origin`，优先使用 `upstream`（fork 的常规约定）；命令也会根据用户处境调整——只有在本地分支真正跟踪规范引用时才建议 `git pull --ff-only`，否则给出 `git fetch`（fork 场景下加上 fast-forward 合并），让命令永不撒谎。侧边栏还有常驻的"检查更新"按钮及状态徽标。Dashboard **不会**自行拉取或重启——用户在终端中手动执行命令——因此该机制不会破坏开发会话、pm2/systemd/Docker 进程管理，也不会留下孤立进程 |
-| **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出、会话清理。**模型定价**区块在标题旁提供一个信息浮层（`i` 图标），讲解规则匹配方式（首条匹配的模式生效）、SQL 风格 `%` 通配符的语法及具体示例（`claude-opus-4-7%`、`claude-%-haiku`、精确 id），并提醒：当 Anthropic 公布新价格时必须手动更新——已存储的会话仍保留入库时所用价格。每条规则的编辑器还带有一个可折叠的 Introductory rates 区块（一个 YYYY-MM-DD 促销截止日期 + 按类别的介绍性价格）；将日期留空表示没有促销，而空日期会清除任何已存储的介绍性价格。CLAUDE_HOME 区块与 Import History 面板已完整覆盖 en/vi/zh 三语 i18n |
+| **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出**与恢复**（Import History 面板的 **Restore backup** 模式可重新导入完整的导出 `.json`——幂等且非破坏性，因此可将多台机器的历史合并到一个仪表盘）、会话清理。**模型定价**区块在标题旁提供一个信息浮层（`i` 图标），讲解规则匹配方式（首条匹配的模式生效）、SQL 风格 `%` 通配符的语法及具体示例（`claude-opus-4-7%`、`claude-%-haiku`、精确 id），并提醒：当 Anthropic 公布新价格时必须手动更新——已存储的会话仍保留入库时所用价格。每条规则的编辑器还带有一个可折叠的 Introductory rates 区块（一个 YYYY-MM-DD 促销截止日期 + 按类别的介绍性价格）；将日期留空表示没有促销，而空日期会清除任何已存储的介绍性价格。CLAUDE_HOME 区块与 Import History 面板已完整覆盖 en/vi/zh 三语 i18n |
 | **MCP 服务器（本地）** | 位于 `mcp/` 的企业级本地 MCP 服务器，支持三种传输模式（stdio、HTTP+SSE、交互式 REPL），6 个域共 25 个类型化工具，严格输入 Schema、重试/退避、仅限本地 API 强制执行，以及分层变更/破坏性安全门控。HTTP 模式在可配置端口上提供 Streamable HTTP（2025-11-25）和传统 SSE（2024-11-05）。REPL 模式提供带 Tab 补全和彩色输出的交互式工具调用 |
 | **工作流** | 基于 D3.js 的可视化页面，包含 11 个交互式模块：Agent 编排 DAG、工具执行 Sankey 图、协作网络、子 Agent 有效性（按周 sparkline 通过 portal 渲染——可越过卡片的 `overflow:hidden`，并自动夹在视口内不再被裁切）、检测到的流程模式、模型委派流、错误传播图（带比率徽章的水平条形图、Agent 类型分解、API/会话错误卡片）、并发时间线、会话复杂度散点图、压缩影响分析和按会话下钻。**全方位、多语言的丰富 tooltip：** 每个图表标题旁都有一个 `i` 图标，可弹出结构化的「此图展示了什么 / 如何阅读 / 为何重要」浮层；悬停节点、边、条、气泡都会显示带有确定性、值相关解读的多段 tooltip（例如占源/占目标比例、成功率健康分级、Opus / Sonnet / Haiku 模型系列说明，以及前段/中段/后段等时间模式）。六张总览统计卡片各自在右下角带一个信息浮层，用自然语言解释指标的计算方式与当前数值含义。Tooltip 通过每张图唯一的 DOM ref 直接更新，并附带容器级 `mouseleave` 兜底，绝不会落后于光标或在重新渲染后残留。点击 **检测到的工作流模式** 中的任意一行会就地展开详情面板，包含完整步骤序列、统计网格、确定性叙述（循环检测、频率分级）和一条务实的建议。状态筛选标签（仅活跃 / 已完成 / 全部）可筛选全部 11 个模块。支持交叉筛选、JSON 导出和 3 秒防抖的实时 WebSocket 自动刷新。**工作流运行**面板呈现「动态工作流」——由 `Workflow` 工具（及自定节奏的 `/loop`）派生的 sub-agent 群组——它们不触发任何 hook，因此改为依据磁盘上的运行日志（`workflows/wf_<runId>.json`）重建：每次运行展示其阶段以及按 Agent 的 token / 工具调用 / 时长分解，并在日志写入前实时检测 `running` 状态，同时在每个会话详情页提供一个关联子区块 |
 | **压缩追踪** | 从 JSONL Transcript 检测 `/compact` 事件,创建压缩 Agent 和事件。启动时回填历史压缩。周期性扫描器(频率从 `DASHBOARD_STALE_MINUTES` 派生)在无 Hook 触发时也能捕获压缩。共享 Transcript 缓存,避免重复文件读取 |
@@ -661,6 +661,7 @@ ccam import path <dir>            # 导入目录下所有 .jsonl
 ccam doctor                       # 连接、hook 与数据库诊断
 ccam info                         # 原始系统信息 JSON
 ccam export [file.json]           # 导出全部数据为 JSON
+ccam import-data <file.json>      # 恢复导出（幂等、非破坏性）
 ccam cleanup --hours N --days M   # 放弃滞留会话 / 清理旧会话
 ccam reinstall-hooks              # 重新安装 Claude Code hook
 ccam update-check                 # 检出是否落后于 upstream？（打印更新命令）
@@ -1047,6 +1048,7 @@ API 文档现已**全面覆盖**：每个后端路由都有文档说明（共 75
 | `POST` | `/api/settings/reinstall-hooks` | 重新安装 Claude Code Hook |
 | `POST` | `/api/settings/reset-pricing` | 重置定价为默认值 |
 | `GET` | `/api/settings/export` | 以 JSON 下载方式导出所有数据 |
+| `POST` | `/api/settings/import` | 从 `/export` 恢复导出包（multipart `file` 或 JSON `{ path }`）。幂等且非破坏性——已存在的会话会被整体跳过 |
 | `POST` | `/api/settings/cleanup` | 废弃过期会话、清除旧数据 |
 
 ### 导入历史（Import History）

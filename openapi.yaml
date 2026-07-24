@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code API
-  version: 1.3.0
+  version: 1.4.1
   description: HTTP API for real-time Claude Code session monitoring, agent lifecycle tracking, analytics, pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -1633,6 +1633,14 @@ components:
         - token_usage
         - model_pricing
       properties:
+        format:
+          type: string
+          description: Bundle format marker (always "ccam-export" for exports from this version).
+          example: ccam-export
+        version:
+          type: integer
+          description: Bundle schema version.
+          example: 1
         exported_at:
           type: string
           format: date-time
@@ -1653,10 +1661,70 @@ components:
           items:
             type: object
             additionalProperties: true
+        workflows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        dashboard_runs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        alert_rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
         model_pricing:
           type: array
           items:
             $ref: '#/components/schemas/PricingRule'
+    ImportResponse:
+      type: object
+      required:
+        - ok
+        - sessions_imported
+        - sessions_skipped
+        - agents
+        - events
+        - token_usage
+        - workflows
+        - dashboard_runs
+        - alert_rules
+        - model_pricing
+        - errors
+      description: Per-table counts from restoring an export bundle. Session-scoped counts are rows newly inserted; sessions_skipped counts sessions already present (skipped whole to stay idempotent).
+      properties:
+        ok:
+          type: boolean
+        source:
+          type: string
+          description: Uploaded filename or server-side path read.
+        format:
+          type: string
+          nullable: true
+          description: Bundle format marker, or null for a legacy export.
+        sessions_imported:
+          type: integer
+        sessions_skipped:
+          type: integer
+        agents:
+          type: integer
+        events:
+          type: integer
+        token_usage:
+          type: integer
+        workflows:
+          type: integer
+        dashboard_runs:
+          type: integer
+        alert_rules:
+          type: integer
+        model_pricing:
+          type: integer
+        errors:
+          type: integer
     CleanupRequest:
       type: object
       properties:
@@ -5422,7 +5490,7 @@ paths:
       tags:
         - Settings
       summary: Export all dashboard data as JSON
-      description: 'Exports the entire dataset as a single JSON document — all sessions, agents, events, token_usage rows, and model_pricing — stamped with `exported_at`. Served with a `Content-Disposition: attachment` header (filename `agent-monitor-export-YYYY-MM-DD.json`) so browsers download it. Use this to back up before a destructive operation (clear-data / cleanup with purge_days) or to migrate data to another machine. Read-only; nothing is modified.'
+      description: 'Exports the entire dataset as a single versioned JSON document — all sessions, agents, events, token_usage rows, workflows, dashboard_runs, alert_rules, and model_pricing — stamped with `format: "ccam-export"`, `version`, and `exported_at`. Served with a `Content-Disposition: attachment` header (filename `agent-monitor-export-YYYY-MM-DD.json`) so browsers download it. Use it to back up before a destructive operation (clear-data / cleanup with purge_days) or to migrate/consolidate data across machines — the bundle is re-importable via POST /api/settings/import. Read-only; nothing is modified.'
       operationId: exportData
       responses:
         '200':
@@ -5432,6 +5500,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ExportResponse'
               example:
+                format: ccam-export
+                version: 1
                 exported_at: '2026-06-26T01:12:44.913Z'
                 sessions:
                   - id: 5f3c0e2a-1b9d-4c77-8a21-9e0f7b6d4c11
@@ -8499,4 +8569,56 @@ paths:
                 error:
                   code: WORKFLOW_DETAIL_FAILED
                   message: database is locked
+  /api/settings/import:
+    post:
+      tags:
+        - Settings
+      summary: Restore (import) a previously exported data bundle
+      description: 'Restores a bundle produced by GET /api/settings/export. Supply it either as `multipart/form-data` with a single `file` field (browser upload) or as a JSON body `{ "path": "<absolute path>" }` (the server reads the file from disk — used by the `ccam import-data` CLI, and it also sidesteps the global 1 MB JSON body cap for large bundles). The restore is idempotent and NON-DESTRUCTIVE: it is session-atomic, so a session already present (matched by its UUID) is skipped whole together with its agents/events/token_usage/workflows, and independent config rows (dashboard_runs, alert_rules, model_pricing) are inserted only when absent. Nothing existing is overwritten — ideal for consolidating several machines into one dashboard. The response reports per-table counts.'
+      operationId: importData
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The export .json file.
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: Absolute path (server-side) to an export .json file. `~` is expanded.
+            example:
+              path: /Users/you/ccam-export-2026-06-26.json
+      responses:
+        '200':
+          description: Per-table restore counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResponse'
+              example:
+                ok: true
+                source: agent-monitor-export-2026-06-26.json
+                format: ccam-export
+                sessions_imported: 42
+                sessions_skipped: 3
+                agents: 96
+                events: 5120
+                token_usage: 42
+                workflows: 4
+                dashboard_runs: 11
+                alert_rules: 2
+                model_pricing: 0
+                errors: 0
+        '400':
+          description: Missing file, invalid JSON, or unrecognized export format
 x-issues-url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor/issues
