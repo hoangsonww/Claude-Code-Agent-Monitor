@@ -39,6 +39,7 @@
   },
   "common": {
     "search": "Tìm theo tên…",
+    "clearSearch": "Xóa tìm kiếm",
     "empty": "Chưa có nội dung.",
     "viewSource": "Xem nguồn",
     "close": "Đóng",

@@ -467,6 +467,17 @@ export function CcConfig() {
               placeholder={t("common.search")}
               className="h-7 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                title={t("common.clearSearch")}
+                aria-label={t("common.clearSearch")}
+                className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-200 hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             {isMutable(tab) && tab !== "memory" && (
               <button
                 onClick={() => openCreate(tabToArtifactType(tab))}

@@ -39,6 +39,7 @@
   },
   "common": {
     "search": "按名称搜索…",
+    "clearSearch": "清除搜索",
     "empty": "暂无内容。",
     "viewSource": "查看源码",
     "close": "关闭",

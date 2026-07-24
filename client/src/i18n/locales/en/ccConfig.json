@@ -39,6 +39,7 @@
   },
   "common": {
     "search": "Search by name…",
+    "clearSearch": "Clear search",
     "empty": "Nothing here yet.",
     "viewSource": "View source",
     "close": "Close",
