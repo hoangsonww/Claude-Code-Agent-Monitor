@@ -381,5 +381,42 @@
         "Tip: use a free inspector like webhook.site to see the exact payload."
       ]
     }
+  },
+  "remoteSources": {
+    "title": "Remote Data Sources",
+    "description": "Collect Claude Code usage from other machines over SSH - e.g. a dev box or cloud VM you drive over SSH while running this dashboard locally. Authentication uses your own SSH setup (~/.ssh/config, keys, agent); no passwords are stored here.",
+    "scopeTitle": "Data scope",
+    "scopeDesc": "Choose which machines' data the whole dashboard shows. Changes apply immediately.",
+    "scopeAll": "All sources (local + remote)",
+    "scopeLocal": "This machine only",
+    "scopeSelected": "Selected sources…",
+    "thisMachine": "This machine",
+    "listTitle": "Configured sources",
+    "add": "Add source",
+    "addTitle": "Add a remote source",
+    "editTitle": "Edit source",
+    "fieldLabel": "Label",
+    "fieldHost": "SSH host",
+    "fieldPort": "Port (optional)",
+    "fieldIdentity": "Identity file (optional)",
+    "fieldRemoteHome": "Remote Claude home (optional)",
+    "fieldEnabled": "Sync automatically in the background",
+    "empty": "No remote sources yet.",
+    "emptyHint": "Add a machine you reach over SSH to pull its Claude Code usage in.",
+    "paused": "Auto-sync off",
+    "sessionCount": "{{n}} sessions",
+    "lastSync": "Last sync: {{when}}",
+    "neverSynced": "Never synced",
+    "imported": "{{n}} imported",
+    "test": "Test",
+    "syncNow": "Sync",
+    "syncAll": "Sync all",
+    "enable": "Enable",
+    "disable": "Disable",
+    "confirmDelete": "Remove this source?",
+    "purgeData": "Also delete the sessions imported from this source (cannot be undone)",
+    "deleteAndPurge": "Remove + delete data",
+    "removeKeep": "Remove (keep data)",
+    "remoteSourceBadgeTitle": "Collected from a remote machine"
   }
 }

@@ -102,6 +102,11 @@ function createOpenApiSpec() {
         description:
           "Universal webhook delivery for fired alerts: target CRUD (Slack/Discord/Teams/generic), test probe, and delivery log. Secrets are never returned.",
       },
+      {
+        name: "Remote Sources",
+        description:
+          "Config for remote SSH machines the dashboard pulls Claude Code history from. No secrets are stored — SSH auth defers to the host's SSH stack (agent, ~/.ssh/config, keys).",
+      },
       { name: "Documentation", description: "OpenAPI/Swagger endpoints" },
     ],
     components: {
@@ -177,6 +182,14 @@ function createOpenApiSpec() {
             enum: ["all", "active", "completed", "error", "abandoned"],
           },
           description: "Filter workflow aggregates by session status",
+        },
+        SourcesQuery: {
+          name: "sources",
+          in: "query",
+          required: false,
+          schema: { type: "string" },
+          description:
+            "Comma-separated list of data-source ids to include. The built-in local history is the id `local`; remote SSH machines use their `remote_sources.id`. Omit to include every source. Filters on the `sessions.source` column.",
         },
       },
       schemas: {

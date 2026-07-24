@@ -208,7 +208,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
       stats: { get: r(stats), facets: r({ cwds: [] }) },
       sessions: {
         list: r({ sessions: [], total: 0, limit: 50, offset: 0 }),
-        facets: r({ cwds: [] }),
+        facets: r({ cwds: [], sources: ["local"] }),
         get: r({ session, agents: [], events: [], workflows: [sampleWorkflowRun] }),
         stats: r({
           session_id: "sess-1",
@@ -231,6 +231,14 @@ vi.mock("../../lib/api", async (importOriginal) => {
         transcript: r({ messages: [], session_id: "sess-1" }),
       },
       agents: { list: r({ agents: [] }) },
+      remoteSources: {
+        list: r({ sources: [] }),
+        create: r({ source: {} }),
+        update: r({ source: {} }),
+        remove: r({ ok: true, purged: 0 }),
+        test: r({ ok: true, message: "" }),
+        sync: r({ ok: true }),
+      },
       events: {
         list: r({ events: [], total: 0, limit: 50, offset: 0 }),
         facets: r({ event_types: [], tool_names: [] }),

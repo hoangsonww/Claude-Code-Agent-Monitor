@@ -19,6 +19,7 @@ The complete guide to `ccam`, the Claude Code Agent Monitor command-line interfa
   - [Alerts & Webhooks](#alerts--webhooks)
   - [Pricing](#pricing)
   - [Import](#import)
+  - [Remote Sources](#remote-sources)
   - [Administration](#administration)
 - [Safety Model](#safety-model)
 - [Output & Scripting](#output--scripting)
@@ -140,7 +141,7 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Works offline | Server required (with the printed reason) |
 | ------------- | ----------------------------------------- |
-| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
+| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `remote-sources` (all — SSH pull needs the server), `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
 
 \* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
 
@@ -202,6 +203,18 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam import rescan` | Re-scan the default `~/.claude/projects` tree (idempotent; prints imported / backfilled / skipped / errors) |
 | `ccam import path <dir>` | Recursively import every `.jsonl` under an absolute directory (`~` is expanded server-side) |
 | `ccam import-data <file.json>` | Restore a full dashboard export produced by `ccam export` (or **Settings → Export data**). Idempotent and non-destructive — sessions already present are skipped whole, so it safely **consolidates several machines** into one dashboard. The file path is resolved to absolute and read server-side |
+
+### Remote Sources
+
+Manage the remote (SSH) machines this dashboard pulls Claude Code history from — the terminal equivalent of **Settings → Remote Data Sources**. Authentication defers entirely to your SSH stack (`~/.ssh/config`, ssh-agent, keys, known_hosts); **no secrets are passed or stored**. `remotes` is an alias for `remote-sources`.
+
+| Command | Description |
+| ------- | ----------- |
+| `ccam remote-sources` (alias `remotes`) | List configured sources with id, auto-sync on/off, status, label, host, **session count**, and last-sync time, followed by a totals line (sources / auto-syncing / sessions collected) |
+| `ccam remote-sources add --label <name> --host <user@host> [--port N] [--identity <path>] [--remote-home <path>] [--disabled]` | Add a source. `--host` is an ssh destination (`user@host`) or a `~/.ssh/config` alias; `--disabled` skips it in the background poller |
+| `ccam remote-sources test <id>` | Probe SSH connectivity and check the remote `~/.claude/projects` exists; exits non-zero on failure |
+| `ccam remote-sources sync [id]` | Pull history now — one source by id, or **all** sources when the id is omitted. Prints imported / tagged counts |
+| `ccam remote-sources rm <id> [--purge]` | Remove a source (its imported sessions are detached back to `local` by default; `--purge` also **deletes** them) |
 
 ### Administration
 

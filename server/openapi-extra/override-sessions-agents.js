@@ -138,6 +138,10 @@ const paths = {
             "Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.",
           example: "pricing",
         },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
         { $ref: "#/components/parameters/LimitQuery", example: 50 },
         { $ref: "#/components/parameters/OffsetQuery", example: 0 },
       ],
@@ -575,6 +579,10 @@ const paths = {
         {
           $ref: "#/components/parameters/SessionFilterQuery",
           example: "b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d",
+        },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
         },
         { $ref: "#/components/parameters/LimitQuery", example: 50 },
         { $ref: "#/components/parameters/OffsetQuery", example: 0 },

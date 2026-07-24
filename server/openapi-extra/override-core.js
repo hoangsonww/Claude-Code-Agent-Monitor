@@ -122,6 +122,10 @@ const paths = {
           example: "2026-06-26T00:00:00.000Z",
         },
         {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+        {
           in: "query",
           name: "limit",
           description: "Max rows to return; clamped to 1–500 (default 50).",
@@ -235,6 +239,10 @@ const paths = {
           schema: { type: "integer" },
           example: 420,
         },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
       ],
       responses: {
         200: {
@@ -299,6 +307,10 @@ const paths = {
             "the caller's local day. Defaults to UTC when omitted or non-numeric.",
           schema: { type: "integer" },
           example: 420,
+        },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
         },
       ],
       responses: {

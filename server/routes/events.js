@@ -9,6 +9,7 @@
 
 const { Router } = require("express");
 const { db } = require("../db");
+const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
 
 const router = Router();
 
@@ -69,6 +70,14 @@ function buildWhere(filters) {
     params.push(filters.to);
   }
 
+  // Data-scope: restrict to events whose session was collected from a chosen
+  // set of machines. `events` carries only session_id, so filter via subquery.
+  const scope = sessionIdInSourcesClause(filters.sources, "session_id");
+  if (scope.clause) {
+    clauses.push(scope.clause);
+    params.push(...scope.params);
+  }
+
   return {
     sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
     params,
@@ -88,6 +97,7 @@ router.get("/", (req, res) => {
     q: typeof req.query.q === "string" && req.query.q.trim() !== "" ? req.query.q.trim() : null,
     from: parseDate(req.query.from),
     to: parseDate(req.query.to),
+    sources: parseSources(req),
   };
 
   const { sql: whereSql, params: whereParams } = buildWhere(filters);

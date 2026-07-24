@@ -1,19 +1,28 @@
 /**
  * @file Supplementary OpenAPI 3.0 fragments for endpoints that were previously
  * undocumented in the base spec (server/openapi.js). Covers:
- *   - GET  /api/sessions/facets            (Sessions)
- *   - GET  /api/settings/claude-home       (Settings)
- *   - PUT  /api/settings/claude-home       (Settings)
- *   - GET  /api/workflows/runs             (Workflows)
- *   - GET  /api/workflows/runs/{runId}     (Workflows)
+ *   - GET    /api/sessions/facets              (Sessions)
+ *   - GET    /api/settings/claude-home         (Settings)
+ *   - PUT    /api/settings/claude-home         (Settings)
+ *   - GET    /api/workflows/runs               (Workflows)
+ *   - GET    /api/workflows/runs/{runId}       (Workflows)
+ *   - GET    /api/remote-sources               (Remote Sources)
+ *   - POST   /api/remote-sources               (Remote Sources)
+ *   - PATCH  /api/remote-sources/{id}          (Remote Sources)
+ *   - DELETE /api/remote-sources/{id}          (Remote Sources)
+ *   - POST   /api/remote-sources/{id}/test     (Remote Sources)
+ *   - POST   /api/remote-sources/{id}/sync     (Remote Sources)
  *
  * Exports `{ tags, schemas, paths }` and is combined into the base spec by
  * server/openapi-extra.js. Schema names are prefixed (Sessions / Settings /
- * Workflow) so they never collide with the base `components.schemas`. The
- * Sessions/Settings/Workflows tags are already declared in the base literal, so
- * `tags` here is intentionally empty. Error bodies reference the base-defined
- * `ErrorResponse` (shape `{ error: { code, message } }`); the run-detail agents
- * and events arrays reference the base `Agent` / `DashboardEvent` schemas.
+ * Workflow / RemoteSource) so they never collide with the base
+ * `components.schemas`. The Sessions/Settings/Workflows tags — plus the
+ * `Remote Sources` tag now declared in the base literal — are all present in the
+ * base spec, so `tags` here is intentionally empty. Error bodies reference the
+ * base-defined `ErrorResponse` (shape `{ error: { code, message } }`); the
+ * run-detail agents and events arrays reference the base `Agent` /
+ * `DashboardEvent` schemas. The `SessionsFacetsResponse` schema additionally
+ * exposes a `sources` array (the distinct `sessions.source` values).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -23,8 +32,8 @@ const schemas = {
   SessionsFacetsResponse: {
     type: "object",
     description:
-      "Facet values for the Sessions page filter UI. Currently exposes the distinct working directories (cwd) seen across all sessions.",
-    required: ["cwds"],
+      "Facet values for the Sessions page filter UI: the distinct working directories (cwd) and the distinct data-source ids seen across all sessions.",
+    required: ["cwds", "sources"],
     properties: {
       cwds: {
         type: "array",
@@ -35,6 +44,236 @@ const schemas = {
           "/Users/son/WebstormProjects/Claude-Code-Agent-Monitor",
           "/Users/son/code/another-project",
         ],
+      },
+      sources: {
+        type: "array",
+        description:
+          "Distinct data-source ids seen across all sessions (the `sessions.source` column). Always includes the built-in `local` history; each configured remote SSH machine contributes its `remote_sources.id`. Powers the source filter dropdown and the `sources` query param on the list/analytics endpoints.",
+        items: { type: "string" },
+        example: ["local", "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11"],
+      },
+    },
+  },
+
+  RemoteSource: {
+    type: "object",
+    description:
+      "A configured remote SSH machine the dashboard pulls Claude Code history from. NO secrets are stored on this record — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, and key files). `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias.",
+    required: [
+      "id",
+      "label",
+      "host",
+      "ssh_port",
+      "identity_file",
+      "remote_home",
+      "enabled",
+      "status",
+      "last_error",
+      "last_sync_at",
+      "last_sync_counts",
+      "created_at",
+      "updated_at",
+    ],
+    properties: {
+      id: {
+        type: "string",
+        description: "Primary key — the remote-source id (also used as `sessions.source`).",
+        example: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+      },
+      label: {
+        type: "string",
+        description: "Human-readable name shown in the UI.",
+        example: "Work laptop",
+      },
+      host: {
+        type: "string",
+        description:
+          "SSH destination (`user@host`) or a `~/.ssh/config` alias resolved by the host SSH stack.",
+        example: "son@studio.local",
+      },
+      ssh_port: {
+        type: "integer",
+        nullable: true,
+        description: "Optional SSH port; null defers to the SSH default / `~/.ssh/config`.",
+        example: 22,
+      },
+      identity_file: {
+        type: "string",
+        nullable: true,
+        description: "Optional path to a private-key file passed to ssh (`-i`); null to omit.",
+        example: "~/.ssh/id_ed25519",
+      },
+      remote_home: {
+        type: "string",
+        nullable: true,
+        description:
+          "Optional remote Claude home to read transcripts from; null defaults to the remote `~/.claude`.",
+        example: "~/.claude",
+      },
+      enabled: {
+        type: "boolean",
+        description: "Whether this source is eligible for scheduled/manual syncs.",
+        example: true,
+      },
+      status: {
+        type: "string",
+        enum: ["idle", "syncing", "ok", "error"],
+        description: "Last known sync status of the source.",
+        example: "ok",
+      },
+      last_error: {
+        type: "string",
+        nullable: true,
+        description: "Error message from the last failed sync/test, or null.",
+        example: null,
+      },
+      last_sync_at: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "ISO-8601 timestamp of the last successful sync, or null.",
+        example: "2026-07-22T18:41:55.117Z",
+      },
+      last_sync_counts: {
+        type: "object",
+        nullable: true,
+        additionalProperties: true,
+        description:
+          "Counters from the last sync (imported / skipped / backfilled / errors / sessions_seen / sessions_tagged), or null if never synced.",
+        example: {
+          imported: 9,
+          skipped: 41,
+          backfilled: 0,
+          errors: 0,
+          sessions_seen: 50,
+          sessions_tagged: 50,
+        },
+      },
+      created_at: {
+        type: "string",
+        format: "date-time",
+        description: "ISO-8601 creation timestamp.",
+        example: "2026-07-20T09:15:00.000Z",
+      },
+      updated_at: {
+        type: "string",
+        format: "date-time",
+        description: "ISO-8601 timestamp of the last edit.",
+        example: "2026-07-22T18:41:55.117Z",
+      },
+    },
+  },
+
+  RemoteSourceCreateRequest: {
+    type: "object",
+    description:
+      "Request body to register a remote SSH source. `label` and `host` are required; the rest are optional. No credentials are ever accepted or stored — auth defers to the host SSH stack.",
+    required: ["label", "host"],
+    properties: {
+      label: { type: "string", description: "Human-readable name.", example: "Work laptop" },
+      host: {
+        type: "string",
+        description: "SSH destination (`user@host`) or a `~/.ssh/config` alias.",
+        example: "son@studio.local",
+      },
+      ssh_port: {
+        type: "integer",
+        description: "Optional SSH port.",
+        example: 22,
+      },
+      identity_file: {
+        type: "string",
+        description: "Optional private-key path passed to ssh (`-i`).",
+        example: "~/.ssh/id_ed25519",
+      },
+      remote_home: {
+        type: "string",
+        description: "Optional remote Claude home; defaults to the remote `~/.claude`.",
+        example: "~/.claude",
+      },
+      enabled: {
+        type: "boolean",
+        description: "Whether the source is enabled for syncing (default true).",
+        example: true,
+      },
+    },
+  },
+
+  RemoteSourceUpdateRequest: {
+    type: "object",
+    description:
+      "Partial update for a remote source. Only the keys present in the body are changed; omitted keys are left as-is. Same field set as create; both `label` and `host` are optional here.",
+    properties: {
+      label: { type: "string", example: "Studio Mac" },
+      host: { type: "string", example: "son@studio.local" },
+      ssh_port: { type: "integer", nullable: true, example: 2222 },
+      identity_file: { type: "string", nullable: true, example: "~/.ssh/id_ed25519" },
+      remote_home: { type: "string", nullable: true, example: "~/.claude" },
+      enabled: { type: "boolean", example: false },
+    },
+  },
+
+  RemoteSourceResponse: {
+    type: "object",
+    required: ["source"],
+    properties: { source: { $ref: "#/components/schemas/RemoteSource" } },
+  },
+
+  RemoteSourceListResponse: {
+    type: "object",
+    required: ["sources"],
+    properties: {
+      sources: {
+        type: "array",
+        items: { $ref: "#/components/schemas/RemoteSource" },
+      },
+    },
+  },
+
+  RemoteSourceTestResponse: {
+    type: "object",
+    description: "Result of an SSH connectivity probe.",
+    required: ["ok", "message"],
+    properties: {
+      ok: { type: "boolean", example: true },
+      message: {
+        type: "string",
+        description: "Human-readable probe result.",
+        example: "Connected; found 24 project directories under ~/.claude/projects.",
+      },
+      remoteProjects: {
+        type: "array",
+        description:
+          "Optional list of remote project directories discovered during the probe (present on success).",
+        items: { type: "string" },
+        example: ["-Users-son-code-foo", "-Users-son-code-bar"],
+      },
+    },
+  },
+
+  RemoteSourceSyncResponse: {
+    type: "object",
+    description: "Counters from a pull-now sync against the remote source.",
+    required: [
+      "ok",
+      "imported",
+      "skipped",
+      "backfilled",
+      "errors",
+      "sessions_seen",
+      "sessions_tagged",
+    ],
+    properties: {
+      ok: { type: "boolean", example: true },
+      imported: { type: "integer", example: 9 },
+      skipped: { type: "integer", example: 41 },
+      backfilled: { type: "integer", example: 0 },
+      errors: { type: "integer", example: 0 },
+      sessions_seen: { type: "integer", example: 50 },
+      sessions_tagged: {
+        type: "integer",
+        description: "Number of imported sessions stamped with this source's id.",
+        example: 50,
       },
     },
   },
@@ -279,11 +518,11 @@ const paths = {
       tags: ["Sessions"],
       summary: "List session facet values",
       description:
-        "Returns the distinct, non-empty working directories (the `cwd` column) across all sessions, sorted ascending. Used to populate the cwd filter dropdown on the Sessions page. Always returns a 200 with a (possibly empty) array.",
+        "Returns the distinct facet values for the Sessions page filters: the non-empty working directories (the `cwd` column, sorted ascending) in `cwds`, and the distinct data-source ids (the `sessions.source` column) in `sources`. `sources` always includes the built-in `local` history plus any configured remote SSH machines. Always returns a 200 with (possibly empty) arrays.",
       operationId: "listSessionFacets",
       responses: {
         200: {
-          description: "Distinct session working directories",
+          description: "Distinct session working directories and data-source ids",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/SessionsFacetsResponse" },
@@ -292,7 +531,462 @@ const paths = {
                   "/Users/son/WebstormProjects/Claude-Code-Agent-Monitor",
                   "/Users/son/code/another-project",
                 ],
+                sources: ["local", "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11"],
               },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/remote-sources": {
+    get: {
+      tags: ["Remote Sources"],
+      summary: "List remote data sources",
+      description:
+        "Returns every configured remote SSH source the dashboard pulls Claude Code history from. NO secrets are ever returned — these records store none (SSH auth defers to the host SSH stack). Each entry carries its last sync `status`, `last_error`, `last_sync_at`, and `last_sync_counts`. Read-only; always 200.",
+      operationId: "listRemoteSources",
+      responses: {
+        200: {
+          description: "All configured remote sources",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RemoteSourceListResponse" },
+              example: {
+                sources: [
+                  {
+                    id: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+                    label: "Work laptop",
+                    host: "son@studio.local",
+                    ssh_port: 22,
+                    identity_file: "~/.ssh/id_ed25519",
+                    remote_home: "~/.claude",
+                    enabled: true,
+                    status: "ok",
+                    last_error: null,
+                    last_sync_at: "2026-07-22T18:41:55.117Z",
+                    last_sync_counts: {
+                      imported: 9,
+                      skipped: 41,
+                      backfilled: 0,
+                      errors: 0,
+                      sessions_seen: 50,
+                      sessions_tagged: 50,
+                    },
+                    created_at: "2026-07-20T09:15:00.000Z",
+                    updated_at: "2026-07-22T18:41:55.117Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    post: {
+      tags: ["Remote Sources"],
+      summary: "Register a remote data source",
+      description:
+        "Registers a remote SSH source. `label` and `host` are required; `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias. Optional `ssh_port`, `identity_file`, `remote_home`, and `enabled` fine-tune the connection. No credentials are accepted or stored — auth defers to the host SSH stack. Returns the created source (201). Validation failures return 400 `{ error: { code, message } }` with one of the codes INVALID_LABEL, INVALID_HOST, INVALID_PORT, INVALID_IDENTITY_FILE, INVALID_REMOTE_HOME.",
+      operationId: "createRemoteSource",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/RemoteSourceCreateRequest" },
+            examples: {
+              minimal: {
+                summary: "Minimal — label + SSH config alias",
+                value: { label: "Work laptop", host: "studio" },
+              },
+              full: {
+                summary: "Full — explicit port, key, and remote home",
+                value: {
+                  label: "Work laptop",
+                  host: "son@studio.local",
+                  ssh_port: 22,
+                  identity_file: "~/.ssh/id_ed25519",
+                  remote_home: "~/.claude",
+                  enabled: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: "Remote source created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RemoteSourceResponse" },
+              example: {
+                source: {
+                  id: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+                  label: "Work laptop",
+                  host: "son@studio.local",
+                  ssh_port: 22,
+                  identity_file: "~/.ssh/id_ed25519",
+                  remote_home: "~/.claude",
+                  enabled: true,
+                  status: "idle",
+                  last_error: null,
+                  last_sync_at: null,
+                  last_sync_counts: null,
+                  created_at: "2026-07-22T18:41:55.117Z",
+                  updated_at: "2026-07-22T18:41:55.117Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description:
+            "Validation error (codes: INVALID_LABEL, INVALID_HOST, INVALID_PORT, INVALID_IDENTITY_FILE, INVALID_REMOTE_HOME).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              examples: {
+                label: {
+                  summary: "Missing/blank label",
+                  value: { error: { code: "INVALID_LABEL", message: "`label` is required" } },
+                },
+                host: {
+                  summary: "Missing/invalid host",
+                  value: { error: { code: "INVALID_HOST", message: "`host` is required" } },
+                },
+                port: {
+                  summary: "Port out of range",
+                  value: {
+                    error: { code: "INVALID_PORT", message: "`ssh_port` must be 1–65535" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/remote-sources/{id}": {
+    patch: {
+      tags: ["Remote Sources"],
+      summary: "Update a remote data source (partial)",
+      description:
+        "Partially updates a remote source. Only the keys present in the body are changed; omitted keys are left as-is. The same validation as create applies to any field that is present. Returns the updated source, or 404 when the id is unknown.",
+      operationId: "updateRemoteSource",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Remote source id.",
+          example: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/RemoteSourceUpdateRequest" },
+            examples: {
+              disable: {
+                summary: "Disable a source without touching anything else",
+                value: { enabled: false },
+              },
+              rename: {
+                summary: "Rename and change port",
+                value: { label: "Studio Mac", ssh_port: 2222 },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated remote source",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RemoteSourceResponse" },
+              example: {
+                source: {
+                  id: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+                  label: "Studio Mac",
+                  host: "son@studio.local",
+                  ssh_port: 2222,
+                  identity_file: "~/.ssh/id_ed25519",
+                  remote_home: "~/.claude",
+                  enabled: false,
+                  status: "ok",
+                  last_error: null,
+                  last_sync_at: "2026-07-22T18:41:55.117Z",
+                  last_sync_counts: {
+                    imported: 9,
+                    skipped: 41,
+                    backfilled: 0,
+                    errors: 0,
+                    sessions_seen: 50,
+                    sessions_tagged: 50,
+                  },
+                  created_at: "2026-07-20T09:15:00.000Z",
+                  updated_at: "2026-07-22T19:02:10.400Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description:
+            "Validation error (codes: INVALID_LABEL, INVALID_HOST, INVALID_PORT, INVALID_IDENTITY_FILE, INVALID_REMOTE_HOME).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "INVALID_PORT", message: "`ssh_port` must be 1–65535" },
+              },
+            },
+          },
+        },
+        404: {
+          description: "Remote source not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "NOT_FOUND", message: "Remote source not found" },
+              },
+            },
+          },
+        },
+      },
+    },
+    delete: {
+      tags: ["Remote Sources"],
+      summary: "Delete a remote data source",
+      description:
+        "Deletes a remote source. By default its imported sessions are DETACHED — reassigned to the built-in `local` source — so history is preserved. Pass `?purge=true` to instead permanently DELETE that source's imported sessions along with the source. The response reports whether a purge occurred.",
+      operationId: "deleteRemoteSource",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Remote source id.",
+          example: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+        {
+          name: "purge",
+          in: "query",
+          required: false,
+          schema: { type: "boolean", default: false },
+          description:
+            "When true, also delete this source's imported sessions. When false/omitted, those sessions are reattached to `local`.",
+          example: true,
+        },
+      ],
+      responses: {
+        200: {
+          description: "Deleted (with the purge outcome)",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["ok", "purged"],
+                properties: {
+                  ok: { type: "boolean", example: true },
+                  purged: {
+                    type: "boolean",
+                    description:
+                      "True when the source's imported sessions were deleted (purge=true); false when they were detached to `local`.",
+                    example: false,
+                  },
+                },
+              },
+              examples: {
+                detached: {
+                  summary: "Default — sessions detached to local",
+                  value: { ok: true, purged: false },
+                },
+                purged: {
+                  summary: "purge=true — sessions deleted",
+                  value: { ok: true, purged: true },
+                },
+              },
+            },
+          },
+        },
+        404: {
+          description: "Remote source not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "NOT_FOUND", message: "Remote source not found" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/remote-sources/{id}/test": {
+    post: {
+      tags: ["Remote Sources"],
+      summary: "Probe SSH connectivity to a remote source",
+      description:
+        "Runs an SSH connectivity probe against the source and reports the outcome synchronously. The `ok` flag carries the probe result and `message` is a human-readable summary; on success `remoteProjects` may list the remote project directories discovered under the remote Claude home. This does not import anything — use POST /{id}/sync to pull.",
+      operationId: "testRemoteSource",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Remote source id.",
+          example: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Probe result (ok flag carries the connectivity outcome)",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RemoteSourceTestResponse" },
+              examples: {
+                success: {
+                  summary: "Reachable",
+                  value: {
+                    ok: true,
+                    message: "Connected; found 24 project directories under ~/.claude/projects.",
+                    remoteProjects: ["-Users-son-code-foo", "-Users-son-code-bar"],
+                  },
+                },
+                failure: {
+                  summary: "Unreachable / auth failed",
+                  value: {
+                    ok: false,
+                    message: "ssh: connect to host studio.local port 22: Connection refused",
+                  },
+                },
+              },
+            },
+          },
+        },
+        404: {
+          description: "Remote source not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "NOT_FOUND", message: "Remote source not found" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/remote-sources/{id}/sync": {
+    post: {
+      tags: ["Remote Sources"],
+      summary: "Pull Claude Code history from a remote source now",
+      description:
+        "Triggers an immediate pull of Claude Code history from the remote source over SSH, importing new transcripts through the same idempotent, baseline-preserving pipeline used for local imports and tagging imported sessions with this source's id. The response reports the per-run counters. Sync progress/completion is also broadcast over the WebSocket as `remote_source.status` frames.",
+      operationId: "syncRemoteSource",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Remote source id.",
+          example: "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Sync result",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RemoteSourceSyncResponse" },
+              example: {
+                ok: true,
+                imported: 9,
+                skipped: 41,
+                backfilled: 0,
+                errors: 0,
+                sessions_seen: 50,
+                sessions_tagged: 50,
+              },
+            },
+          },
+        },
+        404: {
+          description: "Remote source not found",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "NOT_FOUND", message: "Remote source not found" },
+              },
+            },
+          },
+        },
+        500: {
+          description: "Sync failed",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: { code: "SYNC_FAILED", message: "ssh exited with code 255" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/remote-sources/sync-all": {
+    post: {
+      tags: ["Remote Sources"],
+      summary: "Sync all enabled remote sources now",
+      description:
+        "Pulls Claude Code history from every enabled remote source over SSH, sequentially (one connection at a time). Per-source failures are isolated — one unreachable source never aborts the others — and each outcome is returned in `results`. Progress/completion is also broadcast over the WebSocket as `remote_source.status` frames. Always returns 200.",
+      operationId: "syncAllRemoteSources",
+      responses: {
+        200: {
+          description: "Per-source sync outcomes",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  ok: { type: "boolean" },
+                  synced: {
+                    type: "integer",
+                    description: "Number of enabled sources that were attempted.",
+                  },
+                  results: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "string" },
+                        ok: { type: "boolean" },
+                        error: { type: "string" },
+                      },
+                    },
+                  },
+                },
+              },
+              example: { ok: true, synced: 2, results: [{ id: "src_a", ok: true }] },
             },
           },
         },

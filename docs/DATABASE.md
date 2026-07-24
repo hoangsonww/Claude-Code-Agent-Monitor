@@ -40,6 +40,7 @@ graph TB
         Tools[tool_executions]
         Notifs[notifications]
         Pricing[pricing_rules]
+        Remote[remote_sources]
     end
     
     subgraph "Indexes"
@@ -53,6 +54,7 @@ graph TB
     DB --> Tools
     DB --> Notifs
     DB --> Pricing
+    DB --> Remote
     
     Sessions --> Idx1
     Agents --> Idx2
@@ -76,6 +78,7 @@ erDiagram
     sessions ||--o{ agents : "has many"
     agents ||--o{ tool_executions : "has many"
     sessions ||--o{ notifications : "has many"
+    remote_sources ||--o{ sessions : "tags (source)"
     
     sessions {
         integer id PK "Primary key"
@@ -83,6 +86,7 @@ erDiagram
         text model "Raw model slug (e.g., claude-sonnet-4-5-20250514); UI displays via formatModelName()"
         text status "active | completed"
         real total_cost "Aggregated cost from all agents"
+        text source "'local' or a remote_sources.id"
         text created_at "ISO8601 timestamp"
         text updated_at "ISO8601 timestamp (bumped on every hook)"
     }
@@ -126,6 +130,22 @@ erDiagram
         real output_cost_per_1m "Output cost per 1M tokens (USD)"
         text created_at "ISO8601 timestamp"
     }
+
+    remote_sources {
+        text id PK "Remote-source id (also used as sessions.source)"
+        text label "Human-readable name"
+        text host "SSH destination user@host or ~/.ssh/config alias"
+        integer ssh_port "Optional SSH port (NULL = SSH default)"
+        text identity_file "Optional private-key path (NULL = SSH default)"
+        text remote_home "Optional remote Claude home (NULL = remote ~/.claude)"
+        integer enabled "1 = eligible for sync, 0 = disabled"
+        text status "idle | syncing | ok | error"
+        text last_error "Last failure message, or NULL"
+        text last_sync_at "ISO8601 timestamp of last successful sync, or NULL"
+        text last_sync_counts "JSON blob of last sync counters, or NULL"
+        text created_at "ISO8601 timestamp"
+        text updated_at "ISO8601 timestamp"
+    }
 ```
 
 ### Relationship Cardinality
@@ -163,7 +183,8 @@ CREATE TABLE sessions (
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- NULL unless Waiting
     awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
-    transcript_path TEXT                                              -- absolute path to JSONL transcript
+    transcript_path TEXT,                                             -- absolute path to JSONL transcript
+    source TEXT NOT NULL DEFAULT 'local'                              -- data source: 'local' or a remote_sources.id
 );
 ```
 
@@ -183,6 +204,7 @@ CREATE TABLE sessions (
 | `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise. A SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting |
 | `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise. Exception: a `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
 | `transcript_path` | TEXT | YES | Absolute path to the session's JSONL transcript. Written by `routes/hooks.js` on the first event that carries it (subsequent events no-op via a SQL guard) and read by the periodic compaction sweep — so the sweep touches only active session rows instead of scanning the entire `events` table for `json_extract(data,'$.transcript_path')`. Backfilled once from `events` by the `db.js` migration |
+| `source` | TEXT | NO | Data source this session was captured from. `'local'` for this machine's own Claude Code history (the default); otherwise the `remote_sources.id` of the remote SSH machine it was pulled from. Powers the `sources` query filter on `/api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics`, and the `sources` facet on `/api/sessions/facets`. Indexed by `idx_sessions_source` |
 
 **Constraints:**
 - `status` must be one of the four enum values
@@ -412,6 +434,51 @@ Standard rates and intro rates are edited independently: the pricing update path
 
 ---
 
+### remote_sources
+
+Config for remote SSH machines the dashboard pulls Claude Code history from, so a single dashboard can consolidate sessions from several machines. **No secrets are stored** — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, key files). Each row's `id` is used as the `source` value on every session imported from that machine (see `sessions.source`).
+
+```sql
+CREATE TABLE remote_sources (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    host TEXT NOT NULL,
+    ssh_port INTEGER,
+    identity_file TEXT,
+    remote_home TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'idle'
+        CHECK (status IN ('idle','syncing','ok','error')),
+    last_error TEXT,
+    last_sync_at TEXT,
+    last_sync_counts TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `id` | TEXT | NO | Primary key. Also used as `sessions.source` for sessions pulled from this machine |
+| `label` | TEXT | NO | Human-readable name shown in the UI |
+| `host` | TEXT | NO | SSH destination (`user@host`) or a `~/.ssh/config` alias |
+| `ssh_port` | INTEGER | YES | Optional SSH port; NULL defers to the SSH default / `~/.ssh/config` |
+| `identity_file` | TEXT | YES | Optional private-key path passed to ssh (`-i`); NULL to omit |
+| `remote_home` | TEXT | YES | Optional remote Claude home to read transcripts from; NULL defaults to remote `~/.claude` |
+| `enabled` | INTEGER | NO | `1` = eligible for scheduled/manual syncs, `0` = disabled (default `1`) |
+| `status` | TEXT | NO | Last sync status: `idle`, `syncing`, `ok`, or `error` (CHECK-constrained) |
+| `last_error` | TEXT | YES | Error message from the last failed sync/test, or NULL |
+| `last_sync_at` | TEXT | YES | ISO 8601 timestamp of the last successful sync, or NULL |
+| `last_sync_counts` | TEXT | YES | JSON blob of the last sync's counters (imported/skipped/backfilled/errors/sessions_seen/sessions_tagged), or NULL |
+| `created_at` | TEXT | YES | ISO 8601 creation timestamp |
+| `updated_at` | TEXT | YES | ISO 8601 timestamp of the last edit |
+
+Managed through the `/api/remote-sources/*` routes; sync/status changes are broadcast over the WebSocket as `remote_source.status`. See [docs/API.md → Remote Data Sources](./API.md#remote-data-sources).
+
+---
+
 ## Indexes
 
 ### sessions Indexes
@@ -420,6 +487,7 @@ Standard rates and intro rates are edited independently: the pricing update path
 CREATE INDEX idx_sessions_session_id ON sessions(session_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_updated_at ON sessions(updated_at DESC);
+CREATE INDEX idx_sessions_source ON sessions(source);   -- powers the `sources` query filter
 
 -- Partial index covering only the rows the periodic compaction sweep reads:
 -- active sessions with a known transcript_path. Writes to other sessions skip
@@ -433,6 +501,7 @@ CREATE INDEX idx_sessions_active_tp
 **Query Patterns:**
 - `SELECT * FROM sessions WHERE session_id = ?` - Primary key lookup
 - `SELECT * FROM sessions WHERE status = 'active'` - Filter by status
+- `SELECT * FROM sessions WHERE source IN ('local', ?)` - Filter by data source (covered by `idx_sessions_source`)
 - `SELECT * FROM sessions ORDER BY updated_at DESC LIMIT 50` - Recent sessions
 - `SELECT id, transcript_path FROM sessions WHERE status='active' AND transcript_path IS NOT NULL ORDER BY updated_at DESC` — periodic compaction sweep (covered by the partial index above)
 

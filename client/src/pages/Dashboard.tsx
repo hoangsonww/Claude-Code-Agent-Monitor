@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { useDataScope } from "../lib/dataScope";
 import { StatCard } from "../components/StatCard";
 import { AgentCard } from "../components/AgentCard";
 import { AgentStatusBadge } from "../components/StatusBadge";
@@ -947,6 +948,10 @@ export function Dashboard() {
     return () => ro.disconnect();
   }, [activeTab]);
 
+  // Global data scope; a change re-runs `load` (the api layer injects the
+  // matching `sources` param into the calls below).
+  const [scope] = useDataScope();
+
   const load = useCallback(async () => {
     try {
       const [statsRes, workingRes, waitingRes, eventsRes, costRes, sessionsRes] = await Promise.all(
@@ -979,7 +984,7 @@ export function Dashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t("failedLoad"));
     }
-  }, [t]);
+  }, [t, scope]);
 
   useEffect(() => {
     load();
@@ -1022,7 +1027,10 @@ export function Dashboard() {
         msg.type === "agent_created" ||
         msg.type === "agent_updated" ||
         msg.type === "session_created" ||
-        msg.type === "session_updated"
+        msg.type === "session_updated" ||
+        // A remote source finished syncing → new remote data may have landed.
+        msg.type === "remote_source.status" ||
+        (msg.type === "import.progress" && (msg.data as { phase?: string })?.phase === "complete")
       ) {
         // Debounce rapid-fire updates (e.g., 5 agents created in 100ms)
         if (debounceRef.timer) clearTimeout(debounceRef.timer);

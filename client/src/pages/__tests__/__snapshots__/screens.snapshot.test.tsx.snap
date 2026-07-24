@@ -7737,6 +7737,28 @@ exports[`screen snapshots > Settings 1`] = `
           type="button"
         >
           <svg
+            class="lucide lucide-cloud w-3.5 h-3.5"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+            />
+          </svg>
+          Remote Data Sources
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+          type="button"
+        >
+          <svg
             class="lucide lucide-cat w-3.5 h-3.5"
             fill="none"
             height="24"
@@ -8877,6 +8899,222 @@ exports[`screen snapshots > Settings 1`] = `
           </div>
         </div>
       </section>
+    </section>
+    <section
+      class="scroll-mt-24"
+      id="remote-sources"
+    >
+      <div>
+        <h3
+          class="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1"
+        >
+          <svg
+            class="lucide lucide-cloud w-4 h-4 text-gray-500"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+            />
+          </svg>
+          Remote Data Sources
+        </h3>
+        <p
+          class="text-xs text-gray-500 mb-4"
+        >
+          Collect Claude Code usage from other machines over SSH - e.g. a dev box or cloud VM you drive over SSH while running this dashboard locally. Authentication uses your own SSH setup (~/.ssh/config, keys, agent); no passwords are stored here.
+        </p>
+        <div
+          class="card p-5 mb-4"
+        >
+          <div
+            class="flex items-center gap-2 mb-1"
+          >
+            <svg
+              class="lucide lucide-wifi w-4 h-4 text-accent"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12 20h.01"
+              />
+              <path
+                d="M2 8.82a15 15 0 0 1 20 0"
+              />
+              <path
+                d="M5 12.859a10 10 0 0 1 14 0"
+              />
+              <path
+                d="M8.5 16.429a5 5 0 0 1 7 0"
+              />
+            </svg>
+            <span
+              class="text-sm font-medium text-gray-200"
+            >
+              Data scope
+            </span>
+          </div>
+          <p
+            class="text-xs text-gray-500 mb-3"
+          >
+            Choose which machines' data the whole dashboard shows. Changes apply immediately.
+          </p>
+          <div
+            class="flex flex-col gap-2"
+          >
+            <label
+              class="flex items-center gap-2.5 cursor-pointer"
+            >
+              <input
+                checked=""
+                class="accent-accent"
+                name="data-scope"
+                type="radio"
+              />
+              <span
+                class="text-sm text-gray-300"
+              >
+                All sources (local + remote)
+              </span>
+            </label>
+            <label
+              class="flex items-center gap-2.5 cursor-pointer"
+            >
+              <input
+                class="accent-accent"
+                name="data-scope"
+                type="radio"
+              />
+              <span
+                class="text-sm text-gray-300"
+              >
+                This machine only
+              </span>
+            </label>
+            <label
+              class="flex items-center gap-2.5 cursor-pointer"
+            >
+              <input
+                class="accent-accent"
+                name="data-scope"
+                type="radio"
+              />
+              <span
+                class="text-sm text-gray-300"
+              >
+                Selected sources…
+              </span>
+            </label>
+          </div>
+        </div>
+        <div
+          class="flex items-center justify-between mb-3"
+        >
+          <span
+            class="text-xs font-medium text-gray-400 uppercase tracking-wider"
+          >
+            Configured sources
+          </span>
+          <div
+            class="flex items-center gap-2"
+          >
+            <button
+              class="btn-primary text-xs"
+            >
+              <svg
+                class="lucide lucide-plus w-3.5 h-3.5"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M5 12h14"
+                />
+                <path
+                  d="M12 5v14"
+                />
+              </svg>
+               
+              Add source
+            </button>
+          </div>
+        </div>
+        <div
+          class="card p-6 text-center"
+        >
+          <svg
+            class="lucide lucide-server w-6 h-6 text-gray-600 mx-auto mb-2"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              height="8"
+              rx="2"
+              ry="2"
+              width="20"
+              x="2"
+              y="2"
+            />
+            <rect
+              height="8"
+              rx="2"
+              ry="2"
+              width="20"
+              x="2"
+              y="14"
+            />
+            <line
+              x1="6"
+              x2="6.01"
+              y1="6"
+              y2="6"
+            />
+            <line
+              x1="6"
+              x2="6.01"
+              y1="18"
+              y2="18"
+            />
+          </svg>
+          <p
+            class="text-sm text-gray-400"
+          >
+            No remote sources yet.
+          </p>
+          <p
+            class="text-xs text-gray-600 mt-1"
+          >
+            Add a machine you reach over SSH to pull its Claude Code usage in.
+          </p>
+        </div>
+      </div>
     </section>
     <section
       class="scroll-mt-24"

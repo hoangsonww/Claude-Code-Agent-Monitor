@@ -114,6 +114,7 @@ graph TB
         Pricing[routes/pricing.js /api/pricing*]
         Settings[routes/settings.js /api/settings*]
         Workflows[routes/workflows.js /api/workflows*]
+        RemoteSources[routes/remote-sources.js /api/remote-sources*]
         OpenAPI[openapi.js + openapi-extra/ + Swagger + lib/redoc.js /api/openapi.json /api/docs /api/redoc]
     end
     
@@ -132,6 +133,7 @@ graph TB
     Index --> Pricing
     Index --> Settings
     Index --> Workflows
+    Index --> RemoteSources
     Index --> OpenAPI
     
     Hooks --> DB
@@ -258,6 +260,7 @@ CREATE TABLE sessions (
     model TEXT,
     status TEXT DEFAULT 'active',
     total_cost REAL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'local',   -- data source: 'local' or a remote_sources.id
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -265,7 +268,10 @@ CREATE TABLE sessions (
 CREATE INDEX idx_sessions_session_id ON sessions(session_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_updated_at ON sessions(updated_at DESC);
+CREATE INDEX idx_sessions_source ON sessions(source);   -- powers the ?sources= data-scope filter
 ```
+
+The `source` column is added migration-safe (additive `ALTER TABLE ... NOT NULL DEFAULT 'local'`), so every historical row keeps reading exactly as before; only sessions pulled from a configured remote carry a non-`local` source id.
 
 #### `agents`
 
@@ -340,6 +346,28 @@ CREATE TABLE pricing_rules (
     input_cost_per_1m REAL NOT NULL,
     output_cost_per_1m REAL NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### `remote_sources`
+
+Configured remote machines whose Claude Code history the dashboard pulls over SSH (see [Remote Data Sources](#remote-data-sources)). Config + operational status only — **no secrets** are stored; authentication defers to the host SSH stack.
+
+```sql
+CREATE TABLE remote_sources (
+    id TEXT PRIMARY KEY,          -- also stamped onto sessions.source
+    label TEXT NOT NULL,
+    host TEXT NOT NULL,           -- ssh destination (user@host or ~/.ssh/config alias)
+    ssh_port INTEGER,
+    identity_file TEXT,           -- optional path to a key the user already controls
+    remote_home TEXT,             -- remote home holding ~/.claude/projects
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'idle',   -- idle | syncing | ok | error
+    last_error TEXT,
+    last_sync_at TEXT,
+    last_sync_counts TEXT,        -- JSON import counters from the last sync
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 ```
 
@@ -437,6 +465,8 @@ The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), 
 | `GET`   | `/api/stats`        | Dashboard aggregate counters                     |
 | `GET`   | `/api/analytics`    | Analytics aggregates for charts/trends           |
 
+**Data scope (`?sources=`).** `GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics` all accept an optional `sources` query param — a comma-separated list of source ids (`local` plus any remote source id, see [Remote Data Sources](#remote-data-sources)) — that narrows the result to sessions with a matching `sessions.source`. It is parsed by `server/lib/source-filter.js` into SQL predicates; `/api/stats` and `/api/analytics` route to the source-scoped aggregates in `server/lib/scoped-stats.js` only when a scope is present, leaving the unscoped fast paths unchanged. `GET /api/sessions/facets` additionally returns a `sources` facet enumerating the known source ids.
+
 **Session names** are kept in sync with the transcript title: on every hook event (and in the 15 s watchdog) the ingestor reads the latest `custom-title` (`/rename`, `claude -n`, picker `Ctrl+R`) or `ai-title` (auto) from the JSONL and updates `sessions.name` — `custom-title` always wins, `ai-title` only fills a placeholder/auto name — broadcasting `session_updated` so the UI reflects renames in real time. When neither title exists, the session's first user prompt (tool-result / meta / slash-command plumbing entries skipped, 60-char label) fills the placeholder session name plus the main agent's placeholder name and empty task; a later `ai-title` can still replace a descriptor-filled name, and the agent fill passes the in-flight `current_tool` through so it is never wiped mid-turn.
 
 **Transcript stream** (`GET /api/sessions/:id/transcript`) returns `user` / `assistant` messages plus: synthetic `session_event` rename markers (from `custom-title`), local slash-command I/O surfaced from `system`/`local_command` lines (the `<command-name>` pill + `<local-command-stdout>`/`stderr` output, e.g. `/color`, `/rename`, custom commands), and **mid-turn queued user messages** surfaced from `attachment`/`queued_command` lines — a message typed while Claude was still working is journaled as `queue-operation` bookkeeping plus a `queued_command` attachment (never as a `user` line), so the attachment is rendered as a user message at the point the model actually received it. The queue is shared with harness injections, so queued lines are only attributed to the human when they aren't harness traffic: `<task-notification>`/`[SYSTEM NOTIFICATION` payloads and any non-`human` `origin.kind` render as `system` (harness notification attachments carry no `origin` field at all; typed messages carry `origin.kind = "human"`). Content-less `local_command` lines, other `system` subtypes, `queue-operation` lines, and every other attachment subtype are dropped.
@@ -477,6 +507,39 @@ Request body shape:
 | ------ | ----------------------------- | ------------------------------------------------------------------- |
 | `GET`  | `/api/workflows`              | Aggregate workflow intelligence (`?status=active\|completed\|...`) |
 | `GET`  | `/api/workflows/session/:id`  | Per-session drill-in (tree, timeline, swim lanes, events)          |
+
+### Remote Data Sources
+
+Live remote/multi-machine data collection over SSH. The dashboard pulls Claude Code history from other machines: `server/lib/remote-sync.js` rsyncs each remote's `~/.claude/projects` into a sandboxed per-source staging dir under the data dir, feeds it through the **same** importer used for local history (`scripts/import-history.js` `importFromDirectory`), and tags every imported session with the source id (`sessions.source`). Authentication defers entirely to the host SSH stack (ssh-agent / `~/.ssh/config` / identity file) — **no secrets are stored**; every command runs via `execFile`/`spawn` argument arrays (never a shell string) and `StrictHostKeyChecking` is left at its SSH default.
+
+| Method   | Path                          | Description |
+| -------- | ----------------------------- | ----------- |
+| `GET`    | `/api/remote-sources`         | List configured sources (config + operational status) |
+| `POST`   | `/api/remote-sources`         | Create a source |
+| `PATCH`  | `/api/remote-sources/:id`     | Update a source |
+| `DELETE` | `/api/remote-sources/:id`     | Delete a source; `?purge=true` also deletes that source's imported sessions |
+| `POST`   | `/api/remote-sources/:id/test`| SSH connectivity probe |
+| `POST`   | `/api/remote-sources/:id/sync`| Trigger an on-demand pull |
+| `POST`   | `/api/remote-sources/sync-all`| Pull every enabled source now (sequential; per-source failures isolated) |
+
+Every status transition broadcasts `remote_source.status` `{ id, status, error?, last_sync_at? }` over `/ws` (`status` one of `idle | syncing | ok | error | deleted`). Enabled sources are also pulled automatically by the background sync poller (`startRemoteSourceSync` in `server/index.js`) — see [Continuous Project Sync](#continuous-project-sync) and the environment table.
+
+#### Setup & troubleshooting
+
+Because sync runs non-interactively (`ssh -o BatchMode=yes`), the connection must already work without a prompt. Set a source up like this:
+
+1. **Reach the host once, manually:** `ssh user@host` (or an alias from `~/.ssh/config`). This adds the host to `~/.ssh/known_hosts` — required, since `StrictHostKeyChecking` is left at its secure default (an unknown host key fails the sync rather than being trusted blindly).
+2. **Make auth passwordless:** load your key into `ssh-agent` (`ssh-add`), or set an `IdentityFile` in `~/.ssh/config`, or point the source's optional `identity_file` at the key. Passphrase prompts and password auth will not work under `BatchMode`.
+3. **Ensure `rsync` exists on _both_ machines** (it is the transport). Most systems have it; install it on the remote if missing.
+4. **Add the source** (Settings → Remote Data Sources, or `ccam remote-sources add`), click **Test**, then **Sync**.
+
+| Symptom (surfaced in `last_error` / the Test result) | Cause & fix |
+| --- | --- |
+| `Host key verification failed` | The host isn't in `known_hosts`. `ssh user@host` once to accept its key. |
+| `Permission denied (publickey)` | No usable key for non-interactive auth. `ssh-add` your key, set `IdentityFile` in `~/.ssh/config`, or set the source's `identity_file`. |
+| `… does not exist on the remote` | Claude Code's home is elsewhere on that machine. Set the source's **remote home** (default `~/.claude`). |
+| `rsync: command not found` / `rsync error` | `rsync` isn't installed on the remote (or local). Install it. |
+| Sync hangs then errors after ~10 min | Bounded by `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS`; usually a network/host issue — verify with **Test** (bounded by `DASHBOARD_REMOTE_TEST_TIMEOUT_MS`). |
 
 ### Settings / Ops
 
@@ -736,6 +799,12 @@ Server broadcasts JSON messages to all connected clients:
 {
   "type": "notification.received",
   "data": { ...notification object }
+}
+
+// Remote data source status transition
+{
+  "type": "remote_source.status",
+  "data": { "id": "...", "status": "idle|syncing|ok|error|deleted", "error": "...?", "last_sync_at": "...?" }
 }
 ```
 
@@ -1048,6 +1117,10 @@ The startup auto-import of `~/.claude/projects` is **one-time** (marker-gated vi
 
 Each sweep parses **only** files whose mtime is new or has advanced. A cold-cache fast path (e.g. the immediate sweep on every restart, when `mtimeCache` is empty) additionally skips an already-imported session whose file mtime hasn't advanced past its DB row's `updated_at`, so restart cost stays O(new/changed files) instead of re-parsing every transcript on disk. For each touched session it then broadcasts `session_created` / `session_updated` plus the session's main agent (`agent_created` / `agent_updated`) — the same frames hooks emit, so the UI refreshes live. All timers and watchers are `unref`'d and best-effort; nothing here can block shutdown or take down the server.
 
+### Remote Data Source Sync
+
+`startRemoteSourceSync` (in `server/index.js`, wired into `startBackgroundServices`) pulls history from every **enabled** [Remote Data Source](#remote-data-sources) on an interval. A cheap guard first checks whether any enabled source exists, so the poller does no SSH work at all until the user configures one. Each tick delegates to `server/lib/remote-sync.js`, which rsyncs the remote's `~/.claude/projects` into a sandboxed per-source staging dir and runs it through `importFromDirectory`, tagging imported sessions with the source id. The interval is `DASHBOARD_REMOTE_SYNC_MS` (default `60000` ms; `0` disables the poller); a per-source pull is bounded by `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` (default `600000` ms) and the connectivity test by `DASHBOARD_REMOTE_TEST_TIMEOUT_MS` (default `15000` ms). Status transitions broadcast `remote_source.status` for live UI updates. The timer is `unref`'d and fail-safe — a hung or unreachable remote never wedges the dashboard.
+
 ### User-Interrupt (Esc) Recovery
 
 Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI limitation), so the `UserPromptSubmit` that promoted the main agent to `working` is never undone — the session would otherwise sit in `working` forever. The same 15 s watchdog recovers it, with two detection paths:
@@ -1320,6 +1393,11 @@ DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
 DASHBOARD_LIVENESS_PROBE=1         # 0 disables the dead-session liveness reap (use when hooks arrive from another machine)
 DASHBOARD_LIVENESS_IDLE_SECONDS=60 # Idle gate before the liveness reap may complete a process-less session
+
+# Remote Data Sources (SSH pull; see the Remote Data Sources section)
+DASHBOARD_REMOTE_SYNC_MS=60000         # Remote-source sync poll interval (ms); 0 disables the poller
+DASHBOARD_REMOTE_SYNC_TIMEOUT_MS=600000# Per-source rsync/pull timeout (ms)
+DASHBOARD_REMOTE_TEST_TIMEOUT_MS=15000 # SSH connectivity-test timeout (ms)
 
 # Logging
 LOG_LEVEL=info                     # Log level (debug, info, warn, error)

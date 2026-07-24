@@ -576,6 +576,9 @@
           <a href="#import-pipeline" class="nav-link"
             ><span class="nav-icon">◈</span>Import Pipeline</a
           >
+          <a href="#remote-sources" class="nav-link"
+            ><span class="nav-icon">◈</span>Remote Data Sources</a
+          >
           <a href="#mcp-agent-extensions" class="nav-link"
             ><span class="nav-icon">◈</span>MCP &amp; Agent Extensions</a>
           <a href="#plugin-marketplace" class="nav-link"
@@ -1068,6 +1071,20 @@
                     <code>session_created</code> / <code>session_updated</code> (plus the main
                     agent) so the UI refreshes live, while an already-imported unchanged session is
                     skipped without re-parsing.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-blue">🛜</div>
+                  <h3>Remote Data Sources</h3>
+                  <p>
+                    Pull Claude Code history from other machines over SSH. Each remote's
+                    <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging
+                    directory, fed through the same importer as local history, and every session
+                    is tagged with its source. A background poller keeps remote data
+                    near-real-time, a global data-scope selector (Local only / All / a specific
+                    source) narrows the whole app, and sessions from a remote show a source badge.
+                    Auth defers entirely to the host's SSH stack — no passwords or secrets are
+                    stored. Managed in <b>Settings → Remote Data Sources</b>.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2289,6 +2306,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>
                     The same idempotent ingestion pipeline the Settings page uses, reporting
                     imported / backfilled / skipped / error counts
+                  </td>
+                </tr>
+                <tr>
+                  <td>Remote Data Sources</td>
+                  <td><code>remote-sources list</code> · <code>remote-sources add</code> · <code>remote-sources test &lt;id&gt;</code> · <code>remote-sources sync [id]</code> · <code>remote-sources rm &lt;id&gt; [--purge]</code></td>
+                  <td>
+                    List, add, and test SSH data sources; sync one source (or all when no id is
+                    given); and remove a source, optionally purging the sessions it imported
                   </td>
                 </tr>
                 <tr>
@@ -3823,6 +3848,157 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             Phases: <code>start</code> → <code>scan</code> → <code>extract</code> (upload only)
             → <code>parse</code> → <code>complete</code>, with <code>error</code> /
             <code>extract_error</code> replacing <code>complete</code> on failure.
+          </p>
+        </section>
+
+        <!-- ─── Remote Data Sources ──────────────────────────────────────── -->
+        <section id="remote-sources">
+          <div class="section-label">◈ Integrations</div>
+          <h2>Remote Data Sources</h2>
+
+          <p>
+            Beyond local history, the dashboard can pull Claude Code activity from
+            <b>other machines over SSH</b> and fold it into the same views as your local
+            sessions. Each remote's <code>~/.claude/projects</code> tree is rsynced into a
+            sandboxed staging directory, fed through the exact same importer used for local
+            history, and every imported session is tagged with the source it came from. A
+            background poller keeps remote data near-real-time, and a global <b>data scope</b>
+            selector lets you narrow the entire app to local sessions only, all sources, or a
+            specific machine. Sources are managed in
+            <b>Settings → Remote Data Sources</b>.
+          </p>
+
+          <h3>How It Works</h3>
+          <div class="diagram-wrap">
+            <!-- prettier-ignore -->
+            <div class="mermaid">
+              flowchart LR
+                RH["Remote host\n~/.claude/projects"] -->|rsync over SSH| ST["Sandboxed\nstaging dir"]
+                ST -->|same pipeline\nas local history| P["parseSessionFile +\nimportSession"]
+                P -->|tagged with source| D[("SQLite\nsessions / agents / events")]
+                POLL["Background poller\nDASHBOARD_REMOTE_SYNC_MS"] -.->|periodic sync| RH
+                D -.->|remote_source.status| W["WebSocket /ws"]
+            </div>
+            <p class="diagram-label">
+              Each remote is rsynced, imported through the local pipeline, and tagged by
+              source — the poller keeps it near-real-time
+            </p>
+          </div>
+
+          <h3>Setup</h3>
+          <p>
+            Add a source with an SSH destination — either a <code>user@host</code> pair or an
+            alias defined in your <code>~/.ssh/config</code> — plus an optional port, identity
+            file, and remote home directory. Use <b>Test connection</b> to verify reachability
+            before saving, then <b>Sync now</b> to pull immediately, or let the background
+            poller do it on its own schedule. Removing a source can optionally purge the
+            sessions it imported.
+          </p>
+
+          <h3>Data Scope</h3>
+          <p>
+            A global data-scope selector narrows the whole app: choose <b>Local only</b>,
+            <b>All</b> sources, or one specific machine. The scope flows into every data view
+            through a <code>sources</code> query parameter on the sessions, events, agents,
+            stats, and analytics endpoints, and sessions imported from a remote carry a
+            <b>source badge</b> so their origin is always visible.
+          </p>
+
+          <h3>Security Model</h3>
+          <p>
+            Authentication defers entirely to the host's own SSH stack —
+            <code>~/.ssh/config</code>, <code>ssh-agent</code>, on-disk keys, and
+            <code>known_hosts</code>. The dashboard stores <b>no passwords or secrets</b>; it
+            only records the SSH destination and connection options you supply.
+            <code>StrictHostKeyChecking</code> is left at its default, so the remote host must
+            already be present in <code>known_hosts</code> — an unknown host fails the
+            connection rather than being trusted blindly.
+          </p>
+
+          <h3>Environment Variables</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable</th>
+                  <th>Default</th>
+                  <th>Purpose</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>DASHBOARD_REMOTE_SYNC_MS</code></td>
+                  <td><code>60000</code></td>
+                  <td>Interval for the background remote poller; <code>0</code> disables the poller while leaving manual sync available</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_REMOTE_SYNC_TIMEOUT_MS</code></td>
+                  <td><code>600000</code></td>
+                  <td>Ceiling on a single rsync-and-import run before it is aborted</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_REMOTE_TEST_TIMEOUT_MS</code></td>
+                  <td><code>15000</code></td>
+                  <td>Timeout for the <b>Test connection</b> probe</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>API Endpoints</h3>
+          <div class="route-list">
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/remote-sources</span>
+              <span class="route-desc">List configured sources with their status</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/remote-sources</span>
+              <span class="route-desc">Add a source — SSH destination plus optional port, identity file, and remote home</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-patch">PATCH</span>
+              <span class="route-path">/api/remote-sources/:id</span>
+              <span class="route-desc">Edit an existing source</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-delete">DELETE</span>
+              <span class="route-path">/api/remote-sources/:id</span>
+              <span class="route-desc">Remove a source; optionally purge the sessions it imported</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/remote-sources/:id/test</span>
+              <span class="route-desc">Test SSH reachability without importing anything</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/remote-sources/:id/sync</span>
+              <span class="route-desc">Trigger an immediate rsync-and-import for that source</span>
+            </div>
+          </div>
+          <p>
+            The <code>sources</code> query parameter is also accepted on
+            <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>,
+            <code>/api/stats</code>, and <code>/api/analytics</code> to scope any view to
+            <code>local</code>, <code>all</code>, or a comma-separated list of source IDs.
+          </p>
+
+          <h3>WebSocket Events</h3>
+          <p>
+            Sync progress and connection state broadcast on <code>/ws</code> as
+            <code>remote_source.status</code> messages, so the Settings panel and the source
+            badges update live as a remote connects, syncs, or fails.
+          </p>
+
+          <h3>CLI</h3>
+          <p>
+            The same operations are available from the terminal via
+            <code>ccam remote-sources</code>, with subcommands <code>list</code>,
+            <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code> (all sources
+            when no id is given), and <code>rm &lt;id&gt; [--purge]</code> to remove a source
+            and optionally drop the sessions it imported.
           </p>
         </section>
 
@@ -6284,7 +6460,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=35" defer></script>
+    <script src="i18n-content.js?v=36" defer></script>
     <script src="script.js?v=31" defer></script>
     <script>
       (function () {

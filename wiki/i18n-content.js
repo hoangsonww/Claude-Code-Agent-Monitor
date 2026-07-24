@@ -3,6 +3,40 @@
  * 'plain' fills heading/label gaps in script.js's T (existing T wins). */
 window.__WIKI_CONTENT_I18N = {
   zh: {
+    "Pull Claude Code history from other machines over SSH. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the same importer as local history, and every session is tagged with its source. A background poller keeps remote data near-real-time, a global data-scope selector (Local only / All / a specific source) narrows the whole app, and sessions from a remote show a source badge. Auth defers entirely to the host's SSH stack — no passwords or secrets are stored. Managed in <b>Settings → Remote Data Sources</b>.":
+      "通过 SSH 从其他机器拉取 Claude Code 历史。每个远程主机的 <code>~/.claude/projects</code> 目录树会被 rsync 到一个沙箱化的暂存目录,经由与本地历史相同的导入器处理,每个会话都会标记其来源。后台轮询器让远程数据保持近实时,全局数据范围选择器(仅本机 / 全部 / 指定来源)可缩小整个应用的范围,来自远程的会话会显示来源徽章。认证完全委托给主机的 SSH 栈——不存储任何密码或密钥。在 <b>Settings → Remote Data Sources</b> 中管理。",
+    "Remote Data Sources": "远程数据源",
+    "List, add, and test SSH data sources; sync one source (or all when no id is given); and remove a source, optionally purging the sessions it imported":
+      "列出、添加并测试 SSH 数据源;同步单个来源(未提供 id 时同步全部);以及移除某个来源,可选地清除它导入的会话",
+    "Beyond local history, the dashboard can pull Claude Code activity from <b>other machines over SSH</b> and fold it into the same views as your local sessions. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the exact same importer used for local history, and every imported session is tagged with the source it came from. A background poller keeps remote data near-real-time, and a global <b>data scope</b> selector lets you narrow the entire app to local sessions only, all sources, or a specific machine. Sources are managed in <b>Settings → Remote Data Sources</b>.":
+      "除了本地历史,仪表盘还可以 <b>通过 SSH 从其他机器</b> 拉取 Claude Code 活动,并将其融入与本地会话相同的视图中。每个远程主机的 <code>~/.claude/projects</code> 目录树会被 rsync 到一个沙箱化的暂存目录,经由与本地历史完全相同的导入器处理,每个导入的会话都会标记其来源。后台轮询器让远程数据保持近实时,全局 <b>数据范围</b> 选择器让你可以将整个应用缩小到仅本地会话、全部来源或某台特定机器。来源在 <b>Settings → Remote Data Sources</b> 中管理。",
+    "Each remote is rsynced, imported through the local pipeline, and tagged by source — the poller keeps it near-real-time":
+      "每个远程主机都会被 rsync、经由本地流水线导入并按来源标记——轮询器让其保持近实时",
+    "Add a source with an SSH destination — either a <code>user@host</code> pair or an alias defined in your <code>~/.ssh/config</code> — plus an optional port, identity file, and remote home directory. Use <b>Test connection</b> to verify reachability before saving, then <b>Sync now</b> to pull immediately, or let the background poller do it on its own schedule. Removing a source can optionally purge the sessions it imported.":
+      "添加来源时提供一个 SSH 目标——可以是 <code>user@host</code> 组合,也可以是你 <code>~/.ssh/config</code> 中定义的别名——外加可选的端口、身份文件和远程主目录。保存前用 <b>Test connection</b> 验证可达性,然后用 <b>Sync now</b> 立即拉取,或让后台轮询器按自己的计划完成。移除来源时可选地清除它导入的会话。",
+    "A global data-scope selector narrows the whole app: choose <b>Local only</b>, <b>All</b> sources, or one specific machine. The scope flows into every data view through a <code>sources</code> query parameter on the sessions, events, agents, stats, and analytics endpoints, and sessions imported from a remote carry a <b>source badge</b> so their origin is always visible.":
+      "全局数据范围选择器可缩小整个应用的范围:选择 <b>Local only</b>、<b>All</b> 来源,或某台特定机器。该范围通过 sessions、events、agents、stats 和 analytics 端点上的 <code>sources</code> 查询参数流入每个数据视图,来自远程的会话会带有 <b>source badge</b>,使其来源始终可见。",
+    "Authentication defers entirely to the host's own SSH stack — <code>~/.ssh/config</code>, <code>ssh-agent</code>, on-disk keys, and <code>known_hosts</code>. The dashboard stores <b>no passwords or secrets</b>; it only records the SSH destination and connection options you supply. <code>StrictHostKeyChecking</code> is left at its default, so the remote host must already be present in <code>known_hosts</code> — an unknown host fails the connection rather than being trusted blindly.":
+      "认证完全委托给主机自身的 SSH 栈——<code>~/.ssh/config</code>、<code>ssh-agent</code>、磁盘上的密钥以及 <code>known_hosts</code>。仪表盘 <b>不存储任何密码或密钥</b>,只记录你提供的 SSH 目标和连接选项。<code>StrictHostKeyChecking</code> 保持默认值,因此远程主机必须已存在于 <code>known_hosts</code> 中——未知主机会导致连接失败,而不会被盲目信任。",
+    "Interval for the background remote poller; <code>0</code> disables the poller while leaving manual sync available":
+      "后台远程轮询器的间隔;<code>0</code> 会禁用轮询器,但仍保留手动同步",
+    "Ceiling on a single rsync-and-import run before it is aborted":
+      "单次 rsync 与导入运行在被中止前的上限",
+    "Timeout for the <b>Test connection</b> probe": "<b>Test connection</b> 探测的超时时间",
+    "List configured sources with their status": "列出已配置的来源及其状态",
+    "Add a source — SSH destination plus optional port, identity file, and remote home":
+      "添加来源——SSH 目标外加可选的端口、身份文件和远程主目录",
+    "Edit an existing source": "编辑现有来源",
+    "Remove a source; optionally purge the sessions it imported":
+      "移除某个来源;可选地清除它导入的会话",
+    "Test SSH reachability without importing anything": "测试 SSH 可达性而不导入任何内容",
+    "Trigger an immediate rsync-and-import for that source": "为该来源触发一次立即的 rsync 与导入",
+    "The <code>sources</code> query parameter is also accepted on <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>, <code>/api/stats</code>, and <code>/api/analytics</code> to scope any view to <code>local</code>, <code>all</code>, or a comma-separated list of source IDs.":
+      "<code>sources</code> 查询参数在 <code>/api/sessions</code>、<code>/api/events</code>、<code>/api/agents</code>、<code>/api/stats</code> 和 <code>/api/analytics</code> 上同样受支持,可将任意视图限定为 <code>local</code>、<code>all</code> 或以逗号分隔的来源 ID 列表。",
+    "Sync progress and connection state broadcast on <code>/ws</code> as <code>remote_source.status</code> messages, so the Settings panel and the source badges update live as a remote connects, syncs, or fails.":
+      "同步进度和连接状态会作为 <code>remote_source.status</code> 消息在 <code>/ws</code> 上广播,因此当远程主机连接、同步或失败时,设置面板和来源徽章会实时更新。",
+    "The same operations are available from the terminal via <code>ccam remote-sources</code>, with subcommands <code>list</code>, <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code> (all sources when no id is given), and <code>rm &lt;id&gt; [--purge]</code> to remove a source and optionally drop the sessions it imported.":
+      "相同的操作也可以在终端通过 <code>ccam remote-sources</code> 完成,其子命令包括 <code>list</code>、<code>add</code>、<code>test &lt;id&gt;</code>、<code>sync [id]</code>(未提供 id 时同步全部来源),以及 <code>rm &lt;id&gt; [--purge]</code>——移除某个来源并可选地删除它导入的会话。",
     "Local-only by default": "默认仅限本机访问",
     "The image bakes <code>DASHBOARD_HOST=0.0.0.0</code> (the server binds loopback by default, but a container's loopback is a separate namespace the published port cannot reach) and <code>DASHBOARD_DATA_DIR=/app/data</code> (the read-only <code>~/.claude</code> mount cannot hold the SQLite data dir). The trust boundary is the host port publish: the examples use <code>-p 127.0.0.1:4820:4820</code>, so the dashboard is local-only. To expose it on a LAN, publish on <code>0.0.0.0</code> (<code>-p 4820:4820</code>) and set <code>DASHBOARD_TOKEN</code>.":
       "镜像内置了 <code>DASHBOARD_HOST=0.0.0.0</code>（服务器默认绑定回环地址，但容器的回环地址是独立命名空间，发布的端口无法访问它）和 <code>DASHBOARD_DATA_DIR=/app/data</code>（只读的 <code>~/.claude</code> 挂载无法存放 SQLite 数据目录）。信任边界是主机端口发布：示例使用 <code>-p 127.0.0.1:4820:4820</code>，因此仪表盘仅限本机访问。若要在局域网中暴露，请发布到 <code>0.0.0.0</code>（<code>-p 4820:4820</code>）并设置 <code>DASHBOARD_TOKEN</code>。",
@@ -1246,6 +1280,44 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🧬</span> <span><strong>工作流运行 · 展开</strong> — 展开的一次运行：可点击的彩色阶段筛选、按 Agent 的指标表，以及完整的可点击结果项列表，点击即可展开每个 Agent 的完整提示词与结果</span>',
   },
   vi: {
+    "Pull Claude Code history from other machines over SSH. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the same importer as local history, and every session is tagged with its source. A background poller keeps remote data near-real-time, a global data-scope selector (Local only / All / a specific source) narrows the whole app, and sessions from a remote show a source badge. Auth defers entirely to the host's SSH stack — no passwords or secrets are stored. Managed in <b>Settings → Remote Data Sources</b>.":
+      "Kéo lịch sử Claude Code từ các máy khác qua SSH. Cây thư mục <code>~/.claude/projects</code> của mỗi máy từ xa được rsync vào một thư mục dàn dựng biệt lập, đưa qua cùng bộ nhập như lịch sử cục bộ, và mỗi phiên được gắn thẻ nguồn của nó. Một bộ thăm dò nền giữ dữ liệu từ xa gần thời gian thực, một bộ chọn phạm vi dữ liệu toàn cục (Chỉ cục bộ / Tất cả / một nguồn cụ thể) thu hẹp toàn bộ ứng dụng, và các phiên từ máy từ xa hiển thị huy hiệu nguồn. Xác thực hoàn toàn dựa vào ngăn xếp SSH của máy chủ — không lưu trữ mật khẩu hay bí mật nào. Quản lý trong <b>Settings → Remote Data Sources</b>.",
+    "Remote Data Sources": "Nguồn dữ liệu từ xa",
+    "List, add, and test SSH data sources; sync one source (or all when no id is given); and remove a source, optionally purging the sessions it imported":
+      "Liệt kê, thêm và kiểm tra các nguồn dữ liệu SSH; đồng bộ một nguồn (hoặc tất cả khi không cung cấp id); và gỡ bỏ một nguồn, tùy chọn xóa các phiên mà nó đã nhập",
+    "Beyond local history, the dashboard can pull Claude Code activity from <b>other machines over SSH</b> and fold it into the same views as your local sessions. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the exact same importer used for local history, and every imported session is tagged with the source it came from. A background poller keeps remote data near-real-time, and a global <b>data scope</b> selector lets you narrow the entire app to local sessions only, all sources, or a specific machine. Sources are managed in <b>Settings → Remote Data Sources</b>.":
+      "Ngoài lịch sử cục bộ, bảng điều khiển có thể kéo hoạt động Claude Code từ <b>các máy khác qua SSH</b> và gộp vào cùng các khung nhìn với các phiên cục bộ của bạn. Cây thư mục <code>~/.claude/projects</code> của mỗi máy từ xa được rsync vào một thư mục dàn dựng biệt lập, đưa qua đúng bộ nhập được dùng cho lịch sử cục bộ, và mỗi phiên được nhập đều được gắn thẻ nguồn xuất xứ. Một bộ thăm dò nền giữ dữ liệu từ xa gần thời gian thực, và bộ chọn <b>phạm vi dữ liệu</b> toàn cục cho phép bạn thu hẹp toàn bộ ứng dụng chỉ còn các phiên cục bộ, tất cả nguồn, hoặc một máy cụ thể. Các nguồn được quản lý trong <b>Settings → Remote Data Sources</b>.",
+    "Each remote is rsynced, imported through the local pipeline, and tagged by source — the poller keeps it near-real-time":
+      "Mỗi máy từ xa được rsync, nhập qua đường ống cục bộ và gắn thẻ theo nguồn — bộ thăm dò giữ nó gần thời gian thực",
+    "Add a source with an SSH destination — either a <code>user@host</code> pair or an alias defined in your <code>~/.ssh/config</code> — plus an optional port, identity file, and remote home directory. Use <b>Test connection</b> to verify reachability before saving, then <b>Sync now</b> to pull immediately, or let the background poller do it on its own schedule. Removing a source can optionally purge the sessions it imported.":
+      "Thêm một nguồn với đích SSH — hoặc một cặp <code>user@host</code> hoặc một bí danh được định nghĩa trong <code>~/.ssh/config</code> của bạn — cùng với cổng, tệp danh tính và thư mục home từ xa tùy chọn. Dùng <b>Test connection</b> để xác minh khả năng kết nối trước khi lưu, rồi <b>Sync now</b> để kéo ngay lập tức, hoặc để bộ thăm dò nền tự thực hiện theo lịch của nó. Việc gỡ bỏ một nguồn có thể tùy chọn xóa các phiên mà nó đã nhập.",
+    "A global data-scope selector narrows the whole app: choose <b>Local only</b>, <b>All</b> sources, or one specific machine. The scope flows into every data view through a <code>sources</code> query parameter on the sessions, events, agents, stats, and analytics endpoints, and sessions imported from a remote carry a <b>source badge</b> so their origin is always visible.":
+      "Bộ chọn phạm vi dữ liệu toàn cục thu hẹp toàn bộ ứng dụng: chọn <b>Local only</b>, <b>All</b> nguồn, hoặc một máy cụ thể. Phạm vi này chảy vào mọi khung nhìn dữ liệu thông qua tham số truy vấn <code>sources</code> trên các điểm cuối sessions, events, agents, stats và analytics, và các phiên được nhập từ máy từ xa mang một <b>source badge</b> để nguồn gốc của chúng luôn hiển thị.",
+    "Authentication defers entirely to the host's own SSH stack — <code>~/.ssh/config</code>, <code>ssh-agent</code>, on-disk keys, and <code>known_hosts</code>. The dashboard stores <b>no passwords or secrets</b>; it only records the SSH destination and connection options you supply. <code>StrictHostKeyChecking</code> is left at its default, so the remote host must already be present in <code>known_hosts</code> — an unknown host fails the connection rather than being trusted blindly.":
+      "Xác thực hoàn toàn dựa vào ngăn xếp SSH của chính máy chủ — <code>~/.ssh/config</code>, <code>ssh-agent</code>, khóa trên đĩa, và <code>known_hosts</code>. Bảng điều khiển <b>không lưu trữ mật khẩu hay bí mật nào</b>; nó chỉ ghi lại đích SSH và các tùy chọn kết nối bạn cung cấp. <code>StrictHostKeyChecking</code> được giữ ở giá trị mặc định, vì vậy máy chủ từ xa phải đã có mặt trong <code>known_hosts</code> — một máy chủ không xác định sẽ khiến kết nối thất bại thay vì được tin tưởng một cách mù quáng.",
+    "Interval for the background remote poller; <code>0</code> disables the poller while leaving manual sync available":
+      "Khoảng thời gian cho bộ thăm dò từ xa chạy nền; <code>0</code> tắt bộ thăm dò trong khi vẫn giữ đồng bộ thủ công",
+    "Ceiling on a single rsync-and-import run before it is aborted":
+      "Giới hạn trên cho một lần chạy rsync-và-nhập trước khi bị hủy",
+    "Timeout for the <b>Test connection</b> probe":
+      "Thời gian chờ cho phép thăm dò <b>Test connection</b>",
+    "List configured sources with their status":
+      "Liệt kê các nguồn đã cấu hình cùng trạng thái của chúng",
+    "Add a source — SSH destination plus optional port, identity file, and remote home":
+      "Thêm một nguồn — đích SSH cùng cổng, tệp danh tính và home từ xa tùy chọn",
+    "Edit an existing source": "Chỉnh sửa một nguồn hiện có",
+    "Remove a source; optionally purge the sessions it imported":
+      "Gỡ bỏ một nguồn; tùy chọn xóa các phiên mà nó đã nhập",
+    "Test SSH reachability without importing anything":
+      "Kiểm tra khả năng kết nối SSH mà không nhập gì cả",
+    "Trigger an immediate rsync-and-import for that source":
+      "Kích hoạt một lần rsync-và-nhập ngay lập tức cho nguồn đó",
+    "The <code>sources</code> query parameter is also accepted on <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>, <code>/api/stats</code>, and <code>/api/analytics</code> to scope any view to <code>local</code>, <code>all</code>, or a comma-separated list of source IDs.":
+      "Tham số truy vấn <code>sources</code> cũng được chấp nhận trên <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>, <code>/api/stats</code>, và <code>/api/analytics</code> để giới hạn bất kỳ khung nhìn nào thành <code>local</code>, <code>all</code>, hoặc một danh sách ID nguồn phân tách bằng dấu phẩy.",
+    "Sync progress and connection state broadcast on <code>/ws</code> as <code>remote_source.status</code> messages, so the Settings panel and the source badges update live as a remote connects, syncs, or fails.":
+      "Tiến trình đồng bộ và trạng thái kết nối được phát trên <code>/ws</code> dưới dạng thông điệp <code>remote_source.status</code>, vì vậy bảng Settings và các huy hiệu nguồn cập nhật trực tiếp khi một máy từ xa kết nối, đồng bộ hoặc thất bại.",
+    "The same operations are available from the terminal via <code>ccam remote-sources</code>, with subcommands <code>list</code>, <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code> (all sources when no id is given), and <code>rm &lt;id&gt; [--purge]</code> to remove a source and optionally drop the sessions it imported.":
+      "Các thao tác tương tự cũng có sẵn từ terminal qua <code>ccam remote-sources</code>, với các lệnh con <code>list</code>, <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code> (tất cả nguồn khi không cung cấp id), và <code>rm &lt;id&gt; [--purge]</code> để gỡ bỏ một nguồn và tùy chọn xóa các phiên mà nó đã nhập.",
     "Local-only by default": "Mặc định chỉ truy cập cục bộ",
     "The image bakes <code>DASHBOARD_HOST=0.0.0.0</code> (the server binds loopback by default, but a container's loopback is a separate namespace the published port cannot reach) and <code>DASHBOARD_DATA_DIR=/app/data</code> (the read-only <code>~/.claude</code> mount cannot hold the SQLite data dir). The trust boundary is the host port publish: the examples use <code>-p 127.0.0.1:4820:4820</code>, so the dashboard is local-only. To expose it on a LAN, publish on <code>0.0.0.0</code> (<code>-p 4820:4820</code>) and set <code>DASHBOARD_TOKEN</code>.":
       "Image đã tích hợp sẵn <code>DASHBOARD_HOST=0.0.0.0</code> (server mặc định bind loopback, nhưng loopback của container là một namespace riêng mà cổng được publish không thể truy cập) và <code>DASHBOARD_DATA_DIR=/app/data</code> (mount chỉ-đọc <code>~/.claude</code> không thể chứa thư mục dữ liệu SQLite). Ranh giới tin cậy là việc publish cổng trên host: các ví dụ dùng <code>-p 127.0.0.1:4820:4820</code>, nên bảng điều khiển chỉ truy cập được cục bộ. Để expose ra mạng LAN, hãy publish trên <code>0.0.0.0</code> (<code>-p 4820:4820</code>) và đặt <code>DASHBOARD_TOKEN</code>.",
@@ -2520,6 +2592,42 @@ window.__WIKI_CONTENT_I18N = {
       '<span class="caption-icon">🧬</span> <span><strong>Lần chạy quy trình · mở rộng</strong> — một lần chạy được mở ra: bộ lọc giai đoạn có màu và bấm được, bảng số liệu theo từng agent, và danh sách đầy đủ các mục kết quả bấm được để mở ra lời nhắc và kết quả đầy đủ của từng agent</span>',
   },
   ko: {
+    "Pull Claude Code history from other machines over SSH. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the same importer as local history, and every session is tagged with its source. A background poller keeps remote data near-real-time, a global data-scope selector (Local only / All / a specific source) narrows the whole app, and sessions from a remote show a source badge. Auth defers entirely to the host's SSH stack — no passwords or secrets are stored. Managed in <b>Settings → Remote Data Sources</b>.":
+      "SSH를 통해 다른 머신에서 Claude Code 기록을 가져옵니다. 각 원격 호스트의 <code>~/.claude/projects</code> 트리는 샌드박스화된 스테이징 디렉터리로 rsync되고, 로컬 기록과 동일한 임포터를 거치며, 모든 세션에 출처가 태그됩니다. 백그라운드 폴러가 원격 데이터를 준실시간으로 유지하고, 전역 데이터 범위 선택기(로컬 전용 / 전체 / 특정 소스)가 앱 전체 범위를 좁히며, 원격에서 온 세션은 소스 배지를 표시합니다. 인증은 전적으로 호스트의 SSH 스택에 위임되며 — 비밀번호나 비밀은 저장되지 않습니다. <b>Settings → Remote Data Sources</b>에서 관리합니다.",
+    "Remote Data Sources": "원격 데이터 소스",
+    "List, add, and test SSH data sources; sync one source (or all when no id is given); and remove a source, optionally purging the sessions it imported":
+      "SSH 데이터 소스를 나열, 추가, 테스트하고, 하나의 소스를 동기화하며(ID를 지정하지 않으면 전체), 소스를 제거하면서 선택적으로 가져온 세션을 정리합니다",
+    "Beyond local history, the dashboard can pull Claude Code activity from <b>other machines over SSH</b> and fold it into the same views as your local sessions. Each remote's <code>~/.claude/projects</code> tree is rsynced into a sandboxed staging directory, fed through the exact same importer used for local history, and every imported session is tagged with the source it came from. A background poller keeps remote data near-real-time, and a global <b>data scope</b> selector lets you narrow the entire app to local sessions only, all sources, or a specific machine. Sources are managed in <b>Settings → Remote Data Sources</b>.":
+      "로컬 기록 외에도 대시보드는 <b>SSH를 통해 다른 머신</b>에서 Claude Code 활동을 가져와 로컬 세션과 동일한 화면에 통합할 수 있습니다. 각 원격 호스트의 <code>~/.claude/projects</code> 트리는 샌드박스화된 스테이징 디렉터리로 rsync되고, 로컬 기록에 사용되는 것과 정확히 동일한 임포터를 거치며, 가져온 모든 세션에는 출처가 태그됩니다. 백그라운드 폴러가 원격 데이터를 준실시간으로 유지하고, 전역 <b>데이터 범위</b> 선택기를 통해 앱 전체를 로컬 세션만, 전체 소스, 또는 특정 머신으로 좁힐 수 있습니다. 소스는 <b>Settings → Remote Data Sources</b>에서 관리합니다.",
+    "Each remote is rsynced, imported through the local pipeline, and tagged by source — the poller keeps it near-real-time":
+      "각 원격은 rsync되어 로컬 파이프라인을 통해 가져와지고 소스별로 태그됩니다 — 폴러가 준실시간으로 유지합니다",
+    "Add a source with an SSH destination — either a <code>user@host</code> pair or an alias defined in your <code>~/.ssh/config</code> — plus an optional port, identity file, and remote home directory. Use <b>Test connection</b> to verify reachability before saving, then <b>Sync now</b> to pull immediately, or let the background poller do it on its own schedule. Removing a source can optionally purge the sessions it imported.":
+      "SSH 대상 — <code>user@host</code> 쌍 또는 <code>~/.ssh/config</code>에 정의된 별칭 — 과 선택적 포트, 신원 파일, 원격 홈 디렉터리를 지정하여 소스를 추가합니다. 저장하기 전에 <b>Test connection</b>으로 연결 가능 여부를 확인한 다음 <b>Sync now</b>로 즉시 가져오거나, 백그라운드 폴러가 자체 일정에 따라 처리하도록 둡니다. 소스를 제거할 때 선택적으로 가져온 세션을 정리할 수 있습니다.",
+    "A global data-scope selector narrows the whole app: choose <b>Local only</b>, <b>All</b> sources, or one specific machine. The scope flows into every data view through a <code>sources</code> query parameter on the sessions, events, agents, stats, and analytics endpoints, and sessions imported from a remote carry a <b>source badge</b> so their origin is always visible.":
+      "전역 데이터 범위 선택기는 앱 전체 범위를 좁힙니다: <b>Local only</b>, <b>All</b> 소스, 또는 특정 머신 하나를 선택합니다. 이 범위는 sessions, events, agents, stats, analytics 엔드포인트의 <code>sources</code> 쿼리 매개변수를 통해 모든 데이터 화면에 반영되며, 원격에서 가져온 세션에는 <b>source badge</b>가 표시되어 출처가 항상 보입니다.",
+    "Authentication defers entirely to the host's own SSH stack — <code>~/.ssh/config</code>, <code>ssh-agent</code>, on-disk keys, and <code>known_hosts</code>. The dashboard stores <b>no passwords or secrets</b>; it only records the SSH destination and connection options you supply. <code>StrictHostKeyChecking</code> is left at its default, so the remote host must already be present in <code>known_hosts</code> — an unknown host fails the connection rather than being trusted blindly.":
+      "인증은 전적으로 호스트 자체의 SSH 스택 — <code>~/.ssh/config</code>, <code>ssh-agent</code>, 디스크의 키, <code>known_hosts</code> — 에 위임됩니다. 대시보드는 <b>비밀번호나 비밀을 저장하지 않으며</b>, 사용자가 제공한 SSH 대상과 연결 옵션만 기록합니다. <code>StrictHostKeyChecking</code>은 기본값으로 유지되므로 원격 호스트가 이미 <code>known_hosts</code>에 있어야 하며 — 알 수 없는 호스트는 맹목적으로 신뢰되지 않고 연결이 실패합니다.",
+    "Interval for the background remote poller; <code>0</code> disables the poller while leaving manual sync available":
+      "백그라운드 원격 폴러의 간격; <code>0</code>은 수동 동기화는 유지한 채 폴러를 비활성화합니다",
+    "Ceiling on a single rsync-and-import run before it is aborted":
+      "단일 rsync 및 가져오기 실행이 중단되기 전의 상한",
+    "Timeout for the <b>Test connection</b> probe": "<b>Test connection</b> 프로브의 타임아웃",
+    "List configured sources with their status": "구성된 소스와 상태를 나열합니다",
+    "Add a source — SSH destination plus optional port, identity file, and remote home":
+      "소스 추가 — SSH 대상과 선택적 포트, 신원 파일, 원격 홈",
+    "Edit an existing source": "기존 소스를 편집합니다",
+    "Remove a source; optionally purge the sessions it imported":
+      "소스를 제거합니다; 선택적으로 가져온 세션을 정리합니다",
+    "Test SSH reachability without importing anything":
+      "아무것도 가져오지 않고 SSH 연결 가능 여부를 테스트합니다",
+    "Trigger an immediate rsync-and-import for that source":
+      "해당 소스에 대해 즉시 rsync 및 가져오기를 트리거합니다",
+    "The <code>sources</code> query parameter is also accepted on <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>, <code>/api/stats</code>, and <code>/api/analytics</code> to scope any view to <code>local</code>, <code>all</code>, or a comma-separated list of source IDs.":
+      "<code>sources</code> 쿼리 매개변수는 <code>/api/sessions</code>, <code>/api/events</code>, <code>/api/agents</code>, <code>/api/stats</code>, <code>/api/analytics</code>에서도 허용되어, 임의의 화면을 <code>local</code>, <code>all</code>, 또는 쉼표로 구분된 소스 ID 목록으로 범위를 좁힐 수 있습니다.",
+    "Sync progress and connection state broadcast on <code>/ws</code> as <code>remote_source.status</code> messages, so the Settings panel and the source badges update live as a remote connects, syncs, or fails.":
+      "동기화 진행 상황과 연결 상태는 <code>/ws</code>에서 <code>remote_source.status</code> 메시지로 브로드캐스트되므로, 원격이 연결, 동기화 또는 실패할 때 Settings 패널과 소스 배지가 실시간으로 업데이트됩니다.",
+    "The same operations are available from the terminal via <code>ccam remote-sources</code>, with subcommands <code>list</code>, <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code> (all sources when no id is given), and <code>rm &lt;id&gt; [--purge]</code> to remove a source and optionally drop the sessions it imported.":
+      "동일한 작업을 <code>ccam remote-sources</code>를 통해 터미널에서도 사용할 수 있으며, 하위 명령으로 <code>list</code>, <code>add</code>, <code>test &lt;id&gt;</code>, <code>sync [id]</code>(id를 지정하지 않으면 전체 소스), 그리고 소스를 제거하고 선택적으로 가져온 세션을 삭제하는 <code>rm &lt;id&gt; [--purge]</code>가 있습니다.",
     "The CLI also manages the server itself: <code>ccam status</code> shows an up/down indicator and <code>ccam start</code> boots a detached production server. When the server is down, read-only commands fall back to reading <code>data/dashboard.db</code> directly under an explicit offline banner, while live or server-computed commands refuse with the specific reason.":
       "CLI\ub294 \uc11c\ubc84 \uc790\uccb4\ub3c4 \uad00\ub9ac\ud569\ub2c8\ub2e4. <code>ccam status</code>\ub294 \uc2e4\ud589/\uc911\uc9c0 \ud45c\uc2dc\uae30\ub97c \ubcf4\uc5ec\uc8fc\uace0 <code>ccam start</code>\ub294 \ubd84\ub9ac\ub41c \ud504\ub85c\ub355\uc158 \uc11c\ubc84\ub97c \ubc31\uadf8\ub77c\uc6b4\ub4dc\ub85c \ub744\uc6c1\ub2c8\ub2e4. \uc11c\ubc84\uac00 \uaebc\uc838 \uc788\uc73c\uba74 \uc77d\uae30 \uc804\uc6a9 \uba85\ub839\uc740 \uba85\uc2dc\uc801\uc778 \uc624\ud504\ub77c\uc778 \ubc30\ub108 \uc544\ub798\uc5d0\uc11c <code>data/dashboard.db</code>\ub97c \uc9c1\uc811 \uc77d\ub294 \ubc29\uc2dd\uc73c\ub85c \ub300\uccb4\ub418\uba70, \uc2e4\uc2dc\uac04\uc774\uac70\ub098 \uc11c\ubc84 \uacc4\uc0b0\uc774 \ud544\uc694\ud55c \uba85\ub839\uc740 \uad6c\uccb4\uc801\uc778 \uc774\uc720\uc640 \ud568\uaed8 \uac70\ubd80\ub429\ub2c8\ub2e4.",
     "The full dashboard feature surface is also available from any terminal through the dependency-free <code>ccam</code> CLI (<code>bin/ccam.js</code>). It is linked automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>), discovers the running server through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> / <code>DASHBOARD_PORT</code>), and renders a full terminal UI — box-drawn tables, status icons, inline bar charts, and agent trees — that degrades to plain text when piped (<code>--no-color</code> / <code>NO_COLOR</code> / <code>FORCE_COLOR</code> respected), so it is equally at home in an interactive shell, <code>grep</code> pipelines, or CI.":
@@ -3780,6 +3888,14 @@ window.__WIKI_CONTENT_I18N = {
   },
   plain: {
     zh: {
+      "Remote Data Sources": "远程数据源",
+      "How It Works": "工作原理",
+      Setup: "设置",
+      "Data Scope": "数据范围",
+      "Security Model": "安全模型",
+      "API Endpoints": "API 端点",
+      "WebSocket Events": "WebSocket 事件",
+      CLI: "CLI",
       "System Overview": "系统概览",
       "What's Included": "包含哪些内容",
       "Live Dashboard": "实时仪表盘",
@@ -3958,6 +4074,14 @@ window.__WIKI_CONTENT_I18N = {
       "Workflow Runs": "工作流运行",
     },
     vi: {
+      "Remote Data Sources": "Nguồn dữ liệu từ xa",
+      "How It Works": "Cách hoạt động",
+      Setup: "Thiết lập",
+      "Data Scope": "Phạm vi dữ liệu",
+      "Security Model": "Mô hình an toàn",
+      "API Endpoints": "Điểm cuối API",
+      "WebSocket Events": "Sự kiện WebSocket",
+      CLI: "CLI",
       "System Overview": "Tổng quan hệ thống",
       "What's Included": "Bao gồm những gì",
       "Live Dashboard": "Bảng điều khiển trực tiếp",
@@ -4139,6 +4263,14 @@ window.__WIKI_CONTENT_I18N = {
       "Workflow Runs": "Lần chạy quy trình",
     },
     ko: {
+      "Remote Data Sources": "원격 데이터 소스",
+      "How It Works": "작동 방식",
+      Setup: "설정",
+      "Data Scope": "데이터 범위",
+      "Security Model": "보안 모델",
+      "API Endpoints": "API 엔드포인트",
+      "WebSocket Events": "WebSocket 이벤트",
+      CLI: "CLI",
       "System Overview": "시스템 개요",
       "What's Included": "포함된 기능",
       "Live Dashboard": "실시간 대시보드",

@@ -62,6 +62,7 @@ const ccConfigRouter = require("./routes/cc-config");
 const runRouter = require("./routes/run");
 const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
+const remoteSourcesRouter = require("./routes/remote-sources");
 
 function createApp() {
   const app = express();
@@ -90,6 +91,7 @@ function createApp() {
   app.use("/api/run", runRouter);
   app.use("/api/alerts", alertsRouter);
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/remote-sources", remoteSourcesRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });
@@ -354,6 +356,15 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("session sync failed to start:", err.message);
   }
+  // Pull Claude Code history from enabled remote (SSH) sources on an interval so
+  // usage collected on other machines shows up here in near real time. Off by
+  // default cost-wise: the loop only does work when the user has configured at
+  // least one enabled source. Disable entirely with DASHBOARD_REMOTE_SYNC_MS=0.
+  try {
+    startRemoteSourceSync(broadcast);
+  } catch (err) {
+    console.warn("remote source sync failed to start:", err.message);
+  }
   // Flip any dashboard_runs rows the previous process left flagged
   // running/spawning — those handles died with the previous server, so
   // there's no way to attach to them anymore. Marking them abandoned
@@ -367,6 +378,52 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("dashboard-runs reconciliation failed:", err.message);
   }
+}
+
+/**
+ * Periodic pull of Claude Code history from enabled remote (SSH) sources. Each
+ * tick rsyncs every enabled source's `~/.claude/projects` into a sandboxed
+ * staging dir and feeds it through the shared importer (see
+ * server/lib/remote-sync.js), so remote usage appears here in near real time.
+ * A first pass runs shortly after boot; thereafter every DASHBOARD_REMOTE_SYNC_MS
+ * (default 60s). Set the interval to 0 to disable. Unref'd so it never blocks
+ * shutdown; overlapping ticks are prevented by an in-run guard plus the
+ * per-source lock in remote-sync.
+ */
+function startRemoteSourceSync(broadcast) {
+  const POLL_MS = process.env.DASHBOARD_REMOTE_SYNC_MS
+    ? Number(process.env.DASHBOARD_REMOTE_SYNC_MS)
+    : 60_000;
+  if (!Number.isFinite(POLL_MS) || POLL_MS <= 0) return;
+
+  const dbModule = require("./db");
+  const { syncAllEnabled } = require("./lib/remote-sync");
+  let running = false;
+
+  const tick = () => {
+    if (running) return;
+    // Cheap gate: skip all SSH work unless the user has an enabled source.
+    let count = 0;
+    try {
+      count = dbModule.stmts.listEnabledRemoteSources.all().length;
+    } catch {
+      return;
+    }
+    if (count === 0) return;
+    running = true;
+    Promise.resolve()
+      .then(() => syncAllEnabled(dbModule, { broadcast }))
+      .catch((err) => console.warn("remote source sync tick failed:", err?.message || err))
+      .finally(() => {
+        running = false;
+      });
+  };
+
+  // First pass 8s after boot (let the local import settle first), then interval.
+  const boot = setTimeout(tick, 8_000);
+  if (boot.unref) boot.unref();
+  const timer = setInterval(tick, POLL_MS);
+  if (timer.unref) timer.unref();
 }
 
 /**
