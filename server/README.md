@@ -520,8 +520,26 @@ Live remote/multi-machine data collection over SSH. The dashboard pulls Claude C
 | `DELETE` | `/api/remote-sources/:id`     | Delete a source; `?purge=true` also deletes that source's imported sessions |
 | `POST`   | `/api/remote-sources/:id/test`| SSH connectivity probe |
 | `POST`   | `/api/remote-sources/:id/sync`| Trigger an on-demand pull |
+| `POST`   | `/api/remote-sources/sync-all`| Pull every enabled source now (sequential; per-source failures isolated) |
 
 Every status transition broadcasts `remote_source.status` `{ id, status, error?, last_sync_at? }` over `/ws` (`status` one of `idle | syncing | ok | error | deleted`). Enabled sources are also pulled automatically by the background sync poller (`startRemoteSourceSync` in `server/index.js`) — see [Continuous Project Sync](#continuous-project-sync) and the environment table.
+
+#### Setup & troubleshooting
+
+Because sync runs non-interactively (`ssh -o BatchMode=yes`), the connection must already work without a prompt. Set a source up like this:
+
+1. **Reach the host once, manually:** `ssh user@host` (or an alias from `~/.ssh/config`). This adds the host to `~/.ssh/known_hosts` — required, since `StrictHostKeyChecking` is left at its secure default (an unknown host key fails the sync rather than being trusted blindly).
+2. **Make auth passwordless:** load your key into `ssh-agent` (`ssh-add`), or set an `IdentityFile` in `~/.ssh/config`, or point the source's optional `identity_file` at the key. Passphrase prompts and password auth will not work under `BatchMode`.
+3. **Ensure `rsync` exists on _both_ machines** (it is the transport). Most systems have it; install it on the remote if missing.
+4. **Add the source** (Settings → Remote Data Sources, or `ccam remote-sources add`), click **Test**, then **Sync**.
+
+| Symptom (surfaced in `last_error` / the Test result) | Cause & fix |
+| --- | --- |
+| `Host key verification failed` | The host isn't in `known_hosts`. `ssh user@host` once to accept its key. |
+| `Permission denied (publickey)` | No usable key for non-interactive auth. `ssh-add` your key, set `IdentityFile` in `~/.ssh/config`, or set the source's `identity_file`. |
+| `… does not exist on the remote` | Claude Code's home is elsewhere on that machine. Set the source's **remote home** (default `~/.claude`). |
+| `rsync: command not found` / `rsync error` | `rsync` isn't installed on the remote (or local). Install it. |
+| Sync hangs then errors after ~10 min | Bounded by `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS`; usually a network/host issue — verify with **Test** (bounded by `DASHBOARD_REMOTE_TEST_TIMEOUT_MS`). |
 
 ### Settings / Ops
 
