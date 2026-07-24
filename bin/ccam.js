@@ -1085,9 +1085,21 @@ async function cmdRemoteSources(flags, positional) {
     s.status,
     (s.label || "").slice(0, 24),
     `${s.host}${s.ssh_port ? `:${s.ssh_port}` : ""}`,
+    String(s.session_count ?? 0),
     s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : "-",
   ]);
-  table(["ID", "Auto", "Status", "Label", "Host", "Last sync"], rows);
+  table(["ID", "Auto", "Status", "Label", "Host", "Sessions", "Last sync"], rows);
+  if (sources.length > 0) {
+    const totalSessions = sources.reduce((n, s) => n + (s.session_count || 0), 0);
+    const enabled = sources.filter((s) => s.enabled).length;
+    console.log(
+      c.dim(
+        `  ${sources.length} source(s), ${enabled} auto-syncing, ${totalSessions} session(s) collected`
+      )
+    );
+  } else {
+    console.log(c.dim("  No remote sources configured. Add one: ccam remote-sources add --help"));
+  }
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
