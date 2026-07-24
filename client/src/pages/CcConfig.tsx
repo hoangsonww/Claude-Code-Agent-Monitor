@@ -465,12 +465,23 @@ export function CcConfig() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("common.search")}
-              className="bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
+              className="h-7 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                title={t("common.clearSearch")}
+                aria-label={t("common.clearSearch")}
+                className="h-7 w-7 flex-shrink-0 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-200 hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             {isMutable(tab) && tab !== "memory" && (
               <button
                 onClick={() => openCreate(tabToArtifactType(tab))}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1.5"
+                className="h-7 text-[11px] font-medium px-2.5 rounded-md border border-accent/30 bg-accent/10 hover:bg-accent/20 text-accent inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3 h-3" />
                 {t("edit.newButton")}
@@ -2104,6 +2115,67 @@ function memoryDescription(m: CcMemoryItem): string {
   );
 }
 
+// Reduce a markdown link target (as written inside MEMORY.md, e.g.
+// `./feedback_x.md#section` or `feedback_x.md`) to the bare filename we can
+// match against a fact file's `name`. Tolerant of URL-encoding and anchors.
+function normalizeMemoryTarget(target: string): string {
+  let v = target.trim();
+  const hash = v.indexOf("#");
+  if (hash >= 0) v = v.slice(0, hash);
+  try {
+    v = decodeURIComponent(v);
+  } catch {
+    /* leave as-is when not valid percent-encoding */
+  }
+  const slash = v.lastIndexOf("/");
+  if (slash >= 0) v = v.slice(slash + 1);
+  return v.trim();
+}
+
+// Render a MEMORY.md preview with its `[label](target.md)` markdown links
+// turned into clickable buttons. Everything else is emitted verbatim so the
+// surrounding <pre> keeps the original index layout. Clicking a link asks the
+// parent to jump to (scroll + highlight) the matching fact file.
+function renderMemoryIndex(
+  preview: string,
+  onJump: (target: string) => void,
+  jumpTitle: string
+): React.ReactNode {
+  const linkRe = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const lines = preview.split("\n");
+  return lines.map((line, li) => {
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    linkRe.lastIndex = 0;
+    while ((m = linkRe.exec(line)) !== null) {
+      const full = m[0];
+      const label = m[1] ?? "";
+      const capturedTarget = m[2] ?? "";
+      if (m.index > last) parts.push(line.slice(last, m.index));
+      parts.push(
+        <button
+          key={`${li}-${m.index}`}
+          type="button"
+          onClick={() => onJump(capturedTarget)}
+          title={`${jumpTitle}: ${normalizeMemoryTarget(capturedTarget)}`}
+          className="text-teal-300 hover:text-teal-200 underline decoration-dotted underline-offset-2 hover:decoration-solid focus:outline-none focus:ring-1 focus:ring-teal-400/60 rounded-sm"
+        >
+          {label}
+        </button>
+      );
+      last = m.index + full.length;
+    }
+    if (last < line.length) parts.push(line.slice(last));
+    return (
+      <span key={li}>
+        {parts.length ? parts : line}
+        {li < lines.length - 1 ? "\n" : null}
+      </span>
+    );
+  });
+}
+
 function MemoryPanel({
   items,
   search,
@@ -2308,6 +2380,39 @@ function MemoryProjectGroup({
   const indexFiles = files.filter((f) => f.isIndex);
   const factFiles = files.filter((f) => !f.isIndex);
 
+  // Wiring for "click an index entry → jump to its fact file". Fact rows
+  // register their DOM node keyed by filename; the index links look them up.
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const [highlighted, setHighlighted] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    []
+  );
+
+  const rowKey = useCallback((m: CcMemoryItem) => m.name || normalizeMemoryTarget(m.file), []);
+
+  const handleJump = useCallback(
+    (target: string) => {
+      const name = normalizeMemoryTarget(target);
+      const el = rowRefs.current.get(name);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlighted(name);
+        if (highlightTimer.current) clearTimeout(highlightTimer.current);
+        highlightTimer.current = setTimeout(() => setHighlighted(null), 2200);
+        return;
+      }
+      // Target isn't currently in view (e.g. filtered out by search) — open the
+      // underlying file directly if we can resolve it within this project.
+      const match = files.find((f) => (f.name || normalizeMemoryTarget(f.file)) === name);
+      if (match) onOpen(match.file);
+    },
+    [files, onOpen]
+  );
+
   return (
     <div className="rounded-lg border border-border bg-surface-2 overflow-hidden">
       <div className="flex items-center gap-1 pr-2 hover:bg-surface-3 transition-colors">
@@ -2351,6 +2456,7 @@ function MemoryProjectGroup({
                     onOpen={onOpen}
                     onEditAuto={onEditAuto}
                     onDeleteAuto={onDeleteAuto}
+                    onJump={handleJump}
                   />
                 ))}
               </div>
@@ -2362,15 +2468,23 @@ function MemoryProjectGroup({
                 {t("memory.factFiles", { count: factFiles.length })}
               </div>
               <div className="space-y-1">
-                {factFiles.map((m) => (
-                  <MemoryFactRow
-                    key={m.file}
-                    item={m}
-                    onOpen={onOpen}
-                    onEditAuto={onEditAuto}
-                    onDeleteAuto={onDeleteAuto}
-                  />
-                ))}
+                {factFiles.map((m) => {
+                  const key = rowKey(m);
+                  return (
+                    <MemoryFactRow
+                      key={m.file}
+                      item={m}
+                      onOpen={onOpen}
+                      onEditAuto={onEditAuto}
+                      onDeleteAuto={onDeleteAuto}
+                      highlighted={highlighted === key}
+                      rowRef={(el) => {
+                        if (el) rowRefs.current.set(key, el);
+                        else rowRefs.current.delete(key);
+                      }}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2417,7 +2531,14 @@ function MemoryAutoActions({ item, onOpen, onEditAuto, onDeleteAuto }: MemoryAut
   );
 }
 
-function MemoryIndexCard({ item, onOpen, onEditAuto, onDeleteAuto }: MemoryAutoItemProps) {
+function MemoryIndexCard({
+  item,
+  onOpen,
+  onEditAuto,
+  onDeleteAuto,
+  onJump,
+}: MemoryAutoItemProps & { onJump: (target: string) => void }) {
+  const { t } = useTranslation("ccConfig");
   return (
     <div className="rounded-md border border-teal-500/20 bg-teal-500/5">
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-teal-500/15">
@@ -2434,17 +2555,34 @@ function MemoryIndexCard({ item, onOpen, onEditAuto, onDeleteAuto }: MemoryAutoI
         />
       </div>
       <pre className="px-3 py-2 text-[10.5px] font-mono text-gray-400 whitespace-pre-wrap break-words max-h-40 overflow-auto">
-        {item.preview}
+        {renderMemoryIndex(item.preview, onJump, t("memory.jumpTo"))}
         {item.truncated && <span className="text-gray-600 italic">{"\n…"}</span>}
       </pre>
     </div>
   );
 }
 
-function MemoryFactRow({ item, onOpen, onEditAuto, onDeleteAuto }: MemoryAutoItemProps) {
+function MemoryFactRow({
+  item,
+  onOpen,
+  onEditAuto,
+  onDeleteAuto,
+  highlighted,
+  rowRef,
+}: MemoryAutoItemProps & {
+  highlighted?: boolean;
+  rowRef?: (el: HTMLDivElement | null) => void;
+}) {
   const desc = memoryDescription(item);
   return (
-    <div className="flex items-start gap-2.5 rounded-md border border-border bg-surface-1 px-3 py-2 hover:border-border/80 transition-colors">
+    <div
+      ref={rowRef}
+      className={`flex items-start gap-2.5 rounded-md border px-3 py-2 transition-colors ${
+        highlighted
+          ? "border-teal-400/70 bg-teal-500/10 ring-1 ring-teal-400/50"
+          : "border-border bg-surface-1 hover:border-border/80"
+      }`}
+    >
       <FileText className="w-3 h-3 text-gray-500 flex-shrink-0 mt-0.5" />
       <div className="min-w-0 flex-1">
         <span className="font-mono text-[11px] text-gray-200 truncate block">{item.name}</span>
