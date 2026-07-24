@@ -15,6 +15,8 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { isCwdIgnored } = require("../lib/cwd-filter");
+const { redactPayload, isRedactionEnabled } = require("../lib/privacy-filter");
 
 const router = Router();
 
@@ -1023,11 +1025,27 @@ const processEvent = db.transaction((hookType, data) => {
 });
 
 router.post("/event", (req, res) => {
-  const { hook_type, data } = req.body;
+  const { hook_type } = req.body;
+  let data = req.body.data;
   if (!hook_type || !data) {
     return res.status(400).json({
       error: { code: "INVALID_INPUT", message: "hook_type and data are required" },
     });
+  }
+
+  // Drop hooks from ignored working directories (MONITOR_IGNORE_CWD).
+  // Return 200 so Claude Code does not retry — we intentionally discard the event.
+  if (isCwdIgnored(data.cwd)) {
+    return res.json({ ok: true, ignored: true });
+  }
+
+  // Redact secret-like values from the event payload before persisting or
+  // broadcasting (MONITOR_PRIVACY_REDACT=true opt-in).
+  let redactedCount = 0;
+  if (isRedactionEnabled()) {
+    const filtered = redactPayload(data);
+    data = filtered.data;
+    redactedCount = filtered.redactedCount;
   }
 
   const result = processEvent(hook_type, data);
@@ -1037,7 +1055,7 @@ router.post("/event", (req, res) => {
     });
   }
 
-  res.json({ ok: true, event: result });
+  res.json({ ok: true, event: result, ...(redactedCount > 0 && { redactedCount }) });
 
   // Evaluate event-driven alert rules after the ingest transaction committed
   // and the response is on its way — alerting must never slow down or fail
