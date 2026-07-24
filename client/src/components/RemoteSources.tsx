@@ -84,6 +84,7 @@ export function RemoteSources() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>(
     {}
   );
@@ -235,6 +236,18 @@ export function RemoteSources() {
     }
   }
 
+  async function syncAll() {
+    setSyncingAll(true);
+    try {
+      await api.remoteSources.syncAll();
+      load();
+    } catch {
+      /* per-source errors surface via each source's status on reload */
+    } finally {
+      setSyncingAll(false);
+    }
+  }
+
   async function doDelete() {
     if (!confirmDelete) return;
     const { id, purge } = confirmDelete;
@@ -325,9 +338,22 @@ export function RemoteSources() {
         <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
           {t("remoteSources.listTitle", "Configured sources")}
         </span>
-        <button onClick={openAdd} className="btn-primary text-xs">
-          <Plus className="w-3.5 h-3.5" /> {t("remoteSources.add", "Add source")}
-        </button>
+        <div className="flex items-center gap-2">
+          {sources.some((s) => s.enabled) && (
+            <button
+              onClick={syncAll}
+              disabled={syncingAll}
+              className="btn-ghost text-xs disabled:opacity-40"
+              title={t("remoteSources.syncAll", "Sync all enabled sources")}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingAll ? "animate-spin" : ""}`} />
+              {t("remoteSources.syncAll", "Sync all")}
+            </button>
+          )}
+          <button onClick={openAdd} className="btn-primary text-xs">
+            <Plus className="w-3.5 h-3.5" /> {t("remoteSources.add", "Add source")}
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit form */}

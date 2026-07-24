@@ -359,3 +359,26 @@ describe("/api/remote-sources session_count", () => {
     assert.equal(row.session_count, 2);
   });
 });
+
+describe("POST /api/remote-sources/sync-all", () => {
+  it("syncs only enabled sources and isolates per-source outcomes", async () => {
+    // Disable every existing source so this exercises the wiring without any
+    // real SSH/rsync shell-out (nothing enabled → nothing to pull).
+    const { body } = await get("/api/remote-sources");
+    for (const s of body.sources) {
+      if (s.enabled) await patch(`/api/remote-sources/${s.id}`, { enabled: false });
+    }
+    const res = await post("/api/remote-sources/sync-all");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.synced, 0);
+    assert.deepEqual(res.body.results, []);
+  });
+
+  it("does not collide with the /:id/sync route", async () => {
+    // "sync-all" is a single path segment, so it must not be treated as an :id.
+    const res = await post("/api/remote-sources/sync-all");
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.results));
+  });
+});

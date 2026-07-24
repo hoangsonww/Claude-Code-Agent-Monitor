@@ -8935,6 +8935,43 @@ paths:
                 error:
                   code: SYNC_FAILED
                   message: ssh exited with code 255
+  /api/remote-sources/sync-all:
+    post:
+      tags:
+        - Remote Sources
+      summary: Sync all enabled remote sources now
+      description: Pulls Claude Code history from every enabled remote source over SSH, sequentially (one connection at a time). Per-source failures are isolated — one unreachable source never aborts the others — and each outcome is returned in `results`. Progress/completion is also broadcast over the WebSocket as `remote_source.status` frames. Always returns 200.
+      operationId: syncAllRemoteSources
+      responses:
+        '200':
+          description: Per-source sync outcomes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  synced:
+                    type: integer
+                    description: Number of enabled sources that were attempted.
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        ok:
+                          type: boolean
+                        error:
+                          type: string
+              example:
+                ok: true
+                synced: 2
+                results:
+                  - id: src_a
+                    ok: true
   /api/settings/claude-home:
     get:
       tags:

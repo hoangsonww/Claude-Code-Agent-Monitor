@@ -1522,6 +1522,17 @@ export const api = {
       request<RemoteSourceSyncResult>(`/remote-sources/${encodeURIComponent(id)}/sync`, {
         method: "POST",
       }),
+    /**
+     * POST /api/remote-sources/sync-all — sync every enabled source now
+     * (sequential; per-source failures isolated).
+     * @returns `{ ok, synced, results }` — one entry per enabled source.
+     */
+    syncAll: () =>
+      request<{
+        ok: boolean;
+        synced: number;
+        results: Array<{ id: string; ok: boolean; error?: string }>;
+      }>("/remote-sources/sync-all", { method: "POST" }),
   },
 };
 

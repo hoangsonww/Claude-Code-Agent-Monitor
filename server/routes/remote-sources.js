@@ -29,6 +29,7 @@ const {
   ValidationError,
   testConnection,
   syncSource,
+  syncAllEnabled,
   stagingDir,
 } = require("../lib/remote-sync");
 
@@ -110,6 +111,14 @@ router.post("/", (req, res) => {
   const row = stmts.getRemoteSource.get(id);
   broadcast("remote_source.status", { id, status: row.status });
   res.status(201).json({ source: serialize(row) });
+});
+
+// POST /sync-all — sync every enabled source now (sequential; per-source
+// failures are isolated). Defined before the /:id routes; "sync-all" is a
+// single path segment so it never collides with "/:id/sync".
+router.post("/sync-all", async (_req, res) => {
+  const results = await syncAllEnabled(require("../db"), { broadcast });
+  res.json({ ok: true, synced: results.length, results });
 });
 
 // PATCH /:id — partial update.

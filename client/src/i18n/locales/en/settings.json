@@ -410,6 +410,7 @@
     "imported": "{{n}} imported",
     "test": "Test",
     "syncNow": "Sync",
+    "syncAll": "Sync all",
     "enable": "Enable",
     "disable": "Disable",
     "confirmDelete": "Remove this source?",
