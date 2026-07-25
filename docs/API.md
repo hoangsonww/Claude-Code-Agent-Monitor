@@ -18,6 +18,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Notifications](#notifications)
   - [Remote Data Sources](#remote-data-sources)
   - [Projects](#projects)
+  - [Plans & Focus](#plans--focus)
 - [WebSocket API](#websocket-api)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
@@ -1043,6 +1044,163 @@ DELETE /api/projects/:id/paths/:pathId
 
 ---
 
+### Plans & Focus
+
+**Plan-Aware Monitoring**: each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items like `- [ ] 4. Migrate auth — acceptance: login works via SSO`). The dashboard mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — the file is the source of truth and is never written by the server. Sessions declare which item they are serving with `ccam focus set|push|pop|done`, normally parsed off the `PostToolUse` hook stream; the endpoints below are the read surface plus the explicit (non-hook) write path.
+
+**Plan shape** (`plan` + `items`):
+
+```json
+{
+  "plan": {
+    "cwd": "/Users/dev/Claude-Code-Agent-Monitor",
+    "title": "Auth migration",
+    "file_path": "/Users/dev/Claude-Code-Agent-Monitor/AGENT-PLAN.md",
+    "content_hash": "2f9c…",
+    "item_count": 2,
+    "missing_at": null,
+    "created_at": "2026-07-20T09:15:00.000Z",
+    "updated_at": "2026-07-24T18:41:55.117Z"
+  },
+  "items": [
+    {
+      "cwd": "/Users/dev/Claude-Code-Agent-Monitor",
+      "item_number": 1,
+      "text": "Migrate auth",
+      "acceptance": "login works via SSO",
+      "checked": 0,
+      "position": 0,
+      "declared_done_at": null,
+      "declared_done_session": null,
+      "updated_at": "2026-07-24T18:41:55.117Z"
+    }
+  ]
+}
+```
+
+`checked` mirrors the file's checkbox (human-owned); `declared_done_*` is the agent's claim via `focus done` and survives re-ingest. `missing_at` is stamped when the file disappears (the row is kept — focus history still references its items).
+
+**Focus wire shape:**
+
+```json
+{
+  "session_id": "sess_abc123",
+  "cwd": "/Users/dev/Claude-Code-Agent-Monitor",
+  "item_number": 4,
+  "item_text": "Migrate auth",
+  "note": "starting with the SSO callback",
+  "detour_stack": [
+    { "description": "npm conflict", "pushed_at": "2026-07-24T18:20:00.000Z", "prior_item": 4 }
+  ],
+  "since": "2026-07-24T18:00:00.000Z",
+  "drift": null,
+  "drift_reason": null,
+  "updated_at": "2026-07-24T18:20:00.000Z"
+}
+```
+
+`drift` is tri-state: `true` (the drift audit flagged the session), `false` (audited, on track), `null` (not audited yet / unknown). It is written only by the background focus drift audit — declarations never touch it.
+
+#### List Plans
+
+```http
+GET /api/plans
+```
+
+Returns every known plan with its items (small N — one per repo): `{ "plans": [ { ...plan, "items": [...] } ] }`.
+
+#### Get Plan for a Working Directory
+
+```http
+GET /api/plans/for-cwd?cwd=/absolute/path
+```
+
+Query-param form because cwds contain slashes. Returns `{ "plan": ..., "items": [...] }`. **400** `INVALID_INPUT` for a missing/blank `cwd`; **404** `NOT_FOUND` when the cwd has no stored plan.
+
+#### Get Plans for a Project
+
+```http
+GET /api/plans/project/:projectId
+```
+
+Per-project rollup — one entry per mapped folder that has a plan:
+
+```json
+{
+  "project_id": "b6f1a2d0-3c4e-4f5a-9b8c-1d2e3f4a5b6c",
+  "plans": [ { "cwd": "/Users/dev/Claude-Code-Agent-Monitor", "plan": { ... }, "items": [ ... ] } ]
+}
+```
+
+**404** if the project id is unknown.
+
+#### Refresh a Plan
+
+```http
+POST /api/plans/refresh
+```
+
+**Request Body:** `{ "cwd": string }` (required). Forces an ingest of `<cwd>/AGENT-PLAN.md` right now — the escape hatch when the background poll is disabled (`DASHBOARD_PLAN_POLL_MS=0`), also used by the CLI. Returns `{ "changed": boolean, "plan": ..., "items": [...] }` and broadcasts `plan_updated` when anything changed. **400** `INVALID_INPUT` for a missing `cwd`; **404** `NOT_FOUND` when there is no `AGENT-PLAN.md` **and** no stored plan for that cwd.
+
+#### Bulk Focus Hydrate
+
+```http
+GET /api/focus
+```
+
+Every **active** session's declared focus in one round-trip — `{ "focus": [ FocusWireShape, ... ] }`. This is the client's initial hydrate; live updates then arrive as `session_focus` WebSocket messages.
+
+#### Get Session Focus
+
+```http
+GET /api/sessions/:id/focus
+```
+
+One session's focus plus context and history:
+
+```json
+{
+  "focus": { ...FocusWireShape or null },
+  "item": { ...plan_items row for the declared item, or null },
+  "plan_title": "Auth migration",
+  "history": [
+    { "at": "2026-07-24T18:20:00.000Z", "kind": "detour_push", "verb": "push", "item_number": null, "text": "npm conflict" },
+    { "at": "2026-07-24T18:00:00.000Z", "kind": "item", "verb": "set", "item_number": 4, "text": "Migrate auth" }
+  ]
+}
+```
+
+`history` is rebuilt from the `Focus` rows in the events table (newest first, capped at 50); `kind` is `item`, `detour_push`, or `detour_pop`. **404** if the session is unknown.
+
+#### Declare Session Focus
+
+```http
+POST /api/sessions/:id/focus
+```
+
+The explicit (non-hook) focus write path — used by `ccam focus` when run outside a Claude Code session and by integrations. Inside a session, declarations ride the `PostToolUse` hook stream instead (see [docs/HOOKS.md](./HOOKS.md)).
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `verb` | string | Yes | `set`, `push`, `pop`, or `done` |
+| `item_number` | integer | For `set`/`done` | The plan item's own number (0–999) |
+| `note` | string | No (`set` only) | Free-text note, clamped to 300 chars |
+| `description` | string | For `push` | What the detour is, clamped to 300 chars |
+
+Returns `{ "focus": FocusWireShape, "deduped": boolean }`. Unlike the permissive hook path, this endpoint is **strict**: **400** `INVALID_INPUT` for a bad verb/field, **404** for an unknown session, **409** `UNKNOWN_ITEM` (declared item isn't in the ingested plan) or `EMPTY_STACK` (`pop` with no detour in flight). It is also **idempotent**: a declaration whose end state equals the current state returns `"deduped": true` without writing a `Focus` event — CLI-write + hook-parse double delivery is harmless. Declarations never touch the `drift_*` columns.
+
+#### Get Session Todos
+
+```http
+GET /api/sessions/:id/todos
+```
+
+The session's latest TodoWrite micro-plan, parsed on read from the newest `PostToolUse`/`TodoWrite` event (no materialized copy to keep in sync): `{ "todos": [ ... ] | null, "updated_at": "..." | null }`. **404** if the session is unknown.
+
+---
+
 ### Claude Config Explorer
 
 The `/api/cc-config/*` namespace powers the Claude Config Explorer page. All read endpoints are pure file reads under `CLAUDE_HOME` and the project's `.claude/` dir; mutations are limited to low-risk text-file artifacts (skills, subagents, slash commands, output styles, memory) and always create a timestamped backup before writing. Plugins, MCP servers, hooks-in-settings, and live `settings.json` files stay read-only because they are written concurrently by the running Claude Code CLI.
@@ -1292,6 +1450,22 @@ Broadcast whenever Claude Code configuration changes — either by dashboard mut
 ```json
 { "type": "cc_config_changed", "data": { "source": "dashboard", "action": "write", "scope": "user", "type": "skill", "name": "my-skill" } }
 { "type": "cc_config_changed", "data": { "source": "fs", "paths": ["/Users/foo/.claude/settings.json"] } }
+```
+
+#### plan_updated
+
+Broadcast whenever a repo's `AGENT-PLAN.md` is (re)ingested with changes — by the background plan poll (`DASHBOARD_PLAN_POLL_MS`), the opportunistic `SessionStart` ingest, `POST /api/plans/refresh`, or a `focus done` declaration (the `declared_done` rollup changed). Carries the full plan + items (see [Plans & Focus](#plans--focus)).
+
+```json
+{ "type": "plan_updated", "data": { "plan": { "cwd": "/Users/dev/Claude-Code-Agent-Monitor", "title": "Auth migration", "item_count": 2 }, "items": [ { "item_number": 1, "text": "Migrate auth", "checked": 0 } ] } }
+```
+
+#### session_focus
+
+Broadcast whenever a session's declared focus changes (a `ccam focus` declaration applied via the hook stream or `POST /api/sessions/:id/focus`) or the background focus drift audit stamps a verdict. Carries the focus wire shape; the client merges it into `lib/focusStore.ts` on top of the `GET /api/focus` bulk hydrate.
+
+```json
+{ "type": "session_focus", "data": { "session_id": "sess_abc123", "cwd": "/Users/dev/Claude-Code-Agent-Monitor", "item_number": 4, "item_text": "Migrate auth", "note": null, "detour_stack": [], "since": "2026-07-24T18:00:00.000Z", "drift": null, "drift_reason": null, "updated_at": "2026-07-24T18:00:00.000Z" } }
 ```
 
 #### remote_source.status

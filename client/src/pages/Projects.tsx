@@ -44,11 +44,21 @@ import {
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { SessionCard } from "../components/SessionCard";
+import { PlanPanel } from "../components/PlanPanel";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { timeAgo } from "../lib/format";
+import { useFocusMap } from "../lib/focusStore";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
-import type { Project, Session, UnassignedProjectBucket, WSMessage } from "../lib/types";
+import type {
+  Plan,
+  PlanUpdatedPayload,
+  Project,
+  Session,
+  SessionFocus,
+  UnassignedProjectBucket,
+  WSMessage,
+} from "../lib/types";
 
 const EMPTY_UNASSIGNED: UnassignedProjectBucket = {
   cwds: [],
@@ -66,6 +76,8 @@ export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [unassigned, setUnassigned] = useState<UnassignedProjectBucket>(EMPTY_UNASSIGNED);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const focusMap = useFocusMap();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,13 +109,19 @@ export function Projects() {
 
   const load = useCallback(async () => {
     try {
-      const [projectsRes, sessionsRes] = await Promise.all([
+      // Plans degrade quietly to "none" — an api mock without the namespace
+      // (older tests) or a fetch failure must not take the whole page down.
+      const [projectsRes, sessionsRes, plansRes] = await Promise.all([
         api.projects.list(),
         api.sessions.list({ limit: 10000 }),
+        typeof api.plans?.list === "function"
+          ? api.plans.list().catch(() => ({ plans: [] as Plan[] }))
+          : Promise.resolve({ plans: [] as Plan[] }),
       ]);
       setProjects(projectsRes.projects);
       setUnassigned(projectsRes.unassigned);
       setSessions(sessionsRes.sessions);
+      setPlans(plansRes.plans);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("errors.loadFailed"));
@@ -127,6 +145,17 @@ export function Projects() {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(load, 300);
       }
+      // Plan pushes carry the whole (small) plan — merge in place, no refetch.
+      if (msg.type === "plan_updated") {
+        const payload = msg.data as PlanUpdatedPayload;
+        if (payload?.plan?.cwd) {
+          setPlans((prev) => {
+            const next = prev.filter((p) => p.cwd !== payload.plan.cwd);
+            next.push({ ...payload.plan, items: payload.items ?? [] });
+            return next;
+          });
+        }
+      }
     });
   }, [load]);
 
@@ -144,6 +173,8 @@ export function Projects() {
     (cwds: string[]) => cwds.flatMap((cwd) => sessionsByCwd.get(cwd) || []),
     [sessionsByCwd]
   );
+
+  const plansByCwd = useMemo(() => new Map(plans.map((p) => [p.cwd, p])), [plans]);
 
   const searchQuery = search.trim().toLowerCase();
   const matchesSearch = useCallback(
@@ -446,6 +477,10 @@ export function Projects() {
                 project={project}
                 sessions={sessions}
                 overflowCount={overflowCount}
+                plans={project.paths
+                  .map((p) => plansByCwd.get(p.cwd))
+                  .filter((p): p is Plan => Boolean(p))}
+                focusMap={focusMap}
                 t={t}
                 editing={editingId === project.id}
                 editingName={editingName}
@@ -516,6 +551,16 @@ export function Projects() {
                       <FolderPlus className="w-3 h-3" /> {t("createFromFolder")}
                     </button>
                   </div>
+                  {plansByCwd.has(cwd) && (
+                    <div className="mb-2">
+                      <PlanPanel
+                        plan={plansByCwd.get(cwd) as Plan}
+                        items={(plansByCwd.get(cwd) as Plan).items}
+                        sessions={cwdSessions}
+                        focusBySession={focusMap}
+                      />
+                    </div>
+                  )}
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {cwdSessions.map((session) => (
                       <div key={session.id} className="w-72 flex-shrink-0">
@@ -537,6 +582,10 @@ interface ProjectSectionProps {
   project: Project;
   sessions: Session[];
   overflowCount: number;
+  /** AGENT-PLAN.md plans found in this project's mapped folders (usually 0–1). */
+  plans: Plan[];
+  /** Live per-session focus map (from the focusStore) for item chips. */
+  focusMap: ReadonlyMap<string, SessionFocus>;
   t: (key: string, opts?: Record<string, unknown>) => string;
   editing: boolean;
   editingName: string;
@@ -569,6 +618,8 @@ function ProjectSection({
   project,
   sessions,
   overflowCount,
+  plans,
+  focusMap,
   t,
   editing,
   editingName,
@@ -740,6 +791,22 @@ function ProjectSection({
           </button>
         </div>
       </div>
+
+      {/* draggable={false}: checklist rows and session chips must not start
+          a project reorder-drag (same DnD opt-out as the session strip). */}
+      {plans.length > 0 && (
+        <div className="mb-3 space-y-2" draggable={false}>
+          {plans.map((plan) => (
+            <PlanPanel
+              key={plan.cwd}
+              plan={plan}
+              items={plan.items}
+              sessions={sessions}
+              focusBySession={focusMap}
+            />
+          ))}
+        </div>
+      )}
 
       {sessions.length === 0 ? (
         <p className="text-xs text-gray-500 italic py-2">{t("noSessions")}</p>

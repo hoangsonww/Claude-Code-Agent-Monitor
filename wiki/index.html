@@ -954,6 +954,8 @@
                     sitting on the user — fresh prompt, between turns, or permission gate. Hover
                     any column header for lifecycle tooltips explaining each state transition.
                     Cards surface model name, cumulative cost, and the current tool being called.
+                    The model chip renders in <strong>bright red</strong> for premium/expensive
+                    models — Opus or Fable — flagging cost-heavy sessions at a glance.
                     Counts update in real time via WebSocket so the board is always in sync with
                     the live event store. Hover a Waiting badge to see why — needs input, turn done, at prompt, or interrupted.
                     A third <strong>Projects</strong> view groups sessions by project instead of status; once at
@@ -1095,6 +1097,33 @@
                     imported tokens and per-model cost match real-time capture exactly. Re-imports
                     are idempotent via session-ID dedup, and archive extraction is guarded against
                     path traversal and zip-bomb expansion.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-violet">🧭</div>
+                  <h3 id="feat-plan-aware">Plan-Aware Monitoring</h3>
+                  <p>
+                    Answers "what is this session doing, and which part of the project plan is it
+                    for?" at a glance. Each monitored repo may keep a human-approved
+                    <code>AGENT-PLAN.md</code> (numbered checkbox items) at its root; a background
+                    poll (<code>DASHBOARD_PLAN_POLL_MS</code>, plus opportunistic ingest on
+                    <code>SessionStart</code>) mirrors it read-only into the dashboard, keyed by
+                    <code>cwd</code> and rolled up to Projects. Sessions declare their position by
+                    running <code>ccam focus set/push/pop/done</code> in their Bash tool — the hook
+                    stream is the write channel, so it works in every hooked project with zero
+                    per-project setup.
+                  </p>
+                  <p>
+                    The Projects page shows each plan as a collapsible checklist with a progress
+                    bar and per-item session chips; every session card gets a one-line focus
+                    breadcrumb with detours in amber; Session Detail gains a focus banner plus a
+                    <strong>Plan</strong> tab (checklist, focus timeline from <code>Focus</code>
+                    events, and the session's latest TodoWrite micro-plan). A periodic drift audit
+                    (<code>DASHBOARD_FOCUS_AUDIT_*</code>) — headless <code>claude -p</code> on a
+                    small model, with a keyword-overlap fallback — stamps an amber "possible
+                    undeclared detour?" badge when a focused session's recent activity stops
+                    matching its declaration; it never rewrites focus, and declarations never
+                    clear the badge.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1751,6 +1780,13 @@
                   </td>
                 </tr>
                 <tr>
+                  <td><code>Focus</code></td>
+                  <td><code>ccam focus …</code> run in the session's Bash tool</td>
+                  <td>
+                    Parsed out of the <code>PostToolUse</code> hook's <code>tool_input.command</code> — the only channel that natively carries the session id. <code>set</code>/<code>push</code>/<code>pop</code>/<code>done</code> update the session's focus row (plan-item pointer plus detour stack) and write a <code>Focus</code> event with an item-text snapshot for the timeline; broadcasts <code>session_focus</code> (and <code>plan_updated</code> after <code>done</code>). <code>status</code> is read-only and records nothing.
+                  </td>
+                </tr>
+                <tr>
                   <td><code>SessionEnd</code></td>
                   <td>Claude Code CLI process exits</td>
                   <td>
@@ -2021,6 +2057,39 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>30000</code></td>
                   <td>
                     Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_PLAN_POLL_MS</code></td>
+                  <td><code>10000</code></td>
+                  <td>
+                    Poll interval for the <code>AGENT-PLAN.md</code> watcher — a changed plan file is re-ingested and broadcast as <code>plan_updated</code>; <code>0</code> disables the poll (<code>SessionStart</code> still ingests opportunistically, and <code>POST /api/plans/refresh</code> forces one)
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_AUDIT_MS</code></td>
+                  <td><code>300000</code></td>
+                  <td>
+                    Tick interval for the focus drift audit — the background check that a focused session's recent activity matches its declared plan item; <code>0</code> disables auditing entirely
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_AUDIT_MODE</code></td>
+                  <td><code>llm</code></td>
+                  <td>
+                    Drift-audit judge: <code>llm</code> (headless <code>claude -p</code> on a small model, falling back to the heuristic when the CLI is unavailable), <code>heuristic</code> (keyword overlap only), or <code>off</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_AUDIT_MODEL</code></td>
+                  <td><code>haiku</code></td>
+                  <td>Model passed to the drift audit's <code>claude -p --model</code> spawn</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS</code></td>
+                  <td><code>30000</code></td>
+                  <td>
+                    Kill timer for a single drift-audit <code>claude -p</code> spawn (SIGTERM, then SIGKILL)
                   </td>
                 </tr>
                 <tr>
@@ -3620,7 +3689,8 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <pre><code>// All messages use this shape
 {
   type:      "session_created" | "session_updated" |
-             "agent_created"   | "agent_updated"   | "new_event";
+             "agent_created"   | "agent_updated"   | "new_event" |
+             "plan_updated"    | "session_focus";
   data:      Session | Agent | DashboardEvent;
   timestamp: string;  // ISO 8601
 }</code></pre>
@@ -4514,7 +4584,7 @@ ccam-export all --output backup.json</code></pre>
                 </tr>
                 <tr>
                   <td>Event types</td>
-                  <td>PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, Notification, Compaction, APIError, TurnDuration</td>
+                  <td>PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, Notification, Compaction, APIError, TurnDuration, Focus</td>
                 </tr>
                 <tr>
                   <td>Workflow intelligence</td>
@@ -6210,6 +6280,13 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
             time over the existing <code>eventBus</code> WebSocket channel, with no polling and no
             extra services.
           </p>
+          <p>
+            Tabby also watches the clock, not just events: if a live session has been running an
+            <strong>expensive model</strong> — Opus or Fable — continuously for more than
+            <strong>15 minutes</strong>, it surfaces a one-time nag bubble asking if you're sure
+            you want to stay there. The nag fires once per streak and only re-arms if the session
+            drops off that model and comes back onto it later.
+          </p>
 
           <h3>The ⌘B Panel</h3>
           <p>
@@ -6918,7 +6995,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=43" defer></script>
+    <script src="i18n-content.js?v=45" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

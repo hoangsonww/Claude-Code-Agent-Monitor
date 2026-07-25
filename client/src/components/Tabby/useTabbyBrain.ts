@@ -77,6 +77,7 @@ import {
   statusOf,
   clearErrors,
   seedSessions,
+  checkExpensiveModel,
   type Mood,
   type TabbyState,
   type TabbyStatus,
@@ -169,11 +170,22 @@ export function useTabbyBrain(): TabbyBrain {
   }, [showBubble]);
 
   // Advance the clock so timed moods (stuck/sleeping, and exit from
-  // happy/worried) re-evaluate without needing a new event.
+  // happy/worried) re-evaluate without needing a new event. The same tick
+  // also checks for sessions that have been sitting on an expensive model
+  // (opus/fable) past EXPENSIVE_MODEL_MS - that nag has no WS message to key
+  // off, so it has to be driven from the clock rather than `reduceTabby`.
   useEffect(() => {
-    const id = setInterval(() => setTick(Date.now()), 1000);
+    const id = setInterval(() => {
+      const t = Date.now();
+      setTick(t);
+      setState((prev) => {
+        const { state: next, pulse } = checkExpensiveModel(prev, t);
+        if (pulse) showBubble(pickQuip(pulse), false);
+        return next;
+      });
+    }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [showBubble]);
 
   useEffect(() => () => clearTimeout(bubbleTimer.current), []);
 

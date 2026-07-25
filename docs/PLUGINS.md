@@ -252,7 +252,7 @@ These plugins query the Agent Monitor API at `http://localhost:4820`. Key data s
 - `usage_extras`: `{ service_tiers[], speeds[], inference_geos[] }`
 
 ### Event Types
-`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, `Notification`, `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted`
+`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, `Notification`, `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted`, `Focus`
 
 ### Workflow Intelligence API (`/api/workflows/{sessionId}`)
 11 datasets: `stats`, `orchestration` (DAG), `toolFlow` (transitions), `effectiveness` (subagent success), `patterns` (recurring sequences), `modelDelegation`, `errorPropagation` (by depth), `concurrency` (lanes), `complexity` (score), `compaction` (impact), `cooccurrence` (agent pairs)

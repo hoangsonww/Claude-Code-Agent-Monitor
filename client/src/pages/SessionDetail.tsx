@@ -85,6 +85,10 @@ import {
   Workflow,
   Hourglass,
   Trash2,
+  Crosshair,
+  ClipboardList,
+  Check,
+  Circle,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -132,10 +136,18 @@ import type {
   CostResult,
   TranscriptInfo,
   WorkflowRun,
+  Plan,
+  PlanItem,
+  PlanUpdatedPayload,
+  FocusHistoryEntry,
+  SessionFocus,
+  SessionTodo,
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
+import { PlanPanel } from "../components/PlanPanel";
+import { useSessionFocus, useFocusMap } from "../lib/focusStore";
 
-type DetailTab = "agents" | "conversation" | "timeline";
+type DetailTab = "agents" | "conversation" | "timeline" | "plan";
 
 const EVENTS_INITIAL_BATCH = 50;
 const EVENTS_MORE_BATCH = 500;
@@ -179,6 +191,70 @@ export function SessionDetail() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Plan tab data. Live focus (banner + chips) comes from the shared
+  // focusStore; the plan checklist, focus history, and TodoWrite micro-plan
+  // are fetched lazily the first time the tab is visited (transcripts
+  // pattern) and refreshed in place from plan_updated / session_focus pushes.
+  const { t: planT } = useTranslation("plan");
+  const focus = useSessionFocus(id || "");
+  const focusMap = useFocusMap();
+  const [planData, setPlanData] = useState<{ plan: Omit<Plan, "items">; items: PlanItem[] } | null>(
+    null
+  );
+  const [focusHistory, setFocusHistory] = useState<FocusHistoryEntry[]>([]);
+  const [sessionTodos, setSessionTodos] = useState<SessionTodo[] | null>(null);
+  const planFetchedRef = useRef(false);
+
+  const loadPlanTab = useCallback(() => {
+    if (!id) return;
+    // typeof guards: older test mocks stub the api module without `plans`.
+    if (typeof api.plans?.focus === "function") {
+      api.plans
+        .focus(id)
+        .then((res) => setFocusHistory(res.history || []))
+        .catch(() => setFocusHistory([]));
+    }
+    if (typeof api.plans?.todos === "function") {
+      api.plans
+        .todos(id)
+        .then((res) => setSessionTodos(res.todos))
+        .catch(() => setSessionTodos(null));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!visitedTabs.has("plan") || planFetchedRef.current) return;
+    planFetchedRef.current = true;
+    loadPlanTab();
+    const cwd = session?.cwd;
+    if (cwd && typeof api.plans?.forCwd === "function") {
+      api.plans
+        .forCwd(cwd)
+        .then((res) => setPlanData(res))
+        .catch(() => setPlanData(null)); // 404 = no AGENT-PLAN.md, normal
+    }
+  }, [visitedTabs, session?.cwd, loadPlanTab]);
+
+  useEffect(() => {
+    return eventBus.subscribe((msg) => {
+      try {
+        if (msg.type === "session_focus" && (msg.data as SessionFocus)?.session_id === id) {
+          // Focus changed → the history/todos views are stale; refresh them
+          // only if the tab was ever opened (data exists to refresh).
+          if (planFetchedRef.current) loadPlanTab();
+        }
+        if (msg.type === "plan_updated") {
+          const payload = msg.data as PlanUpdatedPayload;
+          if (payload?.plan?.cwd && payload.plan.cwd === session?.cwd) {
+            setPlanData({ plan: payload.plan, items: payload.items ?? [] });
+          }
+        }
+      } catch {
+        /* defensive: bus has no error isolation */
+      }
+    });
+  }, [id, session?.cwd, loadPlanTab]);
 
   function toggleEvent(id: number) {
     setExpandedEvents((prev) => {
@@ -756,6 +832,52 @@ export function SessionDetail() {
           );
         })()}
 
+      {/* Current-focus banner: which AGENT-PLAN.md item this session declared
+          it is serving, with the detour chain in amber. Accent-violet framing
+          (NOT amber — amber means waiting-on-you here) so the two banners
+          read as different kinds of information at a glance. */}
+      {focus && focus.item_number != null && session.status === "active" && (
+        <div className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/[0.06] px-4 py-2.5">
+          <span className="w-7 h-7 rounded-md bg-accent/15 border border-accent/30 inline-flex items-center justify-center flex-shrink-0">
+            <Crosshair className="w-3.5 h-3.5 text-accent" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-gray-200 truncate">
+              {planT("focus.banner")}
+              {" · "}
+              {planT("focus.itemLabel", { number: focus.item_number })}
+              {": "}
+              {focus.item_text ?? planT("focus.unknownItem")}
+            </div>
+            {(focus.detour_stack.length > 0 || focus.note) && (
+              <div className="text-[11px] text-gray-500 truncate">
+                {focus.note}
+                {focus.detour_stack.map((d, i) => (
+                  <span key={`${d.pushed_at}-${i}`} className="text-amber-400/90">
+                    {focus.note || i > 0 ? " " : ""}
+                    <span aria-hidden="true" className="text-gray-600">
+                      {"▸ "}
+                    </span>
+                    {d.description}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          {focus.drift === true && (
+            <span
+              className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400"
+              title={focus.drift_reason ?? undefined}
+            >
+              {planT("focus.drift")}
+            </span>
+          )}
+          {focus.since && (
+            <span className="text-[11px] text-gray-500 flex-shrink-0">{timeAgo(focus.since)}</span>
+          )}
+        </div>
+      )}
+
       {isDashboardRun && (
         <Link
           to={`/run?session=${encodeURIComponent(id || "")}`}
@@ -822,6 +944,20 @@ export function SessionDetail() {
         >
           <List className="w-4 h-4" />
           Timeline ({events.length}/{eventsTotal})
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("plan");
+            setTranscriptNotFound(false);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "plan"
+              ? "border-violet-500 text-violet-400"
+              : "border-transparent text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          {planT("tab")}
         </button>
       </div>
 
@@ -1211,6 +1347,105 @@ export function SessionDetail() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Plan tab: the cwd's AGENT-PLAN.md checklist (this session chips onto
+          its own item), the interpreted focus timeline, and the TodoWrite
+          micro-plan. Kept mounted after first visit like the other tabs. */}
+      {visitedTabs.has("plan") && (
+        <div hidden={activeTab !== "plan"} className="space-y-6">
+          {planData ? (
+            <PlanPanel
+              plan={planData.plan}
+              items={planData.items}
+              sessions={session ? [session] : []}
+              focusBySession={focusMap}
+              defaultExpanded
+            />
+          ) : (
+            <p className="text-xs text-gray-500 italic">{planT("focus.none")}</p>
+          )}
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Crosshair className="w-3.5 h-3.5" />
+              {planT("timeline.title")}
+            </h3>
+            {focusHistory.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">{planT("timeline.empty")}</p>
+            ) : (
+              <div className="space-y-1.5">
+                {focusHistory.map((entry, i) => (
+                  <div
+                    key={`${entry.at}-${i}`}
+                    className="flex items-baseline gap-3 text-xs min-w-0"
+                  >
+                    <span className="w-16 flex-shrink-0 text-[11px] font-mono text-gray-600">
+                      {timeAgo(entry.at)}
+                    </span>
+                    <span
+                      className={`truncate ${
+                        entry.kind === "detour_push" ? "text-amber-400/90" : "text-gray-400"
+                      }`}
+                      title={entry.text}
+                    >
+                      {entry.kind === "detour_push"
+                        ? planT("timeline.detourStart", { text: entry.text })
+                        : entry.kind === "detour_pop"
+                          ? planT("timeline.detourEnd")
+                          : entry.verb === "done"
+                            ? planT("timeline.done", { number: entry.item_number })
+                            : planT("timeline.entered", { number: entry.item_number })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" />
+              {planT("todos.title")}
+            </h3>
+            {!sessionTodos || sessionTodos.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">{planT("todos.empty")}</p>
+            ) : (
+              <ul className="space-y-1">
+                {sessionTodos.map((todo, i) => (
+                  <li
+                    key={`${todo.content}-${i}`}
+                    className="flex items-center gap-2 text-xs min-w-0"
+                  >
+                    {todo.status === "completed" ? (
+                      <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                    ) : todo.status === "in_progress" ? (
+                      <span
+                        className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mx-0.5"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <Circle className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                    )}
+                    <span
+                      className={`truncate ${
+                        todo.status === "completed"
+                          ? "line-through text-gray-500"
+                          : todo.status === "in_progress"
+                            ? "text-gray-200"
+                            : "text-gray-400"
+                      }`}
+                    >
+                      {todo.status === "in_progress" && todo.activeForm
+                        ? todo.activeForm
+                        : todo.content}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
     </div>

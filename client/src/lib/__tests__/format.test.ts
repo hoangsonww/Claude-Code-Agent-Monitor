@@ -17,6 +17,7 @@ import {
   formatTime,
   getCurrentLocale,
   formatModelName,
+  isExpensiveModel,
   pathTail,
 } from "../format";
 
@@ -257,6 +258,27 @@ describe("formatModelName", () => {
   it("title-cases unknown models", () => {
     expect(formatModelName("o1-mini")).toBe("O1 Mini");
     expect(formatModelName("o1-preview")).toBe("O1 Preview");
+  });
+});
+
+describe("isExpensiveModel", () => {
+  it("flags opus and fable ids", () => {
+    expect(isExpensiveModel("claude-opus-4-8")).toBe(true);
+    expect(isExpensiveModel("claude-opus-4-8-20260101[1m]")).toBe(true);
+    expect(isExpensiveModel("claude-fable-5")).toBe(true);
+    expect(isExpensiveModel("CLAUDE-OPUS-4-7")).toBe(true);
+  });
+
+  it("does not flag other models", () => {
+    expect(isExpensiveModel("claude-sonnet-4-6")).toBe(false);
+    expect(isExpensiveModel("claude-haiku-4-5")).toBe(false);
+    expect(isExpensiveModel("gpt-4o")).toBe(false);
+  });
+
+  it("returns false for falsy input", () => {
+    expect(isExpensiveModel(null)).toBe(false);
+    expect(isExpensiveModel(undefined)).toBe(false);
+    expect(isExpensiveModel("")).toBe(false);
   });
 });
 

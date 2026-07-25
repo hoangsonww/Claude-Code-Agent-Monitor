@@ -16,6 +16,7 @@ The complete guide to `ccam`, the Claude Code Agent Monitor command-line interfa
   - [Monitoring](#monitoring)
   - [Data Browsing](#data-browsing)
   - [Insights](#insights)
+  - [Plan & Focus](#plan--focus)
   - [Alerts & Webhooks](#alerts--webhooks)
   - [Pricing](#pricing)
   - [Import](#import)
@@ -141,7 +142,7 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Works offline | Server required (with the printed reason) |
 | ------------- | ----------------------------------------- |
-| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `remote-sources` (all — SSH pull needs the server), `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
+| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `focus` (status — reads `session_focus` directly), `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `focus set/push/pop/done` (writes must go through the server's transaction + broadcast path), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `remote-sources` (all — SSH pull needs the server), `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
 
 \* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
 
@@ -173,6 +174,20 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam workflows [--session id]` | Workflow-intelligence stats (sessions analyzed, subagents, success rate, depth, compactions) and the top detected patterns; `--session` drills into one session |
 | `ccam runs [--session id]` | Dynamic Workflow-tool runs: status, agent count, tokens, tool calls, duration |
 | `ccam cost [--session <id>]` | Total estimated cost with a per-model bar-chart breakdown; `--session` scopes it to one session (mirrors `/api/pricing/cost/:sessionId`). Any billed **server-tool surcharges** (web search $/1k, code-execution container-time) are shown on a surcharges line. Models with usage but **no matching pricing rule** (priced at $0 and excluded from the total) are listed in a warning with their token volume and the `ccam pricing set` invocation that fixes it |
+
+### Plan & Focus
+
+Declare and inspect which `AGENT-PLAN.md` item a session is serving (**Plan-Aware Monitoring**). The target session resolves from `--session <id>` or, when omitted, from the current working directory's most recent active session.
+
+| Command | Description |
+| ------- | ----------- |
+| `ccam focus [--session <id>]` | Current plan + focus + drift for a session: the declared item, note, detour-stack depth, drift verdict, and the full plan checklist with the current item marked (alias: `ccam focus status`) |
+| `ccam focus set <n> [note]` | Declare which plan item this session is serving |
+| `ccam focus push <description>` | Declare a detour — unplanned-but-necessary work on top of the current item |
+| `ccam focus pop` | Resolve the current detour and return to the prior item |
+| `ccam focus done <n>` | Declare a plan item complete (the file's checkbox stays human-owned — this records the agent's claim, it never edits `AGENT-PLAN.md`) |
+
+**Inside a Claude Code session** (the `CLAUDECODE` env var is set — i.e. an agent running `ccam focus` in its Bash tool), the write verbs (`set`/`push`/`pop`/`done`) do **not** call the API: the dashboard parses the command off the `PostToolUse` hook stream, which already carries the session id, so the CLI just prints `recorded via hook stream`. Outside a session, writes POST the strict `/api/sessions/:id/focus` endpoint (unknown items and empty-stack pops are refused with a clear error). `focus status` is read-only and is never recorded as a declaration.
 
 ### Alerts & Webhooks
 
@@ -234,7 +249,8 @@ Manage the remote (SSH) machines this dashboard pulls Claude Code history from �
 ## Safety Model
 
 - **Read commands are always safe** — they only issue `GET`s.
-- **Mutating commands** (`alerts ack`, `pricing set/delete/reset`, `import`, `cleanup`, `reinstall-hooks`) map 1:1 to explicit dashboard actions and run immediately, exactly like clicking the equivalent button.
+- **Mutating commands** (`alerts ack`, `pricing set/delete/reset`, `import`, `cleanup`, `reinstall-hooks`, `focus set/push/pop/done`) map 1:1 to explicit dashboard actions and run immediately, exactly like clicking the equivalent button.
+- **Focus writes are declaration-only.** `ccam focus done <n>` records the agent's *claim* — it never edits `AGENT-PLAN.md` (the checkbox stays human-owned), and no focus verb can touch the drift-audit columns. Inside a Claude Code session (`CLAUDECODE` set) write verbs defer entirely to the hook stream — the CLI makes no API call at all, so a sandboxed agent can still declare focus safely.
 - **The one destructive command, `clear-data`, refuses to run without `--yes`** and prints exactly what it would delete. There is no bulk-destructive behavior anywhere else.
 
 ## Output & Scripting

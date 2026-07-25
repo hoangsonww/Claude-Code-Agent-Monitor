@@ -180,6 +180,7 @@ client/
 │   │   ├── EmptyState.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
+│   │   ├── PlanPanel.tsx   # AGENT-PLAN.md checklist (collapsible; progress bar + per-item session chips) — Projects page + SessionDetail Plan tab
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
 │   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
@@ -200,6 +201,7 @@ client/
 │   │   ├── api.ts          # REST API client
 │   │   ├── eventBus.ts     # WebSocket pub/sub + connection state
 │   │   ├── dataScope.ts    # Global data-scope store (app-wide ?sources= selection)
+│   │   ├── focusStore.ts   # Module-level session-focus store (bulk hydrate GET /api/focus + live session_focus WS merges)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   └── types.ts        # TypeScript type definitions
 │   │
@@ -398,6 +400,8 @@ Server broadcasts these event types over WebSocket:
 | `tool.executed` | Tool execution record | PostToolUse hook |
 | `notification.received` | Notification object | Notification hook |
 | `remote_source.status` | `{ id, status, error?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`) | Remote Data Source sync poller + `/api/remote-sources` routes |
+| `plan_updated` | `{ plan, items }` — the ingested plan row plus its full item list | `AGENT-PLAN.md` poll / SessionStart ingest / `POST /api/plans/refresh`, and `focus done` declarations (the `declared_done` rollup changed) |
+| `session_focus` | Focus wire shape: `{ session_id, cwd, item_number, item_text, note, detour_stack, since, drift, drift_reason, updated_at }` | Applied focus declarations (hook or API) + the focus drift audit — merged into `lib/focusStore.ts` |
 
 ### EventBus Pattern
 
@@ -626,6 +630,23 @@ interface SessionCardProps {
 │ Started: 2 hours ago                   │
 │ Agents: 3 | Tools: 12                  │
 └────────────────────────────────────────┘
+```
+
+SessionCard also renders a one-line **focus breadcrumb** when the session has a declared `AGENT-PLAN.md` focus (from `lib/focusStore.ts`): `Item 4: Migrate auth ▸ npm conflict (23m)` — the current plan item, the top detour in amber when the detour stack is non-empty, and an amber "possible undeclared detour?" drift pill when the focus drift audit flags the session.
+
+#### PlanPanel
+
+Renders one repo's ingested `AGENT-PLAN.md` as a collapsible checklist: title, progress bar (checked items over total), and per-item rows with the acceptance note plus **session chips** answering "who is on item N" — the provided sessions joined against the live focus map from `lib/focusStore.ts`. Used on the Projects page (collapsed by default, one panel per mapped folder with a plan) and inside SessionDetail's **Plan** tab (expanded). Copy lives in the `plan` i18n namespace (en / zh / vi / ko).
+
+**Props:**
+```typescript
+interface PlanPanelProps {
+  plan: Omit<Plan, "items">;    // the plan to render
+  items: PlanItem[];             // the plan's items, file order
+  sessions: Session[];           // sessions eligible to chip onto items
+  focusBySession: ReadonlyMap<string, SessionFocus>; // live focus map (focusStore)
+  defaultExpanded?: boolean;     // SessionDetail passes true; Projects collapses
+}
 ```
 
 #### AgentCard

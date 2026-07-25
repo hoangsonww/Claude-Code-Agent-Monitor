@@ -33,7 +33,8 @@
     "turnSummary_other": "{{count}} turns",
     "lastMessage": "Last message",
     "lastMessageLoading": "Loading last message…",
-    "lastMessageEmpty": "No recent message found"
+    "lastMessageEmpty": "No recent message found",
+    "expensiveModel": "Running on a premium model (Opus/Fable) - higher cost per token"
   },
   "tooltip": {
     "agent": {

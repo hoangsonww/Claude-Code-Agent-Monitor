@@ -33,7 +33,8 @@
     "turnSummary_other": "턴 {{count}}회",
     "lastMessage": "마지막 메시지",
     "lastMessageLoading": "마지막 메시지를 불러오는 중…",
-    "lastMessageEmpty": "최근 메시지를 찾을 수 없습니다"
+    "lastMessageEmpty": "최근 메시지를 찾을 수 없습니다",
+    "expensiveModel": "프리미엄 모델(Opus/Fable) 사용 중 - 토큰당 비용이 더 높습니다"
   },
   "tooltip": {
     "agent": {

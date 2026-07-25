@@ -12,10 +12,12 @@ import {
   statusOf,
   clearErrors,
   seedSessions,
+  checkExpensiveModel,
   HAPPY_MS,
   WORRIED_MS,
   STUCK_MS,
   SLEEP_MS,
+  EXPENSIVE_MODEL_MS,
   type TabbyState,
 } from "../brain";
 import type {
@@ -30,6 +32,14 @@ const T0 = 1_000_000;
 
 function sessionMsg(id: string, status: Session["status"], ts = T0): WSMessage {
   return { type: "session_updated", data: { id, status } as Session, timestamp: String(ts) };
+}
+function sessionModelMsg(
+  id: string,
+  status: Session["status"],
+  model: string | null,
+  ts = T0
+): WSMessage {
+  return { type: "session_updated", data: { id, status, model } as Session, timestamp: String(ts) };
 }
 function agentMsg(status: Agent["status"]): WSMessage {
   return { type: "agent_updated", data: { status } as Agent, timestamp: String(T0) };
@@ -245,4 +255,94 @@ describe("clearErrors", () => {
 // Reference the imported constant so it is exercised and tsc-clean.
 it("WORRIED_MS is a positive window", () => {
   expect(WORRIED_MS).toBeGreaterThan(0);
+});
+
+describe("expensive model tracking", () => {
+  it("stamps expensiveModelSince the first time a live session reports opus, and does not re-stamp on repeats", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-opus-4-8"), T0));
+    expect(s.expensiveModelSince["a"]).toBe(T0);
+    ({ state: s } = reduceTabby(
+      s,
+      sessionModelMsg("a", "active", "claude-opus-4-8", T0 + 5000),
+      T0 + 5000
+    ));
+    expect(s.expensiveModelSince["a"]).toBe(T0); // unchanged - streak start, not last-seen
+  });
+
+  it("tracks fable the same as opus", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-fable-5"), T0));
+    expect(s.expensiveModelSince["a"]).toBe(T0);
+  });
+
+  it("does not track a non-expensive model", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-sonnet-4-6"), T0));
+    expect(s.expensiveModelSince["a"]).toBeUndefined();
+  });
+
+  it("clears the streak when the model changes away from expensive", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-opus-4-8"), T0));
+    expect(s.expensiveModelSince["a"]).toBe(T0);
+    ({ state: s } = reduceTabby(
+      s,
+      sessionModelMsg("a", "active", "claude-sonnet-4-6", T0 + 1000),
+      T0 + 1000
+    ));
+    expect(s.expensiveModelSince["a"]).toBeUndefined();
+  });
+
+  it("clears the streak when the session ends", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-opus-4-8"), T0));
+    ({ state: s } = reduceTabby(
+      s,
+      sessionModelMsg("a", "completed", "claude-opus-4-8", T0 + 1000),
+      T0 + 1000
+    ));
+    expect(s.expensiveModelSince["a"]).toBeUndefined();
+  });
+
+  it("checkExpensiveModel emits no pulse before the threshold and one pulse once it's crossed", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-opus-4-8"), T0));
+
+    const before = checkExpensiveModel(s, T0 + EXPENSIVE_MODEL_MS - 1);
+    expect(before.pulse).toBe(null);
+
+    const after = checkExpensiveModel(s, T0 + EXPENSIVE_MODEL_MS);
+    expect(after.pulse).toBe("expensive_model");
+    expect(after.state.expensiveModelNagged["a"]).toBe(true);
+
+    // Already nagged for this streak - no repeat pulse on the next tick.
+    const again = checkExpensiveModel(after.state, T0 + EXPENSIVE_MODEL_MS + 1000);
+    expect(again.pulse).toBe(null);
+  });
+
+  it("checkExpensiveModel re-arms after the model changes away and back", () => {
+    let s = initialTabbyState(T0);
+    ({ state: s } = reduceTabby(s, sessionModelMsg("a", "active", "claude-opus-4-8"), T0));
+    const nagged = checkExpensiveModel(s, T0 + EXPENSIVE_MODEL_MS);
+    expect(nagged.pulse).toBe("expensive_model");
+
+    // Switch to sonnet then back to opus - streak (and nag flag) resets.
+    let s2 = nagged.state;
+    ({ state: s2 } = reduceTabby(
+      s2,
+      sessionModelMsg("a", "active", "claude-sonnet-4-6", T0 + EXPENSIVE_MODEL_MS + 1000),
+      T0 + EXPENSIVE_MODEL_MS + 1000
+    ));
+    ({ state: s2 } = reduceTabby(
+      s2,
+      sessionModelMsg("a", "active", "claude-opus-4-8", T0 + EXPENSIVE_MODEL_MS + 2000),
+      T0 + EXPENSIVE_MODEL_MS + 2000
+    ));
+    expect(s2.expensiveModelNagged["a"]).toBeUndefined();
+    expect(s2.expensiveModelSince["a"]).toBe(T0 + EXPENSIVE_MODEL_MS + 2000);
+
+    const secondNag = checkExpensiveModel(s2, T0 + 2 * EXPENSIVE_MODEL_MS + 2000);
+    expect(secondNag.pulse).toBe("expensive_model");
+  });
 });

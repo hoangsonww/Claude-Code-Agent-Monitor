@@ -450,6 +450,59 @@ describe("Kanban Board - Projects view", () => {
       expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
     });
 
+    it("dragging a project onto the (similarly-named, easy-to-confuse-with-Ungrouped) Unassigned column also clears its monitor assignment", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+      const monitorId = nthMonitor(0).id;
+
+      const agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      const box = screen.getByTestId(`monitor-box-${monitorId}`);
+      dragColumnOnto(agentMonitorColumn, box);
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+
+      const agentMonitorColumn2 = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      const unassignedColumn = screen
+        .getByText("Unassigned")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn2, unassignedColumn);
+
+      expect(currentMonitorMap()["proj-1"]).toBeUndefined();
+      expect(within(box).queryByText("Agent Monitor")).not.toBeInTheDocument();
+      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
+    it("dropping past the last column - overshooting the Ungrouped tag - still clears the monitor assignment", async () => {
+      // Regression test: a long drag across several monitor boxes can easily
+      // land past the (comparatively narrow) Ungrouped tag instead of on it.
+      // The trailing catch-all spacer after the last column should still
+      // count that as "move to Ungrouped".
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+      const monitorId = nthMonitor(0).id;
+
+      const agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn, screen.getByTestId(`monitor-box-${monitorId}`));
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+
+      const agentMonitorColumn2 = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn2, screen.getByTestId("monitor-ungroup-catchall"));
+
+      expect(currentMonitorMap()["proj-1"]).toBeUndefined();
+      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
     it("drags a monitor's box onto another to reposition it, and persists the new monitor order", async () => {
       renderPage();
       fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));

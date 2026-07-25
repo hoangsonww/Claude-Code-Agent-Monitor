@@ -33,7 +33,8 @@
     "turnSummary_other": "{{count}} 轮",
     "lastMessage": "最后一条消息",
     "lastMessageLoading": "正在加载最后一条消息…",
-    "lastMessageEmpty": "未找到最近的消息"
+    "lastMessageEmpty": "未找到最近的消息",
+    "expensiveModel": "正在使用高级模型(Opus/Fable)- 每个 token 成本更高"
   },
   "tooltip": {
     "agent": {

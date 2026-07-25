@@ -372,6 +372,10 @@ graph TD
 | `server/lib/source-filter.js` | Parses the optional `?sources=` query param (comma-separated source ids) into SQL predicates + bind params, shared by the data endpoints (`GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`) so a client **data-scope** selection narrows every query consistently. No filter → the existing unscoped queries run unchanged |
 | `server/lib/scoped-stats.js` | Source-scoped variants of the stats/analytics aggregates, used **only** when a `?sources=` scope filter is active — the unscoped fast paths in `routes/stats.js` / `routes/analytics.js` are untouched when no scope is set |
 | `server/routes/projects.js` | HTTP surface for **Projects** — a user-named grouping of one or more session working directories: `GET /api/projects` (every project with its mapped folders + server-aggregated `session_count`/`active_count`/`last_activity`, plus an `unassigned` bucket for cwds with sessions not mapped to any project), `POST /api/projects` (create, optionally attaching folders — 409 `ALREADY_MAPPED` if any is already claimed elsewhere), `PATCH /api/projects/:id` (rename), `DELETE /api/projects/:id` (folder mappings cascade; sessions are untouched and fall back to unassigned), and `POST`/`DELETE /api/projects/:id/paths[/:pathId]` (add/remove a folder mapping — a folder belongs to at most one project). No `sessions` schema change: membership is derived by joining `sessions.cwd` against `project_paths.cwd` |
+| `server/routes/plans.js`  | HTTP surface for **Plan-Aware Monitoring**: `GET /api/plans` (every known plan with its items — small N, one per repo), `GET /api/plans/for-cwd?cwd=` (one working directory's plan; query-param form because cwds contain slashes), `GET /api/plans/project/:projectId` (per-project rollup — one `{cwd, plan, items}` entry per mapped folder that has a plan), and `POST /api/plans/refresh` `{cwd}` (force an ingest now — the CLI/test escape hatch when the background poll is disabled; broadcasts `plan_updated` when anything changed). Also exports the separate `focusRouter` mounted at `GET /api/focus` — the bulk hydrate returning every **active** session's declared focus as wire shapes in one round-trip. Errors use the standard `{error:{code,message}}` envelope |
+| `server/lib/plan-ingest.js` | Mirrors each monitored repo's human-owned `<cwd>/AGENT-PLAN.md` (a `# Title` plus numbered checkbox items `- [ ] 4. Text — acceptance: note`) into the `plans`/`plan_items` tables read-only — the file is the source of truth, the dashboard never writes it. Deliberately tolerant grammar: non-item lines are ignored, indented continuations append to the previous item, duplicate numbers keep the first occurrence. Safety caps: 256 KB file (stat-before-read), 100 items, field-length clamps that keep `plan_updated` broadcasts far below the WebSocket's 64 KB `maxPayload`. A file that parses to **zero items keeps the last good DB state** (far more likely a human mid-edit than an intentional wipe), and a deleted file stamps `plans.missing_at` while keeping the row (focus history still references its items). All entry points are fail-safe — it runs from the hook path and a background poll and must never break either. Contract mirrors `workflow-ingest`: takes the db module, returns what changed, the **caller** owns broadcasting |
+| `server/lib/focus-commands.js` | Parses and applies `ccam focus set\|push\|pop\|done` declarations. `extractFocusCommand()` recognizes the invocation inside a Bash `tool_input.command`; `applyFocusCommand()` updates `session_focus` (item pointer + detour stack, depth cap 10), writes a `Focus` event (verb, `item_number`, an `item_text_snapshot` for the timeline, plus `unknown_item`/stack-cap flags), and broadcasts `new_event` + `session_focus` (and `plan_updated` after `done`, since `declared_done_*` changes the rollup). Two modes: **hook path** (permissive — unknown items are recorded flagged, pop-on-empty is a flagged no-op; hooks can't return errors) and **API path** (strict — violations are 409s, and a declaration whose end state equals the current state dedupes to a no-op so CLI-write + hook-parse double delivery is harmless). Declarations **never** touch the `drift_*` columns — an agent cannot silence its own drift badge by re-declaring |
+| `server/lib/focus-audit.js` | **Focus drift audit** — periodically asks, per focused active session, "does the recent activity match the declaration?" and stamps a verdict on `session_focus.drift_*` (broadcasting `session_focus`); it never rewrites the declaration itself. Primary judge: a one-shot headless `claude -p --output-format json` on a small model using the user's existing CLI auth — spawned hermetically with hooks disabled (`--settings '{"disableAllHooks":true}'`, or every audit would ingest *itself* and become a session to audit), all tools disallowed, cwd = tmpdir, `CLAUDECODE` stripped from the env (run-spawner precedent). CLI availability is probe-cached; fallback is a conservative keyword-overlap heuristic. Max 5 sessions per tick, judged serially; sessions with no activity since their last check are skipped, and an `unknown` verdict never overwrites a real one. Env knobs: `DASHBOARD_FOCUS_AUDIT_MS` (default 300000; ≤0 disables), `DASHBOARD_FOCUS_AUDIT_MODE` (`llm` \| `heuristic` \| `off`), `DASHBOARD_FOCUS_AUDIT_MODEL` (default `haiku`), `DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS` (default 30000 — SIGTERM then SIGKILL) |
 | `lib/cc-discovery.js`     | Read-only discovery of every Claude Code config surface for the Config Explorer page. Pure file reads; never writes. Surfaces: skills (`<root>/skills/<name>/SKILL.md`), subagents (`<root>/agents/*.md`), slash commands (`<root>/commands/*.md`), output styles (`<root>/output-styles/*.md`), plugins (`<CLAUDE_HOME>/plugins/installed_plugins.json` joined with `enabledPlugins` in settings + per-plugin `contributes` count by scanning the install dir + `plugin.json` metadata), marketplaces (`known_marketplaces.json` enriched with each `marketplace.json`), MCP servers (top-level + per-project from `~/.claude.json`), hooks (across user / project / project-local settings.json), keybindings (`<CLAUDE_HOME>/keybindings.json`), statusline config + `statusline.py` / `statusline-command.sh` content, hook scripts dir (`<CLAUDE_HOME>/hooks/`), settings (with secret-key redaction matching `/token\|secret\|password\|api[_-]?key\|auth/i`), memory (`CLAUDE.md` at user + project **plus** the per-project file-based auto-memory store — every `*.md` under `~/.claude/projects/<slug>/memory/`, returned as `scope:"auto-memory"` items carrying `project`, `name`, `isIndex`, and parsed `frontmatter`, so a `MEMORY.md` index and one file per remembered fact, often 100+, all surface). Path containment via `isUnder()` — every read must resolve under CLAUDE_HOME, project `.claude/`, or be a project CLAUDE.md. 256 KB read cap. Minimal YAML frontmatter parser handles `key: value` + quoted strings + indented continuation lines |
 | `lib/cc-mutate.js`        | Create / overwrite / delete for the **low-risk text-file surfaces only** (skills, subagents, slash commands, output styles, memory — including the per-project file-based auto-memory store, mutated via `scope: "auto-memory"`, `type: "auto-memory"`, `project`, `name`, with its backups landing in `<memory-dir>/.cc-config-backups/auto-memory/`), plus `writeKeybindings()` for the structured `keybindings.json` editor (read-modify-write that preserves top-level metadata, rejects duplicate contexts/keys, and backs up to `<CLAUDE_HOME>/cc-config-backups/keybindings/`). Plugins, MCP, hooks-in-settings, and `settings.json` files are NEVER written from here — they have concurrent-write races with the live Claude Code CLI. Every mutation creates a timestamped backup at `<root>/cc-config-backups/<type>/<base>.<ISO>.bak[.dir]` BEFORE the change — backups land outside the directories Claude Code scans, so a deleted skill cannot resurface as a backup-named one. Writes are atomic: temp file in same dir → fsync → `renameSync`. Tmp removed on every failure path. Skill dirs are backed up whole (preserving bundled assets) before recursive removal. Strict `name` regex (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`), 256 KB content cap, double-checked path containment via `isUnder()` |
 | `routes/cc-config.js`     | HTTP surface for the Claude Config Explorer. Read endpoints for every surface (skills, agents, commands, output-styles, plugins, marketplaces, mcp, hooks, hook-scripts, keybindings, statusline, settings, memory, file, overview), plus mutation endpoints (`PUT /file`, `DELETE /file`, and a structured `PUT /keybindings`) that delegate to `cc-mutate.js`, plus a `GET /backups` listing for the recovery modal. After every successful PUT/DELETE the route broadcasts `cc_config_changed` over the WebSocket so any open `/cc-config` tab refetches without polling. All errors return structured `{error: {code, message}}` shapes mapped to 400/404/413/500 statuses |
@@ -945,9 +949,48 @@ erDiagram
         TEXT cwd "Working directory this project claims — UNIQUE (one project per folder)"
         TEXT created_at "ISO 8601"
     }
+
+    plans ||--o{ plan_items : contains
+    sessions ||--o| session_focus : "declares focus"
+
+    plans {
+        TEXT cwd PK "Working directory holding AGENT-PLAN.md"
+        TEXT title "First markdown heading"
+        TEXT file_path "Absolute path to the ingested AGENT-PLAN.md"
+        TEXT content_hash "Fingerprint of the last ingested content"
+        INTEGER item_count "Items parsed on the last ingest"
+        TEXT missing_at "Stamped when the file disappears — row is kept"
+        TEXT created_at "ISO 8601"
+        TEXT updated_at "ISO 8601"
+    }
+
+    plan_items {
+        TEXT cwd PK "FK to plans (ON DELETE CASCADE) + part of composite PK"
+        INTEGER item_number PK "The file's own item number + part of composite PK"
+        TEXT text "Item text"
+        TEXT acceptance "Optional acceptance note or NULL"
+        INTEGER checked "Mirrors the file's checkbox — human-owned"
+        INTEGER position "File order"
+        TEXT declared_done_at "Agent's ccam focus done claim or NULL — survives re-ingest"
+        TEXT declared_done_session "Declaring session id (no FK — audit trail outlives deletion)"
+        TEXT updated_at "ISO 8601"
+    }
+
+    session_focus {
+        TEXT session_id PK "FK to sessions, ON DELETE CASCADE"
+        TEXT cwd "Working directory whose plan the item belongs to"
+        INTEGER item_number "Declared plan item or NULL"
+        TEXT note "Optional note from focus set"
+        TEXT set_at "When the current item was declared"
+        TEXT detour_stack "JSON stack of in-flight detours (depth cap 10)"
+        TEXT drift_status "NULL, ok, drift or unknown — written only by the drift auditor"
+        TEXT drift_reason "Auditor's one-line justification or NULL"
+        TEXT drift_checked_at "ISO 8601 or NULL"
+        TEXT updated_at "ISO 8601"
+    }
 ```
 
-`sessions` carries **no** `project_id` column — project membership is derived at query time by joining `sessions.cwd` against `project_paths.cwd`, so a session created (or imported) before its folder was ever mapped retroactively belongs to that project the instant the mapping is added, with no backfill needed.
+`sessions` carries **no** `project_id` column — project membership is derived at query time by joining `sessions.cwd` against `project_paths.cwd`, so a session created (or imported) before its folder was ever mapped retroactively belongs to that project the instant the mapping is added, with no backfill needed. `plans` follows the same convention: it is keyed by `cwd` (no `project_id`), so a project's plans aggregate through the `project_paths` join exactly like its sessions. Focus **history** is deliberately not a table — every focus change also writes a `Focus` row to the existing `events` table, which the timeline already renders; `session_focus` holds only the *current* declaration per session.
 
 ### Indexes
 
@@ -968,6 +1011,7 @@ erDiagram
 | `idx_alert_events_session` | alert_events | `session_id`  | Per-session alert history      |
 | `idx_webhook_deliveries_target` | webhook_deliveries | `target_id, created_at DESC` | Per-target delivery log + last-delivery lookup |
 | `idx_webhook_deliveries_created` | webhook_deliveries | `created_at DESC` | Delivery-log pruning (newest 2000)  |
+| `idx_session_focus_cwd` | session_focus | `cwd`             | Per-repo focus rollup (plan panel's per-item session chips) |
 
 ### SQLite Configuration
 
@@ -1004,8 +1048,10 @@ All messages are JSON with this envelope:
 ```typescript
 {
   type: "session_created" | "session_updated" | "session_deleted" | "agent_created" | "agent_updated" | "new_event"
-      | "alert_triggered" | "alert_updated" | "workflow_upserted" | "remote_source.status";
-  data: Session | { id: string } | Agent | DashboardEvent | AlertEvent | WorkflowRun | RemoteSourceStatus;
+      | "alert_triggered" | "alert_updated" | "workflow_upserted" | "plan_updated" | "session_focus"
+      | "remote_source.status";
+  data: Session | { id: string } | Agent | DashboardEvent | AlertEvent | WorkflowRun | PlanUpdate | SessionFocus
+      | RemoteSourceStatus;
   timestamp: string; // ISO 8601
 }
 ```
@@ -1014,6 +1060,15 @@ The `remote_source.status` message (emitted by the **Remote Data Sources**
 sync poller and the `/api/remote-sources` routes) carries
 `{ id, status, error?, last_sync_at? }`, where `status` is one of
 `idle | syncing | ok | error | deleted`.
+
+The two **Plan-Aware Monitoring** messages (see
+[Plan-Aware Monitoring](#plan-aware-monitoring)): `plan_updated` carries
+`{ plan, items }` — the freshly ingested `plans` row plus its full
+`plan_items` list — whenever an `AGENT-PLAN.md` changes on disk or a
+`focus done` declaration updates the rollup; `session_focus` carries one
+session's focus wire shape
+`{ session_id, cwd, item_number, item_text, note, detour_stack, since, drift, drift_reason, updated_at }`
+whenever a declaration is applied or the drift auditor stamps a verdict.
 
 ### Message Flow
 
@@ -1538,6 +1593,66 @@ changes.
 
 ---
 
+## Plan-Aware Monitoring
+
+Plan-Aware Monitoring answers "which part of the project plan is this session
+serving?" Each monitored repo may keep a human-approved **`AGENT-PLAN.md`** at
+its root — a `# Title` plus numbered checkbox items
+(`- [ ] 4. Text — acceptance: note`). The file is the human-owned source of
+truth; the dashboard only mirrors it (read-only) into the `plans` /
+`plan_items` tables via `server/lib/plan-ingest.js`, keyed by `cwd` so
+projects aggregate through the `project_paths` join exactly like sessions do
+(see the ERD above).
+
+**Ingestion** runs from three fail-safe triggers, mirroring the workflow-ingest
+pattern: (1) `startPlanPoll` (`server/index.js`, wired into
+`startBackgroundServices` alongside `startWorkflowPoll` / `startSessionSync`)
+stat-fingerprints `<cwd>/AGENT-PLAN.md` across every distinct session cwd ∪
+project-mapped folder (cap 200) on a `DASHBOARD_PLAN_POLL_MS` interval
+(default 10000 ms; ≤0 disables) — unchanged mtime skips outright, and the
+ingest layer's content hash catches the restart-with-stale-cache case; (2) an
+opportunistic ingest on every `SessionStart` carrying a cwd (post-response, so
+a freshly opened project shows its plan immediately); (3) the
+`POST /api/plans/refresh` escape hatch. Any ingest that changes anything
+broadcasts `plan_updated`.
+
+**Focus declarations** flow through the hook stream: an agent runs
+`ccam focus set <n> [note]` / `push <desc>` / `pop` / `done <n>` in its Bash
+tool, and `routes/hooks.js` parses the invocation out of the `PostToolUse`
+event's `tool_input.command` (`server/lib/focus-commands.js`) — PostToolUse
+only, because a blocked/denied command never fires it (exactly-once semantics
+with no dedupe bookkeeping), and because that event already carries the
+session id, the one thing no out-of-band channel natively has. Each applied
+declaration updates `session_focus`, writes a `Focus` event (the timeline's
+history source), and broadcasts `new_event` + `session_focus` (plus
+`plan_updated` after `done`). `focus status` is read-only and records nothing.
+Outside a Claude Code session the CLI POSTs the strict
+`POST /api/sessions/:id/focus` endpoint instead (409 on unknown items /
+empty-stack pops, idempotent same-state dedupe).
+
+**Drift audit** (`server/lib/focus-audit.js`, `startFocusAudit`) periodically
+checks that a focused session's recent activity matches its declaration and
+stamps only the `session_focus.drift_*` columns (broadcast as
+`session_focus`): a headless hermetic `claude -p` on a small model with a
+keyword-overlap fallback — `DASHBOARD_FOCUS_AUDIT_MS` /
+`DASHBOARD_FOCUS_AUDIT_MODE` / `DASHBOARD_FOCUS_AUDIT_MODEL` /
+`DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS` (see the Server Components table).
+Declarations never touch the drift columns, so an agent cannot clear its own
+badge.
+
+**Client surface.** `client/src/lib/focusStore.ts` is a module-level store
+(same pattern as `dataScope.ts`): one bulk hydrate from `GET /api/focus` plus
+live `session_focus` WebSocket merges, consumed by every session card. The
+Projects page renders each plan as a collapsible checklist with a progress bar
+and per-item session chips (`client/src/components/PlanPanel.tsx`);
+`SessionCard` gets a one-line focus breadcrumb (detours in amber, drift pill);
+Session Detail gains a focus banner plus a **Plan** tab (checklist, focus
+timeline from `Focus` events, and the session's latest TodoWrite micro-plan
+via `GET /api/sessions/:id/todos`). Copy lives in the dedicated `plan` i18n
+namespace (en / zh / vi / ko).
+
+---
+
 ## Agent Extension Layer
 
 The repository includes a triple extension strategy:
@@ -1704,7 +1819,7 @@ Every skill and agent references the actual dashboard API response shapes:
 | Token tracking | `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens` + 4 `baseline_*` columns (preserve pre-compaction data) |
 | Cost engine | `(tokens / 1M) × rate_per_mtok` for each type; longest `model_pattern` match wins; pre-seeded Opus/Sonnet/Haiku rates |
 | Session metadata | `thinking_blocks`, `turn_count`, `total_turn_duration_ms`, `usage_extras` (`{ service_tiers[], speeds[], inference_geos[] }`) |
-| Event types | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, `Notification`, `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted` |
+| Event types | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, `Notification`, `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted`, `Focus` |
 | Workflow intelligence | 11 datasets per session: `stats`, `orchestration` (DAG), `toolFlow` (transitions), `effectiveness`, `patterns`, `modelDelegation`, `errorPropagation` (by depth), `concurrency` (lanes), `complexity` (score), `compaction` (impact), `cooccurrence` (agent pairs) |
 | Agent hierarchy | Recursive CTE with `parent_agent_id`, `subagent_type`, depth tracking |
 
@@ -2221,7 +2336,7 @@ The mood state machine in `deriveMood` resolves to a single expression using a f
 
 | Component | Responsibility |
 | --- | --- |
-| **`brain.ts`** | Pure, framework-free core. Exposes a `WSMessage` reducer (`reduceTabby`) and a mood state machine (`deriveMood`) with the priority order `disconnected > worried > stuck > happy > thinking > watching > sleeping > idle`. The clock is injected and there are zero side effects, so the brain is fully unit-tested in isolation. |
+| **`brain.ts`** | Pure, framework-free core. Exposes a `WSMessage` reducer (`reduceTabby`) and a mood state machine (`deriveMood`) with the priority order `disconnected > worried > stuck > happy > thinking > watching > sleeping > idle`. Also exposes `checkExpensiveModel`, a clock-only (no WS message) check the hook re-runs every tick: once a live session has been reporting an opus/fable model continuously for `EXPENSIVE_MODEL_MS` (15 min), it fires a one-shot `expensive_model` pulse, tracked per session id in `TabbyState.expensiveModelSince` / `expensiveModelNagged` so it nags once per streak, not once per second. The clock is injected and there are zero side effects, so the brain is fully unit-tested in isolation. |
 | **`useTabbyBrain.ts`** | The **only** consumer of the global `eventBus`. Wires the pure brain to real timers (idle / sleep / stuck), the speech-bubble queue, mute, and clear-alerts. Produces the derived `{ mood, status, bubble }` the presentational components render. |
 | **`CatAvatar.tsx`** | Pure presentational SVG cat. The `data-mood` attribute drives CSS; pupils track the cursor. |
 | **`SpeechBubble.tsx`** | Pure presentational speech bubble. |

@@ -1,0 +1,32 @@
+{
+  "title": "플랜",
+  "tab": "플랜",
+  "progress": "{{done}}/{{total}} 완료",
+  "planMissing": "AGENT-PLAN.md가 삭제됨 — 마지막으로 수집된 플랜을 표시합니다",
+  "focus": {
+    "itemLabel": "항목 {{number}}",
+    "unknownItem": "(플랜에 없는 항목)",
+    "banner": "현재 포커스",
+    "drift": "신고되지 않은 우회 작업?",
+    "since": "{{time}}부터",
+    "none": "아직 포커스가 보고되지 않음"
+  },
+  "timeline": {
+    "title": "포커스 타임라인",
+    "entered": "항목 {{number}} 시작",
+    "done": "항목 {{number}} 완료 선언",
+    "detourStart": "우회: {{text}}",
+    "detourEnd": "우회에서 복귀",
+    "empty": "아직 포커스 활동 없음"
+  },
+  "todos": {
+    "title": "마이크로 플랜 (TodoWrite)",
+    "empty": "보고된 할 일 없음"
+  },
+  "items": {
+    "declaredDone": "완료 선언됨, 체크박스 대기 중"
+  },
+  "errors": {
+    "loadFailed": "플랜을 불러오지 못했습니다"
+  }
+}

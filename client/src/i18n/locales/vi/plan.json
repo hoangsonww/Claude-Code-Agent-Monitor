@@ -1,0 +1,32 @@
+{
+  "title": "Kế hoạch",
+  "tab": "Kế hoạch",
+  "progress": "Hoàn thành {{done}}/{{total}}",
+  "planMissing": "AGENT-PLAN.md đã bị xóa — hiển thị kế hoạch được nạp lần cuối",
+  "focus": {
+    "itemLabel": "Mục {{number}}",
+    "unknownItem": "(mục không có trong kế hoạch)",
+    "banner": "Trọng tâm hiện tại",
+    "drift": "có thể lệch hướng chưa khai báo?",
+    "since": "từ {{time}}",
+    "none": "Chưa báo cáo trọng tâm"
+  },
+  "timeline": {
+    "title": "Dòng thời gian trọng tâm",
+    "entered": "Bắt đầu mục {{number}}",
+    "done": "Đã khai báo hoàn thành mục {{number}}",
+    "detourStart": "Rẽ hướng: {{text}}",
+    "detourEnd": "Đã quay lại từ rẽ hướng",
+    "empty": "Chưa có hoạt động trọng tâm"
+  },
+  "todos": {
+    "title": "Kế hoạch vi mô (TodoWrite)",
+    "empty": "Chưa báo cáo việc cần làm"
+  },
+  "items": {
+    "declaredDone": "đã khai báo xong, chờ đánh dấu"
+  },
+  "errors": {
+    "loadFailed": "Không tải được kế hoạch"
+  }
+}

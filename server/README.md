@@ -396,6 +396,57 @@ CREATE TABLE project_paths (
 );
 ```
 
+#### `plans` / `plan_items`
+
+Per-repo plans mirrored read-only from `<cwd>/AGENT-PLAN.md` (see [Plans & Focus](#plans--focus-plan-aware-monitoring)). Keyed by cwd — projects aggregate via the `project_paths` join, exactly like sessions. The file is the human-owned source of truth; `checked` mirrors the file's checkbox while `declared_done_*` is the agent's claim via `ccam focus done N` and survives re-ingest (upserts never touch it). `missing_at` is stamped when the file disappears — the row is kept because focus history still references its items.
+
+```sql
+CREATE TABLE plans (
+    cwd TEXT PRIMARY KEY,         -- working directory holding AGENT-PLAN.md
+    title TEXT,                   -- first markdown heading
+    file_path TEXT NOT NULL,
+    content_hash TEXT,            -- change fingerprint of the last ingest
+    item_count INTEGER NOT NULL DEFAULT 0,
+    missing_at TEXT,              -- stamped when the file disappears; row kept
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE plan_items (
+    cwd TEXT NOT NULL,            -- FK -> plans.cwd, ON DELETE CASCADE
+    item_number INTEGER NOT NULL, -- the file's own number — the stable handle
+    text TEXT NOT NULL,
+    acceptance TEXT,              -- optional "acceptance:" note
+    checked INTEGER NOT NULL DEFAULT 0,   -- mirrors the file checkbox (human-owned)
+    position INTEGER NOT NULL DEFAULT 0,  -- file order
+    declared_done_at TEXT,        -- agent's "ccam focus done N" claim
+    declared_done_session TEXT,   -- no FK on purpose: audit trail outlives session deletion
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (cwd, item_number)
+);
+```
+
+#### `session_focus`
+
+The **current** focus per session: which plan item the session declared it is serving plus a stack of in-flight detours. History is *not* here — every focus change also writes a `Focus` row to `events`, which the timeline already renders. `drift_status` is written only by the focus drift audit; declarations never touch it.
+
+```sql
+CREATE TABLE session_focus (
+    session_id TEXT PRIMARY KEY,  -- FK -> sessions.id, ON DELETE CASCADE
+    cwd TEXT,
+    item_number INTEGER,
+    note TEXT,
+    set_at TEXT,
+    detour_stack TEXT NOT NULL DEFAULT '[]',  -- JSON stack, depth cap 10
+    drift_status TEXT,            -- NULL | ok | drift | unknown (auditor-owned)
+    drift_reason TEXT,
+    drift_checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX idx_session_focus_cwd ON session_focus(cwd);  -- per-repo focus rollup
+```
+
 ### Database Module (db.js)
 
 ```mermaid
@@ -583,6 +634,23 @@ A user-named grouping of one or more session working directories (`routes/projec
 | `DELETE` | `/api/projects/:id/paths/:pathId`  | Unmap a folder (folder + its sessions are untouched) |
 
 Unlike Alerts/Webhooks, project mutations are **not** broadcast over `/ws` — like `remote_sources` config CRUD, the client re-fetches after each change since this is a low-frequency, single-operator configuration surface, not a live monitoring feed.
+
+### Plans & Focus (Plan-Aware Monitoring)
+
+Each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items). `server/lib/plan-ingest.js` mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — projects aggregate via the `project_paths` join exactly like sessions do. Sessions declare which item they are serving by running `ccam focus set|push|pop|done` in their Bash tool (parsed off the `PostToolUse` hook — see `routes/hooks.js`) or via the strict `POST /api/sessions/:id/focus` endpoint (`routes/plans.js`, plus the focus/todos additions in `routes/sessions.js`). Errors use the standard `{error:{code,message}}` envelope.
+
+| Method | Path                          | Description |
+| ------ | ----------------------------- | ----------- |
+| `GET`  | `/api/plans`                  | Every known plan with its items — `{ plans: [{...plan, items:[...]}] }` |
+| `GET`  | `/api/plans/for-cwd?cwd=`     | One working directory's plan (`{ plan, items }`; query-param form because cwds contain slashes) — `400` missing cwd, `404` no plan |
+| `GET`  | `/api/plans/project/:projectId` | Per-project rollup — `{ project_id, plans: [{cwd, plan, items}] }`, one entry per mapped folder with a plan; `404` unknown project |
+| `POST` | `/api/plans/refresh`          | `{cwd}` — force an ingest now (escape hatch when the poll is disabled); returns `{ changed, plan, items }` and broadcasts `plan_updated` on change |
+| `GET`  | `/api/focus`                  | Bulk hydrate: every **active** session's declared focus as wire shapes — `{ focus: [...] }` |
+| `GET`  | `/api/sessions/:id/focus`     | One session's focus + plan item + `plan_title` + `history` (rebuilt from the `Focus` rows in `events`, newest first, cap 50) |
+| `POST` | `/api/sessions/:id/focus`     | Explicit (non-hook) focus write: `{verb: set\|push\|pop\|done, item_number?, note?, description?}` → `{ focus, deduped }`. Strict: `400` invalid input, `404` unknown session, `409` `UNKNOWN_ITEM`/`EMPTY_STACK`; a same-state declaration dedupes to a no-op (no `Focus` event) so CLI-write + hook-parse double delivery is harmless |
+| `GET`  | `/api/sessions/:id/todos`     | The session's latest TodoWrite list, parsed on read from the newest `PostToolUse`/`TodoWrite` event — `{ todos\|null, updated_at }` |
+
+The focus wire shape is `{ session_id, cwd, item_number, item_text, note, detour_stack: [{description, pushed_at, prior_item}], since, drift: true|false|null, drift_reason, updated_at }`. Applied declarations broadcast `new_event` + `session_focus` (and `plan_updated` after `done`, since `declared_done_*` changes the rollup); declarations never touch the `drift_*` columns — only the [focus drift audit](#focus-drift-audit) writes those.
 
 ### Settings / Ops
 
@@ -849,6 +917,24 @@ Server broadcasts JSON messages to all connected clients:
 {
   "type": "remote_source.status",
   "data": { "id": "...", "status": "idle|syncing|ok|error|deleted", "error": "...?", "last_sync_at": "...?" }
+}
+
+// AGENT-PLAN.md (re)ingested — a plan file changed on disk, or a
+// `focus done` declaration updated the declared_done rollup
+{
+  "type": "plan_updated",
+  "data": { "plan": { ...plans row }, "items": [ ...plan_items rows ] }
+}
+
+// A session's declared focus changed (declaration applied) or the drift
+// auditor stamped a verdict — the focus wire shape
+{
+  "type": "session_focus",
+  "data": {
+    "session_id": "...", "cwd": "...", "item_number": 4, "item_text": "...",
+    "note": "...", "detour_stack": [{ "description": "...", "pushed_at": "...", "prior_item": 4 }],
+    "since": "...", "drift": null, "drift_reason": null, "updated_at": "..."
+  }
 }
 ```
 
@@ -1169,6 +1255,14 @@ Each sweep parses **only** files whose mtime is new or has advanced. A cold-cach
 
 After each pull imports and tags a source's sessions, `remote-sync.js` **reconciles their live status from the fresh mirror** (`reconcileRemoteSessionStatus`). Remote sessions receive no live hooks and are excluded from every local liveness/stale heuristic (see below), so the mirror is their single source of truth: a transcript touched within `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` (default `600000` ms = 10 min) means the remote CLI is still writing to it (→ `active`, main agent back to `waiting`); once it stops advancing, the session lands in `completed` with its agents completed and `ended_at` stamped — the same terminal state a real `SessionEnd` produces. This is what keeps an already-imported remote session's status correct on every subsequent sync (the shared importer only sets status on first insert), and it self-heals any remote session a pre-fix build wrongly completed.
 
+### Plan Poll (AGENT-PLAN.md)
+
+`startPlanPoll` (in `server/index.js`, wired into `startBackgroundServices`) keeps the `plans`/`plan_items` mirror in sync with each repo's on-disk `AGENT-PLAN.md`. Each tick builds the cwd universe — every distinct session cwd plus every project-mapped folder, capped at 200 — and stat-checks one file per cwd: an unchanged mtime skips outright, and the ingest layer's content hash catches the restart-with-stale-cache case, so a quiet fleet costs a handful of `stat()` calls per tick. A changed file is re-ingested through `server/lib/plan-ingest.js` (tolerant grammar; 256 KB / 100-item caps; a zero-item parse keeps the last good state; a deleted file stamps `plans.missing_at` and keeps the row) and broadcast as `plan_updated`. The interval is `DASHBOARD_PLAN_POLL_MS` (default `10000` ms; `0` disables the poll — `SessionStart` still ingests opportunistically and `POST /api/plans/refresh` forces one). The timer is `unref`'d and fail-safe — one bad cwd never stops the sweep.
+
+### Focus Drift Audit
+
+`startFocusAudit` (`server/lib/focus-audit.js`, wired into `startBackgroundServices`) periodically asks, for each active session with a declared focus: "does the session's recent activity match what it declared?" and stamps a verdict on `session_focus.drift_status`/`drift_reason`/`drift_checked_at` (broadcast as `session_focus`). It writes **only** those columns — declarations are never rewritten, and declarations never clear a verdict, so an agent cannot silence its own drift badge by re-declaring. The primary judge is a one-shot headless `claude -p --output-format json` on a small model using the user's existing CLI auth, spawned hermetically: hooks disabled via `--settings '{"disableAllHooks":true}'` (or every audit would ingest *itself* into the dashboard and become a session to audit — a feedback loop), all tools disallowed (`--disallowed-tools '*'`), cwd = tmpdir, and `CLAUDECODE` stripped from the env (run-spawner precedent). CLI availability is probe-cached; when unavailable the audit falls back to a conservative keyword-overlap heuristic, and degrades to "no audit" when both are off. At most 5 sessions are judged per tick, serially; sessions with no activity since their last check are skipped, and an `unknown` verdict never overwrites a real one. Knobs: `DASHBOARD_FOCUS_AUDIT_MS` (default `300000` ms; `0` disables), `DASHBOARD_FOCUS_AUDIT_MODE` (`llm` | `heuristic` | `off`, default `llm`), `DASHBOARD_FOCUS_AUDIT_MODEL` (default `haiku`), `DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS` (default `30000` ms — SIGTERM, then SIGKILL).
+
 ### User-Interrupt (Esc) Recovery
 
 Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI limitation), so the `UserPromptSubmit` that promoted the main agent to `working` is never undone — the session would otherwise sit in `working` forever. The same 15 s watchdog recovers it, with two detection paths:
@@ -1442,6 +1536,13 @@ DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
 DASHBOARD_LIVENESS_PROBE=1         # 0 disables the dead-session liveness reap (use when hooks arrive from another machine)
 DASHBOARD_LIVENESS_IDLE_SECONDS=60 # Idle gate before the liveness reap may complete a process-less session
+
+# Plan-Aware Monitoring (AGENT-PLAN.md + focus; see Plan Poll / Focus Drift Audit)
+DASHBOARD_PLAN_POLL_MS=10000       # AGENT-PLAN.md poll interval (ms); 0 disables (SessionStart + /api/plans/refresh still ingest)
+DASHBOARD_FOCUS_AUDIT_MS=300000    # Focus drift-audit tick interval (ms); 0 disables auditing entirely
+DASHBOARD_FOCUS_AUDIT_MODE=llm     # Drift-audit judge: llm (headless claude -p, heuristic fallback) | heuristic | off
+DASHBOARD_FOCUS_AUDIT_MODEL=haiku  # Model passed to the drift audit's `claude -p --model` spawn
+DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS=30000 # Kill timer (ms) for a single drift-audit spawn (SIGTERM, then SIGKILL)
 
 # Remote Data Sources (SSH pull; see the Remote Data Sources section)
 DASHBOARD_REMOTE_SYNC_MS=60000         # Remote-source sync poll interval (ms); 0 disables the poller

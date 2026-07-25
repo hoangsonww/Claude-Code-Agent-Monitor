@@ -68,7 +68,7 @@ import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Bot, Clock, Coins, Cpu, MessageSquare } from "lucide-react";
+import { FolderOpen, Bot, Clock, Coins, Cpu, Crosshair, MessageSquare } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
 import { MarkdownContent } from "./conversation/MarkdownContent";
 import { api } from "../lib/api";
@@ -78,7 +78,14 @@ import {
   sessionAwaitingReason,
 } from "../lib/types";
 import type { Session, TranscriptMessage } from "../lib/types";
-import { formatDuration, timeAgo, formatModelName, pathTail } from "../lib/format";
+import {
+  formatDuration,
+  timeAgo,
+  formatModelName,
+  isExpensiveModel,
+  pathTail,
+} from "../lib/format";
+import { useSessionFocus } from "../lib/focusStore";
 
 /** Joins a transcript message's "text" content blocks (ignores thinking/tool_use/
  *  tool_result blocks — those aren't what Claude "said"). Empty string when the
@@ -158,14 +165,38 @@ function computePreviewPopupStyle(rect: DOMRect, targetWidth: number): React.CSS
 
 export function SessionCard({ session, onClick }: SessionCardProps) {
   const navigate = useNavigate();
-  const { t } = useTranslation("kanban");
+  const { t } = useTranslation(["kanban", "plan"]);
   const isActive = session.status === "active";
   const isWaiting = isSessionAwaitingInput(session);
   const status = effectiveSessionStatus(session);
   const title = session.name?.trim() || t("session.anonymous");
   const agentCount = session.agent_count ?? 0;
   const model = formatModelName(session.model);
+  const modelIsExpensive = isExpensiveModel(session.model);
   const lastActivity = session.last_activity || session.ended_at || session.started_at;
+
+  // Declared focus breadcrumb (AGENT-PLAN.md item + detour chain). Read from
+  // the shared focusStore — one bulk hydrate + WS merges, never a per-card
+  // fetch. Elapsed time belongs to the deepest current segment: the top
+  // detour when one is open, else the item itself. Timestamps (not a local
+  // counter) drive the figure, so a delayed WS can never fake liveness.
+  const focus = useSessionFocus(session.id);
+  const focusTopDetour =
+    focus && focus.detour_stack.length > 0
+      ? focus.detour_stack[focus.detour_stack.length - 1]
+      : undefined;
+  const focusElapsedAnchor = focusTopDetour?.pushed_at ?? focus?.since ?? null;
+  const focusTooltip = focus
+    ? [
+        focus.item_number != null
+          ? `${t("plan:focus.itemLabel", { number: focus.item_number })}: ${focus.item_text ?? ""}`
+          : null,
+        ...focus.detour_stack.map((d) => `▸ ${d.description}`),
+        focus.since ? t("plan:focus.since", { time: focus.since }) : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : undefined;
 
   // Last-said-by-Claude preview, fetched on demand the first time a Waiting
   // card is hovered - not fetched up front for every card (that's one
@@ -262,13 +293,53 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
         </p>
       )}
 
+      {focus && focus.item_number != null && isActive && (
+        <p
+          className="flex items-center gap-1 text-[11px] mb-3 min-w-0 overflow-hidden whitespace-nowrap"
+          title={focusTooltip}
+        >
+          <Crosshair className="w-3 h-3 text-gray-500 flex-shrink-0" />
+          <span className="text-gray-400 truncate">
+            {t("plan:focus.itemLabel", { number: focus.item_number })}
+            {": "}
+            {focus.item_text ?? t("plan:focus.unknownItem")}
+          </span>
+          {focus.detour_stack.map((d, i) => (
+            <span
+              key={`${d.pushed_at}-${i}`}
+              className="min-w-0 truncate text-amber-400/90 flex-shrink"
+            >
+              <span aria-hidden="true" className="text-gray-600 mx-0.5">
+                {"▸"}
+              </span>
+              {d.description}
+            </span>
+          ))}
+          {focusElapsedAnchor && (
+            <span className="text-gray-600 flex-shrink-0">
+              ({formatDuration(focusElapsedAnchor, new Date().toISOString())})
+            </span>
+          )}
+          {focus.drift === true && (
+            <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">
+              {t("plan:focus.drift")}
+            </span>
+          )}
+        </p>
+      )}
+
       <div className="flex items-center gap-3 text-[11px] text-gray-500 min-w-0 overflow-hidden flex-wrap">
         <span className="flex items-center gap-1 flex-shrink-0">
           <Bot className="w-3 h-3" />
           {t("session.agentSummary", { count: agentCount })}
         </span>
         {model && (
-          <span className="flex items-center gap-1 flex-shrink-0 truncate">
+          <span
+            className={`flex items-center gap-1 flex-shrink-0 truncate ${
+              modelIsExpensive ? "text-red-500 font-semibold" : ""
+            }`}
+            title={modelIsExpensive ? t("session.expensiveModel") : undefined}
+          >
             <Cpu className="w-3 h-3" />
             <span className="truncate">{model}</span>
           </span>

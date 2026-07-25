@@ -147,6 +147,45 @@ erDiagram
         text created_at "ISO8601 timestamp"
         text updated_at "ISO8601 timestamp"
     }
+
+    plans ||--o{ plan_items : "has many"
+    sessions ||--o| session_focus : "declares focus"
+
+    plans {
+        text cwd PK "Working directory holding AGENT-PLAN.md"
+        text title "First markdown heading"
+        text file_path "Absolute path to the ingested AGENT-PLAN.md"
+        text content_hash "Change fingerprint of the last ingest"
+        integer item_count "Items parsed on the last ingest"
+        text missing_at "Stamped when the file disappears (row kept), or NULL"
+        text created_at "ISO8601 timestamp"
+        text updated_at "ISO8601 timestamp"
+    }
+
+    plan_items {
+        text cwd PK "FK to plans (composite PK with item_number)"
+        integer item_number PK "The file's own item number"
+        text text "Item text"
+        text acceptance "Optional acceptance note, or NULL"
+        integer checked "Mirrors the file's checkbox (human-owned)"
+        integer position "File order"
+        text declared_done_at "Agent's focus-done claim, or NULL"
+        text declared_done_session "Declaring session id (no FK — audit trail)"
+        text updated_at "ISO8601 timestamp"
+    }
+
+    session_focus {
+        text session_id PK "FK to sessions, ON DELETE CASCADE"
+        text cwd "Working directory whose plan the item belongs to"
+        integer item_number "Declared plan item, or NULL"
+        text note "Optional note from focus set, or NULL"
+        text set_at "When the current item was declared"
+        text detour_stack "JSON stack of in-flight detours (depth cap 10)"
+        text drift_status "NULL | ok | drift | unknown (auditor-owned)"
+        text drift_reason "Auditor's one-line justification, or NULL"
+        text drift_checked_at "ISO8601 timestamp, or NULL"
+        text updated_at "ISO8601 timestamp"
+    }
 ```
 
 ### Relationship Cardinality
@@ -525,6 +564,103 @@ Managed through the `/api/projects/*` routes (no WebSocket broadcast — a plain
 
 ---
 
+### plans / plan_items
+
+Per-repo project plans mirrored **read-only** from `<cwd>/AGENT-PLAN.md` (Plan-Aware Monitoring). Keyed by cwd — like sessions, plans have no `project_id`; a project's plans aggregate through the `project_paths` join. The file is the human-owned source of truth: `checked` mirrors its checkbox, while `declared_done_*` records the agent's `ccam focus done N` claim and survives re-ingest (upserts never touch it). A plan file that disappears stamps `plans.missing_at` and keeps the row, because focus history still references its items; a file that parses to zero items keeps the last good state (far more likely a human mid-edit than an intentional wipe).
+
+```sql
+CREATE TABLE plans (
+    cwd TEXT PRIMARY KEY,
+    title TEXT,
+    file_path TEXT NOT NULL,
+    content_hash TEXT,
+    item_count INTEGER NOT NULL DEFAULT 0,
+    missing_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE plan_items (
+    cwd TEXT NOT NULL,
+    item_number INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    acceptance TEXT,
+    checked INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    declared_done_at TEXT,
+    declared_done_session TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY (cwd, item_number),
+    FOREIGN KEY (cwd) REFERENCES plans(cwd) ON DELETE CASCADE
+);
+```
+
+**`plans` columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `cwd` | TEXT | NO | Primary key — the working directory holding `AGENT-PLAN.md` |
+| `title` | TEXT | YES | The file's first markdown heading, or NULL |
+| `file_path` | TEXT | NO | Absolute path of the ingested file |
+| `content_hash` | TEXT | YES | Fingerprint of the last ingested content (skips no-op re-ingests) |
+| `item_count` | INTEGER | NO | Number of items parsed on the last ingest |
+| `missing_at` | TEXT | YES | ISO 8601 stamp set when the file disappears (row kept), or NULL |
+| `created_at` | TEXT | NO | ISO 8601 creation timestamp |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last ingest that changed anything |
+
+**`plan_items` columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `cwd` | TEXT | NO | FK to `plans.cwd`, `ON DELETE CASCADE`; composite PK with `item_number` |
+| `item_number` | INTEGER | NO | The file's **own** item number — the stable handle agents declare focus against |
+| `text` | TEXT | NO | Item text |
+| `acceptance` | TEXT | YES | Optional `acceptance:` note, or NULL |
+| `checked` | INTEGER | NO | Mirrors the file's checkbox (human-owned; `1`/`0`) |
+| `position` | INTEGER | NO | File order (items render in this order, not by number) |
+| `declared_done_at` | TEXT | YES | When an agent declared this item done (`ccam focus done N`), or NULL. Survives re-ingest |
+| `declared_done_session` | TEXT | YES | Declaring session id. **No FK on purpose** — the audit trail must outlive session deletion |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last change |
+
+### session_focus
+
+The **current** focus declaration per session: which plan item the session says it is serving, plus a stack of in-flight detours. Focus *history* is deliberately not stored here — every focus change also writes a `Focus` row to the `events` table, which the session timeline already renders (and `GET /api/sessions/:id/focus` rebuilds `history` from). The `drift_*` columns are written **only** by the background focus drift audit; declarations never touch them, so an agent cannot clear its own drift badge by re-declaring.
+
+```sql
+CREATE TABLE session_focus (
+    session_id TEXT PRIMARY KEY,
+    cwd TEXT,
+    item_number INTEGER,
+    note TEXT,
+    set_at TEXT,
+    detour_stack TEXT NOT NULL DEFAULT '[]',
+    drift_status TEXT,
+    drift_reason TEXT,
+    drift_checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `session_id` | TEXT | NO | Primary key; FK to `sessions.id`, `ON DELETE CASCADE` |
+| `cwd` | TEXT | YES | Working directory whose plan the declared item belongs to |
+| `item_number` | INTEGER | YES | Declared plan item, or NULL (e.g. detour-only state) |
+| `note` | TEXT | YES | Optional free-text note from `focus set`, or NULL |
+| `set_at` | TEXT | YES | ISO 8601 stamp of when the current item was declared |
+| `detour_stack` | TEXT | NO | JSON array of in-flight detours `{description, pushed_at, prior_item}` (depth cap 10) |
+| `drift_status` | TEXT | YES | `NULL`, `ok`, `drift`, or `unknown` — written only by the drift auditor |
+| `drift_reason` | TEXT | YES | The auditor's one-line justification, or NULL |
+| `drift_checked_at` | TEXT | YES | ISO 8601 stamp of the last audit, or NULL |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last change |
+
+Written by the `PostToolUse` focus parsing in `routes/hooks.js` and the strict `POST /api/sessions/:id/focus` endpoint; changes broadcast over the WebSocket as `session_focus`. See [docs/API.md → Plans & Focus](./API.md#plans--focus).
+
+---
+
 ## Indexes
 
 ### sessions Indexes
@@ -594,6 +730,15 @@ CREATE INDEX idx_notifications_session_id ON notifications(session_id);
 
 **Query Patterns:**
 - `SELECT * FROM notifications WHERE session_id = ?` - All notifications for session
+
+### session_focus Indexes
+
+```sql
+CREATE INDEX idx_session_focus_cwd ON session_focus(cwd);
+```
+
+**Query Patterns:**
+- `SELECT * FROM session_focus WHERE cwd = ?` - Per-repo focus rollup (the plan panel's per-item session chips)
 
 ---
 

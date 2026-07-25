@@ -42,11 +42,13 @@
  * - `WORRIED_MS` — exported API; see TSDoc on the symbol for behavior.
  * - `STUCK_MS` — exported API; see TSDoc on the symbol for behavior.
  * - `SLEEP_MS` — exported API; see TSDoc on the symbol for behavior.
+ * - `EXPENSIVE_MODEL_MS` — exported API; see TSDoc on the symbol for behavior.
  * - `FAILURE_EVENT_TYPES` — exported API; see TSDoc on the symbol for behavior.
  * - `initialTabbyState` — exported API; see TSDoc on the symbol for behavior.
  * - `statusOf` — exported API; see TSDoc on the symbol for behavior.
  * - `deriveMood` — exported API; see TSDoc on the symbol for behavior.
  * - `reduceTabby` — exported API; see TSDoc on the symbol for behavior.
+ * - `checkExpensiveModel` — exported API; see TSDoc on the symbol for behavior.
  * - `seedSessions` — exported API; see TSDoc on the symbol for behavior.
  * - `clearErrors` — exported API; see TSDoc on the symbol for behavior.
  *
@@ -103,6 +105,11 @@
  *   the signature and return type as stable unless release notes say otherwise.
  *   When behavior changes, update the `@file` overview and relevant tests.
  *
+ * **EXPENSIVE_MODEL_MS**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
  * **FAILURE_EVENT_TYPES**
  *   Part of this module's public contract. Downstream imports should treat
  *   the signature and return type as stable unless release notes say otherwise.
@@ -124,6 +131,11 @@
  *   When behavior changes, update the `@file` overview and relevant tests.
  *
  * **reduceTabby**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **checkExpensiveModel**
  *   Part of this module's public contract. Downstream imports should treat
  *   the signature and return type as stable unless release notes say otherwise.
  *   When behavior changes, update the `@file` overview and relevant tests.
@@ -165,6 +177,7 @@ export type TabbyPulse =
   | "waiting"
   | "error"
   | "run_done"
+  | "expensive_model"
   | null;
 
 export interface TabbyStatus {
@@ -189,6 +202,14 @@ export interface TabbyState {
   worriedUntil: number;
   /** True while an Ask request is in flight (panel). */
   thinking: boolean;
+  /** Epoch ms each live session first started reporting an expensive model
+   *  (opus/fable), keyed by session id. Absent while the session isn't on
+   *  one. Cleared when the model changes away or the session stops tracking. */
+  expensiveModelSince: Record<string, number>;
+  /** Session ids already nagged about their current expensive-model streak,
+   *  so the periodic tick check fires the pulse once per streak, not every
+   *  second past the threshold. Cleared alongside `expensiveModelSince`. */
+  expensiveModelNagged: Record<string, boolean>;
 }
 
 // Tunable timing constants (ms).
@@ -196,6 +217,20 @@ export const HAPPY_MS = 4000;
 export const WORRIED_MS = 4500;
 export const STUCK_MS = 10 * 60_000;
 export const SLEEP_MS = 3 * 60_000;
+/** How long a session can run an expensive model (opus/fable) before Tabby
+ *  nags about it. */
+export const EXPENSIVE_MODEL_MS = 15 * 60_000;
+
+/** Model families billed at the premium tier - matched by substring so any
+ *  dated/tagged id ("claude-opus-4-8-20260101", "claude-fable-5") still hits.
+ *  Duplicated from `lib/format.ts`'s `isExpensiveModel` rather than imported,
+ *  so this module stays side-effect free and independently testable (see
+ *  file header). */
+function isExpensiveModel(model: string | null | undefined): boolean {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  return lower.includes("opus") || lower.includes("fable");
+}
 
 /** Event types from the hook ingestion that represent a genuine failure. */
 export const FAILURE_EVENT_TYPES: ReadonlySet<string> = new Set([
@@ -218,6 +253,8 @@ export function initialTabbyState(now: number): TabbyState {
     happyUntil: 0,
     worriedUntil: 0,
     thinking: false,
+    expensiveModelSince: {},
+    expensiveModelNagged: {},
   };
 }
 
@@ -274,6 +311,25 @@ export function reduceTabby(
       let happyUntil = state.happyUntil;
       let worriedUntil = state.worriedUntil;
 
+      // Track how long this session has been on an expensive model so the
+      // periodic tick (see `checkExpensiveModel`) can nag past EXPENSIVE_MODEL_MS.
+      // Cleared as soon as it's no longer live on that model, so a model switch
+      // or session end resets the clock rather than nagging about a stale streak.
+      let expensiveModelSince = state.expensiveModelSince;
+      let expensiveModelNagged = state.expensiveModelNagged;
+      if (s.status === "active" && isExpensiveModel(s.model)) {
+        if (!(s.id in expensiveModelSince)) {
+          expensiveModelSince = { ...expensiveModelSince, [s.id]: now };
+        }
+      } else if (s.id in expensiveModelSince) {
+        expensiveModelSince = { ...expensiveModelSince };
+        delete expensiveModelSince[s.id];
+        if (s.id in expensiveModelNagged) {
+          expensiveModelNagged = { ...expensiveModelNagged };
+          delete expensiveModelNagged[s.id];
+        }
+      }
+
       if (s.status === "active") {
         // "waiting" = active session blocked on user input (permission prompt
         // or sitting at a fresh prompt). Announce the transition once each way.
@@ -300,7 +356,15 @@ export function reduceTabby(
       }
 
       return {
-        state: { ...state, sessions, happyUntil, worriedUntil, lastActivityAt: now },
+        state: {
+          ...state,
+          sessions,
+          happyUntil,
+          worriedUntil,
+          lastActivityAt: now,
+          expensiveModelSince,
+          expensiveModelNagged,
+        },
         pulse,
       };
     }
@@ -375,6 +439,33 @@ export function reduceTabby(
     default:
       return { state, pulse: null };
   }
+}
+
+/**
+ * Wall-clock-only check (no WS message involved) for sessions that have been
+ * sitting on an expensive model past `EXPENSIVE_MODEL_MS`. The hook re-runs
+ * this on every tick alongside `deriveMood`, since nothing else may arrive
+ * for the full 15 minutes to trigger the nag from `reduceTabby` alone.
+ * Returns at most one pulse per call (the first unnagged session found) -
+ * further sessions past threshold are caught on the next tick.
+ */
+export function checkExpensiveModel(
+  state: TabbyState,
+  now: number
+): { state: TabbyState; pulse: TabbyPulse } {
+  for (const [id, since] of Object.entries(state.expensiveModelSince)) {
+    if (state.expensiveModelNagged[id]) continue;
+    if (now - since >= EXPENSIVE_MODEL_MS) {
+      return {
+        state: {
+          ...state,
+          expensiveModelNagged: { ...state.expensiveModelNagged, [id]: true },
+        },
+        pulse: "expensive_model",
+      };
+    }
+  }
+  return { state, pulse: null };
 }
 
 /**

@@ -1,0 +1,32 @@
+{
+  "title": "Plan",
+  "tab": "Plan",
+  "progress": "{{done}}/{{total}} complete",
+  "planMissing": "AGENT-PLAN.md was removed — showing the last ingested plan",
+  "focus": {
+    "itemLabel": "Item {{number}}",
+    "unknownItem": "(item not in plan)",
+    "banner": "Current focus",
+    "drift": "possible undeclared detour?",
+    "since": "since {{time}}",
+    "none": "No focus reported yet"
+  },
+  "timeline": {
+    "title": "Focus timeline",
+    "entered": "Started item {{number}}",
+    "done": "Declared item {{number}} done",
+    "detourStart": "Detour: {{text}}",
+    "detourEnd": "Returned from detour",
+    "empty": "No focus activity yet"
+  },
+  "todos": {
+    "title": "Micro-plan (TodoWrite)",
+    "empty": "No todos reported"
+  },
+  "items": {
+    "declaredDone": "declared done, checkbox pending"
+  },
+  "errors": {
+    "loadFailed": "Failed to load plan"
+  }
+}

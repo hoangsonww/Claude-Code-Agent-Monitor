@@ -65,6 +65,7 @@
  * - `fmtCostFull` — exported API; see TSDoc on the symbol for behavior.
  * - `shortModel` — exported API; see TSDoc on the symbol for behavior.
  * - `formatModelName` — exported API; see TSDoc on the symbol for behavior.
+ * - `isExpensiveModel` — exported API; see TSDoc on the symbol for behavior.
  * - `pathBasename` — exported API; see TSDoc on the symbol for behavior.
  *
  * ## Testing pointers
@@ -146,6 +147,11 @@
  *   When behavior changes, update the `@file` overview and relevant tests.
  *
  * **formatModelName**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **isExpensiveModel**
  *   Part of this module's public contract. Downstream imports should treat
  *   the signature and return type as stable unless release notes say otherwise.
  *   When behavior changes, update the `@file` overview and relevant tests.
@@ -551,6 +557,22 @@ export function formatModelName(model: string | null | undefined): string | null
   }
 
   return result.join(" ") + ctxSuffix; // re-attach the context-window suffix, if any
+}
+
+/** Model families billed at the premium tier - matched by substring so any
+ *  dated/tagged id ("claude-opus-4-8-20260101", "claude-fable-5") still hits. */
+const EXPENSIVE_MODEL_FAMILIES = ["opus", "fable"];
+
+/**
+ * Whether a raw model id belongs to a premium/expensive family (Opus, Fable).
+ * Used to flag sessions running a costly model, e.g. for a red warning badge.
+ * @param model A raw model id, or null/undefined.
+ * @returns `true` if the id's lowercased form contains an expensive family name.
+ */
+export function isExpensiveModel(model: string | null | undefined): boolean {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  return EXPENSIVE_MODEL_FAMILIES.some((family) => lower.includes(family));
 }
 
 /**

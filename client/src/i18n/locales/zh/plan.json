@@ -1,0 +1,32 @@
+{
+  "title": "计划",
+  "tab": "计划",
+  "progress": "已完成 {{done}}/{{total}}",
+  "planMissing": "AGENT-PLAN.md 已被移除 — 显示最后一次读取的计划",
+  "focus": {
+    "itemLabel": "第 {{number}} 项",
+    "unknownItem": "（计划中不存在该项）",
+    "banner": "当前焦点",
+    "drift": "可能存在未申报的偏离？",
+    "since": "自 {{time}}",
+    "none": "尚未报告焦点"
+  },
+  "timeline": {
+    "title": "焦点时间线",
+    "entered": "开始第 {{number}} 项",
+    "done": "已申报第 {{number}} 项完成",
+    "detourStart": "绕行：{{text}}",
+    "detourEnd": "已从绕行返回",
+    "empty": "暂无焦点活动"
+  },
+  "todos": {
+    "title": "微计划（TodoWrite）",
+    "empty": "未报告待办事项"
+  },
+  "items": {
+    "declaredDone": "已申报完成，复选框待确认"
+  },
+  "errors": {
+    "loadFailed": "计划加载失败"
+  }
+}

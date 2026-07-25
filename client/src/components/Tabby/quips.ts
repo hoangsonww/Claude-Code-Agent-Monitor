@@ -108,6 +108,11 @@ const QUIPS: Record<QuipKey, string[]> = {
     "run complete - that's a wrap 😸",
     "all done with that run 💜",
   ],
+  expensive_model: [
+    "you're on an expensive model - are you sure you want to stay there? 💸",
+    "still on that pricey model - sure you need it right now? 💰",
+    "psst, that's the expensive model - want to switch? 💸",
+  ],
   // Moods (steady-state flavor, used by the panel / idle bubbles)
   disconnected: [
     "lost the connection… 😴",

@@ -245,6 +245,7 @@ Triggered when a Claude Code session starts. The `source` field distinguishes th
 - Stamp `awaiting_input_since` (with `awaiting_reason` = `session_start`) so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt — **only for `startup`/`resume`/`clear`**. A `compact`-source SessionStart fires mid-turn while Claude is working, so it leaves the awaiting flag untouched: a genuinely-active session stays **Active** (not flipped to Waiting), and a session that compacted while idle keeps its existing Waiting flag and reason
 - Reactivate completed/abandoned sessions on resume
 - Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed` (Remote Data Source sessions, `source` ≠ `local`, are exempt — their status comes from the SSH-mirror reconciliation, not local activity)
+- **Opportunistic plan ingest** — when the payload carries a `cwd`, `<cwd>/AGENT-PLAN.md` is (re)ingested after the response is sent (fail-safe, off the ingest path), so a freshly opened project shows its plan immediately instead of waiting for the next `DASHBOARD_PLAN_POLL_MS` tick; changes broadcast `plan_updated`
 
 ---
 
@@ -336,6 +337,10 @@ graph TB
     style Calculate fill:#10B981
     style Broadcast fill:#F59E0B
 ```
+
+**Focus declarations (Plan-Aware Monitoring):**
+
+`PostToolUse` is also the write channel for `AGENT-PLAN.md` focus declarations. When the tool is `Bash` and `tool_input.command` contains a `ccam focus set|push|pop|done` invocation, the server parses and applies it (`server/lib/focus-commands.js`): it updates the session's `session_focus` row (plan-item pointer + detour stack), writes a `Focus` event with an item-text snapshot for the timeline, and broadcasts `new_event` + `session_focus` (plus `plan_updated` after `done`). It rides `PostToolUse` deliberately — not `PreToolUse` — so a blocked/denied command never counts, giving exactly-once, command-actually-ran semantics with no dedupe bookkeeping; and it rides the hook stream at all because this event already carries the session id, the one thing no out-of-band channel natively has (so any hooked project gets focus tracking with zero per-project setup). The parsing runs in its own try/catch and is fail-safe — a focus bug can never abort event ingestion. `ccam focus status` is read-only and is never recorded. Declarations never touch the drift-audit columns, so an agent cannot clear its own drift badge by re-declaring.
 
 ---
 

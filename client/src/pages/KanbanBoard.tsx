@@ -701,7 +701,20 @@ export function KanbanBoard() {
         draggableColumn={!isUnassigned}
         dragging={draggedColumnId === key}
         onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
-        onColumnDragOver={isUnassigned ? undefined : (e) => handleColumnDragOver(e, key)}
+        onColumnDragOver={
+          isUnassigned
+            ? // Unassigned isn't part of the monitor grouping, but it's a
+              // reasonable place to expect "drop here to un-assign from a
+              // monitor" too - it sits right next to Ungrouped, is easy to
+              // confuse with it, and unlike Ungrouped it always renders in a
+              // fixed, familiar spot at the very end of the row. Only wire
+              // this once monitors actually exist, so a plain reorder-drag
+              // (no monitors created) never touches monitorMap/localStorage.
+              monitors.length > 0
+              ? (e) => handleSwimlaneDragOver(e, null)
+              : undefined
+            : (e) => handleColumnDragOver(e, key)
+        }
         onColumnDragEnd={isUnassigned ? undefined : handleColumnDragEnd}
       >
         {loading && items.length === 0
@@ -822,6 +835,17 @@ export function KanbanBoard() {
             />
             {ungroupedColumns.map(renderProjectColumn)}
             {unassignedColumn && renderProjectColumn(unassignedColumn)}
+            {/* Trailing catch-all: a long drag across several monitor boxes
+                can easily overshoot or fall short of the (comparatively
+                narrow) Ungrouped tag. Any drop landing in the empty space
+                after the last real column still counts as "move to
+                Ungrouped" instead of silently missing. */}
+            <div
+              data-testid="monitor-ungroup-catchall"
+              className="flex-1 min-w-40"
+              onDragOver={(e) => handleSwimlaneDragOver(e, null)}
+              onDrop={(e) => e.preventDefault()}
+            />
           </>
         )}
       </div>
@@ -1138,7 +1162,7 @@ function UngroupedDivider({
       draggable={false}
       onDragOver={onDragOver}
       onDrop={(e) => e.preventDefault()}
-      className="flex flex-col flex-shrink-0 w-32 items-center justify-center gap-1 rounded-xl border border-dashed border-border/50 p-3"
+      className="flex flex-col flex-shrink-0 w-40 items-center justify-center gap-1 rounded-xl border border-dashed border-border/50 p-3"
     >
       <MonitorIcon className="w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
       <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">
