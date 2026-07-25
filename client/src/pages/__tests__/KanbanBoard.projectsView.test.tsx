@@ -446,8 +446,9 @@ describe("Kanban Board - Projects view", () => {
 
       expect(currentMonitorMap()["proj-1"]).toBeUndefined();
       expect(within(box).queryByText("Agent Monitor")).not.toBeInTheDocument();
-      // Back to being a loose column, not nested inside any box.
-      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+      // Now rendered INSIDE the Ungrouped box, not as a loose sibling.
+      const ungroupedBox = screen.getByTestId("monitor-divider-__ungrouped__");
+      expect(within(ungroupedBox).getByText("Agent Monitor")).toBeInTheDocument();
     });
 
     it("dragging a project onto the (similarly-named, easy-to-confuse-with-Ungrouped) Unassigned column also clears its monitor assignment", async () => {
@@ -474,7 +475,9 @@ describe("Kanban Board - Projects view", () => {
 
       expect(currentMonitorMap()["proj-1"]).toBeUndefined();
       expect(within(box).queryByText("Agent Monitor")).not.toBeInTheDocument();
-      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+      expect(
+        within(screen.getByTestId("monitor-divider-__ungrouped__")).getByText("Agent Monitor")
+      ).toBeInTheDocument();
     });
 
     it("dropping past the last column - overshooting the Ungrouped tag - still clears the monitor assignment", async () => {
@@ -500,7 +503,9 @@ describe("Kanban Board - Projects view", () => {
       dragColumnOnto(agentMonitorColumn2, screen.getByTestId("monitor-ungroup-catchall"));
 
       expect(currentMonitorMap()["proj-1"]).toBeUndefined();
-      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+      expect(
+        within(screen.getByTestId("monitor-divider-__ungrouped__")).getByText("Agent Monitor")
+      ).toBeInTheDocument();
     });
 
     it("drags a monitor's box onto another to reposition it, and persists the new monitor order", async () => {
@@ -555,8 +560,10 @@ describe("Kanban Board - Projects view", () => {
       expect(screen.queryByTestId(`monitor-box-${monitor1.id}`)).not.toBeInTheDocument();
       expect(currentMonitors()).toHaveLength(1);
       expect(currentMonitorMap()["proj-1"]).toBeUndefined();
-      // Agent Monitor survives as a loose column, not nested in any box.
-      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+      // Agent Monitor survives, back inside the Ungrouped box.
+      expect(
+        within(screen.getByTestId("monitor-divider-__ungrouped__")).getByText("Agent Monitor")
+      ).toBeInTheDocument();
     });
 
     it("deleting the only monitor reverts to the flat, box-free layout", async () => {
@@ -590,10 +597,12 @@ describe("Kanban Board - Projects view", () => {
       const box = screen.getByTestId(`monitor-box-${monitorId}`);
       expect(within(box).getByText("Agent Monitor")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Left Screen")).toBeInTheDocument();
-      // Coaching Assistant has no monitor assignment, so it stays a loose
-      // column outside every box, right after the Ungrouped marker.
+      // Coaching Assistant has no monitor assignment, so it renders inside
+      // the trailing Ungrouped box instead of any monitor's box.
       expect(within(box).queryByText("Coaching Assistant")).not.toBeInTheDocument();
-      expect(screen.getByText("Coaching Assistant").closest("div.bg-surface-1")).not.toBeNull();
+      expect(
+        within(screen.getByTestId("monitor-divider-__ungrouped__")).getByText("Coaching Assistant")
+      ).toBeInTheDocument();
     });
 
     it("renames a monitor on blur and persists the new name", async () => {

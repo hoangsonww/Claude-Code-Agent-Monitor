@@ -57,6 +57,7 @@
     "namePlaceholder": "모니터 이름",
     "deleteMonitor": "모니터 제거",
     "ungrouped": "미분류",
-    "emptyMonitorHint": "여기에 프로젝트를 드래그하세요"
+    "emptyMonitorHint": "여기에 프로젝트를 드래그하세요",
+    "emptyUngroupedHint": "프로젝트를 여기에 놓으면 모니터에서 제거됩니다"
   }
 }

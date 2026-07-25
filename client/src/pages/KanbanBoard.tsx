@@ -11,8 +11,8 @@
  * a physical display, see lib/monitorGroups.ts), its assigned project columns
  * render inside a bordered, drag-reorderable box for that monitor rather than
  * as loose columns - each box sits side by side with the others in the same
- * single horizontally-scrolling row (plus a trailing, non-boxed Ungrouped
- * marker and its loose columns). Dragging a box by its header repositions it
+ * single horizontally-scrolling row (plus a trailing Ungrouped box holding
+ * every unassigned project column). Dragging a box by its header repositions it
  * left/right; dragging a project column onto a box (or a column already
  * inside one) reassigns it into that box. The standalone Unassigned column
  * always stays outside this grouping, at the very end.
@@ -223,9 +223,9 @@ export function KanbanBoard() {
   // Monitor groups for the Projects view - user-created named groups
   // (mirroring physical displays), each a bordered box that visually
   // contains its assigned project columns, laid out side by side in the
-  // same single row (plus the standalone Ungrouped marker and its loose
-  // columns). Absent from `monitorMap` means "ungrouped". Purely local, like
-  // the order above.
+  // same single row (plus the trailing Ungrouped box holding every
+  // unassigned column). Absent from `monitorMap` means "ungrouped". Purely
+  // local, like the order above.
   //
   // The box-*position* drag (dragging a monitor box by its header onto
   // another monitor box) previews live: reordering `monitors` just changes
@@ -829,17 +829,18 @@ export function KanbanBoard() {
                 {columns.map(renderProjectColumn)}
               </MonitorBox>
             ))}
-            <UngroupedDivider
+            <UngroupedBox
               count={ungroupedColumns.length}
               onDragOver={(e) => handleSwimlaneDragOver(e, null)}
-            />
-            {ungroupedColumns.map(renderProjectColumn)}
+            >
+              {ungroupedColumns.map(renderProjectColumn)}
+            </UngroupedBox>
             {unassignedColumn && renderProjectColumn(unassignedColumn)}
             {/* Trailing catch-all: a long drag across several monitor boxes
-                can easily overshoot or fall short of the (comparatively
-                narrow) Ungrouped tag. Any drop landing in the empty space
-                after the last real column still counts as "move to
-                Ungrouped" instead of silently missing. */}
+                can easily overshoot or fall short of the Ungrouped box. Any
+                drop landing in the empty space after the last real column
+                still counts as "move to Ungrouped" instead of silently
+                missing. */}
             <div
               data-testid="monitor-ungroup-catchall"
               className="flex-1 min-w-40"
@@ -1140,38 +1141,50 @@ function MonitorBox({
 }
 
 /**
- * The trailing "Ungrouped" marker in the Projects view's row - unlike a real
- * monitor, it isn't a container (it's the absence of one), so it stays a
- * slim, non-draggable, non-renameable tag; its ungrouped project columns
- * render as ordinary loose siblings right after it, exactly like before any
- * monitor existed. Still a drop target, so a project can be dragged here to
- * clear its monitor assignment even when there's no other ungrouped column
- * to drop onto.
+ * The trailing "Ungrouped" box in the Projects view's row - visually a
+ * container just like a monitor's box, so a project column dropped here
+ * clearly lands INSIDE it instead of dangling as a loose sibling. Unlike a
+ * real monitor it maps to no stored group (it's the absence of a
+ * `monitorMap` entry), so it stays non-draggable, non-renameable, and
+ * non-deletable. The whole box is a drop target, so a project can be
+ * dragged here to clear its monitor assignment even when the box is empty.
  */
-function UngroupedDivider({
+function UngroupedBox({
   count,
   onDragOver,
+  children,
 }: {
   count: number;
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  children: React.ReactNode;
 }) {
   const { t } = useTranslation("kanban");
   return (
-    <div
+    <section
       data-testid="monitor-divider-__ungrouped__"
       draggable={false}
       onDragOver={onDragOver}
       onDrop={(e) => e.preventDefault()}
-      className="flex flex-col flex-shrink-0 w-40 items-center justify-center gap-1 rounded-xl border border-dashed border-border/50 p-3"
+      className="flex flex-col flex-shrink-0 rounded-xl border border-dashed border-border/50 p-3 gap-3"
     >
-      <MonitorIcon className="w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">
-        {t("monitors.ungrouped")}
-      </span>
-      <span className="text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full">
-        {count}
-      </span>
-    </div>
+      <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+        <MonitorIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" aria-hidden="true" />
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate min-w-0 flex-1">
+          {t("monitors.ungrouped")}
+        </span>
+        <span className="text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full flex-shrink-0">
+          {count}
+        </span>
+      </div>
+      <div className="flex gap-4" draggable={false}>
+        {children}
+        {count === 0 && (
+          <div className="flex-1 min-w-[10rem] min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3">
+            {t("monitors.emptyUngroupedHint")}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

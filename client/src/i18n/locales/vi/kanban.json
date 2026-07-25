@@ -57,6 +57,7 @@
     "namePlaceholder": "Tên màn hình",
     "deleteMonitor": "Xóa màn hình",
     "ungrouped": "Chưa phân nhóm",
-    "emptyMonitorHint": "Kéo một dự án vào đây"
+    "emptyMonitorHint": "Kéo một dự án vào đây",
+    "emptyUngroupedHint": "Thả dự án vào đây để gỡ khỏi màn hình"
   }
 }

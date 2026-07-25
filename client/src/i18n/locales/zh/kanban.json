@@ -57,6 +57,7 @@
     "namePlaceholder": "显示器名称",
     "deleteMonitor": "移除显示器",
     "ungrouped": "未分组",
-    "emptyMonitorHint": "将项目拖到这里"
+    "emptyMonitorHint": "将项目拖到这里",
+    "emptyUngroupedHint": "将项目拖到这里以将其移出显示器"
   }
 }
