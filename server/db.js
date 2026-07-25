@@ -429,6 +429,63 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_project_paths_project ON project_paths(project_id);
+
+  -- Per-repo plans ingested from <cwd>/AGENT-PLAN.md. Keyed by cwd (projects
+  -- aggregate via the project_paths join, exactly like sessions do). The file
+  -- is the human-owned source of truth; the dashboard only mirrors it.
+  -- missing_at is stamped when the file disappears - the row is kept because
+  -- focus history still references its items.
+  CREATE TABLE IF NOT EXISTS plans (
+    cwd TEXT PRIMARY KEY,
+    title TEXT,
+    file_path TEXT NOT NULL,
+    content_hash TEXT,
+    item_count INTEGER NOT NULL DEFAULT 0,
+    missing_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- One row per numbered checkbox item. Identity across re-ingest is
+  -- (cwd, item_number): the file's own numbers are the stable handle agents
+  -- declare focus against. checked mirrors the file's checkbox (human-owned);
+  -- declared_done_* is the agent's claim via "ccam focus done N" and survives
+  -- re-ingest (upserts never touch it). declared_done_session has no FK on
+  -- purpose - it is an audit trail that must outlive session deletion.
+  CREATE TABLE IF NOT EXISTS plan_items (
+    cwd TEXT NOT NULL,
+    item_number INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    acceptance TEXT,
+    checked INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    declared_done_at TEXT,
+    declared_done_session TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (cwd, item_number),
+    FOREIGN KEY (cwd) REFERENCES plans(cwd) ON DELETE CASCADE
+  );
+
+  -- Current focus per session: which plan item the session declared it is
+  -- serving, plus a stack of in-flight detours. History is NOT here - every
+  -- focus change also writes a "Focus" row to events, which the timeline
+  -- already renders. drift_status is an open string (NULL | ok | drift |
+  -- unknown) written only by the drift auditor; declarations never touch it.
+  CREATE TABLE IF NOT EXISTS session_focus (
+    session_id TEXT PRIMARY KEY,
+    cwd TEXT,
+    item_number INTEGER,
+    note TEXT,
+    set_at TEXT,
+    detour_stack TEXT NOT NULL DEFAULT '[]',
+    drift_status TEXT,
+    drift_reason TEXT,
+    drift_checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_session_focus_cwd ON session_focus(cwd);
 `);
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
@@ -1537,6 +1594,94 @@ const stmts = {
   getProjectPathByCwd: db.prepare("SELECT * FROM project_paths WHERE cwd = ?"),
   listProjectPaths: db.prepare("SELECT * FROM project_paths WHERE project_id = ? ORDER BY cwd ASC"),
   listAllProjectPaths: db.prepare("SELECT * FROM project_paths ORDER BY cwd ASC"),
+
+  // ── Plans & session focus ─────────────────────────────────────────────────
+  // Upsert keyed by cwd. created_at survives re-ingest; missing_at clears on
+  // every successful ingest (the file is demonstrably back).
+  upsertPlan: db.prepare(
+    `INSERT INTO plans (cwd, title, file_path, content_hash, item_count, missing_at,
+                        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, NULL,
+             strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(cwd) DO UPDATE SET
+       title = excluded.title,
+       file_path = excluded.file_path,
+       content_hash = excluded.content_hash,
+       item_count = excluded.item_count,
+       missing_at = NULL,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
+  getPlanByCwd: db.prepare("SELECT * FROM plans WHERE cwd = ?"),
+  listPlans: db.prepare("SELECT * FROM plans ORDER BY updated_at DESC"),
+  markPlanMissing: db.prepare(
+    "UPDATE plans SET missing_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE cwd = ? AND missing_at IS NULL"
+  ),
+  // declared_done_* deliberately untouched: the agent's completion claim
+  // survives file re-ingest (only the file's own text/checkbox state syncs).
+  upsertPlanItem: db.prepare(
+    `INSERT INTO plan_items (cwd, item_number, text, acceptance, checked, position, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(cwd, item_number) DO UPDATE SET
+       text = excluded.text,
+       acceptance = excluded.acceptance,
+       checked = excluded.checked,
+       position = excluded.position,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
+  listPlanItems: db.prepare("SELECT * FROM plan_items WHERE cwd = ? ORDER BY position ASC"),
+  getPlanItem: db.prepare("SELECT * FROM plan_items WHERE cwd = ? AND item_number = ?"),
+  // Second param is a JSON array of the item numbers present in the file
+  // this ingest (e.g. "[1,2,4]") - numbers no longer in the file are removed.
+  deletePlanItemsNotIn: db.prepare(
+    "DELETE FROM plan_items WHERE cwd = ? AND item_number NOT IN (SELECT value FROM json_each(?))"
+  ),
+  setPlanItemDeclaredDone: db.prepare(
+    "UPDATE plan_items SET declared_done_at = ?, declared_done_session = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE cwd = ? AND item_number = ?"
+  ),
+  // drift_* deliberately untouched: a fresh declaration must not silence the
+  // drift badge - only the auditor writes those columns.
+  upsertSessionFocus: db.prepare(
+    `INSERT INTO session_focus (session_id, cwd, item_number, note, set_at, detour_stack, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(session_id) DO UPDATE SET
+       cwd = excluded.cwd,
+       item_number = excluded.item_number,
+       note = excluded.note,
+       set_at = excluded.set_at,
+       detour_stack = excluded.detour_stack,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
+  getSessionFocus: db.prepare("SELECT * FROM session_focus WHERE session_id = ?"),
+  setSessionFocusDrift: db.prepare(
+    "UPDATE session_focus SET drift_status = ?, drift_reason = ?, drift_checked_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE session_id = ?"
+  ),
+  // Audit candidates: active sessions with a declared item or an open detour.
+  listActiveFocusSessions: db.prepare(
+    `SELECT f.*, s.status AS session_status, s.updated_at AS session_updated_at
+     FROM session_focus f JOIN sessions s ON s.id = f.session_id
+     WHERE s.status = 'active' AND (f.item_number IS NOT NULL OR f.detour_stack != '[]')`
+  ),
+  // Bulk hydrate for GET /api/focus - every active session's focus row.
+  listFocusForActiveSessions: db.prepare(
+    `SELECT f.* FROM session_focus f JOIN sessions s ON s.id = f.session_id
+     WHERE s.status = 'active'`
+  ),
+  latestTodoWriteEvent: db.prepare(
+    `SELECT data, created_at FROM events
+     WHERE session_id = ? AND event_type = 'PostToolUse' AND tool_name = 'TodoWrite'
+     ORDER BY id DESC LIMIT 1`
+  ),
+  recentEventSummaries: db.prepare(
+    `SELECT event_type, tool_name, summary, created_at FROM events
+     WHERE session_id = ? AND created_at > ? ORDER BY id DESC LIMIT ?`
+  ),
+  listFocusEvents: db.prepare(
+    `SELECT id, agent_id, summary, data, created_at FROM events
+     WHERE session_id = ? AND event_type = 'Focus' ORDER BY id DESC LIMIT ?`
+  ),
+  distinctSessionCwds: db.prepare(
+    "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''"
+  ),
 };
 
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };

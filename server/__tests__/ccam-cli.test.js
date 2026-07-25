@@ -341,6 +341,121 @@ describe("ccam CLI — pricing", () => {
   });
 });
 
+describe("ccam CLI — plan & focus", () => {
+  // Env-controlled spawn: the suite may itself run inside a Claude Code
+  // session (CLAUDECODE set), and `ccam focus` write verbs branch on that
+  // env var — so each test pins it explicitly instead of inheriting.
+  function ccamEnv(env, ...args) {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, ...args], {
+        env: { ...process.env, DASHBOARD_PORT: String(PORT), ...env },
+      });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      const killer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+      child.on("close", (code) => {
+        clearTimeout(killer);
+        resolve({ code, out, err });
+      });
+    });
+  }
+  const noSession = { CLAUDECODE: "" };
+
+  it("focus status reports no declared focus for a fresh session", async () => {
+    const { code, out } = await ccamEnv(
+      noSession,
+      "focus",
+      "status",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.equal(code, 0);
+    assert.match(out, /Focus/);
+    assert.match(out, /none declared/);
+  });
+
+  it("focus set outside a session writes via the API", async () => {
+    const { code, out } = await ccamEnv(
+      noSession,
+      "focus",
+      "set",
+      "1",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.equal(code, 0);
+    assert.match(out, /focus set/);
+    const status = await ccamEnv(
+      noSession,
+      "focus",
+      "status",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.match(status.out, /→ 1\./);
+  });
+
+  it("focus set inside a Claude session defers to the hook stream (no API write)", async () => {
+    const { code, out } = await ccamEnv(
+      { CLAUDECODE: "1" },
+      "focus",
+      "set",
+      "7",
+      "in-session note"
+    );
+    assert.equal(code, 0);
+    assert.match(out, /recorded via hook stream/);
+    // The server must NOT have been written to (item 1 from the previous
+    // test is still current — this process's hooks don't reach the test DB).
+    const status = await ccamEnv(
+      noSession,
+      "focus",
+      "status",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.match(status.out, /→ 1\./);
+    assert.doesNotMatch(status.out, /→ 7\./);
+  });
+
+  it("focus rejects unknown verbs and bad arguments", async () => {
+    const bad = await ccamEnv(noSession, "focus", "jump");
+    assert.equal(bad.code, 1);
+    assert.match(bad.err, /Unknown focus verb/);
+    const noNum = await ccamEnv(noSession, "focus", "set", "banana");
+    assert.equal(noNum.code, 1);
+    assert.match(noNum.err, /Usage: ccam focus set/);
+  });
+
+  it("focus push/pop round-trip via the API path", async () => {
+    const push = await ccamEnv(
+      noSession,
+      "focus",
+      "push",
+      "chasing",
+      "a",
+      "flaky",
+      "test",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.equal(push.code, 0);
+    const status = await ccamEnv(
+      noSession,
+      "focus",
+      "status",
+      "--session",
+      "cli-test-session-0001"
+    );
+    assert.match(status.out, /Detour/);
+    assert.match(status.out, /chasing a flaky test/);
+    const pop = await ccamEnv(noSession, "focus", "pop", "--session", "cli-test-session-0001");
+    assert.equal(pop.code, 0);
+  });
+});
+
 describe("ccam CLI — import & administration", () => {
   it("import rescan runs against the (empty) default projects dir", async () => {
     const { code, out } = await ccam("import", "rescan");

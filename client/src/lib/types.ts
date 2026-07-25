@@ -549,6 +549,8 @@
  *  - `cc_config_changed` ............................ {@link CcConfigChangedPayload}
  *  - `alert_triggered` / `alert_updated` ............ {@link AlertEvent}
  *  - `workflow_upserted` ............................ {@link WorkflowRun}
+ *  - `plan_updated` ................................. {@link PlanUpdatedPayload}
+ *  - `session_focus` ................................ {@link SessionFocus}
  *
  * ### Where these types are consumed
  *
@@ -1509,6 +1511,122 @@ export interface UnassignedProjectBucket {
   last_activity: string | null;
 }
 
+// ───── Plans & session focus ─────
+// A monitored repo may keep a human-approved plan at `<cwd>/AGENT-PLAN.md`
+// (numbered checkbox items). The server mirrors it read-only into per-cwd
+// Plan records; sessions declare which item they are serving (plus detours)
+// via `ccam focus …`, and a background auditor stamps a drift verdict. The
+// file stays the source of truth — the dashboard never writes it.
+
+/** One numbered checkbox item of a {@link Plan}, from the plans endpoints. */
+export interface PlanItem {
+  /** Owning working directory (plan key). */
+  cwd: string;
+  /** The file's own item number — the stable handle focus declarations use. */
+  item_number: number;
+  /** Item text (without the checkbox/number prefix). */
+  text: string;
+  /** Optional acceptance note split from `— acceptance: …`. */
+  acceptance: string | null;
+  /** 1 when the file's checkbox is `[x]` (human-owned completion). */
+  checked: number;
+  /** File order; numbering need not be contiguous. */
+  position: number;
+  /** ISO timestamp an agent declared this item done (`ccam focus done N`);
+   *  survives file re-ingest. Null until claimed. */
+  declared_done_at: string | null;
+  /** Session id that made the declared-done claim. */
+  declared_done_session: string | null;
+  /** ISO timestamp of the last ingest that touched this row. */
+  updated_at: string;
+}
+
+/** A per-cwd plan mirrored from AGENT-PLAN.md, from GET /api/plans. */
+export interface Plan {
+  /** Absolute working directory the plan belongs to (primary key). */
+  cwd: string;
+  /** First markdown heading of the file; null when the file has none. */
+  title: string | null;
+  /** Absolute path of the ingested AGENT-PLAN.md. */
+  file_path: string;
+  /** Number of parsed items. */
+  item_count: number;
+  /** ISO timestamp the file was found missing (row is kept); null while
+   *  present. */
+  missing_at: string | null;
+  /** ISO timestamp of first ingest. */
+  created_at: string;
+  /** ISO timestamp of last ingest. */
+  updated_at: string;
+  /** Items, present on list/for-cwd/rollup responses. */
+  items: PlanItem[];
+}
+
+/** One in-flight detour on a session's focus stack. */
+export interface DetourFrame {
+  /** What pulled the session away (e.g. `"npm module conflict"`). */
+  description: string;
+  /** ISO timestamp the detour was pushed. */
+  pushed_at: string;
+  /** The plan item that was current when the detour began; null if none. */
+  prior_item: number | null;
+}
+
+/** One focus timeline entry, rebuilt from the session's `Focus` events by
+ *  GET /api/sessions/:id/focus. */
+export interface FocusHistoryEntry {
+  /** ISO timestamp of the declaration. */
+  at: string;
+  /** Entry class: item declarations vs detour push/pop. */
+  kind: "item" | "detour_push" | "detour_pop";
+  /** Raw verb (`set` | `push` | `pop` | `done`), when recorded. */
+  verb: string | null;
+  /** Target plan item for set/done entries. */
+  item_number: number | null;
+  /** Human line: detour description or item-text snapshot (immune to later
+   *  plan renumbering). */
+  text: string;
+}
+
+/** A session's declared focus in wire shape, from GET /api/focus (bulk),
+ *  GET /api/sessions/:id/focus, and `session_focus` WebSocket pushes. */
+export interface SessionFocus {
+  /** Owning session id. */
+  session_id: string;
+  /** The session's cwd at declaration time (plan join key). */
+  cwd: string | null;
+  /** Declared plan item number; null when only detours (or nothing) are
+   *  declared. */
+  item_number: number | null;
+  /** The declared item's current text, joined server-side; null when the
+   *  item isn't in the ingested plan. */
+  item_text: string | null;
+  /** Optional free-text note from `ccam focus set N <note>`. */
+  note: string | null;
+  /** In-flight detours, oldest first (top of stack = last element). */
+  detour_stack: DetourFrame[];
+  /** ISO timestamp the current item was declared; null when none. */
+  since: string | null;
+  /** Drift verdict folded to a tri-state: true = possible drift, false = on
+   *  track, null = not audited yet. Written only by the drift auditor. */
+  drift: boolean | null;
+  /** One-line auditor reasoning for the verdict. */
+  drift_reason: string | null;
+  /** ISO timestamp of the last focus state change. */
+  updated_at: string;
+}
+
+/** One entry of a session's latest TodoWrite list, from
+ *  GET /api/sessions/:id/todos (parse-on-read of the events table). */
+export interface SessionTodo {
+  /** Imperative task text. */
+  content: string;
+  /** TodoWrite status. */
+  status: "pending" | "in_progress" | "completed";
+  /** Present-continuous spinner form, when the tool supplied one. */
+  activeForm?: string;
+}
+
 // ───── Webhooks ─────
 // Outbound delivery of alerts to chat/incident/automation providers. The
 // provider catalog ({@link WebhookProvider}/{@link WebhookProviderField}) drives
@@ -1684,6 +1802,16 @@ export interface WebhookTestResult {
 
 // ───── WebSocket envelope ─────
 
+/** Payload for `plan_updated` WebSocket messages: a re-ingested AGENT-PLAN.md
+ *  (whole-plan replacement — small by design, item caps keep it well under the
+ *  socket's payload limit). */
+export interface PlanUpdatedPayload {
+  /** The updated plan row (without `items` — they ride alongside). */
+  plan: Omit<Plan, "items">;
+  /** The plan's full current item list. */
+  items: PlanItem[];
+}
+
 /**
  * Envelope for every message the server pushes over the dashboard WebSocket
  * (see `server/websocket.js` `broadcast()`). Consumed by {@link eventBus} and
@@ -1701,7 +1829,8 @@ export interface WSMessage {
    *  import.progress → ImportProgressMessage; update_status → UpdateStatusPayload;
    *  run_stream/run_status/run_input_ack → their matching Run*Payload;
    *  cc_config_changed → CcConfigChangedPayload; alert_triggered/alert_updated
-   *  → AlertEvent; workflow_upserted → WorkflowRun. */
+   *  → AlertEvent; workflow_upserted → WorkflowRun; plan_updated →
+   *  PlanUpdatedPayload; session_focus → SessionFocus. */
   type:
     | "session_created"
     | "session_updated"
@@ -1718,7 +1847,9 @@ export interface WSMessage {
     | "alert_triggered"
     | "alert_updated"
     | "workflow_upserted"
-    | "remote_source.status";
+    | "remote_source.status"
+    | "plan_updated"
+    | "session_focus";
   /** The message body, whose concrete shape is selected by `type` above. */
   data:
     | Session
@@ -1733,7 +1864,9 @@ export interface WSMessage {
     | CcConfigChangedPayload
     | AlertEvent
     | WorkflowRun
-    | RemoteSourceStatusPayload;
+    | RemoteSourceStatusPayload
+    | PlanUpdatedPayload
+    | SessionFocus;
   /** ISO timestamp the server broadcast this message (not necessarily the
    *  same instant the underlying event occurred). */
   timestamp: string;

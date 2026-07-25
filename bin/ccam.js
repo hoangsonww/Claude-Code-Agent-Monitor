@@ -942,6 +942,180 @@ async function cmdCost(flags) {
   }
 }
 
+// ── Plan & focus ────────────────────────────────────────────────────────────
+// `ccam focus …` declares which AGENT-PLAN.md item a session is serving.
+// INSIDE a Claude Code session (CLAUDECODE env set) the write verbs do NOT
+// call the API: the PostToolUse hook for this very command is the durable
+// write channel (it alone knows the session_id), so the CLI just confirms.
+// Outside a session, write verbs resolve a session (--session or cwd match)
+// and POST the strict API path, whose same-state idempotency makes any
+// double delivery harmless.
+
+/** Resolve the target session id: --session wins, else the most recently
+ *  updated active session whose cwd matches the terminal's cwd. */
+async function resolveFocusSession(flags) {
+  if (flags.session) return String(flags.session);
+  const res = await get("/api/sessions?status=active&limit=200");
+  const here = process.cwd();
+  const matches = (res.sessions || []).filter((s) => s.cwd === here);
+  if (matches.length === 0) {
+    console.error(c.red("✖ No active session for this directory — pass --session <id>"));
+    process.exit(1);
+  }
+  matches.sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  if (matches.length > 1) {
+    console.log(
+      c.yellow(
+        `! ${matches.length} active sessions share this directory — using ${matches[0].id.slice(0, 12)}… (pass --session to pick)`
+      )
+    );
+  }
+  return matches[0].id;
+}
+
+/** GET that returns null on any non-2xx instead of exiting — for the status
+ *  view's optional lookups (a missing plan is normal, not an error). Network
+ *  failures still raise ServerDownError for the shared offline routing. */
+async function tryGet(pathname) {
+  let res;
+  try {
+    res = await fetch(`${baseUrl()}${pathname}`, { signal: AbortSignal.timeout(30_000) });
+  } catch {
+    throw new ServerDownError();
+  }
+  if (!res.ok) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Render the focus status view for one session. */
+async function renderFocusStatus(sessionId) {
+  const focusRes = await get(`/api/sessions/${encodeURIComponent(sessionId)}/focus`);
+  const { focus, plan_title: planTitle } = focusRes;
+  const sess = await tryGet(`/api/sessions/${encodeURIComponent(sessionId)}`);
+  const label = sess?.session?.name || sessionId.slice(0, 12);
+  heading("Focus", label);
+
+  const cwd = focus?.cwd || sess?.session?.cwd || null;
+  const plan = cwd ? await tryGet(`/api/plans/for-cwd?cwd=${encodeURIComponent(cwd)}`) : null;
+  if (plan) {
+    const done = plan.items.filter((i) => i.checked).length;
+    kvLine(
+      "Plan",
+      `${planTitle || plan.plan.title || "AGENT-PLAN.md"} (${plan.items.length} items, ${done} done)`
+    );
+  } else {
+    kvLine("Plan", c.dim("no AGENT-PLAN.md found for this directory"));
+  }
+
+  if (!focus || (focus.item_number == null && focus.detour_stack.length === 0)) {
+    kvLine("Focus", c.dim("none declared — ccam focus set <n> to declare"));
+  } else {
+    kvLine(
+      "Focus",
+      focus.item_number != null
+        ? `${c.cyan("→")} ${focus.item_number}. ${focus.item_text || c.dim("(unknown item)")}`
+        : c.dim("detour only")
+    );
+    if (focus.note) kvLine("Note", focus.note);
+    if (focus.detour_stack.length > 0) {
+      const top = focus.detour_stack[focus.detour_stack.length - 1];
+      kvLine(
+        "Detour",
+        `${focus.detour_stack.length} deep: "${top.description}" (pushed ${fmtAgo(top.pushed_at)})`
+      );
+    }
+    const driftLabel =
+      focus.drift === true
+        ? c.yellow(`⚠ possible drift: ${focus.drift_reason || "activity does not match focus"}`)
+        : focus.drift === false
+          ? c.green("✔ on track")
+          : c.dim("– not audited yet");
+    kvLine("Drift", driftLabel);
+  }
+
+  if (plan && plan.items.length) {
+    console.log(`\n${c.bold("Items")}`);
+    for (const it of plan.items) {
+      const isCurrent = focus && focus.item_number === it.item_number;
+      const glyph = it.checked
+        ? c.green("✔")
+        : isCurrent
+          ? c.cyan("→")
+          : it.declared_done_at
+            ? c.yellow("◐")
+            : c.dim("·");
+      const text = it.checked ? c.dim(it.text) : it.text;
+      const extra = !it.checked && it.declared_done_at ? c.dim(" (declared done, unchecked)") : "";
+      console.log(`  ${glyph} ${it.item_number}. ${text}${extra}`);
+    }
+  }
+}
+
+async function cmdFocus(flags, positional) {
+  const sub = positional[0] || "status";
+  const WRITE_VERBS = new Set(["set", "push", "pop", "done"]);
+
+  if (sub === "status") {
+    const sessionId = await resolveFocusSession(flags);
+    return renderFocusStatus(sessionId);
+  }
+
+  if (!WRITE_VERBS.has(sub)) {
+    console.error(c.red(`✖ Unknown focus verb: ${sub} (set | push | pop | done | status)`));
+    process.exit(1);
+  }
+
+  // Build the request body up front so usage errors surface identically
+  // inside and outside a session.
+  const body = { verb: sub };
+  if (sub === "set" || sub === "done") {
+    const n = parseInt(positional[1], 10);
+    if (!Number.isInteger(n)) {
+      console.error(
+        c.red(`✖ Usage: ccam focus ${sub} <item-number>${sub === "set" ? " [note]" : ""}`)
+      );
+      process.exit(1);
+    }
+    body.item_number = n;
+    if (sub === "set" && positional.length > 2) body.note = positional.slice(2).join(" ");
+  }
+  if (sub === "push") {
+    const description = positional.slice(1).join(" ").trim();
+    if (!description) {
+      console.error(c.red("✖ Usage: ccam focus push <description>"));
+      process.exit(1);
+    }
+    body.description = description;
+  }
+
+  // Inside a Claude Code session the PostToolUse hook for this very command
+  // IS the write — calling the API too would be redundant (and needs a
+  // session id the CLI cannot know). Confirm and exit 0.
+  if (process.env.CLAUDECODE && !flags.session) {
+    const detail =
+      sub === "set"
+        ? `→ item ${body.item_number}${body.note ? ` (${body.note})` : ""}`
+        : sub === "done"
+          ? `→ item ${body.item_number} declared done`
+          : sub === "push"
+            ? `→ detour "${body.description}"`
+            : "→ detour resolved";
+    console.log(`${c.green("✔")} focus ${sub} ${detail} ${c.dim("(recorded via hook stream)")}`);
+    return;
+  }
+
+  // api() already prints structured 4xx errors (UNKNOWN_ITEM/EMPTY_STACK) and
+  // exits; ServerDownError propagates for the shared offline routing.
+  const sessionId = await resolveFocusSession(flags);
+  const res = await post(`/api/sessions/${encodeURIComponent(sessionId)}/focus`, body);
+  const suffix = res.deduped ? c.dim(" (already current — no change)") : "";
+  console.log(`${c.green("✔")} focus ${sub} recorded for ${sessionId.slice(0, 12)}…${suffix}`);
+}
+
 // ── Alerts & webhooks ───────────────────────────────────────────────────────
 
 async function cmdAlerts(flags, positional) {
@@ -1471,6 +1645,16 @@ const COMMAND_GROUPS = [
     ],
   ],
   [
+    "Plan & Focus",
+    [
+      ["focus", "[--session id]", "Show the session's AGENT-PLAN.md focus (alias: focus status)"],
+      ["focus set <n>", "[note]", "Declare which plan item this session is serving"],
+      ["focus push <desc>", "", "Declare a detour (unplanned-but-necessary work)"],
+      ["focus pop", "", "Resolve the current detour"],
+      ["focus done <n>", "", "Declare a plan item complete (file checkbox stays human-owned)"],
+    ],
+  ],
+  [
     "Alerts & Webhooks",
     [
       ["alerts", "[--unacked]", "Fired-alert feed"],
@@ -1763,6 +1947,71 @@ const OFFLINE_HANDLERS = {
     } catch {
       console.log(`${c.dim("·")}  Claude Code hooks  could not be checked`);
     }
+  },
+  async focus(flags, positional) {
+    const sub = positional[0] || "status";
+    if (sub !== "status") {
+      serverDownExit("focus writes must go through the server's transaction + broadcast path");
+    }
+    const db = requireDb();
+    const sessionId = flags.session ? String(flags.session) : null;
+    let row = null;
+    try {
+      if (sessionId) {
+        row = db.all("SELECT * FROM session_focus WHERE session_id = ?", sessionId)[0] || null;
+      } else {
+        row =
+          db.all(
+            `SELECT f.* FROM session_focus f JOIN sessions s ON s.id = f.session_id
+             WHERE s.cwd = ? ORDER BY f.updated_at DESC LIMIT 1`,
+            process.cwd()
+          )[0] || null;
+      }
+    } catch {
+      row = null; // plans tables may not exist on an older DB
+    }
+    heading("Focus", sessionId ? sessionId.slice(0, 12) : process.cwd());
+    if (!row) {
+      kvLine("Focus", c.dim("none recorded"));
+      return;
+    }
+    let stack = [];
+    try {
+      stack = JSON.parse(row.detour_stack || "[]");
+    } catch {
+      stack = [];
+    }
+    let itemText = null;
+    try {
+      if (row.cwd && row.item_number != null) {
+        itemText =
+          db.all(
+            "SELECT text FROM plan_items WHERE cwd = ? AND item_number = ?",
+            row.cwd,
+            row.item_number
+          )[0]?.text || null;
+      }
+    } catch {
+      itemText = null;
+    }
+    kvLine(
+      "Focus",
+      row.item_number != null
+        ? `${c.cyan("→")} ${row.item_number}. ${itemText || c.dim("(unknown item)")}`
+        : c.dim("detour only")
+    );
+    if (row.note) kvLine("Note", row.note);
+    if (stack.length) {
+      kvLine("Detour", `${stack.length} deep: "${stack[stack.length - 1].description}"`);
+    }
+    kvLine(
+      "Drift",
+      row.drift_status === "drift"
+        ? c.yellow(`⚠ possible drift: ${row.drift_reason || ""}`)
+        : row.drift_status === "ok"
+          ? c.green("✔ on track")
+          : c.dim("– not audited")
+    );
   },
 };
 
@@ -2219,6 +2468,7 @@ const SUBCOMMANDS = {
   pricing: ["set", "delete", "reset"],
   webhooks: ["test"],
   import: ["rescan", "path"],
+  focus: ["status", "set", "push", "pop", "done"],
 };
 
 /** Run one parsed command. Returns the handler's promise; may throw
@@ -2257,6 +2507,8 @@ async function runCommand(argv) {
       return cmdRuns(flags);
     case "cost":
       return cmdCost(flags);
+    case "focus":
+      return cmdFocus(flags, positional);
     case "alerts":
       return cmdAlerts(flags, positional);
     case "rules":

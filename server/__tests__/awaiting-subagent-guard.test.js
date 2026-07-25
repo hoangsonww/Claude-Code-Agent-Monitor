@@ -12,6 +12,11 @@
  * preserved. When MAIN is the actor, clearing is unconditional (keeps the
  * documented permission-mid-tool path intact).
  *
+ * Also covers the working-fleet guard: a non-error Stop that lands while a
+ * subagent is still working does NOT stamp the Waiting flag (the session
+ * stays Active, waiting on its agents); the SubagentStop drain check stamps
+ * the deferred 'stop' flag when the last working subagent completes.
+ *
  * This test lives in the fork's own suite so a future upstream merge that
  * silently reverts the guard fails loudly here (home-network monitor fork,
  * see decisions/).
@@ -72,6 +77,10 @@ const sessionOf = async (id) => (await fetch(`/api/sessions/${id}`)).body.sessio
  * Drive a session into: main agent 'waiting' with the given reason, AND a live
  * working subagent (so findDeepestWorkingAgent returns it). Returns nothing;
  * asserts each precondition so a harness regression is obvious.
+ *
+ * With `notification: false` the Stop lands while the subagent is still
+ * working, so (per the working-fleet guard in the Stop handler) the session
+ * is expected to stay NOT awaiting — Active, waiting on its agents.
  */
 async function sessionWaitingWithWorkingSubagent(sid, { notification }) {
   await hook("SessionStart", { session_id: sid });
@@ -83,20 +92,24 @@ async function sessionWaitingWithWorkingSubagent(sid, { notification }) {
     tool_name: "Agent",
     tool_input: { subagent_type: "reviewer", prompt: "review" },
   });
-  // Now block the MAIN agent. A waiting-for-user Notification stamps
-  // reason='notification'; a Stop stamps the passive reason='stop'.
+  // Now end the MAIN agent's turn. A waiting-for-user Notification stamps
+  // reason='notification'; a Stop with a working subagent stamps nothing.
   if (notification) {
     await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
   } else {
     await hook("Stop", { session_id: sid });
   }
   const sess = await sessionOf(sid);
-  assert.ok(sess.awaiting_input_since, "precondition: session should be awaiting");
-  assert.equal(
-    sess.awaiting_reason,
-    notification ? "notification" : "stop",
-    "precondition: expected awaiting_reason"
-  );
+  if (notification) {
+    assert.ok(sess.awaiting_input_since, "precondition: session should be awaiting");
+    assert.equal(sess.awaiting_reason, "notification", "precondition: expected awaiting_reason");
+  } else {
+    assert.equal(
+      sess.awaiting_input_since,
+      null,
+      "precondition: Stop with a working subagent must NOT stamp the waiting flag"
+    );
+  }
 }
 
 before(async () => {
@@ -133,21 +146,35 @@ describe("awaiting guard: subagent tool events vs. main-agent waiting", () => {
     assert.equal(sess.awaiting_reason, "notification");
   });
 
-  it("CLEARS a passive 'stop' wait when a background subagent fires a tool event", async () => {
-    // Passive-clear is desirable: a backgrounded subagent's activity should flip
-    // a merely-Stopped session back to active ("done/idle only while no agent works").
+  it("keeps a Stop-ed session ACTIVE while a subagent still works, then stamps Waiting on drain", async () => {
+    // "Done/idle only while no agent works": the main turn ending is not the
+    // session being idle when a background subagent is still running. The
+    // session must read as Active (no awaiting flag) through subagent
+    // activity, and land in Waiting only when the LAST subagent completes.
     const sid = "guard-stop-pre";
     await sessionWaitingWithWorkingSubagent(sid, { notification: false });
 
+    // Subagent activity while main is stopped — still Active, still no flag.
     await hook("PreToolUse", { session_id: sid, tool_name: "Bash" });
+    await hook("PostToolUse", { session_id: sid, tool_name: "Bash" });
 
-    const sess = await sessionOf(sid);
+    let sess = await sessionOf(sid);
+    assert.equal(sess.status, "active");
     assert.equal(
       sess.awaiting_input_since,
       null,
-      "passive stop wait should be cleared by subagent activity"
+      "session must not read as Waiting while a subagent is working"
     );
-    assert.equal(sess.awaiting_reason, null);
+
+    // The last working subagent finishes → the deferred Waiting stamp lands.
+    await hook("SubagentStop", { session_id: sid, agent_type: "reviewer" });
+
+    sess = await sessionOf(sid);
+    assert.ok(
+      sess.awaiting_input_since,
+      "last subagent draining must stamp the waiting flag Stop deferred"
+    );
+    assert.equal(sess.awaiting_reason, "stop");
   });
 
   it("CLEARS a 'notification' wait when MAIN (no working subagent) resumes with a tool", async () => {

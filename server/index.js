@@ -66,6 +66,7 @@ const webhooksRouter = require("./routes/webhooks");
 const remoteSourcesRouter = require("./routes/remote-sources");
 const metricsRouter = require("./routes/metrics");
 const projectsRouter = require("./routes/projects");
+const plansRouter = require("./routes/plans");
 
 function createApp() {
   const app = express();
@@ -97,6 +98,8 @@ function createApp() {
   app.use("/api/remote-sources", remoteSourcesRouter);
   app.use("/api/metrics", metricsRouter);
   app.use("/api/projects", projectsRouter);
+  app.use("/api/plans", plansRouter);
+  app.use("/api/focus", plansRouter.focusRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });
@@ -361,6 +364,24 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("workflow poll failed to start:", err.message);
   }
+  // Mirror each monitored repo's AGENT-PLAN.md into the plans tables so the
+  // dashboard can render per-project plan progress and validate focus
+  // declarations. mtime-fingerprinted; disable with DASHBOARD_PLAN_POLL_MS=0.
+  try {
+    startPlanPoll(broadcast);
+  } catch (err) {
+    console.warn("plan poll failed to start:", err.message);
+  }
+  // Periodically ask "does each focused session's recent activity match its
+  // declared plan item?" and stamp a drift badge. LLM-judged via headless
+  // `claude -p` when available, keyword heuristic otherwise; disable with
+  // DASHBOARD_FOCUS_AUDIT_MS=0 or DASHBOARD_FOCUS_AUDIT_MODE=off.
+  try {
+    const { startFocusAudit } = require("./lib/focus-audit");
+    startFocusAudit(broadcast);
+  } catch (err) {
+    console.warn("focus audit failed to start:", err.message);
+  }
   // Continuous discovery of sessions under ~/.claude/projects. The one-time
   // legacy backfill above runs only once (marker-gated), so a project added
   // later whose sessions never flow through hooks would otherwise stay invisible
@@ -488,6 +509,54 @@ function startWorkflowPoll(broadcast) {
           if (sess) broadcast("session_updated", sess);
         })
         .catch(() => {});
+    }
+  }, POLL_MS);
+  if (timer.unref) timer.unref();
+}
+
+/**
+ * Change-fingerprinted poll that mirrors every monitored repo's AGENT-PLAN.md
+ * into the plans/plan_items tables. The cwd universe is every distinct
+ * session cwd plus every project-mapped folder (capped, newest plans win by
+ * simple insertion order). Each tick stats one file per cwd — unchanged mtime
+ * skips outright, and the ingest layer's content hash catches the
+ * restart-with-stale-Map case. Unref'd; disable with DASHBOARD_PLAN_POLL_MS=0.
+ */
+function startPlanPoll(broadcast) {
+  const POLL_MS = process.env.DASHBOARD_PLAN_POLL_MS
+    ? Number(process.env.DASHBOARD_PLAN_POLL_MS)
+    : 10_000;
+  if (!Number.isFinite(POLL_MS) || POLL_MS <= 0) return;
+
+  const MAX_CWDS = 200;
+  const dbModule = require("./db");
+  const { ingestPlanForCwd, planFileMtime } = require("./lib/plan-ingest");
+  const lastSeen = new Map(); // cwd → AGENT-PLAN.md mtimeMs last ingested
+
+  const timer = setInterval(() => {
+    let cwds;
+    try {
+      const fromSessions = dbModule.stmts.distinctSessionCwds.all().map((r) => r.cwd);
+      const fromProjects = dbModule.stmts.listAllProjectPaths.all().map((r) => r.cwd);
+      cwds = [...new Set([...fromSessions, ...fromProjects])].slice(0, MAX_CWDS);
+    } catch {
+      return;
+    }
+    for (const cwd of cwds) {
+      const mtime = planFileMtime(cwd);
+      // mtime 0 means no file — still run ingest ONCE past a stored non-zero
+      // fingerprint so a deleted plan gets its missing_at stamp; a cwd that
+      // never had a plan short-circuits inside ingestPlanForCwd (no row).
+      if (lastSeen.get(cwd) === mtime) continue;
+      lastSeen.set(cwd, mtime);
+      try {
+        const result = ingestPlanForCwd(dbModule, cwd);
+        if (result && result.changed) {
+          broadcast("plan_updated", { plan: result.plan, items: result.items });
+        }
+      } catch {
+        /* fail-safe: one bad cwd never stops the sweep */
+      }
     }
   }, POLL_MS);
   if (timer.unref) timer.unref();

@@ -12,6 +12,8 @@ const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
+const { extractFocusCommand, parseFocusArgs, applyFocusCommand } = require("../lib/focus-commands");
+const { ingestPlanForCwd } = require("../lib/plan-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
@@ -74,9 +76,12 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
 // unconditionally, exactly as before — this keeps the documented
 // permission-mid-tool path (PostToolUse clearing an approved prompt) intact.
 //
-// Passive-clear-by-subagent is deliberate and desirable: it is what lets a
-// backgrounded subagent's activity flip a session that merely Stop-ed
-// (reason='stop') back to active — i.e. "done/idle only while no agent works".
+// Passive-clear-by-subagent is deliberate and desirable: it keeps a session
+// whose wait is merely passive (a stale 'session_start'/'interrupted' stamp,
+// or a 'stop' stamped before the subagent's activity was visible) reading as
+// active while an agent works — i.e. "done/idle only while no agent works".
+// (The Stop handler itself now skips stamping 'stop' while a subagent is
+// working, so this clear is the backstop, not the primary mechanism.)
 function clearAwaitingInputRespectingActor(
   sessionId,
   mainAgentId,
@@ -495,6 +500,32 @@ const processEvent = db.transaction((hookType, data) => {
         stmts.updateAgent.run(null, null, null, null, null, null, mainAgentId);
         broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
       }
+
+      // Focus declarations ride the hook stream: when an agent runs
+      // `ccam focus set|push|pop|done` in its Bash tool, THIS event already
+      // carries the right session_id — the only channel that natively does.
+      // PostToolUse (not Pre) so a blocked/denied command never counts, which
+      // also gives exactly-once semantics with no dedupe bookkeeping.
+      // Own try/catch: a focus-parsing bug must never abort event ingestion.
+      if (toolName === "Bash") {
+        try {
+          const found = extractFocusCommand(data.tool_input?.command);
+          if (found && found.verb !== "status") {
+            const parsed = parseFocusArgs(found.verb, found.argsRaw);
+            if (!parsed.error) {
+              const sessRow = stmts.getSession.get(sessionId);
+              if (sessRow) {
+                applyFocusCommand(dbModule, broadcast, sessRow, parsed, {
+                  strict: false,
+                  source: "hook",
+                });
+              }
+            }
+          }
+        } catch {
+          /* fail-safe: never break hook handling */
+        }
+      }
       break;
     }
 
@@ -532,11 +563,21 @@ const processEvent = db.transaction((hookType, data) => {
         if (agentMutable) {
           stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
         }
-        // Stamp the waiting flag in the same DB pass as the status update so
-        // the post-write read returns a consistent (waiting, awaiting=set)
-        // row.
-        stmts.setSessionAwaitingInput.run(now, "stop", sessionId);
-        if (mainAgentId) stmts.setAgentAwaitingInput.run(now, "stop", mainAgentId);
+        // Stop only means the MAIN turn ended. If a subagent is still working
+        // (backgrounded Task agent or a Workflow inner agent), the session is
+        // not idle — it's active, waiting on its agents. Don't stamp the
+        // Waiting flag; the drain check in SubagentStop stamps it when the
+        // last subagent finishes. Clear any stale flag so the row reads as
+        // plain Active while the fleet runs.
+        if (stmts.findDeepestWorkingAgent.get(sessionId, sessionId)) {
+          clearAwaitingInput(sessionId, mainAgentId, false);
+        } else {
+          // Stamp the waiting flag in the same DB pass as the status update so
+          // the post-write read returns a consistent (waiting, awaiting=set)
+          // row.
+          stmts.setSessionAwaitingInput.run(now, "stop", sessionId);
+          if (mainAgentId) stmts.setAgentAwaitingInput.run(now, "stop", mainAgentId);
+        }
       }
 
       // Now broadcast — single agent_updated reflecting the final state.
@@ -601,6 +642,28 @@ const processEvent = db.transaction((hookType, data) => {
 
         // Session stays active — SubagentStop just means one subagent finished,
         // the session is not over until the user explicitly closes it.
+
+        // Drain check: if that was the LAST working subagent and the main
+        // agent already ended its turn (Stop fired while agents were still
+        // running, so the Waiting stamp was deliberately skipped), the
+        // session is now genuinely idle — stamp the flag Stop deferred.
+        // The !awaiting guard keeps a genuine 'notification' wait (main
+        // blocked on the user) from being downgraded to 'stop'.
+        const sessAfter = stmts.getSession.get(sessionId);
+        if (
+          mainAgent &&
+          mainAgent.status === "waiting" &&
+          sessAfter &&
+          sessAfter.status === "active" &&
+          !sessAfter.awaiting_input_since &&
+          !stmts.findDeepestWorkingAgent.get(sessionId, sessionId)
+        ) {
+          const drainTs = new Date().toISOString();
+          stmts.setSessionAwaitingInput.run(drainTs, "stop", sessionId);
+          if (mainAgentId) stmts.setAgentAwaitingInput.run(drainTs, "stop", mainAgentId);
+          broadcast("session_updated", stmts.getSession.get(sessionId));
+          if (mainAgentId) broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
+        }
       }
       break;
     }
@@ -1046,6 +1109,20 @@ router.post("/event", (req, res) => {
     evaluateEvent(result);
   } catch {
     /* non-fatal */
+  }
+
+  // Opportunistic AGENT-PLAN.md ingest when a session opens in a cwd: makes a
+  // freshly opened project show its plan immediately instead of waiting for
+  // the next background poll tick. Fail-safe and after the response.
+  if (hook_type === "SessionStart" && data.cwd) {
+    try {
+      const planResult = ingestPlanForCwd(dbModule, data.cwd);
+      if (planResult && planResult.changed) {
+        broadcast("plan_updated", { plan: planResult.plan, items: planResult.items });
+      }
+    } catch {
+      /* non-fatal */
+    }
   }
 
   // After SubagentStop, scan the session's subagent JSONL files and ingest any

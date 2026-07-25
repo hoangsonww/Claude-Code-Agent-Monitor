@@ -7,8 +7,10 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
-const { stmts, db } = require("../db");
+const dbModule = require("../db");
+const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
+const { applyFocusCommand, focusWireShape } = require("../lib/focus-commands");
 const { transcriptCache } = require("./hooks");
 const { calculateCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
@@ -359,6 +361,119 @@ router.get("/:id/stats", (req, res) => {
     subagent_types: subagentTypes.filter((r) => r.subagent_type !== "compaction"),
     tokens,
   });
+});
+
+/**
+ * GET /:id/focus — the session's declared focus (AGENT-PLAN.md item pointer +
+ * detour stack + drift verdict) plus its focus history, rebuilt from the
+ * `Focus` rows in the events table (newest first, capped at 50).
+ */
+router.get("/:id/focus", (req, res) => {
+  const session = stmts.getSession.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const row = stmts.getSessionFocus.get(session.id) || null;
+  const focus = focusWireShape(dbModule, row);
+  let item = null;
+  let planTitle = null;
+  if (row && row.cwd) {
+    const plan = stmts.getPlanByCwd.get(row.cwd);
+    planTitle = plan ? plan.title : null;
+    if (row.item_number != null) item = stmts.getPlanItem.get(row.cwd, row.item_number) || null;
+  }
+  const history = stmts.listFocusEvents.all(session.id, 50).map((ev) => {
+    let data = {};
+    try {
+      data = ev.data ? JSON.parse(ev.data) : {};
+    } catch {
+      data = {};
+    }
+    const kind = data.verb === "push" ? "detour_push" : data.verb === "pop" ? "detour_pop" : "item";
+    return {
+      at: ev.created_at,
+      kind,
+      verb: data.verb || null,
+      item_number: data.item_number ?? null,
+      text: data.description || data.item_text_snapshot || ev.summary,
+    };
+  });
+  res.json({ focus, item, plan_title: planTitle, history });
+});
+
+/**
+ * POST /:id/focus — the explicit (non-hook) focus write path, used by
+ * `ccam focus` when run outside a Claude Code session and by integrations.
+ * Strict: unknown items and empty-stack pops are 409s here (a human can read
+ * them), and a declaration whose end state equals the current state dedupes
+ * to a no-op so CLI-write + hook-parse double delivery is harmless.
+ */
+router.post("/:id/focus", (req, res) => {
+  const session = stmts.getSession.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const { verb, item_number, note, description } = req.body || {};
+  if (!["set", "push", "pop", "done"].includes(verb)) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "verb must be one of set, push, pop, done" },
+    });
+  }
+  const parsed = { verb };
+  if (verb === "set" || verb === "done") {
+    if (!Number.isInteger(item_number) || item_number < 0 || item_number > 999) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: "item_number must be an integer (0-999)" },
+      });
+    }
+    parsed.itemNumber = item_number;
+    if (verb === "set" && note != null) {
+      if (typeof note !== "string") {
+        return res
+          .status(400)
+          .json({ error: { code: "INVALID_INPUT", message: "note must be a string" } });
+      }
+      parsed.note = note.slice(0, 300);
+    }
+  }
+  if (verb === "push") {
+    if (!description || typeof description !== "string" || !description.trim()) {
+      return res
+        .status(400)
+        .json({ error: { code: "INVALID_INPUT", message: "description is required for push" } });
+    }
+    parsed.description = description.trim().slice(0, 300);
+  }
+  const result = applyFocusCommand(dbModule, broadcast, session, parsed, {
+    strict: true,
+    source: "api",
+  });
+  if (result.error) {
+    return res.status(409).json({ error: { code: result.code, message: result.error } });
+  }
+  res.json({ focus: result.focus, deduped: !!result.deduped });
+});
+
+/**
+ * GET /:id/todos — the session's latest TodoWrite list, parsed on read from
+ * the already-lossless events row (no materialized copy to keep in sync).
+ */
+router.get("/:id/todos", (req, res) => {
+  const session = stmts.getSession.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const row = stmts.latestTodoWriteEvent.get(session.id);
+  if (!row) return res.json({ todos: null, updated_at: null });
+  let todos = null;
+  try {
+    const data = JSON.parse(row.data);
+    const list = data?.tool_input?.todos;
+    if (Array.isArray(list)) todos = list;
+  } catch {
+    todos = null;
+  }
+  res.json({ todos, updated_at: row.created_at });
 });
 
 router.post("/", (req, res) => {
