@@ -4,8 +4,13 @@
   "subtitleSessions": "按状态排列的会话看板视图",
   "viewToggle": {
     "agents": "Agent",
-    "sessions": "会话"
+    "sessions": "会话",
+    "projects": "项目"
   },
+  "unassignedColumn": "未分配",
+  "unassignedColumnTooltip": "来自尚未归入任何项目的文件夹的会话。",
+  "hideCompleted": "隐藏已完成",
+  "showCompleted": "显示已完成",
   "noAgents": "暂无追踪的 Agent",
   "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看 Agent。",
   "agentCount": "已追踪 {{count}} 个 Agent",
@@ -25,7 +30,10 @@
     "subagentSummary_one": "{{count}} 个子 Agent",
     "subagentSummary_other": "{{count}} 个子 Agent",
     "turnSummary_one": "{{count}} 轮",
-    "turnSummary_other": "{{count}} 轮"
+    "turnSummary_other": "{{count}} 轮",
+    "lastMessage": "最后一条消息",
+    "lastMessageLoading": "正在加载最后一条消息…",
+    "lastMessageEmpty": "未找到最近的消息"
   },
   "tooltip": {
     "agent": {

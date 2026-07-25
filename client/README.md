@@ -185,6 +185,7 @@ client/
 │   │
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
+│   │   ├── Projects.tsx       # Projects list/management page (/projects); groups sessions by working-directory-derived "project" into horizontally-scrollable rows; create/rename/delete + folder-mapping CRUD via api.projects
 │   │   ├── KanbanBoard.tsx
 │   │   ├── Sessions.tsx       # Filterable table; shows each session's real name (synced live from the transcript), falls back to the short ID
 │   │   ├── SessionDetail.tsx  # Agent tree + event timeline + Conversation tab (slash-command pills & output, inline rename markers)

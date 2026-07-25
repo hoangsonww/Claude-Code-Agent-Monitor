@@ -71,6 +71,7 @@ import { useCallback } from "react";
 import { Layout } from "./components/Layout";
 import { SplashScreen } from "./components/SplashScreen";
 import { Dashboard } from "./pages/Dashboard";
+import { Projects } from "./pages/Projects";
 import { KanbanBoard } from "./pages/KanbanBoard";
 import { Sessions } from "./pages/Sessions";
 import { SessionDetail } from "./pages/SessionDetail";
@@ -105,6 +106,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout wsConnected={connected} />}>
             <Route index element={<Dashboard />} />
+            <Route path="projects" element={<Projects />} />
             <Route path="kanban" element={<KanbanBoard />} />
             <Route path="sessions" element={<Sessions />} />
             <Route path="sessions/:id" element={<SessionDetail />} />

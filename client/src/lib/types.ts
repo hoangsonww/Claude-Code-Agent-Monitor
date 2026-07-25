@@ -1445,6 +1445,59 @@ export interface AlertEvent {
   acknowledged_at: string | null;
 }
 
+// ───── Projects ─────
+// A user-named grouping of one or more session working directories (cwd).
+// There is no project_id on Session - membership is derived server-side by
+// joining Session.cwd against ProjectPath.cwd, so this is a label layer over
+// existing session data rather than a new session relationship.
+
+/** One folder mapped onto a {@link Project}. A cwd belongs to at most one
+ *  project; a project may claim many folders. */
+export interface ProjectPath {
+  /** Mapping row id (primary key), used to remove this specific mapping. */
+  id: number;
+  /** Absolute working-directory path this project claims. Example:
+   *  `"/Users/dev/my-repo"`. */
+  cwd: string;
+}
+
+/** A named grouping of folders, from GET /api/projects. Session/active counts
+ *  and last_activity are aggregated server-side across every mapped folder. */
+export interface Project {
+  /** Project id (primary key). */
+  id: string;
+  /** User-assigned display name. Example: `"Agent Monitor"`. */
+  name: string;
+  /** Folders (cwds) currently mapped to this project. */
+  paths: ProjectPath[];
+  /** Total sessions across every mapped folder. */
+  session_count: number;
+  /** Sessions currently `active` across every mapped folder. */
+  active_count: number;
+  /** ISO timestamp of the most recent session update across every mapped
+   *  folder; null when the project has no sessions yet. */
+  last_activity: string | null;
+  /** ISO timestamp the project was created. */
+  created_at: string;
+  /** ISO timestamp the project was last renamed. */
+  updated_at: string;
+}
+
+/** Sessions whose cwd isn't mapped to any {@link Project} yet, from GET
+ *  /api/projects (`unassigned`). Lets the UI surface a "create a project from
+ *  this folder" affordance instead of silently dropping unmapped sessions. */
+export interface UnassignedProjectBucket {
+  /** Distinct cwds with sessions that aren't part of any project. */
+  cwds: string[];
+  /** Total sessions across every unmapped folder. */
+  session_count: number;
+  /** Sessions currently `active` across every unmapped folder. */
+  active_count: number;
+  /** ISO timestamp of the most recent session update across every unmapped
+   *  folder; null when there are none. */
+  last_activity: string | null;
+}
+
 // ───── Webhooks ─────
 // Outbound delivery of alerts to chat/incident/automation providers. The
 // provider catalog ({@link WebhookProvider}/{@link WebhookProviderField}) drives

@@ -17,6 +17,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Pricing](#pricing)
   - [Notifications](#notifications)
   - [Remote Data Sources](#remote-data-sources)
+  - [Projects](#projects)
 - [WebSocket API](#websocket-api)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
@@ -913,6 +914,96 @@ Pulls history from **every enabled** source sequentially (one SSH connection at 
 ```bash
 curl "http://localhost:4820/api/sessions?sources=local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11"
 ```
+
+---
+
+### Projects
+
+The `/api/projects/*` namespace groups sessions by the folder(s) they run from into a user-named **project** — an organizational view alongside Sessions/Agents, not a new field on sessions. A project claims one or more working directories; a folder belongs to at most one project. Membership is derived server-side by joining `sessions.cwd` against the project's mapped folders, so nothing needs to be backfilled onto existing sessions. Unlike Alerts/Webhooks, mutations here are **not** broadcast over the WebSocket — like `remote_sources` config CRUD, the client just re-fetches after each change.
+
+**Project shape:**
+
+```json
+{
+  "id": "b6f1a2d0-3c4e-4f5a-9b8c-1d2e3f4a5b6c",
+  "name": "Agent Monitor",
+  "paths": [{ "id": 1, "cwd": "/Users/dev/Claude-Code-Agent-Monitor" }],
+  "session_count": 12,
+  "active_count": 1,
+  "last_activity": "2026-07-24T18:41:55.117Z",
+  "created_at": "2026-07-01T09:15:00.000Z",
+  "updated_at": "2026-07-20T09:15:00.000Z"
+}
+```
+
+`session_count`, `active_count`, and `last_activity` are aggregated server-side across every folder currently mapped to the project; `last_activity` is `null` when the project has no sessions yet.
+
+#### List Projects
+
+```http
+GET /api/projects
+```
+
+Returns every project plus an `unassigned` bucket for cwds that have sessions but aren't mapped to any project yet:
+
+```json
+{
+  "projects": [ /* Project[] */ ],
+  "unassigned": {
+    "cwds": ["/Users/dev/scratch"],
+    "session_count": 3,
+    "active_count": 0,
+    "last_activity": "2026-07-19T02:10:00.000Z"
+  }
+}
+```
+
+#### Create Project
+
+```http
+POST /api/projects
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name |
+| `cwds` | string[] | No | Folders to attach immediately (deduplicated; each must be unmapped elsewhere) |
+
+Returns `{ "project": Project }` with HTTP **201**. **400** `INVALID_INPUT` for a missing/blank `name` or a non-array `cwds`. **409** `ALREADY_MAPPED` if any requested `cwd` already belongs to another project (no partial creation — the whole request is rejected).
+
+#### Rename Project
+
+```http
+PATCH /api/projects/:id
+```
+
+**Request Body:** `{ "name": string }` (required, non-blank). Returns `{ "project": Project }`, or **404** if the id is unknown.
+
+#### Delete Project
+
+```http
+DELETE /api/projects/:id
+```
+
+Deletes the project; its folder mappings cascade away (`ON DELETE CASCADE`). The underlying sessions are **untouched** — they simply fall back into the `unassigned` bucket on the next list call. Returns `{ "ok": true }`, or **404** if the id is unknown.
+
+#### Add Folder to Project
+
+```http
+POST /api/projects/:id/paths
+```
+
+**Request Body:** `{ "cwd": string }` (required, non-blank). Returns `{ "project": Project }` with HTTP **201**. **404** if the project id is unknown. **409** `ALREADY_MAPPED` if the folder already belongs to this project or another one (message distinguishes the two cases).
+
+#### Remove Folder from Project
+
+```http
+DELETE /api/projects/:id/paths/:pathId
+```
+
+`pathId` is the numeric id from `Project.paths[].id`. Unmaps the folder — the folder and its sessions are untouched; it becomes unassigned again. Returns `{ "project": Project }`, or **404** if the project id or `pathId` is unknown (or the mapping doesn't belong to that project).
 
 ---
 

@@ -382,6 +382,17 @@ vi.mock("../../lib/api", async (importOriginal) => {
         deliveries: r({ deliveries: [], limit: 20, offset: 0 }),
       },
       updates: { check: r({ behind: 0, ahead: 0, current: "", upstream: "" }), status: r({}) },
+      projects: {
+        list: r({
+          projects: [],
+          unassigned: { cwds: [], session_count: 0, active_count: 0, last_activity: null },
+        }),
+        create: r({ project: {} }),
+        rename: r({ project: {} }),
+        remove: r({ ok: true }),
+        addPath: r({ project: {} }),
+        removePath: r({ project: {} }),
+      },
     },
   };
 });
@@ -406,6 +417,7 @@ vi.mock("../../lib/push", () => ({
 
 // Page components (imported after the mocks above; vi.mock is hoisted).
 import { Dashboard } from "../Dashboard";
+import { Projects } from "../Projects";
 import { KanbanBoard } from "../KanbanBoard";
 import { Sessions } from "../Sessions";
 import { SessionDetail } from "../SessionDetail";
@@ -487,6 +499,9 @@ afterEach(() => {
 describe("screen snapshots", () => {
   it("Dashboard", async () => {
     await snapshot(<Dashboard />, "/");
+  });
+  it("Projects", async () => {
+    await snapshot(<Projects />, "/projects");
   });
   it("Kanban board", async () => {
     await snapshot(<KanbanBoard />, "/kanban");

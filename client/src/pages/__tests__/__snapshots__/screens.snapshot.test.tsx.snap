@@ -5459,7 +5459,7 @@ exports[`screen snapshots > Kanban board 1`] = `
         class="flex items-center gap-2 flex-shrink-0"
       >
         <div
-          aria-label="Agents / Sessions"
+          aria-label="Agents / Sessions / Projects"
           class="inline-flex border border-border rounded-lg overflow-hidden bg-surface-2"
           role="tablist"
         >
@@ -5479,7 +5479,44 @@ exports[`screen snapshots > Kanban board 1`] = `
           >
             Sessions
           </button>
+          <button
+            aria-selected="false"
+            class="px-3 py-1.5 text-xs font-medium transition-colors first:rounded-l-lg last:rounded-r-lg border-l border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+            role="tab"
+            type="button"
+          >
+            Projects
+          </button>
         </div>
+        <button
+          aria-pressed="false"
+          class="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors duration-150 flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4"
+          title="Hide completed"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-eye w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+            />
+          </svg>
+          Hide completed
+        </button>
         <button
           class="btn-ghost flex-shrink-0"
         >
@@ -5695,6 +5732,210 @@ exports[`screen snapshots > Not found 1`] = `
             />
           </svg>
           Go Back
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`screen snapshots > Projects 1`] = `
+<div>
+  <div
+    class="animate-fade-in flex flex-col min-h-[60vh]"
+  >
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 mb-8"
+    >
+      <div
+        class="flex items-center gap-3 min-w-0"
+      >
+        <div
+          class="w-9 h-9 rounded-xl bg-accent/15 flex items-center justify-center flex-shrink-0"
+        >
+          <svg
+            class="lucide lucide-folder-kanban w-4.5 h-4.5 text-accent"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"
+            />
+            <path
+              d="M8 10v4"
+            />
+            <path
+              d="M12 10v2"
+            />
+            <path
+              d="M16 10v6"
+            />
+          </svg>
+        </div>
+        <div
+          class="min-w-0"
+        >
+          <div
+            class="flex items-center gap-2"
+          >
+            <h1
+              class="text-lg font-semibold text-gray-100 truncate"
+            >
+              Projects
+            </h1>
+            <span
+              class="flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot"
+              />
+              Live
+            </span>
+          </div>
+          <p
+            class="text-xs text-gray-500 truncate"
+          >
+            Group your sessions by the folders they run from
+          </p>
+        </div>
+      </div>
+      <div
+        class="flex items-center gap-2 flex-shrink-0"
+      >
+        <button
+          class="btn-ghost flex-shrink-0"
+        >
+          <svg
+            class="lucide lucide-refresh-cw w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"
+            />
+            <path
+              d="M21 3v5h-5"
+            />
+            <path
+              d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"
+            />
+            <path
+              d="M8 16H3v5"
+            />
+          </svg>
+           
+          Refresh
+        </button>
+        <button
+          class="btn-primary flex-shrink-0"
+        >
+          <svg
+            class="lucide lucide-plus w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5 12h14"
+            />
+            <path
+              d="M12 5v14"
+            />
+          </svg>
+           
+          New Project
+        </button>
+      </div>
+    </div>
+    <div
+      class="flex-1 flex items-center justify-center"
+    >
+      <div
+        class="flex flex-col items-center justify-center py-20 text-center"
+      >
+        <div
+          class="w-14 h-14 rounded-2xl bg-surface-4 flex items-center justify-center mb-5"
+        >
+          <svg
+            class="lucide lucide-folder-kanban w-6 h-6 text-gray-500"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"
+            />
+            <path
+              d="M8 10v4"
+            />
+            <path
+              d="M12 10v2"
+            />
+            <path
+              d="M16 10v6"
+            />
+          </svg>
+        </div>
+        <h3
+          class="text-base font-medium text-gray-300 mb-2"
+        >
+          No projects yet
+        </h3>
+        <p
+          class="text-sm text-gray-500 max-w-md mb-6"
+        >
+          Group the folders your sessions run from into a named project to see them together here.
+        </p>
+        <button
+          class="btn-primary"
+        >
+          <svg
+            class="lucide lucide-plus w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5 12h14"
+            />
+            <path
+              d="M12 5v14"
+            />
+          </svg>
+           
+          New Project
         </button>
       </div>
     </div>
@@ -6503,6 +6744,7 @@ exports[`screen snapshots > Session detail 1`] = `
         </div>
         <div
           class="flex items-center gap-1.5 text-xs text-gray-500 mt-2"
+          title="/test"
         >
           <svg
             class="lucide lucide-folder-open w-3 h-3 flex-shrink-0"
@@ -6523,7 +6765,7 @@ exports[`screen snapshots > Session detail 1`] = `
           <span
             class="font-mono truncate"
           >
-            /test
+            test
           </span>
         </div>
       </div>

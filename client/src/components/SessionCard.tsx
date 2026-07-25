@@ -3,7 +3,14 @@
  * @description Compact session card for the Kanban board's "Sessions" view.
  * Mirrors AgentCard's information hierarchy (icon · title · meta line) but
  * surfaces session-relevant fields: model, agent count, cost, last activity.
- * Clicking the card navigates to the session detail page.
+ * Clicking the card navigates to the session detail page. While a session is
+ * Waiting, hovering the card lazily fetches the last thing Claude actually
+ * said and shows it in a floating popup (portaled to `document.body`,
+ * positioned off the card's own bounding rect) rendered through the same
+ * markdown/code-block renderer used in the Conversation tab — the badge
+ * alone tells you the session is blocked on you, not what it's blocked ON,
+ * which is what you need to decide whether to act now. The popup never
+ * resizes the card itself or reflows its neighbors.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -57,17 +64,32 @@
  *
  * ----------------------------------------------------------------------------- */
 
+import { useCallback, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Bot, Clock, Coins, Cpu } from "lucide-react";
+import { FolderOpen, Bot, Clock, Coins, Cpu, MessageSquare } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
+import { MarkdownContent } from "./conversation/MarkdownContent";
+import { api } from "../lib/api";
 import {
   effectiveSessionStatus,
   isSessionAwaitingInput,
   sessionAwaitingReason,
 } from "../lib/types";
-import type { Session } from "../lib/types";
-import { formatDuration, timeAgo, formatModelName } from "../lib/format";
+import type { Session, TranscriptMessage } from "../lib/types";
+import { formatDuration, timeAgo, formatModelName, pathTail } from "../lib/format";
+
+/** Joins a transcript message's "text" content blocks (ignores thinking/tool_use/
+ *  tool_result blocks — those aren't what Claude "said"). Empty string when the
+ *  message carries no text block (e.g. a bare tool call). */
+function messageText(message: TranscriptMessage): string {
+  return message.content
+    .filter((c) => c.type === "text" && c.text)
+    .map((c) => c.text)
+    .join("\n\n")
+    .trim();
+}
 
 interface SessionCardProps {
   session: Session;
@@ -81,6 +103,59 @@ function formatCost(cost: number): string {
   return `$${cost.toFixed(4)}`;
 }
 
+const PREVIEW_POPUP_MIN_WIDTH = 420;
+// A hard ceiling, not a target - stays readable even on an ultrawide
+// monitor. computePreviewPopupStyle further shrinks whatever width is
+// requested to fit the actual viewport, so it never overflows the screen.
+const PREVIEW_POPUP_MAX_WIDTH = 900;
+
+/**
+ * Widens the popup for content that would otherwise need a lot of vertical
+ * scrolling at the base width - more width means fewer line-wraps, which
+ * means less scrolling to read the same message. A rough heuristic (overall
+ * length, and the single longest line for code blocks / dense text) rather
+ * than an actual layout measurement, so there's no flash-of-relayout while
+ * opening. Callers still clamp the result to the viewport.
+ */
+function estimatePreviewWidth(text: string): number {
+  if (!text) return PREVIEW_POPUP_MIN_WIDTH;
+  const longestLine = text.split("\n").reduce((max, line) => Math.max(max, line.length), 0);
+  const byLength =
+    text.length > 1400
+      ? PREVIEW_POPUP_MAX_WIDTH
+      : text.length > 700
+        ? 700
+        : PREVIEW_POPUP_MIN_WIDTH;
+  const byLongestLine =
+    longestLine > 110 ? PREVIEW_POPUP_MAX_WIDTH : longestLine > 70 ? 700 : PREVIEW_POPUP_MIN_WIDTH;
+  return Math.max(byLength, byLongestLine);
+}
+
+/** Popup anchored off the hovered card's rect - flips to the card's left
+ *  when it wouldn't fit on the right, and clamps both axes AND its own
+ *  width/height to the current viewport (re-read on every open, so this is
+ *  correct across resizes and orientation changes, not just at mount).
+ *  Height is capped (not measured) so this needs no two-phase render: a
+ *  short message just leaves empty space below within the box - width,
+ *  though, is widened up front via `estimatePreviewWidth` so a long message
+ *  needs less of that vertical scroll in the first place. */
+function computePreviewPopupStyle(rect: DOMRect, targetWidth: number): React.CSSProperties {
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  const pad = 12;
+  const width = Math.min(targetWidth, vw - pad * 2);
+  const maxHeight = Math.min(vh - pad * 2, 560);
+
+  let left = rect.right + pad;
+  if (left + width > vw - pad) left = rect.left - width - pad;
+  left = Math.min(Math.max(left, pad), Math.max(pad, vw - width - pad));
+
+  let top = rect.top;
+  if (top + maxHeight > vh - pad) top = Math.max(pad, vh - maxHeight - pad);
+
+  return { position: "fixed", left, top, width, maxHeight, zIndex: 9999 };
+}
+
 export function SessionCard({ session, onClick }: SessionCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("kanban");
@@ -92,14 +167,67 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   const model = formatModelName(session.model);
   const lastActivity = session.last_activity || session.ended_at || session.started_at;
 
+  // Last-said-by-Claude preview, fetched on demand the first time a Waiting
+  // card is hovered - not fetched up front for every card (that's one
+  // transcript read per session; only pay for it when actually looked at).
+  // Rendered as a popup anchored off `cardRef`'s rect rather than expanding
+  // the card itself - it never resizes the card or reflows its neighbors.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewFetchedRef = useRef(false);
+  // Closing on a short delay (rather than instantly on mouseleave) gives the
+  // pointer time to cross the gap from the card to the portaled popup - both
+  // the card and the popup clear this timer on their own mouseenter, and
+  // only actually close when the pointer has left BOTH for the full delay.
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const fetchPreview = useCallback(() => {
+    if (previewFetchedRef.current) return;
+    previewFetchedRef.current = true;
+    setPreviewLoading(true);
+    api.sessions
+      .transcript(session.id, { limit: 10 })
+      .then((res) => {
+        const lastAssistant = [...res.messages].reverse().find((m) => m.sender === "assistant");
+        setPreviewText(lastAssistant ? messageText(lastAssistant) || null : null);
+      })
+      .catch(() => setPreviewText(null))
+      .finally(() => setPreviewLoading(false));
+  }, [session.id]);
+
   function handleClick() {
     if (onClick) onClick();
     else navigate(`/sessions/${session.id}`);
   }
 
+  function handleMouseEnter() {
+    clearCloseTimer();
+    if (cardRef.current) setAnchorRect(cardRef.current.getBoundingClientRect());
+    setShowPreview(true);
+    if (isWaiting) fetchPreview();
+  }
+
+  function scheduleClose() {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => setShowPreview(false), 150);
+  }
+
   return (
     <div
+      ref={cardRef}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={scheduleClose}
       className={`card-hover p-4 cursor-pointer animate-fade-in overflow-hidden ${
         isWaiting
           ? "border-l-2 border-l-yellow-500/60"
@@ -126,8 +254,11 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
       </div>
 
       {session.cwd && (
-        <p className="text-xs text-gray-400 mb-3 truncate font-mono leading-relaxed">
-          {session.cwd}
+        <p
+          className="text-xs text-gray-400 mb-3 truncate font-mono leading-relaxed"
+          title={session.cwd}
+        >
+          {pathTail(session.cwd)}
         </p>
       )}
 
@@ -158,6 +289,36 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
           {timeAgo(session.ended_at || lastActivity)}
         </span>
       </div>
+
+      {isWaiting &&
+        showPreview &&
+        anchorRect &&
+        createPortal(
+          <div
+            onMouseEnter={clearCloseTimer}
+            onMouseLeave={scheduleClose}
+            style={computePreviewPopupStyle(
+              anchorRect,
+              previewText ? estimatePreviewWidth(previewText) : PREVIEW_POPUP_MIN_WIDTH
+            )}
+            className="flex flex-col rounded-lg border border-border bg-surface-2 shadow-2xl overflow-hidden animate-fade-in"
+          >
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/60 text-[10px] font-semibold uppercase tracking-wider text-gray-500 flex-shrink-0">
+              <MessageSquare className="w-3 h-3" />
+              {t("session.lastMessage")}
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+              {previewLoading ? (
+                <p className="text-xs text-gray-500 italic">{t("session.lastMessageLoading")}</p>
+              ) : previewText ? (
+                <MarkdownContent text={previewText} dense />
+              ) : (
+                <p className="text-xs text-gray-500 italic">{t("session.lastMessageEmpty")}</p>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -78,12 +78,34 @@ describe("AgentCard", () => {
         }
       />
     );
-    // Subtitle is the subagent type + project (cwd); the model badge shows the
+    // The working folder (cwd) is the card's large title; the subtitle
+    // demotes to the agent name + subagent type. The model badge shows the
     // subagent's OWN model.
-    expect(screen.getByText("qa · x")).toBeInTheDocument();
+    expect(screen.getByText("x")).toBeInTheDocument();
+    expect(screen.getByText("Main Agent · qa")).toBeInTheDocument();
     expect(screen.getByText(formatModelName("claude-haiku-4-5-20251001")!)).toBeInTheDocument();
     // The Opus session model must NOT appear on a subagent card.
     expect(screen.queryByText(formatModelName("claude-opus-4-8")!)).not.toBeInTheDocument();
+  });
+
+  it("shows the working folder as the large card title, demoting the agent name to the subtitle", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ type: "main", name: "Main Agent" })}
+        session={{ id: "s", name: "S", status: "active", cwd: "/Users/dev/my-project" } as never}
+      />
+    );
+    const title = screen.getByText("my-project");
+    expect(title.className).toContain("text-base");
+    expect(title.className).toContain("font-semibold");
+    expect(screen.getByText("Main Agent")).toBeInTheDocument();
+  });
+
+  it("falls back to the agent name as the title when the session has no recorded cwd", () => {
+    renderCard(<AgentCard agent={makeAgent({ type: "main", name: "Main Agent" })} />);
+    const title = screen.getByText("Main Agent");
+    expect(title.className).toContain("text-base");
+    expect(title.className).toContain("font-semibold");
   });
 
   it("main agent subtitle shows project + subagent count, with the model only once (#185)", () => {
@@ -103,11 +125,13 @@ describe("AgentCard", () => {
         }
       />
     );
-    // Subtitle: project basename + SUBAGENT count + turn count (model excluded).
-    // agent_count includes the main agent itself, so 4 agents => 3 subagents.
-    // Showing subagents (not agents) reconciles the card with the "Active
-    // Subagents" dashboard stat, which excludes main agents.
-    expect(screen.getByText("proj · 3 subagents · 12 turns")).toBeInTheDocument();
+    // The working folder (cwd basename) is the card's large title; the
+    // subtitle demotes to name + SUBAGENT count + turn count (model
+    // excluded). agent_count includes the main agent itself, so 4 agents =>
+    // 3 subagents. Showing subagents (not agents) reconciles the card with
+    // the "Active Subagents" dashboard stat, which excludes main agents.
+    expect(screen.getByText("proj")).toBeInTheDocument();
+    expect(screen.getByText("Main · 3 subagents · 12 turns")).toBeInTheDocument();
     // The model appears exactly once — in the footer badge, not duplicated in
     // the subtitle the way main cards used to.
     expect(screen.getAllByText(formatModelName("claude-opus-4-8")!)).toHaveLength(1);

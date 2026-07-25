@@ -4,8 +4,13 @@
   "subtitleSessions": "Kanban view of all sessions by status",
   "viewToggle": {
     "agents": "Agents",
-    "sessions": "Sessions"
+    "sessions": "Sessions",
+    "projects": "Projects"
   },
+  "unassignedColumn": "Unassigned",
+  "unassignedColumnTooltip": "Sessions from folders that aren't part of a project yet.",
+  "hideCompleted": "Hide completed",
+  "showCompleted": "Show completed",
   "noAgents": "No agents tracked yet",
   "noAgentsDesc": "Start a Claude Code session with hooks installed to see agents appear here.",
   "agentCount": "{{count}} agent tracked",
@@ -25,7 +30,10 @@
     "subagentSummary_one": "{{count}} subagent",
     "subagentSummary_other": "{{count}} subagents",
     "turnSummary_one": "{{count}} turn",
-    "turnSummary_other": "{{count}} turns"
+    "turnSummary_other": "{{count}} turns",
+    "lastMessage": "Last message",
+    "lastMessageLoading": "Loading last message…",
+    "lastMessageEmpty": "No recent message found"
   },
   "tooltip": {
     "agent": {

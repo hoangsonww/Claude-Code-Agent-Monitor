@@ -404,6 +404,31 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_workflows_session ON workflows(session_id);
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
+
+  -- Projects: a user-named grouping of one or more working directories. There
+  -- is deliberately NO project_id column on sessions - membership is derived
+  -- by joining sessions.cwd against project_paths.cwd, so a session created
+  -- (or imported) before its folder was ever assigned to a project retroactively
+  -- belongs to that project the moment the mapping is added, with no backfill.
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- Folder membership: a cwd belongs to at most one project (UNIQUE), while a
+  -- project may claim many folders - the one-to-many side lives here rather
+  -- than on projects itself.
+  CREATE TABLE IF NOT EXISTS project_paths (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    cwd TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_project_paths_project ON project_paths(project_id);
 `);
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
@@ -1498,6 +1523,20 @@ const stmts = {
   listAgentsByWorkflow: db.prepare(
     "SELECT * FROM agents WHERE workflow_run_id = ? ORDER BY started_at ASC, id ASC"
   ),
+
+  // Projects
+  insertProject: db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)"),
+  getProject: db.prepare("SELECT * FROM projects WHERE id = ?"),
+  listProjects: db.prepare("SELECT * FROM projects ORDER BY name COLLATE NOCASE ASC"),
+  renameProject: db.prepare(
+    "UPDATE projects SET name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
+  deleteProject: db.prepare("DELETE FROM projects WHERE id = ?"),
+  insertProjectPath: db.prepare("INSERT INTO project_paths (project_id, cwd) VALUES (?, ?)"),
+  deleteProjectPath: db.prepare("DELETE FROM project_paths WHERE id = ? AND project_id = ?"),
+  getProjectPathByCwd: db.prepare("SELECT * FROM project_paths WHERE cwd = ?"),
+  listProjectPaths: db.prepare("SELECT * FROM project_paths WHERE project_id = ? ORDER BY cwd ASC"),
+  listAllProjectPaths: db.prepare("SELECT * FROM project_paths ORDER BY cwd ASC"),
 };
 
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };

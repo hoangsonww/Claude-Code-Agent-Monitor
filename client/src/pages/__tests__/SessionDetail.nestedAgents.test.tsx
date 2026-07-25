@@ -151,8 +151,11 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
 
     renderPage();
     expect(await screen.findByText("Main Agent")).toBeInTheDocument();
-    // Subagent should be visible (auto-expanded because it's working)
-    expect(await screen.findByText("Explorer")).toBeInTheDocument();
+    // Subagent should be visible (auto-expanded because it's working). Its
+    // card title is the session's working folder (AgentCard's large-title
+    // swap), so the name + subagent type now render together in the
+    // subtitle line instead of the name alone.
+    expect(await screen.findByText("Explorer · Explore")).toBeInTheDocument();
   });
 
   it("renders deeply nested agents (depth 3: main → L1 → L2 → L3)", async () => {

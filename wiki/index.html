@@ -927,6 +927,24 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-teal">🗂️</div>
+                  <h3 id="feat-projects">Projects</h3>
+                  <p>
+                    Groups sessions by the folder(s) they run from into a user-named
+                    <strong>project</strong>, replacing the flat Agents/Sessions view with one
+                    grouped by where the work actually happens. A project claims one or more
+                    working directories — a folder belongs to at most one project — and
+                    membership is derived by joining each session's <code>cwd</code> against the
+                    project's mapped folders, with no schema change on <code>sessions</code>
+                    itself. Each project renders as a horizontally scrollable row of its
+                    sessions, with an aggregated session count, active count, and last-activity
+                    badge computed server-side. Create a project (optionally from an existing
+                    folder), rename it inline, add or remove folder mappings, or delete it —
+                    sessions are never deleted, they simply fall back to the
+                    <strong>Unassigned</strong> bucket.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-emerald">📋</div>
                   <h3 id="feat-kanban">Kanban Board</h3>
                   <p>
@@ -6893,8 +6911,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=38" defer></script>
-    <script src="script.js?v=32" defer></script>
+    <script src="i18n-content.js?v=39" defer></script>
+    <script src="script.js?v=33" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

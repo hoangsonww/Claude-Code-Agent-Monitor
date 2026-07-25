@@ -4,8 +4,13 @@
   "subtitleSessions": "Góc nhìn kanban của mọi phiên theo trạng thái",
   "viewToggle": {
     "agents": "Agent",
-    "sessions": "Phiên"
+    "sessions": "Phiên",
+    "projects": "Dự án"
   },
+  "unassignedColumn": "Chưa phân loại",
+  "unassignedColumnTooltip": "Các phiên từ những thư mục chưa thuộc dự án nào.",
+  "hideCompleted": "Ẩn đã hoàn tất",
+  "showCompleted": "Hiện đã hoàn tất",
   "noAgents": "Chưa có Agent được theo dõi",
   "noAgentsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy Agent xuất hiện tại đây.",
   "agentCount": "Đã theo dõi {{count}} Agent",
@@ -25,7 +30,10 @@
     "subagentSummary_one": "{{count}} Agent con",
     "subagentSummary_other": "{{count}} Agent con",
     "turnSummary_one": "{{count}} lượt",
-    "turnSummary_other": "{{count}} lượt"
+    "turnSummary_other": "{{count}} lượt",
+    "lastMessage": "Tin nhắn cuối",
+    "lastMessageLoading": "Đang tải tin nhắn cuối…",
+    "lastMessageEmpty": "Không tìm thấy tin nhắn gần đây"
   },
   "tooltip": {
     "agent": {

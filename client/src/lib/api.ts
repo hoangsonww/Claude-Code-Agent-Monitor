@@ -391,12 +391,14 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  Project,
   Session,
   SessionDrillIn,
   SessionStats,
   Stats,
   TranscriptListResult,
   TranscriptResult,
+  UnassignedProjectBucket,
   UpdateStatusPayload,
   WebhookDelivery,
   WebhookProvider,
@@ -1868,6 +1870,68 @@ export const api = {
         synced: number;
         results: Array<{ id: string; ok: boolean; error?: string }>;
       }>("/remote-sources/sync-all", { method: "POST" }),
+  },
+
+  // ───────────────────────────────── Projects API ──────────────────────────────
+  /** Named groupings of one or more session working directories (cwd). Maps to
+   *  `server/routes/projects.js`; a folder belongs to at most one project. */
+  projects: {
+    /**
+     * GET /api/projects — every project (with its mapped folders + aggregated
+     * session stats) plus the unassigned bucket for cwds with sessions that
+     * aren't mapped to any project yet.
+     * @returns `{ projects, unassigned }`.
+     */
+    list: () => request<{ projects: Project[]; unassigned: UnassignedProjectBucket }>("/projects"),
+    /**
+     * POST /api/projects — create a project, optionally attaching folders it
+     * already covers (each must be unmapped elsewhere).
+     * @param data `name` plus an optional list of cwds to attach immediately.
+     * @returns `{ project }` — the created {@link Project}.
+     */
+    create: (data: { name: string; cwds?: string[] }) =>
+      request<{ project: Project }>("/projects", { method: "POST", body: JSON.stringify(data) }),
+    /**
+     * PATCH /api/projects/:id — rename a project.
+     * @param id   The project id.
+     * @param name The new display name.
+     * @returns `{ project }` — the updated {@link Project}.
+     */
+    rename: (id: string, name: string) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
+    /**
+     * DELETE /api/projects/:id — delete a project. Its folder mappings go with
+     * it; the underlying sessions are untouched and fall back to unassigned.
+     * @param id The project id.
+     * @returns `{ ok: true }`.
+     */
+    remove: (id: string) =>
+      request<{ ok: true }>(`/projects/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    /**
+     * POST /api/projects/:id/paths — map an additional folder onto a project.
+     * @param id  The project id.
+     * @param cwd The folder to attach (must be unmapped elsewhere).
+     * @returns `{ project }` — the updated {@link Project}.
+     */
+    addPath: (id: string, cwd: string) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/paths`, {
+        method: "POST",
+        body: JSON.stringify({ cwd }),
+      }),
+    /**
+     * DELETE /api/projects/:id/paths/:pathId — unmap a folder from a project
+     * (the folder and its sessions are untouched; it becomes unassigned again).
+     * @param id     The project id.
+     * @param pathId The folder-mapping row id (from {@link ProjectPath.id}).
+     * @returns `{ project }` — the updated {@link Project}.
+     */
+    removePath: (id: string, pathId: number) =>
+      request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/paths/${pathId}`, {
+        method: "DELETE",
+      }),
   },
 };
 

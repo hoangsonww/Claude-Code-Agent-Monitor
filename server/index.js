@@ -65,6 +65,7 @@ const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
 const remoteSourcesRouter = require("./routes/remote-sources");
 const metricsRouter = require("./routes/metrics");
+const projectsRouter = require("./routes/projects");
 
 function createApp() {
   const app = express();
@@ -95,6 +96,7 @@ function createApp() {
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/remote-sources", remoteSourcesRouter);
   app.use("/api/metrics", metricsRouter);
+  app.use("/api/projects", projectsRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });

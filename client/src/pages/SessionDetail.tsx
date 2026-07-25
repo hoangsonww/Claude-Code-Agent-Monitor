@@ -122,6 +122,7 @@ import {
   fmtCostFull,
   timeAgo,
   formatModelName,
+  pathTail,
 } from "../lib/format";
 import type {
   Session,
@@ -619,9 +620,12 @@ export function SessionDetail() {
             )}
           </div>
           {session.cwd && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
+            <div
+              className="flex items-center gap-1.5 text-xs text-gray-500 mt-2"
+              title={session.cwd}
+            >
               <FolderOpen className="w-3 h-3 flex-shrink-0" />
-              <span className="font-mono truncate">{session.cwd}</span>
+              <span className="font-mono truncate">{pathTail(session.cwd)}</span>
             </div>
           )}
         </div>

@@ -80,7 +80,7 @@ import { useDataScope } from "../lib/dataScope";
 import { SessionStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
-import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
+import { formatDateTime, formatDuration, truncate, fmtCost, pathTail } from "../lib/format";
 import {
   effectiveSessionStatus,
   isSessionAwaitingInput,
@@ -493,7 +493,7 @@ export function Sessions() {
                       className="px-5 py-4 text-[11px] text-gray-500 font-mono"
                       title={session.cwd || undefined}
                     >
-                      {session.cwd ? truncate(session.cwd, 30) : "-"}
+                      {session.cwd ? pathTail(session.cwd) : "-"}
                     </td>
                     <td className="px-3 py-4">
                       <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />

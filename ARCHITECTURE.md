@@ -304,10 +304,11 @@ graph TD
     WEBHOOKSR[routes/webhooks.js<br/>Webhook target CRUD + test]
     WEBHOOKS[lib/webhooks.js<br/>Webhook delivery engine]
     WEBHOOKPROV[lib/webhook-providers.js<br/>14-provider registry + formatters]
+    PROJECTSR[routes/projects.js<br/>Project CRUD + folder mapping]
 
     INDEX --> DB
     INDEX --> WS
-    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS & PRICING & SETTINGS & WORKFLOWS & ALERTSR & WEBHOOKSR
+    INDEX --> HOOKS & SESSIONS & AGENTS & EVENTS & STATS & PRICING & SETTINGS & WORKFLOWS & ALERTSR & WEBHOOKSR & PROJECTSR
 
     HOOKS --> DB & WS & TC
     HOOKS --> ALERTS
@@ -323,6 +324,7 @@ graph TD
     EVENTS --> DB
     STATS --> DB & WS
     PRICING --> DB
+    PROJECTSR --> DB
     WORKFLOWS --> DB
 
     style INDEX fill:#6366f1,stroke:#818cf8,color:#fff
@@ -369,6 +371,7 @@ graph TD
 | `server/routes/remote-sources.js` | HTTP surface for **Remote Data Sources**: `GET /api/remote-sources` (list), `POST /api/remote-sources` (create), `PATCH /api/remote-sources/:id`, `DELETE /api/remote-sources/:id` (`?purge=true` also deletes that source's imported sessions), `POST /api/remote-sources/:id/test` (SSH connectivity probe), and `POST /api/remote-sources/:id/sync` (on-demand pull). Delegates the pull/validation to `remote-sync.js`; broadcasts `remote_source.status` on every transition |
 | `server/lib/source-filter.js` | Parses the optional `?sources=` query param (comma-separated source ids) into SQL predicates + bind params, shared by the data endpoints (`GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`) so a client **data-scope** selection narrows every query consistently. No filter → the existing unscoped queries run unchanged |
 | `server/lib/scoped-stats.js` | Source-scoped variants of the stats/analytics aggregates, used **only** when a `?sources=` scope filter is active — the unscoped fast paths in `routes/stats.js` / `routes/analytics.js` are untouched when no scope is set |
+| `server/routes/projects.js` | HTTP surface for **Projects** — a user-named grouping of one or more session working directories: `GET /api/projects` (every project with its mapped folders + server-aggregated `session_count`/`active_count`/`last_activity`, plus an `unassigned` bucket for cwds with sessions not mapped to any project), `POST /api/projects` (create, optionally attaching folders — 409 `ALREADY_MAPPED` if any is already claimed elsewhere), `PATCH /api/projects/:id` (rename), `DELETE /api/projects/:id` (folder mappings cascade; sessions are untouched and fall back to unassigned), and `POST`/`DELETE /api/projects/:id/paths[/:pathId]` (add/remove a folder mapping — a folder belongs to at most one project). No `sessions` schema change: membership is derived by joining `sessions.cwd` against `project_paths.cwd` |
 | `lib/cc-discovery.js`     | Read-only discovery of every Claude Code config surface for the Config Explorer page. Pure file reads; never writes. Surfaces: skills (`<root>/skills/<name>/SKILL.md`), subagents (`<root>/agents/*.md`), slash commands (`<root>/commands/*.md`), output styles (`<root>/output-styles/*.md`), plugins (`<CLAUDE_HOME>/plugins/installed_plugins.json` joined with `enabledPlugins` in settings + per-plugin `contributes` count by scanning the install dir + `plugin.json` metadata), marketplaces (`known_marketplaces.json` enriched with each `marketplace.json`), MCP servers (top-level + per-project from `~/.claude.json`), hooks (across user / project / project-local settings.json), keybindings (`<CLAUDE_HOME>/keybindings.json`), statusline config + `statusline.py` / `statusline-command.sh` content, hook scripts dir (`<CLAUDE_HOME>/hooks/`), settings (with secret-key redaction matching `/token\|secret\|password\|api[_-]?key\|auth/i`), memory (`CLAUDE.md` at user + project **plus** the per-project file-based auto-memory store — every `*.md` under `~/.claude/projects/<slug>/memory/`, returned as `scope:"auto-memory"` items carrying `project`, `name`, `isIndex`, and parsed `frontmatter`, so a `MEMORY.md` index and one file per remembered fact, often 100+, all surface). Path containment via `isUnder()` — every read must resolve under CLAUDE_HOME, project `.claude/`, or be a project CLAUDE.md. 256 KB read cap. Minimal YAML frontmatter parser handles `key: value` + quoted strings + indented continuation lines |
 | `lib/cc-mutate.js`        | Create / overwrite / delete for the **low-risk text-file surfaces only** (skills, subagents, slash commands, output styles, memory — including the per-project file-based auto-memory store, mutated via `scope: "auto-memory"`, `type: "auto-memory"`, `project`, `name`, with its backups landing in `<memory-dir>/.cc-config-backups/auto-memory/`), plus `writeKeybindings()` for the structured `keybindings.json` editor (read-modify-write that preserves top-level metadata, rejects duplicate contexts/keys, and backs up to `<CLAUDE_HOME>/cc-config-backups/keybindings/`). Plugins, MCP, hooks-in-settings, and `settings.json` files are NEVER written from here — they have concurrent-write races with the live Claude Code CLI. Every mutation creates a timestamped backup at `<root>/cc-config-backups/<type>/<base>.<ISO>.bak[.dir]` BEFORE the change — backups land outside the directories Claude Code scans, so a deleted skill cannot resurface as a backup-named one. Writes are atomic: temp file in same dir → fsync → `renameSync`. Tmp removed on every failure path. Skill dirs are backed up whole (preserving bundled assets) before recursive removal. Strict `name` regex (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`), 256 KB content cap, double-checked path containment via `isUnder()` |
 | `routes/cc-config.js`     | HTTP surface for the Claude Config Explorer. Read endpoints for every surface (skills, agents, commands, output-styles, plugins, marketplaces, mcp, hooks, hook-scripts, keybindings, statusline, settings, memory, file, overview), plus mutation endpoints (`PUT /file`, `DELETE /file`, and a structured `PUT /keybindings`) that delegate to `cc-mutate.js`, plus a `GET /backups` listing for the recovery modal. After every successful PUT/DELETE the route broadcasts `cc_config_changed` over the WebSocket so any open `/cc-config` tab refetches without polling. All errors return structured `{error: {code, message}}` shapes mapped to 400/404/413/500 statuses |
@@ -448,6 +451,7 @@ graph TD
     LAYOUT["Layout.tsx<br/>Sidebar + Outlet"]
     SIDEBAR["Sidebar.tsx<br/>Nav (scroll-bounded with overflow<br/>chevrons) + Connection Status"]
     DASH["Dashboard.tsx"]
+    PROJECTS_P["Projects.tsx"]
     KANBAN["KanbanBoard.tsx"]
     SESS["Sessions.tsx"]
     DETAIL["SessionDetail.tsx"]
@@ -460,7 +464,7 @@ graph TD
 
     APP --> LAYOUT
     LAYOUT --> SIDEBAR
-    LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
+    LAYOUT --> DASH & PROJECTS_P & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
 
     DASH --> SC1["StatCard x6<br/>(sessions/agents/subagents/<br/>events today/total events/cost)<br/>3-column grid"]
     DASH --> AC1["AgentCard[]<br/>with collapsible subagent hierarchy"]
@@ -618,6 +622,7 @@ graph TD
 ```mermaid
 graph LR
     ROOT["/ (index)"] --> DASH[Dashboard]
+    PROJECTS_R["/projects"] --> PROJECTS[Projects]
     KANBAN_R["/kanban"] --> KANBAN[KanbanBoard]
     SESS_R["/sessions"] --> SESS[Sessions]
     DETAIL_R["/sessions/:id"] --> DETAIL[SessionDetail]
@@ -924,7 +929,25 @@ erDiagram
         TEXT error "Failure reason or NULL"
         TEXT created_at "ISO 8601"
     }
+
+    projects ||--o{ project_paths : claims
+
+    projects {
+        TEXT id PK "UUID"
+        TEXT name "User-assigned display name"
+        TEXT created_at "ISO 8601"
+        TEXT updated_at "ISO 8601 — bumped on rename"
+    }
+
+    project_paths {
+        INTEGER id PK "Auto-increment"
+        TEXT project_id FK "References projects.id, ON DELETE CASCADE"
+        TEXT cwd "Working directory this project claims — UNIQUE (one project per folder)"
+        TEXT created_at "ISO 8601"
+    }
 ```
+
+`sessions` carries **no** `project_id` column — project membership is derived at query time by joining `sessions.cwd` against `project_paths.cwd`, so a session created (or imported) before its folder was ever mapped retroactively belongs to that project the instant the mapping is added, with no backfill needed.
 
 ### Indexes
 

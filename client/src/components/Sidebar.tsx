@@ -62,6 +62,7 @@ import {
   LayoutDashboard,
   Columns3,
   FolderOpen,
+  FolderKanban,
   Activity,
   BarChart3,
   Workflow,
@@ -94,6 +95,7 @@ function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
 
 const NAV_KEYS = [
   { to: "/", icon: LayoutDashboard, key: "nav:dashboard" },
+  { to: "/projects", icon: FolderKanban, key: "nav:projects" },
   { to: "/kanban", icon: Columns3, key: "nav:agentBoard" },
   { to: "/sessions", icon: FolderOpen, key: "nav:sessions" },
   { to: "/activity", icon: Activity, key: "nav:activityFeed" },

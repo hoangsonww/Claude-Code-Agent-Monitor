@@ -12,21 +12,34 @@
  *   - DELETE /api/remote-sources/{id}          (Remote Sources)
  *   - POST   /api/remote-sources/{id}/test     (Remote Sources)
  *   - POST   /api/remote-sources/{id}/sync     (Remote Sources)
+ *   - GET    /api/projects                     (Projects)
+ *   - POST   /api/projects                     (Projects)
+ *   - PATCH  /api/projects/{id}                (Projects)
+ *   - DELETE /api/projects/{id}                (Projects)
+ *   - POST   /api/projects/{id}/paths          (Projects)
+ *   - DELETE /api/projects/{id}/paths/{pathId} (Projects)
  *
  * Exports `{ tags, schemas, paths }` and is combined into the base spec by
  * server/openapi-extra.js. Schema names are prefixed (Sessions / Settings /
- * Workflow / RemoteSource) so they never collide with the base
+ * Workflow / RemoteSource / Project) so they never collide with the base
  * `components.schemas`. The Sessions/Settings/Workflows tags — plus the
- * `Remote Sources` tag now declared in the base literal — are all present in the
- * base spec, so `tags` here is intentionally empty. Error bodies reference the
- * base-defined `ErrorResponse` (shape `{ error: { code, message } }`); the
- * run-detail agents and events arrays reference the base `Agent` /
- * `DashboardEvent` schemas. The `SessionsFacetsResponse` schema additionally
- * exposes a `sources` array (the distinct `sessions.source` values).
+ * `Remote Sources` tag now declared in the base literal — are all present in
+ * the base spec, so `tags` here only needs to add `Projects` (not yet
+ * declared in the base literal). Error bodies reference the base-defined
+ * `ErrorResponse` (shape `{ error: { code, message } }`); the run-detail
+ * agents and events arrays reference the base `Agent` / `DashboardEvent`
+ * schemas. The `SessionsFacetsResponse` schema additionally exposes a
+ * `sources` array (the distinct `sessions.source` values).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const tags = [];
+const tags = [
+  {
+    name: "Projects",
+    description:
+      "User-named groupings of one or more session working directories (cwds). A thin label layer over existing session/cwd data — sessions carry no project_id column, so membership is derived by joining sessions.cwd against the folder mappings.",
+  },
+];
 
 const schemas = {
   SessionsFacetsResponse: {
@@ -507,6 +520,186 @@ const schemas = {
         description:
           "Events attributed to this run's inner agents, ordered by created_at then id. Capped at 5000 rows.",
         items: { $ref: "#/components/schemas/DashboardEvent" },
+      },
+    },
+  },
+
+  ProjectPath: {
+    type: "object",
+    description:
+      "A single folder mapping: one session working directory (cwd) attached to a project. A cwd belongs to at most one project.",
+    required: ["id", "cwd"],
+    properties: {
+      id: {
+        type: "integer",
+        description: "Primary key of the folder mapping row (project_paths.id).",
+        example: 3,
+      },
+      cwd: {
+        type: "string",
+        description: "The mapped session working directory.",
+        example: "/Users/son/code/agent-monitor",
+      },
+    },
+  },
+
+  Project: {
+    type: "object",
+    description:
+      "A user-named grouping of one or more session working directories (cwds). Sessions carry no project_id column — membership is derived by joining sessions.cwd against the folder mappings in `paths`, so a session created (or imported) before its folder was ever assigned to a project retroactively belongs to that project the moment the mapping is added. `session_count` / `active_count` / `last_activity` are aggregated across all mapped cwds.",
+    required: [
+      "id",
+      "name",
+      "paths",
+      "session_count",
+      "active_count",
+      "last_activity",
+      "created_at",
+      "updated_at",
+    ],
+    properties: {
+      id: {
+        type: "string",
+        format: "uuid",
+        description: "Primary key — the project id.",
+        example: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+      },
+      name: {
+        type: "string",
+        description: "Human-readable project name.",
+        example: "Agent Monitor",
+      },
+      paths: {
+        type: "array",
+        description: "Folders mapped to this project.",
+        items: { $ref: "#/components/schemas/ProjectPath" },
+      },
+      session_count: {
+        type: "integer",
+        minimum: 0,
+        description: "Total sessions across every mapped cwd.",
+        example: 12,
+      },
+      active_count: {
+        type: "integer",
+        minimum: 0,
+        description: "Sessions with status 'active' across every mapped cwd.",
+        example: 1,
+      },
+      last_activity: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description:
+          "Latest `sessions.updated_at` across every mapped cwd, or null when no mapped cwd has any sessions.",
+        example: "2026-07-23T14:02:11.500Z",
+      },
+      created_at: {
+        type: "string",
+        format: "date-time",
+        description: "ISO-8601 creation timestamp.",
+        example: "2026-07-20T09:15:00.000Z",
+      },
+      updated_at: {
+        type: "string",
+        format: "date-time",
+        description: "ISO-8601 timestamp of the last rename.",
+        example: "2026-07-22T18:41:55.117Z",
+      },
+    },
+  },
+
+  ProjectsUnassignedBucket: {
+    type: "object",
+    description:
+      "Aggregate for session working directories that have sessions but are not yet mapped to any project.",
+    required: ["cwds", "session_count", "active_count", "last_activity"],
+    properties: {
+      cwds: {
+        type: "array",
+        description: "Session working directories not mapped to any project.",
+        items: { type: "string" },
+        example: ["/Users/son/code/scratch-repo"],
+      },
+      session_count: {
+        type: "integer",
+        minimum: 0,
+        description: "Total sessions across every unassigned cwd.",
+        example: 4,
+      },
+      active_count: {
+        type: "integer",
+        minimum: 0,
+        description: "Sessions with status 'active' across every unassigned cwd.",
+        example: 0,
+      },
+      last_activity: {
+        type: "string",
+        format: "date-time",
+        nullable: true,
+        description: "Latest `sessions.updated_at` across every unassigned cwd, or null when none.",
+        example: "2026-07-21T11:30:02.221Z",
+      },
+    },
+  },
+
+  ProjectsListResponse: {
+    type: "object",
+    required: ["projects", "unassigned"],
+    properties: {
+      projects: {
+        type: "array",
+        items: { $ref: "#/components/schemas/Project" },
+      },
+      unassigned: { $ref: "#/components/schemas/ProjectsUnassignedBucket" },
+    },
+  },
+
+  ProjectResponse: {
+    type: "object",
+    required: ["project"],
+    properties: { project: { $ref: "#/components/schemas/Project" } },
+  },
+
+  ProjectCreateRequest: {
+    type: "object",
+    description:
+      "Request body to create a project. `name` is required and non-blank. `cwds` is optional — when given, each must be a non-empty string and must not already be mapped to any project (each is checked before the project is created).",
+    required: ["name"],
+    properties: {
+      name: {
+        type: "string",
+        description: "Human-readable project name.",
+        example: "Agent Monitor",
+      },
+      cwds: {
+        type: "array",
+        description: "Optional folders to attach immediately. Duplicates are de-duplicated.",
+        items: { type: "string" },
+        example: ["/Users/son/code/agent-monitor"],
+      },
+    },
+  },
+
+  ProjectRenameRequest: {
+    type: "object",
+    description: "Request body to rename a project. `name` is required and non-blank.",
+    required: ["name"],
+    properties: {
+      name: { type: "string", description: "New project name.", example: "Agent Monitor (v2)" },
+    },
+  },
+
+  ProjectPathCreateRequest: {
+    type: "object",
+    description:
+      "Request body to map an additional folder onto a project. `cwd` is required and non-blank, and must not already be mapped to any project (including this one).",
+    required: ["cwd"],
+    properties: {
+      cwd: {
+        type: "string",
+        description: "Session working directory to map.",
+        example: "/Users/son/code/agent-monitor-docs",
       },
     },
   },
@@ -1248,6 +1441,422 @@ const paths = {
               schema: { $ref: "#/components/schemas/ErrorResponse" },
               example: {
                 error: { code: "WORKFLOW_DETAIL_FAILED", message: "database is locked" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/projects": {
+    get: {
+      tags: ["Projects"],
+      summary: "List projects with folder mappings and session stats",
+      description:
+        "Returns every project with its mapped folders (`paths`) and aggregated session stats (`session_count`, `active_count`, `last_activity` across every mapped cwd), plus an `unassigned` bucket listing cwds that have sessions but aren't mapped to any project yet. Read-only; always 200.",
+      operationId: "listProjects",
+      responses: {
+        200: {
+          description: "All projects plus the unassigned-cwds bucket",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProjectsListResponse" },
+              example: {
+                projects: [
+                  {
+                    id: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+                    name: "Agent Monitor",
+                    paths: [{ id: 3, cwd: "/Users/son/code/agent-monitor" }],
+                    session_count: 12,
+                    active_count: 1,
+                    last_activity: "2026-07-23T14:02:11.500Z",
+                    created_at: "2026-07-20T09:15:00.000Z",
+                    updated_at: "2026-07-22T18:41:55.117Z",
+                  },
+                ],
+                unassigned: {
+                  cwds: ["/Users/son/code/scratch-repo"],
+                  session_count: 4,
+                  active_count: 0,
+                  last_activity: "2026-07-21T11:30:02.221Z",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    post: {
+      tags: ["Projects"],
+      summary: "Create a project",
+      description:
+        "Creates a project, optionally attaching folders it already covers via `cwds`. Each given cwd must be unmapped — a folder belongs to at most one project — and is checked before the project is created (so a single already-mapped cwd rejects the whole request without creating anything). Returns the created project with its `paths` (201).",
+      operationId: "createProject",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ProjectCreateRequest" },
+            examples: {
+              nameOnly: {
+                summary: "Name only — no folders attached yet",
+                value: { name: "Agent Monitor" },
+              },
+              withFolders: {
+                summary: "Name plus folders to attach immediately",
+                value: { name: "Agent Monitor", cwds: ["/Users/son/code/agent-monitor"] },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: "Project created",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProjectResponse" },
+              example: {
+                project: {
+                  id: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+                  name: "Agent Monitor",
+                  paths: [{ id: 3, cwd: "/Users/son/code/agent-monitor" }],
+                  session_count: 0,
+                  active_count: 0,
+                  last_activity: null,
+                  created_at: "2026-07-24T10:00:00.000Z",
+                  updated_at: "2026-07-24T10:00:00.000Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description:
+            "Invalid input (code INVALID_INPUT) — `name` missing/blank, or `cwds` present but not an array of non-empty strings.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              examples: {
+                name: {
+                  summary: "Missing/blank name",
+                  value: { error: { code: "INVALID_INPUT", message: "name is required" } },
+                },
+                cwds: {
+                  summary: "cwds not an array of non-empty strings",
+                  value: {
+                    error: {
+                      code: "INVALID_INPUT",
+                      message: "cwds must be an array of non-empty strings",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        409: {
+          description:
+            "One of the given `cwds` already belongs to another project (code ALREADY_MAPPED).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: {
+                error: {
+                  code: "ALREADY_MAPPED",
+                  message: '"/Users/son/code/agent-monitor" already belongs to another project',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/projects/{id}": {
+    patch: {
+      tags: ["Projects"],
+      summary: "Rename a project",
+      description: "Renames a project. Its folder mappings and session stats are unaffected.",
+      operationId: "renameProject",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Project id.",
+          example: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ProjectRenameRequest" },
+            example: { name: "Agent Monitor (v2)" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated project",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProjectResponse" },
+              example: {
+                project: {
+                  id: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+                  name: "Agent Monitor (v2)",
+                  paths: [{ id: 3, cwd: "/Users/son/code/agent-monitor" }],
+                  session_count: 12,
+                  active_count: 1,
+                  last_activity: "2026-07-23T14:02:11.500Z",
+                  created_at: "2026-07-20T09:15:00.000Z",
+                  updated_at: "2026-07-24T10:05:00.000Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: "Missing/blank name (code INVALID_INPUT).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "INVALID_INPUT", message: "name is required" } },
+            },
+          },
+        },
+        404: {
+          description: "Project not found (code NOT_FOUND).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "NOT_FOUND", message: "Project not found" } },
+            },
+          },
+        },
+      },
+    },
+    delete: {
+      tags: ["Projects"],
+      summary: "Delete a project",
+      description:
+        "Deletes a project. Its folder mappings cascade-delete (ON DELETE CASCADE); the underlying sessions are untouched and simply fall back into the unassigned bucket.",
+      operationId: "deleteProject",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Project id.",
+          example: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Deleted",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["ok"],
+                properties: { ok: { type: "boolean", example: true } },
+              },
+              example: { ok: true },
+            },
+          },
+        },
+        404: {
+          description: "Project not found (code NOT_FOUND).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "NOT_FOUND", message: "Project not found" } },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/projects/{id}/paths": {
+    post: {
+      tags: ["Projects"],
+      summary: "Map an additional folder onto a project",
+      description:
+        "Maps one more session working directory onto an existing project. Returns the updated project with its full `paths` list (201). A cwd already mapped anywhere is rejected — the ALREADY_MAPPED message differs depending on whether it's already mapped to THIS project or to another one.",
+      operationId: "addProjectPath",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Project id.",
+          example: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ProjectPathCreateRequest" },
+            example: { cwd: "/Users/son/code/agent-monitor-docs" },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: "Folder mapped; updated project returned",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProjectResponse" },
+              example: {
+                project: {
+                  id: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+                  name: "Agent Monitor",
+                  paths: [
+                    { id: 3, cwd: "/Users/son/code/agent-monitor" },
+                    { id: 4, cwd: "/Users/son/code/agent-monitor-docs" },
+                  ],
+                  session_count: 13,
+                  active_count: 1,
+                  last_activity: "2026-07-23T14:02:11.500Z",
+                  created_at: "2026-07-20T09:15:00.000Z",
+                  updated_at: "2026-07-20T09:15:00.000Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: "Missing/blank cwd (code INVALID_INPUT).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "INVALID_INPUT", message: "cwd is required" } },
+            },
+          },
+        },
+        404: {
+          description: "Project not found (code NOT_FOUND).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "NOT_FOUND", message: "Project not found" } },
+            },
+          },
+        },
+        409: {
+          description:
+            "The cwd is already mapped (code ALREADY_MAPPED) — message differs depending on whether it's already part of THIS project or another one.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              examples: {
+                sameProject: {
+                  summary: "Already mapped to this project",
+                  value: {
+                    error: {
+                      code: "ALREADY_MAPPED",
+                      message:
+                        '"/Users/son/code/agent-monitor-docs" is already part of this project',
+                    },
+                  },
+                },
+                otherProject: {
+                  summary: "Already mapped to a different project",
+                  value: {
+                    error: {
+                      code: "ALREADY_MAPPED",
+                      message:
+                        '"/Users/son/code/agent-monitor-docs" already belongs to another project',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/projects/{id}/paths/{pathId}": {
+    delete: {
+      tags: ["Projects"],
+      summary: "Unmap a folder from a project",
+      description:
+        "Removes one folder mapping from a project. The folder itself, and its sessions, are untouched — it just becomes unassigned again. Returns the updated project with its remaining `paths`.",
+      operationId: "removeProjectPath",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Project id.",
+          example: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+        },
+        {
+          name: "pathId",
+          in: "path",
+          required: true,
+          schema: { type: "integer" },
+          description: "Folder mapping id (project_paths.id) to remove.",
+          example: 4,
+        },
+      ],
+      responses: {
+        200: {
+          description: "Folder unmapped; updated project returned",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProjectResponse" },
+              example: {
+                project: {
+                  id: "7c9f2e1a-3b6d-4a88-9c11-2f5e8a1d9b03",
+                  name: "Agent Monitor",
+                  paths: [{ id: 3, cwd: "/Users/son/code/agent-monitor" }],
+                  session_count: 12,
+                  active_count: 1,
+                  last_activity: "2026-07-23T14:02:11.500Z",
+                  created_at: "2026-07-20T09:15:00.000Z",
+                  updated_at: "2026-07-20T09:15:00.000Z",
+                },
+              },
+            },
+          },
+        },
+        400: {
+          description: "`pathId` is not an integer (code INVALID_INPUT).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              example: { error: { code: "INVALID_INPUT", message: "pathId must be an integer" } },
+            },
+          },
+        },
+        404: {
+          description:
+            "Project id unknown, or `pathId` unknown/not mapped to this project (code NOT_FOUND).",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+              examples: {
+                project: {
+                  summary: "Unknown project id",
+                  value: { error: { code: "NOT_FOUND", message: "Project not found" } },
+                },
+                mapping: {
+                  summary: "Unknown or mismatched pathId",
+                  value: { error: { code: "NOT_FOUND", message: "Folder mapping not found" } },
+                },
               },
             },
           },

@@ -17,6 +17,7 @@ import {
   formatTime,
   getCurrentLocale,
   formatModelName,
+  pathTail,
 } from "../format";
 
 describe("formatMs", () => {
@@ -256,5 +257,33 @@ describe("formatModelName", () => {
   it("title-cases unknown models", () => {
     expect(formatModelName("o1-mini")).toBe("O1 Mini");
     expect(formatModelName("o1-preview")).toBe("O1 Preview");
+  });
+});
+
+describe("pathTail", () => {
+  it("returns null for falsy input", () => {
+    expect(pathTail(null)).toBeNull();
+    expect(pathTail(undefined)).toBeNull();
+    expect(pathTail("")).toBeNull();
+  });
+
+  it("returns the last two segments of a deep path", () => {
+    expect(pathTail("/Users/dev/code/my-project")).toBe("code/my-project");
+    expect(pathTail("/Users/sara/CODE-LOCAL/SARA/Claude-Code-Agent-Monitor")).toBe(
+      "SARA/Claude-Code-Agent-Monitor"
+    );
+  });
+
+  it("strips trailing slashes before splitting", () => {
+    expect(pathTail("/Users/dev/code/my-project/")).toBe("code/my-project");
+  });
+
+  it("returns every segment there is when the path has fewer than two", () => {
+    expect(pathTail("/my-project")).toBe("my-project");
+    expect(pathTail("my-project")).toBe("my-project");
+  });
+
+  it("handles the degenerate root-only path", () => {
+    expect(pathTail("/")).toBeNull();
   });
 });

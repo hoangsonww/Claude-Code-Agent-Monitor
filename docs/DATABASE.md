@@ -480,6 +480,49 @@ Managed through the `/api/remote-sources/*` routes; sync/status changes are broa
 
 ---
 
+### projects / project_paths
+
+A user-named grouping of one or more session working directories. `sessions` carries **no** `project_id` column — project membership is derived by joining `sessions.cwd` against `project_paths.cwd` at query time, so a session (existing or newly imported) retroactively belongs to a project the instant its folder is mapped, with no backfill required. A folder belongs to at most one project (`project_paths.cwd` is `UNIQUE`); a project may claim many folders.
+
+```sql
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE project_paths (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,
+    cwd TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+```
+
+**`projects` columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `id` | TEXT | NO | Primary key (UUID) |
+| `name` | TEXT | NO | User-assigned display name |
+| `created_at` | TEXT | NO | ISO 8601 creation timestamp |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last rename |
+
+**`project_paths` columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `id` | INTEGER | NO | Auto-increment primary key (the id passed to the remove-folder endpoint) |
+| `project_id` | TEXT | NO | FK to `projects.id`, `ON DELETE CASCADE` — deleting a project drops its mappings, not its sessions |
+| `cwd` | TEXT | NO | Working directory this project claims. `UNIQUE` — a folder can only belong to one project at a time |
+| `created_at` | TEXT | NO | ISO 8601 timestamp the mapping was added |
+
+Managed through the `/api/projects/*` routes (no WebSocket broadcast — a plain-CRUD config entity like `webhook_targets`, re-fetched by the client after each mutation). See [docs/API.md → Projects](./API.md#projects).
+
+---
+
 ## Indexes
 
 ### sessions Indexes

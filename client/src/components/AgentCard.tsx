@@ -96,9 +96,10 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   const isMain = agent.type === "main";
 
   // Session-level metadata applies to every card in the session - main and
-  // subagents alike. Subtitle differs by type: main uses model+cwd (its
-  // auto-generated name carries no info), subagents stick with their
-  // subagent_type label (more useful than repeating the session model).
+  // subagents alike. The working folder is the card's headline (see
+  // cardTitle below) - it's what Sara scans for first when a board fills up
+  // with cards from several projects. Everything else demotes to the
+  // subtitle line underneath.
   const model = formatModelName(session?.model);
   const cwdBase = pathBasename(session?.cwd);
   // Cost shown on the card is scoped to what the card represents: a main agent's
@@ -119,6 +120,14 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // fallback carries no extra info next to the ID, so it is suppressed.
   const sessionName = session?.name?.trim() || "";
   const realSessionName = /^Session [0-9a-f]{8}$/i.test(sessionName) ? "" : sessionName;
+  // Auto-generated main-agent titles (e.g. "Main Agent - Session 229d93fd" or
+  // "Main Agent - work - e3f8e613") swap the placeholder for the real session
+  // name when one exists; custom (sub)agent names are left untouched.
+  const displayName = isMain ? mainAgentDisplayName(agent.name, realSessionName) : agent.name;
+  // The working folder becomes the card's large title; when no cwd is known
+  // (e.g. an imported session recorded without one) fall back to the name so
+  // the card never renders a blank headline.
+  const cardTitle = cwdBase || displayName;
   // A subagent's own model lives in its metadata (resolved from its transcript,
   // not the parent session's — see issue #185). Use it everywhere this card
   // shows a model so a Haiku QA agent under an Opus orchestrator reads as
@@ -135,11 +144,11 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   // The model badge (footer) must reflect THIS card's agent: the session model
   // for main, the subagent's own model for subagents.
   const displayModel = isMain ? model : subagentModel;
-  // Model now lives in the footer badge, so the subtitle carries project
-  // context instead: main shows cwd + how many agents the session spawned +
-  // how many turns it has run; subagents show their type + the project they ran
-  // in. (No model here — that would duplicate the footer badge, which is what
-  // main cards used to do.)
+  // Model now lives in the footer badge, so the subtitle carries the name +
+  // run context instead: main shows its display name + how many agents the
+  // session spawned + how many turns it has run; subagents show their name +
+  // type. (No model here — that would duplicate the footer badge, which is
+  // what main cards used to do.)
   const agentCount = typeof session?.agent_count === "number" ? session.agent_count : 0;
   // agent_count includes the main agent itself. Show how many SUBAGENTS the
   // session spawned instead, so this reconciles with the "Active Subagents"
@@ -156,15 +165,19 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
       sessionTurns = 0;
     }
   }
+  // displayName only rejoins the subtitle when the folder took its place as
+  // cardTitle above — otherwise displayName IS cardTitle and repeating it
+  // here would just echo the headline right back underneath itself.
   const subtitle = isMain
     ? [
-        cwdBase,
+        cwdBase ? displayName : null,
         subagentCount > 0 ? t("kanban:session.subagentSummary", { count: subagentCount }) : null,
         sessionTurns > 0 ? t("kanban:session.turnSummary", { count: sessionTurns }) : null,
       ]
         .filter(Boolean)
         .join(" · ") || null
-    : [label || agent.subagent_type, cwdBase].filter(Boolean).join(" · ") || null;
+    : [cwdBase ? displayName : null, label || agent.subagent_type].filter(Boolean).join(" · ") ||
+      null;
 
   function handleClick() {
     if (onClick) {
@@ -195,13 +208,10 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             {isMain ? <Bot className="w-3.5 h-3.5" /> : <GitBranch className="w-3.5 h-3.5" />}
           </div>
           <div className="min-w-0 overflow-hidden">
-            <p className="text-sm font-medium text-gray-200 truncate">
-              {/* Auto-generated main-agent titles (e.g. "Main Agent - Session
-                  229d93fd" or "Main Agent - work - e3f8e613") swap the
-                  placeholder for the real session name when one exists; custom
-                  (sub)agent names are left untouched. */}
-              {isMain ? mainAgentDisplayName(agent.name, realSessionName) : agent.name}
-            </p>
+            {/* The working folder is the headline — large and bright so it
+                reads at a glance across a board full of cards from different
+                projects. The agent/session name demotes to the subtitle. */}
+            <p className="text-base font-semibold text-gray-100 truncate">{cardTitle}</p>
             {subtitle && <p className="text-[11px] text-gray-500 truncate">{subtitle}</p>}
           </div>
         </div>

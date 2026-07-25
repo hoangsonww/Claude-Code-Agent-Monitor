@@ -569,3 +569,21 @@ export function pathBasename(p: string | null | undefined): string | null {
   const idx = trimmed.lastIndexOf("/");
   return idx === -1 ? trimmed : trimmed.slice(idx + 1) || trimmed;
 }
+
+/**
+ * Last two segments of a filesystem path, joined by "/" - e.g.
+ * "/Users/dev/code/my-project" -> "code/my-project". POSIX-only - fine for
+ * cwd display. Used where the full absolute path is more noise than signal
+ * (a session/project card); pair with a `title` attribute carrying the full
+ * path so hovering still reveals it.
+ * @param p An absolute or relative POSIX path, or null/undefined.
+ * @returns The last two path segments, or every segment there is if the path
+ *   has fewer than two, or `null` for falsy input.
+ */
+export function pathTail(p: string | null | undefined): string | null {
+  if (!p) return null;
+  const trimmed = p.replace(/\/+$/, ""); // drop trailing slash(es)
+  const parts = trimmed.split("/").filter(Boolean);
+  if (parts.length === 0) return trimmed || null; // degenerate case: "/" or ""
+  return parts.slice(-2).join("/");
+}

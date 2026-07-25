@@ -117,6 +117,7 @@ graph TB
         Settings[routes/settings.js /api/settings*]
         Workflows[routes/workflows.js /api/workflows*]
         RemoteSources[routes/remote-sources.js /api/remote-sources*]
+        Projects[routes/projects.js /api/projects*]
         OpenAPI[openapi.js + openapi-extra/ + Swagger + lib/redoc.js /api/openapi.json /api/docs /api/redoc]
     end
     
@@ -136,12 +137,14 @@ graph TB
     Index --> Settings
     Index --> Workflows
     Index --> RemoteSources
+    Index --> Projects
     Index --> OpenAPI
     
     Hooks --> DB
     Sessions --> DB
     Agents --> DB
     Pricing --> DB
+    Projects --> DB
     
     Hooks --> WS
     
@@ -373,6 +376,26 @@ CREATE TABLE remote_sources (
 );
 ```
 
+#### `projects` / `project_paths`
+
+A user-named grouping of one or more session working directories (see [Projects](#projects)). No `project_id` column on `sessions` — membership is derived by joining `sessions.cwd` against `project_paths.cwd`. A folder belongs to at most one project (`project_paths.cwd` is `UNIQUE`); a project may claim many folders.
+
+```sql
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE project_paths (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL,     -- FK -> projects.id, ON DELETE CASCADE
+    cwd TEXT NOT NULL UNIQUE,     -- one project per folder
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+```
+
 ### Database Module (db.js)
 
 ```mermaid
@@ -545,6 +568,21 @@ Because sync runs non-interactively (`ssh -o BatchMode=yes`), the connection mus
 | `… does not exist on the remote` | Claude Code's home is elsewhere on that machine. Set the source's **remote home** (default `~/.claude`). |
 | `rsync: command not found` / `rsync error` | `rsync` isn't installed on the remote (or local). Install it. |
 | Sync hangs then errors after ~10 min | Bounded by `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS`; usually a network/host issue — verify with **Test** (bounded by `DASHBOARD_REMOTE_TEST_TIMEOUT_MS`). |
+
+### Projects
+
+A user-named grouping of one or more session working directories (`routes/projects.js`, `/api/projects*`). A project claims one or more folders; a folder belongs to at most one project. There is **no `project_id` column on `sessions`** — membership is derived by joining `sessions.cwd` against `project_paths.cwd` at query time, so a session created before its folder was ever mapped retroactively belongs to that project the instant the mapping is added. `GET /api/projects` aggregates `session_count`/`active_count`/`last_activity` per project (and for an `unassigned` bucket of cwds with sessions but no project) in a single grouped query rather than N+1 per-project lookups.
+
+| Method   | Path                              | Description |
+| -------- | ---------------------------------- | ----------- |
+| `GET`    | `/api/projects`                    | List every project (folders + aggregated session stats) plus the `unassigned` bucket |
+| `POST`   | `/api/projects`                    | Create a project; `cwds` optionally attaches folders immediately (`409 ALREADY_MAPPED` if any is claimed elsewhere) |
+| `PATCH`  | `/api/projects/:id`                | Rename a project |
+| `DELETE` | `/api/projects/:id`                | Delete a project; folder mappings cascade (`ON DELETE CASCADE`), sessions are untouched and fall back to unassigned |
+| `POST`   | `/api/projects/:id/paths`          | Map an additional folder onto a project |
+| `DELETE` | `/api/projects/:id/paths/:pathId`  | Unmap a folder (folder + its sessions are untouched) |
+
+Unlike Alerts/Webhooks, project mutations are **not** broadcast over `/ws` — like `remote_sources` config CRUD, the client re-fetches after each change since this is a low-frequency, single-operator configuration surface, not a live monitoring feed.
 
 ### Settings / Ops
 

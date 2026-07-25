@@ -2,6 +2,7 @@
   "brand": "Agent Dashboard",
   "brandSub": "Claude Code Monitor",
   "dashboard": "Dashboard",
+  "projects": "Projects",
   "agentBoard": "Kanban Board",
   "sessions": "Sessions",
   "activityFeed": "Activity Feed",
