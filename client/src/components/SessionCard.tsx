@@ -68,14 +68,17 @@ import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Bot, Clock, Coins, Cpu, Crosshair, MessageSquare } from "lucide-react";
+import { FolderOpen, Bot, Clock, Coins, Cpu, MessageSquare } from "lucide-react";
 import { SessionStatusBadge } from "./StatusBadge";
+import { FOCUS_KIND_ICONS } from "./PlanModal";
 import { MarkdownContent } from "./conversation/MarkdownContent";
 import { api } from "../lib/api";
 import {
   effectiveSessionStatus,
   isSessionAwaitingInput,
   sessionAwaitingReason,
+  focusKind,
+  FOCUS_KIND_CONFIG,
 } from "../lib/types";
 import type { Session, TranscriptMessage } from "../lib/types";
 import {
@@ -181,6 +184,10 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   // detour when one is open, else the item itself. Timestamps (not a local
   // counter) drive the figure, so a delayed WS can never fake liveness.
   const focus = useSessionFocus(session.id);
+  // Which of the four states (known item / plain detour / feature / bug) the
+  // breadcrumb's icon represents — same classification PlanModal's focus
+  // lines use, so the vocabulary reads the same in both places.
+  const focusKindValue = focusKind(focus);
   const focusTopDetour =
     focus && focus.detour_stack.length > 0
       ? focus.detour_stack[focus.detour_stack.length - 1]
@@ -293,17 +300,26 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
         </p>
       )}
 
-      {focus && focus.item_number != null && isActive && (
+      {focus && focusKindValue && isActive && (
         <p
           className="flex items-center gap-1 text-[11px] mb-3 min-w-0 overflow-hidden whitespace-nowrap"
           title={focusTooltip}
         >
-          <Crosshair className="w-3 h-3 text-gray-500 flex-shrink-0" />
-          <span className="text-gray-400 truncate">
-            {t("plan:focus.itemLabel", { number: focus.item_number })}
-            {": "}
-            {focus.item_text ?? t("plan:focus.unknownItem")}
-          </span>
+          {(() => {
+            const FocusIcon = FOCUS_KIND_ICONS[focusKindValue];
+            return (
+              <FocusIcon
+                className={`w-3 h-3 flex-shrink-0 ${FOCUS_KIND_CONFIG[focusKindValue].color}`}
+              />
+            );
+          })()}
+          {focus.item_number != null && (
+            <span className="text-gray-400 truncate">
+              {t("plan:focus.itemLabel", { number: focus.item_number })}
+              {": "}
+              {focus.item_text ?? t("plan:focus.unknownItem")}
+            </span>
+          )}
           {focus.detour_stack.map((d, i) => (
             <span
               key={`${d.pushed_at}-${i}`}
@@ -312,7 +328,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
               <span aria-hidden="true" className="text-gray-600 mx-0.5">
                 {"▸"}
               </span>
-              {d.description}
+              {d.title ?? d.description}
             </span>
           ))}
           {focusElapsedAnchor && (

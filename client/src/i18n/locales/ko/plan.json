@@ -27,6 +27,8 @@
   "items": {
     "declaredDone": "완료 선언됨, 체크박스 대기 중",
     "acceptancePrefix": "승인 기준:",
+    "itemKindLabel": "항목",
+    "detourLabel": "우회",
     "bugLabel": "버그",
     "featureLabel": "기능",
     "unknownBucket": "알 수 없는 항목",

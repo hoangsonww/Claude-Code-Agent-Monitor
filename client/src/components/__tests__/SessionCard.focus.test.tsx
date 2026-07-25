@@ -1,9 +1,10 @@
 /**
  * @file SessionCard.focus.test.tsx
- * @description Tests for SessionCard's focus breadcrumb: rendered only for
- * active sessions with a declared plan item (seeded through the shared
- * focusStore via real eventBus pushes), amber detour segments, the elapsed
- * suffix, the drift pill, and absence for completed sessions / no focus.
+ * @description Tests for SessionCard's focus breadcrumb: rendered for active
+ * sessions with a declared plan item OR an in-flight detour with no base
+ * item (seeded through the shared focusStore via real eventBus pushes),
+ * amber detour segments, the elapsed suffix, the drift pill, and absence
+ * for completed sessions / no focus at all.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -88,6 +89,23 @@ describe("SessionCard - focus breadcrumb", () => {
     const detour = screen.getByText(/npm conflict/);
     expect(detour.className).toContain("amber");
     expect(screen.getByText(/\(/)).toBeInTheDocument(); // elapsed "(Nm ...)" suffix
+  });
+
+  it("renders the breadcrumb for a detour with no base plan item", () => {
+    seedFocus({
+      item_number: null,
+      item_text: null,
+      detour_stack: [
+        {
+          description: "exploring caching approach",
+          pushed_at: "2026-06-10T11:10:00.000Z",
+          prior_item: null,
+        },
+      ],
+    });
+    renderCard(makeSession());
+    expect(screen.queryByText(/Item 4/)).not.toBeInTheDocument();
+    expect(screen.getByText(/exploring caching approach/)).toBeInTheDocument();
   });
 
   it("shows the drift pill when the auditor flagged the session", () => {

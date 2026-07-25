@@ -1647,10 +1647,14 @@ badge.
 live `session_focus` WebSocket merges, consumed by every session card. The
 Projects page renders each plan as a collapsible checklist with a progress bar
 and per-item session chips (`client/src/components/PlanPanel.tsx`);
-`SessionCard` gets a one-line focus breadcrumb (detours in amber, drift pill);
-Session Detail gains a focus banner plus a **Plan** tab (checklist, focus
-timeline from `Focus` events, and the session's latest TodoWrite micro-plan
-via `GET /api/sessions/:id/todos`). Copy lives in the dedicated `plan` i18n
+`SessionCard` gets a one-line focus breadcrumb whenever a session has *any*
+declared focus — a known plan item, or a detour with no base item — with an
+icon (`FOCUS_KIND_ICONS` in `PlanModal.tsx`, shared with the Plan view) for
+which of the four states applies: known item, plain detour, feature, or bug;
+detours render in amber, plus a drift pill. Session Detail gains a focus
+banner plus a **Plan** tab (checklist, focus timeline from `Focus` events,
+and the session's latest TodoWrite micro-plan via
+`GET /api/sessions/:id/todos`). Copy lives in the dedicated `plan` i18n
 namespace (en / zh / vi / ko).
 
 ---

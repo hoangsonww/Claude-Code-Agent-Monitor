@@ -6,35 +6,44 @@
  * card, a narrow Kanban column, or even the Session Detail Plan tab) is too
  * tight to read a longer plan comfortably; the popup gives the checklist a
  * full, scrollable panel instead. Read-only, same as PlanPanel — the file
- * stays the source of truth for checkbox state. Also renders bug/feature
- * badges (from `ccam focus bug|feature`) next to whichever item a session
- * declared them under, or an "Unknown" bucket when no item was current.
+ * stays the source of truth for checkbox state. Also renders one focus line
+ * per active session next to whichever item it's declared under (or an
+ * "Unknown" bucket when no item was current): a shared icon vocabulary
+ * (known item / plain detour / feature / bug, from `ccam focus set|push|
+ * bug|feature`) makes each session's actual current state legible at a
+ * glance, with click-to-expand detail for bug/feature declarations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ClipboardList, X, Bug, Sparkles } from "lucide-react";
+import { ClipboardList, X, Bug, Sparkles, Crosshair, Route } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Checkbox } from "./Checkbox";
 import { timeAgo } from "../lib/format";
-import { DETOUR_KIND_CONFIG } from "../lib/types";
-import type { DetourFrame, DetourKind, Plan, PlanItem, Session, SessionFocus } from "../lib/types";
+import { FOCUS_KIND_CONFIG, focusKind } from "../lib/types";
+import type { DetourFrame, FocusKind, Plan, PlanItem, Session, SessionFocus } from "../lib/types";
 
-/** Per-kind icon for {@link DetourBadge}, kept out of lib/types.ts so the
+/** Per-kind icon for {@link FocusLine}, kept out of lib/types.ts so the
  *  presentation lookup there stays JSX-free (mirrors StatusBadge's
- *  REASON_ICONS convention). */
-const DETOUR_KIND_ICONS: Record<DetourKind, LucideIcon> = {
-  bug: Bug,
+ *  REASON_ICONS convention). Exported so SessionCard's breadcrumb uses the
+ *  exact same icon vocabulary instead of a second, drifting copy. */
+export const FOCUS_KIND_ICONS: Record<FocusKind, LucideIcon> = {
+  item: Crosshair,
+  detour: Route,
   feature: Sparkles,
+  bug: Bug,
 };
 
-/** One detour frame paired with the session that declared it, bucketed
- *  under whichever plan item (or "unknown") it belongs to. */
-interface DetourEntry {
+/** One session's current focus, resolved to a single {@link FocusKind} and
+ *  bucketed under whichever plan item (or "unknown") it belongs to. `frame`
+ *  is the top-of-stack detour when the kind isn't `"item"`. */
+interface FocusEntry {
   session: Session;
-  frame: DetourFrame;
+  focus: SessionFocus;
+  kind: FocusKind;
+  frame?: DetourFrame;
 }
 
 /** One plan + its items, the same decomposed shape {@link PlanPanel} takes. */
@@ -124,72 +133,102 @@ export function PlanModal({ plans, sessions, focusBySession, onClose }: PlanModa
   );
 }
 
-/** Stable key for a detour frame across the badge and its expand panel. */
-function detourKey(session: Session, frame: DetourFrame): string {
-  return `${session.id}:${frame.pushed_at}`;
+/** Stable key for a focus entry across its line and expand panel. Item-kind
+ *  entries have no frame, so they key off the session alone (one per item). */
+function focusEntryKey(entry: FocusEntry): string {
+  return entry.frame ? `${entry.session.id}:${entry.frame.pushed_at}` : `${entry.session.id}:item`;
 }
 
-/** Bug/feature icon+title pills for one item's (or the Unknown bucket's)
- *  in-flight detours. Clicking a pill toggles its expand panel. */
-function DetourBadges({
+/** One line per session currently focused on an item (or bucketed under the
+ *  Unknown row): an icon for the {@link FocusKind} (known item / plain
+ *  detour / feature / bug), the session name, and — for detours — a brief
+ *  description of what's actually happening. Clicking a line with further
+ *  detail (bug/feature `detail`) toggles its expand panel. */
+function FocusLines({
   entries,
   expandedKeys,
   onToggle,
 }: {
-  entries: DetourEntry[];
+  entries: FocusEntry[];
   expandedKeys: Set<string>;
   onToggle: (key: string) => void;
 }) {
   return (
-    <>
-      {entries.map(({ session, frame }) => {
-        if (!frame.kind) return null;
-        const key = detourKey(session, frame);
-        const cfg = DETOUR_KIND_CONFIG[frame.kind];
-        const Icon = DETOUR_KIND_ICONS[frame.kind];
+    <div className="flex flex-col gap-1 items-start">
+      {entries.map((entry) => {
+        const { session, focus, kind, frame } = entry;
+        const key = focusEntryKey(entry);
+        const cfg = FOCUS_KIND_CONFIG[kind];
+        const Icon = FOCUS_KIND_ICONS[kind];
+        const description = frame ? frame.title || frame.description : null;
+        const canExpand = !!frame?.detail;
+        const isDrifting = kind === "item" && focus.drift === true;
         return (
           <button
             key={key}
             type="button"
-            onClick={() => onToggle(key)}
-            aria-expanded={expandedKeys.has(key)}
-            title={frame.description}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] truncate max-w-[10rem] ${cfg.bg} ${cfg.color}`}
+            onClick={() => canExpand && onToggle(key)}
+            aria-expanded={canExpand ? expandedKeys.has(key) : undefined}
+            title={frame?.description ?? focus.item_text ?? undefined}
+            className={`inline-flex items-center gap-1.5 min-w-0 max-w-full rounded-md border px-1.5 py-0.5 text-[11px] ${
+              isDrifting
+                ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                : `${cfg.bg} ${cfg.color}`
+            } ${canExpand ? "cursor-pointer" : "cursor-default"}`}
           >
-            <Icon className="w-2.5 h-2.5 flex-shrink-0" aria-hidden="true" />
-            <span className="truncate">{frame.title}</span>
+            <Icon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+            <Link
+              to={`/sessions/${session.id}`}
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+              className="truncate font-medium hover:underline flex-shrink-0 max-w-[8rem]"
+            >
+              {session.name?.trim() || session.id.slice(0, 8)}
+            </Link>
+            {description && (
+              <>
+                <span aria-hidden="true" className="text-gray-600">
+                  —
+                </span>
+                <span className="truncate text-gray-400">{description}</span>
+              </>
+            )}
           </button>
         );
       })}
-    </>
+    </div>
   );
 }
 
 /** Expanded detail panel(s) for whichever of `entries` are in `expandedKeys`. */
-function DetourDetails({
+function FocusLineDetails({
   entries,
   expandedKeys,
 }: {
-  entries: DetourEntry[];
+  entries: FocusEntry[];
   expandedKeys: Set<string>;
 }) {
   const { t } = useTranslation("plan");
-  const expanded = entries.filter(({ session, frame }) =>
-    expandedKeys.has(detourKey(session, frame))
-  );
+  const expanded = entries.filter((entry) => expandedKeys.has(focusEntryKey(entry)));
   if (expanded.length === 0) return null;
   return (
     <div className="mt-1.5 space-y-1.5">
-      {expanded.map(({ session, frame }) => (
+      {expanded.map((entry) => (
         <div
-          key={detourKey(session, frame)}
+          key={focusEntryKey(entry)}
           className="text-xs text-gray-400 bg-surface-2/60 border border-border rounded-md px-2 py-1.5"
         >
-          <p className="leading-snug">{frame.detail || frame.description}</p>
+          <p className="leading-snug">{entry.frame?.detail || entry.frame?.description}</p>
           <p className="text-[10px] text-gray-600 mt-1">
-            {t("items.declaredBy", { session: session.name?.trim() || session.id.slice(0, 8) })}
-            {" · "}
-            {timeAgo(frame.pushed_at)}
+            {t("items.declaredBy", {
+              session: entry.session.name?.trim() || entry.session.id.slice(0, 8),
+            })}
+            {entry.frame && (
+              <>
+                {" · "}
+                {timeAgo(entry.frame.pushed_at)}
+              </>
+            )}
           </p>
         </div>
       ))}
@@ -221,30 +260,32 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
   const total = items.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  // Sessions serving each item, and bug/feature detours bucketed by the item
-  // they were declared under (or "unknown" when no item was current): both
-  // joins walk the same focus map against the provided session list (cards
-  // elsewhere already show per-session breadcrumbs; the chips here answer
-  // "who/what is on item N" from the plan's side).
-  const sessionsByItem = new Map<number, Array<{ session: Session; focus: SessionFocus }>>();
-  const detoursByBucket = new Map<number | "unknown", DetourEntry[]>();
+  // One focus entry per active session, bucketed under the plan item it
+  // belongs to (or "unknown" when no item was current): a session on a
+  // plain item buckets under its own item_number; a session mid-detour
+  // (plain, feature, or bug — any kind) buckets under the item that was
+  // current when the detour started (frame.prior_item), which is the
+  // renumbering-safe snapshot the item-only case can't provide on its own.
+  // Each session contributes exactly one line reflecting its true current
+  // state, never both a "serving" chip and a separate detour badge at once.
+  const entriesByItem = new Map<number, FocusEntry[]>();
+  const unknownEntries: FocusEntry[] = [];
   for (const session of sessions) {
     const focus = focusBySession.get(session.id);
     if (!focus || session.status !== "active") continue;
-    if (focus.item_number != null) {
-      const list = sessionsByItem.get(focus.item_number) ?? [];
-      list.push({ session, focus });
-      sessionsByItem.set(focus.item_number, list);
-    }
-    for (const frame of focus.detour_stack) {
-      if (!frame.kind) continue;
-      const bucket = frame.prior_item ?? "unknown";
-      const list = detoursByBucket.get(bucket) ?? [];
-      list.push({ session, frame });
-      detoursByBucket.set(bucket, list);
+    const kind = focusKind(focus);
+    if (!kind) continue;
+    const frame = kind === "item" ? undefined : focus.detour_stack[focus.detour_stack.length - 1];
+    const entry: FocusEntry = { session, focus, kind, frame };
+    const bucket = kind === "item" ? focus.item_number : (frame?.prior_item ?? null);
+    if (bucket != null) {
+      const list = entriesByItem.get(bucket) ?? [];
+      list.push(entry);
+      entriesByItem.set(bucket, list);
+    } else {
+      unknownEntries.push(entry);
     }
   }
-  const unknownDetours = detoursByBucket.get("unknown") ?? [];
 
   return (
     <div className={divider ? "pt-6 border-t border-border" : undefined}>
@@ -275,8 +316,7 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
 
       <ul className="space-y-4">
         {items.map((item) => {
-          const serving = sessionsByItem.get(item.item_number) ?? [];
-          const detours = detoursByBucket.get(item.item_number) ?? [];
+          const entries = entriesByItem.get(item.item_number) ?? [];
           const declaredDoneOnly = !item.checked && item.declared_done_at;
           return (
             <li key={item.item_number} className="flex items-start gap-3 min-w-0">
@@ -302,37 +342,6 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
                       </span>
                     )}
                   </span>
-                  {(detours.length > 0 || serving.length > 0) && (
-                    <span className="flex flex-wrap gap-1 flex-shrink-0">
-                      <DetourBadges
-                        entries={detours}
-                        expandedKeys={expandedKeys}
-                        onToggle={toggleExpanded}
-                      />
-                      {serving.map(({ session, focus }) => (
-                        <Link
-                          key={session.id}
-                          to={`/sessions/${session.id}`}
-                          draggable={false}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] truncate max-w-[12rem] ${
-                            focus.drift === true
-                              ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
-                              : "bg-surface-2 border-border text-gray-400 hover:text-gray-200"
-                          }`}
-                          title={session.name ?? session.id}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              focus.drift === true ? "bg-yellow-400" : "bg-emerald-400"
-                            }`}
-                          />
-                          <span className="truncate">
-                            {session.name?.trim() || session.id.slice(0, 8)}
-                          </span>
-                        </Link>
-                      ))}
-                    </span>
-                  )}
                 </div>
                 {item.acceptance && (
                   <p className="text-xs text-gray-500 mt-1 leading-snug">
@@ -340,26 +349,33 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
                     {item.acceptance}
                   </p>
                 )}
-                <DetourDetails entries={detours} expandedKeys={expandedKeys} />
+                {entries.length > 0 && (
+                  <div className="mt-1.5">
+                    <FocusLines
+                      entries={entries}
+                      expandedKeys={expandedKeys}
+                      onToggle={toggleExpanded}
+                    />
+                  </div>
+                )}
+                <FocusLineDetails entries={entries} expandedKeys={expandedKeys} />
               </div>
             </li>
           );
         })}
-        {unknownDetours.length > 0 && (
+        {unknownEntries.length > 0 && (
           <li className="flex items-start gap-3 min-w-0">
             <span className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <span className="text-sm italic text-gray-500">{t("items.unknownBucket")}</span>
-                <span className="flex flex-wrap gap-1 flex-shrink-0">
-                  <DetourBadges
-                    entries={unknownDetours}
-                    expandedKeys={expandedKeys}
-                    onToggle={toggleExpanded}
-                  />
-                </span>
+              <span className="text-sm italic text-gray-500">{t("items.unknownBucket")}</span>
+              <div className="mt-1.5">
+                <FocusLines
+                  entries={unknownEntries}
+                  expandedKeys={expandedKeys}
+                  onToggle={toggleExpanded}
+                />
               </div>
-              <DetourDetails entries={unknownDetours} expandedKeys={expandedKeys} />
+              <FocusLineDetails entries={unknownEntries} expandedKeys={expandedKeys} />
             </div>
           </li>
         )}

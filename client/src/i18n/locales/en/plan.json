@@ -27,6 +27,8 @@
   "items": {
     "declaredDone": "declared done, checkbox pending",
     "acceptancePrefix": "Acceptance:",
+    "itemKindLabel": "Item",
+    "detourLabel": "Detour",
     "bugLabel": "Bug",
     "featureLabel": "Feature",
     "unknownBucket": "Unknown item",

@@ -632,11 +632,15 @@ interface SessionCardProps {
 └────────────────────────────────────────┘
 ```
 
-SessionCard also renders a one-line **focus breadcrumb** when the session has a declared `AGENT-PLAN.md` focus (from `lib/focusStore.ts`): `Item 4: Migrate auth ▸ npm conflict (23m)` — the current plan item, the top detour in amber when the detour stack is non-empty, and an amber "possible undeclared detour?" drift pill when the focus drift audit flags the session.
+SessionCard also renders a one-line **focus breadcrumb** whenever the session has *any* declared `AGENT-PLAN.md` focus (from `lib/focusStore.ts`) — a base plan item, a detour, or both — e.g. `Item 4: Migrate auth ▸ npm conflict (23m)`: the current plan item when one is declared, the top detour in amber when the detour stack is non-empty (rendered even when there's no base item), and an amber "possible undeclared detour?" drift pill when the focus drift audit flags the session. A leading icon (`focusKind()` + `FOCUS_KIND_CONFIG`/`FOCUS_KIND_ICONS` in `lib/types.ts`/`PlanModal.tsx`) shows which of the four states applies — known item, plain detour, feature, or bug — the same vocabulary PlanModal's focus lines use.
 
 #### PlanPanel
 
 Renders one repo's ingested `AGENT-PLAN.md` as a collapsible checklist: title, progress bar (checked items over total), and per-item rows with the acceptance note plus **session chips** answering "who is on item N" — the provided sessions joined against the live focus map from `lib/focusStore.ts`. Used on the Projects page (collapsed by default, one panel per mapped folder with a plan) and inside SessionDetail's **Plan** tab (expanded). Copy lives in the `plan` i18n namespace (en / zh / vi / ko).
+
+#### PlanModal
+
+Full-size popup for one or more plans (opened from a PlanPanel strip or a project header's "view plan" icon). Beyond the read-only checklist, it renders one **focus line per active session** under whichever item it's declared on (or an "Unknown item" row when none was set) — an icon for the session's current `FocusKind` (known item / plain detour / feature / bug), the session's name linking to its detail page, and, for detours, a brief description of what's actually happening. Bug/feature lines expand on click to show the full `--detail` text. This is the same `focusKind()` classification and icon set `SessionCard`'s breadcrumb uses, so a session's state reads identically in both places.
 
 **Props:**
 ```typescript

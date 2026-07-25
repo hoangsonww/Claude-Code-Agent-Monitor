@@ -27,6 +27,8 @@
   "items": {
     "declaredDone": "đã khai báo xong, chờ đánh dấu",
     "acceptancePrefix": "Tiêu chí nghiệm thu:",
+    "itemKindLabel": "Mục",
+    "detourLabel": "Rẽ hướng",
     "bugLabel": "Lỗi",
     "featureLabel": "Tính năng",
     "unknownBucket": "Mục chưa xác định",

@@ -27,6 +27,8 @@
   "items": {
     "declaredDone": "已申报完成，复选框待确认",
     "acceptancePrefix": "验收标准：",
+    "itemKindLabel": "项目",
+    "detourLabel": "绕行",
     "bugLabel": "缺陷",
     "featureLabel": "功能",
     "unknownBucket": "未知项",

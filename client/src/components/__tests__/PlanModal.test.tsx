@@ -144,8 +144,8 @@ describe("PlanModal", () => {
       sessions: [makeSession()],
       focusBySession: new Map([["sess-1", makeFocus({ drift: true })]]),
     });
-    const chip = screen.getByText("Worker").closest("a") as HTMLAnchorElement;
-    expect(chip.className).toContain("yellow-500");
+    const line = screen.getByText("Worker").closest("button") as HTMLButtonElement;
+    expect(line.className).toContain("yellow-500");
   });
 
   it("does not chip completed sessions", () => {
@@ -230,12 +230,13 @@ describe("PlanModal", () => {
     expect(screen.queryByText("Full explanation here")).not.toBeInTheDocument();
   });
 
-  it("renders no badge for a plain (kind-less) detour", () => {
+  it("renders a detour line (generic icon, no bug/feature title) for a plain (kind-less) detour", () => {
     renderModal({
       sessions: [makeSession()],
       focusBySession: new Map([["sess-1", makeFocus({ detour_stack: [makeDetourFrame()] })]]),
     });
-    expect(screen.queryByText("Session mislabeled while a subagent works")).not.toBeInTheDocument();
+    const li = screen.getByText("Second thing").closest("li");
+    expect(li?.textContent).toContain("Session mislabeled while a subagent works");
   });
 
   it("flags a plan whose file went missing", () => {

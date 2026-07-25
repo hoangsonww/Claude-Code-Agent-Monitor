@@ -2550,29 +2550,61 @@ export const AWAITING_REASON_CONFIG: Record<
   },
 };
 
-// ───── Detour-kind presentation lookup (plan item bug/feature badges) ─────
+// ───── Focus-kind presentation lookup (session-card breadcrumb, plan lines) ─────
 
 /**
- * UI presentation lookup for {@link DetourKind}: the i18n label key and the
- * badge's text/background color classes, mirroring {@link STATUS_CONFIG}'s
- * shape. Rendered by PlanModal's per-item badge row, kept visually distinct
- * from the green/yellow session-serving chips it sits alongside.
+ * Unified classification of a session's *current* focus, spanning both the
+ * declared plan item and any active detour. Drives the single icon/color
+ * vocabulary shared by SessionCard's breadcrumb and PlanModal's per-item
+ * focus lines, so the same visual language ("known item" vs "on a detour"
+ * vs "chasing a bug") reads the same everywhere.
  */
-export const DETOUR_KIND_CONFIG: Record<
-  DetourKind,
-  { labelKey: string; color: string; bg: string }
-> = {
-  bug: {
-    labelKey: "plan:items.bugLabel",
-    color: "text-rose-400",
-    bg: "bg-rose-500/10 border-rose-500/20",
-  },
-  feature: {
-    labelKey: "plan:items.featureLabel",
-    color: "text-violet-400",
-    bg: "bg-violet-500/10 border-violet-500/20",
-  },
-};
+export type FocusKind = "item" | "detour" | "feature" | "bug";
+
+/**
+ * Classifies a {@link SessionFocus} into one {@link FocusKind}: the top of
+ * the detour stack wins when a detour is open (its `kind`, or plain
+ * `"detour"` when none was declared), otherwise falls back to `"item"` when
+ * a plan item is declared. Null when the focus has neither (e.g. a bare
+ * note) — callers should render nothing in that case.
+ */
+export function focusKind(focus: SessionFocus | null | undefined): FocusKind | null {
+  if (!focus) return null;
+  const top = focus.detour_stack[focus.detour_stack.length - 1];
+  if (top) return top.kind ?? "detour";
+  return focus.item_number != null ? "item" : null;
+}
+
+/**
+ * UI presentation lookup for {@link FocusKind}: the i18n label key and the
+ * badge's text/background color classes, mirroring {@link STATUS_CONFIG}'s
+ * shape. Rendered by PlanModal's per-item focus lines and (color only) by
+ * SessionCard's breadcrumb. Icons themselves stay out of this file (kept
+ * JSX-free) — see `FOCUS_KIND_ICONS` in PlanModal.tsx.
+ */
+export const FOCUS_KIND_CONFIG: Record<FocusKind, { labelKey: string; color: string; bg: string }> =
+  {
+    item: {
+      labelKey: "plan:items.itemKindLabel",
+      color: "text-accent",
+      bg: "bg-accent/10 border-accent/20",
+    },
+    detour: {
+      labelKey: "plan:items.detourLabel",
+      color: "text-amber-400",
+      bg: "bg-amber-500/10 border-amber-500/20",
+    },
+    feature: {
+      labelKey: "plan:items.featureLabel",
+      color: "text-violet-400",
+      bg: "bg-violet-500/10 border-violet-500/20",
+    },
+    bug: {
+      labelKey: "plan:items.bugLabel",
+      color: "text-rose-400",
+      bg: "bg-rose-500/10 border-rose-500/20",
+    },
+  };
 
 // ───── Transcript / Conversation types ─────
 // Shapes for the raw JSONL transcript viewer in SessionDetail: individual

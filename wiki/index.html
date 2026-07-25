@@ -1113,14 +1113,19 @@
                     tool — the hook stream is the write channel, so it works in every hooked
                     project with zero per-project setup.
                     <code>ccam focus bug</code>/<code>feature "&lt;title&gt;" "&lt;summary&gt;"
-                    [--detail "&lt;text&gt;"]</code> push a kind-tagged detour, rendered as a
-                    bug/feature icon badge next to the item it was declared under (or an "Unknown
-                    item" bucket when no item was set) with click-to-expand detail.
+                    [--detail "&lt;text&gt;"]</code> push a kind-tagged detour; the Plan view's
+                    per-item focus line reflects each session's actual current state (known item,
+                    plain detour, feature, or bug) with a matching icon, bucketed under the item
+                    it was declared on (or an "Unknown item" row when none was set), with
+                    click-to-expand detail for bug/feature declarations.
                   </p>
                   <p>
                     The Projects page shows each plan as a collapsible checklist with a progress
                     bar and per-item session chips; every session card gets a one-line focus
-                    breadcrumb with detours in amber; Session Detail gains a focus banner plus a
+                    breadcrumb with a shared icon for its current state (crosshair on a known
+                    item, a detour/feature/bug icon otherwise), rendered even for a session
+                    mid-detour with no base item declared; Session Detail gains a focus banner
+                    plus a
                     <strong>Plan</strong> tab (checklist, focus timeline from <code>Focus</code>
                     events, and the session's latest TodoWrite micro-plan). A periodic drift audit
                     (<code>DASHBOARD_FOCUS_AUDIT_*</code>) — headless <code>claude -p</code> on a
@@ -7010,7 +7015,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=46" defer></script>
+    <script src="i18n-content.js?v=47" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {
