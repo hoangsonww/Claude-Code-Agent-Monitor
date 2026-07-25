@@ -37,14 +37,62 @@ const MAX_TITLE_LEN = 40;
 const MAX_DETAIL_LEN = 2000;
 const MAX_STACK_DEPTH = 10;
 
-// Recognizes `ccam focus <verb> …` in command position: start of string, after
+// Recognizes `ccam focus <verb>` in command position: start of string, after
 // a shell operator/subshell, or after then/do/exec/env — with optional
 // env-assignment prefixes (FOO=1) and path prefixes (./bin/ccam.js, npx has no
 // slash so plain `npx ccam` also matches via the second token being `ccam`…
-// npx is covered by allowing one optional `npx ` runner prefix). Args run to
-// the next shell operator.
+// npx is covered by allowing one optional `npx ` runner prefix). Only matches
+// up through the verb — the args tail is extracted separately by
+// extractArgsRaw() below, which is quote-aware (a regex character-class
+// exclusion can't tell "a `)`/`>`/`&` ending the command" from "a `)`/`>`/`&`
+// the user quoted inside their title/note/description").
 const FOCUS_RE =
-  /(?:^|[;&|(]|\b(?:then|do|exec|env)\s)\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:npx\s+)?(?:\S*[/\\])?ccam(?:\.js)?\s+focus\s+(set|push|pop|done|status|bug|feature)\b([^;&|)#\n]*)/;
+  /(?:^|[;&|(]|\b(?:then|do|exec|env)\s)\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:npx\s+)?(?:\S*[/\\])?ccam(?:\.js)?\s+focus\s+(set|push|pop|done|status|bug|feature)\b/;
+
+// Shell metacharacters that end the args tail when they appear OUTSIDE any
+// quoting: command separators (;&|), subshell close ()), comment (#), and
+// redirects (<>). Kept in one place so extractArgsRaw and the doc comment
+// above stay in sync.
+const ARGS_END_CHARS = new Set([";", "&", "|", ")", "#", "<", ">"]);
+
+/**
+ * Quote-aware walk of the text following `ccam focus <verb>`: stops at the
+ * first unquoted shell metacharacter (or newline) or end of string, but never
+ * inside an open "…"/'…' quote — so a title/note/description can contain a
+ * literal `)`, `>`, `&`, etc. without truncating the capture (previously a
+ * `)` in a bug/feature title, or a trailing `2>&1` redirect on a `set` note,
+ * would corrupt or truncate the parsed value).
+ */
+function extractArgsRaw(tail) {
+  let i = 0;
+  let quote = null;
+  while (i < tail.length) {
+    const ch = tail[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      i++;
+      continue;
+    }
+    if (ch === "\n") break;
+    if (ch === "<" || ch === ">") {
+      // A bare file-descriptor number directly preceding an unquoted
+      // redirect (2>&1, 1>&2, >file) isn't part of the declaration's own
+      // args - trim it along with the redirect itself rather than leaving
+      // it dangling on the end of the captured value.
+      let end = i;
+      while (end > 0 && /[0-9]/.test(tail[end - 1])) end--;
+      return tail.slice(0, end);
+    }
+    if (ARGS_END_CHARS.has(ch)) break;
+    i++;
+  }
+  return tail.slice(0, i);
+}
 
 /**
  * Extract a focus declaration from a Bash command string.
@@ -54,7 +102,8 @@ function extractFocusCommand(command) {
   if (typeof command !== "string" || !command.includes("ccam")) return null;
   const m = command.match(FOCUS_RE);
   if (!m) return null;
-  return { verb: m[1], argsRaw: (m[2] || "").trim() };
+  const tailStart = m.index + m[0].length;
+  return { verb: m[1], argsRaw: extractArgsRaw(command.slice(tailStart)).trim() };
 }
 
 /** Strip one layer of matching quotes from a token/remainder. */

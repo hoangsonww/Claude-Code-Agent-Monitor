@@ -134,6 +134,21 @@ describe("hook-stream focus channel", () => {
     assert.match(events[0].summary, /Migrate auth/);
   });
 
+  it("a trailing shell redirect on the note doesn't corrupt the value (regression)", async () => {
+    // Reproduces a real declaration observed live: `ccam focus set 4 "note"
+    // 2>&1` used to leave the note as the literal, unstripped
+    // `"note" 2>` (the `&` tripped the old non-quote-aware stop-char list
+    // mid-redirect). The quote-aware extractor now trims the whole
+    // redirect (including its fd number) before the note is even parsed.
+    await hookEvent("PostToolUse", SESSION_ID, {
+      tool_name: "Bash",
+      tool_input: { command: 'ccam focus set 4 "Character Showcase work" 2>&1' },
+    });
+    const focus = stmts.getSessionFocus.get(SESSION_ID);
+    assert.equal(focus.item_number, 4);
+    assert.equal(focus.note, "Character Showcase work");
+  });
+
   it("compound commands and detour verbs work through the hook path", async () => {
     await hookEvent("PostToolUse", SESSION_ID, {
       tool_name: "Bash",

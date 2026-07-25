@@ -75,6 +75,18 @@ describe("extractFocusCommand", () => {
       "feature",
       '"Title" "Summary" --detail "long text"',
     ],
+    // Quote-aware boundary regression: a `)` inside a properly-quoted title
+    // must NOT truncate the capture (it previously did, since the old
+    // character-class exclusion wasn't quote-aware).
+    [
+      'ccam focus feature "Docs (README-VN.md)" "Mirrored bug/feature docs"',
+      "feature",
+      '"Docs (README-VN.md)" "Mirrored bug/feature docs"',
+    ],
+    // Redirect regression: a trailing `2>&1` must not leak into argsRaw at
+    // all (previously left a stray `" 2>` fragment glued onto the note).
+    ['ccam focus set 4 "note" 2>&1', "set", '4 "note"'],
+    ['ccam focus push "fix the a > b comparison bug"', "push", '"fix the a > b comparison bug"'],
   ];
   for (const [cmd, verb, args] of positives) {
     it(`extracts from: ${cmd}`, () => {
