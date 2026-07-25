@@ -49,5 +49,13 @@
       "error": "세션이 오류와 함께 종료되었습니다 - Claude가 stop_reason=error를 반환했거나, 복구 불가능한 오류가 발생했거나, 상위 API 오류로 실행이 중단되었습니다.",
       "abandoned": "세션이 정상적인 SessionEnd 없이 방치되었습니다. 5분 이상 활동이 없으면 abandoned로 표시됩니다(/resume에 의한 고아 세션, 네트워크 끊김, CLI 강제 종료 등). Completed와 달리 실제 종료 신호를 확인하지 못한 경우입니다."
     }
+  },
+  "monitors": {
+    "addMonitor": "모니터 추가",
+    "defaultName": "모니터 {{n}}",
+    "namePlaceholder": "모니터 이름",
+    "deleteMonitor": "모니터 제거",
+    "ungrouped": "미분류",
+    "emptyMonitorHint": "여기에 프로젝트를 드래그하세요"
   }
 }

@@ -6,7 +6,16 @@
  * Project (one column per project's mapped folders, plus an Unassigned
  * column for sessions whose cwd isn't mapped to any project). The view
  * toggle is persisted in localStorage so the user's choice survives reloads.
- * Each column paginates client-side at COLUMN_PAGE_SIZE.
+ * Each column paginates client-side at COLUMN_PAGE_SIZE. In the Projects
+ * view, once the user creates at least one "monitor" (a named group mirroring
+ * a physical display, see lib/monitorGroups.ts), its assigned project columns
+ * render inside a bordered, drag-reorderable box for that monitor rather than
+ * as loose columns - each box sits side by side with the others in the same
+ * single horizontally-scrolling row (plus a trailing, non-boxed Ungrouped
+ * marker and its loose columns). Dragging a box by its header repositions it
+ * left/right; dragging a project column onto a box (or a column already
+ * inside one) reassigns it into that box. The standalone Unassigned column
+ * always stays outside this grouping, at the very end.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -82,6 +91,9 @@ import {
   Eye,
   EyeOff,
   GripVertical,
+  Plus,
+  Monitor as MonitorIcon,
+  X,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -90,6 +102,14 @@ import { SessionCard } from "../components/SessionCard";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
+import {
+  loadMonitors,
+  persistMonitors,
+  loadMonitorMap,
+  persistMonitorMap,
+  createMonitor,
+  type MonitorGroup,
+} from "../lib/monitorGroups";
 import {
   STATUS_CONFIG,
   SESSION_STATUS_CONFIG,
@@ -199,6 +219,36 @@ export function KanbanBoard() {
   const [projectOrderIds, setProjectOrderIds] = useState<string[]>(loadProjectOrder);
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
   const [liveProjectOrderIds, setLiveProjectOrderIds] = useState<string[] | null>(null);
+
+  // Monitor groups for the Projects view - user-created named groups
+  // (mirroring physical displays), each a bordered box that visually
+  // contains its assigned project columns, laid out side by side in the
+  // same single row (plus the standalone Ungrouped marker and its loose
+  // columns). Absent from `monitorMap` means "ungrouped". Purely local, like
+  // the order above.
+  //
+  // The box-*position* drag (dragging a monitor box by its header onto
+  // another monitor box) previews live: reordering `monitors` just changes
+  // which index each box's `<MonitorBox key={monitor.id}>` sits at among its
+  // siblings in the outer row - a safe same-parent-list move that never
+  // touches what's rendered INSIDE any one box.
+  //
+  // The cluster-*membership* drag (dragging a project column onto a column
+  // or box belonging to a DIFFERENT monitor) is NOT previewed live, unlike
+  // that. A column moving from being a loose sibling in the outer row (or
+  // inside a different monitor's box) to being a child INSIDE this box is a
+  // genuine reparent across two different real DOM elements - previewing
+  // that live would unmount the dragged node and mount a new one mid-drag,
+  // detaching it from the tree the native HTML5 drag is tracking, which
+  // silently drops the rest of the gesture (no further dragover/dragend ever
+  // fires). So the pending cluster reassignment is tracked in a ref (no
+  // re-render) and only committed to state - and the DOM - once the drag
+  // actually ends.
+  const [monitors, setMonitors] = useState<MonitorGroup[]>(loadMonitors);
+  const [monitorMap, setMonitorMap] = useState<Record<string, string>>(loadMonitorMap);
+  const pendingMonitorIdRef = useRef<string | null | undefined>(undefined);
+  const [draggedMonitorId, setDraggedMonitorId] = useState<string | null>(null);
+  const [liveMonitorOrderIds, setLiveMonitorOrderIds] = useState<string[] | null>(null);
 
   const setView = useCallback((next: BoardView) => {
     setViewState(next);
@@ -373,6 +423,7 @@ export function KanbanBoard() {
   function handleColumnDragStart(id: string) {
     setDraggedColumnId(id);
     setLiveProjectOrderIds(orderedProjectsList.map((p) => p.id));
+    pendingMonitorIdRef.current = undefined;
   }
 
   function handleColumnDragOver(e: DragEvent<HTMLDivElement>, targetId: string) {
@@ -388,6 +439,23 @@ export function KanbanBoard() {
       next.splice(to, 0, draggedColumnId);
       return next;
     });
+    // Queue the hovered column's monitor as where the drag would land if
+    // released now - applied once at drag end (see the ref's comment above
+    // for why this can't be a live preview). Only matters once monitors
+    // exist; skip touching the ref otherwise so a plain reorder-drag with no
+    // monitors created never writes to monitorMap/localStorage.
+    if (monitors.length > 0) pendingMonitorIdRef.current = monitorMap[targetId] ?? null;
+  }
+
+  // Fired while dragging a PROJECT column over a monitor's divider tag - lets
+  // a project be reassigned to a cluster with no sibling column to hover
+  // over (including an entirely empty cluster). `monitorId` is null for
+  // Ungrouped. No-op when a monitor divider itself is what's being dragged
+  // (see handleMonitorDragOver for that case).
+  function handleSwimlaneDragOver(e: DragEvent<HTMLDivElement>, monitorId: string | null) {
+    e.preventDefault();
+    if (!draggedColumnId) return;
+    pendingMonitorIdRef.current = monitorId;
   }
 
   function handleColumnDragEnd() {
@@ -395,8 +463,78 @@ export function KanbanBoard() {
       setProjectOrderIds(liveProjectOrderIds);
       persistProjectOrder(liveProjectOrderIds);
     }
+    if (draggedColumnId && pendingMonitorIdRef.current !== undefined) {
+      const targetMonitorId = pendingMonitorIdRef.current;
+      const next = { ...monitorMap };
+      if (targetMonitorId) next[draggedColumnId] = targetMonitorId;
+      else delete next[draggedColumnId];
+      setMonitorMap(next);
+      persistMonitorMap(next);
+    }
     setDraggedColumnId(null);
     setLiveProjectOrderIds(null);
+    pendingMonitorIdRef.current = undefined;
+  }
+
+  function handleMonitorDragStart(id: string) {
+    setDraggedMonitorId(id);
+    setLiveMonitorOrderIds(monitors.map((m) => m.id));
+  }
+
+  // Fired while dragging a monitor's divider tag over another monitor's
+  // divider tag - live-reorders their left-to-right cluster position.
+  function handleMonitorDragOver(e: DragEvent<HTMLDivElement>, targetId: string) {
+    e.preventDefault();
+    if (!draggedMonitorId || draggedMonitorId === targetId) return;
+    setLiveMonitorOrderIds((prev) => {
+      const current = prev ?? monitors.map((m) => m.id);
+      const from = current.indexOf(draggedMonitorId);
+      const to = current.indexOf(targetId);
+      if (from === -1 || to === -1 || from === to) return current;
+      const next = [...current];
+      next.splice(from, 1);
+      next.splice(to, 0, draggedMonitorId);
+      return next;
+    });
+  }
+
+  function handleMonitorDragEnd() {
+    if (liveMonitorOrderIds) {
+      const reordered = applyProjectOrder(monitors, liveMonitorOrderIds);
+      setMonitors(reordered);
+      persistMonitors(reordered);
+    }
+    setDraggedMonitorId(null);
+    setLiveMonitorOrderIds(null);
+  }
+
+  function handleAddMonitor() {
+    const monitor = createMonitor(t("monitors.defaultName", { n: monitors.length + 1 }));
+    const next = [...monitors, monitor];
+    setMonitors(next);
+    persistMonitors(next);
+  }
+
+  function handleRenameMonitor(id: string, name: string) {
+    const next = monitors.map((m) => (m.id === id ? { ...m, name } : m));
+    setMonitors(next);
+    persistMonitors(next);
+  }
+
+  function handleDeleteMonitor(id: string) {
+    setMonitors((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      persistMonitors(next);
+      return next;
+    });
+    setMonitorMap((prev) => {
+      const next = { ...prev };
+      for (const projectId of Object.keys(next)) {
+        if (next[projectId] === id) delete next[projectId];
+      }
+      persistMonitorMap(next);
+      return next;
+    });
   }
 
   // Projects view: compute each column's (filtered) items up front so a
@@ -425,6 +563,31 @@ export function KanbanBoard() {
       return { ...col, items };
     })
     .filter((col) => !hideCompleted || col.items.length > 0);
+
+  // Monitor clusters: split the project columns (never the standalone
+  // Unassigned session-bucket column, which always renders on its own after
+  // everything else) into the user's named monitor groups, in monitor
+  // display order, plus a trailing Ungrouped bucket. Only meaningful once at
+  // least one monitor exists - callers should fall back to the flat
+  // `projectColumns` list otherwise. `orderedMonitors` reads the live
+  // divider-drag preview order when one is in progress (see
+  // `liveMonitorOrderIds`'s declaration for why that one is safe to preview
+  // live, unlike cluster membership).
+  const unassignedColumn = projectColumns.find((col) => col.key === "__unassigned__");
+  const projectOnlyColumns = projectColumns.filter((col) => col.key !== "__unassigned__");
+  const monitorIds = new Set(monitors.map((m) => m.id));
+  const orderedMonitors = applyProjectOrder(
+    monitors,
+    liveMonitorOrderIds ?? monitors.map((m) => m.id)
+  );
+  const monitorClusters = orderedMonitors.map((monitor) => ({
+    monitor,
+    columns: projectOnlyColumns.filter((col) => monitorMap[col.key] === monitor.id),
+  }));
+  const ungroupedColumns = projectOnlyColumns.filter((col) => {
+    const assigned = monitorMap[col.key];
+    return !assigned || !monitorIds.has(assigned);
+  });
 
   const total = view === "agents" ? agents.length : sessions.length;
   const subtitle =
@@ -460,6 +623,16 @@ export function KanbanBoard() {
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <ViewToggle view={view} onChange={setView} />
+        {view === "projects" && (
+          <button
+            type="button"
+            onClick={handleAddMonitor}
+            title={t("monitors.addMonitor")}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4 transition-colors duration-150 flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" /> {t("monitors.addMonitor")}
+          </button>
+        )}
         <button
           type="button"
           onClick={toggleHideCompleted}
@@ -501,121 +674,156 @@ export function KanbanBoard() {
     );
   }
 
+  // Renders one Projects-view column (a real project, or the standalone
+  // Unassigned bucket) - shared between the flat (no monitors) layout and
+  // the monitor-swimlane layout so both stay in sync.
+  function renderProjectColumn(col: (typeof projectColumns)[number]) {
+    const { key, label, cwds, activeCount, palette, items } = col;
+    const limit = expanded[`proj-${key}`] || COLUMN_PAGE_SIZE;
+    const isUnassigned = key === "__unassigned__";
+    return (
+      <Column
+        key={key}
+        label={label}
+        color={palette.color}
+        dotClass={palette.dot}
+        pulse={activeCount > 0}
+        count={items.length}
+        emptyLabel={t("noSessionsInColumn")}
+        tooltip={isUnassigned ? t("unassignedColumnTooltip") : cwds.join("\n")}
+        remaining={Math.max(0, items.length - limit)}
+        onShowMore={() =>
+          setExpanded((prev) => ({
+            ...prev,
+            [`proj-${key}`]: limit + COLUMN_PAGE_SIZE,
+          }))
+        }
+        draggableColumn={!isUnassigned}
+        dragging={draggedColumnId === key}
+        onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
+        onColumnDragOver={isUnassigned ? undefined : (e) => handleColumnDragOver(e, key)}
+        onColumnDragEnd={isUnassigned ? undefined : handleColumnDragEnd}
+      >
+        {loading && items.length === 0
+          ? Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={`sk-${key}-${i}`} />)
+          : items
+              .slice(0, limit)
+              .map((session) => <SessionCard key={session.id} session={session} />)}
+      </Column>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
       {Header}
 
-      <div className="flex gap-4 min-h-[600px] overflow-x-auto pb-4 -mx-8 px-8">
-        {view === "agents"
-          ? visibleAgentColumns.map((status) => {
-              const config = STATUS_CONFIG[status];
-              const items = groupedAgents[status];
-              const limit = expanded[status] || COLUMN_PAGE_SIZE;
-              return (
-                <Column
-                  key={status}
-                  label={t(config.labelKey)}
-                  color={config.color}
-                  dotClass={config.dot}
-                  pulse={status === "working" || status === "waiting"}
-                  count={items?.length ?? 0}
-                  emptyLabel={t("noAgentsInColumn")}
-                  tooltip={t(`tooltip.agent.${status}`)}
-                  remaining={Math.max(0, (items?.length ?? 0) - limit)}
-                  onShowMore={() =>
-                    setExpanded((prev) => ({
-                      ...prev,
-                      [status]: limit + COLUMN_PAGE_SIZE,
-                    }))
-                  }
-                >
-                  {loading && (items?.length ?? 0) === 0
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                        <CardSkeleton key={`sk-${status}-${i}`} />
-                      ))
-                    : items
-                        ?.slice(0, limit)
-                        .map((agent) => (
-                          <AgentCard
-                            key={agent.id}
-                            agent={agent}
-                            session={sessionsById.get(agent.session_id)}
-                          />
-                        ))}
-                </Column>
-              );
-            })
-          : view === "sessions"
-            ? visibleSessionColumns.map((status) => {
-                const config = SESSION_STATUS_CONFIG[status];
-                const items = groupedSessions[status];
-                const limit = expanded[status] || COLUMN_PAGE_SIZE;
-                return (
-                  <Column
-                    key={status}
-                    label={t(config.labelKey)}
-                    color={config.color}
-                    dotClass={config.dot}
-                    pulse={status === "active" || status === "waiting"}
-                    count={items?.length ?? 0}
-                    emptyLabel={t("noSessionsInColumn")}
-                    tooltip={t(`tooltip.session.${status}`)}
-                    remaining={Math.max(0, (items?.length ?? 0) - limit)}
-                    onShowMore={() =>
-                      setExpanded((prev) => ({
-                        ...prev,
-                        [status]: limit + COLUMN_PAGE_SIZE,
-                      }))
-                    }
-                  >
-                    {loading && (items?.length ?? 0) === 0
-                      ? Array.from({ length: 3 }).map((_, i) => (
-                          <CardSkeleton key={`sk-${status}-${i}`} />
-                        ))
-                      : items
-                          ?.slice(0, limit)
-                          .map((session) => <SessionCard key={session.id} session={session} />)}
-                  </Column>
-                );
-              })
-            : projectColumns.map(({ key, label, cwds, activeCount, palette, items }) => {
-                const limit = expanded[`proj-${key}`] || COLUMN_PAGE_SIZE;
-                const isUnassigned = key === "__unassigned__";
-                return (
-                  <Column
-                    key={key}
-                    label={label}
-                    color={palette.color}
-                    dotClass={palette.dot}
-                    pulse={activeCount > 0}
-                    count={items.length}
-                    emptyLabel={t("noSessionsInColumn")}
-                    tooltip={isUnassigned ? t("unassignedColumnTooltip") : cwds.join("\n")}
-                    remaining={Math.max(0, items.length - limit)}
-                    onShowMore={() =>
-                      setExpanded((prev) => ({
-                        ...prev,
-                        [`proj-${key}`]: limit + COLUMN_PAGE_SIZE,
-                      }))
-                    }
-                    draggableColumn={!isUnassigned}
-                    dragging={draggedColumnId === key}
-                    onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
-                    onColumnDragOver={
-                      isUnassigned ? undefined : (e) => handleColumnDragOver(e, key)
-                    }
-                    onColumnDragEnd={isUnassigned ? undefined : handleColumnDragEnd}
-                  >
-                    {loading && items.length === 0
-                      ? Array.from({ length: 3 }).map((_, i) => (
-                          <CardSkeleton key={`sk-${key}-${i}`} />
-                        ))
-                      : items
-                          .slice(0, limit)
-                          .map((session) => <SessionCard key={session.id} session={session} />)}
-                  </Column>
-                );
-              })}
+      <div
+        data-testid="kanban-board-row"
+        className="flex gap-4 min-h-[600px] overflow-x-auto pb-4 -mx-8 px-8"
+      >
+        {view === "agents" ? (
+          visibleAgentColumns.map((status) => {
+            const config = STATUS_CONFIG[status];
+            const items = groupedAgents[status];
+            const limit = expanded[status] || COLUMN_PAGE_SIZE;
+            return (
+              <Column
+                key={status}
+                label={t(config.labelKey)}
+                color={config.color}
+                dotClass={config.dot}
+                pulse={status === "working" || status === "waiting"}
+                count={items?.length ?? 0}
+                emptyLabel={t("noAgentsInColumn")}
+                tooltip={t(`tooltip.agent.${status}`)}
+                remaining={Math.max(0, (items?.length ?? 0) - limit)}
+                onShowMore={() =>
+                  setExpanded((prev) => ({
+                    ...prev,
+                    [status]: limit + COLUMN_PAGE_SIZE,
+                  }))
+                }
+              >
+                {loading && (items?.length ?? 0) === 0
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <CardSkeleton key={`sk-${status}-${i}`} />
+                    ))
+                  : items
+                      ?.slice(0, limit)
+                      .map((agent) => (
+                        <AgentCard
+                          key={agent.id}
+                          agent={agent}
+                          session={sessionsById.get(agent.session_id)}
+                        />
+                      ))}
+              </Column>
+            );
+          })
+        ) : view === "sessions" ? (
+          visibleSessionColumns.map((status) => {
+            const config = SESSION_STATUS_CONFIG[status];
+            const items = groupedSessions[status];
+            const limit = expanded[status] || COLUMN_PAGE_SIZE;
+            return (
+              <Column
+                key={status}
+                label={t(config.labelKey)}
+                color={config.color}
+                dotClass={config.dot}
+                pulse={status === "active" || status === "waiting"}
+                count={items?.length ?? 0}
+                emptyLabel={t("noSessionsInColumn")}
+                tooltip={t(`tooltip.session.${status}`)}
+                remaining={Math.max(0, (items?.length ?? 0) - limit)}
+                onShowMore={() =>
+                  setExpanded((prev) => ({
+                    ...prev,
+                    [status]: limit + COLUMN_PAGE_SIZE,
+                  }))
+                }
+              >
+                {loading && (items?.length ?? 0) === 0
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <CardSkeleton key={`sk-${status}-${i}`} />
+                    ))
+                  : items
+                      ?.slice(0, limit)
+                      .map((session) => <SessionCard key={session.id} session={session} />)}
+              </Column>
+            );
+          })
+        ) : monitors.length === 0 ? (
+          projectColumns.map(renderProjectColumn)
+        ) : (
+          <>
+            {monitorClusters.map(({ monitor, columns }) => (
+              <MonitorBox
+                key={monitor.id}
+                laneKey={monitor.id}
+                name={monitor.name}
+                count={columns.length}
+                dragging={draggedMonitorId === monitor.id}
+                onRename={(name) => handleRenameMonitor(monitor.id, name)}
+                onDelete={() => handleDeleteMonitor(monitor.id)}
+                onBoxDragStart={() => handleMonitorDragStart(monitor.id)}
+                onBoxDragOver={(e) => {
+                  if (draggedMonitorId) handleMonitorDragOver(e, monitor.id);
+                  else handleSwimlaneDragOver(e, monitor.id);
+                }}
+                onBoxDragEnd={handleMonitorDragEnd}
+              >
+                {columns.map(renderProjectColumn)}
+              </MonitorBox>
+            ))}
+            <UngroupedDivider
+              count={ungroupedColumns.length}
+              onDragOver={(e) => handleSwimlaneDragOver(e, null)}
+            />
+            {ungroupedColumns.map(renderProjectColumn)}
+            {unassignedColumn && renderProjectColumn(unassignedColumn)}
+          </>
+        )}
       </div>
     </div>
   );
@@ -728,10 +936,26 @@ function Column({
   return (
     <div
       draggable={draggableColumn}
-      onDragStart={onColumnDragStart}
-      onDragOver={onColumnDragOver}
+      // stopPropagation on all three: a project column can render nested
+      // inside a monitor's box, and both are `draggable` with their own
+      // drag handlers - without this, dragging the column would bubble into
+      // the box's own onDragStart/onDragOver/onDragEnd, incorrectly firing
+      // the box's cluster-*reposition* logic as if the box itself were being
+      // dragged (setting `draggedMonitorId`) and hijacking the column's own
+      // cluster-*membership* drag.
+      onDragStart={(e) => {
+        e.stopPropagation();
+        onColumnDragStart?.();
+      }}
+      onDragOver={(e) => {
+        e.stopPropagation();
+        onColumnDragOver?.(e);
+      }}
       onDrop={draggableColumn ? (e) => e.preventDefault() : undefined}
-      onDragEnd={onColumnDragEnd}
+      onDragEnd={(e) => {
+        e.stopPropagation();
+        onColumnDragEnd?.();
+      }}
       className={`bg-surface-1 rounded-xl border border-border p-3 flex flex-col flex-shrink-0 w-72 transition-opacity ${
         draggableColumn ? "cursor-grab active:cursor-grabbing" : ""
       } ${dragging ? "opacity-40" : ""}`}
@@ -779,6 +1003,150 @@ function Column({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface MonitorBoxProps {
+  /** Stable identifier for this monitor - used only as a `data-testid`
+   *  suffix, never rendered. */
+  laneKey: string;
+  name: string;
+  /** Count of project columns currently inside this monitor's box. */
+  count: number;
+  /** True while this box is the one being dragged (dims it as feedback). */
+  dragging?: boolean;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+  onBoxDragStart: () => void;
+  /** Fired while a drag is over this box - branches at the call site on
+   *  whether a project column or another monitor box is being dragged. */
+  onBoxDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  onBoxDragEnd: () => void;
+  /** The project columns currently assigned to this monitor - rendered as
+   *  real DOM children, inside the box, not as trailing siblings. */
+  children: React.ReactNode;
+}
+
+/**
+ * One monitor's bordered box in the Projects view's single
+ * horizontally-scrolling row (mirroring a physical display's left-to-right
+ * position on the user's desk) - its assigned project columns render inside
+ * it, and the box grows to fit however many it holds (no internal scroll -
+ * the outer row's own horizontal scroll handles overall overflow). Dragging
+ * the box (by its header) repositions the whole box among its sibling monitor
+ * boxes;
+ * dragging a project column onto the box (or onto a column already inside
+ * it) reassigns that project into it - including when the box is otherwise
+ * empty and has no column to drop onto.
+ */
+function MonitorBox({
+  laneKey,
+  name,
+  count,
+  dragging,
+  onRename,
+  onDelete,
+  onBoxDragStart,
+  onBoxDragOver,
+  onBoxDragEnd,
+  children,
+}: MonitorBoxProps) {
+  const { t } = useTranslation("kanban");
+  const [draftName, setDraftName] = useState(name);
+
+  useEffect(() => setDraftName(name), [name]);
+
+  function commitRename() {
+    const trimmed = draftName.trim();
+    if (trimmed) onRename(trimmed);
+    else setDraftName(name);
+  }
+
+  return (
+    <section
+      data-testid={`monitor-box-${laneKey}`}
+      draggable
+      onDragStart={onBoxDragStart}
+      onDragOver={onBoxDragOver}
+      onDrop={(e) => e.preventDefault()}
+      onDragEnd={onBoxDragEnd}
+      className={`flex flex-col flex-shrink-0 rounded-xl border border-dashed border-border/70 bg-surface-2/40 p-3 gap-3 cursor-grab active:cursor-grabbing transition-opacity ${
+        dragging ? "opacity-40" : ""
+      }`}
+    >
+      <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+        <MonitorIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" aria-hidden="true" />
+        <input
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          placeholder={t("monitors.namePlaceholder")}
+          aria-label={t("monitors.namePlaceholder")}
+          draggable={false}
+          title={draftName}
+          className="text-xs font-semibold uppercase tracking-wider bg-transparent border border-transparent hover:border-border focus:border-border rounded px-1 py-0.5 text-gray-200 focus:outline-none min-w-0 flex-1 truncate"
+        />
+        <span className="text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full flex-shrink-0">
+          {count}
+        </span>
+        <button
+          type="button"
+          onClick={onDelete}
+          title={t("monitors.deleteMonitor")}
+          draggable={false}
+          className="text-gray-600 hover:text-gray-300 transition-colors flex-shrink-0"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-4" draggable={false}>
+        {children}
+        {count === 0 && (
+          <div className="flex-1 min-w-[10rem] min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3">
+            {t("monitors.emptyMonitorHint")}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The trailing "Ungrouped" marker in the Projects view's row - unlike a real
+ * monitor, it isn't a container (it's the absence of one), so it stays a
+ * slim, non-draggable, non-renameable tag; its ungrouped project columns
+ * render as ordinary loose siblings right after it, exactly like before any
+ * monitor existed. Still a drop target, so a project can be dragged here to
+ * clear its monitor assignment even when there's no other ungrouped column
+ * to drop onto.
+ */
+function UngroupedDivider({
+  count,
+  onDragOver,
+}: {
+  count: number;
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+}) {
+  const { t } = useTranslation("kanban");
+  return (
+    <div
+      data-testid="monitor-divider-__ungrouped__"
+      draggable={false}
+      onDragOver={onDragOver}
+      onDrop={(e) => e.preventDefault()}
+      className="flex flex-col flex-shrink-0 w-32 items-center justify-center gap-1 rounded-xl border border-dashed border-border/50 p-3"
+    >
+      <MonitorIcon className="w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
+      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">
+        {t("monitors.ungrouped")}
+      </span>
+      <span className="text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full">
+        {count}
+      </span>
     </div>
   );
 }

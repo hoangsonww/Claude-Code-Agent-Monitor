@@ -49,5 +49,13 @@
       "error": "Session ended with an error - Claude returned stop_reason=error, an unrecoverable failure occurred, or an upstream API error terminated the run.",
       "abandoned": "Session went stale without a clean SessionEnd. Marked abandoned after 5+ minutes of no activity (orphaned by /resume, network drop, or the CLI being killed). Distinct from Completed: we never saw a real exit signal."
     }
+  },
+  "monitors": {
+    "addMonitor": "Add Monitor",
+    "defaultName": "Monitor {{n}}",
+    "namePlaceholder": "Monitor name",
+    "deleteMonitor": "Remove monitor",
+    "ungrouped": "Ungrouped",
+    "emptyMonitorHint": "Drag a project here"
   }
 }

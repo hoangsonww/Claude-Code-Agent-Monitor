@@ -956,6 +956,11 @@
                     Cards surface model name, cumulative cost, and the current tool being called.
                     Counts update in real time via WebSocket so the board is always in sync with
                     the live event store. Hover a Waiting badge to see why — needs input, turn done, at prompt, or interrupted.
+                    A third <strong>Projects</strong> view groups sessions by project instead of status; once at
+                    least one named <strong>monitor</strong> group is created, its assigned project columns render
+                    inside a bordered, drag-reorderable box for that monitor, sitting side by side with the other
+                    boxes in that same row — drag a box by its header onto another to reposition it, handy for
+                    mirroring a multi-monitor desk layout, stored only in <code>localStorage</code>.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1691,7 +1696,7 @@
                     Non-error: main agent → <code>waiting</code> — UI shows
                     <span class="status-chip chip-waiting"
                       ><span class="chip-dot"></span>Waiting</span
-                    > until the next user input. <code>stop_reason=error</code>: marks the agent and session
+                    > until the next user input. The session's Waiting flag (<code>awaiting_input_since</code>) is stamped only when no subagent is still working — with a subagent running the session stays <strong>Active</strong> (it is waiting on its agents, not the user) and the stamp is deferred to the last <code>SubagentStop</code>. <code>stop_reason=error</code>: marks the agent and session
                     <span class="status-chip chip-error"
                       ><span class="chip-dot"></span>Error</span
                     >. Background subagents keep running.
@@ -1704,7 +1709,7 @@
                     Matched subagent →
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
-                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks. The same scan also rebuilds the nested-subagent hierarchy — it repoints each subagent's <code>parent_agent_id</code> to the true spawner recovered from the transcript's Task tool result (<code>toolUseResult.agentId</code>), so subagents that spawn their own subagents nest correctly instead of flattening under main.
+                    >. Deliberately does <strong>not</strong> clear the waiting flag — a backgrounded subagent finishing tells us nothing about the human. It can, however, <em>set</em> it: when the last working subagent finishes after a deferred non-error <code>Stop</code>, the drain check stamps the <code>stop</code> waiting flag and the session flips <strong>Active</strong> → <strong>Waiting</strong> exactly when the whole fleet is done. Also kicks off a fire-and-forget JSONL scan (<code>scanAndImportSubagents</code>) that walks the session's <code>subagents/agent-*.jsonl</code> files, pairs <code>tool_use</code> ↔ <code>tool_result</code> blocks by <code>tool_use_id</code>, and emits per-tool <code>PreToolUse</code> + <code>PostToolUse</code> events under each subagent's own <code>agent_id</code> — surfaces tool calls that subagents make internally and which never fire any hooks. The same scan also rebuilds the nested-subagent hierarchy — it repoints each subagent's <code>parent_agent_id</code> to the true spawner recovered from the transcript's Task tool result (<code>toolUseResult.agentId</code>), so subagents that spawn their own subagents nest correctly instead of flattening under main.
                   </td>
                 </tr>
                 <tr>
@@ -2542,7 +2547,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
                 active --> active: SessionStart compact (mid-turn — state preserved, no flag)
                 waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-                active --> waiting: Stop (non-error, flag re-stamped)
+                active --> waiting: Stop (non-error, no subagent working)
+                active --> active: Stop while a subagent works (Waiting deferred)
+                active --> waiting: Last SubagentStop drains (deferred stop stamp)
                 active --> waiting: Permission Notification (agent → waiting)
                 active --> waiting: Esc cancel (watchdog marker or idle timeout)
                 active --> error: Stop (stop_reason=error)
@@ -6911,7 +6918,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=39" defer></script>
+    <script src="i18n-content.js?v=43" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

@@ -49,5 +49,13 @@
       "error": "Phiên kết thúc với lỗi - Claude trả về stop_reason=error, có lỗi không thể khôi phục, hoặc lỗi API thượng nguồn đã chấm dứt lần chạy.",
       "abandoned": "Phiên đã chết mà không có SessionEnd sạch. Bị đánh dấu bỏ dở sau 5+ phút không hoạt động (mồ côi vì /resume, mất mạng, hoặc CLI bị tắt). Khác với Completed: ta không thấy tín hiệu thoát thật sự."
     }
+  },
+  "monitors": {
+    "addMonitor": "Thêm màn hình",
+    "defaultName": "Màn hình {{n}}",
+    "namePlaceholder": "Tên màn hình",
+    "deleteMonitor": "Xóa màn hình",
+    "ungrouped": "Chưa phân nhóm",
+    "emptyMonitorHint": "Kéo một dự án vào đây"
   }
 }

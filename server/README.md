@@ -992,7 +992,9 @@ stateDiagram-v2
     [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
     active --> active: SessionStart compact (mid-turn — state preserved, no flag)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-    active --> waiting: Stop (non-error, flag re-stamped)
+    active --> waiting: Stop (non-error, no subagent working, flag re-stamped)
+    active --> active: Stop while a subagent works (Waiting deferred)
+    active --> waiting: Last SubagentStop drains (deferred stop stamp)
     active --> waiting: Permission Notification (agent → waiting)
     active --> waiting: Esc cancel (watchdog marker or idle timeout)
     active --> error: Stop (stop_reason=error)

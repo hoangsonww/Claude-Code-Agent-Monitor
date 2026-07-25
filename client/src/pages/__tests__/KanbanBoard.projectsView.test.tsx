@@ -5,7 +5,11 @@
  * folder via each project's mapped cwds) plus an Unassigned column for
  * sessions whose cwd isn't mapped to any project. Also covers the "Hide
  * completed" toggle, which filters completed sessions out of every column
- * and drops any column left empty by that filter.
+ * and drops any column left empty by that filter, plus the monitor grouping
+ * feature (creating/renaming/deleting monitors, dragging project columns
+ * into/out of/between their bordered boxes, and dragging a monitor's box to
+ * reposition it left-to-right in the same row) that activates once at least
+ * one monitor exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -263,6 +267,294 @@ describe("Kanban Board - Projects view", () => {
 
       await screen.findByText("Coaching Assistant");
       expect(columnOrder()).toEqual(["Coaching Assistant", "Agent Monitor", "Unassigned"]);
+    });
+  });
+
+  describe("monitor groups (boxed clusters in a single row)", () => {
+    beforeEach(() => {
+      projectsListMock.mockResolvedValue({
+        projects: [mockProject, mockProject2], // server order: Agent Monitor, Coaching Assistant
+        unassigned: { cwds: [], session_count: 0, active_count: 0, last_activity: null },
+      });
+      const twoProjectSessions: Session[] = [
+        mockSessions[0] as Session,
+        {
+          id: "sess-3",
+          name: "Coaching session",
+          status: "active",
+          cwd: "/repo/coaching-assistant",
+          model: "claude-opus-4-6",
+          started_at: "2026-06-08T00:00:00.000Z",
+          ended_at: null,
+          metadata: null,
+        } as Session,
+      ];
+      sessionsListMock.mockImplementation((params?: { status?: string }) => {
+        const filtered = params?.status
+          ? twoProjectSessions.filter((s) => s.status === params.status)
+          : twoProjectSessions;
+        return Promise.resolve({ sessions: filtered, total: filtered.length });
+      });
+    });
+
+    async function addMonitor() {
+      const before = screen.queryAllByDisplayValue(/^Monitor \d+$/).length;
+      fireEvent.click(screen.getByRole("button", { name: "Add Monitor" }));
+      await waitFor(() =>
+        expect(screen.queryAllByDisplayValue(/^Monitor \d+$/).length).toBe(before + 1)
+      );
+    }
+
+    function currentMonitors(): { id: string; name: string }[] {
+      return JSON.parse(localStorage.getItem("kanban-monitors") ?? "[]");
+    }
+
+    function currentMonitorMap(): Record<string, string> {
+      return JSON.parse(localStorage.getItem("kanban-monitor-map") ?? "{}");
+    }
+
+    /** Grabs the nth persisted monitor, asserting it exists - keeps the
+     *  drag tests below free of non-null assertions on array indexing. */
+    function nthMonitor(n: number): { id: string; name: string } {
+      const monitor = currentMonitors()[n];
+      if (!monitor) throw new Error(`expected a monitor at index ${n}`);
+      return monitor;
+    }
+
+    /** Left-to-right order of the top-level monitor boxes in the row, by
+     *  reading each box's own name from its header input - used only for the
+     *  box-reordering test below. Cluster *membership* (which columns ended
+     *  up inside a box) is asserted with `within(box)` instead, since
+     *  columns are now real DOM children of their monitor's box. */
+    function monitorBoxOrder(): string[] {
+      const row = screen.getByTestId("kanban-board-row");
+      return Array.from(row.children)
+        .filter((node) => (node as HTMLElement).dataset.testid?.startsWith("monitor-box-"))
+        .map((node) => (node.querySelector("input") as HTMLInputElement).value);
+    }
+
+    function dragColumnOnto(column: HTMLElement, target: HTMLElement) {
+      fireEvent.dragStart(column);
+      fireEvent.dragOver(target);
+      fireEvent.dragEnd(column);
+    }
+
+    it("shows Add Monitor only in the Projects view", async () => {
+      renderPage();
+      expect(screen.queryByRole("button", { name: "Add Monitor" })).not.toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      expect(screen.getByRole("button", { name: "Add Monitor" })).toBeInTheDocument();
+    });
+
+    it("creates a monitor with a default name and persists it", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+
+      await addMonitor();
+
+      expect(screen.getByDisplayValue("Monitor 1")).toBeInTheDocument();
+      const stored = currentMonitors();
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.name).toBe("Monitor 1");
+    });
+
+    it("drags a project column onto an empty monitor's box and persists the assignment, rendering it inside the box", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+
+      const monitorId = nthMonitor(0).id;
+      const agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      const box = screen.getByTestId(`monitor-box-${monitorId}`);
+
+      dragColumnOnto(agentMonitorColumn, box);
+
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+      expect(within(box).getByText("Agent Monitor")).toBeInTheDocument();
+    });
+
+    it("moves a project between monitor boxes, including via a column already inside the target box", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor(); // Monitor 1
+      await addMonitor(); // Monitor 2
+      const monitor1 = nthMonitor(0);
+      const monitor2 = nthMonitor(1);
+
+      // Put Agent Monitor into Monitor 1's box.
+      let agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn, screen.getByTestId(`monitor-box-${monitor1.id}`));
+      expect(currentMonitorMap()["proj-1"]).toBe(monitor1.id);
+
+      // Drag Coaching Assistant onto Agent Monitor (already inside Monitor
+      // 1's box) - it should join Monitor 1 without needing the box itself
+      // as the drop target.
+      agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      const coachingColumn = screen
+        .getByText("Coaching Assistant")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(coachingColumn, agentMonitorColumn);
+
+      expect(currentMonitorMap()["proj-2"]).toBe(monitor1.id);
+      let box1 = screen.getByTestId(`monitor-box-${monitor1.id}`);
+      expect(within(box1).getByText("Agent Monitor")).toBeInTheDocument();
+      expect(within(box1).getByText("Coaching Assistant")).toBeInTheDocument();
+
+      // Now move Coaching Assistant on to Monitor 2's box.
+      const coachingColumn2 = screen
+        .getByText("Coaching Assistant")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(coachingColumn2, screen.getByTestId(`monitor-box-${monitor2.id}`));
+
+      expect(currentMonitorMap()["proj-2"]).toBe(monitor2.id);
+      box1 = screen.getByTestId(`monitor-box-${monitor1.id}`);
+      const box2 = screen.getByTestId(`monitor-box-${monitor2.id}`);
+      expect(within(box1).queryByText("Coaching Assistant")).not.toBeInTheDocument();
+      expect(within(box2).getByText("Coaching Assistant")).toBeInTheDocument();
+    });
+
+    it("dragging a project onto the Ungrouped marker clears its monitor assignment", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+      const monitorId = nthMonitor(0).id;
+
+      let agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      const box = screen.getByTestId(`monitor-box-${monitorId}`);
+      dragColumnOnto(agentMonitorColumn, box);
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+      expect(within(box).getByText("Agent Monitor")).toBeInTheDocument();
+
+      agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn, screen.getByTestId("monitor-divider-__ungrouped__"));
+
+      expect(currentMonitorMap()["proj-1"]).toBeUndefined();
+      expect(within(box).queryByText("Agent Monitor")).not.toBeInTheDocument();
+      // Back to being a loose column, not nested inside any box.
+      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
+    it("drags a monitor's box onto another to reposition it, and persists the new monitor order", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor(); // Monitor 1
+      await addMonitor(); // Monitor 2
+      const monitor1 = nthMonitor(0);
+      const monitor2 = nthMonitor(1);
+      expect(monitorBoxOrder()).toEqual(["Monitor 1", "Monitor 2"]);
+
+      const box1 = screen.getByTestId(`monitor-box-${monitor1.id}`);
+      const box2 = screen.getByTestId(`monitor-box-${monitor2.id}`);
+      fireEvent.dragStart(box1);
+      fireEvent.dragOver(box2);
+      fireEvent.dragEnd(box1);
+
+      expect(monitorBoxOrder()).toEqual(["Monitor 2", "Monitor 1"]);
+      expect(currentMonitors().map((m) => m.id)).toEqual([monitor2.id, monitor1.id]);
+    });
+
+    it("does not let the Ungrouped marker be dragged", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await addMonitor();
+      const ungroupedMarker = screen.getByTestId("monitor-divider-__ungrouped__");
+      expect(ungroupedMarker).toHaveAttribute("draggable", "false");
+    });
+
+    it("deleting a monitor removes its box and returns its project to Ungrouped", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      // A second monitor stays around after the first is deleted, so the
+      // boxed layout (including the Ungrouped marker) keeps rendering -
+      // deleting the *only* monitor instead reverts to the flat layout
+      // entirely, covered by its own expectation below.
+      await addMonitor(); // Monitor 1
+      await addMonitor(); // Monitor 2
+      const monitor1 = nthMonitor(0);
+
+      const agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn, screen.getByTestId(`monitor-box-${monitor1.id}`));
+      expect(currentMonitorMap()["proj-1"]).toBe(monitor1.id);
+
+      const box1 = screen.getByTestId(`monitor-box-${monitor1.id}`);
+      fireEvent.click(within(box1).getByRole("button", { name: "Remove monitor" }));
+
+      expect(screen.queryByTestId(`monitor-box-${monitor1.id}`)).not.toBeInTheDocument();
+      expect(currentMonitors()).toHaveLength(1);
+      expect(currentMonitorMap()["proj-1"]).toBeUndefined();
+      // Agent Monitor survives as a loose column, not nested in any box.
+      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
+    it("deleting the only monitor reverts to the flat, box-free layout", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+      const monitorId = nthMonitor(0).id;
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove monitor" }));
+
+      expect(currentMonitors()).toHaveLength(0);
+      expect(screen.queryByTestId(`monitor-box-${monitorId}`)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("monitor-divider-__ungrouped__")).not.toBeInTheDocument();
+      // Agent Monitor's column still renders, just back in the plain flat row.
+      expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
+    it("restores monitors and their project assignments on remount", async () => {
+      const monitorId = "monitor-fixed-1";
+      localStorage.setItem(
+        "kanban-monitors",
+        JSON.stringify([{ id: monitorId, name: "Left Screen" }])
+      );
+      localStorage.setItem("kanban-monitor-map", JSON.stringify({ "proj-1": monitorId }));
+
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+
+      const box = screen.getByTestId(`monitor-box-${monitorId}`);
+      expect(within(box).getByText("Agent Monitor")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Left Screen")).toBeInTheDocument();
+      // Coaching Assistant has no monitor assignment, so it stays a loose
+      // column outside every box, right after the Ungrouped marker.
+      expect(within(box).queryByText("Coaching Assistant")).not.toBeInTheDocument();
+      expect(screen.getByText("Coaching Assistant").closest("div.bg-surface-1")).not.toBeNull();
+    });
+
+    it("renames a monitor on blur and persists the new name", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+
+      const input = screen.getByDisplayValue("Monitor 1");
+      fireEvent.change(input, { target: { value: "Left Screen" } });
+      fireEvent.blur(input);
+
+      expect(screen.getByDisplayValue("Left Screen")).toBeInTheDocument();
+      expect(nthMonitor(0).name).toBe("Left Screen");
     });
   });
 });

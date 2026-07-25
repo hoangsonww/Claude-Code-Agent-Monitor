@@ -49,5 +49,13 @@
       "error": "会话以错误结束 - Claude 返回 stop_reason=error,发生了不可恢复的故障,或上游 API 错误终止了运行。",
       "abandoned": "会话陈旧但没有干净的 SessionEnd。在无活动 5+ 分钟后被标记为废弃(由 /resume 留下、断网、或 CLI 被杀)。与 Completed 不同:我们从未见到真正的退出信号。"
     }
+  },
+  "monitors": {
+    "addMonitor": "添加显示器",
+    "defaultName": "显示器 {{n}}",
+    "namePlaceholder": "显示器名称",
+    "deleteMonitor": "移除显示器",
+    "ungrouped": "未分组",
+    "emptyMonitorHint": "将项目拖到这里"
   }
 }

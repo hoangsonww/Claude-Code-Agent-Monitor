@@ -293,7 +293,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 |------|------|
 | **Dashboard** | 两个标签页（存储于 `localStorage`）：**Monitor** — 概览统计（6 张统计卡片）、可折叠子 Agent 层级的活跃 Agent 卡片、近期活动流，项目数量通过 `ResizeObserver` 动态填满视口高度。**Health** — 综合系统健康评分环（加权：0.4 × 成功率 + 0.25 × 缓存命中率 + 0.25 × (100 − 错误率) + 0.1 × (100 − 堆内存 %)）、存储引擎甜甜圈图（记录分布）、缓存性能 / 错误率 / 成功率仪表、Top 8 工具调用水平条形图、子 Agent 效能条、模型 Token 分布、压缩影响统计。所有健康指标每 5 秒从 `/api/settings/info` 和 `/api/workflows` 自动刷新。所有图表均有跟随光标的工具提示并自动避免视口边缘溢出 |
 | **项目** | 将会话按其运行时所在的文件夹归入用户自定义命名的项目，取代扁平的 Agent/会话视图。一个项目可关联一个或多个工作目录（一个文件夹至多属于一个项目）；成员关系是通过将每个会话的 `cwd` 与该项目所映射的文件夹进行匹配推导得出的——`sessions` 本身无需任何表结构变更。每个项目都以其会话（`SessionCard`）组成的横向可滚动行渲染，并带有服务端计算的聚合会话数 / 活跃数 / 最近活动时间徽标。可创建项目（创建时可选择立即关联一个已有文件夹）、就地内联重命名、事后添加/移除文件夹映射，或将其删除（文件夹映射会级联移除；底层会话不受影响，会直接回退至**未分配**分组，该分组还提供一键「从此文件夹新建项目」操作）。由 `GET/POST /api/projects`、`PATCH/DELETE /api/projects/:id` 以及 `POST/DELETE /api/projects/:id/paths[/:pathId]` 提供支持 |
-| **看板** | 顶部带视图切换（在 `localStorage` 中持久化）的三种视图：**Agent 视图** — 4 列（工作中 / 等待中 / 已完成 / 错误）；**会话视图** — 5 列（活跃 / 等待中 / 已完成 / 错误 / 已废弃）；以及**项目视图** — 按项目分列（会话按其所属项目映射的文件夹分组，各列颜色循环以区别于状态列），并附带一个「未分配」列，收纳尚未归入任何项目的文件夹中的会话。**等待中**列直接映射 Agent 的持久化 `waiting` 状态 — 当 Claude Code 停在提示符前(新会话、回合之间或被权限 Notification 阻塞)时设置,在用户继续操作(UserPromptSubmit / PreToolUse)时转换为 `working`。每个列标题都有 `?` 图标的工具提示解释生命周期。每列按状态从服务端独立获取(每列实际无上限),随后客户端按每列 10 张卡片分页,附「显示更多」按钮。WebSocket 订阅范围跟随当前视图(`agent_*` 与 `session_*` 帧),切换视图后另一类的更新不会触发重新加载。“等待中”徽标以悬停工具提示的形式展示该行的 `awaiting_reason` — **需要输入** (`notification`)、**回合结束** (`stop`)、**等待提示** (`session_start`)、**已中断** (`interrupted`) — 在紧凑卡片上仅保留悬停提示,以便卡片标题保有空间;更宽的界面(会话表格、会话详情页头)还会以嵌套小徽章(chip)的形式内联显示原因,紧急原因(权限请求、中断)会以更醒目的琥珀色显示 |
+| **看板** | 顶部带视图切换（在 `localStorage` 中持久化）的三种视图：**Agent 视图** — 4 列（工作中 / 等待中 / 已完成 / 错误）；**会话视图** — 5 列（活跃 / 等待中 / 已完成 / 错误 / 已废弃）；以及**项目视图** — 按项目分列（会话按其所属项目映射的文件夹分组，各列颜色循环以区别于状态列），并附带一个「未分配」列，收纳尚未归入任何项目的文件夹中的会话。一旦创建至少一个**显示器**分组（模拟一个物理显示器 — 通过页头的**+ 添加显示器**按钮创建），归入其中的项目列会渲染在该显示器专属的一个带边框、可拖拽的方框内部——真正地容纳它们，而不只是贴标签——这些方框彼此并排排列在同一条横向滚动的行内，末尾再附带一个不带方框的**未分组**标签，用于尚未归入任何显示器的项目。将一个项目列拖到某个显示器的方框上（或拖到已在该方框内的另一列上）即可将其移入该方框，拖到"未分组"标签上即可取消归组，把某个显示器方框（通过其标题栏）拖到另一个显示器方框上即可整个方框左右换位——对应显示器在桌面上实际摆放的位置。可直接内联重命名方框，也可删除它（其项目会回退到未分组）——这纯粹是保存在 `localStorage`（`kanban-monitors` / `kanban-monitor-map`）中的个人排列方式，不会同步到服务器。**等待中**列直接映射 Agent 的持久化 `waiting` 状态 — 当 Claude Code 停在提示符前(新会话、回合之间或被权限 Notification 阻塞)时设置,在用户继续操作(UserPromptSubmit / PreToolUse)时转换为 `working`。每个列标题都有 `?` 图标的工具提示解释生命周期。每列按状态从服务端独立获取(每列实际无上限),随后客户端按每列 10 张卡片分页,附「显示更多」按钮。WebSocket 订阅范围跟随当前视图(`agent_*` 与 `session_*` 帧),切换视图后另一类的更新不会触发重新加载。“等待中”徽标以悬停工具提示的形式展示该行的 `awaiting_reason` — **需要输入** (`notification`)、**回合结束** (`stop`)、**等待提示** (`session_start`)、**已中断** (`interrupted`) — 在紧凑卡片上仅保留悬停提示,以便卡片标题保有空间;更宽的界面(会话表格、会话详情页头)还会以嵌套小徽章(chip)的形式内联显示原因,紧急原因(权限请求、中断)会以更醒目的琥珀色显示 |
 | **会话** | 可搜索、可筛选、**服务端分页**的全量会话表。每次翻页请求 `/api/sessions?status=&q=&limit=10&offset=…`，因此费用计算只针对当前可见页运行——与数据库中会话总量无关。搜索框（`q=`）在服务端对 `id` / `name` / `cwd` 做不区分大小写匹配，附 300 毫秒防抖；响应包含 `total` 计数供分页器使用。状态筛选、搜索与翻页可组合。每个会话的可读**名称**从 Transcript 实时读取并保持同步——显式标题（`/rename`、`claude -n`、选择器 Ctrl+R 写入的 JSONL `custom-title` 行）优先，否则回退到自动生成的 `ai-title`；若两者都没有，则用会话的**首条用户 prompt**（截断，并跳过 tool-result / 斜杠命令噪音）填充占位名称以及 main agent 的占位名称/任务——因此从未获得标题的会话（包括导入的会话）也能一目了然它在做什么；用户自定义的名称绝不会被自动标题覆盖。该名称（无名称时回退到短 ID）显示在 Agent 卡片、Dashboard、活动流以及 Run 恢复选择器上 |
 | **会话详情** | 单会话实时概览面板，包含活跃 Agent 横幅（当前工具 + 任务）、六个统计卡片（事件数及事件/分钟速率、工具调用数、子 Agent 数、压缩次数、错误数、滚动计时的运行时长）、Top 工具使用条形图、子 Agent 类型分布、堆叠 Token 流图，以及事件类型胶囊云——所有内容均根据 Hook 事件实时刷新。下方：Agent 层级树（父/子）、完整事件时间线（多维筛选：状态、事件类型、工具、Agent、文本搜索、日期范围）、按 `tool_use_id` 进行 Pre/Post 分组、人类可读摘要块、工具感知的输入/响应渲染器（Bash 用终端、Edit 用统一 diff、Read/Write 用带行号代码、Grep 用匹配列表、MCP 工具用键值卡片），以及对话标签页：使用 markdown（标题、列表、引用块、表格、任务列表）、带行号和复制按钮的语法高亮代码块（js/ts、python、json、bash、html、css、sql、yaml、diff），以及按工具样式化的工具调用块（Bash → 终端、Edit → 旧/新并排、Write → 文件标签、Read → 路径胶囊、Grep → pattern 卡片）渲染对话记录。对话记录也包含回合进行中输入的消息（Claude 仍在工作时排队），显示在 Claude 实际接收它们的位置，来自框架的通知则归属为 System。当会话被用户阻塞时，页头下方会显示黄色的**等待输入横幅**，标明 `awaiting_reason`、其解释说明，以及会话已等待多久（脉冲圆点 + 相对时间）；页头的“等待中”徽标也会以嵌套小徽章(chip)的形式显示同一原因 |
 | **活动流** | 实时流式事件日志，支持暂停/恢复和分页；点击任意事件行可就地展开其完整 hook 载荷（内联 EventDetail 面板）；每行右侧的专属「会话 →」按钮可直接跳转至会话详情页，不影响当前展开状态 |
@@ -513,9 +513,9 @@ sequenceDiagram
    - `SessionStart` 时,在会话和主 Agent 上盖上 `awaiting_input_since` 时间戳,使停在提示符前的全新 CLI 立即落入**等待中**
    - `UserPromptSubmit` 时(用户按下回车),清除等待标志并将主 Agent 提升为 `working` — 这是文本响应回合开始的唯一可靠信号,因为它们不发出 `PreToolUse`
    - `PreToolUse` 时将 Agent 设为 `working`(同时清除等待标志),`PostToolUse` 后保持 working 状态(也清除等待标志 — 用于处理用户在工具运行期间批准权限提示的场景)
-   - 非错误 `Stop` 时,主 Agent 变为 `waiting` — Claude 完成本回合,主动权交给用户。错误 `Stop` 会将 Agent 和会话标记为 `error`。后台子 Agent 继续运行
+   - 非错误 `Stop` 时,主 Agent 变为 `waiting` — Claude 完成本回合。后台子 Agent 继续运行,会话保持 `active`。**等待中**标志(`awaiting_input_since`)只在**没有子 Agent 仍在工作**时才盖上 — Agent 仍在运行的会话显示为**活动**(它在等待自己的 Agent,而不是用户),盖章被推迟到最后一个 `SubagentStop`。`stop_reason=error` 的 Stop 会将 Agent 标记为 `error`,会话标记为 `error`
    - 在权限 `Notification` 时（按消息模式匹配：`permission`、`waiting for input`、`needs your approval` 等），将 Agent 设为 `waiting` 并盖上 `awaiting_input_since`
-   - `SubagentStop` 故意不清除等待标志 — 后台子 Agent 完成不能说明用户是否已响应
+   - `SubagentStop` 故意不清除等待标志 — 后台子 Agent 完成不能说明用户是否已响应。当整个 Agent 队伍收尾时它做的是相反的事:如果这是**最后一个**在工作的子 Agent,且主 Agent 已结束本回合,它会补盖先前 `Stop` 推迟的等待标志 — 会话恰好在所有 Agent 完成时从**活动**翻转为**等待中**
    - 通过 `SubagentStop` 单独标记子 Agent 为完成。`res.json()` 返回后,触发 fire-and-forget 的 `scanAndImportSubagents`,遍历会话的 `subagents/agent-*.jsonl` 文件,根据 `tool_use_id` 配对 `tool_use` ↔ `tool_result` 块,并在每个子 Agent 自己的 `agent_id` 下发出 `PreToolUse` + `PostToolUse` 事件 — 弥补子 Agent 内部工具调用对 dashboard 不可见的空白
    - `SessionEnd` 时（CLI 进程退出），清除等待标志。如果会话已处于 `error` 状态，则保留错误状态；否则将所有 Agent 和会话标记为 `completed`
    - `SessionStart` 时,任何无活动超过 `DASHBOARD_STALE_MINUTES`(默认 180 = 3 小时,可通过环境变量覆盖)的其他活跃会话自动标记为"abandoned",其 Agent 标记为完成。处理会话内的 `/resume`、Ctrl+C 和其他会话无 `SessionEnd` 而被孤立的场景
@@ -569,7 +569,9 @@ stateDiagram-v2
     [*] --> waiting: SessionStart startup/resume/clear(status=active + 标志)
     active --> active: SessionStart compact(回合中 — 保留状态,无标志)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-    active --> waiting: Stop，非错误（标志重新盖上）
+    active --> waiting: Stop，非错误，无子 Agent 在工作（标志重新盖上）
+    active --> active: Stop 时仍有子 Agent 在工作（等待中被推迟）
+    active --> waiting: 最后一个 SubagentStop 收尾（补盖被推迟的 stop 标志）
     active --> waiting: 权限 Notification（Agent → waiting）
     active --> waiting: Esc 取消（看门狗：标记或空闲超时）
     active --> error: Stop, stop_reason=error
@@ -1244,8 +1246,8 @@ Dashboard 处理以下 Claude Code Hook 类型：
 | `UserPromptSubmit` | 用户在提示符前按下回车 | 清除等待标志并将主 Agent 提升为 `working` — 文本响应回合开始的唯一可靠信号,因为它们不发出 `PreToolUse` |
 | `PreToolUse` | Agent 开始使用工具 | 清除等待标志,设置 Agent 为 `working`,设置 `current_tool`。如果工具是 `Agent`,创建子 Agent 记录 |
 | `PostToolUse` | 工具执行完成 | 清除等待标志(用于处理用户在工具运行期间批准权限提示的场景)。清除 `current_tool`。Agent 保持 `working` |
-| `Stop` | Claude 完成响应 | 非错误：主 Agent → `waiting` — Claude 完成本回合，主动权交给用户。`stop_reason=error`：将 Agent 和会话标记为 `error`。后台子 Agent 继续运行 |
-| `SubagentStop` | 后台 Agent 完成 | 通过描述、类型或任务匹配并完成子 Agent。故意不清除等待标志 — 子 Agent 完成不能说明用户是否已响应。**触发 fire-and-forget 的 JSONL 扫描**(`scanAndImportSubagents`),在子 Agent 自己的 `agent_id` 下为每个 tool 发出 `PreToolUse` + `PostToolUse` 事件,使 Timeline 显示子 Agent 运行的所有 tool,而不仅仅是 spawn 标记 |
+| `Stop` | Claude 完成响应 | 非错误：主 Agent → `waiting` — Claude 完成本回合。**等待中**标志只在没有子 Agent 仍在工作时才盖上；Agent 仍在运行时会话保持**活动**（在等待自己的 Agent），盖章被推迟到最后一个 `SubagentStop`。`stop_reason=error`：将 Agent 和会话标记为 `error`。后台子 Agent 继续运行 |
+| `SubagentStop` | 后台 Agent 完成 | 通过描述、类型或任务匹配并完成子 Agent。故意不清除等待标志 — 子 Agent 完成不能说明用户是否已响应。如果它是**最后一个**在工作的子 Agent,且主回合已经结束,则补盖先前 `Stop` 推迟的等待标志(会话从**活动**翻转为**等待中**)。**触发 fire-and-forget 的 JSONL 扫描**(`scanAndImportSubagents`),在子 Agent 自己的 `agent_id` 下为每个 tool 发出 `PreToolUse` + `PostToolUse` 事件,使 Timeline 显示子 Agent 运行的所有 tool,而不仅仅是 spawn 标记 |
 | `Notification` | Agent 通知 | 记录事件。权限/输入提示消息将 Agent 设为 `waiting` 并盖上 `awaiting_input_since`（附带 `awaiting_reason=notification`，按模式匹配：`permission`、`waiting for input`、`needs your approval` 等）。压缩通知标记为 `Compaction` 事件。如果启用,触发浏览器通知 |
 | `SessionEnd` | Claude Code CLI 进程退出 | 清除等待标志。如果会话已处于 `error` 状态，则保留错误状态；否则将所有 Agent 和会话标记为 `completed` |
 | `Compaction` | JSONL 中检测到 `/compact` | 创建压缩子 Agent（类型 `compaction`）和 Compaction 事件。通过 Transcript JSONL 中的 `isCompactSummary` 条目检测。也可由周期性扫描器对活跃会话检测 |
