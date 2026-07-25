@@ -1023,9 +1023,12 @@ async function renderFocusStatus(sessionId) {
     if (focus.note) kvLine("Note", focus.note);
     if (focus.detour_stack.length > 0) {
       const top = focus.detour_stack[focus.detour_stack.length - 1];
+      const label = top.kind
+        ? `[${top.kind}] ${top.title}: "${top.description}"`
+        : `"${top.description}"`;
       kvLine(
         "Detour",
-        `${focus.detour_stack.length} deep: "${top.description}" (pushed ${fmtAgo(top.pushed_at)})`
+        `${focus.detour_stack.length} deep: ${label} (pushed ${fmtAgo(top.pushed_at)})`
       );
     }
     const driftLabel =
@@ -1057,7 +1060,7 @@ async function renderFocusStatus(sessionId) {
 
 async function cmdFocus(flags, positional) {
   const sub = positional[0] || "status";
-  const WRITE_VERBS = new Set(["set", "push", "pop", "done"]);
+  const WRITE_VERBS = new Set(["set", "push", "pop", "done", "bug", "feature"]);
 
   if (sub === "status") {
     const sessionId = await resolveFocusSession(flags);
@@ -1065,7 +1068,9 @@ async function cmdFocus(flags, positional) {
   }
 
   if (!WRITE_VERBS.has(sub)) {
-    console.error(c.red(`✖ Unknown focus verb: ${sub} (set | push | pop | done | status)`));
+    console.error(
+      c.red(`✖ Unknown focus verb: ${sub} (set | push | pop | done | bug | feature | status)`)
+    );
     process.exit(1);
   }
 
@@ -1091,6 +1096,17 @@ async function cmdFocus(flags, positional) {
     }
     body.description = description;
   }
+  if (sub === "bug" || sub === "feature") {
+    const title = (positional[1] || "").trim();
+    const summary = (positional[2] || "").trim();
+    if (!title || !summary) {
+      console.error(c.red(`✖ Usage: ccam focus ${sub} "<title>" "<summary>" [--detail "<text>"]`));
+      process.exit(1);
+    }
+    body.title = title;
+    body.description = summary;
+    if (typeof flags.detail === "string") body.detail = flags.detail;
+  }
 
   // Inside a Claude Code session the PostToolUse hook for this very command
   // IS the write — calling the API too would be redundant (and needs a
@@ -1103,7 +1119,9 @@ async function cmdFocus(flags, positional) {
           ? `→ item ${body.item_number} declared done`
           : sub === "push"
             ? `→ detour "${body.description}"`
-            : "→ detour resolved";
+            : sub === "bug" || sub === "feature"
+              ? `→ ${sub} "${body.title}": ${body.description}`
+              : "→ detour resolved";
     console.log(`${c.green("✔")} focus ${sub} ${detail} ${c.dim("(recorded via hook stream)")}`);
     return;
   }
@@ -1650,7 +1668,17 @@ const COMMAND_GROUPS = [
       ["focus", "[--session id]", "Show the session's AGENT-PLAN.md focus (alias: focus status)"],
       ["focus set <n>", "[note]", "Declare which plan item this session is serving"],
       ["focus push <desc>", "", "Declare a detour (unplanned-but-necessary work)"],
-      ["focus pop", "", "Resolve the current detour"],
+      [
+        'focus bug "<title>" "<summary>"',
+        '[--detail "text"]',
+        "Push a detour tagged as a bug fix (badges the current/Unknown plan item)",
+      ],
+      [
+        'focus feature "<title>" "<summary>"',
+        '[--detail "text"]',
+        "Push a detour tagged as a small feature (same as focus bug)",
+      ],
+      ["focus pop", "", "Resolve the current detour (bug/feature or plain)"],
       ["focus done <n>", "", "Declare a plan item complete (file checkbox stays human-owned)"],
     ],
   ],
@@ -2468,7 +2496,7 @@ const SUBCOMMANDS = {
   pricing: ["set", "delete", "reset"],
   webhooks: ["test"],
   import: ["rescan", "path"],
-  focus: ["status", "set", "push", "pop", "done"],
+  focus: ["status", "set", "push", "pop", "done", "bug", "feature"],
 };
 
 /** Run one parsed command. Returns the handler's promise; may throw

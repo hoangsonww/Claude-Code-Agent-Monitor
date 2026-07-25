@@ -145,6 +145,7 @@ import type {
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
 import { PlanPanel } from "../components/PlanPanel";
+import { PlanModal } from "../components/PlanModal";
 import { useSessionFocus, useFocusMap } from "../lib/focusStore";
 
 type DetailTab = "agents" | "conversation" | "timeline" | "plan";
@@ -204,6 +205,7 @@ export function SessionDetail() {
   );
   const [focusHistory, setFocusHistory] = useState<FocusHistoryEntry[]>([]);
   const [sessionTodos, setSessionTodos] = useState<SessionTodo[] | null>(null);
+  const [planModalOpen, setPlanModalOpen] = useState(false);
   const planFetchedRef = useRef(false);
 
   const loadPlanTab = useCallback(() => {
@@ -1356,13 +1358,21 @@ export function SessionDetail() {
       {visitedTabs.has("plan") && (
         <div hidden={activeTab !== "plan"} className="space-y-6">
           {planData ? (
-            <PlanPanel
-              plan={planData.plan}
-              items={planData.items}
-              sessions={session ? [session] : []}
-              focusBySession={focusMap}
-              defaultExpanded
-            />
+            <>
+              <PlanPanel
+                plan={planData.plan}
+                items={planData.items}
+                onOpen={() => setPlanModalOpen(true)}
+              />
+              {planModalOpen && (
+                <PlanModal
+                  plans={[planData]}
+                  sessions={session ? [session] : []}
+                  focusBySession={focusMap}
+                  onClose={() => setPlanModalOpen(false)}
+                />
+              )}
+            </>
           ) : (
             <p className="text-xs text-gray-500 italic">{planT("focus.none")}</p>
           )}

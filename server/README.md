@@ -637,7 +637,7 @@ Unlike Alerts/Webhooks, project mutations are **not** broadcast over `/ws` — l
 
 ### Plans & Focus (Plan-Aware Monitoring)
 
-Each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items). `server/lib/plan-ingest.js` mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — projects aggregate via the `project_paths` join exactly like sessions do. Sessions declare which item they are serving by running `ccam focus set|push|pop|done` in their Bash tool (parsed off the `PostToolUse` hook — see `routes/hooks.js`) or via the strict `POST /api/sessions/:id/focus` endpoint (`routes/plans.js`, plus the focus/todos additions in `routes/sessions.js`). Errors use the standard `{error:{code,message}}` envelope.
+Each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items). `server/lib/plan-ingest.js` mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — projects aggregate via the `project_paths` join exactly like sessions do. Sessions declare which item they are serving by running `ccam focus set|push|bug|feature|pop|done` in their Bash tool (parsed off the `PostToolUse` hook — see `routes/hooks.js`) or via the strict `POST /api/sessions/:id/focus` endpoint (`routes/plans.js`, plus the focus/todos additions in `routes/sessions.js`). `bug`/`feature` push a `kind`/`title`/`detail`-tagged detour frame, badged in the client Plan view. Errors use the standard `{error:{code,message}}` envelope.
 
 | Method | Path                          | Description |
 | ------ | ----------------------------- | ----------- |
@@ -1271,6 +1271,8 @@ Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI lim
 2. **Idle-working timeout** — when Esc is pressed *before any output*, Claude Code writes **no marker at all**; the only signal is silence. When the main agent has been `working` with `current_tool` null and **neither a hook event nor the transcript mtime** has advanced for `DASHBOARD_WORKING_IDLE_SECONDS` (default `120`), the turn is treated as dead. Streaming output (transcript still growing) and in-flight tool calls are exempt by these guards; a rare false flip self-heals on the next real hook.
 
 Both paths move the session to **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped, and its paired nullable `awaiting_reason` TEXT column — one of `notification` | `stop` | `session_start` | `interrupted`, set and cleared in lock-step with `awaiting_input_since` — set to `interrupted`) — the same state a normal `Stop` produces (which records `awaiting_reason` = `stop`) — and log an `Interrupted` event. If the user resumes (a new prompt lands in the transcript), `pendingInterrupt` flips back to false and the fresh hook keeps the session non-stale.
+
+Both paths also share the **working-fleet guard** from the `Stop` handler (`findDeepestWorkingAgent`): spawning a Task/Agent subagent clears the main agent's `current_tool` as soon as its `PostToolUse` fires, which can look identical to a dead interrupted turn if the subagent then runs a single long tool call past `DASHBOARD_WORKING_IDLE_SECONDS` with no further hook events. If a subagent is still `working`, neither recovery path fires — the session stays **Active** instead of a false **Waiting**, and `SubagentStop` draining the last subagent (or a later watchdog tick once the fleet finishes) resolves its status correctly.
 
 ### Dead-Session Liveness Reap
 

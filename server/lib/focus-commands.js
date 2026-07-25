@@ -10,12 +10,17 @@
  * POST /api/sessions/:id/focus — shares applyFocusCommand with `strict:true`.)
  *
  * Semantics:
- *   set N [note]  → point the session at plan item N (stamps set_at on change)
- *   push <desc>   → push a detour onto the stack (depth-capped)
- *   pop           → resolve the top detour
- *   done N        → record the agent's completion claim on item N; clears the
- *                   pointer when N is the current item
- *   status        → read-only, never applied from the hook stream
+ *   set N [note]           → point the session at plan item N (stamps set_at
+ *                             on change)
+ *   push <desc>            → push a detour onto the stack (depth-capped)
+ *   bug <title> <summary> [--detail <text>]     → push a detour tagged as a
+ *   feature <title> <summary> [--detail <text>] → bug/feature fix so the plan
+ *                             UI can badge it on the current item (or an
+ *                             "Unknown" bucket when no item is set)
+ *   pop                    → resolve the top detour (bug/feature or plain)
+ *   done N                 → record the agent's completion claim on item N;
+ *                             clears the pointer when N is the current item
+ *   status                 → read-only, never applied from the hook stream
  *
  * Every state change writes a `Focus` row to events (with an item-text
  * snapshot, so timelines survive later plan renumbering) and broadcasts
@@ -28,6 +33,8 @@
 
 const MAX_NOTE_LEN = 300;
 const MAX_DETOUR_LEN = 300;
+const MAX_TITLE_LEN = 40;
+const MAX_DETAIL_LEN = 2000;
 const MAX_STACK_DEPTH = 10;
 
 // Recognizes `ccam focus <verb> …` in command position: start of string, after
@@ -37,7 +44,7 @@ const MAX_STACK_DEPTH = 10;
 // npx is covered by allowing one optional `npx ` runner prefix). Args run to
 // the next shell operator.
 const FOCUS_RE =
-  /(?:^|[;&|(]|\b(?:then|do|exec|env)\s)\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:npx\s+)?(?:\S*[/\\])?ccam(?:\.js)?\s+focus\s+(set|push|pop|done|status)\b([^;&|)#\n]*)/;
+  /(?:^|[;&|(]|\b(?:then|do|exec|env)\s)\s*(?:[A-Za-z_]\w*=\S*\s+)*(?:npx\s+)?(?:\S*[/\\])?ccam(?:\.js)?\s+focus\s+(set|push|pop|done|status|bug|feature)\b([^;&|)#\n]*)/;
 
 /**
  * Extract a focus declaration from a Bash command string.
@@ -59,9 +66,29 @@ function unquote(s) {
   return t;
 }
 
+// Pulls one whitespace-delimited token off the front of a string, honoring a
+// single layer of "..."/'...' quoting so a title/summary can contain spaces.
+const LEADING_TOKEN_RE = /^\s*(?:"([^"]*)"|'([^']*)'|(\S+))/;
+function nextToken(s) {
+  const m = s.match(LEADING_TOKEN_RE);
+  if (!m) return null;
+  if (m[1] === undefined && m[2] === undefined && (m[3][0] === '"' || m[3][0] === "'")) {
+    // Fell through to the bare-token branch on a token that itself starts
+    // with a quote character — this only happens when the quoted-string
+    // alternatives failed to find a matching close-quote, almost always
+    // because FOCUS_RE's tail capture truncated mid-quote (e.g. a `)` inside
+    // the title/summary text stops the capture early). Treat as unparseable
+    // instead of silently accepting a stray-quote fragment as the value.
+    return null;
+  }
+  const value = m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3];
+  return { value, rest: s.slice(m[0].length) };
+}
+
 /**
  * Parse a verb's raw argument string into a structured declaration.
- * Returns { verb, itemNumber?, note?, description? } or { error }.
+ * Returns { verb, itemNumber?, note?, description?, kind?, title?, detail? }
+ * or { error }.
  */
 function parseFocusArgs(verb, argsRaw) {
   const raw = (argsRaw || "").trim();
@@ -78,6 +105,25 @@ function parseFocusArgs(verb, argsRaw) {
       const description = unquote(raw);
       if (!description) return { error: "bad_args" };
       return { verb, description: description.slice(0, MAX_DETOUR_LEN) };
+    }
+    case "bug":
+    case "feature": {
+      const titleTok = nextToken(raw);
+      if (!titleTok || !titleTok.value.trim()) return { error: "bad_args" };
+      const summaryTok = nextToken(titleTok.rest);
+      if (!summaryTok || !summaryTok.value.trim()) return { error: "bad_args" };
+      let detail = null;
+      const detailMatch = summaryTok.rest.match(/--detail\s+(?:"([^"]*)"|'([^']*)'|(\S+))/);
+      if (detailMatch) {
+        detail = (detailMatch[1] ?? detailMatch[2] ?? detailMatch[3] ?? "").trim() || null;
+      }
+      return {
+        verb,
+        kind: verb,
+        title: titleTok.value.trim().slice(0, MAX_TITLE_LEN),
+        description: summaryTok.value.trim().slice(0, MAX_DETOUR_LEN),
+        detail: detail ? detail.slice(0, MAX_DETAIL_LEN) : null,
+      };
     }
     case "pop":
     case "status":
@@ -188,12 +234,22 @@ function applyFocusCommand(dbModule, broadcast, session, parsed, opts = {}) {
       break;
     }
 
-    case "push": {
+    case "push":
+    case "bug":
+    case "feature": {
+      const kindLabel =
+        parsed.kind === "bug" ? "Bug" : parsed.kind === "feature" ? "Feature" : null;
+      const frameLabel = kindLabel ? `${kindLabel}: ${parsed.title}` : parsed.description;
       if (stack.length >= MAX_STACK_DEPTH) {
         if (strict) return { error: "detour stack full", code: "STACK_FULL" };
-        summary = `Focus detour ignored (stack full): ${parsed.description}`;
+        summary = `Focus detour ignored (stack full): ${frameLabel}`;
         eventData.ignored = "stack_full";
         eventData.description = parsed.description;
+        if (parsed.kind) {
+          eventData.kind = parsed.kind;
+          eventData.title = parsed.title;
+        }
+        if (parsed.detail) eventData.detail = parsed.detail;
         insertFocusEvent(dbModule, broadcast, session, summary, eventData);
         return { focus: focusWireShape(dbModule, existing) };
       }
@@ -201,6 +257,8 @@ function applyFocusCommand(dbModule, broadcast, session, parsed, opts = {}) {
         description: parsed.description,
         pushed_at: now,
         prior_item: existing ? existing.item_number : null,
+        ...(parsed.kind ? { kind: parsed.kind, title: parsed.title } : {}),
+        ...(parsed.detail ? { detail: parsed.detail } : {}),
       });
       stmts.upsertSessionFocus.run(
         sessionId,
@@ -212,7 +270,12 @@ function applyFocusCommand(dbModule, broadcast, session, parsed, opts = {}) {
       );
       eventData.description = parsed.description;
       eventData.stack_depth = stack.length;
-      summary = `Focus detour: ${parsed.description}`;
+      if (parsed.kind) {
+        eventData.kind = parsed.kind;
+        eventData.title = parsed.title;
+      }
+      if (parsed.detail) eventData.detail = parsed.detail;
+      summary = kindLabel ? frameLabel : `Focus detour: ${parsed.description}`;
       break;
     }
 
@@ -330,4 +393,6 @@ module.exports = {
   applyFocusCommand,
   focusWireShape,
   MAX_STACK_DEPTH,
+  MAX_TITLE_LEN,
+  MAX_DETAIL_LEN,
 };

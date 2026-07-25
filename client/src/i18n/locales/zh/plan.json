@@ -1,5 +1,6 @@
 {
   "title": "计划",
+  "titleCount": "计划（{{count}}）",
   "tab": "计划",
   "progress": "已完成 {{done}}/{{total}}",
   "planMissing": "AGENT-PLAN.md 已被移除 — 显示最后一次读取的计划",
@@ -24,7 +25,12 @@
     "empty": "未报告待办事项"
   },
   "items": {
-    "declaredDone": "已申报完成，复选框待确认"
+    "declaredDone": "已申报完成，复选框待确认",
+    "acceptancePrefix": "验收标准：",
+    "bugLabel": "缺陷",
+    "featureLabel": "功能",
+    "unknownBucket": "未知项",
+    "declaredBy": "由 {{session}} 申报"
   },
   "errors": {
     "loadFailed": "计划加载失败"

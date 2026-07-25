@@ -1109,9 +1109,13 @@
                     poll (<code>DASHBOARD_PLAN_POLL_MS</code>, plus opportunistic ingest on
                     <code>SessionStart</code>) mirrors it read-only into the dashboard, keyed by
                     <code>cwd</code> and rolled up to Projects. Sessions declare their position by
-                    running <code>ccam focus set/push/pop/done</code> in their Bash tool — the hook
-                    stream is the write channel, so it works in every hooked project with zero
-                    per-project setup.
+                    running <code>ccam focus set/push/bug/feature/pop/done</code> in their Bash
+                    tool — the hook stream is the write channel, so it works in every hooked
+                    project with zero per-project setup.
+                    <code>ccam focus bug</code>/<code>feature "&lt;title&gt;" "&lt;summary&gt;"
+                    [--detail "&lt;text&gt;"]</code> push a kind-tagged detour, rendered as a
+                    bug/feature icon badge next to the item it was declared under (or an "Unknown
+                    item" bucket when no item was set) with click-to-expand detail.
                   </p>
                   <p>
                     The Projects page shows each plan as a collapsible checklist with a progress
@@ -1783,7 +1787,18 @@
                   <td><code>Focus</code></td>
                   <td><code>ccam focus …</code> run in the session's Bash tool</td>
                   <td>
-                    Parsed out of the <code>PostToolUse</code> hook's <code>tool_input.command</code> — the only channel that natively carries the session id. <code>set</code>/<code>push</code>/<code>pop</code>/<code>done</code> update the session's focus row (plan-item pointer plus detour stack) and write a <code>Focus</code> event with an item-text snapshot for the timeline; broadcasts <code>session_focus</code> (and <code>plan_updated</code> after <code>done</code>). <code>status</code> is read-only and records nothing.
+                    Parsed out of the <code>PostToolUse</code> hook's
+                    <code>tool_input.command</code> (the only channel that natively carries the
+                    session id). <code>set</code>/<code>push</code>/<code>pop</code>/<code
+                      >done</code
+                    >/<code>bug</code>/<code>feature</code> update the session's
+                    <code>session_focus</code> row (plan-item pointer plus detour stack) and write
+                    a <code>Focus</code> event with an item-text snapshot for the timeline;
+                    broadcasts <code>session_focus</code> (and <code>plan_updated</code> after
+                    <code>done</code>). <code>bug</code>/<code>feature</code> additionally carry
+                    <code>kind</code>/<code>title</code>/<code>detail</code> on the pushed detour
+                    frame, badged in the Plan view. <code>status</code> is read-only and records
+                    nothing.
                   </td>
                 </tr>
                 <tr>
@@ -6995,7 +7010,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=45" defer></script>
+    <script src="i18n-content.js?v=46" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

@@ -22,7 +22,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
   type DragEvent,
@@ -47,6 +46,7 @@ import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { SessionCard } from "../components/SessionCard";
 import { PlanPanel } from "../components/PlanPanel";
+import { PlanModal } from "../components/PlanModal";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { timeAgo } from "../lib/format";
@@ -57,7 +57,6 @@ import type {
   PlanUpdatedPayload,
   Project,
   Session,
-  SessionFocus,
   UnassignedProjectBucket,
   WSMessage,
 } from "../lib/types";
@@ -95,6 +94,11 @@ export function Projects() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmRemovePath, setConfirmRemovePath] = useState<string | null>(null);
+
+  // The plan popup - opened from a PlanPanel strip or a project header's
+  // "view plan" icon. `sessions` is scoped to whichever project/cwd bucket
+  // opened it, so item-chip session lookups never bleed across projects.
+  const [openPlan, setOpenPlan] = useState<{ plans: Plan[]; sessions: Session[] } | null>(null);
 
   // Filters sessions by folder (cwd) only — never by project name. A project
   // (or the Unassigned bucket) left with zero matching sessions is dropped
@@ -482,7 +486,7 @@ export function Projects() {
                 plans={project.paths
                   .map((p) => plansByCwd.get(p.cwd))
                   .filter((p): p is Plan => Boolean(p))}
-                focusMap={focusMap}
+                onOpenPlan={(plans, sess) => setOpenPlan({ plans, sessions: sess })}
                 t={t}
                 editing={editingId === project.id}
                 editingName={editingName}
@@ -558,8 +562,12 @@ export function Projects() {
                       <PlanPanel
                         plan={plansByCwd.get(cwd) as Plan}
                         items={(plansByCwd.get(cwd) as Plan).items}
-                        sessions={cwdSessions}
-                        focusBySession={focusMap}
+                        onOpen={() =>
+                          setOpenPlan({
+                            plans: [plansByCwd.get(cwd) as Plan],
+                            sessions: cwdSessions,
+                          })
+                        }
                       />
                     </div>
                   )}
@@ -576,6 +584,15 @@ export function Projects() {
           </div>
         )}
       </div>
+
+      {openPlan && (
+        <PlanModal
+          plans={openPlan.plans.map((p) => ({ plan: p, items: p.items }))}
+          sessions={openPlan.sessions}
+          focusBySession={focusMap}
+          onClose={() => setOpenPlan(null)}
+        />
+      )}
     </div>
   );
 }
@@ -586,8 +603,8 @@ interface ProjectSectionProps {
   overflowCount: number;
   /** AGENT-PLAN.md plans found in this project's mapped folders (usually 0–1). */
   plans: Plan[];
-  /** Live per-session focus map (from the focusStore) for item chips. */
-  focusMap: ReadonlyMap<string, SessionFocus>;
+  /** Opens the plan popup for the given plans, scoped to the given sessions. */
+  onOpenPlan: (plans: Plan[], sessions: Session[]) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
   editing: boolean;
   editingName: string;
@@ -621,7 +638,7 @@ function ProjectSection({
   sessions,
   overflowCount,
   plans,
-  focusMap,
+  onOpenPlan,
   t,
   editing,
   editingName,
@@ -646,9 +663,6 @@ function ProjectSection({
   onDragOverCard,
   onDragEnd,
 }: ProjectSectionProps) {
-  const [planExpandSignal, setPlanExpandSignal] = useState(0);
-  const planSectionRef = useRef<HTMLDivElement>(null);
-
   return (
     <div
       draggable
@@ -707,11 +721,7 @@ function ProjectSection({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setPlanExpandSignal((v) => v + 1);
-                    planSectionRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "nearest",
-                    });
+                    onOpenPlan(plans, sessions);
                   }}
                   title={t("viewPlan")}
                   draggable={false}
@@ -817,15 +827,13 @@ function ProjectSection({
       {/* draggable={false}: checklist rows and session chips must not start
           a project reorder-drag (same DnD opt-out as the session strip). */}
       {plans.length > 0 && (
-        <div className="mb-3 space-y-2" draggable={false} ref={planSectionRef}>
+        <div className="mb-3 space-y-2" draggable={false}>
           {plans.map((plan) => (
             <PlanPanel
               key={plan.cwd}
               plan={plan}
               items={plan.items}
-              sessions={sessions}
-              focusBySession={focusMap}
-              expandSignal={planExpandSignal}
+              onOpen={() => onOpenPlan([plan], sessions)}
             />
           ))}
         </div>

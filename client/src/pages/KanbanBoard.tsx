@@ -103,6 +103,7 @@ import { SessionCard } from "../components/SessionCard";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { PlanPanel } from "../components/PlanPanel";
+import { PlanModal } from "../components/PlanModal";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
 import { useFocusMap } from "../lib/focusStore";
 import {
@@ -128,12 +129,9 @@ import type {
   PlanUpdatedPayload,
   Project,
   Session,
-  SessionFocus,
   UnassignedProjectBucket,
   WSMessage,
 } from "../lib/types";
-
-const EMPTY_FOCUS_MAP: ReadonlyMap<string, SessionFocus> = new Map();
 
 type BoardView = "agents" | "sessions" | "projects";
 
@@ -221,11 +219,10 @@ export function KanbanBoard() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
   const [hideCompleted, setHideCompletedState] = useState<boolean>(loadHideCompleted);
-  // Per-column "view plan" click counter (bumps PlanPanel's expandSignal) and
-  // a scroll-target ref per column - same pattern as the standalone Projects
-  // page's header icon, scoped here to each Kanban column's own scroll area.
-  const [planExpandSignals, setPlanExpandSignals] = useState<Record<string, number>>({});
-  const planSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // The plan popup - opened from a PlanPanel strip or a column header's
+  // "view plan" icon. `sessions` is scoped to whichever column opened it, so
+  // item-chip session lookups never bleed across projects.
+  const [openPlan, setOpenPlan] = useState<{ plans: Plan[]; sessions: Session[] } | null>(null);
 
   // Manual drag order for the Projects view's columns - shared with the
   // standalone Projects page (same localStorage key via lib/projectOrder),
@@ -747,15 +744,7 @@ export function KanbanBoard() {
         }
         plans={colPlans}
         planSessions={items}
-        focusMap={focusMap}
-        planExpandSignal={planExpandSignals[key] ?? 0}
-        onViewPlanClick={() => {
-          setPlanExpandSignals((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
-          planSectionRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }}
-        planSectionRef={(el) => {
-          planSectionRefs.current[key] = el;
-        }}
+        onOpenPlan={(plans, sess) => setOpenPlan({ plans, sessions: sess })}
         draggableColumn={!isUnassigned}
         dragging={draggedColumnId === key}
         onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
@@ -908,6 +897,15 @@ export function KanbanBoard() {
           </>
         )}
       </div>
+
+      {openPlan && (
+        <PlanModal
+          plans={openPlan.plans.map((p) => ({ plan: p, items: p.items }))}
+          sessions={openPlan.sessions}
+          focusBySession={focusMap}
+          onClose={() => setOpenPlan(null)}
+        />
+      )}
     </div>
   );
 }
@@ -998,16 +996,10 @@ interface ColumnProps {
   plans?: Plan[];
   /** Sessions to chip onto plan items (the column's own item list). */
   planSessions?: Session[];
-  focusMap?: ReadonlyMap<string, SessionFocus>;
-  /** Bumped to force this column's plan panel(s) open - see PlanPanel's
-   *  `expandSignal`. */
-  planExpandSignal?: number;
-  /** Fired by the header's "view plan" icon (only rendered when `plans` is
-   *  non-empty). */
-  onViewPlanClick?: () => void;
-  /** Attaches to the plan panel wrapper so the header icon can scroll it
-   *  into view within this column's own scroll area. */
-  planSectionRef?: (el: HTMLDivElement | null) => void;
+  /** Opens the plan popup for the given plans, scoped to the given sessions -
+   *  fired by the header's "view plan" icon (only rendered when `plans` is
+   *  non-empty) and by each plan strip itself. */
+  onOpenPlan?: (plans: Plan[], sessions: Session[]) => void;
 }
 
 function Column({
@@ -1028,10 +1020,7 @@ function Column({
   onColumnDragEnd,
   plans,
   planSessions,
-  focusMap,
-  planExpandSignal,
-  onViewPlanClick,
-  planSectionRef,
+  onOpenPlan,
 }: ColumnProps) {
   const { t } = useTranslation("kanban");
   const childrenArray = Array.isArray(children) ? children : children ? [children] : [];
@@ -1085,7 +1074,7 @@ function Column({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onViewPlanClick?.();
+              onOpenPlan?.(columnPlans, planSessions ?? []);
             }}
             title={t("viewPlan")}
             draggable={false}
@@ -1105,15 +1094,13 @@ function Column({
           reorder-drag. */}
       <div className="flex-1 space-y-2.5 overflow-y-auto" draggable={false}>
         {hasPlans && (
-          <div className="space-y-2" draggable={false} ref={planSectionRef}>
+          <div className="space-y-2" draggable={false}>
             {columnPlans.map((plan) => (
               <PlanPanel
                 key={plan.cwd}
                 plan={plan}
                 items={plan.items}
-                sessions={planSessions ?? []}
-                focusBySession={focusMap ?? EMPTY_FOCUS_MAP}
-                expandSignal={planExpandSignal}
+                onOpen={() => onOpenPlan?.([plan], planSessions ?? [])}
               />
             ))}
           </div>

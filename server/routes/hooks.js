@@ -1354,6 +1354,15 @@ function watchdogCheck() {
         mainAgent.status === "working" &&
         !mainAgent.awaiting_input_since
       ) {
+        // Same working-fleet guard as the Stop handler above: a Task/Agent
+        // tool's PostToolUse already cleared the main agent's current_tool
+        // once the subagent was spawned, which can look exactly like a dead
+        // interrupted turn. Don't stamp a false Waiting while a subagent is
+        // still working — SubagentStop's drain check (or a later tick once
+        // the fleet finishes) is what should resolve this session's status.
+        if (stmts.findDeepestWorkingAgent.get(sess.id, sess.id)) {
+          continue;
+        }
         recoverInterruptedSession(sess.id, fullSess, mainAgentId, "interrupted by user");
         // Handled this tick. A genuine error (rare alongside an interrupt) is
         // still caught on a later tick once the agent is no longer "working".
@@ -1373,7 +1382,11 @@ function watchdogCheck() {
           mainAgent &&
           mainAgent.status === "working" &&
           !mainAgent.current_tool &&
-          !mainAgent.awaiting_input_since
+          !mainAgent.awaiting_input_since &&
+          // Working-fleet guard (see the pendingInterrupt branch above): a
+          // subagent still running means this session is genuinely active,
+          // not silently dead, even though the main agent looks idle.
+          !stmts.findDeepestWorkingAgent.get(sess.id, sess.id)
         ) {
           let mtimeMs = 0;
           try {

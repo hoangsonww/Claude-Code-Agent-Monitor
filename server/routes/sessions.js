@@ -10,7 +10,12 @@ const readline = require("readline");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { broadcast } = require("../websocket");
-const { applyFocusCommand, focusWireShape } = require("../lib/focus-commands");
+const {
+  applyFocusCommand,
+  focusWireShape,
+  MAX_TITLE_LEN,
+  MAX_DETAIL_LEN,
+} = require("../lib/focus-commands");
 const { transcriptCache } = require("./hooks");
 const { calculateCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
@@ -389,7 +394,12 @@ router.get("/:id/focus", (req, res) => {
     } catch {
       data = {};
     }
-    const kind = data.verb === "push" ? "detour_push" : data.verb === "pop" ? "detour_pop" : "item";
+    const kind =
+      data.verb === "push" || data.verb === "bug" || data.verb === "feature"
+        ? "detour_push"
+        : data.verb === "pop"
+          ? "detour_pop"
+          : "item";
     return {
       at: ev.created_at,
       kind,
@@ -413,10 +423,13 @@ router.post("/:id/focus", (req, res) => {
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
-  const { verb, item_number, note, description } = req.body || {};
-  if (!["set", "push", "pop", "done"].includes(verb)) {
+  const { verb, item_number, note, description, title, detail } = req.body || {};
+  if (!["set", "push", "pop", "done", "bug", "feature"].includes(verb)) {
     return res.status(400).json({
-      error: { code: "INVALID_INPUT", message: "verb must be one of set, push, pop, done" },
+      error: {
+        code: "INVALID_INPUT",
+        message: "verb must be one of set, push, pop, done, bug, feature",
+      },
     });
   }
   const parsed = { verb };
@@ -443,6 +456,29 @@ router.post("/:id/focus", (req, res) => {
         .json({ error: { code: "INVALID_INPUT", message: "description is required for push" } });
     }
     parsed.description = description.trim().slice(0, 300);
+  }
+  if (verb === "bug" || verb === "feature") {
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return res
+        .status(400)
+        .json({ error: { code: "INVALID_INPUT", message: `title is required for ${verb}` } });
+    }
+    if (!description || typeof description !== "string" || !description.trim()) {
+      return res
+        .status(400)
+        .json({ error: { code: "INVALID_INPUT", message: `summary is required for ${verb}` } });
+    }
+    parsed.kind = verb;
+    parsed.title = title.trim().slice(0, MAX_TITLE_LEN);
+    parsed.description = description.trim().slice(0, 300);
+    if (detail != null) {
+      if (typeof detail !== "string") {
+        return res
+          .status(400)
+          .json({ error: { code: "INVALID_INPUT", message: "detail must be a string" } });
+      }
+      parsed.detail = detail.trim().slice(0, MAX_DETAIL_LEN) || null;
+    }
   }
   const result = applyFocusCommand(dbModule, broadcast, session, parsed, {
     strict: true,

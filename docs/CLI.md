@@ -184,10 +184,12 @@ Declare and inspect which `AGENT-PLAN.md` item a session is serving (**Plan-Awar
 | `ccam focus [--session <id>]` | Current plan + focus + drift for a session: the declared item, note, detour-stack depth, drift verdict, and the full plan checklist with the current item marked (alias: `ccam focus status`) |
 | `ccam focus set <n> [note]` | Declare which plan item this session is serving |
 | `ccam focus push <description>` | Declare a detour — unplanned-but-necessary work on top of the current item |
-| `ccam focus pop` | Resolve the current detour and return to the prior item |
+| `ccam focus bug "<title>" "<summary>" [--detail "<text>"]` | Push a detour tagged as a bug fix — badges the current item (or an "Unknown item" bucket if none is set) with a bug icon in the Plan view; click the badge to see the summary/detail |
+| `ccam focus feature "<title>" "<summary>" [--detail "<text>"]` | Same as `bug`, for a small standalone feature that doesn't warrant its own plan item |
+| `ccam focus pop` | Resolve the current detour (plain, bug, or feature) and return to the prior item |
 | `ccam focus done <n>` | Declare a plan item complete (the file's checkbox stays human-owned — this records the agent's claim, it never edits `AGENT-PLAN.md`) |
 
-**Inside a Claude Code session** (the `CLAUDECODE` env var is set — i.e. an agent running `ccam focus` in its Bash tool), the write verbs (`set`/`push`/`pop`/`done`) do **not** call the API: the dashboard parses the command off the `PostToolUse` hook stream, which already carries the session id, so the CLI just prints `recorded via hook stream`. Outside a session, writes POST the strict `/api/sessions/:id/focus` endpoint (unknown items and empty-stack pops are refused with a clear error). `focus status` is read-only and is never recorded as a declaration.
+**Inside a Claude Code session** (the `CLAUDECODE` env var is set — i.e. an agent running `ccam focus` in its Bash tool), the write verbs (`set`/`push`/`pop`/`done`/`bug`/`feature`) do **not** call the API: the dashboard parses the command off the `PostToolUse` hook stream, which already carries the session id, so the CLI just prints `recorded via hook stream`. Outside a session, writes POST the strict `/api/sessions/:id/focus` endpoint (unknown items and empty-stack pops are refused with a clear error). `focus status` is read-only and is never recorded as a declaration.
 
 ### Alerts & Webhooks
 
@@ -249,7 +251,7 @@ Manage the remote (SSH) machines this dashboard pulls Claude Code history from �
 ## Safety Model
 
 - **Read commands are always safe** — they only issue `GET`s.
-- **Mutating commands** (`alerts ack`, `pricing set/delete/reset`, `import`, `cleanup`, `reinstall-hooks`, `focus set/push/pop/done`) map 1:1 to explicit dashboard actions and run immediately, exactly like clicking the equivalent button.
+- **Mutating commands** (`alerts ack`, `pricing set/delete/reset`, `import`, `cleanup`, `reinstall-hooks`, `focus set/push/bug/feature/pop/done`) map 1:1 to explicit dashboard actions and run immediately, exactly like clicking the equivalent button.
 - **Focus writes are declaration-only.** `ccam focus done <n>` records the agent's *claim* — it never edits `AGENT-PLAN.md` (the checkbox stays human-owned), and no focus verb can touch the drift-audit columns. Inside a Claude Code session (`CLAUDECODE` set) write verbs defer entirely to the hook stream — the CLI makes no API call at all, so a sandboxed agent can still declare focus safely.
 - **The one destructive command, `clear-data`, refuses to run without `--yes`** and prints exactly what it would delete. There is no bulk-destructive behavior anywhere else.
 

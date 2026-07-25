@@ -1,17 +1,15 @@
 /**
  * @file PlanPanel.test.tsx
- * @description Tests for the AGENT-PLAN.md checklist panel: progress count,
- * expand/collapse, checked-item strike-through, the declared-done marker,
- * per-item session chips joined from the focus map (linking to the session
- * and amber-tinted when drifting), and the missing-file badge.
+ * @description Tests for the AGENT-PLAN.md summary strip: title, progress
+ * count, the missing-file badge, and that a click fires `onOpen` (the actual
+ * checklist renders in PlanModal — see PlanModal.test.tsx).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
 import { PlanPanel } from "../PlanPanel";
-import type { Plan, PlanItem, Session, SessionFocus } from "../../lib/types";
+import type { Plan, PlanItem } from "../../lib/types";
 
 vi.mock("../../lib/api", () => ({ api: {} }));
 
@@ -43,113 +41,29 @@ function makeItem(overrides: Partial<PlanItem> = {}): PlanItem {
   };
 }
 
-function makeSession(overrides: Partial<Session> = {}): Session {
-  return {
-    id: "sess-1",
-    name: "Worker",
-    status: "active",
-    cwd: "/repo",
-    model: null,
-    started_at: "2026-06-10T11:00:00.000Z",
-    ended_at: null,
-    metadata: null,
-    ...overrides,
-  } as Session;
-}
-
-function makeFocus(overrides: Partial<SessionFocus> = {}): SessionFocus {
-  return {
-    session_id: "sess-1",
-    cwd: "/repo",
-    item_number: 2,
-    item_text: "Second thing",
-    note: null,
-    detour_stack: [],
-    since: "2026-06-10T11:00:00.000Z",
-    drift: null,
-    drift_reason: null,
-    updated_at: "2026-06-10T11:00:00.000Z",
-    ...overrides,
-  };
-}
-
 const ITEMS = [
   makeItem({ item_number: 1, text: "First thing", checked: 1 }),
   makeItem({ item_number: 2, text: "Second thing", position: 1 }),
-  makeItem({
-    item_number: 3,
-    text: "Third thing",
-    position: 2,
-    declared_done_at: "2026-06-10T10:00:00.000Z",
-    declared_done_session: "sess-9",
-  }),
+  makeItem({ item_number: 3, text: "Third thing", position: 2 }),
 ];
 
 function renderPanel(props: Partial<Parameters<typeof PlanPanel>[0]> = {}) {
-  return render(
-    <MemoryRouter>
-      <PlanPanel
-        plan={makePlan()}
-        items={ITEMS}
-        sessions={[]}
-        focusBySession={new Map()}
-        {...props}
-      />
-    </MemoryRouter>
-  );
+  const onOpen = vi.fn();
+  const utils = render(<PlanPanel plan={makePlan()} items={ITEMS} onOpen={onOpen} {...props} />);
+  return { onOpen, ...utils };
 }
 
 describe("PlanPanel", () => {
-  it("shows title and progress, collapsed by default", () => {
+  it("shows title and progress", () => {
     renderPanel();
     expect(screen.getByText("Auth migration")).toBeInTheDocument();
     expect(screen.getByText("1/3 complete")).toBeInTheDocument();
-    expect(screen.queryByText("First thing")).not.toBeInTheDocument();
   });
 
-  it("expands on click, striking through checked items", () => {
-    renderPanel();
+  it("fires onOpen when clicked", () => {
+    const { onOpen } = renderPanel();
     fireEvent.click(screen.getByText("Auth migration"));
-    const first = screen.getByText("First thing");
-    expect(first).toBeInTheDocument();
-    expect(first.className).toContain("line-through");
-    expect(screen.getByText("Second thing").className).not.toContain("line-through");
-  });
-
-  it("marks declared-done-but-unchecked items", () => {
-    renderPanel({ defaultExpanded: true });
-    expect(screen.getByText(/declared done/)).toBeInTheDocument();
-  });
-
-  it("chips active sessions onto their focused item, linking to the session", () => {
-    renderPanel({
-      defaultExpanded: true,
-      sessions: [makeSession()],
-      focusBySession: new Map([["sess-1", makeFocus()]]),
-    });
-    const chip = screen.getByText("Worker").closest("a") as HTMLAnchorElement;
-    expect(chip).toBeTruthy();
-    expect(chip.getAttribute("href")).toBe("/sessions/sess-1");
-    expect(chip.className).not.toContain("yellow");
-  });
-
-  it("tints drifting session chips amber", () => {
-    renderPanel({
-      defaultExpanded: true,
-      sessions: [makeSession()],
-      focusBySession: new Map([["sess-1", makeFocus({ drift: true })]]),
-    });
-    const chip = screen.getByText("Worker").closest("a") as HTMLAnchorElement;
-    expect(chip.className).toContain("yellow-500");
-  });
-
-  it("does not chip completed sessions", () => {
-    renderPanel({
-      defaultExpanded: true,
-      sessions: [makeSession({ status: "completed" })],
-      focusBySession: new Map([["sess-1", makeFocus()]]),
-    });
-    expect(screen.queryByText("Worker")).not.toBeInTheDocument();
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it("flags a plan whose file went missing", () => {

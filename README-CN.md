@@ -314,7 +314,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **压缩追踪** | 从 JSONL Transcript 检测 `/compact` 事件,创建压缩 Agent 和事件。启动时回填历史压缩。周期性扫描器(频率从 `DASHBOARD_STALE_MINUTES` 派生)在无 Hook 触发时也能捕获压缩。共享 Transcript 缓存,避免重复文件读取 |
 | **子会话/恢复会话** | 新事件到达时自动重新激活会话,正确处理 `/resume` 和孤立会话。周期性清理(每 ¼ 个 `DASHBOARD_STALE_MINUTES`,夹在 60 秒–5 分钟之间)标记遗漏事件检测的废弃会话 |
 | **预存会话检测** | 服务器启动时已在运行的会话以"活跃"状态导入（基于近期 JSONL 文件修改时间）。Stop 事件也会重新激活已导入的完成/废弃会话，因此进行中的会话的第一个 Hook 始终会显示在 Dashboard 上 |
-| **计划感知监控** | 一眼回答"这个会话在做什么、它服务于项目计划的哪一部分？"。每个被监控的仓库可在其根目录放置一个由人工批准的 `AGENT-PLAN.md`（带编号的复选框条目）；后台轮询（`DASHBOARD_PLAN_POLL_MS`，外加 `SessionStart` 时的机会性摄取）将其以只读方式镜像进 Dashboard，按 cwd 建键并汇总到项目层。会话通过在其 Bash 工具中运行 `ccam focus set/push/pop/done` 来声明自己的位置——**Hook 流**是写入通道（`PostToolUse` 事件本身就携带会话 id），因此它在每个接入 Hook 的项目中开箱即用，无需任何按项目配置。项目页面将每个计划展示为可折叠的清单，配有进度条和逐条目会话徽章；每张会话卡片获得一行焦点面包屑（`Item 4: Migrate auth ▸ npm conflict (23m)`），绕行（detour）以琥珀色显示；会话详情新增焦点横幅和 **Plan** 标签页（清单、由 `Focus` 事件解读出的焦点时间线，以及通过 `GET /api/sessions/:id/todos` 获取的该会话最新 TodoWrite 微计划）。**漂移审计**（`DASHBOARD_FOCUS_AUDIT_*`）周期性检查一个已声明焦点的会话最近的活动是否与其声明相符——在小模型上以 headless `claude -p` 运行，并以关键词重叠作为回退——并盖上琥珀色"可能存在未声明的绕行？"徽章；它从不改写焦点，声明也从不清除该徽章 |
+| **计划感知监控** | 一眼回答"这个会话在做什么、它服务于项目计划的哪一部分？"。每个被监控的仓库可在其根目录放置一个由人工批准的 `AGENT-PLAN.md`（带编号的复选框条目）；后台轮询（`DASHBOARD_PLAN_POLL_MS`，外加 `SessionStart` 时的机会性摄取）将其以只读方式镜像进 Dashboard，按 cwd 建键并汇总到项目层。会话通过在其 Bash 工具中运行 `ccam focus set/push/pop/done` 来声明自己的位置——**Hook 流**是写入通道（`PostToolUse` 事件本身就携带会话 id），因此它在每个接入 Hook 的项目中开箱即用，无需任何按项目配置。项目页面将每个计划展示为可折叠的清单，配有进度条和逐条目会话徽章；每张会话卡片获得一行焦点面包屑（`Item 4: Migrate auth ▸ npm conflict (23m)`），绕行（detour）以琥珀色显示；会话详情新增焦点横幅和 **Plan** 标签页（清单、由 `Focus` 事件解读出的焦点时间线，以及通过 `GET /api/sessions/:id/todos` 获取的该会话最新 TodoWrite 微计划）。**漂移审计**（`DASHBOARD_FOCUS_AUDIT_*`）周期性检查一个已声明焦点的会话最近的活动是否与其声明相符——在小模型上以 headless `claude -p` 运行，并以关键词重叠作为回退——并盖上琥珀色"可能存在未声明的绕行？"徽章；它从不改写焦点，声明也从不清除该徽章。`ccam focus bug`/`feature "<title>" "<summary>" [--detail "<text>"]` 会推送一次带类型标记的绕行，在其被声明所属的条目旁渲染为缺陷/功能图标徽章（未设置条目时归入"未知条目"分组），点击即可展开详情 |
 | **持续项目同步** | 启动时对 `~/.claude/projects` 的自动导入是一次性的（由标记位把关），因此在首次启动**之后**才创建的项目文件夹——其会话从不经过 Hook 流入（例如 host-only Hook 被禁用）——在手动重新扫描之前都将不可见。后台同步（`startSessionSync`）通过三个共享同一个 mtime 缓存 + 单次合并扫描的触发器弥补了这个空隙：启动时的**立即**扫描、一个去抖的 **`fs.watch`**（新会话文件 / 项目文件夹一出现就触发；在 macOS/Windows 上递归监听，在 Linux 上监听根目录 + 直接子文件夹，以规避用户态递归监听器的隐患），以及一个**周期性轮询**（`DASHBOARD_SESSION_SYNC_MS`，默认 30 秒）。每次扫描只重新解析 mtime 前进过的文件，并广播 `session_created`/`session_updated`（外加主 Agent），让 UI 实时刷新；DB 中已有且未变更的会话会被跳过、不再重新解析，因此重启成本保持为 O(新增/变更文件) |
 | **远程数据源** | 通过 SSH 从其他机器收集 Claude Code 使用数据 —— dashboard 对每个远程主机的 `~/.claude/projects` 目录执行 `rsync` 并导入,按来源为会话打标签。提供全局数据范围选择器(仅本地 / 全部 / 指定来源),按所选来源收窄整个应用。通过后台轮询实现近实时。远程会话**不接收本地实时 Hook**,因此被排除在所有本地存活性/过期启发式判断之外(`ps`/`lsof` 回收、看门狗 Transcript 扫描、启动清理与周期性废弃清理——均以 `source = 'local'` 为门槛);它们的实时状态改为在**每次同步时依据镜像 Transcript 重新核对**——镜像 Transcript 在 `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS`(默认 10 分钟)内被修改则视为远程 CLI 仍在运行(⇒ `active`),一旦镜像停止推进则核对为 `completed` |
 | **响应式设计** | 适配移动端的布局，堆叠网格、可滚动表格和可折叠侧边栏 |
@@ -670,7 +670,9 @@ ccam cost [--session <id>]        # 按模型细分的总预估成本
 ccam focus [--session id]         # 会话当前的计划 + 焦点 + 漂移（别名：focus status）
 ccam focus set <n> [note]         # 声明本会话正在服务哪个计划条目
 ccam focus push <description>     # 声明一次绕行（计划外但必要的工作）
-ccam focus pop                    # 结束当前绕行
+ccam focus bug "<title>" "<summary>" [--detail "<text>"]     # 推送一次标记为缺陷修复的绕行
+ccam focus feature "<title>" "<summary>" [--detail "<text>"] # 推送一次标记为小功能的绕行
+ccam focus pop                    # 结束当前绕行（普通、缺陷修复或小功能）
 ccam focus done <n>               # 声明某个计划条目已完成（文件中的复选框仍由人工掌管）
                                   # （在 Claude Code 会话内由 Hook 流记录写入；
                                   #  在会话外，CLI 按 cwd 或 --session 解析会话）
@@ -1270,7 +1272,7 @@ Dashboard 处理以下 Claude Code Hook 类型：
 | `Compaction` | JSONL 中检测到 `/compact` | 创建压缩子 Agent（类型 `compaction`）和 Compaction 事件。通过 Transcript JSONL 中的 `isCompactSummary` 条目检测。也可由周期性扫描器对活跃会话检测 |
 | `APIError` | JSONL Transcript 中的 API 错误 | 从 `isApiErrorMessage` 条目（配额、速率限制、invalid_request）和原始 `type: "error"` 响应中提取。**立即将会话和 Agent 标记为 `error`** — 之前仅记录事件而不更改状态。存储为包含错误详情的事件 |
 | `Interrupted` | 用户取消的回合（Esc） | 由看门狗合成 —— `Esc` 不触发任何 Hook，因此从 Transcript 的 `[Request interrupted by user]` 标记，或当 Esc 发生在任何输出之前时从空闲工作超时（`DASHBOARD_WORKING_IDLE_SECONDS`）检测出卡住的 `working` 会话。会话转入**等待中**（与正常 `Stop` 相同） |
-| `Focus` | 会话的 Bash 工具中运行了 `ccam focus …` | 从 `PostToolUse` Hook 的 `tool_input.command` 中解析（唯一原生携带会话 id 的通道）。`set`/`push`/`pop`/`done` 更新该会话的 `session_focus` 行（计划条目指针 + 绕行栈），并写入一个带条目文本快照的 `Focus` 事件供时间线使用；广播 `session_focus`（`done` 之后还广播 `plan_updated`）。`status` 为只读，不记录任何内容 |
+| `Focus` | 会话的 Bash 工具中运行了 `ccam focus …` | 从 `PostToolUse` Hook 的 `tool_input.command` 中解析（唯一原生携带会话 id 的通道）。`set`/`push`/`pop`/`done`/`bug`/`feature` 更新该会话的 `session_focus` 行（计划条目指针 + 绕行栈），并写入一个带条目文本快照的 `Focus` 事件供时间线使用；广播 `session_focus`（`done` 之后还广播 `plan_updated`）。`bug`/`feature` 还会在被推送的绕行帧上附带 `kind`/`title`/`detail`，在 Plan 视图中显示为徽章。`status` 为只读，不记录任何内容 |
 | `TurnDuration` | JSONL Transcript 中的回合计时 | 从 `system` 子类型 `turn_duration` 消息中提取，含 `durationMs`。存储为回合级计时分析事件 |
 | `ToolError` | JSONL 中的工具结果错误 | 从 `toolUseResult.is_error` 条目中提取。追踪工具级失败用于错误传播分析 |
 

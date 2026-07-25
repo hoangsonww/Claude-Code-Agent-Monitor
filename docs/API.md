@@ -1046,7 +1046,7 @@ DELETE /api/projects/:id/paths/:pathId
 
 ### Plans & Focus
 
-**Plan-Aware Monitoring**: each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items like `- [ ] 4. Migrate auth — acceptance: login works via SSO`). The dashboard mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — the file is the source of truth and is never written by the server. Sessions declare which item they are serving with `ccam focus set|push|pop|done`, normally parsed off the `PostToolUse` hook stream; the endpoints below are the read surface plus the explicit (non-hook) write path.
+**Plan-Aware Monitoring**: each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# Title` plus numbered checkbox items like `- [ ] 4. Migrate auth — acceptance: login works via SSO`). The dashboard mirrors it **read-only** into the `plans`/`plan_items` tables, keyed by cwd — the file is the source of truth and is never written by the server. Sessions declare which item they are serving with `ccam focus set|push|bug|feature|pop|done`, normally parsed off the `PostToolUse` hook stream; the endpoints below are the read surface plus the explicit (non-hook) write path.
 
 **Plan shape** (`plan` + `items`):
 
@@ -1184,10 +1184,12 @@ The explicit (non-hook) focus write path — used by `ccam focus` when run outsi
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `verb` | string | Yes | `set`, `push`, `pop`, or `done` |
+| `verb` | string | Yes | `set`, `push`, `pop`, `done`, `bug`, or `feature` |
 | `item_number` | integer | For `set`/`done` | The plan item's own number (0–999) |
 | `note` | string | No (`set` only) | Free-text note, clamped to 300 chars |
-| `description` | string | For `push` | What the detour is, clamped to 300 chars |
+| `description` | string | For `push`/`bug`/`feature` | What the detour is (for `bug`/`feature` this is the one-sentence summary), clamped to 300 chars |
+| `title` | string | For `bug`/`feature` | Short (~1-2 word) badge label, clamped to 40 chars |
+| `detail` | string | No (`bug`/`feature` only) | Longer freeform detail shown when the badge is expanded, clamped to 2000 chars |
 
 Returns `{ "focus": FocusWireShape, "deduped": boolean }`. Unlike the permissive hook path, this endpoint is **strict**: **400** `INVALID_INPUT` for a bad verb/field, **404** for an unknown session, **409** `UNKNOWN_ITEM` (declared item isn't in the ingested plan) or `EMPTY_STACK` (`pop` with no detour in flight). It is also **idempotent**: a declaration whose end state equals the current state returns `"deduped": true` without writing a `Focus` event — CLI-write + hook-parse double delivery is harmless. Declarations never touch the `drift_*` columns.
 

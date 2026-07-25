@@ -29,6 +29,7 @@ const {
   applyFocusCommand,
   focusWireShape,
   MAX_STACK_DEPTH,
+  MAX_TITLE_LEN,
 } = require("../lib/focus-commands");
 
 const CWD = "/tmp/focus-test-project";
@@ -68,6 +69,12 @@ describe("extractFocusCommand", () => {
     ["npx ccam focus done 2", "done", "2"],
     ["ccam focus status", "status", ""],
     ["git status; ccam focus set 1", "set", "1"],
+    ['ccam focus bug "Title" "Summary"', "bug", '"Title" "Summary"'],
+    [
+      'ccam focus feature "Title" "Summary" --detail "long text"',
+      "feature",
+      '"Title" "Summary" --detail "long text"',
+    ],
   ];
   for (const [cmd, verb, args] of positives) {
     it(`extracts from: ${cmd}`, () => {
@@ -114,6 +121,48 @@ describe("parseFocusArgs", () => {
     assert.deepEqual(parseFocusArgs("pop", ""), { verb: "pop" });
     assert.deepEqual(parseFocusArgs("status", ""), { verb: "status" });
     assert.deepEqual(parseFocusArgs("done", "4"), { verb: "done", itemNumber: 4 });
+  });
+
+  it("parses bug/feature title + summary, with and without --detail", () => {
+    assert.deepEqual(parseFocusArgs("bug", '"Waiting bug" "Session mislabeled"'), {
+      verb: "bug",
+      kind: "bug",
+      title: "Waiting bug",
+      description: "Session mislabeled",
+      detail: null,
+    });
+    assert.deepEqual(
+      parseFocusArgs("feature", '"Badges" "Add plan-item badges" --detail "longer explanation"'),
+      {
+        verb: "feature",
+        kind: "feature",
+        title: "Badges",
+        description: "Add plan-item badges",
+        detail: "longer explanation",
+      }
+    );
+  });
+
+  it("truncates an overlong bug/feature title", () => {
+    const longTitle = "x".repeat(MAX_TITLE_LEN + 20);
+    const res = parseFocusArgs("bug", `"${longTitle}" "summary"`);
+    assert.equal(res.title.length, MAX_TITLE_LEN);
+  });
+
+  it("rejects bug/feature missing a title or summary", () => {
+    assert.deepEqual(parseFocusArgs("bug", ""), { error: "bad_args" });
+    assert.deepEqual(parseFocusArgs("bug", '"only title"'), { error: "bad_args" });
+  });
+
+  it("rejects a title/summary truncated to an unterminated quote (regression)", () => {
+    // A `)` in the title/summary text truncates FOCUS_RE's tail capture mid-
+    // quote (the same char class already excludes `;&|)#`), leaving an
+    // opening quote with no closing partner. Before the fix this silently
+    // parsed to { kind: "feature", title: '"', description: "README-VN.md" }
+    // instead of failing — reproduced live by a subagent's real
+    // `ccam focus feature "...)" "README-VN.md ..."` invocation.
+    assert.deepEqual(parseFocusArgs("feature", '" README-VN.md'), { error: "bad_args" });
+    assert.deepEqual(parseFocusArgs("bug", "'Docs (README-VN.md"), { error: "bad_args" });
   });
 });
 
@@ -183,6 +232,57 @@ describe("applyFocusCommand", () => {
     assert.equal(res.focus.item_number, 4);
     res = applyFocusCommand(dbModule, broadcast, SESSION, { verb: "pop" });
     assert.equal(res.focus.detour_stack.length, 0);
+  });
+
+  it("bug/feature push a kind-tagged frame and pop resolves it like a plain detour", () => {
+    applyFocusCommand(dbModule, broadcast, SESSION, { verb: "set", itemNumber: 4 });
+    broadcasts = [];
+    let res = applyFocusCommand(dbModule, broadcast, SESSION, {
+      verb: "bug",
+      kind: "bug",
+      title: "Waiting bug",
+      description: "Session mislabeled while a subagent works",
+      detail: "Watchdog skips the working-fleet guard",
+    });
+    assert.equal(res.focus.detour_stack.length, 1);
+    const frame = res.focus.detour_stack[0];
+    assert.equal(frame.kind, "bug");
+    assert.equal(frame.title, "Waiting bug");
+    assert.equal(frame.description, "Session mislabeled while a subagent works");
+    assert.equal(frame.detail, "Watchdog skips the working-fleet guard");
+    assert.equal(frame.prior_item, 4);
+    const events = stmts.listFocusEvents.all(SESSION.id, 10);
+    assert.equal(events[0].summary, "Bug: Waiting bug");
+    assert.equal(JSON.parse(events[0].data).kind, "bug");
+
+    res = applyFocusCommand(dbModule, broadcast, SESSION, {
+      verb: "feature",
+      kind: "feature",
+      title: "Badges",
+      description: "Add plan-item badges",
+      detail: null,
+    });
+    assert.equal(res.focus.detour_stack.length, 2);
+    assert.equal(res.focus.detour_stack[1].kind, "feature");
+    assert.equal("detail" in res.focus.detour_stack[1], false);
+
+    res = applyFocusCommand(dbModule, broadcast, SESSION, { verb: "pop" });
+    assert.equal(res.focus.detour_stack.length, 1);
+    assert.equal(res.focus.detour_stack[0].kind, "bug");
+    res = applyFocusCommand(dbModule, broadcast, SESSION, { verb: "pop" });
+    assert.equal(res.focus.detour_stack.length, 0);
+  });
+
+  it("a plain push still has no kind/title/detail fields (regression)", () => {
+    const res = applyFocusCommand(dbModule, broadcast, SESSION, {
+      verb: "push",
+      description: "npm conflict",
+    });
+    const frame = res.focus.detour_stack[res.focus.detour_stack.length - 1];
+    assert.equal("kind" in frame, false);
+    assert.equal("title" in frame, false);
+    assert.equal("detail" in frame, false);
+    applyFocusCommand(dbModule, broadcast, SESSION, { verb: "pop" });
   });
 
   it("pop on an empty stack is a flagged no-op (hook) and EMPTY_STACK (strict)", () => {

@@ -1,5 +1,6 @@
 {
   "title": "Kế hoạch",
+  "titleCount": "Kế hoạch ({{count}})",
   "tab": "Kế hoạch",
   "progress": "Hoàn thành {{done}}/{{total}}",
   "planMissing": "AGENT-PLAN.md đã bị xóa — hiển thị kế hoạch được nạp lần cuối",
@@ -24,7 +25,12 @@
     "empty": "Chưa báo cáo việc cần làm"
   },
   "items": {
-    "declaredDone": "đã khai báo xong, chờ đánh dấu"
+    "declaredDone": "đã khai báo xong, chờ đánh dấu",
+    "acceptancePrefix": "Tiêu chí nghiệm thu:",
+    "bugLabel": "Lỗi",
+    "featureLabel": "Tính năng",
+    "unknownBucket": "Mục chưa xác định",
+    "declaredBy": "Khai báo bởi {{session}}"
   },
   "errors": {
     "loadFailed": "Không tải được kế hoạch"

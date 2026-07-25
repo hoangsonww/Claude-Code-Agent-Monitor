@@ -1562,14 +1562,30 @@ export interface Plan {
   items: PlanItem[];
 }
 
+/** Classifies a {@link DetourFrame} pushed via `ccam focus bug`/`feature`
+ *  instead of a plain `ccam focus push`. Absent on ordinary detours. */
+export type DetourKind = "bug" | "feature";
+
 /** One in-flight detour on a session's focus stack. */
 export interface DetourFrame {
-  /** What pulled the session away (e.g. `"npm module conflict"`). */
+  /** What pulled the session away (e.g. `"npm module conflict"`); doubles as
+   *  the one-sentence summary for bug/feature detours. */
   description: string;
   /** ISO timestamp the detour was pushed. */
   pushed_at: string;
-  /** The plan item that was current when the detour began; null if none. */
+  /** The plan item that was current when the detour began; null if none -
+   *  the plan UI buckets these under "Unknown". */
   prior_item: number | null;
+  /** Set only for `ccam focus bug`/`feature` declarations; absent on plain
+   *  detours (which render exactly as before, with no badge). */
+  kind?: DetourKind;
+  /** Short (~1-2 word) label shown on the badge, from `ccam focus bug/feature
+   *  "<title>" ...`. Only present alongside `kind`. */
+  title?: string;
+  /** Longer freeform detail shown when the badge is expanded, from the
+   *  optional `--detail "<text>"` flag. Falls back to `description` in the
+   *  UI when absent. */
+  detail?: string;
 }
 
 /** One focus timeline entry, rebuilt from the session's `Focus` events by
@@ -2531,6 +2547,30 @@ export const AWAITING_REASON_CONFIG: Record<
     labelKey: "common:awaitingReason.interrupted.label",
     descKey: "common:awaitingReason.interrupted.desc",
     urgent: true,
+  },
+};
+
+// ───── Detour-kind presentation lookup (plan item bug/feature badges) ─────
+
+/**
+ * UI presentation lookup for {@link DetourKind}: the i18n label key and the
+ * badge's text/background color classes, mirroring {@link STATUS_CONFIG}'s
+ * shape. Rendered by PlanModal's per-item badge row, kept visually distinct
+ * from the green/yellow session-serving chips it sits alongside.
+ */
+export const DETOUR_KIND_CONFIG: Record<
+  DetourKind,
+  { labelKey: string; color: string; bg: string }
+> = {
+  bug: {
+    labelKey: "plan:items.bugLabel",
+    color: "text-rose-400",
+    bg: "bg-rose-500/10 border-rose-500/20",
+  },
+  feature: {
+    labelKey: "plan:items.featureLabel",
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
   },
 };
 

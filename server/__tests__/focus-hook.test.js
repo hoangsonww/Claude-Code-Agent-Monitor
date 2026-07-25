@@ -150,6 +150,35 @@ describe("hook-stream focus channel", () => {
     assert.equal(focus.item_number, 4);
   });
 
+  it("bug/feature verbs push a kind-tagged detour through the hook path", async () => {
+    await hookEvent("PostToolUse", SESSION_ID, {
+      tool_name: "Bash",
+      tool_input: {
+        command:
+          'ccam focus bug "Waiting bug" "Session mislabeled while a subagent works" --detail "Watchdog skips the working-fleet guard"',
+      },
+    });
+    let focus = stmts.getSessionFocus.get(SESSION_ID);
+    let stack = JSON.parse(focus.detour_stack);
+    assert.equal(stack.length, 1);
+    assert.equal(stack[0].kind, "bug");
+    assert.equal(stack[0].title, "Waiting bug");
+    assert.equal(stack[0].description, "Session mislabeled while a subagent works");
+    assert.equal(stack[0].detail, "Watchdog skips the working-fleet guard");
+    assert.equal(stack[0].prior_item, 4);
+    const events = stmts.listFocusEvents.all(SESSION_ID, 10);
+    assert.equal(events[0].summary, "Bug: Waiting bug");
+
+    await hookEvent("PostToolUse", SESSION_ID, {
+      tool_name: "Bash",
+      tool_input: { command: "ccam focus pop" },
+    });
+    focus = stmts.getSessionFocus.get(SESSION_ID);
+    stack = JSON.parse(focus.detour_stack);
+    assert.equal(stack.length, 0);
+    assert.equal(focus.item_number, 4);
+  });
+
   it("focus done stamps the item and clears the pointer", async () => {
     await hookEvent("PostToolUse", SESSION_ID, {
       tool_name: "Bash",

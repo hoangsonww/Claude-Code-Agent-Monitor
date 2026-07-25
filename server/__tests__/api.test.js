@@ -2429,6 +2429,144 @@ describe("Watchdog user-interrupt recovery", () => {
     }
   });
 
+  // Regression: Task/Agent-tool PostToolUse clears the main agent's
+  // current_tool as soon as the subagent is spawned (see hooks.js's Agent
+  // PostToolUse handler), even though the subagent itself keeps running.
+  // Before the working-fleet guard was added to both watchdog recovery
+  // branches, a subagent that ran one long tool call for >WORKING_IDLE_MS
+  // with no further hook events made the watchdog see "main working, no
+  // current_tool, no recent activity" and falsely stamp Waiting — exactly
+  // the "session_focus + email-management fleet shows Waiting mid-subagent"
+  // bug reported against this dashboard.
+  it("should NOT idle-timeout a session while a subagent is still working", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `watchdog-subagent-idle-${Date.now()}.jsonl`);
+    const sessionId = `watchdog-subagent-idle-${Date.now()}`;
+    const hooks = require("../routes/hooks");
+
+    try {
+      fs.writeFileSync(
+        tmpTranscript,
+        promptEntry(new Date(Date.now() - 300_000).toISOString(), "go do the big thing") + "\n"
+      );
+
+      await post("/api/hooks/event", {
+        hook_type: "UserPromptSubmit",
+        data: { session_id: sessionId, transcript_path: tmpTranscript, cwd: "/tmp" },
+      });
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Agent",
+          tool_input: { subagent_type: "reviewer", prompt: "review" },
+          cwd: "/tmp",
+        },
+      });
+      await post("/api/hooks/event", {
+        hook_type: "PostToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Agent",
+          tool_input: { subagent_type: "reviewer", prompt: "review" },
+          cwd: "/tmp",
+        },
+      });
+
+      const before = getMain(sessionId);
+      assert.strictEqual(before.status, "working");
+      assert.ok(!before.current_tool, "precondition: Agent PostToolUse cleared current_tool");
+      const subagent = db
+        .prepare("SELECT * FROM agents WHERE session_id = ? AND type = 'subagent' LIMIT 1")
+        .get(sessionId);
+      assert.strictEqual(subagent.status, "working", "precondition: subagent still working");
+
+      ageIdle(sessionId, tmpTranscript);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      const main = getMain(sessionId);
+      const sess = stmts.getSession.get(sessionId);
+      assert.strictEqual(
+        main.status,
+        "working",
+        "a session with a working subagent must not be idle-timed-out"
+      );
+      assert.strictEqual(main.awaiting_input_since, null);
+      assert.strictEqual(sess.awaiting_input_since, null);
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
+  it("should NOT interrupt-recover a session while a subagent is still working", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `watchdog-subagent-int-${Date.now()}.jsonl`);
+    const sessionId = `watchdog-subagent-int-${Date.now()}`;
+    const hooks = require("../routes/hooks");
+
+    try {
+      await post("/api/hooks/event", {
+        hook_type: "UserPromptSubmit",
+        data: { session_id: sessionId, transcript_path: tmpTranscript, cwd: "/tmp" },
+      });
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Agent",
+          tool_input: { subagent_type: "reviewer", prompt: "review" },
+          cwd: "/tmp",
+        },
+      });
+      await post("/api/hooks/event", {
+        hook_type: "PostToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Agent",
+          tool_input: { subagent_type: "reviewer", prompt: "review" },
+          cwd: "/tmp",
+        },
+      });
+
+      // A pending (unrecovered) interrupt marker in the transcript, same as
+      // the pre-output-Esc case above — but this time a subagent is working.
+      const base = new Date(Date.now() - 5_000);
+      fs.writeFileSync(
+        tmpTranscript,
+        promptEntry(base.toISOString()) +
+          "\n" +
+          interruptEntry(new Date(base.getTime() + 1).toISOString()) +
+          "\n"
+      );
+      makeStale(sessionId);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      const main = getMain(sessionId);
+      const sess = stmts.getSession.get(sessionId);
+      assert.strictEqual(
+        main.status,
+        "working",
+        "a session with a working subagent must not be interrupt-recovered"
+      );
+      assert.strictEqual(main.awaiting_input_since, null);
+      assert.strictEqual(sess.awaiting_input_since, null);
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
   it("should NOT idle-timeout a session with a tool in flight", async () => {
     const tmpTranscript = path.join(os.tmpdir(), `watchdog-tool-${Date.now()}.jsonl`);
     const sessionId = `watchdog-tool-${Date.now()}`;

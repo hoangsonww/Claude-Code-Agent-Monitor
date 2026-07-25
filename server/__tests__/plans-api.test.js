@@ -176,6 +176,40 @@ describe("session focus endpoints", () => {
     assert.equal(res.body.error.code, "EMPTY_STACK");
   });
 
+  it("POST focus bug/feature validates title+summary and writes a kind-tagged detour", async () => {
+    const missingTitle = await post(`/api/sessions/${SESSION_ID}/focus`, {
+      verb: "bug",
+      description: "summary only",
+    });
+    assert.equal(missingTitle.status, 400);
+    const missingSummary = await post(`/api/sessions/${SESSION_ID}/focus`, {
+      verb: "feature",
+      title: "title only",
+    });
+    assert.equal(missingSummary.status, 400);
+
+    const ok = await post(`/api/sessions/${SESSION_ID}/focus`, {
+      verb: "bug",
+      title: "Waiting bug",
+      description: "Session mislabeled while a subagent works",
+      detail: "Watchdog skips the working-fleet guard",
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.focus.detour_stack.length, 1);
+    const frame = ok.body.focus.detour_stack[0];
+    assert.equal(frame.kind, "bug");
+    assert.equal(frame.title, "Waiting bug");
+    assert.equal(frame.detail, "Watchdog skips the working-fleet guard");
+
+    const history = await fetch(`/api/sessions/${SESSION_ID}/focus`);
+    assert.equal(history.body.history[0].kind, "detour_push");
+    assert.equal(history.body.history[0].verb, "bug");
+
+    const popped = await post(`/api/sessions/${SESSION_ID}/focus`, { verb: "pop" });
+    assert.equal(popped.status, 200);
+    assert.equal(popped.body.focus.detour_stack.length, 0);
+  });
+
   it("GET /api/focus bulk-hydrates active sessions", async () => {
     const res = await fetch("/api/focus");
     assert.equal(res.status, 200);

@@ -1,5 +1,6 @@
 {
   "title": "Plan",
+  "titleCount": "Plans ({{count}})",
   "tab": "Plan",
   "progress": "{{done}}/{{total}} complete",
   "planMissing": "AGENT-PLAN.md was removed — showing the last ingested plan",
@@ -24,7 +25,12 @@
     "empty": "No todos reported"
   },
   "items": {
-    "declaredDone": "declared done, checkbox pending"
+    "declaredDone": "declared done, checkbox pending",
+    "acceptancePrefix": "Acceptance:",
+    "bugLabel": "Bug",
+    "featureLabel": "Feature",
+    "unknownBucket": "Unknown item",
+    "declaredBy": "Declared by {{session}}"
   },
   "errors": {
     "loadFailed": "Failed to load plan"
