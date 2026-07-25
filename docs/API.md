@@ -226,6 +226,42 @@ curl http://localhost:4820/api/sessions/sess_abc123
 
 ---
 
+#### Delete Session
+
+```http
+DELETE /api/sessions/:id
+```
+
+Permanently deletes one session and its agents/events/token_usage/workflow runs (FK cascade — `foreign_keys` is `ON` for the whole database). Active sessions are refused with `409` so a live/in-progress session can't be deleted out from under itself; let it complete or wait for it to be marked `abandoned` first. Broadcasts `session_deleted` (`{ id }`) over the WebSocket so any open Session Detail page for this session navigates back to the list.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Session ID |
+
+**Example Request:**
+
+```bash
+curl -X DELETE http://localhost:4820/api/sessions/sess_abc123
+```
+
+**Example Response:**
+
+```json
+{ "ok": true }
+```
+
+**Error Responses:**
+
+| Code | Description |
+|------|-------------|
+| 404 | Session not found |
+| 409 | Session is still `active` (code `SESSION_ACTIVE`) — wait for it to complete or abandon first |
+| 500 | Internal server error |
+
+---
+
 #### Get Session Stats
 
 ```http

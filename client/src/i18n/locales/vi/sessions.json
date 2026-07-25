@@ -34,6 +34,11 @@
     "unparented": "Subagent không có cha",
     "costBreakdown": "Phân rã chi phí",
     "eventTimeline": "Dòng thời gian sự kiện",
-    "noEvents": "Chưa có sự kiện được ghi nhận."
+    "noEvents": "Chưa có sự kiện được ghi nhận.",
+    "deleteSession": "Xóa phiên",
+    "confirmDelete": "Xác nhận xóa?",
+    "deleting": "Đang xóa…",
+    "deleteActiveTitle": "Không thể xóa một phiên đang hoạt động — hãy đợi phiên hoàn tất hoặc bị bỏ dở trước.",
+    "deleteFailed": "Không thể xóa phiên"
   }
 }

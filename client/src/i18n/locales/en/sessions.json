@@ -34,7 +34,12 @@
     "unparented": "Unparented Subagents",
     "costBreakdown": "Cost Breakdown",
     "eventTimeline": "Event Timeline",
-    "noEvents": "No events recorded."
+    "noEvents": "No events recorded.",
+    "deleteSession": "Delete session",
+    "confirmDelete": "Confirm delete?",
+    "deleting": "Deleting…",
+    "deleteActiveTitle": "Cannot delete an active session — wait for it to complete or abandon first.",
+    "deleteFailed": "Failed to delete session"
   },
   "remoteSourceBadgeTitle": "Collected from a remote machine"
 }

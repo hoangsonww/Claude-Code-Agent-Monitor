@@ -1206,6 +1206,17 @@ export interface RemoteSourceStatusPayload {
   last_sync_at?: string;
 }
 
+// ───── Session deletion ─────
+
+/** Payload for `session_deleted` WebSocket messages: a session was
+ *  permanently removed (via `DELETE /api/sessions/:id`). Consumers should
+ *  drop the session from any cached list and, if it's the one currently
+ *  open, navigate away. */
+export interface SessionDeletedPayload {
+  /** Id of the session that was deleted. */
+  id: string;
+}
+
 // ───── Self-update status ─────
 
 /** Payload for `update_status` WebSocket messages and GET /api/updates/status.
@@ -1685,14 +1696,16 @@ export interface WebhookTestResult {
  */
 export interface WSMessage {
   /** Discriminant selecting which member of the `data` union applies:
-   *  session_created/updated → Session; agent_created/updated → Agent;
-   *  new_event → DashboardEvent; import.progress → ImportProgressMessage;
-   *  update_status → UpdateStatusPayload; run_stream/run_status/run_input_ack
-   *  → their matching Run*Payload; cc_config_changed → CcConfigChangedPayload;
-   *  alert_triggered/alert_updated → AlertEvent; workflow_upserted → WorkflowRun. */
+   *  session_created/updated → Session; session_deleted → SessionDeletedPayload;
+   *  agent_created/updated → Agent; new_event → DashboardEvent;
+   *  import.progress → ImportProgressMessage; update_status → UpdateStatusPayload;
+   *  run_stream/run_status/run_input_ack → their matching Run*Payload;
+   *  cc_config_changed → CcConfigChangedPayload; alert_triggered/alert_updated
+   *  → AlertEvent; workflow_upserted → WorkflowRun. */
   type:
     | "session_created"
     | "session_updated"
+    | "session_deleted"
     | "agent_created"
     | "agent_updated"
     | "new_event"
@@ -1709,6 +1722,7 @@ export interface WSMessage {
   /** The message body, whose concrete shape is selected by `type` above. */
   data:
     | Session
+    | SessionDeletedPayload
     | Agent
     | DashboardEvent
     | ImportProgressMessage

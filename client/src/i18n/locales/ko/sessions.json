@@ -34,6 +34,11 @@
     "unparented": "상위가 없는 Subagent",
     "costBreakdown": "비용 내역",
     "eventTimeline": "이벤트 타임라인",
-    "noEvents": "기록된 이벤트가 없습니다."
+    "noEvents": "기록된 이벤트가 없습니다.",
+    "deleteSession": "세션 삭제",
+    "confirmDelete": "삭제를 확인하시겠습니까?",
+    "deleting": "삭제 중…",
+    "deleteActiveTitle": "활성 세션은 삭제할 수 없습니다 — 완료되거나 중단될 때까지 기다려 주세요.",
+    "deleteFailed": "세션을 삭제하지 못했습니다"
   }
 }

@@ -84,6 +84,7 @@ import {
   ExternalLink,
   Workflow,
   Hourglass,
+  Trash2,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -175,6 +176,9 @@ export function SessionDetail() {
   const [transcriptNotFound, setTranscriptNotFound] = useState(false);
   const notFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function toggleEvent(id: number) {
     setExpandedEvents((prev) => {
@@ -199,6 +203,33 @@ export function SessionDetail() {
     }
     navigate("/sessions");
   }, [navigate]);
+
+  const handleDelete = useCallback(async () => {
+    if (!id) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.sessions.remove(id);
+      navigate("/sessions");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : t("detail.deleteFailed"));
+      setDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
+  }, [id, navigate, t]);
+
+  // If this session gets deleted from elsewhere (Settings cleanup, another
+  // tab, the CLI) while it's open here, don't leave the user staring at a
+  // stale/404ing detail page - bounce back to the list.
+  useEffect(() => {
+    if (!id) return;
+    return eventBus.subscribe((msg) => {
+      if (msg.type === "session_deleted" && (msg.data as { id: string }).id === id) {
+        navigate("/sessions");
+      }
+    });
+  }, [id, navigate]);
 
   // Auto-dismiss not-found warning after 8 seconds
   useEffect(() => {
@@ -632,7 +663,30 @@ export function SessionDetail() {
         <button onClick={load} className="btn-ghost">
           <RefreshCw className="w-4 h-4" />
         </button>
+        <button
+          onClick={() => (deleteConfirm ? handleDelete() : setDeleteConfirm(true))}
+          onBlur={() => setDeleteConfirm(false)}
+          disabled={session.status === "active" || deleting}
+          title={session.status === "active" ? t("detail.deleteActiveTitle") : undefined}
+          className={`text-xs px-3 py-1.5 rounded-md transition-colors disabled:opacity-40 inline-flex items-center gap-1.5 ${
+            deleteConfirm
+              ? "bg-red-500/20 text-red-400 border border-red-500/30"
+              : "text-gray-400 hover:text-red-400 hover:bg-surface-4 border border-border"
+          }`}
+        >
+          {deleting ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="w-3.5 h-3.5" />
+          )}
+          {deleting
+            ? t("detail.deleting")
+            : deleteConfirm
+              ? t("detail.confirmDelete")
+              : t("detail.deleteSession")}
+        </button>
       </div>
+      {deleteError && <p className="text-xs text-red-400 -mt-4">{deleteError}</p>}
 
       {/* Waiting-for-input callout: WHY the session sits in the yellow Waiting
           state (awaiting_reason) and for how long. Reason-specific icon/label

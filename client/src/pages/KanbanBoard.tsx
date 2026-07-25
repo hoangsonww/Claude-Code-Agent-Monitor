@@ -276,13 +276,18 @@ export function KanbanBoard() {
           msg.type === "agent_created" ||
           msg.type === "agent_updated" ||
           msg.type === "session_updated" ||
-          msg.type === "session_created"
+          msg.type === "session_created" ||
+          msg.type === "session_deleted"
         ) {
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(loadAgents, 300);
         }
       } else if (view === "projects") {
-        if (msg.type === "session_created" || msg.type === "session_updated") {
+        if (
+          msg.type === "session_created" ||
+          msg.type === "session_updated" ||
+          msg.type === "session_deleted"
+        ) {
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => {
             loadSessions();
@@ -290,7 +295,11 @@ export function KanbanBoard() {
           }, 300);
         }
       } else {
-        if (msg.type === "session_created" || msg.type === "session_updated") {
+        if (
+          msg.type === "session_created" ||
+          msg.type === "session_updated" ||
+          msg.type === "session_deleted"
+        ) {
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(loadSessions, 300);
         }

@@ -221,7 +221,11 @@ export function Sessions() {
 
   useEffect(() => {
     return eventBus.subscribe((msg) => {
-      if (msg.type === "session_created" || msg.type === "session_updated") {
+      if (
+        msg.type === "session_created" ||
+        msg.type === "session_updated" ||
+        msg.type === "session_deleted"
+      ) {
         load();
       }
       if (msg.type === "new_event") {

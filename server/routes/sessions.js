@@ -9,6 +9,7 @@ const path = require("path");
 const readline = require("readline");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
+const { transcriptCache } = require("./hooks");
 const { calculateCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 const {
@@ -402,6 +403,32 @@ router.patch("/:id", (req, res) => {
   const session = stmts.getSession.get(req.params.id);
   broadcast("session_updated", session);
   res.json({ session });
+});
+
+// DELETE /:id — permanently remove one session. Active sessions are refused
+// (409) so a live/in-progress session can't be nuked out from under itself;
+// abandon or let it finish first. FK ON DELETE CASCADE (foreign_keys is ON
+// for the whole db, see db.js) removes the session's agents/events/
+// token_usage/workflow runs along with it — same reliance as the
+// remote-sources purge-on-delete path.
+router.delete("/:id", (req, res) => {
+  const existing = stmts.getSession.get(req.params.id);
+  if (!existing) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  if (existing.status === "active") {
+    return res.status(409).json({
+      error: {
+        code: "SESSION_ACTIVE",
+        message: "Cannot delete an active session. Wait for it to complete or abandon first.",
+      },
+    });
+  }
+
+  db.prepare("DELETE FROM sessions WHERE id = ?").run(req.params.id);
+  if (existing.transcript_path) transcriptCache.invalidate(existing.transcript_path);
+  broadcast("session_deleted", { id: req.params.id });
+  res.json({ ok: true });
 });
 
 // GET /:id/transcripts — List available transcript files for a session (main + sub-agents)

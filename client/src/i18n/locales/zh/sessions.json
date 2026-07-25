@@ -34,6 +34,11 @@
     "unparented": "独立Subagent",
     "costBreakdown": "费用明细",
     "eventTimeline": "事件时间线",
-    "noEvents": "暂无事件记录。"
+    "noEvents": "暂无事件记录。",
+    "deleteSession": "删除会话",
+    "confirmDelete": "确认删除？",
+    "deleting": "正在删除…",
+    "deleteActiveTitle": "无法删除正在进行的会话——请等待其完成或被判定为放弃后再删除。",
+    "deleteFailed": "删除会话失败"
   }
 }

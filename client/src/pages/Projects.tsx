@@ -119,7 +119,11 @@ export function Projects() {
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     return eventBus.subscribe((msg: WSMessage) => {
-      if (msg.type === "session_created" || msg.type === "session_updated") {
+      if (
+        msg.type === "session_created" ||
+        msg.type === "session_updated" ||
+        msg.type === "session_deleted"
+      ) {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(load, 300);
       }

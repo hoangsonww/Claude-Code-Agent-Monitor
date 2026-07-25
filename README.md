@@ -1337,7 +1337,7 @@ Connect to `ws://localhost:4820/ws` to receive real-time push messages:
 }
 ```
 
-**Message types:** `session_created`, `session_updated`, `agent_created`, `agent_updated`, `new_event`, `alert_triggered`, `alert_updated`, `remote_source.status` (data `{ id, status: "idle"|"syncing"|"ok"|"error"|"deleted", error?, last_sync_at? }`)
+**Message types:** `session_created`, `session_updated`, `session_deleted` (data `{ id }`, fired by `DELETE /api/sessions/:id`), `agent_created`, `agent_updated`, `new_event`, `alert_triggered`, `alert_updated`, `remote_source.status` (data `{ id, status: "idle"|"syncing"|"ok"|"error"|"deleted", error?, last_sync_at? }`)
 
 ```mermaid
 stateDiagram-v2

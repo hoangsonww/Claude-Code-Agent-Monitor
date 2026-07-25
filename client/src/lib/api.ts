@@ -666,6 +666,15 @@ export const api = {
         workflows: WorkflowRun[];
       }>(`/sessions/${encodeURIComponent(id)}`),
     /**
+     * DELETE /api/sessions/:id - permanently delete one session and its
+     * agents/events/token_usage/workflow runs (cascade). Active sessions are
+     * rejected server-side (409) — abandon or let it complete first.
+     * @param id The session id.
+     * @returns `{ ok: true }`.
+     */
+    remove: (id: string) =>
+      request<{ ok: true }>(`/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    /**
      * GET /api/sessions/:id/stats - per-session rollups for the detail page.
      *
      * Aggregate metrics scoped to a single session (token/tool/cost rollups and

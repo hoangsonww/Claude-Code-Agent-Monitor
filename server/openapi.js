@@ -1493,6 +1493,44 @@ function createOpenApiSpec() {
             },
           },
         },
+        delete: {
+          tags: ["Sessions"],
+          summary: "Delete a session",
+          description:
+            "Permanently deletes one session and its agents/events/token_usage/workflow runs (FK cascade). Active sessions are refused with 409 — wait for the session to complete or abandon first.",
+          operationId: "deleteSession",
+          parameters: [{ $ref: "#/components/parameters/SessionIdPath" }],
+          responses: {
+            200: {
+              description: "Deleted",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["ok"],
+                    properties: { ok: { type: "boolean", enum: [true] } },
+                  },
+                },
+              },
+            },
+            404: {
+              description: "Session not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            409: {
+              description: "Session is still active (code SESSION_ACTIVE)",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
       },
       "/api/sessions/{id}/stats": {
         get: {
