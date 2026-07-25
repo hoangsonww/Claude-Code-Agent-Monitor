@@ -393,6 +393,14 @@ vi.mock("../../lib/api", async (importOriginal) => {
         addPath: r({ project: {} }),
         removePath: r({ project: {} }),
       },
+      plans: {
+        list: r({ plans: [] }),
+        forCwd: r({ plan: null, items: [] }),
+        projectRollup: r({ project_id: "", plans: [] }),
+        focusAll: r({ focus: [] }),
+        focus: r({ focus: null, item: null, plan_title: null, history: [] }),
+        todos: r({ todos: null, updated_at: null }),
+      },
     },
   };
 });

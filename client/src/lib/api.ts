@@ -399,6 +399,11 @@ import type {
   TranscriptListResult,
   TranscriptResult,
   UnassignedProjectBucket,
+  Plan,
+  PlanItem,
+  SessionFocus,
+  FocusHistoryEntry,
+  SessionTodo,
   UpdateStatusPayload,
   WebhookDelivery,
   WebhookProvider,
@@ -1941,6 +1946,66 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/paths/${pathId}`, {
         method: "DELETE",
       }),
+  },
+
+  plans: {
+    /**
+     * GET /api/plans — every ingested AGENT-PLAN.md (keyed by cwd) with its
+     * items. Small N: one plan per monitored repo.
+     * @returns `{ plans }` — the known {@link Plan}s.
+     */
+    list: () => request<{ plans: Plan[] }>("/plans"),
+    /**
+     * GET /api/plans/for-cwd?cwd= — the plan for one working directory.
+     * 404s (throws) when the cwd has no plan; callers treat that as "none".
+     * @param cwd Absolute working directory.
+     * @returns `{ plan, items }`.
+     */
+    forCwd: (cwd: string) =>
+      request<{ plan: Omit<Plan, "items">; items: PlanItem[] }>(
+        `/plans/for-cwd?cwd=${encodeURIComponent(cwd)}`
+      ),
+    /**
+     * GET /api/plans/project/:projectId — plan rollup for a project: one
+     * entry per mapped cwd that has a plan.
+     * @param projectId The project id.
+     * @returns `{ project_id, plans }`.
+     */
+    projectRollup: (projectId: string) =>
+      request<{
+        project_id: string;
+        plans: Array<{ cwd: string; plan: Omit<Plan, "items">; items: PlanItem[] }>;
+      }>(`/plans/project/${encodeURIComponent(projectId)}`),
+    /**
+     * GET /api/focus — bulk focus hydrate: every active session's declared
+     * focus in one round-trip (cards render in long lists; no per-card
+     * fetches).
+     * @returns `{ focus }` — {@link SessionFocus} wire shapes.
+     */
+    focusAll: () => request<{ focus: SessionFocus[] }>("/focus"),
+    /**
+     * GET /api/sessions/:id/focus — one session's focus state, plan context,
+     * and focus history (rebuilt from its `Focus` events).
+     * @param sessionId The session id.
+     * @returns `{ focus, item, plan_title, history }`.
+     */
+    focus: (sessionId: string) =>
+      request<{
+        focus: SessionFocus | null;
+        item: PlanItem | null;
+        plan_title: string | null;
+        history: FocusHistoryEntry[];
+      }>(`/sessions/${encodeURIComponent(sessionId)}/focus`),
+    /**
+     * GET /api/sessions/:id/todos — the session's latest TodoWrite list,
+     * parsed on read from the events table.
+     * @param sessionId The session id.
+     * @returns `{ todos, updated_at }` — todos is null when never reported.
+     */
+    todos: (sessionId: string) =>
+      request<{ todos: SessionTodo[] | null; updated_at: string | null }>(
+        `/sessions/${encodeURIComponent(sessionId)}/todos`
+      ),
   },
 };
 
