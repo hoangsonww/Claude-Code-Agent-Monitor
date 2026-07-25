@@ -22,6 +22,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type DragEvent,
@@ -40,6 +41,7 @@ import {
   Bot,
   Search,
   GripVertical,
+  ClipboardList,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -644,6 +646,9 @@ function ProjectSection({
   onDragOverCard,
   onDragEnd,
 }: ProjectSectionProps) {
+  const [planExpandSignal, setPlanExpandSignal] = useState(0);
+  const planSectionRef = useRef<HTMLDivElement>(null);
+
   return (
     <div
       draggable
@@ -698,6 +703,23 @@ function ProjectSection({
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
+              {plans.length > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPlanExpandSignal((v) => v + 1);
+                    planSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                    });
+                  }}
+                  title={t("viewPlan")}
+                  draggable={false}
+                  className="p-1 rounded-md text-gray-500 hover:text-accent hover:bg-surface-3 flex-shrink-0"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           )}
 
@@ -795,7 +817,7 @@ function ProjectSection({
       {/* draggable={false}: checklist rows and session chips must not start
           a project reorder-drag (same DnD opt-out as the session strip). */}
       {plans.length > 0 && (
-        <div className="mb-3 space-y-2" draggable={false}>
+        <div className="mb-3 space-y-2" draggable={false} ref={planSectionRef}>
           {plans.map((plan) => (
             <PlanPanel
               key={plan.cwd}
@@ -803,6 +825,7 @@ function ProjectSection({
               items={plan.items}
               sessions={sessions}
               focusBySession={focusMap}
+              expandSignal={planExpandSignal}
             />
           ))}
         </div>

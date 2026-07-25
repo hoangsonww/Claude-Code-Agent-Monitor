@@ -94,6 +94,7 @@ import {
   Plus,
   Monitor as MonitorIcon,
   X,
+  ClipboardList,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -101,7 +102,9 @@ import { AgentCard } from "../components/AgentCard";
 import { SessionCard } from "../components/SessionCard";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
+import { PlanPanel } from "../components/PlanPanel";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
+import { useFocusMap } from "../lib/focusStore";
 import {
   loadMonitors,
   persistMonitors,
@@ -121,11 +124,16 @@ import type {
   AgentStatus,
   EffectiveAgentStatus,
   EffectiveSessionStatus,
+  Plan,
+  PlanUpdatedPayload,
   Project,
   Session,
+  SessionFocus,
   UnassignedProjectBucket,
   WSMessage,
 } from "../lib/types";
+
+const EMPTY_FOCUS_MAP: ReadonlyMap<string, SessionFocus> = new Map();
 
 type BoardView = "agents" | "sessions" | "projects";
 
@@ -208,9 +216,16 @@ export function KanbanBoard() {
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [unassignedBucket, setUnassignedBucket] =
     useState<UnassignedProjectBucket>(EMPTY_UNASSIGNED_BUCKET);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const focusMap = useFocusMap();
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
   const [hideCompleted, setHideCompletedState] = useState<boolean>(loadHideCompleted);
+  // Per-column "view plan" click counter (bumps PlanPanel's expandSignal) and
+  // a scroll-target ref per column - same pattern as the standalone Projects
+  // page's header icon, scoped here to each Kanban column's own scroll area.
+  const [planExpandSignals, setPlanExpandSignals] = useState<Record<string, number>>({});
+  const planSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Manual drag order for the Projects view's columns - shared with the
   // standalone Projects page (same localStorage key via lib/projectOrder),
@@ -297,10 +312,19 @@ export function KanbanBoard() {
   // Project list + aggregated counts for the Projects view. Session cards
   // themselves come from `loadSessions` (fetched alongside, below) and are
   // grouped client-side by cwd against each project's mapped folders.
+  //
+  // Plans degrade quietly to "none" — an api mock without the namespace
+  // (older tests) or a fetch failure must not take the whole board down.
   const loadProjectsData = useCallback(async () => {
-    const res = await api.projects.list();
+    const [res, plansRes] = await Promise.all([
+      api.projects.list(),
+      typeof api.plans?.list === "function"
+        ? api.plans.list().catch(() => ({ plans: [] as Plan[] }))
+        : Promise.resolve({ plans: [] as Plan[] }),
+    ]);
     setProjectsList(res.projects);
     setUnassignedBucket(res.unassigned);
+    setPlans(plansRes.plans);
   }, []);
 
   const load = useCallback(async () => {
@@ -317,6 +341,24 @@ export function KanbanBoard() {
     setLoading(true);
     load();
   }, [load]);
+
+  useEffect(() => {
+    // Plan pushes carry the whole (small) plan — merge in place, no refetch,
+    // regardless of which view is active so plans stay fresh if the user
+    // switches back to Projects later.
+    return eventBus.subscribe((msg: WSMessage) => {
+      if (msg.type === "plan_updated") {
+        const payload = msg.data as PlanUpdatedPayload;
+        if (payload?.plan?.cwd) {
+          setPlans((prev) => {
+            const next = prev.filter((p) => p.cwd !== payload.plan.cwd);
+            next.push({ ...payload.plan, items: payload.items ?? [] });
+            return next;
+          });
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -375,6 +417,10 @@ export function KanbanBoard() {
     }
     return map;
   }, [sessions]);
+
+  // AGENT-PLAN.md plans found in any tracked cwd, keyed for the Projects
+  // view's per-column lookup - same map shape as the standalone Projects page.
+  const plansByCwd = useMemo(() => new Map(plans.map((p) => [p.cwd, p])), [plans]);
 
   // Bucket by effective status: agents with status "waiting" OR those with
   // awaiting_input_since set go into the "waiting" column. Other columns
@@ -560,7 +606,8 @@ export function KanbanBoard() {
     .map((col) => {
       const allItems = col.cwds.flatMap((cwd) => sessionsByCwd.get(cwd) || []);
       const items = hideCompleted ? allItems.filter((s) => s.status !== "completed") : allItems;
-      return { ...col, items };
+      const plans = col.cwds.map((cwd) => plansByCwd.get(cwd)).filter((p): p is Plan => Boolean(p));
+      return { ...col, items, plans };
     })
     .filter((col) => !hideCompleted || col.items.length > 0);
 
@@ -678,7 +725,7 @@ export function KanbanBoard() {
   // Unassigned bucket) - shared between the flat (no monitors) layout and
   // the monitor-swimlane layout so both stay in sync.
   function renderProjectColumn(col: (typeof projectColumns)[number]) {
-    const { key, label, cwds, activeCount, palette, items } = col;
+    const { key, label, cwds, activeCount, palette, items, plans: colPlans } = col;
     const limit = expanded[`proj-${key}`] || COLUMN_PAGE_SIZE;
     const isUnassigned = key === "__unassigned__";
     return (
@@ -698,6 +745,17 @@ export function KanbanBoard() {
             [`proj-${key}`]: limit + COLUMN_PAGE_SIZE,
           }))
         }
+        plans={colPlans}
+        planSessions={items}
+        focusMap={focusMap}
+        planExpandSignal={planExpandSignals[key] ?? 0}
+        onViewPlanClick={() => {
+          setPlanExpandSignals((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+          planSectionRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }}
+        planSectionRef={(el) => {
+          planSectionRefs.current[key] = el;
+        }}
         draggableColumn={!isUnassigned}
         dragging={draggedColumnId === key}
         onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
@@ -935,6 +993,21 @@ interface ColumnProps {
    *  live-reorders on this, so drop itself only needs to preventDefault. */
   onColumnDragOver?: (e: DragEvent<HTMLDivElement>) => void;
   onColumnDragEnd?: () => void;
+  /** AGENT-PLAN.md plans found in this column's cwd(s) - Projects-view
+   *  columns only; absent/empty on Agents/Sessions status columns. */
+  plans?: Plan[];
+  /** Sessions to chip onto plan items (the column's own item list). */
+  planSessions?: Session[];
+  focusMap?: ReadonlyMap<string, SessionFocus>;
+  /** Bumped to force this column's plan panel(s) open - see PlanPanel's
+   *  `expandSignal`. */
+  planExpandSignal?: number;
+  /** Fired by the header's "view plan" icon (only rendered when `plans` is
+   *  non-empty). */
+  onViewPlanClick?: () => void;
+  /** Attaches to the plan panel wrapper so the header icon can scroll it
+   *  into view within this column's own scroll area. */
+  planSectionRef?: (el: HTMLDivElement | null) => void;
 }
 
 function Column({
@@ -953,10 +1026,18 @@ function Column({
   onColumnDragStart,
   onColumnDragOver,
   onColumnDragEnd,
+  plans,
+  planSessions,
+  focusMap,
+  planExpandSignal,
+  onViewPlanClick,
+  planSectionRef,
 }: ColumnProps) {
   const { t } = useTranslation("kanban");
   const childrenArray = Array.isArray(children) ? children : children ? [children] : [];
   const hasChildren = childrenArray.length > 0;
+  const columnPlans = plans ?? [];
+  const hasPlans = columnPlans.length > 0;
 
   return (
     <div
@@ -999,6 +1080,20 @@ function Column({
           {label}
         </span>
         {tooltip && <ColumnHelp text={tooltip} />}
+        {hasPlans && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewPlanClick?.();
+            }}
+            title={t("viewPlan")}
+            draggable={false}
+            className="p-0.5 rounded-md text-gray-500 hover:text-accent hover:bg-surface-3 transition-colors flex-shrink-0"
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+          </button>
+        )}
         <span className="ml-auto text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full">
           {count}
         </span>
@@ -1009,6 +1104,20 @@ function Column({
           clicking through to a card navigates instead of starting a
           reorder-drag. */}
       <div className="flex-1 space-y-2.5 overflow-y-auto" draggable={false}>
+        {hasPlans && (
+          <div className="space-y-2" draggable={false} ref={planSectionRef}>
+            {columnPlans.map((plan) => (
+              <PlanPanel
+                key={plan.cwd}
+                plan={plan}
+                items={plan.items}
+                sessions={planSessions ?? []}
+                focusBySession={focusMap ?? EMPTY_FOCUS_MAP}
+                expandSignal={planExpandSignal}
+              />
+            ))}
+          </div>
+        )}
         {hasChildren ? (
           <>
             {children}

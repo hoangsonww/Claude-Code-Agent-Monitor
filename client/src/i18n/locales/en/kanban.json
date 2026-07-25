@@ -9,6 +9,7 @@
   },
   "unassignedColumn": "Unassigned",
   "unassignedColumnTooltip": "Sessions from folders that aren't part of a project yet.",
+  "viewPlan": "View plan",
   "hideCompleted": "Hide completed",
   "showCompleted": "Show completed",
   "noAgents": "No agents tracked yet",

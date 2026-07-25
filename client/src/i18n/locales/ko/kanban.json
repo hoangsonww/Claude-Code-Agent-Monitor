@@ -9,6 +9,7 @@
   },
   "unassignedColumn": "미할당",
   "unassignedColumnTooltip": "아직 프로젝트에 속하지 않은 폴더의 세션입니다.",
+  "viewPlan": "계획 보기",
   "hideCompleted": "완료 숨기기",
   "showCompleted": "완료 표시",
   "noAgents": "아직 추적된 Agent가 없습니다",

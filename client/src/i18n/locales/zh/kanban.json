@@ -9,6 +9,7 @@
   },
   "unassignedColumn": "未分配",
   "unassignedColumnTooltip": "来自尚未归入任何项目的文件夹的会话。",
+  "viewPlan": "查看计划",
   "hideCompleted": "隐藏已完成",
   "showCompleted": "显示已完成",
   "noAgents": "暂无追踪的 Agent",

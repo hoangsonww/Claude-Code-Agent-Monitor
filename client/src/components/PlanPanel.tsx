@@ -10,7 +10,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { ChevronRight, ClipboardList } from "lucide-react";
@@ -29,6 +29,12 @@ export interface PlanPanelProps {
   focusBySession: ReadonlyMap<string, SessionFocus>;
   /** Start expanded (SessionDetail); Projects defaults to collapsed. */
   defaultExpanded?: boolean;
+  /**
+   * Bump this (e.g. a counter) to force the panel open from an ancestor —
+   * used by the project header's "view plan" icon. Ignored on first render
+   * so it never fights `defaultExpanded`.
+   */
+  expandSignal?: number;
 }
 
 /**
@@ -41,9 +47,18 @@ export function PlanPanel({
   sessions,
   focusBySession,
   defaultExpanded,
+  expandSignal,
 }: PlanPanelProps) {
   const { t } = useTranslation("plan");
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
+  const lastSignal = useRef(expandSignal);
+
+  useEffect(() => {
+    if (expandSignal !== undefined && expandSignal !== lastSignal.current) {
+      lastSignal.current = expandSignal;
+      setExpanded(true);
+    }
+  }, [expandSignal]);
 
   const done = items.filter((i) => i.checked).length;
   const total = items.length;
