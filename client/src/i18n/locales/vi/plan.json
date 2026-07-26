@@ -81,6 +81,18 @@
         "bucketCount_one": "{{count}} sự kiện",
         "bucketCount_other": "{{count}} sự kiện"
       }
+    },
+    "board": {
+      "title": "Lịch trọng tâm",
+      "projectFilter": "Dự án",
+      "allProjects": "Tất cả dự án",
+      "sessionFilter": "Phiên",
+      "allSessions": "Tất cả phiên",
+      "customRange": "Khoảng tùy chỉnh",
+      "dayView": "Một ngày",
+      "from": "Từ",
+      "to": "Đến",
+      "concurrentSessions": "Phiên tác tử đồng thời"
     }
   }
 }

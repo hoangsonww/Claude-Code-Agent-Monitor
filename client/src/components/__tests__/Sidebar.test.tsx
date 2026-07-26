@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { Sidebar } from "../Sidebar";
@@ -35,6 +35,9 @@ describe("Sidebar", () => {
     expect(screen.getByText("Kanban Board")).toBeInTheDocument();
     expect(screen.getByText("Sessions")).toBeInTheDocument();
     expect(screen.getByText("Activity Feed")).toBeInTheDocument();
+    // New nav entry (build task 19, not yet built as of this test) - DEC-5's
+    // exact short label, not the longer in-page heading "Focus Calendar".
+    expect(screen.getByText("Calendar")).toBeInTheDocument();
   });
 
   it('should show "Live" when WebSocket is connected', () => {
@@ -63,6 +66,24 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/kanban");
     expect(hrefs).toContain("/sessions");
     expect(hrefs).toContain("/activity");
+    // New nav route (build task 19).
+    expect(hrefs).toContain("/focus-calendar");
+  });
+
+  it("positions Calendar right after Projects in nav order", () => {
+    renderSidebar(true);
+    const nav = screen.getByRole("navigation");
+    const labels = within(nav)
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    const projectsIndex = labels.indexOf("Projects");
+    const calendarIndex = labels.indexOf("Calendar");
+    // Closes the pre-existing "Projects has zero assertion" hole (this is
+    // the first test in this file to check "Projects" at all) while pinning
+    // DEC-5's exact position - right after Projects, not after Kanban Board
+    // (the original draft's incorrect placement).
+    expect(projectsIndex).toBeGreaterThan(-1);
+    expect(calendarIndex).toBe(projectsIndex + 1);
   });
 
   it("should render four language options in expanded mode", () => {

@@ -5387,6 +5387,185 @@ exports[`screen snapshots > Dashboard 1`] = `
 </div>
 `;
 
+exports[`screen snapshots > Focus calendar board 1`] = `
+<div>
+  <div
+    class="p-6 space-y-5 max-w-6xl mx-auto"
+  >
+    <div
+      class="flex items-center gap-2"
+    >
+      <svg
+        class="lucide lucide-calendar-days w-5 h-5 text-accent flex-shrink-0"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M8 2v4"
+        />
+        <path
+          d="M16 2v4"
+        />
+        <rect
+          height="18"
+          rx="2"
+          width="18"
+          x="3"
+          y="4"
+        />
+        <path
+          d="M3 10h18"
+        />
+        <path
+          d="M8 14h.01"
+        />
+        <path
+          d="M12 14h.01"
+        />
+        <path
+          d="M16 14h.01"
+        />
+        <path
+          d="M8 18h.01"
+        />
+        <path
+          d="M12 18h.01"
+        />
+        <path
+          d="M16 18h.01"
+        />
+      </svg>
+      <h1
+        class="text-lg font-semibold text-gray-100"
+      >
+        Focus Calendar
+      </h1>
+    </div>
+    <div
+      class="flex flex-wrap items-end gap-3"
+    >
+      <label
+        class="flex flex-col gap-1"
+      >
+        <span
+          class="text-[10px] uppercase tracking-wide text-gray-500"
+        >
+          Project
+        </span>
+        <select
+          aria-label="Project"
+          class="input bg-surface-1 min-w-[160px]"
+        >
+          <option
+            value=""
+          >
+            All projects
+          </option>
+        </select>
+      </label>
+      <label
+        class="flex flex-col gap-1"
+      >
+        <span
+          class="text-[10px] uppercase tracking-wide text-gray-500"
+        >
+          Session
+        </span>
+        <select
+          aria-label="Session"
+          class="input bg-surface-1 min-w-[160px]"
+        >
+          <option
+            value=""
+          >
+            All sessions
+          </option>
+        </select>
+      </label>
+      <div
+        class="flex items-center gap-1 flex-wrap"
+      >
+        <button
+          class="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
+          title="Previous day"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-chevron-left w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m15 18-6-6 6-6"
+            />
+          </svg>
+        </button>
+        <button
+          class="px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors bg-accent text-white"
+          type="button"
+        >
+          Today
+        </button>
+        <button
+          class="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
+          title="Next day"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-chevron-right w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m9 18 6-6-6-6"
+            />
+          </svg>
+        </button>
+        <button
+          class="px-2.5 py-1 text-[11px] font-medium rounded-md text-gray-400 hover:bg-surface-2 hover:text-gray-200 transition-colors"
+          type="button"
+        >
+          Custom range
+        </button>
+      </div>
+    </div>
+    <div
+      class="card p-5 space-y-6"
+    >
+      <div
+        class="flex items-center justify-end"
+      />
+      <p
+        class="text-xs text-gray-500 italic py-6 text-center"
+      >
+        No focus history yet for this project's sessions
+      </p>
+    </div>
+  </div>
+</div>
+`;
+
 exports[`screen snapshots > Kanban board 1`] = `
 <div>
   <div

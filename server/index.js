@@ -67,6 +67,7 @@ const remoteSourcesRouter = require("./routes/remote-sources");
 const metricsRouter = require("./routes/metrics");
 const projectsRouter = require("./routes/projects");
 const plansRouter = require("./routes/plans");
+const focusReportRouter = require("./routes/focus-report");
 
 function createApp() {
   const app = express();
@@ -100,6 +101,10 @@ function createApp() {
   app.use("/api/projects", projectsRouter);
   app.use("/api/plans", plansRouter);
   app.use("/api/focus", plansRouter.focusRouter);
+  // Cross-project aggregate focus-time report (new, this effort) - distinct
+  // from the "declared focus" hydrate endpoint mounted at /api/focus above
+  // and from the single-project /api/projects/:id/focus-report route.
+  app.use("/api/focus-report", focusReportRouter);
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });

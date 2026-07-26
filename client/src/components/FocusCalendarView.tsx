@@ -59,10 +59,10 @@ import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusKind, FocusReport, FocusReportChunk } from "../lib/types";
 import { assignLanes } from "../lib/calendarLanes";
 import { idleStripesInRange } from "../lib/idleStripes";
+import { DAY_MS, startOfDay } from "../lib/calendarWindow";
 import { FOCUS_KIND_ICONS } from "./PlanModal";
 import { SegmentEventsModal } from "./SegmentEventsModal";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 interface CalendarBlock {
@@ -84,6 +84,11 @@ interface CalendarBlock {
   inferredReason: string | null;
   sessionId: string;
   sessionName: string | null;
+  /** Resolved via the optional `projectLabelForCwd` prop (board mode only) -
+   *  `undefined` when unresolved/omitted, in which case nothing extra
+   *  renders. Disambiguates concurrent same-named sessions from different
+   *  projects on the cross-project board. */
+  projectLabel: string | undefined;
   /** True for the open (still-growing) segment of a session with no
    *  `ended_at` yet — the pulsing, open-ended treatment only makes sense
    *  on today's view, but the flag itself doesn't depend on which day is
@@ -94,10 +99,6 @@ interface CalendarBlock {
    *  Clipped to this block's visible day range at render time, same as the
    *  block's own startMs/endMs. */
   chunks: FocusReportChunk[];
-}
-
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 /** Data the hover popup needs, snapshotted at mouseenter time rather than
@@ -144,12 +145,44 @@ function computeBlockPopupStyle(rect: DOMRect): React.CSSProperties {
 
 export interface FocusCalendarViewProps {
   report: FocusReport;
+  /** Resolves a block's session `cwd` to a project name/label, for
+   *  cross-project disambiguation — populated only by the new
+   *  `FocusCalendarBoard` page (via `FocusReportBody`), never by the
+   *  existing per-project modal. Returning `undefined` (including when the
+   *  prop itself is omitted) renders nothing extra — no crash, no stray
+   *  label. Additive/optional; omitting it preserves today's exact
+   *  rendering. */
+  projectLabelForCwd?: (cwd: string | null) => string | undefined;
+  /** Controls which day is rendered, overriding the component's own
+   *  internal `today`-defaulted state (controlled mode) — used by the board
+   *  page, whose own page-level time-period control (`TimePeriodPicker`)
+   *  owns the selected day instead. Additive/optional; omitting it preserves
+   *  today's exact uncontrolled behavior (defaults to, and can still
+   *  self-navigate via the internal nav row to, today). */
+  selectedDate?: Date;
+  /** Suppresses the internal prev/today/next day-nav row entirely when
+   *  `true` — the board page renders its own page-level day-nav
+   *  (`TimePeriodPicker`) instead, so there is exactly one day-nav control on
+   *  the page rather than two stacked ones. Additive/optional, defaults to
+   *  `false` (nav visible), matching today's exact modal rendering when
+   *  omitted. */
+  hideDateNav?: boolean;
 }
 
 /** One day's swimlane rendering of a project's focus-time report. */
-export function FocusCalendarView({ report }: FocusCalendarViewProps) {
+export function FocusCalendarView({
+  report,
+  projectLabelForCwd,
+  selectedDate: selectedDateProp,
+  hideDateNav = false,
+}: FocusCalendarViewProps) {
   const { t } = useTranslation("plan");
-  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [internalSelectedDate, setInternalSelectedDate] = useState(() => startOfDay(new Date()));
+  // Controlled mode: a supplied `selectedDate` always wins over internal
+  // state (re-normalized to its own local midnight so a caller passing a
+  // non-midnight Date still lines up with this component's own day-boundary
+  // math). Omitted -> today's exact uncontrolled behavior, unchanged.
+  const selectedDate = selectedDateProp ? startOfDay(selectedDateProp) : internalSelectedDate;
 
   // Hover popup for a block — a single slot (not per-block state) since only
   // one can be open at a time. Closing on a short delay rather than instantly
@@ -207,6 +240,7 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
           inferredReason: seg.inferred_reason,
           sessionId: session.session_id,
           sessionName: session.name,
+          projectLabel: projectLabelForCwd?.(session.cwd),
           live: session.ended_at == null && i === segCount - 1,
           chunks: seg.chunks ?? [],
         });
@@ -214,7 +248,7 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
     }
     const assigned = assignLanes(blocks);
     return { lanes: assigned.items, laneCount: Math.max(assigned.laneCount, 1) };
-  }, [report.sessions, dayStart, dayEnd]);
+  }, [report.sessions, dayStart, dayEnd, projectLabelForCwd]);
 
   const hourLabels = useMemo(
     () =>
@@ -236,38 +270,40 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setSelectedDate(new Date(dayStart - DAY_MS))}
-            title={t("report.calendar.prevDay")}
-            className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedDate(startOfDay(new Date()))}
-            className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
-              isToday
-                ? "bg-accent text-white"
-                : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"
-            }`}
-          >
-            {t("report.calendar.today")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedDate(new Date(dayStart + DAY_MS))}
-            title={t("report.calendar.nextDay")}
-            className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+      {!hideDateNav && (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setInternalSelectedDate(new Date(dayStart - DAY_MS))}
+              title={t("report.calendar.prevDay")}
+              className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setInternalSelectedDate(startOfDay(new Date()))}
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                isToday
+                  ? "bg-accent text-white"
+                  : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"
+              }`}
+            >
+              {t("report.calendar.today")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setInternalSelectedDate(new Date(dayStart + DAY_MS))}
+              title={t("report.calendar.nextDay")}
+              className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+          <span className="text-xs font-medium text-gray-200">{dateLabel}</span>
         </div>
-        <span className="text-xs font-medium text-gray-200">{dateLabel}</span>
-      </div>
+      )}
 
       {lanes.length === 0 ? (
         <p className="text-xs text-gray-500 italic py-10 text-center">
@@ -395,6 +431,11 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
                         {kindLabel}
                         {block.label ? `: ${block.label}` : ""}
                       </div>
+                      {block.projectLabel && (
+                        <div className="relative text-[9px] truncate leading-tight text-gray-400">
+                          {block.projectLabel}
+                        </div>
+                      )}
                     </Link>
                     {/* A sibling of the Link above, not nested inside it -
                         clicking it must open the events modal instead of

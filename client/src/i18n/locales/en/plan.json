@@ -81,6 +81,18 @@
         "bucketCount_one": "{{count}} event",
         "bucketCount_other": "{{count}} events"
       }
+    },
+    "board": {
+      "title": "Focus Calendar",
+      "projectFilter": "Project",
+      "allProjects": "All projects",
+      "sessionFilter": "Session",
+      "allSessions": "All sessions",
+      "customRange": "Custom range",
+      "dayView": "Single day",
+      "from": "From",
+      "to": "To",
+      "concurrentSessions": "Concurrent agent sessions"
     }
   }
 }

@@ -81,6 +81,18 @@
         "bucketCount_one": "이벤트 {{count}}개",
         "bucketCount_other": "이벤트 {{count}}개"
       }
+    },
+    "board": {
+      "title": "포커스 달력",
+      "projectFilter": "프로젝트",
+      "allProjects": "모든 프로젝트",
+      "sessionFilter": "세션",
+      "allSessions": "모든 세션",
+      "customRange": "사용자 지정 범위",
+      "dayView": "하루",
+      "from": "시작",
+      "to": "종료",
+      "concurrentSessions": "동시 에이전트 세션"
     }
   }
 }

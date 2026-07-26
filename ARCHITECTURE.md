@@ -372,6 +372,7 @@ graph TD
 | `server/lib/source-filter.js` | Parses the optional `?sources=` query param (comma-separated source ids) into SQL predicates + bind params, shared by the data endpoints (`GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`) so a client **data-scope** selection narrows every query consistently. No filter → the existing unscoped queries run unchanged |
 | `server/lib/scoped-stats.js` | Source-scoped variants of the stats/analytics aggregates, used **only** when a `?sources=` scope filter is active — the unscoped fast paths in `routes/stats.js` / `routes/analytics.js` are untouched when no scope is set |
 | `server/routes/projects.js` | HTTP surface for **Projects** — a user-named grouping of one or more session working directories: `GET /api/projects` (every project with its mapped folders + server-aggregated `session_count`/`active_count`/`last_activity`, plus an `unassigned` bucket for cwds with sessions not mapped to any project), `POST /api/projects` (create, optionally attaching folders — 409 `ALREADY_MAPPED` if any is already claimed elsewhere), `PATCH /api/projects/:id` (rename), `DELETE /api/projects/:id` (folder mappings cascade; sessions are untouched and fall back to unassigned), `POST`/`DELETE /api/projects/:id/paths[/:pathId]` (add/remove a folder mapping — a folder belongs to at most one project), and `GET /api/projects/:id/focus-report` (project-scoped focus-time report — see `server/lib/focus-report.js`). No `sessions` schema change: membership is derived by joining `sessions.cwd` against `project_paths.cwd` |
+| `server/routes/focus-report.js` | HTTP surface for the **cross-project aggregate** focus-time report powering the standalone Focus Calendar board (`GET /api/focus-report`, mounted independently of both `/api/projects` and the unrelated `/api/focus` "declared focus" hydrate endpoint). A thin session-selection + explicit time-window layer in front of the exact same, unmodified `buildProjectFocusReport` (`server/lib/focus-report.js`) — resolves the session set from optional `?project_id=`/`?session_id=` (each 404s if unknown) and an optional `?sources=` (via `server/lib/source-filter.js` — unlike the older per-project route, which doesn't support it, a deliberately unfixed pre-existing gap), and **requires** `?from=`/`?to=` ISO-8601 instants bounding the query: either missing or unparseable is a structured 400, never a silent unbounded/all-time query. Response mirrors the per-project route's shape plus the resolved `project_id`/`session_id` echoed back (`null` when unfiltered) |
 | `server/routes/plans.js`  | HTTP surface for **Plan-Aware Monitoring**: `GET /api/plans` (every known plan with its items — small N, one per repo), `GET /api/plans/for-cwd?cwd=` (one working directory's plan; query-param form because cwds contain slashes), `GET /api/plans/project/:projectId` (per-project rollup — one `{cwd, plan, items}` entry per mapped folder that has a plan), and `POST /api/plans/refresh` `{cwd}` (force an ingest now — the CLI/test escape hatch when the background poll is disabled; broadcasts `plan_updated` when anything changed). Also exports the separate `focusRouter` mounted at `GET /api/focus` — the bulk hydrate returning every **active** session's declared focus as wire shapes in one round-trip. Errors use the standard `{error:{code,message}}` envelope |
 | `server/lib/plan-ingest.js` | Mirrors each monitored repo's human-owned `<cwd>/AGENT-PLAN.md` (a `# Title` plus numbered checkbox items `- [ ] 4. Text — acceptance: note`) into the `plans`/`plan_items` tables read-only — the file is the source of truth, the dashboard never writes it. Deliberately tolerant grammar: non-item lines are ignored, indented continuations append to the previous item, duplicate numbers keep the first occurrence. Safety caps: 256 KB file (stat-before-read), 100 items, field-length clamps that keep `plan_updated` broadcasts far below the WebSocket's 64 KB `maxPayload`. A file that parses to **zero items keeps the last good DB state** (far more likely a human mid-edit than an intentional wipe), and a deleted file stamps `plans.missing_at` while keeping the row (focus history still references its items). All entry points are fail-safe — it runs from the hook path and a background poll and must never break either. Contract mirrors `workflow-ingest`: takes the db module, returns what changed, the **caller** owns broadcasting |
 | `server/lib/focus-commands.js` | Parses and applies `ccam focus set\|push\|bug\|feature\|pop\|done` declarations. `extractFocusCommand()` recognizes the invocation inside a Bash `tool_input.command`; `applyFocusCommand()` updates `session_focus` (item pointer + detour stack, depth cap 10), writes a `Focus` event (verb, `item_number`, an `item_text_snapshot` for the timeline, plus `unknown_item`/stack-cap flags), and broadcasts `new_event` + `session_focus` (and `plan_updated` after `done`, since `declared_done_*` changes the rollup). `bug`/`feature` push a detour frame like `push` but additionally carry `kind`/`title`/`detail`, rendered as an icon badge in the client Plan view. Two modes: **hook path** (permissive — unknown items are recorded flagged, pop-on-empty is a flagged no-op; hooks can't return errors) and **API path** (strict — violations are 409s, and a declaration whose end state equals the current state dedupes to a no-op so CLI-write + hook-parse double delivery is harmless). Declarations **never** touch the `drift_*` columns — an agent cannot silence its own drift badge by re-declaring |
@@ -1700,6 +1701,32 @@ interpret. Both views share the same `FocusKind` icon/color vocabulary
 (`FOCUS_KIND_CONFIG`/`FOCUS_KIND_SOLID` in `lib/types.ts`). Copy lives in
 the dedicated `plan` i18n namespace (en / zh / vi / ko).
 
+This stat-tile/List-Calendar-toggle/list-body rendering was extracted out of
+`FocusReportModal.tsx` into `client/src/components/FocusReportBody.tsx`
+(exporting `FocusReportBody`, `FocusReportViewToggle`, and the `ViewMode`
+type) so a second entry point, the standalone **Calendar** board page
+(`/focus-calendar`, `client/src/pages/FocusCalendarBoard.tsx`), can consume
+the exact same implementation instead of copy-pasting it — `FocusReportModal`
+now owns only its dialog chrome (header, loading/error states) around this
+shared body. The board renders the same `FocusCalendarView`/`FocusReportBody`
+across **every** monitored project at once, filterable by three independent
+controls (project, a global session list, and a time period — see
+`server/routes/focus-report.js` above), and passes an additive
+`projectLabelForCwd` prop through to `FocusCalendarView` so concurrent
+same-named sessions from different projects stay disambiguated; the modal
+passes none of the board-only props, so its own rendering is unchanged. The
+board's own page-level day-nav/custom-range control
+(`client/src/components/TimePeriodPicker.tsx`) visually mirrors
+`FocusCalendarView`'s internal Prev/Today/Next row but triggers a new server
+fetch rather than re-slicing already-fetched data; both share one
+`startOfDay`/`DAY_MS` implementation (`client/src/lib/calendarWindow.ts`)
+rather than defining day-boundary math twice. Per DEC-6
+(see `decisions.md` in a completed intake cycle), the board's Concurrency
+stat tile is relabeled "Concurrent agent sessions" (`report.board.
+concurrentSessions`) since the same `concurrency_ratio` figure now reads as
+cross-project overlap once a report can span more than one project — the
+modal's own per-project "Concurrency" copy is unaffected.
+
 A segment's wall-clock span can run far longer than its real worked time
 (a whole-session inferred segment rides straight through to the session's
 `ended_at` regardless of how much of that was silence), so a solid block
@@ -1711,7 +1738,7 @@ over any idle chunk, via one shared `idleStripesInRange()` helper
 (`client/src/lib/idleStripes.ts`, extracted from `FocusCalendarView`'s
 original per-block math so a second consumer never re-implements it): a
 Calendar block draws it directly, and the List view's per-session
-segmented bar (`FocusReportModal.tsx`'s `SegmentedBar`, `sizeField="wall_ms"`)
+segmented bar (`FocusReportBody.tsx`'s `SegmentedBar`, `sizeField="wall_ms"`)
 draws the same overlay inside each of its wall_ms-sized slices; an active
 chunk needs no overlay, the block's/slice's own kind color already reads
 correctly for it. List view's other two duration bars — the per-item

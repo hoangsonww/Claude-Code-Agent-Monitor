@@ -181,12 +181,17 @@ client/
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
 │   │   ├── PlanPanel.tsx   # AGENT-PLAN.md checklist (collapsible; progress bar + per-item session chips) — Projects page + SessionDetail Plan tab
+│   │   ├── FocusReportModal.tsx  # Per-project focus-time report popup; dialog chrome only (body lives in FocusReportBody)
+│   │   ├── FocusReportBody.tsx   # Single stat-tile/List-Calendar-toggle/list-body implementation — shared by FocusReportModal and FocusCalendarBoard
+│   │   ├── FocusCalendarView.tsx # Swimlane day-view calendar for a FocusReport; additive projectLabelForCwd/selectedDate/hideDateNav props for board-mode use
+│   │   ├── TimePeriodPicker.tsx  # Page-level day-nav/custom-range control for the Calendar board (server-fetch-triggering sibling of FocusCalendarView's internal nav)
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
 │   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
 │   │   ├── Projects.tsx       # Projects list/management page (/projects); groups sessions by working-directory-derived "project" into horizontally-scrollable rows; create/rename/delete + folder-mapping CRUD via api.projects
+│   │   ├── FocusCalendarBoard.tsx # Cross-project Calendar board (/focus-calendar); project/session/time-period filters over GET /api/focus-report
 │   │   ├── KanbanBoard.tsx    # Agents/Sessions/Projects views; Projects view columns render inside drag-reorderable "monitor" boxes (lib/monitorGroups.ts) side by side in the same row once one exists; header's CopyLinkButton copies a shareable URL (with ?token= when DASHBOARD_TOKEN auth is configured)
 │   │   ├── Sessions.tsx       # Filterable table; shows each session's real name (synced live from the transcript), falls back to the short ID
 │   │   ├── SessionDetail.tsx  # Agent tree + event timeline + Conversation tab (slash-command pills & output, inline rename markers)
@@ -204,6 +209,7 @@ client/
 │   │   ├── focusStore.ts   # Module-level session-focus store (bulk hydrate GET /api/focus + live session_focus WS merges)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   ├── calendarLanes.ts # Swimlane lane-assignment for FocusCalendarView (greedy interval scheduling)
+│   │   ├── calendarWindow.ts # Shared startOfDay/DAY_MS day-boundary math (FocusCalendarView, TimePeriodPicker, FocusCalendarBoard)
 │   │   ├── eventBuckets.ts # 10-minute event bucketing for SegmentEventsModal
 │   │   └── types.ts        # TypeScript type definitions
 │   │
@@ -646,7 +652,7 @@ Full-size popup for one or more plans (opened from a PlanPanel strip or a projec
 
 #### FocusReportModal
 
-Popup showing a project-scoped **focus-time report** (opened from a report icon — `BarChart3` — next to the "view plan" icon on a project's card/header, on both the Projects page and Kanban's Projects view). Unlike `PlanModal`, it owns its own fetch: `GET /api/projects/:id/focus-report` fires on open rather than the caller pre-loading data, since the report isn't needed until actually looked at. A header toggle (`List`/`CalendarDays` icon buttons, only shown when the project has focus history) switches the body between two views on the SAME already-fetched report — no second request:
+Popup showing a project-scoped **focus-time report** (opened from a report icon — `BarChart3` — next to the "view plan" icon on a project's card/header, on both the Projects page and Kanban's Projects view). Unlike `PlanModal`, it owns its own fetch: `GET /api/projects/:id/focus-report` fires on open rather than the caller pre-loading data, since the report isn't needed until actually looked at. This component now owns only the dialog chrome (header, loading/error states) — the stat-tile/List-Calendar-toggle/list-body rendering below lives in `FocusReportBody` (see below), extracted so the standalone **Calendar** board page can reuse the exact same implementation instead of a copy. A header toggle (`FocusReportViewToggle` — `List`/`CalendarDays` icon buttons, only shown when the project has focus history) switches the body between two views on the SAME already-fetched report — no second request:
 
 - **List** (default) — stat tiles (effort active time, **concurrency ratio**, on-declared-item %, off-plan %, idle time excluded), a per-session segmented timeline bar, a per-item rollup, and a project-wide split — each bar built from `SegmentedBar`, a small internal component sharing the app's `FOCUS_KIND_CONFIG` color vocabulary via `FOCUS_KIND_SOLID` (`lib/types.ts` — a literal per-kind solid-fill map; `FOCUS_KIND_CONFIG`'s own `bg` is a translucent badge wash, not meant for a bar that has to read at a glance, and a *computed* class string like `color.replace("text-","bg-")` would silently produce no styles at all since Tailwind's JIT scanner only generates CSS for literal class-name substrings it finds in source). Hover detail rides each segment's native `title` attribute rather than a custom popup. Like `FocusCalendarView`'s blocks, the per-session bar stays `wall_ms`-sized and overlays a dark idle-chunk stripe via the same shared `idleStripesInRange()` helper (`lib/idleStripes.ts` — extracted once, used by both views, never re-implemented per-view), and its header shows both wall-clock and idle-grace-discounted agent ("active") time, labeled, whenever the two diverge (a single plain number when they don't). The per-item rollup and project-wide split bars have no single segment's `chunks` to overlay, so they size directly off the already idle-aware `active_ms` field (`SegmentedBar`'s `sizeField="active_ms"`) instead — matching the already-`active_ms`-based number printed above each of them. Sessions whose attribution came from the background focus-inference classifier rather than a declaration (segments with `inferred: true`) carry an "≈ inferred" chip beside the session name — its tooltip is the classifier's own one-sentence `inferred_reason` when one was recorded (falling back to a generic "no focus was declared" note otherwise), and each inferred segment's hover title gets the same reason appended. A session with exactly one segment also gets a visible caption naming what it was attributed to (`Item 6: MCP Reliability...` or `Detour: Time tracking investigation`) — the session name and chip alone don't say *what*, and a detour has no other on-screen text at all without it.
 - **Calendar** — `FocusCalendarView` (see below), the swimlane day-view alternative.
@@ -662,18 +668,39 @@ interface FocusReportModalProps {
 }
 ```
 
+#### FocusReportBody
+
+The single implementation of "how a `FocusReport` renders" — stat tiles, the `FocusReportViewToggle` List/Calendar buttons, and the list-style breakdown body — extracted verbatim out of `FocusReportModal.tsx` so a second consumer, the standalone **Calendar** board page (`pages/FocusCalendarBoard.tsx`), can reuse the exact same rendering instead of copy-pasting it. `FocusReportModal` passes none of the three additive props below (so its rendering is unchanged); `FocusCalendarBoard` passes all of them.
+
+**Props:**
+```typescript
+interface FocusReportBodyProps {
+  report: FocusReport;
+  viewMode: "list" | "calendar";
+  // Additive, board-only - all optional, all omitted by the modal:
+  projectLabelForCwd?: (cwd: string | null) => string | undefined;
+  selectedDate?: Date;
+  hideDateNav?: boolean;
+  concurrencyLabel?: string; // DEC-6's board-specific Concurrency relabel
+}
+```
+
 #### FocusCalendarView
 
-Day-view **swimlane calendar** for a project's focus-time report — the visual alternative to `FocusReportModal`'s list body, toggled from its header, sharing the same already-fetched `report` prop (no fetch of its own). Every session's segments get positioned on a real 24-hour axis for one selected day; segments whose time spans overlap split into side-by-side lanes via `assignLanes()` (`lib/calendarLanes.ts` — greedy earliest-available-lane interval scheduling, optimal for interval graphs) instead of stacking, so concurrency reads as geometry rather than a number to interpret. Blocks are colored by `FOCUS_KIND_CONFIG`, with a dashed border for an inferred segment vs. solid for declared (mirrors `FocusReportModal`'s "≈ inferred" convention) and a pulsing, open-ended block for a session whose `ended_at` is still `null` (genuinely still running, not just "happened to end near fetch time" — the distinction the API's `ended_at` field exists to make). An accent-colored "now" line only renders when the selected day is today. Prev/Today/Next buttons navigate days (mirrors `DateTimePicker`'s chevron-nav styling); a segment spanning past midnight is clipped to each day it touches rather than rendering a multi-day continuation.
+Day-view **swimlane calendar** for a project's focus-time report — the visual alternative to `FocusReportBody`'s list body, toggled from `FocusReportModal`'s (or the board's) header, sharing the same already-fetched `report` prop (no fetch of its own). Every session's segments get positioned on a real 24-hour axis for one selected day; segments whose time spans overlap split into side-by-side lanes via `assignLanes()` (`lib/calendarLanes.ts` — greedy earliest-available-lane interval scheduling, optimal for interval graphs) instead of stacking, so concurrency reads as geometry rather than a number to interpret. Blocks are colored by `FOCUS_KIND_CONFIG`, with a dashed border for an inferred segment vs. solid for declared (mirrors `FocusReportModal`'s "≈ inferred" convention) and a pulsing, open-ended block for a session whose `ended_at` is still `null` (genuinely still running, not just "happened to end near fetch time" — the distinction the API's `ended_at` field exists to make). An accent-colored "now" line only renders when the selected day is today. Prev/Today/Next buttons navigate days (mirrors `DateTimePicker`'s chevron-nav styling; day-boundary math itself, `startOfDay`/`DAY_MS`, lives once in `lib/calendarWindow.ts`); a segment spanning past midnight is clipped to each day it touches rather than rendering a multi-day continuation.
 
 A segment's wall-clock span can run far longer than its actual worked time (a whole-session inferred segment rides straight through to the session's `ended_at` regardless of how much of that was silence), so the block does two things a single solid color can't: (1) it overlays a dark stripe over any 10-minute chunk with zero real events (`seg.chunks` from the API, same 10-minute grain `SegmentEventsModal` uses) — an active chunk needs no overlay, the block's own kind color already reads correctly for it; (2) hovering a block opens a floating popup (portaled to `document.body`, anchored off the block's rect — not a native `title` tooltip, so it can carry the kind's color-coding and wrap the label/inferred-reason text) stating BOTH wall-clock time and idle-grace-discounted active ("agent") time, not just the raw span. Each block also carries a small "`</>`" icon (top-right corner, a sibling of the block's own link rather than nested inside it) that opens `SegmentEventsModal` — every raw hook event recorded in that segment's real time window, grouped into 10-minute buckets (`bucketEvents()`, `lib/eventBuckets.ts`) with a per-`event_type` count so the row count stays bounded by how long the segment ran rather than by how many events it produced; each bucket expands into its individual events, each further expandable into the full hook payload via `EventDetail` (the same viewer the Activity Feed page uses). This exists so a segment's attributed duration can be checked against what actually happened instead of taken on faith.
 
-**v1 scope note:** only Day view + simple date navigation shipped. A Week/Month zoom and an aggregate time-range selector (3d/7d/30d/All) were sketched in the original design mockup but deliberately deferred — they belong to a separate, still-open design thread (a project-wide time-window default for the report) rather than this component. See the `holistic-focus-history` project memory for the full design history.
+**v1 scope note:** only Day view + simple date navigation shipped in this component itself — a Week/Month zoom is still deferred. The previously-deferred "aggregate time-range selector" now exists, but as a separate, page-level control (`TimePeriodPicker`, see below) on the standalone Calendar board page, not as a change to this component: `FocusCalendarView` gained only three additive, optional props (`projectLabelForCwd`, `selectedDate`, `hideDateNav`) so the board can drive which day it renders and suppress its internal nav row in favor of the board's own page-level one — its core "one day, internal nav" contract is otherwise unchanged, and the existing modal usage (all three omitted) is pixel-identical to before. See the `holistic-focus-history` project memory for the full design history.
 
 **Props:**
 ```typescript
 interface FocusCalendarViewProps {
   report: FocusReport;
+  // Additive, board-only - all optional, all omitted by the modal:
+  projectLabelForCwd?: (cwd: string | null) => string | undefined;
+  selectedDate?: Date;   // controlled day override
+  hideDateNav?: boolean; // suppresses the internal Prev/Today/Next row
 }
 ```
 
@@ -696,6 +723,22 @@ interface SegmentEventsModalProps {
   inferred: boolean;
   inferredReason: string | null;
   onClose: () => void;
+}
+```
+
+#### TimePeriodPicker
+
+Page-level time-period filter for the standalone Calendar board (`pages/FocusCalendarBoard.tsx` — see the **Calendar** row in the Features table above) — visually mirrors `FocusCalendarView`'s own Prev/Today/Next row (reusing its `report.calendar.*` i18n keys, no new keys needed for day mode) plus a "Custom range" toggle exposing two `<input type="date">` fields. Pure/controlled, no fetching, no knowledge of `FocusReport` — same "no fetch" contract as `FocusCalendarView` itself. Different responsibility from `FocusCalendarView`'s internal day-nav, though: that one re-slices an already-fetched report client-side; this one is a data-window selector whose `onChange` drives a new server fetch on the board page. Both share the same `startOfDay`/`DAY_MS` day-boundary math via `lib/calendarWindow.ts` rather than each defining their own slightly-different version.
+
+**Props:**
+```typescript
+type TimePeriodValue =
+  | { mode: "day"; date: Date }
+  | { mode: "range"; start: Date; end: Date };
+
+interface TimePeriodPickerProps {
+  value: TimePeriodValue;
+  onChange: (next: TimePeriodValue) => void;
 }
 ```
 

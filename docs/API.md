@@ -1283,6 +1283,47 @@ Sessions that never declared any focus surface through the inference fallback ab
 
 Each session entry carries `ended_at` (`null` while still active/waiting) straight through from the underlying session row — a client rendering a calendar/timeline can't otherwise tell "genuinely still running" apart from "just happened to end near when the report was fetched," since both look identical from segment timestamps alone. The client's `FocusCalendarView` (a day-view swimlane calendar — see `client/README.md`) uses it to give the still-open segment of a live session a distinct "in progress" treatment.
 
+#### Get Cross-Project Focus Report
+
+```http
+GET /api/focus-report?project_id=&session_id=&sources=&from=&to=
+```
+
+A cross-project **aggregate** focus-time report, powering the standalone Focus Calendar board (`/focus-calendar` in the client) — as opposed to `GET /api/projects/:id/focus-report` above, which is single-project and has no time window. This route (`server/routes/focus-report.js`) is a thin session-selection + explicit time-window layer in front of the exact same, unmodified `buildProjectFocusReport`/`buildSessionFocusReport` (`server/lib/focus-report.js`) — see the section above for the shared response fields (`sessions`/`items`/`totals`/`idle_grace_seconds`/`wall_clock_ms`/`concurrency_ratio`) and their full semantics; this section documents only what's different.
+
+**Query parameters:**
+
+| Param | Required | Description |
+|---|---|---|
+| `from` | **Yes** | ISO-8601 instant — the window's start (inclusive). |
+| `to` | **Yes** | ISO-8601 instant — the window's end (exclusive). Sessions are selected by overlap: `started_at < to AND (ended_at IS NULL OR ended_at >= from)`. |
+| `project_id` | No | Scope to one project's mapped folders (same membership rule as the per-project route). **404** for an unknown project id. |
+| `session_id` | No | Scope to exactly one session. **404** for an unknown session id. |
+| `sources` | No | Comma-separated data-scope source list (see `server/lib/source-filter.js`), applied via the shared `sourceColumnClause` convention already used by `sessions`/`analytics`/`agents`/`events`. Unlike this route, the older `GET /api/projects/:id/focus-report` route does **not** support `sources` — that gap is a separate, pre-existing limitation intentionally left unfixed by this route's addition, not something this route retroactively closes on the old one. |
+
+**There is no server-side default window.** `from` and `to` are both required; a request missing either (or supplying an unparseable value for either) gets a structured `400`:
+
+```json
+{ "error": { "code": "BAD_REQUEST", "message": "Both from and to (ISO-8601 instants) are required." } }
+```
+
+This is deliberate, not a placeholder for a future default: the client (the Focus Calendar board) always computes and sends an explicit window — day-by-day navigation defaulting to "today," or a custom date range — so there is never an "unfiltered, give me everything" case to default for. Do not reintroduce a hidden env-knob/default-window fallback on this route.
+
+**Response:** identical shape to `GET /api/projects/:id/focus-report` above, plus the resolved scope echoed back as `project_id`/`session_id` (each `null` when unfiltered/not applicable — the old route's response has no `session_id` key at all). `from`/`to` are never echoed back — the caller already knows what it asked for.
+
+```json
+{
+  "project_id": null,
+  "session_id": null,
+  "sessions": [ "...": "..." ],
+  "items": [ "...": "..." ],
+  "totals": { "...": "..." },
+  "idle_grace_seconds": 300,
+  "wall_clock_ms": 0,
+  "concurrency_ratio": null
+}
+```
+
 ---
 
 ### Claude Config Explorer

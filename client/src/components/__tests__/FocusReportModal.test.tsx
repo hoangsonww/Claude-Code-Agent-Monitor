@@ -13,6 +13,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { FocusReportModal } from "../FocusReportModal";
+// Extraction target of build task 9 - does not exist yet as of this test's
+// authoring (task 8, red-first). Once FocusReportBody.tsx is built, this
+// import resolves and the test below exercises it directly, mounted twice
+// with modal-shaped vs. board-shaped props - the client-side half of the
+// "one rendering-chrome implementation, two consumers" guarantee (T1's
+// split parity check on the new route is the server-side half).
+import { FocusReportBody } from "../FocusReportBody";
 import type { FocusReport } from "../../lib/types";
 
 const focusReportMock = vi.fn();
@@ -587,6 +594,122 @@ describe("FocusReportModal", () => {
       expect(calendarStripes).toHaveLength(1);
       expect(parseFloat((calendarStripes[0] as HTMLElement).style.top)).toBeCloseTo(50);
       expect(parseFloat((calendarStripes[0] as HTMLElement).style.height)).toBeCloseTo(50);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("[board-mode extension of the standing template] FocusReportBody renders modal-shaped and board-shaped props with identical stat-tile numbers and idle-stripe geometry for the same segment, but only the board-shaped render suppresses day-nav and shows a project label — extend THIS test, not a page-local one, for any future FocusReportBody consumer", async () => {
+    vi.useFakeTimers();
+    try {
+      const NOW = new Date("2026-07-26T15:00:00.000Z");
+      vi.setSystemTime(NOW);
+
+      const todayStart = "2026-07-26T09:00:00.000Z";
+      const todayMid = "2026-07-26T09:10:00.000Z";
+      const todayEnd = "2026-07-26T09:20:00.000Z";
+      const report = makeReport({
+        sessions: [
+          {
+            session_id: "sess-shared-chrome",
+            name: "SharedChrome",
+            cwd: "/repo",
+            ended_at: todayEnd,
+            segments: [
+              {
+                kind: "item",
+                item_number: 4,
+                label: "Migrate auth",
+                start: todayStart,
+                end: todayEnd,
+                wall_ms: 20 * 60_000,
+                active_ms: 10 * 60_000,
+                idle_ms: 10 * 60_000,
+                inferred: false,
+                inferred_reason: null,
+                chunks: [
+                  { start: todayStart, end: todayMid, active: true },
+                  { start: todayMid, end: todayEnd, active: false },
+                ],
+              },
+            ],
+          },
+        ],
+        // Kept consistent with the lone overridden session/segment above
+        // (20m wall / 10m active / 10m idle) - the "Active time" stat tile
+        // reads report.totals.active_ms verbatim (never re-derived from
+        // segments), so an unrelated default here would silently pass a
+        // stale number rather than actually exercise the tile.
+        wall_clock_ms: 20 * 60_000,
+        totals: {
+          wall_ms: 20 * 60_000,
+          active_ms: 10 * 60_000,
+          idle_ms: 10 * 60_000,
+          by_kind: {
+            item: { wall_ms: 20 * 60_000, active_ms: 10 * 60_000, idle_ms: 10 * 60_000 },
+            detour: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+            feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+            bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          },
+        },
+      });
+
+      // --- Modal-shaped: exactly what FocusReportModal passes today - no
+      // projectLabelForCwd/selectedDate/hideDateNav.
+      const { container: modalContainer } = render(
+        <MemoryRouter>
+          <FocusReportBody report={report} viewMode="calendar" />
+        </MemoryRouter>
+      );
+      expect(within(modalContainer).getByTitle("Previous day")).toBeInTheDocument();
+      expect(within(modalContainer).getByTitle("Next day")).toBeInTheDocument();
+      expect(within(modalContainer).getByText("Today")).toBeInTheDocument();
+      expect(within(modalContainer).queryByText("Acme Corp")).not.toBeInTheDocument();
+      const modalActiveTile = within(modalContainer)
+        .getByText("Active time")
+        .closest("div") as HTMLElement;
+      const modalActiveValue = within(modalActiveTile).getByText(/10m 0s/).textContent;
+      const modalStripes = modalContainer.querySelectorAll('[data-testid="idle-stripe"]');
+      expect(modalStripes).toHaveLength(1);
+      const modalTop = parseFloat((modalStripes[0] as HTMLElement).style.top);
+      const modalHeight = parseFloat((modalStripes[0] as HTMLElement).style.height);
+
+      // --- Board-shaped: projectLabelForCwd resolves "/repo", a fixed
+      // selectedDate (today, same day the modal-shaped render defaults to
+      // internally), and hideDateNav={true}.
+      const boardSelectedDate = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate());
+      const { container: boardContainer } = render(
+        <MemoryRouter>
+          <FocusReportBody
+            report={report}
+            viewMode="calendar"
+            projectLabelForCwd={(cwd) => (cwd === "/repo" ? "Acme Corp" : undefined)}
+            selectedDate={boardSelectedDate}
+            hideDateNav={true}
+          />
+        </MemoryRouter>
+      );
+      // Zero day-nav controls - not one suppressed, not two stacked.
+      expect(within(boardContainer).queryByTitle("Previous day")).not.toBeInTheDocument();
+      expect(within(boardContainer).queryByTitle("Next day")).not.toBeInTheDocument();
+      expect(within(boardContainer).queryByText("Today")).not.toBeInTheDocument();
+      // The project label IS shown for the board-shaped render.
+      expect(within(boardContainer).getByText("Acme Corp")).toBeInTheDocument();
+
+      // Non-relabeled stat-tile numbers are identical between the two -
+      // same underlying report, same segment, only chrome differs.
+      const boardActiveTile = within(boardContainer)
+        .getByText("Active time")
+        .closest("div") as HTMLElement;
+      const boardActiveValue = within(boardActiveTile).getByText(/10m 0s/).textContent;
+      expect(boardActiveValue).toBe(modalActiveValue);
+
+      // Idle-stripe geometry (top/height, calendar view) is identical for
+      // the same segment on the same day.
+      const boardStripes = boardContainer.querySelectorAll('[data-testid="idle-stripe"]');
+      expect(boardStripes).toHaveLength(1);
+      expect(parseFloat((boardStripes[0] as HTMLElement).style.top)).toBeCloseTo(modalTop);
+      expect(parseFloat((boardStripes[0] as HTMLElement).style.height)).toBeCloseTo(modalHeight);
     } finally {
       vi.useRealTimers();
     }

@@ -81,6 +81,18 @@
         "bucketCount_one": "{{count}} 个事件",
         "bucketCount_other": "{{count}} 个事件"
       }
+    },
+    "board": {
+      "title": "焦点日历",
+      "projectFilter": "项目",
+      "allProjects": "所有项目",
+      "sessionFilter": "会话",
+      "allSessions": "所有会话",
+      "customRange": "自定义范围",
+      "dayView": "单日",
+      "from": "起始",
+      "to": "结束",
+      "concurrentSessions": "并发代理会话"
     }
   }
 }

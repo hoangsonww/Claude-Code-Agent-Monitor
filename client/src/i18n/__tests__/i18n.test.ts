@@ -108,4 +108,46 @@ describe("i18n resources", () => {
       expect(i18n.t("plan:report.activeLabel")).toBe("Agent time");
     });
   });
+
+  describe("nav:focusCalendar completeness (registry-derived, all locales) — focus-calendar-board build", () => {
+    for (const locale of LOCALES) {
+      it(`resolves a non-empty, non-key-echoing string for locale "${locale}"`, async () => {
+        await i18n.changeLanguage(locale);
+        const label = i18n.t("nav:focusCalendar");
+        // i18next's default missing-key behavior returns the literal dotted
+        // key path (ns prefix stripped) - a real translation never equals
+        // its own key path, which also catches an accidentally-empty string.
+        expect(label).not.toBe("focusCalendar");
+        expect(typeof label).toBe("string");
+        expect(label.length).toBeGreaterThan(0);
+      });
+    }
+
+    it('pins the English value to exactly "Calendar" (DEC-5) - not the longer "Focus Calendar" page-heading string, which is a separate key', async () => {
+      await i18n.changeLanguage("en");
+      expect(i18n.t("nav:focusCalendar")).toBe("Calendar");
+    });
+  });
+
+  describe("report.board.concurrentSessions completeness (registry-derived, all locales) — DEC-6 aggregate-view relabel", () => {
+    for (const locale of LOCALES) {
+      it(`resolves a non-empty, non-key-echoing string for locale "${locale}", distinct from the modal's per-project concurrency label`, async () => {
+        await i18n.changeLanguage(locale);
+        const boardLabel = i18n.t("plan:report.board.concurrentSessions");
+        const modalLabel = i18n.t("plan:report.concurrency");
+        expect(boardLabel).not.toBe("report.board.concurrentSessions");
+        expect(typeof boardLabel).toBe("string");
+        expect(boardLabel.length).toBeGreaterThan(0);
+        // DEC-6: the aggregate/board view gets its OWN relabeled copy - it
+        // must never silently fall back to (or duplicate) the existing
+        // single-project modal's "Concurrency" label.
+        expect(boardLabel).not.toBe(modalLabel);
+      });
+    }
+
+    it('pins the English value to exactly "Concurrent agent sessions" per technical-plan.md\'s F12 table', async () => {
+      await i18n.changeLanguage("en");
+      expect(i18n.t("plan:report.board.concurrentSessions")).toBe("Concurrent agent sessions");
+    });
+  });
 });

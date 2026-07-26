@@ -67,10 +67,21 @@ function makeReport(sessions: FocusReportSessionEntry[]): FocusReport {
   };
 }
 
-function renderCalendar(report: FocusReport) {
+// Task 7 (build-task-list.md) adds these three additive props to
+// FocusCalendarView - not present as of this test's authoring (task 5,
+// red-first). Typed locally rather than via FocusCalendarViewProps (which
+// doesn't declare them yet) so this file compiles/transpiles either way;
+// passed through via spread, exactly like a real caller would.
+interface BoardModeExtraProps {
+  selectedDate?: Date;
+  hideDateNav?: boolean;
+  projectLabelForCwd?: (cwd: string | null) => string | undefined;
+}
+
+function renderCalendar(report: FocusReport, extraProps: BoardModeExtraProps = {}) {
   return render(
     <MemoryRouter>
-      <FocusCalendarView report={report} />
+      <FocusCalendarView report={report} {...extraProps} />
     </MemoryRouter>
   );
 }
@@ -635,5 +646,118 @@ describe("FocusCalendarView", () => {
     });
     expect(screen.getByText(/Wall clock: 2h 0m/)).toBeInTheDocument();
     expect(screen.getByText(/Agent time: 23m 0s/)).toBeInTheDocument();
+  });
+
+  describe("board-mode additive props (selectedDate/hideDateNav/projectLabelForCwd — build task 7)", () => {
+    it("selectedDate controls the rendered day instead of internal state", () => {
+      const report = makeReport([
+        {
+          session_id: "sess-yesterday-selected",
+          name: "Yesterday's work",
+          cwd: "/repo",
+          ended_at: yesterdayAt(11),
+          segments: [
+            {
+              kind: "item",
+              item_number: 1,
+              label: "Old item",
+              start: yesterdayAt(9),
+              end: yesterdayAt(11),
+              wall_ms: 0,
+              active_ms: 0,
+              idle_ms: 0,
+              inferred: false,
+              inferred_reason: null,
+            },
+          ],
+        },
+      ]);
+      const yesterday = new Date(NOW);
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+
+      renderCalendar(report, { selectedDate: yesterday });
+
+      // Uncontrolled today, this data has nothing on it -> "No activity".
+      // Controlled to yesterday (via selectedDate), the session must show.
+      expect(screen.queryByText("No activity on this day")).not.toBeInTheDocument();
+      expect(screen.getByText("Yesterday's work")).toBeInTheDocument();
+    });
+
+    it("hideDateNav={true} renders zero day-nav buttons", () => {
+      renderCalendar(makeReport([]), { hideDateNav: true });
+      expect(screen.queryByTitle("Previous day")).not.toBeInTheDocument();
+      expect(screen.queryByTitle("Next day")).not.toBeInTheDocument();
+      expect(screen.queryByText("Today")).not.toBeInTheDocument();
+    });
+
+    it("hideDateNav omitted (default false) still renders the nav row unchanged (inverted-boolean guard)", () => {
+      // Not expected to be RED before task 7 lands - the component doesn't
+      // read this prop at all yet, so its default (nav visible) already
+      // matches the omitted-prop expectation. It exists to catch a FUTURE
+      // regression (an inverted boolean once hideDateNav is wired), not to
+      // pin currently-missing behavior - see red-evidence.md.
+      renderCalendar(makeReport([]));
+      expect(screen.getByTitle("Previous day")).toBeInTheDocument();
+      expect(screen.getByTitle("Next day")).toBeInTheDocument();
+      expect(screen.getByText("Today")).toBeInTheDocument();
+    });
+
+    it("projectLabelForCwd renders the resolved label for a block's cwd", () => {
+      const report = makeReport([
+        {
+          session_id: "sess-1",
+          name: "Worker",
+          cwd: "/repo",
+          ended_at: todayAt(11),
+          segments: [
+            {
+              kind: "item",
+              item_number: 6,
+              label: "MCP Reliability",
+              start: todayAt(9),
+              end: todayAt(11),
+              wall_ms: 2 * 60 * 60_000,
+              active_ms: 2 * 60 * 60_000,
+              idle_ms: 0,
+              inferred: false,
+              inferred_reason: null,
+            },
+          ],
+        },
+      ]);
+      renderCalendar(report, {
+        projectLabelForCwd: (cwd) => (cwd === "/repo" ? "Acme Corp" : undefined),
+      });
+      expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    });
+
+    it("projectLabelForCwd resolving undefined renders nothing extra (no crash, no stray label)", () => {
+      const report = makeReport([
+        {
+          session_id: "sess-1",
+          name: "Worker",
+          cwd: "/repo",
+          ended_at: todayAt(11),
+          segments: [
+            {
+              kind: "item",
+              item_number: 6,
+              label: "MCP Reliability",
+              start: todayAt(9),
+              end: todayAt(11),
+              wall_ms: 2 * 60 * 60_000,
+              active_ms: 2 * 60 * 60_000,
+              idle_ms: 0,
+              inferred: false,
+              inferred_reason: null,
+            },
+          ],
+        },
+      ]);
+      renderCalendar(report, { projectLabelForCwd: () => undefined });
+      expect(screen.queryByText("Acme Corp")).not.toBeInTheDocument();
+      expect(screen.getByText("Worker")).toBeInTheDocument();
+    });
   });
 });

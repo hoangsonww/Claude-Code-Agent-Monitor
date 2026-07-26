@@ -129,6 +129,30 @@ vi.mock("../../lib/api", async (importOriginal) => {
     },
     transcript_cache: { size: 0, maxSize: 100, hits: 0, misses: 0, keys: [] },
   };
+  // Empty-fixture-shaped GET /api/focus-report response (build task 13's new
+  // api.focusReport, not yet added to lib/api.ts as of this test's authoring)
+  // - matches the aggregate/board DTO: project_id/session_id both null when
+  // unfiltered (the board's default "all projects, no session" load).
+  const emptyFocusReport = {
+    project_id: null,
+    session_id: null,
+    sessions: [],
+    items: [],
+    totals: {
+      wall_ms: 0,
+      active_ms: 0,
+      idle_ms: 0,
+      by_kind: {
+        item: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+        detour: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+        feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+        bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+      },
+    },
+    idle_grace_seconds: 300,
+    wall_clock_ms: 0,
+    concurrency_ratio: null,
+  };
   const session = {
     id: "sess-1",
     name: "Test Session",
@@ -382,6 +406,10 @@ vi.mock("../../lib/api", async (importOriginal) => {
         deliveries: r({ deliveries: [], limit: 20, offset: 0 }),
       },
       updates: { check: r({ behind: 0, ahead: 0, current: "", upstream: "" }), status: r({}) },
+      // Top-level GET /api/focus-report client (build task 13) - powers the
+      // new Focus calendar board page. Not nested under `projects` (that's
+      // the existing per-project `api.projects.focusReport`, untouched).
+      focusReport: r(emptyFocusReport),
       projects: {
         list: r({
           projects: [],
@@ -426,6 +454,13 @@ vi.mock("../../lib/push", () => ({
 // Page components (imported after the mocks above; vi.mock is hoisted).
 import { Dashboard } from "../Dashboard";
 import { Projects } from "../Projects";
+// New page (build task 17), not yet built as of this test's authoring - this
+// import fails to resolve until FocusCalendarBoard.tsx exists, which
+// (unavoidably, being a top-level ES import) currently fails this entire
+// file's collection, including the pre-existing Projects/Kanban board cases
+// below. See red-evidence.md - that cascading failure is expected and is not
+// itself evidence those two pages' own rendering changed.
+import { FocusCalendarBoard } from "../FocusCalendarBoard";
 import { KanbanBoard } from "../KanbanBoard";
 import { Sessions } from "../Sessions";
 import { SessionDetail } from "../SessionDetail";
@@ -510,6 +545,11 @@ describe("screen snapshots", () => {
   });
   it("Projects", async () => {
     await snapshot(<Projects />, "/projects");
+  });
+  // Positioned right after "Projects" per DEC-5's ordering convention
+  // (mirrors the sidebar's Calendar-right-after-Projects placement).
+  it("Focus calendar board", async () => {
+    await snapshot(<FocusCalendarBoard />, "/focus-calendar");
   });
   it("Kanban board", async () => {
     await snapshot(<KanbanBoard />, "/kanban");

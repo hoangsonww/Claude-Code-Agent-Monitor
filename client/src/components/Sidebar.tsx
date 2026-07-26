@@ -83,6 +83,7 @@ import {
   Gauge,
   ChevronUp,
   ChevronDown,
+  CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
@@ -96,6 +97,9 @@ function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
 const NAV_KEYS = [
   { to: "/", icon: LayoutDashboard, key: "nav:dashboard" },
   { to: "/projects", icon: FolderKanban, key: "nav:projects" },
+  // Right after Projects, per DEC-5 (decisions.md) - corrected from the
+  // original draft's after-Kanban placement.
+  { to: "/focus-calendar", icon: CalendarDays, key: "nav:focusCalendar" },
   { to: "/kanban", icon: Columns3, key: "nav:agentBoard" },
   { to: "/sessions", icon: FolderOpen, key: "nav:sessions" },
   { to: "/activity", icon: Activity, key: "nav:activityFeed" },

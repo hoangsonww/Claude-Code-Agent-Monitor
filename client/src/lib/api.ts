@@ -1911,6 +1911,38 @@ export const api = {
       }>("/remote-sources/sync-all", { method: "POST" }),
   },
 
+  /**
+   * GET /api/focus-report — cross-project aggregate focus-time report,
+   * powering the standalone Focus Calendar board (as opposed to
+   * `projects.focusReport`, which is single-project and has no time window).
+   * Resolves the session set from `projectId`/`sessionId` (both optional —
+   * omitted means "every project"/"every session"), narrowed automatically
+   * by the active Data Scope selector's `?sources=` via `applyScope`, exactly
+   * like `sessions.list`.
+   *
+   * `from`/`to` are REQUIRED ISO-8601 instant strings — there is no
+   * server-side default window (see `server/routes/focus-report.js`); the
+   * caller must always compute and pass both (the board defaults to "today"
+   * on first load, per DEC-3 in `decisions.md`). A request missing either is
+   * a 400 server-side, not an implicit "all time" query.
+   *
+   * @param params.projectId Optional project id to scope to.
+   * @param params.sessionId Optional single session id to scope to.
+   * @param params.from Required ISO-8601 instant — the window's start (inclusive).
+   * @param params.to   Required ISO-8601 instant — the window's end (exclusive).
+   * @returns The aggregate {@link FocusReport}, echoing back the resolved
+   *   `project_id`/`session_id` (`null` when unfiltered/not applicable).
+   */
+  focusReport: (params: { projectId?: string; sessionId?: string; from: string; to: string }) => {
+    const qs = new URLSearchParams();
+    if (params.projectId) qs.set("project_id", params.projectId);
+    if (params.sessionId) qs.set("session_id", params.sessionId);
+    qs.set("from", params.from);
+    qs.set("to", params.to);
+    applyScope(qs); // narrow to the active data scope (source machines)
+    return request<FocusReport>(`/focus-report?${qs.toString()}`);
+  },
+
   // ───────────────────────────────── Projects API ──────────────────────────────
   /** Named groupings of one or more session working directories (cwd). Maps to
    *  `server/routes/projects.js`; a folder belongs to at most one project. */

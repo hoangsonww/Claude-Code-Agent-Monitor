@@ -1615,9 +1615,19 @@ export interface FocusReportItemEntry {
 
 /** GET /api/projects/:id/focus-report — a project-scoped focus-time
  *  breakdown: reconstructed from the project's sessions' `Focus` event
- *  history, not a new capture mechanism. See server/lib/focus-report.js. */
+ *  history, not a new capture mechanism. See server/lib/focus-report.js.
+ *  Also reused, widened, by the new `GET /api/focus-report` aggregate
+ *  endpoint (client/src/lib/api.ts `focusReport()`), whose response echoes
+ *  back the resolved `project_id`/`session_id` filters (`null` when
+ *  unfiltered/not applicable) rather than always carrying a project id. */
 export interface FocusReport {
-  project_id: string;
+  project_id: string | null;
+  /** Echoed back by the new aggregate `GET /api/focus-report` endpoint when
+   *  scoped to a single session (`null` when unfiltered/not applicable).
+   *  Optional because the old, single-project
+   *  `GET /api/projects/:id/focus-report` route's body has no `session_id`
+   *  key at all - this field is only ever populated by the new route. */
+  session_id?: string | null;
   sessions: FocusReportSessionEntry[];
   items: FocusReportItemEntry[];
   totals: FocusKindTotals;
