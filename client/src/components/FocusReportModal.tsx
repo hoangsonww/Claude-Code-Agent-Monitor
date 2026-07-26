@@ -37,9 +37,10 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { BarChart3, CalendarDays, List, X } from "lucide-react";
 import { api } from "../lib/api";
-import { formatMs } from "../lib/format";
+import { formatMs, parseDate } from "../lib/format";
 import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusKind, FocusKindTotals, FocusReport, FocusReportSegment } from "../lib/types";
+import { idleStripesInRange } from "../lib/idleStripes";
 import { FocusCalendarView } from "./FocusCalendarView";
 
 type ViewMode = "list" | "calendar";
@@ -239,7 +240,8 @@ function ListView({ report }: { report: FocusReport }) {
         <h3 className="text-xs font-semibold text-gray-300 mb-3">{t("report.sessionsHeading")}</h3>
         <div className="space-y-4">
           {report.sessions.map((session) => {
-            const totalMs = session.segments.reduce((sum, seg) => sum + seg.wall_ms, 0);
+            const totalWallMs = session.segments.reduce((sum, seg) => sum + seg.wall_ms, 0);
+            const totalActiveMs = session.segments.reduce((sum, seg) => sum + seg.active_ms, 0);
             const inferredSegment = session.segments.find((seg) => seg.inferred);
             const inferredTitle = inferredSegment?.inferred_reason
               ? `${t("report.inferredNote")}: ${inferredSegment.inferred_reason}`
@@ -265,7 +267,15 @@ function ListView({ report }: { report: FocusReport }) {
                     )}
                   </span>
                   <span className="text-[11px] font-mono text-gray-500 flex-shrink-0">
-                    {formatMs(totalMs)}
+                    {totalActiveMs === totalWallMs ? (
+                      formatMs(totalWallMs)
+                    ) : (
+                      <>
+                        {t("report.wallClockLabel")} {formatMs(totalWallMs)}
+                        {" · "}
+                        {t("report.activeLabel")} {formatMs(totalActiveMs)}
+                      </>
+                    )}
                   </span>
                 </div>
                 {session.segments.length === 1 && session.segments[0] && (
@@ -276,7 +286,12 @@ function ListView({ report }: { report: FocusReport }) {
                     {session.segments[0].label ? `: ${session.segments[0].label}` : ""}
                   </p>
                 )}
-                <SegmentedBar segments={session.segments} totalMs={totalMs} height="h-5" />
+                <SegmentedBar
+                  segments={session.segments}
+                  totalMs={totalWallMs}
+                  height="h-5"
+                  testId="segmented-bar-session"
+                />
               </div>
             );
           })}
@@ -302,8 +317,10 @@ function ListView({ report }: { report: FocusReport }) {
                 </div>
                 <SegmentedBar
                   segments={kindTotalsAsSegments(item.totals)}
-                  totalMs={item.totals.wall_ms}
+                  totalMs={item.totals.active_ms}
                   height="h-3"
+                  sizeField="active_ms"
+                  testId="segmented-bar-item-rollup"
                 />
               </div>
             ))}
@@ -315,8 +332,10 @@ function ListView({ report }: { report: FocusReport }) {
         <h3 className="text-xs font-semibold text-gray-300 mb-3">{t("report.splitHeading")}</h3>
         <SegmentedBar
           segments={kindTotalsAsSegments(report.totals)}
-          totalMs={report.totals.wall_ms}
+          totalMs={report.totals.active_ms}
           height="h-6"
+          sizeField="active_ms"
+          testId="segmented-bar-project-split"
         />
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
           {ALL_KINDS.map((kind) => {
@@ -367,15 +386,19 @@ function StatTile({
 
 /** Reduces a per-kind totals object down to the pseudo-segment shape
  *  {@link SegmentedBar} renders, in the FocusKind's fixed display order.
- *  Kinds with zero time are dropped so they don't render a 0-width sliver. */
+ *  Kinds with zero active time are dropped so they don't render a 0-width
+ *  sliver — these two aggregate bars are sized by `active_ms` (see
+ *  `SegmentedBar`'s `sizeField` prop), not `wall_ms`, so the drop filter
+ *  matches that basis. */
 function kindTotalsAsSegments(
   totals: FocusKindTotals
-): Pick<FocusReportSegment, "kind" | "wall_ms" | "label">[] {
+): Pick<FocusReportSegment, "kind" | "wall_ms" | "active_ms" | "label">[] {
   return ALL_KINDS.map((kind) => ({
     kind,
     wall_ms: totals.by_kind[kind].wall_ms,
+    active_ms: totals.by_kind[kind].active_ms,
     label: null,
-  })).filter((s) => s.wall_ms > 0);
+  })).filter((s) => s.active_ms > 0);
 }
 
 /** A single horizontal bar divided into colored, width-proportional
@@ -383,40 +406,83 @@ function kindTotalsAsSegments(
  *  views. Each segment's native `title` tooltip carries its kind, label
  *  (when one exists), duration, and — for an inferred segment — the
  *  classifier's own one-sentence justification (`inferred_reason`) when one
- *  was recorded, keeping hover detail without a custom-positioned popup. */
+ *  was recorded, keeping hover detail without a custom-positioned popup.
+ *
+ *  `sizeField` (default `"wall_ms"`) picks which field sizes and labels each
+ *  slice. The per-session bar keeps the default — its box represents the
+ *  segment's real time span, so an idle-chunk overlay drawn inside it (via
+ *  the shared `idleStripesInRange` helper, same treatment as
+ *  FocusCalendarView's blocks) stays geometrically honest. The two
+ *  aggregate bars (per-item rollup, project-wide split) pass
+ *  `sizeField="active_ms"` instead: they have no single segment (and
+ *  therefore no single `chunks` array) to attach a stripe overlay to, so
+ *  they size by the already-idle-aware `active_ms` field directly rather
+ *  than drawing an overlay on a wall_ms-sized box. */
 function SegmentedBar({
   segments,
   totalMs,
   height,
+  sizeField = "wall_ms",
+  testId,
 }: {
-  segments: (Pick<FocusReportSegment, "kind" | "wall_ms" | "label"> &
-    Partial<Pick<FocusReportSegment, "inferred" | "inferred_reason">>)[];
+  segments: (Pick<FocusReportSegment, "kind" | "label" | "wall_ms" | "active_ms"> &
+    Partial<
+      Pick<FocusReportSegment, "inferred" | "inferred_reason" | "chunks" | "start" | "end">
+    >)[];
   totalMs: number;
   height: string;
+  sizeField?: "wall_ms" | "active_ms";
+  testId?: string;
 }) {
   const { t } = useTranslation("plan");
   if (totalMs <= 0 || segments.length === 0) {
-    return <div className={`${height} rounded-md bg-surface-3`} />;
+    return <div className={`${height} rounded-md bg-surface-3`} data-testid={testId} />;
   }
   return (
-    <div className={`flex ${height} rounded-md overflow-hidden bg-surface-3`}>
+    <div className={`flex ${height} rounded-md overflow-hidden bg-surface-3`} data-testid={testId}>
       {segments.map((seg, i) => {
-        const pct = (seg.wall_ms / totalMs) * 100;
+        const sizeMs = seg[sizeField];
+        const pct = (sizeMs / totalMs) * 100;
         if (pct <= 0) return null;
         const kindLabel = t(FOCUS_KIND_CONFIG[seg.kind].labelKey);
         const inferredSuffix = seg.inferred
           ? ` — ≈ ${t("report.inferred")}${seg.inferred_reason ? `: ${seg.inferred_reason}` : ""}`
           : "";
         const title = seg.label
-          ? `${kindLabel}: ${seg.label} (${formatMs(seg.wall_ms)})${inferredSuffix}`
-          : `${kindLabel} (${formatMs(seg.wall_ms)})${inferredSuffix}`;
+          ? `${kindLabel}: ${seg.label} (${formatMs(sizeMs)})${inferredSuffix}`
+          : `${kindLabel} (${formatMs(sizeMs)})${inferredSuffix}`;
+        // Only the wall_ms-sized (per-session) bar ever draws an idle-stripe
+        // overlay: it's the only one whose slice represents one real
+        // segment's own time span (with its own `chunks`/`start`/`end`),
+        // not an aggregated total across many segments' differently-shaped
+        // grids.
+        const idleStripes =
+          sizeField === "wall_ms" && seg.start != null && seg.end != null
+            ? idleStripesInRange(
+                seg.chunks,
+                parseDate(seg.start).getTime(),
+                parseDate(seg.end).getTime()
+              )
+            : [];
         return (
           <div
             key={i}
-            className={`${FOCUS_KIND_SOLID[seg.kind]} ${i > 0 ? "border-l-2 border-surface-1" : ""}`}
+            data-kind={seg.kind}
+            className={`relative ${FOCUS_KIND_SOLID[seg.kind]} ${
+              i > 0 ? "border-l-2 border-surface-1" : ""
+            }`}
             style={{ width: `${pct}%` }}
             title={title}
-          />
+          >
+            {idleStripes.map((stripe, si) => (
+              <div
+                key={si}
+                data-testid="idle-stripe"
+                className="absolute inset-y-0 bg-black/45"
+                style={{ left: `${stripe.offsetPct}%`, width: `${stripe.spanPct}%` }}
+              />
+            ))}
+          </div>
         );
       })}
     </div>

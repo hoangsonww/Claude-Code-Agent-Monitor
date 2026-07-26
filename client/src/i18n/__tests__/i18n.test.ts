@@ -1,11 +1,18 @@
 /**
  * @file i18n.test.ts
  * @description Unit tests for i18n translation resources to ensure correct translations and locale handling in the agent dashboard application.
+ * Includes a registry-derived, per-locale completeness check for the
+ * `report.calendar.{wallClockLabel,activeLabel}` -> `report.{wallClockLabel,
+ * activeLabel}` key relocation (focus-report-fidelity build): one `LOCALES`
+ * array drives every per-locale assertion so a skipped locale in a future
+ * key-move can't ship green by accident.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect } from "vitest";
 import i18n from "i18next";
+
+const LOCALES = ["en", "ko", "vi", "zh"] as const;
 
 describe("i18n resources", () => {
   it("should provide Vietnamese translations for navigation keys", async () => {
@@ -63,5 +70,42 @@ describe("i18n resources", () => {
     // The main-agent card subtitle carries its own kanban plural key.
     expect(i18n.t("kanban:session.subagentSummary", { count: 1 })).toBe("1 subagent");
     expect(i18n.t("kanban:session.subagentSummary", { count: 3 })).toBe("3 subagents");
+  });
+
+  describe("report.{wallClockLabel,activeLabel} key relocation (registry-derived, all locales)", () => {
+    for (const locale of LOCALES) {
+      it(`resolves the new top-level keys for locale "${locale}"`, async () => {
+        await i18n.changeLanguage(locale);
+        const wallClock = i18n.t("plan:report.wallClockLabel");
+        const active = i18n.t("plan:report.activeLabel");
+        // i18next's default missing-key behavior returns the literal
+        // dotted key path back (ns prefix stripped) - a real translation
+        // never equals its own key path, so this also catches an
+        // accidentally-empty string.
+        expect(wallClock).not.toBe("report.wallClockLabel");
+        expect(active).not.toBe("report.activeLabel");
+        expect(typeof wallClock).toBe("string");
+        expect(wallClock.length).toBeGreaterThan(0);
+        expect(typeof active).toBe("string");
+        expect(active.length).toBeGreaterThan(0);
+      });
+
+      it(`no longer resolves the old report.calendar.* path for locale "${locale}"`, async () => {
+        await i18n.changeLanguage(locale);
+        // Post-relocation, the old path must be gone entirely - i18next's
+        // missing-key fallback returns the literal dotted key string,
+        // catching a copy-instead-of-move that leaves the old path stale.
+        expect(i18n.t("plan:report.calendar.wallClockLabel")).toBe(
+          "report.calendar.wallClockLabel"
+        );
+        expect(i18n.t("plan:report.calendar.activeLabel")).toBe("report.calendar.activeLabel");
+      });
+    }
+
+    it("keeps the relocated English strings byte-identical to their pre-relocation values (key move, not a translation change)", async () => {
+      await i18n.changeLanguage("en");
+      expect(i18n.t("plan:report.wallClockLabel")).toBe("Wall clock");
+      expect(i18n.t("plan:report.activeLabel")).toBe("Agent time");
+    });
   });
 });

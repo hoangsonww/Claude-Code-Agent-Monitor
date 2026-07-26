@@ -60,6 +60,8 @@
     "inferredNote": "未声明焦点 — 根据会话活动自动归类",
     "viewList": "列表",
     "viewCalendar": "日历",
+    "wallClockLabel": "实际经过时间",
+    "activeLabel": "代理时间",
     "calendar": {
       "prevDay": "前一天",
       "today": "今天",
@@ -68,8 +70,6 @@
       "declared": "已声明",
       "inferredProvenance": "≈ 推断",
       "stillRunning": "仍在运行",
-      "wallClockLabel": "实际经过时间",
-      "activeLabel": "代理时间",
       "viewEvents": "查看支持此时长的原始事件",
       "eventsModal": {
         "title": "支持事件",

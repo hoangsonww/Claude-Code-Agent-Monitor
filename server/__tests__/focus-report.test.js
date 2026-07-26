@@ -7,7 +7,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { describe, it, before, after, beforeEach } = require("node:test");
+const { describe, it, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
@@ -209,8 +209,15 @@ describe("buildFocusSegments", () => {
 });
 
 describe("buildSessionFocusReport - idle grace window", () => {
+  // Captured ONCE (before(), not beforeEach()) - a couple of this
+  // describe's own tests below mutate the env var and never reset it
+  // between tests within the block, so a beforeEach() re-capture here
+  // would pick up the PREVIOUS test's leftover value instead of this
+  // describe's true pre-suite state, leaking a stale override (observed:
+  // "0", from the "<= 0 disables discounting" case) into every describe
+  // that runs later in this same file.
   let originalGrace;
-  beforeEach(() => {
+  before(() => {
     originalGrace = process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS;
   });
   after(() => {
@@ -409,6 +416,155 @@ describe("buildSessionFocusReport - activity chunks", () => {
     assert.equal(chunks[0].active, true);
     assert.ok(
       chunks.slice(1).every((c) => c.active === false),
+      "every chunk after the first burst should read idle"
+    );
+  });
+});
+
+// Coverage-only (no behavior change): inferredSegment() is the exact
+// fallback path behind the round-3 data-fidelity bug and had zero dedicated
+// tests before this block. Each case documents which of the two branches
+// (declared vs. inferred) it exercises, so a future contributor adding
+// another declared-only test doesn't believe the fallback path is covered
+// by proxy. Every case is expected to pass immediately against unmodified
+// `inferredSegment()` code - if any case fails on first run, that is a
+// real, previously-hidden bug surfacing, not a test to adjust.
+describe("inferredSegment / buildSessionFocusReport - inferred fallback", () => {
+  it("resolves an item-kind inference to the plan item's CURRENT item_number/text via getPlanItemById", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    activity(id, 0);
+    stmts.upsertFocusInference.run(
+      id,
+      CWD,
+      "item",
+      "item-4",
+      null,
+      0.9,
+      "llm",
+      "matched auth work"
+    );
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(30),
+    });
+    assert.equal(report.segments.length, 1);
+    const seg = report.segments[0];
+    assert.equal(seg.item_number, 4);
+    assert.equal(seg.label, "Migrate auth");
+    assert.equal(seg.inferred, true);
+    assert.equal(seg.inferred_reason, "matched auth work");
+  });
+
+  it("resolves a detour-kind inference using the inference row's own label, with a null item_number", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    activity(id, 0);
+    stmts.upsertFocusInference.run(
+      id,
+      CWD,
+      "detour",
+      null,
+      "CI pipeline fix",
+      0.8,
+      "llm",
+      "no item covers CI"
+    );
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(30),
+    });
+    assert.equal(report.segments.length, 1);
+    const seg = report.segments[0];
+    assert.equal(seg.kind, "detour");
+    assert.equal(seg.item_number, null);
+    assert.equal(seg.label, "CI pipeline fix");
+  });
+
+  it("fabricates no segment when the inferred item has since been deleted (item_id doesn't resolve)", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    activity(id, 0);
+    stmts.upsertFocusInference.run(
+      id,
+      CWD,
+      "item",
+      "item-does-not-exist",
+      null,
+      0.9,
+      "llm",
+      "matched something"
+    );
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(30),
+    });
+    assert.deepEqual(report.segments, []);
+  });
+
+  it("fabricates no segment for an unclassified verdict, even with a real inference row present", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    activity(id, 0);
+    stmts.upsertFocusInference.run(id, CWD, "unclassified", null, null, 0, "llm", null);
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(30),
+    });
+    assert.deepEqual(report.segments, []);
+  });
+
+  it("highest-value: a round-3-shaped idle tail reached via the inference path still discounts active_ms and produces chunks", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    // A burst of activity in the first ~10 minutes, then nothing until the
+    // whole-session inferred segment closes at ended_at - the exact shape
+    // that made round 3's un-idle-aware duration misleading.
+    activity(id, 1);
+    activity(id, 4);
+    activity(id, 8);
+    stmts.upsertFocusInference.run(
+      id,
+      CWD,
+      "item",
+      "item-4",
+      null,
+      0.9,
+      "llm",
+      "matched auth work"
+    );
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(130),
+      // Explicit started_at - the inference fallback prefers this over
+      // querying the earliest event when present, keeping the segment's
+      // start pinned exactly to t(0) regardless of when the seeded
+      // activity() bursts landed.
+      started_at: t(0),
+    });
+    assert.equal(report.segments.length, 1);
+    const seg = report.segments[0];
+    assert.equal(seg.wall_ms, 130 * 60_000);
+    assert.ok(seg.active_ms < seg.wall_ms, "active_ms should be discounted below wall_ms");
+    assert.equal(seg.chunks.length, Math.ceil((130 * 60_000) / CHUNK_MS));
+    assert.equal(seg.chunks[0].active, true);
+    assert.ok(
+      seg.chunks.slice(1).every((c) => c.active === false),
       "every chunk after the first burst should read idle"
     );
   });

@@ -184,9 +184,9 @@ export function SegmentEventsModal({
             <p className="text-[11px] text-gray-500 mt-1 font-mono">
               {formatTimeSec(realStart)}–{formatTimeSec(realEnd)}
               {" · "}
-              {t("report.calendar.wallClockLabel")}: {formatMs(wallMs)}
+              {t("report.wallClockLabel")}: {formatMs(wallMs)}
               {" · "}
-              {t("report.calendar.activeLabel")}: {formatMs(activeMs)}
+              {t("report.activeLabel")}: {formatMs(activeMs)}
               {inferred && (
                 <span className="ml-2 text-gray-400 italic font-sans">
                   ≈ {t("report.inferredNote")}

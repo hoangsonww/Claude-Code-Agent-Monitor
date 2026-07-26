@@ -60,6 +60,8 @@
     "inferredNote": "선언된 포커스가 없어 세션 활동을 바탕으로 자동 귀속됨",
     "viewList": "목록",
     "viewCalendar": "달력",
+    "wallClockLabel": "실제 경과 시간",
+    "activeLabel": "에이전트 작업 시간",
     "calendar": {
       "prevDay": "이전 날",
       "today": "오늘",
@@ -68,8 +70,6 @@
       "declared": "선언됨",
       "inferredProvenance": "≈ 추정됨",
       "stillRunning": "실행 중",
-      "wallClockLabel": "실제 경과 시간",
-      "activeLabel": "에이전트 작업 시간",
       "viewEvents": "이 지속 시간을 뒷받침하는 원본 이벤트 보기",
       "eventsModal": {
         "title": "근거 이벤트",

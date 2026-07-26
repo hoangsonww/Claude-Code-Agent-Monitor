@@ -1706,23 +1706,35 @@ A segment's wall-clock span can run far longer than its real worked time
 alone can't be trusted at a glance. Each segment carries `chunks` from the
 API — its span sliced into fixed 10-minute windows, each flagged `active` if
 any real event landed inside it (`buildActivityChunks` in
-`server/lib/focus-report.js`) — and `FocusCalendarView` draws a dark overlay
-stripe over any idle chunk; an active chunk needs no overlay, the block's
-own kind color already reads correctly for it. Hovering a block (a floating
-popup, portaled to `document.body`, replacing a plain `title` tooltip) and
-the events-inspector modal below both state wall-clock time AND
-idle-grace-discounted active ("agent") time side by side, rather than only
-the raw span. Clicking a small "`</>`" icon on a block (a sibling of the
-block's own link, not nested inside it) opens `SegmentEventsModal.tsx` — the
-raw hook events recorded in that segment's real time window
-(`GET /api/events?session_id=&from=&to=`), grouped into 10-minute buckets
-(`bucketEvents()` in `client/src/lib/eventBuckets.ts`, the same grain as the
-chunk stripes) so the row count stays bounded by how long the segment ran
-rather than by how many raw events it produced; each bucket shows a count
-per `event_type` and expands into its individual events, each further
-expandable into the full hook payload via the same `EventDetail` viewer the
-Activity Feed page uses. This exists so a segment's attributed duration can
-be checked against what actually happened instead of taken on faith.
+`server/lib/focus-report.js`) — and both views draw a dark overlay stripe
+over any idle chunk, via one shared `idleStripesInRange()` helper
+(`client/src/lib/idleStripes.ts`, extracted from `FocusCalendarView`'s
+original per-block math so a second consumer never re-implements it): a
+Calendar block draws it directly, and the List view's per-session
+segmented bar (`FocusReportModal.tsx`'s `SegmentedBar`, `sizeField="wall_ms"`)
+draws the same overlay inside each of its wall_ms-sized slices; an active
+chunk needs no overlay, the block's/slice's own kind color already reads
+correctly for it. List view's other two duration bars — the per-item
+rollup and the project-wide split, which have no single segment's `chunks`
+to overlay — instead size directly off the already idle-aware
+`active_ms` field on `FocusKindTotals.by_kind[kind]`
+(`SegmentedBar`'s `sizeField="active_ms"`), never a new client-side rollup.
+Hovering a Calendar block (a floating popup, portaled to `document.body`,
+replacing a plain `title` tooltip), the events-inspector modal below it, and
+List view's per-session header (when wall-clock and agent time diverge) all
+state wall-clock time AND idle-grace-discounted active ("agent") time side
+by side, rather than only the raw span. Clicking a small "`</>`" icon on a
+block (a sibling of the block's own link, not nested inside it) opens
+`SegmentEventsModal.tsx` — the raw hook events recorded in that segment's
+real time window (`GET /api/events?session_id=&from=&to=`), grouped into
+10-minute buckets (`bucketEvents()` in `client/src/lib/eventBuckets.ts`, the
+same grain as the chunk stripes) so the row count stays bounded by how long
+the segment ran rather than by how many raw events it produced; each bucket
+shows a count per `event_type` and expands into its individual events, each
+further expandable into the full hook payload via the same `EventDetail`
+viewer the Activity Feed page uses. This exists so a segment's attributed
+duration can be checked against what actually happened instead of taken on
+faith.
 
 ---
 

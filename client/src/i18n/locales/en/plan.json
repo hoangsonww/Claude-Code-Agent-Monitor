@@ -60,6 +60,8 @@
     "inferredNote": "No focus was declared — attributed automatically from this session's activity",
     "viewList": "List",
     "viewCalendar": "Calendar",
+    "wallClockLabel": "Wall clock",
+    "activeLabel": "Agent time",
     "calendar": {
       "prevDay": "Previous day",
       "today": "Today",
@@ -68,8 +70,6 @@
       "declared": "declared",
       "inferredProvenance": "≈ inferred",
       "stillRunning": "Still running",
-      "wallClockLabel": "Wall clock",
-      "activeLabel": "Agent time",
       "viewEvents": "View the raw events supporting this duration",
       "eventsModal": {
         "title": "Supporting events",

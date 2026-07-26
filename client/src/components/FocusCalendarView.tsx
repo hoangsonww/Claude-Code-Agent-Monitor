@@ -58,6 +58,7 @@ import { formatMs, formatTime, getCurrentLocale, parseDate } from "../lib/format
 import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusKind, FocusReport, FocusReportChunk } from "../lib/types";
 import { assignLanes } from "../lib/calendarLanes";
+import { idleStripesInRange } from "../lib/idleStripes";
 import { FOCUS_KIND_ICONS } from "./PlanModal";
 import { SegmentEventsModal } from "./SegmentEventsModal";
 
@@ -93,43 +94,6 @@ interface CalendarBlock {
    *  Clipped to this block's visible day range at render time, same as the
    *  block's own startMs/endMs. */
   chunks: FocusReportChunk[];
-}
-
-/** One idle chunk's position within a block, as a percentage of the block's
- *  OWN height (not the day's) — the block itself is already positioned via
- *  top/height percentages of the day, so an overlay drawn inside it needs
- *  coordinates relative to the block's own box. Only idle chunks are ever
- *  computed: an active chunk needs no overlay, the block's normal kind
- *  color underneath already reads correctly for it. */
-interface IdleStripe {
-  topPct: number;
-  heightPct: number;
-}
-
-/** Clips a segment's chunk list to one block's visible (day-clipped) range
- *  and returns only the idle ones' rects, in percent-of-block coordinates. */
-function idleStripesForBlock(
-  chunks: FocusReportChunk[],
-  blockStartMs: number,
-  blockEndMs: number
-): IdleStripe[] {
-  const blockSpan = blockEndMs - blockStartMs;
-  if (blockSpan <= 0) return [];
-  const stripes: IdleStripe[] = [];
-  for (const chunk of chunks) {
-    if (chunk.active) continue;
-    const chunkStartMs = parseDate(chunk.start).getTime();
-    const chunkEndMs = parseDate(chunk.end).getTime();
-    if (chunkEndMs <= blockStartMs || chunkStartMs >= blockEndMs) continue; // outside this day's view
-    const visibleStart = Math.max(chunkStartMs, blockStartMs);
-    const visibleEnd = Math.min(chunkEndMs, blockEndMs);
-    if (visibleEnd <= visibleStart) continue;
-    stripes.push({
-      topPct: ((visibleStart - blockStartMs) / blockSpan) * 100,
-      heightPct: ((visibleEnd - visibleStart) / blockSpan) * 100,
-    });
-  }
-  return stripes;
 }
 
 function startOfDay(d: Date): Date {
@@ -385,7 +349,7 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
                   inferredReason: block.inferredReason,
                   live: block.live,
                 };
-                const idleStripes = idleStripesForBlock(block.chunks, block.startMs, block.endMs);
+                const idleStripes = idleStripesInRange(block.chunks, block.startMs, block.endMs);
 
                 return (
                   <Fragment key={`${block.sessionId}-${i}`}>
@@ -420,7 +384,7 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
                           key={si}
                           data-testid="idle-stripe"
                           className="absolute inset-x-0 bg-black/45"
-                          style={{ top: `${stripe.topPct}%`, height: `${stripe.heightPct}%` }}
+                          style={{ top: `${stripe.offsetPct}%`, height: `${stripe.spanPct}%` }}
                         />
                       ))}
                       <div className="relative text-[10px] font-semibold text-gray-100 truncate leading-tight">
@@ -518,9 +482,9 @@ export function FocusCalendarView({ report }: FocusCalendarViewProps) {
                 {formatTime(hoveredBlock.realStart)}–{formatTime(hoveredBlock.realEnd)}
               </p>
               <p className="text-gray-500">
-                {t("report.calendar.wallClockLabel")}: {formatMs(hoveredBlock.wallMs)}
+                {t("report.wallClockLabel")}: {formatMs(hoveredBlock.wallMs)}
                 {" · "}
-                {t("report.calendar.activeLabel")}: {formatMs(hoveredBlock.activeMs)}
+                {t("report.activeLabel")}: {formatMs(hoveredBlock.activeMs)}
               </p>
               {hoveredBlock.inferred && (
                 <p className="text-[11px] text-gray-400 italic">
