@@ -71,6 +71,7 @@ const removeMock = vi.fn();
 const addPathMock = vi.fn();
 const removePathMock = vi.fn();
 const sessionsListMock = vi.fn();
+const focusReportMock = vi.fn();
 
 vi.mock("../../lib/api", () => ({
   api: {
@@ -81,6 +82,7 @@ vi.mock("../../lib/api", () => ({
       remove: (...args: unknown[]) => removeMock(...args),
       addPath: (...args: unknown[]) => addPathMock(...args),
       removePath: (...args: unknown[]) => removePathMock(...args),
+      focusReport: (...args: unknown[]) => focusReportMock(...args),
     },
     sessions: {
       list: (...args: unknown[]) => sessionsListMock(...args),
@@ -115,6 +117,23 @@ describe("Projects page", () => {
     removeMock.mockResolvedValue({ ok: true });
     addPathMock.mockResolvedValue({ project: mockProject });
     removePathMock.mockResolvedValue({ project: mockProject });
+    focusReportMock.mockResolvedValue({
+      project_id: "proj-1",
+      sessions: [],
+      items: [],
+      totals: {
+        wall_ms: 0,
+        active_ms: 0,
+        idle_ms: 0,
+        by_kind: {
+          item: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          detour: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+        },
+      },
+      idle_grace_seconds: 300,
+    });
   });
 
   it("renders a project with its folder and aggregated session count, plus the unassigned bucket", async () => {
@@ -125,6 +144,20 @@ describe("Projects page", () => {
     expect(screen.getAllByText("1 session").length).toBeGreaterThan(0);
     expect(screen.getByText("Unassigned")).toBeInTheDocument();
     expect(screen.getAllByText("/repo/scratch").length).toBeGreaterThan(0);
+  });
+
+  it("opens the focus-time report scoped to the clicked project", async () => {
+    renderPage();
+    await screen.findByText("Agent Monitor");
+
+    fireEvent.click(screen.getByTitle("View focus-time report"));
+    expect(await screen.findByText("Focus time — Agent Monitor")).toBeInTheDocument();
+    expect(focusReportMock).toHaveBeenCalledWith("proj-1");
+
+    fireEvent.click(screen.getByTitle("Close"));
+    await waitFor(() =>
+      expect(screen.queryByText("Focus time — Agent Monitor")).not.toBeInTheDocument()
+    );
   });
 
   it("creates a project from the header form", async () => {

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { eventBus } from "../../lib/eventBus";
 import { focusStore } from "../../lib/focusStore";
@@ -112,6 +112,47 @@ describe("SessionCard - focus breadcrumb", () => {
     seedFocus({ drift: true, drift_reason: "editing docker files" });
     renderCard(makeSession());
     expect(screen.getByText(/undeclared detour/)).toBeInTheDocument();
+  });
+
+  it("colors a known-item breadcrumb in terminal green, not the muted accent", () => {
+    seedFocus();
+    renderCard(makeSession());
+    expect(screen.getByText(/Migrate auth/).className).toContain("green");
+  });
+
+  it("shows a detail popup on hover with the full item text, hides it after the pointer leaves", async () => {
+    seedFocus();
+    renderCard(makeSession());
+    const breadcrumb = screen.getByText(/Migrate auth/).closest("p") as HTMLElement;
+
+    expect(screen.queryByText("Focus session")).toBeInTheDocument(); // sanity: card rendered
+    fireEvent.mouseEnter(breadcrumb);
+    // The popup repeats the item text in its body, so there are now two matches.
+    expect(screen.getAllByText(/Migrate auth/).length).toBeGreaterThan(1);
+
+    fireEvent.mouseLeave(breadcrumb);
+    await waitFor(() => expect(screen.getAllByText(/Migrate auth/).length).toBe(1));
+  });
+
+  it("surfaces a detour's full --detail text in the popup (not shown in the compact breadcrumb)", () => {
+    seedFocus({
+      detour_stack: [
+        {
+          description: "fixing a bug",
+          pushed_at: "2026-06-10T11:10:00.000Z",
+          prior_item: 4,
+          kind: "bug",
+          title: "Waiting bug",
+          detail: "the full explanation goes here",
+        },
+      ],
+    });
+    renderCard(makeSession());
+    expect(screen.queryByText("the full explanation goes here")).not.toBeInTheDocument();
+
+    const breadcrumb = screen.getByText(/Waiting bug/).closest("p") as HTMLElement;
+    fireEvent.mouseEnter(breadcrumb);
+    expect(screen.getByText("the full explanation goes here")).toBeInTheDocument();
   });
 
   it("hides the breadcrumb for non-active sessions and when no focus exists", () => {

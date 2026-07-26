@@ -10,6 +10,7 @@
   "unassignedColumn": "未分配",
   "unassignedColumnTooltip": "来自尚未归入任何项目的文件夹的会话。",
   "viewPlan": "查看计划",
+  "viewReport": "查看焦点用时报告",
   "hideCompleted": "隐藏已完成",
   "showCompleted": "显示已完成",
   "noAgents": "暂无追踪的 Agent",
@@ -57,8 +58,14 @@
     "defaultName": "显示器 {{n}}",
     "namePlaceholder": "显示器名称",
     "deleteMonitor": "移除显示器",
+    "collapse": "折叠显示器",
+    "expand": "展开显示器",
     "ungrouped": "未分组",
     "emptyMonitorHint": "将项目拖到这里",
     "emptyUngroupedHint": "将项目拖到这里以将其移出显示器"
+  },
+  "column": {
+    "collapse": "折叠列",
+    "expand": "展开列"
   }
 }

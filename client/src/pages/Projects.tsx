@@ -41,12 +41,14 @@ import {
   Search,
   GripVertical,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { SessionCard } from "../components/SessionCard";
 import { PlanPanel } from "../components/PlanPanel";
 import { PlanModal } from "../components/PlanModal";
+import { FocusReportModal } from "../components/FocusReportModal";
 import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { timeAgo } from "../lib/format";
@@ -99,6 +101,7 @@ export function Projects() {
   // "view plan" icon. `sessions` is scoped to whichever project/cwd bucket
   // opened it, so item-chip session lookups never bleed across projects.
   const [openPlan, setOpenPlan] = useState<{ plans: Plan[]; sessions: Session[] } | null>(null);
+  const [openReport, setOpenReport] = useState<{ id: string; name: string } | null>(null);
 
   // Filters sessions by folder (cwd) only — never by project name. A project
   // (or the Unassigned bucket) left with zero matching sessions is dropped
@@ -487,6 +490,7 @@ export function Projects() {
                   .map((p) => plansByCwd.get(p.cwd))
                   .filter((p): p is Plan => Boolean(p))}
                 onOpenPlan={(plans, sess) => setOpenPlan({ plans, sessions: sess })}
+                onOpenReport={() => setOpenReport({ id: project.id, name: project.name })}
                 t={t}
                 editing={editingId === project.id}
                 editingName={editingName}
@@ -593,6 +597,13 @@ export function Projects() {
           onClose={() => setOpenPlan(null)}
         />
       )}
+      {openReport && (
+        <FocusReportModal
+          projectId={openReport.id}
+          projectName={openReport.name}
+          onClose={() => setOpenReport(null)}
+        />
+      )}
     </div>
   );
 }
@@ -605,6 +616,8 @@ interface ProjectSectionProps {
   plans: Plan[];
   /** Opens the plan popup for the given plans, scoped to the given sessions. */
   onOpenPlan: (plans: Plan[], sessions: Session[]) => void;
+  /** Opens the focus-time report popup, scoped to this project. */
+  onOpenReport: () => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
   editing: boolean;
   editingName: string;
@@ -639,6 +652,7 @@ function ProjectSection({
   overflowCount,
   plans,
   onOpenPlan,
+  onOpenReport,
   t,
   editing,
   editingName,
@@ -730,6 +744,17 @@ function ProjectSection({
                   <ClipboardList className="w-3.5 h-3.5" />
                 </button>
               )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenReport();
+                }}
+                title={t("viewReport")}
+                draggable={false}
+                className="p-1 rounded-md text-gray-500 hover:text-accent hover:bg-surface-3 flex-shrink-0"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 

@@ -10,6 +10,7 @@
   "unassignedColumn": "Unassigned",
   "unassignedColumnTooltip": "Sessions from folders that aren't part of a project yet.",
   "viewPlan": "View plan",
+  "viewReport": "View focus-time report",
   "hideCompleted": "Hide completed",
   "showCompleted": "Show completed",
   "noAgents": "No agents tracked yet",
@@ -57,8 +58,14 @@
     "defaultName": "Monitor {{n}}",
     "namePlaceholder": "Monitor name",
     "deleteMonitor": "Remove monitor",
+    "collapse": "Collapse monitor",
+    "expand": "Expand monitor",
     "ungrouped": "Ungrouped",
     "emptyMonitorHint": "Drag a project here",
     "emptyUngroupedHint": "Drop a project here to remove it from its monitor"
+  },
+  "column": {
+    "collapse": "Collapse column",
+    "expand": "Expand column"
   }
 }

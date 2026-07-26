@@ -15,7 +15,11 @@
  * every unassigned project column). Dragging a box by its header repositions it
  * left/right; dragging a project column onto a box (or a column already
  * inside one) reassigns it into that box. The standalone Unassigned column
- * always stays outside this grouping, at the very end.
+ * always stays outside this grouping, at the very end. Collapsing a monitor
+ * box moves it out of that main row entirely into its own thin strip above
+ * it (shared by every other collapsed monitor), freeing the horizontal space
+ * it would otherwise still occupy; expanding it drops it back into the main
+ * row at its ordered position.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -95,6 +99,7 @@ import {
   Monitor as MonitorIcon,
   X,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -104,6 +109,7 @@ import { EmptyState } from "../components/EmptyState";
 import { CardSkeleton } from "../components/Skeleton";
 import { PlanPanel } from "../components/PlanPanel";
 import { PlanModal } from "../components/PlanModal";
+import { FocusReportModal } from "../components/FocusReportModal";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
 import { useFocusMap } from "../lib/focusStore";
 import {
@@ -112,6 +118,8 @@ import {
   loadMonitorMap,
   persistMonitorMap,
   createMonitor,
+  loadCollapsedProjects,
+  persistCollapsedProjects,
   type MonitorGroup,
 } from "../lib/monitorGroups";
 import {
@@ -223,6 +231,7 @@ export function KanbanBoard() {
   // "view plan" icon. `sessions` is scoped to whichever column opened it, so
   // item-chip session lookups never bleed across projects.
   const [openPlan, setOpenPlan] = useState<{ plans: Plan[]; sessions: Session[] } | null>(null);
+  const [openReport, setOpenReport] = useState<{ id: string; name: string } | null>(null);
 
   // Manual drag order for the Projects view's columns - shared with the
   // standalone Projects page (same localStorage key via lib/projectOrder),
@@ -258,6 +267,8 @@ export function KanbanBoard() {
   // actually ends.
   const [monitors, setMonitors] = useState<MonitorGroup[]>(loadMonitors);
   const [monitorMap, setMonitorMap] = useState<Record<string, string>>(loadMonitorMap);
+  const [collapsedProjects, setCollapsedProjects] =
+    useState<Record<string, boolean>>(loadCollapsedProjects);
   const pendingMonitorIdRef = useRef<string | null | undefined>(undefined);
   const [draggedMonitorId, setDraggedMonitorId] = useState<string | null>(null);
   const [liveMonitorOrderIds, setLiveMonitorOrderIds] = useState<string[] | null>(null);
@@ -564,6 +575,20 @@ export function KanbanBoard() {
     persistMonitors(next);
   }
 
+  function handleToggleMonitorCollapsed(id: string) {
+    const next = monitors.map((m) => (m.id === id ? { ...m, collapsed: !m.collapsed } : m));
+    setMonitors(next);
+    persistMonitors(next);
+  }
+
+  function handleToggleProjectCollapsed(key: string) {
+    setCollapsedProjects((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      persistCollapsedProjects(next);
+      return next;
+    });
+  }
+
   function handleDeleteMonitor(id: string) {
     setMonitors((prev) => {
       const next = prev.filter((m) => m.id !== id);
@@ -628,6 +653,12 @@ export function KanbanBoard() {
     monitor,
     columns: projectOnlyColumns.filter((col) => monitorMap[col.key] === monitor.id),
   }));
+  // Collapsed monitor boxes move out of the main row entirely into their own
+  // thin strip above it (see `kanban-collapsed-monitor-row` below) so they
+  // free up horizontal space instead of just sitting there narrow - expanding
+  // one drops it back into `expandedMonitorClusters` and the main row.
+  const collapsedMonitorClusters = monitorClusters.filter(({ monitor }) => monitor.collapsed);
+  const expandedMonitorClusters = monitorClusters.filter(({ monitor }) => !monitor.collapsed);
   const ungroupedColumns = projectOnlyColumns.filter((col) => {
     const assigned = monitorMap[col.key];
     return !assigned || !monitorIds.has(assigned);
@@ -745,6 +776,10 @@ export function KanbanBoard() {
         plans={colPlans}
         planSessions={items}
         onOpenPlan={(plans, sess) => setOpenPlan({ plans, sessions: sess })}
+        projectId={isUnassigned ? undefined : key}
+        onOpenReport={() => setOpenReport({ id: key, name: label })}
+        collapsed={!!collapsedProjects[key]}
+        onToggleCollapsed={() => handleToggleProjectCollapsed(key)}
         draggableColumn={!isUnassigned}
         dragging={draggedColumnId === key}
         onColumnDragStart={isUnassigned ? undefined : () => handleColumnDragStart(key)}
@@ -773,9 +808,50 @@ export function KanbanBoard() {
     );
   }
 
+  // Renders one monitor's box - shared between the main row (expanded
+  // monitors) and the collapsed strip above it (see `collapsedMonitorClusters`)
+  // so both stay in sync on rename/delete/drag/collapse.
+  function renderMonitorBox({ monitor, columns }: (typeof monitorClusters)[number]) {
+    return (
+      <MonitorBox
+        key={monitor.id}
+        laneKey={monitor.id}
+        name={monitor.name}
+        count={columns.length}
+        collapsed={!!monitor.collapsed}
+        dragging={draggedMonitorId === monitor.id}
+        onRename={(name) => handleRenameMonitor(monitor.id, name)}
+        onDelete={() => handleDeleteMonitor(monitor.id)}
+        onToggleCollapsed={() => handleToggleMonitorCollapsed(monitor.id)}
+        onBoxDragStart={() => handleMonitorDragStart(monitor.id)}
+        onBoxDragOver={(e) => {
+          if (draggedMonitorId) handleMonitorDragOver(e, monitor.id);
+          else handleSwimlaneDragOver(e, monitor.id);
+        }}
+        onBoxDragEnd={handleMonitorDragEnd}
+      >
+        {columns.map(renderProjectColumn)}
+      </MonitorBox>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
       {Header}
+
+      {/* Collapsed monitors live here instead of the main row below - moving
+          them out entirely (rather than just shrinking them in place) frees
+          up the horizontal space they'd otherwise still claim, trading it for
+          a single thin strip shared by every collapsed monitor. Expanding one
+          removes it from here and drops it back into the main row. */}
+      {view === "projects" && collapsedMonitorClusters.length > 0 && (
+        <div
+          data-testid="kanban-collapsed-monitor-row"
+          className="flex gap-3 overflow-x-auto pb-3 -mx-8 px-8"
+        >
+          {collapsedMonitorClusters.map(renderMonitorBox)}
+        </div>
+      )}
 
       <div
         data-testid="kanban-board-row"
@@ -857,25 +933,7 @@ export function KanbanBoard() {
           projectColumns.map(renderProjectColumn)
         ) : (
           <>
-            {monitorClusters.map(({ monitor, columns }) => (
-              <MonitorBox
-                key={monitor.id}
-                laneKey={monitor.id}
-                name={monitor.name}
-                count={columns.length}
-                dragging={draggedMonitorId === monitor.id}
-                onRename={(name) => handleRenameMonitor(monitor.id, name)}
-                onDelete={() => handleDeleteMonitor(monitor.id)}
-                onBoxDragStart={() => handleMonitorDragStart(monitor.id)}
-                onBoxDragOver={(e) => {
-                  if (draggedMonitorId) handleMonitorDragOver(e, monitor.id);
-                  else handleSwimlaneDragOver(e, monitor.id);
-                }}
-                onBoxDragEnd={handleMonitorDragEnd}
-              >
-                {columns.map(renderProjectColumn)}
-              </MonitorBox>
-            ))}
+            {expandedMonitorClusters.map(renderMonitorBox)}
             <UngroupedBox
               count={ungroupedColumns.length}
               onDragOver={(e) => handleSwimlaneDragOver(e, null)}
@@ -904,6 +962,13 @@ export function KanbanBoard() {
           sessions={openPlan.sessions}
           focusBySession={focusMap}
           onClose={() => setOpenPlan(null)}
+        />
+      )}
+      {openReport && (
+        <FocusReportModal
+          projectId={openReport.id}
+          projectName={openReport.name}
+          onClose={() => setOpenReport(null)}
         />
       )}
     </div>
@@ -1000,6 +1065,21 @@ interface ColumnProps {
    *  fired by the header's "view plan" icon (only rendered when `plans` is
    *  non-empty) and by each plan strip itself. */
   onOpenPlan?: (plans: Plan[], sessions: Session[]) => void;
+  /** The real project id for a Projects-view column - absent for Unassigned
+   *  and every Agents/Sessions status column, which gates the report icon
+   *  (the focus-time report needs an actual project to scope to). */
+  projectId?: string;
+  /** Opens the focus-time report popup for `projectId`. */
+  onOpenReport?: () => void;
+  /** True when the column is collapsed to just its header - its session
+   *  cards (`children`) stay mounted but hidden, so a card's own local
+   *  state and any in-flight drag survive a collapse/expand toggle. Only
+   *  meaningful together with `onToggleCollapsed`; status columns (Agents/
+   *  Sessions views) pass neither and are never collapsible. */
+  collapsed?: boolean;
+  /** Present only for columns that support collapsing (Projects-view
+   *  project columns and Unassigned); toggles `collapsed`. */
+  onToggleCollapsed?: () => void;
 }
 
 function Column({
@@ -1021,6 +1101,10 @@ function Column({
   plans,
   planSessions,
   onOpenPlan,
+  projectId,
+  onOpenReport,
+  collapsed,
+  onToggleCollapsed,
 }: ColumnProps) {
   const { t } = useTranslation("kanban");
   const childrenArray = Array.isArray(children) ? children : children ? [children] : [];
@@ -1051,11 +1135,28 @@ function Column({
         e.stopPropagation();
         onColumnDragEnd?.();
       }}
-      className={`bg-surface-1 rounded-xl border border-border p-3 flex flex-col flex-shrink-0 w-72 transition-opacity ${
-        draggableColumn ? "cursor-grab active:cursor-grabbing" : ""
-      } ${dragging ? "opacity-40" : ""}`}
+      className={`bg-surface-1 rounded-xl border border-border p-3 flex flex-col flex-shrink-0 transition-opacity ${
+        collapsed ? "w-56 self-start" : "w-72"
+      } ${draggableColumn ? "cursor-grab active:cursor-grabbing" : ""} ${dragging ? "opacity-40" : ""}`}
     >
       <div className="flex items-center gap-2 mb-4 px-1 min-w-0">
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCollapsed();
+            }}
+            title={t(collapsed ? "column.expand" : "column.collapse")}
+            aria-expanded={!collapsed}
+            draggable={false}
+            className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+          >
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+            />
+          </button>
+        )}
         {draggableColumn && (
           <GripVertical className="w-3 h-3 text-gray-600 flex-shrink-0" aria-hidden="true" />
         )}
@@ -1083,6 +1184,20 @@ function Column({
             <ClipboardList className="w-3.5 h-3.5" />
           </button>
         )}
+        {projectId && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenReport?.();
+            }}
+            title={t("viewReport")}
+            draggable={false}
+            className="p-0.5 rounded-md text-gray-500 hover:text-accent hover:bg-surface-3 transition-colors flex-shrink-0"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+          </button>
+        )}
         <span className="ml-auto text-[11px] text-gray-600 bg-surface-3 px-2 py-0.5 rounded-full">
           {count}
         </span>
@@ -1091,8 +1206,14 @@ function Column({
       {/* draggable={false}: opts the scrollable session-card list (and the
           "Show more" button) out of the column's own drag region, so
           clicking through to a card navigates instead of starting a
-          reorder-drag. */}
-      <div className="flex-1 space-y-2.5 overflow-y-auto" draggable={false}>
+          reorder-drag. Stays mounted (never conditionally rendered) while
+          collapsed, only visually hidden - so a card's own local state
+          (e.g. "show more") and any in-flight drag survive a collapse/
+          expand toggle, mirroring MonitorBox's own collapse behavior. */}
+      <div
+        className={`flex-1 space-y-2.5 overflow-y-auto ${collapsed ? "hidden" : ""}`}
+        draggable={false}
+      >
         {hasPlans && (
           <div className="space-y-2" draggable={false}>
             {columnPlans.map((plan) => (
@@ -1137,8 +1258,20 @@ interface MonitorBoxProps {
   count: number;
   /** True while this box is the one being dragged (dims it as feedback). */
   dragging?: boolean;
+  /** True when the box is collapsed to just its header - its assigned
+   *  columns (`children`) stay mounted but hidden, so drag state and any
+   *  in-progress card interactions inside them aren't lost by toggling.
+   *  Also drops the box's own `self-align` to `start` so it shrinks to its
+   *  header's height instead of stretching to match the row's tallest
+   *  sibling column - otherwise a collapsed box would still look "empty"
+   *  rather than genuinely small. The caller (`KanbanBoard`) additionally
+   *  moves a collapsed box out of the main row into its own thin strip
+   *  above it, so this component's own rendering never needs to know which
+   *  row it's in - only whether it's collapsed. */
+  collapsed?: boolean;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onToggleCollapsed: () => void;
   onBoxDragStart: () => void;
   /** Fired while a drag is over this box - branches at the call site on
    *  whether a project column or another monitor box is being dragged. */
@@ -1166,8 +1299,10 @@ function MonitorBox({
   name,
   count,
   dragging,
+  collapsed,
   onRename,
   onDelete,
+  onToggleCollapsed,
   onBoxDragStart,
   onBoxDragOver,
   onBoxDragEnd,
@@ -1193,10 +1328,22 @@ function MonitorBox({
       onDrop={(e) => e.preventDefault()}
       onDragEnd={onBoxDragEnd}
       className={`flex flex-col flex-shrink-0 rounded-xl border border-dashed border-border/70 bg-surface-2/40 p-3 gap-3 cursor-grab active:cursor-grabbing transition-opacity ${
-        dragging ? "opacity-40" : ""
-      }`}
+        collapsed ? "self-start" : ""
+      } ${dragging ? "opacity-40" : ""}`}
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title={t(collapsed ? "monitors.expand" : "monitors.collapse")}
+          aria-expanded={!collapsed}
+          draggable={false}
+          className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+          />
+        </button>
         <MonitorIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" aria-hidden="true" />
         <input
           value={draftName}
@@ -1224,7 +1371,10 @@ function MonitorBox({
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="flex gap-4" draggable={false}>
+      {/* Stays mounted (never conditionally rendered) while collapsed, only
+          visually hidden - so a card's own local state (e.g. "show more")
+          and any in-flight drag survive a collapse/expand toggle. */}
+      <div className={`flex gap-4 ${collapsed ? "hidden" : ""}`} draggable={false}>
         {children}
         {count === 0 && (
           <div className="flex-1 min-w-[10rem] min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3">

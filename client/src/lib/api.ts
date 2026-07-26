@@ -402,6 +402,7 @@ import type {
   Plan,
   PlanItem,
   SessionFocus,
+  FocusReport,
   FocusHistoryEntry,
   SessionTodo,
   UpdateStatusPayload,
@@ -1946,6 +1947,16 @@ export const api = {
       request<{ project: Project }>(`/projects/${encodeURIComponent(id)}/paths/${pathId}`, {
         method: "DELETE",
       }),
+    /**
+     * GET /api/projects/:id/focus-report — a focus-time breakdown scoped to
+     * this project's mapped folders: per-session segments (known item /
+     * detour / feature / bug, each with idle-grace-discounted active time),
+     * a per-item rollup, and project-wide totals.
+     * @param id The project id.
+     * @returns The {@link FocusReport}.
+     */
+    focusReport: (id: string) =>
+      request<FocusReport>(`/projects/${encodeURIComponent(id)}/focus-report`),
   },
 
   plans: {

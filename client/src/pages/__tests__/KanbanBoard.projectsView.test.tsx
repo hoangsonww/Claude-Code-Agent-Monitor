@@ -7,8 +7,9 @@
  * completed" toggle, which filters completed sessions out of every column
  * and drops any column left empty by that filter, plus the monitor grouping
  * feature (creating/renaming/deleting monitors, dragging project columns
- * into/out of/between their bordered boxes, and dragging a monitor's box to
- * reposition it left-to-right in the same row) that activates once at least
+ * into/out of/between their bordered boxes, dragging a monitor's box to
+ * reposition it left-to-right in the same row, and collapsing a box out of
+ * that row into its own thin strip above it) that activates once at least
  * one monitor exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -74,12 +75,16 @@ const mockSessions: Session[] = [
 const projectsListMock = vi.fn();
 const sessionsListMock = vi.fn();
 const agentsListMock = vi.fn();
+const focusReportMock = vi.fn();
 
 vi.mock("../../lib/api", () => ({
   api: {
     agents: { list: (...args: unknown[]) => agentsListMock(...args) },
     sessions: { list: (...args: unknown[]) => sessionsListMock(...args) },
-    projects: { list: (...args: unknown[]) => projectsListMock(...args) },
+    projects: {
+      list: (...args: unknown[]) => projectsListMock(...args),
+      focusReport: (...args: unknown[]) => focusReportMock(...args),
+    },
   },
 }));
 
@@ -119,6 +124,23 @@ describe("Kanban Board - Projects view", () => {
       return Promise.resolve({ sessions: filtered, total: filtered.length });
     });
     projectsListMock.mockResolvedValue({ projects: [mockProject], unassigned: mockUnassigned });
+    focusReportMock.mockResolvedValue({
+      project_id: "proj-1",
+      sessions: [],
+      items: [],
+      totals: {
+        wall_ms: 0,
+        active_ms: 0,
+        idle_ms: 0,
+        by_kind: {
+          item: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          detour: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+        },
+      },
+      idle_grace_seconds: 300,
+    });
   });
 
   it("renders a Projects column with its session and an Unassigned column with the rest", async () => {
@@ -135,6 +157,24 @@ describe("Kanban Board - Projects view", () => {
     const unassignedColumn = screen.getByText("Unassigned").closest("div.bg-surface-1");
     expect(unassignedColumn).not.toBeNull();
     expect(within(unassignedColumn as HTMLElement).getByText("Not in project")).toBeInTheDocument();
+  });
+
+  it("opens the focus-time report for the clicked project column, but shows no report icon on Unassigned", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+
+    const projectColumn = (await screen.findByText("Agent Monitor")).closest(
+      "div.bg-surface-1"
+    ) as HTMLElement;
+    fireEvent.click(within(projectColumn).getByTitle("View focus-time report"));
+    expect(await screen.findByText("Focus time — Agent Monitor")).toBeInTheDocument();
+    expect(focusReportMock).toHaveBeenCalledWith("proj-1");
+    fireEvent.click(screen.getByTitle("Close"));
+
+    const unassignedColumn = screen
+      .getByText("Unassigned")
+      .closest("div.bg-surface-1") as HTMLElement;
+    expect(within(unassignedColumn).queryByTitle("View focus-time report")).not.toBeInTheDocument();
   });
 
   it("hides completed sessions and drops any column left empty by the filter", async () => {
@@ -359,6 +399,56 @@ describe("Kanban Board - Projects view", () => {
       const stored = currentMonitors();
       expect(stored).toHaveLength(1);
       expect(stored[0]?.name).toBe("Monitor 1");
+    });
+
+    it("collapses a monitor's box out of the main row into its own strip above it, and expands it back, persisting the flag", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      await addMonitor();
+
+      const monitorId = nthMonitor(0).id;
+      const box = screen.getByTestId(`monitor-box-${monitorId}`);
+      const agentMonitorColumn = screen
+        .getByText("Agent Monitor")
+        .closest("div.bg-surface-1") as HTMLElement;
+      dragColumnOnto(agentMonitorColumn, box);
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+
+      // Expanded: box lives in the main row, no collapsed strip rendered yet.
+      expect(screen.getByTestId("kanban-board-row")).toContainElement(
+        screen.getByTestId(`monitor-box-${monitorId}`)
+      );
+      expect(screen.queryByTestId("kanban-collapsed-monitor-row")).not.toBeInTheDocument();
+
+      fireEvent.click(
+        within(screen.getByTestId(`monitor-box-${monitorId}`)).getByTitle("Collapse monitor")
+      );
+
+      // Collapsed: the box (and its column content) moves out of the main row
+      // into the dedicated collapsed strip above it - freeing the main row's
+      // horizontal space rather than just shrinking in place.
+      const collapsedRow = screen.getByTestId("kanban-collapsed-monitor-row");
+      expect(collapsedRow).toContainElement(screen.getByTestId(`monitor-box-${monitorId}`));
+      expect(screen.getByTestId("kanban-board-row")).not.toContainElement(
+        screen.getByTestId(`monitor-box-${monitorId}`)
+      );
+      expect(within(collapsedRow).getByText("Agent Monitor")).toBeInTheDocument();
+      expect(currentMonitors()[0]).toMatchObject({ id: monitorId, collapsed: true });
+      // Still assigned to the same monitor - relocating the box doesn't touch membership.
+      expect(currentMonitorMap()["proj-1"]).toBe(monitorId);
+
+      fireEvent.click(
+        within(screen.getByTestId(`monitor-box-${monitorId}`)).getByTitle("Expand monitor")
+      );
+
+      // Expanded again: back in the main row; the strip disappears since it
+      // was the only collapsed monitor.
+      expect(screen.getByTestId("kanban-board-row")).toContainElement(
+        screen.getByTestId(`monitor-box-${monitorId}`)
+      );
+      expect(screen.queryByTestId("kanban-collapsed-monitor-row")).not.toBeInTheDocument();
+      expect(currentMonitors()[0]).toMatchObject({ id: monitorId, collapsed: false });
     });
 
     it("drags a project column onto an empty monitor's box and persists the assignment, rendering it inside the box", async () => {

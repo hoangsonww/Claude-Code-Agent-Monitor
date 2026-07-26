@@ -166,6 +166,29 @@ function computePreviewPopupStyle(rect: DOMRect, targetWidth: number): React.CSS
   return { position: "fixed", left, top, width, maxHeight, zIndex: 9999 };
 }
 
+const FOCUS_POPUP_WIDTH = 340;
+
+/** Popup anchored off the breadcrumb's own rect - opens below by default,
+ *  flipping above when there's more room that direction (e.g. a card near
+ *  the bottom of the viewport). Clamped to the viewport on both axes, same
+ *  spirit as {@link computePreviewPopupStyle} but simpler: this popup's
+ *  content is a handful of short lines, not an arbitrarily long message. */
+function computeFocusPopupStyle(rect: DOMRect): React.CSSProperties {
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  const pad = 12;
+  const width = Math.min(FOCUS_POPUP_WIDTH, vw - pad * 2);
+  const left = Math.min(Math.max(rect.left, pad), Math.max(pad, vw - width - pad));
+
+  const spaceBelow = vh - rect.bottom - pad;
+  const spaceAbove = rect.top - pad;
+  const openBelow = spaceBelow >= 140 || spaceBelow >= spaceAbove;
+  const maxHeight = Math.min(Math.max(openBelow ? spaceBelow : spaceAbove, 100), 420);
+  const top = openBelow ? rect.bottom + 6 : Math.max(pad, rect.top - 6 - maxHeight);
+
+  return { position: "fixed", left, top, width, maxHeight, zIndex: 9999 };
+}
+
 export function SessionCard({ session, onClick }: SessionCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation(["kanban", "plan"]);
@@ -193,13 +216,16 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
       ? focus.detour_stack[focus.detour_stack.length - 1]
       : undefined;
   const focusElapsedAnchor = focusTopDetour?.pushed_at ?? focus?.since ?? null;
-  const focusTooltip = focus
+  // Plain-text summary for the breadcrumb's aria-label (screen readers /
+  // keyboard focus) — the visual detail now lives in the hover popup below,
+  // not a native `title` tooltip, so this never competes with it on-screen.
+  const focusSummary = focus
     ? [
         focus.item_number != null
           ? `${t("plan:focus.itemLabel", { number: focus.item_number })}: ${focus.item_text ?? ""}`
           : null,
-        ...focus.detour_stack.map((d) => `▸ ${d.description}`),
-        focus.since ? t("plan:focus.since", { time: focus.since }) : null,
+        ...focus.detour_stack.map((d) => `▸ ${d.title ?? d.description}`),
+        focus.since ? t("plan:focus.since", { time: timeAgo(focus.since) }) : null,
       ]
         .filter(Boolean)
         .join("\n")
@@ -260,6 +286,44 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
     closeTimerRef.current = setTimeout(() => setShowPreview(false), 150);
   }
 
+  // Focus-breadcrumb detail popup - a separate hover target/timer from the
+  // last-message preview above (a session can be both Waiting and focused,
+  // and the two popups anchor off different rects). `mouseenter` fires
+  // independently per element (it doesn't bubble the way `mouseover` does),
+  // so entering the breadcrumb also fires the card's own `handleMouseEnter`
+  // - stopPropagation on the synthetic event can't stop that. Instead,
+  // entering the breadcrumb explicitly closes the preview popup so only one
+  // popup is ever showing at a time.
+  const breadcrumbRef = useRef<HTMLParagraphElement>(null);
+  const [showFocusPopup, setShowFocusPopup] = useState(false);
+  const [focusAnchorRect, setFocusAnchorRect] = useState<DOMRect | null>(null);
+  const focusCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearFocusCloseTimer = useCallback(() => {
+    if (focusCloseTimerRef.current) {
+      clearTimeout(focusCloseTimerRef.current);
+      focusCloseTimerRef.current = null;
+    }
+  }, []);
+
+  function handleFocusMouseEnter(e: React.MouseEvent) {
+    e.stopPropagation();
+    clearFocusCloseTimer();
+    if (breadcrumbRef.current) setFocusAnchorRect(breadcrumbRef.current.getBoundingClientRect());
+    setShowFocusPopup(true);
+    // The card's own handleMouseEnter already fired (see comment above) and
+    // may have opened/queued the last-message preview - close it so the two
+    // popups never stack on top of each other.
+    clearCloseTimer();
+    setShowPreview(false);
+  }
+
+  function scheduleFocusClose(e: React.MouseEvent) {
+    e.stopPropagation();
+    clearFocusCloseTimer();
+    focusCloseTimerRef.current = setTimeout(() => setShowFocusPopup(false), 150);
+  }
+
   return (
     <div
       ref={cardRef}
@@ -302,8 +366,11 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
 
       {focus && focusKindValue && isActive && (
         <p
-          className="flex items-center gap-1 text-[11px] mb-3 min-w-0 overflow-hidden whitespace-nowrap"
-          title={focusTooltip}
+          ref={breadcrumbRef}
+          onMouseEnter={handleFocusMouseEnter}
+          onMouseLeave={scheduleFocusClose}
+          aria-label={focusSummary}
+          className="flex items-center gap-1 text-[11px] mb-3 min-w-0 overflow-hidden whitespace-nowrap cursor-help"
         >
           {(() => {
             const FocusIcon = FOCUS_KIND_ICONS[focusKindValue];
@@ -314,7 +381,7 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
             );
           })()}
           {focus.item_number != null && (
-            <span className="text-gray-400 truncate">
+            <span className={`truncate ${FOCUS_KIND_CONFIG[focusKindValue].color}`}>
               {t("plan:focus.itemLabel", { number: focus.item_number })}
               {": "}
               {focus.item_text ?? t("plan:focus.unknownItem")}
@@ -401,6 +468,58 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
                 <MarkdownContent text={previewText} dense />
               ) : (
                 <p className="text-xs text-gray-500 italic">{t("session.lastMessageEmpty")}</p>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {focus &&
+        focusKindValue &&
+        showFocusPopup &&
+        focusAnchorRect &&
+        createPortal(
+          <div
+            onMouseEnter={clearFocusCloseTimer}
+            onMouseLeave={scheduleFocusClose}
+            style={computeFocusPopupStyle(focusAnchorRect)}
+            className="flex flex-col rounded-lg border border-border bg-surface-2 shadow-2xl overflow-hidden animate-fade-in"
+          >
+            <div
+              className={`flex items-center gap-1.5 px-3 py-2 border-b border-border/60 text-[10px] font-semibold uppercase tracking-wider flex-shrink-0 ${FOCUS_KIND_CONFIG[focusKindValue].color}`}
+            >
+              {(() => {
+                const FocusIcon = FOCUS_KIND_ICONS[focusKindValue];
+                return <FocusIcon className="w-3 h-3" />;
+              })()}
+              {t(FOCUS_KIND_CONFIG[focusKindValue].labelKey)}
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2.5 text-xs text-gray-300 leading-relaxed">
+              {focus.item_number != null && (
+                <p>
+                  <span className="text-gray-500">
+                    {t("plan:focus.itemLabel", { number: focus.item_number })}:
+                  </span>{" "}
+                  {focus.item_text ?? t("plan:focus.unknownItem")}
+                </p>
+              )}
+              {focus.detour_stack.map((d, i) => (
+                <div key={`${d.pushed_at}-${i}`} className="border-l-2 border-amber-500/30 pl-2">
+                  <p className="text-amber-400/90 font-medium">{d.title ?? d.description}</p>
+                  {d.detail && <p className="text-gray-400 mt-0.5">{d.detail}</p>}
+                  <p className="text-[10px] text-gray-600 mt-1">{timeAgo(d.pushed_at)}</p>
+                </div>
+              ))}
+              {focus.since && (
+                <p className="text-[10px] text-gray-600">
+                  {t("plan:focus.since", { time: timeAgo(focus.since) })}
+                </p>
+              )}
+              {focus.drift === true && (
+                <p className="text-yellow-400 text-[11px] flex items-start gap-1">
+                  <span aria-hidden="true">⚠</span>
+                  <span>{focus.drift_reason || t("plan:focus.drift")}</span>
+                </p>
               )}
             </div>
           </div>,
