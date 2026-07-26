@@ -35,6 +35,7 @@ try {
 }
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const { getDataDir } = require("./lib/claude-home");
 
 /**
@@ -446,25 +447,39 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
-  -- One row per numbered checkbox item. Identity across re-ingest is
-  -- (cwd, item_number): the file's own numbers are the stable handle agents
-  -- declare focus against. checked mirrors the file's checkbox (human-owned);
-  -- declared_done_* is the agent's claim via "ccam focus done N" and survives
-  -- re-ingest (upserts never touch it). declared_done_session has no FK on
-  -- purpose - it is an audit trail that must outlive session deletion.
+  -- One row per checkbox item. Identity across re-ingest is (cwd, item_id) —
+  -- item_id is parsed from the file's "id:" line (or synthesized
+  -- deterministically from cwd+item_number for pre-id files — see
+  -- fallbackItemId() in plan-ingest.js), and never changes for the life of
+  -- the item. item_number is purely positional/display (recomputed from file
+  -- order on every ingest) — reordering items is a normal edit, so a row's
+  -- item_number can and does change across ingests while item_id stays put;
+  -- that's what lets declared_done_at and live focus pointers survive a
+  -- reorder instead of looking like a delete+recreate. checked mirrors the
+  -- file's checkbox (human-owned); declared_done_* is the agent's claim via
+  -- "ccam focus done N" and survives re-ingest (upserts never touch it).
+  -- declared_done_session has no FK on purpose - it is an audit trail that
+  -- must outlive session deletion.
   CREATE TABLE IF NOT EXISTS plan_items (
     cwd TEXT NOT NULL,
+    item_id TEXT NOT NULL,
     item_number INTEGER NOT NULL,
     text TEXT NOT NULL,
     acceptance TEXT,
+    detail TEXT,
     checked INTEGER NOT NULL DEFAULT 0,
     position INTEGER NOT NULL DEFAULT 0,
     declared_done_at TEXT,
     declared_done_session TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    PRIMARY KEY (cwd, item_number),
+    PRIMARY KEY (cwd, item_id),
     FOREIGN KEY (cwd) REFERENCES plans(cwd) ON DELETE CASCADE
   );
+
+  -- item_number is only unique-at-a-point-in-time (not a permanent identity
+  -- anymore), but every live lookup by number ("ccam focus set <n>" typing
+  -- the number currently on screen) still needs it to be unique per cwd.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_items_cwd_number ON plan_items(cwd, item_number);
 
   -- Current focus per session: which plan item the session declared it is
   -- serving, plus a stack of in-flight detours. History is NOT here - every
@@ -487,6 +502,75 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_session_focus_cwd ON session_focus(cwd);
 `);
+
+// Migrate: give plan_items a stable item_id independent of item_number (see
+// the schema comment above). Old DBs have (cwd, item_number) as the primary
+// key with no item_id/detail columns at all — rebuild the table, synthesizing
+// an item_id per existing row with the SAME deterministic algorithm
+// plan-ingest.js falls back to for a not-yet-migrated AGENT-PLAN.md
+// (sha1(`${cwd}:${item_number}`).slice(0,8)), so the very next ingest of an
+// unmodified legacy file resolves to the identical id and updates these rows
+// in place rather than re-creating them (which would silently drop
+// declared_done_at — exactly the bug this migration exists to fix).
+{
+  const tableInfo = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='plan_items'")
+    .get();
+  if (tableInfo && tableInfo.sql && !tableInfo.sql.includes("item_id")) {
+    db.pragma("foreign_keys = OFF");
+    db.prepare("ALTER TABLE plan_items RENAME TO plan_items_old").run();
+    db.prepare(
+      `CREATE TABLE plan_items (
+        cwd TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        item_number INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        acceptance TEXT,
+        detail TEXT,
+        checked INTEGER NOT NULL DEFAULT 0,
+        position INTEGER NOT NULL DEFAULT 0,
+        declared_done_at TEXT,
+        declared_done_session TEXT,
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        PRIMARY KEY (cwd, item_id),
+        FOREIGN KEY (cwd) REFERENCES plans(cwd) ON DELETE CASCADE
+      )`
+    ).run();
+    const oldRows = db.prepare("SELECT * FROM plan_items_old").all();
+    const insertMigrated = db.prepare(
+      `INSERT INTO plan_items
+         (cwd, item_id, item_number, text, acceptance, detail, checked, position,
+          declared_done_at, declared_done_session, updated_at)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`
+    );
+    db.transaction(() => {
+      for (const row of oldRows) {
+        const itemId = crypto
+          .createHash("sha1")
+          .update(`${row.cwd}:${row.item_number}`)
+          .digest("hex")
+          .slice(0, 8);
+        insertMigrated.run(
+          row.cwd,
+          itemId,
+          row.item_number,
+          row.text,
+          row.acceptance,
+          row.checked,
+          row.position,
+          row.declared_done_at,
+          row.declared_done_session,
+          row.updated_at
+        );
+      }
+    })();
+    db.prepare("DROP TABLE plan_items_old").run();
+    db.pragma("foreign_keys = ON");
+  }
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_items_cwd_number ON plan_items(cwd, item_number);"
+  );
+}
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
 // ingested as subagents (same subagents/ dir); these columns add the grouping +
@@ -1616,24 +1700,53 @@ const stmts = {
   markPlanMissing: db.prepare(
     "UPDATE plans SET missing_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE cwd = ? AND missing_at IS NULL"
   ),
-  // declared_done_* deliberately untouched: the agent's completion claim
-  // survives file re-ingest (only the file's own text/checkbox state syncs).
+  // Conflict target is item_id (the stable identity), NOT item_number — an
+  // item that moved from number 3 to number 5 across a reorder still matches
+  // its existing row here and gets UPDATEd in place, so declared_done_at
+  // (deliberately untouched below) survives. Only the file's own
+  // text/acceptance/detail/checked/position/number sync on every ingest.
   upsertPlanItem: db.prepare(
-    `INSERT INTO plan_items (cwd, item_number, text, acceptance, checked, position, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-     ON CONFLICT(cwd, item_number) DO UPDATE SET
+    `INSERT INTO plan_items (cwd, item_id, item_number, text, acceptance, detail, checked, position, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(cwd, item_id) DO UPDATE SET
+       item_number = excluded.item_number,
        text = excluded.text,
        acceptance = excluded.acceptance,
+       detail = excluded.detail,
        checked = excluded.checked,
        position = excluded.position,
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ),
+  // Re-point one plan_items row's item_number by its (stable) item_id.
+  // Ingest uses this to vacate every about-to-move number to a collision-safe
+  // negative placeholder BEFORE running the upserts above — otherwise a swap
+  // (item A: 1→2, item B: 2→1 in the same ingest) trips the UNIQUE(cwd,
+  // item_number) index when B's upsert tries to claim 1 while A's row is
+  // still sitting on it (upsert order is file order, not a dependency-safe
+  // order).
+  remapPlanItemNumberById: db.prepare(
+    "UPDATE plan_items SET item_number = ? WHERE cwd = ? AND item_id = ?"
+  ),
   listPlanItems: db.prepare("SELECT * FROM plan_items WHERE cwd = ? ORDER BY position ASC"),
+  // Live lookup by the number currently on screen — e.g. "ccam focus set 3"
+  // means whatever item is AT position 3 right now, resolved via the unique
+  // (cwd, item_number) index. Unaffected by item_id.
   getPlanItem: db.prepare("SELECT * FROM plan_items WHERE cwd = ? AND item_number = ?"),
-  // Second param is a JSON array of the item numbers present in the file
-  // this ingest (e.g. "[1,2,4]") - numbers no longer in the file are removed.
+  // Snapshot of every current (item_number -> item_id) pairing for a cwd,
+  // taken BEFORE an ingest's upserts run. Ingest diffs this against the
+  // freshly parsed items' numbers to find items that moved, then migrates
+  // any session_focus rows still pointing at their OLD number so a live
+  // focus pointer survives a reorder (see migrateFocusNumbersOnReorder in
+  // plan-ingest.js).
+  listPlanItemIdsAndNumbers: db.prepare(
+    "SELECT item_id, item_number FROM plan_items WHERE cwd = ?"
+  ),
+  // Second param is a JSON array of the item ids present in the file this
+  // ingest (e.g. ["a1b2c3d4","e5f6a7b8"]) - ids no longer in the file are
+  // removed. (Switched from item_number: a surviving item's number can
+  // change across a reorder, but its id can't.)
   deletePlanItemsNotIn: db.prepare(
-    "DELETE FROM plan_items WHERE cwd = ? AND item_number NOT IN (SELECT value FROM json_each(?))"
+    "DELETE FROM plan_items WHERE cwd = ? AND item_id NOT IN (SELECT value FROM json_each(?))"
   ),
   setPlanItemDeclaredDone: db.prepare(
     "UPDATE plan_items SET declared_done_at = ?, declared_done_session = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE cwd = ? AND item_number = ?"
@@ -1652,6 +1765,15 @@ const stmts = {
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ),
   getSessionFocus: db.prepare("SELECT * FROM session_focus WHERE session_id = ?"),
+  // Re-point every session_focus row at `fromNumber` to `toNumber` for one
+  // cwd. Used only by the reorder migration in plan-ingest.js, always called
+  // in two passes (every affected number moved to a collision-safe negative
+  // offset, then every offset moved to its true new number) so simultaneous
+  // swaps/cycles resolve correctly instead of one item's move clobbering
+  // another's.
+  remapSessionFocusNumber: db.prepare(
+    "UPDATE session_focus SET item_number = ? WHERE cwd = ? AND item_number = ?"
+  ),
   setSessionFocusDrift: db.prepare(
     "UPDATE session_focus SET drift_status = ?, drift_reason = ?, drift_checked_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE session_id = ?"
   ),

@@ -41,8 +41,8 @@ const broadcast = (type, data) => broadcasts.push({ type, data });
 before(() => {
   stmts.insertSession.run(SESSION.id, "Focus Test", "active", CWD, null, null);
   stmts.upsertPlan.run(CWD, "Test plan", `${CWD}/AGENT-PLAN.md`, "hash", 2);
-  stmts.upsertPlanItem.run(CWD, 1, "First item", null, 0, 0);
-  stmts.upsertPlanItem.run(CWD, 4, "Migrate auth", "SSO works", 0, 1);
+  stmts.upsertPlanItem.run(CWD, "item-1", 1, "First item", null, null, 0, 0);
+  stmts.upsertPlanItem.run(CWD, "item-4", 4, "Migrate auth", "SSO works", null, 0, 1);
 });
 
 after(() => {

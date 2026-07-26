@@ -1511,6 +1511,75 @@ export interface UnassignedProjectBucket {
   last_activity: string | null;
 }
 
+/** One interval where a single {@link FocusKind} was continuously current
+ *  for a session, from GET /api/projects/:id/focus-report. `item_number` is
+ *  the item that was current when the segment started — for a detour this
+ *  is its "prior_item" (the same concept PlanModal buckets detours under),
+ *  not necessarily the item current when the segment ends. */
+export interface FocusReportSegment {
+  kind: FocusKind;
+  item_number: number | null;
+  /** The item's text snapshot (item kind) or the detour's title/description
+   *  (detour/feature/bug kind) at declaration time. */
+  label: string | null;
+  /** ISO timestamp the segment opened. */
+  start: string;
+  /** ISO timestamp the segment closed (or "now"/session end if still open). */
+  end: string;
+  /** Raw wall-clock span of the segment, in milliseconds. */
+  wall_ms: number;
+  /** Wall-clock minus idle time discounted by the
+   *  `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` grace window. */
+  active_ms: number;
+  /** The portion of `wall_ms` excluded as idle (no hook activity for longer
+   *  than the grace window). */
+  idle_ms: number;
+}
+
+/** Wall/active/idle milliseconds, broken out per {@link FocusKind} plus a
+ *  combined total — the shape reused for both a single item's rollup and
+ *  the project-wide totals in a focus-time report. */
+export interface FocusKindTotals {
+  wall_ms: number;
+  active_ms: number;
+  idle_ms: number;
+  by_kind: Record<FocusKind, { wall_ms: number; active_ms: number; idle_ms: number }>;
+}
+
+/** One session's segments in a focus-time report. Sessions that never
+ *  declared any focus are omitted entirely (nothing to report). */
+export interface FocusReportSessionEntry {
+  session_id: string;
+  name: string | null;
+  cwd: string | null;
+  segments: FocusReportSegment[];
+}
+
+/** One plan item's rollup in a focus-time report: its own declared-item time
+ *  plus any detour time logged under it (bucketed by the detour's own
+ *  `item_number`, i.e. its prior_item). */
+export interface FocusReportItemEntry {
+  cwd: string;
+  item_number: number;
+  /** The plan item's CURRENT text (not a historical snapshot), null if the
+   *  item no longer exists in the plan. */
+  text: string | null;
+  totals: FocusKindTotals;
+}
+
+/** GET /api/projects/:id/focus-report — a project-scoped focus-time
+ *  breakdown: reconstructed from the project's sessions' `Focus` event
+ *  history, not a new capture mechanism. See server/lib/focus-report.js. */
+export interface FocusReport {
+  project_id: string;
+  sessions: FocusReportSessionEntry[];
+  items: FocusReportItemEntry[];
+  totals: FocusKindTotals;
+  /** The `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` value this report was computed
+   *  with, so the UI can label what "active" means. */
+  idle_grace_seconds: number;
+}
+
 // ───── Plans & session focus ─────
 // A monitored repo may keep a human-approved plan at `<cwd>/AGENT-PLAN.md`
 // (numbered checkbox items). The server mirrors it read-only into per-cwd
@@ -1522,12 +1591,21 @@ export interface UnassignedProjectBucket {
 export interface PlanItem {
   /** Owning working directory (plan key). */
   cwd: string;
-  /** The file's own item number — the stable handle focus declarations use. */
+  /** Permanent identity (from the file's `id:` line, or synthesized for
+   *  pre-id files) — never changes for the life of the item, unlike
+   *  item_number. */
+  item_id: string;
+  /** Display number, positional — recomputed from file order on every
+   *  ingest. What focus declarations are typed against, but item_id is
+   *  what's actually persisted underneath. */
   item_number: number;
   /** Item text (without the checkbox/number prefix). */
   text: string;
   /** Optional acceptance note split from `— acceptance: …`. */
   acceptance: string | null;
+  /** Optional unbounded supporting context beyond the one-line summary,
+   *  from an indented `detail:` block. */
+  detail: string | null;
   /** 1 when the file's checkbox is `[x]` (human-owned completion). */
   checked: number;
   /** File order; numbering need not be contiguous. */
@@ -2586,8 +2664,11 @@ export const FOCUS_KIND_CONFIG: Record<FocusKind, { labelKey: string; color: str
   {
     item: {
       labelKey: "plan:items.itemKindLabel",
-      color: "text-accent",
-      bg: "bg-accent/10 border-accent/20",
+      // Deliberately a saturated "terminal green" rather than the app's
+      // usual muted accent — a known-item focus is the common case and
+      // needs to read at a glance, not just on close inspection.
+      color: "text-green-400",
+      bg: "bg-green-500/10 border-green-500/20",
     },
     detour: {
       labelKey: "plan:items.detourLabel",

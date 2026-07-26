@@ -45,15 +45,27 @@ const schemas = {
   PlanItem: {
     type: "object",
     description:
-      "One numbered checkbox item. `checked` mirrors the file's checkbox (human-owned); `declared_done_*` is the agent's completion claim via `ccam focus done N` and survives re-ingest.",
+      "One checkbox item. `checked` mirrors the file's checkbox (human-owned); `declared_done_*` is the agent's completion claim via `ccam focus done N` and survives re-ingest — including across a reorder, since item_id (not item_number) is the real identity.",
     properties: {
       cwd: { type: "string" },
+      item_id: {
+        type: "string",
+        description:
+          "The item's permanent identity (from the file's `id:` line, or synthesized for pre-id files) — never changes for the life of the item, unlike item_number",
+      },
       item_number: {
         type: "integer",
-        description: "The file's own item number — the stable handle focus declarations target",
+        description:
+          "Display number, positional — recomputed from file order on every ingest. What `ccam focus set/done` are typed against, but not what's persisted underneath (see item_id)",
       },
       text: { type: "string" },
       acceptance: { type: "string", nullable: true },
+      detail: {
+        type: "string",
+        nullable: true,
+        description:
+          "Optional unbounded supporting context beyond the one-line summary (≤4000 chars)",
+      },
       checked: { type: "integer", description: "1 when the file's checkbox is [x]" },
       position: { type: "integer", description: "File order (numbering need not be contiguous)" },
       declared_done_at: { type: "string", nullable: true },

@@ -58,7 +58,16 @@ function seedActivity(n, summaryPrefix) {
 before(() => {
   stmts.insertSession.run(SESSION_ID, "Audit Test", "active", CWD, null, null);
   stmts.upsertPlan.run(CWD, "Audit plan", `${CWD}/AGENT-PLAN.md`, "h", 1);
-  stmts.upsertPlanItem.run(CWD, 4, "Migrate authentication to SSO", "login works", 0, 0);
+  stmts.upsertPlanItem.run(
+    CWD,
+    "item-4",
+    4,
+    "Migrate authentication to SSO",
+    "login works",
+    null,
+    0,
+    0
+  );
 });
 
 beforeEach(() => {

@@ -27,6 +27,7 @@
   "items": {
     "declaredDone": "đã khai báo xong, chờ đánh dấu",
     "acceptancePrefix": "Tiêu chí nghiệm thu:",
+    "detailPrefix": "Chi tiết:",
     "itemKindLabel": "Mục",
     "detourLabel": "Rẽ hướng",
     "bugLabel": "Lỗi",
@@ -36,5 +37,22 @@
   },
   "errors": {
     "loadFailed": "Không tải được kế hoạch"
+  },
+  "report": {
+    "viewReport": "Xem báo cáo thời gian tiêu điểm",
+    "title": "Thời gian tiêu điểm — {{project}}",
+    "loading": "Đang tính toán…",
+    "error": "Không thể tải báo cáo tiêu điểm",
+    "empty": "Chưa có lịch sử tiêu điểm cho các phiên của dự án này",
+    "activeTime": "Thời gian hoạt động",
+    "ofWallClock": "trên tổng {{total}} theo đồng hồ thực",
+    "onItem": "Trên mục đã khai báo",
+    "offPlan": "Ngoài kế hoạch (rẽ hướng)",
+    "idleExcluded": "Đã loại trừ thời gian rảnh",
+    "graceNote": "Khoảng lặng dài hơn {{grace}} không hoạt động sẽ không được tính là thời gian hoạt động",
+    "graceDisabled": "đã tắt — tính toàn bộ thời gian theo đồng hồ thực",
+    "sessionsHeading": "Chi tiết theo từng phiên",
+    "itemsHeading": "Thời gian theo mục kế hoạch",
+    "splitHeading": "Phân bổ toàn dự án"
   }
 }

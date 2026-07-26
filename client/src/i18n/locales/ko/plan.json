@@ -27,6 +27,7 @@
   "items": {
     "declaredDone": "완료 선언됨, 체크박스 대기 중",
     "acceptancePrefix": "승인 기준:",
+    "detailPrefix": "세부 정보:",
     "itemKindLabel": "항목",
     "detourLabel": "우회",
     "bugLabel": "버그",
@@ -36,5 +37,22 @@
   },
   "errors": {
     "loadFailed": "플랜을 불러오지 못했습니다"
+  },
+  "report": {
+    "viewReport": "포커스 시간 리포트 보기",
+    "title": "포커스 시간 — {{project}}",
+    "loading": "계산 중…",
+    "error": "포커스 리포트를 불러오지 못했습니다",
+    "empty": "이 프로젝트의 세션에는 아직 포커스 이력이 없습니다",
+    "activeTime": "활성 시간",
+    "ofWallClock": "총 {{total}} 실제 경과 시간 중",
+    "onItem": "선언된 항목에서",
+    "offPlan": "계획 외 (우회)",
+    "idleExcluded": "제외된 유휴 시간",
+    "graceNote": "{{grace}}보다 길게 활동이 없으면 활성 시간으로 계산되지 않습니다",
+    "graceDisabled": "비활성화됨 — 전체 실제 경과 시간을 계산합니다",
+    "sessionsHeading": "세션별 내역",
+    "itemsHeading": "플랜 항목별 시간",
+    "splitHeading": "프로젝트 전체 비율"
   }
 }

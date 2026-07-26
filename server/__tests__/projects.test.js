@@ -207,3 +207,88 @@ describe("Aggregated session stats", () => {
     assert.ok(!list.body.unassigned.cwds.includes("/tmp/stats-b"));
   });
 });
+
+describe("GET /:id/focus-report", () => {
+  const CWD = "/tmp/focus-report-route-test";
+  const insertFocusEventRaw = db.prepare(
+    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, NULL, 'Focus', NULL, ?, ?, ?)"
+  );
+  function t(minutesFromStart) {
+    return new Date(Date.UTC(2026, 0, 1) + minutesFromStart * 60_000).toISOString();
+  }
+  function focus(sessionId, minute, data) {
+    insertFocusEventRaw.run(sessionId, "focus test", JSON.stringify(data), t(minute));
+  }
+
+  it("404s for an unknown project", async () => {
+    const res = await fetch("/api/projects/does-not-exist/focus-report");
+    assert.equal(res.status, 404);
+  });
+
+  it("returns well-shaped empty totals for a project with no mapped folders", async () => {
+    const created = await post("/api/projects", { name: "No folders" });
+    const res = await fetch(`/api/projects/${created.body.project.id}/focus-report`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.sessions, []);
+    assert.deepEqual(res.body.items, []);
+    assert.equal(res.body.totals.wall_ms, 0);
+    assert.ok(res.body.totals.by_kind.item);
+    assert.ok(typeof res.body.idle_grace_seconds === "number");
+  });
+
+  it("scopes the report to only the clicked project's sessions, and rolls a bug detour up under its item", async () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0"; // isolate from idle discounting
+    stmts.upsertPlan.run(CWD, "Report route test plan", `${CWD}/AGENT-PLAN.md`, "hash", 1);
+    stmts.upsertPlanItem.run(CWD, "item-4", 4, "Shared Backend", null, null, 0, 0);
+
+    const created = await post("/api/projects", { name: "Report Route Test", cwds: [CWD] });
+    const projectId = created.body.project.id;
+
+    stmts.insertSession.run("report-route-1", "In project", "active", CWD, "claude-opus-4-8", null);
+    stmts.insertSession.run(
+      "report-route-2",
+      "Outside project",
+      "active",
+      "/tmp/focus-report-route-OTHER",
+      "claude-opus-4-8",
+      null
+    );
+
+    focus("report-route-1", 0, {
+      verb: "set",
+      item_number: 4,
+      item_text_snapshot: "Shared Backend",
+    });
+    focus("report-route-1", 20, {
+      verb: "bug",
+      kind: "bug",
+      title: "npm conflict",
+      description: "npm conflict",
+    });
+    focus("report-route-1", 35, { verb: "pop", description: "npm conflict" });
+    // Closes the segment deterministically instead of leaving it open to
+    // "now" (the session's real `ended_at` is NULL - still "active" - so an
+    // unclosed segment would otherwise span from minute 35 to whenever this
+    // test happens to run, making the assertions below flaky).
+    focus("report-route-1", 35, {
+      verb: "done",
+      item_number: 4,
+      item_text_snapshot: "Shared Backend",
+    });
+    // Never declared any focus for report-route-2 - it must not appear.
+
+    const res = await fetch(`/api/projects/${projectId}/focus-report`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.project_id, projectId);
+    assert.equal(res.body.sessions.length, 1);
+    assert.equal(res.body.sessions[0].session_id, "report-route-1");
+
+    assert.equal(res.body.items.length, 1);
+    assert.equal(res.body.items[0].item_number, 4);
+    assert.equal(res.body.items[0].text, "Shared Backend");
+    assert.equal(res.body.items[0].totals.by_kind.bug.wall_ms, 15 * 60_000);
+
+    assert.equal(res.body.totals.by_kind.bug.wall_ms, 15 * 60_000);
+    assert.equal(res.body.totals.by_kind.item.wall_ms, 20 * 60_000);
+  });
+});

@@ -319,7 +319,7 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
           const entries = entriesByItem.get(item.item_number) ?? [];
           const declaredDoneOnly = !item.checked && item.declared_done_at;
           return (
-            <li key={item.item_number} className="flex items-start gap-3 min-w-0">
+            <li key={item.item_id} className="flex items-start gap-3 min-w-0">
               {/* Read-only mirror of the file's checkbox — the plan file is
                   human-owned, so toggling here is deliberately a no-op. */}
               <Checkbox
@@ -347,6 +347,12 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
                   <p className="text-xs text-gray-500 mt-1 leading-snug">
                     <span className="text-gray-600 font-medium">{t("items.acceptancePrefix")}</span>{" "}
                     {item.acceptance}
+                  </p>
+                )}
+                {item.detail && (
+                  <p className="text-xs text-gray-500 mt-1 leading-snug whitespace-pre-line">
+                    <span className="text-gray-600 font-medium">{t("items.detailPrefix")}</span>{" "}
+                    {item.detail}
                   </p>
                 )}
                 {entries.length > 0 && (

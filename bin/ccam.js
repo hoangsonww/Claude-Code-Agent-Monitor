@@ -1054,6 +1054,7 @@ async function renderFocusStatus(sessionId) {
       const text = it.checked ? c.dim(it.text) : it.text;
       const extra = !it.checked && it.declared_done_at ? c.dim(" (declared done, unchecked)") : "";
       console.log(`  ${glyph} ${it.item_number}. ${text}${extra}`);
+      if (it.detail) console.log(c.dim(`      ${it.detail.slice(0, 300)}`));
     }
   }
 }

@@ -27,6 +27,7 @@
   "items": {
     "declaredDone": "已申报完成，复选框待确认",
     "acceptancePrefix": "验收标准：",
+    "detailPrefix": "详情：",
     "itemKindLabel": "项目",
     "detourLabel": "绕行",
     "bugLabel": "缺陷",
@@ -36,5 +37,22 @@
   },
   "errors": {
     "loadFailed": "计划加载失败"
+  },
+  "report": {
+    "viewReport": "查看焦点用时报告",
+    "title": "焦点用时 — {{project}}",
+    "loading": "正在计算…",
+    "error": "无法加载焦点报告",
+    "empty": "该项目的会话尚无焦点历史",
+    "activeTime": "活跃时间",
+    "ofWallClock": "占总计 {{total}} 实际时长",
+    "onItem": "在已声明条目上",
+    "offPlan": "计划外（绕行）",
+    "idleExcluded": "已排除的空闲时间",
+    "graceNote": "超过 {{grace}} 且无活动的间隔不计入活跃时间",
+    "graceDisabled": "已禁用 — 计入全部实际时长",
+    "sessionsHeading": "逐会话明细",
+    "itemsHeading": "按计划条目统计的用时",
+    "splitHeading": "项目整体占比"
   }
 }

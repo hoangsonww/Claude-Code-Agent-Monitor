@@ -27,6 +27,7 @@
   "items": {
     "declaredDone": "declared done, checkbox pending",
     "acceptancePrefix": "Acceptance:",
+    "detailPrefix": "Detail:",
     "itemKindLabel": "Item",
     "detourLabel": "Detour",
     "bugLabel": "Bug",
@@ -36,5 +37,22 @@
   },
   "errors": {
     "loadFailed": "Failed to load plan"
+  },
+  "report": {
+    "viewReport": "View focus-time report",
+    "title": "Focus time — {{project}}",
+    "loading": "Crunching the numbers…",
+    "error": "Couldn't load the focus report",
+    "empty": "No focus history yet for this project's sessions",
+    "activeTime": "Active time",
+    "ofWallClock": "of {{total}} wall-clock",
+    "onItem": "On declared item",
+    "offPlan": "Off-plan (detours)",
+    "idleExcluded": "Idle excluded",
+    "graceNote": "Gaps longer than {{grace}} with no activity aren't counted as active time",
+    "graceDisabled": "disabled — full wall-clock counts",
+    "sessionsHeading": "Per-session breakdown",
+    "itemsHeading": "Time by plan item",
+    "splitHeading": "Project-wide split"
   }
 }

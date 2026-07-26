@@ -26,6 +26,7 @@ const {
   parsePlanMarkdown,
   ingestPlanForCwd,
   planFileMtime,
+  fallbackItemId,
   PLAN_FILENAME,
 } = require("../lib/plan-ingest");
 
@@ -112,6 +113,27 @@ describe("parsePlanMarkdown", () => {
     assert.equal(items[0].checked, false);
   });
 
+  it("parses id: and detail: lines, routing them off the summary text", () => {
+    const { items } = parsePlanMarkdown(
+      [
+        "- [ ] 1. First item — acceptance: it works",
+        "      id: a1b2c3d4",
+        "      detail: Extra context line one.",
+        "      Extra context line two.",
+      ].join("\n")
+    );
+    assert.equal(items[0].id, "a1b2c3d4");
+    assert.equal(items[0].acceptance, "it works");
+    assert.equal(items[0].detail, "Extra context line one. Extra context line two.");
+    assert.equal(items[0].text, "First item");
+  });
+
+  it("items with no id: line parse with id === null", () => {
+    const { items } = parsePlanMarkdown("- [ ] 1. No id here");
+    assert.equal(items[0].id, null);
+    assert.equal(items[0].detail, null);
+  });
+
   it("preserves file order in position for non-contiguous numbering", () => {
     const { items } = parsePlanMarkdown(
       ["- [ ] 9. last", "- [ ] 2. middle", "- [ ] 30. big"].join("\n")
@@ -196,5 +218,85 @@ describe("ingestPlanForCwd", () => {
     assert.equal(planFileMtime(path.join(os.tmpdir(), "nonexistent-cwd-xyz")), 0);
     writePlan("# T\n- [ ] 1. a\n");
     assert.ok(planFileMtime(workDir) > 0);
+  });
+});
+
+describe("reorder identity (item_id survives a number change)", () => {
+  let reorderDir;
+
+  function writeReorderPlan(text) {
+    fs.writeFileSync(path.join(reorderDir, PLAN_FILENAME), text);
+  }
+
+  before(() => {
+    reorderDir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-ingest-reorder-"));
+  });
+
+  after(() => {
+    fs.rmSync(reorderDir, { recursive: true, force: true });
+  });
+
+  it("carries declared_done_at and a live focus pointer through a swap, by id not number", () => {
+    writeReorderPlan(
+      [
+        "# Reorder demo",
+        "- [ ] 1. Alpha",
+        "      id: aaaaaaaa",
+        "- [ ] 2. Beta",
+        "      id: bbbbbbbb",
+      ].join("\n")
+    );
+    ingestPlanForCwd(dbModule, reorderDir);
+
+    // Alpha (currently number 1) has a completion claim and a session's live
+    // focus pointer aimed at it.
+    stmts.setPlanItemDeclaredDone.run("2026-02-02T00:00:00Z", "sess-reorder", reorderDir, 1);
+    stmts.insertSession.run("sess-reorder", "Reorder Test", "active", reorderDir, null, null);
+    stmts.upsertSessionFocus.run("sess-reorder", reorderDir, 1, null, "2026-02-02T00:00:00Z", "[]");
+
+    // Swap: Alpha moves 1→2, Beta moves 2→1, in the same ingest.
+    writeReorderPlan(
+      [
+        "# Reorder demo",
+        "- [ ] 1. Beta",
+        "      id: bbbbbbbb",
+        "- [ ] 2. Alpha",
+        "      id: aaaaaaaa",
+      ].join("\n")
+    );
+    const res = ingestPlanForCwd(dbModule, reorderDir);
+    assert.equal(res.changed, true);
+
+    const alpha = res.items.find((i) => i.item_id === "aaaaaaaa");
+    const beta = res.items.find((i) => i.item_id === "bbbbbbbb");
+    assert.equal(alpha.item_number, 2);
+    assert.equal(beta.item_number, 1);
+
+    // The completion claim followed Alpha to its new number — not left
+    // behind on whatever now sits at the old number 1 (Beta).
+    assert.equal(alpha.declared_done_at, "2026-02-02T00:00:00Z");
+    assert.equal(beta.declared_done_at, null);
+
+    // The live session_focus pointer followed Alpha too.
+    const focus = stmts.getSessionFocus.get("sess-reorder");
+    assert.equal(focus.item_number, 2);
+  });
+
+  it("assigns a deterministic fallback id to pre-id files, stable across re-ingest", () => {
+    writeReorderPlan("# No ids\n- [ ] 1. Legacy item\n");
+    const res1 = ingestPlanForCwd(dbModule, reorderDir);
+    const id1 = res1.items[0].item_id;
+    assert.equal(id1, fallbackItemId(reorderDir, 1));
+
+    // Change the text (so the content hash differs and a real re-ingest
+    // runs) but keep the same cwd+number — the fallback id must not move,
+    // or every ingest of a not-yet-migrated plan would look like a
+    // delete+recreate.
+    writeReorderPlan("# No ids\n- [ ] 1. Legacy item, reworded\n");
+    const res2 = ingestPlanForCwd(dbModule, reorderDir);
+    assert.equal(res2.changed, true);
+    assert.equal(res2.items.length, 1);
+    assert.equal(res2.items[0].item_id, id1);
+    assert.equal(res2.items[0].text, "Legacy item, reworded");
   });
 });
