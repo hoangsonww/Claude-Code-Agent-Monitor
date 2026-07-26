@@ -1,24 +1,35 @@
 /**
- * @file Regression: a BACKGROUND subagent's tool events must not clear a
- * genuine 'notification' waiting flag held by the MAIN agent (blocked on the
- * user via AskUserQuestion / permission). Before the fix, PreToolUse/PostToolUse
- * cleared awaiting_input_since unconditionally, so a session that was truly
- * "waiting for you" oscillated back to active on every subagent tool event —
- * AI-Deck (12s poll) and deck-web (5s WS) then disagreed about the same session.
+ * @file Regression + feature coverage for the `awaiting_reason` self-block
+ * classification in server/routes/hooks.js.
  *
- * The guard reuses the existing subagent-actor heuristic (findDeepestWorkingAgent
- * while main is 'waiting'): when a subagent is the actor, only PASSIVE waits
- * (stop/session_start/interrupted) are cleared; a 'notification' wait is
- * preserved. When MAIN is the actor, clearing is unconditional (keeps the
- * documented permission-mid-tool path intact).
+ * Original regression (kept): a BACKGROUND subagent's tool events must not
+ * clear a genuine 'notification' waiting flag held by the MAIN agent (blocked
+ * on the user via AskUserQuestion / permission). Before that fix,
+ * PreToolUse/PostToolUse cleared awaiting_input_since unconditionally, so a
+ * session that was truly "waiting for you" oscillated back to active on every
+ * subagent tool event — AI-Deck (12s poll) and deck-web (5s WS) then
+ * disagreed about the same session.
  *
- * Also covers the working-fleet guard: a non-error Stop that lands while a
- * subagent is still working does NOT stamp the Waiting flag (the session
- * stays Active, waiting on its agents); the SubagentStop drain check stamps
- * the deferred 'stop' flag when the last working subagent completes.
+ * Newer feature (this file): the dashboard used to leave a session reading
+ * "Active" (Stop handler) or a misleading generic "Waiting" (Notification
+ * handler) whenever main was actually blocked on its OWN still-running child —
+ * a subagent fleet, a synchronous Bash call, or a Monitor tool call — not on
+ * the human. Three new awaiting_reason values ('subagent'/'shell'/'monitor')
+ * let the row say so honestly:
+ *   - Stop now proactively stamps 'subagent' the moment it sees a working
+ *     subagent (was: silently clear and stay "Active"). The
+ *     clearAwaitingInputRespectingActor guard now also preserves 'subagent'
+ *     (not just 'notification') from a subagent's own routine tool events.
+ *     The SubagentStop drain check downgrades 'subagent' -> 'stop' once the
+ *     fleet truly drains.
+ *   - Notification's classifyWaitingReason re-derives the true reason instead
+ *     of always assuming 'notification': a permission/approval-worded message
+ *     always wins (someone still has to answer it); otherwise a working
+ *     subagent -> 'subagent', current_tool === 'Bash' -> 'shell',
+ *     current_tool === 'Monitor' -> 'monitor'.
  *
  * This test lives in the fork's own suite so a future upstream merge that
- * silently reverts the guard fails loudly here (home-network monitor fork,
+ * silently reverts any of this fails loudly here (home-network monitor fork,
  * see decisions/).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -74,42 +85,19 @@ const hook = (hook_type, data) => post("/api/hooks/event", { hook_type, data });
 const sessionOf = async (id) => (await fetch(`/api/sessions/${id}`)).body.session;
 
 /**
- * Drive a session into: main agent 'waiting' with the given reason, AND a live
- * working subagent (so findDeepestWorkingAgent returns it). Returns nothing;
- * asserts each precondition so a harness regression is obvious.
- *
- * With `notification: false` the Stop lands while the subagent is still
- * working, so (per the working-fleet guard in the Stop handler) the session
- * is expected to stay NOT awaiting — Active, waiting on its agents.
+ * Drive a session to: SessionStart -> UserPromptSubmit -> main (working)
+ * spawns a subagent via the "Agent" tool (subagent row inserted with
+ * status='working'). Returns nothing; the caller drives whatever happens
+ * next (Stop vs Notification) and asserts on it.
  */
-async function sessionWaitingWithWorkingSubagent(sid, { notification }) {
+async function spawnWorkingSubagent(sid) {
   await hook("SessionStart", { session_id: sid });
-  // UserPromptSubmit clears the session_start wait and promotes main → working.
   await hook("UserPromptSubmit", { session_id: sid, prompt: "go" });
-  // Main (working) spawns a subagent → subagent row inserted with status working.
   await hook("PreToolUse", {
     session_id: sid,
     tool_name: "Agent",
     tool_input: { subagent_type: "reviewer", prompt: "review" },
   });
-  // Now end the MAIN agent's turn. A waiting-for-user Notification stamps
-  // reason='notification'; a Stop with a working subagent stamps nothing.
-  if (notification) {
-    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
-  } else {
-    await hook("Stop", { session_id: sid });
-  }
-  const sess = await sessionOf(sid);
-  if (notification) {
-    assert.ok(sess.awaiting_input_since, "precondition: session should be awaiting");
-    assert.equal(sess.awaiting_reason, "notification", "precondition: expected awaiting_reason");
-  } else {
-    assert.equal(
-      sess.awaiting_input_since,
-      null,
-      "precondition: Stop with a working subagent must NOT stamp the waiting flag"
-    );
-  }
 }
 
 before(async () => {
@@ -121,60 +109,100 @@ after(() => {
   if (server) server.close();
 });
 
-describe("awaiting guard: subagent tool events vs. main-agent waiting", () => {
-  it("PRESERVES a 'notification' wait when a background subagent fires PreToolUse", async () => {
-    const sid = "guard-notif-pre";
-    await sessionWaitingWithWorkingSubagent(sid, { notification: true });
+describe("awaiting_reason: 'subagent' (Stop proactively stamps it, drain downgrades to 'stop')", () => {
+  it("Stop proactively stamps 'subagent' while a subagent is still working", async () => {
+    const sid = "guard-stop-subagent";
+    await spawnWorkingSubagent(sid);
 
-    // Subagent (deepest working, main is waiting) runs a tool. This must NOT
-    // clear the main agent's genuine "waiting for you" flag.
-    await hook("PreToolUse", { session_id: sid, tool_name: "Bash" });
+    await hook("Stop", { session_id: sid });
 
     const sess = await sessionOf(sid);
-    assert.ok(sess.awaiting_input_since, "notification wait must survive subagent PreToolUse");
-    assert.equal(sess.awaiting_reason, "notification");
+    assert.ok(sess.awaiting_input_since, "Stop with a working subagent must stamp the flag");
+    assert.equal(sess.awaiting_reason, "subagent");
+    assert.equal(sess.status, "active", "session stays active, not error/completed");
   });
 
-  it("PRESERVES a 'notification' wait when a background subagent fires PostToolUse", async () => {
-    const sid = "guard-notif-post";
-    await sessionWaitingWithWorkingSubagent(sid, { notification: true });
-
-    await hook("PostToolUse", { session_id: sid, tool_name: "Bash" });
-
-    const sess = await sessionOf(sid);
-    assert.ok(sess.awaiting_input_since, "notification wait must survive subagent PostToolUse");
-    assert.equal(sess.awaiting_reason, "notification");
-  });
-
-  it("keeps a Stop-ed session ACTIVE while a subagent still works, then stamps Waiting on drain", async () => {
-    // "Done/idle only while no agent works": the main turn ending is not the
-    // session being idle when a background subagent is still running. The
-    // session must read as Active (no awaiting flag) through subagent
-    // activity, and land in Waiting only when the LAST subagent completes.
-    const sid = "guard-stop-pre";
-    await sessionWaitingWithWorkingSubagent(sid, { notification: false });
-
-    // Subagent activity while main is stopped — still Active, still no flag.
-    await hook("PreToolUse", { session_id: sid, tool_name: "Bash" });
-    await hook("PostToolUse", { session_id: sid, tool_name: "Bash" });
-
+  it("PRESERVES 'subagent' when the fleet's own PreToolUse/PostToolUse fire", async () => {
+    const sid = "guard-subagent-pre-post";
+    await spawnWorkingSubagent(sid);
+    await hook("Stop", { session_id: sid });
     let sess = await sessionOf(sid);
-    assert.equal(sess.status, "active");
-    assert.equal(
-      sess.awaiting_input_since,
-      null,
-      "session must not read as Waiting while a subagent is working"
-    );
+    assert.equal(sess.awaiting_reason, "subagent", "precondition");
 
-    // The last working subagent finishes → the deferred Waiting stamp lands.
+    // The subagent (deepest working, main is waiting) runs tools. These must
+    // NOT clear the 'subagent' flag Stop just stamped.
+    await hook("PreToolUse", { session_id: sid, tool_name: "Grep" });
+    sess = await sessionOf(sid);
+    assert.equal(sess.awaiting_reason, "subagent", "subagent PreToolUse must not clear it");
+    assert.ok(sess.awaiting_input_since);
+
+    await hook("PostToolUse", { session_id: sid, tool_name: "Grep" });
+    sess = await sessionOf(sid);
+    assert.equal(sess.awaiting_reason, "subagent", "subagent PostToolUse must not clear it");
+    assert.ok(sess.awaiting_input_since);
+  });
+
+  it("downgrades 'subagent' -> 'stop' when the last working subagent drains", async () => {
+    const sid = "guard-subagent-drain";
+    await spawnWorkingSubagent(sid);
+    await hook("Stop", { session_id: sid });
+    await hook("PreToolUse", { session_id: sid, tool_name: "Grep" });
+    await hook("PostToolUse", { session_id: sid, tool_name: "Grep" });
+
+    // The last working subagent finishes.
     await hook("SubagentStop", { session_id: sid, agent_type: "reviewer" });
 
-    sess = await sessionOf(sid);
-    assert.ok(
-      sess.awaiting_input_since,
-      "last subagent draining must stamp the waiting flag Stop deferred"
-    );
+    const sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since, "drain must land the fresh 'stop' stamp");
     assert.equal(sess.awaiting_reason, "stop");
+  });
+
+  it("a generic Notification while a subagent is working classifies as 'subagent', not 'notification'", async () => {
+    const sid = "guard-notif-subagent";
+    await spawnWorkingSubagent(sid);
+
+    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
+
+    const sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since);
+    assert.equal(sess.awaiting_reason, "subagent");
+  });
+});
+
+describe("awaiting_reason: 'notification' (genuine ask-the-human always wins)", () => {
+  it("a permission-worded message stays 'notification' even while a subagent is working", async () => {
+    const sid = "guard-notif-permission-over-subagent";
+    await spawnWorkingSubagent(sid);
+
+    await hook("Notification", {
+      session_id: sid,
+      message: "Claude needs your permission to run this command",
+    });
+
+    const sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since);
+    assert.equal(sess.awaiting_reason, "notification");
+  });
+
+  it("PRESERVES a 'notification' wait when a background subagent fires PreToolUse/PostToolUse", async () => {
+    const sid = "guard-notif-pre-post";
+    await spawnWorkingSubagent(sid);
+    await hook("Notification", {
+      session_id: sid,
+      message: "Claude needs your approval to proceed",
+    });
+    let sess = await sessionOf(sid);
+    assert.equal(sess.awaiting_reason, "notification", "precondition");
+
+    await hook("PreToolUse", { session_id: sid, tool_name: "Grep" });
+    sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since, "notification wait must survive subagent PreToolUse");
+    assert.equal(sess.awaiting_reason, "notification");
+
+    await hook("PostToolUse", { session_id: sid, tool_name: "Grep" });
+    sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since, "notification wait must survive subagent PostToolUse");
+    assert.equal(sess.awaiting_reason, "notification");
   });
 
   it("CLEARS a 'notification' wait when MAIN (no working subagent) resumes with a tool", async () => {
@@ -192,5 +220,63 @@ describe("awaiting guard: subagent tool events vs. main-agent waiting", () => {
     sess = await sessionOf(sid);
     assert.equal(sess.awaiting_input_since, null, "main resuming must clear its own wait");
     assert.equal(sess.awaiting_reason, null);
+  });
+});
+
+describe("awaiting_reason: 'shell' and 'monitor' (main blocked mid its own tool call)", () => {
+  it("a generic Notification mid-Bash classifies as 'shell', cleared by that Bash's own PostToolUse", async () => {
+    const sid = "guard-notif-shell";
+    await hook("SessionStart", { session_id: sid });
+    await hook("UserPromptSubmit", { session_id: sid, prompt: "go" });
+    // Main starts a (synchronous, still-running) Bash call.
+    await hook("PreToolUse", { session_id: sid, tool_name: "Bash" });
+
+    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
+    let sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since);
+    assert.equal(sess.awaiting_reason, "shell");
+
+    // The Bash call returns.
+    await hook("PostToolUse", { session_id: sid, tool_name: "Bash" });
+    sess = await sessionOf(sid);
+    assert.equal(sess.awaiting_input_since, null, "the finishing Bash call must clear 'shell'");
+    assert.equal(sess.awaiting_reason, null);
+  });
+
+  it("a generic Notification mid-Monitor classifies as 'monitor', cleared by that call's own PostToolUse", async () => {
+    const sid = "guard-notif-monitor";
+    await hook("SessionStart", { session_id: sid });
+    await hook("UserPromptSubmit", { session_id: sid, prompt: "go" });
+    await hook("PreToolUse", { session_id: sid, tool_name: "Monitor" });
+
+    await hook("Notification", { session_id: sid, message: "Claude is waiting for your input" });
+    let sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since);
+    assert.equal(sess.awaiting_reason, "monitor");
+
+    await hook("PostToolUse", { session_id: sid, tool_name: "Monitor" });
+    sess = await sessionOf(sid);
+    assert.equal(
+      sess.awaiting_input_since,
+      null,
+      "the finishing Monitor call must clear 'monitor'"
+    );
+    assert.equal(sess.awaiting_reason, null);
+  });
+
+  it("a permission-worded message mid-Bash still stays 'notification' (real ask wins)", async () => {
+    const sid = "guard-notif-permission-over-shell";
+    await hook("SessionStart", { session_id: sid });
+    await hook("UserPromptSubmit", { session_id: sid, prompt: "go" });
+    await hook("PreToolUse", { session_id: sid, tool_name: "Bash" });
+
+    await hook("Notification", {
+      session_id: sid,
+      message: "Claude needs your permission to run this command",
+    });
+
+    const sess = await sessionOf(sid);
+    assert.ok(sess.awaiting_input_since);
+    assert.equal(sess.awaiting_reason, "notification");
   });
 });

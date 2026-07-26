@@ -293,6 +293,22 @@ describe("AgentCard", () => {
     expect(card?.className).toContain("border-l-yellow-500/60");
   });
 
+  it("applies the green active accent, not yellow, for a 'subagent' primary reason", () => {
+    const { container } = renderCard(
+      <AgentCard
+        agent={makeAgent({
+          status: "waiting",
+          awaiting_input_since: "2026-03-05T10:01:00.000Z",
+          awaiting_reason: "subagent",
+        })}
+      />
+    );
+    expect(screen.getByText("SubAgents")).toBeInTheDocument();
+    const card = container.querySelector(".card-hover");
+    expect(card?.className).toContain("border-l-emerald-500/50");
+    expect(card?.className).not.toContain("border-l-yellow-500/60");
+  });
+
   it("keeps the card badge compact: reason is tooltip-only, no inline chip", () => {
     renderCard(
       <AgentCard

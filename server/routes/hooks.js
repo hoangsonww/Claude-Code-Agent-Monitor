@@ -43,6 +43,27 @@ function isWaitingForUserMessage(msg) {
   return WAITING_INPUT_PATTERN.test(msg);
 }
 
+// Narrow subset of WAITING_INPUT_PATTERN that means "a human decision is
+// unavoidably required" (a permission/approval ask). This always wins over a
+// self-block reason below, even if a subagent/shell/monitor call happens to
+// be in flight at the same moment — someone still has to answer the prompt.
+const PERMISSION_ASK_PATTERN = /\bpermission\b|\bapproval\b/i;
+
+// A "waiting for input"-shaped Notification can be a false positive: main is
+// blocked on its OWN still-running child — a subagent fleet, a synchronous
+// Bash call, or a Monitor tool call — not on the human. Reuses the same
+// findDeepestWorkingAgent primitive every other case already trusts for
+// subagent attribution, plus the main agent's own current_tool for the
+// mid-tool-call cases. Falls back to the genuine 'notification' reason when
+// none of those self-block conditions hold.
+function classifyWaitingReason(sessionId, mainAgent, msg) {
+  if (PERMISSION_ASK_PATTERN.test(msg)) return "notification";
+  if (stmts.findDeepestWorkingAgent.get(sessionId, sessionId)) return "subagent";
+  if (mainAgent?.current_tool === "Bash") return "shell";
+  if (mainAgent?.current_tool === "Monitor") return "monitor";
+  return "notification";
+}
+
 function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
   // Clear waiting flag on the main agent and any other agents on this session
   // (subagents don't normally enter waiting state, but keep them in sync just
@@ -72,7 +93,9 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
 // below in each case) already tells us when a subagent — not main — is the
 // actor. We reuse it here: when a subagent is the actor we clear ONLY passive
 // waits (stop/session_start/interrupted); a genuine 'notification' wait (main
-// blocked on the user) is preserved. When MAIN is the actor we clear
+// blocked on the user) is preserved, and so is a 'subagent' wait (main blocked
+// on this very fleet) — otherwise the fleet's own first tool call would wipe
+// the badge the Stop handler just stamped. When MAIN is the actor we clear
 // unconditionally, exactly as before — this keeps the documented
 // permission-mid-tool path (PostToolUse clearing an approved prompt) intact.
 //
@@ -80,8 +103,9 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
 // whose wait is merely passive (a stale 'session_start'/'interrupted' stamp,
 // or a 'stop' stamped before the subagent's activity was visible) reading as
 // active while an agent works — i.e. "done/idle only while no agent works".
-// (The Stop handler itself now skips stamping 'stop' while a subagent is
-// working, so this clear is the backstop, not the primary mechanism.)
+// (The Stop handler itself now stamps 'subagent' while one is working, so
+// this clear is the backstop for the passive reasons, not the primary
+// mechanism for those.)
 function clearAwaitingInputRespectingActor(
   sessionId,
   mainAgentId,
@@ -90,8 +114,9 @@ function clearAwaitingInputRespectingActor(
 ) {
   if (subagentIsActor) {
     const sess = stmts.getSession.get(sessionId);
-    if (sess && sess.awaiting_reason === "notification") {
-      // Main is blocked on the user; a subagent tool event must not clear it.
+    if (sess && (sess.awaiting_reason === "notification" || sess.awaiting_reason === "subagent")) {
+      // Main is blocked on the user, or on this very subagent fleet — either
+      // way a subagent's own routine tool event must not clear it.
       return;
     }
   }
@@ -565,12 +590,13 @@ const processEvent = db.transaction((hookType, data) => {
         }
         // Stop only means the MAIN turn ended. If a subagent is still working
         // (backgrounded Task agent or a Workflow inner agent), the session is
-        // not idle — it's active, waiting on its agents. Don't stamp the
-        // Waiting flag; the drain check in SubagentStop stamps it when the
-        // last subagent finishes. Clear any stale flag so the row reads as
-        // plain Active while the fleet runs.
+        // not idle — it's active, waiting on its own fleet. Say so
+        // proactively ('subagent') rather than leaving the row silently
+        // "Active" with no explanation; the drain check in SubagentStop
+        // downgrades this to 'stop' when the last subagent finishes.
         if (stmts.findDeepestWorkingAgent.get(sessionId, sessionId)) {
-          clearAwaitingInput(sessionId, mainAgentId, false);
+          stmts.setSessionAwaitingInput.run(now, "subagent", sessionId);
+          if (mainAgentId) stmts.setAgentAwaitingInput.run(now, "subagent", mainAgentId);
         } else {
           // Stamp the waiting flag in the same DB pass as the status update so
           // the post-write read returns a consistent (waiting, awaiting=set)
@@ -644,18 +670,20 @@ const processEvent = db.transaction((hookType, data) => {
         // the session is not over until the user explicitly closes it.
 
         // Drain check: if that was the LAST working subagent and the main
-        // agent already ended its turn (Stop fired while agents were still
-        // running, so the Waiting stamp was deliberately skipped), the
-        // session is now genuinely idle — stamp the flag Stop deferred.
-        // The !awaiting guard keeps a genuine 'notification' wait (main
-        // blocked on the user) from being downgraded to 'stop'.
+        // agent already ended its turn, the session is now genuinely idle —
+        // downgrade to the 'stop' flag. This fires whether Stop deferred
+        // stamping anything (!awaiting_input_since) or proactively stamped
+        // 'subagent' (now stale since the fleet just drained). Either way,
+        // a genuine 'notification'/'shell'/'monitor'/'interrupted' wait (main
+        // blocked on the user, or on its own in-flight tool call) must NOT be
+        // downgraded to 'stop' here.
         const sessAfter = stmts.getSession.get(sessionId);
         if (
           mainAgent &&
           mainAgent.status === "waiting" &&
           sessAfter &&
           sessAfter.status === "active" &&
-          !sessAfter.awaiting_input_since &&
+          (!sessAfter.awaiting_input_since || sessAfter.awaiting_reason === "subagent") &&
           !stmts.findDeepestWorkingAgent.get(sessionId, sessionId)
         ) {
           const drainTs = new Date().toISOString();
@@ -781,16 +809,22 @@ const processEvent = db.transaction((hookType, data) => {
         eventType = "Compaction";
         summary = msg;
       } else if (isWaitingForUserMessage(msg)) {
-        // Claude Code is blocked waiting for the user (permission prompt or
-        // explicit "waiting for input" notice). Stamp session + main agent
-        // so the dashboard can surface a yellow "Waiting" badge until the
-        // user responds — at which point the next PreToolUse/Stop clears it.
+        // Claude Code fired a "waiting for input"-shaped notice. That's not
+        // always a genuine ask-the-human block — main can be sitting on this
+        // exact message while it's really blocked on its OWN still-running
+        // subagent fleet, a synchronous Bash call, or a Monitor tool call.
+        // classifyWaitingReason re-derives the true reason so the dashboard
+        // surfaces "SubAgents"/"Shell"/"Monitor" instead of a misleading
+        // "Waiting" in those cases, falling back to the genuine 'notification'
+        // reason otherwise. Stamp session + main agent either way — the exit
+        // event differs per reason (see classifyWaitingReason callers).
+        const reason = classifyWaitingReason(sessionId, mainAgent, msg);
         const ts = new Date().toISOString();
-        stmts.setSessionAwaitingInput.run(ts, "notification", sessionId);
+        stmts.setSessionAwaitingInput.run(ts, reason, sessionId);
         broadcast("session_updated", stmts.getSession.get(sessionId));
         if (mainAgentId) {
           stmts.updateAgent.run(null, "waiting", null, null, null, null, mainAgentId);
-          stmts.setAgentAwaitingInput.run(ts, "notification", mainAgentId);
+          stmts.setAgentAwaitingInput.run(ts, reason, mainAgentId);
           broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
         }
         summary = msg;

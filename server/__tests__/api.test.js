@@ -1070,11 +1070,12 @@ describe("Hook Event Processing", () => {
     assert.equal(main.status, "working", "main agent should be promoted to working");
   });
 
-  it("keeps a session Active through Stop while a subagent works, Waiting once it drains", async () => {
+  it("stamps 'subagent' through Stop while a subagent works, downgrades to 'stop' once it drains", async () => {
     // A Stop only ends the MAIN turn. With a backgrounded subagent still
-    // running the session is not idle — it must read as Active (no waiting
-    // flag) until the LAST subagent finishes, and only then land in Waiting
-    // (the drain check in SubagentStop stamps the flag Stop deferred).
+    // running the session is not idle — it proactively reads as Waiting on
+    // its own fleet ('subagent'), not a plain "Active" with no explanation,
+    // until the LAST subagent finishes and the drain check in SubagentStop
+    // downgrades the flag to 'stop'.
     const sid = "hook-sess-subagent-late";
     await post("/api/hooks/event", {
       hook_type: "SessionStart",
@@ -1090,18 +1091,18 @@ describe("Hook Event Processing", () => {
       },
     });
     // Main turn ends — but the subagent is still working, so the session
-    // stays Active (waiting on its agents), not Waiting.
+    // proactively reads Waiting/'subagent', not a plain "Active".
     await post("/api/hooks/event", {
       hook_type: "Stop",
       data: { session_id: sid, stop_reason: "end_turn" },
     });
 
     const beforeSess = await fetch(`/api/sessions/${sid}`);
-    assert.equal(
+    assert.ok(
       beforeSess.body.session.awaiting_input_since,
-      null,
-      "session must stay Active (no waiting flag) while a subagent works"
+      "session should be Waiting/'subagent' while a subagent works"
     );
+    assert.equal(beforeSess.body.session.awaiting_reason, "subagent");
     assert.equal(beforeSess.body.session.status, "active");
 
     // The last backgrounded subagent finishes — NOW the session is idle.

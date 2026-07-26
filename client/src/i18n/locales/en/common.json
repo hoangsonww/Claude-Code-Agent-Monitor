@@ -62,6 +62,18 @@
     "interrupted": {
       "label": "Interrupted",
       "desc": "The last turn was interrupted (Esc or a recovered hook) — Claude is waiting for direction."
+    },
+    "subagent": {
+      "label": "SubAgents",
+      "desc": "Claude's own turn ended, but a subagent it spawned is still working — not waiting on you."
+    },
+    "shell": {
+      "label": "Shell",
+      "desc": "Claude is running a shell command — not waiting on you."
+    },
+    "monitor": {
+      "label": "Monitor",
+      "desc": "Claude is watching a background process — not waiting on you."
     }
   },
   "time": {

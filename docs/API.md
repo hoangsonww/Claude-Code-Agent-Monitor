@@ -172,7 +172,7 @@ classDiagram
         +string ended_at
         +string updated_at
         +string awaiting_input_since "null unless Waiting"
-        +string awaiting_reason "notification|stop|session_start|interrupted; null unless Waiting"
+        +string awaiting_reason "notification|stop|session_start|interrupted|subagent|shell|monitor; null unless Waiting"
         +number cost
         +number agent_count
     }

@@ -1102,10 +1102,10 @@ stateDiagram-v2
     [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
     active --> active: SessionStart compact (mid-turn — state preserved, no flag)
     waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-    active --> waiting: Stop (non-error, no subagent working, flag re-stamped)
-    active --> active: Stop while a subagent works (Waiting deferred)
-    active --> waiting: Last SubagentStop drains (deferred stop stamp)
-    active --> waiting: Permission Notification (agent → waiting)
+    active --> waiting: Stop (non-error, no subagent working, reason=stop)
+    active --> waiting: Stop while a subagent works (reason=subagent, proactively stamped)
+    waiting --> waiting: Last SubagentStop drains (reason=subagent downgrades to stop)
+    active --> waiting: Notification (reason classified: notification / subagent / shell / monitor)
     active --> waiting: Esc cancel (watchdog marker or idle timeout)
     active --> error: Stop (stop_reason=error)
     active --> error: API error detected (watchdog)
@@ -1133,8 +1133,8 @@ stateDiagram-v2
     [*] --> waiting: ensureSession (first hook)
     waiting --> working: PreToolUse / UserPromptSubmit
     working --> working: PostToolUse (tool completed)
-    working --> waiting: Stop (non-error)
-    working --> waiting: Notification (input prompt)
+    working --> waiting: Stop (non-error; reason=stop, or subagent if a fleet is still working)
+    working --> waiting: Notification (reason classified: notification / subagent / shell / monitor)
     working --> waiting: Esc cancel (watchdog marker or idle timeout)
     waiting --> error: Stop with error
     working --> error: Stop with error
@@ -1296,9 +1296,9 @@ Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI lim
 1. **Transcript marker** — when the cancel happens *after* some output, Claude Code writes a `[Request interrupted by user]` entry (carrying an `interruptedMessageId`) to the transcript. `TranscriptCache` exposes `pendingInterrupt`, computed purely from transcript ordering — the latest interrupt timestamp vs the latest real turn activity (assistant output or a genuine user prompt), both on Claude Code's clock. This is deliberately **not** compared against the session's last hook event: those are different clocks, and for a sub-second cancel the `UserPromptSubmit` event is stamped *after* the transcript interrupt, which is exactly what left such sessions stuck. Recovers within ~15 s.
 2. **Idle-working timeout** — when Esc is pressed *before any output*, Claude Code writes **no marker at all**; the only signal is silence. When the main agent has been `working` with `current_tool` null and **neither a hook event nor the transcript mtime** has advanced for `DASHBOARD_WORKING_IDLE_SECONDS` (default `120`), the turn is treated as dead. Streaming output (transcript still growing) and in-flight tool calls are exempt by these guards; a rare false flip self-heals on the next real hook.
 
-Both paths move the session to **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped, and its paired nullable `awaiting_reason` TEXT column — one of `notification` | `stop` | `session_start` | `interrupted`, set and cleared in lock-step with `awaiting_input_since` — set to `interrupted`) — the same state a normal `Stop` produces (which records `awaiting_reason` = `stop`) — and log an `Interrupted` event. If the user resumes (a new prompt lands in the transcript), `pendingInterrupt` flips back to false and the fresh hook keeps the session non-stale.
+Both paths move the session to **Waiting** (main agent → `waiting`, `awaiting_input_since` stamped, and its paired nullable `awaiting_reason` TEXT column — one of `notification` | `stop` | `session_start` | `interrupted` | `subagent` | `shell` | `monitor`, set and cleared in lock-step with `awaiting_input_since` — set to `interrupted`) — the same state a normal `Stop` produces (which records `awaiting_reason` = `stop`, or `subagent` when a subagent fleet is still working) — and log an `Interrupted` event. If the user resumes (a new prompt lands in the transcript), `pendingInterrupt` flips back to false and the fresh hook keeps the session non-stale.
 
-Both paths also share the **working-fleet guard** from the `Stop` handler (`findDeepestWorkingAgent`): spawning a Task/Agent subagent clears the main agent's `current_tool` as soon as its `PostToolUse` fires, which can look identical to a dead interrupted turn if the subagent then runs a single long tool call past `DASHBOARD_WORKING_IDLE_SECONDS` with no further hook events. If a subagent is still `working`, neither recovery path fires — the session stays **Active** instead of a false **Waiting**, and `SubagentStop` draining the last subagent (or a later watchdog tick once the fleet finishes) resolves its status correctly.
+Both paths also share the **working-fleet guard** from the `Stop` handler (`findDeepestWorkingAgent`): spawning a Task/Agent subagent clears the main agent's `current_tool` as soon as its `PostToolUse` fires, which can look identical to a dead interrupted turn if the subagent then runs a single long tool call past `DASHBOARD_WORKING_IDLE_SECONDS` with no further hook events. If a subagent is still `working`, neither recovery path fires — the row isn't reclassified as a false `interrupted` **Waiting** on top of whatever it already reads (typically **Waiting**/"SubAgents", proactively stamped by `Stop`), and `SubagentStop` draining the last subagent (or a later watchdog tick once the fleet finishes) resolves its status correctly.
 
 ### Dead-Session Liveness Reap
 

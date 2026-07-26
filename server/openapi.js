@@ -255,10 +255,18 @@ function createOpenApiSpec() {
             },
             awaiting_reason: {
               type: "string",
-              enum: ["notification", "stop", "session_start", "interrupted"],
+              enum: [
+                "notification",
+                "stop",
+                "session_start",
+                "interrupted",
+                "subagent",
+                "shell",
+                "monitor",
+              ],
               nullable: true,
               description:
-                "Why the session is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
+                "Why the session is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), 'interrupted' (watchdog/Esc recovery), 'subagent' (main's own turn ended but a subagent fleet it spawned is still working — NOT blocked on the human), 'shell' (main is mid a synchronous Bash call), or 'monitor' (main is mid a Monitor tool call). Null when not waiting; cleared alongside awaiting_input_since.",
             },
           },
         },
@@ -295,10 +303,18 @@ function createOpenApiSpec() {
             },
             awaiting_reason: {
               type: "string",
-              enum: ["notification", "stop", "session_start", "interrupted"],
+              enum: [
+                "notification",
+                "stop",
+                "session_start",
+                "interrupted",
+                "subagent",
+                "shell",
+                "monitor",
+              ],
               nullable: true,
               description:
-                "Why this agent is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
+                "Why this agent is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), 'interrupted' (watchdog/Esc recovery), 'subagent' (main's own turn ended but a subagent fleet it spawned is still working — NOT blocked on the human), 'shell' (main is mid a synchronous Bash call), or 'monitor' (main is mid a Monitor tool call). Null when not waiting; cleared alongside awaiting_input_since.",
             },
           },
         },

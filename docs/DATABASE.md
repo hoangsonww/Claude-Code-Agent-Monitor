@@ -236,7 +236,7 @@ CREATE TABLE sessions (
     metadata TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- NULL unless Waiting
-    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
+    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted|subagent|shell|monitor, or NULL
     transcript_path TEXT,                                             -- absolute path to JSONL transcript
     source TEXT NOT NULL DEFAULT 'local'                              -- data source: 'local' or a remote_sources.id
 );
@@ -255,8 +255,8 @@ CREATE TABLE sessions (
 | `ended_at` | TEXT | YES | ISO 8601 timestamp on terminal transition |
 | `metadata` | TEXT | YES | JSON blob for extras (turn duration totals, thinking blocks, …) |
 | `updated_at` | TEXT | NO | Bumped on every event for staleness detection |
-| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise. A SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting. A Stop that lands while a subagent is still `working` also skips the stamp — the session stays Active (waiting on its agents) and the `stop` stamp is deferred to the last SubagentStop |
-| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop` — or the last SubagentStop when the Stop deferred the stamp to a still-working fleet, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise. Exception: a `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
+| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise. A SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting. A Stop that lands while a subagent is still `working` proactively stamps this too (reason `subagent`) rather than staying silent |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, `interrupted`, `subagent`, `shell`, or `monitor`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop` (or `subagent` when a subagent fleet is still working — downgraded to `stop` by the last SubagentStop once it drains), Notification→ re-derived by `classifyWaitingReason`: a permission/approval-worded message→`notification`, else a working subagent→`subagent`, else `current_tool==='Bash'`→`shell`, else `current_tool==='Monitor'`→`monitor`, else `notification`; watchdog/Esc recovery→`interrupted`). NULL otherwise. `subagent`/`shell`/`monitor` mean "still actively working via a child", NOT blocked on the human. Exception: a `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
 | `transcript_path` | TEXT | YES | Absolute path to the session's JSONL transcript. Written by `routes/hooks.js` on the first event that carries it (subsequent events no-op via a SQL guard) and read by the periodic compaction sweep — so the sweep touches only active session rows instead of scanning the entire `events` table for `json_extract(data,'$.transcript_path')`. Backfilled once from `events` by the `db.js` migration |
 | `source` | TEXT | NO | Data source this session was captured from. `'local'` for this machine's own Claude Code history (the default); otherwise the `remote_sources.id` of the remote SSH machine it was pulled from. Powers the `sources` query filter on `/api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics`, and the `sources` facet on `/api/sessions/facets`. Indexed by `idx_sessions_source` |
 
@@ -311,7 +311,7 @@ CREATE TABLE agents (
     metadata TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- main-agent waiting flag
-    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
+    awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted|subagent|shell|monitor, or NULL
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
 );
@@ -332,7 +332,7 @@ CREATE TABLE agents (
 | `parent_agent_id` | TEXT | YES | FK to the spawning agent for nested subagent trees (`ON DELETE SET NULL`). Set to the main agent at insert, then repointed to the true spawner by `reconcileSubagentParents` from each subagent transcript's Task tool result (`toolUseResult.agentId`), so subagents-of-subagents nest correctly instead of flattening under main |
 | `metadata` | TEXT | YES | JSON blob for extras. For subagents it carries `model` (the subagent's own model, issue #185) and `tokens` — an array of per-agent token buckets parsed from the subagent's transcript. The agent-list endpoints price `tokens` at the current rates to attach a per-agent `cost` (so a subagent card shows its OWN cost, not the session total). Empty `[]` means the subagent did no billable work; absent means its transcript wasn't available to parse |
 | `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent. NULL on subagents |
-| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since`; explains why the main agent is waiting. NULL on subagents |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, `interrupted`, `subagent`, `shell`, or `monitor` (the last three mean "still actively working via a child", NOT blocked on the human). Set/cleared in lock-step with `awaiting_input_since`; explains why the main agent is waiting. NULL on subagents |
 
 **Lifecycle:**
 

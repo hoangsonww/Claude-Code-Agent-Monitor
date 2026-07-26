@@ -723,7 +723,7 @@ interface AgentCardProps {
 
 #### StatusBadge
 
-Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatusBadge`). When a row is in the yellow **Waiting** overlay (`awaiting_input_since` set), an optional `reason` prop explains WHY: a hover tooltip carries the full explanation, and — unless `compact` is set — a small nested chip (icon + short label) renders inline. Card layouts (Kanban / Dashboard trees) pass `compact` so the chip never squeezes the card title; the Sessions table and session-detail header show the full chip:
+Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatusBadge`). When a row is in the yellow **Waiting** overlay (`awaiting_input_since` set), an optional `reason` prop explains WHY: a hover tooltip carries the full explanation, and — unless `compact` is set — a small nested chip (icon + short label) renders inline. Card layouts (Kanban / Dashboard trees) pass `compact` so the chip never squeezes the card title; the Sessions table and session-detail header show the full chip. Three reasons (`subagent`/`shell`/`monitor`, `AWAITING_REASON_CONFIG[reason].primary === true`) mean Claude is still actively working via a child rather than blocked on the human, so they replace the badge's whole word instead of nesting a chip — in every mode, compact included:
 
 | `awaiting_reason` | Label | Meaning |
 | ----------------- | ----- | ------- |
@@ -731,6 +731,9 @@ Colored status pills for agents (`AgentStatusBadge`) and sessions (`SessionStatu
 | `stop` | Turn done | Claude finished its reply; idle until the next prompt |
 | `session_start` | At prompt | Fresh/resumed CLI sitting at an empty prompt |
 | `interrupted` | Interrupted | Turn cut short — Esc or a recovered hook (urgent — amber) |
+| `subagent` | SubAgents | Main's own turn ended, but a subagent fleet it spawned is still working — not blocked on you |
+| `shell` | Shell | Main is mid a synchronous Bash call — not blocked on you |
+| `monitor` | Monitor | Main is mid a Monitor tool call — not blocked on you |
 
 **Props:**
 ```typescript

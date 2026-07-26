@@ -1,6 +1,6 @@
 /**
  * @file StatusBadge.tsx
- * @description Defines reusable React components for displaying the status of agents and sessions in a visually distinct way using badges. The AgentStatusBadge component shows the current status of an agent with an optional pulsing effect for active states, while the SessionStatusBadge component indicates the status of a session. When a row is in the yellow "Waiting" overlay state, both badges can additionally render WHY it waits (the server's awaiting_reason: needs input / turn done / at prompt / interrupted) as a nested icon+label chip with a hover tooltip carrying the full explanation — or, in `compact` mode for tight card layouts, as the hover tooltip alone. Both components utilize predefined configurations for consistent styling across the application.
+ * @description Defines reusable React components for displaying the status of agents and sessions in a visually distinct way using badges. The AgentStatusBadge component shows the current status of an agent with an optional pulsing effect for active states, while the SessionStatusBadge component indicates the status of a session. When a row is in the yellow "Waiting" overlay state, both badges can additionally render WHY it waits (the server's awaiting_reason: needs input / turn done / at prompt / interrupted) as a nested icon+label chip with a hover tooltip carrying the full explanation — or, in `compact` mode for tight card layouts, as the hover tooltip alone. Three "primary" reasons (subagent/shell/monitor — still actively working via a child, not blocked on the human) instead replace the whole badge word with their own label (e.g. "SubAgents") in every mode, since "Waiting" would be misleading for them. Both components utilize predefined configurations for consistent styling across the application.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -66,7 +66,15 @@
  * ----------------------------------------------------------------------------- */
 
 import { useTranslation } from "react-i18next";
-import { BellRing, MessageSquareReply, Terminal, OctagonPause } from "lucide-react";
+import {
+  BellRing,
+  MessageSquareReply,
+  Terminal,
+  OctagonPause,
+  Users,
+  SquareTerminal,
+  Activity,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { STATUS_CONFIG, SESSION_STATUS_CONFIG, AWAITING_REASON_CONFIG } from "../lib/types";
 import type { EffectiveAgentStatus, EffectiveSessionStatus, AwaitingReason } from "../lib/types";
@@ -81,6 +89,9 @@ export const REASON_ICONS: Record<AwaitingReason, LucideIcon> = {
   stop: MessageSquareReply, // Claude replied; your reply is the next move
   session_start: Terminal, // fresh CLI sitting at an empty prompt
   interrupted: OctagonPause, // turn cut short (Esc / recovered hook)
+  subagent: Users, // a spawned fleet is still working
+  shell: SquareTerminal, // mid a synchronous Bash call
+  monitor: Activity, // mid a Monitor tool call watching a background process
 };
 
 /**
@@ -127,18 +138,28 @@ export function AgentStatusBadge({ status, pulse, reason, compact }: AgentStatus
   const shouldPulse = pulse ?? (status === "working" || status === "waiting");
   // Only decorate the Waiting overlay - a reason on any other status is stale.
   const shownReason = status === "waiting" && reason ? reason : null;
+  const reasonCfg = shownReason ? AWAITING_REASON_CONFIG[shownReason] : null;
+  // 'subagent'/'shell'/'monitor' mean "still working via a child", not
+  // "blocked on you" - showing a generic "Waiting" word for these would be
+  // actively misleading, so the reason's own label becomes the whole badge
+  // instead of a suffix chip nested inside "Waiting". Applies in compact mode
+  // too, since that's exactly where the chip would otherwise never surface.
+  const showReasonAsPrimary = reasonCfg?.primary === true;
+  // These reasons are genuinely active work, not a wait - color them the same
+  // green as "working" rather than the yellow used for a real Waiting badge.
+  const colorConfig = showReasonAsPrimary ? STATUS_CONFIG.working : config;
 
   return (
     // Tip renders children unwrapped when raw is undefined (non-waiting rows).
-    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
-      <span className={`badge ${config.bg} ${config.color}`}>
+    <Tip raw={reasonCfg ? t(reasonCfg.descKey) : undefined}>
+      <span className={`badge ${colorConfig.bg} ${colorConfig.color}`}>
         <span
-          className={`w-1.5 h-1.5 rounded-full ${config.dot} ${
+          className={`w-1.5 h-1.5 rounded-full ${colorConfig.dot} ${
             shouldPulse ? "animate-pulse-dot" : ""
           }`}
         />
-        {t(config.labelKey)}
-        {shownReason && !compact && <ReasonChip reason={shownReason} />}
+        {showReasonAsPrimary ? t(reasonCfg.labelKey) : t(config.labelKey)}
+        {shownReason && !compact && !showReasonAsPrimary && <ReasonChip reason={shownReason} />}
       </span>
     </Tip>
   );
@@ -161,17 +182,22 @@ export function SessionStatusBadge({ status, pulse, reason, compact }: SessionSt
   const config = SESSION_STATUS_CONFIG[status];
   const shouldPulse = pulse ?? status === "waiting";
   const shownReason = status === "waiting" && reason ? reason : null;
+  const reasonCfg = shownReason ? AWAITING_REASON_CONFIG[shownReason] : null;
+  const showReasonAsPrimary = reasonCfg?.primary === true;
+  // These reasons are genuinely active work, not a wait - color them the same
+  // green as "active" rather than the yellow used for a real Waiting badge.
+  const colorConfig = showReasonAsPrimary ? SESSION_STATUS_CONFIG.active : config;
   return (
-    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
-      <span className={`badge ${config.bg} ${config.color}`}>
+    <Tip raw={reasonCfg ? t(reasonCfg.descKey) : undefined}>
+      <span className={`badge ${colorConfig.bg} ${colorConfig.color}`}>
         {shouldPulse && (
           <span
-            className={`w-1.5 h-1.5 rounded-full ${config.dot} animate-pulse-dot`}
+            className={`w-1.5 h-1.5 rounded-full ${colorConfig.dot} animate-pulse-dot`}
             aria-hidden="true"
           />
         )}
-        {t(config.labelKey)}
-        {shownReason && !compact && <ReasonChip reason={shownReason} />}
+        {showReasonAsPrimary ? t(reasonCfg.labelKey) : t(config.labelKey)}
+        {shownReason && !compact && !showReasonAsPrimary && <ReasonChip reason={shownReason} />}
       </span>
     </Tip>
   );

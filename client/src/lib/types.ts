@@ -609,8 +609,21 @@ export const AWAITING_STATUS = "waiting" as const;
  *    prompt; nothing has been asked yet.
  * - `"interrupted"`   — the turn was cut short (Esc, or the watchdog recovered
  *    a lost Stop hook); Claude is waiting for direction.
+ * - `"subagent"`      — main's own turn ended, but a subagent fleet it spawned
+ *    is still working; NOT blocked on the human.
+ * - `"shell"`         — main is mid a synchronous Bash call; NOT blocked on
+ *    the human.
+ * - `"monitor"`       — main is mid a Monitor tool call; NOT blocked on the
+ *    human.
  */
-export type AwaitingReason = "notification" | "stop" | "session_start" | "interrupted";
+export type AwaitingReason =
+  | "notification"
+  | "stop"
+  | "session_start"
+  | "interrupted"
+  | "subagent"
+  | "shell"
+  | "monitor";
 
 /** All known {@link AwaitingReason} values, used to validate the raw string the
  *  server sends before the UI trusts it (see {@link normalizeAwaitingReason}). */
@@ -619,6 +632,9 @@ export const AWAITING_REASONS: readonly AwaitingReason[] = [
   "stop",
   "session_start",
   "interrupted",
+  "subagent",
+  "shell",
+  "monitor",
 ] as const;
 /** {@link AgentStatus} widened with the transient {@link AWAITING_STATUS} overlay;
  *  the type the UI actually renders a badge for (see {@link effectiveAgentStatus}). */
@@ -2643,6 +2659,11 @@ export const STATUS_CONFIG: Record<
  * `i18n.t()`. `urgent` marks the reasons that mean "Claude is BLOCKED and needs
  * you" (vs. merely idle between turns) so surfaces can emphasize them - e.g.
  * a permission prompt is actionable in a way an empty prompt is not.
+ * `primary` marks reasons that mean "still actively working, just via a
+ * child" (subagent/shell/monitor) - {@link StatusBadge} promotes these to the
+ * badge's whole visible text (e.g. "SubAgents") instead of nesting them as a
+ * suffix chip inside a generic "Waiting" badge, since "Waiting" would be
+ * actively misleading for these.
  *
  * Keyed by every {@link AwaitingReason} value so the record is exhaustive;
  * unknown server values never reach this table ({@link normalizeAwaitingReason}
@@ -2650,7 +2671,7 @@ export const STATUS_CONFIG: Record<
  */
 export const AWAITING_REASON_CONFIG: Record<
   AwaitingReason,
-  { labelKey: string; descKey: string; urgent: boolean }
+  { labelKey: string; descKey: string; urgent: boolean; primary?: boolean }
 > = {
   // Permission prompt / input request: Claude literally cannot continue.
   notification: {
@@ -2675,6 +2696,27 @@ export const AWAITING_REASON_CONFIG: Record<
     labelKey: "common:awaitingReason.interrupted.label",
     descKey: "common:awaitingReason.interrupted.desc",
     urgent: true,
+  },
+  // Main's turn ended, but a subagent fleet it spawned is still working.
+  subagent: {
+    labelKey: "common:awaitingReason.subagent.label",
+    descKey: "common:awaitingReason.subagent.desc",
+    urgent: false,
+    primary: true,
+  },
+  // Main is mid a synchronous Bash call.
+  shell: {
+    labelKey: "common:awaitingReason.shell.label",
+    descKey: "common:awaitingReason.shell.desc",
+    urgent: false,
+    primary: true,
+  },
+  // Main is mid a Monitor tool call.
+  monitor: {
+    labelKey: "common:awaitingReason.monitor.label",
+    descKey: "common:awaitingReason.monitor.desc",
+    urgent: false,
+    primary: true,
   },
 };
 

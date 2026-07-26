@@ -58,7 +58,12 @@ import { useTranslation } from "react-i18next";
 import { Bot, GitBranch, Clock, Wrench, Cpu, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AgentStatusBadge } from "./StatusBadge";
-import { effectiveAgentStatus, isAgentAwaitingInput, agentAwaitingReason } from "../lib/types";
+import {
+  effectiveAgentStatus,
+  isAgentAwaitingInput,
+  agentAwaitingReason,
+  AWAITING_REASON_CONFIG,
+} from "../lib/types";
 import type { Agent, Session } from "../lib/types";
 import { formatDuration, timeAgo, formatModelName, pathBasename, fmtCost } from "../lib/format";
 
@@ -93,6 +98,11 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   const isWaiting = agent.status === "waiting" || isAgentAwaitingInput(agent);
   const status = effectiveAgentStatus(agent);
   const isActive = agent.status === "working";
+  // 'subagent'/'shell'/'monitor' mean "still actively working via a child",
+  // not blocked on the human - the card's left-border accent should match the
+  // green badge inside it (working/active) rather than reading yellow Waiting.
+  const waitingReason = agentAwaitingReason(agent);
+  const isPrimaryReason = !!waitingReason && AWAITING_REASON_CONFIG[waitingReason].primary === true;
   const isMain = agent.type === "main";
 
   // Session-level metadata applies to every card in the session - main and
@@ -192,7 +202,9 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
       onClick={handleClick}
       className={`card-hover p-4 cursor-pointer overflow-hidden ${
         isWaiting
-          ? "border-l-2 border-l-yellow-500/60"
+          ? isPrimaryReason
+            ? "border-l-2 border-l-emerald-500/50"
+            : "border-l-2 border-l-yellow-500/60"
           : isActive
             ? "border-l-2 border-l-emerald-500/50"
             : ""

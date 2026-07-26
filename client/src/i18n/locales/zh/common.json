@@ -62,6 +62,18 @@
     "interrupted": {
       "label": "已中断",
       "desc": "上一回合被中断（Esc 或恢复的钩子）— Claude 正在等待你的指示。"
+    },
+    "subagent": {
+      "label": "子代理",
+      "desc": "Claude 自己的回合已结束，但它派生的子代理仍在工作 — 并非在等待你。"
+    },
+    "shell": {
+      "label": "Shell",
+      "desc": "Claude 正在运行一个 shell 命令 — 并非在等待你。"
+    },
+    "monitor": {
+      "label": "Monitor",
+      "desc": "Claude 正在监视一个后台进程 — 并非在等待你。"
     }
   },
   "time": {

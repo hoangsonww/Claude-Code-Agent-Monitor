@@ -62,6 +62,18 @@
     "interrupted": {
       "label": "Bị ngắt",
       "desc": "Lượt vừa rồi bị ngắt (Esc hoặc hook được khôi phục) — Claude đang chờ chỉ dẫn của bạn."
+    },
+    "subagent": {
+      "label": "Agent con",
+      "desc": "Lượt của Claude đã kết thúc, nhưng agent con mà nó tạo ra vẫn đang làm việc — không phải đang chờ bạn."
+    },
+    "shell": {
+      "label": "Shell",
+      "desc": "Claude đang chạy một lệnh shell — không phải đang chờ bạn."
+    },
+    "monitor": {
+      "label": "Monitor",
+      "desc": "Claude đang theo dõi một tiến trình chạy nền — không phải đang chờ bạn."
     }
   },
   "time": {

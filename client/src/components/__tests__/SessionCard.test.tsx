@@ -276,4 +276,23 @@ describe("SessionCard - last message preview", () => {
     fireEvent.mouseEnter(card);
     await screen.findByText("No recent message found");
   });
+
+  it("applies the yellow border for a genuine Waiting session (reason=stop)", () => {
+    renderCard(waitingSession);
+    const card = screen.getByText("Test session").closest("div.card-hover") as HTMLElement;
+    expect(card.className).toContain("border-l-yellow-500/60");
+  });
+
+  it("applies the green active accent, not yellow, for a 'monitor' primary reason", () => {
+    renderCard(
+      makeSession({
+        awaiting_input_since: "2026-06-10T11:05:00.000Z",
+        awaiting_reason: "monitor",
+      } as Partial<Session>)
+    );
+    expect(screen.getByText("Monitor")).toBeInTheDocument();
+    const card = screen.getByText("Test session").closest("div.card-hover") as HTMLElement;
+    expect(card.className).toContain("border-l-emerald-500/50");
+    expect(card.className).not.toContain("border-l-yellow-500/60");
+  });
 });

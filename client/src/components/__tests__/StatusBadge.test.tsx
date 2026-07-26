@@ -157,3 +157,67 @@ describe("awaiting-reason suffix", () => {
     expect(screen.queryByText("Turn done")).not.toBeInTheDocument();
   });
 });
+
+describe("primary reasons (subagent/shell/monitor) replace the whole badge word", () => {
+  it("shows 'SubAgents' instead of 'Waiting' on AgentStatusBadge", () => {
+    render(<AgentStatusBadge status="waiting" reason="subagent" />);
+    expect(screen.getByText("SubAgents")).toBeInTheDocument();
+    expect(screen.queryByText("Waiting")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Shell' instead of 'Waiting' on SessionStatusBadge", () => {
+    render(<SessionStatusBadge status="waiting" reason="shell" />);
+    expect(screen.getByText("Shell")).toBeInTheDocument();
+    expect(screen.queryByText("Waiting")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Monitor' instead of 'Waiting', and still in compact mode", () => {
+    render(<AgentStatusBadge status="waiting" reason="monitor" compact />);
+    expect(screen.getByText("Monitor")).toBeInTheDocument();
+    expect(screen.queryByText("Waiting")).not.toBeInTheDocument();
+  });
+
+  it("does not duplicate the label as a nested chip", () => {
+    render(<AgentStatusBadge status="waiting" reason="subagent" />);
+    expect(screen.getAllByText("SubAgents")).toHaveLength(1);
+  });
+
+  it("keeps the full description available as a hover tooltip", () => {
+    const { container } = render(<AgentStatusBadge status="waiting" reason="subagent" />);
+    fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
+    expect(screen.getByText(/still working/)).toBeInTheDocument();
+  });
+
+  it("existing reasons (notification/stop/session_start/interrupted) are unaffected", () => {
+    render(<AgentStatusBadge status="waiting" reason="notification" />);
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.getByText("Needs input")).toBeInTheDocument();
+  });
+
+  it("colors the badge the same green as working/active, not yellow", () => {
+    const { container: subagentBadge } = render(
+      <AgentStatusBadge status="waiting" reason="subagent" />
+    );
+    const { container: workingBadge } = render(<AgentStatusBadge status="working" />);
+    expect(subagentBadge.querySelector(".badge")?.className).toBe(
+      workingBadge.querySelector(".badge")?.className
+    );
+    expect(subagentBadge.querySelector(".bg-emerald-400")).toBeInTheDocument();
+    expect(subagentBadge.querySelector(".bg-yellow-400")).not.toBeInTheDocument();
+
+    const { container: shellBadge } = render(
+      <SessionStatusBadge status="waiting" reason="shell" />
+    );
+    const { container: activeBadge } = render(<SessionStatusBadge status="active" />);
+    expect(shellBadge.querySelector(".badge")?.className).toBe(
+      activeBadge.querySelector(".badge")?.className
+    );
+    expect(shellBadge.querySelector(".bg-emerald-400")).toBeInTheDocument();
+  });
+
+  it("leaves non-primary reasons on the yellow Waiting color", () => {
+    const { container } = render(<AgentStatusBadge status="waiting" reason="stop" />);
+    expect(container.querySelector(".bg-yellow-400")).toBeInTheDocument();
+    expect(container.querySelector(".bg-emerald-400")).not.toBeInTheDocument();
+  });
+});

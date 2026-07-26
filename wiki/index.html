@@ -1806,7 +1806,7 @@
                 <tr>
                   <td><code>Notification</code></td>
                   <td>Agent sends notification</td>
-                  <td>Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") set the agent to <code>waiting</code> and stamp <code>awaiting_input_since</code> (with <code>awaiting_reason</code> = <code>notification</code>). Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.</td>
+                  <td>Event logged to activity feed. Permission/input-prompt patterns (e.g. "needs your permission", "waiting for your input") set the agent to <code>waiting</code> and stamp <code>awaiting_input_since</code> — the reason is re-derived rather than always assumed to be <code>notification</code>: a permission/approval-worded message always stamps <code>notification</code>, otherwise a still-working subagent stamps <code>subagent</code>, a synchronous Bash call in flight stamps <code>shell</code>, a Monitor tool call in flight stamps <code>monitor</code>, else the genuine <code>notification</code>. Compaction-related notifications tagged as <code>Compaction</code> events. Triggers a browser notification if enabled.</td>
                 </tr>
                 <tr>
                   <td><code>Compaction</code></td>
@@ -2693,8 +2693,8 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 [*] --> waiting: ensureSession (first hook)
                 waiting --> working: PreToolUse / UserPromptSubmit
                 working --> working: PostToolUse (tool completed)
-                working --> waiting: Stop (non-error)
-                working --> waiting: Notification (input prompt)
+                working --> waiting: Stop (non-error; reason=stop, or subagent if a fleet is still working)
+                working --> waiting: Notification (reason classified: notification / subagent / shell / monitor)
                 working --> waiting: Esc cancel (watchdog marker or idle timeout)
                 waiting --> error: Stop with error
                 working --> error: Stop with error
@@ -2722,10 +2722,10 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
                 active --> active: SessionStart compact (mid-turn — state preserved, no flag)
                 waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-                active --> waiting: Stop (non-error, no subagent working)
-                active --> active: Stop while a subagent works (Waiting deferred)
-                active --> waiting: Last SubagentStop drains (deferred stop stamp)
-                active --> waiting: Permission Notification (agent → waiting)
+                active --> waiting: Stop (non-error, no subagent working, reason=stop)
+                active --> waiting: Stop while a subagent works (reason=subagent, proactively stamped)
+                waiting --> waiting: Last SubagentStop drains (reason=subagent downgrades to stop)
+                active --> waiting: Notification (reason classified: notification / subagent / shell / monitor)
                 active --> waiting: Esc cancel (watchdog marker or idle timeout)
                 active --> error: Stop (stop_reason=error)
                 active --> error: API error (watchdog)
@@ -2744,7 +2744,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 abandoned --> [*]
             </div>
             <p class="diagram-label">
-              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, or <code>interrupted</code>). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting. The dashboard surfaces the reason on every Waiting badge (hover tooltip, plus an inline chip on the Sessions table and session detail header) and in a waiting-for-input banner on the session detail page.
+              Session status lifecycle. <code>waiting</code> is a UI overlay — persisted as <code>active</code> with <code>awaiting_input_since</code> set and <code>awaiting_reason</code> recording why (<code>session_start</code>, <code>stop</code>, <code>notification</code>, <code>interrupted</code>, <code>subagent</code>, <code>shell</code>, or <code>monitor</code> — the last three mean Claude is still actively working via a child, not blocked on you). <code>SessionEnd</code> preserves error state. Error recovery requires <code>UserPromptSubmit</code> or <code>PreToolUse</code>. The watchdog also recovers <code>Esc</code>-cancelled turns (marker or idle-timeout path) and moves the session to Waiting. The dashboard surfaces the reason on every Waiting badge (hover tooltip, plus an inline chip on the Sessions table and session detail header) and in a waiting-for-input banner on the session detail page; the three "still working" reasons replace the badge's whole word instead of nesting a chip.
             </p>
           </div>
         </section>
@@ -3234,7 +3234,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT ended_at "ISO 8601 or NULL"
                   TEXT metadata "JSON blob"
                   TEXT awaiting_input_since "ISO 8601 or NULL — Waiting flag"
-                  TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
+                  TEXT awaiting_reason "notification|stop|session_start|interrupted|subagent|shell|monitor or NULL"
                 }
 
                 agents {
@@ -3251,7 +3251,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   TEXT parent_agent_id FK "References agents.id"
                   TEXT metadata "JSON blob"
                   TEXT awaiting_input_since "ISO 8601 or NULL — main-agent Waiting flag"
-                  TEXT awaiting_reason "notification|stop|session_start|interrupted or NULL"
+                  TEXT awaiting_reason "notification|stop|session_start|interrupted|subagent|shell|monitor or NULL"
                 }
 
                 events {
@@ -7101,7 +7101,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=52" defer></script>
+    <script src="i18n-content.js?v=53" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

@@ -62,6 +62,18 @@
     "interrupted": {
       "label": "중단됨",
       "desc": "마지막 턴이 중단되었습니다(Esc 또는 복구된 훅) — Claude가 지시를 기다리고 있습니다."
+    },
+    "subagent": {
+      "label": "서브에이전트",
+      "desc": "Claude 자신의 턴은 끝났지만, 생성한 서브에이전트가 아직 작업 중입니다 — 당신을 기다리는 것이 아닙니다."
+    },
+    "shell": {
+      "label": "Shell",
+      "desc": "Claude가 셸 명령을 실행 중입니다 — 당신을 기다리는 것이 아닙니다."
+    },
+    "monitor": {
+      "label": "Monitor",
+      "desc": "Claude가 백그라운드 프로세스를 모니터링하고 있습니다 — 당신을 기다리는 것이 아닙니다."
     }
   },
   "time": {

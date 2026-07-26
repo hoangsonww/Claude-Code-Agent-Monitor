@@ -771,60 +771,89 @@ export function SessionDetail() {
           when the server sent a known reason; a generic hourglass fallback for
           legacy rows that predate the awaiting_reason column. Urgent reasons
           (permission prompt / interruption) render hotter amber than the calm
-          idle-between-turns ones. */}
+          idle-between-turns ones. "Primary" reasons (subagent/shell/monitor -
+          still actively working via a child, not blocked on the human) show
+          their own label alone as the title instead of "Waiting for you ·
+          <reason>" AND render in the same green as an active/working row,
+          since amber/yellow here would misleadingly frame them as blocked on
+          you. */}
       {isSessionAwaitingInput(session) &&
         (() => {
           const reason = sessionAwaitingReason(session);
           const cfg = reason ? AWAITING_REASON_CONFIG[reason] : null;
           const ReasonIcon = reason ? REASON_ICONS[reason] : Hourglass;
           const urgent = cfg?.urgent ?? false;
+          const isPrimaryReason = cfg?.primary === true;
+          const tone = isPrimaryReason
+            ? {
+                border: "border-emerald-500/40",
+                bgSoft: "bg-emerald-500/[0.08]",
+                iconBg: "bg-emerald-500/15 border-emerald-500/30",
+                icon: "text-emerald-300",
+                title: "text-emerald-200",
+                sub: "text-emerald-300/90",
+                desc: "text-emerald-400/70",
+                time: "text-emerald-300/80",
+                dot: "bg-emerald-400",
+              }
+            : urgent
+              ? {
+                  border: "border-amber-500/40",
+                  bgSoft: "bg-amber-500/[0.08]",
+                  iconBg: "bg-amber-500/15 border-amber-500/30",
+                  icon: "text-amber-300",
+                  title: "text-amber-200",
+                  sub: "text-amber-300/90",
+                  desc: "text-amber-400/70",
+                  time: "text-amber-300/80",
+                  dot: "bg-amber-400",
+                }
+              : {
+                  border: "border-yellow-500/25",
+                  bgSoft: "bg-yellow-500/[0.05]",
+                  iconBg: "bg-yellow-500/10 border-yellow-500/25",
+                  icon: "text-yellow-300",
+                  title: "text-yellow-200",
+                  sub: "text-yellow-300/80",
+                  desc: "text-yellow-400/60",
+                  time: "text-yellow-400/70",
+                  dot: "bg-yellow-400",
+                };
           return (
             <div
-              className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
-                urgent
-                  ? "border-amber-500/40 bg-amber-500/[0.08]"
-                  : "border-yellow-500/25 bg-yellow-500/[0.05]"
-              }`}
+              className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${tone.border} ${tone.bgSoft}`}
             >
               <span
-                className={`w-7 h-7 rounded-md inline-flex items-center justify-center flex-shrink-0 border ${
-                  urgent
-                    ? "bg-amber-500/15 border-amber-500/30"
-                    : "bg-yellow-500/10 border-yellow-500/25"
-                }`}
+                className={`w-7 h-7 rounded-md inline-flex items-center justify-center flex-shrink-0 border ${tone.iconBg}`}
               >
-                <ReasonIcon
-                  className={`w-3.5 h-3.5 ${urgent ? "text-amber-300" : "text-yellow-300"}`}
-                />
+                <ReasonIcon className={`w-3.5 h-3.5 ${tone.icon}`} />
               </span>
               <div className="flex-1 min-w-0">
-                <div
-                  className={`text-sm font-medium ${urgent ? "text-amber-200" : "text-yellow-200"}`}
-                >
-                  {t("detail.waitingBanner.title")}
-                  {cfg && (
-                    <span className={urgent ? "text-amber-300/90" : "text-yellow-300/80"}>
-                      {" · "}
-                      {t(cfg.labelKey)}
-                    </span>
+                <div className={`text-sm font-medium ${tone.title}`}>
+                  {isPrimaryReason ? (
+                    t(cfg.labelKey)
+                  ) : (
+                    <>
+                      {t("detail.waitingBanner.title")}
+                      {cfg && (
+                        <span className={tone.sub}>
+                          {" · "}
+                          {t(cfg.labelKey)}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
-                <div
-                  className={`text-[11px] ${urgent ? "text-amber-400/70" : "text-yellow-400/60"}`}
-                >
+                <div className={`text-[11px] ${tone.desc}`}>
                   {cfg ? t(cfg.descKey) : t("detail.waitingBanner.generic")}
                 </div>
               </div>
               {session.awaiting_input_since && (
                 <span
-                  className={`text-[11px] flex-shrink-0 flex items-center gap-1.5 ${
-                    urgent ? "text-amber-300/80" : "text-yellow-400/70"
-                  }`}
+                  className={`text-[11px] flex-shrink-0 flex items-center gap-1.5 ${tone.time}`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full animate-pulse-dot ${
-                      urgent ? "bg-amber-400" : "bg-yellow-400"
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full animate-pulse-dot ${tone.dot}`}
                     aria-hidden="true"
                   />
                   {timeAgo(session.awaiting_input_since)}

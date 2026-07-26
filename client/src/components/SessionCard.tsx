@@ -79,6 +79,7 @@ import {
   sessionAwaitingReason,
   focusKind,
   FOCUS_KIND_CONFIG,
+  AWAITING_REASON_CONFIG,
 } from "../lib/types";
 import type { Session, TranscriptMessage } from "../lib/types";
 import {
@@ -195,6 +196,11 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
   const isActive = session.status === "active";
   const isWaiting = isSessionAwaitingInput(session);
   const status = effectiveSessionStatus(session);
+  // 'subagent'/'shell'/'monitor' mean "still actively working via a child",
+  // not blocked on the human - the card's left-border accent should match the
+  // green badge inside it (working/active) rather than reading yellow Waiting.
+  const waitingReason = sessionAwaitingReason(session);
+  const isPrimaryReason = !!waitingReason && AWAITING_REASON_CONFIG[waitingReason].primary === true;
   const title = session.name?.trim() || t("session.anonymous");
   const agentCount = session.agent_count ?? 0;
   const model = formatModelName(session.model);
@@ -332,7 +338,9 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
       onMouseLeave={scheduleClose}
       className={`card-hover p-4 cursor-pointer animate-fade-in overflow-hidden ${
         isWaiting
-          ? "border-l-2 border-l-yellow-500/60"
+          ? isPrimaryReason
+            ? "border-l-2 border-l-emerald-500/50"
+            : "border-l-2 border-l-yellow-500/60"
           : isActive
             ? "border-l-2 border-l-emerald-500/50"
             : ""
