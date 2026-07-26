@@ -46,6 +46,8 @@
     "empty": "Chưa có lịch sử tiêu điểm cho các phiên của dự án này",
     "activeTime": "Thời gian hoạt động",
     "ofWallClock": "trên tổng {{total}} theo đồng hồ thực",
+    "concurrency": "Mức đồng thời",
+    "concurrencyTitle": "Thời gian nỗ lực ÷ thời gian theo đồng hồ thực — trung bình mỗi giờ tương đương bao nhiêu phiên làm việc. 1.00x nghĩa là không chồng lấn.",
     "onItem": "Trên mục đã khai báo",
     "offPlan": "Ngoài kế hoạch (rẽ hướng)",
     "idleExcluded": "Đã loại trừ thời gian rảnh",
@@ -53,6 +55,18 @@
     "graceDisabled": "đã tắt — tính toàn bộ thời gian theo đồng hồ thực",
     "sessionsHeading": "Chi tiết theo từng phiên",
     "itemsHeading": "Thời gian theo mục kế hoạch",
-    "splitHeading": "Phân bổ toàn dự án"
+    "splitHeading": "Phân bổ toàn dự án",
+    "inferred": "suy luận",
+    "inferredNote": "Không có tiêu điểm được khai báo — được gán tự động từ hoạt động của phiên",
+    "viewList": "Danh sách",
+    "viewCalendar": "Lịch",
+    "calendar": {
+      "prevDay": "Ngày trước",
+      "today": "Hôm nay",
+      "nextDay": "Ngày sau",
+      "empty": "Không có hoạt động trong ngày này",
+      "declared": "đã khai báo",
+      "inferredProvenance": "≈ suy luận"
+    }
   }
 }

@@ -46,6 +46,8 @@
     "empty": "이 프로젝트의 세션에는 아직 포커스 이력이 없습니다",
     "activeTime": "활성 시간",
     "ofWallClock": "총 {{total}} 실제 경과 시간 중",
+    "concurrency": "동시성",
+    "concurrencyTitle": "작업 시간 ÷ 실제 경과 시간 — 평균적으로 한 시간에 몇 세션 분량의 작업이 이루어졌는지. 1.00x는 겹침이 없다는 뜻입니다.",
     "onItem": "선언된 항목에서",
     "offPlan": "계획 외 (우회)",
     "idleExcluded": "제외된 유휴 시간",
@@ -53,6 +55,18 @@
     "graceDisabled": "비활성화됨 — 전체 실제 경과 시간을 계산합니다",
     "sessionsHeading": "세션별 내역",
     "itemsHeading": "플랜 항목별 시간",
-    "splitHeading": "프로젝트 전체 비율"
+    "splitHeading": "프로젝트 전체 비율",
+    "inferred": "추정됨",
+    "inferredNote": "선언된 포커스가 없어 세션 활동을 바탕으로 자동 귀속됨",
+    "viewList": "목록",
+    "viewCalendar": "달력",
+    "calendar": {
+      "prevDay": "이전 날",
+      "today": "오늘",
+      "nextDay": "다음 날",
+      "empty": "이 날에는 활동이 없습니다",
+      "declared": "선언됨",
+      "inferredProvenance": "≈ 추정됨"
+    }
   }
 }

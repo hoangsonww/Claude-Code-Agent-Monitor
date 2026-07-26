@@ -25,6 +25,7 @@ const {
   buildFocusSegments,
   buildSessionFocusReport,
   buildProjectFocusReport,
+  mergeIntervals,
 } = require("../lib/focus-report");
 
 const CWD = "/tmp/focus-report-test-project";
@@ -297,6 +298,44 @@ describe("buildSessionFocusReport - idle grace window", () => {
     assert.equal(seg.active_ms, 120 * 60_000);
     assert.equal(seg.idle_ms, 0);
   });
+
+  it("carries ended_at through unchanged - null for a still-active session", () => {
+    const idActive = nextId("sess");
+    const idDone = nextId("sess");
+    seedSession(idActive, CWD);
+    seedSession(idDone, CWD);
+    focus(idActive, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+    focus(idDone, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+
+    const active = buildSessionFocusReport(dbModule, {
+      id: idActive,
+      name: "Still running",
+      cwd: CWD,
+      ended_at: null,
+    });
+    const done = buildSessionFocusReport(dbModule, {
+      id: idDone,
+      name: "Finished",
+      cwd: CWD,
+      ended_at: t(30),
+    });
+
+    assert.equal(active.ended_at, null);
+    assert.equal(done.ended_at, t(30));
+  });
+
+  it("carries ended_at through even when the session has no segments at all", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD); // never declares focus, never gets inferred -> zero segments
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Blank",
+      cwd: CWD,
+      ended_at: null,
+    });
+    assert.deepEqual(report.segments, []);
+    assert.equal(report.ended_at, null);
+  });
 });
 
 describe("buildProjectFocusReport", () => {
@@ -361,5 +400,136 @@ describe("buildProjectFocusReport", () => {
     assert.equal(report.sessions.length, 1); // the no-focus session contributes nothing
     assert.equal(report.items[0].item_number, 4); // 60 min, sorts before item 1's 5 min
     assert.equal(report.items[1].item_number, 1);
+  });
+
+  it("collapses fully concurrent sessions to one wall-clock span while summing their effort", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const idA = nextId("sess");
+    const idB = nextId("sess");
+    seedSession(idA, CWD);
+    seedSession(idB, CWD);
+
+    // Both sessions on item 1, both running the exact same 0-30m window.
+    focus(idA, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    focus(idB, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+
+    const sessions = [
+      { id: idA, name: "A", cwd: CWD, ended_at: t(30) },
+      { id: idB, name: "B", cwd: CWD, ended_at: t(30) },
+    ];
+    const report = buildProjectFocusReport(dbModule, sessions);
+
+    // Effort: two 30m sessions summed = 60m of agent-labor.
+    assert.equal(report.totals.active_ms, 60 * 60_000);
+    // Wall-clock: fully overlapping spans merge into a single 30m interval.
+    assert.equal(report.wall_clock_ms, 30 * 60_000);
+    // 60m effort inside a 30m window reads as 2x parallelism.
+    assert.equal(report.concurrency_ratio, 2);
+  });
+
+  it("sums disjoint (non-overlapping) session spans as plain wall-clock time, ratio ~1", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const idA = nextId("sess");
+    const idB = nextId("sess");
+    seedSession(idA, CWD);
+    seedSession(idB, CWD);
+
+    focus(idA, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    focus(idB, 40, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+
+    const sessions = [
+      { id: idA, name: "A", cwd: CWD, ended_at: t(30) }, // 0-30m
+      { id: idB, name: "B", cwd: CWD, ended_at: t(70) }, // 40-70m, 10m gap after A
+    ];
+    const report = buildProjectFocusReport(dbModule, sessions);
+
+    assert.equal(report.totals.active_ms, 60 * 60_000); // 30m + 30m effort
+    assert.equal(report.wall_clock_ms, 60 * 60_000); // no overlap: spans just add up
+    assert.equal(report.concurrency_ratio, 1); // no idle within either session, no overlap
+  });
+
+  it("merges partially overlapping session spans to their union", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const idA = nextId("sess");
+    const idB = nextId("sess");
+    seedSession(idA, CWD);
+    seedSession(idB, CWD);
+
+    focus(idA, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    focus(idB, 20, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+
+    const sessions = [
+      { id: idA, name: "A", cwd: CWD, ended_at: t(30) }, // 0-30m
+      { id: idB, name: "B", cwd: CWD, ended_at: t(50) }, // 20-50m, overlaps A by 10m
+    ];
+    const report = buildProjectFocusReport(dbModule, sessions);
+
+    assert.equal(report.totals.active_ms, 60 * 60_000); // 30m + 30m effort
+    assert.equal(report.wall_clock_ms, 50 * 60_000); // union of [0,30] and [20,50] = [0,50]
+    assert.equal(report.concurrency_ratio, 60 / 50);
+  });
+
+  it("reports a null concurrency_ratio when there is no wall-clock time to divide by", () => {
+    const report = buildProjectFocusReport(dbModule, []);
+    assert.equal(report.wall_clock_ms, 0);
+    assert.equal(report.concurrency_ratio, null);
+  });
+});
+
+describe("mergeIntervals", () => {
+  it("merges overlapping intervals and sums the covered duration", () => {
+    const { merged, totalMs } = mergeIntervals([
+      [0, 30],
+      [20, 50],
+    ]);
+    assert.deepEqual(merged, [[0, 50]]);
+    assert.equal(totalMs, 50);
+  });
+
+  it("merges touching intervals (end of one equals start of the next) into one", () => {
+    const { merged, totalMs } = mergeIntervals([
+      [0, 30],
+      [30, 60],
+    ]);
+    assert.deepEqual(merged, [[0, 60]]);
+    assert.equal(totalMs, 60);
+  });
+
+  it("keeps disjoint intervals separate and sums their durations", () => {
+    const { merged, totalMs } = mergeIntervals([
+      [0, 10],
+      [20, 25],
+    ]);
+    assert.deepEqual(merged, [
+      [0, 10],
+      [20, 25],
+    ]);
+    assert.equal(totalMs, 15);
+  });
+
+  it("is order-independent - unsorted input merges the same as sorted input", () => {
+    const { merged, totalMs } = mergeIntervals([
+      [20, 25],
+      [0, 10],
+      [5, 22],
+    ]);
+    assert.deepEqual(merged, [[0, 25]]);
+    assert.equal(totalMs, 25);
+  });
+
+  it("drops malformed intervals (end <= start) instead of erroring", () => {
+    const { merged, totalMs } = mergeIntervals([
+      [10, 10],
+      [10, 5],
+      [0, 10],
+    ]);
+    assert.deepEqual(merged, [[0, 10]]);
+    assert.equal(totalMs, 10);
+  });
+
+  it("returns an empty union for no intervals", () => {
+    const { merged, totalMs } = mergeIntervals([]);
+    assert.deepEqual(merged, []);
+    assert.equal(totalMs, 0);
   });
 });

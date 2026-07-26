@@ -22,6 +22,17 @@
  * Env knob: DASHBOARD_FOCUS_IDLE_GRACE_SECONDS — default 300 (5 min); <= 0
  * disables idle discounting entirely (100% of wall-clock counts as active).
  *
+ * Sessions with NO declared Focus history fall back to the background
+ * classifier's verdict (focus_inferences, written by focus-inference.js) as
+ * one whole-session segment flagged `inferred: true` — declared history is
+ * ground truth and is never mixed with or overwritten by inference.
+ *
+ * The project-level report also separates EFFORT time (the sum across every
+ * session — agent-labor invested, inflates when sessions run concurrently)
+ * from WALL-CLOCK time (the union of each session's own span, via
+ * {@link mergeIntervals} — the calendar time at least one session was
+ * running). See {@link buildProjectFocusReport} for the full rationale.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -152,15 +163,86 @@ function activeIdleMs(allTimestampsMs, startMs, endMs, grace) {
 }
 
 /**
+ * Fallback for a session with ZERO declared segments: turn its
+ * focus_inferences row (written by the background classifier in
+ * focus-inference.js) into one synthetic segment spanning the session. The
+ * inference stores the plan item's stable item_id; it resolves to the item's
+ * CURRENT display number here, at read time, so a plan reorder between
+ * inference and report can't mis-bucket the time. Returns null when there is
+ * no usable inference ('unclassified' rows stay an honest hole in the
+ * report). Declared Focus events always win — this is only consulted when
+ * there are none.
+ */
+function inferredSegment(dbModule, session, endAt) {
+  let row;
+  try {
+    row = dbModule.stmts.getFocusInference.get(session.id);
+  } catch {
+    return null;
+  }
+  if (!row || row.kind === "unclassified") return null;
+
+  const start =
+    session.started_at ||
+    dbModule.db
+      .prepare("SELECT created_at FROM events WHERE session_id = ? ORDER BY id ASC LIMIT 1")
+      .get(session.id)?.created_at;
+  if (!start) return null;
+
+  if (row.kind === "item" && row.item_id) {
+    const item = dbModule.stmts.getPlanItemById.get(session.cwd, row.item_id);
+    if (!item || item.item_number == null) return null; // item since deleted
+    return {
+      kind: "item",
+      label: item.text,
+      item_number: item.item_number,
+      start,
+      end: endAt,
+      inferred: true,
+      inferredReason: row.reason || null,
+    };
+  }
+  if (row.kind === "detour") {
+    return {
+      kind: "detour",
+      label: row.label,
+      item_number: null,
+      start,
+      end: endAt,
+      inferred: true,
+      inferredReason: row.reason || null,
+    };
+  }
+  return null;
+}
+
+/**
  * Full focus-time report for one session: Focus-derived segments, each
- * annotated with wall-clock, active, and idle milliseconds.
+ * annotated with wall-clock, active, and idle milliseconds. A session with
+ * no declared Focus history at all falls back to its inferred classification
+ * (one whole-session segment flagged `inferred: true`) — see
+ * {@link inferredSegment}. Carries `ended_at` straight through from the
+ * input session row (`null` for one still active) so a client rendering a
+ * calendar/timeline can tell "genuinely still running" apart from "just
+ * happened to end near when the report was fetched" — both look identical
+ * from segment timestamps alone.
  */
 function buildSessionFocusReport(dbModule, session) {
   const nowIso = new Date().toISOString();
   const endAt = session.ended_at || nowIso;
-  const segments = buildFocusSegments(dbModule, session.id, endAt);
+  let segments = buildFocusSegments(dbModule, session.id, endAt);
   if (segments.length === 0) {
-    return { session_id: session.id, name: session.name, cwd: session.cwd, segments: [] };
+    const inferred = inferredSegment(dbModule, session, endAt);
+    if (inferred) segments = [inferred];
+  }
+  if (segments.length === 0) {
+    return {
+      session_id: session.id,
+      name: session.name,
+      cwd: session.cwd,
+      ended_at: session.ended_at || null,
+      segments: [],
+    };
   }
 
   const allEvents = dbModule.db
@@ -182,10 +264,18 @@ function buildSessionFocusReport(dbModule, session) {
       wall_ms: Math.max(0, endMs - startMs),
       active_ms,
       idle_ms,
+      inferred: Boolean(seg.inferred),
+      inferred_reason: seg.inferred ? seg.inferredReason || null : null,
     };
   });
 
-  return { session_id: session.id, name: session.name, cwd: session.cwd, segments: enriched };
+  return {
+    session_id: session.id,
+    name: session.name,
+    cwd: session.cwd,
+    ended_at: session.ended_at || null,
+    segments: enriched,
+  };
 }
 
 /** Empty-but-well-shaped totals, so a project with no tracked focus time
@@ -207,11 +297,49 @@ function addToTotals(totals, seg) {
 }
 
 /**
+ * Merges a list of `[startMs, endMs]` intervals into their union — sorted,
+ * non-overlapping, touching intervals joined — and the total duration they
+ * cover. This is the calendar-time counterpart to summing effort across
+ * sessions: three sessions running concurrently for an hour sum to 3h of
+ * effort but merge to 1h of wall-clock coverage, since their intervals
+ * fully overlap. Malformed intervals (`end <= start`) are dropped rather
+ * than treated as errors — a defensive session with no real span shouldn't
+ * blow up the whole report.
+ */
+function mergeIntervals(intervals) {
+  const sorted = intervals.filter(([start, end]) => end > start).sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [start, end] of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
+    }
+  }
+  const totalMs = merged.reduce((sum, [start, end]) => sum + (end - start), 0);
+  return { merged, totalMs };
+}
+
+/**
  * Builds a project-scoped focus-time report: per-session segments (as
  * returned by {@link buildSessionFocusReport}), a per-item rollup bucketing
  * each detour segment under the item that was current when it started
  * (`item_number`), and project-wide totals by kind. `sessions` must already
  * be scoped to the project's mapped folders by the caller.
+ *
+ * Also distinguishes EFFORT time from WALL-CLOCK time, since this dashboard
+ * exists to watch multiple sessions run concurrently: `totals.active_ms` is
+ * the sum across every session (agent-labor invested — the same number a
+ * timesheet would report for N people working in parallel), while
+ * `wall_clock_ms` is the union of each session's own span (first segment
+ * start to last segment end), merged via {@link mergeIntervals} — the
+ * calendar time during which at least one session was running. Concurrency
+ * is measured at the session level (not per-segment/per-item), matching
+ * what's actually running in parallel. `concurrency_ratio` (effort ÷
+ * wall-clock) turns "9h effort in a 3h window" into a legible "3x
+ * parallelism" instead of looking like the numbers don't add up; it's
+ * `null` when there's no wall-clock time to divide by.
  */
 function buildProjectFocusReport(dbModule, sessions) {
   const sessionReports = sessions
@@ -243,11 +371,24 @@ function buildProjectFocusReport(dbModule, sessions) {
   });
   items.sort((a, b) => b.totals.active_ms - a.totals.active_ms);
 
+  // A session's own span is gapless by construction (buildFocusSegments /
+  // the inference fallback both produce back-to-back or single segments),
+  // so its first segment's start and last segment's end bookend the whole
+  // session — no need to inspect every segment in between.
+  const sessionSpans = sessionReports.map((report) => [
+    new Date(report.segments[0].start).getTime(),
+    new Date(report.segments[report.segments.length - 1].end).getTime(),
+  ]);
+  const { totalMs: wallClockMs } = mergeIntervals(sessionSpans);
+  const concurrencyRatio = wallClockMs > 0 ? totals.active_ms / wallClockMs : null;
+
   return {
     sessions: sessionReports,
     items,
     totals,
     idle_grace_seconds: Math.round(graceMs() / 1000),
+    wall_clock_ms: wallClockMs,
+    concurrency_ratio: concurrencyRatio,
   };
 }
 
@@ -255,6 +396,7 @@ module.exports = {
   buildFocusSegments,
   buildSessionFocusReport,
   buildProjectFocusReport,
+  mergeIntervals,
   emptyKindTotals,
   DEFAULT_GRACE_SECONDS,
 };

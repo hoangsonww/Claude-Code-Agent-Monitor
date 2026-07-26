@@ -186,6 +186,20 @@ erDiagram
         text drift_checked_at "ISO8601 timestamp, or NULL"
         text updated_at "ISO8601 timestamp"
     }
+
+    sessions ||--o| focus_inferences : "has inferred focus"
+
+    focus_inferences {
+        text session_id PK "FK to sessions, ON DELETE CASCADE"
+        text cwd "Working directory whose plan the session was classified against"
+        text kind "item, detour or unclassified"
+        text item_id "Matched plan item's stable id, or NULL"
+        text label "Generated detour title, or NULL"
+        real confidence "Classifier confidence 0..1, or NULL"
+        text method "llm or heuristic"
+        text reason "Classifier's one-line justification, or NULL"
+        text inferred_at "ISO8601 stamp of the verdict"
+    }
 ```
 
 ### Relationship Cardinality
@@ -658,6 +672,39 @@ CREATE TABLE session_focus (
 | `updated_at` | TEXT | NO | ISO 8601 timestamp of the last change |
 
 Written by the `PostToolUse` focus parsing in `routes/hooks.js` and the strict `POST /api/sessions/:id/focus` endpoint; changes broadcast over the WebSocket as `session_focus`. See [docs/API.md → Plans & Focus](./API.md#plans--focus).
+
+### focus_inferences
+
+The background **focus inference** classifier's verdict for sessions that never declared a focus (`server/lib/focus-inference.js`): the classifier digests a silent session's activity (prompts, files touched, commands run), matches it against the cwd's plan items, and records one row per session. The focus-time report consults this table **only** for sessions with zero declared `Focus` events — declarations are ground truth and are never overwritten or mixed with guesses. `item_id` references the plan item's *stable* id (never its display number), so a plan reorder can't re-point inferred time at the wrong item. A session that gains activity after `inferred_at` is re-classified on a later tick.
+
+```sql
+CREATE TABLE focus_inferences (
+    session_id TEXT PRIMARY KEY,
+    cwd TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    item_id TEXT,
+    label TEXT,
+    confidence REAL,
+    method TEXT NOT NULL,
+    reason TEXT,
+    inferred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `session_id` | TEXT | NO | Primary key; FK to `sessions.id`, `ON DELETE CASCADE` |
+| `cwd` | TEXT | NO | Working directory whose plan the session was classified against |
+| `kind` | TEXT | NO | `item` (matched a plan item), `detour` (real work matching no item), or `unclassified` (no confident verdict — the report keeps this an honest hole) |
+| `item_id` | TEXT | YES | Matched plan item's stable `item_id` (`kind = 'item'`), or NULL |
+| `label` | TEXT | YES | Short generated detour title (`kind = 'detour'`), or NULL |
+| `confidence` | REAL | YES | Classifier confidence `0..1`, or NULL |
+| `method` | TEXT | NO | `llm` (headless `claude -p`) or `heuristic` (keyword overlap) |
+| `reason` | TEXT | YES | Classifier's one-line justification, or NULL |
+| `inferred_at` | TEXT | NO | ISO 8601 stamp of the verdict; a session active after this becomes eligible for re-classification |
 
 ---
 

@@ -46,6 +46,8 @@
     "empty": "No focus history yet for this project's sessions",
     "activeTime": "Active time",
     "ofWallClock": "of {{total}} wall-clock",
+    "concurrency": "Concurrency",
+    "concurrencyTitle": "Effort time ÷ wall-clock time — how many sessions' worth of work happened per hour on average. 1.00x means no overlap.",
     "onItem": "On declared item",
     "offPlan": "Off-plan (detours)",
     "idleExcluded": "Idle excluded",
@@ -53,6 +55,18 @@
     "graceDisabled": "disabled — full wall-clock counts",
     "sessionsHeading": "Per-session breakdown",
     "itemsHeading": "Time by plan item",
-    "splitHeading": "Project-wide split"
+    "splitHeading": "Project-wide split",
+    "inferred": "inferred",
+    "inferredNote": "No focus was declared — attributed automatically from this session's activity",
+    "viewList": "List",
+    "viewCalendar": "Calendar",
+    "calendar": {
+      "prevDay": "Previous day",
+      "today": "Today",
+      "nextDay": "Next day",
+      "empty": "No activity on this day",
+      "declared": "declared",
+      "inferredProvenance": "≈ inferred"
+    }
   }
 }

@@ -1154,6 +1154,39 @@
                     per-item rollup (detours bucketed under the item they interrupted), and a
                     project-wide split by kind.
                   </p>
+                  <p>
+                    Sessions that never declared a <code>ccam focus</code> don't punch silent
+                    holes in that report: a background <strong>focus inference</strong> job
+                    (<code>DASHBOARD_FOCUS_INFER_*</code>) digests each untracked session's
+                    activity and attributes it to the best-matching plan item or an inferred
+                    detour, storing one verdict per session in the
+                    <code>focus_inferences</code> table. Segments it produces carry
+                    <code>inferred: true</code> and render with an "≈ inferred" chip, so guessed
+                    time is never dressed up as declared time. Declared focus history always
+                    wins — inference only fills sessions with no declarations at all — and a
+                    session the classifier can't confidently place stays an honest unclassified
+                    hole.
+                  </p>
+                  <p>
+                    A header toggle in the focus-time report switches between the List view
+                    described above and a <strong>Calendar</strong> view — a day-view swimlane
+                    calendar that positions every session's segments on a real 24-hour axis, with
+                    sessions that overlap in time split into side-by-side lanes via a greedy
+                    lane-assignment algorithm, the same way a Teams or Outlook calendar day view
+                    spreads concurrent meetings instead of stacking them. Dashed-border blocks
+                    mark inferred/undeclared attribution and solid borders mark declared focus,
+                    matching the List view's own convention; a pulsing, open-ended block marks a
+                    session that's still actively running, using the API's <code>ended_at:
+                    null</code> field to tell a genuinely live session from one that only just
+                    ended. Prev/Today/Next controls step through days — this v1 ships Day view and
+                    that simple navigation only; Week/Month zoom and an aggregate time-range
+                    selector (3d/7d/30d/All) are future work. The report's stat tiles also gained a
+                    <strong>Concurrency</strong> tile (e.g. "1.08x", effort time ÷ wall-clock time),
+                    and the "Active time" tile's wall-clock sub-label now reflects the real
+                    union-based wall-clock span instead of a misleading per-segment sum, so effort
+                    time (which inflates with overlapping sessions) and true wall-clock time read
+                    as two distinct, honest numbers.
+                  </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-emerald">🛰️</div>
@@ -2130,6 +2163,32 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>30000</code></td>
                   <td>
                     Kill timer for a single drift-audit <code>claude -p</code> spawn (SIGTERM, then SIGKILL)
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_INFER_MS</code></td>
+                  <td><code>600000</code></td>
+                  <td>
+                    Tick interval for background focus inference — the classifier that attributes sessions which never declared a <code>ccam focus</code> to a plan item or an inferred detour (first backfill tick ~30 s after boot); <code>0</code> disables inference entirely
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_INFER_MODE</code></td>
+                  <td><code>llm</code></td>
+                  <td>
+                    Focus-inference judge: <code>llm</code> (headless <code>claude -p</code> on a small model, falling back to the heuristic when the CLI is unavailable), <code>heuristic</code> (keyword overlap that only ever claims an item match), or <code>off</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_INFER_MODEL</code></td>
+                  <td><code>haiku</code></td>
+                  <td>Model passed to the focus-inference <code>claude -p --model</code> spawn</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_INFER_TIMEOUT_MS</code></td>
+                  <td><code>30000</code></td>
+                  <td>
+                    Kill timer for a single focus-inference <code>claude -p</code> spawn (SIGTERM, then SIGKILL)
                   </td>
                 </tr>
                 <tr>
@@ -7042,7 +7101,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=50" defer></script>
+    <script src="i18n-content.js?v=52" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

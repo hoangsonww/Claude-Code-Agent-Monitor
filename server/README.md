@@ -660,16 +660,20 @@ The focus wire shape is `{ session_id, cwd, item_number, item_text, note, detour
 ```json
 {
   "project_id": "...",
-  "sessions": [{ "session_id": "...", "name": "...", "cwd": "...", "segments": [
-    { "kind": "item|detour|feature|bug", "item_number": 4, "label": "...", "start": "...", "end": "...", "wall_ms": 0, "active_ms": 0, "idle_ms": 0 }
+  "sessions": [{ "session_id": "...", "name": "...", "cwd": "...", "ended_at": null, "segments": [
+    { "kind": "item|detour|feature|bug", "item_number": 4, "label": "...", "start": "...", "end": "...", "wall_ms": 0, "active_ms": 0, "idle_ms": 0, "inferred": false, "inferred_reason": null }
   ]}],
   "items": [{ "cwd": "...", "item_number": 4, "text": "...", "totals": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0, "by_kind": { "item": {}, "detour": {}, "feature": {}, "bug": {} } } }],
   "totals": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0, "by_kind": { "...": {} } },
-  "idle_grace_seconds": 300
+  "idle_grace_seconds": 300,
+  "wall_clock_ms": 0,
+  "concurrency_ratio": null
 }
 ```
 
-Sessions that never declared any focus are omitted; `items` only includes segments with a non-null `item_number` (an item-less detour still counts toward `totals`, just not toward any per-item rollup).
+A session with **zero** declared `Focus` history falls back to the background focus-inference verdict (`lib/focus-inference.js`, `focus_inferences` table) as one whole-session segment flagged `inferred: true` — attributed to a plan item (resolved via the item's stable id, reorder-safe) or an inferred detour with a generated title; an `unclassified` verdict leaves the session omitted rather than guessed. Declared history always wins, and every segment carries the `inferred` flag (`false` for declared ones) plus `inferred_reason` — the classifier's own one-sentence justification for the attribution (`focus_inferences.reason`), surfaced so the report doesn't just say *that* a session was guessed but *why*; `null` for declared segments. `items` only includes segments with a non-null `item_number` (an item-less detour still counts toward `totals`, just not toward any per-item rollup). Each session entry also carries `ended_at` (`null` while still active/waiting) straight through from the session row, so a client can distinguish "genuinely still running" from "just happened to end near fetch time" — see `client/README.md`'s `FocusCalendarView`.
+
+Because this dashboard exists to watch multiple sessions run concurrently, `buildProjectFocusReport` also separates **effort** time from **wall-clock** time rather than reporting one number for both. `totals.active_ms` is effort — the plain sum across every session, which inflates with concurrency (three sessions active for the same 30 minutes sum to 90 minutes of effort). `wall_clock_ms` is the calendar-time counterpart: `mergeIntervals()` unions each session's own span (its first segment's start to its last segment's end) — three overlapping 30-minute sessions merge to 30 minutes of wall-clock coverage, not 90; sequential, non-overlapping sessions just add up as normal. Concurrency is measured at the session level (not per-segment or per-item — two sessions both declared on the same item at once still only counts once toward wall-clock coverage). `concurrency_ratio` (`totals.active_ms / wall_clock_ms`) turns "9h effort in a 3h window" into a legible "3x parallelism" rather than looking like the numbers don't add up; it's `null` when `wall_clock_ms` is `0`.
 
 ### Settings / Ops
 
@@ -1282,6 +1286,8 @@ After each pull imports and tags a source's sessions, `remote-sync.js` **reconci
 
 `startFocusAudit` (`server/lib/focus-audit.js`, wired into `startBackgroundServices`) periodically asks, for each active session with a declared focus: "does the session's recent activity match what it declared?" and stamps a verdict on `session_focus.drift_status`/`drift_reason`/`drift_checked_at` (broadcast as `session_focus`). It writes **only** those columns — declarations are never rewritten, and declarations never clear a verdict, so an agent cannot silence its own drift badge by re-declaring. The primary judge is a one-shot headless `claude -p --output-format json` on a small model using the user's existing CLI auth, spawned hermetically: hooks disabled via `--settings '{"disableAllHooks":true}'` (or every audit would ingest *itself* into the dashboard and become a session to audit — a feedback loop), all tools disallowed (`--disallowed-tools '*'`), cwd = tmpdir, and `CLAUDECODE` stripped from the env (run-spawner precedent). CLI availability is probe-cached; when unavailable the audit falls back to a conservative keyword-overlap heuristic, and degrades to "no audit" when both are off. At most 5 sessions are judged per tick, serially; sessions with no activity since their last check are skipped, and an `unknown` verdict never overwrites a real one. Knobs: `DASHBOARD_FOCUS_AUDIT_MS` (default `300000` ms; `0` disables), `DASHBOARD_FOCUS_AUDIT_MODE` (`llm` | `heuristic` | `off`, default `llm`), `DASHBOARD_FOCUS_AUDIT_MODEL` (default `haiku`), `DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS` (default `30000` ms — SIGTERM, then SIGKILL).
 
+`startFocusInference` (`server/lib/focus-inference.js`, wired into `startBackgroundServices`) is the drift audit's sibling for sessions that never declared a focus at all — the focus-time report's remaining blind spot. Per tick it selects up to 5 candidates (session in a plan-bearing cwd, zero `Focus` events, some real activity, ended or quiet for 10+ minutes, and never inferred — or active again since its last verdict), digests each one's activity (first user prompts, most-touched files, distinct Bash commands), and classifies it: a conservative keyword heuristic gets first look (it only ever claims a clear single-item match — "matches nothing" and "can't tell" are indistinguishable to keyword overlap, so both fall through), then the same hermetic headless `claude -p` spawn contract as the drift audit decides item / detour-with-generated-title / `unclassified` (low-confidence LLM answers also degrade to `unclassified` rather than guessing). Verdicts persist to the `focus_inferences` table keyed by the plan item's *stable* `item_id` (reorder-safe) and are consumed only by `lib/focus-report.js` for zero-declaration sessions. One backfill tick runs ~30 s after boot (catching everything accumulated while the dashboard was down), then the steady-state interval. Knobs: `DASHBOARD_FOCUS_INFER_MS` (default `600000` ms; `0` disables), `DASHBOARD_FOCUS_INFER_MODE` (`llm` | `heuristic` | `off`, default `llm`), `DASHBOARD_FOCUS_INFER_MODEL` (default `haiku`), `DASHBOARD_FOCUS_INFER_TIMEOUT_MS` (default `30000` ms — SIGTERM, then SIGKILL).
+
 ### User-Interrupt (Esc) Recovery
 
 Cancelling a turn with `Esc` fires **no Claude Code hook** (a documented CLI limitation), so the `UserPromptSubmit` that promoted the main agent to `working` is never undone — the session would otherwise sit in `working` forever. The same 15 s watchdog recovers it, with two detection paths:
@@ -1564,6 +1570,10 @@ DASHBOARD_FOCUS_AUDIT_MS=300000    # Focus drift-audit tick interval (ms); 0 dis
 DASHBOARD_FOCUS_AUDIT_MODE=llm     # Drift-audit judge: llm (headless claude -p, heuristic fallback) | heuristic | off
 DASHBOARD_FOCUS_AUDIT_MODEL=haiku  # Model passed to the drift audit's `claude -p --model` spawn
 DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS=30000 # Kill timer (ms) for a single drift-audit spawn (SIGTERM, then SIGKILL)
+DASHBOARD_FOCUS_INFER_MS=600000    # Focus-inference tick interval (ms); 0 disables (backfill tick ~30s after boot, then this)
+DASHBOARD_FOCUS_INFER_MODE=llm     # Focus-inference classifier: llm (heuristic first, headless claude -p for the rest) | heuristic | off
+DASHBOARD_FOCUS_INFER_MODEL=haiku  # Model passed to the focus-inference `claude -p --model` spawn
+DASHBOARD_FOCUS_INFER_TIMEOUT_MS=30000 # Kill timer (ms) for a single focus-inference spawn (SIGTERM, then SIGKILL)
 
 # Remote Data Sources (SSH pull; see the Remote Data Sources section)
 DASHBOARD_REMOTE_SYNC_MS=60000         # Remote-source sync poll interval (ms); 0 disables the poller

@@ -211,8 +211,10 @@ router.delete("/:id/paths/:pathId", (req, res) => {
 // session under this project's mapped folders: per-session segments (item /
 // detour / feature / bug, each with wall-clock + idle-grace-discounted
 // active time), a per-item rollup bucketing detours under the item that was
-// current when they started, and project-wide totals by kind. See
-// server/lib/focus-report.js for the segment-replay + grace-window math.
+// current when they started, and project-wide totals by kind. Sessions that
+// never declared a focus fall back to the background classifier's verdict
+// (segments flagged inferred: true). See server/lib/focus-report.js for the
+// segment-replay + grace-window math and the inference fallback.
 router.get("/:id/focus-report", (req, res) => {
   const project = stmts.getProject.get(req.params.id);
   if (!project) {
@@ -225,7 +227,7 @@ router.get("/:id/focus-report", (req, res) => {
       ? []
       : db
           .prepare(
-            "SELECT id, name, cwd, ended_at FROM sessions WHERE cwd IN (SELECT value FROM json_each(?)) ORDER BY started_at ASC"
+            "SELECT id, name, cwd, started_at, ended_at FROM sessions WHERE cwd IN (SELECT value FROM json_each(?)) ORDER BY started_at ASC"
           )
           .all(JSON.stringify(cwds));
   const report = buildProjectFocusReport(dbModule, sessions);

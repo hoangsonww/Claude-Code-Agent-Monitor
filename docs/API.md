@@ -1211,6 +1211,8 @@ A project-scoped **focus-time report**: how long each of the project's sessions 
 
 Two independent replays drive it. `buildFocusSegments` walks one session's ordered `Focus` events into timestamped segments — a detour's `item_number` is the plan item that was current when the detour *started* (its "prior_item", the same concept the Plan view buckets detours under), not necessarily the item current when it ends. `activeIdleMs` walks every event for the session (any hook, any agent) and, for each segment, discounts gaps longer than the `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` grace window (default `300` seconds; `≤0` disables discounting) down to the grace window's worth of "active" time — a gap under the window (the normal think-and-reply rhythm) always counts in full. This is an event-gap proxy rather than a replay of the Waiting/Active status machine: a still-working subagent keeps emitting events, so its time stays counted without needing to duplicate `hooks.js`'s guarded fleet-drain logic.
 
+A session with **no** declared `Focus` history at all falls back to the background **focus inference** classifier's verdict (`server/lib/focus-inference.js`, the `focus_inferences` table): one whole-session segment flagged `"inferred": true`, attributed to a plan item (resolved via the item's stable id, so a plan reorder can't mis-bucket it) or to an inferred detour with a short generated title. Declared history always wins — inference is consulted only when there are zero declared segments, and an `unclassified` verdict leaves the session out of the report rather than guessing. Every segment carries the `inferred` flag (`false` for declared ones) and an `inferred_reason` string — the classifier's own one-sentence justification for the attribution (`null` for declared segments, or when the classifier recorded none).
+
 **Response:**
 
 ```json
@@ -1221,6 +1223,7 @@ Two independent replays drive it. `buildFocusSegments` walks one session's order
       "session_id": "sess_xyz",
       "name": "Fix login bug",
       "cwd": "/Users/dev/my-repo",
+      "ended_at": null,
       "segments": [
         {
           "kind": "item",
@@ -1230,7 +1233,9 @@ Two independent replays drive it. `buildFocusSegments` walks one session's order
           "end": "2026-06-10T09:30:00.000Z",
           "wall_ms": 1800000,
           "active_ms": 1800000,
-          "idle_ms": 0
+          "idle_ms": 0,
+          "inferred": false,
+          "inferred_reason": null
         }
       ]
     }
@@ -1259,11 +1264,17 @@ Two independent replays drive it. `buildFocusSegments` walks one session's order
     "idle_ms": 0,
     "by_kind": { "item": { "..." : "..." }, "detour": {}, "feature": {}, "bug": {} }
   },
-  "idle_grace_seconds": 300
+  "idle_grace_seconds": 300,
+  "wall_clock_ms": 1800000,
+  "concurrency_ratio": 1
 }
 ```
 
-Sessions that never declared any focus are omitted from `sessions` entirely. `items` only includes segments with a non-null `item_number`; a detour with no base item still counts toward `totals` but not toward any per-item rollup.
+`totals.active_ms` is **effort** time: the plain sum across every session, which inflates when sessions run concurrently (three sessions active for the same 30 minutes sum to 90 minutes of effort). `wall_clock_ms` is the calendar-time counterpart: the union of each session's own span (its first segment's start to its last segment's end), merged via `mergeIntervals()` in `server/lib/focus-report.js` — three sessions overlapping for 30 minutes merge to 30 minutes of wall-clock coverage, not 90. Concurrency is measured at the session level, not per-segment or per-item. `concurrency_ratio` is `totals.active_ms / wall_clock_ms` — `1` means no overlap, `2` means on average two sessions' worth of effort landed in every hour of wall-clock time; it's `null` when `wall_clock_ms` is `0` (an empty report has nothing to divide by).
+
+Sessions that never declared any focus surface through the inference fallback above when a usable verdict exists, and are omitted from `sessions` entirely otherwise. `items` only includes segments with a non-null `item_number`; a detour with no base item still counts toward `totals` but not toward any per-item rollup.
+
+Each session entry carries `ended_at` (`null` while still active/waiting) straight through from the underlying session row — a client rendering a calendar/timeline can't otherwise tell "genuinely still running" apart from "just happened to end near when the report was fetched," since both look identical from segment timestamps alone. The client's `FocusCalendarView` (a day-view swimlane calendar — see `client/README.md`) uses it to give the still-open segment of a live session a distinct "in progress" treatment.
 
 ---
 

@@ -2777,7 +2777,11 @@
               plan progress — each session declares the plan item it's serving with
               <code>ccam focus</code>, with detours and drift flagged in amber. A report icon opens
               a per-project focus-time breakdown — how long sessions actually spent on-task versus
-              detoured.
+              detoured. Sessions that never declared a focus are attributed automatically by a
+              background focus-inference pass and marked with an "≈ inferred" chip, so the report
+              has no silent holes. Switch the report to its new <strong>Calendar</strong> view to
+              see overlapping sessions laid out as side-by-side lanes on a real day timeline, just
+              like a Teams or Outlook calendar day view.
             </p>
           </div>
           <div class="feature-card">

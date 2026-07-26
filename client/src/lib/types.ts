@@ -1534,6 +1534,14 @@ export interface FocusReportSegment {
   /** The portion of `wall_ms` excluded as idle (no hook activity for longer
    *  than the grace window). */
   idle_ms: number;
+  /** True when this segment came from the background classifier (a session
+   *  that never declared a focus, attributed after the fact from its
+   *  activity) rather than from a real `ccam focus` declaration. */
+  inferred: boolean;
+  /** The classifier's one-sentence justification for this attribution
+   *  (`focus_inferences.reason`), or null. Only ever set when `inferred` is
+   *  true. */
+  inferred_reason: string | null;
 }
 
 /** Wall/active/idle milliseconds, broken out per {@link FocusKind} plus a
@@ -1547,11 +1555,17 @@ export interface FocusKindTotals {
 }
 
 /** One session's segments in a focus-time report. Sessions that never
- *  declared any focus are omitted entirely (nothing to report). */
+ *  declared any focus fall back to the background classifier's verdict
+ *  (segments flagged `inferred`); those with neither are omitted entirely. */
 export interface FocusReportSessionEntry {
   session_id: string;
   name: string | null;
   cwd: string | null;
+  /** `null` while the session is still active/waiting. Lets a calendar/
+   *  timeline view tell "genuinely still running" apart from "just happened
+   *  to end near when the report was fetched" — both look identical from
+   *  segment timestamps alone. */
+  ended_at: string | null;
   segments: FocusReportSegment[];
 }
 
@@ -1578,6 +1592,17 @@ export interface FocusReport {
   /** The `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` value this report was computed
    *  with, so the UI can label what "active" means. */
   idle_grace_seconds: number;
+  /** Calendar time during which at least one session was running — the
+   *  union of every session's own span (first segment start to last segment
+   *  end), NOT a sum. Sessions running concurrently collapse into shared
+   *  wall-clock coverage instead of stacking, unlike `totals.active_ms`
+   *  (effort — the plain per-session sum, which DOES inflate with
+   *  concurrency). See server/lib/focus-report.js's `mergeIntervals`. */
+  wall_clock_ms: number;
+  /** `totals.active_ms / wall_clock_ms` — how many sessions' worth of effort
+   *  landed in each hour of wall-clock time on average. `1` means no
+   *  overlap; `null` when `wall_clock_ms` is `0` (nothing to divide by). */
+  concurrency_ratio: number | null;
 }
 
 // ───── Plans & session focus ─────
@@ -2695,6 +2720,22 @@ export const FOCUS_KIND_CONFIG: Record<FocusKind, { labelKey: string; color: str
       bg: "bg-rose-500/10 border-rose-500/20",
     },
   };
+
+/** Solid fill classes per {@link FocusKind} — {@link FOCUS_KIND_CONFIG}'s
+ *  own `bg` is a translucent badge wash (10% opacity), not meant for
+ *  something that has to read at a glance (a segment bar, a calendar
+ *  block, a legend dot), so this is a deliberately separate mapping onto
+ *  the same hues. A literal per-kind lookup, not `color.replace("text-",
+ *  "bg-")` — Tailwind's JIT scanner only generates CSS for class names it
+ *  can find as literal substrings in source, so a computed class string
+ *  would silently produce no styles at all. Shared by FocusReportModal
+ *  (segment bars, legend) and FocusCalendarView (legend). */
+export const FOCUS_KIND_SOLID: Record<FocusKind, string> = {
+  item: "bg-green-500",
+  detour: "bg-amber-500",
+  feature: "bg-violet-500",
+  bug: "bg-rose-500",
+};
 
 // ───── Transcript / Conversation types ─────
 // Shapes for the raw JSONL transcript viewer in SessionDetail: individual

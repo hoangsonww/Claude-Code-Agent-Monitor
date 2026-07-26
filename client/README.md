@@ -203,6 +203,7 @@ client/
 │   │   ├── dataScope.ts    # Global data-scope store (app-wide ?sources= selection)
 │   │   ├── focusStore.ts   # Module-level session-focus store (bulk hydrate GET /api/focus + live session_focus WS merges)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
+│   │   ├── calendarLanes.ts # Swimlane lane-assignment for FocusCalendarView (greedy interval scheduling)
 │   │   └── types.ts        # TypeScript type definitions
 │   │
 │   ├── hooks/
@@ -644,7 +645,12 @@ Full-size popup for one or more plans (opened from a PlanPanel strip or a projec
 
 #### FocusReportModal
 
-Popup showing a project-scoped **focus-time report** (opened from a report icon — `BarChart3` — next to the "view plan" icon on a project's card/header, on both the Projects page and Kanban's Projects view). Unlike `PlanModal`, it owns its own fetch: `GET /api/projects/:id/focus-report` fires on open rather than the caller pre-loading data, since the report isn't needed until actually looked at. Renders stat tiles (active time, on-declared-item %, off-plan %, idle time excluded), a per-session segmented timeline bar, a per-item rollup, and a project-wide split — each bar built from `SegmentedBar`, a small internal component sharing the app's `FOCUS_KIND_CONFIG` color vocabulary via a local solid-fill mapping (the config's own `bg` is a translucent badge wash, not meant for a bar that has to read at a glance). Hover detail rides each segment's native `title` attribute rather than a custom popup. Loading/error/empty states; Escape/backdrop/close-button dismissal mirrors `PlanModal`.
+Popup showing a project-scoped **focus-time report** (opened from a report icon — `BarChart3` — next to the "view plan" icon on a project's card/header, on both the Projects page and Kanban's Projects view). Unlike `PlanModal`, it owns its own fetch: `GET /api/projects/:id/focus-report` fires on open rather than the caller pre-loading data, since the report isn't needed until actually looked at. A header toggle (`List`/`CalendarDays` icon buttons, only shown when the project has focus history) switches the body between two views on the SAME already-fetched report — no second request:
+
+- **List** (default) — stat tiles (effort active time, **concurrency ratio**, on-declared-item %, off-plan %, idle time excluded), a per-session segmented timeline bar, a per-item rollup, and a project-wide split — each bar built from `SegmentedBar`, a small internal component sharing the app's `FOCUS_KIND_CONFIG` color vocabulary via `FOCUS_KIND_SOLID` (`lib/types.ts` — a literal per-kind solid-fill map; `FOCUS_KIND_CONFIG`'s own `bg` is a translucent badge wash, not meant for a bar that has to read at a glance, and a *computed* class string like `color.replace("text-","bg-")` would silently produce no styles at all since Tailwind's JIT scanner only generates CSS for literal class-name substrings it finds in source). Hover detail rides each segment's native `title` attribute rather than a custom popup. Sessions whose attribution came from the background focus-inference classifier rather than a declaration (segments with `inferred: true`) carry an "≈ inferred" chip beside the session name — its tooltip is the classifier's own one-sentence `inferred_reason` when one was recorded (falling back to a generic "no focus was declared" note otherwise), and each inferred segment's hover title gets the same reason appended. A session with exactly one segment also gets a visible caption naming what it was attributed to (`Item 6: MCP Reliability...` or `Detour: Time tracking investigation`) — the session name and chip alone don't say *what*, and a detour has no other on-screen text at all without it.
+- **Calendar** — `FocusCalendarView` (see below), the swimlane day-view alternative.
+
+The stat tiles stay visible in both modes. Loading/error/empty states; Escape/backdrop/close-button dismissal mirrors `PlanModal`.
 
 **Props:**
 ```typescript
@@ -652,6 +658,19 @@ interface FocusReportModalProps {
   projectId: string;
   projectName: string;
   onClose: () => void;
+}
+```
+
+#### FocusCalendarView
+
+Day-view **swimlane calendar** for a project's focus-time report — the visual alternative to `FocusReportModal`'s list body, toggled from its header, sharing the same already-fetched `report` prop (no fetch of its own). Every session's segments get positioned on a real 24-hour axis for one selected day; segments whose time spans overlap split into side-by-side lanes via `assignLanes()` (`lib/calendarLanes.ts` — greedy earliest-available-lane interval scheduling, optimal for interval graphs) instead of stacking, so concurrency reads as geometry rather than a number to interpret. Blocks are colored by `FOCUS_KIND_CONFIG`, with a dashed border for an inferred segment vs. solid for declared (mirrors `FocusReportModal`'s "≈ inferred" convention) and a pulsing, open-ended block for a session whose `ended_at` is still `null` (genuinely still running, not just "happened to end near fetch time" — the distinction the API's `ended_at` field exists to make). An accent-colored "now" line only renders when the selected day is today. Prev/Today/Next buttons navigate days (mirrors `DateTimePicker`'s chevron-nav styling); a segment spanning past midnight is clipped to each day it touches rather than rendering a multi-day continuation.
+
+**v1 scope note:** only Day view + simple date navigation shipped. A Week/Month zoom and an aggregate time-range selector (3d/7d/30d/All) were sketched in the original design mockup but deliberately deferred — they belong to a separate, still-open design thread (a project-wide time-window default for the report) rather than this component. See the `holistic-focus-history` project memory for the full design history.
+
+**Props:**
+```typescript
+interface FocusCalendarViewProps {
+  report: FocusReport;
 }
 ```
 

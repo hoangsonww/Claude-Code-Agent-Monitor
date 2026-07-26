@@ -182,7 +182,16 @@ import i18n from "../i18n";
  *   parseDate("2026-04-18T08:49:13Z")    // parsed as-is
  *   parseDate("2026-04-18T08:49:13-04:00") // parsed as-is (explicit offset)
  */
-function parseDate(iso: string): Date {
+/**
+ * Parses an ISO/SQLite timestamp into a `Date`, normalizing to UTC first
+ * (see the file-level "UTC normalization" note). Exported (not just used
+ * internally by the formatters below) because callers doing real date MATH
+ * — not just producing a display string — need the same normalization; e.g.
+ * FocusCalendarView positions session blocks on a time axis from raw
+ * segment timestamps, and re-deriving this logic there would risk the exact
+ * UTC-vs-local drift this function exists to prevent.
+ */
+export function parseDate(iso: string): Date {
   // Already has timezone info (Z or +/- offset) - parse directly
   // (`/[+-]\d{2}:\d{2}$/` catches trailing `+04:00`-style offsets).
   if (/[Zz]$/.test(iso) || /[+-]\d{2}:\d{2}$/.test(iso)) {

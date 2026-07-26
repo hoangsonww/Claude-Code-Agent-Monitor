@@ -511,6 +511,31 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_session_focus_cwd ON session_focus(cwd);
+
+  -- Inferred focus for sessions that never declared one. Written only by the
+  -- background classifier (server/lib/focus-inference.js), which digests a
+  -- silent session's activity (prompts, files touched, commands) and matches
+  -- it against the cwd's plan items — or labels it a detour. One row per
+  -- session, re-inferred when the session gains activity after inferred_at.
+  -- kind: 'item' (item_id set) | 'detour' (label set) | 'unclassified'.
+  -- item_id references the plan item's STABLE id (never its display number,
+  -- which can change on reorder). method: 'llm' | 'heuristic'. Declared Focus
+  -- events always take precedence over this table at report time — inference
+  -- only fills gaps, never overwrites ground truth.
+  CREATE TABLE IF NOT EXISTS focus_inferences (
+    session_id TEXT PRIMARY KEY,
+    cwd TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    item_id TEXT,
+    label TEXT,
+    confidence REAL,
+    method TEXT NOT NULL,
+    reason TEXT,
+    inferred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_focus_inferences_cwd ON focus_inferences(cwd);
 `);
 
 // Migrate: give plan_items a stable item_id independent of item_number (see
@@ -1879,6 +1904,24 @@ const stmts = {
   distinctSessionCwds: db.prepare(
     "SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != ''"
   ),
+  // Stable-id lookup, the inference-side sibling of getPlanItem (which is
+  // keyed by the live display number). Inference rows store item_id so a
+  // plan reorder can't silently re-point inferred time at the wrong item.
+  getPlanItemById: db.prepare("SELECT * FROM plan_items WHERE cwd = ? AND item_id = ?"),
+  upsertFocusInference: db.prepare(
+    `INSERT INTO focus_inferences (session_id, cwd, kind, item_id, label, confidence, method, reason, inferred_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(session_id) DO UPDATE SET
+       cwd = excluded.cwd,
+       kind = excluded.kind,
+       item_id = excluded.item_id,
+       label = excluded.label,
+       confidence = excluded.confidence,
+       method = excluded.method,
+       reason = excluded.reason,
+       inferred_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
+  getFocusInference: db.prepare("SELECT * FROM focus_inferences WHERE session_id = ?"),
 };
 
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };

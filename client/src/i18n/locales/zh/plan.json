@@ -46,6 +46,8 @@
     "empty": "该项目的会话尚无焦点历史",
     "activeTime": "活跃时间",
     "ofWallClock": "占总计 {{total}} 实际时长",
+    "concurrency": "并发度",
+    "concurrencyTitle": "投入时间 ÷ 实际时长 —— 平均每小时相当于多少个会话的工作量。1.00x 表示没有重叠。",
     "onItem": "在已声明条目上",
     "offPlan": "计划外（绕行）",
     "idleExcluded": "已排除的空闲时间",
@@ -53,6 +55,18 @@
     "graceDisabled": "已禁用 — 计入全部实际时长",
     "sessionsHeading": "逐会话明细",
     "itemsHeading": "按计划条目统计的用时",
-    "splitHeading": "项目整体占比"
+    "splitHeading": "项目整体占比",
+    "inferred": "推断",
+    "inferredNote": "未声明焦点 — 根据会话活动自动归类",
+    "viewList": "列表",
+    "viewCalendar": "日历",
+    "calendar": {
+      "prevDay": "前一天",
+      "today": "今天",
+      "nextDay": "后一天",
+      "empty": "这一天没有活动",
+      "declared": "已声明",
+      "inferredProvenance": "≈ 推断"
+    }
   }
 }

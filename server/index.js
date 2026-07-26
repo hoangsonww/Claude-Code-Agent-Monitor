@@ -382,6 +382,18 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("focus audit failed to start:", err.message);
   }
+  // Classify sessions that never declared a focus: digest their activity and
+  // match it to a plan item (or an inferred detour) so the focus-time report
+  // has no silent holes. Backfill tick shortly after boot, then a slow
+  // steady-state interval. LLM-judged via headless `claude -p` when
+  // available, conservative keyword heuristic otherwise; disable with
+  // DASHBOARD_FOCUS_INFER_MS=0 or DASHBOARD_FOCUS_INFER_MODE=off.
+  try {
+    const { startFocusInference } = require("./lib/focus-inference");
+    startFocusInference();
+  } catch (err) {
+    console.warn("focus inference failed to start:", err.message);
+  }
   // Continuous discovery of sessions under ~/.claude/projects. The one-time
   // legacy backfill above runs only once (marker-gated), so a project added
   // later whose sessions never flow through hooks would otherwise stay invisible
