@@ -644,6 +644,8 @@ flowchart LR
 > [!IMPORTANT]
 > **기본적으로 안전합니다.** 서버는 `127.0.0.1`에 바인딩되며 기본 상태에서는 네트워크에서 접근할 수 **없습니다**([GHSA-gr74-4xfh-6jw9](./.github/SECURITY.md)). LAN에 노출하려면 `DASHBOARD_HOST`(예: `0.0.0.0`)와 `DASHBOARD_TOKEN`(이후 `/api/*`와 WebSocket을 보호) **둘 다** 설정하고, `DASHBOARD_ALLOWED_HOSTS`에 LAN 호스트명을 나열하십시오. 자세한 내용은 [`.env.example`](./.env.example)과 [`.github/SECURITY.md`](./.github/SECURITY.md)를 참조하십시오.
 
+**LAN 링크 공유하기.** `DASHBOARD_TOKEN`을 설정하면 Kanban Board 헤더에 "공유 링크 복사" 아이콘(완료 숨기기/표시 옆)이 나타나 `?token=`이 붙은 현재 URL을 클립보드에 복사합니다. 다른 브라우저에서 그 링크를 열면 토큰이 해당 브라우저의 `localStorage`에 자동 저장되고 주소창에서는 사라지므로, 받는 사람은 별도 설정 없이 바로 인증됩니다 — 단, 이 버튼이 토큰을 포함하려면 현재 브라우저에 이미 토큰이 있어야 합니다(예: 공유 링크를 먼저 열었거나 `localStorage.setItem('dashboard_token', '...')`를 실행한 경우).
+
 git 클론의 경우, 서버는 주기적으로 `origin`을 `git fetch`하고 체크아웃을 `origin/master`, `origin/main`, 또는 `origin/HEAD`와 비교합니다. 뒤처져 있으면 서버 터미널에 메시지가 나타나고 UI에는 실행할 정확한 명령어가 담긴 모달이 나타납니다. 대시보드는 절대 스스로 pull하거나 재시작하지 않습니다 — 명령어를 복사해 터미널에서 실행한 뒤, 서버를 시작했던 것과 동일한 방식으로 재시작하면 됩니다.
 
 ---

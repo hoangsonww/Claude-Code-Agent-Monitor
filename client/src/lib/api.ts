@@ -439,6 +439,29 @@ function applyScope(qs: URLSearchParams): URLSearchParams {
 }
 
 /**
+ * Captures a `?token=` query param from a shared dashboard link into
+ * localStorage on first load, then strips it from the visible URL (so the
+ * secret doesn't linger in the address bar / browser history). A no-op when
+ * the URL carries no token. Wrapped in try/catch like {@link dashboardToken}
+ * since History/localStorage access can throw in restricted environments.
+ */
+function captureTokenFromUrl(): void {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("token");
+    if (!fromUrl) return;
+    localStorage.setItem("dashboard_token", fromUrl);
+    params.delete("token");
+    const rest = params.toString();
+    const cleanUrl = window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash;
+    window.history.replaceState(null, "", cleanUrl);
+  } catch {
+    /* URL/storage access blocked → token stays in the query string, harmless */
+  }
+}
+captureTokenFromUrl();
+
+/**
  * Optional dashboard auth token (GHSA-gr74-4xfh-6jw9). Only needed when the
  * operator binds the server to a LAN and sets DASHBOARD_TOKEN; for the default
  * loopback bind there is no token and this returns null (zero-config). Read from
@@ -448,8 +471,9 @@ function applyScope(qs: URLSearchParams): URLSearchParams {
  *   1. `globalThis.__DASHBOARD_TOKEN__` — a value the server can inject into the
  *      served HTML so an operator-provisioned token is available on first paint
  *      without any client-side setup.
- *   2. `localStorage["dashboard_token"]` — a token the user pasted into the UI
- *      once; it persists across reloads for that browser.
+ *   2. `localStorage["dashboard_token"]` — a token the user pasted into the UI,
+ *      or one captured from a shared `?token=` link by {@link captureTokenFromUrl};
+ *      it persists across reloads for that browser.
  *
  * The whole body is wrapped in try/catch because both `globalThis` access and
  * `localStorage` can throw (e.g. storage disabled/blocked in some privacy modes);

@@ -13,6 +13,8 @@
   "viewReport": "查看焦点用时报告",
   "hideCompleted": "隐藏已完成",
   "showCompleted": "显示已完成",
+  "copyLink": "复制共享链接",
+  "linkCopied": "链接已复制！",
   "noAgents": "暂无追踪的 Agent",
   "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看 Agent。",
   "agentCount": "已追踪 {{count}} 个 Agent",
@@ -61,6 +63,8 @@
     "collapse": "折叠显示器",
     "expand": "展开显示器",
     "ungrouped": "未分组",
+    "collapseUngrouped": "折叠未分组",
+    "expandUngrouped": "展开未分组",
     "emptyMonitorHint": "将项目拖到这里",
     "emptyUngroupedHint": "将项目拖到这里以将其移出显示器"
   },

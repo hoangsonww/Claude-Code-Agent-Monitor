@@ -440,6 +440,8 @@ podman run -d --name agent-monitor \
 
 Bảng điều khiển sau đó có sẵn tại `http://localhost:4820`. Image bind `0.0.0.0` **bên trong container** (`DASHBOARD_HOST`) và ghi SQLite vào volume `/app/data` (`DASHBOARD_DATA_DIR`) — cả hai đều được nướng sẵn vào `Dockerfile` nên Compose và `docker run` đơn giản đều hoạt động ngay lập tức. Ranh giới tin cậy là việc publish cổng trên **host**: các ví dụ chỉ publish trên `127.0.0.1`, nên bảng điều khiển không truy cập được từ mạng LAN theo mặc định. Để mở ra LAN, hãy publish trên `0.0.0.0` (bỏ tiền tố `127.0.0.1:`, ví dụ `-p 4820:4820`) **và** đặt `DASHBOARD_TOKEN` (xem [Cấu hình](#cấu-hình) và [`.github/SECURITY.md`](./.github/SECURITY.md)).
 
+**Chia sẻ liên kết LAN.** Khi đã đặt `DASHBOARD_TOKEN`, phần đầu trang Kanban Board có biểu tượng "Sao chép liên kết chia sẻ" (cạnh nút Ẩn/Hiện đã hoàn tất) để sao chép URL hiện tại kèm `?token=` vào clipboard. Mở liên kết đó trên trình duyệt khác sẽ tự động lưu token vào `localStorage` của trình duyệt đó và xóa token khỏi thanh địa chỉ, nên người nhận được xác thực ngay mà không cần thao tác thủ công nào — tuy nhiên nút này chỉ đính kèm được token nếu trình duyệt hiện tại đã có sẵn token (ví dụ đã từng mở một liên kết chia sẻ, hoặc đã chạy `localStorage.setItem('dashboard_token', '...')`).
+
 **Gắn kết âm lượng:**
 
 | Gắn kết | Mục đích |

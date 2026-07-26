@@ -13,6 +13,8 @@
   "viewReport": "포커스 시간 리포트 보기",
   "hideCompleted": "완료 숨기기",
   "showCompleted": "완료 표시",
+  "copyLink": "공유 링크 복사",
+  "linkCopied": "링크가 복사되었습니다!",
   "noAgents": "아직 추적된 Agent가 없습니다",
   "noAgentsDesc": "hooks가 설치된 Claude Code 세션을 시작하면 여기에 Agent가 표시됩니다.",
   "agentCount": "{{count}}개 Agent 추적 중",
@@ -61,6 +63,8 @@
     "collapse": "모니터 접기",
     "expand": "모니터 펼치기",
     "ungrouped": "미분류",
+    "collapseUngrouped": "미분류 접기",
+    "expandUngrouped": "미분류 펼치기",
     "emptyMonitorHint": "여기에 프로젝트를 드래그하세요",
     "emptyUngroupedHint": "프로젝트를 여기에 놓으면 모니터에서 제거됩니다"
   },

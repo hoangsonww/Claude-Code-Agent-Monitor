@@ -647,6 +647,8 @@ flowchart LR
 > [!IMPORTANT]
 > **Secure by default.** The server binds `127.0.0.1` and is **not** reachable from the network out of the box ([GHSA-gr74-4xfh-6jw9](./.github/SECURITY.md)). To expose it on a LAN, set **both** `DASHBOARD_HOST` (e.g. `0.0.0.0`) **and** `DASHBOARD_TOKEN` (which then gates `/api/*` and the WebSocket), and list your LAN hostnames in `DASHBOARD_ALLOWED_HOSTS`. See [`.env.example`](./.env.example) and [`.github/SECURITY.md`](./.github/SECURITY.md) for details.
 
+**Sharing a LAN link.** Once `DASHBOARD_TOKEN` is set, the Kanban Board header has a "Copy shareable link" icon (next to Hide/Show completed) that copies the current URL with `?token=` appended. Opening that link in another browser auto-saves the token to that browser's `localStorage` and strips it from the visible URL, so the recipient is authenticated with no manual setup — the button only appears able to include a token once the current browser already has one (e.g. after opening a shared link itself, or via `localStorage.setItem('dashboard_token', '...')`).
+
 For git clones, the server periodically `git fetch`es `origin` and compares your checkout to `origin/master`, `origin/main`, or `origin/HEAD`. When you are behind, a message appears in the server terminal and a modal appears in the UI with the exact command to run. The dashboard never pulls or restarts itself — you copy the command, run it in a terminal, then restart the server the same way you started it.
 
 ---

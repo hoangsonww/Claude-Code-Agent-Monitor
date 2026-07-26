@@ -380,6 +380,8 @@ npm run build && npm start
 > [!NOTE]
 > 服务器默认绑定 `127.0.0.1`（开箱即用不可从网络访问 —— GHSA-gr74-4xfh-6jw9）；如需在局域网暴露，请设置 `DASHBOARD_HOST` 和 `DASHBOARD_TOKEN`（设置后 `/api/*` 与 WebSocket 都需要该 token），并在 `DASHBOARD_ALLOWED_HOSTS` 中列出局域网主机名。参见 `.env.example` / `.github/SECURITY.md`。
 
+**分享局域网链接。** 设置 `DASHBOARD_TOKEN` 后，Kanban Board 页头会出现一个"复制共享链接"图标（在隐藏/显示已完成按钮旁边），点击即可复制带 `?token=` 参数的当前 URL。在另一台浏览器打开该链接后，token 会自动保存到该浏览器的 `localStorage` 并从地址栏中移除，因此对方无需任何手动设置即可通过认证——不过该按钮要在链接中带上 token，前提是当前浏览器已经拥有 token（例如已打开过一次分享链接，或执行过 `localStorage.setItem('dashboard_token', '...')`)。
+
 ### 5. 可选：构建并运行本地 MCP 服务器
 
 ```bash

@@ -13,6 +13,8 @@
   "viewReport": "View focus-time report",
   "hideCompleted": "Hide completed",
   "showCompleted": "Show completed",
+  "copyLink": "Copy shareable link",
+  "linkCopied": "Link copied!",
   "noAgents": "No agents tracked yet",
   "noAgentsDesc": "Start a Claude Code session with hooks installed to see agents appear here.",
   "agentCount": "{{count}} agent tracked",
@@ -61,6 +63,8 @@
     "collapse": "Collapse monitor",
     "expand": "Expand monitor",
     "ungrouped": "Ungrouped",
+    "collapseUngrouped": "Collapse ungrouped",
+    "expandUngrouped": "Expand ungrouped",
     "emptyMonitorHint": "Drag a project here",
     "emptyUngroupedHint": "Drop a project here to remove it from its monitor"
   },

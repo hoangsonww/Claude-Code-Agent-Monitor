@@ -100,8 +100,10 @@ import {
   X,
   ClipboardList,
   BarChart3,
+  Copy,
+  Check,
 } from "lucide-react";
-import { api } from "../lib/api";
+import { api, dashboardToken } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { AgentCard } from "../components/AgentCard";
 import { SessionCard } from "../components/SessionCard";
@@ -179,6 +181,10 @@ const SESSION_COLUMNS: EffectiveSessionStatus[] = [
 const COLUMN_PAGE_SIZE = 10;
 const VIEW_STORAGE_KEY = "kanban-board-view";
 const HIDE_COMPLETED_STORAGE_KEY = "kanban-hide-completed";
+// Sentinel key for the trailing Ungrouped box's own collapsed state, stored
+// in the same `collapsedProjects` map as project columns (matches the
+// `monitor-divider-__ungrouped__` testid already used to identify this box).
+const UNGROUPED_COLLAPSE_KEY = "__ungrouped__";
 
 function loadView(): BoardView {
   try {
@@ -663,6 +669,12 @@ export function KanbanBoard() {
     const assigned = monitorMap[col.key];
     return !assigned || !monitorIds.has(assigned);
   });
+  // Reuses the same collapsed-state map as project columns (its own doc
+  // comment already anticipates non-project sentinel keys like
+  // "__unassigned__") rather than a bespoke boolean, so the Ungrouped box's
+  // collapse persists through the same `kanban-collapsed-projects` storage
+  // key with zero new state.
+  const ungroupedCollapsed = !!collapsedProjects[UNGROUPED_COLLAPSE_KEY];
 
   const total = view === "agents" ? agents.length : sessions.length;
   const subtitle =
@@ -722,6 +734,7 @@ export function KanbanBoard() {
           {hideCompleted ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           {hideCompleted ? t("showCompleted") : t("hideCompleted")}
         </button>
+        <CopyLinkButton />
         <button onClick={load} className="btn-ghost flex-shrink-0">
           <RefreshCw className="w-4 h-4" /> {t("common:refresh")}
         </button>
@@ -835,6 +848,24 @@ export function KanbanBoard() {
     );
   }
 
+  // Renders the trailing Ungrouped box - shared between the main row
+  // (expanded) and the collapsed strip above it, mirroring
+  // `renderMonitorBox` so collapsing it behaves identically to collapsing a
+  // real monitor (chevron, hidden-not-unmounted children, relocation into
+  // `kanban-collapsed-monitor-row`).
+  function renderUngroupedBox() {
+    return (
+      <UngroupedBox
+        count={ungroupedColumns.length}
+        collapsed={ungroupedCollapsed}
+        onToggleCollapsed={() => handleToggleProjectCollapsed(UNGROUPED_COLLAPSE_KEY)}
+        onDragOver={(e) => handleSwimlaneDragOver(e, null)}
+      >
+        {ungroupedColumns.map(renderProjectColumn)}
+      </UngroupedBox>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
       {Header}
@@ -844,12 +875,13 @@ export function KanbanBoard() {
           up the horizontal space they'd otherwise still claim, trading it for
           a single thin strip shared by every collapsed monitor. Expanding one
           removes it from here and drops it back into the main row. */}
-      {view === "projects" && collapsedMonitorClusters.length > 0 && (
+      {view === "projects" && (collapsedMonitorClusters.length > 0 || ungroupedCollapsed) && (
         <div
           data-testid="kanban-collapsed-monitor-row"
           className="flex gap-3 overflow-x-auto pb-3 -mx-8 px-8"
         >
           {collapsedMonitorClusters.map(renderMonitorBox)}
+          {ungroupedCollapsed && renderUngroupedBox()}
         </div>
       )}
 
@@ -934,12 +966,7 @@ export function KanbanBoard() {
         ) : (
           <>
             {expandedMonitorClusters.map(renderMonitorBox)}
-            <UngroupedBox
-              count={ungroupedColumns.length}
-              onDragOver={(e) => handleSwimlaneDragOver(e, null)}
-            >
-              {ungroupedColumns.map(renderProjectColumn)}
-            </UngroupedBox>
+            {!ungroupedCollapsed && renderUngroupedBox()}
             {unassignedColumn && renderProjectColumn(unassignedColumn)}
             {/* Trailing catch-all: a long drag across several monitor boxes
                 can easily overshoot or fall short of the Ungrouped box. Any
@@ -1394,13 +1421,24 @@ function MonitorBox({
  * `monitorMap` entry), so it stays non-draggable, non-renameable, and
  * non-deletable. The whole box is a drop target, so a project can be
  * dragged here to clear its monitor assignment even when the box is empty.
+ *
+ * Collapsing it works exactly like collapsing a real monitor's box (chevron
+ * toggle, children stay mounted but hidden, the caller relocates a collapsed
+ * box into the shared `kanban-collapsed-monitor-row` strip) so the two
+ * behave identically from the user's perspective - only the persistence key
+ * differs (`collapsedProjects[UNGROUPED_COLLAPSE_KEY]` vs a `MonitorGroup`'s
+ * own `collapsed` field), since this box has no stored group of its own.
  */
 function UngroupedBox({
   count,
+  collapsed,
+  onToggleCollapsed,
   onDragOver,
   children,
 }: {
   count: number;
+  collapsed?: boolean;
+  onToggleCollapsed: () => void;
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
   children: React.ReactNode;
 }) {
@@ -1411,9 +1449,23 @@ function UngroupedBox({
       draggable={false}
       onDragOver={onDragOver}
       onDrop={(e) => e.preventDefault()}
-      className="flex flex-col flex-shrink-0 rounded-xl border border-dashed border-border/50 p-3 gap-3"
+      className={`flex flex-col flex-shrink-0 rounded-xl border border-dashed border-border/50 p-3 gap-3 ${
+        collapsed ? "self-start" : ""
+      }`}
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-shrink-0">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title={t(collapsed ? "monitors.expandUngrouped" : "monitors.collapseUngrouped")}
+          aria-expanded={!collapsed}
+          draggable={false}
+          className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+          />
+        </button>
         <MonitorIcon className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" aria-hidden="true" />
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 truncate min-w-0 flex-1">
           {t("monitors.ungrouped")}
@@ -1422,7 +1474,10 @@ function UngroupedBox({
           {count}
         </span>
       </div>
-      <div className="flex gap-4" draggable={false}>
+      {/* Stays mounted (never conditionally rendered) while collapsed, only
+          visually hidden - matches MonitorBox so a card's own local state and
+          any in-flight drag survive a collapse/expand toggle. */}
+      <div className={`flex gap-4 ${collapsed ? "hidden" : ""}`} draggable={false}>
         {children}
         {count === 0 && (
           <div className="flex-1 min-w-[10rem] min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3">
@@ -1468,5 +1523,40 @@ function ColumnHelp({ text }: { text: string }) {
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * Copies a shareable dashboard URL (origin + path, plus `?token=` when the
+ * server has DASHBOARD_TOKEN auth enabled) to the clipboard. Opening that URL
+ * elsewhere seeds the recipient's browser via {@link captureTokenFromUrl} in
+ * `lib/api.ts`, so the link works standalone without any manual setup.
+ */
+function CopyLinkButton() {
+  const { t } = useTranslation("kanban");
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        const token = dashboardToken();
+        const url =
+          window.location.origin +
+          window.location.pathname +
+          (token ? `?token=${encodeURIComponent(token)}` : "");
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable */
+        }
+      }}
+      title={copied ? t("linkCopied") : t("copyLink")}
+      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4 transition-colors duration-150 flex-shrink-0"
+    >
+      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+    </button>
   );
 }

@@ -1670,6 +1670,15 @@ this logs a startup warning and you should set **`DASHBOARD_TOKEN`** for auth
 when you do. Add extra LAN Host names that should be accepted to
 **`DASHBOARD_ALLOWED_HOSTS`** (comma-separated).
 
+On the client, `client/src/lib/api.ts` closes the loop on the `?token=` query
+param: `captureTokenFromUrl()` runs once on module load, saves an incoming
+`?token=` into `localStorage["dashboard_token"]` (the same key
+`dashboardToken()` reads), and strips it from the visible URL via
+`history.replaceState`. The Kanban Board header's "Copy shareable link" button
+(`CopyLinkButton` in `client/src/pages/KanbanBoard.tsx`) builds that URL from
+the current origin plus the resolved token, so sharing LAN access is a single
+copy/paste with no manual `localStorage` step on the receiving end.
+
 ### Database Configuration (db.js)
 
 ```javascript

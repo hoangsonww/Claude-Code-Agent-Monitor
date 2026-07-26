@@ -13,6 +13,8 @@
   "viewReport": "Xem báo cáo thời gian tiêu điểm",
   "hideCompleted": "Ẩn đã hoàn tất",
   "showCompleted": "Hiện đã hoàn tất",
+  "copyLink": "Sao chép liên kết chia sẻ",
+  "linkCopied": "Đã sao chép liên kết!",
   "noAgents": "Chưa có Agent được theo dõi",
   "noAgentsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy Agent xuất hiện tại đây.",
   "agentCount": "Đã theo dõi {{count}} Agent",
@@ -61,6 +63,8 @@
     "collapse": "Thu gọn màn hình",
     "expand": "Mở rộng màn hình",
     "ungrouped": "Chưa phân nhóm",
+    "collapseUngrouped": "Thu gọn mục chưa phân nhóm",
+    "expandUngrouped": "Mở rộng mục chưa phân nhóm",
     "emptyMonitorHint": "Kéo một dự án vào đây",
     "emptyUngroupedHint": "Thả dự án vào đây để gỡ khỏi màn hình"
   },

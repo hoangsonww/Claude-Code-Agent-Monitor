@@ -8,9 +8,9 @@
  * and drops any column left empty by that filter, plus the monitor grouping
  * feature (creating/renaming/deleting monitors, dragging project columns
  * into/out of/between their bordered boxes, dragging a monitor's box to
- * reposition it left-to-right in the same row, and collapsing a box out of
- * that row into its own thin strip above it) that activates once at least
- * one monitor exists.
+ * reposition it left-to-right in the same row, and collapsing a box - or the
+ * trailing Ungrouped box, the same way - out of that row into its own thin
+ * strip above it) that activates once at least one monitor exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -449,6 +449,48 @@ describe("Kanban Board - Projects view", () => {
       );
       expect(screen.queryByTestId("kanban-collapsed-monitor-row")).not.toBeInTheDocument();
       expect(currentMonitors()[0]).toMatchObject({ id: monitorId, collapsed: false });
+    });
+
+    function currentCollapsedProjects(): Record<string, boolean> {
+      return JSON.parse(localStorage.getItem("kanban-collapsed-projects") ?? "{}");
+    }
+
+    it("collapses the trailing Ungrouped box out of the main row into the same strip as a collapsed monitor, and expands it back, persisting the flag", async () => {
+      renderPage();
+      fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));
+      await screen.findByText("Agent Monitor");
+      // The Ungrouped box only renders once at least one monitor exists.
+      await addMonitor();
+
+      const ungroupedBox = screen.getByTestId("monitor-divider-__ungrouped__");
+
+      // Expanded: box lives in the main row, no collapsed strip rendered yet.
+      expect(screen.getByTestId("kanban-board-row")).toContainElement(ungroupedBox);
+      expect(screen.queryByTestId("kanban-collapsed-monitor-row")).not.toBeInTheDocument();
+
+      fireEvent.click(within(ungroupedBox).getByTitle("Collapse ungrouped"));
+
+      // Collapsed: the box (and its column content) moves out of the main
+      // row into the same dedicated strip a collapsed monitor uses.
+      const collapsedRow = screen.getByTestId("kanban-collapsed-monitor-row");
+      expect(collapsedRow).toContainElement(screen.getByTestId("monitor-divider-__ungrouped__"));
+      expect(screen.getByTestId("kanban-board-row")).not.toContainElement(
+        screen.getByTestId("monitor-divider-__ungrouped__")
+      );
+      expect(within(collapsedRow).getByText("Agent Monitor")).toBeInTheDocument();
+      expect(currentCollapsedProjects()).toMatchObject({ __ungrouped__: true });
+
+      fireEvent.click(
+        within(screen.getByTestId("monitor-divider-__ungrouped__")).getByTitle("Expand ungrouped")
+      );
+
+      // Expanded again: back in the main row; the strip disappears since it
+      // was the only collapsed box.
+      expect(screen.getByTestId("kanban-board-row")).toContainElement(
+        screen.getByTestId("monitor-divider-__ungrouped__")
+      );
+      expect(screen.queryByTestId("kanban-collapsed-monitor-row")).not.toBeInTheDocument();
+      expect(currentCollapsedProjects()).toMatchObject({ __ungrouped__: false });
     });
 
     it("drags a project column onto an empty monitor's box and persists the assignment, rendering it inside the box", async () => {
