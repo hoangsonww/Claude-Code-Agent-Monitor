@@ -32,10 +32,13 @@ function makePlan(overrides: Partial<Plan> = {}): Omit<Plan, "items"> {
 }
 
 function makeItem(overrides: Partial<PlanItem> = {}): PlanItem {
+  const item_number = overrides.item_number ?? 1;
   return {
     cwd: "/repo",
-    item_id: `id-${overrides.item_number ?? 1}`,
-    item_number: 1,
+    item_id: `id-${item_number}`,
+    item_number,
+    parent_item_id: null,
+    display_number: item_number == null ? "" : String(item_number),
     text: "First thing",
     acceptance: null,
     detail: null,
@@ -259,6 +262,89 @@ describe("PlanModal", () => {
     expect(screen.getByText("Second plan")).toBeInTheDocument();
     expect(screen.getByText("Other repo's task")).toBeInTheDocument();
     expect(screen.getByText("Plans (2)")).toBeInTheDocument();
+  });
+
+  it("renders sub-items nested under their parent with a dotted display number", () => {
+    const items = [
+      makeItem({ item_number: 1, text: "Pipeline Environment" }),
+      makeItem({
+        item_id: "child-1",
+        item_number: null,
+        parent_item_id: "id-1",
+        display_number: "1.1",
+        text: "Image Generation",
+        position: 1,
+      }),
+      makeItem({
+        item_id: "child-2",
+        item_number: null,
+        parent_item_id: "id-1",
+        display_number: "1.2",
+        text: "Voice Synthesis",
+        checked: 1,
+        position: 2,
+      }),
+      makeItem({ item_number: 2, text: "Screenplay", position: 3 }),
+    ];
+    renderModal({ plans: [{ plan: makePlan(), items }] });
+
+    expect(screen.getByText("1.1.")).toBeInTheDocument();
+    expect(screen.getByText("1.2.")).toBeInTheDocument();
+    const child = screen.getByText("Image Generation").closest("li");
+    // Nested under the parent's own <li>, not a sibling top-level row.
+    expect(child?.closest("ul")?.previousElementSibling?.textContent).toContain(
+      "Pipeline Environment"
+    );
+  });
+
+  it("shows a done/total rollup badge on a parent with sub-items, without inferring its own checkbox", () => {
+    const items = [
+      makeItem({ item_number: 1, text: "Pipeline Environment", checked: 0 }),
+      makeItem({
+        item_id: "child-1",
+        item_number: null,
+        parent_item_id: "id-1",
+        display_number: "1.1",
+        text: "Image Generation",
+        checked: 1,
+        position: 1,
+      }),
+      makeItem({
+        item_id: "child-2",
+        item_number: null,
+        parent_item_id: "id-1",
+        display_number: "1.2",
+        text: "Voice Synthesis",
+        checked: 1,
+        position: 2,
+      }),
+    ];
+    renderModal({ plans: [{ plan: makePlan(), items }] });
+
+    expect(screen.getByText("(2/2)")).toBeInTheDocument();
+    // Both sub-items done, but the parent's own checkbox is untouched — it
+    // stays file-driven, not auto-derived from its children.
+    const parentRow = screen.getByText("Pipeline Environment").closest("div");
+    expect(parentRow?.querySelector('[aria-checked="true"]')).toBeNull();
+  });
+
+  it("counts only top-level items in the header progress, excluding sub-items", () => {
+    const items = [
+      makeItem({ item_number: 1, text: "Pipeline Environment", checked: 1 }),
+      makeItem({
+        item_id: "child-1",
+        item_number: null,
+        parent_item_id: "id-1",
+        display_number: "1.1",
+        text: "Image Generation",
+        checked: 0,
+        position: 1,
+      }),
+      makeItem({ item_number: 2, text: "Screenplay", checked: 0, position: 2 }),
+    ];
+    renderModal({ plans: [{ plan: makePlan(), items }] });
+    // 1 of 2 TOP-LEVEL items done — the sub-item must not inflate the total.
+    expect(screen.getByText("1/2 complete")).toBeInTheDocument();
   });
 
   it("closes on close-button click", () => {

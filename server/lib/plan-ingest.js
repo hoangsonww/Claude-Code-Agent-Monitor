@@ -9,6 +9,16 @@
  *         id: a1b2c3d4
  *   - [x] 2) Set up schema
  *         id: e5f6a7b8
+ *     - [ ] 2.1. Sub-item nested under item 2 (dotted number, own checkbox)
+ *           id: c3d4e5f6
+ *
+ * A sub-item (dotted "N.M" number) is a child of the top-level item numbered
+ * N, stored via parent_item_id (the parent's item_id) with item_number left
+ * NULL — it has no flat, ccam-typeable number of its own; SQLite's UNIQUE
+ * index allows any number of NULLs, so this needs no schema carve-out beyond
+ * the nullable column. "N.M" is display-only (see attachDisplayNumbers()),
+ * recomputed from the parent's number + sibling file order every ingest,
+ * same as top-level numbers already are.
  *
  * The dashboard mirrors that file into the `plans` / `plan_items` tables
  * (keyed by cwd; projects aggregate via the project_paths join, exactly like
@@ -58,6 +68,15 @@ const MAX_DETAIL_LEN = 4000;
 // `- [ ] 4. text` / `* [x] 2) text` / `- [X] 3: text` — bullet, checkbox,
 // 1-3 digit number with optional `.` `)` `:` separator, then the item text.
 const ITEM_RE = /^\s*[-*]\s*\[([ xX])\]\s*(\d{1,3})\s*[.):]?\s+(.+)$/;
+// `  - [ ] 1.2. text` — a sub-item nested under top-level item 1, checked as
+// its own checkbox. Distinguished from ITEM_RE by the required `N.M` dotted
+// number (ITEM_RE's number group is plain digits, so it never matches a
+// dotted line — this regex is checked first purely for clarity, not to win a
+// race). The parent number (capture 2) is resolved against already-seen
+// top-level items; the sub-number (capture 3) is NOT trusted as the stored
+// identity — like top-level numbers, it's display text re-derived from file
+// order (sibling position under the same parent) on every ingest.
+const SUBITEM_RE = /^\s*[-*]\s*\[([ xX])\]\s*(\d{1,3})\.(\d{1,2})\s*[.):]?\s+(.+)$/;
 // Splits "text — acceptance: ..." (em-dash, double hyphen, single hyphen, or
 // nothing before the keyword). First occurrence only.
 const ACCEPTANCE_RE = /\s*(?:—|--|-)?\s*acceptance\s*:\s*/i;
@@ -109,6 +128,36 @@ function parsePlanMarkdown(text) {
         title = h[1].slice(0, MAX_TITLE_LEN);
         continue;
       }
+    }
+
+    const sm = line.match(SUBITEM_RE);
+    if (sm) {
+      const parentNumber = parseInt(sm[2], 10);
+      // Parent must be an already-seen TOP-LEVEL item (a sub-item can't
+      // itself have children) — sub-items authored before their parent, or
+      // under a parent number that doesn't exist, are dropped rather than
+      // guessed at (same fail-safe stance as a duplicate top-level number).
+      const parent = [...items]
+        .reverse()
+        .find((it) => it.number === parentNumber && !it.parentNumberRef);
+      if (!parent || items.length >= MAX_ITEMS) {
+        current = null;
+        inDetail = false;
+        continue;
+      }
+      current = {
+        number: null,
+        parentNumberRef: parentNumber,
+        id: null,
+        text: sm[4].trim(),
+        acceptance: null,
+        detail: null,
+        checked: sm[1].toLowerCase() === "x",
+        position: items.length,
+      };
+      inDetail = false;
+      items.push(current);
+      continue;
     }
 
     const m = line.match(ITEM_RE);
@@ -235,9 +284,27 @@ function ingestPlanForCwd(dbModule, cwd) {
     // Files predating the id: convention parse with item.id === null — assign
     // the same deterministic fallback every re-ingest of this exact
     // cwd+number would produce, so upsertPlanItem below still finds/updates
-    // the existing row instead of treating it as new.
+    // the existing row instead of treating it as new. Sub-items have no
+    // number (null), so `number` alone can't disambiguate them the way it
+    // does for top-level items — fall back to file position instead (stable
+    // across a re-ingest of the same unmodified file, same caveat pre-id
+    // top-level items already have: it drifts if the file is edited).
     for (const item of parsed.items) {
-      if (!item.id) item.id = fallbackItemId(cwd, item.number);
+      if (!item.id) item.id = fallbackItemId(cwd, item.number ?? `sub:${item.position}`);
+    }
+
+    // Resolve each sub-item's parentNumberRef (a top-level item NUMBER, only
+    // meaningful during parsing) to that parent's real item_id — the stable
+    // handle actually stored on the row. A parent that itself lost its id
+    // above (shouldn't happen — parents always have a number) or a
+    // since-removed parent leaves parentItemId null, demoting the item to a
+    // parentless (but still real) row rather than dropping it.
+    for (const item of parsed.items) {
+      if (item.parentNumberRef == null) continue;
+      const parent = parsed.items.find(
+        (p) => p.number === item.parentNumberRef && p.parentNumberRef == null
+      );
+      item.parentItemId = parent ? parent.id : null;
     }
 
     // Snapshot which id currently owns which number, BEFORE this ingest's
@@ -259,6 +326,9 @@ function ingestPlanForCwd(dbModule, cwd) {
       // different item — new id, not a move — is claiming 1 this ingest).
       // Vacating the whole existing set first makes both impossible.
       for (const row of before) {
+        // Sub-items (item_number NULL) were never in a numbered slot to
+        // vacate — nothing to remap, and NUMBER_OFFSET_BASE - null is NaN.
+        if (row.item_number == null) continue;
         stmts.remapPlanItemNumberById.run(NUMBER_OFFSET_BASE - row.item_number, cwd, row.item_id);
       }
 
@@ -267,6 +337,7 @@ function ingestPlanForCwd(dbModule, cwd) {
           cwd,
           item.id,
           item.number,
+          item.parentItemId ?? null,
           item.text,
           item.acceptance,
           item.detail,
@@ -323,7 +394,33 @@ function existingAsUnchanged(stmts, cwd) {
 }
 
 function currentItems(stmts, cwd) {
-  return stmts.listPlanItems.all(cwd);
+  return attachDisplayNumbers(stmts.listPlanItems.all(cwd));
+}
+
+/**
+ * Adds a `display_number` string to each item — "3" for a top-level item,
+ * "3.2" for its second sub-item — for UI/gate-prompt rendering. Purely
+ * derived, never stored: a sub-item's second number is its ordinal among
+ * siblings sharing the same parent_item_id, in `position` (file) order, same
+ * "recomputed from file order every ingest" stance top-level numbers already
+ * take. Rows are expected in `position` order (as listPlanItems returns);
+ * order is not re-sorted here.
+ */
+function attachDisplayNumbers(items) {
+  const siblingIndex = new Map(); // parent_item_id -> next 1-based ordinal
+  return items.map((item) => {
+    if (!item.parent_item_id) {
+      return {
+        ...item,
+        display_number: item.item_number == null ? null : String(item.item_number),
+      };
+    }
+    const ordinal = (siblingIndex.get(item.parent_item_id) ?? 0) + 1;
+    siblingIndex.set(item.parent_item_id, ordinal);
+    const parent = items.find((p) => p.item_id === item.parent_item_id);
+    const parentNumber = parent && parent.item_number != null ? parent.item_number : "?";
+    return { ...item, display_number: `${parentNumber}.${ordinal}` };
+  });
 }
 
 /**
@@ -344,4 +441,5 @@ module.exports = {
   ingestPlanForCwd,
   planFileMtime,
   fallbackItemId,
+  attachDisplayNumbers,
 };

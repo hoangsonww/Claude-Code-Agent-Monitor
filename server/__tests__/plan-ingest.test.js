@@ -27,6 +27,7 @@ const {
   ingestPlanForCwd,
   planFileMtime,
   fallbackItemId,
+  attachDisplayNumbers,
   PLAN_FILENAME,
 } = require("../lib/plan-ingest");
 
@@ -145,6 +146,67 @@ describe("parsePlanMarkdown", () => {
         [2, 1],
         [30, 2],
       ]
+    );
+  });
+
+  it("parses dotted sub-items as children of the matching top-level number", () => {
+    const { items } = parsePlanMarkdown(
+      [
+        "- [ ] 1. Pipeline Environment",
+        "  - [ ] 1.1. Image Generation",
+        "  - [x] 1.2. Rough Animation",
+        "- [ ] 2. Screenplay",
+      ].join("\n")
+    );
+    assert.equal(items.length, 4);
+    assert.equal(items[0].number, 1);
+    assert.equal(items[0].parentNumberRef, undefined);
+    assert.equal(items[1].number, null);
+    assert.equal(items[1].parentNumberRef, 1);
+    assert.equal(items[1].text, "Image Generation");
+    assert.equal(items[1].checked, false);
+    assert.equal(items[2].parentNumberRef, 1);
+    assert.equal(items[2].checked, true);
+    assert.equal(items[3].number, 2);
+    assert.equal(items[3].parentNumberRef, undefined);
+  });
+
+  it("drops a sub-item whose parent number was never seen", () => {
+    const { items } = parsePlanMarkdown(
+      ["- [ ] 1. Real item", "  - [ ] 9.1. Orphaned, parent 9 doesn't exist"].join("\n")
+    );
+    assert.equal(items.length, 1);
+    assert.equal(items[0].number, 1);
+  });
+
+  it("attaches id/acceptance/detail continuation lines to a sub-item, same as a top-level item", () => {
+    const { items } = parsePlanMarkdown(
+      [
+        "- [ ] 1. Parent",
+        "  - [ ] 1.1. Child — acceptance: it works",
+        "        id: c1c1c1c1",
+        "        detail: extra context",
+      ].join("\n")
+    );
+    const child = items.find((i) => i.parentNumberRef === 1);
+    assert.equal(child.acceptance, "it works");
+    assert.equal(child.id, "c1c1c1c1");
+    assert.equal(child.detail, "extra context");
+  });
+});
+
+describe("attachDisplayNumbers", () => {
+  it("derives N.M for sub-items from parent number + sibling order, leaves top-level items alone", () => {
+    const items = [
+      { item_id: "p1", item_number: 1, parent_item_id: null },
+      { item_id: "c1", item_number: null, parent_item_id: "p1" },
+      { item_id: "c2", item_number: null, parent_item_id: "p1" },
+      { item_id: "p2", item_number: 2, parent_item_id: null },
+    ];
+    const withNumbers = attachDisplayNumbers(items);
+    assert.deepEqual(
+      withNumbers.map((i) => i.display_number),
+      ["1", "1.1", "1.2", "2"]
     );
   });
 });
@@ -298,5 +360,84 @@ describe("reorder identity (item_id survives a number change)", () => {
     assert.equal(res2.items.length, 1);
     assert.equal(res2.items[0].item_id, id1);
     assert.equal(res2.items[0].text, "Legacy item, reworded");
+  });
+});
+
+describe("sub-items end to end (ingest + re-ingest)", () => {
+  let subDir;
+
+  function writeSubPlan(text) {
+    fs.writeFileSync(path.join(subDir, PLAN_FILENAME), text);
+  }
+
+  before(() => {
+    subDir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-ingest-subitems-"));
+  });
+
+  after(() => {
+    fs.rmSync(subDir, { recursive: true, force: true });
+  });
+
+  it("stores sub-items with a null item_number and the parent's item_id, distinct rows in the UNIQUE(cwd, item_number) index", () => {
+    writeSubPlan(
+      [
+        "# Stages",
+        "- [ ] 1. Pipeline Environment",
+        "      id: parent001",
+        "  - [ ] 1.1. Image Generation",
+        "        id: child0001",
+        "  - [ ] 1.2. Voice Synthesis",
+        "        id: child0002",
+        "- [ ] 2. Screenplay",
+        "      id: parent002",
+      ].join("\n")
+    );
+    const res = ingestPlanForCwd(dbModule, subDir);
+    assert.equal(res.changed, true);
+    assert.equal(res.items.length, 4);
+
+    const child1 = res.items.find((i) => i.item_id === "child0001");
+    const child2 = res.items.find((i) => i.item_id === "child0002");
+    const parent = res.items.find((i) => i.item_id === "parent001");
+
+    assert.equal(child1.item_number, null);
+    assert.equal(child1.parent_item_id, "parent001");
+    assert.equal(child1.display_number, "1.1");
+    assert.equal(child2.display_number, "1.2");
+    assert.equal(parent.parent_item_id, null);
+    assert.equal(parent.display_number, "1");
+  });
+
+  it("re-ingest preserves a checked sub-item's state and its parent linkage by id", () => {
+    const before = stmts.listPlanItems.all(subDir);
+    const child1 = before.find((i) => i.item_id === "child0001");
+    assert.equal(child1.checked, 0);
+
+    writeSubPlan(
+      [
+        "# Stages",
+        "- [ ] 1. Pipeline Environment",
+        "      id: parent001",
+        "  - [x] 1.1. Image Generation",
+        "        id: child0001",
+        "  - [ ] 1.2. Voice Synthesis",
+        "        id: child0002",
+        "- [ ] 2. Screenplay",
+        "      id: parent002",
+      ].join("\n")
+    );
+    const res = ingestPlanForCwd(dbModule, subDir);
+    assert.equal(res.changed, true);
+    const child1After = res.items.find((i) => i.item_id === "child0001");
+    assert.equal(child1After.checked, 1);
+    assert.equal(child1After.parent_item_id, "parent001");
+  });
+
+  it("removing a parent and its sub-items from the file deletes all their rows on next ingest", () => {
+    writeSubPlan(["# Stages", "- [ ] 2. Screenplay", "      id: parent002"].join("\n"));
+    const res = ingestPlanForCwd(dbModule, subDir);
+    assert.equal(res.changed, true);
+    assert.equal(res.items.length, 1);
+    assert.equal(res.items[0].item_id, "parent002");
   });
 });

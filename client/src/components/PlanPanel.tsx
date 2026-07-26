@@ -33,8 +33,12 @@ export interface PlanPanelProps {
 export function PlanPanel({ plan, items, onOpen }: PlanPanelProps) {
   const { t } = useTranslation("plan");
 
-  const done = items.filter((i) => i.checked).length;
-  const total = items.length;
+  // Top-level items only — sub-items are a decomposition detail at a
+  // different altitude and shouldn't dilute the plan's own N/M count (see
+  // PlanModal's identical filter for the same reasoning).
+  const topLevelItems = items.filter((i) => !i.parent_item_id);
+  const done = topLevelItems.filter((i) => i.checked).length;
+  const total = topLevelItems.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (

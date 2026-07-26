@@ -55,8 +55,20 @@ const schemas = {
       },
       item_number: {
         type: "integer",
+        nullable: true,
         description:
-          "Display number, positional — recomputed from file order on every ingest. What `ccam focus set/done` are typed against, but not what's persisted underneath (see item_id)",
+          "Flat display number, positional — recomputed from file order on every ingest. What `ccam focus set/done` are typed against, but not what's persisted underneath (see item_id). Null for a sub-item (see parent_item_id) — it has no flat number of its own, so ccam can't target it directly; use display_number to show it instead.",
+      },
+      parent_item_id: {
+        type: "string",
+        nullable: true,
+        description:
+          "The parent item's item_id when this is a sub-item (a dotted 'N.M' item nested under top-level item N in the file). Null for a top-level item.",
+      },
+      display_number: {
+        type: "string",
+        description:
+          'Human-facing number: the flat item_number as a string for a top-level item ("3"), or "<parent\'s number>.<sibling ordinal>" for a sub-item ("3.2"). Always derived, never persisted.',
       },
       text: { type: "string" },
       acceptance: { type: "string", nullable: true },

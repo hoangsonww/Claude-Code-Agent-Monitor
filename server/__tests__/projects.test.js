@@ -239,7 +239,7 @@ describe("GET /:id/focus-report", () => {
   it("scopes the report to only the clicked project's sessions, and rolls a bug detour up under its item", async () => {
     process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0"; // isolate from idle discounting
     stmts.upsertPlan.run(CWD, "Report route test plan", `${CWD}/AGENT-PLAN.md`, "hash", 1);
-    stmts.upsertPlanItem.run(CWD, "item-4", 4, "Shared Backend", null, null, 0, 0);
+    stmts.upsertPlanItem.run(CWD, "item-4", 4, null, "Shared Backend", null, null, 0, 0);
 
     const created = await post("/api/projects", { name: "Report Route Test", cwds: [CWD] });
     const projectId = created.body.project.id;

@@ -460,10 +460,18 @@ db.exec(`
   -- "ccam focus done N" and survives re-ingest (upserts never touch it).
   -- declared_done_session has no FK on purpose - it is an audit trail that
   -- must outlive session deletion.
+  -- item_number is NULL for a sub-item (an "N.M" dotted child under a
+  -- top-level item — see parent_item_id) since it has no flat, ccam-typeable
+  -- number of its own; SQLite's UNIQUE index treats multiple NULLs as
+  -- distinct, so any number of sub-items coexist under the same cwd without
+  -- colliding. parent_item_id is the parent's item_id (never its number, for
+  -- the same reorder-safety reason item identity everywhere else is id-based)
+  -- and is NULL for a top-level item.
   CREATE TABLE IF NOT EXISTS plan_items (
     cwd TEXT NOT NULL,
     item_id TEXT NOT NULL,
-    item_number INTEGER NOT NULL,
+    item_number INTEGER,
+    parent_item_id TEXT,
     text TEXT NOT NULL,
     acceptance TEXT,
     detail TEXT,
@@ -479,6 +487,8 @@ db.exec(`
   -- item_number is only unique-at-a-point-in-time (not a permanent identity
   -- anymore), but every live lookup by number ("ccam focus set <n>" typing
   -- the number currently on screen) still needs it to be unique per cwd.
+  -- (NULL item_number rows — sub-items — are exempt by SQLite's own UNIQUE
+  -- semantics, not a special case here.)
   CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_items_cwd_number ON plan_items(cwd, item_number);
 
   -- Current focus per session: which plan item the session declared it is
@@ -556,6 +566,70 @@ db.exec(`
           row.item_number,
           row.text,
           row.acceptance,
+          row.checked,
+          row.position,
+          row.declared_done_at,
+          row.declared_done_session,
+          row.updated_at
+        );
+      }
+    })();
+    db.prepare("DROP TABLE plan_items_old").run();
+    db.pragma("foreign_keys = ON");
+  }
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_items_cwd_number ON plan_items(cwd, item_number);"
+  );
+}
+
+// Migrate: add sub-item support (parent_item_id, nullable item_number) to
+// plan_items. SQLite can't drop a NOT NULL constraint via ALTER TABLE, so
+// this rebuilds the table exactly like the item_id migration above —
+// deliberately a separate, later block rather than folded into it, so it
+// runs (and is independently idempotent) whether the DB just got the item_id
+// migration above in this same startup or already had item_id from a prior
+// run.
+{
+  const tableInfo = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='plan_items'")
+    .get();
+  if (tableInfo && tableInfo.sql && !tableInfo.sql.includes("parent_item_id")) {
+    db.pragma("foreign_keys = OFF");
+    db.prepare("ALTER TABLE plan_items RENAME TO plan_items_old").run();
+    db.prepare(
+      `CREATE TABLE plan_items (
+        cwd TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        item_number INTEGER,
+        parent_item_id TEXT,
+        text TEXT NOT NULL,
+        acceptance TEXT,
+        detail TEXT,
+        checked INTEGER NOT NULL DEFAULT 0,
+        position INTEGER NOT NULL DEFAULT 0,
+        declared_done_at TEXT,
+        declared_done_session TEXT,
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        PRIMARY KEY (cwd, item_id),
+        FOREIGN KEY (cwd) REFERENCES plans(cwd) ON DELETE CASCADE
+      )`
+    ).run();
+    const oldRows = db.prepare("SELECT * FROM plan_items_old").all();
+    const insertMigrated = db.prepare(
+      `INSERT INTO plan_items
+         (cwd, item_id, item_number, parent_item_id, text, acceptance, detail, checked, position,
+          declared_done_at, declared_done_session, updated_at)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    db.transaction(() => {
+      for (const row of oldRows) {
+        insertMigrated.run(
+          row.cwd,
+          row.item_id,
+          row.item_number,
+          row.text,
+          row.acceptance,
+          row.detail,
           row.checked,
           row.position,
           row.declared_done_at,
@@ -1706,10 +1780,11 @@ const stmts = {
   // (deliberately untouched below) survives. Only the file's own
   // text/acceptance/detail/checked/position/number sync on every ingest.
   upsertPlanItem: db.prepare(
-    `INSERT INTO plan_items (cwd, item_id, item_number, text, acceptance, detail, checked, position, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    `INSERT INTO plan_items (cwd, item_id, item_number, parent_item_id, text, acceptance, detail, checked, position, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
      ON CONFLICT(cwd, item_id) DO UPDATE SET
        item_number = excluded.item_number,
+       parent_item_id = excluded.parent_item_id,
        text = excluded.text,
        acceptance = excluded.acceptance,
        detail = excluded.detail,

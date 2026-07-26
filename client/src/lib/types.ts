@@ -1595,10 +1595,19 @@ export interface PlanItem {
    *  pre-id files) — never changes for the life of the item, unlike
    *  item_number. */
   item_id: string;
-  /** Display number, positional — recomputed from file order on every
+  /** Flat display number, positional — recomputed from file order on every
    *  ingest. What focus declarations are typed against, but item_id is
-   *  what's actually persisted underneath. */
-  item_number: number;
+   *  what's actually persisted underneath. Null for a sub-item (see
+   *  parent_item_id) — it has no flat number, so ccam can't target it
+   *  directly; use display_number for rendering instead. */
+  item_number: number | null;
+  /** The parent item's item_id when this is a sub-item (a dotted "N.M" item
+   *  nested under top-level item N in the file). Null for a top-level item. */
+  parent_item_id: string | null;
+  /** Human-facing number: item_number as a string for a top-level item
+   *  ("3"), or "<parent's number>.<sibling ordinal>" for a sub-item ("3.2").
+   *  Always derived server-side, never persisted. */
+  display_number: string;
   /** Item text (without the checkbox/number prefix). */
   text: string;
   /** Optional acceptance note split from `— acceptance: …`. */

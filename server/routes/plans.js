@@ -13,18 +13,20 @@ const { Router } = require("express");
 const dbModule = require("../db");
 const { stmts } = dbModule;
 const { broadcast } = require("../websocket");
-const { ingestPlanForCwd } = require("../lib/plan-ingest");
+const { ingestPlanForCwd, attachDisplayNumbers } = require("../lib/plan-ingest");
 const { focusWireShape } = require("../lib/focus-commands");
 
 const router = Router();
 
 function planWithItems(planRow) {
-  return { plan: planRow, items: stmts.listPlanItems.all(planRow.cwd) };
+  return { plan: planRow, items: attachDisplayNumbers(stmts.listPlanItems.all(planRow.cwd)) };
 }
 
 // GET /api/plans - every known plan with its items. Small N (one per repo).
 router.get("/", (_req, res) => {
-  const plans = stmts.listPlans.all().map((p) => ({ ...p, items: stmts.listPlanItems.all(p.cwd) }));
+  const plans = stmts.listPlans
+    .all()
+    .map((p) => ({ ...p, items: attachDisplayNumbers(stmts.listPlanItems.all(p.cwd)) }));
   res.json({ plans });
 });
 

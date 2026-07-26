@@ -236,6 +236,80 @@ function FocusLineDetails({
   );
 }
 
+interface PlanItemRowProps {
+  item: PlanItem;
+  entries: FocusEntry[];
+  expandedKeys: Set<string>;
+  onToggle: (key: string) => void;
+  /** Sub-item completion count, shown next to a parent's number as a light
+   *  rollup cue. The parent's own checkbox stays file-driven (checked mirrors
+   *  the file literally, per PlanModal's read-only contract) even once every
+   *  sub-item is checked — the /project-plan skill treats "all sub-items
+   *  checked" as sufficient evidence to gate the parent's own checkbox, but
+   *  that's a human-approved file edit, not something this view infers on
+   *  its own. */
+  rollup?: { done: number; total: number };
+  /** Sub-item styling: smaller text, no acceptance/detail heading weight. */
+  small?: boolean;
+}
+
+/** One checklist row — a top-level item or a sub-item, sharing the same
+ *  checkbox/number/text/acceptance/detail/focus-lines layout so the two
+ *  never visually drift apart. */
+function PlanItemRow({ item, entries, expandedKeys, onToggle, rollup, small }: PlanItemRowProps) {
+  const { t } = useTranslation("plan");
+  const declaredDoneOnly = !item.checked && item.declared_done_at;
+  return (
+    <div className="flex items-start gap-3 min-w-0">
+      {/* Read-only mirror of the file's checkbox — the plan file is
+          human-owned, so toggling here is deliberately a no-op. */}
+      <Checkbox
+        checked={!!item.checked}
+        onChange={() => {}}
+        className={`cursor-default ${small ? "mt-0.5 scale-90" : "mt-0.5"}`}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <span
+            className={`leading-relaxed ${small ? "text-xs" : "text-sm"} ${
+              item.checked ? "text-gray-400" : "text-gray-100"
+            }`}
+          >
+            <span className="font-mono text-gray-500 mr-1.5">{item.display_number}.</span>
+            {item.text}
+            {declaredDoneOnly && (
+              <span className="ml-1.5 text-xs text-yellow-400/90">◐ {t("items.declaredDone")}</span>
+            )}
+            {rollup && (
+              <span className="ml-1.5 text-[11px] text-gray-500 font-mono">
+                ({rollup.done}/{rollup.total})
+              </span>
+            )}
+          </span>
+        </div>
+        {item.acceptance && (
+          <p className="text-xs text-gray-500 mt-1 leading-snug">
+            <span className="text-gray-600 font-medium">{t("items.acceptancePrefix")}</span>{" "}
+            {item.acceptance}
+          </p>
+        )}
+        {item.detail && (
+          <p className="text-xs text-gray-500 mt-1 leading-snug whitespace-pre-line">
+            <span className="text-gray-600 font-medium">{t("items.detailPrefix")}</span>{" "}
+            {item.detail}
+          </p>
+        )}
+        {entries.length > 0 && (
+          <div className="mt-1.5">
+            <FocusLines entries={entries} expandedKeys={expandedKeys} onToggle={onToggle} />
+          </div>
+        )}
+        <FocusLineDetails entries={entries} expandedKeys={expandedKeys} />
+      </div>
+    </div>
+  );
+}
+
 interface PlanSectionProps {
   plan: Omit<Plan, "items">;
   items: PlanItem[];
@@ -256,9 +330,22 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
     });
   };
 
-  const done = items.filter((i) => i.checked).length;
-  const total = items.length;
+  // Progress counts top-level items only — sub-items are a decomposition
+  // detail at a different altitude (see project-plan skill's altitude
+  // rules) and would otherwise dilute the stakeholder-facing "N/M done"
+  // number the plan's own 5-12 item count is supposed to mean.
+  const topLevelItems = items.filter((i) => !i.parent_item_id);
+  const done = topLevelItems.filter((i) => i.checked).length;
+  const total = topLevelItems.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const childrenByParent = new Map<string, PlanItem[]>();
+  for (const item of items) {
+    if (!item.parent_item_id) continue;
+    const list = childrenByParent.get(item.parent_item_id) ?? [];
+    list.push(item);
+    childrenByParent.set(item.parent_item_id, list);
+  }
 
   // One focus entry per active session, bucketed under the plan item it
   // belongs to (or "unknown" when no item was current): a session on a
@@ -268,6 +355,8 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
   // renumbering-safe snapshot the item-only case can't provide on its own.
   // Each session contributes exactly one line reflecting its true current
   // state, never both a "serving" chip and a separate detour badge at once.
+  // Sub-items never appear here — they have no item_number, so a session
+  // can't declare focus on one directly.
   const entriesByItem = new Map<number, FocusEntry[]>();
   const unknownEntries: FocusEntry[] = [];
   for (const session of sessions) {
@@ -315,57 +404,38 @@ function PlanSection({ plan, items, sessions, focusBySession, divider }: PlanSec
       </div>
 
       <ul className="space-y-4">
-        {items.map((item) => {
-          const entries = entriesByItem.get(item.item_number) ?? [];
-          const declaredDoneOnly = !item.checked && item.declared_done_at;
+        {topLevelItems.map((item) => {
+          const children = childrenByParent.get(item.item_id) ?? [];
+          const rollup =
+            children.length > 0
+              ? { done: children.filter((c) => c.checked).length, total: children.length }
+              : undefined;
           return (
-            <li key={item.item_id} className="flex items-start gap-3 min-w-0">
-              {/* Read-only mirror of the file's checkbox — the plan file is
-                  human-owned, so toggling here is deliberately a no-op. */}
-              <Checkbox
-                checked={!!item.checked}
-                onChange={() => {}}
-                className="cursor-default mt-0.5"
+            <li key={item.item_id} className="min-w-0">
+              <PlanItemRow
+                item={item}
+                entries={
+                  item.item_number != null ? (entriesByItem.get(item.item_number) ?? []) : []
+                }
+                expandedKeys={expandedKeys}
+                onToggle={toggleExpanded}
+                rollup={rollup}
               />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <span
-                    className={`text-sm leading-relaxed ${
-                      item.checked ? "text-gray-400" : "text-gray-100"
-                    }`}
-                  >
-                    <span className="font-mono text-gray-500 mr-1.5">{item.item_number}.</span>
-                    {item.text}
-                    {declaredDoneOnly && (
-                      <span className="ml-1.5 text-xs text-yellow-400/90">
-                        ◐ {t("items.declaredDone")}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                {item.acceptance && (
-                  <p className="text-xs text-gray-500 mt-1 leading-snug">
-                    <span className="text-gray-600 font-medium">{t("items.acceptancePrefix")}</span>{" "}
-                    {item.acceptance}
-                  </p>
-                )}
-                {item.detail && (
-                  <p className="text-xs text-gray-500 mt-1 leading-snug whitespace-pre-line">
-                    <span className="text-gray-600 font-medium">{t("items.detailPrefix")}</span>{" "}
-                    {item.detail}
-                  </p>
-                )}
-                {entries.length > 0 && (
-                  <div className="mt-1.5">
-                    <FocusLines
-                      entries={entries}
-                      expandedKeys={expandedKeys}
-                      onToggle={toggleExpanded}
-                    />
-                  </div>
-                )}
-                <FocusLineDetails entries={entries} expandedKeys={expandedKeys} />
-              </div>
+              {children.length > 0 && (
+                <ul className="mt-2.5 ml-7 space-y-2.5 border-l border-border/60 pl-4">
+                  {children.map((child) => (
+                    <li key={child.item_id} className="min-w-0">
+                      <PlanItemRow
+                        item={child}
+                        entries={[]}
+                        expandedKeys={expandedKeys}
+                        onToggle={toggleExpanded}
+                        small
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}

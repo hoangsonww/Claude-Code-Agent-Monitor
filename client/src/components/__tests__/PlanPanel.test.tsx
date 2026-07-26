@@ -27,10 +27,13 @@ function makePlan(overrides: Partial<Plan> = {}): Omit<Plan, "items"> {
 }
 
 function makeItem(overrides: Partial<PlanItem> = {}): PlanItem {
+  const item_number = overrides.item_number ?? 1;
   return {
     cwd: "/repo",
-    item_id: `id-${overrides.item_number ?? 1}`,
-    item_number: 1,
+    item_id: `id-${item_number}`,
+    item_number,
+    parent_item_id: null,
+    display_number: item_number == null ? "" : String(item_number),
     text: "First thing",
     acceptance: null,
     detail: null,
