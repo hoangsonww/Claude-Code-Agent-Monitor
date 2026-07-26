@@ -649,8 +649,27 @@ Each monitored repo may keep a human-approved `AGENT-PLAN.md` at its root (a `# 
 | `GET`  | `/api/sessions/:id/focus`     | One session's focus + plan item + `plan_title` + `history` (rebuilt from the `Focus` rows in `events`, newest first, cap 50) |
 | `POST` | `/api/sessions/:id/focus`     | Explicit (non-hook) focus write: `{verb: set\|push\|pop\|done, item_number?, note?, description?}` → `{ focus, deduped }`. Strict: `400` invalid input, `404` unknown session, `409` `UNKNOWN_ITEM`/`EMPTY_STACK`; a same-state declaration dedupes to a no-op (no `Focus` event) so CLI-write + hook-parse double delivery is harmless |
 | `GET`  | `/api/sessions/:id/todos`     | The session's latest TodoWrite list, parsed on read from the newest `PostToolUse`/`TodoWrite` event — `{ todos\|null, updated_at }` |
+| `GET`  | `/api/projects/:id/focus-report` | Project-scoped **focus-time report** (implemented in `routes/projects.js`, using `lib/focus-report.js`) — `404` unknown project. See below |
 
 The focus wire shape is `{ session_id, cwd, item_number, item_text, note, detour_stack: [{description, pushed_at, prior_item}], since, drift: true|false|null, drift_reason, updated_at }`. Applied declarations broadcast `new_event` + `session_focus` (and `plan_updated` after `done`, since `declared_done_*` changes the rollup); declarations never touch the `drift_*` columns — only the [focus drift audit](#focus-drift-audit) writes those.
+
+#### Focus-time report
+
+`GET /api/projects/:id/focus-report` reconstructs how long each of the project's sessions spent on a declared item versus a detour/feature/bug, from existing `Focus` event history — no new capture. `lib/focus-report.js` does two independent replays over the `events` table: `buildFocusSegments` walks a session's ordered `Focus` rows into timestamped segments (a detour's `item_number` is the item that was current when it *started* — its "prior_item"); `activeIdleMs` walks every event for the session and discounts gaps longer than `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` (default `300`; `≤0` disables) down to the grace window's worth of active time. This is an event-gap proxy, not a replay of the guarded Waiting/Active state machine — a still-working subagent keeps emitting events, so its time stays counted, without duplicating `hooks.js`'s fleet-drain guards outside the code that owns them. `buildProjectFocusReport` composes both across every session under the project's mapped folders and returns:
+
+```json
+{
+  "project_id": "...",
+  "sessions": [{ "session_id": "...", "name": "...", "cwd": "...", "segments": [
+    { "kind": "item|detour|feature|bug", "item_number": 4, "label": "...", "start": "...", "end": "...", "wall_ms": 0, "active_ms": 0, "idle_ms": 0 }
+  ]}],
+  "items": [{ "cwd": "...", "item_number": 4, "text": "...", "totals": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0, "by_kind": { "item": {}, "detour": {}, "feature": {}, "bug": {} } } }],
+  "totals": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0, "by_kind": { "...": {} } },
+  "idle_grace_seconds": 300
+}
+```
+
+Sessions that never declared any focus are omitted; `items` only includes segments with a non-null `item_number` (an item-less detour still counts toward `totals`, just not toward any per-item rollup).
 
 ### Settings / Ops
 

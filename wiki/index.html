@@ -962,7 +962,14 @@
                     least one named <strong>monitor</strong> group is created, its assigned project columns render
                     inside a bordered, drag-reorderable box for that monitor, sitting side by side with the other
                     boxes in that same row — drag a box by its header onto another to reposition it, handy for
-                    mirroring a multi-monitor desk layout, stored only in <code>localStorage</code>.
+                    mirroring a multi-monitor desk layout, stored only in <code>localStorage</code>. A chevron
+                    on each box's header collapses it — instead of just shrinking in place, the whole box moves
+                    out of that row into its own thin strip above it, shared by every other collapsed monitor,
+                    freeing the horizontal space it would otherwise still take up; expanding it drops the box
+                    back into the row at its ordered position (its columns stay mounted the whole time, only
+                    hidden, so a card's own "show more" state survives the toggle). Every project column (and
+                    the standalone Unassigned column) has its own chevron too, shrinking that one column down to
+                    a slim header-only bar right where it sits, independent of whichever box it's in.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1133,6 +1140,19 @@
                     undeclared detour?" badge when a focused session's recent activity stops
                     matching its declaration; it never rewrites focus, and declarations never
                     clear the badge.
+                  </p>
+                  <p>
+                    A report icon next to each project's "view plan" icon (Projects page and
+                    Kanban's Projects view) opens a <strong>focus-time report</strong> scoped to
+                    that project: how long its sessions actually spent on a declared item versus a
+                    detour, a feature aside, or a bug fix — reconstructed from existing
+                    <code>Focus</code> event history, not a new capture mechanism. A configurable
+                    idle-grace window (<code>DASHBOARD_FOCUS_IDLE_GRACE_SECONDS</code>, default 5
+                    min) discounts stretches with no hook activity past the window, so a session
+                    sitting in Waiting for hours doesn't inflate its "time on item" figure. The
+                    popup shows active/idle stat tiles, a per-session segmented timeline, a
+                    per-item rollup (detours bucketed under the item they interrupted), and a
+                    project-wide split by kind.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2110,6 +2130,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>30000</code></td>
                   <td>
                     Kill timer for a single drift-audit <code>claude -p</code> spawn (SIGTERM, then SIGKILL)
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_IDLE_GRACE_SECONDS</code></td>
+                  <td><code>300</code></td>
+                  <td>
+                    Idle-grace window for the per-project focus-time report — a gap between two consecutive hook events longer than this only counts the grace window's worth as active, the rest is excluded as idle; <code>0</code> disables discounting (100% of wall-clock counts as active)
                   </td>
                 </tr>
                 <tr>
@@ -7015,7 +7042,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=47" defer></script>
+    <script src="i18n-content.js?v=50" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

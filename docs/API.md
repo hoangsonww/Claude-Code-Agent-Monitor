@@ -1201,6 +1201,70 @@ GET /api/sessions/:id/todos
 
 The session's latest TodoWrite micro-plan, parsed on read from the newest `PostToolUse`/`TodoWrite` event (no materialized copy to keep in sync): `{ "todos": [ ... ] | null, "updated_at": "..." | null }`. **404** if the session is unknown.
 
+#### Get Project Focus Report
+
+```http
+GET /api/projects/:id/focus-report
+```
+
+A project-scoped **focus-time report**: how long each of the project's sessions spent on a declared plan item versus a plain detour, a feature aside, or a bug fix — reconstructed from existing `Focus` event history (`server/lib/focus-report.js`), not a new capture mechanism. **404** for an unknown project id.
+
+Two independent replays drive it. `buildFocusSegments` walks one session's ordered `Focus` events into timestamped segments — a detour's `item_number` is the plan item that was current when the detour *started* (its "prior_item", the same concept the Plan view buckets detours under), not necessarily the item current when it ends. `activeIdleMs` walks every event for the session (any hook, any agent) and, for each segment, discounts gaps longer than the `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` grace window (default `300` seconds; `≤0` disables discounting) down to the grace window's worth of "active" time — a gap under the window (the normal think-and-reply rhythm) always counts in full. This is an event-gap proxy rather than a replay of the Waiting/Active status machine: a still-working subagent keeps emitting events, so its time stays counted without needing to duplicate `hooks.js`'s guarded fleet-drain logic.
+
+**Response:**
+
+```json
+{
+  "project_id": "proj_abc123",
+  "sessions": [
+    {
+      "session_id": "sess_xyz",
+      "name": "Fix login bug",
+      "cwd": "/Users/dev/my-repo",
+      "segments": [
+        {
+          "kind": "item",
+          "item_number": 4,
+          "label": "Migrate auth",
+          "start": "2026-06-10T09:00:00.000Z",
+          "end": "2026-06-10T09:30:00.000Z",
+          "wall_ms": 1800000,
+          "active_ms": 1800000,
+          "idle_ms": 0
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "cwd": "/Users/dev/my-repo",
+      "item_number": 4,
+      "text": "Migrate auth",
+      "totals": {
+        "wall_ms": 1800000,
+        "active_ms": 1800000,
+        "idle_ms": 0,
+        "by_kind": {
+          "item": { "wall_ms": 1800000, "active_ms": 1800000, "idle_ms": 0 },
+          "detour": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0 },
+          "feature": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0 },
+          "bug": { "wall_ms": 0, "active_ms": 0, "idle_ms": 0 }
+        }
+      }
+    }
+  ],
+  "totals": {
+    "wall_ms": 1800000,
+    "active_ms": 1800000,
+    "idle_ms": 0,
+    "by_kind": { "item": { "..." : "..." }, "detour": {}, "feature": {}, "bug": {} }
+  },
+  "idle_grace_seconds": 300
+}
+```
+
+Sessions that never declared any focus are omitted from `sessions` entirely. `items` only includes segments with a non-null `item_number`; a detour with no base item still counts toward `totals` but not toward any per-item rollup.
+
 ---
 
 ### Claude Config Explorer

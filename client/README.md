@@ -642,6 +642,19 @@ Renders one repo's ingested `AGENT-PLAN.md` as a collapsible checklist: title, p
 
 Full-size popup for one or more plans (opened from a PlanPanel strip or a project header's "view plan" icon). Beyond the read-only checklist, it renders one **focus line per active session** under whichever item it's declared on (or an "Unknown item" row when none was set) — an icon for the session's current `FocusKind` (known item / plain detour / feature / bug), the session's name linking to its detail page, and, for detours, a brief description of what's actually happening. Bug/feature lines expand on click to show the full `--detail` text. This is the same `focusKind()` classification and icon set `SessionCard`'s breadcrumb uses, so a session's state reads identically in both places.
 
+#### FocusReportModal
+
+Popup showing a project-scoped **focus-time report** (opened from a report icon — `BarChart3` — next to the "view plan" icon on a project's card/header, on both the Projects page and Kanban's Projects view). Unlike `PlanModal`, it owns its own fetch: `GET /api/projects/:id/focus-report` fires on open rather than the caller pre-loading data, since the report isn't needed until actually looked at. Renders stat tiles (active time, on-declared-item %, off-plan %, idle time excluded), a per-session segmented timeline bar, a per-item rollup, and a project-wide split — each bar built from `SegmentedBar`, a small internal component sharing the app's `FOCUS_KIND_CONFIG` color vocabulary via a local solid-fill mapping (the config's own `bg` is a translucent badge wash, not meant for a bar that has to read at a glance). Hover detail rides each segment's native `title` attribute rather than a custom popup. Loading/error/empty states; Escape/backdrop/close-button dismissal mirrors `PlanModal`.
+
+**Props:**
+```typescript
+interface FocusReportModalProps {
+  projectId: string;
+  projectName: string;
+  onClose: () => void;
+}
+```
+
 **Props:**
 ```typescript
 interface PlanPanelProps {
