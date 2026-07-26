@@ -66,7 +66,21 @@
       "nextDay": "Next day",
       "empty": "No activity on this day",
       "declared": "declared",
-      "inferredProvenance": "≈ inferred"
+      "inferredProvenance": "≈ inferred",
+      "stillRunning": "Still running",
+      "wallClockLabel": "Wall clock",
+      "activeLabel": "Agent time",
+      "viewEvents": "View the raw events supporting this duration",
+      "eventsModal": {
+        "title": "Supporting events",
+        "loading": "Loading events…",
+        "error": "Couldn't load events",
+        "empty": "No raw events recorded in this window",
+        "emptyInferred": "This segment's time was inferred from surrounding activity, not attributed to any event directly inside this window.",
+        "truncated": "Showing the most recent {{shown}} of {{total}} events in this window",
+        "bucketCount_one": "{{count}} event",
+        "bucketCount_other": "{{count}} events"
+      }
     }
   }
 }

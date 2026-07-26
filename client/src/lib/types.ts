@@ -1542,6 +1542,22 @@ export interface FocusReportSegment {
    *  (`focus_inferences.reason`), or null. Only ever set when `inferred` is
    *  true. */
   inferred_reason: string | null;
+  /** The segment's span sliced into fixed 10-minute windows, each flagged
+   *  `active` if at least one real hook event landed inside it — a plainer,
+   *  non-grace-discounted fact than `active_ms`/`idle_ms` above, meant for
+   *  coloring a calendar block's actually-quiet stretches differently from
+   *  its actually-worked ones (FocusCalendarView). Optional in the type
+   *  (always sent by the server) so older-shaped fixtures/data don't need to
+   *  fabricate it; consumers treat a missing value as "no breakdown". See
+   *  server/lib/focus-report.js's buildActivityChunks(). */
+  chunks?: FocusReportChunk[];
+}
+
+/** One fixed-width slice of a {@link FocusReportSegment}'s span. */
+export interface FocusReportChunk {
+  start: string;
+  end: string;
+  active: boolean;
 }
 
 /** Wall/active/idle milliseconds, broken out per {@link FocusKind} plus a

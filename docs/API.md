@@ -1213,6 +1213,8 @@ Two independent replays drive it. `buildFocusSegments` walks one session's order
 
 A session with **no** declared `Focus` history at all falls back to the background **focus inference** classifier's verdict (`server/lib/focus-inference.js`, the `focus_inferences` table): one whole-session segment flagged `"inferred": true`, attributed to a plan item (resolved via the item's stable id, so a plan reorder can't mis-bucket it) or to an inferred detour with a short generated title. Declared history always wins — inference is consulted only when there are zero declared segments, and an `unclassified` verdict leaves the session out of the report rather than guessing. Every segment carries the `inferred` flag (`false` for declared ones) and an `inferred_reason` string — the classifier's own one-sentence justification for the attribution (`null` for declared segments, or when the classifier recorded none).
 
+Every segment also carries `chunks`: its span sliced into fixed 10-minute windows (`buildActivityChunks` in `server/lib/focus-report.js`), each flagged `active` if at least one real hook event landed inside it. This is a plainer, non-grace-discounted fact than `active_ms`/`idle_ms` — a chunk with zero events is idle, full stop, no bookend credit. It exists so a calendar rendering can color a segment's actually-quiet stretches differently from its actually-worked ones; a whole-session inferred segment in particular can carry a long silent tail (it spans all the way to the session's `ended_at` regardless of when real activity actually stopped), which a single wall_ms-sized block can't show on its own.
+
 **Response:**
 
 ```json
@@ -1235,7 +1237,12 @@ A session with **no** declared `Focus` history at all falls back to the backgrou
           "active_ms": 1800000,
           "idle_ms": 0,
           "inferred": false,
-          "inferred_reason": null
+          "inferred_reason": null,
+          "chunks": [
+            { "start": "2026-06-10T09:00:00.000Z", "end": "2026-06-10T09:10:00.000Z", "active": true },
+            { "start": "2026-06-10T09:10:00.000Z", "end": "2026-06-10T09:20:00.000Z", "active": true },
+            { "start": "2026-06-10T09:20:00.000Z", "end": "2026-06-10T09:30:00.000Z", "active": true }
+          ]
         }
       ]
     }

@@ -66,7 +66,21 @@
       "nextDay": "后一天",
       "empty": "这一天没有活动",
       "declared": "已声明",
-      "inferredProvenance": "≈ 推断"
+      "inferredProvenance": "≈ 推断",
+      "stillRunning": "仍在运行",
+      "wallClockLabel": "实际经过时间",
+      "activeLabel": "代理时间",
+      "viewEvents": "查看支持此时长的原始事件",
+      "eventsModal": {
+        "title": "支持事件",
+        "loading": "正在加载事件…",
+        "error": "无法加载事件",
+        "empty": "此时间段内没有记录到原始事件",
+        "emptyInferred": "此片段的时间是根据附近的活动推断得出的,并未直接归因于此时间段内的任何事件。",
+        "truncated": "正在显示此时间段内 {{total}} 个事件中最近的 {{shown}} 个",
+        "bucketCount_one": "{{count}} 个事件",
+        "bucketCount_other": "{{count}} 个事件"
+      }
     }
   }
 }

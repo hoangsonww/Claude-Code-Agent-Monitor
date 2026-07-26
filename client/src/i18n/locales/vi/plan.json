@@ -66,7 +66,21 @@
       "nextDay": "Ngày sau",
       "empty": "Không có hoạt động trong ngày này",
       "declared": "đã khai báo",
-      "inferredProvenance": "≈ suy luận"
+      "inferredProvenance": "≈ suy luận",
+      "stillRunning": "Đang chạy",
+      "wallClockLabel": "Thời gian thực",
+      "activeLabel": "Thời gian tác nhân",
+      "viewEvents": "Xem các sự kiện gốc hỗ trợ cho khoảng thời gian này",
+      "eventsModal": {
+        "title": "Sự kiện hỗ trợ",
+        "loading": "Đang tải sự kiện…",
+        "error": "Không thể tải sự kiện",
+        "empty": "Không có sự kiện gốc nào được ghi lại trong khoảng thời gian này",
+        "emptyInferred": "Thời gian của phân đoạn này được suy luận từ hoạt động xung quanh, không được gán trực tiếp cho bất kỳ sự kiện nào trong khoảng thời gian này.",
+        "truncated": "Đang hiển thị {{shown}} sự kiện gần nhất trong tổng số {{total}} sự kiện của khoảng thời gian này",
+        "bucketCount_one": "{{count}} sự kiện",
+        "bucketCount_other": "{{count}} sự kiện"
+      }
     }
   }
 }

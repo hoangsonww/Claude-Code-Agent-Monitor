@@ -25,7 +25,9 @@ const {
   buildFocusSegments,
   buildSessionFocusReport,
   buildProjectFocusReport,
+  buildActivityChunks,
   mergeIntervals,
+  CHUNK_MS,
 } = require("../lib/focus-report");
 
 const CWD = "/tmp/focus-report-test-project";
@@ -335,6 +337,80 @@ describe("buildSessionFocusReport - idle grace window", () => {
     });
     assert.deepEqual(report.segments, []);
     assert.equal(report.ended_at, null);
+  });
+});
+
+describe("buildActivityChunks", () => {
+  it("returns no chunks for a malformed or zero-length span", () => {
+    assert.deepEqual(buildActivityChunks([], 1000, 1000), []);
+    assert.deepEqual(buildActivityChunks([], 2000, 1000), []);
+  });
+
+  it("flags a chunk active when a timestamp falls inside it, idle otherwise", () => {
+    const start = Date.UTC(2026, 0, 1, 0, 0, 0);
+    const chunkMs = 10 * 60_000;
+    // One event 2 minutes into the first chunk; nothing in the second.
+    const timestamps = [start + 2 * 60_000];
+    const chunks = buildActivityChunks(timestamps, start, start + 2 * chunkMs, chunkMs);
+    assert.equal(chunks.length, 2);
+    assert.equal(chunks[0].active, true);
+    assert.equal(chunks[1].active, false);
+    assert.equal(chunks[0].start, new Date(start).toISOString());
+    assert.equal(chunks[0].end, new Date(start + chunkMs).toISOString());
+  });
+
+  it("shortens the last chunk to end exactly at endMs instead of overshooting", () => {
+    const start = Date.UTC(2026, 0, 1, 0, 0, 0);
+    const chunkMs = 10 * 60_000;
+    const end = start + 15 * 60_000; // 1.5 chunks' worth
+    const chunks = buildActivityChunks([], start, end, chunkMs);
+    assert.equal(chunks.length, 2);
+    assert.equal(chunks[1].end, new Date(end).toISOString());
+    assert.equal(
+      new Date(chunks[1].end).getTime() - new Date(chunks[1].start).getTime(),
+      5 * 60_000
+    );
+  });
+
+  it("grants no grace credit - a chunk with zero events is idle even right after a burst", () => {
+    const start = Date.UTC(2026, 0, 1, 0, 0, 0);
+    const chunkMs = 10 * 60_000;
+    // Event lands 1 second before the first chunk ends; the whole second
+    // chunk that immediately follows has nothing in it and must read idle,
+    // unlike active_ms/idle_ms's grace-window credit.
+    const timestamps = [start + chunkMs - 1000];
+    const chunks = buildActivityChunks(timestamps, start, start + 2 * chunkMs, chunkMs);
+    assert.equal(chunks[0].active, true);
+    assert.equal(chunks[1].active, false);
+  });
+});
+
+describe("buildSessionFocusReport - activity chunks", () => {
+  it("marks only the chunks with real activity as active on a long idle-tailed segment", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+    // A burst of activity in the first 10 minutes, then nothing for two
+    // hours before the segment closes at ended_at - the same shape as an
+    // inferred whole-session segment riding a long gap to ended_at.
+    activity(id, 1);
+    activity(id, 4);
+    activity(id, 8);
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(130),
+    });
+    assert.equal(report.segments.length, 1);
+    const { chunks } = report.segments[0];
+    assert.equal(chunks.length, Math.ceil((130 * 60_000) / CHUNK_MS));
+    assert.equal(chunks[0].active, true);
+    assert.ok(
+      chunks.slice(1).every((c) => c.active === false),
+      "every chunk after the first burst should read idle"
+    );
   });
 });
 

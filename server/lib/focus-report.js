@@ -22,6 +22,18 @@
  * Env knob: DASHBOARD_FOCUS_IDLE_GRACE_SECONDS — default 300 (5 min); <= 0
  * disables idle discounting entirely (100% of wall-clock counts as active).
  *
+ * A segment also carries a `chunks` breakdown — its span sliced into fixed
+ * CHUNK_MS (10 min) windows, each flagged `active` if any real event landed
+ * inside it. This is deliberately a plainer fact than active_ms/idle_ms
+ * above (no grace-window credit, just "did anything happen here") — it
+ * exists so a calendar rendering can color a segment's actually-quiet
+ * stretches differently from its actually-worked ones, which a single
+ * wall_ms-sized block can't show on its own. A whole-session inferred
+ * segment (see {@link inferredSegment}) is exactly the case this matters
+ * most for: its span runs session-start to session-ended_at regardless of
+ * how much of that was silence, so without chunks a long idle tail reads
+ * indistinguishably from real work.
+ *
  * Sessions with NO declared Focus history fall back to the background
  * classifier's verdict (focus_inferences, written by focus-inference.js) as
  * one whole-session segment flagged `inferred: true` — declared history is
@@ -38,6 +50,11 @@
 
 const DEFAULT_GRACE_SECONDS = 300;
 const FOCUS_KINDS = new Set(["item", "detour", "feature", "bug"]);
+/** Fixed chunk width for {@link buildActivityChunks} - matches the client's
+ *  SegmentEventsModal event-bucket size (client/src/lib/eventBuckets.ts) so
+ *  a segment's calendar stripes and its events-modal rows agree on the same
+ *  10-minute granularity. */
+const CHUNK_MS = 10 * 60 * 1000;
 
 /** Reads the configured idle-grace window in milliseconds. `<= 0` disables
  *  discounting (every gap counts as fully active). */
@@ -163,6 +180,30 @@ function activeIdleMs(allTimestampsMs, startMs, endMs, grace) {
 }
 
 /**
+ * Slices [startMs, endMs) into fixed CHUNK_MS windows and flags each one
+ * `active: true` if at least one real event timestamp falls inside it, else
+ * `active: false`. The last chunk is shortened to end exactly at `endMs`
+ * rather than overshooting the segment. Unlike {@link activeIdleMs}, this
+ * carries no grace-window credit — a chunk with zero events is idle, full
+ * stop — since the point is an honest per-window fact for coloring a
+ * calendar block, not another aggregate figure.
+ */
+function buildActivityChunks(allTimestampsMs, startMs, endMs, chunkMs = CHUNK_MS) {
+  if (endMs <= startMs) return [];
+  const chunks = [];
+  for (let chunkStart = startMs; chunkStart < endMs; chunkStart += chunkMs) {
+    const chunkEnd = Math.min(chunkStart + chunkMs, endMs);
+    const active = allTimestampsMs.some((ts) => ts >= chunkStart && ts < chunkEnd);
+    chunks.push({
+      start: new Date(chunkStart).toISOString(),
+      end: new Date(chunkEnd).toISOString(),
+      active,
+    });
+  }
+  return chunks;
+}
+
+/**
  * Fallback for a session with ZERO declared segments: turn its
  * focus_inferences row (written by the background classifier in
  * focus-inference.js) into one synthetic segment spanning the session. The
@@ -266,6 +307,7 @@ function buildSessionFocusReport(dbModule, session) {
       idle_ms,
       inferred: Boolean(seg.inferred),
       inferred_reason: seg.inferred ? seg.inferredReason || null : null,
+      chunks: buildActivityChunks(allTimestampsMs, startMs, endMs),
     };
   });
 
@@ -396,7 +438,9 @@ module.exports = {
   buildFocusSegments,
   buildSessionFocusReport,
   buildProjectFocusReport,
+  buildActivityChunks,
   mergeIntervals,
   emptyKindTotals,
   DEFAULT_GRACE_SECONDS,
+  CHUNK_MS,
 };

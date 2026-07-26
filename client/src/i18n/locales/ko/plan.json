@@ -66,7 +66,21 @@
       "nextDay": "다음 날",
       "empty": "이 날에는 활동이 없습니다",
       "declared": "선언됨",
-      "inferredProvenance": "≈ 추정됨"
+      "inferredProvenance": "≈ 추정됨",
+      "stillRunning": "실행 중",
+      "wallClockLabel": "실제 경과 시간",
+      "activeLabel": "에이전트 작업 시간",
+      "viewEvents": "이 지속 시간을 뒷받침하는 원본 이벤트 보기",
+      "eventsModal": {
+        "title": "근거 이벤트",
+        "loading": "이벤트 불러오는 중…",
+        "error": "이벤트를 불러오지 못했습니다",
+        "empty": "이 구간에 기록된 원본 이벤트가 없습니다",
+        "emptyInferred": "이 구간의 시간은 주변 활동을 바탕으로 추정되었으며, 이 구간 내부의 특정 이벤트에 직접 귀속된 것은 아닙니다.",
+        "truncated": "이 구간의 이벤트 {{total}}개 중 최신 {{shown}}개를 표시 중입니다",
+        "bucketCount_one": "이벤트 {{count}}개",
+        "bucketCount_other": "이벤트 {{count}}개"
+      }
     }
   }
 }

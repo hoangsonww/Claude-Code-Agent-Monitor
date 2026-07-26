@@ -204,6 +204,7 @@ client/
 │   │   ├── focusStore.ts   # Module-level session-focus store (bulk hydrate GET /api/focus + live session_focus WS merges)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   ├── calendarLanes.ts # Swimlane lane-assignment for FocusCalendarView (greedy interval scheduling)
+│   │   ├── eventBuckets.ts # 10-minute event bucketing for SegmentEventsModal
 │   │   └── types.ts        # TypeScript type definitions
 │   │
 │   ├── hooks/
@@ -665,12 +666,36 @@ interface FocusReportModalProps {
 
 Day-view **swimlane calendar** for a project's focus-time report — the visual alternative to `FocusReportModal`'s list body, toggled from its header, sharing the same already-fetched `report` prop (no fetch of its own). Every session's segments get positioned on a real 24-hour axis for one selected day; segments whose time spans overlap split into side-by-side lanes via `assignLanes()` (`lib/calendarLanes.ts` — greedy earliest-available-lane interval scheduling, optimal for interval graphs) instead of stacking, so concurrency reads as geometry rather than a number to interpret. Blocks are colored by `FOCUS_KIND_CONFIG`, with a dashed border for an inferred segment vs. solid for declared (mirrors `FocusReportModal`'s "≈ inferred" convention) and a pulsing, open-ended block for a session whose `ended_at` is still `null` (genuinely still running, not just "happened to end near fetch time" — the distinction the API's `ended_at` field exists to make). An accent-colored "now" line only renders when the selected day is today. Prev/Today/Next buttons navigate days (mirrors `DateTimePicker`'s chevron-nav styling); a segment spanning past midnight is clipped to each day it touches rather than rendering a multi-day continuation.
 
+A segment's wall-clock span can run far longer than its actual worked time (a whole-session inferred segment rides straight through to the session's `ended_at` regardless of how much of that was silence), so the block does two things a single solid color can't: (1) it overlays a dark stripe over any 10-minute chunk with zero real events (`seg.chunks` from the API, same 10-minute grain `SegmentEventsModal` uses) — an active chunk needs no overlay, the block's own kind color already reads correctly for it; (2) hovering a block opens a floating popup (portaled to `document.body`, anchored off the block's rect — not a native `title` tooltip, so it can carry the kind's color-coding and wrap the label/inferred-reason text) stating BOTH wall-clock time and idle-grace-discounted active ("agent") time, not just the raw span. Each block also carries a small "`</>`" icon (top-right corner, a sibling of the block's own link rather than nested inside it) that opens `SegmentEventsModal` — every raw hook event recorded in that segment's real time window, grouped into 10-minute buckets (`bucketEvents()`, `lib/eventBuckets.ts`) with a per-`event_type` count so the row count stays bounded by how long the segment ran rather than by how many events it produced; each bucket expands into its individual events, each further expandable into the full hook payload via `EventDetail` (the same viewer the Activity Feed page uses). This exists so a segment's attributed duration can be checked against what actually happened instead of taken on faith.
+
 **v1 scope note:** only Day view + simple date navigation shipped. A Week/Month zoom and an aggregate time-range selector (3d/7d/30d/All) were sketched in the original design mockup but deliberately deferred — they belong to a separate, still-open design thread (a project-wide time-window default for the report) rather than this component. See the `holistic-focus-history` project memory for the full design history.
 
 **Props:**
 ```typescript
 interface FocusCalendarViewProps {
   report: FocusReport;
+}
+```
+
+#### SegmentEventsModal
+
+Big popup opened from a `FocusCalendarView` block's "`</>`" icon (see above), listing every raw hook event recorded in that segment's real (unclipped) time window. Fetches `GET /api/events?session_id=&from=&to=` on open, groups the result into 10-minute buckets (`bucketEvents()`, `lib/eventBuckets.ts`) so a long segment's row count stays bounded — a busy 10-hour segment is at most ~60 bucket rows, not thousands of individual `PreToolUse`/`PostToolUse` pairs. Each bucket row shows the time range, a count per `event_type`, and a total; expanding it reveals its individual events, each further expandable into the full hook payload via `EventDetail`. The header states the segment's session/kind/label plus both wall-clock time and idle-grace-discounted active time. An inferred segment can legitimately have zero events inside its own window (attribution came from the background classifier looking at nearby activity, not from anything strictly inside the window) — the empty state calls that out explicitly.
+
+**Props:**
+```typescript
+interface SegmentEventsModalProps {
+  sessionId: string;
+  sessionName: string | null;
+  kindLabel: string;
+  kindColor: string;
+  label: string | null;
+  realStart: string;   // segment's real (unclipped) bounds
+  realEnd: string;
+  wallMs: number;
+  activeMs: number;     // idle-grace-discounted active time
+  inferred: boolean;
+  inferredReason: string | null;
+  onClose: () => void;
 }
 ```
 
