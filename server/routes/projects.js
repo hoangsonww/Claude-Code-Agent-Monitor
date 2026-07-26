@@ -12,7 +12,9 @@
 
 const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
-const { stmts, db } = require("../db");
+const dbModule = require("../db");
+const { stmts, db } = dbModule;
+const { buildProjectFocusReport } = require("../lib/focus-report");
 
 const router = Router();
 
@@ -203,6 +205,31 @@ router.delete("/:id/paths/:pathId", (req, res) => {
   const project = stmts.getProject.get(req.params.id);
   const paths = stmts.listProjectPaths.all(req.params.id);
   res.json({ project: { ...project, paths } });
+});
+
+// GET /api/projects/:id/focus-report - focus-time breakdown for every
+// session under this project's mapped folders: per-session segments (item /
+// detour / feature / bug, each with wall-clock + idle-grace-discounted
+// active time), a per-item rollup bucketing detours under the item that was
+// current when they started, and project-wide totals by kind. See
+// server/lib/focus-report.js for the segment-replay + grace-window math.
+router.get("/:id/focus-report", (req, res) => {
+  const project = stmts.getProject.get(req.params.id);
+  if (!project) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Project not found" } });
+  }
+  const paths = stmts.listProjectPaths.all(project.id);
+  const cwds = paths.map((p) => p.cwd);
+  const sessions =
+    cwds.length === 0
+      ? []
+      : db
+          .prepare(
+            "SELECT id, name, cwd, ended_at FROM sessions WHERE cwd IN (SELECT value FROM json_each(?)) ORDER BY started_at ASC"
+          )
+          .all(JSON.stringify(cwds));
+  const report = buildProjectFocusReport(dbModule, sessions);
+  res.json({ project_id: project.id, ...report });
 });
 
 module.exports = router;
