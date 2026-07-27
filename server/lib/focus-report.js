@@ -411,7 +411,19 @@ function buildSessionFocusReport(dbModule, session, windowStartMs, windowEndMs) 
   const allEvents = dbModule.db
     .prepare("SELECT created_at FROM events WHERE session_id = ? ORDER BY id ASC")
     .all(session.id);
-  const allTimestampsMs = allEvents.map((r) => new Date(r.created_at).getTime());
+  // `ORDER BY id ASC` (insertion order) is NOT reliably chronological — a
+  // session with heavy subagent/Workflow-tool activity bulk-ingests many
+  // events after the fact (server/lib/workflow-ingest.js), landing them at
+  // whatever row id was next regardless of their own `created_at`. Both
+  // activeIdleMs() and buildActivityChunks() require a chronologically
+  // sorted list (activeIdleMs's own docstring says so) — without this sort,
+  // an out-of-order run of timestamps can make its gap-sum walk cross the
+  // same span more than once, inflating active_ms past wall_ms (and driving
+  // idle_ms negative). Sorting numerically here, once, guarantees the
+  // precondition regardless of how the row happened to land in the table.
+  const allTimestampsMs = allEvents
+    .map((r) => new Date(r.created_at).getTime())
+    .sort((a, b) => a - b);
   const grace = graceMs();
 
   const enriched = segments.map((seg) => {

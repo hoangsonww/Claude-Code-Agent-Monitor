@@ -1167,7 +1167,13 @@
                     session with neither a declaration nor a confident verdict yet (most often
                     one that's still running and hasn't gone quiet long enough for a tick to
                     reach it) still shows up as a neutral gray "No focus" block instead of a
-                    silent unclassified hole.
+                    silent unclassified hole. A project with no <code>AGENT-PLAN.md</code> at all
+                    used to be invisible to this classifier entirely; it's now still classified,
+                    asking for a plain one-sentence summary of what the session's activity
+                    accomplished instead of trying to match a plan item, and storing it the same
+                    way. A low-confidence <code>unclassified</code> verdict's reason — which the
+                    classifier already generated — is no longer silently dropped by the report
+                    layer; it now surfaces there too.
                   </p>
                   <p>
                     A header toggle in the focus-time report switches between the List view
@@ -7115,7 +7121,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=56" defer></script>
+    <script src="i18n-content.js?v=57" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

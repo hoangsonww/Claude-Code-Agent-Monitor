@@ -348,6 +348,54 @@ describe("buildSessionFocusReport - idle grace window", () => {
   });
 });
 
+describe("buildSessionFocusReport - out-of-order event insertion", () => {
+  // A session with heavy subagent/Workflow-tool activity bulk-ingests many
+  // events after the fact (workflow-ingest.js), landing them at whatever row
+  // id was next regardless of their own created_at - `ORDER BY id ASC` is
+  // NOT reliably chronological for such a session. activeIdleMs()'s gap-sum
+  // walk requires a chronologically sorted timestamp list; fed an unsorted
+  // one, positive-looking "gaps" from scrambled ordering can each contribute
+  // up to a full grace window, summing past the segment's real span
+  // (observed live: active_ms > wall_ms, negative idle_ms).
+  let originalGrace;
+  before(() => {
+    originalGrace = process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS;
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = String(5 * 60); // 5 min
+  });
+  after(() => {
+    if (originalGrace === undefined) delete process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS;
+    else process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = originalGrace;
+  });
+
+  it("never lets active_ms exceed wall_ms (or idle_ms go negative) when events land out of chronological order", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+    // Real timestamps are 2/4/6/8/12/14/16/18 minutes in - every consecutive
+    // gap is <= 4 min, comfortably under the 5-min grace, so a CORRECTLY
+    // sorted walk counts the whole 20-minute span as fully active. Inserted
+    // here in a scrambled (non-chronological) row order to reproduce a
+    // bulk-ingest landing them out of sequence.
+    for (const minute of [18, 2, 16, 4, 14, 6, 12, 8]) activity(id, minute);
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(20),
+    });
+    assert.equal(report.segments.length, 1);
+    const seg = report.segments[0];
+    assert.equal(seg.wall_ms, 20 * 60_000);
+    // Exact values, not just an inequality - the unsorted bug produced
+    // active_ms = 1_500_000 (5 spurious "forward" gaps x 5-min grace cap)
+    // against a true wall_ms of 1_200_000; sorted, every real gap is fully
+    // active and nothing is left over.
+    assert.equal(seg.active_ms, 20 * 60_000);
+    assert.equal(seg.idle_ms, 0);
+  });
+});
+
 describe("buildActivityChunks", () => {
   it("returns no chunks for a malformed or zero-length span", () => {
     assert.deepEqual(buildActivityChunks([], 1000, 1000), []);
