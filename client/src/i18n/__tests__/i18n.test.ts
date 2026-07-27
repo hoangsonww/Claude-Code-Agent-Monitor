@@ -102,10 +102,10 @@ describe("i18n resources", () => {
       });
     }
 
-    it("keeps the relocated English strings byte-identical to their pre-relocation values (key move, not a translation change)", async () => {
+    it("keeps wallClockLabel byte-identical to its pre-relocation value (key move, not a translation change) and reflects activeLabel's later Total agent time rename", async () => {
       await i18n.changeLanguage("en");
       expect(i18n.t("plan:report.wallClockLabel")).toBe("Wall clock");
-      expect(i18n.t("plan:report.activeLabel")).toBe("Agent time");
+      expect(i18n.t("plan:report.activeLabel")).toBe("Total agent time");
     });
   });
 

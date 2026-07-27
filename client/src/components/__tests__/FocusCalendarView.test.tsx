@@ -1031,14 +1031,14 @@ describe("FocusCalendarView", () => {
 
     fireEvent.mouseEnter(screen.getByText("Worker").closest("a") as HTMLAnchorElement);
     expect(screen.getByText(/Wall clock: 2h 0m/)).toBeInTheDocument();
-    expect(screen.getByText(/Agent time: 23m 0s/)).toBeInTheDocument();
+    expect(screen.getByText(/Total agent time: 23m 0s/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("View the raw events supporting this duration"));
     await act(async () => {
       for (let i = 0; i < 8; i++) await Promise.resolve();
     });
     expect(screen.getByText(/Wall clock: 2h 0m/)).toBeInTheDocument();
-    expect(screen.getByText(/Agent time: 23m 0s/)).toBeInTheDocument();
+    expect(screen.getByText(/Total agent time: 23m 0s/)).toBeInTheDocument();
   });
 
   describe("hour-window zoom (default 4h back + 2h ahead)", () => {
@@ -1129,11 +1129,11 @@ describe("FocusCalendarView", () => {
       expect(screen.getByText("FarFuture")).toBeInTheDocument();
     });
 
-    it("never restricts a non-today day - the zoom selection only affects today's view", () => {
+    it("a zoom size also narrows a non-today day - defaulting to midnight as its start time, not the full day", () => {
       const report = makeReport([
         {
-          session_id: "sess-yesterday",
-          name: "Yesterday",
+          session_id: "sess-yesterday-early",
+          name: "Early",
           cwd: "/repo",
           ended_at: yesterdayAt(2),
           segments: [
@@ -1141,8 +1141,28 @@ describe("FocusCalendarView", () => {
               kind: "item",
               item_number: 1,
               label: null,
-              start: yesterdayAt(1), // 1am-2am, yesterday
+              start: yesterdayAt(1), // 1am-2am - inside the default [00:00, 04:00) window
               end: yesterdayAt(2),
+              wall_ms: 0,
+              active_ms: 0,
+              idle_ms: 0,
+              inferred: false,
+              inferred_reason: null,
+            },
+          ],
+        },
+        {
+          session_id: "sess-yesterday-late",
+          name: "Late",
+          cwd: "/repo",
+          ended_at: yesterdayAt(11),
+          segments: [
+            {
+              kind: "item",
+              item_number: 1,
+              label: null,
+              start: yesterdayAt(10), // 10am-11am - outside the default 4h window
+              end: yesterdayAt(11),
               wall_ms: 0,
               active_ms: 0,
               idle_ms: 0,
@@ -1157,9 +1177,179 @@ describe("FocusCalendarView", () => {
         { selectedDate: new Date(yesterdayAt(12)) },
         { expandToFullDay: false }
       );
-      // Default hourWindow is still 4, but this isn't today, so it's a no-op
-      // - the full (yesterday's) day renders regardless.
-      expect(screen.getByText("Yesterday")).toBeInTheDocument();
+      // Default hourWindow is still 4; on a past day this now zooms the same
+      // as today does, defaulting to midnight as its start (no "now" to
+      // follow instead).
+      expect(screen.getByText("Early")).toBeInTheDocument();
+      expect(screen.queryByText("Late")).not.toBeInTheDocument();
+
+      // Selecting 24h still reveals the whole day regardless of anchor mode.
+      fireEvent.click(screen.getByText("24h"));
+      expect(screen.getByText("Late")).toBeInTheDocument();
+    });
+
+    it("pages a non-today day's zoomed window forward/backward via the start-time stepper", () => {
+      const report = makeReport([
+        {
+          session_id: "sess-yesterday-late",
+          name: "Late",
+          cwd: "/repo",
+          ended_at: yesterdayAt(11),
+          segments: [
+            {
+              kind: "item",
+              item_number: 1,
+              label: null,
+              start: yesterdayAt(10), // 10am-11am
+              end: yesterdayAt(11),
+              wall_ms: 0,
+              active_ms: 0,
+              idle_ms: 0,
+              inferred: false,
+              inferred_reason: null,
+            },
+          ],
+        },
+      ]);
+      renderCalendar(
+        report,
+        { selectedDate: new Date(yesterdayAt(12)) },
+        { expandToFullDay: false }
+      );
+      expect(screen.queryByText("Late")).not.toBeInTheDocument();
+
+      // Default window is [00:00, 04:00) - two "next block" pages (each +4h)
+      // land on [08:00, 12:00), which contains the 10am-11am segment.
+      const nextButton = screen.getByTitle("Show the next block");
+      fireEvent.click(nextButton);
+      fireEvent.click(nextButton);
+      expect(screen.getByText("Late")).toBeInTheDocument();
+    });
+
+    it("jumps the window straight to a typed start time via the start-time input", () => {
+      const report = makeReport([
+        makeSession("Afternoon", 14, 15), // 2pm-3pm
+      ]);
+      renderCalendar(report, {}, { expandToFullDay: false });
+      // Live default (today, 3pm "now") window is [11:00, 17:00) - already
+      // contains 2-3pm, so first prove typing a DIFFERENT start hides it,
+      // then typing it back reveals it - otherwise this wouldn't prove the
+      // input actually drives the window.
+      const input = screen.getByLabelText("Window start time");
+      fireEvent.change(input, { target: { value: "06:00" } });
+      expect(screen.queryByText("Afternoon")).not.toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: "13:00" } });
+      expect(screen.getByText("Afternoon")).toBeInTheDocument();
+    });
+
+    it("shows a 'Live' toggle only on today's view, and it snaps a custom start back to following the current time", () => {
+      const report = makeReport([
+        makeSession("Mid", 12, 13), // noon-1pm - inside today's live default [11:00, 17:00)
+      ]);
+      renderCalendar(report, {}, { expandToFullDay: false });
+      expect(screen.getByText("Mid")).toBeInTheDocument();
+
+      const input = screen.getByLabelText("Window start time");
+      fireEvent.change(input, { target: { value: "06:00" } });
+      expect(screen.queryByText("Mid")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Live"));
+      expect(screen.getByText("Mid")).toBeInTheDocument();
+    });
+
+    it("hides the 'Live' toggle on a non-today day, since there's no 'now' to follow", () => {
+      renderCalendar(makeReport([]), { selectedDate: new Date(yesterdayAt(12)) });
+      fireEvent.click(screen.getByText("4h"));
+      expect(screen.queryByText("Live")).not.toBeInTheDocument();
+    });
+
+    describe("quick-start presets and the future-window warning", () => {
+      it("offers a 4h window's presets every 4 hours up to 8pm - the latest start that still fits before midnight", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        for (const label of ["12 AM", "4 AM", "8 AM", "12 PM", "4 PM", "8 PM"]) {
+          expect(group.getByText(label)).toBeInTheDocument();
+        }
+        // 24 - 4h window = 20h is the latest legal start; exactly those six,
+        // nothing past 8pm.
+        expect(group.getAllByRole("button")).toHaveLength(6);
+      });
+
+      it("stops an 8h window's presets at 4pm, since 4pm + 8h reaches midnight", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        fireEvent.click(screen.getByText("8h"));
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        expect(group.getByText("4 PM")).toBeInTheDocument();
+        expect(group.queryByText("8 PM")).not.toBeInTheDocument();
+      });
+
+      it("clicking a quick-start preset jumps the window and switches off Live", () => {
+        const report = makeReport([
+          makeSession("Morning", 9, 10), // 9-10am - inside the 8am preset's [8am, noon) window
+        ]);
+        renderCalendar(report, {}, { expandToFullDay: false });
+        expect(screen.queryByText("Morning")).not.toBeInTheDocument(); // live default is [11am, 5pm)
+
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        fireEvent.click(group.getByText("8 AM"));
+        expect(screen.getByText("Morning")).toBeInTheDocument();
+        expect(screen.getByText("Live")).toHaveAttribute("aria-pressed", "false");
+        expect(group.getByText("8 AM")).toHaveAttribute("aria-pressed", "true");
+      });
+
+      it("shows no future-window warning while on today's live default window", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        expect(
+          screen.queryByText("This range is in the future — no data will show here yet.")
+        ).not.toBeInTheDocument();
+      });
+
+      it("warns when a quick-start preset picked on today lands entirely after the current time ('now' is 3pm)", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        fireEvent.click(group.getByText("4 PM")); // 4pm-8pm - entirely after 3pm "now"
+        expect(
+          screen.getByText("This range is in the future — no data will show here yet.")
+        ).toBeInTheDocument();
+      });
+
+      it("clears the future-window warning once a past/present preset is chosen instead", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        fireEvent.click(group.getByText("4 PM"));
+        expect(
+          screen.getByText("This range is in the future — no data will show here yet.")
+        ).toBeInTheDocument();
+
+        fireEvent.click(group.getByText("8 AM"));
+        expect(
+          screen.queryByText("This range is in the future — no data will show here yet.")
+        ).not.toBeInTheDocument();
+      });
+
+      it("shows the future-window warning on a past day too, if the user pages a custom start past the current clock time", () => {
+        // Yesterday's own "now" comparison is meaningless in wall-clock terms,
+        // but the component compares against isToday, not the selected day -
+        // paging within a PAST day's window never crosses into real "future"
+        // territory, so this instead proves the warning stays scoped to
+        // today's view: yesterday shows none even at its own latest preset.
+        renderCalendar(
+          makeReport([]),
+          { selectedDate: new Date(yesterdayAt(12)) },
+          { expandToFullDay: false }
+        );
+        const group = within(screen.getByRole("group", { name: "Quick start" }));
+        fireEvent.click(group.getByText("8 PM"));
+        expect(
+          screen.queryByText("This range is in the future — no data will show here yet.")
+        ).not.toBeInTheDocument();
+      });
+
+      it("offers quick-start presets on today's view too, not just past days", () => {
+        renderCalendar(makeReport([]), {}, { expandToFullDay: false });
+        expect(screen.getByRole("group", { name: "Quick start" })).toBeInTheDocument();
+      });
     });
   });
 

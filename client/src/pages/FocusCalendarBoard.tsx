@@ -68,6 +68,7 @@ import { DAY_MS, startOfDay } from "../lib/calendarWindow";
 import type { FocusReport, Project, Session } from "../lib/types";
 import { FocusReportBody, FocusReportViewToggle } from "../components/FocusReportBody";
 import type { ViewMode } from "../components/FocusReportBody";
+import { ProjectScopeFilters } from "../components/ProjectScopeFilters";
 import { TimePeriodPicker } from "../components/TimePeriodPicker";
 import type { TimePeriodValue } from "../components/TimePeriodPicker";
 
@@ -171,28 +172,6 @@ export function FocusCalendarBoard() {
     return ids;
   }, [report, cwdToProjectId]);
 
-  const sortedProjects = useMemo(
-    () => [...projects].sort((a, b) => a.name.localeCompare(b.name)),
-    [projects]
-  );
-  // The currently selected project's own chip must never disappear, even if
-  // selecting it emptied the report (zero activity on this particular day) -
-  // otherwise the chip the user just clicked would vanish out from under
-  // them.
-  const visibleProjects = sortedProjects.filter(
-    (p) => activeProjectIds.has(p.id) || p.id === projectId
-  );
-  const hiddenProjects = sortedProjects.filter(
-    (p) => !activeProjectIds.has(p.id) && p.id !== projectId
-  );
-
-  const chipClass = (active: boolean) =>
-    `px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
-      active
-        ? "bg-accent text-white"
-        : "bg-surface-2 text-gray-400 hover:bg-surface-3 hover:text-gray-200"
-    }`;
-
   // Fetches on mount and on any filter change (project/session/time-period) -
   // every request carries an explicit from/to (DEC-3, no hidden default).
   // `projectId` is never sent alongside `unassignedOnly` - the two chip
@@ -235,105 +214,25 @@ export function FocusCalendarBoard() {
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-gray-500">
-            {t("report.board.projectFilter")}
-          </span>
-          <div
-            role="group"
-            aria-label={t("report.board.projectFilter")}
-            className="flex flex-wrap items-center gap-1.5 max-w-lg"
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setProjectId(undefined);
-                setUnassignedOnly(false);
-              }}
-              aria-pressed={projectId === undefined && !unassignedOnly}
-              className={chipClass(projectId === undefined && !unassignedOnly)}
-            >
-              {t("report.board.allProjects")}
-            </button>
-            {visibleProjects.map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                onClick={() => {
-                  setProjectId(project.id);
-                  setUnassignedOnly(false);
-                }}
-                aria-pressed={projectId === project.id}
-                className={chipClass(projectId === project.id)}
-              >
-                {project.name}
-              </button>
-            ))}
-            {!projectsExpanded && hiddenProjects.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setProjectsExpanded(true)}
-                className="px-2.5 py-1 text-[11px] font-medium rounded-full border border-dashed border-border text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
-              >
-                {t("common:showMore", { count: hiddenProjects.length })}
-              </button>
-            )}
-            {projectsExpanded &&
-              hiddenProjects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  onClick={() => {
-                    setProjectId(project.id);
-                    setUnassignedOnly(false);
-                  }}
-                  aria-pressed={projectId === project.id}
-                  className={chipClass(projectId === project.id)}
-                >
-                  {project.name}
-                </button>
-              ))}
-            {/* A fixed, always-visible special category (unlike real project
-                chips, never hidden behind "show more") for sessions whose
-                cwd isn't mapped to any project - a distinct amber tint in
-                both its selected and unselected states so it never reads as
-                just another project. */}
-            <button
-              type="button"
-              onClick={() => {
-                setProjectId(undefined);
-                setUnassignedOnly(true);
-              }}
-              aria-pressed={unassignedOnly}
-              className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
-                unassignedOnly
-                  ? "bg-amber-600 text-white"
-                  : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-              }`}
-            >
-              {t("projects:unassigned")}
-            </button>
-          </div>
-        </div>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wide text-gray-500">
-            {t("report.board.sessionFilter")}
-          </span>
-          <select
-            aria-label={t("report.board.sessionFilter")}
-            value={sessionId ?? ""}
-            onChange={(e) => setSessionId(e.target.value || undefined)}
-            className="input bg-surface-1 min-w-[160px]"
-          >
-            <option value="">{t("report.board.allSessions")}</option>
-            {sessions.map((session) => (
-              <option key={session.id} value={session.id}>
-                {session.name?.trim() || session.id.slice(0, 8)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <ProjectScopeFilters
+          projects={projects}
+          sessions={sessions}
+          activeProjectIds={activeProjectIds}
+          projectId={projectId}
+          sessionId={sessionId}
+          unassignedOnly={unassignedOnly}
+          projectsExpanded={projectsExpanded}
+          onProjectsExpandedChange={setProjectsExpanded}
+          onSelectProject={(id) => {
+            setProjectId(id);
+            setUnassignedOnly(false);
+          }}
+          onSelectUnassigned={() => {
+            setProjectId(undefined);
+            setUnassignedOnly(true);
+          }}
+          onSessionChange={setSessionId}
+        />
 
         <TimePeriodPicker value={timeWindow} onChange={setTimeWindow} />
       </div>

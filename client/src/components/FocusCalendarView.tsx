@@ -32,16 +32,45 @@
  * decision (Day view + simple date nav only — Week/Month zoom is still a
  * separate, open design thread).
  *
- * Today's own view can additionally "zoom" to an hour-window (`hourWindow`
+ * Any day's view can additionally "zoom" to an hour-window (`hourWindow`
  * state, `HOUR_WINDOW_OPTIONS`: 4/8/12/24 hours, default 4) rather than
- * always showing the full day: every size under 24 shows that many hours
- * BEHIND the real current time plus `FUTURE_PAD_MS` (2h) ahead of it,
- * re-anchoring to "now" every `ZOOM_REFRESH_MS` (a forced re-render, since
- * nothing else here would otherwise notice real time passing); `24` is the
- * plain, unzoomed full day, with no future padding added on top since
- * there's no more day left to pad into. A past/future day (`!isToday`)
- * always renders the full day regardless of this setting - there's no
- * meaningful "now" to window around once you're not looking at today.
+ * always showing the full day; `24` is always the plain, unzoomed full day.
+ * Under 24, the window's start time follows one of two anchor modes
+ * (`windowAnchorMode`):
+ *  - `"live"` - only possible on today's own view - shows `hourWindow` hours
+ *    BEHIND the real current time plus `FUTURE_PAD_MS` (2h) ahead of it,
+ *    re-anchoring to "now" every `ZOOM_REFRESH_MS` (a forced re-render, since
+ *    nothing else here would otherwise notice real time passing). This is
+ *    the default on load and stays in effect until the user manually moves
+ *    the window.
+ *  - `"custom"` - an explicit start time (`customOffsetMs`, an offset from
+ *    this day's own local midnight) the user picked via the start-time
+ *    stepper/input next to the hour-window buttons, with no future padding
+ *    (there's no "now" to pad ahead of once the window isn't following it).
+ *    This is the ONLY mode a past/future day can render in when zoomed -
+ *    there's no meaningful "now" to default-follow on a day that isn't
+ *    today, so `effectiveAnchorMode` (see below) forces `"custom"` (starting
+ *    at midnight, i.e. `customOffsetMs` still at its own `0` default, until
+ *    the user moves it) whenever `!isToday`, regardless of what
+ *    `windowAnchorMode` itself is set to. `customOffsetMs` persists across
+ *    day navigation (it's a time-of-day, not an absolute timestamp), so
+ *    paging through several past days keeps looking at the same clock-time
+ *    window on each one until explicitly changed again.
+ * Alongside the stepper/typed-time input, a row of quick-start buttons
+ * (`quickStartOptions`) offers every `QUICK_START_STEP_HOURS`-aligned start
+ * time from midnight up to `maxWindowStartMs` (e.g. a 4h window offers
+ * 12am/4am/8am/12pm/4pm/8pm; an 8h window stops at 4pm, since 4pm+8h is
+ * midnight) - available on ANY day, not just past ones, since a custom start
+ * is just as meaningful on today's own view. A preset whose start time is
+ * still ahead of the real "now" (only possible on today's view) is styled
+ * amber rather than the plain gray of the others, a lightweight warning that
+ * picking it will show an empty window rather than a disabled/unclickable
+ * state - the same window is still meaningful once "now" catches up to it.
+ * `windowIsFuture` mirrors that same "start is ahead of now" check against
+ * whatever window is ACTUALLY showing (however it got there - a quick-start
+ * pick, the stepper, or the typed input), driving a persistent inline
+ * warning banner rather than a one-time toast, since the condition can
+ * persist across renders (e.g. the page sits open on a future window).
  * Container height and every tick/block position scale to the CURRENT
  * window (`windowStartMs`/`windowMs`), not always the full day, at the same
  * fixed per-minute pixel density `DAY_HEIGHT_PX`/`DAY_MS` establishes.
@@ -110,7 +139,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Code2 } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Code2 } from "lucide-react";
 import { formatMs, formatTime, getCurrentLocale, parseDate } from "../lib/format";
 import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusReport, FocusReportChunk, FocusSegmentKind } from "../lib/types";
@@ -184,21 +213,29 @@ function sessionColorAt(i: number): string {
 const HOUR_WINDOW_OPTIONS = [4, 8, 12, 24] as const;
 type HourWindowOption = (typeof HOUR_WINDOW_OPTIONS)[number];
 const DEFAULT_HOUR_WINDOW: HourWindowOption = 4;
-/** Every zoomed window (anything under the full 24h) shows this many hours
- *  PAST "now" on top of its own selected size, plus this many hours of
- *  empty future headroom - e.g. the "4" option shows 4h in the past + 2h
- *  ahead (6h total), "8" shows 8h past + 2h ahead (10h total). The "24"
- *  option gets none of this: it's already the whole day, so there's no
- *  "ahead" left to pad with (and the total across every option therefore
- *  never exceeds the nominal 24h max). Only applies to TODAY's view - a
- *  past/future day has no meaningful "now" to window around, so it always
- *  renders the full day regardless of this setting (see `isZoomed` below). */
+/** Every LIVE zoomed window (anything under the full 24h, anchored to "now"
+ *  rather than a custom start time) shows this many hours PAST "now" on top
+ *  of its own selected size, plus this many hours of empty future headroom -
+ *  e.g. the "4" option shows 4h in the past + 2h ahead (6h total), "8" shows
+ *  8h past + 2h ahead (10h total). The "24" option gets none of this: it's
+ *  already the whole day, so there's no "ahead" left to pad with (and the
+ *  total across every option therefore never exceeds the nominal 24h max).
+ *  Never applies to a "custom"-anchored window (see `windowAnchorMode`
+ *  above) - there's no "now" to pad ahead of once the window's start time is
+ *  an explicit pick rather than a live follow of the current time. */
 const FUTURE_PAD_MS = 2 * 60 * 60_000;
-/** How often the zoomed (today, non-24h) window re-anchors to the real
- *  current time - the block list and now-line already recompute from
- *  `Date.now()` on every render, but nothing here otherwise forces a
- *  render as real time passes, so a zoomed view would otherwise look
- *  static/stale until some unrelated interaction happened to re-render it. */
+/** One hour, in ms - shared by every hour-window/offset computation below. */
+const HOUR_MS = 60 * 60_000;
+/** Spacing between the quick-start preset buttons (see `quickStartOptions`)
+ *  - 12am, 4am, 8am, 12pm, 4pm, 8pm, matching every `HOUR_WINDOW_OPTIONS`
+ *  size evenly (4/8/12 all divide cleanly by 4). */
+const QUICK_START_STEP_HOURS = 4;
+/** How often a LIVE zoomed window re-anchors to the real current time - the
+ *  block list and now-line already recompute from `Date.now()` on every
+ *  render, but nothing here otherwise forces a render as real time passes,
+ *  so a live zoomed view would otherwise look static/stale until some
+ *  unrelated interaction happened to re-render it. A "custom"-anchored
+ *  window needs no such refresh - its start time doesn't move on its own. */
 const ZOOM_REFRESH_MS = 60_000;
 /** macOS/Linux temp-directory cwd prefixes (`os.tmpdir()`-style scratch
  *  locations - a `mktemp` working directory, not a real project folder):
@@ -421,40 +458,73 @@ export function FocusCalendarView({
   const isToday = dayStart === startOfDay(new Date()).getTime();
 
   const [hourWindow, setHourWindow] = useState<HourWindowOption>(DEFAULT_HOUR_WINDOW);
-  // Only today's view ever zooms - a past/future day has no "now" to window
-  // around, so it always shows the full day regardless of this setting.
-  const isZoomed = isToday && hourWindow < 24;
+  // "live" (the default) follows the real current time; "custom" freezes the
+  // window at an explicit start time the user picked (`customOffsetMs`,
+  // below). Only "live" ever re-anchors to "now" - see `effectiveAnchorMode`.
+  const [windowAnchorMode, setWindowAnchorMode] = useState<"live" | "custom">("live");
+  // Explicit window start, as an offset from THIS DAY's own local midnight
+  // (not an absolute timestamp) - so paging through past days keeps looking
+  // at the same clock-time window on each one instead of the offset meaning
+  // a different time of day every time `dayStart` changes. Only read while
+  // `effectiveAnchorMode === "custom"`; defaults to midnight.
+  const [customOffsetMs, setCustomOffsetMs] = useState(0);
 
-  // Forces a re-render every ZOOM_REFRESH_MS while zoomed so the window
+  const zoomable = hourWindow < 24;
+  // A past/future day has no meaningful "now" to live-follow, so it always
+  // renders in "custom" mode (starting at whatever `customOffsetMs` already
+  // is, i.e. midnight until the user moves it) regardless of the stored
+  // `windowAnchorMode` - that state only actually takes effect once the user
+  // is back on today's own view.
+  const effectiveAnchorMode: "live" | "custom" =
+    windowAnchorMode === "live" && isToday ? "live" : "custom";
+  const isLiveZoom = zoomable && effectiveAnchorMode === "live";
+
+  // Forces a re-render every ZOOM_REFRESH_MS while live-zoomed so the window
   // keeps re-anchoring to the real current time instead of freezing at
-  // whatever moment the zoom was last (re)computed.
+  // whatever moment it was last (re)computed. A "custom"-anchored window
+  // needs no such refresh - its start time doesn't move on its own.
   const [, forceRefresh] = useState(0);
   useEffect(() => {
-    if (!isZoomed) return;
+    if (!isLiveZoom) return;
     const id = setInterval(() => forceRefresh((n) => n + 1), ZOOM_REFRESH_MS);
     return () => clearInterval(id);
-  }, [isZoomed]);
+  }, [isLiveZoom]);
 
   // The visible time range this render actually covers - the full day
-  // unless today's view is zoomed, in which case it's `hourWindow` hours
-  // behind "now" plus `FUTURE_PAD_MS` ahead, clamped to this day's own
-  // bounds (never bleeding into yesterday/tomorrow). All positioning below
-  // (blocks, hour/quarter ticks, the now-line, container height) is
-  // relative to THIS range, not always the full day.
-  const windowStartMs = isZoomed
-    ? Math.max(dayStart, Date.now() - hourWindow * 60 * 60_000)
-    : dayStart;
-  const windowEndMs = isZoomed ? Math.min(dayEnd, Date.now() + FUTURE_PAD_MS) : dayEnd;
+  // unless zoomed, in which case it's `hourWindow` hours starting from
+  // either "now minus hourWindow" (live) or the user's own chosen start time
+  // (custom), clamped to this day's own bounds (never bleeding into
+  // yesterday/tomorrow). All positioning below (blocks, hour/quarter ticks,
+  // the now-line, container height) is relative to THIS range, not always
+  // the full day.
+  // The latest legal window start - exactly `hourWindow` hours before this
+  // day's own end - shared by the custom-window clamp below and the
+  // start-time stepper's own "already at the end" disabled state.
+  const maxWindowStartMs = dayEnd - hourWindow * HOUR_MS;
+  let windowStartMs: number;
+  let windowEndMs: number;
+  if (!zoomable) {
+    windowStartMs = dayStart;
+    windowEndMs = dayEnd;
+  } else if (isLiveZoom) {
+    windowStartMs = Math.max(dayStart, Date.now() - hourWindow * HOUR_MS);
+    windowEndMs = Math.min(dayEnd, Date.now() + FUTURE_PAD_MS);
+  } else {
+    // Clamped so the window never starts before midnight or spills past it.
+    windowStartMs = Math.min(Math.max(dayStart + customOffsetMs, dayStart), maxWindowStartMs);
+    windowEndMs = windowStartMs + hourWindow * HOUR_MS;
+  }
   const windowMs = windowEndMs - windowStartMs;
 
   // Tells a caller what this calendar is actually showing right now, so its
   // own numbers (FocusReportBody's stat tiles) can scope to the zoom instead
   // of always reflecting the full fetched report. Fires on every window
-  // change (zoom option, day-nav, the periodic re-anchor while zoomed).
+  // change (zoom option, day-nav, start-time move, the periodic re-anchor
+  // while live).
   useEffect(() => {
-    onVisibleWindowChange?.(isZoomed ? { startMs: windowStartMs, endMs: windowEndMs } : null);
+    onVisibleWindowChange?.(zoomable ? { startMs: windowStartMs, endMs: windowEndMs } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isZoomed, windowStartMs, windowEndMs]);
+  }, [zoomable, windowStartMs, windowEndMs]);
 
   // Unmount-only counterpart to the effect above - a caller must never hold
   // onto a stale visible window once this component stops rendering at all
@@ -465,6 +535,85 @@ export function FocusCalendarView({
     return () => onVisibleWindowChange?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "HH:MM" (24h, zero-padded) rendering of the window's own current start
+  // time relative to this day's midnight - drives the start-time `<input
+  // type="time">`'s value whether the window is live or custom, so the
+  // control always shows what's actually on screen right now.
+  const windowStartTimeValue = useMemo(() => {
+    const totalMin = Math.round((windowStartMs - dayStart) / 60_000);
+    const hh = Math.floor(totalMin / 60)
+      .toString()
+      .padStart(2, "0");
+    const mm = (totalMin % 60).toString().padStart(2, "0");
+    return `${hh}:${mm}`;
+  }, [windowStartMs, dayStart]);
+
+  // Pages the window backward/forward by its own `hourWindow` size, clamped
+  // to this day's bounds - switches to "custom" anchoring since the result
+  // is now an explicit pick, not "now".
+  const stepWindowStart = useCallback(
+    (deltaHours: number) => {
+      const newOffset = Math.min(
+        Math.max(windowStartMs - dayStart + deltaHours * HOUR_MS, 0),
+        maxWindowStartMs - dayStart
+      );
+      setCustomOffsetMs(newOffset);
+      setWindowAnchorMode("custom");
+    },
+    [windowStartMs, dayStart, maxWindowStartMs]
+  );
+
+  const handleWindowStartInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const [hh, mm] = e.target.value.split(":");
+    const hours = Number(hh);
+    const minutes = Number(mm);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return; // input mid-edit/cleared
+    setCustomOffsetMs(hours * HOUR_MS + minutes * 60_000);
+    setWindowAnchorMode("custom");
+  }, []);
+
+  // Jumps straight to a quick-start preset (see `quickStartOptions` below) -
+  // same "explicit pick -> custom anchoring" behavior as the stepper/typed
+  // input, just a different source for the offset.
+  const handleQuickStartClick = useCallback((offsetMs: number) => {
+    setCustomOffsetMs(offsetMs);
+    setWindowAnchorMode("custom");
+  }, []);
+
+  // Every QUICK_START_STEP_HOURS-aligned start time from midnight up to the
+  // latest legal window start for the current `hourWindow` size (a 4h window
+  // -> 12am/4am/8am/12pm/4pm/8pm; an 8h window stops at 4pm). Available on
+  // any day, zoomed or not - empty (renders nothing) once unzoomed, since a
+  // 24h window IS the day and has no separate start to offer presets for.
+  const quickStartOptions = useMemo(() => {
+    if (!zoomable) return [];
+    const stepMs = QUICK_START_STEP_HOURS * HOUR_MS;
+    const lastOffset = maxWindowStartMs - dayStart;
+    const options: number[] = [];
+    for (let offset = 0; offset <= lastOffset; offset += stepMs) {
+      options.push(offset);
+    }
+    return options;
+  }, [zoomable, maxWindowStartMs, dayStart]);
+
+  // On-the-hour locale label for a quick-start offset (e.g. "12 AM", "4 PM")
+  // - every preset lands exactly on the hour by construction, so this needs
+  // no minutes component, unlike `windowStartTimeValue` above.
+  const quickStartLabel = useCallback(
+    (offsetMs: number) =>
+      new Date(dayStart + offsetMs).toLocaleTimeString(getCurrentLocale(), { hour: "numeric" }),
+    [dayStart]
+  );
+
+  // Whether the window ACTUALLY on screen right now starts after the real
+  // current time - only possible on today's own view (a past/future day's
+  // "now" comparison would be meaningless) - regardless of how that start
+  // was picked (a quick-start preset, the stepper, or the typed input).
+  // Drives the persistent warning banner below the start-time controls: a
+  // window like this will render the empty state, since nothing has
+  // happened there yet.
+  const windowIsFuture = isToday && windowStartMs > Date.now();
 
   // Keyed off `report.sessions`' own order (stable per fetch, not just
   // per-day-visible order) so a session keeps the same strip color across
@@ -679,11 +828,9 @@ export function FocusCalendarView({
         )}
         {/* Hour-window zoom - always shown regardless of `hideDateNav`
             (board mode wants it too), pushed to the far right independent
-            of whatever else this row renders. Only actually narrows
-            anything on today's view (`isZoomed`) - selecting a zoom size on
-            a past/future day just sets the preference for whenever the
-            user does land back on today, per DEFAULT_HOUR_WINDOW's own
-            "resets to today's default on remount, not persisted" scope. */}
+            of whatever else this row renders. Narrows the view on ANY day
+            (not just today) - see `zoomable` and the start-time row below,
+            which picks WHERE in the day that window sits. */}
         <div
           role="group"
           aria-label={t("report.calendar.hourWindow.groupLabel")}
@@ -711,6 +858,118 @@ export function FocusCalendarView({
           ))}
         </div>
       </div>
+
+      {/* Start-time control for the hour-window zoom - only meaningful once
+          zoomed (a 24h window IS the day, no separate start to pick). The
+          stepper pages by the window's own size; the time input jumps
+          straight to an exact start; "Live" (today only) snaps back to
+          following the current time instead of a frozen custom start. */}
+      {zoomable && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            role="group"
+            aria-label={t("report.calendar.windowStart.groupLabel")}
+            className="flex items-center gap-1"
+          >
+            <button
+              type="button"
+              onClick={() => stepWindowStart(-hourWindow)}
+              disabled={windowStartMs <= dayStart}
+              title={t("report.calendar.windowStart.prevBlock")}
+              className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <input
+              type="time"
+              value={windowStartTimeValue}
+              onChange={handleWindowStartInputChange}
+              aria-label={t("report.calendar.windowStart.inputLabel")}
+              className="px-1.5 py-0.5 text-[11px] font-mono rounded-md bg-surface-2 border border-border text-gray-200"
+            />
+            <span className="text-[10px] text-gray-500">–</span>
+            <span className="text-[11px] font-mono text-gray-400">
+              {formatTime(new Date(windowEndMs).toISOString())}
+            </span>
+            <button
+              type="button"
+              onClick={() => stepWindowStart(hourWindow)}
+              disabled={windowStartMs >= maxWindowStartMs}
+              title={t("report.calendar.windowStart.nextBlock")}
+              className="p-1 rounded text-gray-400 hover:text-gray-100 hover:bg-surface-2 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {isToday && (
+            <button
+              type="button"
+              onClick={() => setWindowAnchorMode("live")}
+              aria-pressed={effectiveAnchorMode === "live"}
+              title={t("report.calendar.windowStart.liveTitle")}
+              className={`px-2 py-0.5 text-[10px] font-semibold rounded-full transition-colors ${
+                effectiveAnchorMode === "live"
+                  ? "bg-accent text-white"
+                  : "text-gray-400 hover:bg-surface-2 hover:text-gray-200 border border-border"
+              }`}
+            >
+              {t("report.calendar.windowStart.live")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Quick-start presets - every QUICK_START_STEP_HOURS-aligned start
+          time from midnight up to the latest legal start for this window
+          size (see `quickStartOptions`). Available on any day, today
+          included - a custom start is just as meaningful while following
+          "live" is still an option. A preset landing after the real current
+          time is styled amber (still clickable, just a heads-up) rather than
+          disabled, since the same preset becomes meaningful again once "now"
+          catches up to it. */}
+      {zoomable && quickStartOptions.length > 0 && (
+        <div
+          role="group"
+          aria-label={t("report.calendar.windowStart.quickStart.groupLabel")}
+          className="flex items-center gap-1 flex-wrap"
+        >
+          {quickStartOptions.map((offset) => {
+            const isActive =
+              effectiveAnchorMode === "custom" && windowStartMs - dayStart === offset;
+            const isFutureOption = isToday && dayStart + offset > Date.now();
+            const label = quickStartLabel(offset);
+            return (
+              <button
+                key={offset}
+                type="button"
+                onClick={() => handleQuickStartClick(offset)}
+                aria-pressed={isActive}
+                title={
+                  isFutureOption
+                    ? t("report.calendar.windowStart.quickStart.futureOptionTitle", { time: label })
+                    : t("report.calendar.windowStart.quickStart.optionTitle", { time: label })
+                }
+                className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors ${
+                  isActive
+                    ? "bg-accent text-white"
+                    : isFutureOption
+                      ? "text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-300"
+                      : "text-gray-400 hover:bg-surface-2 hover:text-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {windowIsFuture && (
+        <div className="flex items-center gap-1.5 text-[11px] text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-md px-2 py-1">
+          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+          {t("report.calendar.windowStart.futureWarning")}
+        </div>
+      )}
 
       {lanes.length === 0 && scratchBundles.length === 0 ? (
         <p className="text-xs text-gray-500 italic py-10 text-center">
@@ -927,8 +1186,20 @@ export function FocusCalendarView({
                         <div
                           key={si}
                           data-testid="idle-stripe"
-                          className="absolute left-[26px] right-0 bg-stone-100/60"
-                          style={{ top: `${stripe.offsetPct}%`, height: `${stripe.spanPct}%` }}
+                          className="absolute left-[26px] right-0"
+                          style={{
+                            top: `${stripe.offsetPct}%`,
+                            height: `${stripe.spanPct}%`,
+                            // A soft left-to-right fade rather than a solid
+                            // fill - stays transparent through the card's
+                            // left half (so the kind color and text read
+                            // through clearly) and only turns visible,
+                            // faintly, toward the right edge. Reads as a
+                            // subtle idle accent instead of a block sitting
+                            // on top of the card.
+                            background:
+                              "linear-gradient(to right, transparent 0%, transparent 50%, rgba(245, 245, 244, 0.3) 100%)",
+                          }}
                         />
                       ))}
                       {/* Exactly two lines of always-visible card text: the
@@ -998,7 +1269,13 @@ export function FocusCalendarView({
             </span>
           ))}
           <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
-            <span className="w-2 h-2 rounded-sm flex-shrink-0 bg-stone-100/60" />
+            <span
+              className="w-2 h-2 rounded-sm flex-shrink-0"
+              style={{
+                background:
+                  "linear-gradient(to right, transparent 0%, transparent 50%, rgba(245, 245, 244, 0.3) 100%)",
+              }}
+            />
             {t("report.calendar.idle")}
           </span>
           {scratchBundles.length > 0 && (

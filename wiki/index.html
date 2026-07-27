@@ -1184,10 +1184,22 @@
                     that simple navigation only; Week/Month zoom and an aggregate time-range
                     selector (3d/7d/30d/All) are future work. The report's stat tiles also gained a
                     <strong>Concurrency</strong> tile (e.g. "1.08x", effort time ÷ wall-clock time),
-                    and the "Active time" tile's wall-clock sub-label now reflects the real
+                    and the "Total agent time" tile's wall-clock sub-label now reflects the real
                     union-based wall-clock span instead of a misleading per-segment sum, so effort
                     time (which inflates with overlapping sessions) and true wall-clock time read
                     as two distinct, honest numbers.
+                  </p>
+                  <p>
+                    A standalone <strong>Focus</strong> page (route <code>/focus</code>, in the
+                    sidebar right after <strong>Calendar</strong>) turns the same focus-time data
+                    into a stakeholder-readable activity report instead of a calendar grid. It
+                    shares the Calendar board's own project chips, session dropdown, and
+                    time-period picker, then swaps the swimlane for stat tiles plus a new activity
+                    list — one row per plan item, detour, bug, feature, or unclassified time
+                    bucket, each with a kind-colored chip and a wall/active time figure, and, for
+                    entries the background classifier inferred rather than a live declaration, its
+                    one-sentence reason. It needed no backend changes at all, reusing the existing
+                    <code>GET /api/focus-report</code> endpoint exactly as the Calendar board does.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -7103,7 +7115,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=54" defer></script>
+    <script src="i18n-content.js?v=56" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

@@ -39,16 +39,24 @@
  * one whole-session segment flagged `inferred: true` — declared history is
  * ground truth and is never mixed with or overwritten by inference.
  *
- * A session with neither — no declared Focus events AND no usable inference
- * yet (never classified, its cwd has no plan, or the classifier came back
+ * A session with neither — no declared Focus events AND no usable item/detour
+ * inference (never classified yet, or the classifier came back
  * 'unclassified') — still gets one whole-session segment, kind `NONE_KIND`
  * ("none"), rather than being dropped from the report (see
- * {@link noFocusSegment}). This matters most for a session that's currently
- * running: the background classifier only classifies a session once it's
- * ended or quiet for QUIET_MS (focus-inference.js), so a live, undeclared
- * session would otherwise be invisible on the calendar/list until it goes
- * quiet or ends. `NONE_KIND` segments carry no real kind to attribute time
- * to, so they're excluded from `totals.by_kind`/the per-item rollup (see
+ * {@link noFocusSegment}). An 'unclassified' verdict that still carries a
+ * plain-English `reason` (a low-confidence miss in a planned project, or the
+ * one-sentence activity summary a plan-less project's session gets instead —
+ * see focus-inference.js's `llmSummarize`) is NOT bare: its `NONE_KIND`
+ * segment carries `inferred: true` and that `reason`, same as an item/detour
+ * inference does, via {@link inferredSegment} — only a session with no
+ * usable inference AT ALL (never classified, or 'unclassified' with nothing
+ * to say) falls all the way through to the bare {@link noFocusSegment}.
+ * This matters most for a session that's currently running: the background
+ * classifier only classifies a session once it's ended or quiet for
+ * QUIET_MS (focus-inference.js), so a live, undeclared session would
+ * otherwise be invisible on the calendar/list until it goes quiet or ends.
+ * `NONE_KIND` segments carry no real kind to attribute time to, so they're
+ * excluded from `totals.by_kind`/the per-item rollup (see
  * {@link addToTotals}) but DO count toward the aggregate `totals.wall_ms`/
  * `active_ms`/`idle_ms` and the project's wall-clock/concurrency figures,
  * same as any other segment.
@@ -266,10 +274,15 @@ function resolveSessionStart(dbModule, session) {
  * focus-inference.js) into one synthetic segment spanning the session. The
  * inference stores the plan item's stable item_id; it resolves to the item's
  * CURRENT display number here, at read time, so a plan reorder between
- * inference and report can't mis-bucket the time. Returns null when there is
- * no usable inference ('unclassified' rows, or none recorded yet, fall
- * through to {@link noFocusSegment} instead of staying an honest hole in the
- * report). Declared Focus events always win — this is only consulted when
+ * inference and report can't mis-bucket the time. A 'unclassified' row still
+ * produces a segment — `NONE_KIND`, no label, but `inferred: true` with
+ * whatever plain-English `reason` the classifier wrote (a low-confidence miss
+ * in a planned project, or a plan-less project's one-sentence activity
+ * summary — see focus-inference.js's `llmSummarize`) — rather than silently
+ * discarding real signal the classifier already produced. Returns null only
+ * when there's no row at all, or an 'unclassified' row with no reason to
+ * show (nothing worth surfacing over the bare {@link noFocusSegment}
+ * fallback). Declared Focus events always win — this is only consulted when
  * there are none.
  */
 function inferredSegment(dbModule, session, endAt) {
@@ -279,7 +292,7 @@ function inferredSegment(dbModule, session, endAt) {
   } catch {
     return null;
   }
-  if (!row || row.kind === "unclassified") return null;
+  if (!row) return null;
 
   const start = resolveSessionStart(dbModule, session);
   if (!start) return null;
@@ -306,6 +319,17 @@ function inferredSegment(dbModule, session, endAt) {
       end: endAt,
       inferred: true,
       inferredReason: row.reason || null,
+    };
+  }
+  if (row.kind === "unclassified" && row.reason) {
+    return {
+      kind: NONE_KIND,
+      label: null,
+      item_number: null,
+      start,
+      end: endAt,
+      inferred: true,
+      inferredReason: row.reason,
     };
   }
   return null;

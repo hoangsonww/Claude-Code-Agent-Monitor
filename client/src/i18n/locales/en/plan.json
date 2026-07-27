@@ -44,14 +44,15 @@
     "loading": "Crunching the numbers…",
     "error": "Couldn't load the focus report",
     "empty": "No focus history yet for this project's sessions",
-    "activeTime": "Active time",
+    "activeTime": "Total active agent time",
     "ofWallClock": "of {{total}} wall-clock",
     "concurrency": "Concurrency",
     "concurrencyTitle": "Effort time ÷ wall-clock time — how many sessions' worth of work happened per hour on average. 1.00x means no overlap.",
     "onItem": "On declared item",
     "offPlan": "Off-plan (detours)",
-    "idleExcluded": "Idle excluded",
-    "graceNote": "Gaps longer than {{grace}} with no activity aren't counted as active time",
+    "idleExcluded": "Total idle agent time",
+    "idleExcludedSub": "excluded from total active agent time",
+    "graceNote": "Gaps longer than {{grace}} with no activity aren't counted as agent time",
     "graceDisabled": "disabled — full wall-clock counts",
     "windowScopedNote": "Stats reflect the visible {{hours}}h window, not the full day",
     "sessionsHeading": "Per-session breakdown",
@@ -62,7 +63,7 @@
     "viewList": "List",
     "viewCalendar": "Calendar",
     "wallClockLabel": "Wall clock",
-    "activeLabel": "Agent time",
+    "activeLabel": "Total agent time",
     "calendar": {
       "prevDay": "Previous day",
       "today": "Today",
@@ -80,6 +81,20 @@
         "option": "{{hours}}h",
         "optionTitle": "Show the last {{hours}} hours, plus 2 hours ahead",
         "fullDayTitle": "Show the full day"
+      },
+      "windowStart": {
+        "groupLabel": "Window start",
+        "inputLabel": "Window start time",
+        "prevBlock": "Show the previous block",
+        "nextBlock": "Show the next block",
+        "live": "Live",
+        "liveTitle": "Follow the current time instead of a fixed start",
+        "quickStart": {
+          "groupLabel": "Quick start",
+          "optionTitle": "Start the window at {{time}}",
+          "futureOptionTitle": "Start the window at {{time}} — this is in the future, so it will show no data yet"
+        },
+        "futureWarning": "This range is in the future — no data will show here yet."
       },
       "scratchWork": {
         "title": "Scratch Work",
@@ -108,6 +123,12 @@
       "from": "From",
       "to": "To",
       "concurrentSessions": "Concurrent agent sessions"
+    },
+    "activityBoard": {
+      "title": "Focus",
+      "showFewer": "Show fewer",
+      "moreContributions_one": "+{{count}} more session",
+      "moreContributions_other": "+{{count}} more sessions"
     }
   }
 }

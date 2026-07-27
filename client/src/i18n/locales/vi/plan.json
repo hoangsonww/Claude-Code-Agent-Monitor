@@ -44,14 +44,15 @@
     "loading": "Đang tính toán…",
     "error": "Không thể tải báo cáo tiêu điểm",
     "empty": "Chưa có lịch sử tiêu điểm cho các phiên của dự án này",
-    "activeTime": "Thời gian hoạt động",
+    "activeTime": "Tổng thời gian tác nhân hoạt động",
     "ofWallClock": "trên tổng {{total}} theo đồng hồ thực",
     "concurrency": "Mức đồng thời",
     "concurrencyTitle": "Thời gian nỗ lực ÷ thời gian theo đồng hồ thực — trung bình mỗi giờ tương đương bao nhiêu phiên làm việc. 1.00x nghĩa là không chồng lấn.",
     "onItem": "Trên mục đã khai báo",
     "offPlan": "Ngoài kế hoạch (rẽ hướng)",
-    "idleExcluded": "Đã loại trừ thời gian rảnh",
-    "graceNote": "Khoảng lặng dài hơn {{grace}} không hoạt động sẽ không được tính là thời gian hoạt động",
+    "idleExcluded": "Tổng thời gian tác nhân rảnh",
+    "idleExcludedSub": "loại trừ khỏi tổng thời gian tác nhân hoạt động",
+    "graceNote": "Khoảng lặng dài hơn {{grace}} không hoạt động sẽ không được tính là thời gian tác nhân",
     "graceDisabled": "đã tắt — tính toàn bộ thời gian theo đồng hồ thực",
     "windowScopedNote": "Số liệu phản ánh khung {{hours}} giờ đang hiển thị, không phải cả ngày",
     "sessionsHeading": "Chi tiết theo từng phiên",
@@ -62,7 +63,7 @@
     "viewList": "Danh sách",
     "viewCalendar": "Lịch",
     "wallClockLabel": "Thời gian thực",
-    "activeLabel": "Thời gian tác nhân",
+    "activeLabel": "Tổng thời gian tác nhân",
     "calendar": {
       "prevDay": "Ngày trước",
       "today": "Hôm nay",
@@ -78,6 +79,20 @@
         "option": "{{hours}} giờ",
         "optionTitle": "Hiển thị {{hours}} giờ gần nhất, cộng thêm 2 giờ sắp tới",
         "fullDayTitle": "Hiển thị cả ngày"
+      },
+      "windowStart": {
+        "groupLabel": "Bắt đầu khung xem",
+        "inputLabel": "Giờ bắt đầu khung xem",
+        "prevBlock": "Xem khung trước đó",
+        "nextBlock": "Xem khung tiếp theo",
+        "live": "Trực tiếp",
+        "liveTitle": "Theo dõi thời gian hiện tại thay vì một giờ bắt đầu cố định",
+        "quickStart": {
+          "groupLabel": "Bắt đầu nhanh",
+          "optionTitle": "Bắt đầu khung xem lúc {{time}}",
+          "futureOptionTitle": "Bắt đầu khung xem lúc {{time}} — đây là thời điểm trong tương lai nên sẽ chưa có dữ liệu"
+        },
+        "futureWarning": "Khung thời gian này nằm trong tương lai — sẽ chưa có dữ liệu để hiển thị."
       },
       "scratchWork": {
         "title": "Công việc tạm",
@@ -108,6 +123,12 @@
       "from": "Từ",
       "to": "Đến",
       "concurrentSessions": "Phiên tác tử đồng thời"
+    },
+    "activityBoard": {
+      "title": "Tiêu điểm",
+      "showFewer": "Ẩn bớt",
+      "moreContributions_one": "+{{count}} phiên khác",
+      "moreContributions_other": "+{{count}} phiên khác"
     }
   }
 }

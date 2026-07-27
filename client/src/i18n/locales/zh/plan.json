@@ -44,14 +44,15 @@
     "loading": "正在计算…",
     "error": "无法加载焦点报告",
     "empty": "该项目的会话尚无焦点历史",
-    "activeTime": "活跃时间",
+    "activeTime": "总活跃代理时间",
     "ofWallClock": "占总计 {{total}} 实际时长",
     "concurrency": "并发度",
     "concurrencyTitle": "投入时间 ÷ 实际时长 —— 平均每小时相当于多少个会话的工作量。1.00x 表示没有重叠。",
     "onItem": "在已声明条目上",
     "offPlan": "计划外（绕行）",
-    "idleExcluded": "已排除的空闲时间",
-    "graceNote": "超过 {{grace}} 且无活动的间隔不计入活跃时间",
+    "idleExcluded": "总空闲代理时间",
+    "idleExcludedSub": "已从总活跃代理时间中排除",
+    "graceNote": "超过 {{grace}} 且无活动的间隔不计入代理时间",
     "graceDisabled": "已禁用 — 计入全部实际时长",
     "windowScopedNote": "统计数据反映当前显示的 {{hours}} 小时窗口，而非全天",
     "sessionsHeading": "逐会话明细",
@@ -62,7 +63,7 @@
     "viewList": "列表",
     "viewCalendar": "日历",
     "wallClockLabel": "实际经过时间",
-    "activeLabel": "代理时间",
+    "activeLabel": "总代理时间",
     "calendar": {
       "prevDay": "前一天",
       "today": "今天",
@@ -78,6 +79,20 @@
         "option": "{{hours}}小时",
         "optionTitle": "显示最近 {{hours}} 小时，外加未来 2 小时",
         "fullDayTitle": "显示全天"
+      },
+      "windowStart": {
+        "groupLabel": "窗口开始",
+        "inputLabel": "窗口开始时间",
+        "prevBlock": "查看上一个时间段",
+        "nextBlock": "查看下一个时间段",
+        "live": "实时",
+        "liveTitle": "跟随当前时间，而不是固定的开始时间",
+        "quickStart": {
+          "groupLabel": "快速开始",
+          "optionTitle": "从 {{time}} 开始窗口",
+          "futureOptionTitle": "从 {{time}} 开始窗口 — 这是未来时间，暂时不会显示任何数据"
+        },
+        "futureWarning": "该时间段位于未来 — 暂时不会显示任何数据。"
       },
       "scratchWork": {
         "title": "临时工作",
@@ -108,6 +123,12 @@
       "from": "起始",
       "to": "结束",
       "concurrentSessions": "并发代理会话"
+    },
+    "activityBoard": {
+      "title": "专注",
+      "showFewer": "收起",
+      "moreContributions_one": "还有 {{count}} 个会话",
+      "moreContributions_other": "还有 {{count}} 个会话"
     }
   }
 }

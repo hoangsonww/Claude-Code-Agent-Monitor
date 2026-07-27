@@ -1,10 +1,12 @@
 /**
  * Tests for server/lib/focus-inference.js — activity digest building, the
- * conservative heuristic item matcher, LLM output parsing, candidate
- * selection (plan-bearing cwd, zero Focus events, ended-or-quiet, stale
- * inference), verdict persistence, and the focus-report fallback that turns
- * an inference row into a whole-session `inferred: true` segment while
- * declared Focus history always wins.
+ * conservative heuristic item matcher, LLM output parsing, the plan-less
+ * plain-summary prompt/parse pair, candidate selection (zero Focus events,
+ * ended-or-quiet, stale inference — now including plan-less cwds), verdict
+ * persistence, and the focus-report fallback that turns an inference row
+ * into a whole-session `inferred: true` segment (including a reasoned
+ * 'unclassified' verdict, not just item/detour) while declared Focus history
+ * always wins.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -30,6 +32,8 @@ const {
   buildActivityDigest,
   heuristicClassify,
   parseLlmOutput,
+  buildSummaryPrompt,
+  parseSummaryOutput,
   __injectSpawnForTest,
 } = require("../lib/focus-inference");
 const { buildSessionFocusReport } = require("../lib/focus-report");
@@ -250,6 +254,37 @@ describe("parseLlmOutput", () => {
   });
 });
 
+describe("buildSummaryPrompt / parseSummaryOutput", () => {
+  it("builds a prompt with no item list, asking only for a one-sentence summary", () => {
+    const prompt = buildSummaryPrompt({
+      prompts: ["fix the flaky test"],
+      files: ["/repo/src/a.ts"],
+      commands: ["npm test"],
+    });
+    assert.match(prompt, /no tracked plan items/);
+    assert.match(prompt, /one plain sentence/);
+    assert.ok(!/item_number/.test(prompt)); // never asks for item matching
+  });
+
+  it("accepts any non-empty summary regardless of confidence (no gate)", () => {
+    const out = parseSummaryOutput(
+      envelope({ summary: "Fixed a flaky CI test.", confidence: 0.1 })
+    );
+    assert.equal(out.kind, "unclassified");
+    assert.equal(out.reason, "Fixed a flaky CI test.");
+    assert.equal(out.method, "llm");
+  });
+
+  it("returns null for an empty or missing summary", () => {
+    assert.equal(parseSummaryOutput(envelope({ summary: "" })), null);
+    assert.equal(parseSummaryOutput(envelope({})), null);
+  });
+
+  it("returns null on garbage output", () => {
+    assert.equal(parseSummaryOutput("not json"), null);
+  });
+});
+
 describe("listCandidates", () => {
   it("selects an ended, never-inferred session with activity and no Focus events", () => {
     const id = nextId("cand");
@@ -319,12 +354,12 @@ describe("listCandidates", () => {
     );
   });
 
-  it("excludes sessions in a cwd with no ingested plan", () => {
+  it("includes sessions in a cwd with no ingested plan too (classified via the plain-summary path)", () => {
     const id = nextId("cand");
     seedSession(id, { cwd: "/tmp/no-plan-here", endedAt: new Date().toISOString() });
     addPrompt(id, "hello");
     const ids = listCandidates(dbModule, 50).map((r) => r.id);
-    assert.ok(!ids.includes(id));
+    assert.ok(ids.includes(id));
   });
 });
 
@@ -374,6 +409,51 @@ describe("inferSession", () => {
     await inferSession(dbModule, { id, cwd: CWD }, "heuristic");
     const row = stmts.getFocusInference.get(id);
     assert.equal(row.kind, "unclassified");
+  });
+
+  const NO_PLAN_CWD = "/tmp/no-plan-here";
+
+  it("summarizes a plan-less cwd's session via the LLM instead of matching items", async () => {
+    const id = nextId("infer");
+    seedSession(id, { cwd: NO_PLAN_CWD, endedAt: new Date().toISOString() });
+    addBash(id, "npm run build");
+    addFileEdit(id, "/repo/src/build-config.ts");
+    __injectSpawnForTest(
+      fakeSpawn({ stdout: envelope({ summary: "Reworked the build configuration." }) })
+    );
+
+    await inferSession(dbModule, { id, cwd: NO_PLAN_CWD }, "llm");
+    const row = stmts.getFocusInference.get(id);
+    assert.equal(row.kind, "unclassified");
+    assert.equal(row.item_id, null);
+    assert.equal(row.reason, "Reworked the build configuration.");
+    assert.equal(row.method, "llm");
+  });
+
+  it("still writes a (reason-less) row for a plan-less cwd when the LLM is unavailable, so it isn't retried forever", async () => {
+    const id = nextId("infer");
+    seedSession(id, { cwd: NO_PLAN_CWD, endedAt: new Date().toISOString() });
+    addBash(id, "npm run build");
+    __injectSpawnForTest(fakeSpawn({ exitCode: 1 })); // `claude --version` fails -> unavailable
+
+    await inferSession(dbModule, { id, cwd: NO_PLAN_CWD }, "llm");
+    const row = stmts.getFocusInference.get(id);
+    assert.equal(row.kind, "unclassified");
+    assert.equal(row.reason, null);
+  });
+
+  it("never spawns for a plan-less cwd in heuristic mode (nothing to keyword-match against)", async () => {
+    const id = nextId("infer");
+    seedSession(id, { cwd: NO_PLAN_CWD, endedAt: new Date().toISOString() });
+    addBash(id, "npm run build");
+    __injectSpawnForTest(() => {
+      throw new Error("should not spawn in heuristic mode");
+    });
+
+    await inferSession(dbModule, { id, cwd: NO_PLAN_CWD }, "heuristic");
+    const row = stmts.getFocusInference.get(id);
+    assert.equal(row.kind, "unclassified");
+    assert.equal(row.reason, null);
   });
 });
 
@@ -445,7 +525,7 @@ describe("focus-report inference fallback", () => {
     assert.equal(report.segments[0].inferred_reason, "no item covers CI");
   });
 
-  it("falls back to a NONE_KIND segment for an unclassified session rather than leaving it an honest hole", () => {
+  it("carries a reasoned 'unclassified' verdict through as an inferred NONE_KIND segment rather than dropping it", () => {
     const id = nextId("report");
     seedSession(id, { endedAt: new Date().toISOString() });
     stmts.upsertFocusInference.run(id, CWD, "unclassified", null, null, null, "heuristic", "r");
@@ -458,7 +538,25 @@ describe("focus-report inference fallback", () => {
     });
     assert.equal(report.segments.length, 1);
     assert.equal(report.segments[0].kind, "none");
+    assert.equal(report.segments[0].inferred, true);
+    assert.equal(report.segments[0].inferred_reason, "r");
+  });
+
+  it("falls back to a bare, reason-less NONE_KIND segment when the unclassified verdict has nothing to say", () => {
+    const id = nextId("report");
+    seedSession(id, { endedAt: new Date().toISOString() });
+    stmts.upsertFocusInference.run(id, CWD, "unclassified", null, null, null, "heuristic", null);
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Infer Test",
+      cwd: CWD,
+      started_at: new Date().toISOString(),
+      ended_at: new Date().toISOString(),
+    });
+    assert.equal(report.segments.length, 1);
+    assert.equal(report.segments[0].kind, "none");
     assert.equal(report.segments[0].inferred, false);
+    assert.equal(report.segments[0].inferred_reason, null);
   });
 
   it("never consults inference when declared Focus history exists", () => {

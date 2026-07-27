@@ -461,6 +461,7 @@ import { Projects } from "../Projects";
 // below. See red-evidence.md - that cascading failure is expected and is not
 // itself evidence those two pages' own rendering changed.
 import { FocusCalendarBoard } from "../FocusCalendarBoard";
+import { FocusPage } from "../FocusPage";
 import { KanbanBoard } from "../KanbanBoard";
 import { Sessions } from "../Sessions";
 import { SessionDetail } from "../SessionDetail";
@@ -550,6 +551,11 @@ describe("screen snapshots", () => {
   // (mirrors the sidebar's Calendar-right-after-Projects placement).
   it("Focus calendar board", async () => {
     await snapshot(<FocusCalendarBoard />, "/focus-calendar");
+  });
+  // Right after the Calendar board, per the sidebar's own Focus-right-
+  // after-Calendar placement (Sidebar.tsx NAV_KEYS).
+  it("Focus", async () => {
+    await snapshot(<FocusPage />, "/focus");
   });
   it("Kanban board", async () => {
     await snapshot(<KanbanBoard />, "/kanban");

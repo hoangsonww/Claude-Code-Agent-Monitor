@@ -62,6 +62,7 @@ import type { FocusKind, FocusKindTotals, FocusReport, FocusReportSegment } from
 import { idleStripesInRange } from "../lib/idleStripes";
 import { computeWindowedTotals } from "../lib/windowedTotals";
 import { FocusCalendarView } from "./FocusCalendarView";
+import { StatTile } from "./StatTile";
 
 export type ViewMode = "list" | "calendar";
 
@@ -166,7 +167,11 @@ export function FocusReportBody({
           valueClassName="text-green-400"
         />
         <StatTile label={t("report.offPlan")} value={`${Math.max(0, 100 - onItemPct)}%`} />
-        <StatTile label={t("report.idleExcluded")} value={formatMs(totals.idle_ms)} />
+        <StatTile
+          label={t("report.idleExcluded")}
+          value={formatMs(totals.idle_ms)}
+          sub={t("report.idleExcludedSub")}
+        />
       </div>
       {report.idle_grace_seconds >= 0 && (
         <p className="text-[11px] text-gray-600 -mt-3">
@@ -368,34 +373,6 @@ function ListView({ report }: { report: FocusReport }) {
         </div>
       </section>
     </>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  sub,
-  valueClassName,
-  title,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  valueClassName?: string;
-  /** Native hover tooltip for a tile whose meaning isn't self-evident from
-   *  its label alone (e.g. what a bare "1.08x" ratio is actually of). */
-  title?: string;
-}) {
-  return (
-    <div className="bg-surface-1 px-3.5 py-3 flex flex-col gap-1 min-w-0" title={title}>
-      <span className="text-[10.5px] text-gray-500 truncate">{label}</span>
-      <span
-        className={`font-mono text-lg font-semibold tabular-nums ${valueClassName ?? "text-gray-100"}`}
-      >
-        {value}
-      </span>
-      {sub && <span className="text-[10.5px] text-gray-600 truncate">{sub}</span>}
-    </div>
   );
 }
 

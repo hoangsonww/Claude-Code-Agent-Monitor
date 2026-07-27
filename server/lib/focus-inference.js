@@ -7,11 +7,18 @@
  * digests a silent session's activity (user prompts, files touched, commands
  * run) and matches it against the cwd's plan items. A confident match is
  * recorded as inferred time on that item; real work matching no item becomes
- * an inferred detour with a short title; anything else stays honestly
- * 'unclassified'. Results live in the focus_inferences table (one row per
- * session) and are consumed by focus-report.js ONLY for sessions with zero
- * declared Focus segments — declarations are ground truth and are never
- * overwritten or mixed with guesses.
+ * an inferred detour with a short title; anything else stays 'unclassified' —
+ * but even then, whenever the LLM path produced a plain-English reason (a
+ * low-confidence miss, or a plan-less cwd's one-sentence activity summary,
+ * see `llmSummarize`/`buildSummaryPrompt`), that reason is kept and surfaced
+ * by focus-report.js as the session's `NONE_KIND` segment text — 'unclassified'
+ * only reads as a truly silent hole when there was nothing left to say. A cwd
+ * with NO plan at all still gets classified: there's no item list to match
+ * against, so `inferSession` skips straight to `llmSummarize` instead of
+ * `heuristicClassify`/`llmClassify`. Results live in the focus_inferences
+ * table (one row per session) and are consumed by focus-report.js ONLY for
+ * sessions with zero declared Focus segments — declarations are ground truth
+ * and are never overwritten or mixed with guesses.
  *
  * Primary classifier: a one-shot headless `claude -p` on a small model using
  * the user's existing Claude CLI auth (same hermetic spawn contract as
@@ -346,16 +353,138 @@ function llmClassify(digest, items) {
 }
 
 /**
- * Sessions worth classifying this tick: in a plan-bearing cwd, zero Focus
- * events, some real activity, ended or quiet, and either never inferred or
- * active again since the last inference.
+ * Build the classification prompt for a cwd with NO plan at all — there's no
+ * item list to match against, so unlike {@link buildPrompt} this only ever
+ * asks for a plain one-sentence description of what the session's activity
+ * accomplished.
+ */
+function buildSummaryPrompt(digest) {
+  return [
+    "A coding session ran in a project with no tracked plan items. Summarize what its activity actually accomplished, in one plain sentence.",
+    digest.prompts.length ? "USER PROMPTS:" : null,
+    ...digest.prompts.map((p) => `- ${p}`),
+    digest.files.length ? "FILES TOUCHED:" : null,
+    ...digest.files.map((f) => `- ${f}`),
+    digest.commands.length ? "COMMANDS RUN:" : null,
+    ...digest.commands.map((c) => `- ${c}`),
+    'Reply with ONLY JSON: {"summary": "<one plain sentence describing what was actually done>"}',
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 6_000);
+}
+
+/**
+ * Parse the `claude -p --output-format json` envelope into a plain-summary
+ * verdict. Unlike {@link parseLlmOutput} there is no confidence GATE — a
+ * one-sentence summary isn't a "was this the right match" decision the way
+ * item/detour attribution is, so any non-empty summary is accepted as-is.
+ * Returns null on garbage output or an empty/missing summary.
+ */
+function parseSummaryOutput(stdout) {
+  try {
+    const envelope = JSON.parse(stdout);
+    let text = typeof envelope.result === "string" ? envelope.result : stdout;
+    text = text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/```\s*$/, "")
+      .trim();
+    const verdict = JSON.parse(text);
+    const summary = typeof verdict.summary === "string" ? verdict.summary.trim() : "";
+    if (!summary) return null;
+    return {
+      kind: "unclassified",
+      item_id: null,
+      label: null,
+      confidence: typeof verdict.confidence === "number" ? verdict.confidence : null,
+      method: "llm",
+      reason: summary.slice(0, 500),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Run one LLM summarization for a plan-less cwd. Resolves a verdict or null
+ *  on any failure — mirrors {@link llmClassify}'s spawn contract exactly,
+ *  just with the summary prompt/parse pair instead of item matching. */
+function llmSummarize(digest) {
+  const timeoutMs = Number(process.env.DASHBOARD_FOCUS_INFER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
+  const model = process.env.DASHBOARD_FOCUS_INFER_MODEL || "haiku";
+  const prompt = buildSummaryPrompt(digest);
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+    };
+    let child;
+    try {
+      child = spawnImpl(
+        "claude",
+        [
+          "-p",
+          prompt,
+          "--output-format",
+          "json",
+          "--model",
+          model,
+          "--settings",
+          JSON.stringify({ disableAllHooks: true }),
+          "--disallowed-tools",
+          "*",
+        ],
+        { env: cleanEnv(), cwd: os.tmpdir(), stdio: ["ignore", "pipe", "pipe"] }
+      );
+    } catch {
+      return done(null);
+    }
+    let stdout = "";
+    child.stdout?.on("data", (c) => (stdout += c));
+    child.stderr?.resume?.();
+    const killTimer = setTimeout(() => {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        /* already gone */
+      }
+      const hardKill = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          /* already gone */
+        }
+      }, 5_000);
+      if (hardKill.unref) hardKill.unref();
+      done(null);
+    }, timeoutMs);
+    if (killTimer.unref) killTimer.unref();
+    child.on("error", () => done(null));
+    child.on("exit", (code) => {
+      clearTimeout(killTimer);
+      if (code !== 0) return done(null);
+      done(parseSummaryOutput(stdout));
+    });
+  });
+}
+
+/**
+ * Sessions worth classifying this tick: zero Focus events, some real
+ * activity, ended or quiet, and either never inferred or active again since
+ * the last inference — regardless of whether the cwd has a plan. A
+ * plan-bearing cwd goes through the existing item/detour matching in
+ * {@link inferSession}; a plan-less cwd (the `LEFT JOIN` below leaves `p`
+ * unmatched/null for it, but still selects the session) instead gets a
+ * plain one-sentence activity summary — see {@link inferSession}'s
+ * `items.length === 0` branch.
  */
 function listCandidates(dbModule, limit) {
   const quietBefore = new Date(Date.now() - QUIET_MS).toISOString();
   return dbModule.db
     .prepare(
       `SELECT s.id, s.cwd, s.updated_at FROM sessions s
-       JOIN plans p ON p.cwd = s.cwd
+       LEFT JOIN plans p ON p.cwd = s.cwd
        WHERE NOT EXISTS (
          SELECT 1 FROM events e WHERE e.session_id = s.id AND e.event_type = 'Focus'
        )
@@ -378,24 +507,44 @@ async function inferSession(dbModule, row, mode) {
   try {
     const items = dbModule.stmts.listPlanItems.all(row.cwd).filter((i) => i.item_number != null); // top-level items only: sub-items
     // have no ccam-typeable number, and declared focus targets parents too
-    if (items.length === 0) return;
 
     const digest = buildActivityDigest(dbModule, row.id);
     if (!digest) return;
 
-    let result = heuristicClassify(digest, items);
-    if (!result && mode === "llm" && (await probeClaudeCli())) {
-      result = await llmClassify(digest, items);
-    }
-    if (!result) {
-      result = {
-        kind: "unclassified",
-        item_id: null,
-        label: null,
-        confidence: null,
-        method: "heuristic",
-        reason: "no confident keyword match",
-      };
+    let result;
+    if (items.length === 0) {
+      // No plan for this cwd at all - there's nothing to match against, so
+      // skip heuristicClassify/llmClassify entirely (both require an item
+      // list) and ask for a plain one-sentence summary instead.
+      result = mode === "llm" && (await probeClaudeCli()) ? await llmSummarize(digest) : null;
+      if (!result) {
+        // Still write a row (reason: null) even when no summary could be
+        // produced, so listCandidates' "already classified" guard stops this
+        // same session from being retried every tick forever.
+        result = {
+          kind: "unclassified",
+          item_id: null,
+          label: null,
+          confidence: null,
+          method: mode === "llm" ? "llm" : "heuristic",
+          reason: null,
+        };
+      }
+    } else {
+      result = heuristicClassify(digest, items);
+      if (!result && mode === "llm" && (await probeClaudeCli())) {
+        result = await llmClassify(digest, items);
+      }
+      if (!result) {
+        result = {
+          kind: "unclassified",
+          item_id: null,
+          label: null,
+          confidence: null,
+          method: "heuristic",
+          reason: "no confident keyword match",
+        };
+      }
     }
 
     dbModule.stmts.upsertFocusInference.run(
@@ -465,6 +614,8 @@ module.exports = {
   heuristicClassify,
   buildPrompt,
   parseLlmOutput,
+  buildSummaryPrompt,
+  parseSummaryOutput,
   probeClaudeCli,
   __injectSpawnForTest,
 };

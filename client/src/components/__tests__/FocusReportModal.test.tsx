@@ -167,7 +167,7 @@ describe("FocusReportModal", () => {
     expect(screen.getByText("67%")).toBeInTheDocument();
     expect(screen.getByText("33%")).toBeInTheDocument();
     // idle_ms totals 10m, excluded from active time.
-    const idleTile = screen.getByText("Idle excluded").closest("div") as HTMLElement;
+    const idleTile = screen.getByText("Total idle agent time").closest("div") as HTMLElement;
     expect(within(idleTile).getByText("10m 0s")).toBeInTheDocument();
   });
 
@@ -182,7 +182,7 @@ describe("FocusReportModal", () => {
     await screen.findByText("Per-session breakdown");
 
     expect(screen.getByText("1.60x")).toBeInTheDocument();
-    const activeTile = screen.getByText("Active time").closest("div") as HTMLElement;
+    const activeTile = screen.getByText("Total active agent time").closest("div") as HTMLElement;
     expect(within(activeTile).getByText("of 25m 0s wall-clock")).toBeInTheDocument();
   });
 
@@ -343,7 +343,7 @@ describe("FocusReportModal", () => {
     // Calendar-specific chrome (date nav) is now showing.
     expect(screen.getByText("Today")).toBeInTheDocument();
     // Stat tiles are shared between both view modes, not re-fetched.
-    expect(screen.getByText("Active time")).toBeInTheDocument();
+    expect(screen.getByText("Total active agent time")).toBeInTheDocument();
     expect(focusReportMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByTitle("List"));
@@ -646,7 +646,7 @@ describe("FocusReportModal", () => {
       const block = screen.getByText("CrossView").closest("a") as HTMLAnchorElement;
       fireEvent.mouseEnter(block);
       expect(screen.getByText(/Wall clock: 20m 0s/)).toBeInTheDocument();
-      expect(screen.getByText(/Agent time: 10m 0s/)).toBeInTheDocument();
+      expect(screen.getByText(/Total agent time: 10m 0s/)).toBeInTheDocument();
       // Calendar's box isn't the real 09:00-09:20 span - FocusCalendarView
       // snaps it outward to the quarter-hour grid (09:00-09:30, 30 real
       // minutes) so even a short segment stays comfortably clickable. The
@@ -698,7 +698,7 @@ describe("FocusReportModal", () => {
           },
         ],
         // Kept consistent with the lone overridden session/segment above
-        // (20m wall / 10m active / 10m idle) - the "Active time" stat tile
+        // (20m wall / 10m active / 10m idle) - the "Total active agent time" stat tile
         // reads report.totals.active_ms verbatim (never re-derived from
         // segments), so an unrelated default here would silently pass a
         // stale number rather than actually exercise the tile.
@@ -733,7 +733,7 @@ describe("FocusReportModal", () => {
       // unrelated default (present regardless of hideDateNav).
       fireEvent.click(within(modalContainer).getByText("24h"));
       const modalActiveTile = within(modalContainer)
-        .getByText("Active time")
+        .getByText("Total active agent time")
         .closest("div") as HTMLElement;
       const modalActiveValue = within(modalActiveTile).getByText(/10m 0s/).textContent;
       const modalStripes = modalContainer.querySelectorAll('[data-testid="idle-stripe"]');
@@ -770,7 +770,7 @@ describe("FocusReportModal", () => {
       // Non-relabeled stat-tile numbers are identical between the two -
       // same underlying report, same segment, only chrome differs.
       const boardActiveTile = within(boardContainer)
-        .getByText("Active time")
+        .getByText("Total active agent time")
         .closest("div") as HTMLElement;
       const boardActiveValue = within(boardActiveTile).getByText(/10m 0s/).textContent;
       expect(boardActiveValue).toBe(modalActiveValue);
@@ -886,7 +886,8 @@ describe("FocusReportModal", () => {
       // match (not a substring regex) on the value span specifically, since
       // the tile's own sub-label ("of 30m 0s wall-clock") also contains this
       // string once windowed wall-clock equals windowed active time.
-      const activeTile = () => screen.getByText("Active time").closest("div") as HTMLElement;
+      const activeTile = () =>
+        screen.getByText("Total active agent time").closest("div") as HTMLElement;
       expect(within(activeTile()).getByText("30m 0s")).toBeInTheDocument();
       expect(within(activeTile()).queryByText("1h 30m")).not.toBeInTheDocument();
       // A visible cue that the tiles are scoped to the zoom, not the day -

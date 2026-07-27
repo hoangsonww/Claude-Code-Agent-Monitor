@@ -44,14 +44,15 @@
     "loading": "계산 중…",
     "error": "포커스 리포트를 불러오지 못했습니다",
     "empty": "이 프로젝트의 세션에는 아직 포커스 이력이 없습니다",
-    "activeTime": "활성 시간",
+    "activeTime": "총 활성 에이전트 시간",
     "ofWallClock": "총 {{total}} 실제 경과 시간 중",
     "concurrency": "동시성",
     "concurrencyTitle": "작업 시간 ÷ 실제 경과 시간 — 평균적으로 한 시간에 몇 세션 분량의 작업이 이루어졌는지. 1.00x는 겹침이 없다는 뜻입니다.",
     "onItem": "선언된 항목에서",
     "offPlan": "계획 외 (우회)",
-    "idleExcluded": "제외된 유휴 시간",
-    "graceNote": "{{grace}}보다 길게 활동이 없으면 활성 시간으로 계산되지 않습니다",
+    "idleExcluded": "총 유휴 에이전트 시간",
+    "idleExcludedSub": "총 활성 에이전트 시간에서 제외됨",
+    "graceNote": "{{grace}}보다 길게 활동이 없으면 에이전트 시간으로 계산되지 않습니다",
     "graceDisabled": "비활성화됨 — 전체 실제 경과 시간을 계산합니다",
     "windowScopedNote": "통계는 표시된 {{hours}}시간 구간을 기준으로 하며, 하루 전체가 아닙니다",
     "sessionsHeading": "세션별 내역",
@@ -62,7 +63,7 @@
     "viewList": "목록",
     "viewCalendar": "달력",
     "wallClockLabel": "실제 경과 시간",
-    "activeLabel": "에이전트 작업 시간",
+    "activeLabel": "총 에이전트 시간",
     "calendar": {
       "prevDay": "이전 날",
       "today": "오늘",
@@ -78,6 +79,20 @@
         "option": "{{hours}}시간",
         "optionTitle": "지난 {{hours}}시간과 앞으로 2시간을 표시합니다",
         "fullDayTitle": "하루 전체를 표시합니다"
+      },
+      "windowStart": {
+        "groupLabel": "구간 시작",
+        "inputLabel": "구간 시작 시간",
+        "prevBlock": "이전 구간 보기",
+        "nextBlock": "다음 구간 보기",
+        "live": "실시간",
+        "liveTitle": "고정된 시작 시간 대신 현재 시각을 따라갑니다",
+        "quickStart": {
+          "groupLabel": "빠른 시작",
+          "optionTitle": "{{time}}에 구간 시작",
+          "futureOptionTitle": "{{time}}에 구간 시작 — 미래 시점이라 아직 표시할 데이터가 없습니다"
+        },
+        "futureWarning": "이 구간은 미래 시점입니다 — 아직 표시할 데이터가 없습니다."
       },
       "scratchWork": {
         "title": "임시 작업",
@@ -108,6 +123,12 @@
       "from": "시작",
       "to": "종료",
       "concurrentSessions": "동시 에이전트 세션"
+    },
+    "activityBoard": {
+      "title": "포커스",
+      "showFewer": "간략히 보기",
+      "moreContributions_one": "세션 {{count}}개 더",
+      "moreContributions_other": "세션 {{count}}개 더"
     }
   }
 }

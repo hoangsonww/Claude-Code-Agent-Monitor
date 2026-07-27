@@ -73,6 +73,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { Projects } from "./pages/Projects";
 import { FocusCalendarBoard } from "./pages/FocusCalendarBoard";
+import { FocusPage } from "./pages/FocusPage";
 import { KanbanBoard } from "./pages/KanbanBoard";
 import { Sessions } from "./pages/Sessions";
 import { SessionDetail } from "./pages/SessionDetail";
@@ -110,6 +111,7 @@ export default function App() {
             <Route path="projects" element={<Projects />} />
             {/* Right after Projects, per DEC-5 - mirrors the corrected sidebar order. */}
             <Route path="focus-calendar" element={<FocusCalendarBoard />} />
+            <Route path="focus" element={<FocusPage />} />
             <Route path="kanban" element={<KanbanBoard />} />
             <Route path="sessions" element={<Sessions />} />
             <Route path="sessions/:id" element={<SessionDetail />} />
