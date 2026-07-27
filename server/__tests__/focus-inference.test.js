@@ -445,7 +445,7 @@ describe("focus-report inference fallback", () => {
     assert.equal(report.segments[0].inferred_reason, "no item covers CI");
   });
 
-  it("keeps unclassified sessions an honest hole (no segments)", () => {
+  it("falls back to a NONE_KIND segment for an unclassified session rather than leaving it an honest hole", () => {
     const id = nextId("report");
     seedSession(id, { endedAt: new Date().toISOString() });
     stmts.upsertFocusInference.run(id, CWD, "unclassified", null, null, null, "heuristic", "r");
@@ -456,7 +456,9 @@ describe("focus-report inference fallback", () => {
       started_at: new Date().toISOString(),
       ended_at: new Date().toISOString(),
     });
-    assert.deepEqual(report.segments, []);
+    assert.equal(report.segments.length, 1);
+    assert.equal(report.segments[0].kind, "none");
+    assert.equal(report.segments[0].inferred, false);
   });
 
   it("never consults inference when declared Focus history exists", () => {

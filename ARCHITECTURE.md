@@ -372,12 +372,12 @@ graph TD
 | `server/lib/source-filter.js` | Parses the optional `?sources=` query param (comma-separated source ids) into SQL predicates + bind params, shared by the data endpoints (`GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`) so a client **data-scope** selection narrows every query consistently. No filter → the existing unscoped queries run unchanged |
 | `server/lib/scoped-stats.js` | Source-scoped variants of the stats/analytics aggregates, used **only** when a `?sources=` scope filter is active — the unscoped fast paths in `routes/stats.js` / `routes/analytics.js` are untouched when no scope is set |
 | `server/routes/projects.js` | HTTP surface for **Projects** — a user-named grouping of one or more session working directories: `GET /api/projects` (every project with its mapped folders + server-aggregated `session_count`/`active_count`/`last_activity`, plus an `unassigned` bucket for cwds with sessions not mapped to any project), `POST /api/projects` (create, optionally attaching folders — 409 `ALREADY_MAPPED` if any is already claimed elsewhere), `PATCH /api/projects/:id` (rename), `DELETE /api/projects/:id` (folder mappings cascade; sessions are untouched and fall back to unassigned), `POST`/`DELETE /api/projects/:id/paths[/:pathId]` (add/remove a folder mapping — a folder belongs to at most one project), and `GET /api/projects/:id/focus-report` (project-scoped focus-time report — see `server/lib/focus-report.js`). No `sessions` schema change: membership is derived by joining `sessions.cwd` against `project_paths.cwd` |
-| `server/routes/focus-report.js` | HTTP surface for the **cross-project aggregate** focus-time report powering the standalone Focus Calendar board (`GET /api/focus-report`, mounted independently of both `/api/projects` and the unrelated `/api/focus` "declared focus" hydrate endpoint). A thin session-selection + explicit time-window layer in front of the exact same, unmodified `buildProjectFocusReport` (`server/lib/focus-report.js`) — resolves the session set from optional `?project_id=`/`?session_id=` (each 404s if unknown) and an optional `?sources=` (via `server/lib/source-filter.js` — unlike the older per-project route, which doesn't support it, a deliberately unfixed pre-existing gap), and **requires** `?from=`/`?to=` ISO-8601 instants bounding the query: either missing or unparseable is a structured 400, never a silent unbounded/all-time query. Response mirrors the per-project route's shape plus the resolved `project_id`/`session_id` echoed back (`null` when unfiltered) |
+| `server/routes/focus-report.js` | HTTP surface for the **cross-project aggregate** focus-time report powering the standalone Calendar board (`GET /api/focus-report`, mounted independently of both `/api/projects` and the unrelated `/api/focus` "declared focus" hydrate endpoint). A thin session-selection + explicit time-window layer in front of the same `buildProjectFocusReport` (`server/lib/focus-report.js`) — resolves the session set from optional `?project_id=`/`?session_id=` (each 404s if unknown), `?unassigned=true` (the inverse of `project_id`: `cwd NOT IN (SELECT cwd FROM project_paths)`, mutually exclusive with `project_id` — a structured 400 if both are sent), and an optional `?sources=` (via `server/lib/source-filter.js` — unlike the older per-project route, which doesn't support it, a deliberately unfixed pre-existing gap), and **requires** `?from=`/`?to=` ISO-8601 instants bounding the query: either missing or unparseable is a structured 400, never a silent unbounded/all-time query. `from`/`to` don't just select which sessions qualify (by overlap) — every selected session's segments are also **clipped** to `[from, to)` (`clipSegmentToWindow`) before `wall_ms`/`active_ms`/`idle_ms`/`chunks`/`wall_clock_ms`/`concurrency_ratio` are computed, so a session that merely overlaps the window (e.g. still running from a prior day) only contributes its windowed slice, not its full real span — unlike the unbounded per-project route, which always reports a session's complete history. Response mirrors the per-project route's shape plus the resolved `project_id`/`session_id` echoed back (`null` when unfiltered, including for an `unassigned`-scoped query) |
 | `server/routes/plans.js`  | HTTP surface for **Plan-Aware Monitoring**: `GET /api/plans` (every known plan with its items — small N, one per repo), `GET /api/plans/for-cwd?cwd=` (one working directory's plan; query-param form because cwds contain slashes), `GET /api/plans/project/:projectId` (per-project rollup — one `{cwd, plan, items}` entry per mapped folder that has a plan), and `POST /api/plans/refresh` `{cwd}` (force an ingest now — the CLI/test escape hatch when the background poll is disabled; broadcasts `plan_updated` when anything changed). Also exports the separate `focusRouter` mounted at `GET /api/focus` — the bulk hydrate returning every **active** session's declared focus as wire shapes in one round-trip. Errors use the standard `{error:{code,message}}` envelope |
 | `server/lib/plan-ingest.js` | Mirrors each monitored repo's human-owned `<cwd>/AGENT-PLAN.md` (a `# Title` plus numbered checkbox items `- [ ] 4. Text — acceptance: note`) into the `plans`/`plan_items` tables read-only — the file is the source of truth, the dashboard never writes it. Deliberately tolerant grammar: non-item lines are ignored, indented continuations append to the previous item, duplicate numbers keep the first occurrence. Safety caps: 256 KB file (stat-before-read), 100 items, field-length clamps that keep `plan_updated` broadcasts far below the WebSocket's 64 KB `maxPayload`. A file that parses to **zero items keeps the last good DB state** (far more likely a human mid-edit than an intentional wipe), and a deleted file stamps `plans.missing_at` while keeping the row (focus history still references its items). All entry points are fail-safe — it runs from the hook path and a background poll and must never break either. Contract mirrors `workflow-ingest`: takes the db module, returns what changed, the **caller** owns broadcasting |
 | `server/lib/focus-commands.js` | Parses and applies `ccam focus set\|push\|bug\|feature\|pop\|done` declarations. `extractFocusCommand()` recognizes the invocation inside a Bash `tool_input.command`; `applyFocusCommand()` updates `session_focus` (item pointer + detour stack, depth cap 10), writes a `Focus` event (verb, `item_number`, an `item_text_snapshot` for the timeline, plus `unknown_item`/stack-cap flags), and broadcasts `new_event` + `session_focus` (and `plan_updated` after `done`, since `declared_done_*` changes the rollup). `bug`/`feature` push a detour frame like `push` but additionally carry `kind`/`title`/`detail`, rendered as an icon badge in the client Plan view. Two modes: **hook path** (permissive — unknown items are recorded flagged, pop-on-empty is a flagged no-op; hooks can't return errors) and **API path** (strict — violations are 409s, and a declaration whose end state equals the current state dedupes to a no-op so CLI-write + hook-parse double delivery is harmless). Declarations **never** touch the `drift_*` columns — an agent cannot silence its own drift badge by re-declaring |
 | `server/lib/focus-audit.js` | **Focus drift audit** — periodically asks, per focused active session, "does the recent activity match the declaration?" and stamps a verdict on `session_focus.drift_*` (broadcasting `session_focus`); it never rewrites the declaration itself. Primary judge: a one-shot headless `claude -p --output-format json` on a small model using the user's existing CLI auth — spawned hermetically with hooks disabled (`--settings '{"disableAllHooks":true}'`, or every audit would ingest *itself* and become a session to audit), all tools disallowed, cwd = tmpdir, `CLAUDECODE` stripped from the env (run-spawner precedent). CLI availability is probe-cached; fallback is a conservative keyword-overlap heuristic. Max 5 sessions per tick, judged serially; sessions with no activity since their last check are skipped, and an `unknown` verdict never overwrites a real one. Env knobs: `DASHBOARD_FOCUS_AUDIT_MS` (default 300000; ≤0 disables), `DASHBOARD_FOCUS_AUDIT_MODE` (`llm` \| `heuristic` \| `off`), `DASHBOARD_FOCUS_AUDIT_MODEL` (default `haiku`), `DASHBOARD_FOCUS_AUDIT_TIMEOUT_MS` (default 30000 — SIGTERM then SIGKILL) |
-| `server/lib/focus-report.js` | **Focus-time report** — two independent replays over the same `events` table, both driving `GET /api/projects/:id/focus-report`. (1) `buildFocusSegments` walks a session's ordered `Focus` rows only, tracking the declared item pointer plus a detour stack, into timestamped segments (one per interval a single `item`/`detour`/`feature`/`bug` state was current — a detour's `item_number` is the item that was current when it *started*, the same "prior_item" concept `PlanModal` buckets detours under). (2) `activeIdleMs` walks EVERY event for the session (any hook, any agent) and discounts gaps longer than `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` (default 300; ≤0 disables) down to the grace window's worth of "active" time — deliberately an event-gap proxy rather than a replay of the guarded Waiting/Active state machine in `hooks.js`, so a still-working subagent (which keeps emitting events) correctly keeps its time counted without duplicating that guard logic. `buildProjectFocusReport` composes both across every session in a project's mapped folders, plus a per-item rollup (bucketing each detour segment under its `item_number`) and project-wide totals by kind. A session with **zero** declared `Focus` history falls back to the focus-inference verdict (`focus_inferences`) as one whole-session segment flagged `inferred: true` — declared history always wins, and `unclassified` verdicts stay an honest hole. It also separates **effort** time (`totals.active_ms`, the plain per-session sum — inflates with concurrency) from **wall-clock** time (`wall_clock_ms`, the union of each session's own span via `mergeIntervals()`, session-level granularity — concurrent sessions collapse into shared coverage instead of stacking), plus `concurrency_ratio` (effort ÷ wall-clock). Every segment also carries `chunks` (`buildActivityChunks`) — its span sliced into fixed 10-minute windows, each flagged `active` if any real event landed inside it, no grace-window credit unlike `active_ms`/`idle_ms` — so the client can color a segment's actually-quiet stretches distinctly from its worked ones instead of one solid block implying continuous activity |
+| `server/lib/focus-report.js` | **Focus-time report** — two independent replays over the same `events` table, both driving `GET /api/projects/:id/focus-report`. (1) `buildFocusSegments` walks a session's ordered `Focus` rows only, tracking the declared item pointer plus a detour stack, into timestamped segments (one per interval a single `item`/`detour`/`feature`/`bug` state was current — a detour's `item_number` is the item that was current when it *started*, the same "prior_item" concept `PlanModal` buckets detours under). (2) `activeIdleMs` walks EVERY event for the session (any hook, any agent) and discounts gaps longer than `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` (default 300; ≤0 disables) down to the grace window's worth of "active" time — deliberately an event-gap proxy rather than a replay of the guarded Waiting/Active state machine in `hooks.js`, so a still-working subagent (which keeps emitting events) correctly keeps its time counted without duplicating that guard logic. `buildProjectFocusReport` composes both across every session in a project's mapped folders, plus a per-item rollup (bucketing each detour segment under its `item_number`) and project-wide totals by kind. A session with **zero** declared `Focus` history falls back to the focus-inference verdict (`focus_inferences`) as one whole-session segment flagged `inferred: true` — declared history always wins. When there's no usable inference either (`unclassified`, no plan in the cwd, or never classified yet — e.g. a currently-running session too fresh for the classifier's quiet/ended gate), `noFocusSegment()` fabricates one whole-session segment, `kind: "none"` (`NONE_KIND`), instead of dropping the session from the report; it's excluded from `by_kind`/the item rollup but still counts toward the aggregate totals and wall-clock/concurrency figures. It also separates **effort** time (`totals.active_ms`, the plain per-session sum — inflates with concurrency) from **wall-clock** time (`wall_clock_ms`, the union of each session's own span via `mergeIntervals()`, session-level granularity — concurrent sessions collapse into shared coverage instead of stacking), plus `concurrency_ratio` (effort ÷ wall-clock). Every segment also carries `chunks` (`buildActivityChunks`) — its span sliced into fixed 10-minute windows, each flagged `active` if any real event landed inside it, no grace-window credit unlike `active_ms`/`idle_ms` — so the client can color a segment's actually-quiet stretches distinctly from its worked ones instead of one solid block implying continuous activity |
 | `server/lib/focus-inference.js` | **Focus inference** — classifies sessions that never declared a focus so the focus-time report has no silent holes. Digests a silent session's activity (first user prompts, most-touched files, distinct Bash commands), matches it against the cwd's plan items: a conservative keyword heuristic gets first look (only ever claims a clear item match), then a one-shot headless `claude -p` on a small model (same hermetic spawn contract as `focus-audit.js`) decides item / detour-with-generated-title / unclassified. Verdicts persist to `focus_inferences` keyed by the item's *stable* `item_id` (reorder-safe); a session active after its `inferred_at` is re-classified once ended or quiet (10 min). One backfill tick ~30 s after boot, then a slow interval; max 5 sessions per tick. Env knobs: `DASHBOARD_FOCUS_INFER_MS` (default 600000; ≤0 disables), `DASHBOARD_FOCUS_INFER_MODE` (`llm` \| `heuristic` \| `off`), `DASHBOARD_FOCUS_INFER_MODEL` (default `haiku`), `DASHBOARD_FOCUS_INFER_TIMEOUT_MS` (default 30000) |
 | `lib/cc-discovery.js`     | Read-only discovery of every Claude Code config surface for the Config Explorer page. Pure file reads; never writes. Surfaces: skills (`<root>/skills/<name>/SKILL.md`), subagents (`<root>/agents/*.md`), slash commands (`<root>/commands/*.md`), output styles (`<root>/output-styles/*.md`), plugins (`<CLAUDE_HOME>/plugins/installed_plugins.json` joined with `enabledPlugins` in settings + per-plugin `contributes` count by scanning the install dir + `plugin.json` metadata), marketplaces (`known_marketplaces.json` enriched with each `marketplace.json`), MCP servers (top-level + per-project from `~/.claude.json`), hooks (across user / project / project-local settings.json), keybindings (`<CLAUDE_HOME>/keybindings.json`), statusline config + `statusline.py` / `statusline-command.sh` content, hook scripts dir (`<CLAUDE_HOME>/hooks/`), settings (with secret-key redaction matching `/token\|secret\|password\|api[_-]?key\|auth/i`), memory (`CLAUDE.md` at user + project **plus** the per-project file-based auto-memory store — every `*.md` under `~/.claude/projects/<slug>/memory/`, returned as `scope:"auto-memory"` items carrying `project`, `name`, `isIndex`, and parsed `frontmatter`, so a `MEMORY.md` index and one file per remembered fact, often 100+, all surface). Path containment via `isUnder()` — every read must resolve under CLAUDE_HOME, project `.claude/`, or be a project CLAUDE.md. 256 KB read cap. Minimal YAML frontmatter parser handles `key: value` + quoted strings + indented continuation lines |
 | `lib/cc-mutate.js`        | Create / overwrite / delete for the **low-risk text-file surfaces only** (skills, subagents, slash commands, output styles, memory — including the per-project file-based auto-memory store, mutated via `scope: "auto-memory"`, `type: "auto-memory"`, `project`, `name`, with its backups landing in `<memory-dir>/.cc-config-backups/auto-memory/`), plus `writeKeybindings()` for the structured `keybindings.json` editor (read-modify-write that preserves top-level metadata, rejects duplicate contexts/keys, and backs up to `<CLAUDE_HOME>/cc-config-backups/keybindings/`). Plugins, MCP, hooks-in-settings, and `settings.json` files are NEVER written from here — they have concurrent-write races with the live Claude Code CLI. Every mutation creates a timestamped backup at `<root>/cc-config-backups/<type>/<base>.<ISO>.bak[.dir]` BEFORE the change — backups land outside the directories Claude Code scans, so a deleted skill cannot resurface as a backup-named one. Writes are atomic: temp file in same dir → fsync → `renameSync`. Tmp removed on every failure path. Skill dirs are backed up whole (preserving bundled assets) before recursive removal. Strict `name` regex (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`), 256 KB content cap, double-checked path containment via `isUnder()` |
@@ -1667,9 +1667,13 @@ keyword heuristic first, headless `claude -p` for the ambiguous rest —
 persisting to the `focus_inferences` table (`DASHBOARD_FOCUS_INFER_MS` /
 `DASHBOARD_FOCUS_INFER_MODE` / `DASHBOARD_FOCUS_INFER_MODEL` /
 `DASHBOARD_FOCUS_INFER_TIMEOUT_MS`). The focus-time report consults it only
-for sessions with zero declared segments, flags the result `inferred: true`
-(an "≈ inferred" chip in the UI), and treats `unclassified` as an honest
-hole rather than a guess.
+for sessions with zero declared segments, and flags a usable result
+`inferred: true` (an "≈ inferred" chip in the UI). An `unclassified` verdict
+— or no verdict at all yet, e.g. a currently-running session that hasn't
+gone quiet or ended long enough for a tick to pick it up — falls through one
+level further to `noFocusSegment()` (`server/lib/focus-report.js`): one
+whole-session segment, `kind: "none"`, rather than a guess or a silent
+omission from the report.
 
 **Client surface.** `client/src/lib/focusStore.ts` is a module-level store
 (same pattern as `dataScope.ts`): one bulk hydrate from `GET /api/focus` plus
@@ -1693,13 +1697,79 @@ concurrency stat tiles, a per-session segmented timeline bar, a per-item
 rollup, and a project-wide split, all built from
 `server/lib/focus-report.js`'s segment-replay + idle-grace math) and a
 **Calendar** view (`FocusCalendarView.tsx`) — a day-view swimlane calendar
-that positions each session's segments on a real 24-hour axis and splits
-overlapping segments into side-by-side lanes via `assignLanes()`
-(`client/src/lib/calendarLanes.ts`, greedy earliest-available-lane interval
-scheduling), making concurrency visually obvious instead of a number to
-interpret. Both views share the same `FocusKind` icon/color vocabulary
-(`FOCUS_KIND_CONFIG`/`FOCUS_KIND_SOLID` in `lib/types.ts`). Copy lives in
-the dedicated `plan` i18n namespace (en / zh / vi / ko).
+that positions each session's segments on a real 24-hour axis (2x a plain
+one-pixel-per-minute scale, `DAY_HEIGHT_PX` ~120px/hour, with a quarter-hour
+tick grid beneath it) and snaps each segment's rendered box outward to that
+same 15-minute grid — floor the start, ceil the end — rather than the exact
+minute, so even a very short segment stays a comfortably clickable block
+(the true start/end/duration still drive the hover popup and events modal;
+only the box is padded). Segments whose SNAPPED spans overlap split into
+side-by-side lanes via `assignLanes()` (`client/src/lib/calendarLanes.ts`,
+greedy earliest-available-lane interval scheduling run on the padded boxes,
+not the real times, so two segments that only start touching once padded
+still separate like a genuine overlap would), making concurrency visually
+obvious instead of a number to interpret. Each lane is a fixed
+`LANE_WIDTH_PX` (300px) rather than a shrinking `100 / laneCount` share, so
+a session's column never gets more cramped as concurrency grows; the grid's
+own width is `laneCount * LANE_WIDTH_PX`, inside an `.overflow-x-auto`
+wrapper that scrolls horizontally past that point, while the hour-label
+time axis is a sibling OUTSIDE that wrapper, staying fixed in place rather
+than scrolling away with the lanes. Today's own view can additionally
+"zoom" to an hour-window (`hourWindow` state, `HOUR_WINDOW_OPTIONS`:
+4/8/12/24h, default 4, a button group shown regardless of `hideDateNav`)
+instead of always showing the full day: every size under 24 shows that many
+hours BEHIND the real current time plus 2 hours (`FUTURE_PAD_MS`) ahead of
+it, re-anchoring to "now" every minute (`ZOOM_REFRESH_MS`, a forced
+re-render since nothing else here would otherwise notice real time
+passing); `24` is the plain, unzoomed full day. A past/future day always
+renders the full day regardless of this setting - there's no "now" to
+window around once you're not looking at today. Container height and every
+tick/block position scale to the current window, not always the full day,
+at the same fixed per-minute pixel density `DAY_HEIGHT_PX`/`DAY_MS`
+establishes. `FocusCalendarView` reports that same current window outward
+via an optional `onVisibleWindowChange` prop (`{startMs, endMs}` while
+zoomed, `null` when not), which `FocusReportBody` (see below) uses to scope
+its own stat tiles — Active time, Concurrency, On-item/Off-plan %, Idle
+excluded — to match what's actually visible instead of always the full
+fetched report; `client/src/lib/windowedTotals.ts`'s `computeWindowedTotals()`
+re-derives that scoped total client-side from each segment's already-fetched
+`chunks` grid rather than a second network round-trip. Both views share the
+same icon/color vocabulary
+(`FOCUS_KIND_CONFIG`/`FOCUS_KIND_SOLID` in `lib/types.ts`), keyed by
+`FocusSegmentKind` — the real `FocusKind`s (item/detour/feature/bug) plus a
+report-only `"none"` sentinel (see below) — rather than `FocusKind` itself,
+which stays the 4 real kinds everywhere else (SessionCard's breadcrumb,
+PlanModal's per-item focus lines) since a session's *live* current focus is
+never "none" (it's simply absent). Copy lives in the dedicated `plan` i18n
+namespace (en / zh / vi / ko).
+
+A Calendar card's own always-visible text is exactly two lines: the
+session's name (or `report.calendar.noName`, "No-name," if it has none —
+the same fallback used consistently for this data everywhere it renders:
+the hover popup, the events-modal header, and the aria-label, never a bare
+truncated session id) and which project it belongs to via
+`projectLabelForCwd` (falling back to `projects:unassigned`). The
+kind/label/timing detail that used to be a third line on the card lives
+only in the hover popup and events modal now. `FocusReportModal` now passes
+`projectLabelForCwd` too (a resolver that always returns its own single
+already-known project, since every session in a per-project report belongs
+to it by construction) — this prop used to be board-only.
+
+Sessions whose cwd is a scratch/temp directory (`isScratchCwd` — matches
+`/tmp/...` or `/private/var/folders/...`, macOS's per-process `$TMPDIR`)
+aren't tied to a real project and are usually short one-off runs, so the
+Calendar groups every scratch-cwd segment into 15-minute-window "Scratch
+Work" bundle cards instead of rendering each as its own full-width card.
+Bundles render in one dedicated lane (lane index 0, present only on a day
+that has at least one bundle — `laneOffset` in the lanes `useMemo`), deduped
+per real `session.session_id` per bundle window so a session with several
+scratch segments in the same window still counts once. A bundle card shows
+only a title + session count, never a project; hovering it lists each
+bundled session's real name, kind/label, cwd, and time range, keyed by that
+same real `session_id`. A segment straddling a 15-minute boundary
+intentionally appears in BOTH adjacent bundle cards (each clipped to that
+window) rather than being assigned to just one. A "Scratch Work" legend
+swatch renders only on days that actually have a bundle.
 
 This stat-tile/List-Calendar-toggle/list-body rendering was extracted out of
 `FocusReportModal.tsx` into `client/src/components/FocusReportBody.tsx`
@@ -1733,8 +1803,9 @@ A segment's wall-clock span can run far longer than its real worked time
 alone can't be trusted at a glance. Each segment carries `chunks` from the
 API — its span sliced into fixed 10-minute windows, each flagged `active` if
 any real event landed inside it (`buildActivityChunks` in
-`server/lib/focus-report.js`) — and both views draw a dark overlay stripe
-over any idle chunk, via one shared `idleStripesInRange()` helper
+`server/lib/focus-report.js`) — and both views draw an off-white
+(`bg-stone-100/60`) overlay stripe over any idle chunk, via one shared
+`idleStripesInRange()` helper
 (`client/src/lib/idleStripes.ts`, extracted from `FocusCalendarView`'s
 original per-block math so a second consumer never re-implements it): a
 Calendar block draws it directly, and the List view's per-session

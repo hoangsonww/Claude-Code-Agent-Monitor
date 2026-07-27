@@ -469,6 +469,14 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
               <MessageSquare className="w-3 h-3" />
               {t("session.lastMessage")}
             </div>
+            {session.cwd && (
+              <p
+                className="px-3 pt-2 text-[11px] text-gray-500 font-mono break-all flex-shrink-0"
+                title={session.cwd}
+              >
+                cwd: {session.cwd}
+              </p>
+            )}
             <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
               {previewLoading ? (
                 <p className="text-xs text-gray-500 italic">{t("session.lastMessageLoading")}</p>
@@ -502,6 +510,14 @@ export function SessionCard({ session, onClick }: SessionCardProps) {
               })()}
               {t(FOCUS_KIND_CONFIG[focusKindValue].labelKey)}
             </div>
+            {session.cwd && (
+              <p
+                className="px-3 pt-2 text-[11px] text-gray-500 font-mono break-all flex-shrink-0"
+                title={session.cwd}
+              >
+                cwd: {session.cwd}
+              </p>
+            )}
             <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2.5 text-xs text-gray-300 leading-relaxed">
               {focus.item_number != null && (
                 <p>

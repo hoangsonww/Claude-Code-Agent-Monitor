@@ -18,22 +18,35 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { ClipboardList, X, Bug, Sparkles, Crosshair, Route } from "lucide-react";
+import { ClipboardList, X, Bug, Sparkles, Crosshair, Route, CircleDashed } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Checkbox } from "./Checkbox";
 import { timeAgo } from "../lib/format";
 import { FOCUS_KIND_CONFIG, focusKind } from "../lib/types";
-import type { DetourFrame, FocusKind, Plan, PlanItem, Session, SessionFocus } from "../lib/types";
+import type {
+  DetourFrame,
+  FocusKind,
+  FocusSegmentKind,
+  Plan,
+  PlanItem,
+  Session,
+  SessionFocus,
+} from "../lib/types";
 
 /** Per-kind icon for {@link FocusLine}, kept out of lib/types.ts so the
  *  presentation lookup there stays JSX-free (mirrors StatusBadge's
  *  REASON_ICONS convention). Exported so SessionCard's breadcrumb uses the
- *  exact same icon vocabulary instead of a second, drifting copy. */
-export const FOCUS_KIND_ICONS: Record<FocusKind, LucideIcon> = {
+ *  exact same icon vocabulary instead of a second, drifting copy. Widened to
+ *  {@link FocusSegmentKind} (not just the real {@link FocusKind}s) so
+ *  FocusCalendarView's block popup can look up an icon for a `"none"`
+ *  (no-focus) report segment too — `focusKind()` itself never returns
+ *  `"none"`, so every OTHER caller keeps indexing with plain `FocusKind`. */
+export const FOCUS_KIND_ICONS: Record<FocusSegmentKind, LucideIcon> = {
   item: Crosshair,
   detour: Route,
   feature: Sparkles,
   bug: Bug,
+  none: CircleDashed,
 };
 
 /** One session's current focus, resolved to a single {@link FocusKind} and

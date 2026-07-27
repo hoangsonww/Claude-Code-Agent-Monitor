@@ -5,7 +5,8 @@
  * test's authoring — build task 17): default state on first load (today,
  * all projects, no session), the three independent filters (project /
  * session / time-period) never clearing one another (DEC-2, asserted on
- * rendered `<select>` values — not just mocked fetch-call arguments, per
+ * the project filter's rendered chip `aria-pressed` state / the session
+ * `<select>`'s value — not just mocked fetch-call arguments, per
  * `qa-assessment.md` must-fix #3 / `risk.md` §4e), zero-result edge cases
  * rendering the existing empty state rather than a crash, and the DEC-6
  * aggregate-view concurrency relabel resolving via `i18n.t(...)`, distinct
@@ -199,9 +200,9 @@ describe("FocusCalendarBoard", () => {
     const sessionsListArgs = sessionsListMock.mock.calls[0]?.[0] ?? {};
     expect(sessionsListArgs.cwd).toBeUndefined();
 
-    const projectSelect = screen.getByRole("combobox", { name: "Project" }) as HTMLSelectElement;
+    const allProjectsChip = screen.getByRole("button", { name: "All projects" });
     const sessionSelect = screen.getByRole("combobox", { name: "Session" }) as HTMLSelectElement;
-    expect(projectSelect.value).toBe(""); // all projects
+    expect(allProjectsChip.getAttribute("aria-pressed")).toBe("true");
     expect(sessionSelect.value).toBe(""); // no session
 
     // Every request the client sends has an explicit from/to - no hidden
@@ -223,16 +224,16 @@ describe("FocusCalendarBoard", () => {
       "sess-1"
     );
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Acme Corp");
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
 
     // The REJECTED original draft cleared the session on project change -
-    // DEC-2 requires it persist. Checked on the rendered <select>'s
-    // displayed value, not only the next fetch's arguments.
+    // DEC-2 requires it persist. Checked on the rendered chip's/select's
+    // displayed state, not only the next fetch's arguments.
     expect((screen.getByRole("combobox", { name: "Session" }) as HTMLSelectElement).value).toBe(
       "sess-1"
     );
-    expect((screen.getByRole("combobox", { name: "Project" }) as HTMLSelectElement).value).toBe(
-      "proj-acme"
+    expect(screen.getByRole("button", { name: "Acme Corp" }).getAttribute("aria-pressed")).toBe(
+      "true"
     );
   });
 
@@ -241,18 +242,67 @@ describe("FocusCalendarBoard", () => {
     renderBoard();
     await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Acme Corp");
-    expect((screen.getByRole("combobox", { name: "Project" }) as HTMLSelectElement).value).toBe(
-      "proj-acme"
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
+    expect(screen.getByRole("button", { name: "Acme Corp" }).getAttribute("aria-pressed")).toBe(
+      "true"
     );
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Session" }), "Worker Two");
 
-    expect((screen.getByRole("combobox", { name: "Project" }) as HTMLSelectElement).value).toBe(
-      "proj-acme"
+    expect(screen.getByRole("button", { name: "Acme Corp" }).getAttribute("aria-pressed")).toBe(
+      "true"
     );
     expect((screen.getByRole("combobox", { name: "Session" }) as HTMLSelectElement).value).toBe(
       "sess-2"
+    );
+  });
+
+  it("selecting 'Unassigned' fetches with unassigned=true and no projectId, and is mutually exclusive with a real project", async () => {
+    const user = userEvent.setup();
+    renderBoard();
+    await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Unassigned" }));
+    expect(screen.getByRole("button", { name: "Unassigned" }).getAttribute("aria-pressed")).toBe(
+      "true"
+    );
+    expect(screen.getByRole("button", { name: "All projects" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
+    await waitFor(() => {
+      const calls = focusReportMock.mock.calls;
+      const lastCall = calls[calls.length - 1]?.[0] ?? {};
+      expect(lastCall.unassigned).toBe(true);
+      expect(lastCall.projectId).toBeUndefined();
+    });
+
+    // Selecting a real project afterward clears "Unassigned" - the two are
+    // mutually exclusive (the server 400s if both were ever sent together).
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
+    expect(screen.getByRole("button", { name: "Unassigned" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
+    await waitFor(() => {
+      const calls = focusReportMock.mock.calls;
+      const lastCall = calls[calls.length - 1]?.[0] ?? {};
+      expect(lastCall.projectId).toBe("proj-acme");
+      expect(lastCall.unassigned).toBe(false);
+    });
+  });
+
+  it("selecting 'Unassigned' does not clear an already-selected session (DEC-2)", async () => {
+    const user = userEvent.setup();
+    renderBoard();
+    await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Session" }), "Worker One");
+    await user.click(screen.getByRole("button", { name: "Unassigned" }));
+
+    expect((screen.getByRole("combobox", { name: "Session" }) as HTMLSelectElement).value).toBe(
+      "sess-1"
+    );
+    expect(screen.getByRole("button", { name: "Unassigned" }).getAttribute("aria-pressed")).toBe(
+      "true"
     );
   });
 
@@ -261,13 +311,13 @@ describe("FocusCalendarBoard", () => {
     renderBoard();
     await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Acme Corp");
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Session" }), "Worker One");
 
     await user.click(screen.getByTitle("Next day"));
 
-    expect((screen.getByRole("combobox", { name: "Project" }) as HTMLSelectElement).value).toBe(
-      "proj-acme"
+    expect(screen.getByRole("button", { name: "Acme Corp" }).getAttribute("aria-pressed")).toBe(
+      "true"
     );
     expect((screen.getByRole("combobox", { name: "Session" }) as HTMLSelectElement).value).toBe(
       "sess-1"
@@ -286,7 +336,7 @@ describe("FocusCalendarBoard", () => {
     expect(afterNextDayArgs.from).not.toBe(firstCallArgs.from);
     expect(screen.getByText("Today").className).not.toMatch(/bg-accent/);
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Acme Corp");
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
     await waitFor(() => expect(focusReportMock).toHaveBeenCalledTimes(3));
     const afterProjectChangeArgs = focusReportMock.mock.calls[2]?.[0] ?? {};
 
@@ -336,7 +386,10 @@ describe("FocusCalendarBoard", () => {
     renderBoard();
     await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Empty Co");
+    // Empty Co has no activity in the default (unfiltered) report, so its
+    // chip starts hidden behind "show more" - expand before selecting it.
+    await user.click(screen.getByRole("button", { name: /show more/i }));
+    await user.click(screen.getByRole("button", { name: "Empty Co" }));
 
     expect(
       await screen.findByText("No focus history yet for this project's sessions")
@@ -372,7 +425,7 @@ describe("FocusCalendarBoard", () => {
     renderBoard();
     await waitFor(() => expect(sessionsListMock).toHaveBeenCalled());
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Project" }), "Acme Corp");
+    await user.click(screen.getByRole("button", { name: "Acme Corp" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Session" }), "Worker Two");
 
     expect(

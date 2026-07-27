@@ -53,6 +53,7 @@
     "idleExcluded": "已排除的空闲时间",
     "graceNote": "超过 {{grace}} 且无活动的间隔不计入活跃时间",
     "graceDisabled": "已禁用 — 计入全部实际时长",
+    "windowScopedNote": "统计数据反映当前显示的 {{hours}} 小时窗口，而非全天",
     "sessionsHeading": "逐会话明细",
     "itemsHeading": "按计划条目统计的用时",
     "splitHeading": "项目整体占比",
@@ -69,6 +70,20 @@
       "empty": "这一天没有活动",
       "declared": "已声明",
       "inferredProvenance": "≈ 推断",
+      "idle": "空闲",
+      "noFocus": "无焦点",
+      "noName": "未命名",
+      "hourWindow": {
+        "groupLabel": "时间范围",
+        "option": "{{hours}}小时",
+        "optionTitle": "显示最近 {{hours}} 小时，外加未来 2 小时",
+        "fullDayTitle": "显示全天"
+      },
+      "scratchWork": {
+        "title": "临时工作",
+        "sessionCount_one": "{{count}} 个会话",
+        "sessionCount_other": "{{count}} 个会话"
+      },
       "stillRunning": "仍在运行",
       "viewEvents": "查看支持此时长的原始事件",
       "eventsModal": {
@@ -83,7 +98,7 @@
       }
     },
     "board": {
-      "title": "焦点日历",
+      "title": "日历",
       "projectFilter": "项目",
       "allProjects": "所有项目",
       "sessionFilter": "会话",

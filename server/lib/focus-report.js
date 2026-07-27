@@ -39,6 +39,20 @@
  * one whole-session segment flagged `inferred: true` — declared history is
  * ground truth and is never mixed with or overwritten by inference.
  *
+ * A session with neither — no declared Focus events AND no usable inference
+ * yet (never classified, its cwd has no plan, or the classifier came back
+ * 'unclassified') — still gets one whole-session segment, kind `NONE_KIND`
+ * ("none"), rather than being dropped from the report (see
+ * {@link noFocusSegment}). This matters most for a session that's currently
+ * running: the background classifier only classifies a session once it's
+ * ended or quiet for QUIET_MS (focus-inference.js), so a live, undeclared
+ * session would otherwise be invisible on the calendar/list until it goes
+ * quiet or ends. `NONE_KIND` segments carry no real kind to attribute time
+ * to, so they're excluded from `totals.by_kind`/the per-item rollup (see
+ * {@link addToTotals}) but DO count toward the aggregate `totals.wall_ms`/
+ * `active_ms`/`idle_ms` and the project's wall-clock/concurrency figures,
+ * same as any other segment.
+ *
  * The project-level report also separates EFFORT time (the sum across every
  * session — agent-labor invested, inflates when sessions run concurrently)
  * from WALL-CLOCK time (the union of each session's own span, via
@@ -50,6 +64,11 @@
 
 const DEFAULT_GRACE_SECONDS = 300;
 const FOCUS_KINDS = new Set(["item", "detour", "feature", "bug"]);
+/** Report-only sentinel kind for {@link noFocusSegment} - never a value a
+ *  declared Focus event or the classifier can produce, so it can't collide
+ *  with a real kind. Deliberately excluded from `FOCUS_KINDS` above (which
+ *  gates what a real `ccam focus push/bug/feature` declaration may claim). */
+const NONE_KIND = "none";
 /** Fixed chunk width for {@link buildActivityChunks} - matches the client's
  *  SegmentEventsModal event-bucket size (client/src/lib/eventBuckets.ts) so
  *  a segment's calendar stripes and its events-modal rows agree on the same
@@ -204,13 +223,52 @@ function buildActivityChunks(allTimestampsMs, startMs, endMs, chunkMs = CHUNK_MS
 }
 
 /**
+ * Clips a segment's `[start, end)` span to an explicit `[windowStartMs,
+ * windowEndMs)` window, dropping it entirely (returns `null`) when it
+ * doesn't overlap the window at all. Either bound may be omitted
+ * independently (an omitted bound leaves that side unclipped) so a caller
+ * with only a lower or only an upper bound still gets a partial clip instead
+ * of an all-or-nothing skip. Returns the SAME object (no clone) when neither
+ * bound actually narrows the segment, so the common unbounded-report case
+ * (see {@link buildSessionFocusReport}'s own `windowStartMs`/`windowEndMs ==
+ * null` guard) never pays for a needless copy.
+ */
+function clipSegmentToWindow(seg, windowStartMs, windowEndMs) {
+  const segStartMs = new Date(seg.start).getTime();
+  const segEndMs = new Date(seg.end).getTime();
+  const clippedStartMs = windowStartMs != null ? Math.max(segStartMs, windowStartMs) : segStartMs;
+  const clippedEndMs = windowEndMs != null ? Math.min(segEndMs, windowEndMs) : segEndMs;
+  if (clippedEndMs <= clippedStartMs) return null;
+  if (clippedStartMs === segStartMs && clippedEndMs === segEndMs) return seg;
+  return {
+    ...seg,
+    start: new Date(clippedStartMs).toISOString(),
+    end: new Date(clippedEndMs).toISOString(),
+  };
+}
+
+/** A session's own `started_at` if set, else its earliest recorded event's
+ *  timestamp — shared by {@link inferredSegment} and {@link noFocusSegment}
+ *  since both need to bookend a whole-session synthetic segment. Returns
+ *  undefined in the (practically never happens) case neither exists. */
+function resolveSessionStart(dbModule, session) {
+  return (
+    session.started_at ||
+    dbModule.db
+      .prepare("SELECT created_at FROM events WHERE session_id = ? ORDER BY id ASC LIMIT 1")
+      .get(session.id)?.created_at
+  );
+}
+
+/**
  * Fallback for a session with ZERO declared segments: turn its
  * focus_inferences row (written by the background classifier in
  * focus-inference.js) into one synthetic segment spanning the session. The
  * inference stores the plan item's stable item_id; it resolves to the item's
  * CURRENT display number here, at read time, so a plan reorder between
  * inference and report can't mis-bucket the time. Returns null when there is
- * no usable inference ('unclassified' rows stay an honest hole in the
+ * no usable inference ('unclassified' rows, or none recorded yet, fall
+ * through to {@link noFocusSegment} instead of staying an honest hole in the
  * report). Declared Focus events always win — this is only consulted when
  * there are none.
  */
@@ -223,11 +281,7 @@ function inferredSegment(dbModule, session, endAt) {
   }
   if (!row || row.kind === "unclassified") return null;
 
-  const start =
-    session.started_at ||
-    dbModule.db
-      .prepare("SELECT created_at FROM events WHERE session_id = ? ORDER BY id ASC LIMIT 1")
-      .get(session.id)?.created_at;
+  const start = resolveSessionStart(dbModule, session);
   if (!start) return null;
 
   if (row.kind === "item" && row.item_id) {
@@ -258,23 +312,67 @@ function inferredSegment(dbModule, session, endAt) {
 }
 
 /**
+ * Last-resort fallback for a session with ZERO declared segments AND no
+ * usable inference ({@link inferredSegment} returned null - never
+ * classified, no plan in its cwd, or the classifier itself came back
+ * 'unclassified'/no confident match): one whole-session segment flagged
+ * `NONE_KIND` so the session still shows up on the calendar/list instead of
+ * silently vanishing from the report. Returns null only when even a start
+ * time can't be resolved (no `started_at` and no recorded events) - that
+ * session genuinely has nothing to draw a block from.
+ */
+function noFocusSegment(dbModule, session, endAt) {
+  const start = resolveSessionStart(dbModule, session);
+  if (!start) return null;
+  return {
+    kind: NONE_KIND,
+    label: null,
+    item_number: null,
+    start,
+    end: endAt,
+    inferred: false,
+    inferredReason: null,
+  };
+}
+
+/**
  * Full focus-time report for one session: Focus-derived segments, each
  * annotated with wall-clock, active, and idle milliseconds. A session with
  * no declared Focus history at all falls back to its inferred classification
  * (one whole-session segment flagged `inferred: true`) — see
- * {@link inferredSegment}. Carries `ended_at` straight through from the
- * input session row (`null` for one still active) so a client rendering a
- * calendar/timeline can tell "genuinely still running" apart from "just
- * happened to end near when the report was fetched" — both look identical
- * from segment timestamps alone.
+ * {@link inferredSegment} — and, failing that, to one `NONE_KIND` segment
+ * (see {@link noFocusSegment}) so it's never simply dropped. Carries
+ * `ended_at` straight through from the input session row (`null` for one
+ * still active) so a client rendering a calendar/timeline can tell
+ * "genuinely still running" apart from "just happened to end near when the
+ * report was fetched" — both look identical from segment timestamps alone.
+ *
+ * `windowStartMs`/`windowEndMs` (both optional, each independently) clip
+ * every segment — declared, inferred, or the `NONE_KIND` fallback alike — to
+ * that window via {@link clipSegmentToWindow} before any wall/active/idle
+ * math or chunking runs, and drop segments that fall entirely outside it.
+ * Omitting both (the default, used by the unbounded per-project route) keeps
+ * this producing a session's full, unclipped history exactly as before. This
+ * is what makes a caller-supplied time window (e.g. "today", a date range)
+ * actually bound the reported metrics instead of merely deciding which
+ * sessions are included while still summing each one's whole span.
  */
-function buildSessionFocusReport(dbModule, session) {
+function buildSessionFocusReport(dbModule, session, windowStartMs, windowEndMs) {
   const nowIso = new Date().toISOString();
   const endAt = session.ended_at || nowIso;
   let segments = buildFocusSegments(dbModule, session.id, endAt);
   if (segments.length === 0) {
     const inferred = inferredSegment(dbModule, session, endAt);
     if (inferred) segments = [inferred];
+  }
+  if (segments.length === 0) {
+    const fallback = noFocusSegment(dbModule, session, endAt);
+    if (fallback) segments = [fallback];
+  }
+  if (windowStartMs != null || windowEndMs != null) {
+    segments = segments
+      .map((seg) => clipSegmentToWindow(seg, windowStartMs, windowEndMs))
+      .filter((seg) => seg != null);
   }
   if (segments.length === 0) {
     return {
@@ -332,6 +430,10 @@ function addToTotals(totals, seg) {
   totals.wall_ms += seg.wall_ms;
   totals.active_ms += seg.active_ms;
   totals.idle_ms += seg.idle_ms;
+  // NONE_KIND (see noFocusSegment) has no real kind to attribute per-kind
+  // time to - it still counts toward the aggregate totals above, just not
+  // toward any by_kind bucket.
+  if (seg.kind === NONE_KIND) return;
   const bucket = totals.by_kind[seg.kind];
   bucket.wall_ms += seg.wall_ms;
   bucket.active_ms += seg.active_ms;
@@ -382,20 +484,32 @@ function mergeIntervals(intervals) {
  * wall-clock) turns "9h effort in a 3h window" into a legible "3x
  * parallelism" instead of looking like the numbers don't add up; it's
  * `null` when there's no wall-clock time to divide by.
+ *
+ * `windowStartMs`/`windowEndMs` (both optional, each independently) are
+ * threaded straight through to {@link buildSessionFocusReport}, which clips
+ * every session's segments to that window before any of the totals/rollup/
+ * wall-clock math below runs. Without them (the unbounded per-project
+ * route's case), a session contributes its full history, same as always.
+ * With them (the explicitly time-windowed route), a session that merely
+ * OVERLAPS the window — e.g. one still running from a prior day, or
+ * spanning midnight into the window — only contributes the slice of its
+ * active/idle time that actually falls inside `[windowStartMs, windowEndMs)`,
+ * so picking "today" can no longer pull in yesterday's accumulated time for
+ * a long-running session.
  */
-function buildProjectFocusReport(dbModule, sessions) {
+function buildProjectFocusReport(dbModule, sessions, windowStartMs, windowEndMs) {
   const sessionReports = sessions
-    .map((s) => buildSessionFocusReport(dbModule, s))
+    .map((s) => buildSessionFocusReport(dbModule, s, windowStartMs, windowEndMs))
     .filter((r) => r.segments.length > 0);
 
   const totals = emptyKindTotals();
-  const itemsByKey = new Map(); // `${cwd} ${item_number}` -> { cwd, item_number, totals }
+  const itemsByKey = new Map(); // `${cwd} ${item_number}` -> { cwd, item_number, totals }
 
   for (const report of sessionReports) {
     for (const seg of report.segments) {
       addToTotals(totals, seg);
       if (seg.item_number == null) continue;
-      const key = `${report.cwd} ${seg.item_number}`;
+      const key = `${report.cwd} ${seg.item_number}`;
       let entry = itemsByKey.get(key);
       if (!entry) {
         entry = { cwd: report.cwd, item_number: seg.item_number, totals: emptyKindTotals() };
@@ -439,8 +553,11 @@ module.exports = {
   buildSessionFocusReport,
   buildProjectFocusReport,
   buildActivityChunks,
+  clipSegmentToWindow,
   mergeIntervals,
   emptyKindTotals,
+  noFocusSegment,
   DEFAULT_GRACE_SECONDS,
   CHUNK_MS,
+  NONE_KIND,
 };

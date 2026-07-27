@@ -16,11 +16,14 @@
  * consumers render identical stat-tile numbers and idle-stripe geometry for
  * the same segment.
  *
- * Three additive, optional props exist solely for the board's cross-project
- * use case and are never passed by the single-project modal:
+ * Three additive, optional props exist for the board's cross-project use
+ * case; two of them (`selectedDate`/`hideDateNav`) are still board-only:
  *  - `projectLabelForCwd` — threaded straight through to `FocusCalendarView`
- *    (calendar mode only) to disambiguate concurrent same-named sessions
- *    from different projects.
+ *    (calendar mode only). Originally board-only (to disambiguate concurrent
+ *    same-named sessions from different projects), `FocusReportModal` now
+ *    passes it too — a resolver that always returns its own already-known
+ *    `projectName`, so a calendar block always shows which project a
+ *    session belongs to, not just on the cross-project board.
  *  - `selectedDate` / `hideDateNav` — also threaded through to
  *    `FocusCalendarView` (calendar mode only), letting the board's own
  *    page-level day-nav (`TimePeriodPicker`) own the selected day instead of
@@ -32,9 +35,24 @@
  *    means cross-project overlap on the board rather than per-project
  *    multitasking. Omitted (the modal's case) keeps today's exact copy.
  *
+ * The stat tiles scope themselves to `FocusCalendarView`'s hour-window zoom
+ * (calendar mode, `hourWindow` state — see that file's header) via the
+ * `onVisibleWindowChange` callback it fires whenever its own visible window
+ * changes: `null` while unzoomed (or in list mode) keeps reading `report`'s
+ * own totals unchanged, exactly as before this existed; a real window
+ * recomputes them client-side from the report's already-fetched segment
+ * chunks (`../lib/windowedTotals.ts`) so the tiles agree with what the
+ * calendar is actually showing instead of always reflecting the full
+ * fetched report (a whole day, or an even wider custom range) regardless of
+ * zoom — previously the two could read wildly different numbers (e.g. a
+ * multi-hour "Active time" total shown above a calendar zoomed to the last
+ * 4 hours) with nothing on screen explaining why; `windowScopedNote` below
+ * the grace note now says so explicitly whenever the tiles are windowed.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { CalendarDays, List } from "lucide-react";
@@ -42,6 +60,7 @@ import { formatMs, parseDate } from "../lib/format";
 import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusKind, FocusKindTotals, FocusReport, FocusReportSegment } from "../lib/types";
 import { idleStripesInRange } from "../lib/idleStripes";
+import { computeWindowedTotals } from "../lib/windowedTotals";
 import { FocusCalendarView } from "./FocusCalendarView";
 
 export type ViewMode = "list" | "calendar";
@@ -53,8 +72,10 @@ export interface FocusReportBodyProps {
   viewMode: ViewMode;
   /** Resolves a session's `cwd` to a project name/label, threaded straight
    *  through to `FocusCalendarView` when `viewMode === "calendar"` — see
-   *  file header. Additive/optional; omitted (the modal's case) renders
-   *  exactly as before. */
+   *  file header. Passed by both consumers today (the modal's own resolver
+   *  always returns its single already-known project); optional so a bare
+   *  `FocusCalendarView` consumer (or a test) without a resolver still
+   *  renders, just without a project line on each block. */
   projectLabelForCwd?: (cwd: string | null) => string | undefined;
   /** Controlled day override, threaded through to `FocusCalendarView` when
    *  `viewMode === "calendar"` — see file header. Additive/optional. */
@@ -84,31 +105,55 @@ export function FocusReportBody({
 }: FocusReportBodyProps) {
   const { t } = useTranslation("plan");
 
+  // Set by FocusCalendarView (calendar mode only) whenever its own
+  // hour-window "zoom" is active, so the stat tiles below can be scoped to
+  // match what the calendar is actually showing instead of always reflecting
+  // the full fetched `report` regardless of zoom - see windowedTotals.ts.
+  // `null` (the default, and calendar's own reset when unzoomed/unmounted)
+  // falls back to `report`'s own totals, unchanged from before this existed.
+  const [visibleWindow, setVisibleWindow] = useState<{ startMs: number; endMs: number } | null>(
+    null
+  );
+  // Leaving calendar mode entirely (e.g. the List/Calendar toggle) must also
+  // drop any stale zoom window - FocusCalendarView unmounting handles this
+  // too (its own unmount effect), but that's an extra render tick behind a
+  // synchronous viewMode change, so this covers the same instant instead.
+  useEffect(() => {
+    if (viewMode !== "calendar") setVisibleWindow(null);
+  }, [viewMode]);
+
   if (report.sessions.length === 0) {
     return <p className="text-xs text-gray-500 italic py-6 text-center">{t("report.empty")}</p>;
   }
 
+  const windowed = visibleWindow
+    ? computeWindowedTotals(report, visibleWindow.startMs, visibleWindow.endMs)
+    : null;
+  const totals = windowed?.totals ?? report.totals;
+  const wallClockMs = windowed?.wallClockMs ?? report.wall_clock_ms;
+  const concurrencyRatio = windowed ? windowed.concurrencyRatio : report.concurrency_ratio;
+
   const onItemPct =
-    report.totals.active_ms > 0
-      ? Math.round((report.totals.by_kind.item.active_ms / report.totals.active_ms) * 100)
-      : 0;
+    totals.active_ms > 0 ? Math.round((totals.by_kind.item.active_ms / totals.active_ms) * 100) : 0;
   const graceLabel =
     report.idle_grace_seconds > 0
       ? formatMs(report.idle_grace_seconds * 1000)
       : t("report.graceDisabled");
-  const concurrencyValue =
-    report.concurrency_ratio != null ? `${report.concurrency_ratio.toFixed(2)}x` : "—";
+  const concurrencyValue = concurrencyRatio != null ? `${concurrencyRatio.toFixed(2)}x` : "—";
+  const windowHours = visibleWindow
+    ? Math.round((visibleWindow.endMs - visibleWindow.startMs) / 3_600_000)
+    : null;
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-px bg-border rounded-lg overflow-hidden border border-border">
         <StatTile
           label={t("report.activeTime")}
-          value={formatMs(report.totals.active_ms)}
+          value={formatMs(totals.active_ms)}
           // wall_clock_ms (not totals.wall_ms) - the latter is a per-segment
           // sum that inflates with concurrency same as effort does, so it
           // can't answer "of how much calendar time" once sessions overlap.
-          sub={t("report.ofWallClock", { total: formatMs(report.wall_clock_ms) })}
+          sub={t("report.ofWallClock", { total: formatMs(wallClockMs) })}
         />
         <StatTile
           label={concurrencyLabel ?? t("report.concurrency")}
@@ -121,11 +166,16 @@ export function FocusReportBody({
           valueClassName="text-green-400"
         />
         <StatTile label={t("report.offPlan")} value={`${Math.max(0, 100 - onItemPct)}%`} />
-        <StatTile label={t("report.idleExcluded")} value={formatMs(report.totals.idle_ms)} />
+        <StatTile label={t("report.idleExcluded")} value={formatMs(totals.idle_ms)} />
       </div>
       {report.idle_grace_seconds >= 0 && (
         <p className="text-[11px] text-gray-600 -mt-3">
           {t("report.graceNote", { grace: graceLabel })}
+        </p>
+      )}
+      {windowHours != null && (
+        <p className="text-[11px] text-gray-600 -mt-3">
+          {t("report.windowScopedNote", { hours: windowHours })}
         </p>
       )}
 
@@ -135,6 +185,7 @@ export function FocusReportBody({
           projectLabelForCwd={projectLabelForCwd}
           selectedDate={selectedDate}
           hideDateNav={hideDateNav}
+          onVisibleWindowChange={setVisibleWindow}
         />
       ) : (
         <ListView report={report} />
@@ -442,7 +493,7 @@ function SegmentedBar({
               <div
                 key={si}
                 data-testid="idle-stripe"
-                className="absolute inset-y-0 bg-black/45"
+                className="absolute inset-y-0 bg-stone-100/60"
                 style={{ left: `${stripe.offsetPct}%`, width: `${stripe.spanPct}%` }}
               />
             ))}

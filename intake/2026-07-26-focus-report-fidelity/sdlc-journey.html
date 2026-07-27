@@ -1,0 +1,1351 @@
+<title>Focus-Time Report Fidelity — SDLC Journey</title>
+<style>
+  :root {
+    --bg: #f2efe8;
+    --surface: #ffffff;
+    --surface-raised: #faf7f0;
+    --border: #ded8c9;
+    --text: #211f1a;
+    --text-2: #6b655a;
+    --text-3: #948c7d;
+    --accent: #b8721f;
+    --accent-wash: rgba(184, 114, 31, 0.1);
+    --accent-wash-strong: rgba(184, 114, 31, 0.22);
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --serious: #ec835a;
+    --shadow: 0 1px 2px rgba(30, 24, 14, 0.06), 0 6px 20px -8px rgba(30, 24, 14, 0.12);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c;
+      --surface: #1b2028;
+      --surface-raised: #222833;
+      --border: #2c333e;
+      --text: #e9eaec;
+      --text-2: #98a0ac;
+      --text-3: #6b7280;
+      --accent: #e3a659;
+      --accent-wash: rgba(227, 166, 89, 0.12);
+      --accent-wash-strong: rgba(227, 166, 89, 0.26);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161c;
+    --surface: #1b2028;
+    --surface-raised: #222833;
+    --border: #2c333e;
+    --text: #e9eaec;
+    --text-2: #98a0ac;
+    --text-3: #6b7280;
+    --accent: #e3a659;
+    --accent-wash: rgba(227, 166, 89, 0.12);
+    --accent-wash-strong: rgba(227, 166, 89, 0.26);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  }
+  :root[data-theme="light"] {
+    --bg: #f2efe8;
+    --surface: #ffffff;
+    --surface-raised: #faf7f0;
+    --border: #ded8c9;
+    --text: #211f1a;
+    --text-2: #6b655a;
+    --text-3: #948c7d;
+    --accent: #b8721f;
+    --accent-wash: rgba(184, 114, 31, 0.1);
+    --accent-wash-strong: rgba(184, 114, 31, 0.22);
+    --shadow: 0 1px 2px rgba(30, 24, 14, 0.06), 0 6px 20px -8px rgba(30, 24, 14, 0.12);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+      -apple-system, "Segoe UI", ui-sans-serif, system-ui, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+  a {
+    color: var(--accent);
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* header */
+  header.top {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  header.top .eyebrow {
+    color: var(--accent);
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .summary-line {
+    color: var(--text-2);
+    font-size: 15px;
+    max-width: 62ch;
+  }
+
+  /* summary strip */
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 24px 0 36px;
+    box-shadow: var(--shadow);
+  }
+  .stat-tile {
+    background: var(--surface);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat-tile .val {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .stat-tile .lbl {
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .stat-tile.accent .val {
+    color: var(--accent);
+  }
+
+  /* rail */
+  .rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .rail-node {
+    position: relative;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 18px;
+  }
+  .rail-node .spine {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .rail-node .spine::before {
+    content: "";
+    position: absolute;
+    top: 28px;
+    bottom: -18px;
+    width: 2px;
+    background: var(--border);
+  }
+  .rail-node:last-child .spine::before {
+    display: none;
+  }
+  .marker {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 1;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    color: var(--text-3);
+  }
+  .marker.done {
+    border-color: var(--good);
+    color: var(--good);
+    background: color-mix(in srgb, var(--good) 12%, var(--surface));
+  }
+  .marker.warning {
+    border-color: var(--warning);
+    color: color-mix(in srgb, var(--warning) 60%, var(--text));
+    background: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  }
+  .marker.blocked {
+    border-color: var(--critical);
+    color: var(--critical);
+    background: color-mix(in srgb, var(--critical) 12%, var(--surface));
+  }
+  .marker.in-progress {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-wash);
+  }
+  .marker.not-started {
+    border-color: var(--border);
+    color: var(--text-3);
+  }
+
+  .stage-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .stage-card.not-started {
+    opacity: 0.62;
+    box-shadow: none;
+  }
+  .stage-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    flex-wrap: wrap;
+  }
+  .stage-head h2 {
+    font-size: 18px;
+    font-weight: 650;
+    margin: 0;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .pill.done {
+    color: var(--good);
+    background: color-mix(in srgb, var(--good) 14%, var(--surface));
+  }
+  .pill.warning {
+    color: color-mix(in srgb, var(--warning) 55%, var(--text));
+    background: color-mix(in srgb, var(--warning) 20%, var(--surface));
+  }
+  .pill.blocked {
+    color: var(--critical);
+    background: color-mix(in srgb, var(--critical) 14%, var(--surface));
+  }
+  .pill.in-progress {
+    color: var(--accent);
+    background: var(--accent-wash-strong);
+  }
+  .pill.not-started {
+    color: var(--text-3);
+    background: var(--surface-raised);
+  }
+  .pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .pill.in-progress .dot {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pill.in-progress .dot {
+      animation: none;
+    }
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  .stage-note {
+    padding: 0 20px 14px;
+    margin-top: -8px;
+    font-size: 13.5px;
+    color: var(--text-2);
+  }
+  .stage-note.warning {
+    color: color-mix(in srgb, var(--warning) 70%, var(--text));
+  }
+
+  .stage-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-stats .item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stage-stats .item .v {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .stage-stats .item .k {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .gap-note {
+    margin: 12px 20px 0;
+    padding: 8px 12px;
+    border-radius: 7px;
+    background: var(--surface-raised);
+    border: 1px dashed var(--border);
+    font-size: 12.5px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .phase-wrap {
+    overflow-x: auto;
+    padding: 6px 20px 18px;
+  }
+  table.phases {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 560px;
+  }
+  table.phases th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-3);
+    font-weight: 600;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.phases td {
+    padding: 9px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border);
+  }
+  table.phases tr:last-child td {
+    border-bottom: none;
+  }
+  table.phases td.num {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .phase-name {
+    font-weight: 600;
+  }
+  .phase-agents {
+    color: var(--text-3);
+    font-size: 12px;
+  }
+
+  .bar-track {
+    position: relative;
+    width: 100%;
+    height: 8px;
+    background: var(--surface-raised);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--accent);
+  }
+  .bar-cell {
+    min-width: 90px;
+  }
+
+  details.agent-detail {
+    margin-top: 2px;
+  }
+  details.agent-detail summary {
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--text-3);
+    list-style: none;
+  }
+  details.agent-detail summary::-webkit-details-marker {
+    display: none;
+  }
+  details.agent-detail summary:before {
+    content: "▸ ";
+  }
+  details.agent-detail[open] summary:before {
+    content: "▾ ";
+  }
+  .agent-list {
+    margin: 8px 0 4px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .agent-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    padding: 6px 9px;
+    background: var(--surface-raised);
+    border-radius: 6px;
+  }
+  .agent-list .role {
+    color: var(--text);
+    font-weight: 600;
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .agent-list .agent-meta {
+    color: var(--text-3);
+    font-family: ui-monospace, Consolas, monospace;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .status-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  .status-badge.killed {
+    background: color-mix(in srgb, var(--serious) 20%, var(--surface));
+    color: var(--serious);
+  }
+
+  .empty-stage {
+    padding: 4px 20px 20px;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--text);
+    color: var(--bg);
+    font-size: 11.5px;
+    font-family: ui-monospace, Consolas, monospace;
+    padding: 6px 9px;
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity 0.1s ease;
+    z-index: 20;
+    white-space: nowrap;
+  }
+  .tooltip.show {
+    opacity: 1;
+  }
+
+  footer.gen-note {
+    margin-top: 30px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-3);
+    max-width: 68ch;
+  }
+
+  @media (max-width: 620px) {
+    .page {
+      padding: 28px 14px 60px;
+    }
+    .rail-node {
+      grid-template-columns: 22px 1fr;
+      gap: 12px;
+    }
+    .marker {
+      width: 22px;
+      height: 22px;
+    }
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <span class="eyebrow" id="eyebrow-project"></span>
+    <h1 id="title"></h1>
+    <p class="summary-line" id="summary"></p>
+  </header>
+
+  <div class="stat-strip" id="stat-strip"></div>
+
+  <div class="rail" id="rail"></div>
+
+  <footer class="gen-note" id="gen-note"></footer>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  const DATA = {
+    initiative: {
+      title: "Focus-Time Report Fidelity",
+      project: "Claude Code Agent Monitor",
+      slug: "2026-07-26-focus-report-fidelity",
+      created: "2026-07-26",
+      summary:
+        "Closing the gap between the Focus-Time Report's List and Calendar views so both honestly represent active vs. idle time, not just wall-clock span.",
+      current_stage: "merge",
+    },
+    stages: [
+      {
+        key: "intake",
+        label: "Intake",
+        status: "done",
+        note: "",
+        phases: [
+          {
+            name: "Triage",
+            agent_count: 1,
+            running_ms: 64933,
+            running_label: "1m 5s",
+            wall_ms: 64933.00000000001,
+            wall_label: "1m 5s",
+            tokens: 37471,
+            tool_uses: 7,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "intake-triage",
+                label: "Ingest request source, write request-brief.md, READY/BLOCKED verdict",
+                duration_ms: 64933,
+                tokens: 37471,
+                tool_uses: 7,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Evaluate",
+            agent_count: 4,
+            running_ms: 609497,
+            running_label: "10m 9s",
+            wall_ms: 278839.358,
+            wall_label: "4m 39s",
+            tokens: 335738,
+            tool_uses: 68,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "intake-product-owner",
+                label:
+                  "Value/scope/priority evaluation of List-view parity and other open questions",
+                duration_ms: 83048,
+                tokens: 25699,
+                tool_uses: 8,
+                status: "completed",
+              },
+              {
+                role: "intake-architect",
+                label:
+                  "System/design impact: List-view parity, wall_ms role, chunk-size constants, payload risk",
+                duration_ms: 128680,
+                tokens: 92198,
+                tool_uses: 14,
+                status: "completed",
+              },
+              {
+                role: "intake-engineer",
+                label:
+                  "Code-level feasibility/effort for List-view parity, internal-inconsistency and constant-drift findings",
+                duration_ms: 244595,
+                tokens: 128735,
+                tool_uses: 26,
+                status: "completed",
+              },
+              {
+                role: "intake-qa",
+                label:
+                  "Verify current test coverage, find inferredSegment gap, specify List-view + boundary tests",
+                duration_ms: 153174,
+                tokens: 89106,
+                tool_uses: 20,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Project Manager",
+            agent_count: 1,
+            running_ms: 187709,
+            running_label: "3m 8s",
+            wall_ms: 187709.0,
+            wall_label: "3m 8s",
+            tokens: 85795,
+            tool_uses: 17,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "intake-project-manager",
+                label: "Classify request, reconstruct history, write pm-plan.md, update PM memory",
+                duration_ms: 187709,
+                tokens: 85795,
+                tool_uses: 17,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Technical Plan",
+            agent_count: 1,
+            running_ms: 560454,
+            running_label: "9m 20s",
+            wall_ms: 560454.0,
+            wall_label: "9m 20s",
+            tokens: 154914,
+            tool_uses: 30,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "intake-tech-lead",
+                label: "Synthesize architect/engineer/qa findings into technical-plan.md",
+                duration_ms: 560454,
+                tokens: 154914,
+                tool_uses: 30,
+                status: "completed",
+              },
+            ],
+          },
+        ],
+        totals: {
+          agents: 7,
+          running_ms: 1422593,
+          running_label: "23m 43s",
+          active_wall_ms: 1167539.906,
+          active_wall_label: "19m 28s",
+          calendar_span: {
+            start: "2026-07-26T11:21:16.266051+00:00",
+            end: "2026-07-26T11:40:43.805957+00:00",
+            seconds: 1167.539906,
+          },
+          calendar_span_label: "19m 28s",
+          tokens: 613918,
+          tool_uses: 122,
+          unknown_duration_count: 0,
+        },
+        gaps: [],
+      },
+      {
+        key: "qa",
+        label: "QA",
+        status: "blocked",
+        note: "",
+        phases: [
+          {
+            name: "Triage",
+            agent_count: 1,
+            running_ms: 163651,
+            running_label: "2m 44s",
+            wall_ms: 163651.0,
+            wall_label: "2m 44s",
+            tokens: 54342,
+            tool_uses: 16,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "qa-triage",
+                label:
+                  "Confirm technical-plan scope not-yet-implemented, write change-brief.md, READY verdict",
+                duration_ms: 163651,
+                tokens: 54342,
+                tool_uses: 16,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Evaluate",
+            agent_count: 4,
+            running_ms: 918222,
+            running_label: "15m 18s",
+            wall_ms: 493293.88999999996,
+            wall_label: "8m 13s",
+            tokens: 384655,
+            tool_uses: 70,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "qa-coverage-cartographer",
+                label:
+                  "Map existing coverage for inferredSegment/ListView/FocusCalendarView, run green baseline",
+                duration_ms: 183433,
+                tokens: 107071,
+                tool_uses: 21,
+                status: "completed",
+              },
+              {
+                role: "qa-risk-analyst",
+                label:
+                  "Blast radius, DERIVED-DUAL-VIEW pattern, inferredSegment trap, i18n partial-miss risk",
+                duration_ms: 143286,
+                tokens: 74682,
+                tool_uses: 14,
+                status: "completed",
+              },
+              {
+                role: "qa-unit-architect",
+                label:
+                  "Design inferredSegment, ListView, cross-view consistency, and idleStripes.ts tests",
+                duration_ms: 466020,
+                tokens: 148463,
+                tool_uses: 23,
+                status: "completed",
+              },
+              {
+                role: "qa-e2e-architect",
+                label:
+                  "Determine no new e2e coverage needed; flag route-test gap for chunks/active_ms",
+                duration_ms: 125483,
+                tokens: 54439,
+                tool_uses: 12,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "QA Strategist",
+            agent_count: 1,
+            running_ms: 162151,
+            running_label: "2m 42s",
+            wall_ms: 162151.0,
+            wall_label: "2m 42s",
+            tokens: 89360,
+            tool_uses: 14,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "qa-strategist",
+                label: "BLIND verdict, DERIVED-DUAL-VIEW pattern naming, write qa-assessment.md",
+                duration_ms: 162151,
+                tokens: 89360,
+                tool_uses: 14,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Test Plan",
+            agent_count: 1,
+            running_ms: 185084,
+            running_label: "3m 5s",
+            wall_ms: 185084.0,
+            wall_label: "3m 5s",
+            tokens: 94411,
+            tool_uses: 9,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "qa-lead",
+                label: "Synthesize test-plan.md: sequencing, DoD, durable-cure decision",
+                duration_ms: 185084,
+                tokens: 94411,
+                tool_uses: 9,
+                status: "completed",
+              },
+            ],
+          },
+        ],
+        totals: {
+          agents: 7,
+          running_ms: 1429108,
+          running_label: "23m 49s",
+          active_wall_ms: 1076182.202,
+          active_wall_label: "17m 56s",
+          calendar_span: {
+            start: "2026-07-26T11:48:32.317563+00:00",
+            end: "2026-07-26T12:06:28.499765+00:00",
+            seconds: 1076.182202,
+          },
+          calendar_span_label: "17m 56s",
+          tokens: 622768,
+          tool_uses: 109,
+          unknown_duration_count: 0,
+        },
+        gaps: [],
+      },
+      {
+        key: "build",
+        label: "Build",
+        status: "done",
+        note: "GREEN - List-view parity shipped, inferredSegment() coverage closed, permanent cross-view test added.",
+        phases: [
+          {
+            name: "Triage",
+            agent_count: 1,
+            running_ms: 113749,
+            running_label: "1m 54s",
+            wall_ms: 113749.0,
+            wall_label: "1m 54s",
+            tokens: 56289,
+            tool_uses: 10,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-triage",
+                label:
+                  "Confirm plans, provision worktree off round-4 commit, write build-brief.md, READY verdict",
+                duration_ms: 113749,
+                tokens: 56289,
+                tool_uses: 10,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Plan",
+            agent_count: 1,
+            running_ms: 158926,
+            running_label: "2m 39s",
+            wall_ms: 158926.0,
+            wall_label: "2m 39s",
+            tokens: 62771,
+            tool_uses: 11,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-planner",
+                label:
+                  "Merge technical-plan/test-plan into ordered task list, mark DERIVED-DUAL-VIEW cures MANDATORY",
+                duration_ms: 158926,
+                tokens: 62771,
+                tool_uses: 11,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Test Author",
+            agent_count: 1,
+            running_ms: 976116,
+            running_label: "16m 16s",
+            wall_ms: 976116.0,
+            wall_label: "16m 16s",
+            tokens: 202524,
+            tool_uses: 90,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-test-author",
+                label:
+                  "Write idleStripes.test.ts, i18n completeness, ListView tests, inferredSegment coverage; prove all RED",
+                duration_ms: 976116,
+                tokens: 202524,
+                tool_uses: 90,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Implement",
+            agent_count: 2,
+            running_ms: 792680,
+            running_label: "13m 13s",
+            wall_ms: 1261018.142,
+            wall_label: "21m 1s",
+            tokens: 186378,
+            tool_uses: 97,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-implementer",
+                label: "Extract idleStripes.ts, relocate i18n keys, fix ListView sizing to green",
+                duration_ms: 729156,
+                tokens: 166270,
+                tool_uses: 89,
+                status: "completed",
+              },
+              {
+                role: "build-implementer",
+                label:
+                  "Fix-loop 1: add non-null assertions in idleStripes.test.ts for noUncheckedIndexedAccess",
+                duration_ms: 63524,
+                tokens: 20108,
+                tool_uses: 8,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Verify",
+            agent_count: 2,
+            running_ms: 572007,
+            running_label: "9m 32s",
+            wall_ms: 682820.059,
+            wall_label: "11m 23s",
+            tokens: 160639,
+            tool_uses: 65,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-verifier",
+                label:
+                  "Independent verification; BLOCKED - client build fails, tsc errors in idleStripes.test.ts",
+                duration_ms: 413845,
+                tokens: 112295,
+                tool_uses: 47,
+                status: "completed",
+              },
+              {
+                role: "build-verifier",
+                label: "Re-verify after fix-loop 1: build/tsc/tests all green, GREEN verdict",
+                duration_ms: 158162,
+                tokens: 48344,
+                tool_uses: 18,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Review",
+            agent_count: 1,
+            running_ms: 327736,
+            running_label: "5m 28s",
+            wall_ms: 327736.0,
+            wall_label: "5m 28s",
+            tokens: 101015,
+            tool_uses: 40,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-reviewer",
+                label:
+                  "Adversarial review: DERIVED-DUAL-VIEW closure confirmed, 0 blockers, 2 nits",
+                duration_ms: 327736,
+                tokens: 101015,
+                tool_uses: 40,
+                status: "completed",
+              },
+            ],
+          },
+          {
+            name: "Synthesize",
+            agent_count: 1,
+            running_ms: 169864,
+            running_label: "2m 50s",
+            wall_ms: 169864.0,
+            wall_label: "2m 50s",
+            tokens: 103935,
+            tool_uses: 21,
+            unknown_duration_count: 0,
+            agents: [
+              {
+                role: "build-lead",
+                label:
+                  "Write build-report.md, update build run-log, refresh time-ledger dashboard on disk",
+                duration_ms: 169864,
+                tokens: 103935,
+                tool_uses: 21,
+                status: "completed",
+              },
+            ],
+          },
+        ],
+        totals: {
+          agents: 9,
+          running_ms: 3111078,
+          running_label: "51m 51s",
+          active_wall_ms: 3402784.789,
+          active_wall_label: "56m 43s",
+          calendar_span: {
+            start: "2026-07-26T12:11:31.147182+00:00",
+            end: "2026-07-26T13:08:13.931971+00:00",
+            seconds: 3402.784789,
+          },
+          calendar_span_label: "56m 43s",
+          tokens: 873551,
+          tool_uses: 334,
+          unknown_duration_count: 0,
+        },
+        gaps: [],
+      },
+      {
+        key: "merge",
+        label: "Merge",
+        status: "done",
+        note: "Committed directly to master as 6e29722 after recovering from an unrelated worktree git-corruption issue.",
+        phases: [],
+        merge: {
+          merged_at: "2026-07-26T13:20:00Z",
+          commit: "6e29722",
+          branch: "master",
+          note: "Committed directly to master (this project's established convention this session, matching the earlier round-4 commit) rather than merged from a feature branch. The effort worktree's git state was found corrupted by an unrelated environment issue (core.bare flipped to true on the shared repo, likely from a stray postinstall side-effect during npm install in the worktree) before its own commit could land; the real file changes were intact on disk and were copied into the main checkout, re-verified (907 server / 427 client tests, tsc clean, build clean, file-headers clean), and committed there instead. The corrupted worktree and its branch were removed afterward.",
+        },
+        totals: {
+          agents: 0,
+          running_ms: 0,
+          running_label: null,
+          active_wall_ms: 0,
+          active_wall_label: null,
+          calendar_span: null,
+          calendar_span_label: null,
+          tokens: 0,
+          tool_uses: 0,
+          unknown_duration_count: 0,
+        },
+        gaps: [],
+      },
+    ],
+    totals: {
+      running_ms: 5962779,
+      running_label: "1h 39m",
+      active_wall_label: "1h 34m",
+      tokens: 2110237,
+      agents: 23,
+      parallelism_factor: 1.06,
+      gap_count: 0,
+    },
+    generated_note:
+      "Timings from live-logged agent completions where available; the pilot intake+QA stages for this initiative were reconstructed retrospectively from file timestamps (minute precision) rather than logged live.",
+  };
+
+  const STATUS_ICON = {
+    done: "✓",
+    warning: "!",
+    blocked: "✕",
+    "in-progress": "",
+    "not-started": "",
+  };
+  const STATUS_LABEL = {
+    done: "Done",
+    warning: "Needs attention",
+    blocked: "Blocked",
+    "in-progress": "In progress",
+    "not-started": "Not started",
+  };
+
+  function el(tag, attrs = {}, children = []) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") e.className = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "text") e.textContent = v;
+      else e.setAttribute(k, v);
+    }
+    for (const c of [].concat(children)) if (c) e.appendChild(c);
+    return e;
+  }
+
+  function pill(status, textOverride) {
+    const p = el("span", { class: `pill ${status}` });
+    if (status === "in-progress") p.appendChild(el("span", { class: "dot" }));
+    else p.appendChild(document.createTextNode(STATUS_ICON[status] || ""));
+    p.appendChild(document.createTextNode(" " + (textOverride || STATUS_LABEL[status] || status)));
+    return p;
+  }
+
+  function tooltip(target, text) {
+    const tt = document.getElementById("tooltip");
+    target.addEventListener("mouseenter", (e) => {
+      tt.textContent = text;
+      tt.classList.add("show");
+    });
+    target.addEventListener("mousemove", (e) => {
+      tt.style.left = e.clientX + "px";
+      tt.style.top = e.clientY - 10 + "px";
+    });
+    target.addEventListener("mouseleave", () => tt.classList.remove("show"));
+  }
+
+  function renderHeader() {
+    document.title = DATA.initiative.title + " — SDLC Journey";
+    document.getElementById("eyebrow-project").textContent =
+      `${DATA.initiative.project} · ${DATA.initiative.created}`;
+    document.getElementById("title").textContent = DATA.initiative.title;
+    document.getElementById("summary").textContent = DATA.initiative.summary || "";
+  }
+
+  function renderStrip() {
+    const strip = document.getElementById("stat-strip");
+    const t = DATA.totals;
+    const tiles = [
+      ["Running time", t.running_label || "—", true],
+      ["Active wall-clock", t.active_wall_label || "—", false],
+      ["Parallelism", t.parallelism_factor ? `${t.parallelism_factor}×` : "—", false],
+      ["Tokens", t.tokens ? t.tokens.toLocaleString() : "0", false],
+      ["Agent runs", t.agents ?? 0, false],
+    ];
+    for (const [lbl, val, accent] of tiles) {
+      strip.appendChild(
+        el("div", { class: `stat-tile${accent ? " accent" : ""}` }, [
+          el("span", { class: "val", text: String(val) }),
+          el("span", { class: "lbl", text: lbl }),
+        ])
+      );
+    }
+  }
+
+  function renderPhaseTable(phases) {
+    if (!phases.length) return null;
+    const maxRunning = Math.max(...phases.map((p) => p.running_ms || 0), 1);
+    const wrap = el("div", { class: "phase-wrap" });
+    const table = el("table", { class: "phases" });
+    table.appendChild(
+      el("thead", {}, [
+        el("tr", {}, [
+          el("th", { text: "Phase" }),
+          el("th", { text: "Running time" }),
+          el("th", { text: "Wall-clock" }),
+          el("th", { text: "Tokens" }),
+        ]),
+      ])
+    );
+    const tbody = el("tbody");
+    for (const p of phases) {
+      const barCell = el("td", { class: "bar-cell" });
+      const track = el("div", { class: "bar-track" });
+      const fill = el("div", { class: "bar-fill" });
+      fill.style.width = `${Math.max(3, (100 * (p.running_ms || 0)) / maxRunning)}%`;
+      track.appendChild(fill);
+      tooltip(
+        track,
+        `${p.running_label || "0s"} running · ${p.agent_count} agent${p.agent_count === 1 ? "" : "s"}`
+      );
+      barCell.appendChild(track);
+
+      const nameCell = el("td", {}, [
+        el("div", { class: "phase-name", text: p.name }),
+        el("div", {
+          class: "phase-agents",
+          text: `${p.agent_count} agent${p.agent_count === 1 ? "" : "s"}`,
+        }),
+      ]);
+
+      const row = el("tr", {}, [
+        nameCell,
+        (() => {
+          const td = el("td", { class: "num" });
+          td.appendChild(document.createTextNode(p.running_label || "—"));
+          return td;
+        })(),
+        (() => {
+          const td = el("td", { class: "num" });
+          td.appendChild(document.createTextNode(p.wall_label || "—"));
+          return td;
+        })(),
+        (() => {
+          const td = el("td", { class: "num" });
+          td.appendChild(document.createTextNode(p.tokens ? p.tokens.toLocaleString() : "0"));
+          return td;
+        })(),
+      ]);
+      // insert bar into the running-time cell visually below name; simplest: prepend bar row-span via a second row
+      tbody.appendChild(row);
+      const barRow = el("tr");
+      const spacer = el("td", {
+        colspan: "4",
+        style: "padding-top:0;border-top:none;padding-bottom:12px;",
+      });
+      spacer.appendChild(track.cloneNode(true));
+      barRow.appendChild(spacer);
+      tbody.appendChild(barRow);
+
+      if (p.agents && p.agents.length) {
+        const detailRow = el("tr");
+        const detailCell = el("td", { colspan: "4", style: "padding-top:0;border-top:none;" });
+        const details = el("details", { class: "agent-detail" }, [
+          el("summary", {
+            text: `${p.agents.length} agent call${p.agents.length === 1 ? "" : "s"}`,
+          }),
+        ]);
+        const list = el("ul", { class: "agent-list" });
+        for (const a of p.agents) {
+          const meta = [];
+          if (a.duration_ms != null) meta.push(fmtDur(a.duration_ms / 1000));
+          else meta.push("unknown");
+          if (a.tokens) meta.push(`${a.tokens.toLocaleString()} tok`);
+          const li = el("li", {}, [
+            el("span", { class: "role" }, [
+              document.createTextNode(a.role),
+              a.status && a.status !== "completed"
+                ? el("span", { class: `status-badge ${a.status}`, text: a.status })
+                : null,
+            ]),
+            el("span", { class: "agent-meta", text: meta.join(" · ") }),
+          ]);
+          list.appendChild(li);
+        }
+        details.appendChild(list);
+        detailCell.appendChild(details);
+        detailRow.appendChild(detailCell);
+        tbody.appendChild(detailRow);
+      }
+    }
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function fmtDur(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m${s ? " " + s + "s" : ""}`;
+    return `${s}s`;
+  }
+
+  function renderStage(stage) {
+    const card = el("div", { class: `stage-card ${stage.status}` });
+    const head = el("div", { class: "stage-head" }, [
+      el("h2", { text: stage.label }),
+      pill(stage.status),
+    ]);
+    card.appendChild(head);
+
+    if (stage.note) {
+      card.appendChild(
+        el("div", {
+          class: `stage-note ${stage.status === "warning" ? "warning" : ""}`,
+          text: stage.note,
+        })
+      );
+    }
+
+    if (stage.status !== "not-started" && stage.totals && stage.totals.agents > 0) {
+      const stats = el("div", { class: "stage-stats" });
+      const items = [
+        ["Running", stage.totals.running_label],
+        ["Active wall-clock", stage.totals.active_wall_label],
+        ["Tokens", stage.totals.tokens ? stage.totals.tokens.toLocaleString() : "0"],
+        ["Agent runs", stage.totals.agents],
+      ];
+      for (const [k, v] of items) {
+        if (v == null) continue;
+        stats.appendChild(
+          el("div", { class: "item" }, [
+            el("span", { class: "v", text: String(v) }),
+            el("span", { class: "k", text: k }),
+          ])
+        );
+      }
+      card.appendChild(stats);
+
+      if (stage.gaps && stage.gaps.length) {
+        for (const g of stage.gaps) {
+          card.appendChild(
+            el("div", { class: "gap-note" }, [
+              document.createTextNode(
+                `⏸ ${g.duration_label} pause between agent runs — session was idle or interrupted here, excluded from active wall-clock.`
+              ),
+            ])
+          );
+        }
+      }
+
+      const phaseTable = renderPhaseTable(stage.phases);
+      if (phaseTable) card.appendChild(phaseTable);
+    } else if (stage.key === "merge" && stage.merge) {
+      const wrap = el("div", { class: "stage-stats" }, [
+        el("div", { class: "item" }, [
+          el("span", { class: "v mono", text: (stage.merge.commit || "").slice(0, 10) || "—" }),
+          el("span", { class: "k", text: "Commit" }),
+        ]),
+        el("div", { class: "item" }, [
+          el("span", { class: "v", text: stage.merge.merged_at || "—" }),
+          el("span", { class: "k", text: "Merged at" }),
+        ]),
+      ]);
+      card.appendChild(wrap);
+    } else {
+      card.appendChild(el("div", { class: "empty-stage", text: "Not started yet." }));
+    }
+
+    return card;
+  }
+
+  function renderRail() {
+    const rail = document.getElementById("rail");
+    for (const stage of DATA.stages) {
+      const node = el("div", { class: "rail-node" });
+      const spine = el("div", { class: "spine" }, [
+        el("div", {
+          class: `marker ${stage.status}`,
+          text:
+            stage.status === "done"
+              ? "✓"
+              : stage.status === "warning"
+                ? "!"
+                : stage.status === "blocked"
+                  ? "✕"
+                  : "",
+        }),
+      ]);
+      node.appendChild(spine);
+      node.appendChild(renderStage(stage));
+      rail.appendChild(node);
+    }
+  }
+
+  function renderFooter() {
+    const note = DATA.generated_note || "";
+    document.getElementById("gen-note").textContent = note;
+  }
+
+  renderHeader();
+  renderStrip();
+  renderRail();
+  renderFooter();
+</script>

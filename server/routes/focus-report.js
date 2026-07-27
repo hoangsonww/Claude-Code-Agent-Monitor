@@ -13,8 +13,23 @@
  * `sessions.js`/`analytics.js`/`agents.js`/`events.js`), requires `?from=`/
  * `?to=` ISO-8601 instants bounding the query (no env knob, no server-side
  * default window — see decisions.md DEC-2/DEC-3: the client always supplies
- * both), and feeds the resolved rows through `buildProjectFocusReport`
- * unmodified. Never re-derives segment-replay/merge-interval math here.
+ * both), and feeds the resolved rows through `buildProjectFocusReport`,
+ * passing the parsed `fromMs`/`toMs` through as its window bounds so every
+ * session's reported segments/totals are CLIPPED to `[from, to)` — not just
+ * session *selection* — rather than a session that merely overlaps the
+ * window contributing its full, unclipped history. Never re-derives
+ * segment-replay/merge-interval math here; the clipping itself lives in
+ * `buildSessionFocusReport` (server/lib/focus-report.js).
+ *
+ * `?unassigned=true` scopes to the inverse of a project filter: sessions
+ * whose `cwd` isn't mapped to ANY project (`cwd NOT IN (SELECT cwd FROM
+ * project_paths)` — `project_paths.cwd` is `UNIQUE`, so this mirrors
+ * `GET /api/projects`' own JS-side `unassigned` bucket (routes/projects.js),
+ * just expressed as a SQL anti-join instead of a post-hoc Set difference,
+ * since this route already builds its session query as a `WHERE` clause).
+ * Mutually exclusive with `?project_id=` — combining them is a structured
+ * 400, not a silently-ignored one or the other, since "sessions in project
+ * X" and "sessions in no project" can never both be true.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -35,13 +50,22 @@ const router = Router();
 // plus an echoed-back project_id/session_id (null when unfiltered). `from`/
 // `to` are never echoed back - the caller already knows what it asked for.
 router.get("/", (req, res) => {
-  const { from, to, project_id: projectId, session_id: sessionId } = req.query;
+  const { from, to, project_id: projectId, session_id: sessionId, unassigned } = req.query;
+  const unassignedOnly = unassigned === "true";
 
   if (typeof from !== "string" || from === "" || typeof to !== "string" || to === "") {
     return res.status(400).json({
       error: {
         code: "BAD_REQUEST",
         message: "Both from and to (ISO-8601 instants) are required.",
+      },
+    });
+  }
+  if (unassignedOnly && typeof projectId === "string" && projectId !== "") {
+    return res.status(400).json({
+      error: {
+        code: "BAD_REQUEST",
+        message: "project_id and unassigned=true are mutually exclusive.",
       },
     });
   }
@@ -89,6 +113,10 @@ router.get("/", (req, res) => {
     }
   }
 
+  if (unassignedOnly) {
+    where.push("(cwd IS NULL OR cwd = '' OR cwd NOT IN (SELECT cwd FROM project_paths))");
+  }
+
   if (session) {
     where.push("id = ?");
     params.push(session.id);
@@ -106,7 +134,7 @@ router.get("/", (req, res) => {
     )
     .all(...params);
 
-  const report = buildProjectFocusReport(dbModule, sessions);
+  const report = buildProjectFocusReport(dbModule, sessions, fromMs, toMs);
   res.json({
     project_id: project ? project.id : null,
     session_id: session ? session.id : null,

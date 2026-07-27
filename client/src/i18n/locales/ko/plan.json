@@ -53,6 +53,7 @@
     "idleExcluded": "제외된 유휴 시간",
     "graceNote": "{{grace}}보다 길게 활동이 없으면 활성 시간으로 계산되지 않습니다",
     "graceDisabled": "비활성화됨 — 전체 실제 경과 시간을 계산합니다",
+    "windowScopedNote": "통계는 표시된 {{hours}}시간 구간을 기준으로 하며, 하루 전체가 아닙니다",
     "sessionsHeading": "세션별 내역",
     "itemsHeading": "플랜 항목별 시간",
     "splitHeading": "프로젝트 전체 비율",
@@ -69,6 +70,20 @@
       "empty": "이 날에는 활동이 없습니다",
       "declared": "선언됨",
       "inferredProvenance": "≈ 추정됨",
+      "idle": "유휴",
+      "noFocus": "포커스 없음",
+      "noName": "이름 없음",
+      "hourWindow": {
+        "groupLabel": "시간 범위",
+        "option": "{{hours}}시간",
+        "optionTitle": "지난 {{hours}}시간과 앞으로 2시간을 표시합니다",
+        "fullDayTitle": "하루 전체를 표시합니다"
+      },
+      "scratchWork": {
+        "title": "임시 작업",
+        "sessionCount_one": "세션 {{count}}개",
+        "sessionCount_other": "세션 {{count}}개"
+      },
       "stillRunning": "실행 중",
       "viewEvents": "이 지속 시간을 뒷받침하는 원본 이벤트 보기",
       "eventsModal": {
@@ -83,7 +98,7 @@
       }
     },
     "board": {
-      "title": "포커스 달력",
+      "title": "달력",
       "projectFilter": "프로젝트",
       "allProjects": "모든 프로젝트",
       "sessionFilter": "세션",

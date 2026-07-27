@@ -1,0 +1,6 @@
+{
+  "merged_at": "2026-07-26T14:52:00-06:00",
+  "commit": "e4d4bda",
+  "branch": "effort/2026-07-26-focus-calendar-board",
+  "note": "Squash-merged into master. One genuine conflict in client/README.md (both this branch and an unrelated concurrent Kanban/token feature touched the same doc table) resolved collaboratively with Sara. Two gitignored local files (.claude/settings.local.json, .superpowers/README.md) were accidentally dropped from tracking during an earlier incident-recovery commit and restored before this merge."
+}

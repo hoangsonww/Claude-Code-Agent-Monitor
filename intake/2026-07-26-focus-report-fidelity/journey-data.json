@@ -1,0 +1,502 @@
+{
+  "initiative": {
+    "title": "Focus-Time Report Fidelity",
+    "project": "Claude Code Agent Monitor",
+    "slug": "2026-07-26-focus-report-fidelity",
+    "created": "2026-07-26",
+    "summary": "Closing the gap between the Focus-Time Report's List and Calendar views so both honestly represent active vs. idle time, not just wall-clock span.",
+    "current_stage": "merge"
+  },
+  "stages": [
+    {
+      "key": "intake",
+      "label": "Intake",
+      "status": "done",
+      "note": "",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 1,
+          "running_ms": 64933,
+          "running_label": "1m 5s",
+          "wall_ms": 64933.00000000001,
+          "wall_label": "1m 5s",
+          "tokens": 37471,
+          "tool_uses": 7,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-triage",
+              "label": "Ingest request source, write request-brief.md, READY/BLOCKED verdict",
+              "duration_ms": 64933,
+              "tokens": 37471,
+              "tool_uses": 7,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Evaluate",
+          "agent_count": 4,
+          "running_ms": 609497,
+          "running_label": "10m 9s",
+          "wall_ms": 278839.358,
+          "wall_label": "4m 39s",
+          "tokens": 335738,
+          "tool_uses": 68,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-product-owner",
+              "label": "Value/scope/priority evaluation of List-view parity and other open questions",
+              "duration_ms": 83048,
+              "tokens": 25699,
+              "tool_uses": 8,
+              "status": "completed"
+            },
+            {
+              "role": "intake-architect",
+              "label": "System/design impact: List-view parity, wall_ms role, chunk-size constants, payload risk",
+              "duration_ms": 128680,
+              "tokens": 92198,
+              "tool_uses": 14,
+              "status": "completed"
+            },
+            {
+              "role": "intake-engineer",
+              "label": "Code-level feasibility/effort for List-view parity, internal-inconsistency and constant-drift findings",
+              "duration_ms": 244595,
+              "tokens": 128735,
+              "tool_uses": 26,
+              "status": "completed"
+            },
+            {
+              "role": "intake-qa",
+              "label": "Verify current test coverage, find inferredSegment gap, specify List-view + boundary tests",
+              "duration_ms": 153174,
+              "tokens": 89106,
+              "tool_uses": 20,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Project Manager",
+          "agent_count": 1,
+          "running_ms": 187709,
+          "running_label": "3m 8s",
+          "wall_ms": 187709.0,
+          "wall_label": "3m 8s",
+          "tokens": 85795,
+          "tool_uses": 17,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-project-manager",
+              "label": "Classify request, reconstruct history, write pm-plan.md, update PM memory",
+              "duration_ms": 187709,
+              "tokens": 85795,
+              "tool_uses": 17,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Technical Plan",
+          "agent_count": 1,
+          "running_ms": 560454,
+          "running_label": "9m 20s",
+          "wall_ms": 560454.0,
+          "wall_label": "9m 20s",
+          "tokens": 154914,
+          "tool_uses": 30,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-tech-lead",
+              "label": "Synthesize architect/engineer/qa findings into technical-plan.md",
+              "duration_ms": 560454,
+              "tokens": 154914,
+              "tool_uses": 30,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 7,
+        "running_ms": 1422593,
+        "running_label": "23m 43s",
+        "active_wall_ms": 1167539.906,
+        "active_wall_label": "19m 28s",
+        "calendar_span": {
+          "start": "2026-07-26T11:21:16.266051+00:00",
+          "end": "2026-07-26T11:40:43.805957+00:00",
+          "seconds": 1167.539906
+        },
+        "calendar_span_label": "19m 28s",
+        "tokens": 613918,
+        "tool_uses": 122,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    },
+    {
+      "key": "qa",
+      "label": "QA",
+      "status": "blocked",
+      "note": "",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 1,
+          "running_ms": 163651,
+          "running_label": "2m 44s",
+          "wall_ms": 163651.0,
+          "wall_label": "2m 44s",
+          "tokens": 54342,
+          "tool_uses": 16,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-triage",
+              "label": "Confirm technical-plan scope not-yet-implemented, write change-brief.md, READY verdict",
+              "duration_ms": 163651,
+              "tokens": 54342,
+              "tool_uses": 16,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Evaluate",
+          "agent_count": 4,
+          "running_ms": 918222,
+          "running_label": "15m 18s",
+          "wall_ms": 493293.88999999996,
+          "wall_label": "8m 13s",
+          "tokens": 384655,
+          "tool_uses": 70,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-coverage-cartographer",
+              "label": "Map existing coverage for inferredSegment/ListView/FocusCalendarView, run green baseline",
+              "duration_ms": 183433,
+              "tokens": 107071,
+              "tool_uses": 21,
+              "status": "completed"
+            },
+            {
+              "role": "qa-risk-analyst",
+              "label": "Blast radius, DERIVED-DUAL-VIEW pattern, inferredSegment trap, i18n partial-miss risk",
+              "duration_ms": 143286,
+              "tokens": 74682,
+              "tool_uses": 14,
+              "status": "completed"
+            },
+            {
+              "role": "qa-unit-architect",
+              "label": "Design inferredSegment, ListView, cross-view consistency, and idleStripes.ts tests",
+              "duration_ms": 466020,
+              "tokens": 148463,
+              "tool_uses": 23,
+              "status": "completed"
+            },
+            {
+              "role": "qa-e2e-architect",
+              "label": "Determine no new e2e coverage needed; flag route-test gap for chunks/active_ms",
+              "duration_ms": 125483,
+              "tokens": 54439,
+              "tool_uses": 12,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "QA Strategist",
+          "agent_count": 1,
+          "running_ms": 162151,
+          "running_label": "2m 42s",
+          "wall_ms": 162151.0,
+          "wall_label": "2m 42s",
+          "tokens": 89360,
+          "tool_uses": 14,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-strategist",
+              "label": "BLIND verdict, DERIVED-DUAL-VIEW pattern naming, write qa-assessment.md",
+              "duration_ms": 162151,
+              "tokens": 89360,
+              "tool_uses": 14,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Plan",
+          "agent_count": 1,
+          "running_ms": 185084,
+          "running_label": "3m 5s",
+          "wall_ms": 185084.0,
+          "wall_label": "3m 5s",
+          "tokens": 94411,
+          "tool_uses": 9,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-lead",
+              "label": "Synthesize test-plan.md: sequencing, DoD, durable-cure decision",
+              "duration_ms": 185084,
+              "tokens": 94411,
+              "tool_uses": 9,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 7,
+        "running_ms": 1429108,
+        "running_label": "23m 49s",
+        "active_wall_ms": 1076182.202,
+        "active_wall_label": "17m 56s",
+        "calendar_span": {
+          "start": "2026-07-26T11:48:32.317563+00:00",
+          "end": "2026-07-26T12:06:28.499765+00:00",
+          "seconds": 1076.182202
+        },
+        "calendar_span_label": "17m 56s",
+        "tokens": 622768,
+        "tool_uses": 109,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    },
+    {
+      "key": "build",
+      "label": "Build",
+      "status": "done",
+      "note": "GREEN - List-view parity shipped, inferredSegment() coverage closed, permanent cross-view test added.",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 1,
+          "running_ms": 113749,
+          "running_label": "1m 54s",
+          "wall_ms": 113749.0,
+          "wall_label": "1m 54s",
+          "tokens": 56289,
+          "tool_uses": 10,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-triage",
+              "label": "Confirm plans, provision worktree off round-4 commit, write build-brief.md, READY verdict",
+              "duration_ms": 113749,
+              "tokens": 56289,
+              "tool_uses": 10,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Plan",
+          "agent_count": 1,
+          "running_ms": 158926,
+          "running_label": "2m 39s",
+          "wall_ms": 158926.0,
+          "wall_label": "2m 39s",
+          "tokens": 62771,
+          "tool_uses": 11,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-planner",
+              "label": "Merge technical-plan/test-plan into ordered task list, mark DERIVED-DUAL-VIEW cures MANDATORY",
+              "duration_ms": 158926,
+              "tokens": 62771,
+              "tool_uses": 11,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Author",
+          "agent_count": 1,
+          "running_ms": 976116,
+          "running_label": "16m 16s",
+          "wall_ms": 976116.0,
+          "wall_label": "16m 16s",
+          "tokens": 202524,
+          "tool_uses": 90,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-test-author",
+              "label": "Write idleStripes.test.ts, i18n completeness, ListView tests, inferredSegment coverage; prove all RED",
+              "duration_ms": 976116,
+              "tokens": 202524,
+              "tool_uses": 90,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Implement",
+          "agent_count": 2,
+          "running_ms": 792680,
+          "running_label": "13m 13s",
+          "wall_ms": 1261018.142,
+          "wall_label": "21m 1s",
+          "tokens": 186378,
+          "tool_uses": 97,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-implementer",
+              "label": "Extract idleStripes.ts, relocate i18n keys, fix ListView sizing to green",
+              "duration_ms": 729156,
+              "tokens": 166270,
+              "tool_uses": 89,
+              "status": "completed"
+            },
+            {
+              "role": "build-implementer",
+              "label": "Fix-loop 1: add non-null assertions in idleStripes.test.ts for noUncheckedIndexedAccess",
+              "duration_ms": 63524,
+              "tokens": 20108,
+              "tool_uses": 8,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Verify",
+          "agent_count": 2,
+          "running_ms": 572007,
+          "running_label": "9m 32s",
+          "wall_ms": 682820.059,
+          "wall_label": "11m 23s",
+          "tokens": 160639,
+          "tool_uses": 65,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-verifier",
+              "label": "Independent verification; BLOCKED - client build fails, tsc errors in idleStripes.test.ts",
+              "duration_ms": 413845,
+              "tokens": 112295,
+              "tool_uses": 47,
+              "status": "completed"
+            },
+            {
+              "role": "build-verifier",
+              "label": "Re-verify after fix-loop 1: build/tsc/tests all green, GREEN verdict",
+              "duration_ms": 158162,
+              "tokens": 48344,
+              "tool_uses": 18,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Review",
+          "agent_count": 1,
+          "running_ms": 327736,
+          "running_label": "5m 28s",
+          "wall_ms": 327736.0,
+          "wall_label": "5m 28s",
+          "tokens": 101015,
+          "tool_uses": 40,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-reviewer",
+              "label": "Adversarial review: DERIVED-DUAL-VIEW closure confirmed, 0 blockers, 2 nits",
+              "duration_ms": 327736,
+              "tokens": 101015,
+              "tool_uses": 40,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Synthesize",
+          "agent_count": 1,
+          "running_ms": 169864,
+          "running_label": "2m 50s",
+          "wall_ms": 169864.0,
+          "wall_label": "2m 50s",
+          "tokens": 103935,
+          "tool_uses": 21,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-lead",
+              "label": "Write build-report.md, update build run-log, refresh time-ledger dashboard on disk",
+              "duration_ms": 169864,
+              "tokens": 103935,
+              "tool_uses": 21,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 9,
+        "running_ms": 3111078,
+        "running_label": "51m 51s",
+        "active_wall_ms": 3402784.789,
+        "active_wall_label": "56m 43s",
+        "calendar_span": {
+          "start": "2026-07-26T12:11:31.147182+00:00",
+          "end": "2026-07-26T13:08:13.931971+00:00",
+          "seconds": 3402.784789
+        },
+        "calendar_span_label": "56m 43s",
+        "tokens": 873551,
+        "tool_uses": 334,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    },
+    {
+      "key": "merge",
+      "label": "Merge",
+      "status": "done",
+      "note": "Committed directly to master as 6e29722 after recovering from an unrelated worktree git-corruption issue.",
+      "phases": [],
+      "merge": {
+        "merged_at": "2026-07-26T13:20:00Z",
+        "commit": "6e29722",
+        "branch": "master",
+        "note": "Committed directly to master (this project's established convention this session, matching the earlier round-4 commit) rather than merged from a feature branch. The effort worktree's git state was found corrupted by an unrelated environment issue (core.bare flipped to true on the shared repo, likely from a stray postinstall side-effect during npm install in the worktree) before its own commit could land; the real file changes were intact on disk and were copied into the main checkout, re-verified (907 server / 427 client tests, tsc clean, build clean, file-headers clean), and committed there instead. The corrupted worktree and its branch were removed afterward."
+      },
+      "totals": {
+        "agents": 0,
+        "running_ms": 0,
+        "running_label": null,
+        "active_wall_ms": 0,
+        "active_wall_label": null,
+        "calendar_span": null,
+        "calendar_span_label": null,
+        "tokens": 0,
+        "tool_uses": 0,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    }
+  ],
+  "totals": {
+    "running_ms": 5962779,
+    "running_label": "1h 39m",
+    "active_wall_label": "1h 34m",
+    "tokens": 2110237,
+    "agents": 23,
+    "parallelism_factor": 1.06,
+    "gap_count": 0
+  },
+  "generated_note": "Timings from live-logged agent completions where available; the pilot intake+QA stages for this initiative were reconstructed retrospectively from file timestamps (minute precision) rather than logged live."
+}

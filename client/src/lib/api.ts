@@ -1926,17 +1926,28 @@ export const api = {
    * on first load, per DEC-3 in `decisions.md`). A request missing either is
    * a 400 server-side, not an implicit "all time" query.
    *
-   * @param params.projectId Optional project id to scope to.
+   * @param params.projectId Optional project id to scope to. Mutually
+   *   exclusive with `unassigned` — the server 400s if both are set.
    * @param params.sessionId Optional single session id to scope to.
+   * @param params.unassigned Optional — scope to sessions whose cwd isn't
+   *   mapped to any project (the inverse of `projectId`), mirroring
+   *   `projects.list`'s own `unassigned` bucket for this cross-project view.
    * @param params.from Required ISO-8601 instant — the window's start (inclusive).
    * @param params.to   Required ISO-8601 instant — the window's end (exclusive).
    * @returns The aggregate {@link FocusReport}, echoing back the resolved
    *   `project_id`/`session_id` (`null` when unfiltered/not applicable).
    */
-  focusReport: (params: { projectId?: string; sessionId?: string; from: string; to: string }) => {
+  focusReport: (params: {
+    projectId?: string;
+    sessionId?: string;
+    unassigned?: boolean;
+    from: string;
+    to: string;
+  }) => {
     const qs = new URLSearchParams();
     if (params.projectId) qs.set("project_id", params.projectId);
     if (params.sessionId) qs.set("session_id", params.sessionId);
+    if (params.unassigned) qs.set("unassigned", "true");
     qs.set("from", params.from);
     qs.set("to", params.to);
     applyScope(qs); // narrow to the active data scope (source machines)

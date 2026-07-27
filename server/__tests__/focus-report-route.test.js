@@ -211,6 +211,41 @@ describe("GET /api/focus-report — window-boundary session selection", () => {
     const ids = res.body.sessions.map((s) => s.session_id).sort();
     assert.deepEqual(ids, ["window-boundary-touch", "window-in"]);
   });
+
+  it("clips a session that only partially overlaps [from,to) to its windowed slice, not its full real span", async () => {
+    const CLIP_CWD = "/tmp/focus-report-route-window-clip-test";
+    const project = await createProject("Window Clip Test", [CLIP_CWD]);
+
+    // Fully inside the window: 9am-10am on day 1, 1h.
+    seedSession("clip-in", CLIP_CWD, dayIso(1, 9), dayIso(1, 10));
+    focus("clip-in", dayIso(1, 9), { verb: "set", item_number: 1, item_text_snapshot: "x" });
+
+    // Real span is 11pm day 0 -> 1am day 1 (2h), but only the 1h from
+    // midnight to 1am day 1 actually falls inside [FROM, TO).
+    seedSession("clip-boundary", CLIP_CWD, dayIso(0, 23), dayIso(1, 1));
+    focus("clip-boundary", dayIso(0, 23), {
+      verb: "set",
+      item_number: 1,
+      item_text_snapshot: "x",
+    });
+
+    const res = await fetch(
+      `/api/focus-report?project_id=${project.id}&from=${encodeURIComponent(FROM)}&to=${encodeURIComponent(TO)}`
+    );
+    assert.equal(res.status, 200);
+
+    const boundarySession = res.body.sessions.find((s) => s.session_id === "clip-boundary");
+    assert.equal(boundarySession.segments.length, 1);
+    // Clipped to the window start, not the session's real 11pm start.
+    assert.equal(boundarySession.segments[0].start, FROM);
+    assert.equal(boundarySession.segments[0].end, dayIso(1, 1));
+    assert.equal(boundarySession.segments[0].wall_ms, 60 * 60_000); // 1h, not the real 2h
+
+    // Aggregate totals/wall-clock reflect only the windowed 1h+1h = 2h, not
+    // the 1h+2h = 3h a naive (session-selected-but-unclipped) sum would give.
+    assert.equal(res.body.totals.wall_ms, 2 * 60 * 60_000);
+    assert.equal(res.body.wall_clock_ms, 2 * 60 * 60_000);
+  });
 });
 
 describe("GET /api/focus-report — project_id / session_id scoping", () => {
@@ -281,6 +316,73 @@ describe("GET /api/focus-report — project_id / session_id scoping", () => {
     );
     assert.equal(res.status, 404);
     assert.equal(typeof res.body?.error?.code, "string");
+  });
+});
+
+describe("GET /api/focus-report — ?unassigned=true scoping", () => {
+  it("returns only sessions whose cwd isn't mapped to any project", async () => {
+    const CWD_MAPPED = "/tmp/focus-report-route-unassigned-mapped";
+    const CWD_UNMAPPED = "/tmp/focus-report-route-unassigned-unmapped";
+    await createProject("Unassigned Scope Mapped", [CWD_MAPPED]);
+
+    seedSession("unassigned-mapped-1", CWD_MAPPED, dayIso(1, 9), dayIso(1, 10));
+    focus("unassigned-mapped-1", dayIso(1, 9), {
+      verb: "set",
+      item_number: 1,
+      item_text_snapshot: "x",
+    });
+    seedSession("unassigned-unmapped-1", CWD_UNMAPPED, dayIso(1, 9), dayIso(1, 10));
+    focus("unassigned-unmapped-1", dayIso(1, 9), {
+      verb: "set",
+      item_number: 1,
+      item_text_snapshot: "x",
+    });
+
+    const res = await fetch(
+      `/api/focus-report?unassigned=true&from=${encodeURIComponent(dayIso(0))}&to=${encodeURIComponent(dayIso(2))}`
+    );
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.sessions.map((s) => s.session_id),
+      ["unassigned-unmapped-1"]
+    );
+    // No project_id echoed back for an unassigned-scoped query - there is no
+    // one project this scope corresponds to.
+    assert.equal(res.body.project_id, null);
+  });
+
+  it("400s when combined with project_id - the two scopes are mutually exclusive, never silently one-or-the-other", async () => {
+    const project = await createProject("Unassigned Plus Project 400", []);
+    const res = await fetch(
+      `/api/focus-report?unassigned=true&project_id=${project.id}&from=${encodeURIComponent(dayIso(0))}&to=${encodeURIComponent(dayIso(2))}`
+    );
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "BAD_REQUEST");
+  });
+
+  it("still composes with session_id and sources - unassigned isn't a special-cased dead end", async () => {
+    const CWD_UNMAPPED = "/tmp/focus-report-route-unassigned-compose";
+    seedSession("unassigned-compose-1", CWD_UNMAPPED, dayIso(1, 9), dayIso(1, 10));
+    focus("unassigned-compose-1", dayIso(1, 9), {
+      verb: "set",
+      item_number: 1,
+      item_text_snapshot: "x",
+    });
+    seedSession("unassigned-compose-2", CWD_UNMAPPED, dayIso(1, 11), dayIso(1, 12));
+    focus("unassigned-compose-2", dayIso(1, 11), {
+      verb: "set",
+      item_number: 1,
+      item_text_snapshot: "x",
+    });
+
+    const res = await fetch(
+      `/api/focus-report?unassigned=true&session_id=unassigned-compose-1&from=${encodeURIComponent(dayIso(0))}&to=${encodeURIComponent(dayIso(2))}`
+    );
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.sessions.map((s) => s.session_id),
+      ["unassigned-compose-1"]
+    );
   });
 });
 

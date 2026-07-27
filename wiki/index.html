@@ -1164,8 +1164,10 @@
                     <code>inferred: true</code> and render with an "≈ inferred" chip, so guessed
                     time is never dressed up as declared time. Declared focus history always
                     wins — inference only fills sessions with no declarations at all — and a
-                    session the classifier can't confidently place stays an honest unclassified
-                    hole.
+                    session with neither a declaration nor a confident verdict yet (most often
+                    one that's still running and hasn't gone quiet long enough for a tick to
+                    reach it) still shows up as a neutral gray "No focus" block instead of a
+                    silent unclassified hole.
                   </p>
                   <p>
                     A header toggle in the focus-time report switches between the List view
@@ -7101,7 +7103,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=53" defer></script>
+    <script src="i18n-content.js?v=54" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

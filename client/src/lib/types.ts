@@ -1531,9 +1531,14 @@ export interface UnassignedProjectBucket {
  *  for a session, from GET /api/projects/:id/focus-report. `item_number` is
  *  the item that was current when the segment started — for a detour this
  *  is its "prior_item" (the same concept PlanModal buckets detours under),
- *  not necessarily the item current when the segment ends. */
+ *  not necessarily the item current when the segment ends. Its `kind` is
+ *  widened to {@link FocusSegmentKind}: a session with no declared focus AND
+ *  no usable background-classifier verdict gets one whole-session `"none"`
+ *  segment (see server/lib/focus-report.js's `noFocusSegment`) instead of
+ *  being dropped from the report — `"none"` is a report-only sentinel, never
+ *  a value {@link focusKind} returns for a session's *live* current focus. */
 export interface FocusReportSegment {
-  kind: FocusKind;
+  kind: FocusSegmentKind;
   item_number: number | null;
   /** The item's text snapshot (item kind) or the detour's title/description
    *  (detour/feature/bug kind) at declaration time. */
@@ -1588,7 +1593,12 @@ export interface FocusKindTotals {
 
 /** One session's segments in a focus-time report. Sessions that never
  *  declared any focus fall back to the background classifier's verdict
- *  (segments flagged `inferred`); those with neither are omitted entirely. */
+ *  (segments flagged `inferred`); those with neither still get one `"none"`-
+ *  kind segment spanning the whole session (see {@link FocusReportSegment})
+ *  rather than being omitted — a currently-running session that hasn't
+ *  declared a focus yet and hasn't gone quiet long enough to be classified
+ *  would otherwise be invisible on the calendar/list until one of those
+ *  happens. */
 export interface FocusReportSessionEntry {
   session_id: string;
   name: string | null;
@@ -2741,6 +2751,14 @@ export const AWAITING_REASON_CONFIG: Record<
  */
 export type FocusKind = "item" | "detour" | "feature" | "bug";
 
+/** {@link FocusKind} widened with the `"none"` sentinel a focus-time report
+ *  segment (only) can carry — see {@link FocusReportSegment}. `focusKind()`
+ *  below, which classifies a session's *live* current focus, never returns
+ *  `"none"` (it returns `null` for "no focus declared" instead); this wider
+ *  type exists purely so a report segment/its config lookups can share
+ *  {@link FOCUS_KIND_CONFIG}/{@link FOCUS_KIND_SOLID} with the real kinds. */
+export type FocusSegmentKind = FocusKind | "none";
+
 /**
  * Classifies a {@link SessionFocus} into one {@link FocusKind}: the top of
  * the detour stack wins when a detour is open (its `kind`, or plain
@@ -2762,32 +2780,42 @@ export function focusKind(focus: SessionFocus | null | undefined): FocusKind | n
  * SessionCard's breadcrumb. Icons themselves stay out of this file (kept
  * JSX-free) — see `FOCUS_KIND_ICONS` in PlanModal.tsx.
  */
-export const FOCUS_KIND_CONFIG: Record<FocusKind, { labelKey: string; color: string; bg: string }> =
-  {
-    item: {
-      labelKey: "plan:items.itemKindLabel",
-      // Deliberately a saturated "terminal green" rather than the app's
-      // usual muted accent — a known-item focus is the common case and
-      // needs to read at a glance, not just on close inspection.
-      color: "text-green-400",
-      bg: "bg-green-500/10 border-green-500/20",
-    },
-    detour: {
-      labelKey: "plan:items.detourLabel",
-      color: "text-amber-400",
-      bg: "bg-amber-500/10 border-amber-500/20",
-    },
-    feature: {
-      labelKey: "plan:items.featureLabel",
-      color: "text-violet-400",
-      bg: "bg-violet-500/10 border-violet-500/20",
-    },
-    bug: {
-      labelKey: "plan:items.bugLabel",
-      color: "text-rose-400",
-      bg: "bg-rose-500/10 border-rose-500/20",
-    },
-  };
+export const FOCUS_KIND_CONFIG: Record<
+  FocusSegmentKind,
+  { labelKey: string; color: string; bg: string }
+> = {
+  item: {
+    labelKey: "plan:items.itemKindLabel",
+    // Deliberately a saturated "terminal green" rather than the app's
+    // usual muted accent — a known-item focus is the common case and
+    // needs to read at a glance, not just on close inspection.
+    color: "text-green-400",
+    bg: "bg-green-500/10 border-green-500/20",
+  },
+  detour: {
+    labelKey: "plan:items.detourLabel",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+  },
+  feature: {
+    labelKey: "plan:items.featureLabel",
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+  },
+  bug: {
+    labelKey: "plan:items.bugLabel",
+    color: "text-rose-400",
+    bg: "bg-rose-500/10 border-rose-500/20",
+  },
+  // Report-only sentinel (see FocusSegmentKind) — a neutral gray, distinct
+  // from every real kind's hue, for a session with no declared focus and no
+  // usable inference yet.
+  none: {
+    labelKey: "plan:report.calendar.noFocus",
+    color: "text-gray-400",
+    bg: "bg-gray-500/10 border-gray-500/20",
+  },
+};
 
 /** Solid fill classes per {@link FocusKind} — {@link FOCUS_KIND_CONFIG}'s
  *  own `bg` is a translucent badge wash (10% opacity), not meant for
@@ -2798,11 +2826,12 @@ export const FOCUS_KIND_CONFIG: Record<FocusKind, { labelKey: string; color: str
  *  can find as literal substrings in source, so a computed class string
  *  would silently produce no styles at all. Shared by FocusReportModal
  *  (segment bars, legend) and FocusCalendarView (legend). */
-export const FOCUS_KIND_SOLID: Record<FocusKind, string> = {
+export const FOCUS_KIND_SOLID: Record<FocusSegmentKind, string> = {
   item: "bg-green-500",
   detour: "bg-amber-500",
   feature: "bg-violet-500",
   bug: "bg-rose-500",
+  none: "bg-gray-500",
 };
 
 // ───── Transcript / Conversation types ─────

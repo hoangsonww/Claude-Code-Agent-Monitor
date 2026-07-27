@@ -26,6 +26,7 @@ const {
   buildSessionFocusReport,
   buildProjectFocusReport,
   buildActivityChunks,
+  clipSegmentToWindow,
   mergeIntervals,
   CHUNK_MS,
 } = require("../lib/focus-report");
@@ -392,6 +393,56 @@ describe("buildActivityChunks", () => {
   });
 });
 
+describe("clipSegmentToWindow", () => {
+  const seg = { kind: "item", start: t(10), end: t(40) };
+
+  it("returns the same object unchanged when both bounds fully contain the segment", () => {
+    const result = clipSegmentToWindow(seg, new Date(t(0)).getTime(), new Date(t(60)).getTime());
+    assert.equal(result, seg); // reference equality - no clone when nothing narrows
+  });
+
+  it("returns the same object when both bounds are omitted", () => {
+    const result = clipSegmentToWindow(seg, undefined, undefined);
+    assert.equal(result, seg);
+  });
+
+  it("clips only the start when just windowStartMs narrows the segment", () => {
+    const result = clipSegmentToWindow(seg, new Date(t(20)).getTime(), undefined);
+    assert.equal(result.start, t(20));
+    assert.equal(result.end, t(40));
+  });
+
+  it("clips only the end when just windowEndMs narrows the segment", () => {
+    const result = clipSegmentToWindow(seg, undefined, new Date(t(30)).getTime());
+    assert.equal(result.start, t(10));
+    assert.equal(result.end, t(30));
+  });
+
+  it("clips both sides when the window is a strict subset", () => {
+    const result = clipSegmentToWindow(seg, new Date(t(20)).getTime(), new Date(t(30)).getTime());
+    assert.equal(result.start, t(20));
+    assert.equal(result.end, t(30));
+  });
+
+  it("returns null when the window is entirely outside the segment", () => {
+    assert.equal(
+      clipSegmentToWindow(seg, new Date(t(50)).getTime(), new Date(t(60)).getTime()),
+      null
+    );
+    assert.equal(
+      clipSegmentToWindow(seg, new Date(t(0)).getTime(), new Date(t(5)).getTime()),
+      null
+    );
+  });
+
+  it("returns null when the window merely touches the segment's edge (zero-length overlap)", () => {
+    assert.equal(
+      clipSegmentToWindow(seg, new Date(t(40)).getTime(), new Date(t(50)).getTime()),
+      null
+    );
+  });
+});
+
 describe("buildSessionFocusReport - activity chunks", () => {
   it("marks only the chunks with real activity as active on a long idle-tailed segment", () => {
     const id = nextId("sess");
@@ -487,7 +538,7 @@ describe("inferredSegment / buildSessionFocusReport - inferred fallback", () => 
     assert.equal(seg.label, "CI pipeline fix");
   });
 
-  it("fabricates no segment when the inferred item has since been deleted (item_id doesn't resolve)", () => {
+  it("falls back to a NONE_KIND segment when the inferred item has since been deleted (item_id doesn't resolve)", () => {
     const id = nextId("sess");
     seedSession(id, CWD);
     activity(id, 0);
@@ -508,10 +559,14 @@ describe("inferredSegment / buildSessionFocusReport - inferred fallback", () => 
       cwd: CWD,
       ended_at: t(30),
     });
-    assert.deepEqual(report.segments, []);
+    assert.equal(report.segments.length, 1);
+    assert.equal(report.segments[0].kind, "none");
+    assert.equal(report.segments[0].inferred, false);
+    assert.equal(report.segments[0].start, t(0));
+    assert.equal(report.segments[0].end, t(30));
   });
 
-  it("fabricates no segment for an unclassified verdict, even with a real inference row present", () => {
+  it("falls back to a NONE_KIND segment for an unclassified verdict, even with a real inference row present", () => {
     const id = nextId("sess");
     seedSession(id, CWD);
     activity(id, 0);
@@ -523,7 +578,31 @@ describe("inferredSegment / buildSessionFocusReport - inferred fallback", () => 
       cwd: CWD,
       ended_at: t(30),
     });
-    assert.deepEqual(report.segments, []);
+    assert.equal(report.segments.length, 1);
+    assert.equal(report.segments[0].kind, "none");
+    assert.equal(report.segments[0].inferred, false);
+  });
+
+  it("falls back to a NONE_KIND segment for a session with no declared focus and no inference row at all (e.g. still running, not yet quiet long enough to classify)", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    activity(id, 0);
+    activity(id, 5);
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: null,
+    });
+    assert.equal(report.segments.length, 1);
+    const [seg] = report.segments;
+    assert.equal(seg.kind, "none");
+    assert.equal(seg.item_number, null);
+    assert.equal(seg.label, null);
+    assert.equal(seg.inferred, false);
+    assert.equal(seg.inferred_reason, null);
+    assert.equal(seg.start, t(0));
   });
 
   it("highest-value: a round-3-shaped idle tail reached via the inference path still discounts active_ms and produces chunks", () => {
@@ -567,6 +646,88 @@ describe("inferredSegment / buildSessionFocusReport - inferred fallback", () => 
       seg.chunks.slice(1).every((c) => c.active === false),
       "every chunk after the first burst should read idle"
     );
+  });
+});
+
+describe("buildSessionFocusReport / buildProjectFocusReport — time-window clipping", () => {
+  it("clips a single declared segment's wall/active/idle math and chunks to the window, not the segment's real span", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0"; // isolate from idle discounting
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+    // Real segment spans the full 0-120m; only 30-90m should end up reported.
+
+    const report = buildSessionFocusReport(
+      dbModule,
+      { id, name: "Report Test", cwd: CWD, ended_at: t(120) },
+      new Date(t(30)).getTime(),
+      new Date(t(90)).getTime()
+    );
+    assert.equal(report.segments.length, 1);
+    const seg = report.segments[0];
+    assert.equal(seg.start, t(30));
+    assert.equal(seg.end, t(90));
+    assert.equal(seg.wall_ms, 60 * 60_000); // 90-30, not the real 0-120 span
+    assert.equal(seg.active_ms, 60 * 60_000);
+    assert.equal(seg.chunks.length, Math.ceil((60 * 60_000) / CHUNK_MS));
+  });
+
+  it("drops a segment entirely, returning zero segments, when it doesn't overlap the window at all", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+    focus(id, 10, "done", { verb: "done", item_number: 4, item_text_snapshot: "Migrate auth" });
+
+    const report = buildSessionFocusReport(
+      dbModule,
+      { id, name: "Report Test", cwd: CWD, ended_at: t(10) },
+      new Date(t(50)).getTime(),
+      new Date(t(60)).getTime()
+    );
+    assert.deepEqual(report.segments, []);
+  });
+
+  it("with no window bounds supplied, behaves exactly as before (full unclipped history)", () => {
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+
+    const report = buildSessionFocusReport(dbModule, {
+      id,
+      name: "Report Test",
+      cwd: CWD,
+      ended_at: t(45),
+    });
+    assert.equal(report.segments[0].start, t(0));
+    assert.equal(report.segments[0].end, t(45));
+  });
+
+  it("buildProjectFocusReport clips a long-running session's contribution to totals/wall_clock_ms/concurrency_ratio to only the windowed slice", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    // Session "started yesterday" (minute 0) and is still running at minute
+    // 180 - a long-running session whose full history would otherwise bleed
+    // into whichever window it's viewed from.
+    focus(id, 0, "set", { verb: "set", item_number: 4, item_text_snapshot: "Migrate auth" });
+
+    const sessions = [{ id, name: "Long runner", cwd: CWD, ended_at: t(180) }];
+    // Window covers only minute 100-130 (30m) of the session's 180m span.
+    const report = buildProjectFocusReport(
+      dbModule,
+      sessions,
+      new Date(t(100)).getTime(),
+      new Date(t(130)).getTime()
+    );
+
+    assert.equal(report.sessions.length, 1);
+    assert.equal(report.sessions[0].segments[0].start, t(100));
+    assert.equal(report.sessions[0].segments[0].end, t(130));
+    assert.equal(report.totals.wall_ms, 30 * 60_000); // not the full 180m
+    assert.equal(report.totals.active_ms, 30 * 60_000);
+    assert.equal(report.totals.by_kind.item.wall_ms, 30 * 60_000);
+    assert.equal(report.wall_clock_ms, 30 * 60_000); // not the full 180m
+    assert.equal(report.concurrency_ratio, 1);
   });
 });
 
@@ -632,6 +793,40 @@ describe("buildProjectFocusReport", () => {
     assert.equal(report.sessions.length, 1); // the no-focus session contributes nothing
     assert.equal(report.items[0].item_number, 4); // 60 min, sorts before item 1's 5 min
     assert.equal(report.items[1].item_number, 1);
+  });
+
+  it("includes a session with no declared focus and no usable inference as a NONE_KIND segment - counted in aggregate totals, not in any by_kind bucket or the item rollup", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const idA = nextId("sess");
+    const idNoFocus = nextId("sess");
+    seedSession(idA, CWD);
+    seedSession(idNoFocus, CWD);
+    activity(idNoFocus, 0); // gives resolveSessionStart something to anchor on
+
+    focus(idA, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+
+    const sessions = [
+      { id: idA, name: "A", cwd: CWD, ended_at: t(20) }, // 20m declared
+      { id: idNoFocus, name: "Undeclared", cwd: CWD, ended_at: t(10) }, // 10m no-focus
+    ];
+    const report = buildProjectFocusReport(dbModule, sessions);
+
+    assert.equal(report.sessions.length, 2); // the no-focus session is no longer dropped
+    const noFocusReport = report.sessions.find((r) => r.session_id === idNoFocus);
+    assert.equal(noFocusReport.segments.length, 1);
+    assert.equal(noFocusReport.segments[0].kind, "none");
+
+    // Aggregate totals include its 10m; by_kind buckets don't (it has no
+    // real kind), and it never surfaces in the item rollup (item_number null).
+    assert.equal(report.totals.wall_ms, 30 * 60_000); // 20m declared + 10m no-focus
+    assert.equal(report.totals.by_kind.item.wall_ms, 20 * 60_000);
+    const byKindSum = Object.values(report.totals.by_kind).reduce((sum, k) => sum + k.wall_ms, 0);
+    assert.equal(byKindSum, 20 * 60_000); // the 10m no-focus segment isn't in any bucket
+    assert.equal(report.items.length, 1);
+    assert.equal(report.items[0].item_number, 1);
+
+    // Its span still counts toward wall-clock/concurrency, unlike before.
+    assert.equal(report.wall_clock_ms, 20 * 60_000); // [0,20] fully covers [0,10]
   });
 
   it("collapses fully concurrent sessions to one wall-clock span while summing their effort", () => {

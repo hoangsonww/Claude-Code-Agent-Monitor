@@ -4,11 +4,30 @@
  * label "Calendar" per DEC-5) rendering the existing focus-time swimlane
  * calendar across every monitored project at once — the cross-project sibling
  * of the existing per-project `FocusReportModal`. Filterable by three
- * genuinely independent controls (per DEC-2): a project filter (optional,
- * default "all projects"), a GLOBAL session filter (every session across
- * every project, never scoped to the selected project), and a time-period
- * filter (`TimePeriodPicker`: day-by-day nav, default "today," or a custom
- * date range). None of the three ever clears another.
+ * genuinely independent controls (per DEC-2): a project filter (a chip row,
+ * defaulting to "all projects" — see below), a GLOBAL session filter (every
+ * session across every project, never scoped to the selected project), and a
+ * time-period filter (`TimePeriodPicker`: day-by-day nav, default "today," or
+ * a custom date range). None of the three ever clears another.
+ *
+ * The project filter renders one chip per project reflected in the currently
+ * loaded report (i.e. with activity in the selected day/window) plus an
+ * "All projects" chip, rather than every monitored project regardless of
+ * whether it's ever been touched — a project dormant for months would
+ * otherwise permanently clutter the row. Projects with no activity in the
+ * current window collapse behind a "show more" chip (`hiddenProjects`),
+ * expanded in place on click (one-shot, no collapse-back — same interaction
+ * as KanbanBoard's own "show more" pagination). The currently selected
+ * project's chip is always shown even if selecting it emptied the report
+ * (zero activity that day), so it never disappears out from under the click
+ * that selected it.
+ *
+ * A fixed "Unassigned" chip (amber-tinted in both its selected and
+ * unselected states, never hidden behind "show more") scopes to sessions
+ * whose cwd isn't mapped to any project — `unassignedOnly` state, sent as
+ * `?unassigned=true` to `GET /api/focus-report`. Mutually exclusive with
+ * `projectId` client-side (selecting one always clears the other) since the
+ * server 400s if both are sent together.
  *
  * Powered by `api.focusReport` (the new, top-level `GET /api/focus-report`
  * client), which always receives an explicit `from`/`to` — there is no
@@ -27,6 +46,16 @@
  * `concurrency_ratio` figure now reads as cross-project overlap rather than
  * a single project's own multitasking — the existing modal's per-project
  * "Concurrency" copy is untouched.
+ *
+ * The page heading itself just says "Calendar" (`report.board.title`,
+ * matching the sidebar label) - the swimlane calendar is the only thing
+ * this page renders, so "Focus Calendar" (the original heading) was
+ * redundant. The root container also breaks out of the app shell's own
+ * `Layout.tsx` padding (`-mx-5 lg:-mx-6`, canceling its `p-5 lg:p-6`) and
+ * re-applies exactly 25px (`px-[25px]`) instead, dropping the `max-w-6xl
+ * mx-auto` cap this page used to be the only one in the app to apply to its
+ * root - a wide calendar benefits from the full viewport width other pages
+ * already get, not a centered, capped column.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -67,11 +96,21 @@ export function FocusCalendarBoard() {
   // Independent filters (DEC-2) - none of the three ever clears another.
   const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
+  // A fourth project-filter STATE (not a real project) scoping to sessions
+  // whose cwd isn't mapped to any project - mutually exclusive with
+  // `projectId` (selecting one always clears the other; the server 400s if
+  // both are sent together), so kept as its own boolean rather than a
+  // `projectId` sentinel value that could collide with a real id.
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  // Reveals the project chips hidden by default (see `hiddenProjects` below)
+  // — one-shot, matches KanbanBoard's own "show more" precedent (click, no
+  // collapse-back).
+  const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [timeWindow, setTimeWindow] = useState<TimePeriodValue>(() => ({
     mode: "day",
     date: startOfDay(new Date()),
   }));
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
 
   const [report, setReport] = useState<FocusReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,15 +148,69 @@ export function FocusCalendarBoard() {
     [cwdToProjectName]
   );
 
+  const cwdToProjectId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const project of projects) {
+      for (const path of project.paths) {
+        map.set(path.cwd, project.id);
+      }
+    }
+    return map;
+  }, [projects]);
+
+  // Projects with at least one session in the currently loaded report - lets
+  // the "all projects" chip row default to what's actually reflected on the
+  // selected day/window instead of every monitored project ever, however
+  // long dormant.
+  const activeProjectIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const session of report?.sessions ?? []) {
+      const id = session.cwd ? cwdToProjectId.get(session.cwd) : undefined;
+      if (id) ids.add(id);
+    }
+    return ids;
+  }, [report, cwdToProjectId]);
+
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => a.name.localeCompare(b.name)),
+    [projects]
+  );
+  // The currently selected project's own chip must never disappear, even if
+  // selecting it emptied the report (zero activity on this particular day) -
+  // otherwise the chip the user just clicked would vanish out from under
+  // them.
+  const visibleProjects = sortedProjects.filter(
+    (p) => activeProjectIds.has(p.id) || p.id === projectId
+  );
+  const hiddenProjects = sortedProjects.filter(
+    (p) => !activeProjectIds.has(p.id) && p.id !== projectId
+  );
+
+  const chipClass = (active: boolean) =>
+    `px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
+      active
+        ? "bg-accent text-white"
+        : "bg-surface-2 text-gray-400 hover:bg-surface-3 hover:text-gray-200"
+    }`;
+
   // Fetches on mount and on any filter change (project/session/time-period) -
   // every request carries an explicit from/to (DEC-3, no hidden default).
+  // `projectId` is never sent alongside `unassignedOnly` - the two chip
+  // groups are kept mutually exclusive client-side (see the click handlers
+  // below) since the server 400s on that combination.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setFailed(false);
     const { from, to } = windowBounds(timeWindow);
     api
-      .focusReport({ projectId, sessionId, from, to })
+      .focusReport({
+        projectId: unassignedOnly ? undefined : projectId,
+        sessionId,
+        unassigned: unassignedOnly,
+        from,
+        to,
+      })
       .then((res) => {
         if (!cancelled) setReport(res);
       })
@@ -130,36 +223,98 @@ export function FocusCalendarBoard() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, sessionId, timeWindow]);
+  }, [projectId, sessionId, unassignedOnly, timeWindow]);
 
   const selectedDate = timeWindow.mode === "day" ? timeWindow.date : timeWindow.start;
 
   return (
-    <div className="p-6 space-y-5 max-w-6xl mx-auto">
+    <div className="-mx-5 lg:-mx-6 px-[25px] space-y-5">
       <div className="flex items-center gap-2">
         <CalendarDays className="w-5 h-5 text-accent flex-shrink-0" />
         <h1 className="text-lg font-semibold text-gray-100">{t("report.board.title")}</h1>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-500">
             {t("report.board.projectFilter")}
           </span>
-          <select
+          <div
+            role="group"
             aria-label={t("report.board.projectFilter")}
-            value={projectId ?? ""}
-            onChange={(e) => setProjectId(e.target.value || undefined)}
-            className="input bg-surface-1 min-w-[160px]"
+            className="flex flex-wrap items-center gap-1.5 max-w-lg"
           >
-            <option value="">{t("report.board.allProjects")}</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
+            <button
+              type="button"
+              onClick={() => {
+                setProjectId(undefined);
+                setUnassignedOnly(false);
+              }}
+              aria-pressed={projectId === undefined && !unassignedOnly}
+              className={chipClass(projectId === undefined && !unassignedOnly)}
+            >
+              {t("report.board.allProjects")}
+            </button>
+            {visibleProjects.map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                onClick={() => {
+                  setProjectId(project.id);
+                  setUnassignedOnly(false);
+                }}
+                aria-pressed={projectId === project.id}
+                className={chipClass(projectId === project.id)}
+              >
                 {project.name}
-              </option>
+              </button>
             ))}
-          </select>
-        </label>
+            {!projectsExpanded && hiddenProjects.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setProjectsExpanded(true)}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-full border border-dashed border-border text-gray-500 hover:text-gray-300 hover:border-gray-500 transition-colors"
+              >
+                {t("common:showMore", { count: hiddenProjects.length })}
+              </button>
+            )}
+            {projectsExpanded &&
+              hiddenProjects.map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => {
+                    setProjectId(project.id);
+                    setUnassignedOnly(false);
+                  }}
+                  aria-pressed={projectId === project.id}
+                  className={chipClass(projectId === project.id)}
+                >
+                  {project.name}
+                </button>
+              ))}
+            {/* A fixed, always-visible special category (unlike real project
+                chips, never hidden behind "show more") for sessions whose
+                cwd isn't mapped to any project - a distinct amber tint in
+                both its selected and unselected states so it never reads as
+                just another project. */}
+            <button
+              type="button"
+              onClick={() => {
+                setProjectId(undefined);
+                setUnassignedOnly(true);
+              }}
+              aria-pressed={unassignedOnly}
+              className={`px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors ${
+                unassignedOnly
+                  ? "bg-amber-600 text-white"
+                  : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              }`}
+            >
+              {t("projects:unassigned")}
+            </button>
+          </div>
+        </div>
 
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-500">

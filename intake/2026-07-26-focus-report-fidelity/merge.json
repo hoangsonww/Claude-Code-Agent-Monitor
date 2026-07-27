@@ -1,0 +1,6 @@
+{
+  "merged_at": "2026-07-26T13:20:00Z",
+  "commit": "6e29722",
+  "branch": "master",
+  "note": "Committed directly to master (this project's established convention this session, matching the earlier round-4 commit) rather than merged from a feature branch. The effort worktree's git state was found corrupted by an unrelated environment issue (core.bare flipped to true on the shared repo, likely from a stray postinstall side-effect during npm install in the worktree) before its own commit could land; the real file changes were intact on disk and were copied into the main checkout, re-verified (907 server / 427 client tests, tsc clean, build clean, file-headers clean), and committed there instead. The corrupted worktree and its branch were removed afterward."
+}

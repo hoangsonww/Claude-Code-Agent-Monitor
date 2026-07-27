@@ -1,0 +1,614 @@
+{
+  "initiative": {
+    "title": "Focus Calendar Board",
+    "project": "Claude Code Agent Monitor",
+    "slug": "2026-07-26-focus-calendar-board",
+    "created": "2026-07-26",
+    "summary": "Standalone, cross-project focus-calendar page with project/session/time-period filters",
+    "current_stage": "merge"
+  },
+  "stages": [
+    {
+      "key": "intake",
+      "label": "Intake",
+      "status": "done",
+      "note": "",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 1,
+          "running_ms": 72077,
+          "running_label": "1m 12s",
+          "wall_ms": 72077.0,
+          "wall_label": "1m 12s",
+          "tokens": 20593,
+          "tool_uses": 5,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-triage",
+              "label": "Triage calendar-board request into request-brief.md",
+              "duration_ms": 72077,
+              "tokens": 20593,
+              "tool_uses": 5,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Scope (direct mode)",
+          "agent_count": 1,
+          "running_ms": 36265,
+          "running_label": "36s",
+          "wall_ms": 36265.0,
+          "wall_label": "36s",
+          "tokens": 18401,
+          "tool_uses": 3,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "delivery-team:director-of-engineering",
+              "label": "Decide which evaluators are warranted for calendar-board request",
+              "duration_ms": 36265,
+              "tokens": 18401,
+              "tool_uses": 3,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Evaluate",
+          "agent_count": 4,
+          "running_ms": 652609,
+          "running_label": "10m 53s",
+          "wall_ms": 265914.719,
+          "wall_label": "4m 26s",
+          "tokens": 337993,
+          "tool_uses": 90,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-product-owner",
+              "label": "Value/scope/acceptance evaluation for calendar-board request",
+              "duration_ms": 75069,
+              "tokens": 24055,
+              "tool_uses": 6,
+              "status": "completed"
+            },
+            {
+              "role": "intake-architect",
+              "label": "System/design impact evaluation for calendar-board request",
+              "duration_ms": 201622,
+              "tokens": 94998,
+              "tool_uses": 19,
+              "status": "completed"
+            },
+            {
+              "role": "intake-engineer",
+              "label": "Code-level feasibility/effort evaluation for calendar-board request",
+              "duration_ms": 252048,
+              "tokens": 119954,
+              "tool_uses": 48,
+              "status": "completed"
+            },
+            {
+              "role": "intake-qa",
+              "label": "QA/verification evaluation for calendar-board request",
+              "duration_ms": 123870,
+              "tokens": 98986,
+              "tool_uses": 17,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Project Manager",
+          "agent_count": 1,
+          "running_ms": 150831,
+          "running_label": "2m 31s",
+          "wall_ms": 150831.0,
+          "wall_label": "2m 31s",
+          "tokens": 74159,
+          "tool_uses": 20,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-project-manager",
+              "label": "Classify, reconstruct history, write pm-plan.md for calendar-board request",
+              "duration_ms": 150831,
+              "tokens": 74159,
+              "tool_uses": 20,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Technical Plan",
+          "agent_count": 2,
+          "running_ms": 822921,
+          "running_label": "13m 43s",
+          "wall_ms": 6974618.477,
+          "wall_label": "1h 56m",
+          "tokens": 205853,
+          "tool_uses": 59,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "intake-tech-lead",
+              "label": "Synthesize architect/engineer/qa findings into technical-plan.md",
+              "duration_ms": 407532,
+              "tokens": 118925,
+              "tool_uses": 44,
+              "status": "completed"
+            },
+            {
+              "role": "intake-tech-lead",
+              "label": "Revise technical-plan.md per Sara's finalized decisions (global session filter, time-period picker)",
+              "duration_ms": 415389,
+              "tokens": 86928,
+              "tool_uses": 15,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 9,
+        "running_ms": 1734703,
+        "running_label": "28m 55s",
+        "active_wall_ms": 1434857.074,
+        "active_wall_label": "23m 55s",
+        "calendar_span": {
+          "start": "2026-07-26T15:11:26.000378+00:00",
+          "end": "2026-07-26T17:17:52.554929+00:00",
+          "seconds": 7586.554551
+        },
+        "calendar_span_label": "2h 6m",
+        "tokens": 656999,
+        "tool_uses": 177,
+        "unknown_duration_count": 0
+      },
+      "gaps": [
+        {
+          "after": "2026-07-26T15:28:25.468452+00:00",
+          "before": "2026-07-26T17:10:57.165929+00:00",
+          "duration_s": 6151.697477,
+          "duration_label": "1h 42m"
+        }
+      ]
+    },
+    {
+      "key": "qa",
+      "label": "QA",
+      "status": "warning",
+      "note": "",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 1,
+          "running_ms": 180041,
+          "running_label": "3m",
+          "wall_ms": 180041.0,
+          "wall_label": "3m",
+          "tokens": 93031,
+          "tool_uses": 29,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-triage",
+              "label": "Triage calendar-board technical-plan handoff into change-brief.md",
+              "duration_ms": 180041,
+              "tokens": 93031,
+              "tool_uses": 29,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Scope (direct mode)",
+          "agent_count": 1,
+          "running_ms": 38377,
+          "running_label": "38s",
+          "wall_ms": 38377.0,
+          "wall_label": "38s",
+          "tokens": 39787,
+          "tool_uses": 3,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "delivery-team:director-of-engineering",
+              "label": "Decide which QA evaluators are warranted for calendar-board change",
+              "duration_ms": 38377,
+              "tokens": 39787,
+              "tool_uses": 3,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Evaluate",
+          "agent_count": 4,
+          "running_ms": 702561,
+          "running_label": "11m 43s",
+          "wall_ms": 213488.28900000002,
+          "wall_label": "3m 33s",
+          "tokens": 345517,
+          "tool_uses": 68,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-coverage-cartographer",
+              "label": "Map existing coverage + run green baseline for calendar-board surfaces",
+              "duration_ms": 204318,
+              "tokens": 109112,
+              "tool_uses": 25,
+              "status": "completed"
+            },
+            {
+              "role": "qa-risk-analyst",
+              "label": "Blast radius/invariants evaluation for calendar-board change",
+              "duration_ms": 197932,
+              "tokens": 70441,
+              "tool_uses": 14,
+              "status": "completed"
+            },
+            {
+              "role": "qa-e2e-architect",
+              "label": "Design integration-level tests for new GET /api/focus-report endpoint",
+              "duration_ms": 108301,
+              "tokens": 53392,
+              "tool_uses": 9,
+              "status": "completed"
+            },
+            {
+              "role": "qa-unit-architect",
+              "label": "Design unit/component tests for calendar-board change",
+              "duration_ms": 192010,
+              "tokens": 112572,
+              "tool_uses": 20,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Strategist",
+          "agent_count": 1,
+          "running_ms": 155642,
+          "running_label": "2m 36s",
+          "wall_ms": 155642.0,
+          "wall_label": "2m 36s",
+          "tokens": 83429,
+          "tool_uses": 13,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-strategist",
+              "label": "Coverage verdict + test-debt diagnosis for calendar-board change",
+              "duration_ms": 155642,
+              "tokens": 83429,
+              "tool_uses": 13,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Plan",
+          "agent_count": 1,
+          "running_ms": 183274,
+          "running_label": "3m 3s",
+          "wall_ms": 183274.0,
+          "wall_label": "3m 3s",
+          "tokens": 81868,
+          "tool_uses": 8,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "qa-lead",
+              "label": "Synthesize coverage/risk/unit/e2e findings into test-plan.md",
+              "duration_ms": 183274,
+              "tokens": 81868,
+              "tool_uses": 8,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 8,
+        "running_ms": 1259895,
+        "running_label": "21m",
+        "active_wall_ms": 855401.031,
+        "active_wall_label": "14m 15s",
+        "calendar_span": {
+          "start": "2026-07-26T17:29:45.516944+00:00",
+          "end": "2026-07-26T17:44:00.917975+00:00",
+          "seconds": 855.401031
+        },
+        "calendar_span_label": "14m 15s",
+        "tokens": 643632,
+        "tool_uses": 121,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    },
+    {
+      "key": "build",
+      "label": "Build",
+      "status": "done",
+      "note": "",
+      "phases": [
+        {
+          "name": "Triage",
+          "agent_count": 2,
+          "running_ms": 334371,
+          "running_label": "5m 34s",
+          "wall_ms": 829025.606,
+          "wall_label": "13m 49s",
+          "tokens": 158475,
+          "tool_uses": 23,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-triage",
+              "label": "Confirm plans + provision worktree for focus-calendar-board build (BLOCKED - dirty master)",
+              "duration_ms": 171174,
+              "tokens": 73861,
+              "tool_uses": 10,
+              "status": "completed"
+            },
+            {
+              "role": "build-triage",
+              "label": "Provision worktree for focus-calendar-board build (retry, after master cleaned)",
+              "duration_ms": 163197,
+              "tokens": 84614,
+              "tool_uses": 13,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Plan",
+          "agent_count": 1,
+          "running_ms": 320501,
+          "running_label": "5m 21s",
+          "wall_ms": 320501.0,
+          "wall_label": "5m 21s",
+          "tokens": 92413,
+          "tool_uses": 8,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-planner",
+              "label": "Merge technical-plan+test-plan into ordered build-task-list.md",
+              "duration_ms": 320501,
+              "tokens": 92413,
+              "tool_uses": 8,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Author (RED)",
+          "agent_count": 1,
+          "running_ms": 1273389,
+          "running_label": "21m 13s",
+          "wall_ms": 1273389.0,
+          "wall_label": "21m 13s",
+          "tokens": 271156,
+          "tool_uses": 115,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-test-author",
+              "label": "Write test-plan's tests and prove each RED against unbuilt code",
+              "duration_ms": 1273389,
+              "tokens": 271156,
+              "tool_uses": 115,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Implement (GREEN)",
+          "agent_count": 1,
+          "running_ms": 1501952,
+          "running_label": "25m 2s",
+          "wall_ms": 1501952.0,
+          "wall_label": "25m 2s",
+          "tokens": 334695,
+          "tool_uses": 172,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-implementer",
+              "label": "Apply technical-plan change set to make red tests pass",
+              "duration_ms": 1501952,
+              "tokens": 334695,
+              "tool_uses": 172,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Author (fixture fix)",
+          "agent_count": 1,
+          "running_ms": 80814,
+          "running_label": "1m 21s",
+          "wall_ms": 80814.0,
+          "wall_label": "1m 21s",
+          "tokens": 39716,
+          "tool_uses": 10,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-test-author",
+              "label": "Fix FocusReportModal.test.tsx fixture bug (totals not overridden alongside sessions)",
+              "duration_ms": 80814,
+              "tokens": 39716,
+              "tool_uses": 10,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Verify",
+          "agent_count": 1,
+          "running_ms": 434658,
+          "running_label": "7m 15s",
+          "wall_ms": 434658.0,
+          "wall_label": "7m 15s",
+          "tokens": 138803,
+          "tool_uses": 47,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-verifier",
+              "label": "Run full suites + DoD checklist for calendar-board build",
+              "duration_ms": 434658,
+              "tokens": 138803,
+              "tool_uses": 47,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Review",
+          "agent_count": 1,
+          "running_ms": 381231,
+          "running_label": "6m 21s",
+          "wall_ms": 381231.0,
+          "wall_label": "6m 21s",
+          "tokens": 156139,
+          "tool_uses": 51,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-reviewer",
+              "label": "Adversarial diff review against DERIVED-DUAL-VIEW trap + correctness",
+              "duration_ms": 381231,
+              "tokens": 156139,
+              "tool_uses": 51,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Test Author (round 2, RED)",
+          "agent_count": 1,
+          "running_ms": 271228,
+          "running_label": "4m 31s",
+          "wall_ms": 271228.0,
+          "wall_label": "4m 31s",
+          "tokens": 86540,
+          "tool_uses": 30,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-test-author",
+              "label": "Write red test for date-parsing bug + missing T3g/T7 coverage",
+              "duration_ms": 271228,
+              "tokens": 86540,
+              "tool_uses": 30,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Implement (round 2, GREEN)",
+          "agent_count": 1,
+          "running_ms": 67359,
+          "running_label": "1m 7s",
+          "wall_ms": 67359.0,
+          "wall_label": "1m 7s",
+          "tokens": 29817,
+          "tool_uses": 12,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-implementer",
+              "label": "Fix parseDateInputValue empty-input bug",
+              "duration_ms": 67359,
+              "tokens": 29817,
+              "tool_uses": 12,
+              "status": "completed"
+            }
+          ]
+        },
+        {
+          "name": "Build Lead",
+          "agent_count": 1,
+          "running_ms": 184890,
+          "running_label": "3m 5s",
+          "wall_ms": 184890.0,
+          "wall_label": "3m 5s",
+          "tokens": 85793,
+          "tool_uses": 23,
+          "unknown_duration_count": 0,
+          "agents": [
+            {
+              "role": "build-lead",
+              "label": "Synthesize build-report.md, update build run-log, refresh time-ledger",
+              "duration_ms": 184890,
+              "tokens": 85793,
+              "tool_uses": 23,
+              "status": "completed"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "agents": 11,
+        "running_ms": 4850393,
+        "running_label": "1h 20m",
+        "active_wall_ms": 5865231.657000001,
+        "active_wall_label": "1h 37m",
+        "calendar_span": {
+          "start": "2026-07-26T17:46:04.109123+00:00",
+          "end": "2026-07-26T19:23:49.340780+00:00",
+          "seconds": 5865.231657
+        },
+        "calendar_span_label": "1h 37m",
+        "tokens": 1393547,
+        "tool_uses": 491,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    },
+    {
+      "key": "merge",
+      "label": "Merge",
+      "status": "done",
+      "note": "Squash-merged into master as e4d4bda; one doc conflict resolved with Sara, two accidentally-untracked gitignored files restored",
+      "phases": [],
+      "merge": {
+        "merged_at": "2026-07-26T14:52:00-06:00",
+        "commit": "e4d4bda",
+        "branch": "effort/2026-07-26-focus-calendar-board",
+        "note": "Squash-merged into master. One genuine conflict in client/README.md (both this branch and an unrelated concurrent Kanban/token feature touched the same doc table) resolved collaboratively with Sara. Two gitignored local files (.claude/settings.local.json, .superpowers/README.md) were accidentally dropped from tracking during an earlier incident-recovery commit and restored before this merge."
+      },
+      "totals": {
+        "agents": 0,
+        "running_ms": 0,
+        "running_label": null,
+        "active_wall_ms": 0,
+        "active_wall_label": null,
+        "calendar_span": null,
+        "calendar_span_label": null,
+        "tokens": 0,
+        "tool_uses": 0,
+        "unknown_duration_count": 0
+      },
+      "gaps": []
+    }
+  ],
+  "totals": {
+    "running_ms": 7844991,
+    "running_label": "2h 10m",
+    "active_wall_label": "2h 15m",
+    "tokens": 2694178,
+    "agents": 28,
+    "parallelism_factor": 0.96,
+    "gap_count": 1
+  },
+  "generated_note": "Timings from live-logged agent completions where available; the pilot intake+QA stages for this initiative were reconstructed retrospectively from file timestamps (minute precision) rather than logged live."
+}

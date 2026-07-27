@@ -176,7 +176,7 @@ export function SegmentEventsModal({
               </h2>
             </div>
             <p className="text-xs text-gray-400 mt-1.5 truncate">
-              {sessionName?.trim() || sessionId.slice(0, 8)}
+              {sessionName?.trim() || t("report.calendar.noName")}
               {" — "}
               <span className={kindColor}>{kindLabel}</span>
               {label ? `: ${label}` : ""}

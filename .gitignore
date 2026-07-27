@@ -11,6 +11,10 @@ desktop/out/
 desktop/release/
 desktop/assets/icon.iconset/
 *.tsbuildinfo
+# intake/ effort folders track a `build/` subfolder of delivery-pipeline
+# reports (not a build artifact) — exempt it from the generic build/ rule.
+!intake/**/build/
+!intake/**/build/**
 
 # Database and data
 data/

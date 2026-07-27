@@ -53,6 +53,7 @@
     "idleExcluded": "Idle excluded",
     "graceNote": "Gaps longer than {{grace}} with no activity aren't counted as active time",
     "graceDisabled": "disabled — full wall-clock counts",
+    "windowScopedNote": "Stats reflect the visible {{hours}}h window, not the full day",
     "sessionsHeading": "Per-session breakdown",
     "itemsHeading": "Time by plan item",
     "splitHeading": "Project-wide split",
@@ -69,8 +70,22 @@
       "empty": "No activity on this day",
       "declared": "declared",
       "inferredProvenance": "≈ inferred",
+      "idle": "idle",
+      "noFocus": "No focus",
+      "noName": "No-name",
       "stillRunning": "Still running",
       "viewEvents": "View the raw events supporting this duration",
+      "hourWindow": {
+        "groupLabel": "Time range",
+        "option": "{{hours}}h",
+        "optionTitle": "Show the last {{hours}} hours, plus 2 hours ahead",
+        "fullDayTitle": "Show the full day"
+      },
+      "scratchWork": {
+        "title": "Scratch Work",
+        "sessionCount_one": "{{count}} session",
+        "sessionCount_other": "{{count}} sessions"
+      },
       "eventsModal": {
         "title": "Supporting events",
         "loading": "Loading events…",
@@ -83,7 +98,7 @@
       }
     },
     "board": {
-      "title": "Focus Calendar",
+      "title": "Calendar",
       "projectFilter": "Project",
       "allProjects": "All projects",
       "sessionFilter": "Session",

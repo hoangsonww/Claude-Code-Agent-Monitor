@@ -351,6 +351,58 @@ describe("FocusReportModal", () => {
     expect(screen.queryByText("Today")).not.toBeInTheDocument();
   });
 
+  it("shows the modal's own project name (not just the session name) on each Calendar card, even though this modal is single-project and never passed projectLabelForCwd before", async () => {
+    vi.useFakeTimers();
+    try {
+      const NOW = new Date("2026-07-26T15:00:00.000Z");
+      vi.setSystemTime(NOW);
+
+      const report = makeReport({
+        sessions: [
+          {
+            session_id: "sess-project-line",
+            name: "Worker",
+            cwd: "/repo",
+            ended_at: "2026-07-26T10:00:00.000Z",
+            segments: [
+              {
+                kind: "item",
+                item_number: 4,
+                label: "Migrate auth",
+                start: "2026-07-26T09:00:00.000Z",
+                end: "2026-07-26T10:00:00.000Z",
+                wall_ms: 60 * 60_000,
+                active_ms: 60 * 60_000,
+                idle_ms: 0,
+                inferred: false,
+                inferred_reason: null,
+              },
+            ],
+          },
+        ],
+      });
+      focusReportMock.mockResolvedValue(report);
+      renderModal();
+      await act(async () => {
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+      });
+
+      fireEvent.click(screen.getByTitle("Calendar"));
+      // The segment (9-10am local) can fall outside the calendar's default
+      // 4-hour zoom window relative to this test's fake "now" - expand to
+      // the full day so this test's own concern (the project line) doesn't
+      // depend on that unrelated default.
+      fireEvent.click(screen.getByText("24h"));
+      expect(screen.getByText("Worker")).toBeInTheDocument();
+      // "Agent Monitor" is the `projectName` renderModal() passes to
+      // FocusReportModal - the card's own second line, not anything the
+      // segment data itself carries.
+      expect(screen.getByText("Agent Monitor")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("hides the List/Calendar toggle when there is no focus history to show", async () => {
     focusReportMock.mockResolvedValue(makeReport({ sessions: [] }));
     renderModal();
@@ -522,7 +574,7 @@ describe("FocusReportModal", () => {
     }
   });
 
-  it("[standing template] List and Calendar views render the same wall-clock/agent-time numbers and proportionally equivalent idle-stripe geometry for the same segment — extend THIS test, not a view-local one, for any future FocusReportSegment field either view renders", async () => {
+  it("[standing template] List and Calendar views render the same wall-clock/agent-time numbers for the same segment, and each renders internally consistent idle-stripe geometry (List: proportional to the real span; Calendar: proportional to its quarter-hour-snapped box) — extend THIS test, not a view-local one, for any future FocusReportSegment field either view renders", async () => {
     vi.useFakeTimers();
     try {
       const NOW = new Date("2026-07-26T15:00:00.000Z");
@@ -585,15 +637,25 @@ describe("FocusReportModal", () => {
       // second fetch.
       fireEvent.click(screen.getByTitle("Calendar"));
       expect(focusReportMock).toHaveBeenCalledTimes(1);
+      // The segment (9-9:20am) can fall outside the calendar's default
+      // 4-hour zoom window relative to this test's fake "now" - expand to
+      // the full day so this test's own geometry comparison doesn't depend
+      // on that unrelated default.
+      fireEvent.click(screen.getByText("24h"));
 
       const block = screen.getByText("CrossView").closest("a") as HTMLAnchorElement;
       fireEvent.mouseEnter(block);
       expect(screen.getByText(/Wall clock: 20m 0s/)).toBeInTheDocument();
       expect(screen.getByText(/Agent time: 10m 0s/)).toBeInTheDocument();
+      // Calendar's box isn't the real 09:00-09:20 span - FocusCalendarView
+      // snaps it outward to the quarter-hour grid (09:00-09:30, 30 real
+      // minutes) so even a short segment stays comfortably clickable. The
+      // idle chunk (09:10-09:20) is therefore a third of the padded box,
+      // not half of the real one like List's unpadded 50/50 above.
       const calendarStripes = container.querySelectorAll('[data-testid="idle-stripe"]');
       expect(calendarStripes).toHaveLength(1);
-      expect(parseFloat((calendarStripes[0] as HTMLElement).style.top)).toBeCloseTo(50);
-      expect(parseFloat((calendarStripes[0] as HTMLElement).style.height)).toBeCloseTo(50);
+      expect(parseFloat((calendarStripes[0] as HTMLElement).style.top)).toBeCloseTo(33.33);
+      expect(parseFloat((calendarStripes[0] as HTMLElement).style.height)).toBeCloseTo(33.33);
     } finally {
       vi.useRealTimers();
     }
@@ -665,6 +727,11 @@ describe("FocusReportModal", () => {
       expect(within(modalContainer).getByTitle("Next day")).toBeInTheDocument();
       expect(within(modalContainer).getByText("Today")).toBeInTheDocument();
       expect(within(modalContainer).queryByText("Acme Corp")).not.toBeInTheDocument();
+      // The segment can fall outside the calendar's default 4-hour zoom
+      // window relative to this test's fake "now" - expand to the full day
+      // so this test's own geometry comparison doesn't depend on that
+      // unrelated default (present regardless of hideDateNav).
+      fireEvent.click(within(modalContainer).getByText("24h"));
       const modalActiveTile = within(modalContainer)
         .getByText("Active time")
         .closest("div") as HTMLElement;
@@ -693,6 +760,10 @@ describe("FocusReportModal", () => {
       expect(within(boardContainer).queryByTitle("Previous day")).not.toBeInTheDocument();
       expect(within(boardContainer).queryByTitle("Next day")).not.toBeInTheDocument();
       expect(within(boardContainer).queryByText("Today")).not.toBeInTheDocument();
+      // The segment can fall outside the calendar's default 4-hour zoom
+      // window relative to this test's fake "now" - expand to the full day
+      // first, or the block (and its project label) may not render at all.
+      fireEvent.click(within(boardContainer).getByText("24h"));
       // The project label IS shown for the board-shaped render.
       expect(within(boardContainer).getByText("Acme Corp")).toBeInTheDocument();
 
@@ -710,6 +781,126 @@ describe("FocusReportModal", () => {
       expect(boardStripes).toHaveLength(1);
       expect(parseFloat((boardStripes[0] as HTMLElement).style.top)).toBeCloseTo(modalTop);
       expect(parseFloat((boardStripes[0] as HTMLElement).style.height)).toBeCloseTo(modalHeight);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("Calendar view's stat tiles scope to the visible hour-window zoom, not the full fetched report — the two standing-template tests above sidestep this by clicking '24h' first", async () => {
+    vi.useFakeTimers();
+    try {
+      const NOW = new Date("2026-07-26T15:00:00.000Z");
+      vi.setSystemTime(NOW);
+
+      // Session A: 06:00-07:00 today, fully active - well before the
+      // calendar's default 4h zoom window ([now-4h, now+2h) = [11:00, 17:00)
+      // clamped to today, per FocusCalendarView's own `windowStartMs`/
+      // `windowEndMs`), so it must be EXCLUDED from the zoomed stat tiles.
+      // Session B: 12:00-12:30 today, fully active - inside that window, so
+      // it must be the ONLY contributor while zoomed.
+      const report = makeReport({
+        sessions: [
+          {
+            session_id: "sess-early",
+            name: "Early",
+            cwd: "/repo",
+            ended_at: "2026-07-26T07:00:00.000Z",
+            segments: [
+              {
+                kind: "item",
+                item_number: 4,
+                label: "Migrate auth",
+                start: "2026-07-26T06:00:00.000Z",
+                end: "2026-07-26T07:00:00.000Z",
+                wall_ms: 60 * 60_000,
+                active_ms: 60 * 60_000,
+                idle_ms: 0,
+                inferred: false,
+                inferred_reason: null,
+                chunks: [
+                  {
+                    start: "2026-07-26T06:00:00.000Z",
+                    end: "2026-07-26T07:00:00.000Z",
+                    active: true,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            session_id: "sess-recent",
+            name: "Recent",
+            cwd: "/repo",
+            ended_at: "2026-07-26T12:30:00.000Z",
+            segments: [
+              {
+                kind: "detour",
+                item_number: null,
+                label: "Quick check",
+                start: "2026-07-26T12:00:00.000Z",
+                end: "2026-07-26T12:30:00.000Z",
+                wall_ms: 30 * 60_000,
+                active_ms: 30 * 60_000,
+                idle_ms: 0,
+                inferred: false,
+                inferred_reason: null,
+                chunks: [
+                  {
+                    start: "2026-07-26T12:00:00.000Z",
+                    end: "2026-07-26T12:30:00.000Z",
+                    active: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        // Full-report totals: both sessions summed (90m active, no overlap
+        // so wall-clock is also 90m) - what the stat tiles show once
+        // unzoomed to 24h, and what they must NOT show while still zoomed.
+        wall_clock_ms: 90 * 60_000,
+        concurrency_ratio: 1,
+        totals: {
+          wall_ms: 90 * 60_000,
+          active_ms: 90 * 60_000,
+          idle_ms: 0,
+          by_kind: {
+            item: { wall_ms: 60 * 60_000, active_ms: 60 * 60_000, idle_ms: 0 },
+            detour: { wall_ms: 30 * 60_000, active_ms: 30 * 60_000, idle_ms: 0 },
+            feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+            bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          },
+        },
+      });
+      focusReportMock.mockResolvedValue(report);
+      const { container } = renderModal();
+      await act(async () => {
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+      });
+      fireEvent.click(screen.getByTitle("Calendar"));
+      await act(async () => {
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+      });
+
+      // Default zoom is 4h - only "Recent" (30m) should count. Exact text
+      // match (not a substring regex) on the value span specifically, since
+      // the tile's own sub-label ("of 30m 0s wall-clock") also contains this
+      // string once windowed wall-clock equals windowed active time.
+      const activeTile = () => screen.getByText("Active time").closest("div") as HTMLElement;
+      expect(within(activeTile()).getByText("30m 0s")).toBeInTheDocument();
+      expect(within(activeTile()).queryByText("1h 30m")).not.toBeInTheDocument();
+      // A visible cue that the tiles are scoped to the zoom, not the day -
+      // 6h (not the "4h" zoom label) since the visible window is the 4h
+      // look-back PLUS FocusCalendarView's own fixed 2h future pad (11:00 AM
+      // to 5:00 PM here), and the note reports the actual visible span, not
+      // just the hourWindow setting's name.
+      expect(container.textContent).toMatch(/visible 6h window/);
+
+      // Expanding to the full day restores the full 90m report total and
+      // drops the scoped-window note.
+      fireEvent.click(screen.getByText("24h"));
+      expect(within(activeTile()).getByText("1h 30m")).toBeInTheDocument();
+      expect(container.textContent).not.toMatch(/visible \d+h window/);
     } finally {
       vi.useRealTimers();
     }

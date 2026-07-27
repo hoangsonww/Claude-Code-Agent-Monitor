@@ -35,10 +35,17 @@
  * `FocusCalendarBoard` page can reuse the exact same implementation instead
  * of copy-pasting it) — this file owns only the modal chrome (header,
  * loading/error states, `viewMode` state) around that shared body.
+ *
+ * Also passes a `projectLabelForCwd` resolver down (always `projectName`,
+ * this modal's own already-known project — every session in its report
+ * belongs to it by construction, so no per-cwd lookup is needed) so
+ * `FocusCalendarView`'s blocks can show which project a session belongs to
+ * even outside the cross-project board, where that used to be the only
+ * consumer of this prop.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BarChart3, X } from "lucide-react";
 import { api } from "../lib/api";
@@ -62,6 +69,11 @@ export function FocusReportModal({ projectId, projectName, onClose }: FocusRepor
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // Every session in this report belongs to the one project the modal is
+  // scoped to, so the resolver doesn't need to inspect `cwd` at all - unlike
+  // the cross-project board, which maps distinct cwds to distinct projects.
+  const projectLabelForCwd = useCallback(() => projectName, [projectName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +143,13 @@ export function FocusReportModal({ projectId, projectName, onClose }: FocusRepor
           {!loading && failed && (
             <p className="text-xs text-rose-400 py-6 text-center">{t("report.error")}</p>
           )}
-          {!loading && !failed && report && <FocusReportBody report={report} viewMode={viewMode} />}
+          {!loading && !failed && report && (
+            <FocusReportBody
+              report={report}
+              viewMode={viewMode}
+              projectLabelForCwd={projectLabelForCwd}
+            />
+          )}
         </div>
       </div>
     </div>

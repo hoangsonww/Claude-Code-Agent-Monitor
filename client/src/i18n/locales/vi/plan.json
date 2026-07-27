@@ -53,6 +53,7 @@
     "idleExcluded": "Đã loại trừ thời gian rảnh",
     "graceNote": "Khoảng lặng dài hơn {{grace}} không hoạt động sẽ không được tính là thời gian hoạt động",
     "graceDisabled": "đã tắt — tính toàn bộ thời gian theo đồng hồ thực",
+    "windowScopedNote": "Số liệu phản ánh khung {{hours}} giờ đang hiển thị, không phải cả ngày",
     "sessionsHeading": "Chi tiết theo từng phiên",
     "itemsHeading": "Thời gian theo mục kế hoạch",
     "splitHeading": "Phân bổ toàn dự án",
@@ -69,6 +70,20 @@
       "empty": "Không có hoạt động trong ngày này",
       "declared": "đã khai báo",
       "inferredProvenance": "≈ suy luận",
+      "idle": "rảnh",
+      "noFocus": "Không có trọng tâm",
+      "noName": "Không tên",
+      "hourWindow": {
+        "groupLabel": "Khoảng thời gian",
+        "option": "{{hours}} giờ",
+        "optionTitle": "Hiển thị {{hours}} giờ gần nhất, cộng thêm 2 giờ sắp tới",
+        "fullDayTitle": "Hiển thị cả ngày"
+      },
+      "scratchWork": {
+        "title": "Công việc tạm",
+        "sessionCount_one": "{{count}} phiên",
+        "sessionCount_other": "{{count}} phiên"
+      },
       "stillRunning": "Đang chạy",
       "viewEvents": "Xem các sự kiện gốc hỗ trợ cho khoảng thời gian này",
       "eventsModal": {
@@ -83,7 +98,7 @@
       }
     },
     "board": {
-      "title": "Lịch trọng tâm",
+      "title": "Lịch",
       "projectFilter": "Dự án",
       "allProjects": "Tất cả dự án",
       "sessionFilter": "Phiên",

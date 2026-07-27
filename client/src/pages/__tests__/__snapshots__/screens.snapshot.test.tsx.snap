@@ -5390,7 +5390,7 @@ exports[`screen snapshots > Dashboard 1`] = `
 exports[`screen snapshots > Focus calendar board 1`] = `
 <div>
   <div
-    class="p-6 space-y-5 max-w-6xl mx-auto"
+    class="-mx-5 lg:-mx-6 px-[25px] space-y-5"
   >
     <div
       class="flex items-center gap-2"
@@ -5445,13 +5445,13 @@ exports[`screen snapshots > Focus calendar board 1`] = `
       <h1
         class="text-lg font-semibold text-gray-100"
       >
-        Focus Calendar
+        Calendar
       </h1>
     </div>
     <div
       class="flex flex-wrap items-end gap-3"
     >
-      <label
+      <div
         class="flex flex-col gap-1"
       >
         <span
@@ -5459,17 +5459,27 @@ exports[`screen snapshots > Focus calendar board 1`] = `
         >
           Project
         </span>
-        <select
+        <div
           aria-label="Project"
-          class="input bg-surface-1 min-w-[160px]"
+          class="flex flex-wrap items-center gap-1.5 max-w-lg"
+          role="group"
         >
-          <option
-            value=""
+          <button
+            aria-pressed="true"
+            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors bg-accent text-white"
+            type="button"
           >
             All projects
-          </option>
-        </select>
-      </label>
+          </button>
+          <button
+            aria-pressed="false"
+            class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+            type="button"
+          >
+            Unassigned
+          </button>
+        </div>
+      </div>
       <label
         class="flex flex-col gap-1"
       >
