@@ -5544,6 +5544,48 @@ exports[`screen snapshots > Focus 1`] = `
       </div>
     </div>
     <div
+      class="flex items-center gap-2 flex-wrap"
+    >
+      <div
+        aria-label="Time range"
+        class="flex items-center gap-1"
+        role="group"
+      >
+        <button
+          aria-pressed="false"
+          class="px-2 py-1 text-[11px] font-medium rounded-md transition-colors text-gray-400 hover:bg-surface-2 hover:text-gray-200"
+          title="Show the last 4 hours, plus 2 hours ahead"
+          type="button"
+        >
+          4h
+        </button>
+        <button
+          aria-pressed="false"
+          class="px-2 py-1 text-[11px] font-medium rounded-md transition-colors text-gray-400 hover:bg-surface-2 hover:text-gray-200"
+          title="Show the last 8 hours, plus 2 hours ahead"
+          type="button"
+        >
+          8h
+        </button>
+        <button
+          aria-pressed="false"
+          class="px-2 py-1 text-[11px] font-medium rounded-md transition-colors text-gray-400 hover:bg-surface-2 hover:text-gray-200"
+          title="Show the last 12 hours, plus 2 hours ahead"
+          type="button"
+        >
+          12h
+        </button>
+        <button
+          aria-pressed="true"
+          class="px-2 py-1 text-[11px] font-medium rounded-md transition-colors bg-accent text-white"
+          title="Show the full day"
+          type="button"
+        >
+          24h
+        </button>
+      </div>
+    </div>
+    <div
       class="card p-5 space-y-6"
     >
       <p
@@ -5874,6 +5916,35 @@ exports[`screen snapshots > Kanban board 1`] = `
             />
           </svg>
           Hide completed
+        </button>
+        <button
+          aria-pressed="false"
+          class="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors duration-150 flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4"
+          title="Hide abandoned"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-eye w-4 h-4"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="3"
+            />
+          </svg>
+          Hide abandoned
         </button>
         <button
           class="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4 transition-colors duration-150 flex-shrink-0"

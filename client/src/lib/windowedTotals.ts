@@ -70,8 +70,10 @@ function addToTotals(
  *  doesn't overlap the window at all. A segment with no `chunks` (shouldn't
  *  happen for a report the server produced, but the field is optional in the
  *  type) falls back to treating its whole clipped span as active, matching
- *  `wall_ms === active_ms` for a segment with no idle breakdown at all. */
-function clipSegment(seg: FocusReportSegment, startMs: number, endMs: number) {
+ *  `wall_ms === active_ms` for a segment with no idle breakdown at all.
+ *  Exported for `focusActivity.ts`'s own optional window-clipping support -
+ *  the same per-segment clip, reused rather than re-derived. */
+export function clipSegment(seg: FocusReportSegment, startMs: number, endMs: number) {
   const segStart = parseDate(seg.start).getTime();
   const segEnd = parseDate(seg.end).getTime();
   const clipStart = Math.max(segStart, startMs);

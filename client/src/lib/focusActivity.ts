@@ -2,12 +2,19 @@
  * @file focusActivity.ts
  * @description Groups a `FocusReport`'s per-session segments into one row per
  * distinct thing that happened — a plan item, a detour/bug/feature (by
- * title), or unclassified ("none") activity — for the new Focus report page
- * (`FocusPage.tsx`) and its `FocusActivityCard`. Unlike `windowedTotals.ts`,
- * this does NOT clip segments to a sub-window: the report it's given is
+ * title), or unclassified ("none") activity — for the Focus report page
+ * (`FocusPage.tsx`) and its `FocusActivityCard`. The report it's given is
  * already server-clipped to the caller's requested `from`/`to` (see
- * `GET /api/focus-report`'s file header), so this only needs to group and
- * sum, never re-derive a window.
+ * `GET /api/focus-report`'s file header), so grouping/summing alone is
+ * enough by default.
+ *
+ * An optional third `window` param additionally clips each segment to a
+ * `[startMs, endMs)` sub-window before grouping (via `windowedTotals.ts`'s
+ * `clipSegment`, the same per-segment clip its own `computeWindowedTotals`
+ * uses) — `FocusPage.tsx`'s hour-window zoom (`useHourWindowZoom`) passes
+ * this so the activity list stays honest with whatever the zoom's stat
+ * tiles are showing, rather than the list silently still reflecting the
+ * full unzoomed day while the tiles above it read a narrower window.
  *
  * There is no existing server-side rollup for detour/bug/feature time by
  * title (only plan items get one, in `FocusReport.items`) — grouping those
@@ -17,13 +24,14 @@
  * When more than one segment lands on the same key (e.g. two different
  * sessions both landed on the same plan item), the displayed `label`/
  * `inferred`/`reason` come from whichever contributing segment has the
- * largest `wall_ms` share — `contributions` records how many segments rolled
- * in, so a consumer can note "+N more sessions" without needing to show
- * every underlying reason.
+ * largest wall-time share (the clipped share, when a `window` was given) —
+ * `contributions` records how many segments rolled in, so a consumer can
+ * note "+N more sessions" without needing to show every underlying reason.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+import { clipSegment } from "./windowedTotals";
 import type { FocusReport, FocusReportSegment, FocusSegmentKind } from "./types";
 
 /** One grouped row of activity — a plan item, a detour/bug/feature (by
@@ -69,10 +77,19 @@ function keyFor(cwd: string, seg: FocusReportSegment): string {
  * merges), summing wall/active/idle time. Returned sorted by `wallMs`
  * descending — the same ordering used throughout this project's manual
  * focus-time breakdowns.
+ *
+ * When `window` is given, each segment is first clipped to
+ * `[window.startMs, window.endMs)` via `clipSegment`; a segment that doesn't
+ * overlap the window at all contributes nothing, and one that does
+ * contributes only its clipped wall/active/idle time — so the returned
+ * entries agree with whatever sub-window a caller (e.g. `FocusPage.tsx`'s
+ * hour-window zoom) is actually showing, the same way `computeWindowedTotals`
+ * already does for the stat tiles.
  */
 export function groupFocusActivity(
   report: FocusReport,
-  projectLabelForCwd?: (cwd: string | null) => string | undefined
+  projectLabelForCwd?: (cwd: string | null) => string | undefined,
+  window?: { startMs: number; endMs: number }
 ): FocusActivityEntry[] {
   const byKey = new Map<string, FocusActivityEntry>();
   const dominantWallMs = new Map<string, number>();
@@ -80,6 +97,12 @@ export function groupFocusActivity(
   for (const session of report.sessions) {
     const cwd = session.cwd ?? "";
     for (const seg of session.segments) {
+      const clipped = window ? clipSegment(seg, window.startMs, window.endMs) : null;
+      if (window && !clipped) continue; // doesn't overlap the window at all
+      const wallMs = clipped ? clipped.wall_ms : seg.wall_ms;
+      const activeMs = clipped ? clipped.active_ms : seg.active_ms;
+      const idleMs = clipped ? clipped.idle_ms : seg.idle_ms;
+
       const key = keyFor(cwd, seg);
       let entry = byKey.get(key);
       if (!entry) {
@@ -99,14 +122,14 @@ export function groupFocusActivity(
         byKey.set(key, entry);
         dominantWallMs.set(key, 0);
       }
-      entry.wallMs += seg.wall_ms;
-      entry.activeMs += seg.active_ms;
-      entry.idleMs += seg.idle_ms;
+      entry.wallMs += wallMs;
+      entry.activeMs += activeMs;
+      entry.idleMs += idleMs;
       entry.contributions += 1;
 
       const currentDominant = dominantWallMs.get(key) ?? 0;
-      if (seg.wall_ms > currentDominant) {
-        dominantWallMs.set(key, seg.wall_ms);
+      if (wallMs > currentDominant) {
+        dominantWallMs.set(key, wallMs);
         entry.label = seg.label;
         entry.itemNumber = seg.item_number;
         entry.inferred = seg.inferred;

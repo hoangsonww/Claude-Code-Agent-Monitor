@@ -1207,6 +1207,16 @@
                     one-sentence reason. It needed no backend changes at all, reusing the existing
                     <code>GET /api/focus-report</code> endpoint exactly as the Calendar board does.
                   </p>
+                  <p>
+                    The Focus page also offers the Calendar board's own intraday hour-window zoom
+                    — duration presets (<code>4h</code>/<code>8h</code>/<code>12h</code>/<code>24h</code>),
+                    a start-time stepper/typed input, a "Live" toggle, and quick-start presets —
+                    but defaults to the full, unzoomed period rather than the Calendar board's own
+                    4-hour default, since this page previously always showed the whole selected
+                    window and the zoom is a purely additive, opt-in narrowing. When zoomed, both
+                    the stat tiles and the activity list below scope together to the selected
+                    window, so the two never disagree.
+                  </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-emerald">🛰️</div>
@@ -7121,7 +7131,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=57" defer></script>
+    <script src="i18n-content.js?v=58" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

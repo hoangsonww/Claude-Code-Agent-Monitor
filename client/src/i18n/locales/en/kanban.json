@@ -13,6 +13,8 @@
   "viewReport": "View focus-time report",
   "hideCompleted": "Hide completed",
   "showCompleted": "Show completed",
+  "hideAbandoned": "Hide abandoned",
+  "showAbandoned": "Show abandoned",
   "copyLink": "Copy shareable link",
   "linkCopied": "Link copied!",
   "noAgents": "No agents tracked yet",

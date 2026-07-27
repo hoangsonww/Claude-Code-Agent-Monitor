@@ -28,6 +28,20 @@
  * projects" scope (`projectId === undefined && !unassignedOnly`) — a
  * single-project view never prefixes its rows with a project name.
  *
+ * Also offers the same intraday "hour-window zoom" as the Calendar page
+ * (`useHourWindowZoom`/`HourWindowZoomBar`, extracted out of
+ * `FocusCalendarView.tsx` so both pages share the identical control) —
+ * duration presets (4h/8h/12h/24h), a start-time stepper/typed input, a
+ * "Live" toggle, and quick-start presets. Anchored to `selectedDate`, the
+ * same `timeWindow.mode === "day" ? timeWindow.date : timeWindow.start`
+ * derivation `FocusCalendarBoard.tsx` already uses — so a custom multi-day
+ * range's zoom narrows within the range's own *start* day, matching the
+ * Board's existing behavior rather than inventing new semantics here. When
+ * zoomed, BOTH the stat tiles (`computeWindowedTotals`, same substitution
+ * `FocusReportBody` already does) AND the activity list below
+ * (`groupFocusActivity`'s optional `window` param) are scoped together —
+ * never just one, which would silently disagree with the other.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -38,12 +52,15 @@ import { api } from "../lib/api";
 import { DAY_MS, startOfDay } from "../lib/calendarWindow";
 import { formatMs } from "../lib/format";
 import { groupFocusActivity } from "../lib/focusActivity";
+import { computeWindowedTotals } from "../lib/windowedTotals";
 import type { FocusReport, Project, Session } from "../lib/types";
 import { ProjectScopeFilters } from "../components/ProjectScopeFilters";
 import { StatTile } from "../components/StatTile";
 import { FocusActivityCard } from "../components/FocusActivityCard";
 import { TimePeriodPicker } from "../components/TimePeriodPicker";
 import type { TimePeriodValue } from "../components/TimePeriodPicker";
+import { HourWindowZoomBar } from "../components/HourWindowZoomBar";
+import { useHourWindowZoom } from "../hooks/useHourWindowZoom";
 
 /** Derives the `[from, to)` ISO-8601 instant bounds `api.focusReport` always
  *  requires from the page's own `TimePeriodValue` — identical to
@@ -157,6 +174,19 @@ export function FocusPage() {
 
   const showProjectLabel = projectId === undefined && !unassignedOnly;
 
+  // Same intraday hour-window zoom as the Calendar page - anchored to the
+  // custom range's own START day, matching FocusCalendarBoard.tsx's existing
+  // `selectedDate` derivation exactly (not new semantics invented here).
+  // Defaults to 24h (unzoomed/full period) rather than the Calendar's own 4h
+  // default - this page previously always showed the whole selected
+  // day/range, so the zoom here is a purely additive, opt-in narrowing
+  // rather than a silent change to what loads by default.
+  const selectedDate = timeWindow.mode === "day" ? timeWindow.date : timeWindow.start;
+  const zoom = useHourWindowZoom(selectedDate, { defaultHourWindow: 24 });
+  const visibleWindow = zoom.zoomable
+    ? { startMs: zoom.windowStartMs, endMs: zoom.windowEndMs }
+    : null;
+
   return (
     <div className="-mx-5 lg:-mx-6 px-[25px] space-y-5">
       <div className="flex items-center gap-2">
@@ -188,6 +218,8 @@ export function FocusPage() {
         <TimePeriodPicker value={timeWindow} onChange={setTimeWindow} />
       </div>
 
+      <HourWindowZoomBar {...zoom} />
+
       <div className="card p-5 space-y-6">
         {loading && (
           <p className="text-xs text-gray-500 italic py-6 text-center">{t("report.loading")}</p>
@@ -203,6 +235,7 @@ export function FocusPage() {
             report={report}
             projectLabelForCwd={projectLabelForCwd}
             showProjectLabel={showProjectLabel}
+            visibleWindow={visibleWindow}
           />
         )}
       </div>
@@ -210,34 +243,47 @@ export function FocusPage() {
   );
 }
 
-/** Stat tiles (same numbers/formula as `FocusReportBody`, unwindowed since
- *  `report` is already scoped to the selected window) plus the activity
- *  card. Split out of `FocusPage` only to keep that component's own
- *  data-fetching/filter-state focused. */
+/** Stat tiles plus the activity card, both scoped to `visibleWindow` when the
+ *  hour-window zoom is active (`null` reads `report`'s own already-fetched
+ *  totals unchanged, same as before this existed) - mirrors
+ *  `FocusReportBody`'s own established `computeWindowedTotals` substitution
+ *  pattern exactly, so the same window/scope reads the same numbers whether
+ *  viewed here or on the Calendar page. Split out of `FocusPage` only to keep
+ *  that component's own data-fetching/filter-state focused. */
 function FocusPageBody({
   report,
   projectLabelForCwd,
   showProjectLabel,
+  visibleWindow,
 }: {
   report: FocusReport;
   projectLabelForCwd: (cwd: string | null) => string | undefined;
   showProjectLabel: boolean;
+  visibleWindow: { startMs: number; endMs: number } | null;
 }) {
   const { t } = useTranslation("plan");
 
-  const totals = report.totals;
+  const windowed = visibleWindow
+    ? computeWindowedTotals(report, visibleWindow.startMs, visibleWindow.endMs)
+    : null;
+  const totals = windowed?.totals ?? report.totals;
+  const wallClockMs = windowed?.wallClockMs ?? report.wall_clock_ms;
+  const concurrencyRatio = windowed ? windowed.concurrencyRatio : report.concurrency_ratio;
+  const windowHours = visibleWindow
+    ? Math.round((visibleWindow.endMs - visibleWindow.startMs) / 3_600_000)
+    : null;
+
   const onItemPct =
     totals.active_ms > 0 ? Math.round((totals.by_kind.item.active_ms / totals.active_ms) * 100) : 0;
   const graceLabel =
     report.idle_grace_seconds > 0
       ? formatMs(report.idle_grace_seconds * 1000)
       : t("report.graceDisabled");
-  const concurrencyValue =
-    report.concurrency_ratio != null ? `${report.concurrency_ratio.toFixed(2)}x` : "—";
+  const concurrencyValue = concurrencyRatio != null ? `${concurrencyRatio.toFixed(2)}x` : "—";
 
   const entries = useMemo(
-    () => groupFocusActivity(report, projectLabelForCwd),
-    [report, projectLabelForCwd]
+    () => groupFocusActivity(report, projectLabelForCwd, visibleWindow ?? undefined),
+    [report, projectLabelForCwd, visibleWindow]
   );
 
   return (
@@ -246,7 +292,7 @@ function FocusPageBody({
         <StatTile
           label={t("report.activeTime")}
           value={formatMs(totals.active_ms)}
-          sub={t("report.ofWallClock", { total: formatMs(report.wall_clock_ms) })}
+          sub={t("report.ofWallClock", { total: formatMs(wallClockMs) })}
         />
         <StatTile
           label={t("report.concurrency")}
@@ -268,6 +314,11 @@ function FocusPageBody({
       {report.idle_grace_seconds >= 0 && (
         <p className="text-[11px] text-gray-600 -mt-3">
           {t("report.graceNote", { grace: graceLabel })}
+        </p>
+      )}
+      {windowHours != null && (
+        <p className="text-[11px] text-gray-600 -mt-3">
+          {t("report.windowScopedNote", { hours: windowHours })}
         </p>
       )}
 

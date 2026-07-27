@@ -1752,7 +1752,12 @@ Whenever the window actually on screen starts after the real current time
 was reached — preset, stepper, or typed input), a persistent inline warning
 banner explains the window will show no data yet; the offending quick-start
 preset itself is also styled amber rather than disabled, since it becomes
-meaningful again once "now" catches up to it.
+meaningful again once "now" catches up to it. This state/logic and its
+toolbar JSX now live in `client/src/hooks/useHourWindowZoom.ts` and
+`client/src/components/HourWindowZoomBar.tsx` respectively — extracted
+verbatim out of `FocusCalendarView.tsx` (see `FocusPage.tsx` below) so the
+Focus page can offer the identical control without a calendar grid; every
+behavior described in this paragraph is otherwise unchanged.
 Container height and every tick/block position scale to the current window,
 not always the full day, at the same fixed per-minute pixel density
 `DAY_HEIGHT_PX`/`DAY_MS` establishes. `FocusCalendarView` reports that same
@@ -1834,12 +1839,24 @@ NOT render `FocusCalendarView`/the List-Calendar toggle at all. It reuses the
 same `ProjectScopeFilters` chip/session-select block (itself extracted out of
 `FocusCalendarBoard.tsx` for this purpose — a pure lift-and-shift, no
 behavior change) and the same `GET /api/focus-report` endpoint, so no
-backend work was needed; since that endpoint already clips every session's
-segments to the requested `from`/`to` server-side, the page reads
-`report.totals`/`report.wall_clock_ms`/`report.concurrency_ratio` directly
-with no client-side windowing. Its stat tiles (`StatTile`, likewise lifted
-out of `FocusReportBody.tsx` into its own file) use the identical on-item/
-off-plan formula as `FocusReportBody` (`totals.by_kind.item.active_ms /
+backend work was needed. It also offers the Calendar page's own intraday
+hour-window zoom (the `hourWindow`/`windowAnchorMode` state and toolbar
+described above) via `client/src/hooks/useHourWindowZoom.ts` and
+`client/src/components/HourWindowZoomBar.tsx` — extracted verbatim out of
+`FocusCalendarView.tsx` (which now calls the same hook/component itself, no
+behavior change — its full test suite passes unmodified through the
+extraction) so this page can offer the identical control without a calendar
+grid attached. Unlike `FocusCalendarView`'s own 4h default, `FocusPage` calls
+the hook with `{ defaultHourWindow: 24 }` so it defaults to unzoomed — the
+full period the endpoint already clipped server-side to `from`/`to` — since
+this page previously always showed that whole window and the zoom is meant
+as a purely additive, opt-in narrowing rather than a changed default. When
+zoomed, the page reads `computeWindowedTotals()` (`lib/windowedTotals.ts`,
+the same client-side re-derivation `FocusReportBody` uses for the Calendar)
+instead of `report.totals`/`report.wall_clock_ms`/`report.concurrency_ratio`
+directly. Its stat tiles (`StatTile`, likewise lifted out of
+`FocusReportBody.tsx` into its own file) use the identical on-item/off-plan
+formula as `FocusReportBody` (`totals.by_kind.item.active_ms /
 totals.active_ms`) so the same window/scope reads the same percentage on
 either page. Below them sits `FocusActivityCard.tsx`, driven by
 `client/src/lib/focusActivity.ts`'s `groupFocusActivity()` — a new
@@ -1848,17 +1865,24 @@ title; only plan items got one, in `FocusReport.items`) that groups every
 segment across `report.sessions` into one row per distinct plan item /
 detour-bug-feature title / unclassified bucket, keyed per-cwd (so the same
 item number in two different projects never merges), summing wall/active/
-idle time. When more than one segment lands on the same key, the displayed
-label/`inferred`/reason come from whichever contributed the largest `wall_ms`
-share, with a "+N more sessions" note for the rest. Each row shows a kind
-chip reusing the existing `FOCUS_KIND_CONFIG`/`FOCUS_KIND_ICONS` vocabulary
-(same colors/icons as `PlanModal`'s focus lines and `SessionCard`'s
-breadcrumb), the label, a wall/active time figure, and — only for a
-classifier-**inferred** entry — its one-sentence `inferred_reason`; a live
-`ccam focus push/bug/feature` declaration has no separate reason distinct
-from its own label today (`data.title || data.description` collapses to one
-string in `focus-commands.js`/`focus-report.js`), a known, not-yet-closed
-gap. `showProjectLabel` (project-name prefix per row) is true only in
+idle time. An optional third `window` param (`{startMs, endMs}`) additionally
+clips each segment first via `windowedTotals.ts`'s (now-exported)
+`clipSegment` — the same per-segment clip `computeWindowedTotals` itself
+uses — so the activity list narrows in step with the stat tiles above it
+whenever the hour-window zoom is active, rather than the list silently still
+reflecting the full unzoomed period while the tiles read a narrower one.
+When more than one segment lands on the same key, the displayed
+label/`inferred`/reason come from whichever contributed the largest
+(window-clipped, when given) wall-time share, with a "+N more sessions" note
+for the rest. Each row shows a kind chip reusing the existing
+`FOCUS_KIND_CONFIG`/`FOCUS_KIND_ICONS` vocabulary (same colors/icons as
+`PlanModal`'s focus lines and `SessionCard`'s breadcrumb), the label, a
+wall/active time figure, and — only for a classifier-**inferred** entry —
+its one-sentence `inferred_reason`; a live `ccam focus push/bug/feature`
+declaration has no separate reason distinct from its own label today
+(`data.title || data.description` collapses to one string in
+`focus-commands.js`/`focus-report.js`), a known, not-yet-closed gap.
+`showProjectLabel` (project-name prefix per row) is true only in
 "all projects" scope. The list collapses past 5 rows behind a "show more"/
 "show fewer" toggle.
 

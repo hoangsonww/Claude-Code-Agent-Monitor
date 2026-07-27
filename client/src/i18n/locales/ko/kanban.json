@@ -13,6 +13,8 @@
   "viewReport": "포커스 시간 리포트 보기",
   "hideCompleted": "완료 숨기기",
   "showCompleted": "완료 표시",
+  "hideAbandoned": "중단됨 숨기기",
+  "showAbandoned": "중단됨 표시",
   "copyLink": "공유 링크 복사",
   "linkCopied": "링크가 복사되었습니다!",
   "noAgents": "아직 추적된 Agent가 없습니다",

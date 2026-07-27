@@ -5,13 +5,17 @@
  * `FocusCalendarBoard.test.tsx`'s own first-load assertions), loading/empty/
  * error states, the stat tiles reflecting `report.totals` with the same
  * on-item/off-plan formula as `FocusReportBody`, the activity card actually
- * rendering item/detour rows end-to-end, and `showProjectLabel` following
- * the project-chip selection (true only in "all projects" scope).
+ * rendering item/detour rows end-to-end, `showProjectLabel` following
+ * the project-chip selection (true only in "all projects" scope), and the
+ * hour-window zoom (`HourWindowZoomBar`/`useHourWindowZoom`, shared with
+ * `FocusCalendarView`) — defaults to unzoomed (24h) so this page's existing
+ * full-period default is unchanged, and scopes BOTH the stat tiles and the
+ * activity card together once narrowed, never just one.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { FocusPage } from "../FocusPage";
 import type { FocusReport, Project } from "../../lib/types";
@@ -197,5 +201,144 @@ describe("FocusPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Game" }));
     await waitFor(() => expect(focusReportMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId("focus-activity-project-label")).toBeNull();
+  });
+
+  describe("hour-window zoom", () => {
+    // Fixed local "now" so the live 4h-zoom window is deterministic - built
+    // via LOCAL Date methods (mirrors FocusCalendarView.test.tsx's own
+    // `todayAt`) so it lines up regardless of the test runner's timezone.
+    const ZOOM_NOW = new Date();
+    ZOOM_NOW.setHours(15, 0, 0, 0);
+
+    function todayAt(hour: number): string {
+      const d = new Date(ZOOM_NOW);
+      d.setHours(hour, 0, 0, 0);
+      return d.toISOString();
+    }
+
+    function makeZoomReport(): FocusReport {
+      return makeEmptyReport({
+        sessions: [
+          {
+            session_id: "sess-1",
+            name: "Worker One",
+            cwd: "/repo-game",
+            ended_at: todayAt(14),
+            segments: [
+              // Outside the live 4h window ([11:00, 17:00) at "now" 15:00) -
+              // should disappear once zoomed to 4h.
+              {
+                kind: "detour",
+                item_number: null,
+                label: "Old Detour",
+                start: todayAt(6),
+                end: todayAt(7),
+                wall_ms: 60 * 60_000,
+                active_ms: 60 * 60_000,
+                idle_ms: 0,
+                inferred: false,
+                inferred_reason: null,
+              },
+              // Inside the live 4h window - should still show once zoomed.
+              {
+                kind: "item",
+                item_number: 8,
+                label: "Quality Pass",
+                start: todayAt(13),
+                end: todayAt(14),
+                wall_ms: 60 * 60_000,
+                active_ms: 60 * 60_000,
+                idle_ms: 0,
+                inferred: false,
+                inferred_reason: null,
+              },
+            ],
+          },
+        ],
+        totals: {
+          wall_ms: 2 * 60 * 60_000,
+          active_ms: 2 * 60 * 60_000,
+          idle_ms: 0,
+          by_kind: {
+            item: { wall_ms: 60 * 60_000, active_ms: 60 * 60_000, idle_ms: 0 },
+            detour: { wall_ms: 60 * 60_000, active_ms: 60 * 60_000, idle_ms: 0 },
+            feature: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+            bug: { wall_ms: 0, active_ms: 0, idle_ms: 0 },
+          },
+        },
+        wall_clock_ms: 2 * 60 * 60_000,
+        concurrency_ratio: 1,
+      });
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(ZOOM_NOW);
+      focusReportMock.mockResolvedValue(makeZoomReport());
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // Fake timers are active for this describe block (deterministic "now"),
+    // so `waitFor` (real-timer polling) would hang - flush the mock fetch's
+    // microtask queue directly instead, same pattern as
+    // FocusCalendarView.test.tsx's own fake-timer suite.
+    async function flush() {
+      await act(async () => {
+        for (let i = 0; i < 8; i++) await Promise.resolve();
+      });
+    }
+
+    it("defaults to the unzoomed 24h option, showing every segment in the fetched report", async () => {
+      renderPage();
+      await flush();
+      expect(screen.getByText("Quality Pass")).toBeTruthy();
+      expect(screen.getByText("Old Detour")).toBeTruthy();
+      expect(screen.getByText("24h")).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText("2h 0m")).toBeTruthy(); // full, unwindowed active time
+    });
+
+    it("narrows the stat tiles and the activity card together when a duration preset is clicked", async () => {
+      renderPage();
+      await flush();
+      expect(screen.getByText("Old Detour")).toBeTruthy();
+
+      fireEvent.click(screen.getByText("4h"));
+      await flush();
+
+      // The out-of-window segment drops from the activity card...
+      expect(screen.queryByText("Old Detour")).not.toBeInTheDocument();
+      // ...while the in-window one stays, and the stat tile above recomputes
+      // to match (1h, not the full 2h) - never one changing without the
+      // other. ("1h 0m" now matches both the stat tile AND the activity
+      // row's own time, since the row's wall/active time is identical to
+      // the tile's once "Old Detour" is the only thing excluded.)
+      expect(screen.getByText("Quality Pass")).toBeTruthy();
+      expect(screen.getAllByText("1h 0m").length).toBeGreaterThan(0);
+      expect(screen.queryByText("2h 0m")).not.toBeInTheDocument();
+      // The "4h" preset's LIVE window actually spans 6h (4h back + the 2h
+      // future pad every live zoom size under 24h adds - see
+      // useHourWindowZoom's own FUTURE_PAD_MS doc), so the note reports the
+      // real visible span, not the nominal preset size.
+      expect(
+        screen.getByText("Stats reflect the visible 6h window, not the full day")
+      ).toBeTruthy();
+    });
+
+    it("restores the full report when zooming back out to 24h", async () => {
+      renderPage();
+      await flush();
+
+      fireEvent.click(screen.getByText("4h"));
+      await flush();
+      expect(screen.queryByText("Old Detour")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("24h"));
+      await flush();
+      expect(screen.getByText("Old Detour")).toBeTruthy();
+      expect(screen.getByText("2h 0m")).toBeTruthy();
+    });
   });
 });

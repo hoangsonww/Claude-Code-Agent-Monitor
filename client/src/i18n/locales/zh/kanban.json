@@ -13,6 +13,8 @@
   "viewReport": "查看焦点用时报告",
   "hideCompleted": "隐藏已完成",
   "showCompleted": "显示已完成",
+  "hideAbandoned": "隐藏已废弃",
+  "showAbandoned": "显示已废弃",
   "copyLink": "复制共享链接",
   "linkCopied": "链接已复制！",
   "noAgents": "暂无追踪的 Agent",

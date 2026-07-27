@@ -181,6 +181,7 @@ const SESSION_COLUMNS: EffectiveSessionStatus[] = [
 const COLUMN_PAGE_SIZE = 10;
 const VIEW_STORAGE_KEY = "kanban-board-view";
 const HIDE_COMPLETED_STORAGE_KEY = "kanban-hide-completed";
+const HIDE_ABANDONED_STORAGE_KEY = "kanban-hide-abandoned";
 // Sentinel key for the trailing Ungrouped box's own collapsed state, stored
 // in the same `collapsedProjects` map as project columns (matches the
 // `monitor-divider-__ungrouped__` testid already used to identify this box).
@@ -220,6 +221,22 @@ function persistHideCompleted(hide: boolean): void {
   }
 }
 
+function loadHideAbandoned(): boolean {
+  try {
+    return localStorage.getItem(HIDE_ABANDONED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function persistHideAbandoned(hide: boolean): void {
+  try {
+    localStorage.setItem(HIDE_ABANDONED_STORAGE_KEY, String(hide));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function KanbanBoard() {
   const { t } = useTranslation("kanban");
   const [view, setViewState] = useState<BoardView>(loadView);
@@ -233,6 +250,7 @@ export function KanbanBoard() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
   const [hideCompleted, setHideCompletedState] = useState<boolean>(loadHideCompleted);
+  const [hideAbandoned, setHideAbandonedState] = useState<boolean>(loadHideAbandoned);
   // The plan popup - opened from a PlanPanel strip or a column header's
   // "view plan" icon. `sessions` is scoped to whichever column opened it, so
   // item-chip session lookups never bleed across projects.
@@ -289,6 +307,14 @@ export function KanbanBoard() {
     setHideCompletedState((prev) => {
       const next = !prev;
       persistHideCompleted(next);
+      return next;
+    });
+  }, []);
+
+  const toggleHideAbandoned = useCallback(() => {
+    setHideAbandonedState((prev) => {
+      const next = !prev;
+      persistHideAbandoned(next);
       return next;
     });
   }, []);
@@ -463,14 +489,16 @@ export function KanbanBoard() {
     {} as Record<EffectiveSessionStatus, Session[]>
   );
 
-  // "Hide completed" drops the Completed column outright on the Agents/
-  // Sessions boards (there's nothing left to show in it).
+  // "Hide completed"/"Hide abandoned" drop their respective column outright
+  // on the Agents/Sessions boards (there's nothing left to show in it).
+  // Agents have no "abandoned" status (see AGENT_COLUMNS above), so
+  // hideAbandoned only ever affects the Sessions board's columns.
   const visibleAgentColumns = hideCompleted
     ? AGENT_COLUMNS.filter((s) => s !== "completed")
     : AGENT_COLUMNS;
-  const visibleSessionColumns = hideCompleted
-    ? SESSION_COLUMNS.filter((s) => s !== "completed")
-    : SESSION_COLUMNS;
+  const visibleSessionColumns = SESSION_COLUMNS.filter(
+    (s) => (!hideCompleted || s !== "completed") && (!hideAbandoned || s !== "abandoned")
+  );
 
   // Projects view column order: drag-reorderable, persisted (shared with the
   // standalone Projects page). `liveProjectOrderIds` holds the in-progress
@@ -633,11 +661,15 @@ export function KanbanBoard() {
   ]
     .map((col) => {
       const allItems = col.cwds.flatMap((cwd) => sessionsByCwd.get(cwd) || []);
-      const items = hideCompleted ? allItems.filter((s) => s.status !== "completed") : allItems;
+      const items = allItems.filter(
+        (s) =>
+          (!hideCompleted || s.status !== "completed") &&
+          (!hideAbandoned || s.status !== "abandoned")
+      );
       const plans = col.cwds.map((cwd) => plansByCwd.get(cwd)).filter((p): p is Plan => Boolean(p));
       return { ...col, items, plans };
     })
-    .filter((col) => !hideCompleted || col.items.length > 0);
+    .filter((col) => !(hideCompleted || hideAbandoned) || col.items.length > 0);
 
   // Monitor clusters: split the project columns (never the standalone
   // Unassigned session-bucket column, which always renders on its own after
@@ -733,6 +765,20 @@ export function KanbanBoard() {
         >
           {hideCompleted ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           {hideCompleted ? t("showCompleted") : t("hideCompleted")}
+        </button>
+        <button
+          type="button"
+          onClick={toggleHideAbandoned}
+          aria-pressed={hideAbandoned}
+          title={hideAbandoned ? t("showAbandoned") : t("hideAbandoned")}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors duration-150 flex-shrink-0 ${
+            hideAbandoned
+              ? "bg-accent/15 text-accent border-accent/30"
+              : "border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4"
+          }`}
+        >
+          {hideAbandoned ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          {hideAbandoned ? t("showAbandoned") : t("hideAbandoned")}
         </button>
         <CopyLinkButton />
         <button onClick={load} className="btn-ghost flex-shrink-0">

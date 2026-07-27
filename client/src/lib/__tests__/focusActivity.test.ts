@@ -1,12 +1,15 @@
 /**
  * @file focusActivity.test.ts
  * @description Unit tests for `groupFocusActivity()` — the per-key rollup
- * behind the new Focus report page's activity card. Covers: a single segment
+ * behind the Focus report page's activity card. Covers: a single segment
  * per key; multiple segments merging into one entry (reason/label taken from
  * the dominant, largest-`wall_ms` contributor); the same item number in two
  * different projects/cwds staying distinct; `"none"`-kind (unclassified)
- * grouping per cwd; descending sort by wall time; an empty report; and
- * `projectLabel` resolution via the optional `projectLabelForCwd` callback.
+ * grouping per cwd; descending sort by wall time; an empty report;
+ * `projectLabel` resolution via the optional `projectLabelForCwd` callback;
+ * and the optional `window` param's clipping (segment fully outside excluded,
+ * partial overlap recomputed to its clipped share, dominance re-decided off
+ * clipped wall time) — the hour-window zoom support `FocusPage.tsx` uses.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -180,5 +183,85 @@ describe("groupFocusActivity", () => {
 
     const withoutResolver = groupFocusActivity(r);
     expect(withoutResolver[0]?.projectLabel).toBeUndefined();
+  });
+
+  describe("optional window clipping", () => {
+    it("excludes a segment that doesn't overlap the window at all", () => {
+      const r = report([
+        session("s1", "/repo", [segment("item", 0, 60, { itemNumber: 1, label: "Early" })]),
+      ]);
+      const entries = groupFocusActivity(r, undefined, {
+        startMs: BASE + 120 * MIN,
+        endMs: BASE + 180 * MIN,
+      });
+      expect(entries).toEqual([]);
+    });
+
+    it("recomputes wall/active time to only the clipped share of a partially-overlapping segment", () => {
+      const r = report([
+        session("s1", "/repo", [segment("item", 0, 60, { itemNumber: 1, label: "Straddles" })]),
+      ]);
+      // Window is [30, 90) - only the second half (30 real minutes) of the
+      // segment's [0, 60) span falls inside it.
+      const entries = groupFocusActivity(r, undefined, {
+        startMs: BASE + 30 * MIN,
+        endMs: BASE + 90 * MIN,
+      });
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({ wallMs: 30 * MIN, activeMs: 30 * MIN });
+    });
+
+    it("re-decides which contributing segment is dominant off its CLIPPED wall time, not raw wall_ms", () => {
+      const r = report([
+        // Same key as the segment below (same kind+label) so both merge into
+        // ONE entry. Raw wall_ms 100min (the bigger of the two unwindowed),
+        // but only [90,100) - 10 real minutes - falls inside the window.
+        session("s1", "/repo", [
+          segment("detour", 0, 100, {
+            label: "Shared Detour",
+            inferred: true,
+            inferredReason: "mostly-outside contributor",
+          }),
+        ]),
+        // Raw wall_ms 20min (smaller unwindowed), fully inside the window -
+        // its full 20 real minutes all count, more than s1's clipped 10min.
+        session("s2", "/repo", [
+          segment("detour", 90, 110, {
+            label: "Shared Detour",
+            inferred: true,
+            inferredReason: "fully-inside contributor",
+          }),
+        ]),
+      ]);
+      const windowed = groupFocusActivity(r, undefined, {
+        startMs: BASE + 90 * MIN,
+        endMs: BASE + 110 * MIN,
+      });
+      expect(windowed).toHaveLength(1); // same key -> merged into one entry
+      expect(windowed[0]).toMatchObject({
+        wallMs: 30 * MIN, // 10 (s1 clipped) + 20 (s2 clipped)
+        contributions: 2,
+        reason: "fully-inside contributor", // s2's clipped 20min > s1's clipped 10min
+      });
+
+      // Unwindowed, the SAME two segments pick the OTHER contributor as
+      // dominant (raw wall_ms: s1's 100min > s2's 20min) - proving the
+      // window genuinely changed the dominance decision, not just the total.
+      const unwindowed = groupFocusActivity(r);
+      expect(unwindowed[0]).toMatchObject({
+        wallMs: 120 * MIN,
+        reason: "mostly-outside contributor",
+      });
+    });
+
+    it("behaves identically to omitting `window` when it isn't passed at all vs. explicitly undefined", () => {
+      const r = report([
+        session("s1", "/repo", [segment("item", 0, 60, { itemNumber: 1, label: "X" })]),
+      ]);
+      const omitted = groupFocusActivity(r, undefined);
+      const explicit = groupFocusActivity(r, undefined, undefined);
+      expect(omitted).toEqual(explicit);
+      expect(omitted[0]).toMatchObject({ wallMs: 60 * MIN });
+    });
   });
 });

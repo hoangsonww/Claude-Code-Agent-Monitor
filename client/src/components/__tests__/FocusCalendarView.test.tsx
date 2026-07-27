@@ -347,9 +347,9 @@ describe("FocusCalendarView", () => {
     // container - lane 0 (A/C) sits at the left edge, lane 1 (B) sits
     // exactly one lane-width over, and both are the same fixed width.
     expect(blockA.style.left).toBe("2px");
-    expect(blockB.style.left).toBe("302px");
-    expect(blockA.style.width).toBe("296px");
-    expect(blockB.style.width).toBe("296px");
+    expect(blockB.style.left).toBe("202px");
+    expect(blockA.style.width).toBe("196px");
+    expect(blockB.style.width).toBe("196px");
   });
 
   it("gives every block a session-color strip that's the same color across a session's own multiple segments, is 20px wide, and never repeats for a different session", () => {
@@ -488,7 +488,7 @@ describe("FocusCalendarView", () => {
     const scrollWrapper = container.querySelector(".overflow-x-auto") as HTMLElement;
     expect(scrollWrapper).toBeInTheDocument();
     const grid = scrollWrapper.firstElementChild as HTMLElement;
-    expect(grid.style.width).toBe("600px");
+    expect(grid.style.width).toBe("400px");
 
     // The time axis (hour labels) is NOT inside that scroll wrapper - it's
     // a sibling, so it never scrolls out of view alongside the lanes.
@@ -1468,9 +1468,9 @@ describe("FocusCalendarView", () => {
       const scratchCard = screen.getByTestId("scratch-bundle") as HTMLElement;
       const normalBlock = screen.getByText("Normal").closest("a") as HTMLAnchorElement;
       // Scratch Work is always lane 0 (left edge); the normal block shifts
-      // to lane 1, one LANE_WIDTH_PX (300px) over - never sharing a lane.
+      // to lane 1, one LANE_WIDTH_PX (200px) over - never sharing a lane.
       expect(scratchCard.style.left).toBe("2px");
-      expect(normalBlock.style.left).toBe("302px");
+      expect(normalBlock.style.left).toBe("202px");
     });
 
     it("a day with ONLY scratch sessions still renders the calendar grid, not the 'no activity' empty state", () => {

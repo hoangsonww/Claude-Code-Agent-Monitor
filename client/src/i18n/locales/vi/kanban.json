@@ -13,6 +13,8 @@
   "viewReport": "Xem báo cáo thời gian tiêu điểm",
   "hideCompleted": "Ẩn đã hoàn tất",
   "showCompleted": "Hiện đã hoàn tất",
+  "hideAbandoned": "Ẩn bị bỏ dở",
+  "showAbandoned": "Hiện bị bỏ dở",
   "copyLink": "Sao chép liên kết chia sẻ",
   "linkCopied": "Đã sao chép liên kết!",
   "noAgents": "Chưa có Agent được theo dõi",
