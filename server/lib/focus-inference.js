@@ -290,11 +290,20 @@ function parseLlmOutput(stdout, items) {
   }
 }
 
-/** Run one LLM classification. Resolves a classification or null on failure. */
-function llmClassify(digest, items) {
-  const timeoutMs = Number(process.env.DASHBOARD_FOCUS_INFER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
-  const model = process.env.DASHBOARD_FOCUS_INFER_MODEL || "haiku";
-  const prompt = buildPrompt(digest, items);
+/**
+ * Spawn one hermetic, one-shot `claude -p <prompt> --output-format json`
+ * (hooks disabled, all tools disallowed, cwd = tmpdir, CLAUDECODE stripped)
+ * and resolve its raw stdout — or null on any failure (spawn error, non-zero
+ * exit, or the kill-timer firing). The single spawn contract shared by
+ * {@link llmClassify}, {@link llmSummarize}, and focus-summary.js's window
+ * summarizer; callers parse the stdout themselves. Model/timeout come from
+ * `DASHBOARD_FOCUS_INFER_MODEL`/`DASHBOARD_FOCUS_INFER_TIMEOUT_MS` unless
+ * overridden via `opts`.
+ */
+function runClaudePromptJson(prompt, opts = {}) {
+  const timeoutMs =
+    opts.timeoutMs ?? (Number(process.env.DASHBOARD_FOCUS_INFER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
+  const model = opts.model ?? (process.env.DASHBOARD_FOCUS_INFER_MODEL || "haiku");
   return new Promise((resolve) => {
     let settled = false;
     const done = (v) => {
@@ -347,9 +356,15 @@ function llmClassify(digest, items) {
     child.on("exit", (code) => {
       clearTimeout(killTimer);
       if (code !== 0) return done(null);
-      done(parseLlmOutput(stdout, items));
+      done(stdout);
     });
   });
+}
+
+/** Run one LLM classification. Resolves a classification or null on failure. */
+async function llmClassify(digest, items) {
+  const stdout = await runClaudePromptJson(buildPrompt(digest, items));
+  return stdout == null ? null : parseLlmOutput(stdout, items);
 }
 
 /**
@@ -406,67 +421,12 @@ function parseSummaryOutput(stdout) {
 }
 
 /** Run one LLM summarization for a plan-less cwd. Resolves a verdict or null
- *  on any failure — mirrors {@link llmClassify}'s spawn contract exactly,
- *  just with the summary prompt/parse pair instead of item matching. */
-function llmSummarize(digest) {
-  const timeoutMs = Number(process.env.DASHBOARD_FOCUS_INFER_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
-  const model = process.env.DASHBOARD_FOCUS_INFER_MODEL || "haiku";
-  const prompt = buildSummaryPrompt(digest);
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (v) => {
-      if (settled) return;
-      settled = true;
-      resolve(v);
-    };
-    let child;
-    try {
-      child = spawnImpl(
-        "claude",
-        [
-          "-p",
-          prompt,
-          "--output-format",
-          "json",
-          "--model",
-          model,
-          "--settings",
-          JSON.stringify({ disableAllHooks: true }),
-          "--disallowed-tools",
-          "*",
-        ],
-        { env: cleanEnv(), cwd: os.tmpdir(), stdio: ["ignore", "pipe", "pipe"] }
-      );
-    } catch {
-      return done(null);
-    }
-    let stdout = "";
-    child.stdout?.on("data", (c) => (stdout += c));
-    child.stderr?.resume?.();
-    const killTimer = setTimeout(() => {
-      try {
-        child.kill("SIGTERM");
-      } catch {
-        /* already gone */
-      }
-      const hardKill = setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* already gone */
-        }
-      }, 5_000);
-      if (hardKill.unref) hardKill.unref();
-      done(null);
-    }, timeoutMs);
-    if (killTimer.unref) killTimer.unref();
-    child.on("error", () => done(null));
-    child.on("exit", (code) => {
-      clearTimeout(killTimer);
-      if (code !== 0) return done(null);
-      done(parseSummaryOutput(stdout));
-    });
-  });
+ *  on any failure — same {@link runClaudePromptJson} spawn contract as
+ *  {@link llmClassify}, just with the summary prompt/parse pair instead of
+ *  item matching. */
+async function llmSummarize(digest) {
+  const stdout = await runClaudePromptJson(buildSummaryPrompt(digest));
+  return stdout == null ? null : parseSummaryOutput(stdout);
 }
 
 /**
@@ -617,5 +577,6 @@ module.exports = {
   buildSummaryPrompt,
   parseSummaryOutput,
   probeClaudeCli,
+  runClaudePromptJson,
   __injectSpawnForTest,
 };

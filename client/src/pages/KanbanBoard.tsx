@@ -19,7 +19,10 @@
  * box moves it out of that main row entirely into its own thin strip above
  * it (shared by every other collapsed monitor), freeing the horizontal space
  * it would otherwise still occupy; expanding it drops it back into the main
- * row at its ordered position.
+ * row at its ordered position. A header toggle (the gear icon) can hide
+ * "internal" sessions - the headless CLI calls the dashboard's own
+ * background focus classifiers spawn from an OS temp directory (see
+ * lib/types.ts's isInternalSession) - across all three views at once.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -90,10 +93,12 @@ import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
   Columns3,
+  Rows3,
   ChevronDown,
   HelpCircle,
   Eye,
   EyeOff,
+  Cog,
   GripVertical,
   Plus,
   Monitor as MonitorIcon,
@@ -127,8 +132,11 @@ import {
 import {
   STATUS_CONFIG,
   SESSION_STATUS_CONFIG,
+  AWAITING_REASON_CONFIG,
   isAgentAwaitingInput,
   isSessionAwaitingInput,
+  isInternalSession,
+  normalizeAwaitingReason,
 } from "../lib/types";
 import type {
   Agent,
@@ -182,6 +190,7 @@ const COLUMN_PAGE_SIZE = 10;
 const VIEW_STORAGE_KEY = "kanban-board-view";
 const HIDE_COMPLETED_STORAGE_KEY = "kanban-hide-completed";
 const HIDE_ABANDONED_STORAGE_KEY = "kanban-hide-abandoned";
+const HIDE_INTERNAL_STORAGE_KEY = "kanban-hide-internal";
 // Sentinel key for the trailing Ungrouped box's own collapsed state, stored
 // in the same `collapsedProjects` map as project columns (matches the
 // `monitor-divider-__ungrouped__` testid already used to identify this box).
@@ -237,6 +246,22 @@ function persistHideAbandoned(hide: boolean): void {
   }
 }
 
+function loadHideInternal(): boolean {
+  try {
+    return localStorage.getItem(HIDE_INTERNAL_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function persistHideInternal(hide: boolean): void {
+  try {
+    localStorage.setItem(HIDE_INTERNAL_STORAGE_KEY, String(hide));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function KanbanBoard() {
   const { t } = useTranslation("kanban");
   const [view, setViewState] = useState<BoardView>(loadView);
@@ -251,6 +276,7 @@ export function KanbanBoard() {
   const [expanded, setExpanded] = useState<Record<string, number>>({});
   const [hideCompleted, setHideCompletedState] = useState<boolean>(loadHideCompleted);
   const [hideAbandoned, setHideAbandonedState] = useState<boolean>(loadHideAbandoned);
+  const [hideInternal, setHideInternalState] = useState<boolean>(loadHideInternal);
   // The plan popup - opened from a PlanPanel strip or a column header's
   // "view plan" icon. `sessions` is scoped to whichever column opened it, so
   // item-chip session lookups never bleed across projects.
@@ -315,6 +341,14 @@ export function KanbanBoard() {
     setHideAbandonedState((prev) => {
       const next = !prev;
       persistHideAbandoned(next);
+      return next;
+    });
+  }, []);
+
+  const toggleHideInternal = useCallback(() => {
+    setHideInternalState((prev) => {
+      const next = !prev;
+      persistHideInternal(next);
       return next;
     });
   }, []);
@@ -446,44 +480,85 @@ export function KanbanBoard() {
     return map;
   }, [sessions]);
 
+  // Session ids the dashboard's own background focus classifiers spawned
+  // (see isInternalSession's doc comment) - computed unconditionally so
+  // flipping `hideInternal` doesn't need to re-walk every session.
+  const internalSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of sessions) if (isInternalSession(s)) ids.add(s.id);
+    return ids;
+  }, [sessions]);
+
+  // Every downstream grouping (by status, by cwd) reads from these instead
+  // of the raw `sessions`/`agents` state, so hideInternal applies uniformly
+  // across all three board views without a refetch.
+  const visibleSessions = useMemo(
+    () => (hideInternal ? sessions.filter((s) => !internalSessionIds.has(s.id)) : sessions),
+    [sessions, hideInternal, internalSessionIds]
+  );
+  const visibleAgents = useMemo(
+    () => (hideInternal ? agents.filter((a) => !internalSessionIds.has(a.session_id)) : agents),
+    [agents, hideInternal, internalSessionIds]
+  );
+
   // Sessions grouped by cwd, for the Projects view - each project's column
   // is every session whose cwd is one of that project's mapped folders.
   const sessionsByCwd = useMemo(() => {
     const map = new Map<string, Session[]>();
-    for (const s of sessions) {
+    for (const s of visibleSessions) {
       if (!s.cwd) continue;
       if (!map.has(s.cwd)) map.set(s.cwd, []);
       map.get(s.cwd)?.push(s);
     }
     return map;
-  }, [sessions]);
+  }, [visibleSessions]);
 
   // AGENT-PLAN.md plans found in any tracked cwd, keyed for the Projects
   // view's per-column lookup - same map shape as the standalone Projects page.
   const plansByCwd = useMemo(() => new Map(plans.map((p) => [p.cwd, p])), [plans]);
 
+  // "primary" awaiting reasons (subagent/shell/monitor) mean the row is still
+  // actively working via a child, not blocked on the human - StatusBadge
+  // already recolors these green instead of the yellow "Waiting" look, so the
+  // Kanban column they land in must agree: they belong in "working"/"active",
+  // not "waiting".
+  const isPrimaryAwaitingReason = (reasonRaw: string | null | undefined): boolean => {
+    const reason = normalizeAwaitingReason(reasonRaw);
+    return !!reason && AWAITING_REASON_CONFIG[reason].primary === true;
+  };
+
   // Bucket by effective status: agents with status "waiting" OR those with
   // awaiting_input_since set go into the "waiting" column. Other columns
-  // exclude agents that belong in "waiting".
-  const isEffectivelyWaiting = (a: Agent) => a.status === "waiting" || isAgentAwaitingInput(a);
+  // exclude agents that belong in "waiting". A primary reason overrides both -
+  // the agent is genuinely still working, so it stays out of "waiting".
+  const isEffectivelyWaiting = (a: Agent) =>
+    (a.status === "waiting" || isAgentAwaitingInput(a)) &&
+    !isPrimaryAwaitingReason(a.awaiting_reason);
 
   const groupedAgents = AGENT_COLUMNS.reduce(
     (acc, status) => {
       acc[status] =
         status === "waiting"
-          ? agents.filter(isEffectivelyWaiting)
-          : agents.filter((a) => a.status === status && !isEffectivelyWaiting(a));
+          ? visibleAgents.filter(isEffectivelyWaiting)
+          : visibleAgents.filter((a) => a.status === status && !isEffectivelyWaiting(a));
       return acc;
     },
     {} as Record<EffectiveAgentStatus, Agent[]>
   );
 
+  // A session waiting only on its own subagent/shell/monitor child (a
+  // "primary" reason) is genuinely still active work, not blocked on the
+  // human - keep it out of the "waiting" column so it lands in "active"
+  // alongside the badge's own green "still working" treatment.
+  const isSessionEffectivelyWaiting = (s: Session) =>
+    isSessionAwaitingInput(s) && !isPrimaryAwaitingReason(s.awaiting_reason);
+
   const groupedSessions = SESSION_COLUMNS.reduce(
     (acc, status) => {
       acc[status] =
         status === "waiting"
-          ? sessions.filter(isSessionAwaitingInput)
-          : sessions.filter((s) => s.status === status && !isSessionAwaitingInput(s));
+          ? visibleSessions.filter(isSessionEffectivelyWaiting)
+          : visibleSessions.filter((s) => s.status === status && !isSessionEffectivelyWaiting(s));
       return acc;
     },
     {} as Record<EffectiveSessionStatus, Session[]>
@@ -615,6 +690,21 @@ export function KanbanBoard() {
     persistMonitors(next);
   }
 
+  function handleToggleMonitorOrientation(id: string) {
+    const next = monitors.map((m) =>
+      m.id === id
+        ? {
+            ...m,
+            orientation: (m.orientation === "vertical" ? "horizontal" : "vertical") as
+              | "horizontal"
+              | "vertical",
+          }
+        : m
+    );
+    setMonitors(next);
+    persistMonitors(next);
+  }
+
   function handleToggleProjectCollapsed(key: string) {
     setCollapsedProjects((prev) => {
       const next = { ...prev, [key]: !prev[key] };
@@ -708,11 +798,11 @@ export function KanbanBoard() {
   // key with zero new state.
   const ungroupedCollapsed = !!collapsedProjects[UNGROUPED_COLLAPSE_KEY];
 
-  const total = view === "agents" ? agents.length : sessions.length;
+  const total = view === "agents" ? visibleAgents.length : visibleSessions.length;
   const subtitle =
     view === "agents"
-      ? t("agentCount", { count: agents.length })
-      : t("sessionCount", { count: sessions.length });
+      ? t("agentCount", { count: visibleAgents.length })
+      : t("sessionCount", { count: visibleSessions.length });
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
 
@@ -779,6 +869,20 @@ export function KanbanBoard() {
         >
           {hideAbandoned ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           {hideAbandoned ? t("showAbandoned") : t("hideAbandoned")}
+        </button>
+        <button
+          type="button"
+          onClick={toggleHideInternal}
+          aria-pressed={hideInternal}
+          aria-label={hideInternal ? t("showInternal") : t("hideInternal")}
+          title={hideInternal ? t("showInternal") : t("hideInternal")}
+          className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-150 flex-shrink-0 ${
+            hideInternal
+              ? "bg-accent/15 text-accent border-accent/30"
+              : "border-border text-gray-400 hover:text-gray-200 hover:bg-surface-4"
+          }`}
+        >
+          <Cog className="w-4 h-4" />
         </button>
         <CopyLinkButton />
         <button onClick={load} className="btn-ghost flex-shrink-0">
@@ -878,10 +982,12 @@ export function KanbanBoard() {
         name={monitor.name}
         count={columns.length}
         collapsed={!!monitor.collapsed}
+        orientation={monitor.orientation === "vertical" ? "vertical" : "horizontal"}
         dragging={draggedMonitorId === monitor.id}
         onRename={(name) => handleRenameMonitor(monitor.id, name)}
         onDelete={() => handleDeleteMonitor(monitor.id)}
         onToggleCollapsed={() => handleToggleMonitorCollapsed(monitor.id)}
+        onToggleOrientation={() => handleToggleMonitorOrientation(monitor.id)}
         onBoxDragStart={() => handleMonitorDragStart(monitor.id)}
         onBoxDragOver={(e) => {
           if (draggedMonitorId) handleMonitorDragOver(e, monitor.id);
@@ -1342,9 +1448,14 @@ interface MonitorBoxProps {
    *  above it, so this component's own rendering never needs to know which
    *  row it's in - only whether it's collapsed. */
   collapsed?: boolean;
+  /** Direction the box lays out its assigned project columns in - "row"
+   *  (side by side) or "column" (stacked). Defaults to "horizontal" when
+   *  omitted, matching the long-standing layout. */
+  orientation?: "horizontal" | "vertical";
   onRename: (name: string) => void;
   onDelete: () => void;
   onToggleCollapsed: () => void;
+  onToggleOrientation: () => void;
   onBoxDragStart: () => void;
   /** Fired while a drag is over this box - branches at the call site on
    *  whether a project column or another monitor box is being dragged. */
@@ -1373,9 +1484,11 @@ function MonitorBox({
   count,
   dragging,
   collapsed,
+  orientation = "horizontal",
   onRename,
   onDelete,
   onToggleCollapsed,
+  onToggleOrientation,
   onBoxDragStart,
   onBoxDragOver,
   onBoxDragEnd,
@@ -1436,6 +1549,24 @@ function MonitorBox({
         </span>
         <button
           type="button"
+          onClick={onToggleOrientation}
+          title={t(
+            orientation === "vertical"
+              ? "monitors.orientationVertical"
+              : "monitors.orientationHorizontal"
+          )}
+          aria-pressed={orientation === "vertical"}
+          draggable={false}
+          className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+        >
+          {orientation === "vertical" ? (
+            <Rows3 className="w-3.5 h-3.5" />
+          ) : (
+            <Columns3 className="w-3.5 h-3.5" />
+          )}
+        </button>
+        <button
+          type="button"
           onClick={onDelete}
           title={t("monitors.deleteMonitor")}
           draggable={false}
@@ -1447,10 +1578,15 @@ function MonitorBox({
       {/* Stays mounted (never conditionally rendered) while collapsed, only
           visually hidden - so a card's own local state (e.g. "show more")
           and any in-flight drag survive a collapse/expand toggle. */}
-      <div className={`flex gap-4 ${collapsed ? "hidden" : ""}`} draggable={false}>
+      <div
+        className={`flex gap-4 ${orientation === "vertical" ? "flex-col" : ""} ${collapsed ? "hidden" : ""}`}
+        draggable={false}
+      >
         {children}
         {count === 0 && (
-          <div className="flex-1 min-w-[10rem] min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3">
+          <div
+            className={`${orientation === "vertical" ? "w-72" : "flex-1 min-w-[10rem]"} min-h-[80px] rounded-lg border border-dashed border-border/50 flex items-center justify-center text-[11px] leading-snug text-gray-600 text-center px-3`}
+          >
             {t("monitors.emptyMonitorHint")}
           </div>
         )}

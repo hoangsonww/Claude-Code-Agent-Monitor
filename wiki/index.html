@@ -967,7 +967,10 @@
                     out of that row into its own thin strip above it, shared by every other collapsed monitor,
                     freeing the horizontal space it would otherwise still take up; expanding it drops the box
                     back into the row at its ordered position (its columns stay mounted the whole time, only
-                    hidden, so a card's own "show more" state survives the toggle). Every project column (and
+                    hidden, so a card's own "show more" state survives the toggle). A second icon button next to
+                    the chevron toggles that box's own layout direction — <strong>horizontal</strong> (the
+                    default, columns side by side) or <strong>vertical</strong> (columns stacked top to bottom) —
+                    independently per monitor. Every project column (and
                     the standalone Unassigned column) has its own chevron too, shrinking that one column down to
                     a slim header-only bar right where it sits, independent of whichever box it's in.
                   </p>
@@ -1216,6 +1219,44 @@
                     window and the zoom is a purely additive, opt-in narrowing. When zoomed, both
                     the stat tiles and the activity list below scope together to the selected
                     window, so the two never disagree.
+                  </p>
+                  <p>
+                    The activity list's unclassified bucket is narrative-aware: a "No focus"
+                    segment that carries a classifier-inferred one-sentence reason keeps its own
+                    row per session instead of collapsing into one shared bucket — only
+                    reason-less unclassified segments still collapse into a single shared tail
+                    row. And any row backed by multiple sessions renders its "+N more sessions"
+                    note as a toggle that expands into each contributing session's own name,
+                    clock-time range, wall/active time split, and reason.
+                  </p>
+                  <p>
+                    Above the activity list, an AI-synthesized <strong>Summary</strong> block
+                    distills the selected window into plain-language "what we actually did"
+                    bullets, served by a new <code>GET /api/focus-report/summary</code> endpoint
+                    (<code>server/lib/focus-summary.js</code>). The bullets are no longer fixed
+                    at 2–4 — the budget scales with the window: 4 for a day or two, 6 up to a
+                    week, 8 beyond. Windows wider than two days summarize
+                    <strong>hierarchically</strong>: per-day summaries are generated and cached
+                    first — permanent once a day's data stops changing — then one rollup call
+                    synthesizes the window from the daily bullets; an unchanged multi-day
+                    window is served from cache with zero LLM calls, and a day whose own
+                    synthesis fails contributes its raw activity facts instead of being
+                    dropped. Generation runs on
+                    <code>DASHBOARD_FOCUS_SUMMARY_MODEL</code> when set — a dedicated override
+                    so the stakeholder-facing bullets can use a stronger model (e.g.
+                    <code>sonnet</code>) while the far-more-frequent per-session classifier stays
+                    on the cheap default — falling back to
+                    <code>DASHBOARD_FOCUS_INFER_MODEL</code>, then <code>haiku</code>; the spawn
+                    still reuses the focus-inference service's hermetic <code>claude -p</code>
+                    contract and its <code>DASHBOARD_FOCUS_INFER_TIMEOUT_MS</code> kill timer.
+                    Results are cached in the
+                    <code>focus_summaries</code> table keyed by scope and window, gated by a
+                    digest of the input data, so a finished day generates once and a
+                    still-running day regenerates only when its data changes. When no summary can
+                    be produced (LLM mode off, <code>claude</code> CLI unavailable, an empty
+                    window, or a generation failure) the endpoint returns
+                    <code>{ summary: null }</code> with a 200 and the page hides the block
+                    entirely.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2213,6 +2254,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_FOCUS_INFER_MODEL</code></td>
                   <td><code>haiku</code></td>
                   <td>Model passed to the focus-inference <code>claude -p --model</code> spawn</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_FOCUS_SUMMARY_MODEL</code></td>
+                  <td>falls back to <code>DASHBOARD_FOCUS_INFER_MODEL</code>, then <code>haiku</code></td>
+                  <td>
+                    Model for the Focus page's 'What happened in this window' summary (<code>GET /api/focus-report/summary</code>) — dedicated override so the summary can use a stronger model (e.g. <code>sonnet</code>) while the per-session classifier stays cheap.
+                  </td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_FOCUS_INFER_TIMEOUT_MS</code></td>
@@ -7131,7 +7179,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=58" defer></script>
+    <script src="i18n-content.js?v=60" defer></script>
     <script src="script.js?v=33" defer></script>
     <script>
       (function () {

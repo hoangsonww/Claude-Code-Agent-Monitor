@@ -1327,6 +1327,43 @@ This is deliberate, not a placeholder for a future default: the client (the Cale
 }
 ```
 
+```http
+GET /api/focus-report/summary?project_id=&session_id=&sources=&from=&to=
+```
+
+A stakeholder-readable **window summary**: 2–4 plain-language bullets describing what was actually accomplished in the same window the route above reports on, synthesized by a one-shot LLM call (`server/lib/focus-summary.js`) from every session's focus segments — labels, kinds, per-session one-sentence `inferred_reason`s, and wall/active times — merging sessions that tell the same story instead of repeating them. Powers the **Summary** block on the client's Focus page (`/focus`).
+
+**Query parameters, validation, and session selection are identical to `GET /api/focus-report` above** — both handlers share the same `resolveWindowSessions` resolution in `server/routes/focus-report.js`, so the two endpoints can never disagree about which sessions a window contains. The same 400s (missing/unparseable `from`/`to`, `project_id`+`unassigned` conflict) and 404s (unknown project/session) apply.
+
+**Response:**
+
+```json
+{
+  "summary": {
+    "bullets": [
+      "Completed intake documentation for five identified security issues.",
+      "Found and fully packaged an IDOR vulnerability in the mod-management endpoints."
+    ],
+    "generated_at": "2026-07-28T15:30:00.000Z",
+    "cached": true,
+    "model": "haiku"
+  }
+}
+```
+
+`summary` is **`null` (with a 200, never an error)** whenever no summary can be produced: the LLM path is disabled (`DASHBOARD_FOCUS_INFER_MODE` ≠ `llm`) or the `claude` CLI isn't available, the window contains no sessions, or generation/parsing failed. Clients hide the block rather than surfacing an error — the summary is an additive layer over the report, not part of it.
+
+A companion `GET /api/focus-report/summary/config` (no params, never errors) returns `{ "model": "sonnet" }` — the model the **next** generation would use — so the client can name the model in its "Summarizing this window using …" loading state before the summary response (whose own `model` field stays authoritative for what actually wrote a given cached summary) arrives.
+
+**Generation.** The synthesis reuses the focus-inference service's hermetic one-shot `claude -p` spawn contract and its `DASHBOARD_FOCUS_INFER_TIMEOUT_MS` kill timer. The model is `DASHBOARD_FOCUS_SUMMARY_MODEL` when set — a dedicated override so the stakeholder-facing bullets can use a stronger model (e.g. `sonnet`) while the far-more-frequent per-session classifier stays on the cheap shared default — falling back to `DASHBOARD_FOCUS_INFER_MODEL`, then `haiku`.
+
+Two generation paths, split at 2 local calendar days (`server/lib/focus-summary.js`):
+
+- **Direct** (windows ≤ 2 days): one LLM call over the window's raw per-session facts, up to 4 bullets. If the window somehow holds more than 40 sessions, the **most recent** are kept and the earlier ones dropped with an explicit "+N earlier sessions omitted" prompt note — never the reverse, which would silently cut the newest work.
+- **Hierarchical** (wider windows): each local calendar day is summarized via the direct path first (cached under its own scope-qualified key — permanently once that day's data stops changing), then **one** rollup call synthesizes the window from the per-day bullets. The bullet budget scales with the span (4 up to 2 days, 6 up to a week, 8 beyond), so a three-week window isn't forced to average ~56 sessions into the same 4 bullets a single day gets. A day whose own synthesis fails contributes its compact raw fact lines to the rollup instead of silently vanishing.
+
+**Caching.** Results are cached in the `focus_summaries` table keyed by the full scope+window request identity (`project_id`/`session_id`/`unassigned`/`sources`/`from`/`to`), gated by an **input digest**: for direct windows, a hash of the summary-relevant report data; for hierarchical windows, a hash of the per-day summary contents. A cached row is served only while its digest still matches, so a finished day is generated exactly once and served forever, a still-running day regenerates only when new activity actually changed its data, and an unchanged multi-day window is served with **zero** LLM calls. First-time generation of a wide window makes one call per not-yet-cached day plus the rollup, so a cold multi-week window can take a minute or two — every later view of it (and every other window sharing those days) reuses the day cache.
+
 ---
 
 ### Claude Config Explorer

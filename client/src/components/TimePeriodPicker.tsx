@@ -5,7 +5,12 @@
  * mirrors `FocusCalendarView`'s existing internal prev/today/next day-nav
  * row (reusing its `report.calendar.prevDay`/`today`/`nextDay` i18n keys, no
  * new keys needed for day mode), plus a "custom range" toggle exposing two
- * `<input type="date">` fields. Pure/controlled — no fetching, no knowledge
+ * `<input type="date">` fields. Day mode also renders a human-readable
+ * weekday + date label (e.g. "Monday, 7/1/2026") after a thin `w-px h-4
+ * bg-border` divider (the same separator token used by `HourWindowZoomBar`/
+ * `Sessions.tsx`) following the nav buttons, via `formatWeekdayDate`, since
+ * the buttons alone don't show which day is selected. Pure/controlled — no
+ * fetching, no knowledge
  * of `FocusReport` — mirroring `FocusCalendarView`'s own "no fetch" contract;
  * the board owns turning this value into `from`/`to` and re-fetching.
  *
@@ -23,6 +28,7 @@
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DAY_MS, startOfDay } from "../lib/calendarWindow";
+import { formatWeekdayDate } from "../lib/format";
 
 export type TimePeriodValue =
   | { mode: "day"; date: Date }
@@ -145,6 +151,10 @@ export function TimePeriodPicker({ value, onChange }: TimePeriodPickerProps) {
       >
         {t("report.board.customRange")}
       </button>
+      <span aria-hidden="true" className="w-px h-4 bg-border flex-shrink-0 mx-1" />
+      <span className="text-xs font-medium text-gray-200 whitespace-nowrap">
+        {formatWeekdayDate(value.date)}
+      </span>
     </div>
   );
 }

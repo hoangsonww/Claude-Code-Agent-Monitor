@@ -8,8 +8,19 @@
  * figure, an `inferred` tag when the entry came from the background
  * classifier rather than a live declaration, and — when the dominant
  * contributing segment was inferred — its one-sentence `inferred_reason`.
+ * Also shows a human-friendly clock-time start/stop range per row
+ * (`formatTimeRange` over `entry.firstStart`/`entry.lastEnd` — see
+ * `focusActivity.ts`'s file header for how a merged entry's range is derived),
+ * followed by an em-dash and the elapsed day/hour/minute duration between
+ * those same two timestamps (`formatDurationLong`).
  * The body of `FocusPage.tsx`'s report, mocked up and validated against real
  * project data before this was built (see that page's own file header).
+ *
+ * A row backed by more than one contributing session renders its "+N more
+ * sessions" line as a toggle: expanded, it lists every contributor's own
+ * session name, clock range, wall/active split, and (when inferred) reason
+ * (`entry.contributors`, largest share first — see `focusActivity.ts`), so
+ * the merged row's single dominant story is never the only thing visible.
  *
  * Collapses past `COLLAPSE_AFTER` entries with a "show more"/"show fewer"
  * toggle so a project with a long tail of small detours doesn't dominate the
@@ -21,9 +32,10 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatMs } from "../lib/format";
+import { ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { formatMs, formatTimeRange, formatDurationLong } from "../lib/format";
 import { FOCUS_KIND_CONFIG } from "../lib/types";
-import type { FocusActivityEntry } from "../lib/focusActivity";
+import type { FocusActivityContribution, FocusActivityEntry } from "../lib/focusActivity";
 import { FOCUS_KIND_ICONS } from "./PlanModal";
 
 const COLLAPSE_AFTER = 5;
@@ -83,6 +95,7 @@ function FocusActivityRow({
   showProjectLabel: boolean;
 }) {
   const { t } = useTranslation("plan");
+  const [detailOpen, setDetailOpen] = useState(false);
   const cfg = FOCUS_KIND_CONFIG[entry.kind];
   const Icon = FOCUS_KIND_ICONS[entry.kind];
   const itemPrefix =
@@ -133,15 +146,75 @@ function FocusActivityRow({
             )}
           </span>
         </div>
+        <p className="flex items-center gap-1 text-[11px] text-gray-500 mt-1">
+          <Clock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          {formatTimeRange(entry.firstStart, entry.lastEnd)}
+          {" — "}
+          {formatDurationLong(entry.firstStart, entry.lastEnd)}
+        </p>
         {entry.reason && (
           <p className="text-[11px] text-gray-500 mt-1 max-w-[62ch]">{entry.reason}</p>
         )}
-        {entry.contributions > 1 && (
-          <p className="text-[10px] text-gray-600 mt-0.5">
-            {t("report.activityBoard.moreContributions", { count: entry.contributions - 1 })}
-          </p>
+        {entry.contributors.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setDetailOpen((open) => !open)}
+              aria-expanded={detailOpen}
+              className="flex items-center gap-0.5 text-[10px] text-gray-500 hover:text-gray-300 mt-0.5 transition-colors"
+            >
+              {detailOpen ? (
+                <ChevronDown className="w-3 h-3" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="w-3 h-3" aria-hidden="true" />
+              )}
+              {detailOpen
+                ? t("report.activityBoard.hideContributions")
+                : t("report.activityBoard.moreContributions", { count: entry.contributions - 1 })}
+            </button>
+            {detailOpen && (
+              <ul className="mt-1.5 space-y-2 border-l border-border/60 pl-3">
+                {entry.contributors.map((contribution) => (
+                  <ContributionLine key={contribution.sessionId} contribution={contribution} />
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+/** One contributing session's line inside an expanded row: name, clock
+ *  range, wall/active split, and (when inferred) its own reason. */
+function ContributionLine({ contribution }: { contribution: FocusActivityContribution }) {
+  const { t } = useTranslation("plan");
+  return (
+    <li className="text-[11px] text-gray-500">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <span className="text-gray-400 font-medium min-w-0">
+          {contribution.sessionName ?? t("report.calendar.noName")}
+        </span>
+        <span className="font-mono flex-shrink-0 whitespace-nowrap">
+          {contribution.activeMs === contribution.wallMs ? (
+            formatMs(contribution.wallMs)
+          ) : (
+            <>
+              {t("report.wallClockLabel")} {formatMs(contribution.wallMs)}
+              {" · "}
+              {t("report.activeLabel")} {formatMs(contribution.activeMs)}
+            </>
+          )}
+        </span>
+      </div>
+      <p className="flex items-center gap-1 mt-0.5">
+        <Clock className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+        {formatTimeRange(contribution.firstStart, contribution.lastEnd)}
+        {" — "}
+        {formatDurationLong(contribution.firstStart, contribution.lastEnd)}
+      </p>
+      {contribution.reason && <p className="mt-0.5 max-w-[62ch]">{contribution.reason}</p>}
+    </li>
   );
 }

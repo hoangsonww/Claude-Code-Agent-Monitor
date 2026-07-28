@@ -200,6 +200,14 @@ erDiagram
         text reason "Classifier's one-line justification, or NULL"
         text inferred_at "ISO8601 stamp of the verdict"
     }
+
+    focus_summaries {
+        text cache_key PK "Scope+window request identity of GET /api/focus-report/summary"
+        text input_digest "Hash of the summary-relevant report slice - gates cache reuse"
+        text bullets "JSON array of 2-4 stakeholder-readable bullet strings"
+        text model "LLM model that produced it, e.g. haiku"
+        text created_at "ISO8601 stamp of the synthesis"
+    }
 ```
 
 ### Relationship Cardinality
@@ -705,6 +713,32 @@ CREATE TABLE focus_inferences (
 | `method` | TEXT | NO | `llm` (headless `claude -p`) or `heuristic` (keyword overlap) |
 | `reason` | TEXT | YES | Classifier's one-line justification, or NULL |
 | `inferred_at` | TEXT | NO | ISO 8601 stamp of the verdict; a session active after this becomes eligible for re-classification |
+
+---
+
+### focus_summaries
+
+Cached stakeholder-readable **window summaries** for `GET /api/focus-report/summary` (`server/lib/focus-summary.js`): 2–4 plain-language bullets synthesized by a one-shot LLM call from a report window's per-session focus segments. `cache_key` identifies the full scope+window request (project/session/unassigned/sources + from/to); `input_digest` hashes the summary-relevant report data, so a cached row is served only while the underlying data is unchanged — a finished day is generated exactly once and served forever, while a still-running day regenerates whenever new activity lands in the window. Generated on request, not by a background service; no FK — a summary describes a window, not one session.
+
+```sql
+CREATE TABLE focus_summaries (
+    cache_key TEXT PRIMARY KEY,
+    input_digest TEXT NOT NULL,
+    bullets TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `cache_key` | TEXT | NO | Primary key; JSON string of the resolved scope+window request identity (`project_id`/`session_id`/`unassigned`/`sources`/`from`/`to`) |
+| `input_digest` | TEXT | NO | SHA-1 of the summary-relevant report slice (per-session segment kinds/labels/reasons/times) — a mismatch on read triggers regeneration |
+| `bullets` | TEXT | NO | JSON array of 2–4 stakeholder-readable bullet strings |
+| `model` | TEXT | YES | The `claude -p` model that produced it (`DASHBOARD_FOCUS_SUMMARY_MODEL`, falling back to `DASHBOARD_FOCUS_INFER_MODEL`, then `haiku`) |
+| `created_at` | TEXT | NO | ISO 8601 stamp of the synthesis (cache write time) |
 
 ---
 

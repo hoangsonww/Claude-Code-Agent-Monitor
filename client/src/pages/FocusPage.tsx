@@ -28,6 +28,26 @@
  * projects" scope (`projectId === undefined && !unassignedOnly`) — a
  * single-project view never prefixes its rows with a project name.
  *
+ * Above the activity list sits an LLM-synthesized "Summary" block
+ * (`api.focusReportSummary` → `GET /api/focus-report/summary`): 2-4
+ * stakeholder-readable bullets for the SAME `from`/`to` window and scope as
+ * the report fetch. Fetched independently and non-blocking (its own effect,
+ * its own loading state) so a slow/unavailable synthesis never delays the
+ * stat tiles or activity rows; a `null` summary (LLM path off, empty
+ * window, failure) simply hides the block — never an error state. The
+ * footer note names the model that wrote the bullets (`summary.model`,
+ * via the `aiNoteWithModel` i18n key; plain `aiNote` when unknown) plus
+ * either how long generation took (`generatedIn`, from the client-measured
+ * elapsed fetch time) or `servedFromCache` for a cache hit. While loading,
+ * a once-a-second elapsed clock (`formatMs`) and a duration-expectation
+ * note (`loadingNote` — first view summarizes each day once, repeat views
+ * are instant) keep a cold multi-week generation reading as progress
+ * rather than a hang. The
+ * summary always describes the full fetched window, NOT the hour-window
+ * zoom's sub-window — it's a per-window synthesis cached server-side, not
+ * a re-generatable per-zoom view (the `windowScopedNote` line already tells
+ * the reader when the tiles/list below are narrower).
+ *
  * Also offers the same intraday "hour-window zoom" as the Calendar page
  * (`useHourWindowZoom`/`HourWindowZoomBar`, extracted out of
  * `FocusCalendarView.tsx` so both pages share the identical control) —
@@ -47,13 +67,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Focus as FocusIcon } from "lucide-react";
+import { Focus as FocusIcon, Sparkles } from "lucide-react";
 import { api } from "../lib/api";
 import { DAY_MS, startOfDay } from "../lib/calendarWindow";
-import { formatMs } from "../lib/format";
+import { formatMs, formatModelName } from "../lib/format";
 import { groupFocusActivity } from "../lib/focusActivity";
 import { computeWindowedTotals } from "../lib/windowedTotals";
-import type { FocusReport, Project, Session } from "../lib/types";
+import type { FocusReport, FocusWindowSummary, Project, Session } from "../lib/types";
 import { ProjectScopeFilters } from "../components/ProjectScopeFilters";
 import { StatTile } from "../components/StatTile";
 import { FocusActivityCard } from "../components/FocusActivityCard";
@@ -77,6 +97,17 @@ function windowBounds(tw: TimePeriodValue): { from: string; to: string } {
   return { from: start.toISOString(), to: new Date(end.getTime() + DAY_MS).toISOString() };
 }
 
+/** "Claude Sonnet" / "Claude Sonnet 5" from a raw model alias/id — the
+ *  display form both summary-block notes use. `formatModelName` title-cases
+ *  ("sonnet" → "Sonnet", "claude-sonnet-5" → "Claude Sonnet 5"); the Claude
+ *  prefix is added only when not already present, so an alias never renders
+ *  as a bare "Sonnet" and a full id never doubles up as "Claude Claude …". */
+function claudeModelLabel(model: string | null): string | null {
+  const formatted = formatModelName(model);
+  if (!formatted) return null;
+  return formatted.startsWith("Claude") ? formatted : `Claude ${formatted}`;
+}
+
 /** The "what did we actually do" Focus report page — see file header. */
 export function FocusPage() {
   const { t } = useTranslation("plan");
@@ -97,6 +128,33 @@ export function FocusPage() {
   const [report, setReport] = useState<FocusReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+
+  // Independent, non-blocking summary fetch - see file header.
+  const [summary, setSummary] = useState<FocusWindowSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  // Live elapsed clock for the summary fetch: ticks once a second while
+  // loading (a cold multi-week window legitimately takes a minute-plus, so
+  // the wait needs to read as progress, not a hang), then freezes at the
+  // exact total so the finished block can say how long generation took.
+  const [summaryElapsedMs, setSummaryElapsedMs] = useState(0);
+  // The model the next generation would use - fetched once so the loading
+  // state can already say "using Claude X" before any summary arrives.
+  const [configuredModel, setConfiguredModel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .focusReportSummaryConfig()
+      .then((res) => {
+        if (!cancelled) setConfiguredModel(res.model);
+      })
+      .catch(() => {
+        /* purely cosmetic - the plain loading string covers the gap */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,6 +230,43 @@ export function FocusPage() {
     };
   }, [projectId, sessionId, unassignedOnly, timeWindow]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setSummary(null);
+    setSummaryLoading(true);
+    setSummaryElapsedMs(0);
+    const startedAt = Date.now();
+    const ticker = window.setInterval(() => {
+      setSummaryElapsedMs(Date.now() - startedAt);
+    }, 1000);
+    const { from, to } = windowBounds(timeWindow);
+    api
+      .focusReportSummary({
+        projectId: unassignedOnly ? undefined : projectId,
+        sessionId,
+        unassigned: unassignedOnly,
+        from,
+        to,
+      })
+      .then((res) => {
+        if (!cancelled) setSummary(res.summary);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null); // unavailable, never an error state
+      })
+      .finally(() => {
+        window.clearInterval(ticker);
+        if (!cancelled) {
+          setSummaryElapsedMs(Date.now() - startedAt); // freeze at the exact total
+          setSummaryLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+      window.clearInterval(ticker);
+    };
+  }, [projectId, sessionId, unassignedOnly, timeWindow]);
+
   const showProjectLabel = projectId === undefined && !unassignedOnly;
 
   // Same intraday hour-window zoom as the Calendar page - anchored to the
@@ -236,6 +331,10 @@ export function FocusPage() {
             projectLabelForCwd={projectLabelForCwd}
             showProjectLabel={showProjectLabel}
             visibleWindow={visibleWindow}
+            summary={summary}
+            summaryLoading={summaryLoading}
+            summaryElapsedMs={summaryElapsedMs}
+            configuredModel={configuredModel}
           />
         )}
       </div>
@@ -255,11 +354,19 @@ function FocusPageBody({
   projectLabelForCwd,
   showProjectLabel,
   visibleWindow,
+  summary,
+  summaryLoading,
+  summaryElapsedMs,
+  configuredModel,
 }: {
   report: FocusReport;
   projectLabelForCwd: (cwd: string | null) => string | undefined;
   showProjectLabel: boolean;
   visibleWindow: { startMs: number; endMs: number } | null;
+  summary: FocusWindowSummary | null;
+  summaryLoading: boolean;
+  summaryElapsedMs: number;
+  configuredModel: string | null;
 }) {
   const { t } = useTranslation("plan");
 
@@ -320,6 +427,58 @@ function FocusPageBody({
         <p className="text-[11px] text-gray-600 -mt-3">
           {t("report.windowScopedNote", { hours: windowHours })}
         </p>
+      )}
+
+      {(summaryLoading || summary) && (
+        <div data-testid="focus-window-summary" className="border border-border rounded-lg p-4">
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold text-gray-200 mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-accent flex-shrink-0" aria-hidden="true" />
+            {t("report.summaryBlock.title")}
+          </h2>
+          {summaryLoading &&
+            (() => {
+              const label = claudeModelLabel(configuredModel);
+              return (
+                <>
+                  <p className="text-xs text-gray-500 italic">
+                    {label
+                      ? t("report.summaryBlock.loadingWithModel", { model: label })
+                      : t("report.summaryBlock.loading")}
+                    <span className="ml-2 font-mono not-italic text-gray-400">
+                      {formatMs(summaryElapsedMs)}
+                    </span>
+                  </p>
+                  <p className="text-[10px] text-gray-600 mt-1.5 max-w-[62ch]">
+                    {t("report.summaryBlock.loadingNote")}
+                  </p>
+                </>
+              );
+            })()}
+          {!summaryLoading && summary && (
+            <>
+              <ul className="space-y-1.5 list-disc pl-4 text-xs text-gray-300">
+                {summary.bullets.map((bullet, i) => (
+                  <li key={i} className="max-w-[72ch]">
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-gray-600 mt-2">
+                {claudeModelLabel(summary.model)
+                  ? t("report.summaryBlock.aiNoteWithModel", {
+                      model: claudeModelLabel(summary.model),
+                    })
+                  : t("report.summaryBlock.aiNote")}
+                {" · "}
+                {summary.cached
+                  ? t("report.summaryBlock.servedFromCache")
+                  : t("report.summaryBlock.generatedIn", {
+                      duration: formatMs(summaryElapsedMs),
+                    })}
+              </p>
+            </>
+          )}
+        </div>
       )}
 
       <FocusActivityCard entries={entries} showProjectLabel={showProjectLabel} />

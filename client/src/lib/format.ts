@@ -58,6 +58,8 @@
  * - `formatDateTimeFull` — exported API; see TSDoc on the symbol for behavior.
  * - `formatDuration` — exported API; see TSDoc on the symbol for behavior.
  * - `formatMs` — exported API; see TSDoc on the symbol for behavior.
+ * - `formatMsLong` — exported API; see TSDoc on the symbol for behavior.
+ * - `formatDurationLong` — exported API; see TSDoc on the symbol for behavior.
  * - `timeAgo` — exported API; see TSDoc on the symbol for behavior.
  * - `truncate` — exported API; see TSDoc on the symbol for behavior.
  * - `fmt` — exported API; see TSDoc on the symbol for behavior.
@@ -112,6 +114,16 @@
  *   When behavior changes, update the `@file` overview and relevant tests.
  *
  * **formatMs**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **formatMsLong**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **formatDurationLong**
  *   Part of this module's public contract. Downstream imports should treat
  *   the signature and return type as stable unless release notes say otherwise.
  *   When behavior changes, update the `@file` overview and relevant tests.
@@ -310,6 +322,26 @@ export function formatDateTimeFull(iso: string): string {
   });
 }
 
+/**
+ * Full weekday + numeric date for a local `Date` object, e.g.
+ * "Monday, 7/1/2026" - used by day-navigation controls to label the
+ * currently selected day in human-readable form.
+ * @param d A local-time `Date` (already resolved, not a raw ISO string -
+ *   callers navigating day-by-day construct `Date` objects directly).
+ * @returns The localized weekday + numeric month/day/year, or `""` when
+ *   `d` is unparseable (so the label simply collapses rather than showing
+ *   "Invalid Date").
+ */
+export function formatWeekdayDate(d: Date): string {
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(getCurrentLocale(), {
+    weekday: "long",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 // ===========================================================================
 // Duration + relative-time formatters
 // ===========================================================================
@@ -325,6 +357,30 @@ export function formatDateTimeFull(iso: string): string {
 export function formatDuration(start: string, end: string): string {
   const ms = parseDate(end).getTime() - parseDate(start).getTime();
   return formatMs(ms);
+}
+
+/**
+ * Formats a `[start, end)` span as a human-friendly clock-time range, e.g.
+ * "8:49 AM – 9:12 AM" - the per-row start/stop time shown on the Focus
+ * report's activity list ({@link FocusActivityCard}). Falls back to
+ * {@link formatDateTime} for either endpoint that falls on a different
+ * calendar day than the other, so a row spanning a custom multi-day window
+ * still reads unambiguously instead of showing two bare clock times that
+ * could be mistaken for the same day.
+ * @param start Earlier timestamp (see {@link parseDate}).
+ * @param end Later timestamp (see {@link parseDate}).
+ * @returns The formatted "start – end" range.
+ */
+export function formatTimeRange(start: string, end: string): string {
+  const s = parseDate(start);
+  const e = parseDate(end);
+  const sameDay =
+    s.getFullYear() === e.getFullYear() &&
+    s.getMonth() === e.getMonth() &&
+    s.getDate() === e.getDate();
+  const startLabel = sameDay ? formatTime(start) : formatDateTime(start);
+  const endLabel = sameDay ? formatTime(end) : formatDateTime(end);
+  return `${startLabel} – ${endLabel}`;
 }
 
 /**
@@ -350,6 +406,52 @@ export function formatMs(ms: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`; // >= 1h: hours + minutes
   if (minutes > 0) return `${minutes}m ${seconds}s`; // >= 1m: minutes + seconds
   return `${seconds}s`; // < 1m: seconds only
+}
+
+/**
+ * Formats a millisecond duration as a day/hour/minute breakdown - "1d 2h 30m"
+ * once >= 1 day, "2h 30m" once >= 1 hour, "30m" once >= 1 minute, else "Ns".
+ * @param ms Duration in milliseconds.
+ * @returns The day/hour/minute string, dropping leading zero-value units;
+ *   negative input renders as `"0s"`.
+ * @remarks Unlike {@link formatMs} (which caps at two units and never spills
+ *   into days - fine for a single session's lifetime), this always includes
+ *   every unit from the largest non-zero one down to minutes, since the
+ *   elapsed span it describes (a merged focus entry's first-start to
+ *   last-end) can cross day boundaries. See {@link formatDurationLong} for
+ *   the ISO-timestamp-pair convenience wrapper.
+ * @example
+ *   formatMsLong(90_000_000) // "1d 1h 0m"
+ *   formatMsLong(5_400_000)  // "1h 30m"
+ *   formatMsLong(120_000)    // "2m"
+ *   formatMsLong(45_000)     // "45s"
+ */
+export function formatMsLong(ms: number): string {
+  if (ms < 0) return "0s"; // clamp negative spans (clock skew) to zero
+  const totalSec = Math.floor(ms / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${seconds}s`;
+}
+
+/**
+ * Formats the elapsed time between two ISO/SQLite timestamps as a
+ * day/hour/minute breakdown (see {@link formatMsLong}) - the figure shown
+ * alongside a {@link formatTimeRange} start/stop range on the Focus report's
+ * activity list ({@link FocusActivityCard}).
+ * @param start Earlier timestamp (see {@link parseDate}).
+ * @param end Later timestamp (see {@link parseDate}).
+ * @returns The formatted duration (delegated to {@link formatMsLong}).
+ */
+export function formatDurationLong(start: string, end: string): string {
+  const ms = parseDate(end).getTime() - parseDate(start).getTime();
+  return formatMsLong(ms);
 }
 
 /**

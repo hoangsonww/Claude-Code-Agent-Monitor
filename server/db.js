@@ -536,6 +536,22 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_focus_inferences_cwd ON focus_inferences(cwd);
+
+  -- Cached stakeholder-readable window summaries for GET
+  -- /api/focus-report/summary (server/lib/focus-summary.js): 2-4 plain
+  -- bullets synthesized by a one-shot LLM call from a window's per-session
+  -- focus segments. cache_key identifies the scope+window request
+  -- (project/session/unassigned/sources + from/to); input_digest hashes the
+  -- underlying segment data, so a hit is served only while the data is
+  -- unchanged - a still-running day regenerates when new activity lands,
+  -- a finished day stays cached forever. bullets: JSON array of strings.
+  CREATE TABLE IF NOT EXISTS focus_summaries (
+    cache_key TEXT PRIMARY KEY,
+    input_digest TEXT NOT NULL,
+    bullets TEXT NOT NULL,
+    model TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
 `);
 
 // Migrate: give plan_items a stable item_id independent of item_number (see
@@ -1922,6 +1938,18 @@ const stmts = {
        inferred_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
   ),
   getFocusInference: db.prepare("SELECT * FROM focus_inferences WHERE session_id = ?"),
+  // Window-summary cache (see the focus_summaries schema comment) - read by
+  // GET /api/focus-report/summary, written after each successful synthesis.
+  getFocusSummary: db.prepare("SELECT * FROM focus_summaries WHERE cache_key = ?"),
+  upsertFocusSummary: db.prepare(
+    `INSERT INTO focus_summaries (cache_key, input_digest, bullets, model, created_at)
+     VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(cache_key) DO UPDATE SET
+       input_digest = excluded.input_digest,
+       bullets = excluded.bullets,
+       model = excluded.model,
+       created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`
+  ),
 };
 
 module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };

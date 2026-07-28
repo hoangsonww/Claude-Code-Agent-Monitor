@@ -128,7 +128,18 @@
       "title": "포커스",
       "showFewer": "간략히 보기",
       "moreContributions_one": "세션 {{count}}개 더",
-      "moreContributions_other": "세션 {{count}}개 더"
+      "moreContributions_other": "세션 {{count}}개 더",
+      "hideContributions": "세션 상세 숨기기"
+    },
+    "summaryBlock": {
+      "title": "이 기간에 무슨 일이 있었나",
+      "loading": "이 기간을 요약하는 중…",
+      "loadingWithModel": "{{model}} 모델로 이 기간을 요약하는 중…",
+      "loadingNote": "범위를 처음 볼 때는 하루씩 요약해 캐시합니다 — 몇 주 범위는 1~2분 걸릴 수 있습니다. 이후 조회는 즉시 표시됩니다.",
+      "aiNote": "각 세션의 활동에서 AI가 생성한 요약입니다. 중요한 내용은 아래 행에서 확인하세요.",
+      "aiNoteWithModel": "{{model}} 모델이 각 세션의 활동에서 생성한 AI 요약입니다. 중요한 내용은 아래 행에서 확인하세요.",
+      "generatedIn": "{{duration}} 만에 생성됨",
+      "servedFromCache": "캐시에서 제공됨"
     }
   }
 }

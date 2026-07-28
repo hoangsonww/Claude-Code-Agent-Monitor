@@ -2,18 +2,38 @@
  * @file FocusActivityCard.test.tsx
  * @description Tests for `FocusActivityCard` — the new Focus report page's
  * activity list. Covers: the empty state; a basic item-kind row (item-number
- * prefix, single time figure when active === wall); a detour row with an
+ * prefix, single time figure when active === wall); the human-friendly
+ * start/stop time range plus elapsed duration per row; a detour row with an
  * `inferred` tag and its reason line; the project-label prefix only
  * appearing when `showProjectLabel` is true AND the entry carries one; the
- * "+N more sessions" note when `contributions > 1`; and the collapse-after-5
- * show more/fewer toggle.
+ * "+N more sessions" toggle expanding into per-session contribution lines
+ * (name, range, time split, reason) when `contributors.length > 1`; and the
+ * collapse-after-5 show more/fewer toggle.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { FocusActivityCard } from "../FocusActivityCard";
-import type { FocusActivityEntry } from "../../lib/focusActivity";
+import { formatTimeRange, formatDurationLong } from "../../lib/format";
+import type { FocusActivityContribution, FocusActivityEntry } from "../../lib/focusActivity";
+
+function contribution(
+  overrides: Partial<FocusActivityContribution> = {}
+): FocusActivityContribution {
+  return {
+    sessionId: "s1",
+    sessionName: "session-one",
+    firstStart: "2026-01-01T08:49:00.000Z",
+    lastEnd: "2026-01-01T09:12:00.000Z",
+    wallMs: 60_000,
+    activeMs: 60_000,
+    idleMs: 0,
+    inferred: false,
+    reason: null,
+    ...overrides,
+  };
+}
 
 function entry(overrides: Partial<FocusActivityEntry> = {}): FocusActivityEntry {
   return {
@@ -25,9 +45,12 @@ function entry(overrides: Partial<FocusActivityEntry> = {}): FocusActivityEntry 
     wallMs: 60_000,
     activeMs: 60_000,
     idleMs: 0,
+    firstStart: "2026-01-01T08:49:00.000Z",
+    lastEnd: "2026-01-01T09:12:00.000Z",
     inferred: false,
     reason: null,
     contributions: 1,
+    contributors: [contribution()],
     ...overrides,
   };
 }
@@ -56,6 +79,16 @@ describe("FocusActivityCard", () => {
     expect(screen.getByText("Item 8")).toBeTruthy();
     expect(screen.getByText("Quality Pass")).toBeTruthy();
     expect(screen.getByText("1h 0m")).toBeTruthy();
+  });
+
+  it("shows a human-friendly start/stop time range plus elapsed duration per row", () => {
+    const firstStart = "2026-01-01T08:49:00.000Z";
+    const lastEnd = "2026-01-01T09:12:00.000Z";
+    render(
+      <FocusActivityCard entries={[entry({ firstStart, lastEnd })]} showProjectLabel={false} />
+    );
+    const expected = `${formatTimeRange(firstStart, lastEnd)} — ${formatDurationLong(firstStart, lastEnd)}`;
+    expect(screen.getByText(expected)).toBeTruthy();
   });
 
   it("shows both wall-clock and active-time figures when they differ", () => {
@@ -117,9 +150,53 @@ describe("FocusActivityCard", () => {
     expect(screen.queryByTestId("focus-activity-project-label")).toBeNull();
   });
 
-  it("notes additional contributions past the dominant one", () => {
-    render(<FocusActivityCard entries={[entry({ contributions: 3 })]} showProjectLabel={false} />);
+  it("expands '+N more sessions' into per-session detail lines and hides them again", () => {
+    const contributors = [
+      contribution({
+        sessionId: "s1",
+        sessionName: "eng-mgr",
+        wallMs: 3_600_000,
+        activeMs: 1_800_000,
+        inferred: true,
+        reason: "Found the IDOR vulnerability and built the remediation package.",
+      }),
+      contribution({
+        sessionId: "s2",
+        sessionName: "intake-run",
+        wallMs: 600_000,
+        activeMs: 600_000,
+        inferred: true,
+        reason: "Processed six completed team intake runs.",
+      }),
+      contribution({ sessionId: "s3", sessionName: null, wallMs: 60_000 }),
+    ];
+    render(
+      <FocusActivityCard
+        entries={[entry({ contributions: 3, contributors })]}
+        showProjectLabel={false}
+      />
+    );
+
+    // Collapsed: only the toggle label, no per-session lines yet.
     expect(screen.getByText("+2 more sessions")).toBeTruthy();
+    expect(screen.queryByText("Processed six completed team intake runs.")).toBeNull();
+
+    fireEvent.click(screen.getByText("+2 more sessions"));
+    expect(screen.getByText("eng-mgr")).toBeTruthy();
+    expect(
+      screen.getByText("Found the IDOR vulnerability and built the remediation package.")
+    ).toBeTruthy();
+    expect(screen.getByText("intake-run")).toBeTruthy();
+    expect(screen.getByText("Processed six completed team intake runs.")).toBeTruthy();
+    expect(screen.getByText("No-name")).toBeTruthy(); // null sessionName fallback
+
+    fireEvent.click(screen.getByText("Hide session detail"));
+    expect(screen.queryByText("Processed six completed team intake runs.")).toBeNull();
+  });
+
+  it("shows no contributions toggle for a single-session row", () => {
+    render(<FocusActivityCard entries={[entry()]} showProjectLabel={false} />);
+    expect(screen.queryByText(/more session/)).toBeNull();
   });
 
   it("collapses past 5 entries and expands/collapses on show more/fewer", () => {

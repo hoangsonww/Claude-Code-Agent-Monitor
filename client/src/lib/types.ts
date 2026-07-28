@@ -819,6 +819,39 @@ export function isAgentAwaitingInput(agent: Agent | undefined | null): boolean {
   return agent.status !== "completed" && agent.status !== "error";
 }
 
+// Marker the SDK writes into a transcript's metadata when it was driven
+// headlessly rather than from an interactive terminal.
+const INTERNAL_SESSION_ENTRYPOINT = "sdk-cli";
+
+// Matches common OS temp-directory roots: macOS `/var/folders/.../T` (with or
+// without the `/private` symlink-resolved prefix), Unix `/tmp` and
+// `/var/tmp`, and Windows `...\Temp\`.
+const TEMP_CWD_PATTERN =
+  /^(\/private)?\/var\/folders\/[^/]+\/[^/]+\/T(\/|$)|^\/(var\/)?tmp(\/|$)|\\(AppData\\Local\\)?Temp(\\|$)/i;
+
+/**
+ * True for a session spawned by this dashboard's own internal focus
+ * classifiers (server/lib/focus-audit.js, focus-inference.js) rather than a
+ * real user session. Those run headless `claude` CLI calls from an OS temp
+ * directory with hooks disabled to score/classify session transcripts in the
+ * background - hooks being off only skips live hook events, not the on-disk
+ * JSONL transcript, so the project-folder importer still picks them up as
+ * ordinary sessions. Detection requires BOTH a temp-directory cwd and the
+ * SDK's own "sdk-cli" entrypoint marker - either alone risks a false
+ * positive (a user manually working from `/tmp`, or an unrelated legitimate
+ * SDK automation), but together they're specific to this app's own spawns.
+ * @param session The session to check, or a nullish value (returns false).
+ */
+export function isInternalSession(session: Session | undefined | null): boolean {
+  if (!session?.cwd || !TEMP_CWD_PATTERN.test(session.cwd) || !session.metadata) return false;
+  try {
+    const meta = JSON.parse(session.metadata) as { entrypoint?: string };
+    return meta?.entrypoint === INTERNAL_SESSION_ENTRYPOINT;
+  } catch {
+    return false;
+  }
+}
+
 /** Overlays {@link AWAITING_STATUS} on top of `agent.status` when the agent is
  *  blocked on user input; otherwise passes the persisted status through unchanged. */
 export function effectiveAgentStatus(agent: Agent): EffectiveAgentStatus {
@@ -1655,6 +1688,24 @@ export interface FocusReport {
    *  landed in each hour of wall-clock time on average. `1` means no
    *  overlap; `null` when `wall_clock_ms` is `0` (nothing to divide by). */
   concurrency_ratio: number | null;
+}
+
+/** `GET /api/focus-report/summary` — the stakeholder-readable 2-4 bullet
+ *  LLM synthesis of a focus-report window (server/lib/focus-summary.js).
+ *  The response wraps this as `{ summary: FocusWindowSummary | null }`;
+ *  `null` (still a 200) means no summary could be produced — LLM path
+ *  disabled/unavailable, empty window, or generation failure — and callers
+ *  hide the block rather than showing an error. */
+export interface FocusWindowSummary {
+  /** 2-4 plain-language "what we actually did" bullets. */
+  bullets: string[];
+  /** ISO timestamp of when this summary was synthesized (cache write time). */
+  generated_at: string;
+  /** True when served from the server-side digest-gated cache rather than
+   *  freshly generated for this request. */
+  cached: boolean;
+  /** The `claude -p` model that produced it (e.g. "haiku"), `null` unknown. */
+  model: string | null;
 }
 
 // ───── Plans & session focus ─────

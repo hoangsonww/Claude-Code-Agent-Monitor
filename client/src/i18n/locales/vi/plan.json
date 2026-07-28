@@ -128,7 +128,18 @@
       "title": "Tiêu điểm",
       "showFewer": "Ẩn bớt",
       "moreContributions_one": "+{{count}} phiên khác",
-      "moreContributions_other": "+{{count}} phiên khác"
+      "moreContributions_other": "+{{count}} phiên khác",
+      "hideContributions": "Ẩn chi tiết phiên"
+    },
+    "summaryBlock": {
+      "title": "Điều gì đã diễn ra trong khoảng thời gian này",
+      "loading": "Đang tóm tắt khoảng thời gian này…",
+      "loadingWithModel": "Đang tóm tắt khoảng thời gian này bằng {{model}}…",
+      "loadingNote": "Lần đầu xem một khoảng thời gian, mỗi ngày được tóm tắt một lần rồi lưu vào bộ nhớ đệm — khoảng nhiều tuần có thể mất một hai phút. Các lần xem sau là tức thì.",
+      "aiNote": "Do AI tạo từ hoạt động của từng phiên — hãy kiểm tra chi tiết quan trọng ở các hàng bên dưới.",
+      "aiNoteWithModel": "Do AI ({{model}}) tạo từ hoạt động của từng phiên — hãy kiểm tra chi tiết quan trọng ở các hàng bên dưới.",
+      "generatedIn": "Tạo trong {{duration}}",
+      "servedFromCache": "Lấy từ bộ nhớ đệm"
     }
   }
 }

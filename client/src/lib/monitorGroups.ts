@@ -17,6 +17,10 @@ export interface MonitorGroup {
    *  Absent/false means expanded - the long-standing default, so existing
    *  stored monitors from before this field existed still render open. */
   collapsed?: boolean;
+  /** Direction the box lays out its assigned project columns in. Absent
+   *  means "horizontal" - the long-standing default, so existing stored
+   *  monitors from before this field existed still render as a row. */
+  orientation?: "horizontal" | "vertical";
 }
 
 const MONITORS_STORAGE_KEY = "kanban-monitors";
@@ -35,7 +39,12 @@ export function loadMonitors(): MonitorGroup[] {
         (m): m is MonitorGroup =>
           !!m && typeof m === "object" && typeof m.id === "string" && typeof m.name === "string"
       )
-      .map((m) => (typeof m.collapsed === "boolean" ? m : { ...m, collapsed: false }));
+      .map((m) => (typeof m.collapsed === "boolean" ? m : { ...m, collapsed: false }))
+      .map((m) =>
+        m.orientation === "horizontal" || m.orientation === "vertical"
+          ? m
+          : { ...m, orientation: "horizontal" as const }
+      );
   } catch {
     return [];
   }

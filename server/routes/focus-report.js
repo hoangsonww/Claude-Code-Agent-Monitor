@@ -31,6 +31,13 @@
  * 400, not a silently-ignored one or the other, since "sessions in project
  * X" and "sessions in no project" can never both be true.
  *
+ * Also hosts `GET /api/focus-report/summary` — the stakeholder-readable
+ * 2-4 bullet LLM synthesis of the same window (server/lib/focus-summary.js),
+ * sharing this file's exact validation/session-resolution via
+ * `resolveWindowSessions` so both endpoints always agree on which sessions
+ * a window contains. Summary unavailability is `{ summary: null }` with a
+ * 200, never an error — it's an additive layer the client hides when absent.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -38,53 +45,60 @@ const { Router } = require("express");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { buildProjectFocusReport } = require("../lib/focus-report");
+const { generateWindowSummary, summaryModel } = require("../lib/focus-summary");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 
 const router = Router();
 
-// GET /api/focus-report - aggregate focus-time report across an explicitly
-// bounded time window, optionally scoped to one project and/or one session,
-// optionally narrowed to a data-scope source set. See file header above for
-// the full contract; response shape mirrors GET /api/projects/:id/focus-report
-// (sessions/items/totals/wall_clock_ms/concurrency_ratio/idle_grace_seconds)
-// plus an echoed-back project_id/session_id (null when unfiltered). `from`/
-// `to` are never echoed back - the caller already knows what it asked for.
-router.get("/", (req, res) => {
+/**
+ * Shared request-validation + session-resolution for both routes below:
+ * parses/validates `from`/`to`/`project_id`/`session_id`/`unassigned`/
+ * `?sources=`, resolves the matching session rows, and either sends the
+ * appropriate 400/404 itself (returning null) or returns
+ * `{ sessions, fromMs, toMs, project, session }`. Extracted verbatim from
+ * the original single GET / handler so `/summary` can never drift to a
+ * slightly different notion of "which sessions are in this window".
+ */
+function resolveWindowSessions(req, res) {
   const { from, to, project_id: projectId, session_id: sessionId, unassigned } = req.query;
   const unassignedOnly = unassigned === "true";
 
   if (typeof from !== "string" || from === "" || typeof to !== "string" || to === "") {
-    return res.status(400).json({
+    res.status(400).json({
       error: {
         code: "BAD_REQUEST",
         message: "Both from and to (ISO-8601 instants) are required.",
       },
     });
+    return null;
   }
   if (unassignedOnly && typeof projectId === "string" && projectId !== "") {
-    return res.status(400).json({
+    res.status(400).json({
       error: {
         code: "BAD_REQUEST",
         message: "project_id and unassigned=true are mutually exclusive.",
       },
     });
+    return null;
   }
   const fromMs = Date.parse(from);
   const toMs = Date.parse(to);
   if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
-    return res.status(400).json({
+    res.status(400).json({
       error: {
         code: "BAD_REQUEST",
         message: "from/to must be parseable ISO-8601 instants.",
       },
     });
+    return null;
   }
 
   let project = null;
   if (typeof projectId === "string" && projectId !== "") {
     project = stmts.getProject.get(projectId);
     if (!project) {
-      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Project not found" } });
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Project not found" } });
+      return null;
     }
   }
 
@@ -92,7 +106,8 @@ router.get("/", (req, res) => {
   if (typeof sessionId === "string" && sessionId !== "") {
     session = stmts.getSession.get(sessionId);
     if (!session) {
-      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+      return null;
     }
   }
 
@@ -134,12 +149,85 @@ router.get("/", (req, res) => {
     )
     .all(...params);
 
-  const report = buildProjectFocusReport(dbModule, sessions, fromMs, toMs);
+  return { sessions, fromMs, toMs, project, session };
+}
+
+// GET /api/focus-report - aggregate focus-time report across an explicitly
+// bounded time window, optionally scoped to one project and/or one session,
+// optionally narrowed to a data-scope source set. See file header above for
+// the full contract; response shape mirrors GET /api/projects/:id/focus-report
+// (sessions/items/totals/wall_clock_ms/concurrency_ratio/idle_grace_seconds)
+// plus an echoed-back project_id/session_id (null when unfiltered). `from`/
+// `to` are never echoed back - the caller already knows what it asked for.
+router.get("/", (req, res) => {
+  const resolved = resolveWindowSessions(req, res);
+  if (!resolved) return; // error response already sent
+
+  const report = buildProjectFocusReport(
+    dbModule,
+    resolved.sessions,
+    resolved.fromMs,
+    resolved.toMs
+  );
   res.json({
-    project_id: project ? project.id : null,
-    session_id: session ? session.id : null,
+    project_id: resolved.project ? resolved.project.id : null,
+    session_id: resolved.session ? resolved.session.id : null,
     ...report,
   });
+});
+
+// GET /api/focus-report/summary - stakeholder-readable 2-4 bullet synthesis
+// of the same window (see server/lib/focus-summary.js). Identical query
+// params and validation as GET / (same resolveWindowSessions). Responds
+// `{ summary: { bullets, generated_at, cached, model } }` on success or
+// `{ summary: null }` when no summary can be produced - the LLM path is
+// disabled/unavailable, the window has no sessions, or generation failed.
+// Unavailability is a 200 with null, never an error: the summary is an
+// additive layer the Focus page simply hides when absent.
+router.get("/summary", async (req, res) => {
+  const resolved = resolveWindowSessions(req, res);
+  if (!resolved) return; // error response already sent
+
+  const report = buildProjectFocusReport(
+    dbModule,
+    resolved.sessions,
+    resolved.fromMs,
+    resolved.toMs
+  );
+
+  // Scope identity: every scope-affecting param. `?sources=` participates
+  // too - two different data scopes must never share one cached summary.
+  // The window cache key adds from/to; per-day building-block keys inside
+  // the hierarchical path add the day instead (lib/focus-summary.js).
+  const scope = {
+    project_id: resolved.project ? resolved.project.id : null,
+    session_id: resolved.session ? resolved.session.id : null,
+    unassigned: req.query.unassigned === "true",
+    sources: parseSources(req),
+  };
+  const cacheKey = JSON.stringify({ ...scope, from: resolved.fromMs, to: resolved.toMs });
+
+  try {
+    const summary = await generateWindowSummary(dbModule, cacheKey, report, {
+      fromMs: resolved.fromMs,
+      toMs: resolved.toMs,
+      scope,
+      sessions: resolved.sessions,
+    });
+    res.json({ summary });
+  } catch {
+    res.json({ summary: null }); // fail-safe: unavailable, never a 500
+  }
+});
+
+// GET /api/focus-report/summary/config - the model the NEXT summary
+// generation would use (DASHBOARD_FOCUS_SUMMARY_MODEL falling back to
+// DASHBOARD_FOCUS_INFER_MODEL, then haiku). Exists so the client can name
+// the model in its "Summarizing this window using ..." loading state BEFORE
+// the summary response (which carries the authoritative per-row `model`)
+// arrives. Static per server process; no params, never errors.
+router.get("/summary/config", (_req, res) => {
+  res.json({ model: summaryModel() });
 });
 
 module.exports = router;

@@ -5,7 +5,11 @@
  * per key; multiple segments merging into one entry (reason/label taken from
  * the dominant, largest-`wall_ms` contributor); the same item number in two
  * different projects/cwds staying distinct; `"none"`-kind (unclassified)
- * grouping per cwd; descending sort by wall time; an empty report;
+ * grouping — reason-less per cwd, reason-bearing one row per session — and
+ * the per-session `contributors` rollup (segments merged per session,
+ * sorted largest-share-first, window-clipped);
+ * chronological (most-recent-`lastEnd`-first) sort,
+ * independent of total wall time; an empty report;
  * `projectLabel` resolution via the optional `projectLabelForCwd` callback;
  * and the optional `window` param's clipping (segment fully outside excluded,
  * partial overlap recomputed to its clipped share, dominance re-decided off
@@ -92,6 +96,8 @@ describe("groupFocusActivity", () => {
       wallMs: 60 * MIN,
       activeMs: 60 * MIN,
       contributions: 1,
+      firstStart: iso(0),
+      lastEnd: iso(60 * MIN),
     });
     const detour = entries.find((e) => e.kind === "detour");
     expect(detour).toMatchObject({
@@ -99,6 +105,8 @@ describe("groupFocusActivity", () => {
       label: "Disk Space Monitoring",
       wallMs: 30 * MIN,
       contributions: 1,
+      firstStart: iso(60 * MIN),
+      lastEnd: iso(90 * MIN),
     });
   });
 
@@ -113,6 +121,20 @@ describe("groupFocusActivity", () => {
       wallMs: 90 * MIN,
       activeMs: 90 * MIN,
       contributions: 2,
+    });
+  });
+
+  it("tracks the earliest start and latest end across every contributing segment, not just the dominant one", () => {
+    const r = report([
+      // The dominant (largest-wall_ms) contributor starts later than this
+      // smaller, earlier one — firstStart/lastEnd should still span both.
+      session("s1", "/repo", [segment("detour", 0, 10, { label: "Investigation" })]),
+      session("s2", "/repo", [segment("detour", 20, 100, { label: "Investigation" })]),
+    ]);
+    const [entry] = groupFocusActivity(r);
+    expect(entry).toMatchObject({
+      firstStart: iso(0),
+      lastEnd: iso(100 * MIN),
     });
   });
 
@@ -149,7 +171,7 @@ describe("groupFocusActivity", () => {
     expect(entries.map((e) => e.key).sort()).toEqual(["/repo-a:item:1", "/repo-b:item:1"]);
   });
 
-  it("groups 'none' (unclassified) segments per cwd, with no label", () => {
+  it("groups reason-less 'none' (unclassified) segments per cwd, with no label", () => {
     const r = report([
       session("s1", "/repo", [segment("none", 0, 30)]),
       session("s2", "/repo", [segment("none", 0, 30)]),
@@ -159,15 +181,98 @@ describe("groupFocusActivity", () => {
     expect(entries[0]).toMatchObject({ key: "/repo:none", kind: "none", wallMs: 60 * MIN });
   });
 
-  it("sorts entries by wallMs descending", () => {
+  it("keeps 'none' segments WITH an inferred reason as one row per session, never merged across sessions", () => {
     const r = report([
       session("s1", "/repo", [
-        segment("item", 0, 10, { itemNumber: 1, label: "small" }),
-        segment("detour", 10, 100, { label: "big" }),
+        segment("none", 0, 60, { inferred: true, inferredReason: "built the intake docs" }),
+      ]),
+      session("s2", "/repo", [
+        segment("none", 60, 120, { inferred: true, inferredReason: "found the IDOR vuln" }),
+      ]),
+      // Reason-less tail still collapses separately.
+      session("s3", "/repo", [segment("none", 120, 125)]),
+      session("s4", "/repo", [segment("none", 125, 130)]),
+    ]);
+    const entries = groupFocusActivity(r);
+    expect(entries).toHaveLength(3);
+    expect(entries.map((e) => e.key).sort()).toEqual([
+      "/repo:none",
+      "/repo:none:s1",
+      "/repo:none:s2",
+    ]);
+    const s1Row = entries.find((e) => e.key === "/repo:none:s1");
+    const s2Row = entries.find((e) => e.key === "/repo:none:s2");
+    const tail = entries.find((e) => e.key === "/repo:none");
+    expect(s1Row?.reason).toBe("built the intake docs");
+    expect(s2Row?.reason).toBe("found the IDOR vuln");
+    expect(tail).toMatchObject({ wallMs: 10 * MIN, contributions: 2, reason: null });
+  });
+
+  it("records per-session contributors (one per session, segments merged) sorted largest wall share first", () => {
+    const r = report([
+      // Two segments from the SAME session on the same item key merge into
+      // one contribution; a second session adds another.
+      session("s1", "/repo", [
+        segment("item", 0, 30, { itemNumber: 8, label: "Quality Pass" }),
+        segment("item", 40, 50, { itemNumber: 8, label: "Quality Pass" }),
+      ]),
+      session("s2", "/repo", [
+        segment("item", 100, 200, {
+          itemNumber: 8,
+          label: "Quality Pass",
+          inferred: true,
+          inferredReason: "matched by classifier",
+        }),
+      ]),
+    ]);
+    const [entry] = groupFocusActivity(r);
+    expect(entry?.contributions).toBe(2); // sessions, not segments
+    expect(entry?.contributors).toHaveLength(2);
+    // s2 (100min) outweighs s1 (40min total across its two segments).
+    expect(entry?.contributors[0]).toMatchObject({
+      sessionId: "s2",
+      wallMs: 100 * MIN,
+      inferred: true,
+      reason: "matched by classifier",
+      firstStart: iso(100 * MIN),
+      lastEnd: iso(200 * MIN),
+    });
+    expect(entry?.contributors[1]).toMatchObject({
+      sessionId: "s1",
+      wallMs: 40 * MIN,
+      firstStart: iso(0),
+      lastEnd: iso(50 * MIN), // spans both of s1's segments
+      reason: null,
+    });
+  });
+
+  it("clips contributor time/ranges to the window like the entry itself", () => {
+    const r = report([
+      session("s1", "/repo", [segment("item", 0, 60, { itemNumber: 1, label: "Straddles" })]),
+    ]);
+    const entries = groupFocusActivity(r, undefined, {
+      startMs: BASE + 30 * MIN,
+      endMs: BASE + 90 * MIN,
+    });
+    expect(entries[0]?.contributors[0]).toMatchObject({
+      sessionId: "s1",
+      wallMs: 30 * MIN,
+      firstStart: iso(30 * MIN),
+      lastEnd: iso(60 * MIN),
+    });
+  });
+
+  it("sorts entries chronologically (most-recent lastEnd first), not by total wallMs", () => {
+    const r = report([
+      session("s1", "/repo", [
+        // Far more total time, but it ended earlier.
+        segment("detour", 0, 100, { label: "big-but-earlier" }),
+        // Far less total time, but it's the most recently active thing.
+        segment("item", 150, 160, { itemNumber: 1, label: "small-but-later" }),
       ]),
     ]);
     const entries = groupFocusActivity(r);
-    expect(entries.map((e) => e.label)).toEqual(["big", "small"]);
+    expect(entries.map((e) => e.label)).toEqual(["small-but-later", "big-but-earlier"]);
   });
 
   it("returns an empty array for a report with no sessions", () => {
@@ -208,7 +313,12 @@ describe("groupFocusActivity", () => {
         endMs: BASE + 90 * MIN,
       });
       expect(entries).toHaveLength(1);
-      expect(entries[0]).toMatchObject({ wallMs: 30 * MIN, activeMs: 30 * MIN });
+      expect(entries[0]).toMatchObject({
+        wallMs: 30 * MIN,
+        activeMs: 30 * MIN,
+        firstStart: iso(30 * MIN), // clipped to the window start, not the raw segment start (0)
+        lastEnd: iso(60 * MIN),
+      });
     });
 
     it("re-decides which contributing segment is dominant off its CLIPPED wall time, not raw wall_ms", () => {

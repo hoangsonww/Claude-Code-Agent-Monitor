@@ -8,7 +8,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "i18next";
 import {
   formatMs,
+  formatMsLong,
   formatDuration,
+  formatDurationLong,
+  formatTimeRange,
   timeAgo,
   truncate,
   fmt,
@@ -72,6 +75,81 @@ describe("formatDuration", () => {
     const start = "2026-03-05T10:00:00.000Z";
     const end = "2026-03-05T12:30:00.000Z";
     expect(formatDuration(start, end)).toBe("2h 30m");
+  });
+});
+
+describe("formatMsLong", () => {
+  it("should return 0s for negative values", () => {
+    expect(formatMsLong(-1000)).toBe("0s");
+  });
+
+  it("should format seconds only under a minute", () => {
+    expect(formatMsLong(0)).toBe("0s");
+    expect(formatMsLong(45000)).toBe("45s");
+  });
+
+  it("should format minutes without seconds once a minute has passed", () => {
+    expect(formatMsLong(60000)).toBe("1m");
+    expect(formatMsLong(120000)).toBe("2m");
+  });
+
+  it("should format hours and minutes", () => {
+    expect(formatMsLong(5400000)).toBe("1h 30m");
+  });
+
+  it("should spill into days once a full day has passed", () => {
+    expect(formatMsLong(90_000_000)).toBe("1d 1h 0m");
+    expect(formatMsLong(2 * 86400000)).toBe("2d 0h 0m");
+  });
+});
+
+describe("formatDurationLong", () => {
+  it("should compute a day/hour/minute duration between two ISO strings", () => {
+    const start = "2026-03-05T10:00:00.000Z";
+    const end = "2026-03-06T11:30:00.000Z";
+    expect(formatDurationLong(start, end)).toBe("1d 1h 30m");
+  });
+
+  it("should handle zero duration", () => {
+    const t = "2026-03-05T10:00:00.000Z";
+    expect(formatDurationLong(t, t)).toBe("0s");
+  });
+});
+
+describe("formatTimeRange", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Pins the sameDay check's own Date getters (rather than relying on real
+  // host-timezone math on the two ISO instants) so this test is deterministic
+  // on any machine's local timezone.
+  it("formats both endpoints as clock time when they fall on the same day", () => {
+    vi.spyOn(Date.prototype, "getFullYear").mockReturnValue(2026);
+    vi.spyOn(Date.prototype, "getMonth").mockReturnValue(2);
+    vi.spyOn(Date.prototype, "getDate").mockReturnValue(5);
+    const spy = vi
+      .spyOn(Date.prototype, "toLocaleTimeString")
+      .mockReturnValueOnce("8:49 AM")
+      .mockReturnValueOnce("9:12 AM");
+    expect(formatTimeRange("2026-03-05T08:49:00.000Z", "2026-03-05T09:12:00.000Z")).toBe(
+      "8:49 AM – 9:12 AM"
+    );
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to a dated format for either endpoint when they span different days", () => {
+    vi.spyOn(Date.prototype, "getFullYear").mockReturnValue(2026);
+    vi.spyOn(Date.prototype, "getMonth").mockReturnValue(2);
+    vi.spyOn(Date.prototype, "getDate").mockReturnValueOnce(5).mockReturnValueOnce(6);
+    const spy = vi
+      .spyOn(Date.prototype, "toLocaleString")
+      .mockReturnValueOnce("Mar 5, 11:50 PM")
+      .mockReturnValueOnce("Mar 6, 12:10 AM");
+    expect(formatTimeRange("2026-03-05T23:50:00.000Z", "2026-03-06T00:10:00.000Z")).toBe(
+      "Mar 5, 11:50 PM – Mar 6, 12:10 AM"
+    );
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
 

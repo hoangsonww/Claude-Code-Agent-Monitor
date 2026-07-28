@@ -128,7 +128,18 @@
       "title": "专注",
       "showFewer": "收起",
       "moreContributions_one": "还有 {{count}} 个会话",
-      "moreContributions_other": "还有 {{count}} 个会话"
+      "moreContributions_other": "还有 {{count}} 个会话",
+      "hideContributions": "隐藏会话详情"
+    },
+    "summaryBlock": {
+      "title": "此时间段内发生了什么",
+      "loading": "正在总结此时间段…",
+      "loadingWithModel": "正在使用 {{model}} 总结此时间段…",
+      "loadingNote": "首次查看某个范围时会逐日总结并缓存 — 数周范围可能需要一两分钟。之后再次查看会即时显示。",
+      "aiNote": "由 AI 根据各会话活动生成 — 重要细节请在下方行中核实。",
+      "aiNoteWithModel": "由 {{model}} 根据各会话活动生成的 AI 摘要 — 重要细节请在下方行中核实。",
+      "generatedIn": "生成用时 {{duration}}",
+      "servedFromCache": "来自缓存"
     }
   }
 }

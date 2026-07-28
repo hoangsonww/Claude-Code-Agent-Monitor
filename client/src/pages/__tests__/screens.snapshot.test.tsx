@@ -410,6 +410,10 @@ vi.mock("../../lib/api", async (importOriginal) => {
       // new Focus calendar board page. Not nested under `projects` (that's
       // the existing per-project `api.projects.focusReport`, untouched).
       focusReport: r(emptyFocusReport),
+      // GET /api/focus-report/summary - null = unavailable, so the Focus
+      // page's summary block stays hidden in snapshots.
+      focusReportSummary: r({ summary: null }),
+      focusReportSummaryConfig: r({ model: "haiku" }),
       projects: {
         list: r({
           projects: [],

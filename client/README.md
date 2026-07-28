@@ -196,7 +196,7 @@ client/
 │   │   ├── Dashboard.tsx
 │   │   ├── Projects.tsx       # Projects list/management page (/projects); groups sessions by working-directory-derived "project" into horizontally-scrollable rows; create/rename/delete + folder-mapping CRUD via api.projects
 │   │   ├── FocusCalendarBoard.tsx # Cross-project Calendar board (/focus-calendar); project/session/time-period filters over GET /api/focus-report
-│   │   ├── FocusPage.tsx      # "What did we actually do" activity report (/focus); same filters as the Calendar board, stat tiles + FocusActivityCard instead of a swimlane grid
+│   │   ├── FocusPage.tsx      # "What did we actually do" activity report (/focus); same filters as the Calendar board, stat tiles + an LLM-synthesized window Summary block (GET /api/focus-report/summary; hidden when null) + FocusActivityCard instead of a swimlane grid
 │   │   ├── KanbanBoard.tsx    # Agents/Sessions/Projects views; Projects view columns render inside drag-reorderable "monitor" boxes (lib/monitorGroups.ts) side by side in the same row once one exists; header's CopyLinkButton copies a shareable URL (with ?token= when DASHBOARD_TOKEN auth is configured)
 │   │   ├── Sessions.tsx       # Filterable table; shows each session's real name (synced live from the transcript), falls back to the short ID
 │   │   ├── SessionDetail.tsx  # Agent tree + event timeline + Conversation tab (slash-command pills & output, inline rename markers)
@@ -215,7 +215,7 @@ client/
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   ├── calendarLanes.ts # Swimlane lane-assignment for FocusCalendarView (greedy interval scheduling)
 │   │   ├── calendarWindow.ts # Shared startOfDay/DAY_MS day-boundary math (FocusCalendarView, TimePeriodPicker, FocusCalendarBoard)
-│   │   ├── focusActivity.ts # groupFocusActivity() — per-cwd rollup of a FocusReport's segments into one row per plan item/detour-bug-feature/unclassified bucket, for FocusPage; optional third `window` param clips to a sub-window (reuses windowedTotals.ts's clipSegment) for the hour-window zoom
+│   │   ├── focusActivity.ts # groupFocusActivity() — per-cwd rollup of a FocusReport's segments into one row per plan item/detour-bug-feature/unclassified bucket, for FocusPage; unclassified segments WITH an inferred reason stay one narrative row per session (only reason-less ones collapse into the shared tail bucket), and each row carries a per-session `contributors` array (time range, wall/active split, reason) behind FocusActivityCard's expandable "+N more sessions" toggle; optional third `window` param clips to a sub-window (reuses windowedTotals.ts's clipSegment) for the hour-window zoom
 │   │   ├── windowedTotals.ts # computeWindowedTotals()/clipSegment() — client-side stat-tile recompute clipped to a [startMs,endMs) sub-window, off a FocusReport's already-fetched segment chunks
 │   │   ├── eventBuckets.ts # 10-minute event bucketing for SegmentEventsModal
 │   │   └── types.ts        # TypeScript type definitions

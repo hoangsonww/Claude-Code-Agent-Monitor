@@ -403,6 +403,7 @@ import type {
   PlanItem,
   SessionFocus,
   FocusReport,
+  FocusWindowSummary,
   FocusHistoryEntry,
   SessionTodo,
   UpdateStatusPayload,
@@ -1953,6 +1954,46 @@ export const api = {
     applyScope(qs); // narrow to the active data scope (source machines)
     return request<FocusReport>(`/focus-report?${qs.toString()}`);
   },
+
+  /**
+   * GET /api/focus-report/summary — stakeholder-readable 2-4 bullet LLM
+   * synthesis of the same window `focusReport` fetches (identical params
+   * and validation; see `server/lib/focus-summary.js`). `summary` is `null`
+   * whenever no summary can be produced (LLM path disabled/unavailable,
+   * empty window, generation failure) — always a 200, so callers hide the
+   * block rather than treating absence as an error. Served from a
+   * data-digest-gated cache server-side: a finished day is generated once,
+   * a still-running day regenerates only when its data actually changed.
+   */
+  focusReportSummary: (params: {
+    projectId?: string;
+    sessionId?: string;
+    unassigned?: boolean;
+    from: string;
+    to: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.projectId) qs.set("project_id", params.projectId);
+    if (params.sessionId) qs.set("session_id", params.sessionId);
+    if (params.unassigned) qs.set("unassigned", "true");
+    qs.set("from", params.from);
+    qs.set("to", params.to);
+    applyScope(qs);
+    return request<{ summary: FocusWindowSummary | null }>(
+      `/focus-report/summary?${qs.toString()}`
+    );
+  },
+
+  /**
+   * GET /api/focus-report/summary/config — the model the NEXT window-summary
+   * generation would use (`DASHBOARD_FOCUS_SUMMARY_MODEL` falling back to
+   * `DASHBOARD_FOCUS_INFER_MODEL`, then `haiku`). Lets the Focus page name
+   * the model in its "Summarizing this window using …" loading state before
+   * the summary response (whose own `model` field stays authoritative for
+   * what actually wrote a given cached summary) arrives. Static per server
+   * process — fetch once per page mount, no params.
+   */
+  focusReportSummaryConfig: () => request<{ model: string }>(`/focus-report/summary/config`),
 
   // ───────────────────────────────── Projects API ──────────────────────────────
   /** Named groupings of one or more session working directories (cwd). Maps to
