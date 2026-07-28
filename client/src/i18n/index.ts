@@ -133,6 +133,11 @@ import run_ko from "./locales/ko/run.json";
 import alerts_ko from "./locales/ko/alerts.json";
 import splash_ko from "./locales/ko/splash.json";
 
+import reports_en from "./locales/en/reports.json";
+import reports_zh from "./locales/zh/reports.json";
+import reports_vi from "./locales/vi/reports.json";
+import reports_ko from "./locales/ko/reports.json";
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -154,6 +159,7 @@ i18n
         run: run_en,
         alerts: alerts_en,
         splash: splash_en,
+        reports: reports_en,
       },
       zh: {
         common: common_zh,
@@ -171,6 +177,7 @@ i18n
         run: run_zh,
         alerts: alerts_zh,
         splash: splash_zh,
+        reports: reports_zh,
       },
       vi: {
         common: common_vi,
@@ -188,6 +195,7 @@ i18n
         run: run_vi,
         alerts: alerts_vi,
         splash: splash_vi,
+        reports: reports_vi,
       },
       ko: {
         common: common_ko,
@@ -205,6 +213,7 @@ i18n
         run: run_ko,
         alerts: alerts_ko,
         splash: splash_ko,
+        reports: reports_ko,
       },
     },
     supportedLngs: ["en", "zh", "vi", "ko"],
@@ -226,6 +235,7 @@ i18n
       "run",
       "alerts",
       "splash",
+      "reports",
     ],
     defaultNS: "common",
     interpolation: { escapeValue: false },
