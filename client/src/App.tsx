@@ -71,6 +71,7 @@ import { useCallback } from "react";
 import { Layout } from "./components/Layout";
 import { SplashScreen } from "./components/SplashScreen";
 import { Dashboard } from "./pages/Dashboard";
+import { WIP } from "./pages/WIP";
 import { Projects } from "./pages/Projects";
 import { FocusCalendarBoard } from "./pages/FocusCalendarBoard";
 import { FocusPage } from "./pages/FocusPage";
@@ -108,6 +109,8 @@ export default function App() {
         <Routes>
           <Route element={<Layout wsConnected={connected} />}>
             <Route index element={<Dashboard />} />
+            {/* Right after Dashboard, mirroring Sidebar.tsx's NAV_KEYS placement. */}
+            <Route path="wip" element={<WIP />} />
             <Route path="projects" element={<Projects />} />
             {/* Right after Projects, per DEC-5 - mirrors the corrected sidebar order. */}
             <Route path="focus-calendar" element={<FocusCalendarBoard />} />

@@ -424,6 +424,9 @@ vi.mock("../../lib/api", async (importOriginal) => {
         remove: r({ ok: true }),
         addPath: r({ project: {} }),
         removePath: r({ project: {} }),
+        // New as of the WIP queue page (build task 28) - bulk priority
+        // reorder, not yet added to lib/api.ts as of this test's authoring.
+        reorder: r({ projects: [] }),
       },
       plans: {
         list: r({ plans: [] }),
@@ -466,6 +469,13 @@ import { Projects } from "../Projects";
 // itself evidence those two pages' own rendering changed.
 import { FocusCalendarBoard } from "../FocusCalendarBoard";
 import { FocusPage } from "../FocusPage";
+// New page (build task 21), not yet built as of this test's authoring - this
+// import fails to resolve until WIP.tsx exists, which (unavoidably, being a
+// top-level ES import) currently fails this entire file's collection,
+// including every other screen's case below. See red-evidence.md - that
+// cascading failure is expected and is not itself evidence those other
+// pages' own rendering changed (same precedent as FocusCalendarBoard above).
+import { WIP } from "../WIP";
 import { KanbanBoard } from "../KanbanBoard";
 import { Sessions } from "../Sessions";
 import { SessionDetail } from "../SessionDetail";
@@ -547,6 +557,11 @@ afterEach(() => {
 describe("screen snapshots", () => {
   it("Dashboard", async () => {
     await snapshot(<Dashboard />, "/");
+  });
+  // Right after Dashboard, mirroring Sidebar.tsx's NAV_KEYS placement
+  // (build task 22 puts /wip right after Dashboard, before /projects).
+  it("WIP", async () => {
+    await snapshot(<WIP />, "/wip");
   });
   it("Projects", async () => {
     await snapshot(<Projects />, "/projects");

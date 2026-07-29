@@ -994,7 +994,7 @@ Body is any subset of `{ monitors, monitorMap, collapsedProjects }` — only the
 
 ### Projects
 
-The `/api/projects/*` namespace groups sessions by the folder(s) they run from into a user-named **project** — an organizational view alongside Sessions/Agents, not a new field on sessions. A project claims one or more working directories; a folder belongs to at most one project. Membership is derived server-side by joining `sessions.cwd` against the project's mapped folders, so nothing needs to be backfilled onto existing sessions. Unlike Alerts/Webhooks, mutations here are **not** broadcast over the WebSocket — like `remote_sources` config CRUD, the client just re-fetches after each change.
+The `/api/projects/*` namespace groups sessions by the folder(s) they run from into a user-named **project** — an organizational view alongside Sessions/Agents, not a new field on sessions. A project claims one or more working directories; a folder belongs to at most one project. Membership is derived server-side by joining `sessions.cwd` against the project's mapped folders, so nothing needs to be backfilled onto existing sessions. Most mutations here are **not** broadcast over the WebSocket — like `remote_sources` config CRUD, the client just re-fetches after each change — **except** `PUT /api/projects/reorder` (below), which broadcasts [`project_updated`](#project_updated) so a priority reorder made in one tab shows up live in every other tab's WIP queue.
 
 **Project shape:**
 
@@ -1007,11 +1007,12 @@ The `/api/projects/*` namespace groups sessions by the folder(s) they run from i
   "active_count": 1,
   "last_activity": "2026-07-24T18:41:55.117Z",
   "created_at": "2026-07-01T09:15:00.000Z",
-  "updated_at": "2026-07-20T09:15:00.000Z"
+  "updated_at": "2026-07-20T09:15:00.000Z",
+  "priority": 0
 }
 ```
 
-`session_count`, `active_count`, and `last_activity` are aggregated server-side across every folder currently mapped to the project; `last_activity` is `null` when the project has no sessions yet.
+`session_count`, `active_count`, and `last_activity` are aggregated server-side across every folder currently mapped to the project; `last_activity` is `null` when the project has no sessions yet. `priority` is a dense rank set via the WIP queue page's right-hand sidecar (lower value = higher priority, `0` = highest/top); every project defaults to `0` until explicitly reordered.
 
 #### List Projects
 
@@ -1079,6 +1080,41 @@ DELETE /api/projects/:id/paths/:pathId
 ```
 
 `pathId` is the numeric id from `Project.paths[].id`. Unmaps the folder — the folder and its sessions are untouched; it becomes unassigned again. Returns `{ "project": Project }`, or **404** if the project id or `pathId` is unknown (or the mapping doesn't belong to that project).
+
+#### Reorder Priority
+
+```http
+PUT /api/projects/reorder
+```
+
+Bulk-sets every listed project's `priority` to a dense rank `0..N-1` matching the given array's order (index `0` = highest priority = rank `0`). Powers the WIP queue page's right-hand priority sidecar drag reorder — first bulk-array-order-persistence endpoint in this codebase, modeled on `PUT /api/monitors`'s full-state-broadcast pattern.
+
+**Request Body:** `{ "order": string[] }` — project ids in top-to-bottom priority order.
+
+| Validation | Response |
+|---|---|
+| `order` missing, not an array, or empty | **400** `INVALID_INPUT` |
+| An entry isn't a non-empty string | **400** `INVALID_INPUT` |
+| A duplicate id appears twice | **400** `INVALID_INPUT` |
+| An id doesn't resolve to any project | **404** `NOT_FOUND`, naming the missing id |
+
+A project **omitted** from `order` keeps its prior `priority` unchanged (a partial reorder) — distinct from an id that doesn't resolve to any project at all, which 404s the whole request instead. Re-reordering fully replaces the ranks of every id actually listed (not additive).
+
+Returns `{ "projects": [{ "id": string, "priority": number }] }` — one entry per id in `order`, at HTTP **200** — and broadcasts [`project_updated`](#project_updated) with the same payload.
+
+```json
+{ "order": ["proj-c", "proj-a", "proj-b"] }
+```
+
+```json
+{
+  "projects": [
+    { "id": "proj-c", "priority": 0 },
+    { "id": "proj-a", "priority": 1 },
+    { "id": "proj-b", "priority": 2 }
+  ]
+}
+```
 
 ---
 
@@ -1712,6 +1748,14 @@ Broadcast whenever `PUT /api/monitors` changes the global Kanban Board monitor l
 
 ```json
 { "type": "monitors_updated", "data": { "monitors": [{ "id": "a1b2c3", "name": "Left Screen" }], "monitorMap": { "proj-1": "a1b2c3" }, "collapsedProjects": {} } }
+```
+
+#### project_updated
+
+Broadcast whenever `PUT /api/projects/reorder` (below) commits a new priority order — from any connected client/computer. Carries only the ids/priorities the reorder call actually touched (see [Reorder Priority](#reorder-priority)); the WIP queue page merges these into its in-memory project list, patching `priority` in place, so a drag reorder made in one tab re-ranks the queue live in every other open tab. Deliberately scoped to `priority` only — this is a narrow, explicit exception to "project mutations are plain CRUD, not broadcast" (see [Projects](#projects)); no other project mutation broadcasts this or any other message.
+
+```json
+{ "type": "project_updated", "data": { "projects": [{ "id": "proj-c", "priority": 0 }, { "id": "proj-a", "priority": 1 }] } }
 ```
 
 ### Event Flow

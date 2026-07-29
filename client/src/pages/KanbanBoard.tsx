@@ -118,6 +118,7 @@ import { PlanPanel } from "../components/PlanPanel";
 import { PlanModal } from "../components/PlanModal";
 import { FocusReportModal } from "../components/FocusReportModal";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
+import { buildCwdProjectIndex, projectForSession } from "../lib/projectLookup";
 import { useFocusMap } from "../lib/focusStore";
 import { monitorStore, useMonitorLayout, createMonitor } from "../lib/monitorGroups";
 import {
@@ -489,8 +490,10 @@ export function KanbanBoard() {
     [agents, hideInternal, internalSessionIds]
   );
 
-  // Sessions grouped by cwd, for the Projects view - each project's column
-  // is every session whose cwd is one of that project's mapped folders.
+  // Sessions grouped by cwd, for the Projects view's Unassigned column only
+  // (a plain cwd->sessions bucket, not a project join - the unassigned
+  // column's member cwds come straight from the server's own aggregation,
+  // see `unassignedBucket` below).
   const sessionsByCwd = useMemo(() => {
     const map = new Map<string, Session[]>();
     for (const s of visibleSessions) {
@@ -500,6 +503,25 @@ export function KanbanBoard() {
     }
     return map;
   }, [visibleSessions]);
+
+  // The shared cwd->project join (client/src/lib/projectLookup.ts) - single
+  // canonical source for "which project does this session belong to", reused
+  // as-is by the WIP queue page (see wipQueue.ts/WipSessionCard.tsx) so the
+  // two pages can never silently disagree on project resolution
+  // (DERIVED-DUAL-VIEW guardrail, technical-plan.md §5). Each project
+  // column's items are grouped through this index below, rather than a
+  // second, WIP-only join.
+  const cwdProjectIndex = useMemo(() => buildCwdProjectIndex(projectsList), [projectsList]);
+  const sessionsByProjectId = useMemo(() => {
+    const map = new Map<string, Session[]>();
+    for (const s of visibleSessions) {
+      const project = projectForSession(s, cwdProjectIndex);
+      if (!project) continue;
+      if (!map.has(project.id)) map.set(project.id, []);
+      map.get(project.id)?.push(s);
+    }
+    return map;
+  }, [visibleSessions, cwdProjectIndex]);
 
   // AGENT-PLAN.md plans found in any tracked cwd, keyed for the Projects
   // view's per-column lookup - same map shape as the standalone Projects page.
@@ -711,6 +733,7 @@ export function KanbanBoard() {
       cwds: project.paths.map((p) => p.cwd),
       activeCount: project.active_count,
       palette: PROJECT_COLOR_CYCLE[i % PROJECT_COLOR_CYCLE.length] ?? UNASSIGNED_COLOR,
+      isUnassignedColumn: false,
     })),
     {
       key: "__unassigned__",
@@ -718,10 +741,17 @@ export function KanbanBoard() {
       cwds: unassignedBucket.cwds,
       activeCount: unassignedBucket.active_count,
       palette: UNASSIGNED_COLOR,
+      isUnassignedColumn: true,
     },
   ]
     .map((col) => {
-      const allItems = col.cwds.flatMap((cwd) => sessionsByCwd.get(cwd) || []);
+      // Real project columns route through the shared cwd->project join
+      // (sessionsByProjectId, built from projectLookup.ts) - the Unassigned
+      // column isn't a project at all, so it keeps using the plain
+      // cwd->sessions bucket keyed off the server's own unassigned cwd list.
+      const allItems = col.isUnassignedColumn
+        ? col.cwds.flatMap((cwd) => sessionsByCwd.get(cwd) || [])
+        : sessionsByProjectId.get(col.key) || [];
       const items = allItems.filter(
         (s) =>
           (!hideCompleted || s.status !== "completed") &&

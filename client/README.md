@@ -191,10 +191,13 @@ client/
 │   │   ├── ConcurrencyStatTile.tsx # The Concurrency tile shared by FocusReportBody + FocusPage — both ratios at once (primary value + secondary sub-line) with a persistent localStorage-backed swap button
 │   │   ├── FocusActivityCard.tsx # "What happened" activity list for FocusPage — one row per plan item/detour-bug-feature/unclassified bucket, kind chip + time + inferred reason
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
+│   │   ├── WipSessionCard.tsx # WIP queue card fork — wraps the real, unmodified SessionCard with a prominent project-name header (projectLookup.projectForSession); SessionCard.tsx itself gets zero edits
+│   │   ├── WipPrioritySidecar.tsx # Collapsible right-hand priority sidecar for the WIP queue page — native HTML5 drag reorder (same shape as KanbanBoard's monitor DnD) committing to api.projects.reorder
 │   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
+│   │   ├── WIP.tsx            # Live, priority-ordered queue of active sessions (/wip, right after Dashboard); sortWipQueue/assignToColumns (lib/wipQueue.ts) drive sort + responsive 1/2/3-column fill off the queue container's own ResizeObserver width; WipPrioritySidecar sets each project's drag-reorderable priority via PUT /api/projects/reorder
 │   │   ├── Projects.tsx       # Projects list/management page (/projects); groups sessions by working-directory-derived "project" into horizontally-scrollable rows; create/rename/delete + folder-mapping CRUD via api.projects
 │   │   ├── FocusCalendarBoard.tsx # Cross-project Calendar board (/focus-calendar); project/session/time-period filters over GET /api/focus-report
 │   │   ├── FocusPage.tsx      # "What did we actually do" activity report (/focus); same filters as the Calendar board, stat tiles + an LLM-synthesized window Summary block (GET /api/focus-report/summary; hidden when null) + FocusActivityCard instead of a swimlane grid
@@ -220,6 +223,8 @@ client/
 │   │   ├── focusActivity.ts # groupFocusActivity() — per-cwd rollup of a FocusReport's segments into one row per plan item/detour-bug-feature/unclassified bucket, for FocusPage; unclassified segments WITH an inferred reason stay one narrative row per session (only reason-less ones collapse into the shared tail bucket), and each row carries a per-session `contributors` array (time range, wall/active split, reason) behind FocusActivityCard's expandable "+N more sessions" toggle; optional third `window` param clips to a sub-window (reuses windowedTotals.ts's clipSegment) for the hour-window zoom
 │   │   ├── windowedTotals.ts # computeWindowedTotals()/clipSegment() — client-side stat-tile recompute clipped to a [startMs,endMs) sub-window, off a FocusReport's already-fetched segment chunks
 │   │   ├── eventBuckets.ts # 10-minute event bucketing for SegmentEventsModal
+│   │   ├── projectLookup.ts # Shared cwd->project join (buildCwdProjectIndex/projectForSession) — single canonical extraction consumed by both KanbanBoard.tsx's Projects view and the WIP queue page, so the two can't silently disagree (see lib/__tests__/sessionSurfaceParity.test.ts)
+│   │   ├── wipQueue.ts     # Pure WIP queue logic: isWipMember (status==="active"), sortWipQueue (awaiting-first, reusing isSessionAwaitingInput/the primary-reason carve-out exactly — no re-derived predicate — then project priority ascending, then last_activity/started_at descending), assignToColumns (contiguous-chunk 1/2/3-column fill)
 │   │   └── types.ts        # TypeScript type definitions
 │   │
 │   ├── hooks/

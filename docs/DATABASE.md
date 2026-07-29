@@ -580,7 +580,8 @@ CREATE TABLE projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    priority INTEGER NOT NULL DEFAULT 0  -- guarded ALTER TABLE migration, additive
 );
 
 CREATE TABLE project_paths (
@@ -599,7 +600,8 @@ CREATE TABLE project_paths (
 | `id` | TEXT | NO | Primary key (UUID) |
 | `name` | TEXT | NO | User-assigned display name |
 | `created_at` | TEXT | NO | ISO 8601 creation timestamp |
-| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last rename |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last rename or priority reorder |
+| `priority` | INTEGER | NO | Dense rank set via the WIP queue page's right-hand sidecar (`PUT /api/projects/reorder`); lower value = higher priority, `0` = highest/top. Defaults to `0` for every project until explicitly reordered. Breaks ties in the WIP queue's sort order (after "awaiting input", before recency) |
 
 **`project_paths` columns:**
 
@@ -610,7 +612,7 @@ CREATE TABLE project_paths (
 | `cwd` | TEXT | NO | Working directory this project claims. `UNIQUE` — a folder can only belong to one project at a time |
 | `created_at` | TEXT | NO | ISO 8601 timestamp the mapping was added |
 
-Managed through the `/api/projects/*` routes (no WebSocket broadcast — a plain-CRUD config entity like `webhook_targets`, re-fetched by the client after each mutation). See [docs/API.md → Projects](./API.md#projects).
+Managed through the `/api/projects/*` routes. **Broadcast carve-out:** `priority` changes (via `PUT /api/projects/reorder`) broadcast `project_updated` over the WebSocket — a deliberate, narrow exception for the WIP queue page's cross-tab live priority sync; every other project mutation (create, rename, folder add/remove, delete) remains plain CRUD, not broadcast, re-fetched by the client after each mutation like `webhook_targets`. See [docs/API.md → Projects](./API.md#projects).
 
 ---
 

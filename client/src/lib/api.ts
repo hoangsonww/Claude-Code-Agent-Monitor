@@ -2092,6 +2092,18 @@ export const api = {
      */
     focusReport: (id: string) =>
       request<FocusReport>(`/projects/${encodeURIComponent(id)}/focus-report`),
+    /**
+     * PUT /api/projects/reorder — bulk-set dense priority ranks 0..N-1 from
+     * an array of project ids in top-to-bottom priority order (index 0 =
+     * highest priority = rank 0). Broadcasts `project_updated` server-side.
+     * @param order Project ids in the desired top-to-bottom priority order.
+     * @returns `{ projects }` — every id/priority pair this call touched.
+     */
+    reorder: (order: string[]) =>
+      request<{ projects: Array<{ id: string; priority: number }> }>("/projects/reorder", {
+        method: "PUT",
+        body: JSON.stringify({ order }),
+      }),
   },
 
   plans: {

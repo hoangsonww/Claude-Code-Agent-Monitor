@@ -15,6 +15,7 @@ const { v4: uuidv4 } = require("uuid");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
 const { buildProjectFocusReport } = require("../lib/focus-report");
+const { broadcast } = require("../websocket");
 
 const router = Router();
 
@@ -143,6 +144,50 @@ router.patch("/:id", (req, res) => {
   const project = stmts.getProject.get(req.params.id);
   const paths = stmts.listProjectPaths.all(req.params.id);
   res.json({ project: { ...project, paths } });
+});
+
+// PUT /api/projects/reorder - bulk-set dense priority ranks 0..N-1 from an
+// array of project ids in top-to-bottom priority order (index 0 = highest
+// priority = rank 0). First bulk-array-order-persistence endpoint in this
+// codebase; modeled on server/routes/monitors.js's GET/PUT-full-state
+// pattern. A project omitted from `order` keeps its prior priority
+// unchanged (a partial reorder), distinct from an id that doesn't resolve
+// to any project at all (404). Broadcasts `project_updated` with only the
+// ids/priorities actually touched by this call - deliberately narrower than
+// the WS message's own carve-out from general "all project mutations
+// broadcast" (see docs/DATABASE.md).
+router.put("/reorder", (req, res) => {
+  const { order } = req.body || {};
+  if (!Array.isArray(order) || order.length === 0) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "order must be a non-empty array of project ids" },
+    });
+  }
+  if (order.some((id) => typeof id !== "string" || !id.trim())) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "order must contain only non-empty strings" },
+    });
+  }
+  if (new Set(order).size !== order.length) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "order must not contain duplicate ids" },
+    });
+  }
+  for (const id of order) {
+    if (!stmts.getProject.get(id)) {
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: `Project not found: ${id}` } });
+    }
+  }
+
+  db.transaction(() => {
+    order.forEach((id, index) => stmts.setProjectPriority.run(index, id));
+  })();
+
+  const projects = order.map((id, index) => ({ id, priority: index }));
+  broadcast("project_updated", { projects });
+  res.json({ projects });
 });
 
 // DELETE /api/projects/:id - delete a project. Its folder mappings cascade

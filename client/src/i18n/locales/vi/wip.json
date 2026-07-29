@@ -1,0 +1,21 @@
+{
+  "page": {
+    "title": "Hàng chờ WIP",
+    "subtitle": "Mọi phiên đang hoạt động, ưu tiên phiên đang chờ bạn, xếp theo mức ưu tiên dự án",
+    "emptyTitle": "Không có gì đang xử lý",
+    "emptyDescription": "Các phiên đang hoạt động sẽ xuất hiện ở đây ngay khi bắt đầu, xếp theo việc có đang chờ bạn hay không và theo mức ưu tiên dự án."
+  },
+  "card": {
+    "noProject": "Không có dự án"
+  },
+  "sidecar": {
+    "title": "Ưu tiên dự án",
+    "expand": "Mở rộng bảng ưu tiên",
+    "collapse": "Thu gọn bảng ưu tiên",
+    "showAll": "Hiện tất cả dự án",
+    "empty": "Chưa có dự án nào để hiển thị"
+  },
+  "errors": {
+    "loadFailed": "Không thể tải hàng chờ WIP"
+  }
+}

@@ -1268,6 +1268,20 @@ export interface SessionDeletedPayload {
   id: string;
 }
 
+// ───── Project priority (WIP queue page) ─────
+
+/** Payload for `project_updated` WebSocket messages: a bulk priority reorder
+ *  committed via `PUT /api/projects/reorder`. Deliberately scoped to the
+ *  `priority` field only - not a general "project mutations are live" change;
+ *  every other project mutation (create/rename/path add-remove/delete) stays
+ *  plain CRUD, not broadcast (see docs/DATABASE.md). */
+export interface ProjectPriorityUpdatedPayload {
+  /** Every project id/priority pair touched by the reorder that triggered
+   *  this broadcast (an id omitted from the underlying request keeps its
+   *  prior priority and is not included here). */
+  projects: Array<{ id: string; priority: number }>;
+}
+
 // ───── Self-update status ─────
 
 /** Payload for `update_status` WebSocket messages and GET /api/updates/status.
@@ -1543,6 +1557,15 @@ export interface Project {
   created_at: string;
   /** ISO timestamp the project was last renamed. */
   updated_at: string;
+  /** Dense rank set via the WIP sidecar; lower = higher priority (0 =
+   *  highest). Defaults to 0 until explicitly reordered. Optional (rather
+   *  than required) so every pre-existing hand-typed `Project` fixture in
+   *  this codebase's test suites stays valid unedited - the real API always
+   *  returns a real number (server-side DEFAULT 0), so this is only ever
+   *  absent on a hand-built fixture; every WIP-side consumer reads it via
+   *  `project.priority ?? 0`, the same fallback already required for an
+   *  unmapped cwd. */
+  priority?: number;
 }
 
 /** Sessions whose cwd isn't mapped to any {@link Project} yet, from GET
@@ -2122,7 +2145,7 @@ export interface WSMessage {
    *  cc_config_changed → CcConfigChangedPayload; alert_triggered/alert_updated
    *  → AlertEvent; workflow_upserted → WorkflowRun; plan_updated →
    *  PlanUpdatedPayload; session_focus → SessionFocus; monitors_updated →
-   *  MonitorLayoutPayload. */
+   *  MonitorLayoutPayload; project_updated → ProjectPriorityUpdatedPayload. */
   type:
     | "session_created"
     | "session_updated"
@@ -2142,7 +2165,8 @@ export interface WSMessage {
     | "remote_source.status"
     | "plan_updated"
     | "session_focus"
-    | "monitors_updated";
+    | "monitors_updated"
+    | "project_updated";
   /** The message body, whose concrete shape is selected by `type` above. */
   data:
     | Session
@@ -2160,7 +2184,8 @@ export interface WSMessage {
     | RemoteSourceStatusPayload
     | PlanUpdatedPayload
     | SessionFocus
-    | MonitorLayoutPayload;
+    | MonitorLayoutPayload
+    | ProjectPriorityUpdatedPayload;
   /** ISO timestamp the server broadcast this message (not necessarily the
    *  same instant the underlying event occurred). */
   timestamp: string;

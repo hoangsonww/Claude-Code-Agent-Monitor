@@ -1,0 +1,21 @@
+{
+  "page": {
+    "title": "WIP Queue",
+    "subtitle": "Every active session, awaiting-input first, ranked by project priority",
+    "emptyTitle": "Nothing in progress",
+    "emptyDescription": "Active sessions will appear here the moment one starts, sorted by whether it's waiting on you and by project priority."
+  },
+  "card": {
+    "noProject": "No project"
+  },
+  "sidecar": {
+    "title": "Project priority",
+    "expand": "Expand priority sidecar",
+    "collapse": "Collapse priority sidecar",
+    "showAll": "Show all projects",
+    "empty": "No projects to show yet"
+  },
+  "errors": {
+    "loadFailed": "Failed to load the WIP queue"
+  }
+}

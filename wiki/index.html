@@ -927,6 +927,25 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-amber">📥</div>
+                  <h3 id="feat-wip">WIP Queue</h3>
+                  <p>
+                    A single, live, priority-ordered queue of every <code>active</code> session
+                    (<code>/wip</code>, right in the sidebar after Dashboard). Sessions awaiting
+                    your input always sort above ones that aren't; ties — and ordering among
+                    non-awaiting sessions — break on each session's owning project's drag-set
+                    <strong>priority</strong>, then most-recent activity. Cards reuse the same
+                    session card with a prominent project-name header layered on top. A
+                    responsive 1/2/3-column layout fills top-to-bottom based on the queue's own
+                    measured width (not the browser viewport), so opening the collapsible
+                    right-hand <strong>priority sidecar</strong> — which lists projects and lets
+                    you drag them into priority order — still resizes the columns correctly.
+                    Reordering commits over <code>PUT /api/projects/reorder</code> and broadcasts
+                    live to every other open tab or computer, the same way the Kanban Board's
+                    monitor layout stays in sync.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-teal">🗂️</div>
                   <h3 id="feat-projects">Projects</h3>
                   <p>
@@ -3883,8 +3902,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 {
   type:      "session_created" | "session_updated" |
              "agent_created"   | "agent_updated"   | "new_event" |
-             "plan_updated"    | "session_focus"   | "monitors_updated";
-  data:      Session | Agent | DashboardEvent;
+             "plan_updated"    | "session_focus"   | "monitors_updated" |
+             "project_updated";
+  data:      Session | Agent | DashboardEvent | ProjectPriorityUpdatedPayload;
   timestamp: string;  // ISO 8601
 }</code></pre>
 

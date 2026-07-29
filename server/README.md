@@ -378,14 +378,15 @@ CREATE TABLE remote_sources (
 
 #### `projects` / `project_paths`
 
-A user-named grouping of one or more session working directories (see [Projects](#projects)). No `project_id` column on `sessions` — membership is derived by joining `sessions.cwd` against `project_paths.cwd`. A folder belongs to at most one project (`project_paths.cwd` is `UNIQUE`); a project may claim many folders.
+A user-named grouping of one or more session working directories (see [Projects](#projects)). No `project_id` column on `sessions` — membership is derived by joining `sessions.cwd` against `project_paths.cwd`. A folder belongs to at most one project (`project_paths.cwd` is `UNIQUE`); a project may claim many folders. `priority` (guarded `ALTER TABLE`, additive) is a dense rank set via the WIP queue page's right-hand sidecar — lower value = higher priority, `0` = highest/top, every project defaults to `0` until explicitly reordered via `PUT /api/projects/reorder`.
 
 ```sql
 CREATE TABLE projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    priority INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE project_paths (
@@ -643,8 +644,9 @@ A user-named grouping of one or more session working directories (`routes/projec
 | `DELETE` | `/api/projects/:id`                | Delete a project; folder mappings cascade (`ON DELETE CASCADE`), sessions are untouched and fall back to unassigned |
 | `POST`   | `/api/projects/:id/paths`          | Map an additional folder onto a project |
 | `DELETE` | `/api/projects/:id/paths/:pathId`  | Unmap a folder (folder + its sessions are untouched) |
+| `PUT`    | `/api/projects/reorder`            | Bulk-set dense `priority` ranks `0..N-1` from `{ order: string[] }` (WIP queue page's priority sidecar) — `404` unknown id, `400` duplicate/non-array/non-string/empty. Broadcasts `project_updated` |
 
-Unlike Alerts/Webhooks, project mutations are **not** broadcast over `/ws` — like `remote_sources` config CRUD, the client re-fetches after each change since this is a low-frequency, single-operator configuration surface, not a live monitoring feed.
+Unlike Alerts/Webhooks, most project mutations are **not** broadcast over `/ws` — like `remote_sources` config CRUD, the client re-fetches after each change since this is a low-frequency, single-operator configuration surface, not a live monitoring feed. **Exception:** `PUT /api/projects/reorder` broadcasts `project_updated` (`{ projects: [{ id, priority }] }`) — a deliberate, narrow carve-out so the WIP queue page's priority sidecar stays in sync live across every open tab/computer.
 
 ### Plans & Focus (Plan-Aware Monitoring)
 

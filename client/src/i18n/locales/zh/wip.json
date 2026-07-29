@@ -1,0 +1,21 @@
+{
+  "page": {
+    "title": "进行中队列",
+    "subtitle": "所有活跃会话,等待输入的优先,按项目优先级排序",
+    "emptyTitle": "暂无进行中的会话",
+    "emptyDescription": "活跃会话一旦开始就会显示在这里,按是否在等待你的输入以及项目优先级排序。"
+  },
+  "card": {
+    "noProject": "无项目"
+  },
+  "sidecar": {
+    "title": "项目优先级",
+    "expand": "展开优先级侧栏",
+    "collapse": "收起优先级侧栏",
+    "showAll": "显示所有项目",
+    "empty": "暂无可显示的项目"
+  },
+  "errors": {
+    "loadFailed": "加载进行中队列失败"
+  }
+}

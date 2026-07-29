@@ -981,6 +981,18 @@ try {
 }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source)`);
 
+// Migrate: add `priority` to projects — a dense rank the WIP queue page's
+// right-hand sidecar sets via drag reorder (server/routes/projects.js's
+// PUT /reorder). Lower value = higher priority; 0 = top/highest, matching
+// every historical row's zero-config default. Additive + NOT NULL DEFAULT 0,
+// same guarded try/SELECT/catch(ALTER) idiom as the `source` migration above,
+// so every pre-existing row reads priority: 0 with no backfill needed.
+try {
+  db.prepare("SELECT priority FROM projects LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE projects ADD COLUMN priority INTEGER NOT NULL DEFAULT 0").run();
+}
+
 // Remote data sources: other machines whose Claude Code history this dashboard
 // pulls in over SSH. Config only — NO secrets are stored here: authentication
 // always defers to the host's own SSH stack (~/.ssh/config, ssh-agent, keys,
@@ -1813,6 +1825,9 @@ const stmts = {
   listProjects: db.prepare("SELECT * FROM projects ORDER BY name COLLATE NOCASE ASC"),
   renameProject: db.prepare(
     "UPDATE projects SET name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
+  setProjectPriority: db.prepare(
+    "UPDATE projects SET priority = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?"
   ),
   deleteProject: db.prepare("DELETE FROM projects WHERE id = ?"),
   insertProjectPath: db.prepare("INSERT INTO project_paths (project_id, cwd) VALUES (?, ?)"),

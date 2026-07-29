@@ -85,6 +85,7 @@ import {
   ChevronDown,
   CalendarDays,
   Focus,
+  ListChecks,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
@@ -97,6 +98,10 @@ function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
 
 const NAV_KEYS = [
   { to: "/", icon: LayoutDashboard, key: "nav:dashboard" },
+  // Right after Dashboard - the primary daily-use "who needs me" view
+  // (technical-plan.md's placement default, build-now pending Sara's
+  // explicit confirm - see the PR description).
+  { to: "/wip", icon: ListChecks, key: "nav:wip" },
   { to: "/projects", icon: FolderKanban, key: "nav:projects" },
   // Right after Projects, per DEC-5 (decisions.md) - corrected from the
   // original draft's after-Kanban placement.
