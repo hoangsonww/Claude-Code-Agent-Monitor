@@ -18,7 +18,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { KanbanBoard } from "../KanbanBoard";
-import type { Project, Session, UnassignedProjectBucket } from "../../lib/types";
+import { monitorStore } from "../../lib/monitorGroups";
+import type {
+  MonitorLayoutPayload,
+  Project,
+  Session,
+  UnassignedProjectBucket,
+} from "../../lib/types";
 
 const mockProject: Project = {
   id: "proj-1",
@@ -76,6 +82,8 @@ const projectsListMock = vi.fn();
 const sessionsListMock = vi.fn();
 const agentsListMock = vi.fn();
 const focusReportMock = vi.fn();
+const monitorsGetMock = vi.fn();
+const monitorsUpdateMock = vi.fn();
 
 vi.mock("../../lib/api", () => ({
   api: {
@@ -85,8 +93,17 @@ vi.mock("../../lib/api", () => ({
       list: (...args: unknown[]) => projectsListMock(...args),
       focusReport: (...args: unknown[]) => focusReportMock(...args),
     },
+    monitors: {
+      get: (...args: unknown[]) => monitorsGetMock(...args),
+      update: (...args: unknown[]) => monitorsUpdateMock(...args),
+    },
   },
 }));
+
+/** Stand-in for the server's global monitor layout row - what `api.monitors.get`
+ *  returns and `api.monitors.update` merges into, so the "monitor groups" tests
+ *  below can assert on persistence without a real backend. */
+let fakeLayout: MonitorLayoutPayload = { monitors: [], monitorMap: {}, collapsedProjects: {} };
 
 vi.mock("../../lib/eventBus", () => ({
   eventBus: {
@@ -112,6 +129,13 @@ describe("Kanban Board - Projects view", () => {
     } catch {
       /* jsdom always has localStorage; guard only for odd environments */
     }
+    fakeLayout = { monitors: [], monitorMap: {}, collapsedProjects: {} };
+    monitorStore.__resetForTest();
+    monitorsGetMock.mockImplementation(() => Promise.resolve(fakeLayout));
+    monitorsUpdateMock.mockImplementation((patch: Partial<MonitorLayoutPayload>) => {
+      fakeLayout = { ...fakeLayout, ...patch };
+      return Promise.resolve(fakeLayout);
+    });
     agentsListMock.mockResolvedValue({ agents: [] });
     // The real server filters by `?status=`; KanbanBoard fetches once per
     // persisted status and unions the results, so the mock must filter too -
@@ -346,11 +370,11 @@ describe("Kanban Board - Projects view", () => {
     }
 
     function currentMonitors(): { id: string; name: string }[] {
-      return JSON.parse(localStorage.getItem("kanban-monitors") ?? "[]");
+      return fakeLayout.monitors;
     }
 
     function currentMonitorMap(): Record<string, string> {
-      return JSON.parse(localStorage.getItem("kanban-monitor-map") ?? "{}");
+      return fakeLayout.monitorMap;
     }
 
     /** Grabs the nth persisted monitor, asserting it exists - keeps the
@@ -452,7 +476,7 @@ describe("Kanban Board - Projects view", () => {
     });
 
     function currentCollapsedProjects(): Record<string, boolean> {
-      return JSON.parse(localStorage.getItem("kanban-collapsed-projects") ?? "{}");
+      return fakeLayout.collapsedProjects;
     }
 
     it("collapses the trailing Ungrouped box out of the main row into the same strip as a collapsed monitor, and expands it back, persisting the flag", async () => {
@@ -714,13 +738,13 @@ describe("Kanban Board - Projects view", () => {
       expect(screen.getByText("Agent Monitor").closest("div.bg-surface-1")).not.toBeNull();
     });
 
-    it("restores monitors and their project assignments on remount", async () => {
+    it("loads a previously persisted layout from the server on mount", async () => {
       const monitorId = "monitor-fixed-1";
-      localStorage.setItem(
-        "kanban-monitors",
-        JSON.stringify([{ id: monitorId, name: "Left Screen" }])
-      );
-      localStorage.setItem("kanban-monitor-map", JSON.stringify({ "proj-1": monitorId }));
+      fakeLayout = {
+        monitors: [{ id: monitorId, name: "Left Screen" }],
+        monitorMap: { "proj-1": monitorId },
+        collapsedProjects: {},
+      };
 
       renderPage();
       fireEvent.click(await screen.findByRole("tab", { name: "Projects" }));

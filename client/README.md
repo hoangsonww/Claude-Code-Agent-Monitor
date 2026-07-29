@@ -198,7 +198,7 @@ client/
 │   │   ├── Projects.tsx       # Projects list/management page (/projects); groups sessions by working-directory-derived "project" into horizontally-scrollable rows; create/rename/delete + folder-mapping CRUD via api.projects
 │   │   ├── FocusCalendarBoard.tsx # Cross-project Calendar board (/focus-calendar); project/session/time-period filters over GET /api/focus-report
 │   │   ├── FocusPage.tsx      # "What did we actually do" activity report (/focus); same filters as the Calendar board, stat tiles + an LLM-synthesized window Summary block (GET /api/focus-report/summary; hidden when null) + FocusActivityCard instead of a swimlane grid
-│   │   ├── KanbanBoard.tsx    # Agents/Sessions/Projects views; Projects view columns render inside drag-reorderable "monitor" boxes (lib/monitorGroups.ts) side by side in the same row once one exists; header's CopyLinkButton copies a shareable URL (with ?token= when DASHBOARD_TOKEN auth is configured)
+│   │   ├── KanbanBoard.tsx    # Agents/Sessions/Projects views; Projects view columns render inside drag-reorderable "monitor" boxes (lib/monitorGroups.ts — global, server-shared layout, not localStorage) side by side in the same row once one exists; header's CopyLinkButton copies a shareable URL (with ?token= when DASHBOARD_TOKEN auth is configured)
 │   │   ├── Sessions.tsx       # Filterable table; shows each session's real name (synced live from the transcript), falls back to the short ID
 │   │   ├── SessionDetail.tsx  # Agent tree + event timeline + Conversation tab (slash-command pills & output, inline rename markers)
 │   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
@@ -213,6 +213,7 @@ client/
 │   │   ├── eventBus.ts     # WebSocket pub/sub + connection state
 │   │   ├── dataScope.ts    # Global data-scope store (app-wide ?sources= selection)
 │   │   ├── focusStore.ts   # Module-level session-focus store (bulk hydrate GET /api/focus + live session_focus WS merges)
+│   │   ├── monitorGroups.ts # Kanban Board's global monitor-layout store (bulk hydrate GET /api/monitors + live monitors_updated WS merges); mirrors focusStore.ts's pattern
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
 │   │   ├── calendarLanes.ts # Swimlane lane-assignment for FocusCalendarView (greedy interval scheduling)
 │   │   ├── calendarWindow.ts # Shared startOfDay/DAY_MS day-boundary math (FocusCalendarView, TimePeriodPicker, FocusCalendarBoard)
@@ -419,6 +420,7 @@ Server broadcasts these event types over WebSocket:
 | `remote_source.status` | `{ id, status, error?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`) | Remote Data Source sync poller + `/api/remote-sources` routes |
 | `plan_updated` | `{ plan, items }` — the ingested plan row plus its full item list | `AGENT-PLAN.md` poll / SessionStart ingest / `POST /api/plans/refresh`, and `focus done` declarations (the `declared_done` rollup changed) |
 | `session_focus` | Focus wire shape: `{ session_id, cwd, item_number, item_text, note, detour_stack, since, drift, drift_reason, updated_at }` | Applied focus declarations (hook or API) + the focus drift audit — merged into `lib/focusStore.ts` |
+| `monitors_updated` | `{ monitors, monitorMap, collapsedProjects }` — the full resulting global Kanban Board monitor layout | `PUT /api/monitors`, from any connected computer — merged into `lib/monitorGroups.ts`'s store on top of the `GET /api/monitors` hydrate |
 
 ### EventBus Pattern
 

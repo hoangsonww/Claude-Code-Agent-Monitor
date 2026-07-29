@@ -1005,6 +1005,22 @@ db.exec(`
   );
 `);
 
+// Kanban Board "Projects" view monitor layout: a single global, server-shared
+// row (id is pinned to 1 — this app has no user accounts, so there is exactly
+// one layout for every connected client) holding the monitor swimlane list,
+// the project→monitor assignment map, and the per-project-column collapsed
+// state, each as a JSON blob. See server/routes/monitors.js.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dashboard_layout (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    monitors TEXT NOT NULL DEFAULT '[]',
+    monitor_map TEXT NOT NULL DEFAULT '{}',
+    collapsed_projects TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`);
+db.prepare("INSERT OR IGNORE INTO dashboard_layout (id) VALUES (1)").run();
+
 // Migrate webhook_targets for first-class providers. Earlier installs created
 // the table with a 4-value `type` CHECK (slack/discord/teams/generic) and no
 // `config` column. SQLite can't drop a CHECK in place, so rebuild the table
@@ -1311,6 +1327,17 @@ const stmts = {
   ),
   setRemoteSourceSyncResult: db.prepare(
     `UPDATE remote_sources SET status = ?, last_error = ?, last_sync_at = ?, last_sync_counts = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+  ),
+
+  // ── Dashboard layout (global Kanban Board monitor swimlanes) ────────────────
+  getDashboardLayout: db.prepare("SELECT * FROM dashboard_layout WHERE id = 1"),
+  updateDashboardLayout: db.prepare(
+    `UPDATE dashboard_layout SET
+       monitors = COALESCE(?, monitors),
+       monitor_map = COALESCE(?, monitor_map),
+       collapsed_projects = COALESCE(?, collapsed_projects),
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE id = 1`
   ),
 
   getAgent: db.prepare("SELECT * FROM agents WHERE id = ?"),

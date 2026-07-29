@@ -119,16 +119,7 @@ import { PlanModal } from "../components/PlanModal";
 import { FocusReportModal } from "../components/FocusReportModal";
 import { loadProjectOrder, persistProjectOrder, applyProjectOrder } from "../lib/projectOrder";
 import { useFocusMap } from "../lib/focusStore";
-import {
-  loadMonitors,
-  persistMonitors,
-  loadMonitorMap,
-  persistMonitorMap,
-  createMonitor,
-  loadCollapsedProjects,
-  persistCollapsedProjects,
-  type MonitorGroup,
-} from "../lib/monitorGroups";
+import { monitorStore, useMonitorLayout, createMonitor } from "../lib/monitorGroups";
 import {
   STATUS_CONFIG,
   SESSION_STATUS_CONFIG,
@@ -315,10 +306,7 @@ export function KanbanBoard() {
   // fires). So the pending cluster reassignment is tracked in a ref (no
   // re-render) and only committed to state - and the DOM - once the drag
   // actually ends.
-  const [monitors, setMonitors] = useState<MonitorGroup[]>(loadMonitors);
-  const [monitorMap, setMonitorMap] = useState<Record<string, string>>(loadMonitorMap);
-  const [collapsedProjects, setCollapsedProjects] =
-    useState<Record<string, boolean>>(loadCollapsedProjects);
+  const { monitors, monitorMap, collapsedProjects } = useMonitorLayout();
   const pendingMonitorIdRef = useRef<string | null | undefined>(undefined);
   const [draggedMonitorId, setDraggedMonitorId] = useState<string | null>(null);
   const [liveMonitorOrderIds, setLiveMonitorOrderIds] = useState<string[] | null>(null);
@@ -631,8 +619,7 @@ export function KanbanBoard() {
       const next = { ...monitorMap };
       if (targetMonitorId) next[draggedColumnId] = targetMonitorId;
       else delete next[draggedColumnId];
-      setMonitorMap(next);
-      persistMonitorMap(next);
+      monitorStore.saveMonitorMap(next);
     }
     setDraggedColumnId(null);
     setLiveProjectOrderIds(null);
@@ -664,8 +651,7 @@ export function KanbanBoard() {
   function handleMonitorDragEnd() {
     if (liveMonitorOrderIds) {
       const reordered = applyProjectOrder(monitors, liveMonitorOrderIds);
-      setMonitors(reordered);
-      persistMonitors(reordered);
+      monitorStore.saveMonitors(reordered);
     }
     setDraggedMonitorId(null);
     setLiveMonitorOrderIds(null);
@@ -673,60 +659,45 @@ export function KanbanBoard() {
 
   function handleAddMonitor() {
     const monitor = createMonitor(t("monitors.defaultName", { n: monitors.length + 1 }));
-    const next = [...monitors, monitor];
-    setMonitors(next);
-    persistMonitors(next);
+    monitorStore.saveMonitors([...monitors, monitor]);
   }
 
   function handleRenameMonitor(id: string, name: string) {
-    const next = monitors.map((m) => (m.id === id ? { ...m, name } : m));
-    setMonitors(next);
-    persistMonitors(next);
+    monitorStore.saveMonitors(monitors.map((m) => (m.id === id ? { ...m, name } : m)));
   }
 
   function handleToggleMonitorCollapsed(id: string) {
-    const next = monitors.map((m) => (m.id === id ? { ...m, collapsed: !m.collapsed } : m));
-    setMonitors(next);
-    persistMonitors(next);
+    monitorStore.saveMonitors(
+      monitors.map((m) => (m.id === id ? { ...m, collapsed: !m.collapsed } : m))
+    );
   }
 
   function handleToggleMonitorOrientation(id: string) {
-    const next = monitors.map((m) =>
-      m.id === id
-        ? {
-            ...m,
-            orientation: (m.orientation === "vertical" ? "horizontal" : "vertical") as
-              | "horizontal"
-              | "vertical",
-          }
-        : m
+    monitorStore.saveMonitors(
+      monitors.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              orientation: (m.orientation === "vertical" ? "horizontal" : "vertical") as
+                | "horizontal"
+                | "vertical",
+            }
+          : m
+      )
     );
-    setMonitors(next);
-    persistMonitors(next);
   }
 
   function handleToggleProjectCollapsed(key: string) {
-    setCollapsedProjects((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      persistCollapsedProjects(next);
-      return next;
-    });
+    monitorStore.saveCollapsedProjects({ ...collapsedProjects, [key]: !collapsedProjects[key] });
   }
 
   function handleDeleteMonitor(id: string) {
-    setMonitors((prev) => {
-      const next = prev.filter((m) => m.id !== id);
-      persistMonitors(next);
-      return next;
-    });
-    setMonitorMap((prev) => {
-      const next = { ...prev };
-      for (const projectId of Object.keys(next)) {
-        if (next[projectId] === id) delete next[projectId];
-      }
-      persistMonitorMap(next);
-      return next;
-    });
+    monitorStore.saveMonitors(monitors.filter((m) => m.id !== id));
+    const nextMap = { ...monitorMap };
+    for (const projectId of Object.keys(nextMap)) {
+      if (nextMap[projectId] === id) delete nextMap[projectId];
+    }
+    monitorStore.saveMonitorMap(nextMap);
   }
 
   // Projects view: compute each column's (filtered) items up front so a

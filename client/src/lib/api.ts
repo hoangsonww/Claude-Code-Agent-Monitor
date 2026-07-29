@@ -407,6 +407,7 @@ import type {
   FocusHistoryEntry,
   SessionTodo,
   UpdateStatusPayload,
+  MonitorLayoutPayload,
   WebhookDelivery,
   WebhookProvider,
   WebhookTarget,
@@ -1910,6 +1911,27 @@ export const api = {
         synced: number;
         results: Array<{ id: string; ok: boolean; error?: string }>;
       }>("/remote-sources/sync-all", { method: "POST" }),
+  },
+
+  monitors: {
+    /**
+     * GET /api/monitors — the Kanban Board's global "Projects" view monitor
+     * layout, shared across every computer connected to this dashboard.
+     * @returns {@link MonitorLayoutPayload}.
+     */
+    get: () => request<MonitorLayoutPayload>("/monitors"),
+    /**
+     * PUT /api/monitors — patch any subset of the layout. Every other
+     * connected client picks up the change live over the `monitors_updated`
+     * WebSocket push, not just on next load.
+     * @param data Any subset of {@link MonitorLayoutPayload}.
+     * @returns The full resulting {@link MonitorLayoutPayload}.
+     */
+    update: (data: Partial<MonitorLayoutPayload>) =>
+      request<MonitorLayoutPayload>("/monitors", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
   },
 
   /**

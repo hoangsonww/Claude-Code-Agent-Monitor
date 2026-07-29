@@ -620,6 +620,17 @@ Because sync runs non-interactively (`ssh -o BatchMode=yes`), the connection mus
 | `rsync: command not found` / `rsync error` | `rsync` isn't installed on the remote (or local). Install it. |
 | Sync hangs then errors after ~10 min | Bounded by `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS`; usually a network/host issue — verify with **Test** (bounded by `DASHBOARD_REMOTE_TEST_TIMEOUT_MS`). |
 
+### Monitors
+
+The Kanban Board's "Projects" view monitor layout (`routes/monitors.js`, `/api/monitors`) — a single **global** config, not per-user: this app has no accounts, so every computer connected to the dashboard reads and writes the same swimlane setup, and it's persisted server-side in the singleton `dashboard_layout` row instead of per-browser `localStorage`.
+
+| Method | Path           | Description |
+| ------ | -------------- | ----------- |
+| `GET`  | `/api/monitors`| Current `{ monitors, monitorMap, collapsedProjects }` |
+| `PUT`  | `/api/monitors`| Patch any subset of the three; `400 INVALID_LAYOUT` on a malformed field |
+
+Every `PUT` broadcasts `monitors_updated` with the full resulting layout over `/ws`, so a change made from one connected computer shows up live on every other one — no reload needed.
+
 ### Projects
 
 A user-named grouping of one or more session working directories (`routes/projects.js`, `/api/projects*`). A project claims one or more folders; a folder belongs to at most one project. There is **no `project_id` column on `sessions`** — membership is derived by joining `sessions.cwd` against `project_paths.cwd` at query time, so a session created before its folder was ever mapped retroactively belongs to that project the instant the mapping is added. `GET /api/projects` aggregates `session_count`/`active_count`/`last_activity` per project (and for an `unassigned` bucket of cwds with sessions but no project) in a single grouped query rather than N+1 per-project lookups.

@@ -954,6 +954,44 @@ curl "http://localhost:4820/api/sessions?sources=local,4d1f0e2a-7b9c-4c33-8a21-9
 
 ---
 
+### Monitors
+
+The `/api/monitors` namespace persists the Kanban Board's "Projects" view **monitor layout** — the swimlane groups (mirroring physical displays) that project columns can be dragged into. It is a single **global** config, not per-user: this app has no accounts, so every computer connected to the dashboard reads and writes the same layout, and a change from one client is pushed live to every other connected client over the [`monitors_updated`](#monitors_updated) WebSocket message.
+
+**MonitorLayout shape:**
+
+```json
+{
+  "monitors": [
+    { "id": "a1b2c3", "name": "Left Screen", "collapsed": false, "orientation": "horizontal" }
+  ],
+  "monitorMap": { "proj-1": "a1b2c3" },
+  "collapsedProjects": { "proj-2": true }
+}
+```
+
+`monitors[].collapsed` and `monitors[].orientation` (`horizontal`/`vertical`) are optional — absent means expanded/horizontal. `monitorMap` maps a project id to the monitor it's assigned to; a project id absent from the map is ungrouped. `collapsedProjects` maps a project id (or `__unassigned__` for the Unassigned bucket) to its collapsed state.
+
+#### Get Monitor Layout
+
+```http
+GET /api/monitors
+```
+
+Returns the current global layout (all three fields, defaulting to `[]`/`{}`/`{}` before anything has been saved).
+
+#### Update Monitor Layout
+
+```http
+PUT /api/monitors
+```
+
+Body is any subset of `{ monitors, monitorMap, collapsedProjects }` — only the provided keys are replaced; omitted keys are left as-is. Broadcasts [`monitors_updated`](#monitors_updated) with the full resulting layout and returns it.
+
+**Error Responses (400):** `{ "error": { "code": "INVALID_LAYOUT", "message" } }` when a provided field doesn't match the shape above (e.g. `monitors` not an array, a monitor missing `id`/`name`, a `monitorMap`/`collapsedProjects` value of the wrong type, or an `orientation` outside `horizontal`/`vertical`).
+
+---
+
 ### Projects
 
 The `/api/projects/*` namespace groups sessions by the folder(s) they run from into a user-named **project** — an organizational view alongside Sessions/Agents, not a new field on sessions. A project claims one or more working directories; a folder belongs to at most one project. Membership is derived server-side by joining `sessions.cwd` against the project's mapped folders, so nothing needs to be backfilled onto existing sessions. Unlike Alerts/Webhooks, mutations here are **not** broadcast over the WebSocket — like `remote_sources` config CRUD, the client just re-fetches after each change.
@@ -1666,6 +1704,14 @@ Broadcast when a remote data source changes sync state (during/after `POST /api/
 { "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "ok", "last_sync_at": "2026-07-22T18:41:55.117Z" } }
 { "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "error", "error": "ssh exited with code 255" } }
 { "type": "remote_source.status", "data": { "id": "4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11", "status": "deleted" } }
+```
+
+#### monitors_updated
+
+Broadcast whenever `PUT /api/monitors` changes the global Kanban Board monitor layout — from any connected client/computer. Carries the full resulting layout (see [Monitors](#monitors)); the client merges it straight into `lib/monitorGroups.ts`'s store on top of the `GET /api/monitors` hydrate, so every other connected client picks up the change live, without a reload.
+
+```json
+{ "type": "monitors_updated", "data": { "monitors": [{ "id": "a1b2c3", "name": "Left Screen" }], "monitorMap": { "proj-1": "a1b2c3" }, "collapsedProjects": {} } }
 ```
 
 ### Event Flow

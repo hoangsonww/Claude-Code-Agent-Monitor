@@ -543,6 +543,34 @@ Managed through the `/api/remote-sources/*` routes; sync/status changes are broa
 
 ---
 
+### dashboard_layout
+
+Global Kanban Board "Projects" view monitor layout — a **singleton row** (`id` pinned to `1`, enforced by the `CHECK`), not per-user: this app has no accounts, so the row holds the one layout every computer connected to the dashboard reads and writes. Three JSON blobs mirror the client's `MonitorLayoutPayload` shape (camelCase in the JSON, matching the wire format — the columns themselves are snake_case).
+
+```sql
+CREATE TABLE dashboard_layout (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    monitors TEXT NOT NULL DEFAULT '[]',
+    monitor_map TEXT NOT NULL DEFAULT '{}',
+    collapsed_projects TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `id` | INTEGER | NO | Primary key, always `1` (CHECK-constrained singleton) |
+| `monitors` | TEXT | NO | JSON array of `{ id, name, collapsed?, orientation? }` — the monitor swimlanes, in display order |
+| `monitor_map` | TEXT | NO | JSON object mapping a project id to the monitor id it's assigned to; a project id absent from the map is ungrouped |
+| `collapsed_projects` | TEXT | NO | JSON object mapping a project id (or `__unassigned__`) to its collapsed state |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last edit |
+
+Managed through the `/api/monitors` route (`GET`/`PUT`); every `PUT` is broadcast over the WebSocket as `monitors_updated` so other connected clients pick up the change live. See [docs/API.md → Monitors](./API.md#monitors).
+
+---
+
 ### projects / project_paths
 
 A user-named grouping of one or more session working directories. `sessions` carries **no** `project_id` column — project membership is derived by joining `sessions.cwd` against `project_paths.cwd` at query time, so a session (existing or newly imported) retroactively belongs to a project the instant its folder is mapped, with no backfill required. A folder belongs to at most one project (`project_paths.cwd` is `UNIQUE`); a project may claim many folders.

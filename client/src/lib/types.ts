@@ -2073,6 +2073,36 @@ export interface PlanUpdatedPayload {
   items: PlanItem[];
 }
 
+/** A named "Monitor" swimlane on the Kanban Board's Projects view (mirrors a
+ *  physical display) that project columns can be dragged into. Global and
+ *  server-shared — see {@link MonitorLayoutPayload}. */
+export interface MonitorGroup {
+  id: string;
+  name: string;
+  /** True when the box is collapsed to just its header (columns hidden).
+   *  Absent/false means expanded - the long-standing default, so existing
+   *  stored monitors from before this field existed still render open. */
+  collapsed?: boolean;
+  /** Direction the box lays out its assigned project columns in. Absent
+   *  means "horizontal" - the long-standing default, so existing stored
+   *  monitors from before this field existed still render as a row. */
+  orientation?: "horizontal" | "vertical";
+}
+
+/** The Kanban Board's whole global monitor layout: GET/PUT /api/monitors's
+ *  response shape, and the payload of `monitors_updated` WebSocket pushes. */
+export interface MonitorLayoutPayload {
+  /** Monitor swimlanes, in display order. */
+  monitors: MonitorGroup[];
+  /** Project id -> the monitor it's currently assigned to. A project id
+   *  absent from the map means "ungrouped" - there is no explicit sentinel. */
+  monitorMap: Record<string, string>;
+  /** Project-column collapsed state (project id, or "__unassigned__" for the
+   *  Unassigned bucket, -> collapsed). A project id absent from the map means
+   *  "expanded". */
+  collapsedProjects: Record<string, boolean>;
+}
+
 /**
  * Envelope for every message the server pushes over the dashboard WebSocket
  * (see `server/websocket.js` `broadcast()`). Consumed by {@link eventBus} and
@@ -2091,7 +2121,8 @@ export interface WSMessage {
    *  run_stream/run_status/run_input_ack → their matching Run*Payload;
    *  cc_config_changed → CcConfigChangedPayload; alert_triggered/alert_updated
    *  → AlertEvent; workflow_upserted → WorkflowRun; plan_updated →
-   *  PlanUpdatedPayload; session_focus → SessionFocus. */
+   *  PlanUpdatedPayload; session_focus → SessionFocus; monitors_updated →
+   *  MonitorLayoutPayload. */
   type:
     | "session_created"
     | "session_updated"
@@ -2110,7 +2141,8 @@ export interface WSMessage {
     | "workflow_upserted"
     | "remote_source.status"
     | "plan_updated"
-    | "session_focus";
+    | "session_focus"
+    | "monitors_updated";
   /** The message body, whose concrete shape is selected by `type` above. */
   data:
     | Session
@@ -2127,7 +2159,8 @@ export interface WSMessage {
     | WorkflowRun
     | RemoteSourceStatusPayload
     | PlanUpdatedPayload
-    | SessionFocus;
+    | SessionFocus
+    | MonitorLayoutPayload;
   /** ISO timestamp the server broadcast this message (not necessarily the
    *  same instant the underlying event occurred). */
   timestamp: string;
