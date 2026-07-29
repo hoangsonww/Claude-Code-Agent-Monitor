@@ -61,6 +61,7 @@ import { FOCUS_KIND_CONFIG, FOCUS_KIND_SOLID } from "../lib/types";
 import type { FocusKind, FocusKindTotals, FocusReport, FocusReportSegment } from "../lib/types";
 import { idleStripesInRange } from "../lib/idleStripes";
 import { computeWindowedTotals } from "../lib/windowedTotals";
+import { ConcurrencyStatTile } from "./ConcurrencyStatTile";
 import { FocusCalendarView } from "./FocusCalendarView";
 import { StatTile } from "./StatTile";
 
@@ -133,6 +134,14 @@ export function FocusReportBody({
   const totals = windowed?.totals ?? report.totals;
   const wallClockMs = windowed?.wallClockMs ?? report.wall_clock_ms;
   const concurrencyRatio = windowed ? windowed.concurrencyRatio : report.concurrency_ratio;
+  // Optional on FocusReport (older/cached responses may lack it) - the sub
+  // line simply doesn't render when there's nothing to show.
+  const activeConcurrencyRatio = windowed
+    ? windowed.activeConcurrencyRatio
+    : (report.active_concurrency_ratio ?? null);
+  const activeWallClockMs = windowed
+    ? windowed.activeWallClockMs
+    : (report.active_wall_clock_ms ?? null);
 
   const onItemPct =
     totals.active_ms > 0 ? Math.round((totals.by_kind.item.active_ms / totals.active_ms) * 100) : 0;
@@ -140,7 +149,6 @@ export function FocusReportBody({
     report.idle_grace_seconds > 0
       ? formatMs(report.idle_grace_seconds * 1000)
       : t("report.graceDisabled");
-  const concurrencyValue = concurrencyRatio != null ? `${concurrencyRatio.toFixed(2)}x` : "—";
   const windowHours = visibleWindow
     ? Math.round((visibleWindow.endMs - visibleWindow.startMs) / 3_600_000)
     : null;
@@ -156,10 +164,12 @@ export function FocusReportBody({
           // can't answer "of how much calendar time" once sessions overlap.
           sub={t("report.ofWallClock", { total: formatMs(wallClockMs) })}
         />
-        <StatTile
-          label={concurrencyLabel ?? t("report.concurrency")}
-          value={concurrencyValue}
-          title={t("report.concurrencyTitle")}
+        <ConcurrencyStatTile
+          concurrencyRatio={concurrencyRatio}
+          activeConcurrencyRatio={activeConcurrencyRatio}
+          wallClockMs={wallClockMs}
+          activeWallClockMs={activeWallClockMs}
+          label={concurrencyLabel}
         />
         <StatTile
           label={t("report.onItem")}

@@ -212,13 +212,32 @@ describe("FocusPage", () => {
   });
 
   describe("window summary block", () => {
-    it("renders the synthesized bullets (same window params as the report fetch) with the AI note", async () => {
+    it("renders the synthesized bullets grouped by project (same window params as the report fetch) with the AI note", async () => {
       focusReportSummaryMock.mockResolvedValue({
         summary: {
-          bullets: ["Completed intake docs for five security issues.", "Packaged the IDOR fix."],
-          generated_at: "2026-07-28T12:00:00.000Z",
-          cached: true,
-          model: "haiku",
+          groups: [
+            {
+              project_id: "proj-senate",
+              project_name: "Senate",
+              wall_clock_ms: 7_200_000,
+              bullets: [
+                "Completed intake docs for five security issues.",
+                "Packaged the IDOR fix.",
+              ],
+              generated_at: "2026-07-28T12:00:00.000Z",
+              cached: true,
+              model: "haiku",
+            },
+            {
+              project_id: null,
+              project_name: null,
+              wall_clock_ms: 600_000,
+              bullets: ["Quick unmapped-folder experiment."],
+              generated_at: "2026-07-28T12:00:00.000Z",
+              cached: true,
+              model: "haiku",
+            },
+          ],
         },
       });
       renderPage();
@@ -228,6 +247,12 @@ describe("FocusPage", () => {
       expect(screen.getByText("Packaged the IDOR fix.")).toBeTruthy();
       expect(screen.getByText("What happened in this window")).toBeTruthy();
       expect(screen.getByTestId("focus-window-summary")).toBeTruthy();
+
+      // All-projects scope (the default) shows one header per group - the
+      // project's name, and the shared "Unassigned" label for the null one.
+      const groupLabels = screen.getAllByTestId("focus-summary-group-label");
+      expect(groupLabels.map((el) => el.textContent)).toEqual(["Senate", "Unassigned"]);
+      expect(screen.getByText("Quick unmapped-folder experiment.")).toBeTruthy();
       // The AI note names the model that wrote the bullets (formatted with
       // the Claude prefix - "haiku" from the response renders "Claude Haiku")
       // and, for this cached response, says so instead of a generation time.
@@ -262,13 +287,20 @@ describe("FocusPage", () => {
       ).toBeTruthy();
     });
 
-    it("shows how long generation took once a freshly-generated summary lands", async () => {
+    it("shows how long generation took once a freshly-generated summary lands, and hides group headers in single-project scope", async () => {
       focusReportSummaryMock.mockResolvedValue({
         summary: {
-          bullets: ["Fresh bullets."],
-          generated_at: "2026-07-28T12:00:00.000Z",
-          cached: false,
-          model: "sonnet",
+          groups: [
+            {
+              project_id: "proj-game",
+              project_name: "Game",
+              wall_clock_ms: 3_600_000,
+              bullets: ["Fresh bullets."],
+              generated_at: "2026-07-28T12:00:00.000Z",
+              cached: false,
+              model: "sonnet",
+            },
+          ],
         },
       });
       renderPage();
@@ -278,6 +310,13 @@ describe("FocusPage", () => {
       // frozen elapsed figure is 0s.
       expect(screen.getByText(/· Generated in 0s/)).toBeTruthy();
       expect(screen.queryByText(/Served from cache/)).toBeNull();
+
+      // Scoping to the one project hides the group header (the page context
+      // already says which project you're looking at).
+      fireEvent.click(screen.getByRole("button", { name: "Game" }));
+      await waitFor(() => expect(focusReportSummaryMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.getByText("Fresh bullets.")).toBeTruthy());
+      expect(screen.queryByTestId("focus-summary-group-label")).toBeNull();
     });
 
     it("hides the block entirely when the summary is null (unavailable) or the fetch fails", async () => {

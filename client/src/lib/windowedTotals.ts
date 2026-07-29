@@ -42,6 +42,14 @@ export interface WindowedTotals {
   totals: FocusKindTotals;
   wallClockMs: number;
   concurrencyRatio: number | null;
+  /** Union of the window's ACTIVE chunk time across all sessions — the
+   *  windowed counterpart to the server's `active_wall_clock_ms` (chunk-
+   *  derived here, same as this module's `active_ms`, so the pair stays
+   *  internally consistent — see file header). */
+  activeWallClockMs: number;
+  /** `totals.active_ms / activeWallClockMs` — parallelism while at least one
+   *  session was actually active; `null` when there was no active time. */
+  activeConcurrencyRatio: number | null;
 }
 
 function emptyKindTotals(): FocusKindTotals {
@@ -82,16 +90,27 @@ export function clipSegment(seg: FocusReportSegment, startMs: number, endMs: num
 
   const wallMs = clipEnd - clipStart;
   if (!seg.chunks || seg.chunks.length === 0) {
-    return { startMs: clipStart, endMs: clipEnd, wall_ms: wallMs, active_ms: wallMs, idle_ms: 0 };
+    return {
+      startMs: clipStart,
+      endMs: clipEnd,
+      wall_ms: wallMs,
+      active_ms: wallMs,
+      idle_ms: 0,
+      activeIntervals: [[clipStart, clipEnd]] as Array<[number, number]>,
+    };
   }
   let activeMs = 0;
+  const activeIntervals: Array<[number, number]> = [];
   for (const chunk of seg.chunks) {
     if (!chunk.active) continue;
     const chunkStart = parseDate(chunk.start).getTime();
     const chunkEnd = parseDate(chunk.end).getTime();
     const visStart = Math.max(chunkStart, clipStart);
     const visEnd = Math.min(chunkEnd, clipEnd);
-    if (visEnd > visStart) activeMs += visEnd - visStart;
+    if (visEnd > visStart) {
+      activeMs += visEnd - visStart;
+      activeIntervals.push([visStart, visEnd]);
+    }
   }
   return {
     startMs: clipStart,
@@ -99,6 +118,7 @@ export function clipSegment(seg: FocusReportSegment, startMs: number, endMs: num
     wall_ms: wallMs,
     active_ms: activeMs,
     idle_ms: wallMs - activeMs,
+    activeIntervals,
   };
 }
 
@@ -139,6 +159,7 @@ export function computeWindowedTotals(
 ): WindowedTotals {
   const totals = emptyKindTotals();
   const sessionSpans: Array<[number, number]> = [];
+  const activeSpans: Array<[number, number]> = [];
 
   for (const session of report.sessions) {
     let sessionStart = Infinity;
@@ -147,6 +168,7 @@ export function computeWindowedTotals(
       const clipped = clipSegment(seg, startMs, endMs);
       if (!clipped) continue;
       addToTotals(totals, { kind: seg.kind, ...clipped });
+      activeSpans.push(...clipped.activeIntervals);
       sessionStart = Math.min(sessionStart, clipped.startMs);
       sessionEnd = Math.max(sessionEnd, clipped.endMs);
     }
@@ -155,5 +177,8 @@ export function computeWindowedTotals(
 
   const wallClockMs = mergedDurationMs(sessionSpans);
   const concurrencyRatio = wallClockMs > 0 ? totals.active_ms / wallClockMs : null;
-  return { totals, wallClockMs, concurrencyRatio };
+  const activeWallClockMs = mergedDurationMs(activeSpans);
+  const activeConcurrencyRatio =
+    activeWallClockMs > 0 ? totals.active_ms / activeWallClockMs : null;
+  return { totals, wallClockMs, concurrencyRatio, activeWallClockMs, activeConcurrencyRatio };
 }

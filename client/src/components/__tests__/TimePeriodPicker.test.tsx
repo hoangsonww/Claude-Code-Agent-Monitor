@@ -5,7 +5,10 @@
  * test's authoring — build task 12) — the board's own day-nav/custom-range
  * selector, visually mirroring FocusCalendarView's internal prev/today/next
  * row but triggering a server fetch rather than re-slicing already-fetched
- * data. Pure/controlled: `value`/`onChange` only, no fetching.
+ * data. Pure/controlled: `value`/`onChange` only, no fetching. Also covers
+ * day mode's jump-to-date affordance: the clickable weekday/date label's
+ * hidden native date input emits the picked day directly (staying in day
+ * mode), and a cleared/malformed value no-ops instead of emitting garbage.
  *
  * Expected values are always derived through `calendarWindow.ts`'s shared
  * `startOfDay`/`DAY_MS` (build task 6), never a hand-derived literal — this
@@ -78,6 +81,35 @@ describe("TimePeriodPicker", () => {
     }
   });
 
+  it("jump-to-date: picking a date via day mode's label input emits that day directly, staying in day mode", () => {
+    const date = startOfDay(new Date(2026, 2, 10)); // 2026-03-10 local
+    const { onChange } = renderPicker({ mode: "day", date });
+
+    // The clickable label hosts an invisible native date input; changing it
+    // (what the native calendar popup does) jumps straight to that day.
+    const jumpInput = screen
+      .getByTitle("Jump to a date")
+      .parentElement!.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(jumpInput.value).toBe("2026-03-10"); // prefilled with the current day
+
+    fireEvent.change(jumpInput, { target: { value: "2026-01-05" } });
+    expect(onChange).toHaveBeenCalledWith({
+      mode: "day",
+      date: startOfDay(new Date(2026, 0, 5)),
+    });
+  });
+
+  it("jump-to-date: a cleared/malformed date input is a no-op, never a garbage date", () => {
+    const date = startOfDay(new Date(2026, 2, 10));
+    const { onChange } = renderPicker({ mode: "day", date });
+
+    const jumpInput = screen
+      .getByTitle("Jump to a date")
+      .parentElement!.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(jumpInput, { target: { value: "" } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("switching to range mode emits {mode:'range', start, end}", () => {
     const { onChange } = renderPicker({ mode: "day", date: startOfDay(new Date()) });
 
@@ -148,7 +180,8 @@ describe("TimePeriodPicker", () => {
     // onChange call) or handle it some other explicit way, it must never
     // propagate a nonsensical century-off date like 1900-01-01 as though the
     // user had actually selected it.
-    const emittedGarbageDate = onChange.mock.calls.some(([next]: [TimePeriodValue]) => {
+    const emittedGarbageDate = onChange.mock.calls.some((call) => {
+      const next = call[0] as TimePeriodValue;
       if (next.mode !== "range") return false;
       return next.start.getFullYear() < 2000;
     });

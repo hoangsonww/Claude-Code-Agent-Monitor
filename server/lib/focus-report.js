@@ -65,7 +65,11 @@
  * session — agent-labor invested, inflates when sessions run concurrently)
  * from WALL-CLOCK time (the union of each session's own span, via
  * {@link mergeIntervals} — the calendar time at least one session was
- * running). See {@link buildProjectFocusReport} for the full rationale.
+ * running), and additionally from ACTIVE WALL-CLOCK time
+ * (`active_wall_clock_ms` — the union of every session's grace-credited
+ * active intervals, the calendar time at least one session was actually
+ * doing something, which an open-but-silent session does NOT extend). See
+ * {@link buildProjectFocusReport} for the full rationale.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -179,16 +183,26 @@ function buildFocusSegments(dbModule, sessionId, endAt) {
 }
 
 /**
- * Sums active/idle milliseconds within [start, end) from a sorted list of
+ * Computes the ACTIVE intervals within [start, end) from a sorted list of
  * event timestamps (ms epoch) that fall anywhere in the session's timeline —
  * callers pass the FULL per-session list once and this slices per segment,
  * rather than re-querying per segment. Bookends the window with its own
  * start/end so a segment that opens or closes mid-silence is graced from its
  * own edges too, not just between two real events.
+ *
+ * Each gap between consecutive points is credited as active from the gap's
+ * start for at most the grace window, so the returned `[startMs, endMs]`
+ * pairs sum EXACTLY to the segment's `active_ms` — they're the same credit,
+ * just kept as positioned intervals instead of collapsed to a total. That
+ * positioning is what lets {@link buildProjectFocusReport} union them across
+ * sessions into `active_wall_clock_ms` without ever disagreeing with the
+ * `active_ms` figures it sits under. A disabled grace (`<= 0`) makes the
+ * whole window one active interval, matching the "100% of wall-clock counts
+ * as active" contract of DASHBOARD_FOCUS_IDLE_GRACE_SECONDS <= 0.
  */
-function activeIdleMs(allTimestampsMs, startMs, endMs, grace) {
-  if (endMs <= startMs) return { active_ms: 0, idle_ms: 0 };
-  if (grace <= 0) return { active_ms: endMs - startMs, idle_ms: 0 };
+function activeIntervals(allTimestampsMs, startMs, endMs, grace) {
+  if (endMs <= startMs) return [];
+  if (grace <= 0) return [[startMs, endMs]];
 
   // Binary-search-free: allTimestampsMs is short enough per session (hook
   // volume, not raw transcript volume) that a linear filter is simpler and
@@ -197,13 +211,13 @@ function activeIdleMs(allTimestampsMs, startMs, endMs, grace) {
   const inWindow = allTimestampsMs.filter((t) => t > startMs && t < endMs);
   const points = [startMs, ...inWindow, endMs];
 
-  let activeMs = 0;
+  const intervals = [];
   for (let i = 0; i < points.length - 1; i++) {
     const gap = points[i + 1] - points[i];
     if (gap <= 0) continue;
-    activeMs += Math.min(gap, grace);
+    intervals.push([points[i], points[i] + Math.min(gap, grace)]);
   }
-  return { active_ms: activeMs, idle_ms: endMs - startMs - activeMs };
+  return intervals;
 }
 
 /**
@@ -415,21 +429,26 @@ function buildSessionFocusReport(dbModule, session, windowStartMs, windowEndMs) 
   // session with heavy subagent/Workflow-tool activity bulk-ingests many
   // events after the fact (server/lib/workflow-ingest.js), landing them at
   // whatever row id was next regardless of their own `created_at`. Both
-  // activeIdleMs() and buildActivityChunks() require a chronologically
-  // sorted list (activeIdleMs's own docstring says so) — without this sort,
-  // an out-of-order run of timestamps can make its gap-sum walk cross the
-  // same span more than once, inflating active_ms past wall_ms (and driving
-  // idle_ms negative). Sorting numerically here, once, guarantees the
-  // precondition regardless of how the row happened to land in the table.
+  // activeIntervals() and buildActivityChunks() require a chronologically
+  // sorted list (activeIntervals's own docstring says so) — without this
+  // sort, an out-of-order run of timestamps can make its gap-credit walk
+  // cross the same span more than once, inflating active_ms past wall_ms
+  // (and driving idle_ms negative). Sorting numerically here, once,
+  // guarantees the precondition regardless of how the row landed in the
+  // table.
   const allTimestampsMs = allEvents
     .map((r) => new Date(r.created_at).getTime())
     .sort((a, b) => a - b);
   const grace = graceMs();
 
+  const sessionActiveIntervalsMs = [];
   const enriched = segments.map((seg) => {
     const startMs = new Date(seg.start).getTime();
     const endMs = new Date(seg.end).getTime();
-    const { active_ms, idle_ms } = activeIdleMs(allTimestampsMs, startMs, endMs, grace);
+    const intervals = activeIntervals(allTimestampsMs, startMs, endMs, grace);
+    sessionActiveIntervalsMs.push(...intervals);
+    const active_ms = intervals.reduce((sum, [a, b]) => sum + (b - a), 0);
+    const idle_ms = Math.max(0, endMs - startMs) - active_ms;
     return {
       kind: seg.kind,
       item_number: seg.item_number,
@@ -445,13 +464,21 @@ function buildSessionFocusReport(dbModule, session, windowStartMs, windowEndMs) 
     };
   });
 
-  return {
+  const report = {
     session_id: session.id,
     name: session.name,
     cwd: session.cwd,
     ended_at: session.ended_at || null,
     segments: enriched,
   };
+  // Positioned active intervals for buildProjectFocusReport's
+  // active-wall-clock union. Non-enumerable ON PURPOSE: JSON.stringify (and
+  // object spread) skip it, so API responses that serialize session reports
+  // stay byte-identical — this is internal plumbing between the two
+  // builders, not response surface, and it can be large (one interval per
+  // event gap).
+  Object.defineProperty(report, "activeIntervalsMs", { value: sessionActiveIntervalsMs });
+  return report;
 }
 
 /** Empty-but-well-shaped totals, so a project with no tracked focus time
@@ -521,6 +548,20 @@ function mergeIntervals(intervals) {
  * parallelism" instead of looking like the numbers don't add up; it's
  * `null` when there's no wall-clock time to divide by.
  *
+ * `wall_clock_ms` counts a session's whole span — including stretches where
+ * every open session sat silent (user asleep, sessions left open) — so
+ * `concurrency_ratio` answers "how parallel across the calendar time
+ * sessions were OPEN", diluting toward 0 the longer sessions idle.
+ * `active_wall_clock_ms` is the second denominator: the union of every
+ * session's grace-credited ACTIVE intervals (the exact per-gap credit
+ * `active_ms` sums — see {@link activeIntervals}), i.e. the calendar time at
+ * least one session was actually doing something. `active_concurrency_ratio`
+ * (effort ÷ active wall-clock) then reads "how parallel while work was
+ * actually happening" — always >= 1 when non-null, since every active
+ * millisecond in the numerator lies inside some interval of the denominator
+ * and a union can only be smaller than the sum. Both ratios are reported;
+ * they answer different questions and neither replaces the other.
+ *
  * `windowStartMs`/`windowEndMs` (both optional, each independently) are
  * threaded straight through to {@link buildSessionFocusReport}, which clips
  * every session's segments to that window before any of the totals/rollup/
@@ -574,6 +615,16 @@ function buildProjectFocusReport(dbModule, sessions, windowStartMs, windowEndMs)
   const { totalMs: wallClockMs } = mergeIntervals(sessionSpans);
   const concurrencyRatio = wallClockMs > 0 ? totals.active_ms / wallClockMs : null;
 
+  // Union of every session's positioned active intervals (attached by
+  // buildSessionFocusReport as a non-enumerable property — internal plumbing,
+  // never serialized). Same mergeIntervals math as the span-level wall clock,
+  // just over "actually doing something" time instead of "session open" time.
+  const { totalMs: activeWallClockMs } = mergeIntervals(
+    sessionReports.flatMap((report) => report.activeIntervalsMs ?? [])
+  );
+  const activeConcurrencyRatio =
+    activeWallClockMs > 0 ? totals.active_ms / activeWallClockMs : null;
+
   return {
     sessions: sessionReports,
     items,
@@ -581,6 +632,8 @@ function buildProjectFocusReport(dbModule, sessions, windowStartMs, windowEndMs)
     idle_grace_seconds: Math.round(graceMs() / 1000),
     wall_clock_ms: wallClockMs,
     concurrency_ratio: concurrencyRatio,
+    active_wall_clock_ms: activeWallClockMs,
+    active_concurrency_ratio: activeConcurrencyRatio,
   };
 }
 

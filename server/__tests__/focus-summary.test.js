@@ -459,15 +459,69 @@ describe("GET /api/focus-report/summary", () => {
     assert.equal(res.body.summary, null);
   });
 
-  it("returns synthesized bullets for a real window", async () => {
+  it("returns synthesized bullets for a real window as one Unassigned group (unmapped cwd)", async () => {
     __injectSpawnForTest(
       fakeSpawn({ stdout: envelope({ bullets: ["Shipped the export feature.", "Fixed auth."] }) })
     );
     seedSession("sum-s2", "/tmp/sum-repo", dayIso(1), dayIso(2));
     const res = await fetch(`/api/focus-report/summary?from=${dayIso(0)}&to=${dayIso(23)}`);
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.summary.bullets, ["Shipped the export feature.", "Fixed auth."]);
-    assert.equal(res.body.summary.cached, false);
-    assert.equal(typeof res.body.summary.generated_at, "string");
+    assert.equal(res.body.summary.groups.length, 1);
+    const group = res.body.summary.groups[0];
+    assert.equal(group.project_id, null); // /tmp/sum-repo is mapped to no project
+    assert.equal(group.project_name, null);
+    assert.deepEqual(group.bullets, ["Shipped the export feature.", "Fixed auth."]);
+    assert.equal(group.cached, false);
+    assert.equal(typeof group.generated_at, "string");
+    assert.equal(typeof group.wall_clock_ms, "number");
+  });
+
+  it("groups the all-projects scope by project, largest wall-clock share first", async () => {
+    // Map one cwd to a real project; leave the other unmapped.
+    const created = await fetch("/api/projects", {
+      method: "POST",
+      body: { name: "Grouped Project", cwds: ["/tmp/sum-repo-grouped"] },
+    });
+    assert.equal(created.status, 201);
+    const projectId = created.body.project.id;
+
+    // The mapped project's session spans 4h and STARTS FIRST (partition
+    // order follows started_at ASC, which is what maps each partition to
+    // its queued spawn response deterministically); the unassigned one
+    // spans 1h - the project group must also sort first in the response.
+    seedSession("sum-g1", "/tmp/sum-repo-grouped", dayIso(3), dayIso(7));
+    seedSession("sum-g2", "/tmp/sum-repo-other", dayIso(4), dayIso(5));
+    const seq = fakeSpawnSequence([
+      { stdout: envelope({ bullets: ["Grouped project story."] }) },
+      { stdout: envelope({ bullets: ["Unassigned story."] }) },
+    ]);
+    __injectSpawnForTest(seq.impl);
+
+    // Window starts at 3h so the other tests' /tmp/sum-repo sessions
+    // (spanning 1h-2h) fall fully outside it - only the two groups above
+    // exist here.
+    const res = await fetch(`/api/focus-report/summary?from=${dayIso(3)}&to=${dayIso(8)}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.summary.groups.length, 2);
+    const [first, second] = res.body.summary.groups;
+    assert.equal(first.project_id, projectId);
+    assert.equal(first.project_name, "Grouped Project");
+    assert.deepEqual(first.bullets, ["Grouped project story."]);
+    assert.equal(second.project_id, null);
+    assert.deepEqual(second.bullets, ["Unassigned story."]);
+    assert.ok(first.wall_clock_ms > second.wall_clock_ms);
+
+    // A directly project-scoped request reuses the group's cache entry -
+    // zero further spawns.
+    __injectSpawnForTest(() => {
+      throw new Error("no LLM call expected - the group summary is cached");
+    });
+    const scoped = await fetch(
+      `/api/focus-report/summary?project_id=${projectId}&from=${dayIso(3)}&to=${dayIso(8)}`
+    );
+    assert.equal(scoped.body.summary.groups.length, 1);
+    assert.deepEqual(scoped.body.summary.groups[0].bullets, ["Grouped project story."]);
+    assert.equal(scoped.body.summary.groups[0].cached, true);
+    assert.equal(scoped.body.summary.groups[0].project_name, "Grouped Project");
   });
 });

@@ -9,7 +9,11 @@
  * weekday + date label (e.g. "Monday, 7/1/2026") after a thin `w-px h-4
  * bg-border` divider (the same separator token used by `HourWindowZoomBar`/
  * `Sessions.tsx`) following the nav buttons, via `formatWeekdayDate`, since
- * the buttons alone don't show which day is selected. Pure/controlled — no
+ * the buttons alone don't show which day is selected. The label is itself a
+ * button: clicking it opens a native date picker (an invisible
+ * `<input type="date">` popped via `showPicker()`) to jump STRAIGHT to any
+ * date without arrowing day by day — a picked date stays in day mode, it
+ * never switches to range mode. Pure/controlled — no
  * fetching, no knowledge
  * of `FocusReport` — mirroring `FocusCalendarView`'s own "no fetch" contract;
  * the board owns turning this value into `from`/`to` and re-fetching.
@@ -25,6 +29,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DAY_MS, startOfDay } from "../lib/calendarWindow";
@@ -70,6 +75,8 @@ function parseDateInputValue(raw: string): Date | null {
  *  (prev/today/next, default) or a custom date range. See file header. */
 export function TimePeriodPicker({ value, onChange }: TimePeriodPickerProps) {
   const { t } = useTranslation("plan");
+  // Hosts the native calendar popup behind day mode's clickable date label.
+  const dayJumpInputRef = useRef<HTMLInputElement>(null);
 
   if (value.mode === "range") {
     return (
@@ -152,8 +159,38 @@ export function TimePeriodPicker({ value, onChange }: TimePeriodPickerProps) {
         {t("report.board.customRange")}
       </button>
       <span aria-hidden="true" className="w-px h-4 bg-border flex-shrink-0 mx-1" />
-      <span className="text-xs font-medium text-gray-200 whitespace-nowrap">
-        {formatWeekdayDate(value.date)}
+      <span className="relative inline-flex">
+        <button
+          type="button"
+          title={t("report.board.jumpToDate")}
+          onClick={() => {
+            const input = dayJumpInputRef.current;
+            if (!input) return;
+            // showPicker anchors the native calendar popup at the input's
+            // position (Chrome/Electron); older engines fall back to click().
+            if (typeof input.showPicker === "function") input.showPicker();
+            else input.click();
+          }}
+          className="text-xs font-medium text-gray-200 whitespace-nowrap hover:text-white underline decoration-dotted decoration-gray-600 underline-offset-4 hover:decoration-gray-300 transition-colors"
+        >
+          {formatWeekdayDate(value.date)}
+        </button>
+        {/* Invisible, non-interactive date input that only exists to host the
+            native calendar popup the label-button opens; a picked date jumps
+            straight there. Cleared/malformed input no-ops like range mode. */}
+        <input
+          ref={dayJumpInputRef}
+          type="date"
+          tabIndex={-1}
+          aria-hidden="true"
+          value={toDateInputValue(value.date)}
+          onChange={(e) => {
+            const parsed = parseDateInputValue(e.target.value);
+            if (!parsed) return; // empty/malformed: keep the current day
+            onChange({ mode: "day", date: parsed });
+          }}
+          className="absolute inset-0 h-full w-full opacity-0 pointer-events-none"
+        />
       </span>
     </div>
   );

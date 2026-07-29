@@ -20,6 +20,7 @@ import { FocusReportModal } from "../FocusReportModal";
 // "one rendering-chrome implementation, two consumers" guarantee (T1's
 // split parity check on the new route is the server-side half).
 import { FocusReportBody } from "../FocusReportBody";
+import { CONCURRENCY_PRIMARY_KEY } from "../ConcurrencyStatTile";
 import type { FocusReport } from "../../lib/types";
 
 const focusReportMock = vi.fn();
@@ -127,6 +128,9 @@ function renderModal(onClose = vi.fn()) {
 describe("FocusReportModal", () => {
   beforeEach(() => {
     focusReportMock.mockReset();
+    // The Concurrency tile's primary-ratio choice persists across mounts by
+    // design - reset it so each test starts from the "open" default.
+    localStorage.removeItem(CONCURRENCY_PRIMARY_KEY);
   });
 
   it("fetches the report scoped to the given project id and shows a loading state first", async () => {
@@ -186,12 +190,75 @@ describe("FocusReportModal", () => {
     expect(within(activeTile).getByText("of 25m 0s wall-clock")).toBeInTheDocument();
   });
 
+  it("shows the while-active concurrency sub-line when the report carries active_concurrency_ratio, and omits it when absent", async () => {
+    focusReportMock.mockResolvedValue(
+      makeReport({
+        wall_clock_ms: 50 * 60_000,
+        concurrency_ratio: 0.6, // diluted by open-but-idle stretches...
+        active_wall_clock_ms: 15 * 60_000,
+        active_concurrency_ratio: 2, // ...while the active-window ratio isn't
+      })
+    );
+    const { unmount } = renderModal();
+    await screen.findByText("Per-session breakdown");
+    // .closest("div") is the label row (label + swap button); its parent is
+    // the tile itself, which holds the value and sub-line.
+    const concurrencyTile = screen.getByText("Concurrency").closest("div")!
+      .parentElement as HTMLElement;
+    expect(within(concurrencyTile).getByText("2.00x while active")).toBeInTheDocument();
+    unmount();
+
+    // A report without the (optional) field - e.g. an older server - renders
+    // the tile exactly as before, no sub-line.
+    focusReportMock.mockResolvedValue(makeReport());
+    renderModal();
+    await screen.findByText("Per-session breakdown");
+    expect(screen.queryByText(/while active/)).not.toBeInTheDocument();
+  });
+
+  it("swaps which concurrency ratio is primary via the tile's toggle, persists the choice, and restores it on a fresh mount", async () => {
+    const report = makeReport({
+      wall_clock_ms: 50 * 60_000,
+      concurrency_ratio: 0.6,
+      active_wall_clock_ms: 15 * 60_000,
+      active_concurrency_ratio: 2,
+    });
+    focusReportMock.mockResolvedValue(report);
+    const { unmount } = renderModal();
+    await screen.findByText("Per-session breakdown");
+
+    // Default: open-session ratio is primary - shown over ITS total (the
+    // 50m open-session wall clock) - with the active ratio as the sub-line.
+    const tile = () => screen.getByText("Concurrency").closest("div")!.parentElement as HTMLElement;
+    expect(within(tile()).getByText("0.60x")).toBeInTheDocument();
+    expect(within(tile()).getByText("of 50m 0s open-session time")).toBeInTheDocument();
+    expect(within(tile()).getByText("2.00x while active")).toBeInTheDocument();
+
+    // Toggle: the two swap places - the primary's total swaps with them (now
+    // the 15m active wall clock) - the tooltip describes the active ratio,
+    // and the choice lands in localStorage.
+    fireEvent.click(screen.getByLabelText("Swap primary concurrency ratio"));
+    expect(within(tile()).getByText("2.00x")).toBeInTheDocument();
+    expect(within(tile()).getByText("of 15m 0s active time")).toBeInTheDocument();
+    expect(within(tile()).getByText("0.60x across open sessions")).toBeInTheDocument();
+    expect(tile().getAttribute("title")).toMatch(/active wall-clock/);
+    expect(localStorage.getItem(CONCURRENCY_PRIMARY_KEY)).toBe("active");
+    unmount();
+
+    // A fresh mount (same as a page refresh) restores the inverted choice.
+    renderModal();
+    await screen.findByText("Per-session breakdown");
+    expect(within(tile()).getByText("2.00x")).toBeInTheDocument();
+    expect(within(tile()).getByText("0.60x across open sessions")).toBeInTheDocument();
+  });
+
   it("falls back to a dash when there's no wall-clock time for a concurrency ratio", async () => {
     focusReportMock.mockResolvedValue(makeReport({ wall_clock_ms: 0, concurrency_ratio: null }));
     renderModal();
     await screen.findByText("Per-session breakdown");
 
-    const concurrencyTile = screen.getByText("Concurrency").closest("div") as HTMLElement;
+    const concurrencyTile = screen.getByText("Concurrency").closest("div")!
+      .parentElement as HTMLElement;
     expect(within(concurrencyTile).getByText("—")).toBeInTheDocument();
   });
 

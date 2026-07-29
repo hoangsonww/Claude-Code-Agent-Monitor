@@ -1209,7 +1209,7 @@ GET /api/projects/:id/focus-report
 
 A project-scoped **focus-time report**: how long each of the project's sessions spent on a declared plan item versus a plain detour, a feature aside, or a bug fix — reconstructed from existing `Focus` event history (`server/lib/focus-report.js`), not a new capture mechanism. **404** for an unknown project id.
 
-Two independent replays drive it. `buildFocusSegments` walks one session's ordered `Focus` events into timestamped segments — a detour's `item_number` is the plan item that was current when the detour *started* (its "prior_item", the same concept the Plan view buckets detours under), not necessarily the item current when it ends. `activeIdleMs` walks every event for the session (any hook, any agent) and, for each segment, discounts gaps longer than the `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` grace window (default `300` seconds; `≤0` disables discounting) down to the grace window's worth of "active" time — a gap under the window (the normal think-and-reply rhythm) always counts in full. This is an event-gap proxy rather than a replay of the Waiting/Active status machine: a still-working subagent keeps emitting events, so its time stays counted without needing to duplicate `hooks.js`'s guarded fleet-drain logic.
+Two independent replays drive it. `buildFocusSegments` walks one session's ordered `Focus` events into timestamped segments — a detour's `item_number` is the plan item that was current when the detour *started* (its "prior_item", the same concept the Plan view buckets detours under), not necessarily the item current when it ends. `activeIntervals` walks every event for the session (any hook, any agent) and, for each segment, credits each gap as active from its start for at most the `DASHBOARD_FOCUS_IDLE_GRACE_SECONDS` grace window (default `300` seconds; `≤0` disables discounting) — a gap under the window (the normal think-and-reply rhythm) always counts in full; the positioned intervals sum to the segment's `active_ms` and are also unioned across sessions into the project-level `active_wall_clock_ms` (below). This is an event-gap proxy rather than a replay of the Waiting/Active status machine: a still-working subagent keeps emitting events, so its time stays counted without needing to duplicate `hooks.js`'s guarded fleet-drain logic.
 
 A session with **no** declared `Focus` history at all falls back to the background **focus inference** classifier's verdict (`server/lib/focus-inference.js`, the `focus_inferences` table): one whole-session segment flagged `"inferred": true`, attributed to a plan item (resolved via the item's stable id, so a plan reorder can't mis-bucket it) or to an inferred detour with a short generated title. Declared history always wins — inference is consulted only when there are zero declared segments. When there is neither declared history nor a usable inference yet — never classified (most commonly a currently-running session that hasn't gone quiet long enough, or ended, for the background classifier to have picked it up), the session's cwd has no plan, or the classifier's own verdict was `unclassified` — the session still gets one whole-session segment, `"kind": "none"`, rather than being left out: `"none"` is a report-only sentinel (never a value a declaration or the classifier itself can produce) with `inferred: false`, `item_number: null`, and `label: null`. It's excluded from every `by_kind` bucket below and from the `items` rollup (no `item_number` to bucket under), but still counts toward the aggregate `totals.wall_ms`/`active_ms`/`idle_ms` and the project's `wall_clock_ms`/`concurrency_ratio`. Every segment carries the `inferred` flag (`false` for declared and `"none"` segments) and an `inferred_reason` string — the classifier's own one-sentence justification for the attribution (`null` for declared/`"none"` segments, or when the classifier recorded none).
 
@@ -1273,11 +1273,15 @@ Every segment also carries `chunks`: its span sliced into fixed 10-minute window
   },
   "idle_grace_seconds": 300,
   "wall_clock_ms": 1800000,
-  "concurrency_ratio": 1
+  "concurrency_ratio": 1,
+  "active_wall_clock_ms": 1800000,
+  "active_concurrency_ratio": 1
 }
 ```
 
 `totals.active_ms` is **effort** time: the plain sum across every session, which inflates when sessions run concurrently (three sessions active for the same 30 minutes sum to 90 minutes of effort). `wall_clock_ms` is the calendar-time counterpart: the union of each session's own span (its first segment's start to its last segment's end), merged via `mergeIntervals()` in `server/lib/focus-report.js` — three sessions overlapping for 30 minutes merge to 30 minutes of wall-clock coverage, not 90. Concurrency is measured at the session level, not per-segment or per-item. `concurrency_ratio` is `totals.active_ms / wall_clock_ms` — `1` means no overlap, `2` means on average two sessions' worth of effort landed in every hour of wall-clock time; it's `null` when `wall_clock_ms` is `0` (an empty report has nothing to divide by).
+
+Because `wall_clock_ms` spans each session's whole life, an **open-but-silent** session (left running overnight, say) keeps extending it — and dilutes `concurrency_ratio` toward `0`. `active_wall_clock_ms` is the second denominator for exactly that case: the union of every session's grace-credited **active intervals** (the same per-gap credit `active_ms` sums, kept positioned instead of collapsed — `activeIntervals` above), i.e. the calendar time at least one session was actually doing something. `active_concurrency_ratio` (`totals.active_ms / active_wall_clock_ms`) then reads "how parallel was the work *while work was happening*" — it's always `≥ 1` when non-null (every active millisecond lies inside the denominator's union), and `null` when `active_wall_clock_ms` is `0`. The two ratios answer different questions: `concurrency_ratio` measures parallelism across the time sessions were *open*; `active_concurrency_ratio` measures it across the time they were *active*.
 
 Sessions that never declared any focus surface through the inference fallback above when a usable verdict exists, and through a `"none"`-kind segment otherwise (see above) — no session is ever omitted from `sessions` purely for lacking a declaration or inference. `items` only includes segments with a non-null `item_number`; a detour with no base item, or a `"none"` segment, still counts toward `totals` but not toward any per-item rollup.
 
@@ -1289,9 +1293,9 @@ Each session entry carries `ended_at` (`null` while still active/waiting) straig
 GET /api/focus-report?project_id=&session_id=&sources=&from=&to=
 ```
 
-A cross-project **aggregate** focus-time report, powering the standalone Calendar board (`/focus-calendar` in the client) — as opposed to `GET /api/projects/:id/focus-report` above, which is single-project and has no time window. This route (`server/routes/focus-report.js`) is a thin session-selection + explicit time-window layer in front of the same `buildProjectFocusReport`/`buildSessionFocusReport` (`server/lib/focus-report.js`) — see the section above for the shared response fields (`sessions`/`items`/`totals`/`idle_grace_seconds`/`wall_clock_ms`/`concurrency_ratio`) and their full semantics; this section documents only what's different.
+A cross-project **aggregate** focus-time report, powering the standalone Calendar board (`/focus-calendar` in the client) — as opposed to `GET /api/projects/:id/focus-report` above, which is single-project and has no time window. This route (`server/routes/focus-report.js`) is a thin session-selection + explicit time-window layer in front of the same `buildProjectFocusReport`/`buildSessionFocusReport` (`server/lib/focus-report.js`) — see the section above for the shared response fields (`sessions`/`items`/`totals`/`idle_grace_seconds`/`wall_clock_ms`/`concurrency_ratio`/`active_wall_clock_ms`/`active_concurrency_ratio`) and their full semantics; this section documents only what's different.
 
-`from`/`to` bound more than just which sessions are *selected* — every returned segment is also **clipped** to `[from, to)` before any of `wall_ms`/`active_ms`/`idle_ms`/`chunks`/`wall_clock_ms`/`concurrency_ratio` are computed (`clipSegmentToWindow` in `server/lib/focus-report.js`). A session merely *overlapping* the window — e.g. one still running from a prior day, or spanning midnight into it — only contributes the slice of its time that actually falls inside the window, not its full real span. This differs from `GET /api/projects/:id/focus-report`, which has no window at all and always reports every session's complete history.
+`from`/`to` bound more than just which sessions are *selected* — every returned segment is also **clipped** to `[from, to)` before any of `wall_ms`/`active_ms`/`idle_ms`/`chunks`/`wall_clock_ms`/`concurrency_ratio`/`active_wall_clock_ms`/`active_concurrency_ratio` are computed (`clipSegmentToWindow` in `server/lib/focus-report.js`). A session merely *overlapping* the window — e.g. one still running from a prior day, or spanning midnight into it — only contributes the slice of its time that actually falls inside the window, not its full real span. This differs from `GET /api/projects/:id/focus-report`, which has no window at all and always reports every session's complete history.
 
 **Query parameters:**
 
@@ -1323,7 +1327,9 @@ This is deliberate, not a placeholder for a future default: the client (the Cale
   "totals": { "...": "..." },
   "idle_grace_seconds": 300,
   "wall_clock_ms": 0,
-  "concurrency_ratio": null
+  "concurrency_ratio": null,
+  "active_wall_clock_ms": 0,
+  "active_concurrency_ratio": null
 }
 ```
 
@@ -1331,27 +1337,45 @@ This is deliberate, not a placeholder for a future default: the client (the Cale
 GET /api/focus-report/summary?project_id=&session_id=&sources=&from=&to=
 ```
 
-A stakeholder-readable **window summary**: 2–4 plain-language bullets describing what was actually accomplished in the same window the route above reports on, synthesized by a one-shot LLM call (`server/lib/focus-summary.js`) from every session's focus segments — labels, kinds, per-session one-sentence `inferred_reason`s, and wall/active times — merging sessions that tell the same story instead of repeating them. Powers the **Summary** block on the client's Focus page (`/focus`).
+A stakeholder-readable **window summary**: plain-language bullets describing what was actually accomplished in the same window the route above reports on, synthesized by LLM calls (`server/lib/focus-summary.js`) from every session's focus segments — labels, kinds, per-session one-sentence `inferred_reason`s, and wall/active times — merging sessions that tell the same story instead of repeating them, and **grouped by project**. Powers the **Summary** block on the client's Focus page (`/focus`).
 
 **Query parameters, validation, and session selection are identical to `GET /api/focus-report` above** — both handlers share the same `resolveWindowSessions` resolution in `server/routes/focus-report.js`, so the two endpoints can never disagree about which sessions a window contains. The same 400s (missing/unparseable `from`/`to`, `project_id`+`unassigned` conflict) and 404s (unknown project/session) apply.
+
+**Grouping.** A scoped request (`project_id`, `session_id`, or `unassigned=true`) yields exactly one group. The unscoped all-projects request partitions the window's sessions per project (`cwd` → `project_paths` join; sessions in unmapped folders form an **Unassigned** group with `project_id`/`project_name` both `null`) and summarizes each project's activity separately, ordered by wall-clock share, largest first. Each group's cache key and scope are **identical to what the equivalent directly-scoped request would produce**, so grouped and single-project summaries share one cache — nothing generates twice.
 
 **Response:**
 
 ```json
 {
   "summary": {
-    "bullets": [
-      "Completed intake documentation for five identified security issues.",
-      "Found and fully packaged an IDOR vulnerability in the mod-management endpoints."
-    ],
-    "generated_at": "2026-07-28T15:30:00.000Z",
-    "cached": true,
-    "model": "haiku"
+    "groups": [
+      {
+        "project_id": "96386f5d-…",
+        "project_name": "Senate",
+        "wall_clock_ms": 34329530,
+        "bullets": [
+          "Completed intake documentation for five identified security issues.",
+          "Found and fully packaged an IDOR vulnerability in the mod-management endpoints."
+        ],
+        "generated_at": "2026-07-28T15:30:00.000Z",
+        "cached": true,
+        "model": "sonnet"
+      },
+      {
+        "project_id": null,
+        "project_name": null,
+        "wall_clock_ms": 600000,
+        "bullets": ["Brief experimentation in an unmapped folder."],
+        "generated_at": "2026-07-28T15:30:02.000Z",
+        "cached": false,
+        "model": "sonnet"
+      }
+    ]
   }
 }
 ```
 
-`summary` is **`null` (with a 200, never an error)** whenever no summary can be produced: the LLM path is disabled (`DASHBOARD_FOCUS_INFER_MODE` ≠ `llm`) or the `claude` CLI isn't available, the window contains no sessions, or generation/parsing failed. Clients hide the block rather than surfacing an error — the summary is an additive layer over the report, not part of it.
+`summary` is **`null` (with a 200, never an error)** whenever no group can be summarized: the LLM path is disabled (`DASHBOARD_FOCUS_INFER_MODE` ≠ `llm`) or the `claude` CLI isn't available, the window contains no sessions, or generation/parsing failed for every group. Clients hide the block rather than surfacing an error — the summary is an additive layer over the report, not part of it. A group whose own generation fails is simply omitted; groups are generated serially so a first view of an all-projects window never fans out N concurrent `claude` spawns.
 
 A companion `GET /api/focus-report/summary/config` (no params, never errors) returns `{ "model": "sonnet" }` — the model the **next** generation would use — so the client can name the model in its "Summarizing this window using …" loading state before the summary response (whose own `model` field stays authoritative for what actually wrote a given cached summary) arrives.
 

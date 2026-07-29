@@ -1688,24 +1688,54 @@ export interface FocusReport {
    *  landed in each hour of wall-clock time on average. `1` means no
    *  overlap; `null` when `wall_clock_ms` is `0` (nothing to divide by). */
   concurrency_ratio: number | null;
+  /** Calendar time during which at least one session was actually ACTIVE —
+   *  the union of every session's grace-credited active intervals (the same
+   *  per-gap credit `active_ms` sums, kept positioned and merged). Unlike
+   *  `wall_clock_ms`, an open-but-silent session (left running overnight)
+   *  does NOT extend this. Optional: only reports from servers that compute
+   *  it carry the field. See server/lib/focus-report.js. */
+  active_wall_clock_ms?: number;
+  /** `totals.active_ms / active_wall_clock_ms` — how parallel the work was
+   *  while work was actually happening. Always >= 1 when non-null (every
+   *  active millisecond lies inside the denominator's union); `null` when
+   *  `active_wall_clock_ms` is `0`. Optional, same as
+   *  {@link FocusReport.active_wall_clock_ms}. */
+  active_concurrency_ratio?: number | null;
 }
 
-/** `GET /api/focus-report/summary` — the stakeholder-readable 2-4 bullet
- *  LLM synthesis of a focus-report window (server/lib/focus-summary.js).
- *  The response wraps this as `{ summary: FocusWindowSummary | null }`;
- *  `null` (still a 200) means no summary could be produced — LLM path
- *  disabled/unavailable, empty window, or generation failure — and callers
- *  hide the block rather than showing an error. */
-export interface FocusWindowSummary {
-  /** 2-4 plain-language "what we actually did" bullets. */
+/** One project's share of a {@link FocusWindowSummary}: the window's
+ *  stakeholder-readable bullets for that project's sessions alone. A scoped
+ *  request yields exactly one group; the all-projects scope yields one per
+ *  project with activity (plus an Unassigned group — `project_id`/`name`
+ *  both `null` — for sessions in unmapped folders), ordered largest
+ *  wall-clock share first. */
+export interface FocusSummaryGroup {
+  project_id: string | null;
+  project_name: string | null;
+  /** The group's merged wall-clock coverage in the window (sort key). */
+  wall_clock_ms: number;
+  /** Plain-language "what we actually did" bullets (2-8, scaling with the
+   *  window's day span server-side). */
   bullets: string[];
-  /** ISO timestamp of when this summary was synthesized (cache write time). */
+  /** ISO timestamp of when this group's summary was synthesized. */
   generated_at: string;
   /** True when served from the server-side digest-gated cache rather than
    *  freshly generated for this request. */
   cached: boolean;
   /** The `claude -p` model that produced it (e.g. "haiku"), `null` unknown. */
   model: string | null;
+}
+
+/** `GET /api/focus-report/summary` — the stakeholder-readable LLM synthesis
+ *  of a focus-report window (server/lib/focus-summary.js), grouped by
+ *  project. The response wraps this as `{ summary: FocusWindowSummary |
+ *  null }`; `null` (still a 200) means no group could be summarized — LLM
+ *  path disabled/unavailable, empty window, or generation failure — and
+ *  callers hide the block rather than showing an error. */
+export interface FocusWindowSummary {
+  /** Per-project summaries, largest wall-clock share first — never empty
+   *  (an empty result is `summary: null` instead). */
+  groups: FocusSummaryGroup[];
 }
 
 // ───── Plans & session focus ─────

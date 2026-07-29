@@ -29,9 +29,14 @@
  * single-project view never prefixes its rows with a project name.
  *
  * Above the activity list sits an LLM-synthesized "Summary" block
- * (`api.focusReportSummary` → `GET /api/focus-report/summary`): 2-4
+ * (`api.focusReportSummary` → `GET /api/focus-report/summary`):
  * stakeholder-readable bullets for the SAME `from`/`to` window and scope as
- * the report fetch. Fetched independently and non-blocking (its own effect,
+ * the report fetch, GROUPED BY PROJECT (`summary.groups`, largest
+ * wall-clock share first — the server partitions an all-projects window per
+ * project). Group headers (project name, or the shared "Unassigned" label
+ * for unmapped folders) render only in all-projects scope
+ * (`showProjectLabel`) — a single-project view shows its one group's
+ * bullets headerless, exactly like before grouping existed. Fetched independently and non-blocking (its own effect,
  * its own loading state) so a slow/unavailable synthesis never delays the
  * stat tiles or activity rows; a `null` summary (LLM path off, empty
  * window, failure) simply hides the block — never an error state. The
@@ -76,6 +81,7 @@ import { computeWindowedTotals } from "../lib/windowedTotals";
 import type { FocusReport, FocusWindowSummary, Project, Session } from "../lib/types";
 import { ProjectScopeFilters } from "../components/ProjectScopeFilters";
 import { StatTile } from "../components/StatTile";
+import { ConcurrencyStatTile } from "../components/ConcurrencyStatTile";
 import { FocusActivityCard } from "../components/FocusActivityCard";
 import { TimePeriodPicker } from "../components/TimePeriodPicker";
 import type { TimePeriodValue } from "../components/TimePeriodPicker";
@@ -376,6 +382,14 @@ function FocusPageBody({
   const totals = windowed?.totals ?? report.totals;
   const wallClockMs = windowed?.wallClockMs ?? report.wall_clock_ms;
   const concurrencyRatio = windowed ? windowed.concurrencyRatio : report.concurrency_ratio;
+  // Optional on FocusReport (older/cached responses may lack it) - the sub
+  // line simply doesn't render when there's nothing to show.
+  const activeConcurrencyRatio = windowed
+    ? windowed.activeConcurrencyRatio
+    : (report.active_concurrency_ratio ?? null);
+  const activeWallClockMs = windowed
+    ? windowed.activeWallClockMs
+    : (report.active_wall_clock_ms ?? null);
   const windowHours = visibleWindow
     ? Math.round((visibleWindow.endMs - visibleWindow.startMs) / 3_600_000)
     : null;
@@ -386,7 +400,6 @@ function FocusPageBody({
     report.idle_grace_seconds > 0
       ? formatMs(report.idle_grace_seconds * 1000)
       : t("report.graceDisabled");
-  const concurrencyValue = concurrencyRatio != null ? `${concurrencyRatio.toFixed(2)}x` : "—";
 
   const entries = useMemo(
     () => groupFocusActivity(report, projectLabelForCwd, visibleWindow ?? undefined),
@@ -401,10 +414,11 @@ function FocusPageBody({
           value={formatMs(totals.active_ms)}
           sub={t("report.ofWallClock", { total: formatMs(wallClockMs) })}
         />
-        <StatTile
-          label={t("report.concurrency")}
-          value={concurrencyValue}
-          title={t("report.concurrencyTitle")}
+        <ConcurrencyStatTile
+          concurrencyRatio={concurrencyRatio}
+          activeConcurrencyRatio={activeConcurrencyRatio}
+          wallClockMs={wallClockMs}
+          activeWallClockMs={activeWallClockMs}
         />
         <StatTile
           label={t("report.onItem")}
@@ -456,21 +470,35 @@ function FocusPageBody({
             })()}
           {!summaryLoading && summary && (
             <>
-              <ul className="space-y-1.5 list-disc pl-4 text-xs text-gray-300">
-                {summary.bullets.map((bullet, i) => (
-                  <li key={i} className="max-w-[72ch]">
-                    {bullet}
-                  </li>
+              <div className="space-y-3">
+                {summary.groups.map((group) => (
+                  <div key={group.project_id ?? "unassigned"}>
+                    {showProjectLabel && (
+                      <h3
+                        data-testid="focus-summary-group-label"
+                        className="text-[11px] font-semibold text-gray-400 mb-1"
+                      >
+                        {group.project_name ?? t("projects:unassigned")}
+                      </h3>
+                    )}
+                    <ul className="space-y-1.5 list-disc pl-4 text-xs text-gray-300">
+                      {group.bullets.map((bullet, i) => (
+                        <li key={i} className="max-w-[72ch]">
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
               <p className="text-[10px] text-gray-600 mt-2">
-                {claudeModelLabel(summary.model)
+                {claudeModelLabel(summary.groups[0]?.model ?? null)
                   ? t("report.summaryBlock.aiNoteWithModel", {
-                      model: claudeModelLabel(summary.model),
+                      model: claudeModelLabel(summary.groups[0]?.model ?? null),
                     })
                   : t("report.summaryBlock.aiNote")}
                 {" · "}
-                {summary.cached
+                {summary.groups.every((group) => group.cached)
                   ? t("report.summaryBlock.servedFromCache")
                   : t("report.summaryBlock.generatedIn", {
                       duration: formatMs(summaryElapsedMs),

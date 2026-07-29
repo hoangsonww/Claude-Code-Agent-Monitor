@@ -146,6 +146,32 @@ describe("computeWindowedTotals", () => {
     expect(byKindSum).toBe(0);
   });
 
+  it("excludes idle chunk time from activeWallClockMs so an open-but-idle stretch doesn't dilute the active concurrency ratio", () => {
+    // One session: active [0h,0.5h), idle [0.5h,1h) - the walked-away shape.
+    const r = report([session("s1", [segment("item", 0, 1, { itemNumber: 1 })])]);
+    const w = computeWindowedTotals(r, BASE, BASE + 4 * HOUR);
+    expect(w.wallClockMs).toBe(HOUR); // span counts the idle tail
+    expect(w.concurrencyRatio).toBeCloseTo(0.5); // diluted by it
+    expect(w.activeWallClockMs).toBe(HOUR / 2); // active union does not
+    expect(w.activeConcurrencyRatio).toBeCloseTo(1); // one session, working alone
+  });
+
+  it("unions concurrent sessions' active chunks: overlapping activity doubles activeConcurrencyRatio", () => {
+    const r = report([
+      session("s1", [segment("item", 0, 4, { itemNumber: 1, allActive: true })]),
+      session("s2", [segment("detour", 0, 4, { allActive: true })]),
+    ]);
+    const w = computeWindowedTotals(r, BASE, BASE + 4 * HOUR);
+    expect(w.activeWallClockMs).toBe(4 * HOUR); // same [0,4h) union
+    expect(w.activeConcurrencyRatio).toBeCloseTo(2);
+  });
+
+  it("reports zero activeWallClockMs and a null activeConcurrencyRatio for an empty window", () => {
+    const w = computeWindowedTotals(report([]), BASE, BASE + 4 * HOUR);
+    expect(w.activeWallClockMs).toBe(0);
+    expect(w.activeConcurrencyRatio).toBeNull();
+  });
+
   it("falls back to treating the whole clipped span as active when a segment has no chunks", () => {
     const seg: FocusReportSegment = {
       kind: "item",

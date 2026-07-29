@@ -32,8 +32,12 @@
  * X" and "sessions in no project" can never both be true.
  *
  * Also hosts `GET /api/focus-report/summary` — the stakeholder-readable
- * 2-4 bullet LLM synthesis of the same window (server/lib/focus-summary.js),
- * sharing this file's exact validation/session-resolution via
+ * LLM synthesis of the same window (server/lib/focus-summary.js), grouped
+ * by project: a scoped request is one group, the all-projects scope
+ * partitions sessions per project (unmapped cwds = an Unassigned group) and
+ * summarizes each separately with cache keys identical to the equivalent
+ * directly-scoped request, so group and single-project summaries share one
+ * cache. Shares this file's exact validation/session-resolution via
  * `resolveWindowSessions` so both endpoints always agree on which sessions
  * a window contains. Summary unavailability is `{ summary: null }` with a
  * 200, never an error — it's an additive layer the client hides when absent.
@@ -176,11 +180,20 @@ router.get("/", (req, res) => {
   });
 });
 
-// GET /api/focus-report/summary - stakeholder-readable 2-4 bullet synthesis
-// of the same window (see server/lib/focus-summary.js). Identical query
-// params and validation as GET / (same resolveWindowSessions). Responds
-// `{ summary: { bullets, generated_at, cached, model } }` on success or
-// `{ summary: null }` when no summary can be produced - the LLM path is
+// GET /api/focus-report/summary - stakeholder-readable bullet synthesis of
+// the same window (see server/lib/focus-summary.js), GROUPED BY PROJECT.
+// Identical query params and validation as GET / (same
+// resolveWindowSessions). A scoped request (project_id / session_id /
+// unassigned) yields exactly one group; the all-projects scope partitions
+// the window's sessions by project (cwd -> project_paths join, unmapped
+// cwds forming an Unassigned group) and summarizes each project's activity
+// separately, ordered by wall-clock share (largest first). Each group's
+// cache key/scope is IDENTICAL to what a directly project-scoped (or
+// unassigned-scoped) request would produce, so group summaries and
+// single-project summaries share one cache - nothing generates twice.
+// Responds `{ summary: { groups: [{ project_id, project_name,
+// wall_clock_ms, bullets, generated_at, cached, model }] } }` on success or
+// `{ summary: null }` when no group could be summarized - the LLM path is
 // disabled/unavailable, the window has no sessions, or generation failed.
 // Unavailability is a 200 with null, never an error: the summary is an
 // additive layer the Focus page simply hides when absent.
@@ -188,33 +201,91 @@ router.get("/summary", async (req, res) => {
   const resolved = resolveWindowSessions(req, res);
   if (!resolved) return; // error response already sent
 
-  const report = buildProjectFocusReport(
-    dbModule,
-    resolved.sessions,
-    resolved.fromMs,
-    resolved.toMs
-  );
+  const sources = parseSources(req);
+  const unassignedOnly = req.query.unassigned === "true";
 
-  // Scope identity: every scope-affecting param. `?sources=` participates
-  // too - two different data scopes must never share one cached summary.
-  // The window cache key adds from/to; per-day building-block keys inside
-  // the hierarchical path add the day instead (lib/focus-summary.js).
-  const scope = {
-    project_id: resolved.project ? resolved.project.id : null,
-    session_id: resolved.session ? resolved.session.id : null,
-    unassigned: req.query.unassigned === "true",
-    sources: parseSources(req),
-  };
-  const cacheKey = JSON.stringify({ ...scope, from: resolved.fromMs, to: resolved.toMs });
+  // Partition the window's sessions into per-project groups - see above.
+  let partitions; // [{ projectId, projectName, unassigned, sessions }]
+  if (resolved.project || resolved.session || unassignedOnly) {
+    partitions = [
+      {
+        projectId: resolved.project ? resolved.project.id : null,
+        projectName: resolved.project ? resolved.project.name : null,
+        unassigned: unassignedOnly,
+        sessions: resolved.sessions,
+      },
+    ];
+  } else {
+    const byCwd = new Map(
+      db
+        .prepare(
+          "SELECT pp.cwd AS cwd, p.id AS id, p.name AS name FROM project_paths pp JOIN projects p ON p.id = pp.project_id"
+        )
+        .all()
+        .map((r) => [r.cwd, r])
+    );
+    const groupsByKey = new Map();
+    for (const s of resolved.sessions) {
+      const proj = s.cwd ? byCwd.get(s.cwd) : undefined;
+      const key = proj ? proj.id : "__unassigned__";
+      let group = groupsByKey.get(key);
+      if (!group) {
+        group = {
+          projectId: proj ? proj.id : null,
+          projectName: proj ? proj.name : null,
+          unassigned: !proj,
+          sessions: [],
+        };
+        groupsByKey.set(key, group);
+      }
+      group.sessions.push(s);
+    }
+    partitions = [...groupsByKey.values()];
+  }
 
   try {
-    const summary = await generateWindowSummary(dbModule, cacheKey, report, {
-      fromMs: resolved.fromMs,
-      toMs: resolved.toMs,
-      scope,
-      sessions: resolved.sessions,
-    });
-    res.json({ summary });
+    const groups = [];
+    // Serial on purpose: each generation may spawn a `claude -p`; N projects
+    // fanning out N concurrent spawns on a first view is worse than a
+    // slightly longer serial pass (and cache hits cost nothing anyway).
+    for (const partition of partitions) {
+      const report = buildProjectFocusReport(
+        dbModule,
+        partition.sessions,
+        resolved.fromMs,
+        resolved.toMs
+      );
+      if ((report.sessions || []).length === 0) continue;
+
+      // Scope identity: every scope-affecting param. `?sources=`
+      // participates too - two different data scopes must never share one
+      // cached summary. The window cache key adds from/to; per-day
+      // building-block keys inside the hierarchical path add the day
+      // instead (lib/focus-summary.js).
+      const scope = {
+        project_id: partition.projectId,
+        session_id: resolved.session ? resolved.session.id : null,
+        unassigned: partition.unassigned,
+        sources,
+      };
+      const cacheKey = JSON.stringify({ ...scope, from: resolved.fromMs, to: resolved.toMs });
+      const summary = await generateWindowSummary(dbModule, cacheKey, report, {
+        fromMs: resolved.fromMs,
+        toMs: resolved.toMs,
+        scope,
+        sessions: partition.sessions,
+      });
+      if (summary) {
+        groups.push({
+          project_id: partition.projectId,
+          project_name: partition.projectName,
+          wall_clock_ms: report.wall_clock_ms,
+          ...summary,
+        });
+      }
+    }
+    groups.sort((a, b) => (b.wall_clock_ms || 0) - (a.wall_clock_ms || 0));
+    res.json({ summary: groups.length > 0 ? { groups } : null });
   } catch {
     res.json({ summary: null }); // fail-safe: unavailable, never a 500
   }

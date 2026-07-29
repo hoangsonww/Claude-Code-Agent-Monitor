@@ -1956,14 +1956,19 @@ export const api = {
   },
 
   /**
-   * GET /api/focus-report/summary — stakeholder-readable 2-4 bullet LLM
-   * synthesis of the same window `focusReport` fetches (identical params
-   * and validation; see `server/lib/focus-summary.js`). `summary` is `null`
-   * whenever no summary can be produced (LLM path disabled/unavailable,
-   * empty window, generation failure) — always a 200, so callers hide the
-   * block rather than treating absence as an error. Served from a
-   * data-digest-gated cache server-side: a finished day is generated once,
-   * a still-running day regenerates only when its data actually changed.
+   * GET /api/focus-report/summary — stakeholder-readable LLM synthesis of
+   * the same window `focusReport` fetches (identical params and validation;
+   * see `server/lib/focus-summary.js`), **grouped by project**
+   * (`summary.groups`, largest wall-clock share first): a scoped request is
+   * one group, the all-projects scope gets one group per project with
+   * activity plus an Unassigned group for unmapped folders. `summary` is
+   * `null` whenever no group can be summarized (LLM path
+   * disabled/unavailable, empty window, generation failure) — always a 200,
+   * so callers hide the block rather than treating absence as an error.
+   * Served from a data-digest-gated cache server-side (shared between
+   * grouped and directly-scoped requests): a finished day is generated
+   * once, a still-running day regenerates only when its data actually
+   * changed.
    */
   focusReportSummary: (params: {
     projectId?: string;

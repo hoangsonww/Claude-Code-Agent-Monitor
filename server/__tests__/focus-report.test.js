@@ -352,8 +352,8 @@ describe("buildSessionFocusReport - out-of-order event insertion", () => {
   // A session with heavy subagent/Workflow-tool activity bulk-ingests many
   // events after the fact (workflow-ingest.js), landing them at whatever row
   // id was next regardless of their own created_at - `ORDER BY id ASC` is
-  // NOT reliably chronological for such a session. activeIdleMs()'s gap-sum
-  // walk requires a chronologically sorted timestamp list; fed an unsorted
+  // NOT reliably chronological for such a session. activeIntervals()'s
+  // gap-credit walk requires a chronologically sorted timestamp list; fed an unsorted
   // one, positive-looking "gaps" from scrambled ordering can each contribute
   // up to a full grace window, summing past the segment's real span
   // (observed live: active_ms > wall_ms, negative idle_ms).
@@ -900,6 +900,10 @@ describe("buildProjectFocusReport", () => {
     assert.equal(report.wall_clock_ms, 30 * 60_000);
     // 60m effort inside a 30m window reads as 2x parallelism.
     assert.equal(report.concurrency_ratio, 2);
+    // Grace disabled: every segment is wholly active, so the active
+    // wall-clock union equals the span union and both ratios agree.
+    assert.equal(report.active_wall_clock_ms, 30 * 60_000);
+    assert.equal(report.active_concurrency_ratio, 2);
   });
 
   it("sums disjoint (non-overlapping) session spans as plain wall-clock time, ratio ~1", () => {
@@ -948,6 +952,91 @@ describe("buildProjectFocusReport", () => {
     const report = buildProjectFocusReport(dbModule, []);
     assert.equal(report.wall_clock_ms, 0);
     assert.equal(report.concurrency_ratio, null);
+    assert.equal(report.active_wall_clock_ms, 0);
+    assert.equal(report.active_concurrency_ratio, null);
+  });
+
+  it("excludes open-but-silent stretches from active_wall_clock_ms while wall_clock_ms still counts them (sessions left open overnight)", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "300"; // 5m grace
+    const id = nextId("sess");
+    seedSession(id, CWD);
+
+    // Events at 0/5/10, then total silence until the session ends at 70m —
+    // the "left the session open and walked away" shape. Grace credits 5m
+    // after each event: active [0,5]+[5,10]+[10,15] = 15m, idle 55m.
+    focus(id, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    activity(id, 5);
+    activity(id, 10);
+
+    const report = buildProjectFocusReport(dbModule, [
+      { id, name: "A", cwd: CWD, ended_at: t(70) },
+    ]);
+
+    assert.equal(report.totals.active_ms, 15 * 60_000);
+    // Span-based wall clock counts the whole open session, silence included.
+    assert.equal(report.wall_clock_ms, 70 * 60_000);
+    assert.equal(report.concurrency_ratio, 15 / 70); // diluted by the silence
+    // Active wall clock is only the graced-active union - the silence is out.
+    assert.equal(report.active_wall_clock_ms, 15 * 60_000);
+    assert.equal(report.active_concurrency_ratio, 1); // one session working alone
+  });
+
+  it("unions concurrent sessions' active intervals: overlapping activity doubles the active ratio, staggered activity doesn't", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "300";
+
+    // Overlapping: A and B both active over the same [0,15] window, both
+    // sessions open until 40m.
+    const idA = nextId("sess");
+    const idB = nextId("sess");
+    seedSession(idA, CWD);
+    seedSession(idB, CWD);
+    for (const id of [idA, idB]) {
+      focus(id, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+      activity(id, 5);
+      activity(id, 10);
+    }
+    const overlapping = buildProjectFocusReport(dbModule, [
+      { id: idA, name: "A", cwd: CWD, ended_at: t(40) },
+      { id: idB, name: "B", cwd: CWD, ended_at: t(40) },
+    ]);
+    assert.equal(overlapping.totals.active_ms, 30 * 60_000); // 15m + 15m effort
+    assert.equal(overlapping.active_wall_clock_ms, 15 * 60_000); // same [0,15] union
+    assert.equal(overlapping.active_concurrency_ratio, 2); // genuinely parallel work
+    assert.equal(overlapping.concurrency_ratio, 30 / 40); // diluted by idle tails
+
+    // Staggered: C active [0,15], D active [20,35] - no overlap, ratio 1.
+    const idC = nextId("sess");
+    const idD = nextId("sess");
+    seedSession(idC, CWD);
+    seedSession(idD, CWD);
+    focus(idC, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    activity(idC, 5);
+    activity(idC, 10);
+    focus(idD, 20, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+    activity(idD, 25);
+    activity(idD, 30);
+    const staggered = buildProjectFocusReport(dbModule, [
+      { id: idC, name: "C", cwd: CWD, ended_at: t(40) },
+      { id: idD, name: "D", cwd: CWD, ended_at: t(60) },
+    ]);
+    assert.equal(staggered.totals.active_ms, 30 * 60_000);
+    assert.equal(staggered.active_wall_clock_ms, 30 * 60_000); // [0,15] + [20,35]
+    assert.equal(staggered.active_concurrency_ratio, 1); // never actually parallel
+  });
+
+  it("never serializes the internal per-session active-interval plumbing into the response", () => {
+    process.env.DASHBOARD_FOCUS_IDLE_GRACE_SECONDS = "0";
+    const id = nextId("sess");
+    seedSession(id, CWD);
+    focus(id, 0, "set", { verb: "set", item_number: 1, item_text_snapshot: "First item" });
+
+    const report = buildProjectFocusReport(dbModule, [
+      { id, name: "A", cwd: CWD, ended_at: t(10) },
+    ]);
+    const roundTripped = JSON.parse(JSON.stringify(report));
+    assert.equal("activeIntervalsMs" in roundTripped.sessions[0], false);
+    // ...while the aggregate figures derived from it ARE part of the shape.
+    assert.equal(typeof roundTripped.active_wall_clock_ms, "number");
   });
 });
 
