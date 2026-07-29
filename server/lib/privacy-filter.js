@@ -1,8 +1,6 @@
-"use strict";
 /**
  * @file privacy-filter.js
- * @description Server-side payload redaction for hook event ingestion (issue #148).
- * @author Son Nguyen <hoangson091104@gmail.com>
+ * @description Server-side payload redaction for hook event ingestion.
  *
  * Scans event data objects recursively and masks values that match built-in
  * secret-detection patterns before they are written to SQLite or broadcast over
@@ -13,16 +11,20 @@
  *   redactPayload(data)   → { data: redactedCopy, redactedCount: number }
  *   PATTERNS              (array, exported for tests)
  *   isRedactionEnabled()  → boolean
+ *
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
+
+"use strict";
 
 const MASK = "[REDACTED]";
 
 /**
- * Each entry: { name, pattern }
+ * Each entry: { name, pattern, scan }
  *   name    – human-readable label surfaced in redaction metadata
- *   pattern – RegExp that matches the *whole value* of a string field (not a
- *             substring scan) OR that matches inside a longer string when
- *             `scan: true` is set.
+ *   pattern – RegExp; when scan:true the pattern is tested against the full
+ *             string value (substring match); when scan:false the trimmed value
+ *             must match the whole pattern (^...$).
  */
 const PATTERNS = [
   // Private / public key blocks
@@ -35,13 +37,17 @@ const PATTERNS = [
   {
     name: "api-key-generic",
     scan: true,
-    pattern: /(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{16,}/i,
+    // eslint-disable-next-line no-useless-escape
+    pattern:
+      /(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9_\-\.]{16,}/i,
   },
   // OpenAI / Anthropic / common SDK key prefixes
   {
     name: "sdk-key-prefix",
     scan: false,
-    pattern: /^(?:sk-[A-Za-z0-9\-_]{16,}|sk-ant-[A-Za-z0-9\-_]{16,}|ghp_[A-Za-z0-9]{36,}|gho_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|xoxb-[0-9]+-[A-Za-z0-9]+|xoxp-[0-9]+-[A-Za-z0-9]+|AIza[A-Za-z0-9_\-]{35,}|ya29\.[A-Za-z0-9_\-]+)$/,
+    // eslint-disable-next-line no-useless-escape
+    pattern:
+      /^(?:sk-[A-Za-z0-9\-_]{16,}|sk-ant-[A-Za-z0-9\-_]{16,}|ghp_[A-Za-z0-9]{36,}|gho_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}|xoxb-[0-9]+-[A-Za-z0-9]+|xoxp-[0-9]+-[A-Za-z0-9]+|AIza[A-Za-z0-9_\-]{35,}|ya29\.[A-Za-z0-9_\-]+)$/,
   },
   // Bearer tokens in header-like strings
   {
@@ -68,25 +74,30 @@ function isRedactionEnabled() {
   return (process.env.MONITOR_PRIVACY_REDACT || "").toLowerCase() === "true";
 }
 
+// Structural fields that must never be redacted — they are routing keys used
+// by hooks.js and the database layer after this filter runs.
+const PRESERVED_KEYS = new Set(["session_id", "hook_event_id", "cwd", "transcript_path"]);
+
 /**
  * Test a single string value against all patterns.
  * Returns the name of the first matching pattern, or null.
  */
 function matchSecret(value) {
   if (typeof value !== "string" || value.length < 8) return null;
+  // Trim once here rather than inside each scan:false pattern.
+  const trimmed = value.trim();
   for (const { name, pattern, scan } of PATTERNS) {
-    if (scan ? pattern.test(value) : pattern.test(value.trim())) return name;
+    if (scan ? pattern.test(value) : pattern.test(trimmed)) return name;
   }
   return null;
 }
 
 /**
- * Deep-clone `obj`, replacing string values that match a pattern with MASK.
- * Skips the `cwd` field (already handled by cwd-filter) and non-sensitive
- * structural fields that are never secret.
+ * Deep-clone `obj`, replacing string values that match a secret pattern with
+ * MASK. Structural routing fields listed in PRESERVED_KEYS are never touched.
  *
- * @param {*}      obj           Value to scan (any JSON-compatible type)
- * @param {number} [counter=0]  Running count of redactions (internal)
+ * @param {*} obj Value to scan (any JSON-compatible type)
+ * @param {number} [counter=0] Running count of redactions (internal)
  * @returns {{ value: *, count: number }}
  */
 function _redact(obj, counter = 0) {
@@ -112,8 +123,7 @@ function _redact(obj, counter = 0) {
     let count = counter;
     const out = {};
     for (const [key, val] of Object.entries(obj)) {
-      // Never redact structural identity / routing keys
-      if (key === "session_id" || key === "hook_event_id" || key === "cwd") {
+      if (PRESERVED_KEYS.has(key)) {
         out[key] = val;
         continue;
       }
@@ -130,7 +140,7 @@ function _redact(obj, counter = 0) {
 /**
  * Redact a hook event data object.
  *
- * @param {object} data   Raw event payload from req.body.data
+ * @param {object} data Raw event payload from req.body.data
  * @returns {{ data: object, redactedCount: number }}
  */
 function redactPayload(data) {
