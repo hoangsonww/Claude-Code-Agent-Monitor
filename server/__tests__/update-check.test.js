@@ -14,11 +14,28 @@ const { execFileSync } = require("child_process");
 
 const { getUpdatesStatus } = require("../lib/update-check");
 
+// git commit/rebase hooks run with GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE set
+// in the environment; those leak into any child `git` process (even ones
+// given an explicit cwd) and silently redirect it at the real repo this
+// suite runs inside instead of the throw-away fixture, corrupting it. Strip
+// them so every fixture repo below is genuinely isolated regardless of how
+// (or from within what) this suite is invoked.
+const GIT_ENV_OVERRIDE_KEYS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+];
+const ISOLATED_GIT_ENV = { ...process.env };
+for (const key of GIT_ENV_OVERRIDE_KEYS) delete ISOLATED_GIT_ENV[key];
+
 function git(cwd, args) {
   return execFileSync("git", args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
     encoding: "utf8",
+    env: ISOLATED_GIT_ENV,
   }).trim();
 }
 
@@ -29,6 +46,7 @@ function makeBareRemote(parent, name) {
   // i.e. far older than --initial-branch.
   execFileSync("git", ["-c", "init.defaultBranch=master", "init", "--bare", repo], {
     stdio: "ignore",
+    env: ISOLATED_GIT_ENV,
   });
   return repo;
 }
@@ -36,7 +54,10 @@ function makeBareRemote(parent, name) {
 function makeWorkingRepo(parent, dir, originUrl) {
   const repo = path.join(parent, dir);
   fs.mkdirSync(repo, { recursive: true });
-  execFileSync("git", ["-c", "init.defaultBranch=master", "init", repo], { stdio: "ignore" });
+  execFileSync("git", ["-c", "init.defaultBranch=master", "init", repo], {
+    stdio: "ignore",
+    env: ISOLATED_GIT_ENV,
+  });
   fs.writeFileSync(path.join(repo, "README.md"), "fixture\n");
   git(repo, ["-c", "user.email=t@t", "-c", "user.name=t", "add", "."]);
   git(repo, ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"]);
@@ -153,7 +174,10 @@ describe("getUpdatesStatus — no remotes configured", () => {
   it("returns a soft no-remotes payload", async () => {
     const repo = path.join(tmpDir, "noremote");
     fs.mkdirSync(repo, { recursive: true });
-    execFileSync("git", ["-c", "init.defaultBranch=master", "init", repo], { stdio: "ignore" });
+    execFileSync("git", ["-c", "init.defaultBranch=master", "init", repo], {
+      stdio: "ignore",
+      env: ISOLATED_GIT_ENV,
+    });
     fs.writeFileSync(path.join(repo, "README.md"), "lonely\n");
     git(repo, ["-c", "user.email=t@t", "-c", "user.name=t", "add", "."]);
     git(repo, ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init"]);

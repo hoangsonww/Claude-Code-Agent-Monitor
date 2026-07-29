@@ -17,13 +17,31 @@ const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 // repo, "origin" points at the user's fork. Prefer upstream when both exist.
 const REMOTE_PRIORITY = ["upstream", "origin"];
 
+// git commit/rebase hooks run with GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE set
+// in the environment; those leak into any child `git` process (even ones
+// given an explicit cwd) and silently redirect it at the calling repo
+// instead of the target `cwd`. Strip them so `cwd` is always authoritative.
+const GIT_ENV_OVERRIDE_KEYS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+];
+
+function isolatedGitEnv() {
+  const env = { ...process.env };
+  for (const key of GIT_ENV_OVERRIDE_KEYS) delete env[key];
+  return env;
+}
+
 function execGit(cwd, args, opts = {}) {
   const timeout = opts.timeout ?? 120_000;
   return new Promise((resolve, reject) => {
     execFile(
       "git",
       args,
-      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8" },
+      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8", env: isolatedGitEnv() },
       (err, stdout) => {
         if (err) reject(err);
         else resolve(String(stdout).trim());
