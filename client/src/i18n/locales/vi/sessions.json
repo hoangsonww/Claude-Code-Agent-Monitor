@@ -29,6 +29,7 @@
     "loading": "Đang tải phiên...",
     "notFound": "Không tìm thấy phiên",
     "backToSessions": "Quay lại danh sách phiên",
+    "replay": "Phát lại",
     "agents": "Agent",
     "noAgents": "Chưa có Agent được ghi nhận.",
     "unparented": "Subagent không có cha",
