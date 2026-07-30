@@ -29,6 +29,7 @@
     "loading": "正在加载会话...",
     "notFound": "未找到会话",
     "backToSessions": "返回会话列表",
+    "replay": "回放",
     "agents": "Agent",
     "noAgents": "暂无Agent记录。",
     "unparented": "独立Subagent",

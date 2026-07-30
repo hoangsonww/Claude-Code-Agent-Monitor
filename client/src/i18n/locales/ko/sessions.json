@@ -29,6 +29,7 @@
     "loading": "세션을 불러오는 중...",
     "notFound": "세션을 찾을 수 없습니다",
     "backToSessions": "세션으로 돌아가기",
+    "replay": "다시 재생",
     "agents": "Agent",
     "noAgents": "기록된 Agent가 없습니다.",
     "unparented": "상위가 없는 Subagent",

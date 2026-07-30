@@ -133,6 +133,8 @@ import run_ko from "./locales/ko/run.json";
 import alerts_ko from "./locales/ko/alerts.json";
 import splash_ko from "./locales/ko/splash.json";
 
+import replay_en from "./locales/en/replay.json";
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -154,6 +156,7 @@ i18n
         run: run_en,
         alerts: alerts_en,
         splash: splash_en,
+        replay: replay_en,
       },
       zh: {
         common: common_zh,
@@ -226,6 +229,7 @@ i18n
       "run",
       "alerts",
       "splash",
+      "replay",
     ],
     defaultNS: "common",
     interpolation: { escapeValue: false },
