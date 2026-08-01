@@ -1,5 +1,8 @@
 /**
- * @file Express router for session endpoints, allowing creation, retrieval, and updating of sessions with optional pagination and filtering by status. It also computes costs for sessions based on token usage and pricing rules, and broadcasts session changes to connected WebSocket clients for real-time updates.
+ * @file Express router for session endpoints, allowing creation, retrieval, and
+ * updating of sessions with pagination plus status, search, and multi-directory
+ * filtering. It computes session costs from token usage and pricing rules, and
+ * broadcasts session changes to connected WebSocket clients in real time.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -126,7 +129,11 @@ router.get("/", (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  const cwd = req.query.cwd;
+  const cwds = Array.isArray(req.query.cwd)
+    ? req.query.cwd.filter((cwd) => typeof cwd === "string" && cwd)
+    : typeof req.query.cwd === "string" && req.query.cwd
+      ? [req.query.cwd]
+      : [];
   const sortBy = req.query.sort_by || "time"; // "time", "duration", "price"
   const sortDesc = req.query.sort_desc !== "false";
 
@@ -142,9 +149,9 @@ router.get("/", (req, res) => {
     where.push("s.status = ?");
     params.push(status);
   }
-  if (cwd) {
-    where.push("s.cwd = ?");
-    params.push(cwd);
+  if (cwds.length > 0) {
+    where.push(`s.cwd IN (${cwds.map(() => "?").join(",")})`);
+    params.push(...cwds);
   }
   // Data-scope filter: restrict to sessions collected from a chosen set of
   // machines (local + any configured remote sources). Absent = all sources.

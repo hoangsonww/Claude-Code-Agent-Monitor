@@ -120,6 +120,10 @@ Returns all sessions, ordered by most recent activity.
 | `limit` | integer | 50 | Maximum sessions to return (1-1000) |
 | `offset` | integer | 0 | Pagination offset |
 | `status` | string | - | Filter by persisted status: `active`, `completed`, `error`, `abandoned`. The UI **Waiting** state is derived from the `awaiting_input_since` column and is not a queryable enum — filter `status=active` and inspect `awaiting_input_since` (non-null = Waiting) |
+| `q` | string | - | Case-insensitive search across `id`, `name`, and `cwd` |
+| `cwd` | string (repeatable) | - | Exact working directory filter. Repeat it to include multiple projects, for example `cwd=/work/a&cwd=/work/b` |
+| `sort_by` | string | `time` | Ordering dimension: `time`, `duration`, or `price` |
+| `sort_desc` | boolean | `true` | Use descending order; set to `false` for ascending order |
 | `sources` | string | - | Comma-separated data-source ids to include (the built-in local history is `local`; remote SSH machines use their `remote_sources.id`). Omit for all sources. Also accepted on `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`, and `/api/pricing/cost`. See [Remote Data Sources](#remote-data-sources) |
 
 **Example Request:**

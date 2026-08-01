@@ -172,7 +172,7 @@ flowchart LR
 <p align="center">
   <img src="images/sessions.png" alt="会话概览" width="100%">
   <br>
-  <em>📂 <strong>会话</strong> — 包含费用、模型、Agent 数和时长的可搜索、可过滤、服务端分页的会话总表</em>
+  <em>📂 <strong>会话</strong> — 包含费用、模型、Agent 数和时长的可搜索、可过滤、服务端分页的会话总表；项目选择器支持带搜索的多选，排序使用自定义菜单</em>
 </p>
 
 <p align="center">

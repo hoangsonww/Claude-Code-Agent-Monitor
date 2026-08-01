@@ -170,7 +170,7 @@ Comes with a sleek dark theme, responsive design, and intuitive navigation to ex
 <p align="center">
   <img src="images/sessions.png" alt="Sessions Overview" width="100%">
   <br>
-  <em>📂 <strong>Sessions</strong> — searchable, filterable, server-paginated table of every recorded session with cost, model, agent count, and duration</em>
+  <em>📂 <strong>Sessions</strong> — searchable, filterable, server-paginated table of every recorded session with cost, model, agent count, and duration; the project picker supports searchable multi-selection and sorting uses a custom menu</em>
 </p>
 
 <p align="center">

@@ -170,7 +170,7 @@ flowchart LR
 <p align="center">
   <img src="images/sessions.png" alt="Sessions Overview" width="100%">
   <br>
-  <em>📂 <strong>세션</strong> — 비용, 모델, 에이전트 수, 소요 시간과 함께 기록된 모든 세션을 담은 검색·필터링 가능한 서버 페이지네이션 테이블</em>
+  <em>📂 <strong>세션</strong> — 비용, 모델, 에이전트 수, 소요 시간과 함께 기록된 모든 세션을 담은 검색·필터링 가능한 서버 페이지네이션 테이블이며, 프로젝트 선택기는 검색 가능한 다중 선택을 지원하고 정렬은 맞춤 메뉴를 사용합니다</em>
 </p>
 
 <p align="center">

@@ -4,9 +4,11 @@
  * loader (server/openapi-extra.js) merges `paths` with override-on-key
  * semantics, so the operations below REPLACE the terser base versions while
  * preserving their contract: same `operationId`, same `tags`, and the same
- * request/response `$ref` schema names. The only additions are richer
- * `description`s and realistic `example`s on every parameter, response media
- * type, and request body — purely documentation, no contract change.
+ * request/response `$ref` schema names. It adds richer `description`s and
+ * realistic `example`s on every parameter, response media type, and request
+ * body, including the repeatable project-directory and sorting parameters on
+ * the Sessions list endpoint. This fragment documents the runtime contract;
+ * it does not change route behavior itself.
  *
  * No new schemas are defined here (`schemas` is empty by design); everything
  * reuses the base `components.schemas` and `components.parameters`. Error
@@ -126,7 +128,7 @@ const paths = {
       tags: ["Sessions"],
       summary: "List sessions",
       description:
-        "Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status` and `q` filters compose (AND) with each other and with pagination; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.",
+        "Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status`, `q`, and repeatable `cwd` filters compose (AND), while repeated `cwd` values include any matching project directory; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.",
       operationId: "listSessions",
       parameters: [
         { $ref: "#/components/parameters/SessionStatusQuery", example: "active" },
@@ -137,6 +139,30 @@ const paths = {
           description:
             "Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.",
           example: "pricing",
+        },
+        {
+          name: "cwd",
+          in: "query",
+          style: "form",
+          explode: true,
+          schema: { type: "array", items: { type: "string" } },
+          description:
+            "One or more exact working directories. Repeat `cwd` to include sessions from multiple projects; combines with status and text search.",
+          example: ["/Users/son/code/project-a", "/Users/son/code/project-b"],
+        },
+        {
+          name: "sort_by",
+          in: "query",
+          schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
+          description: "Session ordering dimension.",
+          example: "time",
+        },
+        {
+          name: "sort_desc",
+          in: "query",
+          schema: { type: "boolean", default: true },
+          description: "Sort descending when true and ascending when false.",
+          example: true,
         },
         {
           $ref: "#/components/parameters/SourcesQuery",

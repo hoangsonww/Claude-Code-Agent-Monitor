@@ -170,7 +170,7 @@ flowchart LR
 <p align="center">
   <img src="images/sessions.png" alt="Sessions Overview" width="100%">
   <br>
-  <em>📂 <strong>Phiên</strong> — bảng liệt kê toàn bộ phiên có tìm kiếm, bộ lọc và phân trang phía máy chủ, kèm chi phí, mô hình, số lượng Agent và thời lượng</em>
+  <em>📂 <strong>Phiên</strong> — bảng liệt kê toàn bộ phiên có tìm kiếm, bộ lọc và phân trang phía máy chủ, kèm chi phí, mô hình, số lượng Agent và thời lượng; bộ chọn dự án hỗ trợ chọn nhiều mục có tìm kiếm và menu sắp xếp tùy chỉnh</em>
 </p>
 
 <p align="center">

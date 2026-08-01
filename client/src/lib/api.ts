@@ -610,7 +610,7 @@ export const api = {
      * @param params Optional filter/sort/pagination controls.
      * @param params.status   Lifecycle filter (e.g. "active"/"completed").
      * @param params.q        Free-text query matched server-side.
-     * @param params.cwd      Restrict to one working directory (see `facets`).
+     * @param params.cwd      Restrict to one or more working directories (see `facets`).
      * @param params.sort_by  Column to sort by.
      * @param params.sort_desc Descending when true; sent even when explicitly false.
      * @param params.limit    Page size.
@@ -621,7 +621,7 @@ export const api = {
     list: (params?: {
       status?: string;
       q?: string;
-      cwd?: string;
+      cwd?: string[];
       sort_by?: string;
       sort_desc?: boolean;
       limit?: number;
@@ -631,7 +631,9 @@ export const api = {
       // Only append params that were actually supplied so the URL stays minimal.
       if (params?.status) qs.set("status", params.status);
       if (params?.q) qs.set("q", params.q);
-      if (params?.cwd) qs.set("cwd", params.cwd);
+      if (params?.cwd) {
+        for (const cwd of params.cwd) qs.append("cwd", cwd);
+      }
       if (params?.sort_by) qs.set("sort_by", params.sort_by);
       // `!== undefined` (not truthiness) so an explicit `sort_desc: false` is preserved.
       if (params?.sort_desc !== undefined) qs.set("sort_desc", String(params.sort_desc));

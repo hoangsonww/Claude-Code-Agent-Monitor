@@ -7360,88 +7360,86 @@ exports[`screen snapshots > Sessions 1`] = `
         />
       </div>
       <div
-        class="relative shrink-0 w-[180px]"
+        class="w-full shrink-0 sm:w-[280px] lg:w-[300px]"
       >
-        <select
-          class="input w-full text-ellipsis bg-surface-1 pr-9 appearance-none cursor-pointer"
+        <div
+          class="relative w-full"
         >
-          <option
-            value=""
+          <button
+            aria-expanded="false"
+            aria-haspopup="dialog"
+            aria-label="Project directories: All projects"
+            class="flex h-[38px] w-full items-center gap-2 rounded-lg border px-3 text-left text-sm transition-colors focus:outline-none focus:border-accent/50 active:translate-y-px border-border bg-surface-1 text-gray-300 hover:bg-surface-3"
+            type="button"
           >
-            All Directories
-          </option>
-        </select>
-        <svg
-          class="lucide lucide-chevron-down absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none"
-          fill="none"
-          height="24"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          width="24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="m6 9 6 6 6-6"
-          />
-        </svg>
+            <span
+              class="min-w-0 flex-1 truncate"
+            >
+              All projects
+            </span>
+            <svg
+              class="lucide lucide-chevron-down h-3.5 w-3.5 flex-shrink-0 text-gray-500"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="m6 9 6 6 6-6"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
       <div
         class="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]"
       >
         <div
-          class="relative flex-1"
+          class="flex-1"
         >
-          <select
-            class="bg-transparent w-full text-sm text-gray-200 outline-none pl-3 pr-8 appearance-none cursor-pointer whitespace-nowrap"
+          <div
+            class="relative"
           >
-            <option
-              value="time"
+            <button
+              class="w-full flex items-center justify-between gap-2 bg-surface-2 border border-border rounded-md px-3 py-1.5 text-[11px] text-gray-100 focus:outline-none focus:border-accent/50 hover:bg-surface-3 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              type="button"
             >
-              Sort by Time (
-              Newest
-              )
-            </option>
-            <option
-              value="duration"
-            >
-              Sort by Duration (
-              Longest
-              )
-            </option>
-            <option
-              value="price"
-            >
-              Sort by Price (
-              Highest
-              )
-            </option>
-          </select>
-          <svg
-            class="lucide lucide-chevron-down absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none"
-            fill="none"
-            height="24"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            width="24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="m6 9 6 6 6-6"
-            />
-          </svg>
+              <span
+                class="truncate"
+              >
+                Last active: newest
+              </span>
+              <svg
+                class="lucide lucide-chevron-down w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m6 9 6 6 6-6"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <div
           class="w-px h-4 bg-border mx-1"
         />
         <button
+          aria-label="Descending order"
           class="p-1.5 rounded hover:bg-surface-3 text-gray-400 hover:text-gray-200 transition-colors shrink-0"
-          title="Descending"
+          title="Descending order"
         >
           <svg
             class="lucide lucide-arrow-down-wide-narrow w-4 h-4"

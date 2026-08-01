@@ -948,7 +948,10 @@
                     fetches only its slice so cost computation stays bounded no matter how many
                     sessions exist. Case-insensitive search across <code>id</code>,
                     <code>name</code>, and <code>cwd</code> runs server-side with a 300 ms
-                    debounce; the status filter composes with search for precise narrowing.
+                    debounce; the status filter composes with search for precise narrowing. A
+                    searchable checkbox project picker supports selecting multiple directories;
+                    long paths remain available in full, while compact trigger text keeps the
+                    filter bar readable. Sorting uses the same custom dropdown pattern.
                     Each row shows the session's real name (synced live from the transcript — a
                     <code>/rename</code> or <code>claude -n</code> title, else the auto title,
                     else the first user prompt, with a short-ID fallback), status badge, agent
@@ -6849,7 +6852,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations (zh/vi) — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=40" defer></script>
+    <script src="i18n-content.js?v=41" defer></script>
     <script src="script.js?v=32" defer></script>
     <script>
       (function () {

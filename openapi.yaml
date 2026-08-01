@@ -3984,7 +3984,7 @@ paths:
       tags:
         - Sessions
       summary: List sessions
-      description: Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status` and `q` filters compose (AND) with each other and with pagination; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.
+      description: Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status`, `q`, and repeatable `cwd` filters compose (AND), while repeated `cwd` values include any matching project directory; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.
       operationId: listSessions
       parameters:
         - $ref: '#/components/parameters/SessionStatusQuery'
@@ -3995,6 +3995,36 @@ paths:
             type: string
           description: Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.
           example: pricing
+        - name: cwd
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+          description: One or more exact working directories. Repeat `cwd` to include sessions from multiple projects; combines with status and text search.
+          example:
+            - /Users/son/code/project-a
+            - /Users/son/code/project-b
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum:
+              - time
+              - duration
+              - price
+            default: time
+          description: Session ordering dimension.
+          example: time
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Sort descending when true and ascending when false.
+          example: true
         - $ref: '#/components/parameters/SourcesQuery'
           example: local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11
         - $ref: '#/components/parameters/LimitQuery'
