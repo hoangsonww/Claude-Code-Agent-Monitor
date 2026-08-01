@@ -1,6 +1,6 @@
 {
   "title": "설정",
-  "subtitle": "가격 정책, 알림, 데이터, hooks를 관리합니다",
+  "subtitle": "가격 정책, 개인정보, 알림, 데이터, hooks를 관리합니다",
   "exportData": "데이터 내보내기",
   "acrossSessions": "추적된 모든 세션 기준",
   "basedOnUsage": "모델별 토큰 사용량 기준",
@@ -151,6 +151,34 @@
       "pathNotDir": "경로가 디렉터리가 아닙니다",
       "generic": "가져오기 실패: {{message}}"
     }
+  },
+  "privacy": {
+    "title": "개인정보",
+    "description": "훅·가져오기 이벤트 페이로드를 SQLite에 쓰기 전에 민감 정보를 마스킹합니다. 세션/에이전트/토큰 처리는 메모리의 원본 페이로드를 계속 사용합니다.",
+    "statusOn": "수집 시 마스킹이 켜져 있습니다",
+    "statusOff": "수집 시 마스킹이 꺼져 있습니다",
+    "note": "새로 수집되는 이벤트에만 적용됩니다. DB에 이미 있는 기록은 다시 쓰지 않습니다. 내보내기에는 수집 시점에 저장된 내용이 포함됩니다.",
+    "enabled": "개인정보 마스킹 사용",
+    "enabledDesc": "마스터 스위치. 끄면 이벤트 페이로드를 받은 그대로 저장합니다.",
+    "secretKeys": "민감 키 이름",
+    "secretKeysDesc": "token, secret, password, api_key, auth, credential 등과 일치하는 키의 값을 마스킹합니다.",
+    "secretValues": "비밀 값 패턴",
+    "secretValuesDesc": "중첩 문자열에서 API 키(sk-…), GitHub/Slack 토큰, AWS 키 ID, Bearer 헤더, PEM 개인키를 검색합니다.",
+    "emails": "이메일 주소",
+    "emailsDesc": "이메일 주소를 <redacted>로 바꿉니다. 기본값은 꺼짐입니다.",
+    "homePaths": "홈 디렉터리 경로 해시",
+    "homePathsDesc": "절대 홈 디렉터리 접두사를 짧은 해시로 바꿔 기기별 경로를 남기지 않습니다. 기본값은 꺼짐입니다.",
+    "saving": "저장 중…",
+    "loadFailed": "개인정보 설정을 불러오지 못했습니다",
+    "previewTitle": "미리보기",
+    "previewDesc": "샘플 페이로드를 붙여 넣어 현재 정책이 어떻게 변환하는지 확인합니다. 아무것도 저장되지 않습니다.",
+    "previewBefore": "이전",
+    "previewAfter": "이후",
+    "previewRun": "미리보기 실행",
+    "previewRunning": "실행 중…",
+    "previewEmpty": "미리보기를 실행하면 마스킹된 결과가 여기에 표시됩니다.",
+    "previewInvalidJson": "미리보기 입력은 올바른 JSON이어야 합니다",
+    "previewMeta": "{{rules}}개 규칙 · {{fields}}개 필드"
   },
   "data": {
     "title": "데이터 관리",

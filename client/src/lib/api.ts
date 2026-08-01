@@ -391,6 +391,7 @@ import type {
   CostResult,
   DashboardEvent,
   ModelPricing,
+  PrivacySettings,
   Session,
   SessionDrillIn,
   SessionStats,
@@ -1071,6 +1072,44 @@ export const api = {
         purged_events: number;
         purged_agents: number;
       }>("/settings/cleanup", { method: "POST", body: JSON.stringify(params) }),
+    /**
+     * Ingest-time privacy policy — redacts secrets from event payloads before
+     * they are written to SQLite (live hooks and import/reimport).
+     */
+    privacy: {
+      /**
+       * GET /api/settings/privacy — current policy + built-in defaults.
+       */
+      get: () =>
+        request<{ settings: PrivacySettings; defaults: PrivacySettings }>("/settings/privacy"),
+      /**
+       * PUT /api/settings/privacy — partial update of boolean toggles.
+       */
+      set: (partial: Partial<PrivacySettings>) =>
+        request<{ ok: boolean; settings: PrivacySettings }>("/settings/privacy", {
+          method: "PUT",
+          body: JSON.stringify(partial),
+        }),
+      /**
+       * POST /api/settings/privacy/preview — dry-run redaction (not persisted).
+       */
+      preview: (payload: unknown, settings?: Partial<PrivacySettings>) =>
+        request<{
+          settings: PrivacySettings;
+          before: unknown;
+          after: unknown;
+          meta: {
+            redacted: boolean;
+            rules_applied: number;
+            fields_redacted: number;
+            fields_dropped: number;
+            error: boolean;
+          };
+        }>("/settings/privacy/preview", {
+          method: "POST",
+          body: JSON.stringify({ payload, settings }),
+        }),
+    },
   },
 
   // ─────────────────────────────── Workflows API ──────────────────────────────

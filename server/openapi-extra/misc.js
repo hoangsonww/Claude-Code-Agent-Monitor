@@ -4,6 +4,9 @@
  *   - GET    /api/sessions/facets              (Sessions)
  *   - GET    /api/settings/claude-home         (Settings)
  *   - PUT    /api/settings/claude-home         (Settings)
+ *   - GET    /api/settings/privacy             (Settings)
+ *   - PUT    /api/settings/privacy             (Settings)
+ *   - POST   /api/settings/privacy/preview     (Settings)
  *   - GET    /api/workflows/runs               (Workflows)
  *   - GET    /api/workflows/runs/{runId}       (Workflows)
  *   - GET    /api/remote-sources               (Remote Sources)
@@ -319,6 +322,95 @@ const schemas = {
         type: "string",
         description: "The resolved absolute path now in effect (after `~` expansion).",
         example: "/Users/son/.codefuse/engine/cc",
+      },
+    },
+  },
+
+  PrivacySettings: {
+    type: "object",
+    description:
+      "Ingest-time privacy policy. Applied to event `data` before SQLite writes on live hooks and import/reimport. Does not rewrite historical rows.",
+    required: [
+      "enabled",
+      "redact_secret_keys",
+      "redact_secret_values",
+      "redact_emails",
+      "hash_home_paths",
+    ],
+    properties: {
+      enabled: {
+        type: "boolean",
+        description: "Master switch. When false, payloads are stored as received.",
+      },
+      redact_secret_keys: {
+        type: "boolean",
+        description:
+          "Mask string/object values under secret-like keys (token, secret, password, api_key, auth, credential, …).",
+      },
+      redact_secret_values: {
+        type: "boolean",
+        description:
+          "Scan nested strings for API keys, GitHub/Slack tokens, AWS key IDs, Bearer headers, and PEM private keys.",
+      },
+      redact_emails: {
+        type: "boolean",
+        description: "Replace email addresses with `<redacted>`. Default false.",
+      },
+      hash_home_paths: {
+        type: "boolean",
+        description: "Replace absolute home-directory prefixes with a short hash. Default false.",
+      },
+    },
+  },
+
+  SettingsPrivacyResponse: {
+    type: "object",
+    required: ["settings", "defaults"],
+    properties: {
+      settings: { $ref: "#/components/schemas/PrivacySettings" },
+      defaults: { $ref: "#/components/schemas/PrivacySettings" },
+    },
+  },
+
+  SettingsPrivacyUpdateResponse: {
+    type: "object",
+    required: ["ok", "settings"],
+    properties: {
+      ok: { type: "boolean", enum: [true] },
+      settings: { $ref: "#/components/schemas/PrivacySettings" },
+    },
+  },
+
+  SettingsPrivacyPreviewRequest: {
+    type: "object",
+    required: ["payload"],
+    properties: {
+      payload: {
+        description: "Sample JSON payload to transform. Not persisted. Max ~200 KB serialized.",
+      },
+      settings: {
+        allOf: [{ $ref: "#/components/schemas/PrivacySettings" }],
+        description: "Optional policy override for the preview (does not change saved settings).",
+      },
+    },
+  },
+
+  SettingsPrivacyPreviewResponse: {
+    type: "object",
+    required: ["settings", "before", "after", "meta"],
+    properties: {
+      settings: { $ref: "#/components/schemas/PrivacySettings" },
+      before: { description: "Echo of the submitted payload." },
+      after: { description: "Redacted payload (may include `_privacy` metadata)." },
+      meta: {
+        type: "object",
+        properties: {
+          redacted: { type: "boolean" },
+          rules_applied: { type: "integer" },
+          fields_redacted: { type: "integer" },
+          fields_dropped: { type: "integer" },
+          error: { type: "boolean" },
+        },
       },
     },
   },
@@ -987,6 +1079,105 @@ const paths = {
                 },
               },
               example: { ok: true, synced: 2, results: [{ id: "src_a", ok: true }] },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/settings/privacy": {
+    get: {
+      tags: ["Settings"],
+      summary: "Get ingest-time privacy policy",
+      description:
+        "Returns the active privacy redaction policy applied to event payloads before SQLite writes (live hooks and import/reimport), plus the built-in defaults. Survives Clear Data.",
+      operationId: "getPrivacySettings",
+      responses: {
+        200: {
+          description: "Current privacy settings and defaults",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsPrivacyResponse" },
+            },
+          },
+        },
+      },
+    },
+    put: {
+      tags: ["Settings"],
+      summary: "Update ingest-time privacy policy",
+      description:
+        "Partial update of boolean privacy toggles. At least one recognized field is required. Invalid types return 400 INVALID_INPUT.",
+      operationId: "updatePrivacySettings",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                enabled: { type: "boolean" },
+                redact_secret_keys: { type: "boolean" },
+                redact_secret_values: { type: "boolean" },
+                redact_emails: { type: "boolean" },
+                hash_home_paths: { type: "boolean" },
+              },
+            },
+            example: { redact_emails: true, hash_home_paths: false },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Updated privacy settings",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsPrivacyUpdateResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Invalid input",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+
+  "/api/settings/privacy/preview": {
+    post: {
+      tags: ["Settings"],
+      summary: "Preview privacy redaction on a sample payload",
+      description:
+        "Dry-run the active (or overridden) privacy policy against a sample JSON payload. Nothing is persisted. Rejects payloads larger than ~200 KB serialized.",
+      operationId: "previewPrivacyRedaction",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SettingsPrivacyPreviewRequest" },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Before/after transformation",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsPrivacyPreviewResponse" },
+            },
+          },
+        },
+        400: {
+          description: "Missing payload, non-JSON-serializable input, or payload too large",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
             },
           },
         },

@@ -223,6 +223,8 @@ Manage the remote (SSH) machines this dashboard pulls Claude Code history from �
 | `ccam doctor` | Diagnosis: API reachability, hook installation status + path, database path/size/row counts, server uptime and Node version, WS connections |
 | `ccam info` | The raw `/api/settings/info` JSON (pipe it to `jq`) |
 | `ccam export [file.json]` | Full JSON data export (sessions, agents, events, tokens, workflows, dashboard runs, alert rules, pricing) — defaults to a dated filename. Re-importable via `ccam import-data` |
+| `ccam privacy` / `ccam privacy show` | Print the ingest-time privacy redaction policy (secret keys/values, emails, home-path hashing) |
+| `ccam privacy set …` | Update privacy toggles: `--enable`/`--disable`, `--secret-keys`/`--no-secret-keys`, `--secret-values`/`--no-secret-values`, `--emails`/`--no-emails`, `--home-paths`/`--no-home-paths` |
 | `ccam cleanup --hours N --days M` | Abandon active sessions idle for `N` hours and/or purge completed sessions older than `M` days |
 | `ccam reinstall-hooks` | Rewrite the Claude Code hook entries in `~/.claude/settings.json` |
 | `ccam update-check` | Ask the server whether the dashboard checkout is behind the canonical remote (branch- and fork-aware). Prints the behind-by count, a situation note for fork/feature-branch checkouts, and the **copy-paste update command** — the dashboard never restarts itself. Also refreshes the update banner in any open dashboard tab (same `update_status` broadcast) |

@@ -70,6 +70,18 @@ These paths stay exempt even when a token is configured: `/api/health`, `/api/op
 
 `GET /api/settings/info` includes `server.version` (the running dashboard release). Pair with `ccam version` or the Settings About panel to confirm client and server builds match after deploy.
 
+### Ingest privacy (`/api/settings/privacy`)
+
+Event payloads can contain secrets (API keys in tool inputs, auth headers, home paths). The dashboard applies a configurable privacy policy **before** writing `events.data` to SQLite:
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| `GET` | `/api/settings/privacy` | Current policy + built-in defaults |
+| `PUT` | `/api/settings/privacy` | Partial boolean update (`enabled`, `redact_secret_keys`, `redact_secret_values`, `redact_emails`, `hash_home_paths`) |
+| `POST` | `/api/settings/privacy/preview` | Dry-run redaction on `{ payload, settings? }` — nothing is persisted |
+
+Live hook processing still uses the raw in-memory payload (sessions / agents / tokens / costs keep working). The same policy applies to import/reimport. Historical rows are not rewritten. See `server/lib/privacy.js` and Settings → Privacy.
+
 ```mermaid
 sequenceDiagram
     participant Client

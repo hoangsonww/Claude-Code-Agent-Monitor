@@ -1106,6 +1106,9 @@ npm run monitoring:docker:up
 | `POST` | `/api/settings/reset-pricing` | 重置定价为默认值 |
 | `GET` | `/api/settings/export` | 以 JSON 下载方式导出所有数据 |
 | `POST` | `/api/settings/import` | 从 `/export` 恢复导出包（multipart `file` 或 JSON `{ path }`）。幂等且非破坏性——已存在的会话会被整体跳过 |
+| `GET` | `/api/settings/privacy` | 获取摄入时隐私脱敏策略（含默认值） |
+| `PUT` | `/api/settings/privacy` | 更新隐私开关（部分布尔更新） |
+| `POST` | `/api/settings/privacy/preview` | 对示例载荷试运行脱敏（不持久化） |
 | `POST` | `/api/settings/cleanup` | 废弃过期会话、清除旧数据 |
 
 ### 远程数据源

@@ -1179,12 +1179,14 @@
                   <h3>Settings &amp; Management</h3>
                   <p>
                     Model pricing editor with per-token rate configuration for every Claude
-                    variant. Hook installation status with one-click reinstall and per-hook health
-                    checks. Full JSON data export covering sessions, agents, events, tokens, and
-                    pricing rules. Session cleanup controls to abandon stale sessions or purge old
-                    data by age. Browser notification preferences with per-event toggles. A system
-                    information panel shows database row counts, file sizes, server uptime, and
-                    WebSocket connection status at a glance.
+                    variant. Ingest privacy redaction masks secrets in event payloads before SQLite
+                    writes (Settings → Privacy, with a before/after preview). Hook installation
+                    status with one-click reinstall and per-hook health checks. Full JSON data
+                    export covering sessions, agents, events, tokens, and pricing rules. Session
+                    cleanup controls to abandon stale sessions or purge old data by age. Browser
+                    notification preferences with per-event toggles. A system information panel
+                    shows database row counts, file sizes, server uptime, and WebSocket connection
+                    status at a glance.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1539,7 +1541,7 @@
             </div>
             <div class="screenshot-card" id="ss-settings">
               <img src="../images/settings.png" alt="Settings Overview" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">⚙️</span> <span><strong>Settings</strong> — model pricing editor with per-token rates, hook installation status, JSON data export, session cleanup controls, browser notification toggles, and system info panel with DB stats</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">⚙️</span> <span><strong>Settings</strong> — model pricing editor with per-token rates, ingest privacy redaction, hook installation status, JSON data export, session cleanup controls, browser notification toggles, and system info panel with DB stats</span></div>
             </div>
             <div class="screenshot-card" id="ss-alerts">
               <img src="../images/alerts.png" alt="Settings — Alerts &amp; Webhooks" width="100%" loading="lazy" decoding="async" />

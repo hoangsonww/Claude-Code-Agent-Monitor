@@ -1,6 +1,6 @@
 {
   "title": "Settings",
-  "subtitle": "Manage pricing, notifications, data, and hooks",
+  "subtitle": "Manage pricing, privacy, notifications, data, and hooks",
   "exportData": "Export Data",
   "acrossSessions": "Across all tracked sessions",
   "basedOnUsage": "Based on per-model token usage",
@@ -151,6 +151,34 @@
       "pathNotDir": "Path is not a directory",
       "generic": "Import failed: {{message}}"
     }
+  },
+  "privacy": {
+    "title": "Privacy",
+    "description": "Redact secrets from hook and import event payloads before they are written to SQLite. Session/agent/token processing still uses the live in-memory payload.",
+    "statusOn": "Ingest redaction is enabled",
+    "statusOff": "Ingest redaction is disabled",
+    "note": "Applies to newly ingested events only. Historical rows already in the database are not rewritten. Export contains whatever was stored at ingest time.",
+    "enabled": "Enable privacy redaction",
+    "enabledDesc": "Master switch. When off, event payloads are stored as received.",
+    "secretKeys": "Secret-like keys",
+    "secretKeysDesc": "Mask values under keys matching token, secret, password, api_key, auth, credential, and similar names.",
+    "secretValues": "Secret value patterns",
+    "secretValuesDesc": "Scan nested strings for API keys (sk-…), GitHub/Slack tokens, AWS key IDs, Bearer headers, and PEM private keys.",
+    "emails": "Email addresses",
+    "emailsDesc": "Replace email addresses with <redacted>. Off by default.",
+    "homePaths": "Hash home-directory paths",
+    "homePathsDesc": "Replace absolute home-directory prefixes with a short hash so machine-specific paths are not retained. Off by default.",
+    "saving": "Saving…",
+    "loadFailed": "Failed to load privacy settings",
+    "previewTitle": "Preview",
+    "previewDesc": "Paste a sample payload to see how the active policy would transform it. Nothing is persisted.",
+    "previewBefore": "Before",
+    "previewAfter": "After",
+    "previewRun": "Run preview",
+    "previewRunning": "Running…",
+    "previewEmpty": "Run a preview to see the redacted result here.",
+    "previewInvalidJson": "Preview input must be valid JSON",
+    "previewMeta": "{{rules}} rules · {{fields}} fields"
   },
   "data": {
     "title": "Data Management",

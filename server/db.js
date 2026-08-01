@@ -1,5 +1,8 @@
 /**
- * @file Database setup and access layer using SQLite for storing sessions, agents, events, token usage, and model pricing. Handles schema creation, migrations, and provides prepared statements for all database operations.
+ * @file Database setup and access layer using SQLite for storing sessions,
+ * agents, events, token usage, model pricing, and privacy settings. Handles
+ * schema creation, migrations, and provides prepared statements for all
+ * database operations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -723,6 +726,32 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 `);
+
+// Ingest-time privacy policy (single-row). Controls redaction applied to event
+// `data` before SQLite writes / import inserts. Survives Clear Data — it's user
+// configuration, like alert_rules and webhook_targets. Defaults are conservative:
+// secret key/value detectors ON; email + home-path hashing OFF.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS privacy_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    redact_secret_keys INTEGER NOT NULL DEFAULT 1,
+    redact_secret_values INTEGER NOT NULL DEFAULT 1,
+    redact_emails INTEGER NOT NULL DEFAULT 0,
+    hash_home_paths INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`);
+{
+  const row = db.prepare("SELECT id FROM privacy_settings WHERE id = 1").get();
+  if (!row) {
+    db.prepare(
+      `INSERT INTO privacy_settings
+        (id, enabled, redact_secret_keys, redact_secret_values, redact_emails, hash_home_paths)
+       VALUES (1, 1, 1, 1, 0, 0)`
+    ).run();
+  }
+}
 
 // Migrate webhook_targets for first-class providers. Earlier installs created
 // the table with a 4-value `type` CHECK (slack/discord/teams/generic) and no
@@ -1497,6 +1526,21 @@ const stmts = {
   ),
   listAgentsByWorkflow: db.prepare(
     "SELECT * FROM agents WHERE workflow_run_id = ? ORDER BY started_at ASC, id ASC"
+  ),
+
+  // Privacy settings — single-row (id = 1) ingest redaction policy.
+  getPrivacySettings: db.prepare("SELECT * FROM privacy_settings WHERE id = 1"),
+  upsertPrivacySettings: db.prepare(
+    `INSERT INTO privacy_settings
+       (id, enabled, redact_secret_keys, redact_secret_values, redact_emails, hash_home_paths, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     ON CONFLICT(id) DO UPDATE SET
+       enabled = excluded.enabled,
+       redact_secret_keys = excluded.redact_secret_keys,
+       redact_secret_values = excluded.redact_secret_values,
+       redact_emails = excluded.redact_emails,
+       hash_home_paths = excluded.hash_home_paths,
+       updated_at = excluded.updated_at`
   ),
 };
 

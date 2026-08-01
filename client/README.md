@@ -237,7 +237,7 @@ graph TB
     Feed[ActivityFeed<br/>streaming event log]
     Analytics[Analytics<br/>tokens + heatmap + trends]
     Workflows[Workflows<br/>D3.js visualizations]
-    Settings[Settings<br/>pricing + notifications + hooks]
+    Settings[Settings<br/>pricing + privacy + notifications + hooks]
 
     App --> Layout
     Layout --> Dashboard & Kanban & Sessions & Detail & Feed & Analytics & Workflows & Settings

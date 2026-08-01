@@ -1427,6 +1427,23 @@ export interface AlertRule {
   updated_at: string;
 }
 
+/**
+ * Ingest-time privacy policy from GET/PUT /api/settings/privacy.
+ * Applied to event `data` before SQLite writes (live hooks + import).
+ */
+export interface PrivacySettings {
+  /** Master switch — when false, payloads are stored as received. */
+  enabled: boolean;
+  /** Mask string values under secret-like key names (token, password, …). */
+  redact_secret_keys: boolean;
+  /** Scan nested strings for API keys, bearer tokens, PEM blocks, etc. */
+  redact_secret_values: boolean;
+  /** Replace email addresses with `<redacted>`. Off by default. */
+  redact_emails: boolean;
+  /** Replace absolute home-directory prefixes with a short hash. Off by default. */
+  hash_home_paths: boolean;
+}
+
 /** One firing of an {@link AlertRule}, from GET /api/alerts; pushed live via
  *  the `alert_triggered` (new) / `alert_updated` (acknowledged) WS messages.
  *  Denormalizes the rule's name/type at fire time so the row still renders even

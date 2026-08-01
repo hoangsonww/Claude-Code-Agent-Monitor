@@ -1105,6 +1105,9 @@ Xem [docs/API.md → Metrics](./docs/API.md#metrics) để biết danh sách ch�
 | `POST` | `/api/settings/reset-pricing`  | Đặt lại giá về mặc định                        |
 | `GET`  | `/api/settings/export`         | Xuất tất cả dữ liệu dưới dạng tải xuống JSON                 |
 | `POST` | `/api/settings/import`         | Khôi phục bản xuất từ `/export` (multipart `file` hoặc JSON `{ path }`). Idempotent + không phá hủy — phiên đã có được bỏ qua toàn bộ |
+| `GET`  | `/api/settings/privacy`        | Lấy chính sách che dữ liệu khi thu nhận (+ mặc định) |
+| `PUT`  | `/api/settings/privacy`        | Cập nhật các tùy chọn quyền riêng tư (boolean từng phần) |
+| `POST` | `/api/settings/privacy/preview`| Xem trước che dữ liệu trên payload mẫu (không lưu) |
 | `POST` | `/api/settings/cleanup`        | Bỏ các phiên cũ, xóa dữ liệu cũ           |
 
 ### Nguồn dữ liệu từ xa

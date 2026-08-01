@@ -3,7 +3,8 @@
 /**
  * Import legacy Claude Code sessions from ~/.claude/ into the Agent Dashboard.
  * Reads per-project JSONL session files to populate sessions, agents, and
- * token usage that existed before the dashboard was installed.
+ * token usage that existed before the dashboard was installed. Event payloads
+ * are privacy-redacted at insert time using the same policy as live hooks.
  *
  * Can be run standalone: node scripts/import-history.js [--dry-run] [--project <name>]
  * Also exported for auto-import on server startup.
@@ -682,7 +683,15 @@ function importApiErrors(dbModule, sessionId, mainAgentId, apiErrors) {
       .get(sessionId, summary);
     if (existing) continue;
 
-    insertEvent.run(sessionId, mainAgentId, "APIError", null, summary, JSON.stringify(err), ts);
+    insertEvent.run(
+      sessionId,
+      mainAgentId,
+      "APIError",
+      null,
+      summary,
+      serializeImportedEventData(err),
+      ts
+    );
     created++;
   }
   return created;
@@ -711,6 +720,24 @@ function truncateForEvent(value) {
     _original_length: serialized.length,
     preview: serialized.slice(0, SUBAGENT_EVENT_VALUE_CAP),
   };
+}
+
+/**
+ * JSON-stringify an event payload after applying the active ingest privacy
+ * policy. Mirrors live hook persistence so import/reimport cannot bypass
+ * redaction. Falls back to plain JSON.stringify if privacy module is unavailable.
+ */
+function serializeImportedEventData(payload) {
+  try {
+    const { serializeEventData } = require("../server/lib/privacy");
+    return serializeEventData(payload);
+  } catch {
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**
@@ -1031,7 +1058,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
           "PreToolUse",
           tev.tool_name,
           `Using tool: ${tev.tool_name}`,
-          JSON.stringify({
+          serializeImportedEventData({
             imported: true,
             source: "subagent_jsonl",
             tool_use_id: tev.tool_use_id,
@@ -1050,7 +1077,7 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
           "PostToolUse",
           tev.tool_name,
           `Tool completed: ${tev.tool_name}`,
-          JSON.stringify({
+          serializeImportedEventData({
             imported: true,
             source: "subagent_jsonl",
             tool_use_id: tev.tool_use_id,
@@ -1337,7 +1364,7 @@ function importSession(dbModule, session) {
           "ToolError",
           null,
           `Tool execution failed: ${tre.content.slice(0, 100)}`,
-          JSON.stringify({ ...tre, imported: true }),
+          serializeImportedEventData({ ...tre, imported: true }),
           ts
         );
         added++;
@@ -1660,7 +1687,7 @@ function importSession(dbModule, session) {
         "ToolError",
         null,
         `Tool execution failed: ${tre.content.slice(0, 100)}`,
-        JSON.stringify({ ...tre, imported: true }),
+        serializeImportedEventData({ ...tre, imported: true }),
         tre.timestamp || session.startedAt
       );
     }

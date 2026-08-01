@@ -1123,6 +1123,9 @@ npm run monitoring:docker:up
 | `POST` | `/api/settings/reset-pricing`  | 가격 책정을 기본값으로 재설정                    |
 | `GET`  | `/api/settings/export`         | 모든 데이터를 JSON 다운로드로 내보내기           |
 | `POST` | `/api/settings/import`         | `/export` 백업 복원 (multipart `file` 또는 JSON `{ path }`). 멱등 + 비파괴적 — 이미 있는 세션은 통째로 건너뜀 |
+| `GET`  | `/api/settings/privacy`        | 수집 시 개인정보 마스킹 정책 조회 (+ 기본값) |
+| `PUT`  | `/api/settings/privacy`        | 개인정보 토글 업데이트 (부분 boolean) |
+| `POST` | `/api/settings/privacy/preview`| 샘플 페이로드에 마스킹 미리보기 (저장 안 함) |
 | `POST` | `/api/settings/cleanup`        | 오래된 세션을 중단 처리하고 오래된 데이터 정리   |
 
 ### Claude 설정 탐색기 (`/api/cc-config`)

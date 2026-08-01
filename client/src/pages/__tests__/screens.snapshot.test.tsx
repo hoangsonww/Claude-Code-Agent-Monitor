@@ -281,6 +281,52 @@ vi.mock("../../lib/api", async (importOriginal) => {
           purged_events: 0,
           purged_agents: 0,
         }),
+        privacy: {
+          get: r({
+            settings: {
+              enabled: true,
+              redact_secret_keys: true,
+              redact_secret_values: true,
+              redact_emails: false,
+              hash_home_paths: false,
+            },
+            defaults: {
+              enabled: true,
+              redact_secret_keys: true,
+              redact_secret_values: true,
+              redact_emails: false,
+              hash_home_paths: false,
+            },
+          }),
+          set: r({
+            ok: true,
+            settings: {
+              enabled: true,
+              redact_secret_keys: true,
+              redact_secret_values: true,
+              redact_emails: false,
+              hash_home_paths: false,
+            },
+          }),
+          preview: r({
+            settings: {
+              enabled: true,
+              redact_secret_keys: true,
+              redact_secret_values: true,
+              redact_emails: false,
+              hash_home_paths: false,
+            },
+            before: {},
+            after: {},
+            meta: {
+              redacted: false,
+              rules_applied: 0,
+              fields_redacted: 0,
+              fields_dropped: 0,
+              error: false,
+            },
+          }),
+        },
       },
       import: {
         guide: r({

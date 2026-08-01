@@ -480,6 +480,36 @@ CREATE TABLE remote_sources (
 
 Managed through the `/api/remote-sources/*` routes; sync/status changes are broadcast over the WebSocket as `remote_source.status` and, on success, `remote_data.updated` plus per-session `session_created` / `session_updated`. See [docs/API.md → Remote Data Sources](./API.md#remote-data-sources).
 
+### privacy_settings
+
+Single-row ingest-time privacy policy (always `id = 1`). Controls redaction applied to event `data` before SQLite writes on live hooks and import/reimport. Survives Clear Data — it is user configuration, like `alert_rules` and `webhook_targets`. Defaults: secret key/value detectors ON; email masking and home-path hashing OFF.
+
+```sql
+CREATE TABLE privacy_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    redact_secret_keys INTEGER NOT NULL DEFAULT 1,
+    redact_secret_values INTEGER NOT NULL DEFAULT 1,
+    redact_emails INTEGER NOT NULL DEFAULT 0,
+    hash_home_paths INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+```
+
+**Columns:**
+
+| Column | Type | Nullable | Description |
+|--------|------|----------|-------------|
+| `id` | INTEGER | NO | Always `1` (single-row table) |
+| `enabled` | INTEGER | NO | Master switch (`1` = redact on ingest) |
+| `redact_secret_keys` | INTEGER | NO | Mask values under secret-like key names |
+| `redact_secret_values` | INTEGER | NO | Scan nested strings for API keys / tokens / PEM blocks |
+| `redact_emails` | INTEGER | NO | Replace email addresses (`0` by default) |
+| `hash_home_paths` | INTEGER | NO | Hash absolute home-directory prefixes (`0` by default) |
+| `updated_at` | TEXT | NO | ISO 8601 timestamp of the last edit |
+
+Managed through `GET`/`PUT /api/settings/privacy` and previewed via `POST /api/settings/privacy/preview`. Implementation: `server/lib/privacy.js`.
+
 ---
 
 ## Indexes

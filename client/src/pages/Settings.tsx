@@ -1,6 +1,9 @@
 /**
  * @file Settings.tsx
- * @description Provides a settings page for managing model pricing rules, notification preferences, and system information with real-time updates and actionable controls for data management and hook configuration.
+ * @description Provides a settings page for managing model pricing rules,
+ * notification preferences, ingest privacy redaction, and system information
+ * with real-time updates and actionable controls for data management and hook
+ * configuration.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -37,6 +40,7 @@
  * - `../components/RemoteSources`
  * - `../components/Skeleton`
  * - `../components/AlertsNotifications`
+ * - `../components/PrivacySettings`
  * - `../lib/types`
  *
  * ## Public surface
@@ -109,6 +113,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cloud,
+  Shield,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
@@ -121,6 +126,7 @@ import { ImportHistory } from "../components/ImportHistory";
 import { RemoteSources } from "../components/RemoteSources";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
+import { PrivacySettings } from "../components/PrivacySettings";
 import type { ModelPricing, WSMessage } from "../lib/types";
 
 // In-page navigation for the (dense) Settings screen. Each entry maps to a
@@ -144,6 +150,7 @@ const SETTINGS_SECTIONS: {
   { id: "tabby", labelKey: "tabby.title", fallback: "Tabby", Icon: Cat },
   { id: "notifications", labelKey: "notifications.title", Icon: Bell },
   { id: "alerts", labelKey: "alertsHub.title", Icon: BellRing },
+  { id: "privacy", labelKey: "privacy.title", fallback: "Privacy", Icon: Shield },
   { id: "data", labelKey: "data.title", Icon: Database },
   { id: "about", labelKey: "about.title", Icon: Server },
 ];
@@ -1586,6 +1593,16 @@ export function Settings() {
         </h3>
         <p className="text-xs text-gray-500 mb-4">{t("alertsHub.description")}</p>
         <AlertsNotifications />
+      </section>
+
+      {/* ─── PRIVACY ─── */}
+      <section id="privacy" className="scroll-mt-24">
+        <h3 className="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1">
+          <Shield className="w-4 h-4 text-gray-500" />
+          {t("privacy.title")}
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">{t("privacy.description")}</p>
+        <PrivacySettings />
       </section>
 
       {/* ─── DATA MANAGEMENT ─── */}

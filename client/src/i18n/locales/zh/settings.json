@@ -1,6 +1,6 @@
 {
   "title": "设置",
-  "subtitle": "管理定价、通知、数据和钩子",
+  "subtitle": "管理定价、隐私、通知、数据和钩子",
   "exportData": "导出数据",
   "acrossSessions": "跨所有追踪的会话",
   "basedOnUsage": "基于每模型 Token 使用量",
@@ -151,6 +151,34 @@
       "pathNotDir": "路径不是目录",
       "generic": "导入失败：{{message}}"
     }
+  },
+  "privacy": {
+    "title": "隐私",
+    "description": "在将钩子与导入事件写入 SQLite 之前脱敏敏感内容。会话/代理/令牌处理仍使用内存中的原始载荷。",
+    "statusOn": "摄入脱敏已启用",
+    "statusOff": "摄入脱敏已禁用",
+    "note": "仅作用于新摄入的事件。数据库中的历史记录不会被重写。导出内容为摄入时已存储的数据。",
+    "enabled": "启用隐私脱敏",
+    "enabledDesc": "总开关。关闭时按原样存储事件载荷。",
+    "secretKeys": "敏感键名",
+    "secretKeysDesc": "遮蔽匹配 token、secret、password、api_key、auth、credential 等键名的值。",
+    "secretValues": "敏感值模式",
+    "secretValuesDesc": "扫描嵌套字符串中的 API 密钥（sk-…）、GitHub/Slack 令牌、AWS 密钥 ID、Bearer 头与 PEM 私钥。",
+    "emails": "电子邮箱",
+    "emailsDesc": "将电子邮箱替换为 <redacted>。默认关闭。",
+    "homePaths": "哈希主目录路径",
+    "homePathsDesc": "将绝对主目录前缀替换为短哈希，避免保留机器相关路径。默认关闭。",
+    "saving": "正在保存…",
+    "loadFailed": "加载隐私设置失败",
+    "previewTitle": "预览",
+    "previewDesc": "粘贴示例载荷以查看当前策略如何转换它。不会写入数据库。",
+    "previewBefore": "之前",
+    "previewAfter": "之后",
+    "previewRun": "运行预览",
+    "previewRunning": "运行中…",
+    "previewEmpty": "运行预览后，脱敏结果将显示在这里。",
+    "previewInvalidJson": "预览输入必须是有效的 JSON",
+    "previewMeta": "{{rules}} 条规则 · {{fields}} 个字段"
   },
   "data": {
     "title": "数据管理",

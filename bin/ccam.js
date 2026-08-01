@@ -17,8 +17,9 @@
  * Webhooks              webhooks · webhooks test <id>
  * Pricing               pricing · pricing set/delete/reset
  * Import                import rescan · import path <dir> · import-data <file>
- * Administration        doctor · info · export · cleanup · reinstall-hooks ·
- *                       update-check · clear-data --yes · open · version
+ * Administration        doctor · info · export · privacy · cleanup ·
+ *                       reinstall-hooks · update-check · clear-data --yes ·
+ *                       open · version
  *
  * The REPL (`ccam repl`, aliases `shell` / `i`) runs each entered line as a
  * short-lived child `ccam` process, so its behavior is identical to the
@@ -191,6 +192,7 @@ async function api(method, pathname, body) {
 }
 const get = (p) => api("GET", p);
 const post = (p, b) => api("POST", p, b);
+const put = (p, b) => api("PUT", p, b);
 
 /**
  * Print the standard "server is not running" indicator and exit 1. Every
@@ -1299,6 +1301,75 @@ async function cmdInfo() {
   console.log(JSON.stringify(info, null, 2));
 }
 
+/**
+ * Show or update the ingest-time privacy policy.
+ *   ccam privacy              → print current settings
+ *   ccam privacy set --emails --no-home-paths …
+ */
+async function cmdPrivacy(flags, positional) {
+  const sub = positional[0] || "show";
+  if (sub === "show" || sub === "get") {
+    const r = await get("/api/settings/privacy");
+    const s = r.settings || {};
+    console.log(`${c.bold("Privacy (ingest redaction)")}`);
+    console.log(`  enabled              ${s.enabled ? c.green("on") : c.dim("off")}`);
+    console.log(`  redact_secret_keys   ${s.redact_secret_keys ? c.green("on") : c.dim("off")}`);
+    console.log(`  redact_secret_values ${s.redact_secret_values ? c.green("on") : c.dim("off")}`);
+    console.log(`  redact_emails        ${s.redact_emails ? c.green("on") : c.dim("off")}`);
+    console.log(`  hash_home_paths      ${s.hash_home_paths ? c.green("on") : c.dim("off")}`);
+    return;
+  }
+  if (sub === "set") {
+    const body = {};
+    const boolFlag = (name, key) => {
+      if (flags[name] === true) body[key] = true;
+      if (flags[name] === false) body[key] = false;
+      if (flags[`no-${name}`] === true) body[key] = false;
+    };
+    // Master switch: --enable / --disable (or --enabled/--no-enabled)
+    if (flags.enable === true || flags.enabled === true) body.enabled = true;
+    if (flags.disable === true || flags.enabled === false || flags["no-enabled"] === true) {
+      body.enabled = false;
+    }
+    boolFlag("secret-keys", "redact_secret_keys");
+    boolFlag("secret-values", "redact_secret_values");
+    boolFlag("emails", "redact_emails");
+    boolFlag("home-paths", "hash_home_paths");
+    // Also accept the raw API field names as flags
+    for (const key of [
+      "redact_secret_keys",
+      "redact_secret_values",
+      "redact_emails",
+      "hash_home_paths",
+    ]) {
+      if (flags[key] === true) body[key] = true;
+      if (flags[key] === false || flags[`no-${key}`] === true) body[key] = false;
+    }
+    if (Object.keys(body).length === 0) {
+      console.error(
+        c.red("✖ Usage: ccam privacy set [--enable|--disable] [--emails] [--home-paths] …")
+      );
+      console.error(
+        c.dim(
+          "  Flags: --enable/--disable --secret-keys/--no-secret-keys --secret-values/--no-secret-values --emails/--no-emails --home-paths/--no-home-paths"
+        )
+      );
+      process.exit(1);
+    }
+    const r = await put("/api/settings/privacy", body);
+    console.log(`${c.green("✔")} Privacy updated`);
+    const s = r.settings || {};
+    console.log(
+      c.dim(
+        `  enabled=${s.enabled} keys=${s.redact_secret_keys} values=${s.redact_secret_values} emails=${s.redact_emails} home_paths=${s.hash_home_paths}`
+      )
+    );
+    return;
+  }
+  console.error(c.red("✖ Usage: ccam privacy [show|set]"));
+  process.exit(1);
+}
+
 async function cmdExport(positional) {
   const file = positional[0] || `ccam-export-${new Date().toISOString().slice(0, 10)}.json`;
   const data = await get("/api/settings/export");
@@ -1553,6 +1624,7 @@ const COMMAND_GROUPS = [
       ["doctor", "", "Connectivity, hooks, database, and remote sources diagnosis"],
       ["info", "", "Raw system info JSON"],
       ["export", "[file.json]", "Export all data as JSON"],
+      ["privacy", "[show|set]", "Show or update ingest privacy redaction"],
       ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
       ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
       ["update-check", "", "Check whether the dashboard checkout is behind upstream"],
@@ -2259,6 +2331,7 @@ const SUBCOMMANDS = {
   pricing: ["set", "delete", "reset"],
   webhooks: ["test"],
   import: ["rescan", "path"],
+  privacy: ["show", "set"],
 };
 
 /** Run one parsed command. Returns the handler's promise; may throw
@@ -2316,6 +2389,8 @@ async function runCommand(argv) {
       return cmdInfo();
     case "export":
       return cmdExport(positional);
+    case "privacy":
+      return cmdPrivacy(flags, positional);
     case "import-data":
       return cmdImportData(positional);
     case "cleanup":

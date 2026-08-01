@@ -1,5 +1,8 @@
 /**
- * @file Express router for settings-related endpoints, providing system info, database statistics, hook status, and operations to clear data, re-import sessions, reinstall hooks, reset pricing, export data, and perform cleanup of stale sessions. This allows the frontend to manage and maintain the agent monitoring system effectively.
+ * @file Express router for settings-related endpoints, providing system info,
+ * database statistics, hook status, ingest privacy policy, and operations to
+ * clear data, re-import sessions, reinstall hooks, reset pricing, export data,
+ * and perform cleanup of stale sessions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -10,6 +13,12 @@ const os = require("os");
 const { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing } = require("../db");
 const { getConnectionCount } = require("../websocket");
 const { transcriptCache } = require("./hooks");
+const {
+  getPrivacySettings,
+  setPrivacySettings,
+  previewRedaction,
+  DEFAULT_SETTINGS,
+} = require("../lib/privacy");
 
 const router = Router();
 
@@ -217,6 +226,75 @@ router.get("/export", (_req, res) => {
     token_usage: tokenUsage,
     model_pricing: pricing,
   });
+});
+
+// GET /api/settings/privacy — current ingest-time privacy policy
+router.get("/privacy", (_req, res) => {
+  res.json({ settings: getPrivacySettings(), defaults: { ...DEFAULT_SETTINGS } });
+});
+
+// PUT /api/settings/privacy — update ingest-time privacy policy (partial OK)
+router.put("/privacy", (req, res) => {
+  const body = req.body || {};
+  const allowed = [
+    "enabled",
+    "redact_secret_keys",
+    "redact_secret_values",
+    "redact_emails",
+    "hash_home_paths",
+  ];
+  const partial = {};
+  for (const key of allowed) {
+    if (body[key] === undefined) continue;
+    if (typeof body[key] !== "boolean" && body[key] !== 0 && body[key] !== 1) {
+      return res.status(400).json({
+        error: {
+          code: "INVALID_INPUT",
+          message: `${key} must be a boolean`,
+        },
+      });
+    }
+    partial[key] = body[key];
+  }
+  if (Object.keys(partial).length === 0) {
+    return res.status(400).json({
+      error: {
+        code: "INVALID_INPUT",
+        message: `provide at least one of: ${allowed.join(", ")}`,
+      },
+    });
+  }
+  const settings = setPrivacySettings(partial);
+  res.json({ ok: true, settings });
+});
+
+// POST /api/settings/privacy/preview — dry-run redaction on a sample payload
+router.post("/privacy/preview", (req, res) => {
+  const { payload, settings: override } = req.body || {};
+  if (payload === undefined) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "payload is required" },
+    });
+  }
+  // Cap preview size so a huge paste can't pin the event loop
+  let serialized;
+  try {
+    serialized = JSON.stringify(payload);
+  } catch {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "payload must be JSON-serializable" },
+    });
+  }
+  if (serialized && serialized.length > 200_000) {
+    return res.status(400).json({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "preview payload must be under 200 KB",
+      },
+    });
+  }
+  const result = previewRedaction(payload, override);
+  res.json(result);
 });
 
 // GET /api/settings/claude-home — get current CLAUDE_HOME path

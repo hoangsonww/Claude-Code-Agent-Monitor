@@ -568,6 +568,9 @@ Because sync runs non-interactively (`ssh -o BatchMode=yes`), the connection mus
 | `POST` | `/api/settings/reset-pricing`  | Reset pricing table to defaults                  |
 | `GET`  | `/api/settings/export`         | Export all data (sessions, agents, events, token_usage, workflows, dashboard_runs, alert_rules, model_pricing) as one versioned JSON attachment |
 | `POST` | `/api/settings/import`         | Restore a bundle from `/export`. Multipart `file`, or JSON `{ path }` (server reads it). Idempotent + non-destructive: sessions already present are skipped whole |
+| `GET`  | `/api/settings/privacy`        | Get ingest-time privacy redaction policy (+ defaults) |
+| `PUT`  | `/api/settings/privacy`        | Update privacy toggles (partial boolean update)  |
+| `POST` | `/api/settings/privacy/preview`| Dry-run redaction on a sample payload (not persisted) |
 | `POST` | `/api/settings/cleanup`        | Abandon stale sessions and purge old data        |
 
 ### Claude Config Explorer (`/api/cc-config`)

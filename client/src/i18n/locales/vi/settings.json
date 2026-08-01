@@ -1,6 +1,6 @@
 {
   "title": "Cài đặt",
-  "subtitle": "Quản lý định giá, thông báo, dữ liệu và hooks",
+  "subtitle": "Quản lý định giá, quyền riêng tư, thông báo, dữ liệu và hooks",
   "exportData": "Xuất dữ liệu",
   "acrossSessions": "Trên toàn bộ phiên đang được theo dõi",
   "basedOnUsage": "Dựa trên mức dùng token theo mô hình",
@@ -151,6 +151,34 @@
       "pathNotDir": "Đường dẫn không phải thư mục",
       "generic": "Nhập thất bại: {{message}}"
     }
+  },
+  "privacy": {
+    "title": "Quyền riêng tư",
+    "description": "Che dữ liệu nhạy cảm trong payload hook/import trước khi ghi vào SQLite. Xử lý session/agent/token vẫn dùng payload gốc trong bộ nhớ.",
+    "statusOn": "Đang bật che dữ liệu khi thu nhận",
+    "statusOff": "Đang tắt che dữ liệu khi thu nhận",
+    "note": "Chỉ áp dụng cho sự kiện mới. Bản ghi lịch sử trong DB không bị viết lại. Bản xuất chứa dữ liệu đã lưu tại thời điểm thu nhận.",
+    "enabled": "Bật che dữ liệu riêng tư",
+    "enabledDesc": "Công tắc chính. Khi tắt, payload sự kiện được lưu nguyên trạng.",
+    "secretKeys": "Khóa nhạy cảm",
+    "secretKeysDesc": "Che giá trị dưới các khóa khớp token, secret, password, api_key, auth, credential, v.v.",
+    "secretValues": "Mẫu giá trị bí mật",
+    "secretValuesDesc": "Quét chuỗi lồng nhau tìm API key (sk-…), token GitHub/Slack, AWS key ID, Bearer header và PEM private key.",
+    "emails": "Địa chỉ email",
+    "emailsDesc": "Thay email bằng <redacted>. Tắt theo mặc định.",
+    "homePaths": "Băm đường dẫn thư mục home",
+    "homePathsDesc": "Thay tiền tố thư mục home tuyệt đối bằng hash ngắn để không giữ đường dẫn theo máy. Tắt theo mặc định.",
+    "saving": "Đang lưu…",
+    "loadFailed": "Không tải được cài đặt quyền riêng tư",
+    "previewTitle": "Xem trước",
+    "previewDesc": "Dán payload mẫu để xem chính sách hiện tại sẽ biến đổi nó thế nào. Không lưu gì cả.",
+    "previewBefore": "Trước",
+    "previewAfter": "Sau",
+    "previewRun": "Chạy xem trước",
+    "previewRunning": "Đang chạy…",
+    "previewEmpty": "Chạy xem trước để thấy kết quả đã che tại đây.",
+    "previewInvalidJson": "Đầu vào xem trước phải là JSON hợp lệ",
+    "previewMeta": "{{rules}} quy tắc · {{fields}} trường"
   },
   "data": {
     "title": "Quản lý dữ liệu",

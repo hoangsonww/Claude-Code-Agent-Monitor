@@ -1,5 +1,10 @@
 /**
- * @file Express router for handling incoming hook events from Claude CLI. It processes various hook types (PreToolUse, PostToolUse, Stop, SubagentStop, SessionStart, SessionEnd, Notification), updates session and agent states accordingly in the database, extracts token usage from transcripts, detects compaction events, and broadcasts updates to connected clients via WebSocket.
+ * @file Express router for handling incoming hook events from Claude CLI. It
+ * processes various hook types (PreToolUse, PostToolUse, Stop, SubagentStop,
+ * SessionStart, SessionEnd, Notification), updates session and agent states
+ * accordingly in the database, extracts token usage from transcripts, detects
+ * compaction events, applies ingest-time privacy redaction before persisting
+ * event payloads, and broadcasts updates to connected clients via WebSocket.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -12,6 +17,7 @@ const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
+const { serializeEventData } = require("../lib/privacy");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
@@ -877,7 +883,7 @@ const processEvent = db.transaction((hookType, data) => {
             "APIError",
             null,
             `${apiErr.type}: ${apiErr.message}`,
-            JSON.stringify(apiErr)
+            serializeEventData(apiErr)
           );
           broadcast("new_event", {
             session_id: sessionId,
@@ -1000,13 +1006,15 @@ const processEvent = db.transaction((hookType, data) => {
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
+  // Persist a privacy-redacted clone. The in-memory `data` object stays intact
+  // so session/agent/token extraction above is unaffected by masking.
   stmts.insertEvent.run(
     sessionId,
     agentId,
     eventType,
     toolName,
     summary,
-    JSON.stringify(data)
+    serializeEventData(data)
     // created_at uses default
   );
 
@@ -1339,7 +1347,7 @@ function watchdogCheck() {
             "APIError",
             null,
             summary,
-            JSON.stringify(apiErr)
+            serializeEventData(apiErr)
           );
           broadcast("new_event", {
             session_id: sess.id,
