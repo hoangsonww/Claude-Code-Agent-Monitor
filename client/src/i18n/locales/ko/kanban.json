@@ -41,5 +41,10 @@
       "error": "복구 불가능한 실패 또는 상위 API 오류로 인해 세션이 오류와 함께 종료되었습니다.",
       "abandoned": "정상 종료 신호 없이 세션이 오래 방치되었습니다. 활동이 5분 이상 없으면 abandoned로 표시됩니다(예: /resume, 네트워크 끊김 또는 CLI 강제 종료 후). Completed와 달리 실제 종료가 관찰되지 않았습니다."
     }
+  },
+  "progress": {
+    "tooltip_todo": "{{pct}}% · 할 일 {{total}}개 중 {{done}}개 완료",
+    "tooltip_workflow": "{{pct}}% · Agent {{total}}개 중 {{done}}개 완료",
+    "aria": "작업 {{pct}}% 완료"
   }
 }

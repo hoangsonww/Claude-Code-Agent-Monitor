@@ -41,5 +41,10 @@
       "error": "会话以错误结束：不可恢复的故障或上游 API 错误终止了运行。",
       "abandoned": "会话在没有干净退出信号的情况下变得陈旧。超过 5 分钟没有活动后会被标记为已放弃（例如 /resume、网络中断或 CLI 被终止后）。与已完成不同：未观察到真实退出。"
     }
+  },
+  "progress": {
+    "tooltip_todo": "{{pct}}% · 已完成 {{total}} 项待办中的 {{done}} 项",
+    "tooltip_workflow": "{{pct}}% · 已完成 {{total}} 个 Agent 中的 {{done}} 个",
+    "aria": "任务完成 {{pct}}%"
   }
 }

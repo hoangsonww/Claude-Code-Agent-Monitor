@@ -61,6 +61,7 @@ import { useTranslation } from "react-i18next";
 import { Bot, GitBranch, Clock, Wrench, Cpu, Coins } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AgentStatusBadge } from "./StatusBadge";
+import { ProgressBar } from "./ProgressBar";
 import { effectiveAgentStatus, isAgentAwaitingInput, agentAwaitingReason } from "../lib/types";
 import type { Agent, Session } from "../lib/types";
 import { formatDuration, timeAgo, formatModelName, pathBasename, fmtCost } from "../lib/format";
@@ -134,6 +135,16 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
       : 0
     : typeof agent.cost === "number"
       ? agent.cost
+      : 0;
+  // Progress bar shows only when the agent is actively working AND has a real
+  // denominator (TodoWrite items or workflow fleet). No denominator → no bar
+  // (we never fake a percent from time/tool-counts).
+  const progressTotal = typeof agent.todo_total === "number" ? agent.todo_total : 0;
+  const progressDone = typeof agent.todo_done === "number" ? agent.todo_done : 0;
+  const showProgress = isActive && progressTotal > 0;
+  const progressPct =
+    progressTotal > 0
+      ? Math.round((Math.min(progressDone, progressTotal) / progressTotal) * 100)
       : 0;
   // Real (user-given) session name - auto-generated Claude/Codex fallbacks
   // carry no extra info next to the ID, so they are suppressed.
@@ -263,6 +274,22 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
               {prompt}
             </p>
           ))}
+        </div>
+      )}
+
+      {showProgress && (
+        <div className="mb-3">
+          <ProgressBar
+            done={progressDone}
+            total={progressTotal}
+            title={t("progress.tooltip", {
+              pct: progressPct,
+              done: progressDone,
+              total: progressTotal,
+              context: agent.progress_source === "workflow" ? "workflow" : "todo",
+            })}
+            ariaLabel={t("progress.aria", { pct: progressPct })}
+          />
         </div>
       )}
 

@@ -41,5 +41,10 @@
       "error": "Phiên kết thúc với lỗi: lỗi không thể khôi phục hoặc lỗi API thượng nguồn đã chấm dứt lần chạy.",
       "abandoned": "Phiên trở nên cũ mà không có tín hiệu thoát sạch. Phiên bị đánh dấu bỏ dở sau hơn 5 phút không hoạt động (ví dụ sau /resume, mất mạng hoặc CLI bị tắt). Khác với Hoàn tất: không quan sát được tín hiệu thoát thật sự."
     }
+  },
+  "progress": {
+    "tooltip_todo": "{{pct}}% · Đã hoàn thành {{done}}/{{total}} việc cần làm",
+    "tooltip_workflow": "{{pct}}% · Đã hoàn thành {{done}}/{{total}} Agent",
+    "aria": "Tác vụ hoàn thành {{pct}}%"
   }
 }

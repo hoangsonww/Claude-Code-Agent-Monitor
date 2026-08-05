@@ -784,6 +784,17 @@ export interface Agent {
    * for main agents (whose cost is the session total) and compaction agents.
    */
   cost?: number;
+  /** Completed items of the agent's progress denominator — TodoWrite completed
+   *  items, or done/errored Workflow inner agents. Null when no progress is
+   *  known. Maps to `agents.todo_done`. */
+  todo_done?: number | null;
+  /** Total items of the progress denominator (todo items, or total Workflow
+   *  inner agents). Null when unknown. Maps to `agents.todo_total`. */
+  todo_total?: number | null;
+  /** What produced the counts above: 'todo' (agent's own TodoWrite list) or
+   *  'workflow' (fleet done/total); null when no progress. Maps to
+   *  `agents.progress_source`. */
+  progress_source?: "todo" | "workflow" | null;
 }
 
 // ───── "Awaiting input" overlay helpers ─────
