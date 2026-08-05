@@ -510,6 +510,26 @@ const processEvent = db.transaction((hookType, data) => {
         }
       }
 
+      // TodoWrite carries the agent's own plan — completed/total items is the
+      // one real, self-declared progress denominator we get. Parse it into
+      // per-agent counts and attribute to whoever ran it (agentId, already
+      // resolved above to the deepest working subagent when main is waiting).
+      // Fail-safe: a malformed payload must never throw inside this ingest
+      // transaction (backend rule: hooks stay non-blocking).
+      if (toolName === "TodoWrite") {
+        try {
+          const todos = Array.isArray(data.tool_input?.todos) ? data.tool_input.todos : [];
+          if (todos.length > 0) {
+            const total = todos.length;
+            const done = todos.filter((item) => item && item.status === "completed").length;
+            stmts.updateAgentProgress.run(done, total, "todo", agentId);
+            broadcast("agent_updated", stmts.getAgent.get(agentId));
+          }
+        } catch {
+          /* fail-safe: ignore malformed TodoWrite payloads */
+        }
+      }
+
       // Only clear current_tool on the main agent if it's actively working.
       // Skip if waiting (waiting for subagents) or already completed.
       if (mainAgent && mainAgent.status === "working") {
@@ -1637,3 +1657,7 @@ router.livenessReap = livenessReap;
 // Exposed as a narrow test seam for version-variant Codex hook payloads.
 router.codexTranscriptPath = codexTranscriptPath;
 module.exports = router;
+
+// Exposed for tests: lets suites drive ingestion directly without binding an
+// HTTP socket (the route handler just calls processEvent(hook_type, data)).
+module.exports.processEvent = processEvent;
