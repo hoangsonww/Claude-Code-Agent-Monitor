@@ -484,6 +484,19 @@ try {
 }
 db.prepare("CREATE INDEX IF NOT EXISTS idx_agents_workflow ON agents(workflow_run_id)").run();
 
+// Migrate: per-agent task-progress counts. `todo_done`/`todo_total` come from
+// the agent's own TodoWrite list (completed/total items) or, for Workflow-tool
+// runs, done/total inner agents. `progress_source` records which produced them
+// ('todo' | 'workflow'). NULL everywhere = no progress known. Additive, safe on
+// existing DBs.
+try {
+  db.prepare("SELECT todo_done FROM agents LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE agents ADD COLUMN todo_done INTEGER").run();
+  db.prepare("ALTER TABLE agents ADD COLUMN todo_total INTEGER").run();
+  db.prepare("ALTER TABLE agents ADD COLUMN progress_source TEXT").run();
+}
+
 // Migrate: add the 1h-ephemeral cache-write rate column to model_pricing.
 // Older DBs predate the 5m/1h cache-write split. ADD COLUMN defaults every
 // existing row to 0, which is not a realistic rate — so immediately backfill a
@@ -1015,6 +1028,9 @@ try {
         awaiting_reason TEXT,
         workflow_run_id TEXT,
         workflow_phase TEXT,
+        todo_done INTEGER,
+        todo_total INTEGER,
+        progress_source TEXT,
         FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
         FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
       );
@@ -1026,7 +1042,8 @@ try {
           ELSE status
         END,
         task, current_tool, started_at, ended_at, parent_agent_id, metadata,
-        updated_at, awaiting_input_since, awaiting_reason, workflow_run_id, workflow_phase
+        updated_at, awaiting_input_since, awaiting_reason, workflow_run_id, workflow_phase,
+        todo_done, todo_total, progress_source
       FROM agents;
       DROP TABLE agents;
       ALTER TABLE agents_new RENAME TO agents;
@@ -1439,6 +1456,9 @@ const stmts = {
   ),
 
   getAgent: db.prepare("SELECT * FROM agents WHERE id = ?"),
+  updateAgentProgress: db.prepare(
+    "UPDATE agents SET todo_done = ?, todo_total = ?, progress_source = ? WHERE id = ?"
+  ),
   listAgents: db.prepare(
     `SELECT a.*, ${AGENT_LAST_ACTIVITY_SQL} AS last_activity
      FROM agents a ORDER BY last_activity DESC LIMIT ? OFFSET ?`
