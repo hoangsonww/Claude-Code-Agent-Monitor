@@ -100,6 +100,26 @@ function mapState(state) {
   }
 }
 
+/**
+ * Write fleet progress (done/total inner agents) onto the run's main agent,
+ * but never overwrite a finer-grained 'todo' progress the orchestrator set for
+ * itself. Counts a `done` OR `error` inner agent as finished (an errored agent
+ * won't progress further). No-op when there are no inner agents or no main row.
+ */
+function writeWorkflowProgress(dbModule, mainAgentId, progress) {
+  const { stmts } = dbModule;
+  const entries = Array.isArray(progress)
+    ? progress.filter((e) => e && e.type === "workflow_agent")
+    : [];
+  const total = entries.length;
+  if (total === 0) return;
+  const done = entries.filter((e) => e.state === "done" || e.state === "error").length;
+  const main = stmts.getAgent.get(mainAgentId);
+  if (!main) return;
+  if (main.progress_source === "todo") return; // TodoWrite wins (spec precedence)
+  stmts.updateAgentProgress.run(done, total, "workflow", mainAgentId);
+}
+
 // Token fields carried on a parsed-subagent bucket (camelCase, matching
 // writeSessionTokens). Used to fold inner-agent usage into the session's cost.
 const TOKEN_FIELDS = [
@@ -370,6 +390,12 @@ async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
     }
   }
 
+  try {
+    writeWorkflowProgress(dbModule, mainAgentId, journal.progress);
+  } catch {
+    /* progress is best-effort; never fail the ingest over it */
+  }
+
   return { row: stmts.getWorkflow.get(journal.runId), tokens: runTokens };
 }
 
@@ -571,6 +597,13 @@ async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, script
     null,
     "live"
   );
+
+  try {
+    writeWorkflowProgress(dbModule, mainAgentId, progress);
+  } catch {
+    /* best-effort */
+  }
+
   return { row: stmts.getWorkflow.get(runId), tokens: runTokens };
 }
 
