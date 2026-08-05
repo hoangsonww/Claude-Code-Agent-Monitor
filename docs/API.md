@@ -379,11 +379,16 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
       "parent_agent_id": null,
       "awaiting_input_since": "2024-03-18T12:05:00Z",
       "awaiting_reason": "stop",
+      "todo_done": null,
+      "todo_total": null,
+      "progress_source": null,
       "cost": 0
     }
   ]
 }
 ```
+
+> **Note on progress fields** — `todo_done`, `todo_total`, and `progress_source` are optional per-agent task-progress counts (all `null` when no progress is known). They are populated from the agent's own `TodoWrite` list (`progress_source: "todo"`, completed/total items) or from a Workflow-tool run (`progress_source: "workflow"`, done+error/total inner agents); a `"todo"` source is never overwritten by a `"workflow"` update. The dashboard renders them as a progress bar on `working` agent cards that carry a non-zero `todo_total`.
 
 > **Note on `cost`** — `/api/agents` and `/api/sessions/:id/agents` attach a `cost` (USD) to each agent: the agent's **own** cost, computed server-side from the per-agent token buckets stored in `agents.metadata.tokens` and priced at the current pricing rules (at the agent's start date, so promo/standard cutovers apply — see [Pricing](#pricing)). It is `0` for main agents (whose cost is the session total, reported by `/api/pricing/cost/:sessionId`), for compaction pseudo-agents, and for any subagent whose transcript is unavailable. This lets a subagent card show only what that subagent spent instead of the whole session's total.
 

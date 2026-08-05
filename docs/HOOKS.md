@@ -329,6 +329,7 @@ Triggered after a tool completes execution.
 - Update agent token counts via shared transcript cache
 - Calculate and update cost
 - Rollup cost to session
+- For the `TodoWrite` tool, parse `tool_input.todos` into per-agent task-progress counts on the acting agent: `todo_done` = completed items, `todo_total` = total items (unweighted), `progress_source = 'todo'`, then broadcast `agent_updated`. Previously the `TodoWrite` payload was only persisted as an opaque event blob
 
 **Cost Calculation Flow:**
 
