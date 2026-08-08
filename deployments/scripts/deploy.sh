@@ -299,7 +299,7 @@ deploy_kustomize() {
 
   local rendered
   rendered="$(mktemp)"
-  kubectl kustomize "${overlay_dir}" | sed "s|ccam-dashboard:2.0.2|${FULL_IMAGE}|g" > "${rendered}"
+  kubectl kustomize "${overlay_dir}" | sed "s|ccam-dashboard:2.0.4|${FULL_IMAGE}|g" > "${rendered}"
   if ! kubectl apply -f "${rendered}" --server-side --field-manager=ccam-deployer; then
     rm -f "${rendered}"
     err "Kustomize deployment failed!"

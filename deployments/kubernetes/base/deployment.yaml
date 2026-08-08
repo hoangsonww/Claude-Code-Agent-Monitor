@@ -44,7 +44,7 @@ spec:
 
       containers:
         - name: agent-monitor
-          image: ccam-dashboard:2.0.2
+          image: ccam-dashboard:2.0.4
           imagePullPolicy: IfNotPresent
 
           ports:

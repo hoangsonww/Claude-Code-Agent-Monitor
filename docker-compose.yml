@@ -5,7 +5,7 @@ name: ccam
 # or run two active containers against the same data volume.
 services:
   agent-monitor:
-    image: ${CCAM_IMAGE:-ccam-dashboard:2.0.2}
+    image: ${CCAM_IMAGE:-ccam-dashboard:2.0.4}
     build:
       context: .
       dockerfile: Dockerfile

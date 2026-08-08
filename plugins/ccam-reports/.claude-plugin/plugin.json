@@ -1,7 +1,7 @@
 {
   "name": "ccam-reports",
   "description": "Generate stakeholder-ready CCAM reports from local session, cost, reliability, and workflow data with explicit scope, evidence, and export-friendly Markdown.",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
   "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
   "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",

@@ -1,6 +1,6 @@
 {
   "name": "ccam-runner",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Operate dashboard-launched Claude Code and Codex runs with safe launch, follow-up, stop, resume, model discovery, and persistent run-history workflows.",
   "author": {
     "name": "Son Nguyen",

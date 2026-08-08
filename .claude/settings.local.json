@@ -36,7 +36,12 @@
       "Bash(node -e ':*)",
       "Bash(node -e \"require\\('./server/lib/transcript-cache'\\); require\\('./scripts/import-history'\\); console.log\\('All modules load OK'\\)\")",
       "Bash(claude --version)",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "mcp__github__pull_request_read",
+      "mcp__github__get_me",
+      "Bash(echo \"---syntax check---\")",
+      "Bash(node --check /private/tmp/claude-501/-Users-davidnguyen-WebstormProjects-Claude-Code-Agent-Monitor/c32699a8-fcc1-44cf-bcad-d9b048533b69/scratchpad/ccam-pr278-fork.js)",
+      "Bash(echo \"SYNTAX OK\")"
     ]
   }
 }

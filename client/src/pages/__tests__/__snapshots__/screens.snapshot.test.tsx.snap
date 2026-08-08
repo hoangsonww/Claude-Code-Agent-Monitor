@@ -10553,7 +10553,7 @@ exports[`screen snapshots > Settings 1`] = `
             <p
               class="text-[10px] text-amber-400/90 mt-1"
             >
-              UI build v2.0.3 (rebuild client to match)
+              UI build v2.0.4 (rebuild client to match)
             </p>
           </div>
           <div

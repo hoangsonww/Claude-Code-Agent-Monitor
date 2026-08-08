@@ -1,6 +1,6 @@
 {
   "name": "ccam-config",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Audit and govern your Claude Code configuration and file-based memory via the Agent Monitor Config Explorer API — skills, subagents, commands, MCP servers, hooks, settings, and the per-project memory store. Surfaces sprawl, duplication, risky hooks, and stale facts, all read through the dashboard at http://localhost:4820.",
   "author": {
     "name": "Son Nguyen",

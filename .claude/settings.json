@@ -1,9 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "defaultMode": "acceptEdits",
-    "disableAutoMode": "disable",
-    "disableBypassPermissionsMode": "disable",
     "allow": [
       "Bash(npm run *)",
       "Bash(node --test *)",
@@ -71,7 +68,7 @@
     ]
   },
   "sandbox": {
-    "enabled": true,
+    "enabled": false,
     "failIfUnavailable": false,
     "autoAllowBashIfSandboxed": false,
     "allowUnsandboxedCommands": false,

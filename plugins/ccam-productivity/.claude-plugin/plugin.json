@@ -1,7 +1,7 @@
 {
   "name": "ccam-productivity",
   "description": "Productivity workflows for Claude Code — daily standups, weekly reports, sprint summaries, and intelligent workflow optimization powered by Agent Monitor session data.",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
   "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
   "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",

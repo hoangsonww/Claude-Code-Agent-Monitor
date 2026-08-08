@@ -1,6 +1,6 @@
 {
   "name": "ccam-devtools",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Developer tools for Claude Code Agent Monitor — session debugging, hook diagnostics, data export, and system health checks for maintaining a healthy monitoring setup.",
   "author": {
     "name": "Son Nguyen",
