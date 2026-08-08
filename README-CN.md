@@ -647,6 +647,7 @@ flowchart LR
 # 服务器
 ccam status                       # ● 运行中 / ○ 未运行 指示器
 ccam start [--port N]             # 在后台启动服务器（分离进程）
+ccam stop                         # 优雅地停止后台服务器
 ccam repl                         # 交互式 shell（也可用 shell、i）
 
 # 监控

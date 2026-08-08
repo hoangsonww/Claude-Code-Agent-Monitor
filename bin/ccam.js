@@ -2025,6 +2025,84 @@ async function cmdStart(flags) {
   process.exit(1);
 }
 
+/**
+ * Stop the dashboard server by reading the PID from the discovery file and
+ * sending SIGTERM (graceful), escalating to SIGKILL after 5 s.
+ */
+async function cmdStop() {
+  if (!(await serverIsUp())) {
+    console.log(`${c.dim("○")} Dashboard is not running — nothing to stop.`);
+    return;
+  }
+  // Resolve the discovery file and target port the same way baseUrl() does,
+  // so `stop` kills the exact server this CLI talks to rather than an
+  // arbitrary entry when multiple dashboards run side by side (e.g. the
+  // desktop app next to `npm run dev`).
+  const { getServerInfoPath, resolveDashboardPort } = require(
+    path.join(REPO_ROOT, "server", "lib", "server-info.js")
+  );
+  const serverInfoPath = getServerInfoPath();
+  const targetPort = resolveDashboardPort();
+  let pid;
+  try {
+    const raw = fs.readFileSync(serverInfoPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.servers) && parsed.servers.length > 0) {
+      const match = parsed.servers.find((s) => s.port === targetPort);
+      pid = match ? match.pid : parsed.servers[0].pid;
+    } else if (parsed.pid) {
+      pid = parsed.pid;
+    }
+  } catch {
+    // fall through
+  }
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    console.error(c.red("✖ Could not determine server PID from ") + c.dim(serverInfoPath));
+    console.error(c.dim("  Kill it manually: find the node process on port 4820"));
+    process.exit(1);
+  }
+  // Check if PID is alive
+  try {
+    process.kill(pid, 0);
+  } catch {
+    console.error(c.red(`✖ PID ${pid} is not running — stale discovery file.`));
+    process.exit(1);
+  }
+  // Send SIGTERM
+  console.log(`${c.dim("…")} Stopping dashboard server (pid ${pid})…`);
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch (err) {
+    console.error(c.red(`✖ Failed to send SIGTERM: ${err.message}`));
+    process.exit(1);
+  }
+  // Wait up to 5s for graceful shutdown
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      process.kill(pid, 0);
+    } catch {
+      // Process is gone
+      console.log(`${c.green("●")} Dashboard stopped.`);
+      return;
+    }
+  }
+  // Escalate to SIGKILL
+  try {
+    process.kill(pid, "SIGKILL");
+    console.log(`${c.green("●")} Dashboard stopped (forced).`);
+  } catch (err) {
+    if (err.code === "ESRCH") {
+      // Process exited between the last check and SIGKILL — success
+      console.log(`${c.green("●")} Dashboard stopped.`);
+    } else {
+      console.error(c.red(`✖ Failed to stop dashboard (pid ${pid}): ${err.message}`));
+      process.exit(1);
+    }
+  }
+}
+
 /** Up/down indicator without exiting non-zero noise — the at-a-glance check. */
 async function cmdStatus() {
   if (await serverIsUp()) {
@@ -2065,6 +2143,7 @@ const COMMAND_GROUPS = [
     [
       ["status", "", "Up/down indicator for the dashboard server"],
       ["start", "[--port N]", "Start the server in the background and wait for healthy"],
+      ["stop", "", "Stop the background server gracefully"],
       ["repl", "", "Open the interactive shell (also: shell, i)"],
     ],
   ],
@@ -2897,6 +2976,8 @@ async function runCommand(argv) {
       return cmdStatus();
     case "start":
       return cmdStart(flags);
+    case "stop":
+      return cmdStop();
     case "stats":
       return cmdStats();
     case "kanban":

@@ -645,6 +645,7 @@ Toàn bộ bề mặt tính năng của dashboard cũng dùng được từ term
 # Máy chủ
 ccam status                       # chỉ báo ● đang chạy / ○ chưa chạy
 ccam start [--port N]             # khởi động server chạy nền (detached)
+ccam stop                         # dừng server chạy nền một cách nhẹ nhàng
 ccam repl                         # shell tương tác (cũng có: shell, i)
 
 # Giám sát

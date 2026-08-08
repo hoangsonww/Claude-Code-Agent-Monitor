@@ -654,6 +654,7 @@ The dashboard's full feature surface is also available from any terminal via the
 # Server
 ccam status                       # ● running / ○ not running indicator
 ccam start [--port N]             # start the server in the background (detached)
+ccam stop                         # stop the background server gracefully
 ccam repl                         # interactive shell (also: shell, i)
 
 # Monitoring

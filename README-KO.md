@@ -654,6 +654,7 @@ git 클론의 경우, 서버는 주기적으로 `origin`을 `git fetch`하고 �
 # 서버
 ccam status                       # ● 실행 중 / ○ 실행 중 아님 표시기
 ccam start [--port N]             # 서버를 백그라운드에서 시작(분리 실행)
+ccam stop                         # 백그라운드 서버를 정상적으로 중지
 ccam repl                         # 대화형 셸(shell, i도 가능)
 
 # 모니터링

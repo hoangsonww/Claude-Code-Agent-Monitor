@@ -89,7 +89,8 @@ The CLI talks to the local dashboard server — **API-backed commands require it
 | Command | Description |
 | ------- | ----------- |
 | `ccam status` | At-a-glance up/down indicator (`●` running / `○` not running); exits `1` when down |
-| `ccam start [--port N]` | Start the production server **in the background** (detached; survives closing the terminal), wait up to 30 s for `/api/health`, print the URL + PID and the `kill <pid>` stop command. Logs append to `data/ccam-server.log`. No-ops with a pointer when a server is already up. Requires a built client (`npm run build` once) |
+| `ccam start [--port N]` | Start the production server **in the background** (detached; survives closing the terminal), wait up to 30 s for `/api/health`, print the URL + PID and the `ccam stop` command. Logs append to `data/ccam-server.log`. No-ops with a pointer when a server is already up. Requires a built client (`npm run build` once) |
+| `ccam stop` | Stop the background server: reads the PID from the discovery file, sends `SIGTERM` for a graceful shutdown, and escalates to `SIGKILL` after 5 s if it hasn't exited |
 | `ccam repl` (aliases `shell`, `i`) | Open the **interactive shell** — see [Interactive REPL](#interactive-repl) |
 
 ### Interactive REPL
