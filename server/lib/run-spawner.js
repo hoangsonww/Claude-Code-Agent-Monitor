@@ -314,6 +314,7 @@ function spawnRun(args) {
     env: cleanSpawnEnv(),
     cwd: cwd || process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
   });
 
   const handle = {
