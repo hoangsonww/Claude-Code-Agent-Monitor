@@ -32,6 +32,30 @@ describe("i18n resources", () => {
     await i18n.changeLanguage("es");
     expect(i18n.t("common:agent")).toBe("agente");
     expect(i18n.t("common:subagent")).toBe("subagente");
+
+    await i18n.changeLanguage("de");
+    expect(i18n.t("common:agent")).toBe("Agent");
+    expect(i18n.t("common:subagent")).toBe("Subagent");
+
+    await i18n.changeLanguage("fr");
+    expect(i18n.t("common:agent")).toBe("agent");
+    expect(i18n.t("common:subagent")).toBe("subagent");
+  });
+
+  it("should provide German translations for navigation keys", async () => {
+    await i18n.changeLanguage("de");
+
+    expect(i18n.t("nav:dashboard")).toBe("Dashboard");
+    expect(i18n.t("nav:agentBoard")).toBe("Kanban-Board");
+    expect(i18n.t("nav:languageShort.de")).toBe("DE");
+  });
+
+  it("should provide French translations for navigation keys", async () => {
+    await i18n.changeLanguage("fr");
+
+    expect(i18n.t("nav:dashboard")).toBe("Tableau de bord");
+    expect(i18n.t("nav:agentBoard")).toBe("Tableau Kanban");
+    expect(i18n.t("nav:languageShort.fr")).toBe("FR");
   });
 
   it("should provide Spanish translations for navigation keys", async () => {
@@ -141,7 +165,7 @@ describe("i18n resources", () => {
       "hookGate.continue",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "de", "fr"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "splash", key)).toBeTruthy();
       }
@@ -167,7 +191,7 @@ describe("i18n resources", () => {
       "pricing.gpt.tooltip.apiPricingBody",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "de", "fr"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "settings", key)).toBeTruthy();
       }

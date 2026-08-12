@@ -1,0 +1,22 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Echtzeit-Übersicht der Agenten-Aktivität",
+  "totalSessions": "Sitzungen gesamt",
+  "activeAgents": "Aktive Agenten",
+  "activeSubagents": "Aktive Subagenten",
+  "eventsToday": "Ereignisse heute",
+  "totalEvents": "Ereignisse gesamt",
+  "totalCost": "Gesamtkosten",
+  "viewBoard": "Board anzeigen",
+  "viewAll": "Alle anzeigen",
+  "activeAgentsSection": "Aktive Agenten",
+  "recentActivity": "Neueste Aktivität",
+  "noAgents": "Keine aktiven Agenten",
+  "noAgentsDesc": "Agenten erscheinen hier, sobald eine überwachte Sitzung läuft.",
+  "noActivity": "Noch keine Aktivität",
+  "noActivityDesc": "Ereignisse aus überwachten Sitzungen werden hier in Echtzeit gestreamt.",
+  "failedConnect": "Verbindung zum Server fehlgeschlagen",
+  "failedLoad": "Laden der Daten fehlgeschlagen",
+  "activeTrend": " aktiv",
+  "totalTrend": " in aktiven Sitzungen"
+}

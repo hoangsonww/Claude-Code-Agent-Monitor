@@ -1,0 +1,111 @@
+{
+  "greeting": {
+    "morning": "Bonjour",
+    "afternoon": "Bonne après-midi",
+    "evening": "Bonsoir",
+    "night": "Travail nocturne"
+  },
+  "tagline": "Rien de ce que font vos agents ne reste dans l'ombre.",
+  "sub1": "Observabilité en temps réel pour chaque session Claude Code.",
+  "sub2": "Tokens, outils, coûts et workflows, tout en direct.",
+  "brand": "Claude Code Monitor",
+  "provider": {
+    "title": "Que souhaitez-vous surveiller ?",
+    "description": "Choisissez la source de données affichée dans le tableau de bord. Vous pouvez modifier cela plus tard dans les Paramètres.",
+    "claude": { "description": "Vos sessions Claude Code, agents et coûts." },
+    "codex": { "description": "Sessions Codex, utilisation des tokens GPT et coûts." },
+    "both": {
+      "label": "Les deux",
+      "description": "Toutes les sessions Claude Code et Codex, l'utilisation et les coûts."
+    },
+    "beta": "Bêta",
+    "continue": "Continuer vers le tableau de bord"
+  },
+  "hookGate": {
+    "kicker": "Suivi en direct",
+    "title": "Configurer la surveillance en direct",
+    "description": "Installez des hooks locaux légers uniquement pour les fournisseurs sélectionnés qui en ont encore besoin.",
+    "selectedProviders": "Hooks encore nécessaires pour",
+    "realTime": "Les hooks envoient des événements de cycle de vie à ce tableau de bord local en temps réel. Vos données restent sur cette machine.",
+    "checking": "Vérification de la configuration des hooks existants...",
+    "installed": "Hooks installés et prêts pour la surveillance en direct",
+    "existing": "Hooks de tableau de bord existants détectés",
+    "ready": "Prêt à installer les hooks sélectionnés",
+    "overrideWarning": "Des hooks de tableau de bord existent déjà pour un fournisseur sélectionné. L'installation actualise uniquement les entrées du tableau de bord. Vos autres hooks sont préservés.",
+    "output": "Sortie d'installation",
+    "failure": "Impossible d'installer tous les hooks sélectionnés. Consultez la sortie, puis réessayez ou continuez si vous avez terminé la configuration d'une autre façon.",
+    "checkFailed": "Nous n'avons pas pu vérifier votre configuration de hooks actuelle. Vous pouvez tout de même installer les hooks sélectionnés.",
+    "preserveNote": "Cela gère uniquement les hooks du tableau de bord. Vos autres hooks restent inchangés.",
+    "alreadyInstalled": "J'ai déjà installé des hooks",
+    "install": "Installer les hooks",
+    "installing": "Installation des hooks...",
+    "continue": "Continuer vers le tableau de bord"
+  },
+  "taglines": [
+    "Rien de ce que font vos agents ne reste dans l'ombre.",
+    "Voyez chaque mouvement de vos agents.",
+    "Vos agents, entièrement observables.",
+    "Chaque token, outil et tour — en pleine lumière.",
+    "Regardez votre flotte penser.",
+    "Là où les sessions Claude Code prennent forme.",
+    "Observation en temps réel de chaque agent.",
+    "Du prompt au résultat, tout est enregistré.",
+    "La salle de contrôle pour vos agents IA.",
+    "Chaque subagent comptabilisé.",
+    "Sachez exactement ce que coûtent vos agents.",
+    "Vos workflows agentiques, rendus lisibles.",
+    "Observer. Mesurer. Optimiser.",
+    "Contrôle mission pour Claude Code.",
+    "Transformez le chaos agentique en image claire.",
+    "Les reçus de chaque exécution."
+  ],
+  "subs": [
+    [
+      "Observabilité en temps réel pour chaque session Claude Code.",
+      "Tokens, outils, coûts et workflows, tout en direct."
+    ],
+    [
+      "Sessions, agents et événements en direct au fur et à mesure.",
+      "Décompositions de tokens et coûts par modèle, sans approximation."
+    ],
+    [
+      "Tracez chaque appel d'outil dans votre arbre d'agents.",
+      "Repérez le tour lent, le modèle coûteux, l'échec silencieux."
+    ],
+    ["Les hooks diffusent directement vers un tableau de bord local.", "Vos données ne quittent jamais votre machine."],
+    [
+      "Regardez les orchestrateurs déléguer aux subagents.",
+      "DAGs, concurrence et propagation d'erreurs, visualisés."
+    ],
+    [
+      "Suivi des coûts jusqu'au token de cache.",
+      "Tarification par modèle avec bases tenant compte de la compaction."
+    ],
+    [
+      "Chaque session, agent et événement en un seul endroit.",
+      "Recherchez, rejouez et inspectez sans quitter la pièce."
+    ],
+    [
+      "De SessionStart à SessionEnd, capturé.",
+      "Compactions, erreurs API et durées de tours incluses."
+    ],
+    [
+      "Sachez quel modèle a fait quoi, et ce que ça a coûté.",
+      "Subagents tarifés à leur propre taux, pas celui de l'orchestrateur."
+    ],
+    ["Flottes de workflows et agents internes, révélés.", "Même les exécutions qui ne déclenchent jamais un hook."],
+    ["Une fenêtre locale sur vos agents.", "Pas de cloud, pas de compte, pas de télémétrie."],
+    [
+      "Mesurez la productivité, pas les impressions.",
+      "Vélocité, efficacité du cache et efficacité des outils, notés."
+    ],
+    [
+      "Repérez l'anomalie avant que la facture ne le fasse.",
+      "Valeurs aberrantes de coûts et pics de tokens, signalés tôt."
+    ],
+    [
+      "Votre configuration Claude Code, entièrement cartographiée.",
+      "Skills, agents, hooks, MCP et mémoire en un coup d'œil."
+    ]
+  ]
+}
