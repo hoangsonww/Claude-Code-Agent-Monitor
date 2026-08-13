@@ -65,7 +65,33 @@
     "cacheWrite5m": "Cache-Schreiben (5m)",
     "cacheWrite1h": "Cache-Schreiben (1h)",
     "fastInput": "Schnelle Eingabe",
-    "fastOutput": "Schnelle Ausgabe"
+    "fastOutput": "Schnelle Ausgabe",
+    "gpt": {
+      "cached": "Cached",
+      "deleteConfirm": "Delete this GPT pricing rule?",
+      "description": "Published OpenAI API rates for Codex usage. Standard requests use Short rates at or below 272K input tokens and Long rates above 272K; Fast mode uses its own rate card. USD per 1M tokens.",
+      "fast": "Fast mode",
+      "input": "Input",
+      "long": "Standard · Long >272K",
+      "name": "Name",
+      "output": "Output",
+      "short": "Standard · Short ≤272K",
+      "title": "OpenAI GPT Model Pricing",
+      "tooltip": {
+        "apiPricing": "Unpublished rates stay unpriced",
+        "apiPricingBody": "An em dash means OpenAI does not publish that context or Fast-mode rate. Matching usage is marked unpriced instead of being estimated. These are pay-as-you-go API rates for reference, not subscription-plan billing.",
+        "howItWorks": "How it works",
+        "howItWorksBody": "Every amount is USD per 1M tokens. Standard Codex requests use Short rates at or below 272K input tokens and Long rates above 272K. Fast mode uses its own rate card. Fresh input, cached input, cache writes, and output are priced separately.",
+        "manualUpdates": "You must update prices manually",
+        "manualUpdatesBody": "OpenAI publishes API pricing changes on its website; there is no live feed. Update or add a matching rule when models or rates change so newly recorded usage is priced correctly.",
+        "patternsBody": "Patterns use SQL-style % wildcards. The dashboard evaluates the most specific model patterns first and uses the first rule that matches the reported model id.",
+        "patternsTitle": "Pattern syntax",
+        "title": "How GPT pricing works"
+      },
+      "write": "Cache write"
+    },
+    "navClaude": "Claude Pricing",
+    "navGpt": "Codex Pricing"
   },
   "claudeHome": {
     "title": "CLAUDE_HOME",
@@ -83,7 +109,25 @@
     "incomplete": "Hooks unvollständig",
     "reinstall": "Hooks neu installieren",
     "success": "Hooks erfolgreich installiert",
-    "failed": "Hook-Installation fehlgeschlagen"
+    "failed": "Hook-Installation fehlgeschlagen",
+    "configure": "Configure Hooks",
+    "display": {
+      "both": "Both",
+      "description": "Immediately filter every dashboard view to a product. Machine data-source filtering remains independent.",
+      "title": "Dashboard data"
+    },
+    "modal": {
+      "claude": "Lifecycle hooks from ~/.claude/settings.json.",
+      "codex": "Lifecycle hooks from ~/.codex/hooks.json, with rollout JSONL as a real-time fallback.",
+      "description": "Select one or both products. Existing dashboard hook entries are updated; your unrelated hook commands stay untouched.",
+      "failed": "Could not install the selected hooks.",
+      "install": "Install selected hooks",
+      "installed": "Already installed",
+      "overrideWarning": "Existing hook configuration was found for one or more selected products. Continuing replaces only this dashboard's matching entries and preserves unrelated hooks.",
+      "preserveNote": "At least one product must be selected.",
+      "title": "Install dashboard hooks"
+    },
+    "someInstalled": "Hooks configured"
   },
   "notifications": {
     "title": "Benachrichtigungen",
@@ -174,7 +218,44 @@
       "pathNotFound": "Pfad existiert nicht",
       "pathNotDir": "Pfad ist kein Verzeichnis",
       "generic": "Import fehlgeschlagen: {{message}}"
-    }
+    },
+    "backupProviderNote": "Dashboard exports can contain Claude Code and Codex data. Restore merges every provider included in the export.",
+    "codex": {
+      "accuracyNote": "Re-running is safe. Imported rollout cursors are retained, so already-accounted token deltas and tool calls are never added twice.",
+      "defaultLocation": "Default Codex sessions location on this machine",
+      "description": "Bring existing Codex sessions into the dashboard. User messages, assistant output, token snapshots, tool calls, and waiting/active lifecycle state are reconstructed from the original rollout JSONL files using the same pipeline as real-time monitoring.",
+      "dropzoneHint": "Drag Codex rollout files here or click to select",
+      "dropzoneSub": "Accepts rollout .jsonl files, session_index.jsonl, .zip, .tar, .tar.gz, .tgz, and .gz archives",
+      "folderHelper": "Absolute path. Tilde (~) is expanded. The folder and all nested date folders are scanned recursively for Codex rollout files.",
+      "folderPlaceholder": "/absolute/path/to/codex-history",
+      "jsonlLabel": "rollout files",
+      "locationFound": "Sessions folder found",
+      "locationMissing": "Sessions folder not found",
+      "modeFolder": "Scan a Codex folder",
+      "modeFolderDesc": "Scan a copied or extracted Codex directory for rollout JSONL files, including nested date folders.",
+      "modeRescan": "Rescan Codex sessions",
+      "modeRescanDesc": "Re-read ~/.codex/sessions and import rollout history that is not in the dashboard yet.",
+      "modeUpload": "Upload Codex history",
+      "modeUploadDesc": "Drop rollout JSONL files or an archive (.zip / .tar.gz) directly into the browser.",
+      "projectsLabel": "session folders",
+      "runRescan": "Rescan Codex Now",
+      "runScan": "Scan Codex Folder",
+      "runUpload": "Upload & Import Codex",
+      "scopeNote": "This import processes only {{provider}} transcripts. It never changes your Claude Code history or Codex CLI configuration.",
+      "stepArchive": "2. Bundle it for transfer (optional)",
+      "stepArchiveBody": "To move history from another machine, archive the sessions folder first, then copy it over (AirDrop, scp, USB, cloud storage). Include session_index.jsonl too when you want native /rename titles from that machine.",
+      "stepChoose": "3. Pick an import mode below",
+      "stepChooseBody": "Rescan this machine's Codex sessions, point to a copied or extracted folder, or upload rollout files and archives directly.",
+      "stepLocate": "1. Locate your Codex rollout history",
+      "stepLocateBody": "Codex stores each session as an append-only rollout JSONL file under the sessions folder. Its nested date folders are scanned automatically.",
+      "stepVerify": "4. Verify tokens and cost",
+      "stepVerifyBody": "After import, open Analytics → Cost to confirm the breakdown. The same rollout can always be imported again safely."
+    },
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerHint": "Choose the local agent history you want to bring into this dashboard.",
+    "providerLabel": "Import provider",
+    "scopeNote": "This import processes only Claude Code transcripts. It never changes your Codex history or either CLI configuration."
   },
   "data": {
     "title": "Datenverwaltung",
@@ -325,6 +406,87 @@
         "Optional: Signierschlüssel und benutzerdefinierte Header setzen.",
         "Tipp: Verwenden Sie einen kostenlosen Inspektor wie webhook.site."
       ]
+    },
+    "google_chat": {
+      "steps": [
+        "Open the Google Chat space → space title → 'Apps & integrations'.",
+        "Click 'Webhooks' → 'Add webhook' and give it a name.",
+        "Copy the webhook URL and paste it above."
+      ]
+    },
+    "make": {
+      "steps": [
+        "Add a 'Webhooks' → 'Custom webhook' module as the first step of a scenario.",
+        "Click 'Add', create the hook, and copy its URL.",
+        "Paste it above, then run once so Make learns the payload shape."
+      ]
+    },
+    "mattermost": {
+      "steps": [
+        "Main Menu → Integrations → Incoming Webhooks (an admin must enable webhooks first).",
+        "Click 'Add Incoming Webhook' and choose a channel.",
+        "Save, then copy the webhook URL and paste it above."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "Add a 'Webhook' node to your workflow; set the method to POST.",
+        "Copy the Production URL.",
+        "Activate the workflow and paste the URL above (http is allowed for self-hosted)."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Settings → Integrations → add an 'API' integration.",
+        "Copy the generated API key.",
+        "Note your account region (US or EU).",
+        "Enter the API key and region above - the alerts URL is derived from the region."
+      ]
+    },
+    "pagerduty": {
+      "steps": [
+        "Open the target Service → Integrations → 'Add integration'.",
+        "Choose 'Events API v2'.",
+        "Copy the Integration Key (the routing key).",
+        "Enter it as the Routing key above - the Events API URL is prefilled."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "Create a workflow with an 'HTTP / Webhook' trigger.",
+        "Copy the unique endpoint URL.",
+        "Paste it above; inspect deliveries in the Pipedream event inspector."
+      ]
+    },
+    "rocketchat": {
+      "steps": [
+        "Administration → Integrations → New → Incoming.",
+        "Enable it, pick a channel, and save.",
+        "Copy the 'Webhook URL' and paste it above."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrations → REST Endpoint, and enable it.",
+        "Copy the REST URL - it already contains your API key.",
+        "Replace the trailing '$routing_key' with one of your routing keys.",
+        "Paste the full URL above."
+      ]
+    },
+    "telegram": {
+      "steps": [
+        "Message @BotFather, run /newbot, and copy the bot token.",
+        "Add the bot to your group/channel (or just DM it).",
+        "Find the chat ID: send a message, open https://api.telegram.org/bot<token>/getUpdates, read result[].message.chat.id.",
+        "Enter the Bot token and Chat ID above - no URL needed."
+      ]
+    },
+    "zapier": {
+      "steps": [
+        "Create a Zap with the trigger 'Webhooks by Zapier' → 'Catch Hook'.",
+        "Copy the custom webhook URL it gives you.",
+        "Paste it above. The alert arrives as JSON: { event, alert }."
+      ]
     }
   },
   "remoteSources": {
@@ -372,7 +534,19 @@
     "purgeData": "Auch die von dieser Quelle importierten Sitzungen löschen (nicht rückgängig zu machen)",
     "deleteAndPurge": "Entfernen + Daten löschen",
     "removeKeep": "Entfernen (Daten behalten)",
-    "remoteSourceBadgeTitle": "Von einem Remote-Rechner gesammelt"
+    "remoteSourceBadgeTitle": "Von einem Remote-Rechner gesammelt",
+    "fieldRemoteCodexHome": "Remote Codex home (optional)",
+    "fieldRemoteCodexHomeHint": "Defaults to ~/.codex and imports its sessions plus native renamed titles. For Windows SSH with Codex in WSL, leave blank (auto-detect) or use wsl:~/.codex.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} sessions",
+    "providerStatus": {
+      "error": "Unavailable",
+      "idle": "Not checked",
+      "ok": "Ready",
+      "syncing": "Checking",
+      "unavailable": "Not found"
+    }
   },
   "cursorPathsNote": "Informativ: Cursor-Sitzungen werden hier auch gezählt – Cursor verwendet dieselben ~/.claude-Pfade wie Claude Code."
 }
