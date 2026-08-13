@@ -29,17 +29,17 @@
   },
   "tooltip": {
     "agent": {
-      "working": "Agent verarbeitet gerade aktiv Aufgaben.\n\nEr wechselt zurück zu „Wartend", wenn diese Runde endet.",
+      "working": "Agent verarbeitet gerade aktiv Aufgaben.\n\nEr wechselt zurück zu „Wartend“, wenn diese Runde endet.",
       "waiting": "Agent hat seine Runde beendet oder benötigt eine menschliche Antwort, z. B. eine Genehmigung.\n\nEr nimmt die Arbeit wieder auf, wenn die Sitzung fortgesetzt wird.",
       "completed": "Agent hat diese Sitzung vollständig beendet.\n\nEs wird keine weitere Aktivität für diesen Agenten erfasst.",
       "error": "Agent hat einen Fehler aufgezeichnet und wird erst fortfahren, wenn die Sitzung fortgesetzt oder erneut versucht wird."
     },
     "session": {
-      "active": "Sitzung ist mitten in einer Runde – ein Agent arbeitet gerade und der Benutzer blockiert nichts. Dieser Status ist kurz: Die Sitzung kehrt zu „Wartend" zurück, wenn die Runde endet.",
+      "active": "Sitzung ist mitten in einer Runde – ein Agent arbeitet gerade und der Benutzer blockiert nichts. Dieser Status ist kurz: Die Sitzung kehrt zu „Wartend“ zurück, wenn die Runde endet.",
       "waiting": "Sitzung wartet auf Sie. Eine Runde wurde möglicherweise abgeschlossen oder der Agent benötigt eine Genehmigung oder Eingabe.\n\nHier finden Sie Sitzungen, auf die Sie antworten müssen.",
       "completed": "Sitzung wurde vollständig geschlossen, weil die CLI sauber beendet oder explizit geschlossen wurde.\n\nAlle Agenten dieser Sitzung sind ebenfalls abgeschlossen.",
       "error": "Sitzung wurde mit einem Fehler beendet – ein nicht behebbarer Fehler oder ein API-Fehler hat die Ausführung abgebrochen.",
-      "abandoned": "Sitzung wurde ohne sauberes Exit-Signal beendet. Nach 5+ Minuten ohne Aktivität als aufgegeben markiert (z. B. nach /resume, einem Netzwerkabbruch oder einem beendeten CLI). Unterschied zu „Abgeschlossen": kein echter Exit wurde beobachtet."
+      "abandoned": "Sitzung wurde ohne sauberes Exit-Signal beendet. Nach 5+ Minuten ohne Aktivität als aufgegeben markiert (z. B. nach /resume, einem Netzwerkabbruch oder einem beendeten CLI). Unterschied zu „Abgeschlossen“: kein echter Exit wurde beobachtet."
     }
   }
 }
