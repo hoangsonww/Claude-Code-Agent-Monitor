@@ -81,6 +81,7 @@ import { Workflows } from "./pages/Workflows";
 import { Settings } from "./pages/Settings";
 import { CcConfig } from "./pages/CcConfig";
 import { Run } from "./pages/Run";
+import { QueryExplorer } from "./pages/QueryExplorer";
 import { NotFound } from "./pages/NotFound";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useNotifications } from "./hooks/useNotifications";
@@ -130,6 +131,7 @@ export default function App() {
           <Route path="cc-config" element={<CcConfig />} />
           <Route path="run" element={<Run />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="query" element={<QueryExplorer />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
