@@ -15,6 +15,7 @@ const TranscriptCache = require("../lib/transcript-cache");
 const { scanAndImportSubagents } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
+const { applyPrivacyPolicy } = require("../lib/privacy");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
@@ -1103,13 +1104,16 @@ const processEvent = db.transaction((hookType, data) => {
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
+  // Apply privacy policy to the payload before persistence. Fail-safe: errors
+  // degrade to storing the original data so ingestion is never blocked.
+  const { data: redactedData, privacy_meta } = applyPrivacyPolicy(data);
   stmts.insertEvent.run(
     sessionId,
     agentId,
     eventType,
     toolName,
     summary,
-    JSON.stringify(data)
+    redactedData !== null ? JSON.stringify(redactedData) : null
     // created_at uses default
   );
 
