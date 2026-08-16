@@ -19,7 +19,7 @@
   "queryEntity_agents": "Agents",
   "queryEntity_events": "Events",
   "querySearch": "Search",
-  "querySearchPlaceholder": "Filter by ID, title, or summary…",
+  "querySearchPlaceholder": "Filter by ID, name, or summary…",
   "queryFrom": "From",
   "queryTo": "To",
   "queryStatus": "Status",
