@@ -68,6 +68,11 @@ function querySessions(filters, limit, offset) {
   if (filters.from) { clauses.push("s.started_at >= ?"); params.push(filters.from); }
   if (filters.to)   { clauses.push("s.started_at <= ?"); params.push(filters.to); }
 
+  const sourceScope = sessionIdInSourcesClause(filters.sources, "id");
+  if (sourceScope.clause) { clauses.push(sourceScope.clause); params.push(...sourceScope.params); }
+  const providerScope = sessionIdInProvidersClause(filters.providers, "id");
+  if (providerScope.clause) { clauses.push(providerScope.clause); params.push(...providerScope.params); }
+
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const sortCol = safeSortCol("sessions", filters.sort_by, "started_at");
   const sortDir = filters.sort_dir === "asc" ? "ASC" : "DESC";
@@ -206,15 +211,30 @@ router.get("/facets", (req, res) => {
   const entity = ["sessions", "agents", "events"].includes(req.query.entity)
     ? req.query.entity
     : "events";
+  const filters = parseFilters(req);
 
   const facets = {};
   if (entity === "sessions" || entity === "agents") {
     const table = entity === "sessions" ? "sessions" : "agents";
-    facets.statuses = db.prepare(`SELECT DISTINCT status FROM ${table} WHERE status IS NOT NULL ORDER BY status`).all().map((r) => r.status);
+    const clauses = [];
+    const params = [];
+    const sourceScope = sessionIdInSourcesClause(filters.sources, "id");
+    if (sourceScope.clause) { clauses.push(sourceScope.clause); params.push(...sourceScope.params); }
+    const providerScope = sessionIdInProvidersClause(filters.providers, "id");
+    if (providerScope.clause) { clauses.push(providerScope.clause); params.push(...providerScope.params); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    facets.statuses = db.prepare(`SELECT DISTINCT status FROM ${table} ${where} WHERE status IS NOT NULL ORDER BY status`).all(...params).map((r) => r.status);
   }
   if (entity === "events") {
-    facets.event_types = db.prepare("SELECT DISTINCT event_type FROM events WHERE event_type IS NOT NULL ORDER BY event_type").all().map((r) => r.event_type);
-    facets.tool_names  = db.prepare("SELECT DISTINCT tool_name  FROM events WHERE tool_name  IS NOT NULL ORDER BY tool_name").all().map((r) => r.tool_name);
+    const clauses = [];
+    const params = [];
+    const sourceScope = sessionIdInSourcesClause(filters.sources, "session_id");
+    if (sourceScope.clause) { clauses.push(sourceScope.clause); params.push(...sourceScope.params); }
+    const providerScope = sessionIdInProvidersClause(filters.providers, "session_id");
+    if (providerScope.clause) { clauses.push(providerScope.clause); params.push(...providerScope.params); }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    facets.event_types = db.prepare(`SELECT DISTINCT event_type FROM events ${where} WHERE event_type IS NOT NULL ORDER BY event_type`).all(...params).map((r) => r.event_type);
+    facets.tool_names  = db.prepare(`SELECT DISTINCT tool_name  FROM events ${where} WHERE tool_name  IS NOT NULL ORDER BY tool_name`).all(...params).map((r) => r.tool_name);
   }
   res.json({ entity, ...facets });
 });
@@ -239,19 +259,32 @@ router.get("/export", (req, res) => {
   if (format === "json") {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}.json"`);
     res.setHeader("Content-Type", "application/json");
-    return res.json({ entity, total: result.total, rows: result.rows });
+    const truncated = result.total > EXPORT_LIMIT;
+    return res.json({
+      entity,
+      total: result.total,
+      rows: result.rows,
+      truncated,
+      message: truncated ? `Export limited to ${EXPORT_LIMIT} rows; ${result.total} total rows match.` : undefined
+    });
   }
 
   // CSV
   const { columns, rows } = result;
   const escape = (v) => {
     if (v == null) return "";
-    const s = String(v);
+    let s = String(v);
+    // Neutralize spreadsheet formula prefixes
+    if (/^[\s=+\-@]/.test(s)) {
+      s = "'" + s;
+    }
     return s.includes(",") || s.includes('"') || s.includes("\n")
       ? `"${s.replace(/"/g, '""')}"`
       : s;
   };
+  const truncated = result.total > EXPORT_LIMIT;
   const lines = [
+    ...(truncated ? [`# WARNING: Export limited to ${EXPORT_LIMIT} rows; ${result.total} total rows match.`] : []),
     columns.join(","),
     ...rows.map((row) => columns.map((c) => escape(row[c])).join(",")),
   ];
