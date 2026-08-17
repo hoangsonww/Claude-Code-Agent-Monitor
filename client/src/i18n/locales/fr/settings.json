@@ -54,7 +54,7 @@
     "tooltip": {
       "title": "Comment fonctionne la tarification des modèles",
       "howItWorks": "Comment ça fonctionne",
-      "howItWorksBody": "Quand une session rapporte son utilisation, le tableau de bord trouve la première règle de tarification dont le modèle correspond à l'id du modèle et multiplie.",
+      "howItWorksBody": "Quand une session rapporte son utilisation, le tableau de bord trouve la première règle de tarification dont le modèle correspond à l'id du modèle, puis multiplie (tokens en entrée / 1M) et (tokens en sortie / 1M) par les tarifs ci-dessous pour calculer le coût. Les règles sont évaluées de haut en bas : la première correspondance l'emporte.",
       "patternsTitle": "Syntaxe des modèles",
       "patternsBody": "Les modèles sont des globs de style SQL. % est un joker qui correspond à n'importe quels caractères.",
       "manualUpdates": "Vous devez mettre à jour les prix manuellement",
