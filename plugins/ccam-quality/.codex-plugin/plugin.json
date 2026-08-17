@@ -1,0 +1,37 @@
+{
+  "name": "ccam-quality",
+  "version": "2.0.8",
+  "description": "Reliability and error monitoring for Claude Code sessions — surfaces APIError events, hook delivery failures, tool-failure ratios (PreToolUse/PostToolUse gaps), and SLO tracking with error-budget reporting, all derived from the Claude Code Agent Monitor event stream at http://localhost:4820.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": [
+    "reliability",
+    "errors",
+    "slo",
+    "quality",
+    "monitoring",
+    "error-budget",
+    "claude-code"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Quality",
+    "shortDescription": "Reliability and error monitoring for Claude Code sessions — surfaces APIError events, hook...",
+    "longDescription": "Reliability and error monitoring for Claude Code sessions — surfaces APIError events, hook delivery failures, tool-failure ratios (PreToolUse/PostToolUse gaps), and SLO tracking with error-budget reporting, all derived from the Claude Code Agent Monitor event stream at http://localhost:4820.",
+    "developerName": "Son Nguyen",
+    "category": "Developer Tools",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Quality to inspect the local CCAM dashboard.",
+      "Use CCAM Quality to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

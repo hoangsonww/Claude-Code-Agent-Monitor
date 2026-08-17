@@ -8,8 +8,19 @@ const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
 const { attachAgentCosts } = require("./pricing");
 const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
+const { parseProviders, sessionIdInProvidersClause } = require("../lib/provider-filter");
+const { getCodexProcessAgents } = require("../lib/codex-process-overlay");
 
 const router = Router();
+
+// The mutable `agents.updated_at` includes status and metadata bookkeeping.
+// Agent cards must show the latest durable provider event so a maintenance
+// sweep never makes an idle/error agent appear freshly active.
+const AGENT_LAST_ACTIVITY_SQL = `COALESCE(
+  (SELECT MAX(e.created_at) FROM events e WHERE e.agent_id = a.id),
+  a.ended_at,
+  a.started_at
+)`;
 
 router.get("/", (req, res) => {
   const rawLimit = parseInt(req.query.limit);
@@ -17,25 +28,41 @@ router.get("/", (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
   const session_id = req.query.session_id;
+  const includeTransient =
+    req.query.include_transient === "1" || req.query.include_transient === "true";
   const sources = parseSources(req);
+  const providers = parseProviders(req);
 
   let rows;
-  if (session_id) {
-    // A session belongs to exactly one source, so no extra source filter needed.
-    rows = stmts.listAgentsBySession.all(session_id);
-  } else if (sources) {
-    // Data-scope active: build a dynamic query restricting agents to sessions
-    // from the chosen machines. `agents` carries only session_id → subquery.
-    const scope = sessionIdInSourcesClause(sources, "session_id");
-    const clauses = [scope.clause];
-    const params = [...scope.params];
+  if (session_id || sources || providers) {
+    // Agents carry only session_id, so source/provider scope composes via the
+    // owning session. This also prevents direct session_id requests bypassing
+    // a selected provider.
+    const clauses = [];
+    const params = [];
+    if (session_id) {
+      clauses.push("a.session_id = ?");
+      params.push(session_id);
+    }
+    const sourceScope = sessionIdInSourcesClause(sources, "session_id");
+    if (sourceScope.clause) {
+      clauses.push(sourceScope.clause);
+      params.push(...sourceScope.params);
+    }
+    const providerScope = sessionIdInProvidersClause(providers, "session_id");
+    if (providerScope.clause) {
+      clauses.push(providerScope.clause);
+      params.push(...providerScope.params);
+    }
     if (status) {
-      clauses.push("status = ?");
+      clauses.push("a.status = ?");
       params.push(status);
     }
     rows = db
       .prepare(
-        `SELECT * FROM agents WHERE ${clauses.join(" AND ")} ORDER BY started_at DESC LIMIT ? OFFSET ?`
+        `SELECT a.*, ${AGENT_LAST_ACTIVITY_SQL} AS last_activity
+         FROM agents a WHERE ${clauses.join(" AND ")}
+         ORDER BY last_activity DESC LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset);
   } else if (status) {
@@ -44,9 +71,30 @@ router.get("/", (req, res) => {
     rows = stmts.listAgents.all(limit, offset);
   }
 
-  // Attach each agent's OWN cost (from its metadata token buckets) so subagent
-  // cards can show their real cost instead of the session total.
-  res.json({ agents: attachAgentCosts(rows), limit, offset });
+  const includesLocal = !sources || sources.includes("local");
+  const includesCodex = !providers || providers.includes("codex");
+  const transient =
+    includeTransient &&
+    status === "waiting" &&
+    !session_id &&
+    includesLocal &&
+    includesCodex &&
+    offset === 0
+      ? getCodexProcessAgents(
+          db
+            .prepare(
+              `SELECT id, cwd FROM sessions
+               WHERE provider = 'codex' AND status = 'active'
+                 AND (source = 'local' OR source IS NULL)`
+            )
+            .all()
+        )
+      : [];
+
+  // Attach each persisted agent's OWN cost (from its metadata token buckets)
+  // and prepend the in-memory, pre-identity Codex cards without persisting or
+  // pricing them.
+  res.json({ agents: [...transient, ...attachAgentCosts(rows)], limit, offset });
 });
 
 router.get("/:id", (req, res) => {

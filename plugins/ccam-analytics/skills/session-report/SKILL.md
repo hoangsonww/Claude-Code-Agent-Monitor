@@ -1,4 +1,5 @@
 ---
+name: session-report
 description: >
   Generate a comprehensive session report with per-model token usage
   (input, output, cache_read, cache_write including compaction baselines),
@@ -46,7 +47,7 @@ All data comes from the Agent Monitor API at `http://localhost:4820`:
 - Turn count and avg turn duration (from metadata)
 
 ### 2. Token Usage (per model)
-| Model | Input | Output | Cache Read | Cache Write | Total |
+Include these columns: Model, Input, Output, Cache Read, Cache Write, and Total.
 Show **effective totals** (current + baseline) since baselines preserve tokens lost during compaction. Calculate cache hit rate: `cache_read / (cache_read + input) × 100`.
 
 ### 3. Cost Breakdown

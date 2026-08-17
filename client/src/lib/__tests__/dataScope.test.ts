@@ -1,10 +1,10 @@
 /**
  * @file dataScope.test.ts
  * @description Unit tests for the global data-scope store (which source machines
- * the dashboard shows). Covers persistence, the localStorage → query-param
- * mapping consumed by the API layer, subscriber notification, and malformed /
- * empty input handling. Each case re-imports the module so the singleton starts
- * clean.
+ * and product providers the dashboard shows). Covers persistence, the
+ * localStorage → query-param mapping consumed by the API layer, subscriber
+ * notification, and malformed / empty input handling. Each case re-imports the
+ * module so the singleton starts clean.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -38,6 +38,18 @@ describe("dataScope store", () => {
     expect(m.activeSourcesParam()).toBe("local");
     m.setScope({ mode: "selected", selected: ["local", "src_abc"] });
     expect(m.activeSourcesParam()).toBe("local,src_abc");
+  });
+
+  it("maps Claude, Codex, and both to the correct global providers filter", async () => {
+    const m = await freshModule();
+    // Backward-compatible installs keep their existing Claude-only view.
+    expect(m.activeProvidersParam()).toBe("claude");
+    m.setProviderScope("codex");
+    expect(m.activeProvidersParam()).toBe("codex");
+    m.setProviderScope("both");
+    expect(m.activeProvidersParam()).toBeNull();
+    m.setProviderScope("claude");
+    expect(m.activeProvidersParam()).toBe("claude");
   });
 
   it("'selected' with an empty selection degrades to local-only (never empty app)", async () => {

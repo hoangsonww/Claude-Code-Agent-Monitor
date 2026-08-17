@@ -1,5 +1,7 @@
 /**
- * @file Database setup and access layer using SQLite for storing sessions, agents, events, token usage, and model pricing. Handles schema creation, migrations, and provides prepared statements for all database operations.
+ * @file Database setup and access layer using SQLite for sessions, agents,
+ * events, token usage, and model pricing. Handles schema/migrations and
+ * exposes prepared statements, including card-ready task/prompt previews.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -142,7 +144,11 @@ db.exec(`
     model TEXT,
     started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     ended_at TEXT,
-    metadata TEXT
+    metadata TEXT,
+    -- Two most recent distinct human prompts, newline-separated. This is a
+    -- deliberately small card-only cache derived from the local transcript;
+    -- it keeps list views informative without storing whole conversations.
+    card_prompt_preview TEXT
   );
 
   CREATE TABLE IF NOT EXISTS agents (
@@ -184,6 +190,9 @@ db.exec(`
     speed TEXT NOT NULL DEFAULT 'standard',
     inference_geo TEXT NOT NULL DEFAULT 'global',
     service_tier TEXT NOT NULL DEFAULT 'standard',
+    -- short/long is meaningful for GPT pricing (the per-request 272K
+    -- boundary). Claude rows retain the harmless default short value.
+    context_size TEXT NOT NULL DEFAULT 'short' CHECK(context_size IN ('short','long')),
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     cache_read_tokens INTEGER NOT NULL DEFAULT 0,
@@ -203,7 +212,7 @@ db.exec(`
     baseline_web_search INTEGER NOT NULL DEFAULT 0,
     baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
     baseline_code_execution INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, model, speed, inference_geo, service_tier),
+    PRIMARY KEY (session_id, model, speed, inference_geo, service_tier, context_size),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
   );
 
@@ -234,6 +243,53 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
+  -- OpenAI / Codex price rules intentionally live apart from Anthropic rules:
+  -- GPT has request-size bands and explicit Fast cache rates, neither of which
+  -- maps faithfully onto model_pricing's Claude-specific cache tiers.
+  CREATE TABLE IF NOT EXISTS gpt_model_pricing (
+    model_pattern TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    short_input_per_mtok REAL NOT NULL DEFAULT 0,
+    short_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    short_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    short_output_per_mtok REAL NOT NULL DEFAULT 0,
+    long_input_per_mtok REAL NOT NULL DEFAULT 0,
+    long_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    long_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    long_output_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- Durable cursor state for append-only Codex rollout JSONL files. Keeping the
+  -- last cumulative counters makes duplicate hook/watcher notifications free.
+  CREATE TABLE IF NOT EXISTS codex_ingest_state (
+    transcript_path TEXT PRIMARY KEY,
+    session_id TEXT,
+    byte_offset INTEGER NOT NULL DEFAULT 0,
+    remainder TEXT NOT NULL DEFAULT '',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_input_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    reasoning_output_tokens INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
+  -- A separate cursor records high-fidelity Codex response-item tool calls.
+  -- The lifecycle/token cursor above intentionally only needs event_msg records;
+  -- keeping analytics here lets existing dashboards backfill tool history once
+  -- without replaying token counters or lifecycle changes.
+  CREATE TABLE IF NOT EXISTS codex_tool_ingest_state (
+    transcript_path TEXT PRIMARY KEY,
+    session_id TEXT,
+    byte_offset INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
   CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint TEXT PRIMARY KEY,
     p256dh TEXT NOT NULL,
@@ -241,17 +297,19 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
-  -- Persistent record of every Claude run spawned via the dashboard's
-  -- /api/run endpoint. Survives the in-memory handle reap so the Run page
-  -- can list completed / errored / killed runs and offer Resume long after
-  -- the spawner has forgotten about them.
+  -- Persistent record of every Claude Code or Codex run spawned via the
+  -- dashboard's /api/run endpoint. Survives the in-memory handle reap so the
+  -- Run Agent page can list completed / errored / killed runs and offer Resume
+  -- long after the spawner has forgotten about them.
   CREATE TABLE IF NOT EXISTS dashboard_runs (
     id TEXT PRIMARY KEY,
     session_id TEXT,
+    provider TEXT NOT NULL DEFAULT 'claude',
     mode TEXT NOT NULL,
     cwd TEXT NOT NULL,
     model TEXT,
     permission_mode TEXT,
+    sandbox TEXT,
     effort TEXT,
     resume_session_id TEXT,
     prompt_preview TEXT,
@@ -406,6 +464,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status);
 `);
 
+// Before response-item ingestion existed, Codex terminal event messages were
+// the only available approximation of a tool invocation. Those rows remain
+// useful activity events, but response items now provide the exact call, so
+// clear the old analytical tool marker once to avoid double-counting history.
+db.prepare(
+  `UPDATE events SET tool_name = NULL
+   WHERE event_type IN ('codex_exec_command_end', 'codex_mcp_tool_call_end', 'codex_web_search_end')`
+).run();
+
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
 // ingested as subagents (same subagents/ dir); these columns add the grouping +
 // phase that the run journal provides. Additive, safe on existing DBs.
@@ -517,6 +584,101 @@ const DEFAULT_PRICING = [
   // Legacy
   ["claude-3-opus%", "Claude Opus 3", 15, 75, 1.5, 18.75, 30, 0, 0],
 ];
+
+// OpenAI pricing supplied for Codex support. Only models for which the supplied
+// rate card publishes a long-context column receive long rates; unsupported
+// combinations remain zero and surface as explicitly unpriced rather than
+// silently inventing a cost. Columns: pattern, name, short, long, fast.
+const gptRate = (pattern, name, short, fast = [0, 0, 0, 0], long = [0, 0, 0, 0]) => [
+  pattern,
+  name,
+  ...short,
+  ...long,
+  ...fast,
+];
+const DEFAULT_GPT_PRICING = [
+  gptRate("gpt-5.6-sol%", "GPT-5.6 Sol", [5, 0.5, 6.25, 30], [10, 1, 12.5, 60], [10, 1, 12.5, 45]),
+  gptRate("gpt-5.6-terra%", "GPT-5.6 Terra", [2, 0.2, 2.5, 12], [4, 0.4, 5, 24], [4, 0.4, 5, 18]),
+  gptRate(
+    "gpt-5.6-luna%",
+    "GPT-5.6 Luna",
+    [0.2, 0.02, 0.25, 1.2],
+    [0.4, 0.04, 0.5, 2.4],
+    [0.4, 0.04, 0.5, 1.8]
+  ),
+  gptRate("gpt-5.5-pro%", "GPT-5.5 Pro", [30, 0, 0, 180], undefined, [60, 0, 0, 270]),
+  gptRate("gpt-5.5%", "GPT-5.5", [5, 0.5, 0, 30], [12.5, 1.25, 0, 75], [10, 1, 0, 45]),
+  gptRate("gpt-5.4-pro%", "GPT-5.4 Pro", [30, 0, 0, 180], undefined, [60, 0, 0, 270]),
+  gptRate("gpt-5.4-mini%", "GPT-5.4 Mini", [0.75, 0.075, 0, 4.5], [1.5, 0.15, 0, 9]),
+  gptRate("gpt-5.4-nano%", "GPT-5.4 Nano", [0.2, 0.02, 0, 1.25], undefined),
+  gptRate("gpt-5.4%", "GPT-5.4", [2.5, 0.25, 0, 15], [5, 0.5, 0, 30], [5, 0.5, 0, 22.5]),
+  gptRate("gpt-5.2-pro%", "GPT-5.2 Pro", [21, 0, 0, 168]),
+  gptRate("gpt-5.2%", "GPT-5.2", [1.75, 0.175, 0, 14], [3.5, 0.35, 0, 28]),
+  gptRate("gpt-5.1%", "GPT-5.1", [1.25, 0.125, 0, 10], [2.5, 0.25, 0, 20]),
+  gptRate("gpt-5-pro%", "GPT-5 Pro", [15, 0, 0, 120]),
+  gptRate("gpt-5-mini%", "GPT-5 Mini", [0.25, 0.025, 0, 2], [0.45, 0.045, 0, 3.6]),
+  gptRate("gpt-5-nano%", "GPT-5 Nano", [0.05, 0.005, 0, 0.4]),
+  gptRate("gpt-5%", "GPT-5", [1.25, 0.125, 0, 10], [2.5, 0.25, 0, 20]),
+  gptRate("gpt-4.1-mini%", "GPT-4.1 Mini", [0.4, 0.1, 0, 1.6], [0.7, 0.175, 0, 2.8]),
+  gptRate("gpt-4.1-nano%", "GPT-4.1 Nano", [0.1, 0.025, 0, 0.4], [0.2, 0.05, 0, 0.8]),
+  gptRate("gpt-4.1%", "GPT-4.1", [2, 0.5, 0, 8], [3.5, 0.875, 0, 14]),
+  gptRate("gpt-4o-2024-05-13%", "GPT-4o (2024-05-13)", [5, 0, 0, 15], [8.75, 0, 0, 26.25]),
+  gptRate("gpt-4o-mini%", "GPT-4o Mini", [0.15, 0.075, 0, 0.6], [0.25, 0.125, 0, 1]),
+  gptRate("gpt-4o%", "GPT-4o", [2.5, 1.25, 0, 10], [4.25, 2.125, 0, 17]),
+  gptRate("gpt-4-turbo-2024-04-09%", "GPT-4 Turbo (2024-04-09)", [10, 0, 0, 30]),
+  gptRate("gpt-4-0613%", "GPT-4 (0613)", [30, 0, 0, 60]),
+  gptRate("o4-mini%", "o4-mini", [1.1, 0.275, 0, 4.4], [2, 0.5, 0, 8]),
+  gptRate("o3-pro%", "o3 Pro", [20, 0, 0, 80]),
+  gptRate("o3-mini%", "o3-mini", [1.1, 0.55, 0, 4.4]),
+  gptRate("o3%", "o3", [2, 0.5, 0, 8], [3.5, 0.875, 0, 14]),
+  gptRate("o1-pro%", "o1 Pro", [150, 0, 0, 600]),
+  gptRate("o1%", "o1", [15, 7.5, 0, 60]),
+  gptRate("gpt-3.5-turbo-0125%", "GPT-3.5 Turbo (0125)", [0.5, 0, 0, 1.5]),
+  gptRate("gpt-3.5-turbo-1106%", "GPT-3.5 Turbo (1106)", [1, 0, 0, 2]),
+  gptRate("gpt-3.5-turbo-instruct%", "GPT-3.5 Turbo Instruct", [1.5, 0, 0, 2]),
+  gptRate("gpt-3.5-turbo%", "GPT-3.5 Turbo", [0.5, 0, 0, 1.5]),
+  gptRate("davinci-002%", "Davinci-002", [2, 0, 0, 2]),
+  gptRate("babbage-002%", "Babbage-002", [0.4, 0, 0, 0.4]),
+];
+
+function seedGptPricing(dbHandle = db) {
+  const insert = dbHandle.prepare(`
+    INSERT OR IGNORE INTO gpt_model_pricing (
+      model_pattern, display_name,
+      short_input_per_mtok, short_cached_input_per_mtok, short_cache_write_per_mtok, short_output_per_mtok,
+      long_input_per_mtok, long_cached_input_per_mtok, long_cache_write_per_mtok, long_output_per_mtok,
+      fast_input_per_mtok, fast_cached_input_per_mtok, fast_cache_write_per_mtok, fast_output_per_mtok
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const seed = dbHandle.transaction((rows) => {
+    for (const row of rows) insert.run(...row);
+  });
+  seed(DEFAULT_GPT_PRICING);
+}
+seedGptPricing();
+
+// v1 seeded long-context prices for GPT-5.4 Mini and Nano by applying the
+// flagship multiplier mechanically. OpenAI's rate card marks those long tiers
+// unavailable. Correct only the exact old seed values so an operator's custom
+// long-context price is never overwritten during a normal dashboard upgrade.
+function repairLegacyGptPricing(dbHandle = db) {
+  const repair = dbHandle.prepare(`
+    UPDATE gpt_model_pricing
+    SET long_input_per_mtok = 0,
+        long_cached_input_per_mtok = 0,
+        long_cache_write_per_mtok = 0,
+        long_output_per_mtok = 0,
+        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE model_pattern = ?
+      AND long_input_per_mtok = ?
+      AND long_cached_input_per_mtok = ?
+      AND long_cache_write_per_mtok = ?
+      AND long_output_per_mtok = ?
+  `);
+  repair.run("gpt-5.4-mini%", 1.5, 0.15, 0, 6.75);
+  repair.run("gpt-5.4-nano%", 0.4, 0.04, 0, 1.875);
+}
+repairLegacyGptPricing();
 
 // Top-up: insert any default pattern that isn't already present. Preserves
 // user edits to existing rows — we only add what's missing, never overwrite.
@@ -700,8 +862,42 @@ try {
 }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source)`);
 
-// Remote data sources: other machines whose Claude Code history this dashboard
-// pulls in over SSH. Config only — NO secrets are stored here: authentication
+// Product provider is deliberately independent from `source`: a local machine
+// can contribute both Claude Code and Codex sessions, while a remote source can
+// do the same. Historical rows are Claude by definition and keep their view.
+try {
+  db.prepare("SELECT provider FROM sessions LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE sessions ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'").run();
+}
+db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_provider ON sessions(provider)`);
+
+try {
+  db.prepare("SELECT card_prompt_preview FROM sessions LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE sessions ADD COLUMN card_prompt_preview TEXT").run();
+}
+
+// Dashboard run records predate provider-aware launching. Keep existing rows
+// as Claude Code runs and add the Codex-specific sandbox metadata without
+// rebuilding the table, preserving installed users' run history.
+try {
+  db.prepare("SELECT provider FROM dashboard_runs LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE dashboard_runs ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'").run();
+}
+try {
+  db.prepare("SELECT sandbox FROM dashboard_runs LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE dashboard_runs ADD COLUMN sandbox TEXT").run();
+}
+db.exec(
+  `CREATE INDEX IF NOT EXISTS idx_dashboard_runs_provider
+   ON dashboard_runs(provider, started_at DESC)`
+);
+
+// Remote data sources: other machines whose Claude Code and Codex history this
+// dashboard pulls in over SSH. Config only — NO secrets are stored here: authentication
 // always defers to the host's own SSH stack (~/.ssh/config, ssh-agent, keys,
 // known_hosts), so `host` is an ssh destination (user@host or a config alias)
 // and `identity_file` is at most a path to a key the user already controls.
@@ -714,8 +910,11 @@ db.exec(`
     ssh_port INTEGER,
     identity_file TEXT,
     remote_home TEXT,
+    remote_codex_home TEXT,
     enabled INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle','syncing','ok','error')),
+    claude_status TEXT,
+    codex_status TEXT,
     last_error TEXT,
     last_sync_at TEXT,
     last_sync_counts TEXT,
@@ -723,6 +922,26 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 `);
+
+// Provider-specific remote homes and sync state arrived after the original
+// Claude-only source table. Keep them nullable so existing source rows retain
+// their historical, source-wide `status` as the fallback until their first
+// dual-provider sync writes the precise capability state.
+try {
+  db.prepare("SELECT remote_codex_home FROM remote_sources LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE remote_sources ADD COLUMN remote_codex_home TEXT").run();
+}
+try {
+  db.prepare("SELECT claude_status FROM remote_sources LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE remote_sources ADD COLUMN claude_status TEXT").run();
+}
+try {
+  db.prepare("SELECT codex_status FROM remote_sources LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE remote_sources ADD COLUMN codex_status TEXT").run();
+}
 
 // Migrate webhook_targets for first-class providers. Earlier installs created
 // the table with a 4-value `type` CHECK (slack/discord/teams/generic) and no
@@ -898,20 +1117,108 @@ try {
   db.pragma("foreign_keys = ON");
 }
 
+// Migrate: add the per-request context-size bucket. SQLite cannot extend the
+// composite primary key in place. Every historical Claude bucket maps to
+// `short`, which is intentionally ignored by the Claude calculator and thus
+// preserves its exact prior total.
+try {
+  db.prepare("SELECT context_size FROM token_usage LIMIT 1").get();
+} catch {
+  db.pragma("foreign_keys = OFF");
+  db.prepare("ALTER TABLE token_usage RENAME TO token_usage_pre_context_size").run();
+  db.exec(`
+    CREATE TABLE token_usage (
+      session_id TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT 'unknown',
+      speed TEXT NOT NULL DEFAULT 'standard',
+      inference_geo TEXT NOT NULL DEFAULT 'global',
+      service_tier TEXT NOT NULL DEFAULT 'standard',
+      context_size TEXT NOT NULL DEFAULT 'short' CHECK(context_size IN ('short','long')),
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+      web_search_requests INTEGER NOT NULL DEFAULT 0,
+      web_fetch_requests INTEGER NOT NULL DEFAULT 0,
+      code_execution_requests INTEGER NOT NULL DEFAULT 0,
+      baseline_input INTEGER NOT NULL DEFAULT 0,
+      baseline_output INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_read INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_write INTEGER NOT NULL DEFAULT 0,
+      baseline_cache_write_1h INTEGER NOT NULL DEFAULT 0,
+      baseline_web_search INTEGER NOT NULL DEFAULT 0,
+      baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
+      baseline_code_execution INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (session_id, model, speed, inference_geo, service_tier, context_size),
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec(`
+    INSERT INTO token_usage (
+      session_id, model, speed, inference_geo, service_tier, context_size,
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+      web_search_requests, web_fetch_requests, code_execution_requests,
+      baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
+      baseline_cache_write_1h, baseline_web_search, baseline_web_fetch, baseline_code_execution
+    )
+    SELECT
+      session_id, model, speed, inference_geo, service_tier, 'short',
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+      web_search_requests, web_fetch_requests, code_execution_requests,
+      baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
+      baseline_cache_write_1h, baseline_web_search, baseline_web_fetch, baseline_code_execution
+    FROM token_usage_pre_context_size
+  `);
+  db.prepare("DROP TABLE token_usage_pre_context_size").run();
+  db.pragma("foreign_keys = ON");
+}
+
 // Startup cleanup: mark stale active sessions as completed.
 // Legacy sessions (created before SessionEnd hook) will never receive a SessionEnd event,
 // so they stay "active" forever. Complete any active session whose last event is older than
 // 1 hour — the CLI process is certainly gone by then.
-// Remote-source sessions (source != 'local') are exempt: their "last event" is bounded by
-// the rsync cadence, not the remote CLI's actual activity, so a busy remote session could be
-// wrongly completed here. server/lib/remote-sync.js owns their status via mirror reconciliation.
+// A healthy remote source remains exempt because its freshly mirrored transcript
+// is authoritative. A source that has failed, or has been stuck "syncing" for
+// the same hour, cannot provide that authority; fall back to the global stale
+// rule so its old Waiting cards do not become permanent.
 db.prepare(
   `
   UPDATE sessions SET
     status = 'completed',
     ended_at = COALESCE(ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   WHERE status = 'active'
-    AND (source = 'local' OR source IS NULL)
+    AND (
+      source = 'local'
+      OR source IS NULL
+      OR NOT EXISTS (SELECT 1 FROM remote_sources rs WHERE rs.id = sessions.source)
+      OR EXISTS (
+        SELECT 1 FROM remote_sources rs
+        WHERE rs.id = sessions.source
+          AND (
+            (
+              COALESCE(sessions.provider, 'claude') = 'codex'
+              AND (
+                COALESCE(rs.codex_status, rs.status) IN ('error', 'unavailable')
+                OR (
+                  COALESCE(rs.codex_status, rs.status) = 'syncing'
+                  AND rs.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+                )
+              )
+            )
+            OR (
+              COALESCE(sessions.provider, 'claude') != 'codex'
+              AND (
+                COALESCE(rs.claude_status, rs.status) IN ('error', 'unavailable')
+                OR (
+                  COALESCE(rs.claude_status, rs.status) = 'syncing'
+                  AND rs.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
+                )
+              )
+            )
+          )
+      )
+    )
     AND started_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')
     AND NOT EXISTS (
       SELECT 1 FROM events e
@@ -950,20 +1257,88 @@ db.prepare(
 `
 ).run();
 
+// `updated_at` includes local bookkeeping (such as title/card-context
+// backfills), so API card/list "last activity" must use the latest durable
+// event instead. Eventless historical rows fall back to their lifecycle time.
+const LAST_ACTIVITY_SQL = `COALESCE(
+  (SELECT MAX(e.created_at) FROM events e WHERE e.session_id = s.id),
+  s.ended_at,
+  s.started_at
+)`;
+
+// Agent cards have the same distinction: lifecycle and metadata state updates
+// are not a new CLI action. Resolve their activity from their own durable
+// events, then retain a safe lifecycle fallback for imported legacy rows.
+const AGENT_LAST_ACTIVITY_SQL = `COALESCE(
+  (SELECT MAX(e.created_at) FROM events e WHERE e.agent_id = a.id),
+  a.ended_at,
+  a.started_at
+)`;
+
+// Shared compact-card context: both providers persist their two most recent
+// distinct human turns (newline-separated). Claude fills that compact cache
+// from its JSONL scanner; Codex's append-only user-message events are already
+// durable. Main-agent task remains a safe fallback for historical data.
+const CARD_PROMPT_PREVIEW_SQL = `COALESCE(
+  NULLIF(s.card_prompt_preview, ''),
+  CASE WHEN s.provider = 'codex' THEN (
+    SELECT group_concat(prompt, char(10))
+    FROM (
+      SELECT prompt
+      FROM (
+        SELECT e.summary AS prompt, e.created_at, e.id
+        FROM events e
+        WHERE e.session_id = s.id
+          AND e.event_type = 'codex_user_message'
+          AND e.summary IS NOT NULL
+          AND trim(e.summary) != ''
+        ORDER BY e.created_at DESC, e.id DESC
+        LIMIT 2
+      ) latest_prompts
+      ORDER BY created_at ASC, id ASC
+    ) ordered_prompts
+  ) END,
+  NULLIF((
+    SELECT main.task
+    FROM agents main
+    WHERE main.session_id = s.id
+      AND main.type = 'main'
+      AND main.task IS NOT NULL
+      AND trim(main.task) != ''
+    ORDER BY main.updated_at DESC
+    LIMIT 1
+  ), ''),
+  (
+    SELECT e.summary
+    FROM events e
+    WHERE e.session_id = s.id
+      AND e.event_type = 'codex_user_message'
+      AND e.summary IS NOT NULL
+      AND trim(e.summary) != ''
+    ORDER BY e.created_at DESC, e.id DESC
+    LIMIT 1
+  )
+)`;
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
-    `SELECT s.*, COUNT(a.id) as agent_count, s.updated_at as last_activity
+    `SELECT s.*, COUNT(a.id) as agent_count, ${LAST_ACTIVITY_SQL} as last_activity,
+            ${CARD_PROMPT_PREVIEW_SQL} AS prompt_preview
      FROM sessions s LEFT JOIN agents a ON a.session_id = s.id
-     GROUP BY s.id ORDER BY s.updated_at DESC LIMIT ? OFFSET ?`
+     GROUP BY s.id ORDER BY last_activity DESC LIMIT ? OFFSET ?`
   ),
   listSessionsByStatus: db.prepare(
-    `SELECT s.*, COUNT(a.id) as agent_count, s.updated_at as last_activity
+    `SELECT s.*, COUNT(a.id) as agent_count, ${LAST_ACTIVITY_SQL} as last_activity,
+            ${CARD_PROMPT_PREVIEW_SQL} AS prompt_preview
      FROM sessions s LEFT JOIN agents a ON a.session_id = s.id
-     WHERE s.status = ? GROUP BY s.id ORDER BY s.updated_at DESC LIMIT ? OFFSET ?`
+     WHERE s.status = ? GROUP BY s.id ORDER BY last_activity DESC LIMIT ? OFFSET ?`
   ),
   insertSession: db.prepare(
     "INSERT INTO sessions (id, name, status, cwd, model, started_at, updated_at, metadata) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?)"
+  ),
+  insertCodexSession: db.prepare(
+    "INSERT INTO sessions (id, name, status, cwd, model, provider, source, started_at, updated_at, metadata) VALUES (?, ?, ?, ?, ?, 'codex', ?, ?, ?, ?)"
   ),
   updateSession: db.prepare(
     "UPDATE sessions SET name = COALESCE(?, name), status = COALESCE(?, status), ended_at = COALESCE(?, ended_at), metadata = COALESCE(?, metadata), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
@@ -986,6 +1361,14 @@ const stmts = {
   updateSessionName: db.prepare(
     "UPDATE sessions SET name = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND COALESCE(name, '') != ?"
   ),
+  // A compact, durable summary of the two newest real human turns. It is
+  // intentionally not a transcript cache: full content stays in JSONL, while
+  // cards can render useful context even after an import or server restart.
+  // No-op on unchanged previews so the real-time path does not create needless
+  // session_updated broadcasts.
+  updateSessionCardPromptPreview: db.prepare(
+    "UPDATE sessions SET card_prompt_preview = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND COALESCE(card_prompt_preview, '') != ?"
+  ),
   // One-shot writer for sessions.transcript_path. The NULL/'' guard makes
   // every subsequent hook event for the same session a SQL no-op, so the
   // periodic compaction sweep can read transcript_path off the row instead
@@ -993,6 +1376,10 @@ const stmts = {
   setSessionTranscriptPath: db.prepare(
     "UPDATE sessions SET transcript_path = ? WHERE id = ? AND (transcript_path IS NULL OR transcript_path = '')"
   ),
+  // Used only when an imported Codex snapshot is promoted to its matching live
+  // rollout. The byte cursors move with it in codex-ingest before this pointer
+  // changes, so a later watcher pass continues from the accounted offset.
+  replaceSessionTranscriptPath: db.prepare("UPDATE sessions SET transcript_path = ? WHERE id = ?"),
   // Tag a session with the machine it was collected from (see remote-sync.js).
   // Remote-pulled sessions are stamped after the shared importer runs over the
   // per-source staging dir; local sessions keep the 'local' default.
@@ -1002,6 +1389,9 @@ const stmts = {
   distinctSessionSources: db.prepare(
     "SELECT DISTINCT source FROM sessions WHERE source IS NOT NULL AND source != '' ORDER BY source"
   ),
+  distinctSessionProviders: db.prepare(
+    "SELECT DISTINCT provider FROM sessions WHERE provider IS NOT NULL AND provider != '' ORDER BY provider"
+  ),
 
   // ── Remote sources (SSH machines the dashboard pulls history from) ──────────
   listRemoteSources: db.prepare("SELECT * FROM remote_sources ORDER BY created_at ASC"),
@@ -1010,8 +1400,9 @@ const stmts = {
   ),
   getRemoteSource: db.prepare("SELECT * FROM remote_sources WHERE id = ?"),
   insertRemoteSource: db.prepare(
-    `INSERT INTO remote_sources (id, label, host, ssh_port, identity_file, remote_home, enabled)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO remote_sources (
+       id, label, host, ssh_port, identity_file, remote_home, remote_codex_home, enabled
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ),
   updateRemoteSource: db.prepare(
     `UPDATE remote_sources SET
@@ -1020,6 +1411,7 @@ const stmts = {
        ssh_port = ?,
        identity_file = ?,
        remote_home = ?,
+       remote_codex_home = ?,
        enabled = COALESCE(?, enabled),
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
      WHERE id = ?`
@@ -1028,17 +1420,36 @@ const stmts = {
   setRemoteSourceStatus: db.prepare(
     `UPDATE remote_sources SET status = ?, last_error = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
   ),
+  // A source may serve only one provider. These individual states let the
+  // stale-session sweep trust a fresh Codex mirror without leaving old Claude
+  // sessions alive when the Claude half of that source has disappeared (and
+  // vice versa). `status` remains the concise overall status shown in Settings.
+  setRemoteSourceProviderStatus: db.prepare(
+    `UPDATE remote_sources SET
+       status = ?, last_error = ?, claude_status = ?, codex_status = ?,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE id = ?`
+  ),
   setRemoteSourceSyncResult: db.prepare(
-    `UPDATE remote_sources SET status = ?, last_error = ?, last_sync_at = ?, last_sync_counts = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+    `UPDATE remote_sources SET
+       status = ?, last_error = ?, last_sync_at = ?, last_sync_counts = ?,
+       claude_status = ?, codex_status = ?,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     WHERE id = ?`
   ),
 
   getAgent: db.prepare("SELECT * FROM agents WHERE id = ?"),
-  listAgents: db.prepare("SELECT * FROM agents ORDER BY started_at DESC LIMIT ? OFFSET ?"),
+  listAgents: db.prepare(
+    `SELECT a.*, ${AGENT_LAST_ACTIVITY_SQL} AS last_activity
+     FROM agents a ORDER BY last_activity DESC LIMIT ? OFFSET ?`
+  ),
   listAgentsBySession: db.prepare(
-    "SELECT * FROM agents WHERE session_id = ? ORDER BY started_at DESC"
+    `SELECT a.*, ${AGENT_LAST_ACTIVITY_SQL} AS last_activity
+     FROM agents a WHERE a.session_id = ? ORDER BY last_activity DESC`
   ),
   listAgentsByStatus: db.prepare(
-    "SELECT * FROM agents WHERE status = ? ORDER BY started_at DESC LIMIT ? OFFSET ?"
+    `SELECT a.*, ${AGENT_LAST_ACTIVITY_SQL} AS last_activity
+     FROM agents a WHERE a.status = ? ORDER BY last_activity DESC LIMIT ? OFFSET ?`
   ),
   insertAgent: db.prepare(
     "INSERT INTO agents (id, session_id, name, type, subagent_type, status, task, started_at, updated_at, parent_agent_id, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?, ?)"
@@ -1101,23 +1512,69 @@ const stmts = {
   touchSession: db.prepare(
     "UPDATE sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
-  // Remote-source sessions (source != 'local') are excluded: their updated_at is
-  // driven by the rsync/import cadence rather than the remote CLI's real activity,
-  // so the periodic abandon sweep must not touch them. remote-sync.js reconciles
-  // their status from the mirrored transcript instead.
+  // A healthy remote provider is excluded: its mirror reconciliation owns
+  // state, and import cadence is not remote activity. Claude and Codex may be
+  // independently present on one SSH source, so use the matching provider
+  // state when it exists and fall back to the legacy source-wide status for
+  // rows created before provider-aware remote sync. A stuck or failed provider
+  // falls through to the ordinary stale rule instead of leaving cards waiting.
   findStaleSessions: db.prepare(
-    `SELECT id FROM sessions
-     WHERE status = 'active' AND id != ?
-       AND (source = 'local' OR source IS NULL)
-       AND updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' minutes')`
+    `SELECT s.id FROM sessions s
+     LEFT JOIN remote_sources rs ON rs.id = s.source
+     WHERE s.status = 'active' AND s.id != ?
+       AND s.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' minutes')
+       AND (
+         s.source = 'local'
+         OR s.source IS NULL
+         OR rs.id IS NULL
+         OR (
+           COALESCE(s.provider, 'claude') = 'codex'
+           AND (
+             COALESCE(rs.codex_status, rs.status) IN ('error', 'unavailable')
+             OR (
+               COALESCE(rs.codex_status, rs.status) = 'syncing'
+               AND rs.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' minutes')
+             )
+           )
+         )
+         OR (
+           COALESCE(s.provider, 'claude') != 'codex'
+           AND (
+             COALESCE(rs.claude_status, rs.status) IN ('error', 'unavailable')
+             OR (
+               COALESCE(rs.claude_status, rs.status) = 'syncing'
+               AND rs.updated_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ? || ' minutes')
+             )
+           )
+         )
+       )`
   ),
 
   insertEvent: db.prepare(
     "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
   ),
+  insertEventAt: db.prepare(
+    "INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ),
   listEvents: db.prepare("SELECT * FROM events ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"),
   listEventsBySession: db.prepare(
     "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC, id DESC"
+  ),
+  listTaskEventsBySession: db.prepare(
+    `SELECT * FROM events
+     WHERE session_id = ? AND event_type IN (
+       'TaskCreated', 'TaskCompleted',
+       'UserPromptSubmit', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
+     )
+     ORDER BY created_at ASC, id ASC`
+  ),
+  // Codex rollout lifecycle reconciliation reads only the terminal/current
+  // turn markers, never the high-volume tool/result records.
+  getLatestCodexLifecycleEvent: db.prepare(
+    `SELECT event_type FROM events
+     WHERE session_id = ? AND event_type IN ('codex_task_complete', 'codex_turn_aborted',
+       'codex_task_started', 'codex_user_message')
+     ORDER BY id DESC LIMIT 1`
   ),
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
@@ -1141,10 +1598,10 @@ const stmts = {
   // Legacy additive upsert. Targets the standard/global/standard bucket; kept
   // for backward compatibility with any caller using the original 6-arg shape.
   upsertTokenUsage: db.prepare(`
-    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier,
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
                              input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
-    VALUES (?, ?, 'standard', 'global', 'standard', ?, ?, ?, ?)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier) DO UPDATE SET
+    VALUES (?, ?, 'standard', 'global', 'standard', 'short', ?, ?, ?, ?)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
       cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
@@ -1174,13 +1631,13 @@ const stmts = {
   //   input, output, cache_read, cache_write, cache_write_1h,
   //   web_search, web_fetch, code_execution
   replaceTokenUsage: db.prepare(`
-    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier,
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
                              input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
                              web_search_requests, web_fetch_requests, code_execution_requests,
                              baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier) DO UPDATE SET
+    VALUES (?, ?, ?, ?, ?, 'short', ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
       baseline_input = MAX(input_tokens + baseline_input - excluded.input_tokens, 0),
       baseline_output = MAX(output_tokens + baseline_output - excluded.output_tokens, 0),
       baseline_cache_read = MAX(cache_read_tokens + baseline_cache_read - excluded.cache_read_tokens, 0),
@@ -1198,6 +1655,49 @@ const stmts = {
       web_fetch_requests = excluded.web_fetch_requests,
       code_execution_requests = excluded.code_execution_requests
   `),
+  // Incremental Codex counter deltas. Unlike the full Claude re-parser, Codex
+  // rollouts expose an authoritative per-request delta, so we only ever add a
+  // newly observed request to its model/tier/context-size bucket.
+  upsertCodexTokenDelta: db.prepare(`
+    INSERT INTO token_usage (
+      session_id, model, speed, inference_geo, service_tier, context_size,
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+    ) VALUES (?, ?, ?, 'global', 'standard', ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+      input_tokens = input_tokens + excluded.input_tokens,
+      output_tokens = output_tokens + excluded.output_tokens,
+      cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
+      cache_write_tokens = cache_write_tokens + excluded.cache_write_tokens
+  `),
+  getCodexIngestState: db.prepare("SELECT * FROM codex_ingest_state WHERE transcript_path = ?"),
+  upsertCodexIngestState: db.prepare(`
+    INSERT INTO codex_ingest_state (
+      transcript_path, session_id, byte_offset, remainder,
+      input_tokens, cached_input_tokens, cache_write_input_tokens,
+      output_tokens, reasoning_output_tokens, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(transcript_path) DO UPDATE SET
+      session_id = excluded.session_id,
+      byte_offset = excluded.byte_offset,
+      remainder = excluded.remainder,
+      input_tokens = excluded.input_tokens,
+      cached_input_tokens = excluded.cached_input_tokens,
+      cache_write_input_tokens = excluded.cache_write_input_tokens,
+      output_tokens = excluded.output_tokens,
+      reasoning_output_tokens = excluded.reasoning_output_tokens,
+      updated_at = excluded.updated_at
+  `),
+  getCodexToolIngestState: db.prepare(
+    "SELECT * FROM codex_tool_ingest_state WHERE transcript_path = ?"
+  ),
+  upsertCodexToolIngestState: db.prepare(`
+    INSERT INTO codex_tool_ingest_state (transcript_path, session_id, byte_offset, updated_at)
+    VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(transcript_path) DO UPDATE SET
+      session_id = excluded.session_id,
+      byte_offset = excluded.byte_offset,
+      updated_at = excluded.updated_at
+  `),
   getTokenTotals: db.prepare(`
     SELECT
       COALESCE(SUM(input_tokens + baseline_input), 0) as total_input,
@@ -1211,7 +1711,7 @@ const stmts = {
     FROM token_usage
   `),
   getTokensBySession: db.prepare(
-    `SELECT model, speed, inference_geo, service_tier,
+    `SELECT model, speed, inference_geo, service_tier, context_size,
       input_tokens + baseline_input as input_tokens,
       output_tokens + baseline_output as output_tokens,
       cache_read_tokens + baseline_cache_read as cache_read_tokens,
@@ -1262,6 +1762,33 @@ const stmts = {
   matchPricing: db.prepare(
     "SELECT * FROM model_pricing WHERE ? LIKE REPLACE(model_pattern, '%', '%') LIMIT 1"
   ),
+  // GPT / Codex pricing
+  listGptPricing: db.prepare("SELECT * FROM gpt_model_pricing ORDER BY display_name ASC"),
+  getGptPricing: db.prepare("SELECT * FROM gpt_model_pricing WHERE model_pattern = ?"),
+  upsertGptPricing: db.prepare(`
+    INSERT INTO gpt_model_pricing (
+      model_pattern, display_name,
+      short_input_per_mtok, short_cached_input_per_mtok, short_cache_write_per_mtok, short_output_per_mtok,
+      long_input_per_mtok, long_cached_input_per_mtok, long_cache_write_per_mtok, long_output_per_mtok,
+      fast_input_per_mtok, fast_cached_input_per_mtok, fast_cache_write_per_mtok, fast_output_per_mtok, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(model_pattern) DO UPDATE SET
+      display_name = excluded.display_name,
+      short_input_per_mtok = excluded.short_input_per_mtok,
+      short_cached_input_per_mtok = excluded.short_cached_input_per_mtok,
+      short_cache_write_per_mtok = excluded.short_cache_write_per_mtok,
+      short_output_per_mtok = excluded.short_output_per_mtok,
+      long_input_per_mtok = excluded.long_input_per_mtok,
+      long_cached_input_per_mtok = excluded.long_cached_input_per_mtok,
+      long_cache_write_per_mtok = excluded.long_cache_write_per_mtok,
+      long_output_per_mtok = excluded.long_output_per_mtok,
+      fast_input_per_mtok = excluded.fast_input_per_mtok,
+      fast_cached_input_per_mtok = excluded.fast_cached_input_per_mtok,
+      fast_cache_write_per_mtok = excluded.fast_cache_write_per_mtok,
+      fast_output_per_mtok = excluded.fast_output_per_mtok,
+      updated_at = excluded.updated_at
+  `),
+  deleteGptPricing: db.prepare("DELETE FROM gpt_model_pricing WHERE model_pattern = ?"),
   toolUsageCounts: db.prepare(`
     SELECT tool_name, COUNT(*) as count
     FROM events
@@ -1500,4 +2027,13 @@ const stmts = {
   ),
 };
 
-module.exports = { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing };
+module.exports = {
+  db,
+  stmts,
+  DB_PATH,
+  DEFAULT_PRICING,
+  DEFAULT_GPT_PRICING,
+  applyIntroPricing,
+  seedGptPricing,
+  repairLegacyGptPricing,
+};

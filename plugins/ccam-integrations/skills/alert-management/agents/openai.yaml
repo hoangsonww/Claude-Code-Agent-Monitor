@@ -1,0 +1,6 @@
+interface:
+  display_name: "Alert Management"
+  short_description: "Inspect fired CCAM alerts and manage alert rules for token..."
+  default_prompt: "Use $alert-management to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

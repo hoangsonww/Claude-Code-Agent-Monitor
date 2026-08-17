@@ -174,7 +174,27 @@ export function createDualRegistrar(
  * thrown errors propagate as real exceptions to the REPL's own try/catch.
  */
 export function createCollectorRegistrar(collector: ToolEntry[]): ToolRegistrar {
-  return (name, description, _inputSchema, handler) => {
-    collector.push({ name, description, handler });
+  return (name, description, inputSchema, handler) => {
+    const objectSchema = z.object(inputSchema);
+    collector.push({
+      name,
+      description,
+      handler: async (args) => handler(objectSchema.parse(args)),
+    });
   };
+}
+
+/**
+ * Resolve the registrar for one tool domain. Protocol transports provide a
+ * live MCP server, while the REPL injects a collector registrar. Keeping this
+ * decision here lets every domain declaration run unchanged in both surfaces.
+ */
+export function registrarFor(context: {
+  server?: McpServer;
+  register?: ToolRegistrar;
+  logger: Logger;
+}): ToolRegistrar {
+  if (context.register) return context.register;
+  if (context.server) return createToolRegistrar(context.server, context.logger);
+  throw new Error("Tool context requires either an MCP server or a registrar override.");
 }

@@ -6,6 +6,7 @@
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
+const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
 const {
   WEB_SEARCH_PER_1K_SEARCHES,
   CODE_EXEC_PER_HOUR,
@@ -18,6 +19,13 @@ const {
 const router = Router();
 
 const round4 = (n) => Math.round(n * 10000) / 10000;
+
+function matchesModelPattern(pattern, model) {
+  const expression = String(pattern || "")
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/%/g, ".*");
+  return new RegExp(`^${expression}$`).test(String(model || ""));
+}
 
 /**
  * Resolve the effective per-MTok rates for a token bucket, applying the pricing
@@ -196,15 +204,138 @@ function calculateCost(tokenRows, pricingRules, asOf) {
   };
 }
 
-function calculateDailyCosts(dailyTokenRows, pricingRules) {
+/**
+ * Calculate Codex/OpenAI usage. Codex rollout counters keep fresh input,
+ * cached input, cache writes, and output in separate fields, which maps
+ * directly to OpenAI's published GPT rate card. `context_size` is stamped at
+ * ingestion from each request's input token count (short <= 272K).
+ */
+function calculateGptCost(tokenRows, pricingRules) {
+  const sortedRules = [...pricingRules].sort(
+    (a, b) => b.model_pattern.length - a.model_pattern.length
+  );
+  const breakdownMap = new Map();
+  const unpriced = new Map();
+  let total = 0;
+
+  for (const row of tokenRows) {
+    const rule = sortedRules.find((candidate) =>
+      matchesModelPattern(candidate.model_pattern, row.model)
+    );
+    const contextSize = row.context_size === "long" ? "long" : "short";
+    const isFast = row.speed === "fast";
+    const prefix = isFast ? "fast" : contextSize;
+    const rates = rule
+      ? {
+          input: Number(rule[`${prefix}_input_per_mtok`]) || 0,
+          cached: Number(rule[`${prefix}_cached_input_per_mtok`]) || 0,
+          write: Number(rule[`${prefix}_cache_write_per_mtok`]) || 0,
+          output: Number(rule[`${prefix}_output_per_mtok`]) || 0,
+        }
+      : null;
+    const isPriced = !!rates && Object.values(rates).some((rate) => rate > 0);
+
+    const inputs = Number(row.input_tokens) || 0;
+    const cached = Number(row.cache_read_tokens) || 0;
+    const writes = Number(row.cache_write_tokens) || 0;
+    const outputs = Number(row.output_tokens) || 0;
+    const bucketCost = isPriced
+      ? (inputs / 1e6) * rates.input +
+        (cached / 1e6) * rates.cached +
+        (writes / 1e6) * rates.write +
+        (outputs / 1e6) * rates.output
+      : 0;
+    total += bucketCost;
+
+    if (!isPriced) {
+      const key = `${row.model}|${isFast ? "fast" : contextSize}`;
+      const entry = unpriced.get(key) || {
+        model: row.model,
+        speed: row.speed || "standard",
+        context_size: contextSize,
+        reason: !rule
+          ? "No GPT pricing rule matches this model"
+          : "No published rate for this context or speed tier",
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+      };
+      entry.input_tokens += inputs;
+      entry.output_tokens += outputs;
+      entry.cache_read_tokens += cached;
+      entry.cache_write_tokens += writes;
+      unpriced.set(key, entry);
+    }
+
+    const key = `${row.model}|${row.speed || "standard"}|${contextSize}`;
+    const entry = breakdownMap.get(key) || {
+      provider: "codex",
+      model: row.model,
+      speed: row.speed || "standard",
+      context_size: contextSize,
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      cache_write_1h_tokens: 0,
+      web_search_requests: 0,
+      web_fetch_requests: 0,
+      code_execution_requests: 0,
+      matched_rule: rule?.model_pattern || null,
+      _cost: 0,
+    };
+    entry.input_tokens += inputs;
+    entry.output_tokens += outputs;
+    entry.cache_read_tokens += cached;
+    entry.cache_write_tokens += writes;
+    entry._cost += bucketCost;
+    breakdownMap.set(key, entry);
+  }
+
+  return {
+    total_cost: round4(total),
+    breakdown: [...breakdownMap.values()].map(({ _cost, ...entry }) => ({
+      ...entry,
+      cost: round4(_cost),
+    })),
+    feature_costs: {
+      web_search_cost: 0,
+      web_fetch_cost: 0,
+      code_execution_cost: 0,
+      code_execution_hours_estimated: 0,
+      code_execution_free_hours: CODE_EXEC_FREE_HOURS,
+    },
+    unpriced_models: [...unpriced.values()],
+  };
+}
+
+/** Combine Claude and Codex accounting without ever applying one provider's rate card to the other. */
+function calculateProviderCost(tokenRows, claudePricingRules, gptPricingRules, asOf) {
+  const claudeRows = tokenRows.filter((row) => row.provider !== "codex");
+  const codexRows = tokenRows.filter((row) => row.provider === "codex");
+  const claude = calculateCost(claudeRows, claudePricingRules, asOf);
+  const codex = calculateGptCost(codexRows, gptPricingRules);
+
+  return {
+    total_cost: round4(claude.total_cost + codex.total_cost),
+    breakdown: [...claude.breakdown, ...codex.breakdown],
+    feature_costs: claude.feature_costs,
+    unpriced_models: [...claude.unpriced_models, ...codex.unpriced_models],
+  };
+}
+
+function calculateDailyCosts(dailyTokenRows, pricingRules, gptPricingRules) {
   const rowsByDate = new Map();
   for (const row of dailyTokenRows) {
     const rows = rowsByDate.get(row.date) || [];
     rows.push({
       model: row.model,
+      provider: row.provider,
       speed: row.speed,
       inference_geo: row.inference_geo,
       service_tier: row.service_tier,
+      context_size: row.context_size,
       input_tokens: row.input_tokens,
       output_tokens: row.output_tokens,
       cache_read_tokens: row.cache_read_tokens,
@@ -219,7 +350,10 @@ function calculateDailyCosts(dailyTokenRows, pricingRules) {
 
   return [...rowsByDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, rows]) => ({ date, cost: calculateCost(rows, pricingRules, date).total_cost }));
+    .map(([date, rows]) => ({
+      date,
+      cost: calculateProviderCost(rows, pricingRules, gptPricingRules, date).total_cost,
+    }));
 }
 
 // GET /api/pricing - List all pricing rules
@@ -350,6 +484,64 @@ router.put("/", (req, res) => {
   res.json({ pricing: rule });
 });
 
+// GET /api/pricing/gpt - List the separate OpenAI/Codex rate card.
+router.get("/gpt", (_req, res) => {
+  res.json({ pricing: stmts.listGptPricing.all() });
+});
+
+// PUT /api/pricing/gpt - Create or update an OpenAI/Codex pricing row.
+router.put("/gpt", (req, res) => {
+  const { model_pattern, display_name } = req.body;
+  if (!model_pattern || !display_name) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "model_pattern and display_name are required" },
+    });
+  }
+
+  const rateFields = [
+    "short_input_per_mtok",
+    "short_cached_input_per_mtok",
+    "short_cache_write_per_mtok",
+    "short_output_per_mtok",
+    "long_input_per_mtok",
+    "long_cached_input_per_mtok",
+    "long_cache_write_per_mtok",
+    "long_output_per_mtok",
+    "fast_input_per_mtok",
+    "fast_cached_input_per_mtok",
+    "fast_cache_write_per_mtok",
+    "fast_output_per_mtok",
+  ];
+  for (const field of rateFields) {
+    const raw = req.body[field];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: `${field} must be a non-negative number` },
+      });
+    }
+  }
+  const valueOf = (field) => {
+    const raw = req.body[field];
+    return raw === undefined || raw === null || raw === "" ? 0 : Number(raw);
+  };
+
+  stmts.upsertGptPricing.run(model_pattern, display_name, ...rateFields.map(valueOf));
+  res.json({ pricing: stmts.getGptPricing.get(model_pattern) });
+});
+
+router.delete("/gpt/:pattern", (req, res) => {
+  const pattern = req.params.pattern;
+  if (!stmts.getGptPricing.get(pattern)) {
+    return res
+      .status(404)
+      .json({ error: { code: "NOT_FOUND", message: "GPT pricing rule not found" } });
+  }
+  stmts.deleteGptPricing.run(pattern);
+  res.json({ ok: true });
+});
+
 // DELETE /api/pricing/:pattern - Delete a pricing rule
 router.delete("/:pattern", (req, res) => {
   // Express has already percent-decoded route params, so a client that
@@ -380,17 +572,22 @@ router.delete("/:pattern", (req, res) => {
 router.get("/cost", (req, res) => {
   const rawOffset = parseInt(req.query.tz_offset, 10);
   const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
-  const { clause, params } = sourceColumnClause(parseSources(req), "s.source");
-  const whereClause = clause ? `WHERE ${clause}` : "";
+  const sourceScope = sourceColumnClause(parseSources(req), "s.source");
+  const providerScope = providerColumnClause(parseProviders(req), "s.provider");
+  const clauses = [sourceScope.clause, providerScope.clause].filter(Boolean);
+  const params = [...sourceScope.params, ...providerScope.params];
+  const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const dailyTokens = db
     .prepare(
       `SELECT
         DATE(s.started_at, ?) as date,
+        s.provider as provider,
         tu.model as model,
         tu.speed as speed,
         tu.inference_geo as inference_geo,
         tu.service_tier as service_tier,
+        tu.context_size as context_size,
         SUM(tu.input_tokens + tu.baseline_input) as input_tokens,
         SUM(tu.output_tokens + tu.baseline_output) as output_tokens,
         SUM(tu.cache_read_tokens + tu.baseline_cache_read) as cache_read_tokens,
@@ -402,16 +599,17 @@ router.get("/cost", (req, res) => {
       FROM token_usage tu
       JOIN sessions s ON s.id = tu.session_id
       ${whereClause}
-      GROUP BY 1, tu.model, tu.speed, tu.inference_geo, tu.service_tier`
+      GROUP BY 1, s.provider, tu.model, tu.speed, tu.inference_geo, tu.service_tier, tu.context_size`
     )
     .all(tzModifier, ...params);
   const rules = stmts.listPricing.all();
+  const gptRules = stmts.listGptPricing.all();
   // Price the date-split rows so each day's usage bills at the rate effective on
   // that date (e.g. Sonnet 5's intro discount before 2026-08-31, standard after).
   // Coverage equals the undated aggregate — token_usage cascades with sessions,
   // so the INNER JOIN drops nothing — and the breakdown re-collapses per model.
-  const result = calculateCost(dailyTokens, rules);
-  const daily_costs = calculateDailyCosts(dailyTokens, rules);
+  const result = calculateProviderCost(dailyTokens, rules, gptRules);
+  const daily_costs = calculateDailyCosts(dailyTokens, rules, gptRules);
   res.json({ ...result, daily_costs });
 });
 
@@ -420,15 +618,29 @@ router.get("/cost/:sessionId", (req, res) => {
   const rawOffset = parseInt(req.query.tz_offset, 10);
   const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
 
-  const tokenRows = stmts.getTokensBySession.all(req.params.sessionId);
-  const rules = stmts.listPricing.all();
-  const started = db
-    .prepare("SELECT DATE(started_at, ?) as date FROM sessions WHERE id = ?")
+  const session = db
+    .prepare("SELECT provider, source, DATE(started_at, ?) as date FROM sessions WHERE id = ?")
     .get(tzModifier, req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const providers = parseProviders(req);
+  const sources = parseSources(req);
+  if (
+    (providers && !providers.includes(session.provider || "claude")) ||
+    (sources && !sources.includes(session.source || "local"))
+  ) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const tokenRows = stmts.getTokensBySession
+    .all(req.params.sessionId)
+    .map((row) => ({ ...row, provider: session.provider || "claude" }));
+  const rules = stmts.listPricing.all();
+  const gptRules = stmts.listGptPricing.all();
   // Price the session as of its start date so a session that ran during a promo
   // window keeps that rate (e.g. Sonnet 5 intro through 2026-08-31).
-  const result = calculateCost(tokenRows, rules, started?.date);
-  const daily_costs = started ? [{ date: started.date, cost: result.total_cost }] : [];
+  const result = calculateProviderCost(tokenRows, rules, gptRules, session.date);
+  const daily_costs = session ? [{ date: session.date, cost: result.total_cost }] : [];
   res.json({ ...result, daily_costs });
 });
 
@@ -468,5 +680,7 @@ function attachAgentCosts(agents) {
 
 module.exports = router;
 module.exports.calculateCost = calculateCost;
+module.exports.calculateGptCost = calculateGptCost;
+module.exports.calculateProviderCost = calculateProviderCost;
 module.exports.agentOwnCost = agentOwnCost;
 module.exports.attachAgentCosts = attachAgentCosts;

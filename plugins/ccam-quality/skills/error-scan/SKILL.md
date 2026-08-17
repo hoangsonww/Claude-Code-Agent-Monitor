@@ -1,4 +1,5 @@
 ---
+name: error-scan
 description: >
   Scan recent Claude Code activity for errors and failure signals across all
   sessions using Agent Monitor data — APIError events and PreToolUse→PostToolUse

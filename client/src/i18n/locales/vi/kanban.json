@@ -7,12 +7,12 @@
     "sessions": "Phiên"
   },
   "noAgents": "Chưa có Agent được theo dõi",
-  "noAgentsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy Agent xuất hiện tại đây.",
+  "noAgentsDesc": "Bắt đầu một phiên Agent được theo dõi với hooks đã cài để thấy Agent xuất hiện tại đây.",
   "agentCount": "Đã theo dõi {{count}} Agent",
   "agentCount_plural": "Đã theo dõi {{count}} Agent",
   "noAgentsInColumn": "Không có Agent",
   "noSessions": "Chưa có phiên được theo dõi",
-  "noSessionsDesc": "Bắt đầu một phiên Claude Code với hooks đã cài để thấy phiên xuất hiện tại đây.",
+  "noSessionsDesc": "Bắt đầu một phiên Agent được theo dõi với hooks đã cài để thấy phiên xuất hiện tại đây.",
   "sessionCount": "Đã theo dõi {{count}} phiên",
   "sessionCount_plural": "Đã theo dõi {{count}} phiên",
   "noSessionsInColumn": "Không có phiên",
@@ -29,17 +29,17 @@
   },
   "tooltip": {
     "agent": {
-      "working": "Agent đang chạy một tool call ngay lúc này.\n\nVào trạng thái khi PreToolUse hoặc UserPromptSubmit, thoát khi Stop (hết lượt).",
-      "waiting": "Agent đã kết thúc lượt và đang chờ người dùng - Claude chờ tin nhắn tiếp theo hoặc đã hỏi xin quyền sử dụng tool.\n\nXóa khi PreToolUse / PostToolUse tiếp theo, hoặc khi phiên kết thúc.",
-      "completed": "Agent đã kết thúc hoàn toàn cho phiên này - thường do SessionEnd kích hoạt, hoặc với subagent là do SubagentStop.\n\nKhông còn hoạt động nào được ghi nhận cho Agent này.",
-      "error": "Agent gặp lỗi và sẽ không tiếp tục. Với main agent là từ Stop với stop_reason=error; với subagent là do chạy thất bại."
+      "working": "Agent đang xử lý công việc ngay lúc này.\n\nAgent sẽ trở lại trạng thái Chờ khi lượt này kết thúc.",
+      "waiting": "Agent đã kết thúc lượt hoặc cần phản hồi của con người, chẳng hạn phê duyệt quyền.\n\nAgent sẽ tiếp tục làm việc khi phiên tiếp tục.",
+      "completed": "Agent đã kết thúc hoàn toàn cho phiên này.\n\nKhông còn hoạt động nào được ghi nhận cho Agent này.",
+      "error": "Agent đã ghi nhận lỗi và sẽ không tiếp tục cho đến khi phiên được tiếp tục hoặc thử lại."
     },
     "session": {
-      "active": "Phiên đang giữa lượt - Claude đang chạy và người dùng không bị chặn. Trạng thái này thoáng qua: phiên đi qua Active trong các tool call rồi quay lại Waiting khi hết lượt.",
-      "waiting": "Phiên đang chờ người dùng. Có thể Claude đã hết lượt (phổ biến nhất) hoặc đang hỏi quyền và bị chặn cho tới khi người dùng phản hồi.\n\nXem cột này để biết phiên nào bạn cần trả lời.",
-      "completed": "Phiên đã đóng hoàn toàn - SessionEnd đã kích hoạt (CLI thoát sạch) hoặc người dùng đã đóng thủ công.\n\nMọi Agent của phiên cũng đã hoàn tất.",
-      "error": "Phiên kết thúc với lỗi - Claude trả về stop_reason=error, có lỗi không thể khôi phục, hoặc lỗi API thượng nguồn đã chấm dứt lần chạy.",
-      "abandoned": "Phiên đã chết mà không có SessionEnd sạch. Bị đánh dấu bỏ dở sau 5+ phút không hoạt động (mồ côi vì /resume, mất mạng, hoặc CLI bị tắt). Khác với Completed: ta không thấy tín hiệu thoát thật sự."
+      "active": "Phiên đang giữa lượt: một Agent đang làm việc và người dùng không bị chặn. Trạng thái này ngắn; phiên sẽ trở lại Chờ khi lượt kết thúc.",
+      "waiting": "Phiên đang chờ bạn. Một lượt có thể đã hoàn tất hoặc Agent có thể cần quyền hay dữ liệu đầu vào.\n\nXem cột này để biết phiên nào bạn cần trả lời.",
+      "completed": "Phiên đã đóng hoàn toàn vì CLI thoát sạch hoặc phiên đã được đóng rõ ràng.\n\nMọi Agent trong phiên cũng đã hoàn tất.",
+      "error": "Phiên kết thúc với lỗi: lỗi không thể khôi phục hoặc lỗi API thượng nguồn đã chấm dứt lần chạy.",
+      "abandoned": "Phiên trở nên cũ mà không có tín hiệu thoát sạch. Phiên bị đánh dấu bỏ dở sau hơn 5 phút không hoạt động (ví dụ sau /resume, mất mạng hoặc CLI bị tắt). Khác với Hoàn tất: không quan sát được tín hiệu thoát thật sự."
     }
   }
 }

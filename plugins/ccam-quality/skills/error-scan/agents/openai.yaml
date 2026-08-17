@@ -1,0 +1,6 @@
+interface:
+  display_name: "Error Scan"
+  short_description: "Scan recent Claude Code activity for errors and failure..."
+  default_prompt: "Use $error-scan to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

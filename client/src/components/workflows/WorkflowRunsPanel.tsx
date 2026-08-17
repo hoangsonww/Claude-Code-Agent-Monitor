@@ -83,7 +83,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Workflow, ChevronRight, ChevronDown, Layers, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "../../lib/api";

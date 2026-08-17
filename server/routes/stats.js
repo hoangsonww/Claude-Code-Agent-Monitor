@@ -7,6 +7,7 @@ const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { getConnectionCount } = require("../websocket");
 const { parseSources } = require("../lib/source-filter");
+const { parseProviders } = require("../lib/provider-filter");
 const scoped = require("../lib/scoped-stats");
 
 const router = Router();
@@ -21,16 +22,18 @@ router.get("/", (req, res) => {
   // Data-scope: when the user restricts to a subset of source machines, compute
   // every count against that subset; otherwise use the cached prepared stmts.
   const sources = parseSources(req);
-  const overview = sources ? scoped.statsOverview(db, sources) : stmts.stats.get();
-  const agentsByStatus = sources
-    ? scoped.agentStatusCounts(db, sources)
+  const providers = parseProviders(req);
+  const isScoped = !!sources || !!providers;
+  const overview = isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get();
+  const agentsByStatus = isScoped
+    ? scoped.agentStatusCounts(db, sources, providers)
     : stmts.agentStatusCounts.all();
-  const sessionsByStatus = sources
-    ? scoped.sessionStatusCounts(db, sources)
+  const sessionsByStatus = isScoped
+    ? scoped.sessionStatusCounts(db, sources, providers)
     : stmts.sessionStatusCounts.all();
 
-  const eventsToday = sources
-    ? scoped.countEventsToday(db, sources, toLocal, toUTC)
+  const eventsToday = isScoped
+    ? scoped.countEventsToday(db, sources, providers, toLocal, toUTC)
     : stmts.countEventsToday.get(toLocal, toUTC);
 
   res.json({

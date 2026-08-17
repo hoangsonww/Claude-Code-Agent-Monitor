@@ -1,4 +1,5 @@
 ---
+name: hook-diagnostics
 description: >
   Diagnose Claude Code hook installation, delivery, and ingestion issues.
   Checks hook configuration, connectivity, event flow, and identifies

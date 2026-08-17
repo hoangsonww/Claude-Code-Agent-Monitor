@@ -94,37 +94,30 @@ interface ToolEntry {
   domain: string;
 }
 
-/** Static `dashboard_<tool> -> domain` lookup mirroring `tools/domains/*.ts`
- * module boundaries, kept literal since `collectAllTools` has no domain
- * concept. Must be updated by hand alongside `index.ts`'s identical copy. */
-const TOOL_DOMAINS: Record<string, string> = {
-  dashboard_health_check: "observability",
-  dashboard_get_stats: "observability",
-  dashboard_get_analytics: "observability",
-  dashboard_get_system_info: "observability",
-  dashboard_export_data: "observability",
-  dashboard_get_operational_snapshot: "observability",
-  dashboard_list_sessions: "sessions",
-  dashboard_get_session: "sessions",
-  dashboard_create_session: "sessions",
-  dashboard_update_session: "sessions",
-  dashboard_list_agents: "agents",
-  dashboard_get_agent: "agents",
-  dashboard_create_agent: "agents",
-  dashboard_update_agent: "agents",
-  dashboard_list_events: "events",
-  dashboard_ingest_hook_event: "events",
-  dashboard_get_pricing_rules: "pricing",
-  dashboard_get_total_cost: "pricing",
-  dashboard_get_session_cost: "pricing",
-  dashboard_upsert_pricing_rule: "pricing",
-  dashboard_delete_pricing_rule: "pricing",
-  dashboard_reset_pricing_defaults: "pricing",
-  dashboard_cleanup_data: "maintenance",
-  dashboard_reimport_history: "maintenance",
-  dashboard_reinstall_hooks: "maintenance",
-  dashboard_clear_all_data: "maintenance",
-};
+const TOOL_DOMAIN_RULES: Array<[RegExp, string]> = [
+  [/update_status|check_for_updates|agent_homes|set_(claude|codex)_home|install_hooks/, "settings"],
+  [/workflow/, "workflows"],
+  [/alert/, "alerts"],
+  [/webhook/, "webhooks"],
+  [/remote_source/, "remote"],
+  [/import|restore_export|rescan_history|upload_history/, "imports"],
+  [/_run|run_/, "runs"],
+  [/claude_config|codex_config|keybindings|profile/, "config"],
+  [/pricing|cost/, "pricing"],
+  [/push/, "push"],
+  [/session|transcript/, "sessions"],
+  [/agent/, "agents"],
+  [/event|hook/, "events"],
+  [/cleanup|reinstall|clear_all/, "maintenance"],
+  [
+    /health|stats|analytics|system_info|export_data|snapshot|metrics|update|agent_homes/,
+    "observability",
+  ],
+];
+
+export function toolDomain(name: string): string {
+  return TOOL_DOMAIN_RULES.find(([pattern]) => pattern.test(name))?.[1] ?? "other";
+}
 
 const DOMAIN_COLORS: Record<string, (t: string) => string> = {
   observability: c.brightCyan,
@@ -133,6 +126,14 @@ const DOMAIN_COLORS: Record<string, (t: string) => string> = {
   events: c.brightYellow,
   pricing: (t: string) => c.bold(c.yellow(t)),
   maintenance: c.brightRed,
+  workflows: c.brightBlue,
+  alerts: c.brightYellow,
+  webhooks: c.brightMagenta,
+  remote: c.brightCyan,
+  imports: c.brightGreen,
+  runs: c.brightBlue,
+  config: c.brightWhite,
+  push: c.brightYellow,
 };
 
 /** Renders a `[domain]` badge in that domain's color, or muted if unknown. */
@@ -482,13 +483,13 @@ export interface ReplToolCollector {
 }
 
 /** Constructs an empty {@link ReplToolCollector}, tagging each registered
- * tool via {@link TOOL_DOMAINS} (falling back to `"unknown"`). */
+ * tool with the inferred public domain. */
 export function createReplToolCollector(): ReplToolCollector {
   const tools: ToolEntry[] = [];
   return {
     tools,
     register(name: string, description: string, handler: ToolHandler) {
-      const domain = TOOL_DOMAINS[name] ?? "unknown";
+      const domain = toolDomain(name);
       tools.push({ name, description, handler, domain });
     },
   };

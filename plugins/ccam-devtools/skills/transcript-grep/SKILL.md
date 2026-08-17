@@ -1,4 +1,5 @@
 ---
+name: transcript-grep
 description: >
   Search a Claude Code session transcript for a string or regex pattern and show
   every matching message with surrounding context. Reads

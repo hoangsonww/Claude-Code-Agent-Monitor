@@ -134,6 +134,21 @@ import alerts_ko from "./locales/ko/alerts.json";
 import splash_ko from "./locales/ko/splash.json";
 
 import replay_en from "./locales/en/replay.json";
+import common_es from "./locales/es/common.json";
+import nav_es from "./locales/es/nav.json";
+import dashboard_es from "./locales/es/dashboard.json";
+import sessions_es from "./locales/es/sessions.json";
+import activity_es from "./locales/es/activity.json";
+import analytics_es from "./locales/es/analytics.json";
+import workflows_es from "./locales/es/workflows.json";
+import settings_es from "./locales/es/settings.json";
+import kanban_es from "./locales/es/kanban.json";
+import errors_es from "./locales/es/errors.json";
+import updates_es from "./locales/es/updates.json";
+import ccConfig_es from "./locales/es/ccConfig.json";
+import run_es from "./locales/es/run.json";
+import alerts_es from "./locales/es/alerts.json";
+import splash_es from "./locales/es/splash.json";
 
 i18n
   .use(LanguageDetector)
@@ -209,8 +224,25 @@ i18n
         alerts: alerts_ko,
         splash: splash_ko,
       },
+      es: {
+        common: common_es,
+        nav: nav_es,
+        dashboard: dashboard_es,
+        sessions: sessions_es,
+        activity: activity_es,
+        analytics: analytics_es,
+        workflows: workflows_es,
+        settings: settings_es,
+        kanban: kanban_es,
+        errors: errors_es,
+        updates: updates_es,
+        ccConfig: ccConfig_es,
+        run: run_es,
+        alerts: alerts_es,
+        splash: splash_es,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [

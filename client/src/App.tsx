@@ -66,7 +66,7 @@
  * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
  * ============================================================================= */
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router";
 import { useCallback } from "react";
 import { Layout } from "./components/Layout";
 import { DocumentTitle } from "./components/DocumentTitle";
@@ -89,6 +89,21 @@ import { eventBus } from "./lib/eventBus";
 import type { WSMessage } from "./lib/types";
 
 /**
+ * API reference pages are served by Express, not the React dashboard. Keep
+ * this guard for a stale shell or an unsupported API URL that reaches the SPA
+ * fallback: developer documentation must never be obscured by onboarding.
+ */
+export function shouldShowOnboarding(pathname: string): boolean {
+  return !pathname.startsWith("/api/");
+}
+
+/** Renders first-run onboarding only on dashboard routes. */
+function DashboardOnboarding() {
+  const { pathname } = useLocation();
+  return shouldShowOnboarding(pathname) ? <SplashScreen /> : null;
+}
+
+/**
  * Application root component mounted by {@link main.tsx}.
  * @returns Routed dashboard UI inside `BrowserRouter`.
  */
@@ -101,27 +116,25 @@ export default function App() {
   useNotifications();
 
   return (
-    <>
-      <SplashScreen />
-      <BrowserRouter>
-        <DocumentTitle />
-        <Routes>
-          <Route element={<Layout wsConnected={connected} />}>
-            <Route index element={<Dashboard />} />
-            <Route path="kanban" element={<KanbanBoard />} />
-            <Route path="sessions" element={<Sessions />} />
-            <Route path="sessions/:id" element={<SessionDetail />} />
-            <Route path="sessions/:id/replay" element={<SessionReplay />} />
-            <Route path="activity" element={<ActivityFeed />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="workflows" element={<Workflows />} />
-            <Route path="cc-config" element={<CcConfig />} />
-            <Route path="run" element={<Run />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </>
+    <BrowserRouter>
+      <DashboardOnboarding />
+      <DocumentTitle />
+      <Routes>
+        <Route element={<Layout wsConnected={connected} />}>
+          <Route index element={<Dashboard />} />
+          <Route path="kanban" element={<KanbanBoard />} />
+          <Route path="sessions" element={<Sessions />} />
+          <Route path="sessions/:id" element={<SessionDetail />} />
+          <Route path="sessions/:id/replay" element={<SessionReplay />} />
+          <Route path="activity" element={<ActivityFeed />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="workflows" element={<Workflows />} />
+          <Route path="cc-config" element={<CcConfig />} />
+          <Route path="run" element={<Run />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }

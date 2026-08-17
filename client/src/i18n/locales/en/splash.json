@@ -9,6 +9,38 @@
   "sub1": "Real-time observability for every Claude Code session.",
   "sub2": "Tokens, tools, costs, and workflows, all live.",
   "brand": "Claude Code Monitor",
+  "provider": {
+    "title": "What would you like to monitor?",
+    "description": "Choose the data source shown across the dashboard. You can change this later in Settings.",
+    "claude": { "description": "Your Claude Code sessions, agents, and costs." },
+    "codex": { "description": "Codex sessions, GPT token usage, and costs." },
+    "both": {
+      "label": "Both",
+      "description": "All Claude Code and Codex sessions, usage, and costs."
+    },
+    "beta": "Beta",
+    "continue": "Continue to dashboard"
+  },
+  "hookGate": {
+    "kicker": "Live tracking",
+    "title": "Set up live monitoring",
+    "description": "Install lightweight local hooks only for the selected providers that still need them.",
+    "selectedProviders": "Hooks still needed for",
+    "realTime": "Hooks send lifecycle events to this local dashboard in real time. Your data stays on this machine.",
+    "checking": "Checking existing hook setup...",
+    "installed": "Hooks installed and ready for live monitoring",
+    "existing": "Existing dashboard hooks detected",
+    "ready": "Ready to install selected hooks",
+    "overrideWarning": "Dashboard hooks already exist for a selected provider. Installing refreshes only the dashboard entries. Your unrelated hooks are preserved.",
+    "output": "Installation output",
+    "failure": "Could not install all selected hooks. Review the output, then try again or continue if you completed setup another way.",
+    "checkFailed": "We could not check your current hook setup. You can still install the selected hooks.",
+    "preserveNote": "This only manages dashboard hooks. Your other hooks stay unchanged.",
+    "alreadyInstalled": "I have already installed hooks",
+    "install": "Install hooks",
+    "installing": "Installing hooks...",
+    "continue": "Continue to dashboard"
+  },
   "taglines": [
     "Nothing your agents do stays in the dark.",
     "See every move your agents make.",

@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.8"
     app.kubernetes.io/component: monitoring
     app.kubernetes.io/managed-by: kustomize
     # Common label for Prometheus Operator discovery
@@ -21,11 +21,12 @@ spec:
       - agent-monitor
   endpoints:
     - port: http
-      path: /api/health
+      path: /api/metrics
       interval: 30s
       scrapeTimeout: 10s
       honorLabels: true
-      metricRelabelings:
-        - sourceLabels: [__name__]
-          regex: "(http_requests_total|http_request_duration_.*|nodejs_.*|process_.*)"
-          action: keep
+      authorization:
+        type: Bearer
+        credentials:
+          name: agent-monitor-secrets
+          key: dashboard-token

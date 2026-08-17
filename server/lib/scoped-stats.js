@@ -1,79 +1,83 @@
 /**
  * @file scoped-stats.js
- * @description Source-scoped variants of the dashboard's aggregate queries
- * (stats + analytics). When the user restricts the "data scope" to a subset of
- * machines (see server/lib/source-filter.js), the routes call these instead of
- * the cached prepared statements in db.js so EVERY headline number — session /
- * agent / event counts, token totals, cost, daily charts, tool + type
- * distributions — reflects only the chosen sources.
- *
- * These build SQL dynamically (per request) and are used ONLY on the filtered
- * path; the unfiltered default keeps using db.js's prepared statements, so the
- * common zero-config case pays nothing for this feature.
- *
- * Every function takes a non-empty `sources` string array. The predicate is
- * either `source IN (...)` (queries over `sessions`) or a `session_id IN
- * (SELECT id FROM sessions WHERE source IN (...))` subquery (queries over
- * events / agents / token_usage), always via bound parameters.
- *
+ * @description Provider- and source-scoped variants of the dashboard aggregate
+ * queries. They keep all statistics aligned with the global data selectors
+ * without changing the fast prepared-statement path when no scope is active.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-/** `?,?,…` for N sources. */
-function ph(sources) {
-  return sources.map(() => "?").join(",");
+function placeholders(values) {
+  return values.map(() => "?").join(",");
 }
 
-/** Subquery restricting a `session_id` column to the chosen sources. */
-function sessionSubquery(sources) {
-  return `SELECT id FROM sessions WHERE source IN (${ph(sources)})`;
+function sessionScope(sources, providers, alias = "") {
+  const prefix = alias ? `${alias}.` : "";
+  const clauses = [];
+  const params = [];
+  if (sources?.length) {
+    clauses.push(`${prefix}source IN (${placeholders(sources)})`);
+    params.push(...sources);
+  }
+  if (providers?.length) {
+    clauses.push(`${prefix}provider IN (${placeholders(providers)})`);
+    params.push(...providers);
+  }
+  return { where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "", params };
 }
 
-function statsOverview(db, sources) {
-  const sq = sessionSubquery(sources);
-  const p = ph(sources);
-  const row = db
+function sessionSubquery(sources, providers) {
+  const scope = sessionScope(sources, providers);
+  return { sql: `SELECT id FROM sessions ${scope.where}`, params: scope.params };
+}
+
+function statsOverview(db, sources, providers) {
+  const scope = sessionScope(sources, providers);
+  const sessions = `SELECT id FROM sessions ${scope.where}`;
+  const active = sessionScope(sources, providers);
+  const activeWhere = active.where
+    ? `${active.where} AND status = 'active'`
+    : "WHERE status = 'active'";
+  return db
     .prepare(
       `SELECT
-        (SELECT COUNT(*) FROM sessions WHERE source IN (${p})) as total_sessions,
-        (SELECT COUNT(*) FROM sessions WHERE status = 'active' AND source IN (${p})) as active_sessions,
-        (SELECT COUNT(*) FROM agents WHERE status IN ('working','waiting') AND session_id IN (${sq})) as active_agents,
-        (SELECT COUNT(*) FROM agents WHERE session_id IN (${sq})) as total_agents,
-        (SELECT COUNT(*) FROM events WHERE session_id IN (${sq})) as total_events`
+        (SELECT COUNT(*) FROM sessions ${scope.where}) as total_sessions,
+        (SELECT COUNT(*) FROM sessions ${activeWhere}) as active_sessions,
+        (SELECT COUNT(*) FROM agents WHERE status IN ('working','waiting') AND session_id IN (${sessions})) as active_agents,
+        (SELECT COUNT(*) FROM agents WHERE session_id IN (${sessions})) as total_agents,
+        (SELECT COUNT(*) FROM events WHERE session_id IN (${sessions})) as total_events`
     )
-    .get(...sources, ...sources, ...sources, ...sources, ...sources);
-  return row;
+    .get(...scope.params, ...active.params, ...scope.params, ...scope.params, ...scope.params);
 }
 
-function agentStatusCounts(db, sources) {
+function agentStatusCounts(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
-      `SELECT status, COUNT(*) as count FROM agents WHERE session_id IN (${sessionSubquery(
-        sources
-      )}) GROUP BY status`
+      `SELECT status, COUNT(*) as count FROM agents WHERE session_id IN (${scope.sql}) GROUP BY status`
     )
-    .all(...sources);
+    .all(...scope.params);
 }
 
-function sessionStatusCounts(db, sources) {
+function sessionStatusCounts(db, sources, providers) {
+  const scope = sessionScope(sources, providers);
   return db
-    .prepare(
-      `SELECT status, COUNT(*) as count FROM sessions WHERE source IN (${ph(sources)}) GROUP BY status`
-    )
-    .all(...sources);
+    .prepare(`SELECT status, COUNT(*) as count FROM sessions ${scope.where} GROUP BY status`)
+    .all(...scope.params);
 }
 
-function countEventsToday(db, sources, toLocal, toUTC) {
+function countEventsToday(db, sources, providers, toLocal, toUTC) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT COUNT(*) as count FROM events
        WHERE created_at >= datetime('now', ?, 'start of day', ?)
-         AND session_id IN (${sessionSubquery(sources)})`
+         AND session_id IN (${scope.sql})`
     )
-    .get(toLocal, toUTC, ...sources);
+    .get(toLocal, toUTC, ...scope.params);
 }
 
-function tokenTotals(db, sources) {
+function tokenTotals(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT
@@ -85,93 +89,96 @@ function tokenTotals(db, sources) {
         COALESCE(SUM(web_search_requests + baseline_web_search), 0) as total_web_search,
         COALESCE(SUM(web_fetch_requests + baseline_web_fetch), 0) as total_web_fetch,
         COALESCE(SUM(code_execution_requests + baseline_code_execution), 0) as total_code_execution
-       FROM token_usage WHERE session_id IN (${sessionSubquery(sources)})`
+       FROM token_usage WHERE session_id IN (${scope.sql})`
     )
-    .get(...sources);
+    .get(...scope.params);
 }
 
-function toolUsageCounts(db, sources) {
+function toolUsageCounts(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT tool_name, COUNT(*) as count FROM events
-       WHERE tool_name IS NOT NULL AND session_id IN (${sessionSubquery(sources)})
+       WHERE tool_name IS NOT NULL AND session_id IN (${scope.sql})
        GROUP BY tool_name ORDER BY count DESC LIMIT 20`
     )
-    .all(...sources);
+    .all(...scope.params);
 }
 
-function dailyEventCounts(db, sources, tzModifier) {
+function dailyEventCounts(db, sources, providers, tzModifier) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT DATE(created_at, ?) as date, COUNT(*) as count FROM events
-       WHERE created_at >= DATE('now', '-365 days') AND session_id IN (${sessionSubquery(sources)})
+       WHERE created_at >= DATE('now', '-365 days') AND session_id IN (${scope.sql})
        GROUP BY 1 ORDER BY date ASC`
     )
-    .all(tzModifier, ...sources);
+    .all(tzModifier, ...scope.params);
 }
 
-function dailySessionCounts(db, sources, tzModifier) {
+function dailySessionCounts(db, sources, providers, tzModifier) {
+  const scope = sessionScope(sources, providers);
+  const where = scope.where
+    ? `${scope.where} AND started_at >= DATE('now', '-365 days')`
+    : "WHERE started_at >= DATE('now', '-365 days')";
   return db
     .prepare(
       `SELECT DATE(started_at, ?) as date, COUNT(*) as count FROM sessions
-       WHERE started_at >= DATE('now', '-365 days') AND source IN (${ph(sources)})
-       GROUP BY 1 ORDER BY date ASC`
+       ${where} GROUP BY 1 ORDER BY date ASC`
     )
-    .all(tzModifier, ...sources);
+    .all(tzModifier, ...scope.params);
 }
 
-function agentTypeDistribution(db, sources) {
+function agentTypeDistribution(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT subagent_type, COUNT(*) as count FROM agents
-       WHERE type = 'subagent' AND subagent_type IS NOT NULL AND session_id IN (${sessionSubquery(
-         sources
-       )})
+       WHERE type = 'subagent' AND subagent_type IS NOT NULL AND session_id IN (${scope.sql})
        GROUP BY subagent_type ORDER BY count DESC`
     )
-    .all(...sources);
+    .all(...scope.params);
 }
 
-function totalSubagentCount(db, sources) {
+function totalSubagentCount(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
-      `SELECT COUNT(*) as count FROM agents WHERE type = 'subagent' AND session_id IN (${sessionSubquery(
-        sources
-      )})`
+      `SELECT COUNT(*) as count FROM agents WHERE type = 'subagent' AND session_id IN (${scope.sql})`
     )
-    .get(...sources);
+    .get(...scope.params);
 }
 
-function eventTypeCounts(db, sources) {
+function eventTypeCounts(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT event_type, COUNT(*) as count FROM events
-       WHERE session_id IN (${sessionSubquery(sources)})
-       GROUP BY event_type ORDER BY count DESC`
+       WHERE session_id IN (${scope.sql}) GROUP BY event_type ORDER BY count DESC`
     )
-    .all(...sources);
+    .all(...scope.params);
 }
 
-function avgEventsPerSession(db, sources) {
-  const sq = sessionSubquery(sources);
+function avgEventsPerSession(db, sources, providers) {
+  const scope = sessionSubquery(sources, providers);
+  const sessions = sessionScope(sources, providers);
   return db
     .prepare(
       `SELECT ROUND(CAST(COUNT(*) AS REAL) /
-         MAX(1, (SELECT COUNT(*) FROM sessions WHERE source IN (${ph(sources)}))), 1) as avg
-       FROM events WHERE session_id IN (${sq})`
+         MAX(1, (SELECT COUNT(*) FROM sessions ${sessions.where})), 1) as avg
+       FROM events WHERE session_id IN (${scope.sql})`
     )
-    .get(...sources, ...sources);
+    .get(...sessions.params, ...scope.params);
 }
 
-/** token_usage rows joined to their session start date, scoped to sources. */
-function scopedTokenUsageWithDate(db, sources) {
+function scopedTokenUsageWithDate(db, sources, providers) {
+  const scope = sessionScope(sources, providers, "s");
   return db
     .prepare(
-      `SELECT tu.*, DATE(s.started_at) as date
-       FROM token_usage tu JOIN sessions s ON s.id = tu.session_id
-       WHERE s.source IN (${ph(sources)})`
+      `SELECT tu.*, s.provider, DATE(s.started_at) as date
+       FROM token_usage tu JOIN sessions s ON s.id = tu.session_id ${scope.where}`
     )
-    .all(...sources);
+    .all(...scope.params);
 }
 
 module.exports = {

@@ -1,4 +1,5 @@
 ---
+name: budget-set
 description: >
   Define a spend budget for Claude Code and, optionally, create a cost alert
   rule that fires when usage crosses the limit, via POST /api/alerts/rules on

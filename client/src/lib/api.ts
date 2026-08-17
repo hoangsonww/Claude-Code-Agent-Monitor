@@ -390,6 +390,7 @@ import type {
   Analytics,
   CostResult,
   DashboardEvent,
+  GptModelPricing,
   ModelPricing,
   Session,
   SessionDrillIn,
@@ -409,7 +410,7 @@ import type {
   WorkflowRunDetail,
 } from "./types";
 
-import { activeSourcesParam } from "./dataScope";
+import { activeProvidersParam, activeSourcesParam } from "./dataScope";
 
 // Root path all endpoint paths are appended to. Kept relative (no host) so the
 // same client bundle works behind the Vite dev proxy and in same-origin prod.
@@ -419,13 +420,18 @@ const BASE = "/api";
  * Append the current global data-scope (see {@link activeSourcesParam}) as a
  * `sources` query param, unless the caller already set one. Called by the
  * scoped list/aggregate endpoints (sessions, events, agents, stats, analytics)
- * so changing the scope narrows the whole app without every call site threading
- * it. `mode: "all"` yields no param, so unscoped installs hit clean URLs.
+ * so changing a machine or product scope narrows the whole app without every
+ * call site threading it. An all-machine / both-product selection yields no
+ * added filter, so unscoped installs hit clean URLs.
  */
 function applyScope(qs: URLSearchParams): URLSearchParams {
   if (!qs.has("sources")) {
     const sources = activeSourcesParam();
     if (sources) qs.set("sources", sources);
+  }
+  if (!qs.has("providers")) {
+    const providers = activeProvidersParam();
+    if (providers) qs.set("providers", providers);
   }
   return qs;
 }
@@ -595,7 +601,12 @@ export const api = {
      *   and `sources`: the distinct machine origins present in the data (always
      *   includes at least `"local"`), for the data-scope selector.
      */
-    facets: () => request<{ cwds: string[]; sources: string[] }>("/sessions/facets"),
+    facets: () => {
+      const qs = applyScope(new URLSearchParams());
+      return request<{ cwds: string[]; sources: string[]; providers: string[] }>(
+        `/sessions/facets${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
     /**
      * GET /api/sessions - paginated, filterable, sortable session list.
      *
@@ -610,7 +621,7 @@ export const api = {
      * @param params Optional filter/sort/pagination controls.
      * @param params.status   Lifecycle filter (e.g. "active"/"completed").
      * @param params.q        Free-text query matched server-side.
-     * @param params.cwd      Restrict to one working directory (see `facets`).
+     * @param params.cwd      Restrict to one or more working directories (see `facets`).
      * @param params.sort_by  Column to sort by.
      * @param params.sort_desc Descending when true; sent even when explicitly false.
      * @param params.limit    Page size.
@@ -621,23 +632,33 @@ export const api = {
     list: (params?: {
       status?: string;
       q?: string;
-      cwd?: string;
+      cwd?: string[];
       sort_by?: string;
       sort_desc?: boolean;
       limit?: number;
       offset?: number;
+      provider?: "claude" | "codex";
+      include_transient?: boolean;
+      include_task_progress?: boolean;
     }) => {
       const qs = new URLSearchParams();
       // Only append params that were actually supplied so the URL stays minimal.
       if (params?.status) qs.set("status", params.status);
       if (params?.q) qs.set("q", params.q);
-      if (params?.cwd) qs.set("cwd", params.cwd);
+      if (params?.cwd) {
+        for (const cwd of params.cwd) qs.append("cwd", cwd);
+      }
       if (params?.sort_by) qs.set("sort_by", params.sort_by);
       // `!== undefined` (not truthiness) so an explicit `sort_desc: false` is preserved.
       if (params?.sort_desc !== undefined) qs.set("sort_desc", String(params.sort_desc));
       if (params?.limit) qs.set("limit", String(params.limit));
       if (params?.offset) qs.set("offset", String(params.offset));
-      applyScope(qs); // narrow to the active data scope (source machines)
+      if (params?.include_transient) qs.set("include_transient", "1");
+      if (params?.include_task_progress) qs.set("include_task_progress", "1");
+      applyScope(qs); // narrow to the active machine and product scope
+      // A provider-specific picker (for example Run Agent resume) must be
+      // able to narrow a globally-both dashboard to its native session type.
+      if (params?.provider) qs.set("provider", params.provider);
       const queryString = qs.toString();
       // Omit the "?" entirely when there are no params, for a clean/cacheable URL.
       return request<{ sessions: Session[]; total: number; limit: number; offset: number }>(
@@ -656,13 +677,15 @@ export const api = {
      * @param id The session id.
      * @returns `{ session, agents, events, workflows }` for the detail view.
      */
-    get: (id: string) =>
-      request<{
+    get: (id: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<{
         session: Session;
         agents: Agent[];
         events: DashboardEvent[];
         workflows: WorkflowRun[];
-      }>(`/sessions/${encodeURIComponent(id)}`),
+      }>(`/sessions/${encodeURIComponent(id)}${qs.size ? `?${qs.toString()}` : ""}`);
+    },
     /**
      * GET /api/sessions/:id/stats - per-session rollups for the detail page.
      *
@@ -672,7 +695,12 @@ export const api = {
      * @param id The session id.
      * @returns {@link SessionStats} for that one session.
      */
-    stats: (id: string) => request<SessionStats>(`/sessions/${encodeURIComponent(id)}/stats`),
+    stats: (id: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<SessionStats>(
+        `/sessions/${encodeURIComponent(id)}/stats${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
     /**
      * GET /api/sessions/:id/transcripts - the picker list of available
      * transcripts (main agent, subagents, compaction markers) for this session.
@@ -686,8 +714,12 @@ export const api = {
      * @param id The session id.
      * @returns {@link TranscriptListResult} — the selectable transcript entries.
      */
-    transcripts: (id: string) =>
-      request<TranscriptListResult>(`/sessions/${encodeURIComponent(id)}/transcripts`),
+    transcripts: (id: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<TranscriptListResult>(
+        `/sessions/${encodeURIComponent(id)}/transcripts${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
     /**
      * GET /api/sessions/:id/transcript - a page of parsed transcript messages.
      * Paginate with `after`/`before` (JSONL line numbers from the previous
@@ -733,6 +765,7 @@ export const api = {
       // `!= null` so a legitimate line number of 0 is forwarded (0 is falsy).
       if (params?.after != null) qs.set("after", String(params.after));
       if (params?.before != null) qs.set("before", String(params.before));
+      applyScope(qs);
       const q = qs.toString();
       return request<TranscriptResult>(
         `/sessions/${encodeURIComponent(id)}/transcript${q ? `?${q}` : ""}`
@@ -757,12 +790,19 @@ export const api = {
      * @param params.offset     Row offset.
      * @returns `{ agents }` — the matching agents (note: no `total` here).
      */
-    list: (params?: { status?: string; session_id?: string; limit?: number; offset?: number }) => {
+    list: (params?: {
+      status?: string;
+      session_id?: string;
+      limit?: number;
+      offset?: number;
+      include_transient?: boolean;
+    }) => {
       const qs = new URLSearchParams();
       if (params?.status) qs.set("status", params.status);
       if (params?.session_id) qs.set("session_id", params.session_id);
       if (params?.limit) qs.set("limit", String(params.limit));
       if (params?.offset) qs.set("offset", String(params.offset));
+      if (params?.include_transient) qs.set("include_transient", "1");
       applyScope(qs); // narrow to the active data scope (source machines)
       const q = qs.toString();
       return request<{ agents: Agent[] }>(`/agents${q ? `?${q}` : ""}`);
@@ -843,7 +883,12 @@ export const api = {
      *
      * @returns `{ event_types, tool_names }` — the distinct values for each filter.
      */
-    facets: () => request<{ event_types: string[]; tool_names: string[] }>("/events/facets"),
+    facets: () => {
+      const qs = applyScope(new URLSearchParams());
+      return request<{ event_types: string[]; tool_names: string[] }>(
+        `/events/facets${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
   },
 
   // ─────────────────────────────── Analytics API ──────────────────────────────
@@ -907,7 +952,21 @@ export const api = {
           };
           load_stats: { m5: number; m15: number; h1: number };
         };
-        hooks: { installed: boolean; path: string; hooks: Record<string, boolean> };
+        hooks: {
+          installed: boolean;
+          path: string;
+          hooks: Record<string, boolean>;
+          providers?: Record<
+            "claude" | "codex",
+            {
+              installed: boolean;
+              has_dashboard_hooks?: boolean;
+              has_existing_hooks?: boolean;
+              path: string;
+              hooks: Record<string, boolean>;
+            }
+          >;
+        };
         server: {
           version: string;
           uptime: number;
@@ -945,6 +1004,18 @@ export const api = {
        */
       set: (path: string) =>
         request<{ ok: boolean; claude_home: string }>("/settings/claude-home", {
+          method: "PUT",
+          body: JSON.stringify({ path }),
+        }),
+    },
+    /** Get/set the local Codex state root. Changing it re-arms the live rollout
+     * watcher and immediately scans the selected `sessions/` tree. */
+    codexHome: {
+      /** @returns `{ codex_home }` — the resolved Codex state directory. */
+      get: () => request<{ codex_home: string }>("/settings/codex-home"),
+      /** @param path New absolute `~/.codex`-style directory. */
+      set: (path: string) =>
+        request<{ ok: boolean; codex_home: string }>("/settings/codex-home", {
           method: "PUT",
           body: JSON.stringify({ path }),
         }),
@@ -995,6 +1066,22 @@ export const api = {
         "/settings/reinstall-hooks",
         { method: "POST" }
       ),
+    /** Install the selected dashboard lifecycle hooks from the Settings chooser. */
+    installHooks: (providers: Array<"claude" | "codex">) =>
+      request<{
+        ok: boolean;
+        results: Record<
+          string,
+          { ok: boolean; replaced?: boolean; output?: string[]; status?: Record<string, unknown> }
+        >;
+        hooks: {
+          installed: boolean;
+          providers: Record<
+            string,
+            { installed: boolean; path: string; hooks: Record<string, boolean> }
+          >;
+        };
+      }>("/settings/install-hooks", { method: "POST", body: JSON.stringify({ providers }) }),
     /**
      * POST /api/settings/reset-pricing - restore the built-in default
      * {@link ModelPricing} rules, discarding any custom edits.
@@ -1004,9 +1091,15 @@ export const api = {
      *
      * @returns `{ ok, pricing }` — the full default rule list now in effect.
      */
-    resetPricing: () =>
-      request<{ ok: boolean; pricing: ModelPricing[] }>("/settings/reset-pricing", {
+    resetPricing: (provider?: "claude" | "codex") =>
+      request<{
+        ok: boolean;
+        provider: "claude" | "codex" | "both";
+        pricing: ModelPricing[];
+        gpt_pricing: GptModelPricing[];
+      }>("/settings/reset-pricing", {
         method: "POST",
+        body: provider ? JSON.stringify({ provider }) : undefined,
       }),
     /**
      * Direct download URL for GET /api/settings/export (a full DB dump);
@@ -1085,8 +1178,12 @@ export const api = {
      * @param status Optional lifecycle filter; "all" (or omitted) means no filter.
      * @returns {@link WorkflowData} — the aggregated workflow-intelligence panel.
      */
-    get: (status?: string) =>
-      request<WorkflowData>(`/workflows${status && status !== "all" ? `?status=${status}` : ""}`),
+    get: (status?: string) => {
+      const qs = new URLSearchParams();
+      if (status && status !== "all") qs.set("status", status);
+      applyScope(qs);
+      return request<WorkflowData>(`/workflows${qs.size ? `?${qs.toString()}` : ""}`);
+    },
     /**
      * GET /api/workflows/session/:id - single-session drill-in (agent tree,
      * tool timeline, swim lanes).
@@ -1097,8 +1194,12 @@ export const api = {
      * @param id The session id to reconstruct.
      * @returns {@link SessionDrillIn} — the agent tree, tool timeline, and lanes.
      */
-    session: (id: string) =>
-      request<SessionDrillIn>(`/workflows/session/${encodeURIComponent(id)}`),
+    session: (id: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<SessionDrillIn>(
+        `/workflows/session/${encodeURIComponent(id)}${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
     // Workflow-tool runs (issue #167) - fleets ingested from on-disk journals.
     // These two endpoints cover fleets that emit no hooks: the server reads their
     // run journals off disk (see server/lib/workflow-ingest.js) instead of the
@@ -1122,6 +1223,7 @@ export const api = {
       if (params?.session_id) qs.set("session_id", params.session_id);
       if (params?.limit != null) qs.set("limit", String(params.limit));
       if (params?.offset != null) qs.set("offset", String(params.offset));
+      applyScope(qs);
       const q = qs.toString();
       return request<WorkflowRunsResponse>(`/workflows/runs${q ? `?${q}` : ""}`);
     },
@@ -1134,8 +1236,12 @@ export const api = {
      * @param runId The Workflow-tool run id.
      * @returns {@link WorkflowRunDetail} — the run plus its agents and events.
      */
-    run: (runId: string) =>
-      request<WorkflowRunDetail>(`/workflows/runs/${encodeURIComponent(runId)}`),
+    run: (runId: string) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<WorkflowRunDetail>(
+        `/workflows/runs/${encodeURIComponent(runId)}${qs.size ? `?${qs.toString()}` : ""}`
+      );
+    },
   },
 
   // ─────────────────────────────── Pricing API ────────────────────────────────
@@ -1146,6 +1252,17 @@ export const api = {
      * @returns `{ pricing }` — the full list of {@link ModelPricing} rules.
      */
     list: () => request<{ pricing: ModelPricing[] }>("/pricing"),
+    /** GET /api/pricing/gpt - OpenAI/Codex price rules, separate from Claude pricing. */
+    listGpt: () => request<{ pricing: GptModelPricing[] }>("/pricing/gpt"),
+    /** PUT /api/pricing/gpt - create or update an OpenAI/Codex price rule. */
+    upsertGpt: (data: Omit<GptModelPricing, "updated_at">) =>
+      request<{ pricing: GptModelPricing }>("/pricing/gpt", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    /** DELETE /api/pricing/gpt/:pattern - remove an OpenAI/Codex price rule. */
+    deleteGpt: (pattern: string) =>
+      request<{ ok: boolean }>(`/pricing/gpt/${encodeURIComponent(pattern)}`, { method: "DELETE" }),
     /**
      * PUT /api/pricing - create a new rule or overwrite the one matching
      * `data.model_pattern` (the primary key).
@@ -1204,10 +1321,11 @@ export const api = {
      * @param sessionId The session to price.
      * @returns {@link CostResult} — the cost breakdown for that one session.
      */
-    sessionCost: (sessionId: string) =>
-      request<CostResult>(
-        `/pricing/cost/${encodeURIComponent(sessionId)}?tz_offset=${new Date().getTimezoneOffset()}`
-      ),
+    sessionCost: (sessionId: string) => {
+      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      applyScope(qs);
+      return request<CostResult>(`/pricing/cost/${encodeURIComponent(sessionId)}?${qs.toString()}`);
+    },
   },
 
   // ──────────────────────────────── Import API ────────────────────────────────
@@ -1216,7 +1334,7 @@ export const api = {
    *  shape and stream progress via the `import.progress` WS message. */
   import: {
     /**
-     * GET /api/import/guide - platform-specific instructions and constraints
+     * GET /api/import/guide - provider-specific instructions and constraints
      * (default projects dir, supported extensions, upload limits) shown on
      * first run / in the Import wizard.
      *
@@ -1229,8 +1347,9 @@ export const api = {
      *
      * @returns The import-guide payload described above.
      */
-    guide: () =>
+    guide: (provider: RunProvider = "claude") =>
       request<{
+        provider: RunProvider;
         platform: string;
         default_projects_dir: string;
         default_projects_dir_display: string;
@@ -1241,7 +1360,7 @@ export const api = {
         max_upload_bytes: number;
         max_upload_files: number;
         steps: { id: string; title: string; body: string }[];
-      }>("/import/guide"),
+      }>(`/import/guide?provider=${encodeURIComponent(provider)}`),
     /**
      * POST /api/import/rescan - re-scan the default projects directory.
      *
@@ -1251,7 +1370,11 @@ export const api = {
      *
      * @returns {@link ImportResult} — the completed-scan summary.
      */
-    rescan: () => request<ImportResult>("/import/rescan", { method: "POST" }),
+    rescan: (provider: RunProvider = "claude") =>
+      request<ImportResult>("/import/rescan", {
+        method: "POST",
+        body: JSON.stringify({ provider }),
+      }),
     /**
      * POST /api/import/scan-path - scan an arbitrary directory for
      * Claude Code project transcripts.
@@ -1262,10 +1385,10 @@ export const api = {
      * @param path Absolute directory to scan for transcripts.
      * @returns {@link ImportResult} — the completed-scan summary for that path.
      */
-    scanPath: (path: string) =>
+    scanPath: (path: string, provider: RunProvider = "claude") =>
       request<ImportResult>("/import/scan-path", {
         method: "POST",
-        body: JSON.stringify({ path }),
+        body: JSON.stringify({ path, provider }),
       }),
     /**
      * POST /api/import/upload (multipart) - import a set of user-selected
@@ -1286,10 +1409,11 @@ export const api = {
      * @throws {Error} On a non-2xx response, mirroring {@link request}: the
      *   server's `error.message` if present, else `HTTP <status>`.
      */
-    upload: async (files: File[]): Promise<ImportResult> => {
+    upload: async (files: File[], provider: RunProvider = "claude"): Promise<ImportResult> => {
       const form = new FormData();
       // Append each file under the repeated "files" field, keeping its filename.
       for (const f of files) form.append("files", f, f.name);
+      form.append("provider", provider);
       // Do NOT set Content-Type manually: the browser adds the multipart boundary.
       const res = await fetch(`${BASE}/import/upload`, { method: "POST", body: form });
       if (!res.ok) {
@@ -1464,9 +1588,38 @@ export const api = {
       requestBackupsHelper(params),
   },
 
+  /** Local Codex configuration discovery. Normal inspection is redacted;
+   * the separate editor read is limited to a small text-file allowlist so a
+   * user can safely maintain their own configuration without clobbering
+   * redacted secret values. */
+  codexConfig: {
+    overview: () => request<CodexConfigOverview>("/codex-config/overview"),
+    file: (absPath: string) =>
+      request<CodexConfigFile>(`/codex-config/file?path=${encodeURIComponent(absPath)}`),
+    editFile: (absPath: string) =>
+      request<CodexConfigEditableFile>(
+        `/codex-config/edit-file?path=${encodeURIComponent(absPath)}`
+      ),
+    writeFile: (args: CodexConfigWriteArgs) =>
+      request<CodexConfigWriteResult>("/codex-config/file", {
+        method: "PUT",
+        body: JSON.stringify(args),
+      }),
+    deleteFile: (args: CodexConfigDeleteArgs) =>
+      request<CodexConfigDeleteResult>("/codex-config/file", {
+        method: "DELETE",
+        body: JSON.stringify(args),
+      }),
+    createProfile: (args: CodexConfigCreateProfileArgs) =>
+      request<CodexConfigEditableFile>("/codex-config/profiles", {
+        method: "POST",
+        body: JSON.stringify(args),
+      }),
+  },
+
   // ────────────────────────────────── Run API ─────────────────────────────────
-  /** Spawn/manage headless or conversational `claude` CLI child processes
-   *  launched from the dashboard's Run page, and stream their output. */
+  /** Spawn/manage Claude Code processes and interactive Codex app-server
+   * threads launched from the dashboard's Run Agent page. */
   run: {
     /**
      * GET /api/run - currently tracked runs (in-memory handles) plus
@@ -1494,7 +1647,15 @@ export const api = {
      *
      * @returns `{ found, path }` — whether a binary was located and its path.
      */
-    binary: () => request<{ found: boolean; path: string | null }>("/run/binary"),
+    binary: (provider: RunProvider = "claude") =>
+      request<{ found: boolean; path: string | null; provider: RunProvider }>(
+        `/run/binary?provider=${provider}`
+      ),
+    /** Account-aware model discovery. Codex comes directly from its local
+     * app-server; Claude Code has no equivalent CLI endpoint, so its response
+     * transparently reports observed local models plus supported aliases. */
+    models: (provider: RunProvider) =>
+      request<RunModelsResponse>(`/run/models?provider=${provider}`),
     /**
      * GET /api/run/cwds - suggested working directories for the cwd picker.
      * @returns `{ items }` — {@link CwdSuggestion} entries (dashboard/home/recent).
@@ -1556,10 +1717,10 @@ export const api = {
      * @param text The user's follow-up message written to the CLI's stdin.
      * @returns `{ messageId }` — id correlating this input with its `run_input_ack`.
      */
-    send: (id: string, text: string) =>
+    send: (id: string, text: string, provider: RunProvider = "claude") =>
       request<{ messageId: string }>(`/run/${encodeURIComponent(id)}/message`, {
         method: "POST",
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, provider }),
       }),
     /**
      * DELETE /api/run/:id - forcibly terminate a running process.
@@ -1794,7 +1955,7 @@ export const api = {
   },
 
   // ───────────────────────────── Remote Sources API ────────────────────────────
-  /** Remote (SSH) machines whose Claude Code history this dashboard pulls in.
+  /** Remote (SSH) machines whose Claude Code and Codex history this dashboard pulls in.
    *  Maps to `server/routes/remote-sources.js`; see also the global data-scope
    *  selector ({@link "./dataScope"}) which decides which sources are shown. */
   remoteSources: {
@@ -2237,6 +2398,118 @@ export interface CcHookScripts {
   items: { name: string; file: string; size: number; mtime: number }[];
 }
 
+/** Safe preview of one local Codex configuration file. Sensitive TOML and JSON
+ * values are redacted server-side before this reaches the browser. */
+export interface CodexConfigFile {
+  path: string;
+  text: string;
+  size: number;
+  mtime: number;
+  truncated: boolean;
+}
+
+/** Full local-only content returned only for the narrowly editable Codex file
+ * allowlist. This is separate from {@link CodexConfigFile} so a redacted
+ * preview can never accidentally overwrite user secrets. */
+export interface CodexConfigEditableFile {
+  path: string;
+  text: string;
+  size: number;
+  exists: boolean;
+  mtime: number | null;
+  truncated: boolean;
+}
+
+export interface CodexConfigWriteArgs {
+  path: string;
+  content: string;
+}
+
+export interface CodexConfigWriteResult {
+  ok: true;
+  file: string;
+  backupPath: string | null;
+  created: boolean;
+}
+
+/** Deletes a user-maintained Codex artifact; the base config.toml is never allowed. */
+export interface CodexConfigDeleteArgs {
+  path: string;
+}
+
+export interface CodexConfigDeleteResult {
+  ok: true;
+  file: string;
+  backupPath: string;
+  deletedDirectory: boolean;
+}
+
+/** Request used to create a named Codex `--profile` overlay file. */
+export interface CodexConfigCreateProfileArgs {
+  /** Letters, numbers, hyphens, and underscores; becomes `<name>.config.toml`. */
+  name: string;
+}
+
+export interface CodexConfigOverview {
+  home: string;
+  config: CodexConfigFile & { exists: boolean };
+  defaults: { model: string | null; reasoningEffort: string | null; personality: string | null };
+  counts: Record<string, number>;
+  models: {
+    file: string;
+    fetchedAt: string | null;
+    items: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      defaultEffort: string | null;
+      efforts: string[];
+      contextWindow: number | null;
+      visible: boolean;
+      sources: Array<"account" | "custom" | "configured">;
+      baseDefault: boolean;
+      profiles: string[];
+      providers: string[];
+    }>;
+  };
+  profiles: Array<{
+    name: string;
+    path: string;
+    exists: boolean;
+    size: number;
+    mtime: number | null;
+    model: string | null;
+    reasoningEffort: string | null;
+    approvalPolicy: string | null;
+    sandboxMode: string | null;
+    serviceTier: string | null;
+    modelCatalog: string | null;
+    provider: string | null;
+  }>;
+  mcp: Array<{
+    name: string;
+    command: string | null;
+    url: string | null;
+    enabled: boolean;
+    envNames: string[];
+  }>;
+  projects: Array<{ path: string; name: string }>;
+  skills: Array<{ name: string; file: string; preview: string; mtime: number }>;
+  hooks: { file: string; exists: boolean; items: Array<{ event: string; groups: number }> };
+  rules: Array<{ name: string; file: string; preview: string; mtime: number | null }>;
+  plugins: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    description: string | null;
+    marketplace: string;
+    marketplaceLabel: string;
+    version: string | null;
+    enabled: boolean;
+  }>;
+  instructions: Array<{ path: string; name: string; preview: string; mtime: number }>;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Run types — request/response shapes for the Run page's `claude` process
 // spawning/management. `RunMode`/`RunStatus`/`PermissionMode`/`EffortLevel`
@@ -2245,6 +2518,7 @@ export interface CcHookScripts {
 
 /** "headless" runs to completion unattended and streams only output;
  *  "conversation" keeps stdin open so the user can send follow-up messages. */
+export type RunProvider = "claude" | "codex";
 export type RunMode = "headless" | "conversation";
 /** Lifecycle of a spawned `claude` process, mirrored in `RunHandle.status`
  *  and `RunStatusPayload.status`. "abandoned" is applied by server cleanup
@@ -2252,19 +2526,23 @@ export type RunMode = "headless" | "conversation";
 export type RunStatus = "spawning" | "running" | "completed" | "error" | "killed" | "abandoned";
 /** Maps 1:1 to the `claude --permission-mode` CLI flag. */
 export type PermissionMode = "acceptEdits" | "default" | "plan" | "bypassPermissions";
+export type CodexApprovalPolicy = "untrusted" | "on-request" | "never";
+export type CodexSandbox = "read-only" | "workspace-write" | "danger-full-access";
 /** Maps 1:1 to the `claude --effort` CLI flag; "" omits the flag (model default). */
-export type EffortLevel = "" | "low" | "medium" | "high" | "xhigh" | "max";
+export type EffortLevel = "" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 /** Body for POST /api/run - parameters for spawning a new `claude` process. */
 export interface RunStartArgs {
   /** Initial prompt/task text passed to the CLI. */
   prompt: string;
   mode: RunMode;
+  provider?: RunProvider;
   /** Working directory to launch in; server default applies if omitted. */
   cwd?: string;
   /** `--model` value; omitted inherits the CLI's own default (settings.json). */
   model?: string;
-  permissionMode?: PermissionMode;
+  permissionMode?: PermissionMode | CodexApprovalPolicy;
+  sandbox?: CodexSandbox;
   /** Resume an existing Claude Code session id (`--resume`) instead of starting fresh. */
   resumeSessionId?: string;
   effort?: EffortLevel;
@@ -2277,12 +2555,14 @@ export interface RunStartArgs {
  *  argv/tails/envelope counters) that only exists while the server tracks it. */
 export interface RunHandle {
   id: string;
+  provider: RunProvider;
   /** OS process id; null before the process has actually spawned. */
   pid: number | null;
   mode: RunMode;
   cwd: string;
   model: string | null;
-  permissionMode: PermissionMode;
+  permissionMode: PermissionMode | CodexApprovalPolicy;
+  sandbox?: CodexSandbox | null;
   effort: EffortLevel | null;
   prompt: string;
   /** Full argv the server invoked the CLI with, for debugging. */
@@ -2299,6 +2579,8 @@ export interface RunHandle {
   error: string | null;
   /** Claude Code session id the run created/resumed, once known. */
   sessionId: string | null;
+  threadName?: string | null;
+  activeTurnId?: string | null;
   /** Count of stream-json envelopes emitted so far. */
   envelopeCount: number;
   /** Last chunk of captured stdout, for a quick inline preview. */
@@ -2328,12 +2610,14 @@ export interface RunListResponse {
  */
 export interface DashboardRunHistoryItem {
   id: string;
+  provider: RunProvider;
   /** Claude Code session id the run created/resumed; null if never captured. */
   session_id: string | null;
   mode: RunMode;
   cwd: string;
   model: string | null;
-  permission_mode: PermissionMode | null;
+  permission_mode: (PermissionMode | CodexApprovalPolicy) | null;
+  sandbox: CodexSandbox | null;
   effort: EffortLevel | null;
   resume_session_id: string | null;
   /** Truncated leading excerpt of the original prompt, for the history list. */
@@ -2364,6 +2648,16 @@ export interface ModelChoice {
   label: string; // user-facing
   /** Short helper text shown under the option. */
   hint?: string;
+  supportedEfforts?: Exclude<EffortLevel, "">[];
+  defaultEffort?: Exclude<EffortLevel, ""> | null;
+  isDefault?: boolean;
+}
+
+export interface RunModelsResponse {
+  provider: RunProvider;
+  dynamic: boolean;
+  source: string;
+  items: ModelChoice[];
 }
 
 // Effort level choices for `claude --effort`. Higher = more thinking tokens
@@ -2384,25 +2678,7 @@ export const RUN_EFFORT_CHOICES: EffortChoice[] = [
   { id: "high", label: "High", hint: "More reasoning, slower" },
   { id: "xhigh", label: "Extra-high", hint: "Deep reasoning" },
   { id: "max", label: "Max", hint: "All-out - slowest, most tokens" },
-];
-
-// Curated model list. "" means "inherit from settings.json" - no --model flag.
-// Static UI data for the Run page's model picker; the first entry inherits the
-// configured default and the rest map to concrete `--model` values.
-export const RUN_MODEL_CHOICES: ModelChoice[] = [
-  { id: "", label: "Inherit from settings", hint: "Use whatever your settings.json model is" },
-  {
-    id: "claude-opus-4-8[1m]",
-    label: "Opus 4.8 (1M context)",
-    hint: "Highest capability, 1M token window",
-  },
-  {
-    id: "claude-opus-4-7[1m]",
-    label: "Opus 4.7 (1M context)",
-    hint: "Previous Opus, 1M token window",
-  },
-  { id: "sonnet", label: "Sonnet 4.6", hint: "Balanced capability and speed" },
-  { id: "haiku", label: "Haiku 4.5", hint: "Fastest, lightest" },
+  { id: "ultra", label: "Ultra", hint: "Maximum reasoning and delegation" },
 ];
 
 /** Result of a transcript import run - returned by `api.import.rescan`,
@@ -2412,6 +2688,8 @@ export const RUN_MODEL_CHOICES: ModelChoice[] = [
  *  telemetry populated depending on which import flow produced the result. */
 export interface ImportResult {
   ok: boolean;
+  /** Provider whose transcripts were processed. */
+  provider: RunProvider;
   /** Which import flow produced this result. */
   source: "default" | "path" | "upload";
   /** Directory that was scanned; present for `source === "path"`. */
@@ -2437,7 +2715,7 @@ export interface ImportResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Remote Sources types — SSH machines whose Claude Code history is pulled in.
+// Remote Sources types — SSH machines whose Claude Code and Codex history is pulled in.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A configured remote source with its live sync status (server response). */
@@ -2454,10 +2732,16 @@ export interface RemoteSource {
   identity_file: string | null;
   /** Optional remote CLAUDE_HOME (default `~/.claude`). */
   remote_home: string | null;
+  /** Optional remote CODEX_HOME (default `~/.codex`). */
+  remote_codex_home: string | null;
   /** Whether the background poller pulls this source. */
   enabled: boolean;
   /** Last known sync state. */
   status: "idle" | "syncing" | "ok" | "error";
+  /** Last Claude-specific discovery/sync state, or null for legacy source rows. */
+  claude_status: RemoteProviderStatus | null;
+  /** Last Codex-specific discovery/sync state, or null for legacy source rows. */
+  codex_status: RemoteProviderStatus | null;
   /** Last error message, when `status === "error"`. */
   last_error: string | null;
   /** ISO timestamp of the last successful sync, or null. */
@@ -2470,6 +2754,7 @@ export interface RemoteSource {
     errors?: number;
     sessions_seen?: number;
     sessions_tagged?: number;
+    providers?: Partial<Record<RemoteProvider, RemoteProviderSyncDetails>>;
   } | null;
   /** Live number of sessions currently attributed to this source. */
   session_count?: number;
@@ -2484,7 +2769,23 @@ export interface RemoteSourceInput {
   ssh_port?: number | null;
   identity_file?: string | null;
   remote_home?: string | null;
+  remote_codex_home?: string | null;
   enabled?: boolean;
+}
+
+export type RemoteProvider = "claude" | "codex";
+export type RemoteProviderStatus = "idle" | "syncing" | "ok" | "unavailable" | "error";
+
+export interface RemoteProviderSyncDetails {
+  status: RemoteProviderStatus;
+  imported?: number;
+  skipped?: number;
+  backfilled?: number;
+  errors?: number;
+  sessions_seen?: number;
+  sessions_tagged?: number;
+  error?: string;
+  title_index_warning?: string;
 }
 
 /** Result of a connectivity probe (POST /:id/test). */
@@ -2492,6 +2793,13 @@ export interface RemoteSourceTestResult {
   ok: boolean;
   message: string;
   remoteProjects?: string;
+  remoteCodexSessions?: string;
+  providers?: Partial<
+    Record<
+      RemoteProvider,
+      { status: Exclude<RemoteProviderStatus, "idle" | "syncing">; message: string; path: string }
+    >
+  >;
 }
 
 /** Result of an on-demand sync (POST /:id/sync). */
@@ -2503,6 +2811,7 @@ export interface RemoteSourceSyncResult {
   errors?: number;
   sessions_seen?: number;
   sessions_tagged?: number;
+  providers?: Partial<Record<RemoteProvider, RemoteProviderSyncDetails>>;
   /** Present when the sync was skipped because one was already running. */
   skipped_reason?: string;
 }

@@ -9,6 +9,8 @@
  *   - GET /:id/transcript surfacing mid-turn queued user messages
  *     (attachment/queued_command) as user rows, with queue-operation
  *     bookkeeping and other attachment subtypes dropped.
+ *   - GET /:id/transcript-image serving a transcript-referenced Claude image
+ *     without returning its absolute local path in conversation JSON.
  * Uses Node's built-in test runner with temp CLAUDE_HOME / DASHBOARD_DATA_DIR.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -77,6 +79,24 @@ function req(method, urlPath, body) {
     );
     r.on("error", reject);
     if (payload) r.write(payload);
+    r.end();
+  });
+}
+
+function binaryReq(urlPath) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlPath, BASE);
+    const r = http.request(
+      { hostname: url.hostname, port: url.port, path: url.pathname + url.search, method: "GET" },
+      (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () =>
+          resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) })
+        );
+      }
+    );
+    r.on("error", reject);
     r.end();
   });
 }
@@ -224,6 +244,48 @@ describe("GET /:id/transcript — rename markers", () => {
       !res.body.messages.some((m) => m.type === "session_event" && /noise/.test(m.title || "")),
       "ai-title values are never surfaced in the transcript stream"
     );
+  });
+});
+
+describe("GET /:id/transcript-image — persisted Claude attachments", () => {
+  it("returns only the image referenced by the transcript and keeps its local path out of JSON", async () => {
+    const cwd = "/tmp/cam-transcript-image";
+    const sid = "image111-2222-3333-4444-555566667777";
+    const imagePath = path.join(TMP, "attached.png");
+    const imageBytes = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M/wHwAF/gL+4JQhWQAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    fs.writeFileSync(imagePath, imageBytes);
+    writeTranscript(cwd, sid, [
+      {
+        type: "user",
+        message: {
+          role: "user",
+          content: `<image name="contrast" path="${imagePath}">\n</image>\nPlease review this contrast.`,
+        },
+      },
+    ]);
+    await req("POST", "/api/sessions", { id: sid, cwd });
+
+    const transcript = await req("GET", `/api/sessions/${sid}/transcript?limit=200`);
+    assert.equal(transcript.status, 200);
+    const content = transcript.body.messages[0].content;
+    const image = content.find((block) => block.type === "image");
+    assert.match(image.src, new RegExp(`/api/sessions/${sid}/transcript-image\\?`));
+    assert.ok(
+      !JSON.stringify(transcript.body).includes(imagePath),
+      "the absolute image path stays server-side"
+    );
+    assert.equal(
+      content.find((block) => block.type === "text").text,
+      "Please review this contrast."
+    );
+
+    const served = await binaryReq(image.src);
+    assert.equal(served.status, 200);
+    assert.equal(served.headers["content-type"], "image/png");
+    assert.deepEqual(served.body, imageBytes);
   });
 });
 

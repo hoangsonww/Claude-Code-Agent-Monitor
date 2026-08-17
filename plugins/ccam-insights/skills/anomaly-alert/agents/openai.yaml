@@ -1,0 +1,6 @@
+interface:
+  display_name: "Anomaly Alert"
+  short_description: "Identify anomalous sessions using Agent Monitor data — cost..."
+  default_prompt: "Use $anomaly-alert to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

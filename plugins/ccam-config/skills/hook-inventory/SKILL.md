@@ -1,4 +1,5 @@
 ---
+name: hook-inventory
 description: >
   Inventory hooks across the user, project, and project-local settings plus the
   ~/.claude/hooks scripts directory — read through the Agent Monitor Config

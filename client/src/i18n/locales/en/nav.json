@@ -8,8 +8,8 @@
   "analytics": "Analytics",
   "workflows": "Workflows",
   "alerts": "Alerts",
-  "ccConfig": "Claude Config",
-  "run": "Run Claude",
+  "ccConfig": "Agent Config",
+  "run": "Run Agent",
   "settings": "Settings",
   "language": "Language",
   "github": "GitHub",
@@ -58,12 +58,14 @@
     "en": "English",
     "zh": "Chinese",
     "vi": "Vietnamese",
-    "ko": "Korean"
+    "ko": "Korean",
+    "es": "Spanish"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
-    "ko": "한국어"
+    "ko": "한국어",
+    "es": "ES"
   }
 }

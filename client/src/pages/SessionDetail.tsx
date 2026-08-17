@@ -1,6 +1,7 @@
 /**
  * @file SessionDetail.tsx
- * @description Displays detailed information about a specific session, including its agents, events, and cost breakdown, with real-time updates and an expandable agent hierarchy view.
+ * @description Displays session agents, owner-aware task progress, events, and
+ * cost details with real-time updates and an expandable agent hierarchy.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -64,7 +65,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -88,8 +89,10 @@ import {
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
+import { useDataScope } from "../lib/dataScope";
 import { AgentCard } from "../components/AgentCard";
 import { SessionOverview } from "../components/SessionOverview";
+import { TodoProgressPanel } from "../components/TodoProgressPanel";
 import { ConversationView } from "../components/conversation/ConversationView";
 import { SessionStatusBadge, AgentStatusBadge, REASON_ICONS } from "../components/StatusBadge";
 import { CopyButton } from "../components/event-views/primitives";
@@ -148,6 +151,7 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const { t } = useTranslation("sessions");
   const { t: wfT } = useTranslation("workflows");
+  const [scope] = useDataScope();
   const [session, setSession] = useState<Session | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
@@ -260,7 +264,7 @@ export function SessionDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, scope, t]);
 
   useEffect(() => {
     load();
@@ -279,7 +283,7 @@ export function SessionDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, scope]);
 
   // Navigate to Conversation tab and select the matching transcript when clicking an agent
   const navigateToAgentConversation = useCallback(
@@ -520,6 +524,22 @@ export function SessionDetail() {
         load();
       }
       if (msg.type === "new_event") {
+        const event = msg.data as DashboardEvent;
+        if (
+          event.session_id === id &&
+          (event.event_type === "TaskCreated" ||
+            event.event_type === "TaskCompleted" ||
+            [
+              "TaskCreate",
+              "TaskGet",
+              "TaskUpdate",
+              "TaskList",
+              "TodoWrite",
+              "update_plan",
+            ].includes(event.tool_name || ""))
+        ) {
+          load();
+        }
         // Debounce bursts into one filter-aware refetch that preserves the
         // current "Load more" pagination size.
         if (eventsRefreshTimerRef.current) clearTimeout(eventsRefreshTimerRef.current);
@@ -601,6 +621,7 @@ export function SessionDetail() {
             <SessionStatusBadge
               status={effectiveSessionStatus(session)}
               reason={sessionAwaitingReason(session)}
+              provider={session.provider}
             />
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
@@ -699,7 +720,11 @@ export function SessionDetail() {
                 <div
                   className={`text-[11px] ${urgent ? "text-amber-400/70" : "text-yellow-400/60"}`}
                 >
-                  {cfg ? t(cfg.descKey) : t("detail.waitingBanner.generic")}
+                  {cfg
+                    ? t(cfg.descKey, {
+                        provider: session.provider === "codex" ? "Codex" : "Claude",
+                      })
+                    : t("detail.waitingBanner.generic")}
                 </div>
               </div>
               {session.awaiting_input_since && (
@@ -807,6 +832,7 @@ export function SessionDetail() {
       {visitedTabs.has("agents") && (
         <div hidden={activeTab !== "agents"}>
           <SessionOverview session={session} agents={agents} />
+          {session.todo_snapshot && <TodoProgressPanel snapshot={session.todo_snapshot} />}
 
           {workflows.length > 0 && (
             <div className="mb-4">

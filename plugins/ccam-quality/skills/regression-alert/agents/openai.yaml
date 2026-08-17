@@ -1,0 +1,6 @@
+interface:
+  display_name: "Regression Alert"
+  short_description: "Compare this period's reliability against the prior period..."
+  default_prompt: "Use $regression-alert to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

@@ -9,8 +9,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, act, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { render, act, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import i18n from "i18next";
 
 const HOME = { kind: "home", path: "/Users/tester", label: "Home" };
@@ -34,6 +34,12 @@ vi.mock("../../lib/api", async (importOriginal) => {
         list: r({ runs: [], items: [] }),
         history: r({ items: [] }),
         binary: r({ found: true, path: "/usr/bin/claude" }),
+        models: r({
+          provider: "claude",
+          dynamic: false,
+          source: "observed-and-aliases",
+          items: [],
+        }),
         cwds: vi.fn().mockImplementation(() => Promise.resolve({ items: cwdItems })),
         files: r({ items: [] }),
         start: r({ id: "run-1", status: "running" }),
@@ -95,6 +101,13 @@ async function renderRun() {
       <Run />
     </MemoryRouter>
   );
+  await settle();
+  const chooser = screen.getByRole("dialog");
+  await act(async () => {
+    within(chooser)
+      .getByRole("button", { name: /Run Claude Code/ })
+      .click();
+  });
   await settle();
   return utils;
 }

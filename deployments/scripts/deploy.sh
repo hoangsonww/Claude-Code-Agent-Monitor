@@ -3,8 +3,7 @@
 # deploy.sh – Main deployment orchestrator for Claude Code Agent Monitor
 #
 # Usage:
-#   ./deploy.sh --env dev|staging|production --method helm|kustomize|terraform
-#   ./deploy.sh --env production --method helm --strategy blue-green|canary|rolling
+#   ./deploy.sh --env dev|staging|production --method helm|kustomize
 #   ./deploy.sh --env staging --method helm --dry-run
 #   ./deploy.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +46,6 @@ banner() {
 # ── Default parameter values ────────────────────────────────────────────────
 ENVIRONMENT=""
 METHOD=""
-STRATEGY="rolling"
 DRY_RUN=false
 IMAGE_TAG=""
 REGISTRY="${DOCKER_REGISTRY:-$DEFAULT_REGISTRY}"
@@ -70,10 +68,9 @@ ${BOLD}Usage:${NC}
 
 ${BOLD}Required:${NC}
   --env, -e          Environment: dev, staging, production
-  --method, -m       Deployment method: helm, kustomize, terraform
+  --method, -m       Deployment method: helm, kustomize
 
 ${BOLD}Options:${NC}
-  --strategy, -s     Deployment strategy: rolling (default), blue-green, canary
   --tag, -t          Docker image tag (default: git SHA)
   --registry         Container registry (default: ${DEFAULT_REGISTRY})
   --image            Image name (default: ${DEFAULT_IMAGE_NAME})
@@ -88,9 +85,8 @@ ${BOLD}Options:${NC}
 
 ${BOLD}Examples:${NC}
   $(basename "$0") --env dev --method helm
-  $(basename "$0") --env production --method helm --strategy blue-green --tag v1.2.3
+  $(basename "$0") --env production --method helm --tag 2.0.8
   $(basename "$0") --env staging --method kustomize --dry-run
-  $(basename "$0") --env production --method terraform
 
 EOF
   exit 0
@@ -104,7 +100,6 @@ parse_args() {
     case "$1" in
       --env|-e)         ENVIRONMENT="$2"; shift 2 ;;
       --method|-m)      METHOD="$2"; shift 2 ;;
-      --strategy|-s)    STRATEGY="$2"; shift 2 ;;
       --tag|-t)         IMAGE_TAG="$2"; shift 2 ;;
       --registry)       REGISTRY="$2"; shift 2 ;;
       --image)          IMAGE_NAME="$2"; shift 2 ;;
@@ -132,13 +127,8 @@ validate_args() {
   esac
 
   case "$METHOD" in
-    helm|kustomize|terraform) ;;
-    *) fatal "Invalid method: $METHOD. Must be helm, kustomize, or terraform." ;;
-  esac
-
-  case "$STRATEGY" in
-    rolling|blue-green|canary) ;;
-    *) fatal "Invalid strategy: $STRATEGY. Must be rolling, blue-green, or canary." ;;
+    helm|kustomize) ;;
+    *) fatal "Invalid method: $METHOD. Must be helm or kustomize." ;;
   esac
 
   # Default namespace
@@ -170,11 +160,7 @@ check_prerequisites() {
       command -v helm &>/dev/null    || missing+=("helm")
       ;;
     kustomize)
-      command -v kubectl &>/dev/null    || missing+=("kubectl")
-      command -v kustomize &>/dev/null  || missing+=("kustomize")
-      ;;
-    terraform)
-      command -v terraform &>/dev/null || missing+=("terraform")
+      command -v kubectl &>/dev/null || missing+=("kubectl")
       ;;
   esac
 
@@ -183,7 +169,7 @@ check_prerequisites() {
   fi
 
   # Validate kube context if specified
-  if [[ -n "$KUBE_CONTEXT" ]] && [[ "$METHOD" != "terraform" ]]; then
+  if [[ -n "$KUBE_CONTEXT" ]]; then
     if ! kubectl config get-contexts "$KUBE_CONTEXT" &>/dev/null; then
       fatal "Kubernetes context '$KUBE_CONTEXT' not found."
     fi
@@ -194,6 +180,8 @@ check_prerequisites() {
   if [[ "$METHOD" == "helm" ]] && [[ ! -f "${HELM_CHART_DIR}/Chart.yaml" ]]; then
     fatal "Helm chart not found at ${HELM_CHART_DIR}"
   fi
+
+  bash "${SCRIPT_DIR}/validate-deployment.sh"
 
   ok "All prerequisites satisfied"
 }
@@ -207,51 +195,46 @@ build_and_push() {
 
   info "Building container images..."
 
-  local docker_cmd="docker build"
-  local push_cmd="docker push"
-
   if [[ "$DRY_RUN" == true ]]; then
     info "[DRY-RUN] Would build: ${FULL_IMAGE}"
     info "[DRY-RUN] Would build: ${MCP_IMAGE}"
     return
   fi
 
-  # Build main application image
-  log "Building main app image: ${FULL_IMAGE}"
-  docker build \
+  log "Building and pushing multi-platform images with SBOM and provenance attestations"
+  docker buildx build \
+    --platform linux/amd64,linux/arm64 \
     --file "${PROJECT_ROOT}/Dockerfile" \
+    --target runtime \
     --tag "${FULL_IMAGE}" \
-    --label "org.opencontainers.image.revision=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || echo 'unknown')" \
-    --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --provenance=mode=max \
+    --sbom=true \
+    --push \
     "${PROJECT_ROOT}"
-  ok "Main app image built: ${FULL_IMAGE}"
-
-  # Build MCP sidecar image
-  log "Building MCP sidecar image: ${MCP_IMAGE}"
-  docker build \
+  docker buildx build \
+    --platform linux/amd64,linux/arm64 \
     --file "${PROJECT_ROOT}/mcp/Dockerfile" \
+    --target runtime \
     --tag "${MCP_IMAGE}" \
+    --provenance=mode=max \
+    --sbom=true \
+    --push \
     "${PROJECT_ROOT}"
-  ok "MCP sidecar image built: ${MCP_IMAGE}"
-
-  # Push images
-  log "Pushing images to registry..."
-  docker push "${FULL_IMAGE}"
-  docker push "${MCP_IMAGE}"
   ok "Images pushed to ${REGISTRY}"
 }
 
 # ── Helm deployment ─────────────────────────────────────────────────────────
 deploy_helm() {
-  info "Deploying via Helm (strategy: ${STRATEGY})..."
+  info "Deploying via Helm with a single-writer Recreate rollout..."
 
   local helm_args=(
     upgrade --install "${HELM_RELEASE}" "${HELM_CHART_DIR}"
     --namespace "${NAMESPACE}"
     --create-namespace
+    --set "image.registry="
     --set "image.repository=${REGISTRY}/${IMAGE_NAME}"
     --set "image.tag=${IMAGE_TAG}"
-    --set "environment=${ENVIRONMENT}"
+    --set "mcp.image.registry="
     --set "mcp.image.repository=${REGISTRY}/${IMAGE_NAME}-mcp"
     --set "mcp.image.tag=${IMAGE_TAG}"
     --timeout 600s
@@ -269,22 +252,6 @@ deploy_helm() {
   if [[ -n "$VALUES_FILE" ]] && [[ -f "$VALUES_FILE" ]]; then
     helm_args+=(--values "$VALUES_FILE")
   fi
-
-  # Strategy-specific settings
-  case "$STRATEGY" in
-    blue-green)
-      helm_args+=(--set "strategy.type=blue-green")
-      ;;
-    canary)
-      helm_args+=(--set "strategy.type=canary")
-      helm_args+=(--set "strategy.canary.weight=10")
-      ;;
-    rolling)
-      helm_args+=(--set "strategy.type=rolling")
-      helm_args+=(--set "strategy.rolling.maxUnavailable=25%")
-      helm_args+=(--set "strategy.rolling.maxSurge=25%")
-      ;;
-  esac
 
   if [[ "$DRY_RUN" == true ]]; then
     helm_args+=(--dry-run --debug)
@@ -324,25 +291,22 @@ deploy_kustomize() {
     fatal "Kustomize overlay not found at ${overlay_dir}"
   fi
 
-  # Set image in kustomization
-  local kustomize_cmd="kubectl apply -k ${overlay_dir}"
   if [[ "$DRY_RUN" == true ]]; then
     info "[DRY-RUN] Kustomize output:"
-    kubectl kustomize "${overlay_dir}" | head -100
+    kubectl kustomize "${overlay_dir}"
     return
   fi
 
-  # Update image reference using kustomize edit
-  pushd "${overlay_dir}" > /dev/null
-  kustomize edit set image "${APP_NAME}=${FULL_IMAGE}" 2>/dev/null || true
-  popd > /dev/null
-
-  # Apply with server-side apply for safety
-  if ! kubectl apply -k "${overlay_dir}" --server-side --force-conflicts; then
+  local rendered
+  rendered="$(mktemp)"
+  kubectl kustomize "${overlay_dir}" | sed "s|ccam-dashboard:2.0.8|${FULL_IMAGE}|g" > "${rendered}"
+  if ! kubectl apply -f "${rendered}" --server-side --field-manager=ccam-deployer; then
+    rm -f "${rendered}"
     err "Kustomize deployment failed!"
     warn "Run: kubectl rollout undo deployment/${APP_NAME} -n ${NAMESPACE}"
     exit 1
   fi
+  rm -f "${rendered}"
 
   # Wait for rollout
   info "Waiting for rollout to complete..."
@@ -358,54 +322,6 @@ deploy_kustomize() {
   ok "Kustomize deployment succeeded"
 }
 
-# ── Terraform deployment ───────────────────────────────────────────────────
-deploy_terraform() {
-  info "Deploying via Terraform (environment: ${ENVIRONMENT})..."
-
-  local tf_dir="${DEPLOY_DIR}/terraform"
-  local env_vars_file="${tf_dir}/environments/${ENVIRONMENT}/terraform.tfvars"
-
-  if [[ ! -d "$tf_dir" ]]; then
-    fatal "Terraform directory not found at ${tf_dir}"
-  fi
-
-  pushd "${tf_dir}" > /dev/null
-
-  # Initialize
-  info "Running terraform init..."
-  terraform init -input=false
-
-  # Plan
-  local plan_args=(-input=false -out=tfplan)
-  if [[ -f "$env_vars_file" ]]; then
-    plan_args+=(-var-file="$env_vars_file")
-  fi
-  plan_args+=(-var "app_container_image=${FULL_IMAGE}")
-  plan_args+=(-var "environment=${ENVIRONMENT}")
-
-  info "Running terraform plan..."
-  terraform plan "${plan_args[@]}"
-
-  if [[ "$DRY_RUN" == true ]]; then
-    info "[DRY-RUN] Terraform plan complete. Skipping apply."
-    rm -f tfplan
-    popd > /dev/null
-    return
-  fi
-
-  # Apply
-  info "Applying terraform plan..."
-  if ! terraform apply -input=false tfplan; then
-    err "Terraform apply failed!"
-    fatal "Review state and run 'terraform plan' to diagnose."
-  fi
-
-  rm -f tfplan
-  popd > /dev/null
-
-  ok "Terraform deployment succeeded"
-}
-
 # ── Post-deployment health check ───────────────────────────────────────────
 run_health_check() {
   if [[ "$SKIP_HEALTH_CHECK" == true ]] || [[ "$DRY_RUN" == true ]]; then
@@ -414,31 +330,35 @@ run_health_check() {
   fi
 
   info "Running post-deployment health check..."
+  local deployment_name service_name secret_name
+  deployment_name=$(kubectl get deployment -n "${NAMESPACE}" \
+    -l "app.kubernetes.io/name=${APP_NAME}" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  service_name=$(kubectl get service -n "${NAMESPACE}" \
+    -l "app.kubernetes.io/name=${APP_NAME}" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  [[ -n "$deployment_name" ]] || fatal "No CCAM Deployment found in ${NAMESPACE}"
+  [[ -n "$service_name" ]] || fatal "No CCAM Service found in ${NAMESPACE}"
 
   # Determine health check URL
   local health_url=""
 
-  if [[ "$METHOD" == "terraform" ]]; then
-    info "For Terraform deployments, verify health via the load balancer URL in terraform output."
-    return
-  fi
-
   # Try to get service URL from cluster
   local svc_type
-  svc_type=$(kubectl get svc "${APP_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.type}' 2>/dev/null || echo "")
+  svc_type=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" -o jsonpath='{.spec.type}' 2>/dev/null || echo "")
 
   case "$svc_type" in
     LoadBalancer)
       local lb_host
-      lb_host=$(kubectl get svc "${APP_NAME}" -n "${NAMESPACE}" \
+      lb_host=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
-      [[ -z "$lb_host" ]] && lb_host=$(kubectl get svc "${APP_NAME}" -n "${NAMESPACE}" \
+      [[ -z "$lb_host" ]] && lb_host=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
-      [[ -n "$lb_host" ]] && health_url="http://${lb_host}:${APP_PORT}/api/health"
+      [[ -n "$lb_host" ]] && health_url="http://${lb_host}/api/health"
       ;;
     NodePort)
       local node_port
-      node_port=$(kubectl get svc "${APP_NAME}" -n "${NAMESPACE}" \
+      node_port=$(kubectl get svc "${service_name}" -n "${NAMESPACE}" \
         -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || echo "")
       [[ -n "$node_port" ]] && health_url="http://localhost:${node_port}/api/health"
       ;;
@@ -446,7 +366,7 @@ run_health_check() {
       # Use port-forward for ClusterIP
       info "Service type is ClusterIP – using kubectl port-forward for health check"
       local local_port=14820
-      kubectl port-forward "svc/${APP_NAME}" "${local_port}:${APP_PORT}" -n "${NAMESPACE}" &
+      kubectl port-forward "svc/${service_name}" "${local_port}:80" -n "${NAMESPACE}" &
       local pf_pid=$!
       sleep 3
       health_url="http://localhost:${local_port}/api/health"
@@ -467,15 +387,28 @@ run_health_check() {
 
   # Run health check script
   if [[ -x "${SCRIPT_DIR}/health-check.sh" ]]; then
-    if ! "${SCRIPT_DIR}/health-check.sh" \
-        --url "${health_url}" \
-        --retries "${HEALTH_CHECK_RETRIES}" \
-        --interval "${HEALTH_CHECK_INTERVAL}"; then
+    local token_file=""
+    secret_name=$(kubectl get deployment "${deployment_name}" -n "${NAMESPACE}" \
+      -o jsonpath='{.spec.template.spec.volumes[?(@.name=="secrets")].secret.secretName}' 2>/dev/null || true)
+    if [[ -n "$secret_name" ]]; then
+      token_file=$(mktemp)
+      kubectl get secret "$secret_name" -n "${NAMESPACE}" \
+        -o jsonpath='{.data.dashboard-token}' | base64 --decode > "$token_file"
+      chmod 600 "$token_file"
+    fi
+    local health_args=(
+      --url "${health_url}"
+      --retries "${HEALTH_CHECK_RETRIES}"
+      --interval "${HEALTH_CHECK_INTERVAL}"
+    )
+    [[ -n "$token_file" ]] && health_args+=(--token-file "$token_file")
+    if ! "${SCRIPT_DIR}/health-check.sh" "${health_args[@]}"; then
       err "Health check failed after deployment!"
       # Kill port-forward if running
       [[ -n "${pf_pid:-}" ]] && kill "$pf_pid" 2>/dev/null || true
       trigger_auto_rollback
     fi
+    [[ -n "$token_file" ]] && rm -f "$token_file"
   else
     # Inline health check
     local attempt=0
@@ -507,12 +440,13 @@ trigger_auto_rollback() {
         || fatal "Auto-rollback failed! Manual intervention required."
       ;;
     kustomize)
-      kubectl rollout undo "deployment/${APP_NAME}" -n "${NAMESPACE}" \
+      local deployment_name
+      deployment_name=$(kubectl get deployment -n "${NAMESPACE}" \
+        -l "app.kubernetes.io/name=${APP_NAME}" \
+        -o jsonpath='{.items[0].metadata.name}')
+      kubectl rollout undo "deployment/${deployment_name}" -n "${NAMESPACE}" \
         && ok "Auto-rollback succeeded" \
         || fatal "Auto-rollback failed! Manual intervention required."
-      ;;
-    terraform)
-      warn "Terraform auto-rollback not supported. Review state manually."
       ;;
   esac
   exit 1
@@ -524,7 +458,7 @@ confirm_production() {
     echo ""
     warn "You are about to deploy to ${BOLD}PRODUCTION${NC}"
     echo -e "  ${BOLD}Method:${NC}    ${METHOD}"
-    echo -e "  ${BOLD}Strategy:${NC}  ${STRATEGY}"
+    echo -e "  ${BOLD}Strategy:${NC}  single-writer Recreate"
     echo -e "  ${BOLD}Image:${NC}     ${FULL_IMAGE}"
     echo -e "  ${BOLD}Namespace:${NC} ${NAMESPACE}"
     echo ""
@@ -542,7 +476,7 @@ main() {
   info "Deployment configuration:"
   echo -e "  ${BOLD}Environment:${NC}  ${ENVIRONMENT}"
   echo -e "  ${BOLD}Method:${NC}       ${METHOD}"
-  echo -e "  ${BOLD}Strategy:${NC}     ${STRATEGY}"
+  echo -e "  ${BOLD}Strategy:${NC}     single-writer Recreate"
   echo -e "  ${BOLD}Image:${NC}        ${FULL_IMAGE}"
   echo -e "  ${BOLD}Namespace:${NC}    ${NAMESPACE}"
   echo -e "  ${BOLD}Dry run:${NC}      ${DRY_RUN}"
@@ -552,10 +486,23 @@ main() {
   confirm_production
   build_and_push
 
+  if [[ "$ENVIRONMENT" == "production" && "$DRY_RUN" == false ]]; then
+    if kubectl get deployment -n "${NAMESPACE}" \
+        -l "app.kubernetes.io/name=${APP_NAME}" \
+        -o name 2>/dev/null | grep -q .; then
+      local backup_dir="${PROJECT_ROOT}/data/pre-deploy-backups"
+      "${SCRIPT_DIR}/db-backup.sh" \
+        --env production \
+        --namespace "${NAMESPACE}" \
+        --output "${backup_dir}"
+    else
+      info "No existing production deployment found; this is an initial install, so there is no database to back up."
+    fi
+  fi
+
   case "$METHOD" in
     helm)       deploy_helm ;;
     kustomize)  deploy_kustomize ;;
-    terraform)  deploy_terraform ;;
   esac
 
   run_health_check

@@ -33,6 +33,7 @@ const EXPECTED_API_PATHS = [
   "/api/sessions/{id}/stats",
   "/api/sessions/{id}/transcripts",
   "/api/sessions/{id}/transcript",
+  "/api/sessions/{id}/transcript-image",
   "/api/agents",
   "/api/agents/{id}",
   "/api/events",
@@ -41,7 +42,10 @@ const EXPECTED_API_PATHS = [
   "/api/metrics",
   "/api/analytics",
   "/api/hooks/event",
+  "/api/hooks/codex",
   "/api/pricing",
+  "/api/pricing/gpt",
+  "/api/pricing/gpt/{pattern}",
   "/api/pricing/{pattern}",
   "/api/pricing/cost",
   "/api/pricing/cost/{sessionId}",
@@ -53,10 +57,12 @@ const EXPECTED_API_PATHS = [
   "/api/settings/clear-data",
   "/api/settings/reimport",
   "/api/settings/reinstall-hooks",
+  "/api/settings/install-hooks",
   "/api/settings/reset-pricing",
   "/api/settings/export",
   "/api/settings/cleanup",
   "/api/settings/claude-home",
+  "/api/settings/codex-home",
   "/api/import/guide",
   "/api/import/rescan",
   "/api/import/scan-path",
@@ -87,11 +93,16 @@ const EXPECTED_API_PATHS = [
   "/api/cc-config/hook-scripts",
   "/api/cc-config/file",
   "/api/cc-config/backups",
+  "/api/codex-config/overview",
+  "/api/codex-config/file",
+  "/api/codex-config/edit-file",
+  "/api/codex-config/profiles",
   "/api/run",
   "/api/run/history",
   "/api/run/cwds",
   "/api/run/files",
   "/api/run/binary",
+  "/api/run/models",
   "/api/run/{id}",
   "/api/run/{id}/message",
   "/api/webhooks",
@@ -195,6 +206,8 @@ describe("OpenAPI / Swagger", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /text\/html/);
     assert.match(res.body, /swagger/i);
+    assert.match(res.body, /rel="icon" href="\/favicon\.svg"/i);
+    assert.doesNotMatch(res.body, /What would you like to monitor\?/i);
   });
 
   it("should serve the ReDoc reference page", async () => {
@@ -204,12 +217,21 @@ describe("OpenAPI / Swagger", () => {
     // References the spec and the locally-served bundle (no CDN).
     assert.match(res.body, /spec-url="\/api\/openapi\.json"/);
     assert.match(res.body, /src="\/api\/redoc\/redoc\.standalone\.js"/);
+    assert.match(res.body, /rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/i);
+    assert.doesNotMatch(res.body, /What would you like to monitor\?/i);
   });
 
   it("should serve the self-hosted ReDoc bundle", async () => {
     const res = await fetch("/api/redoc/redoc.standalone.js");
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /javascript/);
+  });
+
+  it("should serve the dashboard favicon for both API references", async () => {
+    const res = await fetch("/favicon.svg");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"], /image\/svg\+xml/);
+    assert.match(res.body, /<svg\b/i);
   });
 });
 
@@ -588,6 +610,114 @@ describe("Stats API", () => {
     const res = await fetch("/api/stats");
     assert.ok(res.body.total_sessions >= 2);
     assert.ok(res.body.total_agents >= 2);
+  });
+});
+
+// ============================================================
+// Settings and GPT pricing API
+// ============================================================
+describe("Settings and GPT pricing API", () => {
+  it("returns the active Codex home without exposing a raw environment override", async () => {
+    const res = await fetch("/api/settings/codex-home");
+    assert.equal(res.status, 200);
+    assert.equal(typeof res.body.codex_home, "string");
+    assert.ok(path.isAbsolute(res.body.codex_home));
+  });
+
+  it("seeds the supplied GPT card with explicit long-context availability", async () => {
+    const res = await fetch("/api/pricing/gpt");
+    assert.equal(res.status, 200);
+    const byPattern = new Map(res.body.pricing.map((rule) => [rule.model_pattern, rule]));
+
+    assert.deepEqual(
+      [
+        "short_input_per_mtok",
+        "short_cached_input_per_mtok",
+        "short_cache_write_per_mtok",
+        "short_output_per_mtok",
+        "long_input_per_mtok",
+        "long_cached_input_per_mtok",
+        "long_cache_write_per_mtok",
+        "long_output_per_mtok",
+        "fast_input_per_mtok",
+        "fast_cached_input_per_mtok",
+        "fast_cache_write_per_mtok",
+        "fast_output_per_mtok",
+      ].map((field) => byPattern.get("gpt-5.6-luna%")[field]),
+      [0.2, 0.02, 0.25, 1.2, 0.4, 0.04, 0.5, 1.8, 0.4, 0.04, 0.5, 2.4]
+    );
+
+    // The published card intentionally has no long-context tier for these
+    // models; zero keeps costs honest and is surfaced as unavailable in the UI.
+    for (const pattern of ["gpt-5.4-mini%", "gpt-5.4-nano%"]) {
+      const rule = byPattern.get(pattern);
+      assert.ok(rule, `expected ${pattern} to be seeded`);
+      assert.deepEqual(
+        [
+          rule.long_input_per_mtok,
+          rule.long_cached_input_per_mtok,
+          rule.long_cache_write_per_mtok,
+          rule.long_output_per_mtok,
+        ],
+        [0, 0, 0, 0]
+      );
+    }
+  });
+
+  it("resets one provider without overwriting the other provider's custom rules", async () => {
+    const claudePattern = "test-claude-custom%";
+    const gptPattern = "test-gpt-custom%";
+    stmts.upsertPricing.run(claudePattern, "Custom Claude", 1, 2, 0.1, 1.25, 2, 0, 0);
+    stmts.upsertGptPricing.run(
+      gptPattern,
+      "Custom GPT",
+      1,
+      0.1,
+      1.25,
+      2,
+      3,
+      0.3,
+      3.75,
+      6,
+      4,
+      0.4,
+      5,
+      8
+    );
+
+    const codexReset = await post("/api/settings/reset-pricing", { provider: "codex" });
+    assert.equal(codexReset.status, 200);
+    assert.equal(codexReset.body.provider, "codex");
+    assert.ok(stmts.getPricing.get(claudePattern), "Claude custom rule must survive a GPT reset");
+    assert.equal(stmts.getGptPricing.get(gptPattern), undefined);
+
+    stmts.upsertGptPricing.run(
+      gptPattern,
+      "Custom GPT",
+      1,
+      0.1,
+      1.25,
+      2,
+      3,
+      0.3,
+      3.75,
+      6,
+      4,
+      0.4,
+      5,
+      8
+    );
+    const claudeReset = await post("/api/settings/reset-pricing", { provider: "claude" });
+    assert.equal(claudeReset.status, 200);
+    assert.equal(claudeReset.body.provider, "claude");
+    assert.equal(stmts.getPricing.get(claudePattern), undefined);
+    assert.ok(stmts.getGptPricing.get(gptPattern), "GPT custom rule must survive a Claude reset");
+
+    const invalid = await post("/api/settings/reset-pricing", { provider: "other" });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error.code, "INVALID_INPUT");
+
+    await post("/api/settings/reset-pricing");
   });
 });
 
@@ -2197,6 +2327,106 @@ describe("Watchdog API-error detection", () => {
         after.status,
         "error",
         "watchdog must flip session to error when a new transcript error is detected"
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
+  it("does not refresh an unchanged terminal error on later watchdog ticks", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `watchdog-duplicate-${Date.now()}.jsonl`);
+    const sessionId = `watchdog-duplicate-${Date.now()}`;
+    const hooks = require("../routes/hooks");
+
+    try {
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+
+      // Claude retries authentication failures in-place, leaving repeated
+      // identical terminal entries in the transcript. The dashboard records
+      // one durable error, then every later watchdog pass must be a no-op.
+      const base = Date.now() - 30_000;
+      fs.writeFileSync(
+        tmpTranscript,
+        [0, 1, 2]
+          .map((offset) =>
+            JSON.stringify({
+              isApiErrorMessage: true,
+              error: "authentication_failed",
+              message: { content: [{ text: "OAuth session expired" }] },
+              timestamp: new Date(base + offset).toISOString(),
+            })
+          )
+          .join("\n") + "\n"
+      );
+
+      const staleAt = new Date(Date.now() - 60_000).toISOString();
+      db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(staleAt, sessionId);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      assert.strictEqual(stmts.getSession.get(sessionId).status, "error");
+      assert.strictEqual(
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND event_type = 'APIError'"
+          )
+          .get(sessionId).count,
+        1,
+        "repeated identical transcript errors should produce one durable event"
+      );
+
+      // Age it again to force a second watchdog read. Prior behavior rewrote
+      // the error session here, turning the Sessions table's last-active value
+      // into 'just now' and emitting another error notification.
+      const secondStaleAt = new Date(Date.now() - 60_000).toISOString();
+      db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(secondStaleAt, sessionId);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      const after = stmts.getSession.get(sessionId);
+      assert.strictEqual(after.status, "error");
+      assert.strictEqual(
+        after.updated_at,
+        secondStaleAt,
+        "an unchanged error must not be rewritten as new session activity"
+      );
+      assert.strictEqual(
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND event_type = 'APIError'"
+          )
+          .get(sessionId).count,
+        1
+      );
+
+      const lastEventAt = db
+        .prepare("SELECT MAX(created_at) AS last_activity FROM events WHERE session_id = ?")
+        .get(sessionId).last_activity;
+      const list = await fetch(`/api/sessions?q=${encodeURIComponent(sessionId)}`);
+      assert.strictEqual(list.status, 200);
+      assert.strictEqual(
+        list.body.sessions[0].last_activity,
+        lastEventAt,
+        "the session list must report durable event time, not mutable updated_at bookkeeping"
+      );
+      const agents = await fetch(`/api/agents?session_id=${encodeURIComponent(sessionId)}`);
+      assert.strictEqual(agents.status, 200);
+      assert.strictEqual(
+        agents.body.agents[0].last_activity,
+        lastEventAt,
+        "dashboard agent cards must use durable activity time too"
       );
     } finally {
       try {

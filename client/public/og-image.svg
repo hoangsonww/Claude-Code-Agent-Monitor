@@ -79,9 +79,9 @@
 
   <g transform="translate(290, 408)" font-family="'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600">
     <rect x="0" y="0" width="88" height="28" rx="6" fill="#33993320" stroke="#33993340"/>
-    <text x="44" y="19" text-anchor="middle" fill="#6dbf6d">Node.js 18+</text>
+    <text x="44" y="19" text-anchor="middle" fill="#6dbf6d">Node 22.22+</text>
     <rect x="100" y="0" width="82" height="28" rx="6" fill="#61dafb18" stroke="#61dafb30"/>
-    <text x="141" y="19" text-anchor="middle" fill="#61dafb">React 18</text>
+    <text x="141" y="19" text-anchor="middle" fill="#61dafb">React 19</text>
     <rect x="194" y="0" width="100" height="28" rx="6" fill="#3178c618" stroke="#3178c630"/>
     <text x="244" y="19" text-anchor="middle" fill="#5a9fd4">TypeScript</text>
     <rect x="306" y="0" width="72" height="28" rx="6" fill="#003b5718" stroke="#005f8a30"/>

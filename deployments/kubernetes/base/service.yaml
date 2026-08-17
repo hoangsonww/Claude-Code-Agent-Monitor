@@ -6,19 +6,11 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.8"
     app.kubernetes.io/component: server
     app.kubernetes.io/managed-by: kustomize
-  annotations:
-    # Document the WebSocket requirement
-    service.kubernetes.io/topology-mode: Auto
 spec:
   type: ClusterIP
-  # Sticky sessions for WebSocket support
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800
   selector:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor

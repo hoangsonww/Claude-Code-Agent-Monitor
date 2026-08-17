@@ -8,7 +8,12 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Agent Dashboard" />
+    <meta name="application-name" content="Agent Dashboard" />
     <meta name="theme-color" content="#6366f1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="format-detection" content="telephone=no" />
     <title>Agent Dashboard - Claude Code Monitor</title>
     <meta
       name="description"
@@ -20,6 +25,7 @@
     />
     <meta name="author" content="Son Nguyen Hoang" />
     <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -29,6 +35,8 @@
       property="og:description"
       content="Real-time monitoring platform for Claude Code agent activity. Track sessions, monitor agents, visualize analytics, manage cost tracking, and receive browser notifications - all with live WebSocket updates."
     />
+    <meta property="og:url" content="https://github.com/hoangsonww/Claude-Code-Agent-Monitor" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content="/og-image.svg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -37,6 +45,7 @@
 
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@hoangsonww" />
     <meta name="twitter:title" content="Agent Dashboard - Claude Code Monitor" />
     <meta
       name="twitter:description"
@@ -68,6 +77,7 @@
     </script>
   </head>
   <body class="bg-surface-0 text-gray-200 antialiased">
+    <noscript>This app requires JavaScript to run. Please enable it in your browser.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

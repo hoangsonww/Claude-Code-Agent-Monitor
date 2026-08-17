@@ -11,10 +11,10 @@
     "verify": "node scripts/verify.js"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
-    "tar": "^7.4.3"
+    "adm-zip": "0.6.0",
+    "tar": "7.5.22"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.22.0"
   }
 }

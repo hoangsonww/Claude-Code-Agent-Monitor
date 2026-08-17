@@ -60,17 +60,22 @@
  * ----------------------------------------------------------------------------- */
 
 import { setTimeout as sleep } from "node:timers/promises";
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
 import type { AppConfig } from "../config/app-config.js";
 import { Logger } from "../core/logger.js";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+const MAX_UPLOAD_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_UPLOAD_TOTAL_BYTES = 100 * 1024 * 1024;
+const MAX_BINARY_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 interface RequestOptions {
   /** Query params; `undefined`/`null` values are omitted, not stringified. */
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, string | number | boolean | Array<string | number | boolean> | undefined>;
   /** Request body, JSON-stringified as-is; omitted when `undefined`. */
   body?: unknown;
-  /** Marks the request retry-eligible; set only by `get`/`delete` below. */
+  /** Marks the request retry-eligible; set only by `get` below. */
   idempotent?: boolean;
 }
 
@@ -122,8 +127,8 @@ function isRetryableStatus(status: number): boolean {
  * resolve against `config.dashboardBaseUrl` and are restricted to `/api/*`
  * (see {@link buildUrl}).
  *
- * **Retry semantics**: only GET/DELETE mark themselves `idempotent`, so only
- * they retry automatically — `config.retryCount` extra attempts (default 2)
+ * **Retry semantics**: only GET marks itself `idempotent`, so only reads retry
+ * automatically — `config.retryCount` extra attempts (default 2)
  * on a timeout or HTTP 408/429/5xx, each retry waiting
  * `config.retryBackoffMs * 2^(attempt-1)` (default 250ms, 500ms, ...,
  * exponential, no jitter). POST/PUT/PATCH are never retried, even for the
@@ -156,9 +161,147 @@ export class DashboardApiClient {
     return this.request<T>("PATCH", path, options);
   }
 
-  /** DELETE — idempotent, eligible for automatic retry. */
-  async delete<T>(path: string, options: Omit<RequestOptions, "body"> = {}): Promise<T> {
+  /** DELETE — never retried, because a lost successful response must not
+   * trigger a second destructive/config mutation. A JSON body is supported
+   * because the Claude/Codex config deletion endpoints use one. */
+  async delete<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>("DELETE", path, options);
+  }
+
+  /**
+   * POST multipart files from the MCP host filesystem. Used only for the
+   * dashboard's provider-aware history upload endpoint, with no retries so a
+   * lost response can never duplicate a mutation.
+   */
+  async postFiles<T>(
+    requestPath: string,
+    filePaths: string[],
+    fields: Record<string, string> = {}
+  ): Promise<T> {
+    const url = this.buildUrl(requestPath);
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.append(key, value);
+    let totalBytes = 0;
+    for (const filePath of filePaths) {
+      const metadata = await stat(filePath);
+      if (!metadata.isFile()) {
+        throw new ApiError(`Upload path is not a file: ${filePath}`, { code: "INVALID_PATH" });
+      }
+      totalBytes += metadata.size;
+      if (metadata.size > MAX_UPLOAD_FILE_BYTES || totalBytes > MAX_UPLOAD_TOTAL_BYTES) {
+        throw new ApiError(`Upload exceeds the configured size limit: ${filePath}`, {
+          code: "TOO_LARGE",
+          details: {
+            max_file_bytes: MAX_UPLOAD_FILE_BYTES,
+            max_total_bytes: MAX_UPLOAD_TOTAL_BYTES,
+          },
+        });
+      }
+      const data = await readFile(filePath);
+      form.append("files", new Blob([data]), path.basename(filePath));
+    }
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), this.config.requestTimeoutMs);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: this.config.dashboardApiToken
+          ? { Authorization: `Bearer ${this.config.dashboardApiToken}` }
+          : undefined,
+        body: form,
+        redirect: "error",
+        signal: abortController.signal,
+      });
+      const rawBody = await response.text();
+      const body = rawBody ? this.tryParseJson(rawBody) : null;
+      if (!response.ok) {
+        throw this.toApiError("POST", url, response.status, body ?? rawBody);
+      }
+      return body as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (isAbortError(error)) {
+        throw new ApiError(
+          `Request timed out after ${this.config.requestTimeoutMs}ms: POST ${url.pathname}`,
+          { code: "TIMEOUT" }
+        );
+      }
+      throw new ApiError(`Request failed: POST ${url.pathname}`, {
+        code: "REQUEST_FAILED",
+        details: this.getErrorMessage(error),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /** GET a binary response as a base64 payload with its content type. */
+  async getBinary(
+    requestPath: string,
+    query: RequestOptions["query"] = {}
+  ): Promise<{ content_type: string; base64: string; bytes: number }> {
+    const url = this.buildUrl(requestPath, query);
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), this.config.requestTimeoutMs);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "*/*",
+          ...(this.config.dashboardApiToken
+            ? { Authorization: `Bearer ${this.config.dashboardApiToken}` }
+            : {}),
+        },
+        redirect: "error",
+        signal: abortController.signal,
+      });
+      if (!response.ok) {
+        const rawBody = await response.text();
+        throw this.toApiError("GET", url, response.status, this.tryParseJson(rawBody));
+      }
+      const declaredLength = Number.parseInt(response.headers.get("content-length") || "", 10);
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_BINARY_RESPONSE_BYTES) {
+        throw new ApiError(`Binary response exceeds ${MAX_BINARY_RESPONSE_BYTES} bytes`, {
+          code: "TOO_LARGE",
+        });
+      }
+      const reader = response.body?.getReader();
+      if (!reader)
+        throw new ApiError("Binary response has no readable body", { code: "EMPTY_BODY" });
+      const chunks: Buffer[] = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_BINARY_RESPONSE_BYTES) {
+          await reader.cancel();
+          throw new ApiError(`Binary response exceeds ${MAX_BINARY_RESPONSE_BYTES} bytes`, {
+            code: "TOO_LARGE",
+          });
+        }
+        chunks.push(Buffer.from(value));
+      }
+      const bytes = Buffer.concat(chunks, total);
+      return {
+        content_type: response.headers.get("content-type") || "application/octet-stream",
+        base64: bytes.toString("base64"),
+        bytes: bytes.length,
+      };
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (isAbortError(error)) {
+        throw new ApiError(
+          `Request timed out after ${this.config.requestTimeoutMs}ms: GET ${url.pathname}`,
+          { code: "TIMEOUT" }
+        );
+      }
+      throw new ApiError(`Request failed: GET ${url.pathname}`, {
+        code: "REQUEST_FAILED",
+        details: this.getErrorMessage(error),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   /**
@@ -178,7 +321,9 @@ export class DashboardApiClient {
 
     if (query) {
       for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          for (const item of value) url.searchParams.append(key, String(item));
+        } else if (value !== undefined && value !== null) {
           url.searchParams.set(key, String(value));
         }
       }
@@ -213,8 +358,12 @@ export class DashboardApiClient {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            ...(this.config.dashboardApiToken
+              ? { Authorization: `Bearer ${this.config.dashboardApiToken}` }
+              : {}),
           },
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
+          redirect: "error",
           signal: abortController.signal,
         });
 

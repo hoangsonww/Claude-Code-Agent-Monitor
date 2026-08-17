@@ -102,6 +102,17 @@ describe("remote-sync validateSourceInput", () => {
     assert.equal(v.host, "mybox");
   });
 
+  it("accepts an independent remote Codex home", () => {
+    const v = remoteSync.validateSourceInput({
+      label: "x",
+      host: "mybox",
+      remote_home: "/home/son/.claude",
+      remote_codex_home: "wsl:~/.codex",
+    });
+    assert.equal(v.remoteHome, "/home/son/.claude");
+    assert.equal(v.remoteCodexHome, "wsl:~/.codex");
+  });
+
   const rejects = [
     [
       "leading-dash host (ssh option injection)",
@@ -121,6 +132,11 @@ describe("remote-sync validateSourceInput", () => {
     [
       "relative remote_home",
       { label: "x", host: "a", remote_home: "rel/path" },
+      "INVALID_REMOTE_HOME",
+    ],
+    [
+      "relative remote_codex_home",
+      { label: "x", host: "a", remote_codex_home: "rel/path" },
       "INVALID_REMOTE_HOME",
     ],
     [
@@ -336,6 +352,23 @@ describe("remote-sync command builders", () => {
     assert.equal(remoteSync.remoteProjectsPath({}), "~/.claude/projects");
     assert.equal(remoteSync.remoteProjectsPath({ remote_home: "/opt/cc" }), "/opt/cc/projects");
   });
+  it("defaults the remote Codex sessions path to ~/.codex/sessions", () => {
+    assert.equal(remoteSync.remoteCodexSessionsPath({}), "~/.codex/sessions");
+    assert.equal(
+      remoteSync.remoteCodexSessionsPath({ remote_codex_home: "/opt/codex" }),
+      "/opt/codex/sessions"
+    );
+    assert.equal(
+      remoteSync.scpRemoteSpec({ host: "u@box", remote_codex_home: "~/.codex" }, "codex"),
+      "u@box:~/.codex/sessions/."
+    );
+  });
+  it("builds a Codex WSL tar command that keeps its native title index", () => {
+    assert.equal(
+      remoteSync.wslTarRemoteCmd("~/.codex", "codex"),
+      "wsl.exe -e sh -c 'cd ~/.codex && (test -f session_index.jsonl && tar -c sessions session_index.jsonl || tar -c sessions)'"
+    );
+  });
   it("identifies top-level session ids in a mirrored tree (skips subagents)", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-staged-"));
     const proj = path.join(dir, "-Users-x-proj");
@@ -346,6 +379,90 @@ describe("remote-sync command builders", () => {
     const ids = remoteSync.stagedSessionIds(dir).sort();
     assert.deepEqual(ids, ["sess-1", "sess-2"]);
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("identifies native Codex rollout ids in a mirrored staging tree", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-codex-staged-"));
+    const id = "019fbb99-bd87-7c80-afec-ee65e2ebbe1c";
+    const rollout = path.join(
+      dir,
+      "sessions",
+      "2026",
+      "08",
+      "02",
+      `rollout-2026-08-02T12-00-00-${id}.jsonl`
+    );
+    fs.mkdirSync(path.dirname(rollout), { recursive: true });
+    fs.writeFileSync(rollout, "{}\n");
+    assert.deepEqual(remoteSync.stagedSessionIds(dir, "codex"), [id]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("remote Codex staging import", () => {
+  it("uses the Codex ingestor, tags the source, and honors mirrored native titles", async () => {
+    const sourceId = "src_remote_codex_import";
+    const sessionId = "019fbb99-bd87-7c80-afec-ee65e2ebbe1c";
+    const stage = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-remote-codex-import-"));
+    const rollout = path.join(
+      stage,
+      "sessions",
+      "2026",
+      "08",
+      "02",
+      `rollout-2026-08-02T12-00-00-${sessionId}.jsonl`
+    );
+    const record = (type, payload) => ({
+      timestamp: "2026-08-02T12:00:00.000Z",
+      type,
+      payload,
+    });
+    try {
+      stmts.insertRemoteSource.run(
+        sourceId,
+        "Remote Codex",
+        "codex@example",
+        null,
+        null,
+        null,
+        null,
+        1
+      );
+      fs.mkdirSync(path.dirname(rollout), { recursive: true });
+      fs.writeFileSync(
+        path.join(stage, "session_index.jsonl"),
+        `${JSON.stringify({ id: sessionId, thread_name: "Remote renamed thread" })}\n`
+      );
+      fs.writeFileSync(
+        rollout,
+        [
+          record("session_meta", { id: sessionId, cwd: "/remote/codex-project" }),
+          record("turn_context", { model: "gpt-5.6-terra" }),
+          record("event_msg", { type: "user_message", message: "Inspect remote Codex" }),
+          record("event_msg", { type: "task_complete" }),
+        ]
+          .map((entry) => JSON.stringify(entry))
+          .join("\n") + "\n"
+      );
+
+      const result = await remoteSync.ingestStagedProvider(
+        require("../db"),
+        { id: sourceId },
+        "codex",
+        stage
+      );
+      const session = stmts.getSession.get(sessionId);
+      assert.equal(result.status, "ok");
+      assert.equal(result.counters.sessions_tagged, 1);
+      assert.equal(session.provider, "codex");
+      assert.equal(session.source, sourceId);
+      assert.equal(session.name, "Remote renamed thread");
+      assert.equal(stmts.getAgent.get(`codex:${sessionId}`).task, "Inspect remote Codex");
+    } finally {
+      fs.rmSync(stage, { recursive: true, force: true });
+      db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+      stmts.deleteRemoteSource.run(sourceId);
+    }
   });
 });
 
@@ -385,12 +502,20 @@ describe("/api/remote-sources CRUD", () => {
   });
 
   it("creates a source", async () => {
-    const res = await post("/api/remote-sources", { label: "Dev", host: "son@dev", ssh_port: 22 });
+    const res = await post("/api/remote-sources", {
+      label: "Dev",
+      host: "son@dev",
+      ssh_port: 22,
+      remote_home: "/srv/claude",
+      remote_codex_home: "/srv/codex",
+    });
     assert.equal(res.status, 201);
     assert.equal(res.body.source.label, "Dev");
     assert.equal(res.body.source.host, "son@dev");
     assert.equal(res.body.source.enabled, true);
     assert.equal(res.body.source.status, "idle");
+    assert.equal(res.body.source.remote_home, "/srv/claude");
+    assert.equal(res.body.source.remote_codex_home, "/srv/codex");
     assert.ok(res.body.source.id.startsWith("src_"));
     createdId = res.body.source.id;
   });
@@ -401,15 +526,18 @@ describe("/api/remote-sources CRUD", () => {
     assert.equal(res.body.error.code, "INVALID_HOST");
   });
 
-  it("patches label + enabled, leaving other fields intact", async () => {
+  it("patches label + enabled, and can clear a custom Codex home", async () => {
     const res = await patch(`/api/remote-sources/${createdId}`, {
       label: "Renamed",
       enabled: false,
+      remote_codex_home: null,
     });
     assert.equal(res.status, 200);
     assert.equal(res.body.source.label, "Renamed");
     assert.equal(res.body.source.enabled, false);
     assert.equal(res.body.source.ssh_port, 22); // unchanged
+    assert.equal(res.body.source.remote_home, "/srv/claude"); // independently retained
+    assert.equal(res.body.source.remote_codex_home, null);
   });
 
   it("404s for an unknown id", async () => {
@@ -553,10 +681,115 @@ describe("/api/remote-sources session_count", () => {
   });
 });
 
+// ── Remote failure stale fallback ───────────────────────────────────────────
+// A healthy source owns lifecycle reconciliation from its current mirror. Once
+// it cannot sync, that authority disappears; old active/Waiting rows must fall
+// through to the same global stale sweep as local sessions instead of lingering
+// forever. These assert eligibility for the shared prepared statement that both
+// the periodic sweep and hook-triggered orphan cleanup use.
+describe("remote failure stale fallback", () => {
+  const STALE_MINUTES = 180;
+  const oldIso = () => new Date(Date.now() - (STALE_MINUTES + 10) * 60 * 1000).toISOString();
+
+  function addRemoteSession(sourceId, sessionId) {
+    stmts.insertSession.run(sessionId, "Remote waiting", "active", "/remote/project", null, null);
+    stmts.setSessionSource.run(sourceId, sessionId);
+    db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(oldIso(), sessionId);
+  }
+
+  it("includes an old session when its remote source reports an SSH error", () => {
+    const sourceId = "src_stale_error";
+    stmts.insertRemoteSource.run(sourceId, "Offline", "offline@example", null, null, null, null, 1);
+    addRemoteSession(sourceId, "remote-stale-error");
+    stmts.setRemoteSourceStatus.run("error", "connection timed out", sourceId);
+
+    const staleIds = new Set(
+      stmts.findStaleSessions
+        .all("__remote-test__", STALE_MINUTES, STALE_MINUTES, STALE_MINUTES)
+        .map((row) => row.id)
+    );
+    assert.ok(staleIds.has("remote-stale-error"));
+  });
+
+  it("includes a remote source stranded in syncing beyond the stale window", () => {
+    const sourceId = "src_stale_syncing";
+    stmts.insertRemoteSource.run(
+      sourceId,
+      "Stranded",
+      "stranded@example",
+      null,
+      null,
+      null,
+      null,
+      1
+    );
+    addRemoteSession(sourceId, "remote-stale-syncing");
+    stmts.setRemoteSourceStatus.run("syncing", null, sourceId);
+    db.prepare("UPDATE remote_sources SET updated_at = ? WHERE id = ?").run(oldIso(), sourceId);
+
+    const staleIds = new Set(
+      stmts.findStaleSessions
+        .all("__remote-test__", STALE_MINUTES, STALE_MINUTES, STALE_MINUTES)
+        .map((row) => row.id)
+    );
+    assert.ok(staleIds.has("remote-stale-syncing"));
+  });
+
+  it("keeps an old session out of the global sweep while its source remains healthy", () => {
+    const sourceId = "src_stale_healthy";
+    stmts.insertRemoteSource.run(sourceId, "Healthy", "healthy@example", null, null, null, null, 1);
+    addRemoteSession(sourceId, "remote-stale-healthy");
+    stmts.setRemoteSourceSyncResult.run(
+      "ok",
+      null,
+      new Date().toISOString(),
+      "{}",
+      "ok",
+      "ok",
+      sourceId
+    );
+
+    const staleIds = new Set(
+      stmts.findStaleSessions
+        .all("__remote-test__", STALE_MINUTES, STALE_MINUTES, STALE_MINUTES)
+        .map((row) => row.id)
+    );
+    assert.ok(!staleIds.has("remote-stale-healthy"));
+  });
+
+  it("applies stale fallback per provider when a mixed source loses only Claude history", () => {
+    const sourceId = "src_stale_mixed";
+    stmts.insertRemoteSource.run(sourceId, "Mixed", "mixed@example", null, null, null, null, 1);
+    addRemoteSession(sourceId, "remote-stale-mixed-claude");
+    addRemoteSession(sourceId, "remote-stale-mixed-codex");
+    db.prepare("UPDATE sessions SET provider = 'codex' WHERE id = ?").run(
+      "remote-stale-mixed-codex"
+    );
+    stmts.setRemoteSourceSyncResult.run(
+      "ok",
+      null,
+      new Date().toISOString(),
+      "{}",
+      "unavailable",
+      "ok",
+      sourceId
+    );
+
+    const staleIds = new Set(
+      stmts.findStaleSessions
+        .all("__remote-test__", STALE_MINUTES, STALE_MINUTES, STALE_MINUTES)
+        .map((row) => row.id)
+    );
+    assert.ok(staleIds.has("remote-stale-mixed-claude"));
+    assert.ok(!staleIds.has("remote-stale-mixed-codex"));
+  });
+});
+
 // ── Remote session status reconciliation ─────────────────────────────────────
-// A remote session gets NO live hooks and is excluded from every local liveness/
-// staleness sweep, so its active/completed state is driven solely by whether its
-// mirrored transcript is still advancing. These exercise that reconciliation
+// A healthy remote source gets NO live hooks and keeps its sessions outside the
+// local liveness/staleness sweeps, so successful mirror reconciliation owns
+// active/completed state. An errored or stale-syncing source deliberately falls
+// back to the shared stale sweep above. These exercise successful reconciliation
 // directly against a staged tree with controlled mtimes.
 describe("reconcileRemoteSessionStatus", () => {
   const dbModule = require("../db");

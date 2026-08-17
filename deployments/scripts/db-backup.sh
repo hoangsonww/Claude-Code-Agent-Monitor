@@ -12,7 +12,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly APP_NAME="agent-monitor"
-readonly DB_PATH_IN_CONTAINER="/app/data"
+readonly DB_PATH_IN_CONTAINER="/app/data/dashboard.db"
 
 # ── Colors & logging ───────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -118,49 +118,31 @@ create_backup() {
 
   info "Creating backup..."
 
-  # Use sqlite3 .backup inside the pod for a consistent snapshot
-  # This avoids copying a potentially locked/in-flight database
   local remote_backup_path="/tmp/${DB_FILENAME}"
 
   info "Running SQLite backup inside pod (consistent snapshot)..."
-  if kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- \
-      sh -c "
-        if command -v sqlite3 >/dev/null 2>&1; then
-          sqlite3 '${DB_PATH_IN_CONTAINER}/dashboard.db' '.backup ${remote_backup_path}'
-        else
-          cp '${DB_PATH_IN_CONTAINER}/dashboard.db' '${remote_backup_path}'
-        fi
-      " 2>/dev/null; then
-    ok "In-pod backup created at ${remote_backup_path}"
-  else
-    # Fallback: also copy WAL files if present
-    warn "sqlite3 not available in pod, falling back to file copy"
-    kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- \
-      sh -c "cp '${DB_PATH_IN_CONTAINER}/dashboard.db' '${remote_backup_path}'" \
-      || fatal "Failed to copy database file"
-
-    # Try to also get WAL and SHM files
-    kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- \
-      sh -c "cp '${DB_PATH_IN_CONTAINER}/dashboard.db-wal' '${remote_backup_path}-wal' 2>/dev/null || true"
-    kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- \
-      sh -c "cp '${DB_PATH_IN_CONTAINER}/dashboard.db-shm' '${remote_backup_path}-shm' 2>/dev/null || true"
-  fi
+  kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- sh -ceu "
+    command -v sqlite3 >/dev/null
+    test -f '${DB_PATH_IN_CONTAINER}'
+    rm -f '${remote_backup_path}'
+    sqlite3 '${DB_PATH_IN_CONTAINER}' '.timeout 10000' '.backup ${remote_backup_path}'
+    test \"\$(sqlite3 '${remote_backup_path}' 'PRAGMA integrity_check;')\" = ok
+  " || fatal "Failed to create a consistent SQLite online backup"
+  ok "In-pod backup created and validated at ${remote_backup_path}"
 
   # Copy backup from pod to local
   info "Copying backup to local filesystem..."
   kubectl cp "${NAMESPACE}/${POD_NAME}:${remote_backup_path}" "${OUTPUT_DIR}/${DB_FILENAME}" \
     || fatal "Failed to copy backup from pod"
 
-  # Copy WAL if it exists
-  kubectl cp "${NAMESPACE}/${POD_NAME}:${remote_backup_path}-wal" "${OUTPUT_DIR}/${DB_FILENAME}-wal" 2>/dev/null || true
-
   # Cleanup remote temp file
   kubectl exec "${POD_NAME}" -n "${NAMESPACE}" -- \
-    sh -c "rm -f '${remote_backup_path}' '${remote_backup_path}-wal' '${remote_backup_path}-shm'" 2>/dev/null || true
+    sh -c "rm -f '${remote_backup_path}'" 2>/dev/null || true
 
   local file_size
   file_size=$(du -sh "${OUTPUT_DIR}/${DB_FILENAME}" 2>/dev/null | awk '{print $1}')
   ok "Backup saved: ${OUTPUT_DIR}/${DB_FILENAME} (${file_size})"
+
 }
 
 # ── Validate backup integrity ──────────────────────────────────────────────
@@ -169,10 +151,7 @@ validate_backup() {
 
   local db_file="${OUTPUT_DIR}/${DB_FILENAME}"
 
-  if ! command -v sqlite3 &>/dev/null; then
-    warn "sqlite3 not found locally – skipping integrity check"
-    return
-  fi
+  command -v sqlite3 &>/dev/null || fatal "sqlite3 is required for local backup validation"
 
   # Check integrity
   local integrity
@@ -218,6 +197,19 @@ compress_backup() {
   local compressed_size
   compressed_size=$(du -sh "${OUTPUT_DIR}/${DB_FILENAME}" 2>/dev/null | awk '{print $1}')
   ok "Compressed: ${OUTPUT_DIR}/${DB_FILENAME} (${compressed_size})"
+}
+
+write_checksum() {
+  local backup_file="${OUTPUT_DIR}/${DB_FILENAME}"
+  info "Writing SHA-256 checksum..."
+  if command -v shasum >/dev/null 2>&1; then
+    (cd "${OUTPUT_DIR}" && shasum -a 256 "${DB_FILENAME}" > "${DB_FILENAME}.sha256")
+  elif command -v sha256sum >/dev/null 2>&1; then
+    (cd "${OUTPUT_DIR}" && sha256sum "${DB_FILENAME}" > "${DB_FILENAME}.sha256")
+  else
+    fatal "shasum or sha256sum is required to checksum backups"
+  fi
+  ok "Checksum saved: ${backup_file}.sha256"
 }
 
 # ── Upload to cloud storage ────────────────────────────────────────────────
@@ -286,6 +278,7 @@ main() {
   create_backup
   validate_backup
   compress_backup
+  write_checksum
   upload_backup
 
   echo ""

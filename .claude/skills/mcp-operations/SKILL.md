@@ -20,7 +20,13 @@ Use this skill whenever work touches `mcp/` behavior or MCP host integration.
 
 ## Required verification for code changes
 - `npm run mcp:typecheck`
+- `npm run test:mcp`
 - `npm run mcp:build`
+
+## Catalog invariant
+- Add tools only through `mcp/src/tools/domains/` and `registerAllTools`.
+- Protocol transports and REPL must use the same declarations and schemas.
+- Update `.agents/skills/mcp-maintainer/references/tool-domain-map.md` when a domain changes.
 
 ## References
 - Host config examples: `references/host-config.md`

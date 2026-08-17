@@ -54,8 +54,8 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { randomUUID } from "node:crypto";
-import type { Express, Request, Response } from "express";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import type { Express, NextFunction, Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -73,6 +73,30 @@ import * as c from "../ui/colors.js";
 interface TransportEntry {
   transport: Transport;
   type: "streamable" | "sse";
+}
+
+function tokensMatch(provided: string | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+/** Pure helper exported for security regression tests. */
+export function isHttpRequestAuthorized(
+  headers: Record<string, string | string[] | undefined>,
+  expectedToken: string | undefined
+): boolean {
+  if (!expectedToken) return true;
+  const authorization = headers.authorization;
+  const bearer =
+    typeof authorization === "string" && authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+  const rawHeader = headers["x-mcp-token"];
+  const tokenHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+  return tokensMatch(bearer || tokenHeader, expectedToken);
 }
 
 /**
@@ -109,6 +133,17 @@ export async function startHttpServer(
 ): Promise<{ app: Express; shutdown: () => Promise<void> }> {
   const app = createMcpExpressApp({ host: config.httpHost });
   const transports = new Map<string, TransportEntry>();
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === "/health" || isHttpRequestAuthorized(req.headers, config.httpAuthToken)) {
+      next();
+      return;
+    }
+    res.status(401).json({
+      error: "unauthorized",
+      message: "missing or invalid MCP HTTP token",
+    });
+  });
 
   // ── Health endpoint ───────────────────────────────────────────
   app.get("/health", (_req: Request, res: Response) => {

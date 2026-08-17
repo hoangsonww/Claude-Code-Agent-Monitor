@@ -1,5 +1,7 @@
 /**
- * @file Express router for settings-related endpoints, providing system info, database statistics, hook status, and operations to clear data, re-import sessions, reinstall hooks, reset pricing, export data, and perform cleanup of stale sessions. This allows the frontend to manage and maintain the agent monitoring system effectively.
+ * @file Express router for dashboard settings: system information, pricing and
+ * hook operations, data maintenance, and live-safe Claude Code/Codex session
+ * home configuration for the frontend Settings experience.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -7,11 +9,30 @@ const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { db, stmts, DB_PATH, DEFAULT_PRICING, applyIntroPricing } = require("../db");
+const multer = require("multer");
+const {
+  db,
+  stmts,
+  DB_PATH,
+  DEFAULT_PRICING,
+  DEFAULT_GPT_PRICING,
+  applyIntroPricing,
+  seedGptPricing,
+} = require("../db");
 const { getConnectionCount } = require("../websocket");
 const { transcriptCache } = require("./hooks");
+const {
+  buildExportBundle,
+  importExportBundle,
+  ImportFormatError,
+} = require("../lib/data-transfer");
 
 const router = Router();
+const MAX_BACKUP_IMPORT_BYTES = 25 * 1024 * 1024;
+const backupUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BACKUP_IMPORT_BYTES, files: 1 },
+}).single("file");
 
 const APP_VERSION = (() => {
   try {
@@ -22,6 +43,7 @@ const APP_VERSION = (() => {
 })();
 
 const { getSettingsPath, getClaudeHome, setClaudeHome } = require("../lib/claude-home");
+const { getCodexHome, setCodexHome } = require("../lib/codex-home");
 const CLAUDE_SETTINGS_PATH = getSettingsPath();
 
 function getDbSize() {
@@ -34,7 +56,7 @@ function getDbSize() {
 }
 
 function getTableCounts() {
-  const tables = ["sessions", "agents", "events", "model_pricing"];
+  const tables = ["sessions", "agents", "events", "model_pricing", "gpt_model_pricing"];
   const counts = {};
   for (const t of tables) {
     counts[t] = db.prepare(`SELECT COUNT(*) as c FROM ${t}`).get().c;
@@ -46,36 +68,16 @@ function getTableCounts() {
 }
 
 function getHookStatus() {
-  try {
-    if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) {
-      return { installed: false, path: CLAUDE_SETTINGS_PATH, hooks: {} };
-    }
-    const raw = fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf8");
-    const settings = JSON.parse(raw);
-    const hookTypes = [
-      "PreToolUse",
-      "PostToolUse",
-      "Stop",
-      "SubagentStop",
-      "Notification",
-      "SessionStart",
-      "SessionEnd",
-    ];
-    const hooks = {};
-    for (const ht of hookTypes) {
-      const entries = settings.hooks?.[ht] || [];
-      hooks[ht] = entries.some(
-        (e) =>
-          (e.command && e.command.includes("hook-handler.js")) ||
-          (Array.isArray(e.hooks) &&
-            e.hooks.some((h) => h.command && h.command.includes("hook-handler.js")))
-      );
-    }
-    const installed = Object.values(hooks).every(Boolean);
-    return { installed, path: CLAUDE_SETTINGS_PATH, hooks };
-  } catch {
-    return { installed: false, path: CLAUDE_SETTINGS_PATH, hooks: {} };
-  }
+  const claude = require("../../scripts/install-hooks").getClaudeHookStatus();
+  const codex = require("../../scripts/install-codex-hooks").getCodexHookStatus();
+  return {
+    // Backward-compatible Claude fields; `providers` is the canonical product
+    // status used by the chooser UI.
+    installed: claude.installed || codex.installed,
+    path: claude.path || CLAUDE_SETTINGS_PATH,
+    hooks: claude.hooks,
+    providers: { claude, codex },
+  };
 }
 
 // GET /api/settings/info — system info, db stats, hook status
@@ -178,44 +180,182 @@ router.post("/reinstall-hooks", (_req, res) => {
   }
 });
 
-// POST /api/settings/reset-pricing — reset pricing to defaults
-router.post("/reset-pricing", (_req, res) => {
-  db.prepare("DELETE FROM model_pricing").run();
-
-  const seedPricing = db.prepare(
-    "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, cache_write_1h_per_mtok, fast_input_per_mtok, fast_output_per_mtok) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  );
-  for (const [pattern, name, inp, out, cr, cw, cw1h, fin, fout] of DEFAULT_PRICING) {
-    seedPricing.run(pattern, name, inp, out, cr, cw, cw1h, fin, fout);
+// POST /api/settings/install-hooks — install one or both supported product
+// hook sets. The UI has already shown status/overwrite information; each
+// installer replaces only this dashboard's own entries and preserves others.
+router.post("/install-hooks", (req, res) => {
+  const requested = Array.isArray(req.body?.providers) ? req.body.providers : [];
+  const providers = [
+    ...new Set(requested.filter((provider) => provider === "claude" || provider === "codex")),
+  ];
+  if (providers.length === 0) {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "Select Claude Code, Codex, or both" },
+    });
   }
-  // Re-apply time-limited intro rates (e.g. Sonnet 5) — the seed above only
-  // carries standard rates, so without this a reset silently drops the promo.
-  applyIntroPricing(db);
+  try {
+    const results = {};
+    if (providers.includes("claude")) {
+      const before = require("../../scripts/install-hooks").getClaudeHookStatus();
+      const ok = require("../../scripts/install-hooks").installHooks(true);
+      results.claude = {
+        ok,
+        replaced: before.has_dashboard_hooks,
+        output: ok
+          ? [
+              `Claude Code hooks ${before.has_dashboard_hooks ? "updated" : "installed"}.`,
+              `Settings: ${before.path}`,
+            ]
+          : ["Claude Code hooks could not be installed. See server logs for details."],
+      };
+    }
+    if (providers.includes("codex")) {
+      results.codex = require("../../scripts/install-codex-hooks").installCodexHooks({
+        silent: true,
+      });
+    }
+    const hooks = getHookStatus();
+    const ok = Object.values(results).every((result) => result.ok);
+    res.json({ ok, results, hooks });
+  } catch (err) {
+    res.status(500).json({ error: { code: "HOOK_INSTALL_FAILED", message: err.message } });
+  }
+});
+
+// POST /api/settings/reset-pricing — reset pricing to defaults
+router.post("/reset-pricing", (req, res) => {
+  const provider = req.body?.provider;
+  if (provider !== undefined && provider !== "claude" && provider !== "codex") {
+    return res.status(400).json({
+      error: { code: "INVALID_INPUT", message: "provider must be claude or codex" },
+    });
+  }
+  const resetClaude = provider !== "codex";
+  const resetCodex = provider !== "claude";
+
+  if (resetClaude) {
+    db.prepare("DELETE FROM model_pricing").run();
+    const seedPricing = db.prepare(
+      "INSERT OR IGNORE INTO model_pricing (model_pattern, display_name, input_per_mtok, output_per_mtok, cache_read_per_mtok, cache_write_per_mtok, cache_write_1h_per_mtok, fast_input_per_mtok, fast_output_per_mtok) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+    for (const [pattern, name, inp, out, cr, cw, cw1h, fin, fout] of DEFAULT_PRICING) {
+      seedPricing.run(pattern, name, inp, out, cr, cw, cw1h, fin, fout);
+    }
+    // Re-apply time-limited intro rates (e.g. Sonnet 5) — the seed above only
+    // carries standard rates, so without this a reset silently drops the promo.
+    applyIntroPricing(db);
+  }
+  if (resetCodex) {
+    db.prepare("DELETE FROM gpt_model_pricing").run();
+    seedGptPricing(db);
+  }
 
   const pricing = stmts.listPricing.all();
-  res.json({ ok: true, pricing });
+  res.json({
+    ok: true,
+    provider: provider || "both",
+    pricing,
+    gpt_pricing: stmts.listGptPricing.all(),
+  });
 });
 
 // GET /api/settings/export — export all data as JSON
 router.get("/export", (_req, res) => {
-  const sessions = db.prepare("SELECT * FROM sessions ORDER BY started_at DESC").all();
-  const agents = db.prepare("SELECT * FROM agents ORDER BY started_at DESC").all();
-  const events = db.prepare("SELECT * FROM events ORDER BY created_at DESC").all();
-  const tokenUsage = db.prepare("SELECT * FROM token_usage").all();
-  const pricing = stmts.listPricing.all();
-
   res.setHeader("Content-Type", "application/json");
   res.setHeader(
     "Content-Disposition",
     `attachment; filename="agent-monitor-export-${new Date().toISOString().slice(0, 10)}.json"`
   );
-  res.json({
-    exported_at: new Date().toISOString(),
-    sessions,
-    agents,
-    events,
-    token_usage: tokenUsage,
-    model_pricing: pricing,
+  res.json(buildExportBundle(db, stmts));
+});
+
+// POST /api/settings/import — restore a bundle produced by /export. Browser
+// callers upload one JSON file as multipart/form-data; CLI/MCP callers pass an
+// absolute server-side path in a JSON body. Restore is idempotent and never
+// overwrites an existing session or configuration row.
+router.post("/import", (req, res) => {
+  backupUpload(req, res, (uploadError) => {
+    if (uploadError) {
+      const tooLarge = uploadError.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({
+        error: {
+          code: tooLarge ? "IMPORT_TOO_LARGE" : "IMPORT_UPLOAD_FAILED",
+          message: tooLarge
+            ? `Export file exceeds ${MAX_BACKUP_IMPORT_BYTES} bytes`
+            : uploadError.message,
+        },
+      });
+    }
+
+    try {
+      let source;
+      let text;
+      if (req.file) {
+        source = req.file.originalname || "uploaded-export.json";
+        text = req.file.buffer.toString("utf8");
+      } else {
+        const rawPath = req.body?.path;
+        if (typeof rawPath !== "string" || !rawPath.trim()) {
+          return res.status(400).json({
+            error: {
+              code: "INVALID_INPUT",
+              message: 'Provide multipart field "file" or JSON body { "path": "/absolute/file" }',
+            },
+          });
+        }
+        const expanded = rawPath.startsWith("~")
+          ? path.join(os.homedir(), rawPath.slice(1))
+          : rawPath;
+        if (!path.isAbsolute(expanded)) {
+          return res.status(400).json({
+            error: { code: "INVALID_PATH", message: "path must be absolute" },
+          });
+        }
+        const stat = fs.statSync(expanded);
+        if (!stat.isFile()) {
+          return res.status(400).json({
+            error: { code: "INVALID_PATH", message: "path must reference a regular file" },
+          });
+        }
+        if (stat.size > MAX_BACKUP_IMPORT_BYTES) {
+          return res.status(413).json({
+            error: {
+              code: "IMPORT_TOO_LARGE",
+              message: `Export file exceeds ${MAX_BACKUP_IMPORT_BYTES} bytes`,
+            },
+          });
+        }
+        source = expanded;
+        text = fs.readFileSync(expanded, "utf8");
+      }
+
+      const bundle = JSON.parse(text);
+      const counters = importExportBundle(db, bundle);
+      return res.json({
+        ok: true,
+        source,
+        format: bundle.format || "legacy",
+        version: bundle.version || 1,
+        ...counters,
+      });
+    } catch (error) {
+      if (error instanceof SyntaxError || error instanceof ImportFormatError) {
+        return res.status(400).json({
+          error: {
+            code: error instanceof SyntaxError ? "INVALID_JSON" : error.code,
+            message: error.message,
+          },
+        });
+      }
+      if (error?.code === "ENOENT") {
+        return res.status(404).json({
+          error: { code: "PATH_NOT_FOUND", message: error.message },
+        });
+      }
+      return res.status(500).json({
+        error: { code: "IMPORT_FAILED", message: error.message || String(error) },
+      });
+    }
   });
 });
 
@@ -235,6 +375,31 @@ router.put("/claude-home", (req, res) => {
   try {
     const resolved = setClaudeHome(newPath);
     res.json({ ok: true, claude_home: resolved });
+  } catch (err) {
+    res.status(400).json({
+      error: { code: "INVALID_PATH", message: err.message },
+    });
+  }
+});
+
+// GET /api/settings/codex-home — get the active Codex state directory.
+router.get("/codex-home", (_req, res) => {
+  res.json({ codex_home: getCodexHome() });
+});
+
+// PUT /api/settings/codex-home — repoint the Codex rollout scanner and hooks.
+// setCodexHome notifies the live synchronizer, which re-watches and immediately
+// sweeps the new sessions directory without blocking this response.
+router.put("/codex-home", (req, res) => {
+  const { path: newPath } = req.body;
+  if (!newPath || typeof newPath !== "string") {
+    return res.status(400).json({
+      error: { code: "INVALID_PATH", message: "path is required and must be a string" },
+    });
+  }
+  try {
+    const resolved = setCodexHome(newPath);
+    res.json({ ok: true, codex_home: resolved });
   } catch (err) {
     res.status(400).json({
       error: { code: "INVALID_PATH", message: err.message },

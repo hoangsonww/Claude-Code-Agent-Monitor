@@ -5,7 +5,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 

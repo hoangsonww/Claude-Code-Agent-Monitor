@@ -7,12 +7,12 @@
     "sessions": "会话"
   },
   "noAgents": "暂无追踪的 Agent",
-  "noAgentsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看 Agent。",
+  "noAgentsDesc": "启动已安装 hooks 的受监控 Agent 会话即可在此查看 Agent。",
   "agentCount": "已追踪 {{count}} 个 Agent",
   "agentCount_plural": "已追踪 {{count}} 个 Agent",
   "noAgentsInColumn": "暂无 Agent",
   "noSessions": "暂无追踪的会话",
-  "noSessionsDesc": "启动一个安装了 hooks 的 Claude Code 会话以查看会话。",
+  "noSessionsDesc": "启动已安装 hooks 的受监控 Agent 会话即可在此查看会话。",
   "sessionCount": "已追踪 {{count}} 个会话",
   "sessionCount_plural": "已追踪 {{count}} 个会话",
   "noSessionsInColumn": "暂无会话",
@@ -29,17 +29,17 @@
   },
   "tooltip": {
     "agent": {
-      "working": "Agent 当前正在执行工具调用。\n\nPreToolUse 或 UserPromptSubmit 时进入,Stop(回合结束)时退出。",
-      "waiting": "Agent 已结束本回合,正在等待用户 - 要么 Claude 在等下一条用户消息,要么弹出了使用工具的权限请求。\n\n下一次 PreToolUse / PostToolUse 或会话结束时清除。",
-      "completed": "Agent 已在此会话完全结束 - 通常是 SessionEnd 触发,subagent 则是 SubagentStop。\n\n之后不会再记录此 Agent 的活动。",
-      "error": "Agent 遇到错误,不会继续运行。主 Agent 来自 stop_reason=error 的 Stop;subagent 来自失败的运行。"
+      "working": "Agent 当前正在积极处理工作。\n\n本回合结束时会回到等待状态。",
+      "waiting": "Agent 已结束本回合，或需要人工响应，例如权限批准。\n\n会话继续后，它会恢复工作。",
+      "completed": "Agent 已在此会话中完全结束。\n\n不会再记录此 Agent 的活动。",
+      "error": "Agent 记录了错误，在恢复或重试会话之前不会继续运行。"
     },
     "session": {
-      "active": "会话处于回合中 - Claude 正在运行,用户没有阻塞任何东西。本质上短暂:会话在工具调用期间进入 Active,回合结束后回到 Waiting。",
-      "waiting": "会话正在等用户。可能 Claude 已完成本回合(最常见),或者它弹出了权限请求,在用户响应前都被阻塞。\n\n查看此列以了解你需要回复哪些会话。",
-      "completed": "会话已完全关闭 - SessionEnd 触发(CLI 干净退出)或用户显式关闭。\n\n该会话上的所有 Agent 也都已完成。",
-      "error": "会话以错误结束 - Claude 返回 stop_reason=error,发生了不可恢复的故障,或上游 API 错误终止了运行。",
-      "abandoned": "会话陈旧但没有干净的 SessionEnd。在无活动 5+ 分钟后被标记为废弃(由 /resume 留下、断网、或 CLI 被杀)。与 Completed 不同:我们从未见到真正的退出信号。"
+      "active": "会话正在进行一轮操作：Agent 正在工作，用户没有阻塞任何内容。该状态很短暂；回合结束后会话会回到等待状态。",
+      "waiting": "会话正在等待你。某一轮可能已完成，或 Agent 需要权限或输入。\n\n在此查找需要你回复的会话。",
+      "completed": "会话已完全关闭，因为其 CLI 正常退出或被明确关闭。\n\n此会话中的所有 Agent 也都已完成。",
+      "error": "会话以错误结束：不可恢复的故障或上游 API 错误终止了运行。",
+      "abandoned": "会话在没有干净退出信号的情况下变得陈旧。超过 5 分钟没有活动后会被标记为已放弃（例如 /resume、网络中断或 CLI 被终止后）。与已完成不同：未观察到真实退出。"
     }
   }
 }

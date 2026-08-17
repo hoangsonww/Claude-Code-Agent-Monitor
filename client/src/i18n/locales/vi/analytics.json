@@ -1,6 +1,6 @@
 {
   "title": "Phân tích",
-  "subtitle": "Giám sát và phân tích thời gian thực cho các phiên Claude Code",
+  "subtitle": "Giám sát và phân tích thời gian thực cho các phiên Agent",
   "export": "Xuất",
   "totalSessions": "Tổng số phiên",
   "totalAgents": "Tổng số Agent",
@@ -27,7 +27,7 @@
   "tokenMix": "Tỷ trọng token",
   "cacheEfficiency": "Hiệu quả bộ nhớ đệm",
   "tokenBreakdown": "Chi tiết token",
-  "tokenInfo": "Dữ liệu token được ghi nhận từ sự kiện Stop của Claude Code.",
+  "tokenInfo": "Dữ liệu token được ghi nhận từ các sự kiện phiên đã ghi nhận.",
   "costByModel": "Chi phí theo mô hình",
   "dailyCostTrends": "Xu hướng chi phí theo ngày",
   "costByWeekday": "Chi phí theo thứ",

@@ -1,4 +1,5 @@
 ---
+name: productivity-score
 description: >
   Calculate a productivity score using actual Agent Monitor metrics —
   session completion rates, cache efficiency (cache_read vs input),

@@ -1,7 +1,7 @@
 /**
  * @file run-spawner.js
  * @description Spawns and supervises Claude Code subprocesses for the
- * dashboard's Run page. Two modes:
+ * dashboard's Run Agent page. Two modes:
  *   - "headless"     — single-shot. Stdin is closed after spawn; the prompt
  *                      lives in argv via `-p`. Process exits when the model
  *                      finishes the turn.
@@ -314,10 +314,12 @@ function spawnRun(args) {
     env: cleanSpawnEnv(),
     cwd: cwd || process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
   });
 
   const handle = {
     id,
+    provider: "claude",
     pid: child.pid || null,
     mode,
     cwd: cwd || process.cwd(),
@@ -431,6 +433,7 @@ function publicHandle(handle, opts = {}) {
   if (!handle) return null;
   const out = {
     id: handle.id,
+    provider: handle.provider || "claude",
     pid: handle.pid,
     mode: handle.mode,
     cwd: handle.cwd,
@@ -479,6 +482,7 @@ function __injectChildForTest({ child, mode = "conversation", prompt = "test" })
   const id = randomUUID();
   const handle = {
     id,
+    provider: "claude",
     pid: 0,
     mode,
     cwd: process.cwd(),

@@ -78,14 +78,14 @@ import { Tip } from "./Tip";
  *  same icon per reason as the badges. */
 export const REASON_ICONS: Record<AwaitingReason, LucideIcon> = {
   notification: BellRing, // blocked on a permission/input prompt - ring the bell
-  stop: MessageSquareReply, // Claude replied; your reply is the next move
+  stop: MessageSquareReply, // agent replied; your reply is the next move
   session_start: Terminal, // fresh CLI sitting at an empty prompt
   interrupted: OctagonPause, // turn cut short (Esc / recovered hook)
 };
 
 /**
  * The "why" chip nested inside a Waiting badge: a small rounded pill with the
- * reason's icon and short label. Urgent reasons (permission prompts,
+ * reason's icon and short label, with a provider-aware explanation. Urgent reasons (permission prompts,
  * interruptions) get a hotter amber fill than the calm idle-between-turns
  * ones so a scan of a list surfaces the rows that actually block on the human.
  */
@@ -117,9 +117,17 @@ interface AgentStatusBadgeProps {
    *  hover explanation but suppresses the inline reason chip so the badge
    *  never squeezes the card title. */
   compact?: boolean;
+  /** Product that owns the waiting row; drives Claude/Codex wording in the tooltip. */
+  provider?: "claude" | "codex";
 }
 
-export function AgentStatusBadge({ status, pulse, reason, compact }: AgentStatusBadgeProps) {
+export function AgentStatusBadge({
+  status,
+  pulse,
+  reason,
+  compact,
+  provider,
+}: AgentStatusBadgeProps) {
   const { t } = useTranslation();
   const config = STATUS_CONFIG[status];
   // "waiting" pulses by default so the user's eye is drawn to sessions that
@@ -130,7 +138,15 @@ export function AgentStatusBadge({ status, pulse, reason, compact }: AgentStatus
 
   return (
     // Tip renders children unwrapped when raw is undefined (non-waiting rows).
-    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
+    <Tip
+      raw={
+        shownReason
+          ? t(AWAITING_REASON_CONFIG[shownReason].descKey, {
+              provider: provider === "codex" ? "Codex" : "Claude",
+            })
+          : undefined
+      }
+    >
       <span className={`badge ${config.bg} ${config.color}`}>
         <span
           className={`w-1.5 h-1.5 rounded-full ${config.dot} ${
@@ -154,15 +170,31 @@ interface SessionStatusBadgeProps {
    *  hover explanation but suppresses the inline reason chip so the badge
    *  never squeezes the card title. */
   compact?: boolean;
+  /** Product that owns the waiting row; drives Claude/Codex wording in the tooltip. */
+  provider?: "claude" | "codex";
 }
 
-export function SessionStatusBadge({ status, pulse, reason, compact }: SessionStatusBadgeProps) {
+export function SessionStatusBadge({
+  status,
+  pulse,
+  reason,
+  compact,
+  provider,
+}: SessionStatusBadgeProps) {
   const { t } = useTranslation();
   const config = SESSION_STATUS_CONFIG[status];
   const shouldPulse = pulse ?? status === "waiting";
   const shownReason = status === "waiting" && reason ? reason : null;
   return (
-    <Tip raw={shownReason ? t(AWAITING_REASON_CONFIG[shownReason].descKey) : undefined}>
+    <Tip
+      raw={
+        shownReason
+          ? t(AWAITING_REASON_CONFIG[shownReason].descKey, {
+              provider: provider === "codex" ? "Codex" : "Claude",
+            })
+          : undefined
+      }
+    >
       <span className={`badge ${config.bg} ${config.color}`}>
         {shouldPulse && (
           <span

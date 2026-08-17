@@ -1,6 +1,27 @@
 {
-  "title": "Chạy Claude",
-  "subtitle": "Khởi chạy một phiên Claude Code ngay trong dashboard. Stream output trực tiếp, hội thoại đa lượt, và chia sẻ cùng pipeline hooks/analytics với phiên ở terminal.",
+  "title": "Chạy Agent",
+  "subtitle": "Khởi chạy Agent lập trình cục bộ ngay trong dashboard.",
+  "provider": {
+    "aria": "Nhà cung cấp chạy",
+    "kicker": "Chạy Agent",
+    "chooseTitle": "Bạn muốn chạy Agent nào?",
+    "chooseDescription": "Chọn một Agent cục bộ tương tác. Bạn có thể đổi trước khi bắt đầu lượt chạy mới.",
+    "choose": "Chọn",
+    "cancel": "Hủy",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Khởi chạy Claude Code với stream trực tiếp, hội thoại và cùng analytics dựa trên hooks như terminal.",
+      "description": "Chạy Claude Code ở chế độ hội thoại hoặc tác vụ một lần."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Khởi chạy luồng Codex tương tác gốc với phản hồi trực tiếp, hoạt động công cụ và lượt theo dõi.",
+      "description": "Chạy luồng Codex app-server bền vững từ CLI cục bộ đã đăng nhập.",
+      "interactiveLabel": "Luồng Codex tương tác",
+      "interactiveHint": "Khởi chạy luồng cục bộ bền vững với phản hồi trực tiếp, hoạt động công cụ, hủy và lượt theo dõi."
+    }
+  },
   "mode": {
     "label": "Chế độ",
     "conversation": "Hội thoại",
@@ -15,20 +36,30 @@
     "cwdHint": "Đường dẫn tuyệt đối. Mặc định là cwd của dashboard.",
     "cwdPlaceholder": "Gõ để tìm hoặc dán đường dẫn tuyệt đối…",
     "cwdGroups": {
-      "dashboard": "Dashboard server",
+      "dashboard": "Máy chủ dashboard",
       "home": "Home",
       "recent": "Gần đây - Claude Code đã dùng"
     },
     "cwdNoMatches": "Không khớp. Gõ đường dẫn tuyệt đối để dùng trực tiếp.",
     "model": "Model",
-    "modelInheritLabel": "Kế thừa từ settings",
+    "modelInheritLabel": "Mặc định (khuyến nghị)",
     "modelCustom": "Tuỳ chỉnh…",
     "modelCustomPlaceholder": "model id (vd: claude-opus-4-7-20260101)",
-    "permissionMode": "Permission mode",
+    "permissionMode": "Chế độ quyền",
     "permissionAcceptEdits": "acceptEdits (khuyên dùng)",
     "permissionDefault": "default (prompt tương tác - headless sẽ treo)",
     "permissionPlan": "plan (chỉ đọc, lập kế hoạch)",
     "permissionBypass": "bypassPermissions (NGUY HIỂM - cho phép tất cả mà không hỏi)",
+    "approvalUntrusted": "Không tin cậy (hỏi trước lệnh không tin cậy)",
+    "approvalOnRequest": "Theo yêu cầu (Codex tự quyết định khi nào hỏi)",
+    "approvalNever": "Không bao giờ (trả về lỗi thực thi trực tiếp)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Chỉ đọc",
+    "sandboxWorkspaceWrite": "Ghi workspace",
+    "sandboxDanger": "Toàn quyền nguy hiểm",
+    "modelLiveCatalog": "Danh mục trực tiếp từ Codex CLI đã đăng nhập",
+    "modelCuratedCatalog": "Claude Code không công bố danh sách model theo tài khoản; hãy chọn alias ổn định hoặc nhập ID model khác.",
+    "modelCustomClaudeHint": "Đối với model Claude cũ hoặc dành riêng cho tài khoản, hãy nhập chính xác giá trị --model.",
     "effort": "Mức độ suy nghĩ",
     "effortHint": "Điều chỉnh mức suy luận của model trước khi trả lời. Cao hơn = nhiều token suy nghĩ hơn, chậm hơn, sâu hơn. Để trống để dùng mặc định của model."
   },
@@ -56,8 +87,9 @@
     "found": "Đang dùng {{path}}"
   },
   "concurrency": {
+    "active_one": "Có {{count}} run đang chạy",
     "active_other": "Có {{count}} run đang chạy",
-    "viewActive": "Xem các run đang chạy",
+    "viewActive": "Lượt chạy dashboard",
     "atCap": "Đạt giới hạn concurrent ({{max}}). Dừng một run đang chạy để bắt đầu run mới."
   },
   "hint": {
@@ -83,8 +115,8 @@
     "duration": "Thời lượng",
     "cost": "Chi phí",
     "turns": "Lượt",
-    "exitCode": "Exit code",
-    "sessionId": "Session ID"
+    "exitCode": "Mã thoát",
+    "sessionId": "ID phiên"
   },
   "errors": {
     "startFailed": "Không khởi động được: {{message}}",
@@ -93,12 +125,12 @@
     "attachFailed": "Không gắn được vào run: {{message}}"
   },
   "runs": {
-    "switcher": "Run đang chạy",
+    "switcher": "Lượt chạy dashboard",
     "switcherEmpty": "Không có run đang chạy",
     "attached": "Đã gắn vào run đang chạy",
     "started": "Bắt đầu lúc {{when}}",
-    "viewActive": "Xem run đang chạy",
-    "viewActive_other": "{{count}} run đang chạy",
+    "viewActive": "Lượt chạy dashboard",
+    "viewActive_other": "{{count}} lượt chạy dashboard",
     "scopeNote": "Chỉ hiển thị các run bạn khởi chạy từ dashboard này.",
     "allSessionsLink": "Xem tất cả phiên Claude Code →",
     "viewLabel": "Xem"
@@ -136,7 +168,7 @@
     "label": "Context",
     "input": "Input",
     "output": "Output",
-    "cacheRead": "Cache hit",
+    "cacheRead": "Đọc từ bộ nhớ đệm",
     "cost": "Chi phí"
   },
   "autocomplete": {

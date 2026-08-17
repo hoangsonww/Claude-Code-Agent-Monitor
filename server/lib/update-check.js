@@ -23,7 +23,7 @@ function execGit(cwd, args, opts = {}) {
     execFile(
       "git",
       args,
-      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8" },
+      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8", windowsHide: true },
       (err, stdout) => {
         if (err) reject(err);
         else resolve(String(stdout).trim());

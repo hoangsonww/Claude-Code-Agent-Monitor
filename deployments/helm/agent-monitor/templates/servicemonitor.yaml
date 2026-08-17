@@ -1,4 +1,4 @@
-{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled -}}
+{{- if .Values.monitoring.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -26,4 +26,9 @@ spec:
       interval: {{ .Values.monitoring.serviceMonitor.interval | default "30s" }}
       scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | default "10s" }}
       honorLabels: {{ .Values.monitoring.serviceMonitor.honorLabels | default false }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ .Values.secrets.existingSecret }}
+          key: dashboard-token
 {{- end }}

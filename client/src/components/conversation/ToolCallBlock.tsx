@@ -107,6 +107,7 @@ function buildSummary(toolUse: TranscriptContent): string | null {
   if (typeof obj.file_path === "string") return obj.file_path;
   if (typeof obj.path === "string") return obj.path;
   if (typeof obj.command === "string") return obj.command.slice(0, 200);
+  if (typeof obj.code === "string") return obj.code.replace(/\s+/g, " ").slice(0, 200);
   if (typeof obj.pattern === "string") return obj.pattern;
   if (typeof obj.query === "string") return obj.query;
   if (typeof obj.url === "string") return obj.url;
@@ -132,6 +133,13 @@ function renderInput(toolUse: TranscriptContent) {
 
   const obj = input as Record<string, unknown>;
   const tool = (toolUse.name ?? "").toLowerCase();
+
+  // Codex's primary tool is `exec`; unlike Claude's Bash tool it carries a
+  // JavaScript orchestration snippet under `code`. Render it as code instead
+  // of a JSON blob so the transcript shows what actually ran.
+  if (tool === "exec" && typeof obj.code === "string") {
+    return <CodeBlock code={obj.code} lang="javascript" label="Codex tool call" />;
+  }
 
   // Bash: show the command with shell highlighting
   if (tool === "bash" && typeof obj.command === "string") {

@@ -1,0 +1,12 @@
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: agent-monitor-data-manual
+  namespace: agent-monitor
+  labels:
+    app.kubernetes.io/name: agent-monitor
+    app.kubernetes.io/instance: agent-monitor
+    app.kubernetes.io/component: backup
+spec:
+  source:
+    persistentVolumeClaimName: agent-monitor-data

@@ -58,6 +58,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AppConfig } from "../config/app-config.js";
 import type { DashboardApiClient } from "../clients/dashboard-api-client.js";
 import type { Logger } from "../core/logger.js";
+import type { ToolRegistrar } from "../core/tool-registry.js";
 
 /**
  * Shared dependency bundle injected into every `register*Tools` function
@@ -65,8 +66,12 @@ import type { Logger } from "../core/logger.js";
  * this interface and `server.ts` (the sole place that constructs it).
  */
 export interface ToolContext {
-  /** MCP server tool modules call `registerTool` on, via a {@link ToolRegistrar}. */
-  server: McpServer;
+  /** MCP server tool modules call `registerTool` on. Omitted when collecting
+   * the same catalog for the direct-invocation REPL. */
+  server?: McpServer;
+  /** Optional registrar override used by the REPL collector. Domain modules
+   * fall back to a live MCP registrar when this is omitted. */
+  register?: ToolRegistrar;
   /** Resolved config — dashboard URL, timeouts/retries, mutation/destructive
    * policy flags checked by `policy/tool-guards.ts`. */
   config: AppConfig;

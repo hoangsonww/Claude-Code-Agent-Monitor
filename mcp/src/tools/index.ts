@@ -66,6 +66,15 @@ import { registerEventTools } from "./domains/event-tools.js";
 import { registerPricingTools } from "./domains/pricing-tools.js";
 import { registerMaintenanceTools } from "./domains/maintenance-tools.js";
 import { registerRemoteTools } from "./domains/remote-tools.js";
+import { registerWorkflowTools } from "./domains/workflow-tools.js";
+import { registerAlertTools } from "./domains/alert-tools.js";
+import { registerWebhookTools } from "./domains/webhook-tools.js";
+import { registerImportTools } from "./domains/import-tools.js";
+import { registerConfigTools } from "./domains/config-tools.js";
+import { registerRunTools } from "./domains/run-tools.js";
+import { registerSettingsTools } from "./domains/settings-tools.js";
+import { registerSessionDetailTools } from "./domains/session-detail-tools.js";
+import { registerPushTools } from "./domains/push-tools.js";
 
 /**
  * Registers all 29 `dashboard_*` tools with the given {@link ToolContext} in
@@ -82,4 +91,13 @@ export function registerAllTools(context: ToolContext): void {
   registerPricingTools(context);
   registerMaintenanceTools(context);
   registerRemoteTools(context);
+  registerWorkflowTools(context);
+  registerAlertTools(context);
+  registerWebhookTools(context);
+  registerImportTools(context);
+  registerConfigTools(context);
+  registerRunTools(context);
+  registerSettingsTools(context);
+  registerSessionDetailTools(context);
+  registerPushTools(context);
 }

@@ -1,0 +1,22 @@
+{
+  "title": "Panel",
+  "subtitle": "Resumen en tiempo real de la actividad de los agentes",
+  "totalSessions": "Total de Sesiones",
+  "activeAgents": "Agentes Activos",
+  "activeSubagents": "Subagentes Activos",
+  "eventsToday": "Eventos Hoy",
+  "totalEvents": "Total de Eventos",
+  "totalCost": "Costo Total",
+  "viewBoard": "Ver Tablero",
+  "viewAll": "Ver Todo",
+  "activeAgentsSection": "Agentes Activos",
+  "recentActivity": "Actividad Reciente",
+  "noAgents": "Sin agentes activos",
+  "noAgentsDesc": "Los agentes aparecerán aquí cuando haya una sesión supervisada en ejecución.",
+  "noActivity": "Sin actividad aún",
+  "noActivityDesc": "Los eventos de las sesiones supervisadas se transmitirán aquí en tiempo real.",
+  "failedConnect": "No se pudo conectar al servidor",
+  "failedLoad": "No se pudieron cargar los datos",
+  "activeTrend": " activo",
+  "totalTrend": " en sesiones activas"
+}

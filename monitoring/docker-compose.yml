@@ -1,7 +1,7 @@
 # Turnkey Prometheus + Grafana stack for the CCAM `/api/metrics` endpoint.
 #
 #   cd monitoring && docker compose up -d
-#   open http://localhost:3000   (admin / admin)
+#   open http://localhost:3000
 #
 # The "CCAM — Overview" dashboard and the Prometheus datasource are
 # pre-provisioned, so there is nothing to click after start. Prometheus scrapes
@@ -10,7 +10,7 @@
 # or add a bearer token when DASHBOARD_TOKEN is set. See ./README.md.
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.13.2@sha256:508729e0e2d18e11fd742a5a5ca70e557b940a93948c3c95fd0123a6fd538b69
     container_name: ccam-prometheus
     restart: unless-stopped
     command:
@@ -20,6 +20,7 @@ services:
       - --web.console.templates=/etc/prometheus/consoles
     volumes:
       - ./prometheus:/etc/prometheus:ro
+      - ../deployments/secrets:/run/ccam-secrets:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
@@ -27,21 +28,42 @@ services:
     # explicit host-gateway mapping; Docker Desktop resolves it natively).
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.1.2@sha256:d177053ab62253815f130d81504f77063baf5fd4ca93299d6048453bd31e047a
     container_name: ccam-grafana
     restart: unless-stopped
     depends_on:
       - prometheus
-    env_file:
-      - ./grafana.defaults.env
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/ccam-secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_UID: ccam-overview
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../deployments/secrets:/run/ccam-secrets:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "127.0.0.1:3000:3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   prometheus-data:

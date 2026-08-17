@@ -7,12 +7,12 @@
     "sessions": "세션"
   },
   "noAgents": "아직 추적된 Agent가 없습니다",
-  "noAgentsDesc": "hooks가 설치된 Claude Code 세션을 시작하면 여기에 Agent가 표시됩니다.",
+  "noAgentsDesc": "hooks가 설치된 모니터링 Agent 세션을 시작하면 여기에 Agent가 표시됩니다.",
   "agentCount": "{{count}}개 Agent 추적 중",
   "agentCount_plural": "{{count}}개 Agent 추적 중",
   "noAgentsInColumn": "Agent 없음",
   "noSessions": "아직 추적된 세션이 없습니다",
-  "noSessionsDesc": "hooks가 설치된 Claude Code 세션을 시작하면 여기에 세션이 표시됩니다.",
+  "noSessionsDesc": "hooks가 설치된 모니터링 Agent 세션을 시작하면 여기에 세션이 표시됩니다.",
   "sessionCount": "{{count}}개 세션 추적 중",
   "sessionCount_plural": "{{count}}개 세션 추적 중",
   "noSessionsInColumn": "세션 없음",
@@ -29,17 +29,17 @@
   },
   "tooltip": {
     "agent": {
-      "working": "Agent가 현재 도구 호출을 실행하고 있습니다.\n\nPreToolUse 또는 UserPromptSubmit에서 진입하며, Stop(턴 종료) 시 종료됩니다.",
-      "waiting": "Agent가 턴을 마치고 사용자 응답을 기다리고 있습니다 - Claude가 다음 사용자 메시지를 기다리거나 도구 사용 권한을 요청한 상태입니다.\n\n다음 PreToolUse / PostToolUse가 발생하거나 세션이 종료되면 해제됩니다.",
-      "completed": "이 세션에서 Agent가 완전히 종료되었습니다 - 보통 SessionEnd가 발생했거나, Subagent의 경우 SubagentStop이 처리되었기 때문입니다.\n\n이 Agent에 대한 추가 활동은 더 이상 기록되지 않습니다.",
-      "error": "Agent에서 오류가 기록되어 더 이상 진행하지 않습니다. 메인 Agent의 경우 stop_reason=error인 Stop에서, Subagent의 경우 실패한 실행에서 비롯됩니다."
+      "working": "Agent가 현재 작업을 처리하고 있습니다.\n\n이 턴이 끝나면 다시 대기 상태로 돌아갑니다.",
+      "waiting": "Agent가 턴을 마쳤거나 권한 승인 같은 사람의 응답이 필요합니다.\n\n세션이 계속되면 다시 작업합니다.",
+      "completed": "이 세션에서 Agent가 완전히 종료되었습니다.\n\n이 Agent에 대한 추가 활동은 더 이상 기록되지 않습니다.",
+      "error": "Agent에 오류가 기록되어 세션을 재개하거나 다시 시도할 때까지 계속 진행하지 않습니다."
     },
     "session": {
-      "active": "세션이 턴 진행 중입니다 - Claude가 현재 실행 중이며 사용자를 막고 있는 것은 없습니다. 성격상 짧게 지속되며, 도구 호출 중에는 Active를, 턴이 끝나면 다시 Waiting을 오갑니다.",
-      "waiting": "세션이 사용자 응답을 기다리고 있습니다. Claude가 턴을 마쳤거나(가장 흔한 경우), 권한 프롬프트를 띄우고 사용자의 응답을 기다리는 상태입니다.\n\n답변이 필요한 세션을 찾을 때 여기를 확인하세요.",
-      "completed": "세션이 완전히 종료되었습니다 - SessionEnd가 발생했거나(CLI가 정상 종료됨) 사용자가 명시적으로 종료했습니다.\n\n이 세션의 모든 Agent도 함께 완료됩니다.",
-      "error": "세션이 오류와 함께 종료되었습니다 - Claude가 stop_reason=error를 반환했거나, 복구 불가능한 오류가 발생했거나, 상위 API 오류로 실행이 중단되었습니다.",
-      "abandoned": "세션이 정상적인 SessionEnd 없이 방치되었습니다. 5분 이상 활동이 없으면 abandoned로 표시됩니다(/resume에 의한 고아 세션, 네트워크 끊김, CLI 강제 종료 등). Completed와 달리 실제 종료 신호를 확인하지 못한 경우입니다."
+      "active": "세션이 턴 진행 중입니다. Agent가 현재 작업 중이고 사용자를 막는 것은 없습니다. 이 상태는 짧게 지속되며, 턴이 끝나면 세션은 다시 대기로 돌아갑니다.",
+      "waiting": "세션이 응답을 기다리고 있습니다. 턴이 끝났거나 Agent에 권한 또는 입력이 필요할 수 있습니다.\n\n답변이 필요한 세션을 찾을 때 여기를 확인하세요.",
+      "completed": "CLI가 정상 종료되었거나 명시적으로 종료되어 세션이 완전히 닫혔습니다.\n\n이 세션의 모든 Agent도 함께 완료됩니다.",
+      "error": "복구 불가능한 실패 또는 상위 API 오류로 인해 세션이 오류와 함께 종료되었습니다.",
+      "abandoned": "정상 종료 신호 없이 세션이 오래 방치되었습니다. 활동이 5분 이상 없으면 abandoned로 표시됩니다(예: /resume, 네트워크 끊김 또는 CLI 강제 종료 후). Completed와 달리 실제 종료가 관찰되지 않았습니다."
     }
   }
 }

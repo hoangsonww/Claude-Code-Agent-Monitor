@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code API
-  version: 1.4.6
+  version: 2.0.8
   description: HTTP API for real-time Claude Code session monitoring, agent lifecycle tracking, analytics, pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -26,7 +26,7 @@ tags:
   - name: Metrics
     description: Prometheus / OpenMetrics scrape endpoint
   - name: Sessions
-    description: Claude Code session lifecycle
+    description: Claude Code and Codex session lifecycle
   - name: Agents
     description: Main/subagent records and status
   - name: Events
@@ -36,7 +36,7 @@ tags:
   - name: Analytics
     description: Aggregated analytics views
   - name: Hooks
-    description: Claude hook ingestion endpoint
+    description: Claude Code and Codex hook ingestion endpoints
   - name: Pricing
     description: Model pricing and token cost calculations
   - name: Workflows
@@ -55,8 +55,10 @@ tags:
     description: OpenAPI/Swagger endpoints
   - name: CcConfig
     description: 'Claude Code configuration explorer: discover and (for low-risk artifacts) edit skills, agents, commands, output styles, MCP servers, hooks, settings, memory, plugins, marketplaces, keybindings, statusline'
+  - name: CodexConfig
+    description: Codex CLI configuration discovery plus guarded editing for config.toml, hooks, user rules, skills, and instruction files.
   - name: Run
-    description: Spawn and supervise Claude Code runs from the dashboard (headless or interactive conversation), stream output over WebSocket, and manage run history
+    description: Spawn and supervise Claude Code or interactive Codex runs from the dashboard, stream output over WebSocket, and manage run history
   - name: Push
     description: Web Push notification subscriptions and broadcast (VAPID); also fires native Electron notifications when hosted in the desktop app
 components:
@@ -109,7 +111,7 @@ components:
           - completed
           - error
           - abandoned
-      description: Filter by session status
+      description: Filter by persisted session status
     AgentStatusQuery:
       name: status
       in: query
@@ -149,6 +151,14 @@ components:
       schema:
         type: string
       description: Comma-separated list of data-source ids to include. The built-in local history is the id `local`; remote SSH machines use their `remote_sources.id`. Omit to include every source. Filters on the `sessions.source` column.
+    ProvidersQuery:
+      name: providers
+      in: query
+      required: false
+      schema:
+        type: string
+        example: claude,codex
+      description: 'Comma-separated product providers to include: `claude`, `codex`, or both. Omit to include every provider.'
   schemas:
     ErrorObject:
       type: object
@@ -185,6 +195,187 @@ components:
       type: object
       additionalProperties:
         type: integer
+    SessionTodoItem:
+      type: object
+      required:
+        - id
+        - text
+        - status
+        - order
+        - agentId
+        - agentType
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - completed
+            - cancelled
+            - unknown
+        sourceStatus:
+          type: string
+          nullable: true
+        order:
+          type: integer
+        agentId:
+          type: string
+        agentType:
+          type: string
+        description:
+          type: string
+          nullable: true
+    SessionTodoOwnerSummary:
+      type: object
+      required:
+        - agentId
+        - agentType
+        - completed
+        - total
+      properties:
+        agentId:
+          type: string
+        agentType:
+          type: string
+        completed:
+          type: integer
+        total:
+          type: integer
+    SessionTodoSummary:
+      type: object
+      required:
+        - total
+        - completed
+        - inProgress
+        - pending
+        - cancelled
+        - unknown
+        - percentComplete
+        - previewItems
+        - overflowCount
+        - ownerBreakdown
+      properties:
+        total:
+          type: integer
+        completed:
+          type: integer
+        inProgress:
+          type: integer
+        pending:
+          type: integer
+        cancelled:
+          type: integer
+        unknown:
+          type: integer
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        activeText:
+          type: string
+          nullable: true
+        sourceTool:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        previewItems:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/SessionTodoItem'
+        overflowCount:
+          type: integer
+          minimum: 0
+        ownerBreakdown:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/SessionTodoOwnerSummary'
+    SessionTodoSnapshot:
+      type: object
+      required:
+        - provider
+        - source
+        - confidence
+        - items
+        - includesSubagents
+        - total
+        - completed
+        - inProgress
+        - pending
+        - cancelled
+        - unknown
+        - percentComplete
+        - ownerBreakdown
+      properties:
+        provider:
+          type: string
+          enum:
+            - claude
+            - codex
+        source:
+          type: string
+          enum:
+            - transcript
+            - mixed
+        sourceTool:
+          type: string
+          nullable: true
+        sourceLine:
+          type: integer
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        explanation:
+          type: string
+          nullable: true
+        confidence:
+          type: string
+          enum:
+            - full
+            - partial
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/SessionTodoItem'
+        total:
+          type: integer
+        completed:
+          type: integer
+        inProgress:
+          type: integer
+        pending:
+          type: integer
+        cancelled:
+          type: integer
+        unknown:
+          type: integer
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+        activeText:
+          type: string
+          nullable: true
+        includesSubagents:
+          type: boolean
+        ownerBreakdown:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/SessionTodoOwnerSummary'
     Session:
       type: object
       required:
@@ -222,6 +413,10 @@ components:
           type: string
           nullable: true
           description: JSON-encoded session metadata
+        prompt_preview:
+          type: string
+          nullable: true
+          description: Up to two newest distinct real human prompts, newline-separated, for compact card context. Claude derives the persisted summary from its local JSONL cache; Codex derives it from durable user-message records. Historical rows fall back to the main-agent task.
         updated_at:
           type: string
           format: date-time
@@ -232,6 +427,7 @@ components:
           type: string
           format: date-time
           nullable: true
+          description: Timestamp of the latest durable session event, falling back to lifecycle timestamps only for eventless historical rows. Unlike updated_at, metadata bookkeeping does not change this value.
         cost:
           type: number
           nullable: true
@@ -249,6 +445,16 @@ components:
             - interrupted
           nullable: true
           description: 'Why the session is awaiting input: ''notification'' (Claude asked the user something), ''stop'' (turn completed, waiting for the next prompt), ''session_start'' (new/resumed session waiting for the first prompt), or ''interrupted'' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.'
+        todo_summary:
+          allOf:
+            - $ref: '#/components/schemas/SessionTodoSummary'
+          nullable: true
+          description: Compact task/checklist/plan state for the latest top-level work item on Sessions-list rows. Null when that work item emitted no task state or ended with unfinished tracker state; fully completed history remains available.
+        todo_snapshot:
+          allOf:
+            - $ref: '#/components/schemas/SessionTodoSnapshot'
+          nullable: true
+          description: Full latest owner-attributed task state for Session Detail. Null when no observable task state exists.
     Agent:
       type: object
       required:
@@ -304,6 +510,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        last_activity:
+          type: string
+          format: date-time
+          nullable: true
+          description: Latest durable event attributed to this agent. List/detail reads derive it independently of mutable updated_at bookkeeping; lightweight live WebSocket frames may omit it.
         awaiting_input_since:
           type: string
           format: date-time
@@ -362,7 +573,7 @@ components:
         version:
           type: string
           description: Dashboard release version from package.json
-          example: 1.4.6
+          example: 2.0.8
         timestamp:
           type: string
           format: date-time
@@ -477,6 +688,7 @@ components:
             - tool_use
             - tool_result
             - thinking
+            - image
         text:
           type: string
         name:
@@ -496,6 +708,12 @@ components:
           description: Tool output text when type === tool_result.
         is_error:
           type: boolean
+        src:
+          type: string
+          description: Same-origin persisted-image URL or validated inline raster data URL when type === image.
+        alt:
+          type: string
+          description: Accessible image description when type === image.
     TranscriptMessage:
       type: object
       required:
@@ -1120,6 +1338,95 @@ components:
       properties:
         pricing:
           $ref: '#/components/schemas/PricingRule'
+    GptPricingRule:
+      type: object
+      required:
+        - model_pattern
+        - display_name
+        - updated_at
+      description: OpenAI/Codex token pricing. Standard requests use short rates at or below 272K input tokens and long rates above that; Fast requests use the explicit fast rate card.
+      properties:
+        model_pattern:
+          type: string
+        display_name:
+          type: string
+        short_input_per_mtok:
+          type: number
+        short_cached_input_per_mtok:
+          type: number
+        short_cache_write_per_mtok:
+          type: number
+        short_output_per_mtok:
+          type: number
+        long_input_per_mtok:
+          type: number
+        long_cached_input_per_mtok:
+          type: number
+        long_cache_write_per_mtok:
+          type: number
+        long_output_per_mtok:
+          type: number
+        fast_input_per_mtok:
+          type: number
+        fast_cached_input_per_mtok:
+          type: number
+        fast_cache_write_per_mtok:
+          type: number
+        fast_output_per_mtok:
+          type: number
+        updated_at:
+          type: string
+          format: date-time
+    GptPricingUpsertRequest:
+      type: object
+      required:
+        - model_pattern
+        - display_name
+      properties:
+        model_pattern:
+          type: string
+        display_name:
+          type: string
+        short_input_per_mtok:
+          type: number
+        short_cached_input_per_mtok:
+          type: number
+        short_cache_write_per_mtok:
+          type: number
+        short_output_per_mtok:
+          type: number
+        long_input_per_mtok:
+          type: number
+        long_cached_input_per_mtok:
+          type: number
+        long_cache_write_per_mtok:
+          type: number
+        long_output_per_mtok:
+          type: number
+        fast_input_per_mtok:
+          type: number
+        fast_cached_input_per_mtok:
+          type: number
+        fast_cache_write_per_mtok:
+          type: number
+        fast_output_per_mtok:
+          type: number
+    GptPricingListResponse:
+      type: object
+      required:
+        - pricing
+      properties:
+        pricing:
+          type: array
+          items:
+            $ref: '#/components/schemas/GptPricingRule'
+    GptPricingUpsertResponse:
+      type: object
+      required:
+        - pricing
+      properties:
+        pricing:
+          $ref: '#/components/schemas/GptPricingRule'
     CostBreakdownItem:
       type: object
       required:
@@ -1526,6 +1833,11 @@ components:
     ImportGuideResponse:
       type: object
       properties:
+        provider:
+          type: string
+          enum:
+            - claude
+            - codex
         platform:
           type: string
         default_projects_dir:
@@ -1575,6 +1887,11 @@ components:
           type: boolean
           enum:
             - true
+        provider:
+          type: string
+          enum:
+            - claude
+            - codex
         source:
           type: string
           enum:
@@ -1633,25 +1950,40 @@ components:
       type: object
       required:
         - ok
+        - provider
         - pricing
+        - gpt_pricing
       properties:
         ok:
           type: boolean
           enum:
             - true
+        provider:
+          type: string
+          enum:
+            - claude
+            - codex
+            - both
         pricing:
           type: array
           items:
             $ref: '#/components/schemas/PricingRule'
+        gpt_pricing:
+          type: array
+          items:
+            $ref: '#/components/schemas/GptPricingRule'
     ExportResponse:
       type: object
       required:
+        - format
+        - version
         - exported_at
         - sessions
         - agents
         - events
         - token_usage
         - model_pricing
+        - gpt_model_pricing
       properties:
         format:
           type: string
@@ -1660,7 +1992,7 @@ components:
         version:
           type: integer
           description: Bundle schema version.
-          example: 1
+          example: 2
         exported_at:
           type: string
           format: date-time
@@ -1700,6 +2032,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PricingRule'
+        gpt_model_pricing:
+          type: array
+          items:
+            $ref: '#/components/schemas/GptPricingRule'
     ImportResponse:
       type: object
       required:
@@ -1713,6 +2049,7 @@ components:
         - dashboard_runs
         - alert_rules
         - model_pricing
+        - gpt_model_pricing
         - errors
       description: Per-table counts from restoring an export bundle. Session-scoped counts are rows newly inserted; sessions_skipped counts sessions already present (skipped whole to stay idempotent).
       properties:
@@ -1742,6 +2079,8 @@ components:
         alert_rules:
           type: integer
         model_pricing:
+          type: integer
+        gpt_model_pricing:
           type: integer
         errors:
           type: integer
@@ -2904,6 +3243,195 @@ components:
           description: Backups across the requested scope/type buckets, sorted newest first.
           items:
             $ref: '#/components/schemas/CcConfigBackup'
+    CodexConfigOverview:
+      type: object
+      description: Safe metadata discovered beneath the configured CODEX_HOME. Values of secret-like TOML/JSON keys are redacted before the response is sent.
+      required:
+        - home
+        - config
+        - defaults
+        - counts
+        - models
+        - profiles
+        - mcp
+        - projects
+        - skills
+        - hooks
+        - rules
+        - plugins
+        - instructions
+      properties:
+        home:
+          type: string
+          description: Resolved Codex home directory.
+          example: /Users/dev/.codex
+        config:
+          type: object
+          properties:
+            path:
+              type: string
+            exists:
+              type: boolean
+            text:
+              type: string
+              description: Redacted config.toml preview.
+            truncated:
+              type: boolean
+        defaults:
+          type: object
+          properties:
+            model:
+              type: string
+              nullable: true
+            reasoningEffort:
+              type: string
+              nullable: true
+            personality:
+              type: string
+              nullable: true
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        models:
+          type: object
+          additionalProperties: true
+        profiles:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        mcp:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        projects:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        skills:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        hooks:
+          type: object
+          additionalProperties: true
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        plugins:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        instructions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    CodexConfigFile:
+      type: object
+      required:
+        - path
+        - text
+        - size
+        - mtime
+        - truncated
+      properties:
+        path:
+          type: string
+        text:
+          type: string
+          description: Contents, redacted where applicable and capped at 256 KiB.
+        size:
+          type: integer
+        mtime:
+          type: number
+        truncated:
+          type: boolean
+    CodexConfigEditableFile:
+      type: object
+      description: Unredacted local text from the narrowly editable Codex file allowlist. This is intentionally separate from redacted previews so saving never replaces real secret values with placeholders.
+      required:
+        - path
+        - text
+        - size
+        - mtime
+        - truncated
+        - exists
+      properties:
+        path:
+          type: string
+        text:
+          type: string
+          description: Unredacted local file contents, capped at 256 KiB.
+        size:
+          type: integer
+        mtime:
+          type: number
+          nullable: true
+        truncated:
+          type: boolean
+        exists:
+          type: boolean
+    CodexConfigWriteResult:
+      type: object
+      required:
+        - ok
+        - file
+        - backupPath
+        - created
+      properties:
+        ok:
+          type: boolean
+          example: true
+        file:
+          type: string
+        backupPath:
+          type: string
+          nullable: true
+        created:
+          type: boolean
+    CodexConfigDeleteResult:
+      type: object
+      required:
+        - ok
+        - file
+        - backupPath
+        - deletedDirectory
+      properties:
+        ok:
+          type: boolean
+          example: true
+        file:
+          type: string
+        backupPath:
+          type: string
+        deletedDirectory:
+          type: boolean
+          description: True when removing a skill also removed its containing skill directory.
+    CodexConfigCreateProfile:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          pattern: ^[A-Za-z0-9_-]+$
+          description: Profile name; creates CODEX_HOME/<name>.config.toml.
+          example: deep-review
+    RunProvider:
+      type: string
+      enum:
+        - claude
+        - codex
+      description: The CLI provider used for the run.
+      example: codex
     RunHandle:
       type: object
       description: Live, in-memory view of a spawned `claude` subprocess. Returned by GET /api/run (in `items`), POST /api/run (201), and GET /api/run/{id}. Backed by the spawner's handle map, which reaps each handle 5 minutes after the process exits — after that the run is only visible via GET /api/run/history.
@@ -2929,6 +3457,8 @@ components:
         - stdoutTail
         - stderrTail
       properties:
+        provider:
+          $ref: '#/components/schemas/RunProvider'
         id:
           type: string
           format: uuid
@@ -2957,11 +3487,6 @@ components:
           example: claude-opus-4-8
         permissionMode:
           type: string
-          enum:
-            - acceptEdits
-            - default
-            - plan
-            - bypassPermissions
           description: Permission mode passed via `--permission-mode`. Defaults to `acceptEdits` when omitted or invalid.
           example: acceptEdits
         effort:
@@ -2972,6 +3497,7 @@ components:
             - high
             - xhigh
             - max
+            - ultra
           nullable: true
           description: Thinking-effort level passed via `--effort` (higher = more reasoning tokens before the assistant turn). Null inherits the model default.
           example: high
@@ -3000,6 +3526,14 @@ components:
           nullable: true
           description: Claude session id this run resumed (`--resume`), or null for a fresh run. Conversation mode only.
           example: null
+        sandbox:
+          type: string
+          nullable: true
+          enum:
+            - read-only
+            - workspace-write
+            - danger-full-access
+          description: Codex sandbox policy; null for Claude runs.
         status:
           type: string
           enum:
@@ -3263,7 +3797,10 @@ components:
       required:
         - found
         - path
+        - provider
       properties:
+        provider:
+          $ref: '#/components/schemas/RunProvider'
         found:
           type: boolean
           description: True when `claude` resolves on PATH.
@@ -3273,12 +3810,55 @@ components:
           nullable: true
           description: Absolute path to the resolved `claude` binary, or null when not found.
           example: /usr/local/bin/claude
+    RunModelsResponse:
+      type: object
+      required:
+        - provider
+        - dynamic
+        - source
+        - items
+      properties:
+        provider:
+          $ref: '#/components/schemas/RunProvider'
+        dynamic:
+          type: boolean
+          description: True for Codex's signed-in live app-server catalog.
+        source:
+          type: string
+          example: codex-app-server
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - label
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              hint:
+                type: string
+                nullable: true
+              supportedEfforts:
+                type: array
+                items:
+                  type: string
+              defaultEffort:
+                type: string
+                nullable: true
+              isDefault:
+                type: boolean
     RunSpawnRequest:
       type: object
       description: 'Request body for spawning a run. SIDE EFFECT: a successful call spawns a real `claude` process in `cwd`, begins streaming `run_stream`/`run_status` WebSocket messages, and persists a row to `dashboard_runs`.'
       required:
         - prompt
       properties:
+        provider:
+          $ref: '#/components/schemas/RunProvider'
+          description: Defaults to Claude. Codex always starts an interactive conversation thread.
         prompt:
           type: string
           description: Initial user prompt. Required and non-empty UNLESS mode is `conversation` AND resumeSessionId is set (a resumed conversation may start empty and idle on stdin).
@@ -3293,7 +3873,7 @@ components:
           example: conversation
         cwd:
           type: string
-          description: Absolute working directory for the child. Must exist as a directory at request time. Omitted/empty defaults to the dashboard server's cwd. Non-absolute or missing paths are rejected with EBADCWD.
+          description: Absolute working directory for the child. Must exist as a directory at request time and is canonicalized with realpath before use. It intentionally may be outside this repository so Run Agent can launch in a home directory or any recent project. Omitted/empty defaults to the dashboard server's cwd. Non-absolute or missing paths are rejected with EBADCWD.
           example: /Users/dev/projects/my-app
         model:
           type: string
@@ -3315,14 +3895,16 @@ components:
           example: high
         permissionMode:
           type: string
-          enum:
-            - acceptEdits
-            - default
-            - plan
-            - bypassPermissions
-          default: acceptEdits
           description: Permission mode passed via `--permission-mode`. Unknown values silently fall back to `acceptEdits`.
           example: acceptEdits
+        sandbox:
+          type: string
+          enum:
+            - read-only
+            - workspace-write
+            - danger-full-access
+          description: Codex sandbox policy. Ignored for Claude.
+          example: workspace-write
     RunSpawnConcurrencyResponse:
       type: object
       description: HTTP 429 body when the concurrency cap is reached (ECONCURRENCY). In addition to the standard `error` envelope, this response carries a top-level `running` array listing the runs currently occupying the cap.
@@ -3367,6 +3949,9 @@ components:
       required:
         - text
       properties:
+        provider:
+          $ref: '#/components/schemas/RunProvider'
+          description: Provider owning the run. Defaults to Claude for backwards compatibility.
         text:
           type: string
           description: The follow-up user message. Required and non-empty (else EBADINPUT).
@@ -3536,7 +4121,7 @@ components:
             - 4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11
     RemoteSource:
       type: object
-      description: A configured remote SSH machine the dashboard pulls Claude Code history from. NO secrets are stored on this record — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, and key files). `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias.
+      description: A configured remote SSH machine the dashboard pulls Claude Code and Codex history from. NO secrets are stored on this record — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, and key files). `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias.
       required:
         - id
         - label
@@ -3544,8 +4129,11 @@ components:
         - ssh_port
         - identity_file
         - remote_home
+        - remote_codex_home
         - enabled
         - status
+        - claude_status
+        - codex_status
         - last_error
         - last_sync_at
         - last_sync_counts
@@ -3579,6 +4167,11 @@ components:
           nullable: true
           description: Optional remote Claude home to read transcripts from; null defaults to the remote `~/.claude`.
           example: ~/.claude
+        remote_codex_home:
+          type: string
+          nullable: true
+          description: Optional remote Codex home to read rollout transcripts and native session titles from; null defaults to the remote `~/.codex`.
+          example: ~/.codex
         enabled:
           type: boolean
           description: Whether this source is eligible for scheduled/manual syncs.
@@ -3592,6 +4185,28 @@ components:
             - error
           description: Last known sync status of the source.
           example: ok
+        claude_status:
+          type: string
+          nullable: true
+          enum:
+            - idle
+            - syncing
+            - ok
+            - unavailable
+            - error
+          description: Provider-specific Claude Code mirror state. Null on legacy source rows before their first provider-aware sync.
+          example: ok
+        codex_status:
+          type: string
+          nullable: true
+          enum:
+            - idle
+            - syncing
+            - ok
+            - unavailable
+            - error
+          description: Provider-specific Codex mirror state. `unavailable` means no Codex sessions directory was found on an otherwise reachable source.
+          example: unavailable
         last_error:
           type: string
           nullable: true
@@ -3607,7 +4222,7 @@ components:
           type: object
           nullable: true
           additionalProperties: true
-          description: Counters from the last sync (imported / skipped / backfilled / errors / sessions_seen / sessions_tagged), or null if never synced.
+          description: Combined counters from the last sync plus optional provider-specific results for Claude Code and Codex, or null if never synced.
           example:
             imported: 9
             skipped: 41
@@ -3615,6 +4230,13 @@ components:
             errors: 0
             sessions_seen: 50
             sessions_tagged: 50
+            providers:
+              claude:
+                status: ok
+                imported: 9
+                sessions_tagged: 50
+              codex:
+                status: unavailable
         created_at:
           type: string
           format: date-time
@@ -3652,6 +4274,10 @@ components:
           type: string
           description: Optional remote Claude home; defaults to the remote `~/.claude`.
           example: ~/.claude
+        remote_codex_home:
+          type: string
+          description: Optional remote Codex home; defaults to the remote `~/.codex`.
+          example: ~/.codex
         enabled:
           type: boolean
           description: Whether the source is enabled for syncing (default true).
@@ -3678,6 +4304,10 @@ components:
           type: string
           nullable: true
           example: ~/.claude
+        remote_codex_home:
+          type: string
+          nullable: true
+          example: ~/.codex
         enabled:
           type: boolean
           example: false
@@ -3712,13 +4342,33 @@ components:
           description: Human-readable probe result.
           example: Connected; found 24 project directories under ~/.claude/projects.
         remoteProjects:
-          type: array
-          description: Optional list of remote project directories discovered during the probe (present on success).
-          items:
-            type: string
-          example:
-            - '-Users-son-code-foo'
-            - '-Users-son-code-bar'
+          type: string
+          description: Resolved remote Claude Code projects path checked by the probe.
+          example: ~/.claude/projects
+        remoteCodexSessions:
+          type: string
+          description: Resolved remote Codex sessions path checked by the probe.
+          example: ~/.codex/sessions
+        providers:
+          type: object
+          description: Per-provider probe results. A source may be successful when one provider is available and the other is absent.
+          additionalProperties:
+            type: object
+            required:
+              - status
+              - message
+              - path
+            properties:
+              status:
+                type: string
+                enum:
+                  - ok
+                  - unavailable
+                  - error
+              message:
+                type: string
+              path:
+                type: string
     RemoteSourceSyncResponse:
       type: object
       description: Counters from a pull-now sync against the remote source.
@@ -3753,6 +4403,10 @@ components:
           type: integer
           description: Number of imported sessions stamped with this source's id.
           example: 50
+        providers:
+          type: object
+          description: Provider-specific import counters and availability state.
+          additionalProperties: true
     SettingsClaudeHomeResponse:
       type: object
       description: The Claude Code home directory the dashboard reads transcripts and settings from. Defaults to `~/.claude` unless overridden via the CLAUDE_HOME environment variable.
@@ -3788,6 +4442,40 @@ components:
           type: string
           description: The resolved absolute path now in effect (after `~` expansion).
           example: /Users/son/.codefuse/engine/cc
+    SettingsCodexHomeResponse:
+      type: object
+      description: The Codex state directory the dashboard reads rollout transcripts and hook configuration from. Defaults to DASHBOARD_CODEX_HOME, then CODEX_HOME, then `~/.codex`.
+      required:
+        - codex_home
+      properties:
+        codex_home:
+          type: string
+          description: Absolute path to the active local Codex state directory.
+          example: /Users/son/.codex
+    SettingsCodexHomeUpdateRequest:
+      type: object
+      description: Request body for changing the Codex state directory. A leading `~` is expanded to the user's home directory; the resolved path must be absolute and point to an existing directory.
+      required:
+        - path
+      properties:
+        path:
+          type: string
+          description: New Codex state directory. A leading `~/` is expanded before validation. Must resolve to an absolute existing directory.
+          example: ~/.codex
+    SettingsCodexHomeUpdateResponse:
+      type: object
+      description: Confirmation that DASHBOARD_CODEX_HOME was updated, persisted to `.env`, and the live rollout synchronizer was re-armed for the new sessions directory.
+      required:
+        - ok
+        - codex_home
+      properties:
+        ok:
+          type: boolean
+          enum:
+            - true
+        codex_home:
+          type: string
+          example: /Users/son/.codex
     WorkflowToolRun:
       type: object
       description: 'A Claude Code Workflow-tool run (issue #167): a fleet of sub-agents spawned by the ''Workflow'' tool (or self-paced /loop). These emit no hooks; the source of truth is the on-disk run journal, ingested into the `workflows` table (see server/lib/workflow-ingest.js). Keyed by `run_id` and parented to the launching session. The JSON-blob columns `phases` and `progress` are parsed into arrays before serialization.'
@@ -3984,7 +4672,7 @@ paths:
       tags:
         - Sessions
       summary: List sessions
-      description: Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status` and `q` filters compose (AND) with each other and with pagination; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.
+      description: Returns a paginated list of durable sessions, newest real activity first, each enriched with agent count, durable last activity, prompt preview, and calculated cost. Set `include_task_progress=true` to attach a nullable owner-aware `todo_summary` derived from Claude Task*/TodoWrite or Codex update_plan state for the latest top-level work item, with up to five preview items. A new Claude human turn or Codex task with no tracker clears older state; a completed or aborted turn drops unfinished tracker state while retaining fully completed history. Task progress is computed for at most the first 100 returned rows, and each transcript read scans only its newest 32 MiB. The opt-in keeps high-volume Dashboard/Kanban calls from parsing transcripts. The persisted `status`, `q`, and repeatable `cwd` filters compose. `total` remains independent of `limit`/`offset`.
       operationId: listSessions
       parameters:
         - $ref: '#/components/parameters/SessionStatusQuery'
@@ -3995,8 +4683,52 @@ paths:
             type: string
           description: Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.
           example: pricing
+        - name: cwd
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+          description: One or more exact working directories. Repeat `cwd` to include sessions from multiple projects; combines with status and text search.
+          example:
+            - /Users/son/code/project-a
+            - /Users/son/code/project-b
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum:
+              - time
+              - duration
+              - price
+            default: time
+          description: Session ordering dimension.
+          example: time
+        - name: sort_desc
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Sort descending when true and ascending when false.
+          example: true
         - $ref: '#/components/parameters/SourcesQuery'
           example: local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11
+        - name: include_transient
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Opt in to local, in-memory Codex cards that exist before the CLI exposes a durable session id. Honored only on the first page when status is absent or `active`; transient cards are prepended without changing durable `total`, pagination, analytics, or history.
+          example: true
+        - name: include_task_progress
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Attach owner-aware `todo_summary` objects for the latest top-level work item to at most the first 100 returned rows. A newer work item with no tracker, or a finished/aborted turn with unfinished tracker state, returns null; fully completed history remains available. Each transcript scan reads only the newest 32 MiB. Intended for the Sessions table; omitted by high-volume Dashboard/Kanban calls.
+          example: true
         - $ref: '#/components/parameters/LimitQuery'
           example: 50
         - $ref: '#/components/parameters/OffsetQuery'
@@ -4018,12 +4750,39 @@ paths:
                     started_at: '2026-06-25T14:02:11.004Z'
                     ended_at: null
                     metadata: '{"source":"hook","git_branch":"feat/spend-budgets"}'
+                    prompt_preview: Refactor the pricing route and add the cost endpoint.
                     updated_at: '2026-06-25T14:31:50.119Z'
                     agent_count: 4
                     last_activity: '2026-06-25T14:31:50.119Z'
                     cost: 0.8421
                     awaiting_input_since: null
                     awaiting_reason: null
+                    todo_summary:
+                      total: 3
+                      completed: 1
+                      inProgress: 1
+                      pending: 1
+                      cancelled: 0
+                      unknown: 0
+                      percentComplete: 33
+                      activeText: Implement task progress UI
+                      sourceTool: TaskList
+                      updatedAt: '2026-06-25T14:31:50.119Z'
+                      previewItems:
+                        - id: task-1
+                          text: Inspect task transcripts
+                          status: completed
+                          sourceStatus: completed
+                          order: 0
+                          agentId: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
+                          agentType: main
+                          description: null
+                      overflowCount: 2
+                      ownerBreakdown:
+                        - agentId: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
+                          agentType: main
+                          completed: 1
+                          total: 3
                   - id: 1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9
                     name: Fix flaky transcript pagination test
                     status: completed
@@ -4032,12 +4791,14 @@ paths:
                     started_at: '2026-06-24T09:12:00.000Z'
                     ended_at: '2026-06-24T09:48:32.501Z'
                     metadata: null
+                    prompt_preview: Fix the flaky transcript pagination test.
                     updated_at: '2026-06-24T09:48:32.501Z'
                     agent_count: 1
                     last_activity: '2026-06-24T09:48:32.501Z'
                     cost: 0.1532
                     awaiting_input_since: null
                     awaiting_reason: null
+                    todo_summary: null
                 limit: 50
                 offset: 0
                 total: 137
@@ -4078,6 +4839,7 @@ paths:
                   started_at: '2026-06-25T14:02:11.004Z'
                   ended_at: null
                   metadata: '{"source":"hook","git_branch":"feat/spend-budgets"}'
+                  prompt_preview: Refactor the pricing route and add the cost endpoint.
                   updated_at: '2026-06-25T14:31:50.119Z'
                   agent_count: 4
                   last_activity: '2026-06-25T14:31:50.119Z'
@@ -4101,6 +4863,7 @@ paths:
                   started_at: '2026-06-25T14:02:11.004Z'
                   ended_at: null
                   metadata: '{"source":"hook","git_branch":"feat/spend-budgets"}'
+                  prompt_preview: Refactor the pricing route and add the cost endpoint.
                   updated_at: '2026-06-25T14:02:11.004Z'
                   agent_count: 0
                   last_activity: '2026-06-25T14:02:11.004Z'
@@ -4123,7 +4886,7 @@ paths:
       tags:
         - Sessions
       summary: Get session details
-      description: Returns a single session together with all of its agents (chronological) and persisted events. Read-only, no side effects. The session's `metadata` and each event's `data` are returned as raw JSON-encoded strings, not parsed objects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.
+      description: Returns a single session together with its agents, persisted events, workflow runs, and a nullable full `todo_snapshot`. Task state is reduced from Claude TaskCreate/TaskGet/TaskUpdate/TaskList and lifecycle events, legacy TodoWrite snapshots, or Codex update_plan snapshots; subagent ownership remains visible on items and owner summaries. Real top-level Claude human turns and Codex task_started records clear every older owner snapshot, while a subagent's next turn clears only that owner. Claude turn-end records and Codex task_complete/turn_aborted drop owner snapshots with unfinished work but retain fully completed/cancelled history, so stale in-progress state returns null. Persisted Claude prompt/terminal events apply the same boundary before a matching transcript marker flushes. Transcript parsing scans only the newest 32 MiB and the snapshot contains at most 200 tasks. Read-only, no side effects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.
       operationId: getSession
       parameters:
         - $ref: '#/components/parameters/SessionIdPath'
@@ -4145,12 +4908,44 @@ paths:
                   started_at: '2026-06-25T14:02:11.004Z'
                   ended_at: null
                   metadata: '{"source":"hook","git_branch":"feat/spend-budgets"}'
+                  prompt_preview: Refactor the pricing route and add the cost endpoint.
                   updated_at: '2026-06-25T14:31:50.119Z'
                   agent_count: 4
                   last_activity: '2026-06-25T14:31:50.119Z'
                   cost: 0.8421
                   awaiting_input_since: null
                   awaiting_reason: null
+                  todo_snapshot:
+                    provider: claude
+                    source: transcript
+                    sourceTool: TaskList
+                    sourceLine: 42
+                    updatedAt: '2026-06-25T14:31:50.119Z'
+                    explanation: null
+                    confidence: full
+                    items:
+                      - id: task-1
+                        text: Inspect task transcripts
+                        status: completed
+                        sourceStatus: completed
+                        order: 0
+                        agentId: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
+                        agentType: main
+                        description: null
+                    total: 3
+                    completed: 1
+                    inProgress: 1
+                    pending: 1
+                    cancelled: 0
+                    unknown: 0
+                    percentComplete: 33
+                    activeText: Implement task progress UI
+                    includesSubagents: false
+                    ownerBreakdown:
+                      - agentId: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
+                        agentType: main
+                        completed: 1
+                        total: 3
                 agents:
                   - id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                     session_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
@@ -4165,6 +4960,7 @@ paths:
                     parent_agent_id: null
                     metadata: '{"model":"claude-opus-4-20250514"}'
                     updated_at: '2026-06-25T14:31:50.119Z'
+                    last_activity: '2026-06-25T14:31:50.119Z'
                     awaiting_input_since: null
                     awaiting_reason: null
                   - id: ad18a79192af10ed1
@@ -4180,6 +4976,7 @@ paths:
                     parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                     metadata: null
                     updated_at: '2026-06-25T14:14:09.882Z'
+                    last_activity: '2026-06-25T14:14:09.882Z'
                     awaiting_input_since: null
                     awaiting_reason: null
                 events:
@@ -4240,6 +5037,7 @@ paths:
                   started_at: '2026-06-25T14:02:11.004Z'
                   ended_at: '2026-06-25T15:07:44.220Z'
                   metadata: '{"source":"hook","git_branch":"feat/spend-budgets","outcome":"merged"}'
+                  prompt_preview: Refactor the pricing route and add the cost endpoint.
                   updated_at: '2026-06-25T15:07:44.220Z'
                   agent_count: 4
                   last_activity: '2026-06-25T15:07:44.220Z'
@@ -4474,7 +5272,7 @@ paths:
       tags:
         - Agents
       summary: List agents
-      description: 'Returns agents, most recent first. Filters are applied with precedence rather than composition: when `session_id` is supplied it wins and returns every agent for that session (ignoring `status` and pagination); otherwise a `status` filter returns paginated agents in that lifecycle state; otherwise all agents are returned paginated. `limit` defaults to 10000 when not a positive integer. Read-only, no side effects. Each agent''s `metadata` is returned as a raw JSON-encoded string, not a parsed object.'
+      description: 'Returns durable agents, most recent first. Filters are applied with precedence rather than composition: when `session_id` is supplied it wins and returns every agent for that session (ignoring `status` and pagination); otherwise a `status` filter returns paginated agents in that lifecycle state; otherwise all agents are returned paginated. `limit` defaults to 10000 when not a positive integer. The optional `include_transient=true` dashboard overlay prepends local pre-identity Codex main-agent cards only to the first `status=waiting` page without a `session_id`; those cards are never persisted, priced, or included in analytics/history. Read-only, no side effects. Each agent''s `metadata` is returned as a raw JSON-encoded string, not a parsed object.'
       operationId: listAgents
       parameters:
         - $ref: '#/components/parameters/AgentStatusQuery'
@@ -4483,6 +5281,13 @@ paths:
           example: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d
         - $ref: '#/components/parameters/SourcesQuery'
           example: local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11
+        - name: include_transient
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Opt in to local, in-memory Codex main-agent cards before the CLI exposes a durable session id. Honored only on the first `status=waiting` page without `session_id`.
+          example: true
         - $ref: '#/components/parameters/LimitQuery'
           example: 50
         - $ref: '#/components/parameters/OffsetQuery'
@@ -4509,6 +5314,7 @@ paths:
                     parent_agent_id: null
                     metadata: '{"model":"claude-opus-4-20250514"}'
                     updated_at: '2026-06-25T14:31:50.119Z'
+                    last_activity: '2026-06-25T14:31:50.119Z'
                     awaiting_input_since: null
                     awaiting_reason: null
                   - id: ad18a79192af10ed1
@@ -4524,6 +5330,7 @@ paths:
                     parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                     metadata: null
                     updated_at: '2026-06-25T14:14:09.882Z'
+                    last_activity: '2026-06-25T14:14:09.882Z'
                     awaiting_input_since: null
                     awaiting_reason: null
                 limit: 50
@@ -4573,6 +5380,7 @@ paths:
                   parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
+                  last_activity: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
                   awaiting_reason: null
                 created: false
@@ -4597,6 +5405,7 @@ paths:
                   parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                   metadata: '{"spawned_by":"Task"}'
                   updated_at: '2026-06-25T14:10:22.310Z'
+                  last_activity: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
                   awaiting_reason: null
                 created: true
@@ -4642,6 +5451,7 @@ paths:
                   parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
+                  last_activity: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
                   awaiting_reason: null
         '404':
@@ -4695,6 +5505,7 @@ paths:
                   parent_agent_id: b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main
                   metadata: null
                   updated_at: '2026-06-25T14:14:09.882Z'
+                  last_activity: '2026-06-25T14:14:09.882Z'
                   awaiting_input_since: null
                   awaiting_reason: null
         '404':
@@ -5051,6 +5862,46 @@ paths:
                 error:
                   code: MISSING_SESSION
                   message: session_id is required in data
+  /api/hooks/codex:
+    post:
+      tags:
+        - Hooks
+      summary: Queue a non-blocking Codex rollout ingest
+      operationId: ingestCodexHook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hook_type
+                - data
+              properties:
+                hook_type:
+                  type: string
+                  description: Codex lifecycle hook (SessionStart, UserPromptSubmit, PostToolUse, Stop, or SessionEnd)
+                data:
+                  type: object
+                  properties:
+                    transcript_path:
+                      type: string
+                  additionalProperties: true
+      responses:
+        '202':
+          description: Hook acknowledged; rollout parsing continues asynchronously
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - ok
+                  - queued
+                properties:
+                  ok:
+                    type: boolean
+                  queued:
+                    type: boolean
   /api/pricing:
     get:
       tags:
@@ -5138,6 +5989,64 @@ paths:
                 error:
                   code: INVALID_INPUT
                   message: model_pattern and display_name are required
+  /api/pricing/gpt:
+    get:
+      tags:
+        - Pricing
+      summary: List OpenAI/Codex pricing rules
+      operationId: listGptPricingRules
+      responses:
+        '200':
+          description: GPT pricing rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GptPricingListResponse'
+    put:
+      tags:
+        - Pricing
+      summary: Create or update an OpenAI/Codex pricing rule
+      operationId: upsertGptPricingRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GptPricingUpsertRequest'
+      responses:
+        '200':
+          description: GPT pricing rule stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GptPricingUpsertResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/pricing/gpt/{pattern}:
+    delete:
+      tags:
+        - Pricing
+      summary: Delete an OpenAI/Codex pricing rule
+      operationId: deleteGptPricingRule
+      parameters:
+        - $ref: '#/components/parameters/PatternPath'
+      responses:
+        '200':
+          description: Rule deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteOkResponse'
+        '404':
+          description: Rule not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/pricing/{pattern}:
     delete:
       tags:
@@ -5331,10 +6240,12 @@ paths:
       tags:
         - Workflows
       summary: Get workflow intelligence aggregates
-      description: 'Returns the full workflow-intelligence aggregate powering the Workflows analytics page — 11 sections in one payload: `stats` (headline counters: sessions, agents, subagents, success rate, avg depth/duration, compactions, top tool flow), `orchestration` (subagent-type breakdown + delegation edges + outcomes), `toolFlow` (tool-to-tool transitions + tool counts), `effectiveness` (per-subagent-type success rate, avg duration, weekly trend), `patterns` (frequent subagent sequences + solo-session share), `modelDelegation` (model usage for main/sub agents + tokens by model), `errorPropagation` (errors by depth/type + error rate), `concurrency` (averaged agent swim-lane start/end), `complexity` (per-session agent/token/duration rows), `compaction` (compaction counts + tokens recovered), and `cooccurrence` (directed subagent-after-subagent pairs). The optional `status` query filter scopes every section to sessions of one status. Errors use the SHORT `{ error: { message } }` shape.'
+      description: 'Returns the full workflow-intelligence aggregate powering the Workflows analytics page — 11 sections in one payload: `stats` (headline counters: sessions, agents, subagents, success rate, avg depth/duration, compactions, top tool flow), `orchestration` (subagent-type breakdown + delegation edges + outcomes), `toolFlow` (tool-to-tool transitions + tool counts), `effectiveness` (per-subagent-type success rate, avg duration, weekly trend), `patterns` (frequent subagent sequences + solo-session share), `modelDelegation` (model usage for main/sub agents + tokens by model), `errorPropagation` (errors by depth/type + error rate), `concurrency` (averaged agent swim-lane start/end), `complexity` (per-session agent/token/duration rows), `compaction` (compaction counts + tokens recovered), and `cooccurrence` (directed subagent-after-subagent pairs). `status`, `sources`, and `providers` scope every section. Codex tool flow is derived from its persisted `response_item` calls and Codex compactions from `context_compacted` events; Claude-only Workflow-tool journals are not represented as Codex runs. Errors use the SHORT `{ error: { message } }` shape.'
       operationId: getWorkflowIntelligence
       parameters:
         - $ref: '#/components/parameters/WorkflowStatusQuery'
+        - $ref: '#/components/parameters/SourcesQuery'
+        - $ref: '#/components/parameters/ProvidersQuery'
       responses:
         '200':
           description: Workflow aggregate data
@@ -5492,10 +6403,12 @@ paths:
       tags:
         - Workflows
       summary: Get workflow drill-in for one session
-      description: 'Returns the workflow drill-in for a single session, used by the session-level Workflow view: `session` (the session row), `tree` (the recursive parent→child agent tree rooted at the main agent), `toolTimeline` (chronological tool events with tool_name/event_type/agent_id/summary), `swimLanes` (a flat per-agent start/end lane list for the Gantt-style view), and `events` (the chronological event stream, capped at the first 500 rows). Returns 404 with the SHORT `{ error: { message } }` shape when the session id is unknown.'
+      description: 'Returns the workflow drill-in for a single session, used by the session-level Workflow view: `session` (the session row), `tree` (the recursive parent→child agent tree rooted at the main agent), `toolTimeline` (chronological tool events with tool_name/event_type/agent_id/summary), `swimLanes` (a flat per-agent start/end lane list for the Gantt-style view), and `events` (the chronological event stream, capped at the first 500 rows). `sources` and `providers` enforce the active dashboard scope. Returns 404 with the SHORT `{ error: { message } }` shape when the session is unknown or outside that scope.'
       operationId: getWorkflowSession
       parameters:
         - $ref: '#/components/parameters/SessionIdPath'
+        - $ref: '#/components/parameters/SourcesQuery'
+        - $ref: '#/components/parameters/ProvidersQuery'
       responses:
         '200':
           description: Workflow session detail
@@ -5651,7 +6564,7 @@ paths:
       tags:
         - Settings
       summary: Delete all dashboard data
-      description: '⚠ DESTRUCTIVE — IRREVERSIBLE. Deletes ALL sessions, agents, events, token_usage rows, the fired-alert feed (alert_events), and the webhook delivery log. There is no confirmation step and no undo — export first via GET /api/settings/export if you need a backup. User CONFIGURATION survives: alert *rules*, webhook *targets*, and model_pricing are preserved (they''re settings, not captured data). The response echoes the row counts that existed BEFORE the wipe so the UI can report what was removed.'
+      description: '⚠ DESTRUCTIVE — IRREVERSIBLE. Deletes ALL sessions, agents, events, token_usage rows, the fired-alert feed (alert_events), and the webhook delivery log. There is no confirmation step and no undo — export first via GET /api/settings/export if you need a backup. User CONFIGURATION survives: alert *rules*, webhook *targets*, model_pricing, and gpt_model_pricing are preserved (they''re settings, not captured data). The response echoes the row counts that existed BEFORE the wipe so the UI can report what was removed.'
       operationId: clearData
       responses:
         '200':
@@ -5734,13 +6647,81 @@ paths:
                 error:
                   code: HOOK_INSTALL_FAILED
                   message: 'EACCES: permission denied, open ''/Users/son/.claude/settings.json'''
+  /api/settings/install-hooks:
+    post:
+      tags:
+        - Settings
+      summary: Install dashboard hooks for Claude Code, Codex, or both
+      operationId: installSelectedHooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - providers
+              properties:
+                providers:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: string
+                    enum:
+                      - claude
+                      - codex
+      responses:
+        '200':
+          description: Selected hook installers completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - ok
+                  - results
+                  - hooks
+                properties:
+                  ok:
+                    type: boolean
+                  results:
+                    type: object
+                    additionalProperties: true
+                  hooks:
+                    $ref: '#/components/schemas/ReinstallHooksResponse/properties/hooks'
+        '400':
+          description: No valid product selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/settings/reset-pricing:
     post:
       tags:
         - Settings
-      summary: Reset pricing table to defaults
-      description: ⚠ DESTRUCTIVE to pricing customizations. Deletes EVERY row in the model_pricing table and re-seeds it from the dashboard's built-in DEFAULT_PRICING list. Any custom rates or custom model patterns you added are permanently lost — there is no undo. Captured session/token data is untouched (only the pricing rules used to *compute* cost change). The response returns the full freshly-seeded pricing table.
+      summary: Reset pricing defaults
+      description: '⚠ DESTRUCTIVE to pricing customizations. With `provider: claude` or `provider: codex`, deletes and re-seeds only that provider''s pricing table so the other provider''s custom rules remain untouched. Omitting the body preserves the legacy CLI/MCP behavior and resets both tables. Custom rates or model patterns in the selected scope are permanently lost — there is no undo. Captured session/token data is untouched. The response returns both current tables and identifies the reset scope.'
       operationId: resetPricing
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+            examples:
+              claude:
+                value:
+                  provider: claude
+              codex:
+                value:
+                  provider: codex
       responses:
         '200':
           description: Pricing defaults restored
@@ -5750,6 +6731,7 @@ paths:
                 $ref: '#/components/schemas/ResetPricingResponse'
               example:
                 ok: true
+                provider: claude
                 pricing:
                   - model_pattern: claude-opus-4*
                     display_name: Claude Opus 4
@@ -5771,12 +6753,19 @@ paths:
                     fast_input_per_mtok: 0
                     fast_output_per_mtok: 0
                     updated_at: '2026-06-26T00:00:00.000Z'
+                gpt_pricing: []
+        '400':
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/settings/export:
     get:
       tags:
         - Settings
       summary: Export all dashboard data as JSON
-      description: 'Exports the entire dataset as a single versioned JSON document — all sessions, agents, events, token_usage rows, workflows, dashboard_runs, alert_rules, and model_pricing — stamped with `format: "ccam-export"`, `version`, and `exported_at`. Served with a `Content-Disposition: attachment` header (filename `agent-monitor-export-YYYY-MM-DD.json`) so browsers download it. Use it to back up before a destructive operation (clear-data / cleanup with purge_days) or to migrate/consolidate data across machines — the bundle is re-importable via POST /api/settings/import. Read-only; nothing is modified.'
+      description: 'Exports the entire dataset as a single versioned JSON document — all sessions, agents, events, token_usage rows, workflows, dashboard_runs, alert_rules, model_pricing, and gpt_model_pricing — stamped with `format: "ccam-export"`, `version`, and `exported_at`. Served with a `Content-Disposition: attachment` header (filename `agent-monitor-export-YYYY-MM-DD.json`) so browsers download it. Use it to back up before a destructive operation (clear-data / cleanup with purge_days) or to migrate/consolidate data across machines — the bundle is re-importable via POST /api/settings/import. Read-only; nothing is modified.'
       operationId: exportData
       responses:
         '200':
@@ -5787,7 +6776,7 @@ paths:
                 $ref: '#/components/schemas/ExportResponse'
               example:
                 format: ccam-export
-                version: 1
+                version: 2
                 exported_at: '2026-06-26T01:12:44.913Z'
                 sessions:
                   - id: 5f3c0e2a-1b9d-4c77-8a21-9e0f7b6d4c11
@@ -5850,6 +6839,21 @@ paths:
                     fast_input_per_mtok: 0
                     fast_output_per_mtok: 0
                     updated_at: '2026-06-26T00:00:00.000Z'
+                gpt_model_pricing:
+                  - model_pattern: gpt-5.6-terra%
+                    display_name: GPT-5.6 Terra
+                    short_input_per_mtok: 2
+                    short_cached_input_per_mtok: 0.2
+                    short_cache_write_per_mtok: 2.5
+                    short_output_per_mtok: 12
+                    long_input_per_mtok: 4
+                    long_cached_input_per_mtok: 0.4
+                    long_cache_write_per_mtok: 5
+                    long_output_per_mtok: 18
+                    fast_input_per_mtok: 4
+                    fast_cached_input_per_mtok: 0.4
+                    fast_cache_write_per_mtok: 5
+                    fast_output_per_mtok: 24
   /api/settings/cleanup:
     post:
       tags:
@@ -5890,9 +6894,20 @@ paths:
     get:
       tags:
         - Import
-      summary: Import guide with OS-aware defaults and step-by-step instructions
-      description: 'Returns the OS-aware import guide the Import page renders verbatim: the detected `platform`, the default `~/.claude/projects` directory (raw + display form), whether it exists and how many projects/JSONL files it holds, an OS-specific `archive_command` for bundling history off another machine, the supported file extensions, the upload size/count limits, and four ordered `steps` (locate → archive → choose mode → verify). Read-only; performs no import.'
+      summary: Provider-aware import guide with OS-aware defaults and step-by-step instructions
+      description: 'Returns the OS-aware guide for the selected `provider` (`claude` or `codex`): its default transcript directory, existence and folder/file counts, an archive command, supported extensions, upload limits, and four ordered steps. Read-only; performs no import.'
       operationId: importGuide
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - claude
+              - codex
+            default: claude
+          description: History provider to describe.
       responses:
         '200':
           description: Guide payload
@@ -5901,6 +6916,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportGuideResponse'
               example:
+                provider: claude
                 platform: darwin
                 default_projects_dir: /Users/son/.claude/projects
                 default_projects_dir_display: ~/.claude/projects
@@ -5941,9 +6957,22 @@ paths:
     post:
       tags:
         - Import
-      summary: Rescan the default ~/.claude/projects directory
-      description: 'Re-scans the default `~/.claude/projects` directory and imports anything new through the live ingestion pipeline. IDEMPOTENT and ADDITIVE — re-running is always safe, already-imported sessions are deduplicated (`skipped`), and token/compaction baselines are preserved so cost never double-counts. Progress is broadcast over the WebSocket as `import.progress` frames while it runs. The response reports `imported` / `skipped` / `backfilled` / `errors` plus `sessions_seen` and `files_scanned`, with `source: "default"`.'
+      summary: Rescan the selected provider's default transcript directory
+      description: Re-scans the selected provider’s default transcript directory (`~/.claude/projects` or `~/.codex/sessions`) through its live ingestion pipeline. IDEMPOTENT and ADDITIVE — re-running is safe, previously processed entries are skipped, and provider-specific accounting prevents duplicate costs. Progress is broadcast as `import.progress` with the selected provider.
       operationId: importRescan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+                  default: claude
       responses:
         '200':
           description: Import result
@@ -5953,6 +6982,7 @@ paths:
                 $ref: '#/components/schemas/ImportResultResponse'
               example:
                 ok: true
+                provider: claude
                 source: default
                 imported: 14
                 skipped: 298
@@ -5975,7 +7005,7 @@ paths:
       tags:
         - Import
       summary: Import transcripts from an arbitrary absolute directory
-      description: 'Imports transcripts from an arbitrary directory you point the dashboard at (e.g. history extracted from another machine). The `path` must resolve to an existing directory: a leading `~` is expanded to the home directory, the result must be absolute, and subdirectories are walked recursively for `.jsonl` files. Same idempotent, baseline-preserving pipeline as the default rescan; progress is broadcast as `import.progress`. The response echoes the resolved `path` and the per-run counters with `source: "path"`.'
+      description: Imports Claude Code transcripts or Codex rollout files from an arbitrary directory (for example, history extracted from another machine). The `path` must resolve to an existing directory; a leading `~` is expanded and subdirectories are walked recursively. External Codex inputs are snapshotted into dashboard-owned storage so their Conversation view remains available after the source folder is removed. Progress is broadcast as provider-tagged `import.progress` frames.
       operationId: importScanPath
       requestBody:
         required: true
@@ -5989,15 +7019,24 @@ paths:
                 path:
                   type: string
                   description: Absolute directory path. Tilde (~) is expanded. Walks subdirectories recursively.
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+                  default: claude
+                  description: Transcript format and ingestion pipeline to use.
             examples:
               absolute:
                 summary: Absolute directory
                 value:
                   path: /Users/son/Downloads/claude-history/projects
+                  provider: claude
               tilde:
                 summary: Tilde expanded to home directory
                 value:
-                  path: ~/Downloads/claude-history/projects
+                  path: ~/Downloads/codex-history
+                  provider: codex
       responses:
         '200':
           description: Import result
@@ -6007,6 +7046,7 @@ paths:
                 $ref: '#/components/schemas/ImportResultResponse'
               example:
                 ok: true
+                provider: claude
                 source: path
                 path: /Users/son/Downloads/claude-history/projects
                 imported: 9
@@ -6061,7 +7101,7 @@ paths:
       tags:
         - Import
       summary: Upload JSONL files or archives (.zip, .tar, .tar.gz, .tgz, .gz)
-      description: 'Imports history uploaded directly from the browser as `multipart/form-data` under the `files` field. Accepts raw `.jsonl` / `.meta.json` transcripts and/or archives (`.zip`, `.tar`, `.tar.gz`, `.tgz`, `.gz`), which are extracted into a temp dir and walked for JSONL content. Unsupported extensions are silently rejected and reported in `rejected_files`. Extraction is bounded to defend against zip bombs — exceeding the limit returns 413. Same idempotent import pipeline; progress is broadcast as `import.progress`. On success the response carries `source: "upload"` plus `files_received`, `rejected_files`, `entries_extracted`, `entries_skipped`, and the standard import counters. (Requires the optional `multer` dependency; a missing install yields a 500.)'
+      description: Imports selected Claude Code transcripts or Codex rollout files uploaded as `multipart/form-data` under `files`, with a `provider` field. Raw JSONL files and archives are extracted into a temporary directory; Codex uploads are copied to dashboard-owned storage before the temporary files are reclaimed. Unsupported extensions are reported in `rejected_files`; bounded extraction protects against archive bombs. Progress is broadcast as provider-tagged `import.progress` frames.
       operationId: importUpload
       requestBody:
         required: true
@@ -6076,10 +7116,18 @@ paths:
                     type: string
                     format: binary
                   description: Files to import. Supports .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz.
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+                  default: claude
+                  description: Transcript provider for the uploaded files.
             example:
+              provider: codex
               files:
-                - claude-history.tar.gz
-                - session-extra.jsonl
+                - codex-history.tar.gz
+                - rollout-session.jsonl
       responses:
         '200':
           description: Import result
@@ -6089,6 +7137,7 @@ paths:
                 $ref: '#/components/schemas/ImportResultResponse'
               example:
                 ok: true
+                provider: claude
                 source: upload
                 files_received: 3
                 rejected_files:
@@ -6654,7 +7703,7 @@ paths:
       tags:
         - Webhooks
       summary: List supported providers + their config fields (for the UI)
-      description: 'Returns the redacted provider catalog the webhook-target editor renders. For each of the 14 supported providers (Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream) plus the `generic` family, it lists: a human label, the provider family, whether the URL must be https / is user-supplied, and the per-provider config field definitions (key, label, type, required, options, and whether the field is secret). No secret values are ever included — this is purely the *shape* of the form, not stored credentials.'
+      description: 'Returns the redacted provider catalog the webhook-target editor renders. For each of the 14 supported providers (Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream) plus the `generic` family, it lists: a human label, the provider family, whether the URL must be HTTPS / is user-supplied, and the per-provider config field definitions (key, label, type, required, options, and whether the field is secret). Hosted providers require HTTPS; `generic` and `n8n` may use HTTP for local or self-hosted receivers. No secret values are ever included — this is purely the *shape* of the form, not stored credentials.'
       operationId: listWebhookProviders
       responses:
         '200':
@@ -6773,7 +7822,7 @@ paths:
       tags:
         - Webhooks
       summary: Create a webhook target
-      description: Creates a webhook target that fires when alerts match. `name` and `type` are required. `url` is required for most providers but is derived or defaulted for a few (Telegram and Opsgenie derive it from config; PagerDuty defaults it) — consult GET /api/webhooks/providers for which fields each provider needs. `config` carries provider-specific params (e.g. `{ chat_id }` for Telegram, `{ routing_key, severity }` for PagerDuty, `{ api_key, region }` for Opsgenie). `secret` (HMAC-SHA256 signing) and custom `headers` apply only to the generic family and are silently ignored for other providers. `rule_ids` optionally scopes the target to specific alert rules; omit it to fire for all rules. The response is the created target, REDACTED the same way as the list endpoint (URL masked, secrets shown only as `has_secret`/`••••`).
+      description: Creates a webhook target that fires when alerts match. `name` and `type` are required. `url` is required for most providers but is derived or defaulted for a few (Telegram and Opsgenie derive it from config; PagerDuty defaults it) — consult GET /api/webhooks/providers for which fields each provider needs. Hosted providers require HTTPS; `generic` and `n8n` may use HTTP for local or self-hosted receivers. Delivery rejects redirects, so credentials, custom headers, and HMAC signatures are never forwarded to a second destination. `config` carries provider-specific params (e.g. `{ chat_id }` for Telegram, `{ routing_key, severity }` for PagerDuty, `{ api_key, region }` for Opsgenie). `secret` (HMAC-SHA256 signing) and custom `headers` apply only to the generic family and are silently ignored for other providers. `rule_ids` optionally scopes the target to specific alert rules; omit it to fire for all rules. The response is the created target, REDACTED the same way as the list endpoint (URL masked, secrets shown only as `has_secret`/`••••`).
       operationId: createWebhook
       requestBody:
         required: true
@@ -7760,7 +8809,7 @@ paths:
       tags:
         - CcConfig
       summary: Read a single file body
-      description: 'Read-only. Returns the body of one file. Strict path containment: the resolved absolute path MUST live under the Claude home, the project .claude dir, or (only for a file literally named CLAUDE.md) the project root. Bodies over 256 KiB are truncated. NOTE: there is no 404 path — a missing, unreadable, or out-of-root file all return 400.'
+      description: 'Read-only. Returns the body of one file. Strict symlink-aware path containment: the requested file and allowed roots are canonicalized with realpath, and the canonical target MUST live under the Claude home, the project .claude dir, or (only for a file literally named CLAUDE.md) the project root. Bodies over 256 KiB are truncated. NOTE: there is no 404 path — a missing, unreadable, or out-of-root file all return 400.'
       operationId: ccConfigGetFile
       parameters:
         - name: path
@@ -7990,6 +9039,191 @@ paths:
                     isDir: false
                     mtime: 1718900000000
                     size: 2048
+  /api/codex-config/overview:
+    get:
+      tags:
+        - CodexConfig
+      summary: Read safe Codex configuration metadata
+      description: Returns the current Codex defaults, available model cache, profiles, configured MCP servers/projects, skills, rules, hooks, plugins, and instruction-file metadata. This endpoint only reads local files and redacts secret-like values.
+      operationId: codexConfigOverview
+      responses:
+        '200':
+          description: Read-only Codex configuration overview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigOverview'
+  /api/codex-config/file:
+    get:
+      tags:
+        - CodexConfig
+      summary: Read one safe Codex configuration file
+      description: Reads one file contained by CODEX_HOME, or this repository's AGENTS.md. The target is canonicalized before containment is checked, so a symlink cannot escape the trusted roots. TOML and JSON secret-like values are redacted; files are capped at 256 KiB. Paths outside those roots are refused.
+      operationId: codexConfigFile
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Absolute path under CODEX_HOME or to this project's AGENTS.md.
+      responses:
+        '200':
+          description: Redacted file content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigFile'
+        '400':
+          description: READ_DENIED — the requested file is outside the allowed roots or unreadable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - CodexConfig
+      summary: Save one editable Codex configuration file
+      description: Atomically saves config.toml, named profile overlays, hooks.json, user rules, user skill SKILL.md files, or Codex/project AGENTS.md only. Existing path components may not be symbolic links, the canonical parent must remain inside the trusted root, and content containing the redacted-preview marker `[redacted]` is refused. A timestamped backup is created before every overwrite. The dashboard does not validate TOML, JSON, hook, or instruction syntax.
+      operationId: codexConfigWriteFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+                - content
+              properties:
+                path:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: The file was saved atomically.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigWriteResult'
+        '400':
+          description: The path is not in the editable allowlist or content is invalid.
+        '413':
+          description: The file content exceeds the 256 KiB editor limit.
+    delete:
+      tags:
+        - CodexConfig
+      summary: Delete one user-maintained Codex artifact
+      description: Deletes only hooks.json, a valid named profile overlay, a user rule, a user skill directory, or a Codex/project AGENTS.md file. config.toml is explicitly edit-only. A timestamped backup is made before removal; skill deletion backs up and removes the whole skill directory.
+      operationId: codexConfigDeleteFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+      responses:
+        '200':
+          description: The artifact was backed up and deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigDeleteResult'
+        '400':
+          description: The path is not allowed to be deleted, including config.toml.
+        '404':
+          description: The requested artifact does not exist.
+        '409':
+          description: The path is not a removable file.
+  /api/codex-config/edit-file:
+    get:
+      tags:
+        - CodexConfig
+      summary: Read one editable Codex file for local editing
+      description: Returns unredacted content only for the editable allowlist. Existing path components may not be symbolic links. Use the normal /file endpoint for redacted read-only previews.
+      operationId: codexConfigEditableFile
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema:
+            type: string
+          description: An allowlisted config, hooks, rule, skill, or instruction file path.
+      responses:
+        '200':
+          description: Unredacted editable content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigEditableFile'
+        '400':
+          description: The path is not editable from the dashboard.
+  /api/codex-config/profiles:
+    post:
+      tags:
+        - CodexConfig
+      summary: Create a named Codex profile overlay
+      description: Creates CODEX_HOME/<name>.config.toml with commented guidance. Codex applies this file over config.toml only when launched with --profile <name>; an existing profile is never overwritten.
+      operationId: codexConfigCreateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodexConfigCreateProfile'
+      responses:
+        '201':
+          description: The newly created editable profile file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodexConfigEditableFile'
+        '400':
+          description: The profile name is invalid.
+        '409':
+          description: A profile with that name already exists.
+  /api/run/models:
+    get:
+      tags:
+        - Run
+      summary: Discover models for a provider
+      description: For Codex, queries the signed-in local `codex app-server` model catalog so newly available models appear without a dashboard release. Claude Code exposes no equivalent model-list command, so Claude returns durable aliases plus models observed in local session history.
+      operationId: runModels
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            $ref: '#/components/schemas/RunProvider'
+            default: claude
+      responses:
+        '200':
+          description: Provider model choices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunModelsResponse'
+        '403':
+          description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: EBADORIGIN
+                  message: cross-origin requests are not allowed
+        '503':
+          description: Codex model discovery failed (for example, the CLI is unavailable or not signed in).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/run:
     get:
       tags:
@@ -8051,7 +9285,7 @@ paths:
       tags:
         - Run
       summary: Spawn a new run
-      description: Spawns a real `claude` Code subprocess in the sanitised `cwd`. In `headless` mode the prompt is passed via argv and stdin is closed (one turn, then exit); in `conversation` mode stdin stays open for follow-ups via POST /api/run/{id}/message, and an existing session may be resumed with `resumeSessionId`. The child is always run with `--output-format stream-json --verbose --include-partial-messages`; parsed envelopes are broadcast as `run_stream` WebSocket messages and lifecycle transitions as `run_status`. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped 5 minutes after exit. Concurrency is capped (ECONCURRENCY -> 429). The loopback same-origin guard applies. Returns the freshly-created RunHandle.
+      description: Spawns a Claude Code subprocess or a native interactive Codex app-server thread in the sanitised `cwd`. Claude supports headless and multi-turn conversation modes; Codex always starts/resumes a multi-turn thread and emits structured app-server events in `run_stream`. Provider-specific approval/sandbox settings are validated before spawning. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped after exit. Concurrency is capped (ECONCURRENCY -> 429). The loopback same-origin guard applies. Returns the freshly-created RunHandle.
       operationId: runSpawn
       requestBody:
         required: true
@@ -8272,7 +9506,7 @@ paths:
       tags:
         - Run
       summary: Autocomplete files within a cwd
-      description: Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor's `@` references. The cwd is validated via the same sanitiser as spawning (must be an existing absolute directory). Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The loopback same-origin guard applies.
+      description: 'Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor''s `@` references. The cwd is validated via the same sanitiser as spawning: it must be an existing absolute directory, is canonicalized with realpath, and intentionally may be outside this repository. Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The loopback same-origin guard applies.'
       operationId: runFiles
       parameters:
         - name: cwd
@@ -8280,7 +9514,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Absolute directory to walk. Must exist; defaults to the dashboard server's cwd when omitted. Invalid values yield 400 EBADCWD.
+          description: Absolute directory to walk. Must exist and is canonicalized with realpath; defaults to the dashboard server's cwd when omitted. It may be outside this repository. Invalid values yield 400 EBADCWD.
           example: /Users/dev/projects/my-app
         - name: q
           in: query
@@ -8325,9 +9559,15 @@ paths:
     get:
       tags:
         - Run
-      summary: Check whether the `claude` binary is on PATH
-      description: Probes PATH (via which/where) for the `claude` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The loopback same-origin guard applies.
+      summary: Check whether the selected agent binary is on PATH
+      description: Probes PATH (via which/where) for the selected `claude` or `codex` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The loopback same-origin guard applies.
       operationId: runBinary
+      parameters:
+        - name: provider
+          in: query
+          schema:
+            $ref: '#/components/schemas/RunProvider'
+            default: claude
       responses:
         '200':
           description: Binary resolution result
@@ -8337,7 +9577,8 @@ paths:
                 $ref: '#/components/schemas/RunBinaryResponse'
               example:
                 found: true
-                path: /usr/local/bin/claude
+                path: /usr/local/bin/codex
+                provider: codex
         '403':
           description: 'Cross-origin rejected (EBADORIGIN). Enforced by the router-level loopback same-origin guard on every /api/run route: a browser request carrying an Origin/Referer whose host is not localhost / 127.0.0.1 / ::1 / 0.0.0.0 is refused. Requests without an Origin header (e.g. curl) are allowed.'
           content:
@@ -8718,7 +9959,7 @@ paths:
       tags:
         - Remote Sources
       summary: List remote data sources
-      description: Returns every configured remote SSH source the dashboard pulls Claude Code history from. NO secrets are ever returned — these records store none (SSH auth defers to the host SSH stack). Each entry carries its last sync `status`, `last_error`, `last_sync_at`, and `last_sync_counts`. Read-only; always 200.
+      description: Returns every configured remote SSH source the dashboard pulls Claude Code and Codex history from. NO secrets are ever returned — these records store none (SSH auth defers to the host SSH stack). Each entry carries source-wide and provider-specific sync state plus last counters. Read-only; always 200.
       operationId: listRemoteSources
       responses:
         '200':
@@ -8735,8 +9976,11 @@ paths:
                     ssh_port: 22
                     identity_file: ~/.ssh/id_ed25519
                     remote_home: ~/.claude
+                    remote_codex_home: ~/.codex
                     enabled: true
                     status: ok
+                    claude_status: ok
+                    codex_status: ok
                     last_error: null
                     last_sync_at: '2026-07-22T18:41:55.117Z'
                     last_sync_counts:
@@ -8746,13 +9990,22 @@ paths:
                       errors: 0
                       sessions_seen: 50
                       sessions_tagged: 50
+                      providers:
+                        claude:
+                          status: ok
+                          imported: 9
+                          sessions_tagged: 50
+                        codex:
+                          status: ok
+                          imported: 2
+                          sessions_tagged: 2
                     created_at: '2026-07-20T09:15:00.000Z'
                     updated_at: '2026-07-22T18:41:55.117Z'
     post:
       tags:
         - Remote Sources
       summary: Register a remote data source
-      description: 'Registers a remote SSH source. `label` and `host` are required; `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias. Optional `ssh_port`, `identity_file`, `remote_home`, and `enabled` fine-tune the connection. No credentials are accepted or stored — auth defers to the host SSH stack. Returns the created source (201). Validation failures return 400 `{ error: { code, message } }` with one of the codes INVALID_LABEL, INVALID_HOST, INVALID_PORT, INVALID_IDENTITY_FILE, INVALID_REMOTE_HOME.'
+      description: 'Registers a remote SSH source. `label` and `host` are required; `host` is an SSH destination (`user@host`) or a `~/.ssh/config` alias. Optional `ssh_port`, `identity_file`, `remote_home`, `remote_codex_home`, and `enabled` fine-tune the connection. No credentials are accepted or stored — auth defers to the host SSH stack. Returns the created source (201). Validation failures return 400 `{ error: { code, message } }` with one of the codes INVALID_LABEL, INVALID_HOST, INVALID_PORT, INVALID_IDENTITY_FILE, INVALID_REMOTE_HOME.'
       operationId: createRemoteSource
       requestBody:
         required: true
@@ -8767,13 +10020,14 @@ paths:
                   label: Work laptop
                   host: studio
               full:
-                summary: Full — explicit port, key, and remote home
+                summary: Full — explicit port, key, and both remote homes
                 value:
                   label: Work laptop
                   host: son@studio.local
                   ssh_port: 22
                   identity_file: ~/.ssh/id_ed25519
                   remote_home: ~/.claude
+                  remote_codex_home: ~/.codex
                   enabled: true
       responses:
         '201':
@@ -8790,8 +10044,11 @@ paths:
                   ssh_port: 22
                   identity_file: ~/.ssh/id_ed25519
                   remote_home: ~/.claude
+                  remote_codex_home: ~/.codex
                   enabled: true
                   status: idle
+                  claude_status: null
+                  codex_status: null
                   last_error: null
                   last_sync_at: null
                   last_sync_counts: null
@@ -8868,8 +10125,11 @@ paths:
                   ssh_port: 2222
                   identity_file: ~/.ssh/id_ed25519
                   remote_home: ~/.claude
+                  remote_codex_home: ~/.codex
                   enabled: false
                   status: ok
+                  claude_status: ok
+                  codex_status: unavailable
                   last_error: null
                   last_sync_at: '2026-07-22T18:41:55.117Z'
                   last_sync_counts:
@@ -8967,7 +10227,7 @@ paths:
       tags:
         - Remote Sources
       summary: Probe SSH connectivity to a remote source
-      description: Runs an SSH connectivity probe against the source and reports the outcome synchronously. The `ok` flag carries the probe result and `message` is a human-readable summary; on success `remoteProjects` may list the remote project directories discovered under the remote Claude home. This does not import anything — use POST /{id}/sync to pull.
+      description: Runs an SSH connectivity probe against the source and checks both Claude Code and Codex history locations. A source is usable when either provider is found; `providers` identifies the exact path and result for each. This does not import anything — use POST /{id}/sync to pull.
       operationId: testRemoteSource
       parameters:
         - name: id
@@ -8989,10 +10249,18 @@ paths:
                   summary: Reachable
                   value:
                     ok: true
-                    message: Connected; found 24 project directories under ~/.claude/projects.
-                    remoteProjects:
-                      - '-Users-son-code-foo'
-                      - '-Users-son-code-bar'
+                    message: Connected. Claude Code and Codex history available.
+                    remoteProjects: ~/.claude/projects
+                    remoteCodexSessions: ~/.codex/sessions
+                    providers:
+                      claude:
+                        status: ok
+                        path: ~/.claude/projects
+                        message: Connected.
+                      codex:
+                        status: ok
+                        path: ~/.codex/sessions
+                        message: Connected.
                 failure:
                   summary: Unreachable / auth failed
                   value:
@@ -9012,8 +10280,8 @@ paths:
     post:
       tags:
         - Remote Sources
-      summary: Pull Claude Code history from a remote source now
-      description: Triggers an immediate pull of Claude Code history from the remote source over SSH, importing new transcripts through the same idempotent, baseline-preserving pipeline used for local imports and tagging imported sessions with this source's id. The response reports the per-run counters. Sync progress/completion is also broadcast over the WebSocket as `remote_source.status` frames.
+      summary: Pull Claude Code and Codex history from a remote source now
+      description: Triggers an immediate pull of Claude Code and Codex history from the remote source over SSH. Each provider uses the same idempotent, baseline-preserving importer as its local path; Codex also mirrors its native rename index. A source succeeds when either provider is available, and the response reports provider-specific counters and availability. Sync progress/completion is broadcast over WebSocket frames.
       operationId: syncRemoteSource
       parameters:
         - name: id
@@ -9038,6 +10306,15 @@ paths:
                 errors: 0
                 sessions_seen: 50
                 sessions_tagged: 50
+                providers:
+                  claude:
+                    status: ok
+                    imported: 9
+                    sessions_tagged: 48
+                  codex:
+                    status: ok
+                    imported: 2
+                    sessions_tagged: 2
         '404':
           description: Remote source not found
           content:
@@ -9063,7 +10340,7 @@ paths:
       tags:
         - Remote Sources
       summary: Sync all enabled remote sources now
-      description: Pulls Claude Code history from every enabled remote source over SSH, sequentially (one connection at a time). Per-source failures are isolated — one unreachable source never aborts the others — and each outcome is returned in `results`. Progress/completion is also broadcast over the WebSocket as `remote_source.status` frames. Always returns 200.
+      description: Pulls Claude Code and Codex history from every enabled remote source over SSH, sequentially (one connection at a time). Per-source failures are isolated — one unreachable source never aborts the others — and each outcome is returned in `results`. Progress/completion is also broadcast over WebSocket frames. Always returns 200.
       operationId: syncAllRemoteSources
       responses:
         '200':
@@ -9145,6 +10422,56 @@ paths:
                 error:
                   code: INVALID_PATH
                   message: 'Directory does not exist: /Users/son/.codefuse/engine/cc'
+  /api/settings/codex-home:
+    get:
+      tags:
+        - Settings
+      summary: Get the active Codex state directory
+      description: Returns the local Codex directory the dashboard uses for rollout JSONL discovery and hook configuration. Resolves to DASHBOARD_CODEX_HOME, then CODEX_HOME, then `<homedir>/.codex`.
+      operationId: getCodexHome
+      responses:
+        '200':
+          description: Current Codex state directory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsCodexHomeResponse'
+              example:
+                codex_home: /Users/son/.codex
+    put:
+      tags:
+        - Settings
+      summary: Update the Codex state directory
+      description: Changes the Codex directory used for rollout and hook discovery. A leading `~/` in `path` is expanded; the result must be an existing absolute directory. On success, DASHBOARD_CODEX_HOME is applied immediately, persisted to the project `.env`, and the live synchronizer re-watches and scans the new `sessions/` tree without a server restart.
+      operationId: updateCodexHome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsCodexHomeUpdateRequest'
+            example:
+              path: ~/.codex
+      responses:
+        '200':
+          description: Codex state directory updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsCodexHomeUpdateResponse'
+              example:
+                ok: true
+                codex_home: /Users/son/.codex
+        '400':
+          description: Invalid path — `path` missing or not a string, or the resolved path is not absolute / does not exist / is not a directory (code INVALID_PATH).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INVALID_PATH
+                  message: 'Directory does not exist: /Users/son/.codex'
   /api/workflows/runs:
     get:
       tags:
@@ -9324,12 +10651,69 @@ paths:
                 error:
                   code: WORKFLOW_DETAIL_FAILED
                   message: database is locked
+  /api/sessions/{id}/transcript-image:
+    get:
+      tags:
+        - Sessions
+      summary: Read one persisted transcript image
+      description: Streams a bounded PNG, JPEG, GIF, or WebP image only when it is explicitly referenced by the selected Claude transcript line. Transcript JSON exposes an opaque same-origin URL instead of the local file path. Codex inline images are already delivered as validated data URLs in the transcript response, so this route is primarily for persisted Claude CLI image wrappers. Read-only, no side effects.
+      operationId: getTranscriptImage
+      parameters:
+        - $ref: '#/components/parameters/SessionIdPath'
+        - name: line
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Raw JSONL line number that contains the image wrapper.
+        - name: index
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+          description: Zero-based image wrapper index within that transcript line.
+        - name: agent_id
+          in: query
+          schema:
+            type: string
+          description: Optional selected subagent or compaction transcript id.
+        - name: run_id
+          in: query
+          schema:
+            type: string
+          description: Optional workflow run id for a nested subagent transcript.
+      responses:
+        '200':
+          description: Image bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: The line or image index is invalid.
+        '404':
+          description: Session, transcript, persisted image, or allowed image type was not found.
   /api/settings/import:
     post:
       tags:
         - Settings
       summary: Restore (import) a previously exported data bundle
-      description: 'Restores a bundle produced by GET /api/settings/export. Supply it either as `multipart/form-data` with a single `file` field (browser upload) or as a JSON body `{ "path": "<absolute path>" }` (the server reads the file from disk — used by the `ccam import-data` CLI, and it also sidesteps the global 1 MB JSON body cap for large bundles). The restore is idempotent and NON-DESTRUCTIVE: it is session-atomic, so a session already present (matched by its UUID) is skipped whole together with its agents/events/token_usage/workflows, and independent config rows (dashboard_runs, alert_rules, model_pricing) are inserted only when absent. Nothing existing is overwritten — ideal for consolidating several machines into one dashboard. The response reports per-table counts.'
+      description: 'Restores one bundle up to 25 MiB produced by GET /api/settings/export. Supply it either as `multipart/form-data` with a single `file` field (browser upload) or as a JSON body `{ "path": "<absolute path>" }` (the server reads the file from disk — used by the `ccam import-data` CLI, and it also sidesteps the global 1 MB JSON body cap for large bundles). The restore is idempotent and NON-DESTRUCTIVE: it is session-atomic, so a session already present (matched by its UUID) is skipped whole together with its agents/events/token_usage/workflows, and independent config rows (dashboard_runs, alert_rules, model_pricing, gpt_model_pricing) are inserted only when absent. Nothing existing is overwritten — ideal for consolidating several machines into one dashboard. The response reports per-table counts.'
       operationId: importData
       requestBody:
         required: true
@@ -9373,7 +10757,10 @@ paths:
                 dashboard_runs: 11
                 alert_rules: 2
                 model_pricing: 0
+                gpt_model_pricing: 0
                 errors: 0
         '400':
           description: Missing file, invalid JSON, or unrecognized export format
+        '413':
+          description: The export bundle exceeds the 25 MiB restore limit
 x-issues-url: https://github.com/hoangsonww/Claude-Code-Agent-Monitor/issues

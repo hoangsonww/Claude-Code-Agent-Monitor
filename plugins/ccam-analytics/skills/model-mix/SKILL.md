@@ -1,4 +1,5 @@
 ---
+name: model-mix
 description: >
   Break down Claude Code usage by model family (Opus / Sonnet / Haiku) from the
   Agent Monitor dashboard — each family's share of tokens, share of cost, and

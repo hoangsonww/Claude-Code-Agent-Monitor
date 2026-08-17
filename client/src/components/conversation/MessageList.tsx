@@ -136,6 +136,25 @@ interface MessageListProps {
   loading: boolean;
 }
 
+/** A persisted transcript attachment. Failed/expired local image references
+ * quietly collapse rather than exposing an absolute local path or a broken
+ * image chrome to the reader. */
+function TranscriptImage({ src, alt }: { src: string; alt: string }) {
+  const [available, setAvailable] = useState(true);
+  if (!available) return null;
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block w-fit max-w-full">
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={() => setAvailable(false)}
+        className="max-h-80 max-w-full rounded-lg border border-surface-3 bg-surface-3/40 object-contain shadow-sm"
+      />
+    </a>
+  );
+}
+
 /** Build a map from tool_use id → tool_result for matching */
 function buildToolResultMap(messages: TranscriptMessage[]): Map<string, TranscriptContent> {
   const map = new Map<string, TranscriptContent>();
@@ -509,6 +528,16 @@ export function MessageList({ messages, loading }: MessageListProps) {
                 if (block.type === "tool_use") {
                   const matchedResult = block.id ? (toolResultMap.get(block.id) ?? null) : null;
                   return <ToolCallBlock key={bIdx} toolUse={block} toolResult={matchedResult} />;
+                }
+
+                if (block.type === "image" && block.src) {
+                  return (
+                    <TranscriptImage
+                      key={bIdx}
+                      src={block.src}
+                      alt={block.alt || "Attached image"}
+                    />
+                  );
                 }
 
                 // tool_result blocks rendered inside ToolCallBlock, skip standalone

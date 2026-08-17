@@ -24,7 +24,7 @@ describe("createCollectorRegistrar", () => {
     assert.equal(collector.length, 1);
     assert.equal(collector[0].name, "my_tool");
     assert.equal(collector[0].description, "A test tool");
-    assert.equal(collector[0].handler, handler);
+    assert.notEqual(collector[0].handler, handler);
   });
 
   it("collects multiple tools in order", () => {
@@ -46,12 +46,21 @@ describe("createCollectorRegistrar", () => {
     const collector: ToolEntry[] = [];
     const register = createCollectorRegistrar(collector);
 
-    register("echo_tool", "Echoes input", {}, async (args) => ({
+    register("echo_tool", "Echoes input", { message: z.string() }, async (args) => ({
       echo: args.message,
     }));
 
     const result = await collector[0].handler({ message: "hello" });
     assert.deepEqual(result, { echo: "hello" });
+  });
+
+  it("validates direct REPL invocations with the declared Zod schema", async () => {
+    const collector: ToolEntry[] = [];
+    const register = createCollectorRegistrar(collector);
+
+    register("number_tool", "Requires a number", { count: z.number().int() }, async (args) => args);
+
+    await assert.rejects(() => collector[0].handler({ count: "three" }), /Expected number/);
   });
 });
 

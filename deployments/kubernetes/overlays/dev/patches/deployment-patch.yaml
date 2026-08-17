@@ -4,13 +4,8 @@ metadata:
   name: agent-monitor
   namespace: agent-monitor
 spec:
-  # Single replica for dev
-  replicas: 1
   template:
     spec:
-      # Remove anti-affinity in dev (single node is fine)
-      affinity: null
-      topologySpreadConstraints: []
       containers:
         - name: agent-monitor
           resources:

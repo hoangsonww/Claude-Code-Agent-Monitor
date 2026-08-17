@@ -1,0 +1,6 @@
+interface:
+  display_name: "Mcp Server"
+  short_description: "Configure, launch, validate, and troubleshoot CCAM's..."
+  default_prompt: "Use $mcp-server to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

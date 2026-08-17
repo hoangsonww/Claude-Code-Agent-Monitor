@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cwd Rollup"
+  short_description: "Roll up Claude Code sessions by working directory (project)..."
+  default_prompt: "Use $cwd-rollup to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

@@ -6,9 +6,10 @@
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { parseSources } = require("../lib/source-filter");
+const { parseProviders } = require("../lib/provider-filter");
 const scoped = require("../lib/scoped-stats");
 
-const { calculateCost } = require("./pricing");
+const { calculateProviderCost } = require("./pricing");
 
 const router = Router();
 
@@ -21,49 +22,54 @@ router.get("/", (req, res) => {
   // Data-scope: restrict every metric to a subset of source machines when the
   // user has chosen one; otherwise use the cached prepared statements.
   const sources = parseSources(req);
-  const tokenTotals = sources ? scoped.tokenTotals(db, sources) : stmts.getTokenTotals.get();
-  const toolUsage = sources ? scoped.toolUsageCounts(db, sources) : stmts.toolUsageCounts.all();
-  const dailyEvents = sources
-    ? scoped.dailyEventCounts(db, sources, tzModifier)
+  const providers = parseProviders(req);
+  const isScoped = !!sources || !!providers;
+  const tokenTotals = isScoped
+    ? scoped.tokenTotals(db, sources, providers)
+    : stmts.getTokenTotals.get();
+  const toolUsage = isScoped
+    ? scoped.toolUsageCounts(db, sources, providers)
+    : stmts.toolUsageCounts.all();
+  const dailyEvents = isScoped
+    ? scoped.dailyEventCounts(db, sources, providers, tzModifier)
     : stmts.dailyEventCounts.all(tzModifier);
-  const dailySessions = sources
-    ? scoped.dailySessionCounts(db, sources, tzModifier)
+  const dailySessions = isScoped
+    ? scoped.dailySessionCounts(db, sources, providers, tzModifier)
     : stmts.dailySessionCounts.all(tzModifier);
-  const agentTypes = sources
-    ? scoped.agentTypeDistribution(db, sources)
+  const agentTypes = isScoped
+    ? scoped.agentTypeDistribution(db, sources, providers)
     : stmts.agentTypeDistribution.all();
-  const overview = sources ? scoped.statsOverview(db, sources) : stmts.stats.get();
-  const agentsByStatus = sources
-    ? scoped.agentStatusCounts(db, sources)
+  const overview = isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get();
+  const agentsByStatus = isScoped
+    ? scoped.agentStatusCounts(db, sources, providers)
     : stmts.agentStatusCounts.all();
-  const sessionsByStatus = sources
-    ? scoped.sessionStatusCounts(db, sources)
+  const sessionsByStatus = isScoped
+    ? scoped.sessionStatusCounts(db, sources, providers)
     : stmts.sessionStatusCounts.all();
-  const totalSubagents = sources
-    ? scoped.totalSubagentCount(db, sources)
+  const totalSubagents = isScoped
+    ? scoped.totalSubagentCount(db, sources, providers)
     : stmts.totalSubagentCount.get();
-  const eventTypes = sources ? scoped.eventTypeCounts(db, sources) : stmts.eventTypeCounts.all();
-  const avgEvents = sources
-    ? scoped.avgEventsPerSession(db, sources)
+  const eventTypes = isScoped
+    ? scoped.eventTypeCounts(db, sources, providers)
+    : stmts.eventTypeCounts.all();
+  const avgEvents = isScoped
+    ? scoped.avgEventsPerSession(db, sources, providers)
     : stmts.avgEventsPerSession.get();
 
   // Calculate total cost across all sessions
   const pricingRules = stmts.listPricing.all();
+  const gptPricingRules = stmts.listGptPricing.all();
   // Join the owning session's start date so each bucket is priced at the rate
   // effective when it was used (date-effective promo rates, e.g. Sonnet 5 intro).
-  const allTokenUsage = sources
-    ? scoped.scopedTokenUsageWithDate(db, sources)
+  const allTokenUsage = isScoped
+    ? scoped.scopedTokenUsageWithDate(db, sources, providers)
     : db
         .prepare(
-          "SELECT tu.*, DATE(s.started_at) as date FROM token_usage tu JOIN sessions s ON s.id = tu.session_id"
+          "SELECT tu.*, s.provider, DATE(s.started_at) as date FROM token_usage tu JOIN sessions s ON s.id = tu.session_id"
         )
         .all();
 
-  let totalCost = 0;
-  for (const usage of allTokenUsage) {
-    const { total_cost } = calculateCost([usage], pricingRules);
-    totalCost += total_cost;
-  }
+  const totalCost = calculateProviderCost(allTokenUsage, pricingRules, gptPricingRules).total_cost;
 
   res.json({
     tokens: {

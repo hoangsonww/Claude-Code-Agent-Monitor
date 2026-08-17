@@ -1,0 +1,29 @@
+{
+  "name": "ccam-sessions",
+  "version": "2.0.8",
+  "description": "Search, inspect, replay, and manage Claude Code sessions tracked by the Agent Monitor dashboard — find sessions by project, model, status, or date; reconstruct event timelines; walk transcripts turn-by-turn; roll up activity per working directory; and identify stale or empty sessions before cleanup.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["sessions", "search", "transcript", "replay", "timeline", "cleanup", "claude-code"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Sessions",
+    "shortDescription": "Search, inspect, replay, and manage Claude Code sessions tracked by the Agent Monitor...",
+    "longDescription": "Search, inspect, replay, and manage Claude Code sessions tracked by the Agent Monitor dashboard — find sessions by project, model, status, or date; reconstruct event timelines; walk transcripts turn-by-turn; roll up activity per working directory; and identify stale or empty sessions before cleanup.",
+    "developerName": "Son Nguyen",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Sessions to inspect the local CCAM dashboard.",
+      "Use CCAM Sessions to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

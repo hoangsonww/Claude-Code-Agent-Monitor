@@ -1,51 +1,27 @@
-# =============================================================================
-# Claude Code Agent Monitor - Default Helm Values
-# =============================================================================
-# Override these values per environment using values-dev.yaml, values-staging.yaml,
-# or values-production.yaml.
+# CCAM Helm values. The bundled SQLite backend is a single-writer database.
+# The chart intentionally rejects replicaCount != 1 and autoscaling.enabled=true.
+replicaCount: 1
 
-# -- Number of pod replicas
-replicaCount: 2
-
-# -- Container image configuration
 image:
-  registry: ghcr.io
-  repository: davidnguyen/claude-code-agent-monitor
-  tag: "" # Defaults to .Chart.AppVersion if empty
+  registry: ""
+  repository: ccam-dashboard
+  tag: ""
+  digest: ""
   pullPolicy: IfNotPresent
 
-# -- Image pull secrets for private registries
 imagePullSecrets: []
-
-# -- Override the release name
 nameOverride: ""
-# -- Override the full release name
 fullnameOverride: ""
 
-# =============================================================================
-# Service Account
-# =============================================================================
 serviceAccount:
-  # -- Whether to create a ServiceAccount
   create: true
-  # -- Annotations to add to the ServiceAccount
   annotations: {}
-  # -- The name of the ServiceAccount (auto-generated if empty)
   name: ""
-  # -- Automount API credentials
   automountServiceAccountToken: false
 
-# =============================================================================
-# Pod Configuration
-# =============================================================================
-
-# -- Annotations to add to pods
 podAnnotations: {}
-
-# -- Labels to add to pods
 podLabels: {}
 
-# -- Pod-level security context
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000
@@ -55,69 +31,44 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-# -- Container-level security context
 securityContext:
   runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
   readOnlyRootFilesystem: true
   allowPrivilegeEscalation: false
   capabilities:
-    drop:
-      - ALL
+    drop: ["ALL"]
 
-# =============================================================================
-# Deployment Strategy
-# =============================================================================
-deployment:
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-
-# =============================================================================
-# Service
-# =============================================================================
 service:
-  # -- Service type (ClusterIP, NodePort, LoadBalancer)
   type: ClusterIP
-  # -- Service port (external)
   port: 80
-  # -- Container port the application listens on
   targetPort: 4820
-  # -- Node port (only used when type is NodePort)
   nodePort: ""
-  # -- Additional service annotations
   annotations: {}
 
-# =============================================================================
-# Ingress
-# =============================================================================
+# The chart supports standard Ingress and Gateway API HTTPRoute. Enable one.
 ingress:
-  # -- Enable ingress resource
   enabled: false
-  # -- Ingress class name (e.g. nginx, traefik, alb)
   className: ""
-  # -- Ingress annotations
   annotations: {}
-    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    # nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    # nginx.ingress.kubernetes.io/proxy-set-headers: "Upgrade=$http_upgrade,Connection=upgrade"
-  # -- Ingress host definitions
   hosts:
     - host: agent-monitor.local
       paths:
         - path: /
           pathType: Prefix
-  # -- TLS configuration
   tls: []
-  #  - secretName: agent-monitor-tls
-  #    hosts:
-  #      - agent-monitor.local
 
-# =============================================================================
-# Resource Limits
-# =============================================================================
+gatewayAPI:
+  enabled: false
+  parentRefs:
+    - name: shared-gateway
+      namespace: gateway-system
+      sectionName: https
+  hostnames:
+    - agent-monitor.local
+  annotations: {}
+
 resources:
   requests:
     cpu: 100m
@@ -126,148 +77,110 @@ resources:
     cpu: 500m
     memory: 512Mi
 
-# =============================================================================
-# Autoscaling (HPA)
-# =============================================================================
+# Kept only to produce a clear schema error for stale values files.
 autoscaling:
-  # -- Enable Horizontal Pod Autoscaler
-  enabled: true
-  # -- Minimum number of replicas
-  minReplicas: 2
-  # -- Maximum number of replicas
-  maxReplicas: 10
-  # -- Target CPU utilization percentage
-  targetCPUUtilizationPercentage: 70
-  # -- Target memory utilization percentage
-  targetMemoryUtilizationPercentage: 80
-  # -- Scale-down stabilization window (seconds)
-  scaleDownStabilizationWindowSeconds: 300
+  enabled: false
 
-# =============================================================================
-# Persistence (SQLite database)
-# =============================================================================
 persistence:
-  # -- Enable persistent storage for SQLite data
   enabled: true
-  # -- Storage class name (empty string uses default)
   storageClass: ""
-  # -- Access modes for the PVC
-  accessModes:
-    - ReadWriteOnce
-  # -- Size of the persistent volume
+  accessModes: ["ReadWriteOnce"]
   size: 10Gi
-  # -- Annotations for the PVC
   annotations: {}
-  # -- Use an existing PVC instead of creating one
   existingClaim: ""
+  retain: true
 
-# =============================================================================
-# Scheduling
-# =============================================================================
+# Create this Secret outside Helm for production, preferably with External
+# Secrets Operator or your cloud secret controller. Required keys are
+# dashboard-token, hook-token, and mcp-token.
+secrets:
+  existingSecret: agent-monitor-secrets
+  create: false
+  dashboardToken: ""
+  hookToken: ""
+  mcpToken: ""
 
-# -- Node selector for pod placement
+ssh:
+  existingSecret: ""
+  mountPath: /home/node/.ssh
+
 nodeSelector: {}
-
-# -- Tolerations for pod placement
 tolerations: []
-
-# -- Affinity rules for pod placement
 affinity: {}
-
-# -- Topology spread constraints
 topologySpreadConstraints: []
 
-# =============================================================================
-# Environment Variables
-# =============================================================================
-env:
-  # -- Node.js environment
+config:
   NODE_ENV: production
-  # -- Port the dashboard server listens on (must match service.targetPort)
+  DASHBOARD_HOST: "0.0.0.0"
   DASHBOARD_PORT: "4820"
-  # -- Log level (debug, info, warn, error)
-  LOG_LEVEL: info
+  DASHBOARD_DATA_DIR: /app/data
+  DASHBOARD_ENV_PATH: /app/data/config/.env
+  CLAUDE_HOME: /app/data/claude
+  DASHBOARD_CODEX_HOME: /app/data/codex
+  DASHBOARD_LIVENESS_PROBE: "0"
+  DASHBOARD_ALLOWED_HOSTS: ""
 
-# -- Additional environment variables as key-value pairs
 extraEnv: {}
-  # MY_CUSTOM_VAR: my-value
-
-# -- Extra environment variables from secrets or configmaps
 extraEnvFrom: []
-  # - secretRef:
-  #     name: my-secret
-  # - configMapRef:
-  #     name: my-configmap
-
-# =============================================================================
-# Health Probes
-# =============================================================================
-livenessProbe:
-  httpGet:
-    path: /api/health
-    port: http
-  initialDelaySeconds: 30
-  periodSeconds: 15
-  timeoutSeconds: 5
-  failureThreshold: 3
-  successThreshold: 1
-
-readinessProbe:
-  httpGet:
-    path: /api/health
-    port: http
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 3
-  failureThreshold: 3
-  successThreshold: 1
 
 startupProbe:
   httpGet:
     path: /api/health
     port: http
-  initialDelaySeconds: 5
+    httpHeaders:
+      - name: Host
+        value: localhost
+  periodSeconds: 2
+  failureThreshold: 30
+
+readinessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+    httpHeaders:
+      - name: Host
+        value: localhost
   periodSeconds: 5
   timeoutSeconds: 3
-  failureThreshold: 30
-  successThreshold: 1
+  failureThreshold: 3
 
-# =============================================================================
-# Pod Disruption Budget
-# =============================================================================
-podDisruptionBudget:
-  # -- Enable PodDisruptionBudget
-  enabled: true
-  # -- Minimum available pods during voluntary disruptions
-  minAvailable: 1
-  # -- Maximum unavailable pods (alternative to minAvailable)
-  # maxUnavailable: 1
+livenessProbe:
+  httpGet:
+    path: /api/health
+    port: http
+    httpHeaders:
+      - name: Host
+        value: localhost
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
 
-# =============================================================================
-# Network Policy
-# =============================================================================
 networkPolicy:
-  # -- Enable NetworkPolicy
   enabled: true
-  # -- Additional ingress rules
+  ingressNamespaceSelector:
+    matchLabels:
+      ccam.dev/dashboard-client: "true"
   additionalIngressRules: []
-  # -- Additional egress rules
   additionalEgressRules: []
 
-# =============================================================================
-# MCP Sidecar (Model Context Protocol server)
-# =============================================================================
 mcp:
-  # -- Enable MCP sidecar container
   enabled: false
   image:
-    registry: ghcr.io
-    repository: davidnguyen/claude-code-agent-monitor-mcp
-    tag: "" # Defaults to .Chart.AppVersion if empty
+    registry: ""
+    repository: ccam-mcp
+    tag: ""
+    digest: ""
     pullPolicy: IfNotPresent
-  # -- MCP HTTP transport port
   port: 8819
-  # -- Resource limits for MCP sidecar
+  exposeService: false
+  service:
+    annotations: {}
+  allowedNamespaceSelector:
+    matchLabels:
+      ccam.dev/mcp-client: "true"
+  allowMutations: false
+  allowDestructive: false
+  logLevel: info
   resources:
     requests:
       cpu: 50m
@@ -275,38 +188,20 @@ mcp:
     limits:
       cpu: 200m
       memory: 256Mi
-  # -- MCP environment variables
-  env:
-    MCP_TRANSPORT: http
-    MCP_PORT: "8819"
-    DASHBOARD_URL: "http://localhost:4820"
-  # -- Container security context for MCP
   securityContext:
     runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     capabilities:
-      drop:
-        - ALL
+      drop: ["ALL"]
 
-# =============================================================================
-# Monitoring
-# =============================================================================
 monitoring:
-  # -- Enable Prometheus monitoring
-  enabled: false
   serviceMonitor:
-    # -- Enable ServiceMonitor resource (requires Prometheus Operator)
     enabled: false
-    # -- Namespace for the ServiceMonitor (defaults to release namespace)
     namespace: ""
-    # -- Additional labels for the ServiceMonitor
     labels: {}
-    # -- Scrape interval
     interval: 30s
-    # -- Scrape timeout
     scrapeTimeout: 10s
-    # -- Metric path
-    path: /api/metrics
-    # -- Honor labels from the target
     honorLabels: false

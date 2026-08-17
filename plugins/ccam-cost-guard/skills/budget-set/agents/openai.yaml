@@ -1,0 +1,6 @@
+interface:
+  display_name: "Budget Set"
+  short_description: "Define a spend budget for Claude Code and, optionally,..."
+  default_prompt: "Use $budget-set to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

@@ -126,12 +126,23 @@ describe("awaiting-reason suffix", () => {
   });
 
   it("shows the full reason description in a tooltip on hover", () => {
-    const { container } = render(<AgentStatusBadge status="waiting" reason="interrupted" />);
+    const { container } = render(
+      <AgentStatusBadge status="waiting" reason="interrupted" provider="claude" />
+    );
     expect(screen.getByText("Interrupted")).toBeInTheDocument();
     // Tip attaches its handlers to the wrapper element and portals the tooltip
     // body into document.body.
     fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
     expect(screen.getByText(/The last turn was interrupted/)).toBeInTheDocument();
+  });
+
+  it("uses Codex wording for Codex waiting reasons", () => {
+    const { container } = render(
+      <SessionStatusBadge status="waiting" reason="stop" provider="codex" />
+    );
+    fireEvent.mouseEnter(container.firstElementChild!, { clientX: 10, clientY: 10 });
+    expect(screen.getByText(/Codex finished its reply/)).toBeInTheDocument();
+    expect(screen.queryByText(/Claude finished its reply/)).not.toBeInTheDocument();
   });
 
   it("marks urgent reasons with the hotter amber tint", () => {

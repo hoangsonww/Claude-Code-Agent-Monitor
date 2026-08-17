@@ -1,4 +1,5 @@
 ---
+name: memory-review
 description: >
   Review the file-based memory store via the Agent Monitor Config Explorer API:
   the user and project CLAUDE.md plus per-project auto-memory files under

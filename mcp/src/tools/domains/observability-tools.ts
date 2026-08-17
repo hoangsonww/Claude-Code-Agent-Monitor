@@ -55,7 +55,7 @@
 
 import { z } from "zod";
 import type { ToolContext } from "../../types/tool-context.js";
-import { createToolRegistrar } from "../../core/tool-registry.js";
+import { registrarFor } from "../../core/tool-registry.js";
 
 /**
  * Registers the six read-only observability tools. None call
@@ -65,8 +65,8 @@ import { createToolRegistrar } from "../../core/tool-registry.js";
  * multiple endpoints in parallel rather than proxying a single one.
  */
 export function registerObservabilityTools(context: ToolContext): void {
-  const { api, logger, server } = context;
-  const register = createToolRegistrar(server, logger);
+  const { api } = context;
+  const register = registrarFor(context);
 
   // Calls GET /api/health. Output: dashboard liveness payload — a fast
   // pre-flight check, since every other tool needs the dashboard running at
@@ -83,8 +83,20 @@ export function registerObservabilityTools(context: ToolContext): void {
   register(
     "dashboard_get_stats",
     "Get dashboard overview stats including session/agent counts and websocket connections.",
-    {},
-    async () => api.get("/api/stats")
+    {
+      sources: z.array(z.string().min(1).max(256)).max(100).optional(),
+      providers: z
+        .array(z.enum(["claude", "codex"]))
+        .max(2)
+        .optional(),
+    },
+    async (args) =>
+      api.get("/api/stats", {
+        query: {
+          sources: (args.sources as string[] | undefined)?.join(","),
+          providers: (args.providers as string[] | undefined)?.join(","),
+        },
+      })
   );
 
   // Calls GET /api/analytics. Output: token totals/cost, per-tool usage
@@ -93,8 +105,20 @@ export function registerObservabilityTools(context: ToolContext): void {
   register(
     "dashboard_get_analytics",
     "Get analytics summary including token totals, usage trends, and distributions.",
-    {},
-    async () => api.get("/api/analytics")
+    {
+      sources: z.array(z.string().min(1).max(256)).max(100).optional(),
+      providers: z
+        .array(z.enum(["claude", "codex"]))
+        .max(2)
+        .optional(),
+    },
+    async (args) =>
+      api.get("/api/analytics", {
+        query: {
+          sources: (args.sources as string[] | undefined)?.join(","),
+          providers: (args.providers as string[] | undefined)?.join(","),
+        },
+      })
   );
 
   // Calls GET /api/settings/info. Output: SQLite path/size/counts/pragmas,
@@ -165,5 +189,12 @@ export function registerObservabilityTools(context: ToolContext): void {
         generated_at: new Date().toISOString(),
       };
     }
+  );
+
+  register(
+    "dashboard_get_prometheus_metrics",
+    "Get the dashboard's Prometheus text exposition as returned by /api/metrics.",
+    {},
+    async () => api.get("/api/metrics")
   );
 }

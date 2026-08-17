@@ -45,6 +45,25 @@ function isUnder(root, target) {
   return t.startsWith(r + path.sep);
 }
 
+function canonicalAllowedPath(absPath, allowedRoots) {
+  let canonical;
+  try {
+    canonical = fs.realpathSync(absPath);
+  } catch {
+    return null;
+  }
+  const canonicalRoots = allowedRoots
+    .map((root) => {
+      try {
+        return fs.realpathSync(root);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  return canonicalRoots.some((root) => isUnder(root, canonical)) ? canonical : null;
+}
+
 function readJson(absPath) {
   try {
     const raw = fs.readFileSync(absPath, "utf8");
@@ -728,18 +747,18 @@ function readFileSafe(absPath, opts = {}) {
     getProjectRoot(opts.cwd), // for CLAUDE.md only — caller must pass exact name
   ];
   const resolved = path.resolve(absPath);
-  const inside = allowedRoots.some((root) => isUnder(root, resolved));
-  if (!inside) return { error: "path is outside allowed roots" };
+  const canonical = canonicalAllowedPath(resolved, allowedRoots);
+  if (!canonical) return { error: "path is outside allowed roots" };
   // Extra guard: under project root we only allow CLAUDE.md (avoid leaking
   // arbitrary repo files via this endpoint).
   if (
     isUnder(getProjectRoot(opts.cwd), resolved) &&
     !isUnder(getProjectClaudeDir(opts.cwd), resolved) &&
-    path.basename(resolved) !== "CLAUDE.md"
+    path.basename(canonical) !== "CLAUDE.md"
   ) {
     return { error: "only CLAUDE.md is readable from project root" };
   }
-  const r = safeReadText(resolved);
+  const r = safeReadText(canonical);
   if (!r) return { error: "file not readable" };
   return { ok: true, file: resolved, ...r };
 }

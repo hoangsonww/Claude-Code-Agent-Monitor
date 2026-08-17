@@ -5,8 +5,9 @@
  *   Owns the open/closed panel state, the ⌘B / Esc shortcuts, reduced-motion
  *   detection, and route navigation. Reactive personality + status/Ask come
  *   from useTabbyBrain; the avatar is draggable (AssistiveTouch-style) via
- *   useTabbyPosition, and the bubble/panel render in a self-clamping flyout so
- *   they never spill off any screen edge regardless of where the cat is docked.
+ *   useTabbyPosition, a compact hover greeting, and the bubble/panel render in
+ *   a self-clamping flyout so they never spill off any screen edge regardless
+ *   of where the cat is docked.
  *
  *   The "do the job" path reuses the existing Run page: unmatched Ask queries
  *   deep-link to /run?prompt=…&autostart=1 - no new LLM backend.
@@ -76,7 +77,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { CatAvatar } from "./CatAvatar";
 import { SpeechBubble } from "./SpeechBubble";
 import { TabbyPanel } from "./TabbyPanel";
@@ -168,6 +169,7 @@ function TabbyFlyout({ anchor, children }: { anchor: Anchor; children: ReactNode
 export function Tabby() {
   const [enabled, setEnabled] = useState(() => tabbyPrefs.getEnabled());
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const navigate = useNavigate();
   const brain = useTabbyBrain();
@@ -249,9 +251,19 @@ export function Tabby() {
         className="tabby-avatar-btn"
         data-dragging={place.dragging ? "1" : "0"}
         style={{ left: place.left, top: place.top, width: TABBY_SIZE, height: TABBY_SIZE }}
-        onPointerDown={place.onPointerDown}
+        onPointerDown={(event) => {
+          setHovered(false);
+          place.onPointerDown(event);
+        }}
         onPointerMove={place.onPointerMove}
-        onPointerUp={place.onPointerUp}
+        onPointerUp={(event) => {
+          place.onPointerUp(event);
+          setHovered(false);
+        }}
+        onMouseEnter={() => {
+          if (!place.dragging) setHovered(true);
+        }}
+        onMouseLeave={() => setHovered(false)}
         onClick={() => {
           // A drag just ended - swallow the synthetic click so the panel
           // doesn't toggle when the user only repositioned the avatar.
@@ -262,7 +274,7 @@ export function Tabby() {
         aria-expanded={open}
         title="Tabby - ⌘B · drag to move"
       >
-        <CatAvatar mood={brain.mood} reducedMotion={reducedMotion} />
+        <CatAvatar mood={brain.mood} reducedMotion={reducedMotion} hovered={hovered} />
         {brain.status.errorCount > 0 && (
           <span className="tabby-error-dot" aria-hidden>
             {brain.status.errorCount > 9 ? "9+" : brain.status.errorCount}

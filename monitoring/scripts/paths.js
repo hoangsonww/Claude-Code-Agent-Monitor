@@ -11,8 +11,8 @@ const MONITORING_ROOT = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(MONITORING_ROOT, "..");
 
 const VERSIONS = {
-  prometheus: "3.2.1",
-  grafana: "11.6.1",
+  prometheus: "3.13.2",
+  grafana: "13.1.2",
 };
 
 /** Human-readable list for error messages. */

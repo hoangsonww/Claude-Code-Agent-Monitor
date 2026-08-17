@@ -1,8 +1,8 @@
 /**
  * @file RemoteSources.tsx
- * @description Settings UI for the Remote Data Sources feature: manage the SSH
- * machines this dashboard pulls Claude Code history from, and choose the global
- * "data scope" (which machines' data the whole app shows).
+ * @description Settings UI for Remote Data Sources: manage SSH machines whose
+ * Claude Code and Codex histories feed this dashboard, and choose the global
+ * data scope (which machines' data the whole app shows).
  *
  * Backs `server/routes/remote-sources.js` via {@link api.remoteSources} and the
  * global scope store ({@link useDataScope}). No secrets are entered or stored
@@ -84,7 +84,13 @@ import {
   ListChecks,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { RemoteSource, RemoteSourceInput } from "../lib/api";
+import type {
+  RemoteProvider,
+  RemoteProviderStatus,
+  RemoteSource,
+  RemoteSourceInput,
+  RemoteSourceTestResult,
+} from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -96,8 +102,11 @@ const EMPTY_FORM: RemoteSourceInput = {
   ssh_port: null,
   identity_file: "",
   remote_home: "",
+  remote_codex_home: "",
   enabled: true,
 };
+
+const REMOTE_PROVIDER_ORDER: RemoteProvider[] = ["claude", "codex"];
 
 /** Compact status pill for a source's last-known sync state. */
 function StatusPill({ status }: { status: RemoteSource["status"] }) {
@@ -139,9 +148,7 @@ export function RemoteSources() {
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
-  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>(
-    {}
-  );
+  const [testResults, setTestResults] = useState<Record<string, RemoteSourceTestResult>>({});
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; purge: boolean } | null>(null);
 
   const load = useCallback(() => {
@@ -208,6 +215,7 @@ export function RemoteSources() {
       ssh_port: s.ssh_port,
       identity_file: s.identity_file || "",
       remote_home: s.remote_home || "",
+      remote_codex_home: s.remote_codex_home || "",
       enabled: s.enabled,
     });
     setEditingId(s.id);
@@ -231,6 +239,7 @@ export function RemoteSources() {
       ssh_port: form.ssh_port ? Number(form.ssh_port) : null,
       identity_file: form.identity_file?.trim() ? form.identity_file.trim() : null,
       remote_home: form.remote_home?.trim() ? form.remote_home.trim() : null,
+      remote_codex_home: form.remote_codex_home?.trim() ? form.remote_codex_home.trim() : null,
       enabled: form.enabled,
     };
     try {
@@ -264,7 +273,7 @@ export function RemoteSources() {
     setTestResults((r) => ({ ...r, [s.id]: { ok: false, message: "" } }));
     try {
       const res = await api.remoteSources.test(s.id);
-      setTestResults((r) => ({ ...r, [s.id]: { ok: res.ok, message: res.message } }));
+      setTestResults((r) => ({ ...r, [s.id]: res }));
     } catch (err) {
       setTestResults((r) => ({
         ...r,
@@ -326,7 +335,7 @@ export function RemoteSources() {
       <p className="text-xs text-gray-500 mb-4">
         {t(
           "remoteSources.description",
-          "Collect Claude Code usage from other machines over SSH — e.g. a dev box or cloud VM you drive over SSH while running this dashboard locally. Authentication uses your own SSH setup (~/.ssh/config, keys, agent); no passwords are stored here."
+          "Collect Claude Code and Codex usage from other machines over SSH — e.g. a dev box or cloud VM you drive over SSH while running this dashboard locally. Authentication uses your own SSH setup (~/.ssh/config, keys, agent); no passwords are stored here."
         )}
       </p>
       <p className="text-[11px] text-gray-600 italic mb-4 leading-snug">
@@ -531,19 +540,52 @@ export function RemoteSources() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">
+              <label
+                htmlFor="remote-source-claude-home"
+                className="block text-xs text-gray-500 mb-1"
+              >
                 {t("remoteSources.fieldRemoteHome", "Remote Claude home (optional)")}
               </label>
               <input
+                id="remote-source-claude-home"
                 className="input w-full font-mono"
+                aria-describedby="remote-source-claude-home-hint"
                 placeholder="~/.claude or wsl:~/.claude"
                 value={form.remote_home ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, remote_home: e.target.value }))}
               />
-              <p className="mt-1 text-[11px] text-gray-500 leading-snug">
+              <p
+                id="remote-source-claude-home-hint"
+                className="mt-1 text-[11px] text-gray-500 leading-snug"
+              >
                 {t(
                   "remoteSources.fieldRemoteHomeHint",
                   "Linux/macOS: default ~/.claude (or an absolute path like /home/you/.claude). Windows SSH + Claude in WSL: leave blank (auto-detect) or use wsl:~/.claude. Native Windows: C:/Users/you/.claude."
+                )}
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="remote-source-codex-home"
+                className="block text-xs text-gray-500 mb-1"
+              >
+                {t("remoteSources.fieldRemoteCodexHome", "Remote Codex home (optional)")}
+              </label>
+              <input
+                id="remote-source-codex-home"
+                className="input w-full font-mono"
+                aria-describedby="remote-source-codex-home-hint"
+                placeholder="~/.codex or wsl:~/.codex"
+                value={form.remote_codex_home ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, remote_codex_home: e.target.value }))}
+              />
+              <p
+                id="remote-source-codex-home-hint"
+                className="mt-1 text-[11px] text-gray-500 leading-snug"
+              >
+                {t(
+                  "remoteSources.fieldRemoteCodexHomeHint",
+                  "Defaults to ~/.codex and imports its sessions plus native renamed titles. For Windows SSH with Codex in WSL, leave blank (auto-detect) or use wsl:~/.codex."
                 )}
               </p>
             </div>
@@ -596,7 +638,7 @@ export function RemoteSources() {
           <p className="text-xs text-gray-600 mt-1">
             {t(
               "remoteSources.emptyHint",
-              "Add a machine you reach over SSH to pull its Claude Code usage in."
+              "Add a machine you reach over SSH to pull its Claude Code and Codex usage in."
             )}
           </p>
         </div>
@@ -605,6 +647,19 @@ export function RemoteSources() {
           {sources.map((s) => {
             const test = testResults[s.id];
             const busy = busyId === s.id;
+            const providerTitle = (provider: RemoteProvider) =>
+              provider === "codex"
+                ? t("remoteSources.providerCodex", "Codex")
+                : t("remoteSources.providerClaude", "Claude Code");
+            const providerState = (provider: RemoteProvider): RemoteProviderStatus =>
+              (provider === "codex" ? s.codex_status : s.claude_status) || "idle";
+            const stateClass = (state: RemoteProviderStatus) => {
+              if (state === "ok") return "text-emerald-300 border-emerald-500/30 bg-emerald-500/10";
+              if (state === "unavailable") return "text-gray-400 border-gray-500/25 bg-gray-500/10";
+              if (state === "error") return "text-red-300 border-red-500/30 bg-red-500/10";
+              if (state === "syncing") return "text-amber-300 border-amber-500/30 bg-amber-500/10";
+              return "text-gray-500 border-border bg-surface-2";
+            };
             return (
               <div key={s.id} className="card p-4">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -635,7 +690,28 @@ export function RemoteSources() {
                     <div className="text-[11px] text-gray-500 font-mono mt-1 truncate">
                       {s.host}
                       {s.ssh_port ? `:${s.ssh_port}` : ""}
-                      {s.remote_home ? ` · ${s.remote_home}` : ""}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {REMOTE_PROVIDER_ORDER.map((provider) => {
+                        const home =
+                          provider === "codex"
+                            ? s.remote_codex_home || "~/.codex"
+                            : s.remote_home || "~/.claude";
+                        const state = providerState(provider);
+                        return (
+                          <span
+                            key={provider}
+                            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${stateClass(state)}`}
+                            title={`${providerTitle(provider)}: ${home}`}
+                          >
+                            <span className="font-medium">{providerTitle(provider)}</span>
+                            <span className="font-mono opacity-75">{home}</span>
+                            <span className="opacity-80">
+                              {t(`remoteSources.providerStatus.${state}`, state)}
+                            </span>
+                          </span>
+                        );
+                      })}
                     </div>
                     <div className="text-[11px] text-gray-600 mt-1">
                       {s.last_sync_at
@@ -652,6 +728,27 @@ export function RemoteSources() {
                           n: s.last_sync_counts.sessions_tagged,
                         })}`}
                     </div>
+                    {s.last_sync_counts?.providers && (
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500">
+                        {REMOTE_PROVIDER_ORDER.map((provider) => {
+                          const details = s.last_sync_counts?.providers?.[provider];
+                          if (!details) return null;
+                          return (
+                            <span key={provider}>
+                              {providerTitle(provider)}:{" "}
+                              {details.status === "ok"
+                                ? t("remoteSources.providerSessions", "{{n}} sessions", {
+                                    n: details.sessions_tagged || 0,
+                                  })
+                                : t(
+                                    `remoteSources.providerStatus.${details.status}`,
+                                    details.status
+                                  )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                     {s.status === "error" && s.last_error && (
                       <div className="text-[11px] text-red-300 mt-1 break-words">
                         {s.last_error}
@@ -669,6 +766,41 @@ export function RemoteSources() {
                           <XCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
                         )}
                         <span className="break-words">{test.message}</span>
+                      </div>
+                    )}
+                    {test?.providers && (
+                      <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                        {REMOTE_PROVIDER_ORDER.map((provider) => {
+                          const detail = test.providers?.[provider];
+                          if (!detail) return null;
+                          const good = detail.status === "ok";
+                          return (
+                            <div
+                              key={provider}
+                              className={`rounded-lg border px-2 py-1.5 text-[10px] ${
+                                good
+                                  ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-200"
+                                  : detail.status === "unavailable"
+                                    ? "border-border bg-surface-2 text-gray-400"
+                                    : "border-red-500/25 bg-red-500/5 text-red-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 font-medium">
+                                {good ? (
+                                  <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                                ) : (
+                                  <XCircle className="h-3.5 w-3.5 shrink-0" />
+                                )}
+                                {providerTitle(provider)} ·{" "}
+                                {t(`remoteSources.providerStatus.${detail.status}`, detail.status)}
+                              </div>
+                              <div className="mt-0.5 break-all font-mono opacity-75">
+                                {detail.path}
+                              </div>
+                              <div className="mt-0.5 leading-snug opacity-90">{detail.message}</div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

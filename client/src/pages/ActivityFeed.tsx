@@ -68,7 +68,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { useEffect, useState, useCallback, useRef, useMemo, useSyncExternalStore } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Activity, Pause, Play, RefreshCw, ChevronRight, ExternalLink } from "lucide-react";
 import { api } from "../lib/api";

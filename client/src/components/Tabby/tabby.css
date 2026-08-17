@@ -1,5 +1,6 @@
 /**
- * tabby.css - animations + mood expressions for the Tabby companion.
+ * tabby.css - animations, mood expressions, and the hover greeting for the
+ * Tabby companion.
  * Colors mirror the app's theme tokens (accent #6366f1/#818cf8, surface scale)
  * with warm pink accents (ears, cheeks, nose) for cuteness. All continuous
  * motion is disabled under [data-reduced="1"] and prefers-reduced-motion.
@@ -72,7 +73,8 @@
   stroke: #8b93f9;
   stroke-width: 2;
   stroke-linejoin: round;
-  transform-origin: 80px 68px;
+  transform-box: view-box;
+  transform-origin: 67px 90px;
 }
 .tabby-whiskers path,
 .tabby-brows path,
@@ -102,11 +104,17 @@
   fill: #fde68a;
 }
 .tabby-zzz text,
-.tabby-bang text {
+.tabby-bang text,
+.tabby-hover-hearts text {
   fill: #a5b4fc;
   font-family: "JetBrains Mono", monospace;
   font-size: 11px;
   font-weight: 700;
+}
+.tabby-hover-hearts text {
+  fill: #f7a8c8;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
 }
 
 /* ── default visibility: show open eyes + idle mouth, hide the rest ── */
@@ -117,7 +125,8 @@
 .tabby-mouth-worried,
 .tabby-zzz,
 .tabby-bang,
-.tabby-sparkle {
+.tabby-sparkle,
+.tabby-hover-hearts {
   display: none;
 }
 
@@ -248,6 +257,47 @@
     opacity: 1;
   }
 }
+@keyframes tabby-paw-wave {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translate(-1px, -7px) rotate(-16deg);
+  }
+  52% {
+    transform: translate(1px, -7px) rotate(13deg);
+  }
+  76% {
+    transform: translate(-1px, -6px) rotate(-10deg);
+  }
+}
+@keyframes tabby-hover-tail-swish {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  32% {
+    transform: rotate(-19deg);
+  }
+  68% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes tabby-hover-heart-float {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.55);
+  }
+  28% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-11px) scale(0.8);
+  }
+}
 
 /* idle: gentle breathing + occasional blink */
 .tabby-cat[data-mood="idle"] {
@@ -305,6 +355,32 @@
   transform-origin: 50px 60px;
 }
 
+/* Hover is a short greeting rather than a generic scale-up: Tabby raises a
+   paw, swishes their tail, perks up, and sends two small hearts skyward. */
+.tabby-cat[data-hovered="1"] .tabby-paw-wave {
+  animation: tabby-paw-wave 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transform-box: fill-box;
+  transform-origin: 50% 18%;
+}
+.tabby-cat[data-hovered="1"] .tabby-tail {
+  animation: tabby-hover-tail-swish 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+.tabby-cat[data-hovered="1"] .tabby-ears {
+  animation: tabby-ears-perk 0.45s ease-out 2;
+  transform-origin: 50px 24px;
+}
+.tabby-cat[data-hovered="1"] .tabby-hover-hearts {
+  display: block;
+}
+.tabby-cat[data-hovered="1"] .tabby-hover-hearts text {
+  animation: tabby-hover-heart-float 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.tabby-cat[data-hovered="1"] .tabby-hover-hearts text:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
 /* ── reduced motion: kill all continuous animation ── */
 .tabby-cat[data-reduced="1"],
 .tabby-cat[data-reduced="1"] * {
@@ -334,11 +410,7 @@
   /* Glide to the snapped edge after a drag; killed mid-drag for 1:1 tracking. */
   transition:
     left 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    top 0.28s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.15s ease;
-}
-.tabby-avatar-btn:hover {
-  transform: scale(1.06);
+    top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .tabby-avatar-btn:focus-visible {
   outline: 2px solid #818cf8;
@@ -346,10 +418,7 @@
 }
 .tabby-avatar-btn[data-dragging="1"] {
   cursor: grabbing;
-  transition: transform 0.15s ease; /* no left/top easing while dragging */
-}
-.tabby-avatar-btn[data-dragging="1"]:hover {
-  transform: scale(1.1);
+  transition: none; /* no dock easing while tracking the drag */
 }
 
 /* Self-clamping flyout that holds the bubble / panel next to the avatar. Its

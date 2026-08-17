@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Search"
+  short_description: "Find Claude Code sessions tracked by the Agent Monitor by..."
+  default_prompt: "Use $session-search to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

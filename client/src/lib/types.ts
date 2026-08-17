@@ -547,6 +547,7 @@
  *  - `run_stream` / `run_status` / `run_input_ack` ... {@link RunStreamPayload} /
  *    {@link RunStatusPayload} / {@link RunInputAckPayload}
  *  - `cc_config_changed` ............................ {@link CcConfigChangedPayload}
+ *  - `codex_config_changed` ......................... {@link CcConfigChangedPayload}
  *  - `alert_triggered` / `alert_updated` ............ {@link AlertEvent}
  *  - `workflow_upserted` ............................ {@link WorkflowRun}
  *
@@ -584,7 +585,7 @@ export type AgentType = "main" | "subagent";
 /**
  * UI-only status that overlays the persisted SessionStatus/AgentStatus when
  * `awaiting_input_since` is set on a session or agent. Renders as a yellow
- * "Waiting" badge so the dashboard can flag sessions blocked on a Claude Code
+ * "Waiting" badge so the dashboard can flag sessions blocked on an agent CLI
  * permission prompt without changing the underlying lifecycle enum.
  *
  * The literal value is intentionally `"waiting"` (the same string as
@@ -599,14 +600,14 @@ export const AWAITING_STATUS = "waiting" as const;
  * `awaiting_reason` column (set/cleared in lock-step with
  * `awaiting_input_since` by `server/routes/hooks.js`):
  *
- * - `"notification"`  — a permission prompt or explicit input request; Claude
+ * - `"notification"`  — a permission prompt or explicit input request; the agent
  *    cannot continue until the user responds. The most actionable state.
- * - `"stop"`          — Claude finished its turn; the session idles until the
+ * - `"stop"`          — the agent finished its turn; the session idles until the
  *    next prompt is submitted.
  * - `"session_start"` — the CLI just started/resumed and sits at an empty
  *    prompt; nothing has been asked yet.
  * - `"interrupted"`   — the turn was cut short (Esc, or the watchdog recovered
- *    a lost Stop hook); Claude is waiting for direction.
+ *    a lost lifecycle event); the agent is waiting for direction.
  */
 export type AwaitingReason = "notification" | "stop" | "session_start" | "interrupted";
 
@@ -626,14 +627,14 @@ export type EffectiveAgentStatus = AgentStatus | typeof AWAITING_STATUS;
 export type EffectiveSessionStatus = SessionStatus | typeof AWAITING_STATUS;
 
 // ───── Session & Agent rows ─────
-// The two primary entities. A `Session` is one `claude` CLI invocation; an
+// The two primary entities. A `Session` is one monitored CLI invocation; an
 // `Agent` is one process within it (the main loop or a spawned subagent). Both
-// are created lazily on their first hook event and mutated as hooks stream in.
+// are created lazily on their first observed event and mutated as events stream in.
 
 /**
- * A Claude Code CLI invocation tracked by the dashboard - one row per top-level
- * `claude` process, created on its first hook event (or on import) and updated
- * as hooks stream in. Returned by GET /api/sessions, /api/sessions/:id, and
+ * A monitored agent CLI invocation tracked by the dashboard — one row per top-level
+ * process, created on its first observed event (or on import) and updated as
+ * events stream in. Returned by GET /api/sessions, /api/sessions/:id, and
  * pushed live via the `session_created`/`session_updated` WebSocket messages.
  *
  * Fields split into three groups: always-present columns (`id`..`metadata`),
@@ -642,7 +643,7 @@ export type EffectiveSessionStatus = SessionStatus | typeof AWAITING_STATUS;
  * `awaiting_input_since` overlay used to render the "Waiting" badge.
  */
 export interface Session {
-  /** Session UUID, taken from the Claude Code hook payload's `session_id`.
+  /** Session UUID, taken from the source CLI's session record.
    *  Primary key (`sessions.id`); also the foreign key that `Agent`/
    *  `DashboardEvent` rows join on. Example: `"9f2c1e7a-...-b3"`. */
   id: string;
@@ -670,6 +671,11 @@ export interface Session {
   /** Opaque JSON string of extra session metadata; parse before use. May be
    *  null. Maps to `sessions.metadata`. `JSON.parse` before reading any keys. */
   metadata: string | null;
+  /** Latest concise main-agent task available for card rendering. List and
+   * detail responses derive it from the main agent's task; Codex safely falls
+   * back to its latest recorded human prompt so historical sessions are useful
+   * before their next live turn. Null when no user-authored task was captured. */
+  prompt_preview?: string | null;
   /** Count of `Agent` rows (main + subagents) belonging to this session.
    *  Only present on list/detail responses that join agent counts (a computed
    *  column, not a stored one). Undefined ≠ zero: it means "not joined here". */
@@ -682,9 +688,9 @@ export interface Session {
    *  active pricing rules. Only present on responses that attach pricing.
    *  Absolute dollars (e.g. `0.42`), already summed across all buckets. */
   cost?: number;
-  /** ISO timestamp set when Claude Code is blocked waiting for the user
-   * (permission prompt or "waiting for your input" notice). Cleared on the
-   * next non-Notification hook event. Null when the session is not waiting.
+  /** ISO timestamp set when an agent CLI is blocked waiting for the user
+   * (permission prompt or "waiting for your input" notice). Cleared when the
+   * source reports that work has resumed. Null when the session is not waiting.
    * Feeds {@link isSessionAwaitingInput} and the yellow "Waiting" overlay. */
   awaiting_input_since?: string | null;
   /** WHY the session is waiting - one of {@link AwaitingReason}, set/cleared in
@@ -696,11 +702,69 @@ export interface Session {
    * dashboard's own machine; any other value is a remote source id (see the
    * Remote Data Sources feature / `remote_sources`). Maps to `sessions.source`. */
   source?: string;
+  /** Product that created this session. Historical records default to Claude;
+   *  Codex rollouts are marked `codex` and use the GPT price card. */
+  provider?: "claude" | "codex";
+  /** Compact latest task progress attached to Sessions-list rows. Null when the
+   * provider never emitted task/checklist/plan state. */
+  todo_summary?: SessionTodoSummary | null;
+  /** Full latest owner-attributed task state attached to Session Detail. Null
+   * when no observable task/checklist/plan state exists. */
+  todo_snapshot?: SessionTodoSnapshot | null;
+}
+
+export type SessionTodoStatus = "pending" | "in_progress" | "completed" | "cancelled" | "unknown";
+
+export interface SessionTodoItem {
+  id: string;
+  text: string;
+  status: SessionTodoStatus;
+  sourceStatus: string | null;
+  order: number;
+  agentId: string;
+  agentType: string;
+  description: string | null;
+}
+
+export interface SessionTodoOwnerSummary {
+  agentId: string;
+  agentType: string;
+  completed: number;
+  total: number;
+}
+
+export interface SessionTodoSummary {
+  total: number;
+  completed: number;
+  inProgress: number;
+  pending: number;
+  cancelled: number;
+  unknown: number;
+  percentComplete: number | null;
+  activeText: string | null;
+  sourceTool: string | null;
+  updatedAt: string | null;
+  previewItems: SessionTodoItem[];
+  overflowCount: number;
+  ownerBreakdown: SessionTodoOwnerSummary[];
+}
+
+export interface SessionTodoSnapshot extends Omit<
+  SessionTodoSummary,
+  "previewItems" | "overflowCount"
+> {
+  provider: "claude" | "codex";
+  source: "transcript" | "mixed";
+  sourceLine: number | null;
+  explanation: string | null;
+  confidence: "full" | "partial";
+  items: SessionTodoItem[];
+  includesSubagents: boolean;
 }
 
 /**
- * A single agent process within a session: either the main Claude Code CLI or
- * a subagent spawned via the Task/Agent tool. Returned nested under `Session`
+ * A single agent process within a session: either the main agent CLI or a
+ * subagent spawned through the provider's delegation tool. Returned nested under `Session`
  * responses and by GET /api/agents; pushed live via `agent_created`/`agent_updated`.
  *
  * Main agents typically carry the session's overall cost; subagents may carry
@@ -749,6 +813,10 @@ export interface Agent {
   /** ISO timestamp of the most recent event attributed to this agent. Maps to
    *  `agents.updated_at`; bumped on every ingested event for this agent. */
   updated_at: string;
+  /** Latest durable provider event for this agent. List/detail reads derive it
+   *  independently of mutable metadata/status bookkeeping so cards report
+   *  real activity time; absent only from lightweight live WebSocket frames. */
+  last_activity?: string;
   /** Id of the agent that spawned this one via Task/Agent; null for main agents
    *  and for subagents whose parent wasn't recorded (e.g. legacy imports). Maps
    *  to `agents.parent_agent_id`; the self-reference that builds the agent tree. */
@@ -1047,6 +1115,29 @@ export interface ModelPricing {
 }
 
 /**
+ * An editable OpenAI/Codex rate rule. The distinct price bands represent the
+ * public GPT card: standard short context (<=272K input tokens), standard long
+ * context (>272K), and Fast mode. All values are USD per million tokens.
+ */
+export interface GptModelPricing {
+  model_pattern: string;
+  display_name: string;
+  short_input_per_mtok: number;
+  short_cached_input_per_mtok: number;
+  short_cache_write_per_mtok: number;
+  short_output_per_mtok: number;
+  long_input_per_mtok: number;
+  long_cached_input_per_mtok: number;
+  long_cache_write_per_mtok: number;
+  long_output_per_mtok: number;
+  fast_input_per_mtok: number;
+  fast_cached_input_per_mtok: number;
+  fast_cache_write_per_mtok: number;
+  fast_output_per_mtok: number;
+  updated_at: string;
+}
+
+/**
  * One row of a {@link CostResult.breakdown} - token usage and cost aggregated
  * per (model, speed, inference_geo, service_tier) tuple. Emitted by
  * `calculateCost` in server/routes/pricing.js.
@@ -1166,9 +1257,11 @@ export interface ImportProgressMessage {
    *  start → scan → extract → parse → complete. */
   phase: "start" | "scan" | "extract" | "parse" | "complete" | "error" | "extract_error";
   /** Which import flow triggered this run. "default" scans the standard Claude
-   *  Code projects dir; "path" scans a user-supplied path; "upload" ingests an
+   *  provider's default transcript directory; "path" scans a user-supplied path; "upload" ingests an
    *  uploaded file; "remote" is a background SSH pull from a Remote Data Source. */
   source?: "default" | "path" | "upload" | "remote";
+  /** Provider whose import emitted this update. */
+  provider?: "claude" | "codex";
   /** Items processed so far, for a determinate progress bar. Numerator of
    *  `processed / total`. */
   processed?: number;
@@ -1650,7 +1743,8 @@ export interface WSMessage {
    *  session_created/updated → Session; agent_created/updated → Agent;
    *  new_event → DashboardEvent; import.progress → ImportProgressMessage;
    *  update_status → UpdateStatusPayload; run_stream/run_status/run_input_ack
-   *  → their matching Run*Payload; cc_config_changed → CcConfigChangedPayload;
+   *  → their matching Run*Payload; cc_config_changed / codex_config_changed
+   *  → CcConfigChangedPayload;
    *  alert_triggered/alert_updated → AlertEvent; workflow_upserted → WorkflowRun;
    *  remote_source.status → RemoteSourceStatusPayload;
    *  remote_data.updated → RemoteDataUpdatedPayload. */
@@ -1666,6 +1760,7 @@ export interface WSMessage {
     | "run_status"
     | "run_input_ack"
     | "cc_config_changed"
+    | "codex_config_changed"
     | "alert_triggered"
     | "alert_updated"
     | "workflow_upserted"
@@ -2365,7 +2460,7 @@ export interface TranscriptContent {
   /** Block kind; selects which of the optional fields below are populated.
    *  "thinking" is the model's extended-reasoning trace; "text" is normal prose;
    *  "tool_use"/"tool_result" are the two halves of a tool round-trip. */
-  type: "text" | "tool_use" | "tool_result" | "thinking";
+  type: "text" | "tool_use" | "tool_result" | "thinking" | "image";
   /** Present for "text"/"thinking" blocks: the rendered prose (or reasoning). */
   text?: string;
   /** Present for "tool_use" blocks: the invoked tool's name. Example: `"Bash"`. */
@@ -2380,6 +2475,12 @@ export interface TranscriptContent {
   output?: string;
   /** Present for "tool_result" blocks: whether the tool call errored. */
   is_error?: boolean;
+  /** A same-origin transcript-image endpoint or a validated inline image data
+   * URL. Present only for persisted user attachments that can be rendered
+   * without exposing a local file path. */
+  src?: string;
+  /** Accessible description for an attached transcript image. */
+  alt?: string;
 }
 
 /** Who actually sent a transcript message. A JSONL `type:"user"` line can be the

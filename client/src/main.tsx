@@ -1,6 +1,6 @@
 /**
  * @file main.tsx
- * @description Vite client entry point. Bootstraps React 18, loads global styles
+ * @description Vite client entry point. Bootstraps React 19, loads global styles
  * and i18n, registers the service worker for offline asset caching, and mounts
  * {@link App} into `#root`.
  *

@@ -4,15 +4,16 @@
  * (or sub-agent) JSONL transcript, paginates it incrementally, and renders
  * the message stream via MessageList. Combines a WebSocket subscription, a
  * visibility-gated polling fallback, and a manual refresh button so the view
- * stays caught up even when hooks miss frames or the user is mid-text-only
- * turn (no PreToolUse fires until Stop).
+ * stays caught up even when events miss frames or the user is mid-text-only
+ * turn. A top sentinel and scroll fallback
+ * make older pages load reliably for both Claude and Codex transcripts.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================
  * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/conversation/ConversationView.tsx`
- * **Purpose:** Renders Claude transcript rows (user, assistant, tool calls) inside Session Detail with markdown, syntax highlighting, and TUI-style segments.
+ * **Purpose:** Renders provider transcript rows (user, assistant, tool calls) inside Session Detail with markdown, syntax highlighting, and TUI-style segments.
  *
  * ## Design constraints
  * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
@@ -61,6 +62,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Loader2, ArrowDown, MessagesSquare, RefreshCw } from "lucide-react";
 import { api } from "../../lib/api";
 import { eventBus } from "../../lib/eventBus";
@@ -68,11 +70,10 @@ import { isRemoteDataRefreshMessage } from "../../lib/remoteDataEvents";
 import { MessageList } from "./MessageList";
 import type { TranscriptMessage, TranscriptInfo, WSMessage } from "../../lib/types";
 
-// Catch-up poll interval. Claude Code only fires hooks on PreToolUse /
-// PostToolUse / Stop, which means a user-typed message (no hook) and any
-// assistant text written between two hook fires is invisible until the next
-// hook event. A short visibility-gated poll closes that gap and also rescues
-// the conversation from missed/late WebSocket frames.
+// Catch-up poll interval. Some lifecycle event streams do not emit every
+// transcript write, so a user-typed message or assistant text may otherwise
+// remain invisible until the next event. A short visibility-gated poll closes
+// that gap and also rescues the conversation from missed/late WebSocket frames.
 const POLL_INTERVAL_MS = 3000;
 // Rescan the transcripts list periodically so new subagents that spawn
 // mid-session appear in the dropdown without a page reload.
@@ -84,6 +85,7 @@ interface ConversationViewProps {
 }
 
 export function ConversationView({ sessionId, initialTranscriptId }: ConversationViewProps) {
+  const { t } = useTranslation("sessions");
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -100,8 +102,13 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
   const lastLineRef = useRef(0);
   const firstLineRef = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const historySentinelRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const fetchingRef = useRef(false);
+  // State updates are asynchronous, so keep an imperative guard as well. It
+  // prevents a scroll event and the top IntersectionObserver from requesting
+  // the same history page before `loadingHistory` has rendered.
+  const historyLoadingRef = useRef(false);
   // When a fetch is in flight and a new trigger arrives (WS event, poll,
   // manual refresh), we queue exactly one re-fetch so events that landed
   // during the in-flight request aren't silently dropped.
@@ -309,11 +316,12 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
 
   // Scroll-up to load history
   const loadHistory = useCallback(async () => {
-    if (loadingHistory || !hasMore) return;
+    if (historyLoadingRef.current || !hasMore) return;
     // Need the first message's line number
     // Since message objects don't have a _line field, we track it via firstLineRef
     // firstLineRef is updated on initial load and each history load
     try {
+      historyLoadingRef.current = true;
       setLoadingHistory(true);
       const container = scrollContainerRef.current;
       const prevScrollHeight = container?.scrollHeight ?? 0;
@@ -328,7 +336,6 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
         // Nothing older exists - clear hasMore so the hint stops showing
         // even if the server still claims more is available.
         setHasMore(false);
-        setLoadingHistory(false);
         return;
       }
 
@@ -348,9 +355,10 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
     } catch {
       // Non-fatal
     } finally {
+      historyLoadingRef.current = false;
       setLoadingHistory(false);
     }
-  }, [sessionId, selectedTranscript, loadingHistory, hasMore]);
+  }, [sessionId, selectedTranscript, hasMore]);
 
   // Scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -377,10 +385,30 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
     }
 
     // Load history when scrolled to top
-    if (container.scrollTop < 50 && hasMore && !loadingHistory) {
+    if (container.scrollTop <= 50 && hasMore) {
       loadHistory();
     }
-  }, [hasMore, loadingHistory, loadHistory]);
+  }, [hasMore, loadHistory]);
+
+  // Browsers occasionally do not emit another scroll event after a touchpad
+  // fling lands exactly at scrollTop=0. Observing a tiny marker at the top
+  // closes that gap, while the scroll handler above remains the fallback for
+  // older browsers and explicit scrollbar movement.
+  useEffect(() => {
+    const root = scrollContainerRef.current;
+    const sentinel = historySentinelRef.current;
+    if (!root || !sentinel || !hasMore || loading || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadHistory();
+      },
+      { root, rootMargin: "64px 0px 0px", threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadHistory]);
 
   // Auto-scroll to bottom after initial load
   useEffect(() => {
@@ -440,9 +468,11 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
+        data-testid="transcript-scroll-container"
         className="flex-1 overflow-y-auto"
         style={{ maxHeight: "calc(100vh - 320px)", minHeight: 200 }}
       >
+        <div ref={historySentinelRef} aria-hidden="true" className="h-px" />
         {/* History loading indicator */}
         {loadingHistory && (
           <div className="flex justify-center py-3">
@@ -454,7 +484,13 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
         {/* Scroll-up for history hint */}
         {hasMore && !loadingHistory && !loading && (
           <div className="flex justify-center py-2">
-            <span className="text-[11px] text-gray-600">↑ Scroll up for older messages</span>
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="text-[11px] text-gray-500 hover:text-violet-300 transition-colors"
+            >
+              {t("detail.transcript.loadOlder")}
+            </button>
           </div>
         )}
 
@@ -466,11 +502,10 @@ export function ConversationView({ sessionId, initialTranscriptId }: Conversatio
           <div className="mx-auto max-w-md py-12 text-center">
             <p className="text-sm text-gray-400">No conversation records found.</p>
             <p className="mt-2 text-xs leading-relaxed text-gray-500">
-              This session's metadata was imported, but its transcript file is no longer on disk.
-              Claude Code automatically deletes inactive session transcripts after a retention
-              period (<code className="text-gray-400">cleanupPeriodDays</code>, default 30 days), so
-              older conversations may already be gone. Sessions imported from now on are snapshotted
-              and kept even after Claude Code prunes the originals.
+              This session&apos;s metadata was imported, but its transcript file is no longer on
+              disk. Older conversations may be unavailable when the original CLI has cleaned up its
+              local history. Sessions imported from now on are snapshotted and kept even after the
+              original transcript disappears.
             </p>
           </div>
         ) : (

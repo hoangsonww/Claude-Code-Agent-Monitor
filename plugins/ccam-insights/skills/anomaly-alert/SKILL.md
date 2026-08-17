@@ -1,4 +1,5 @@
 ---
+name: anomaly-alert
 description: >
   Identify anomalous sessions using Agent Monitor data — cost outliers from
   the pricing engine, token anomalies (cache miss spikes, compaction baseline

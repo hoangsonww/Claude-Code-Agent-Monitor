@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cost Breakdown"
+  short_description: "Break down Claude Code costs using the Agent Monitor pricing..."
+  default_prompt: "Use $cost-breakdown to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

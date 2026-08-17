@@ -1,0 +1,6 @@
+interface:
+  display_name: "Pattern Detect"
+  short_description: "Detect recurring patterns using the Agent Monitor's workflow..."
+  default_prompt: "Use $pattern-detect to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

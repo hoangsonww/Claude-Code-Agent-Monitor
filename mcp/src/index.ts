@@ -53,7 +53,7 @@ import { loadConfig, type TransportMode } from "./config/app-config.js";
 import { Logger } from "./core/logger.js";
 import { buildServer } from "./server.js";
 import { startHttpServer } from "./transports/http-server.js";
-import { startRepl } from "./transports/repl.js";
+import { startRepl, toolDomain } from "./transports/repl.js";
 import { collectAllTools } from "./transports/tool-collector.js";
 import { printBanner, printServerInfo, printReady, printShutdown } from "./ui/banner.js";
 
@@ -137,39 +137,10 @@ async function main() {
 
   // ── REPL mode (interactive CLI) ─────────────────────────────
   else if (transport === "repl") {
-    const TOOL_DOMAINS: Record<string, string> = {
-      dashboard_health_check: "observability",
-      dashboard_get_stats: "observability",
-      dashboard_get_analytics: "observability",
-      dashboard_get_system_info: "observability",
-      dashboard_export_data: "observability",
-      dashboard_get_operational_snapshot: "observability",
-      dashboard_list_sessions: "sessions",
-      dashboard_get_session: "sessions",
-      dashboard_create_session: "sessions",
-      dashboard_update_session: "sessions",
-      dashboard_list_agents: "agents",
-      dashboard_get_agent: "agents",
-      dashboard_create_agent: "agents",
-      dashboard_update_agent: "agents",
-      dashboard_list_events: "events",
-      dashboard_ingest_hook_event: "events",
-      dashboard_get_pricing_rules: "pricing",
-      dashboard_get_total_cost: "pricing",
-      dashboard_get_session_cost: "pricing",
-      dashboard_upsert_pricing_rule: "pricing",
-      dashboard_delete_pricing_rule: "pricing",
-      dashboard_reset_pricing_defaults: "pricing",
-      dashboard_cleanup_data: "maintenance",
-      dashboard_reimport_history: "maintenance",
-      dashboard_reinstall_hooks: "maintenance",
-      dashboard_clear_all_data: "maintenance",
-    };
-
     const toolEntries = collectAllTools(config, api, logger);
     const replTools = toolEntries.map((t) => ({
       ...t,
-      domain: TOOL_DOMAINS[t.name] ?? "unknown",
+      domain: toolDomain(t.name),
     }));
     await startRepl(config, api, logger, replTools);
     return; // REPL handles its own lifecycle

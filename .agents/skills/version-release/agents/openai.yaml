@@ -1,0 +1,6 @@
+interface:
+  display_name: "Version Release"
+  short_description: "Classify and apply synchronized CCAM releases and milestones."
+  default_prompt: "Use $version-release to choose the correct patch, minor, or major bump, synchronize every CCAM release surface, and assign the release PR plus linked issues to the matching GitHub milestone."
+policy:
+  allow_implicit_invocation: false

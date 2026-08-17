@@ -70,7 +70,7 @@ type MessageHandler = (msg: WSMessage) => void;
  * auto-reconnects with capped exponential backoff on close - plus an
  * immediate reconnect attempt on tab focus/network-online/visibility-change
  * so the socket recovers quickly after a server restart or laptop sleep.
- * Guards against React 18 StrictMode's mount→cleanup→remount cycle opening a
+ * Guards against React StrictMode's mount→cleanup→remount cycle opening a
  * duplicate socket (see the inline comment in `connect`).
  * @param onMessage Called with every message parsed from the socket; the
  *   latest reference is used even across reconnects (no stale closures).
@@ -80,7 +80,7 @@ export function useWebSocket(onMessage: MessageHandler) {
   const wsRef = useRef<WebSocket | null>(null);
   const handlersRef = useRef<MessageHandler>(onMessage);
   const [connected, setConnected] = useState(false);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mountedRef = useRef(true);
   const reconnectAttempts = useRef(0);
 
@@ -89,7 +89,7 @@ export function useWebSocket(onMessage: MessageHandler) {
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
     // Don't open a second socket if one is already alive or in flight.
-    // Without this, React 18 StrictMode (mount → cleanup → remount in dev)
+    // Without this, React StrictMode (mount → cleanup → remount in dev)
     // and the close→reconnect race could leave two sockets connected at the
     // same time. Both would receive every server broadcast, producing
     // duplicate stream_event deltas (doubled text, duplicate assistant

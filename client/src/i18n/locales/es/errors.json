@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "Página no encontrada",
+    "description": "La ruta solicitada no existe. Usa la navegación para volver a una página válida.",
+    "goDashboard": "Ir al Panel",
+    "goBack": "Volver"
+  },
+  "notifications": {
+    "newSession": "Nueva Sesión",
+    "sessionDefault": "Sesión ",
+    "sessionError": "Error de Sesión",
+    "subagentSpawned": "Subagente Iniciado",
+    "finishedResponding": "El agente terminó de responder",
+    "readyForInput": "Listo para entrada",
+    "sessionCompleted": "Sesión Completada",
+    "sessionClosed": "Sesión cerrada",
+    "defaultTitle": "Panel de agentes",
+    "defaultBody": "Notificación"
+  },
+  "toolLegend": {
+    "read": "Leer",
+    "write": "Escribir",
+    "edit": "Editar",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "Otro"
+  }
+}

@@ -42,6 +42,8 @@
  * - `docs/API.md` — REST reference.
  * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
  * ============================================================================= */
+
+import fs from "node:fs";
 /* -----------------------------------------------------------------------------
  * EXPORT CATALOG — quick index of symbols defined below (documentation only).
  * -----------------------------------------------------------------------------
@@ -87,11 +89,14 @@ export interface AppConfig {
    * {@link parseDashboardUrl}) — a hard boundary against reaching a remote
    * origin. From `MCP_DASHBOARD_BASE_URL`, default `http://127.0.0.1:4820`. */
   dashboardBaseUrl: URL;
+  /** Optional bearer token for dashboards started with DASHBOARD_API_TOKEN.
+   * Read from MCP_DASHBOARD_API_TOKEN first, then DASHBOARD_API_TOKEN. */
+  dashboardApiToken?: string;
   /** Per-attempt timeout (ms) before a request aborts as `TIMEOUT`. From
    * `MCP_DASHBOARD_TIMEOUT_MS`, default `10_000`, clamped `[500, 120_000]`. */
   requestTimeoutMs: number;
-  /** Extra attempts after the first for idempotent (GET/DELETE) requests on
-   * a retryable error (timeout, HTTP 408/429/5xx); POST/PUT/PATCH always run
+  /** Extra attempts after the first for idempotent GET requests on a
+   * retryable error (timeout, HTTP 408/429/5xx); writes always run
    * once. From `MCP_DASHBOARD_RETRY_COUNT`, default `2`, clamped `[0, 5]`. */
   retryCount: number;
   /** Base backoff delay (ms), doubled per retry (`* 2^(attempt-1)`). From
@@ -115,6 +120,9 @@ export interface AppConfig {
   /** HTTP transport bind host (ignored for stdio/repl). From
    * `MCP_HTTP_HOST`, default `"127.0.0.1"`. */
   httpHost: string;
+  /** Optional bearer token for HTTP/SSE clients. Read from
+   * `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTP_AUTH_TOKEN_FILE`. */
+  httpAuthToken?: string;
 }
 
 /** Allowlist of hostnames the dashboard URL may target: loopback addresses
@@ -128,6 +136,7 @@ const LOCAL_DASHBOARD_HOSTS = new Set([
   "host.docker.internal",
   "gateway.docker.internal",
   "host.containers.internal",
+  "agent-monitor",
 ]);
 const VALID_LOG_LEVELS = new Set<LogLevel>(["debug", "info", "warn", "error"]);
 
@@ -192,6 +201,49 @@ function parseDashboardUrl(raw: string | undefined): URL {
   return url;
 }
 
+function readDashboardToken(env: NodeJS.ProcessEnv): string | undefined {
+  const direct = env.MCP_DASHBOARD_API_TOKEN?.trim() || env.DASHBOARD_API_TOKEN?.trim();
+  if (direct) return direct;
+  const tokenPath =
+    env.MCP_DASHBOARD_API_TOKEN_FILE?.trim() || env.DASHBOARD_API_TOKEN_FILE?.trim();
+  if (!tokenPath) return undefined;
+  try {
+    return fs.readFileSync(tokenPath, "utf8").trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function readSecret(
+  env: NodeJS.ProcessEnv,
+  directName: string,
+  fileName: string
+): string | undefined {
+  const direct = env[directName]?.trim();
+  if (direct) return direct;
+  const tokenPath = env[fileName]?.trim();
+  if (!tokenPath) return undefined;
+  try {
+    return fs.readFileSync(tokenPath, "utf8").trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseDashboardToken(env: NodeJS.ProcessEnv, dashboardBaseUrl: URL): string | undefined {
+  const token = readDashboardToken(env);
+  if (
+    token &&
+    dashboardBaseUrl.protocol !== "https:" &&
+    !["127.0.0.1", "localhost", "::1", "agent-monitor"].includes(dashboardBaseUrl.hostname)
+  ) {
+    throw new Error(
+      "Dashboard bearer tokens require HTTPS for container-host aliases; plain HTTP is allowed only on direct loopback."
+    );
+  }
+  return token;
+}
+
 /** Normalizes `MCP_TRANSPORT`, falling back to `"stdio"`. This is only the
  * default — `index.ts`'s `resolveTransport` may override it with CLI flags. */
 function parseTransport(value: string | undefined): TransportMode {
@@ -207,10 +259,12 @@ function parseTransport(value: string | undefined): TransportMode {
  * @throws {Error} if `MCP_DASHBOARD_BASE_URL` is set but invalid/non-local.
  */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const dashboardBaseUrl = parseDashboardUrl(env.MCP_DASHBOARD_BASE_URL);
   return {
     serverName: env.MCP_SERVER_NAME?.trim() || "agent-dashboard-mcp",
     serverVersion: env.MCP_SERVER_VERSION?.trim() || "1.0.0",
-    dashboardBaseUrl: parseDashboardUrl(env.MCP_DASHBOARD_BASE_URL),
+    dashboardBaseUrl,
+    dashboardApiToken: parseDashboardToken(env, dashboardBaseUrl),
     requestTimeoutMs: parseInteger(env.MCP_DASHBOARD_TIMEOUT_MS, 10_000, 500, 120_000),
     retryCount: parseInteger(env.MCP_DASHBOARD_RETRY_COUNT, 2, 0, 5),
     retryBackoffMs: parseInteger(env.MCP_DASHBOARD_RETRY_BACKOFF_MS, 250, 50, 10_000),
@@ -220,5 +274,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     transport: parseTransport(env.MCP_TRANSPORT),
     httpPort: parseInteger(env.MCP_HTTP_PORT, 8819, 1, 65535),
     httpHost: env.MCP_HTTP_HOST?.trim() || "127.0.0.1",
+    httpAuthToken: readSecret(env, "MCP_HTTP_AUTH_TOKEN", "MCP_HTTP_AUTH_TOKEN_FILE"),
   };
 }

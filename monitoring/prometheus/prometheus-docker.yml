@@ -13,7 +13,6 @@ scrape_configs:
     metrics_path: /api/metrics
     static_configs:
       - targets: ["agent-monitor:4820"]
-    # If the server sets DASHBOARD_TOKEN (LAN deployments), uncomment and fill in:
-    # authorization:
-    #   type: Bearer
-    #   credentials: "<DASHBOARD_TOKEN>"
+    authorization:
+      type: Bearer
+      credentials_file: /run/ccam-secrets/dashboard-token

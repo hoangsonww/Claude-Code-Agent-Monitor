@@ -1837,7 +1837,7 @@ const paths = {
       tags: ["CcConfig"],
       summary: "Read a single file body",
       description:
-        "Read-only. Returns the body of one file. Strict path containment: the resolved absolute path MUST live under the Claude home, the project .claude dir, or (only for a file literally named CLAUDE.md) the project root. Bodies over 256 KiB are truncated. NOTE: there is no 404 path — a missing, unreadable, or out-of-root file all return 400.",
+        "Read-only. Returns the body of one file. Strict symlink-aware path containment: the requested file and allowed roots are canonicalized with realpath, and the canonical target MUST live under the Claude home, the project .claude dir, or (only for a file literally named CLAUDE.md) the project root. Bodies over 256 KiB are truncated. NOTE: there is no 404 path — a missing, unreadable, or out-of-root file all return 400.",
       operationId: "ccConfigGetFile",
       parameters: [
         {

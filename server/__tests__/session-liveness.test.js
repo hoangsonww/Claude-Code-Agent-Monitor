@@ -1,9 +1,8 @@
 /**
- * @file Tests for the watchdog's process-liveness reap. A session whose
- * SessionEnd hook was lost (dashboard down when the user quit with Ctrl+C)
- * must be completed once no running `claude` CLI process has the session's
- * cwd — instead of sitting in Waiting until the 3 h stale sweep. Covers:
- *   - the claude-command matcher (`isClaudeCommand`),
+ * @file Tests for the watchdog's Claude Code and Codex process-liveness reap.
+ * A session whose SessionEnd hook was lost must complete only when its matching
+ * provider CLI is no longer alive in that working directory. Covers:
+ *   - the provider command matchers,
  *   - probeLiveCwds shape + env escape hatch,
  *   - the reap itself: dead session → completed (agents completed, awaiting
  *     cleared, synthetic SessionEnd event), live session → untouched,
@@ -39,6 +38,7 @@ const liveness = require("../lib/session-liveness");
 const hooksRouter = require("../routes/hooks");
 
 const realProbe = liveness.probeLiveCwds;
+const realRolloutProbe = liveness.probeLiveCodexRollouts;
 
 const enc = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 const PROJECTS = path.join(CLAUDE_HOME, "projects");
@@ -105,6 +105,41 @@ async function seedSession(sid, cwd, { old = true } = {}) {
   return tpath;
 }
 
+function seedCodexSession(sid, cwd, { old = true } = {}) {
+  const tpath = writeTranscript(cwd, sid, [
+    { type: "event_msg", payload: { type: "task_complete" } },
+  ]);
+  const now = new Date().toISOString();
+  const metadata = JSON.stringify({ provider: "codex", transcript_path: tpath });
+  stmts.insertCodexSession.run(
+    sid,
+    "Codex session",
+    "active",
+    cwd,
+    "gpt-5",
+    "local",
+    now,
+    now,
+    metadata
+  );
+  stmts.setSessionTranscriptPath.run(tpath, sid);
+  stmts.insertAgent.run(
+    `codex:${sid}`,
+    sid,
+    "Codex",
+    "main",
+    null,
+    "waiting",
+    null,
+    null,
+    metadata
+  );
+  stmts.setSessionAwaitingInput.run(now, "stop", sid);
+  stmts.setAgentAwaitingInput.run(now, "stop", `codex:${sid}`);
+  if (old) backdate(sid, tpath);
+  return tpath;
+}
+
 let server;
 let BASE;
 
@@ -116,6 +151,7 @@ before(async () => {
 
 after(() => {
   liveness.probeLiveCwds = realProbe;
+  liveness.probeLiveCodexRollouts = realRolloutProbe;
   if (server) server.close();
   if (db) db.close();
   try {
@@ -127,6 +163,7 @@ after(() => {
 
 beforeEach(() => {
   liveness.probeLiveCwds = realProbe;
+  liveness.probeLiveCodexRollouts = realRolloutProbe;
 });
 
 describe("isClaudeCommand — claude CLI process matcher", () => {
@@ -152,6 +189,20 @@ describe("isClaudeCommand — claude CLI process matcher", () => {
   }
   for (const cmd of no) {
     it(`rejects: ${cmd || "(empty)"}`, () => assert.equal(liveness.isClaudeCommand(cmd), false));
+  }
+});
+
+describe("isCodexCommand — Codex CLI process matcher", () => {
+  for (const cmd of [
+    "codex",
+    "codex resume --last",
+    "/usr/local/bin/codex --model gpt-5",
+    "bun /opt/bin/codex",
+  ]) {
+    it(`matches: ${cmd}`, () => assert.equal(liveness.isCodexCommand(cmd), true));
+  }
+  for (const cmd of ["codex-helper", "grep codex", "node /app/codex-dashboard/index.js"]) {
+    it(`rejects: ${cmd}`, () => assert.equal(liveness.isCodexCommand(cmd), false));
   }
 });
 
@@ -186,6 +237,31 @@ describe("probeLiveCwds — probe availability", () => {
 });
 
 describe("watchdog liveness reap", () => {
+  it("reaps an idle Codex session with no live codex process using the same safe guard", () => {
+    const sid = "cdead000-0000-0000-0000-000000000001";
+    const cwd = "/tmp/liveness-codex-dead";
+    seedCodexSession(sid, cwd);
+
+    let probedBinary = null;
+    liveness.probeLiveCwds = (binary) => {
+      probedBinary = binary;
+      return { available: true, cwds: new Set() };
+    };
+    hooksRouter.livenessReap({ provider: "codex" });
+
+    assert.equal(probedBinary, "codex");
+    assert.equal(stmts.getSession.get(sid).status, "completed");
+    assert.equal(stmts.getSession.get(sid).awaiting_input_since, null);
+    assert.equal(stmts.getAgent.get(`codex:${sid}`).status, "completed");
+    const event = db
+      .prepare(
+        "SELECT * FROM events WHERE session_id = ? AND event_type = 'SessionEnd' ORDER BY id DESC LIMIT 1"
+      )
+      .get(sid);
+    assert.match(event.summary, /no running codex process/);
+    assert.equal(JSON.parse(event.data).provider, "codex");
+  });
+
   it("completes an idle active session whose cwd has no live claude process", async () => {
     const sid = "dead0000-0000-0000-0000-000000000001";
     const cwd = "/tmp/liveness-dead";
@@ -252,6 +328,24 @@ describe("watchdog liveness reap", () => {
     hooksRouter.livenessReap();
 
     assert.equal(stmts.getSession.get(sid).status, "completed");
+  });
+
+  it("distinguishes old and live Codex rollouts that share the same cwd", () => {
+    const cwd = "/tmp/liveness-shared-codex";
+    const liveId = "cliv0000-0000-0000-0000-000000000011";
+    const deadId = "cded0000-0000-0000-0000-000000000012";
+    const livePath = seedCodexSession(liveId, cwd);
+    seedCodexSession(deadId, cwd);
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set([path.resolve(cwd)]) });
+    liveness.probeLiveCodexRollouts = () => ({
+      available: true,
+      paths: new Set([path.resolve(livePath)]),
+    });
+    hooksRouter.livenessReap({ provider: "codex" });
+
+    assert.equal(stmts.getSession.get(liveId).status, "active");
+    assert.equal(stmts.getSession.get(deadId).status, "completed");
   });
 
   it("does nothing when the probe is unavailable", async () => {

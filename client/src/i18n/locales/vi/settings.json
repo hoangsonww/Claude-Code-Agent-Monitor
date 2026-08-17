@@ -11,8 +11,10 @@
     "enableDesc": "Hiển thị bạn đồng hành ở góc trên toàn bảng điều khiển (⌘B để mở)"
   },
   "pricing": {
-    "title": "Định giá mô hình",
-    "description": "Đơn giá theo một triệu token (USD). Dùng % làm ký tự đại diện trong mẫu. Một số mô hình có mức giá giới thiệu có thời hạn (hiển thị màu tím); usage vào hoặc trước ngày kết thúc tính theo mức đó, sau đó tính theo mức chuẩn.",
+    "title": "Định giá mô hình Claude của Anthropic",
+    "navClaude": "Giá Claude",
+    "navGpt": "Giá Codex",
+    "description": "Đơn giá API Anthropic theo một triệu token (USD). Dùng % làm ký tự đại diện trong mẫu. Một số mô hình có mức giá giới thiệu có thời hạn (hiển thị màu tím); usage vào hoặc trước ngày kết thúc tính theo mức đó, sau đó tính theo mức chuẩn.",
     "introNote": "Ưu đãi ${{input}}/${{output}} đến {{until}}",
     "introRatesTitle": "Giá giới thiệu",
     "introRatesHint": "Để trống ngày nếu không có ưu đãi",
@@ -40,26 +42,92 @@
     },
     "cacheWrite5m": "Ghi bộ nhớ đệm (5m)",
     "cacheWrite1h": "Ghi bộ nhớ đệm (1h)",
-    "fastInput": "Fast Input",
-    "fastOutput": "Fast Output"
+    "fastInput": "Đầu vào Fast",
+    "fastOutput": "Đầu ra Fast",
+    "gpt": {
+      "title": "Định giá mô hình GPT của OpenAI",
+      "description": "Đơn giá API OpenAI công bố cho mức dùng Codex. Yêu cầu chuẩn dùng mức Short với đầu vào không quá 272K token và Long khi vượt 272K; Fast mode dùng bảng giá riêng. USD trên 1M token.",
+      "tooltip": {
+        "title": "Cách hoạt động của định giá GPT",
+        "howItWorks": "Cách hoạt động",
+        "howItWorksBody": "Mọi số tiền đều là USD trên 1M token. Yêu cầu Codex chuẩn dùng mức Short khi đầu vào không quá 272K token và mức Long khi vượt 272K. Fast mode dùng bảng giá riêng. Đầu vào mới, đầu vào đã cache, ghi cache và đầu ra được định giá riêng.",
+        "patternsTitle": "Cú pháp mẫu",
+        "patternsBody": "Mẫu dùng ký tự đại diện % kiểu SQL. Dashboard đánh giá các mẫu model cụ thể nhất trước và dùng quy tắc đầu tiên khớp với model id được báo cáo.",
+        "manualUpdates": "Bạn phải cập nhật giá thủ công",
+        "manualUpdatesBody": "OpenAI công bố thay đổi giá API trên website và không có nguồn dữ liệu trực tiếp. Hãy cập nhật hoặc thêm quy tắc khớp khi model hay đơn giá thay đổi để usage mới được định giá chính xác.",
+        "apiPricing": "Mức giá chưa công bố vẫn chưa được định giá",
+        "apiPricingBody": "Dấu gạch ngang nghĩa là OpenAI không công bố mức giá cho ngữ cảnh hoặc Fast mode đó. Usage khớp sẽ được đánh dấu chưa có giá thay vì bị ước đoán. Đây là đơn giá API trả theo lượng dùng để tham khảo, không phải cách tính phí của gói thuê bao."
+      },
+      "name": "Tên",
+      "short": "Chuẩn · Short ≤272K",
+      "long": "Chuẩn · Long >272K",
+      "fast": "Fast mode",
+      "input": "Đầu vào",
+      "cached": "Đã cache",
+      "write": "Ghi cache",
+      "output": "Đầu ra",
+      "deleteConfirm": "Xóa quy tắc giá GPT này?"
+    }
   },
   "claudeHome": {
-    "title": "CLAUDE_HOME",
-    "description": "Thư mục gốc chứa dữ liệu phiên Claude Code. Thay đổi sẽ cập nhật ngay đường dẫn quét cho transcript và import.",
+    "title": "Thư mục chính Claude Code",
+    "description": "Thư mục gốc cho transcript, import và cấu hình Claude Code. Thay đổi sẽ áp dụng ngay cho các lần đọc tệp tiếp theo.",
     "save": "Lưu",
     "saving": "Đang lưu...",
     "current": "Hiện tại:",
     "placeholder": "/đường-dẫn/tới/claude-home",
     "saveFailed": "Cập nhật CLAUDE_HOME thất bại"
   },
+  "codexHome": {
+    "title": "Thư mục chính Codex",
+    "description": "Thư mục gốc cho các phiên rollout và hook Codex. Lưu vị trí mới sẽ kích hoạt lại giám sát thời gian thực và quét các phiên ngay lập tức.",
+    "save": "Lưu",
+    "saving": "Đang lưu...",
+    "current": "Hiện tại:",
+    "placeholder": "/đường-dẫn/tới/codex-home",
+    "saveFailed": "Không thể cập nhật thư mục chính Codex"
+  },
+  "homes": {
+    "title": "Vị trí dữ liệu phiên",
+    "description": "Cấu hình các thư mục Claude Code và Codex cục bộ mà dashboard đọc. Mỗi vị trí đã lưu được áp dụng mà không cần khởi động lại ứng dụng."
+  },
+  "display": {
+    "title": "Dữ liệu dashboard",
+    "description": "Chọn phiên, token, chi phí và hoạt động của sản phẩm nào hiển thị trên toàn ứng dụng. Thay đổi có hiệu lực ngay và độc lập với bộ lọc nguồn dữ liệu máy.",
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "both": "Cả hai",
+    "claudeDescription": "Chỉ hiển thị dữ liệu Claude Code.",
+    "codexDescription": "Chỉ hiển thị dữ liệu Codex.",
+    "bothDescription": "Kết hợp dữ liệu Claude Code và Codex.",
+    "beta": "Beta"
+  },
   "hooks": {
     "title": "Cấu hình hook",
-    "description": "Hooks của Claude Code chuyển tiếp sự kiện về dashboard theo thời gian thực.",
+    "description": "Hooks của Claude Code và Codex chuyển tiếp sự kiện về dashboard theo thời gian thực.",
     "allInstalled": "Đã cài đầy đủ hooks",
+    "someInstalled": "Đã cấu hình hooks",
     "incomplete": "Hooks chưa đầy đủ",
     "reinstall": "Cài lại hooks",
+    "configure": "Cấu hình hooks",
     "success": "Cài hooks thành công",
-    "failed": "Cài hooks thất bại"
+    "failed": "Cài hooks thất bại",
+    "display": {
+      "title": "Dữ liệu dashboard",
+      "description": "Lọc ngay mọi chế độ xem dashboard theo sản phẩm. Bộ lọc nguồn dữ liệu máy vẫn độc lập.",
+      "both": "Cả hai"
+    },
+    "modal": {
+      "title": "Cài hooks cho dashboard",
+      "description": "Chọn một hoặc cả hai sản phẩm. Mục hook của dashboard hiện có sẽ được cập nhật; các lệnh hook khác vẫn được giữ nguyên.",
+      "claude": "Hooks vòng đời từ ~/.claude/settings.json.",
+      "codex": "Hooks vòng đời từ ~/.codex/hooks.json, với JSONL rollout làm đường dự phòng thời gian thực.",
+      "installed": "Đã cài",
+      "overrideWarning": "Đã tìm thấy cấu hình hook hiện có cho một hoặc nhiều sản phẩm đã chọn. Tiếp tục chỉ thay thế các mục khớp của dashboard này và giữ nguyên các hook không liên quan.",
+      "preserveNote": "Phải chọn ít nhất một sản phẩm.",
+      "install": "Cài hooks đã chọn",
+      "failed": "Không thể cài các hooks đã chọn."
+    }
   },
   "notifications": {
     "title": "Thông báo",
@@ -80,7 +148,13 @@
   },
   "import": {
     "title": "Nhập lịch sử",
+    "providerLabel": "Nguồn cần nhập",
+    "providerHint": "Chọn lịch sử agent cục bộ bạn muốn đưa vào bảng điều khiển này.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "Bản xuất dữ liệu bảng điều khiển có thể chứa dữ liệu Claude Code và Codex. Khôi phục sẽ gộp mọi nhà cung cấp có trong bản xuất.",
     "description": "Đưa các phiên Claude Code hiện có vào dashboard. Số token, chi phí theo mô hình, lần nén ngữ cảnh, subagent, lượt dùng tool và thời lượng từng lượt được dựng lại từ chính các transcript JSONL gốc - y hệt cách phiên trực tiếp được ghi nhận.",
+    "scopeNote": "Lần nhập này chỉ xử lý bản chép lời Claude Code. Nó không thay đổi lịch sử Codex hoặc cấu hình của cả hai CLI.",
     "accuracyNote": "Chạy lại nhiều lần luôn an toàn. Phiên được khử trùng lặp theo session ID, và mốc nén ngữ cảnh đảm bảo tổng token không bao giờ bị tính trùng.",
     "supportedFiles": "Định dạng được hỗ trợ: .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
     "instructions": "Cách thu thập lịch sử của bạn",
@@ -150,6 +224,37 @@
       "pathNotFound": "Đường dẫn không tồn tại",
       "pathNotDir": "Đường dẫn không phải thư mục",
       "generic": "Nhập thất bại: {{message}}"
+    },
+    "codex": {
+      "description": "Đưa các phiên Codex hiện có vào bảng điều khiển. Tin nhắn người dùng, đầu ra trợ lý, ảnh chụp token, lệnh gọi công cụ và trạng thái vòng đời hoạt động/chờ được dựng lại từ các tệp rollout JSONL gốc bằng đúng pipeline theo dõi thời gian thực.",
+      "scopeNote": "Lần nhập này chỉ xử lý bản chép lời của {{provider}}. Nó không thay đổi lịch sử Claude Code hoặc cấu hình CLI Codex của bạn.",
+      "accuracyNote": "Chạy lại là an toàn. Con trỏ rollout đã nhập được lưu giữ, do đó các delta token và lệnh gọi công cụ đã tính sẽ không bao giờ được cộng hai lần.",
+      "stepLocate": "1. Tìm lịch sử rollout Codex",
+      "stepLocateBody": "Codex lưu mỗi phiên dưới dạng tệp rollout JSONL chỉ nối thêm trong thư mục sessions. Các thư mục ngày lồng nhau được quét tự động.",
+      "stepArchive": "2. Đóng gói để chuyển (tùy chọn)",
+      "stepArchiveBody": "Để chuyển lịch sử từ máy khác, hãy nén thư mục sessions trước rồi sao chép sang (AirDrop, scp, USB hoặc lưu trữ đám mây). Bao gồm session_index.jsonl nếu bạn muốn giữ các tiêu đề /rename gốc từ máy đó.",
+      "stepChoose": "3. Chọn chế độ nhập bên dưới",
+      "stepChooseBody": "Quét lại các phiên Codex trên máy này, trỏ đến thư mục đã sao chép hoặc giải nén, hoặc tải trực tiếp các tệp rollout và kho lưu trữ lên.",
+      "stepVerify": "4. Xác minh token và chi phí",
+      "stepVerifyBody": "Sau khi nhập, mở Phân tích → Chi phí để xác nhận chi tiết. Bạn luôn có thể nhập lại cùng rollout một cách an toàn.",
+      "defaultLocation": "Vị trí phiên Codex mặc định trên máy này",
+      "locationFound": "Đã tìm thấy thư mục phiên",
+      "locationMissing": "Không tìm thấy thư mục phiên",
+      "projectsLabel": "thư mục phiên",
+      "jsonlLabel": "tệp rollout",
+      "modeRescan": "Quét lại phiên Codex",
+      "modeRescanDesc": "Đọc lại ~/.codex/sessions và nhập lịch sử rollout chưa có trong bảng điều khiển.",
+      "modeFolder": "Quét thư mục Codex",
+      "modeFolderDesc": "Quét thư mục Codex đã sao chép hoặc giải nén để tìm tệp rollout JSONL, kể cả các thư mục ngày lồng nhau.",
+      "modeUpload": "Tải lên lịch sử Codex",
+      "modeUploadDesc": "Thả tệp rollout JSONL hoặc kho lưu trữ (.zip / .tar.gz) trực tiếp vào trình duyệt.",
+      "folderPlaceholder": "/absolute/path/to/codex-history",
+      "folderHelper": "Đường dẫn tuyệt đối. Dấu ngã (~) được mở rộng. Thư mục và mọi thư mục ngày lồng nhau được quét đệ quy để tìm tệp rollout Codex.",
+      "runRescan": "Quét lại Codex ngay",
+      "runScan": "Quét thư mục Codex",
+      "runUpload": "Tải lên và nhập Codex",
+      "dropzoneHint": "Kéo tệp rollout Codex vào đây hoặc nhấp để chọn",
+      "dropzoneSub": "Chấp nhận rollout .jsonl, session_index.jsonl và kho lưu trữ .zip, .tar, .tar.gz, .tgz, .gz"
     }
   },
   "data": {
@@ -184,7 +289,7 @@
     "uptime": "Thời gian chạy",
     "nodejs": "Node.js",
     "platform": "Nền tảng",
-    "wsClients": "WS Clients",
+    "wsClients": "Máy khách WS",
     "loadingInfo": "Đang tải thông tin máy chủ..."
   },
   "tables": {
@@ -386,7 +491,7 @@
   },
   "remoteSources": {
     "title": "Nguồn dữ liệu từ xa",
-    "description": "Thu thập mức sử dụng Claude Code từ các máy khác qua SSH - ví dụ một máy dev hoặc máy ảo trên cloud mà bạn điều khiển qua SSH trong khi chạy bảng điều khiển này cục bộ. Xác thực dùng cấu hình SSH của chính bạn (~/.ssh/config, khóa, agent); không có mật khẩu nào được lưu ở đây.",
+    "description": "Thu thập mức sử dụng Claude Code và Codex từ các máy khác qua SSH - ví dụ một máy dev hoặc máy ảo trên cloud mà bạn điều khiển qua SSH trong khi chạy bảng điều khiển này cục bộ. Xác thực dùng cấu hình SSH của chính bạn (~/.ssh/config, khóa, agent); không có mật khẩu nào được lưu ở đây.",
     "scopeTitle": "Phạm vi dữ liệu",
     "scopeDesc": "Chọn dữ liệu của những máy nào sẽ hiển thị trên toàn bộ bảng điều khiển. Thay đổi được áp dụng ngay lập tức trên mọi trang — phiên, phân tích và chi phí.",
     "scopeAll": "Tất cả nguồn",
@@ -408,9 +513,11 @@
     "fieldIdentity": "Tệp danh tính (tùy chọn)",
     "fieldRemoteHome": "Thư mục Claude từ xa (tùy chọn)",
     "fieldRemoteHomeHint": "Linux/macOS: mặc định ~/.claude (hoặc đường dẫn tuyệt đối như /home/you/.claude). SSH vào Windows mà Claude chạy trong WSL: để trống (tự phát hiện) hoặc dùng wsl:~/.claude. Windows thuần: C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "Thư mục Codex từ xa (tùy chọn)",
+    "fieldRemoteCodexHomeHint": "Mặc định là ~/.codex và nhập các phiên cùng tiêu đề đã đổi tên gốc. Với SSH Windows có Codex trong WSL, để trống (tự phát hiện) hoặc dùng wsl:~/.codex.",
     "fieldEnabled": "Tự động đồng bộ ở chế độ nền",
     "empty": "Chưa có nguồn từ xa nào.",
-    "emptyHint": "Thêm một máy bạn kết nối qua SSH để kéo dữ liệu sử dụng Claude Code của máy đó về.",
+    "emptyHint": "Thêm một máy bạn kết nối qua SSH để kéo dữ liệu sử dụng Claude Code và Codex của máy đó về.",
     "paused": "Tắt tự động đồng bộ",
     "sessionCount": "{{n}} phiên",
     "sessionCountLinked": "{{n}} đã liên kết",
@@ -420,6 +527,16 @@
     "imported": "Đã nhập {{n}}",
     "syncNew": "{{n}} mới",
     "syncOnRemote": "{{n}} trên máy từ xa",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} phiên",
+    "providerStatus": {
+      "idle": "Chưa kiểm tra",
+      "syncing": "Đang kiểm tra",
+      "ok": "Sẵn sàng",
+      "unavailable": "Không tìm thấy",
+      "error": "Không khả dụng"
+    },
     "test": "Kiểm tra",
     "syncNow": "Đồng bộ",
     "syncAll": "Đồng bộ tất cả",

@@ -55,7 +55,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { z } from "zod";
-import { createToolRegistrar } from "../../core/tool-registry.js";
+import { registrarFor } from "../../core/tool-registry.js";
 import { assertDestructiveEnabled, assertMutationsEnabled } from "../../policy/tool-guards.js";
 import type { ToolContext } from "../../types/tool-context.js";
 
@@ -67,8 +67,8 @@ import type { ToolContext } from "../../types/tool-context.js";
  * reinstall-hooks are idempotent, repeatable operations).
  */
 export function registerMaintenanceTools(context: ToolContext): void {
-  const { api, logger, server, config } = context;
-  const register = createToolRegistrar(server, logger);
+  const { api, config } = context;
+  const register = registrarFor(context);
 
   // Policy: MUTATIONS required (checked before the "at least one field"
   // validation below). Input: abandon_hours (1 to 24*365) and/or purge_days
@@ -94,7 +94,7 @@ export function registerMaintenanceTools(context: ToolContext): void {
       const abandonHours = args.abandon_hours as number | undefined;
       const purgeDays = args.purge_days as number | undefined;
       if (abandonHours === undefined && purgeDays === undefined) {
-        throw new Error("At least one field is required: abandon_hours or purge_days.");
+        throw new Error("At least one of abandon_hours or purge_days is required.");
       }
       return api.post("/api/settings/cleanup", {
         body: {

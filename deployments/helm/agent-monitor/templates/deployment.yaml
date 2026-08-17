@@ -5,14 +5,10 @@ metadata:
   labels:
     {{- include "agent-monitor.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
-  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit | default 5 }}
-  {{- with .Values.deployment.strategy }}
+  replicas: 1
+  revisionHistoryLimit: 5
   strategy:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    type: Recreate
   selector:
     matchLabels:
       {{- include "agent-monitor.selectorLabels" . | nindent 6 }}
@@ -70,6 +66,15 @@ spec:
             {{- with .Values.extraEnvFrom }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: DASHBOARD_TOKEN_FILE
+              value: /run/ccam-secrets/dashboard-token
+            - name: DASHBOARD_HOOK_TOKEN_FILE
+              value: /run/ccam-secrets/hook-token
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -82,6 +87,14 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            - name: secrets
+              mountPath: /run/ccam-secrets
+              readOnly: true
+            {{- if .Values.ssh.existingSecret }}
+            - name: ssh
+              mountPath: {{ .Values.ssh.mountPath }}
+              readOnly: true
+            {{- end }}
             - name: tmp
               mountPath: /tmp
           {{- if .Values.mcp.enabled }}
@@ -98,25 +111,51 @@ spec:
               containerPort: {{ .Values.mcp.port }}
               protocol: TCP
           env:
-            {{- range $key, $value := .Values.mcp.env }}
-            - name: {{ $key }}
-              value: {{ $value | quote }}
-            {{- end }}
+            - name: MCP_TRANSPORT
+              value: http
+            - name: MCP_HTTP_HOST
+              value: 0.0.0.0
+            - name: MCP_HTTP_PORT
+              value: {{ .Values.mcp.port | quote }}
+            - name: MCP_HTTP_AUTH_TOKEN_FILE
+              value: /run/ccam-secrets/mcp-token
+            - name: MCP_DASHBOARD_BASE_URL
+              value: http://127.0.0.1:4820
+            - name: MCP_DASHBOARD_API_TOKEN_FILE
+              value: /run/ccam-secrets/dashboard-token
+            - name: MCP_DASHBOARD_ALLOW_MUTATIONS
+              value: {{ .Values.mcp.allowMutations | quote }}
+            - name: MCP_DASHBOARD_ALLOW_DESTRUCTIVE
+              value: {{ .Values.mcp.allowDestructive | quote }}
+            - name: MCP_LOG_LEVEL
+              value: {{ .Values.mcp.logLevel | quote }}
           startupProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             failureThreshold: 30
             periodSeconds: 2
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
@@ -128,18 +167,27 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: secrets
+              mountPath: /run/ccam-secrets
+              readOnly: true
           {{- end }}
       volumes:
         - name: data
-          {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "agent-monitor.fullname" .)) }}
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
+        - name: secrets
+          secret:
+            secretName: {{ .Values.secrets.existingSecret }}
+            defaultMode: 0400
+        {{- if .Values.ssh.existingSecret }}
+        - name: ssh
+          secret:
+            secretName: {{ .Values.ssh.existingSecret }}
+            defaultMode: 0400
+        {{- end }}
         - name: tmp
           emptyDir:
-            sizeLimit: 100Mi
+            sizeLimit: 512Mi
       terminationGracePeriodSeconds: 30
       {{- with .Values.nodeSelector }}
       nodeSelector:

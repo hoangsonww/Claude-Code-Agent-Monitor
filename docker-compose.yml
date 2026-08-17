@@ -1,23 +1,142 @@
+name: ccam
+
+# The dashboard is intentionally a single writer. CCAM stores its operational
+# state in one SQLite database, so never scale agent-monitor above one replica
+# or run two active containers against the same data volume.
 services:
   agent-monitor:
-    build: .
-    container_name: agent-monitor
-    ports:
-      # Publish on the host loopback only, so the dashboard is not reachable
-      # from the LAN out of the box (matches the server's default trust
-      # boundary — GHSA-gr74-4xfh-6jw9). To expose it on a LAN, change this to
-      # "${DASHBOARD_PORT:-4820}:4820" and set DASHBOARD_TOKEN below.
-      - "127.0.0.1:${DASHBOARD_PORT:-4820}:4820"
-    volumes:
-      # Same SQLite file as `npm start` / `npm run dev` on the host.
-      - ${CLAUDE_HOME:-~/.claude}/agent-dashboard:/app/data
-      - ${CLAUDE_HOME:-~/.claude}:/root/.claude:ro
-    environment:
-      - NODE_ENV=production
-      - DASHBOARD_PORT=4820
-      # Optional — required when Prometheus-in-Docker scrapes this container
-      # (host.docker.internal) or the full stack (agent-monitor). See monitoring/README.md.
-      - DASHBOARD_ALLOWED_HOSTS=${DASHBOARD_ALLOWED_HOSTS:-}
-      # DASHBOARD_HOST=0.0.0.0 and DASHBOARD_DATA_DIR=/app/data are baked into
-      # the image (see Dockerfile) so both `docker run` and Compose work as-is.
+    image: ${CCAM_IMAGE:-ccam-dashboard:2.0.8}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${CCAM_DOCKER_TARGET:-runtime}
     restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "${CCAM_DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-4820}:4820"
+    environment:
+      NODE_ENV: production
+      DASHBOARD_HOST: 0.0.0.0
+      DASHBOARD_PORT: 4820
+      DASHBOARD_DATA_DIR: /app/data
+      DASHBOARD_ENV_PATH: /app/config/.env
+      DASHBOARD_LIVENESS_PROBE: 0
+      CLAUDE_HOME: /home/node/.claude
+      DASHBOARD_CODEX_HOME: /home/node/.codex
+      DASHBOARD_ALLOWED_HOSTS: ${DASHBOARD_ALLOWED_HOSTS:-localhost,agent-monitor,ccam-nginx}
+      DASHBOARD_TOKEN: ${DASHBOARD_TOKEN:-}
+      DASHBOARD_TOKEN_FILE: /run/ccam-secrets/dashboard-token
+      DASHBOARD_HOOK_TOKEN: ${DASHBOARD_HOOK_TOKEN:-}
+      DASHBOARD_HOOK_TOKEN_FILE: /run/ccam-secrets/hook-token
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ${CCAM_DATA_VOLUME:-ccam-data}:/app/data
+      - ${CCAM_CONFIG_VOLUME:-ccam-config}:/app/config
+      - ${CLAUDE_HOME:-~/.claude}:/home/node/.claude:${CCAM_AGENT_HOME_MODE:-ro}
+      - ${CODEX_HOME:-~/.codex}:/home/node/.codex:${CCAM_AGENT_HOME_MODE:-ro}
+      - ${CCAM_WORKSPACE_DIR:-.}:/workspace:${CCAM_WORKSPACE_MODE:-ro}
+      - ${CCAM_SECRETS_DIR:-./deployments/secrets}:/run/ccam-secrets:ro
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4820/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - ccam
+
+  # Optional internal MCP service. It reaches the dashboard through the private
+  # Compose network and publishes MCP on host loopback only.
+  mcp:
+    profiles: ["mcp"]
+    image: ${CCAM_MCP_IMAGE:-ccam-mcp:2.0.8}
+    build:
+      context: .
+      dockerfile: mcp/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "${CCAM_MCP_BIND:-127.0.0.1}:${MCP_HTTP_PORT:-8819}:8819"
+    depends_on:
+      agent-monitor:
+        condition: service_healthy
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: 8819
+      MCP_HTTP_AUTH_TOKEN_FILE: /run/ccam-secrets/mcp-token
+      MCP_DASHBOARD_BASE_URL: http://agent-monitor:4820
+      MCP_DASHBOARD_API_TOKEN: ${DASHBOARD_TOKEN:-}
+      MCP_DASHBOARD_API_TOKEN_FILE: /run/ccam-secrets/dashboard-token
+      MCP_DASHBOARD_ALLOW_MUTATIONS: ${MCP_DASHBOARD_ALLOW_MUTATIONS:-false}
+      MCP_DASHBOARD_ALLOW_DESTRUCTIVE: ${MCP_DASHBOARD_ALLOW_DESTRUCTIVE:-false}
+      MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-info}
+    volumes:
+      - ${CCAM_SECRETS_DIR:-./deployments/secrets}:/run/ccam-secrets:ro
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ccam
+
+  # Optional cloud/LAN edge. TLS should terminate at the cloud load balancer or
+  # at a mounted provider-specific Nginx TLS configuration.
+  nginx:
+    profiles: ["edge"]
+    image: nginxinc/nginx-unprivileged:1.30.0-alpine@sha256:808f7846d21a9c94cf53833e8807a00a33fd0b65cc47fb05b79efe366c2d201f
+    entrypoint: ["/bin/sh", "/etc/nginx/ccam-entrypoint.sh"]
+    restart: unless-stopped
+    depends_on:
+      agent-monitor:
+        condition: service_healthy
+    ports:
+      - "${CCAM_EDGE_BIND:-127.0.0.1}:${CCAM_EDGE_PORT:-8080}:8080"
+    volumes:
+      - ./deployments/nginx/nginx.conf:/etc/nginx/nginx.conf.template:ro
+      - ./deployments/nginx/entrypoint.sh:/etc/nginx/ccam-entrypoint.sh:ro
+      - ./deployments/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ${CCAM_NGINX_HOOK_POLICY:-./deployments/nginx/snippets/hooks-blocked.conf}:/etc/nginx/snippets/hooks-policy.conf:ro
+      - ${CCAM_NGINX_MCP_POLICY:-./deployments/nginx/snippets/mcp-blocked.conf}:/etc/nginx/snippets/mcp-policy.conf:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/cache/nginx:size=64m,mode=0755
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - ccam
+
+networks:
+  ccam:
+    name: ccam
+
+volumes:
+  ccam-data:
+    name: ccam-data
+  ccam-config:
+    name: ccam-config

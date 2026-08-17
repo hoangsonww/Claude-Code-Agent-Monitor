@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Report"
+  short_description: "Generate a comprehensive session report with per-model token..."
+  default_prompt: "Use $session-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

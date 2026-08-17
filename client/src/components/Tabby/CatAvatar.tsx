@@ -6,7 +6,8 @@
  *   pupils track the cursor. No data access - fully testable / reusable in
  *   isolation. Geometry tuned for max cuteness: big round head, oversized
  *   sparkly eyes, pink ear-insides + cheek blush, classic tabby forehead
- *   stripes, a fluffy tail, and little paws peeking at the bottom.
+ *   stripes, a fluffy tail, little paws peeking at the bottom, and a compact
+ *   hover greeting that CSS can animate without changing the avatar layout.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -64,6 +65,7 @@ import type { Mood } from "./brain";
 interface CatAvatarProps {
   mood: Mood;
   reducedMotion: boolean;
+  hovered?: boolean;
   size?: number;
 }
 
@@ -87,9 +89,9 @@ if (typeof window !== "undefined") {
   });
 }
 
-export function CatAvatar({ mood, reducedMotion, size = 60 }: CatAvatarProps) {
+export function CatAvatar({ mood, reducedMotion, hovered = false, size = 60 }: CatAvatarProps) {
   const rootRef = useRef<SVGSVGElement | null>(null);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number | undefined>(undefined);
   const [pupil, setPupil] = useState({ x: 0, y: 0 });
 
   // Pupils follow the cursor whenever motion is allowed and the eyes are open.
@@ -149,6 +151,7 @@ export function CatAvatar({ mood, reducedMotion, size = 60 }: CatAvatarProps) {
       className="tabby-cat"
       data-mood={mood}
       data-reduced={reducedMotion ? "1" : "0"}
+      data-hovered={hovered && !reducedMotion ? "1" : "0"}
       width={size}
       height={size}
       viewBox="0 0 100 100"
@@ -171,10 +174,10 @@ export function CatAvatar({ mood, reducedMotion, size = 60 }: CatAvatarProps) {
       {/* soft glow halo */}
       <circle className="tabby-halo" cx="50" cy="56" r="33" />
 
-      {/* tail - fluffy curl to the right */}
+      {/* Tail starts inside the body silhouette so its base stays naturally anchored. */}
       <path
         className="tabby-tail"
-        d="M78 74 q24 4 19 -22 q-3 -14 -12 -11 q8 4 6 14 q-3 12 -16 9 z"
+        d="M67 92 C78 92 87 84 90 73 C94 61 91 49 84 46 C78 43 73 48 76 54 C78 51 82 52 84 57 C87 65 82 75 75 80 C71 83 67 85 63 86 Z"
       />
 
       {/* body / chest peeking up from the bottom */}
@@ -183,9 +186,11 @@ export function CatAvatar({ mood, reducedMotion, size = 60 }: CatAvatarProps) {
       {/* paws */}
       <g className="tabby-paws">
         <ellipse className="tabby-paw" cx="38" cy="98" rx="8" ry="6" />
-        <ellipse className="tabby-paw" cx="62" cy="98" rx="8" ry="6" />
+        <g className="tabby-paw-wave">
+          <ellipse className="tabby-paw" cx="62" cy="98" rx="8" ry="6" />
+          <path className="tabby-toe" d="M59 96 v4 M62 96.5 v4 M65 96 v4" />
+        </g>
         <path className="tabby-toe" d="M35 96 v4 M38 96.5 v4 M41 96 v4" />
-        <path className="tabby-toe" d="M59 96 v4 M62 96.5 v4 M65 96 v4" />
       </g>
 
       {/* ears - rounded, with pink inner */}
@@ -290,6 +295,16 @@ export function CatAvatar({ mood, reducedMotion, size = 60 }: CatAvatarProps) {
       {/* sparkle for happy */}
       <g className="tabby-sparkle">
         <path d="M82 40 l1.4 3.6 l3.6 1.4 l-3.6 1.4 l-1.4 3.6 l-1.4 -3.6 l-3.6 -1.4 l3.6 -1.4 z" />
+      </g>
+
+      {/* A brief hello for pointer hover: CSS reveals and floats these hearts. */}
+      <g className="tabby-hover-hearts" aria-hidden="true">
+        <text x="72" y="35">
+          ♥
+        </text>
+        <text x="80" y="26">
+          ♥
+        </text>
       </g>
     </svg>
   );

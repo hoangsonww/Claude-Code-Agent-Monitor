@@ -255,7 +255,10 @@ function setClaudeHome(newPath) {
  * Creates the file if it doesn't exist.
  */
 function writeEnvFile(key, value) {
-  const envPath = path.resolve(__dirname, "..", "..", ".env");
+  const envPath = path.resolve(
+    process.env.DASHBOARD_ENV_PATH || path.resolve(__dirname, "..", "..", ".env")
+  );
+  fs.mkdirSync(path.dirname(envPath), { recursive: true });
   let lines = [];
   if (fs.existsSync(envPath)) {
     lines = fs.readFileSync(envPath, "utf8").split("\n");

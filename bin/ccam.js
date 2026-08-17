@@ -166,21 +166,28 @@ class ServerDownError extends Error {}
 async function api(method, pathname, body) {
   const url = `${baseUrl()}${pathname}`;
   let res;
+  const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
   try {
     res = await fetch(url, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers: {
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
     throw new ServerDownError();
   }
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    /* non-JSON body */
+  const raw = await res.text();
+  let data = raw || null;
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw;
+    }
   }
   if (!res.ok) {
     const msg = data?.error?.message || `HTTP ${res.status}`;
@@ -242,6 +249,26 @@ function parseArgs(argv) {
     }
   }
   return { flags, positional };
+}
+
+function jsonFlag(flags, key = "data") {
+  const file = flags.file;
+  if (file) {
+    const target = path.resolve(process.cwd(), String(file));
+    return JSON.parse(fs.readFileSync(target, "utf8"));
+  }
+  const raw = flags[key];
+  if (raw == null) return undefined;
+  return JSON.parse(String(raw));
+}
+
+function booleanFlag(value) {
+  if (value === true) return true;
+  if (value == null) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return undefined;
 }
 
 const stripAnsi = (s) => String(s ?? "").replace(/\x1b\[[0-9;]*m/g, "");
@@ -789,6 +816,88 @@ async function cmdEvents(flags) {
   renderEvents(await get(`/api/events?${params}`));
 }
 
+async function cmdTranscript(flags, positional) {
+  const sessionId = positional[0];
+  if (!sessionId) {
+    console.error(c.red("✖ Usage: ccam transcript <session-id> [options]"));
+    process.exit(1);
+  }
+  const query = new URLSearchParams();
+  for (const [flag, param] of [
+    ["agent", "agent_id"],
+    ["run", "run_id"],
+    ["limit", "limit"],
+    ["offset", "offset"],
+    ["after", "after"],
+    ["before", "before"],
+    ["sources", "sources"],
+    ["providers", "providers"],
+  ]) {
+    if (flags[flag] !== undefined) query.set(param, String(flags[flag]));
+  }
+  const suffix = query.size ? `?${query}` : "";
+  console.log(
+    JSON.stringify(
+      await get(`/api/sessions/${encodeURIComponent(sessionId)}/transcript${suffix}`),
+      null,
+      2
+    )
+  );
+}
+
+async function cmdTranscriptImage(flags, positional) {
+  const sessionId = positional[0];
+  if (!sessionId || flags.line === undefined || flags.index === undefined) {
+    console.error(
+      c.red("✖ Usage: ccam transcript-image <session-id> --line N --index N [--output image.png]")
+    );
+    process.exit(1);
+  }
+  const query = new URLSearchParams({
+    line: String(flags.line),
+    index: String(flags.index),
+  });
+  if (flags.agent) query.set("agent_id", String(flags.agent));
+  if (flags.run) query.set("run_id", String(flags.run));
+  if (flags.sources) query.set("sources", String(flags.sources));
+  if (flags.providers) query.set("providers", String(flags.providers));
+  const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
+  let response;
+  try {
+    response = await fetch(
+      `${baseUrl()}/api/sessions/${encodeURIComponent(sessionId)}/transcript-image?${query}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        signal: AbortSignal.timeout(30_000),
+      }
+    );
+  } catch {
+    throw new ServerDownError();
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    console.error(c.red(`✖ Image download failed: ${body?.error?.message || response.status}`));
+    process.exit(1);
+  }
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const extension =
+    contentType === "image/png"
+      ? ".png"
+      : contentType === "image/jpeg"
+        ? ".jpg"
+        : contentType === "image/gif"
+          ? ".gif"
+          : contentType === "image/webp"
+            ? ".webp"
+            : ".bin";
+  const output = path.resolve(
+    process.cwd(),
+    String(flags.output || `transcript-${sessionId}-${flags.line}-${flags.index}${extension}`)
+  );
+  fs.writeFileSync(output, Buffer.from(await response.arrayBuffer()));
+  console.log(`${c.green("✔")} Saved transcript image to ${c.bold(output)}`);
+}
+
 // ── Insights ────────────────────────────────────────────────────────────────
 
 async function cmdAnalytics() {
@@ -883,6 +992,97 @@ async function cmdRuns(flags) {
       fmtDuration(r.started_at, r.ended_at),
     ]);
   table(["Run", "Status", "Name", "Agents", "Tokens", "Tools", "Duration"], rows);
+}
+
+async function cmdRun(flags, positional) {
+  const sub = positional[0] || "list";
+  if (sub === "list") {
+    console.log(JSON.stringify(await get("/api/run"), null, 2));
+    return;
+  }
+  if (sub === "history") {
+    console.log(JSON.stringify(await get(`/api/run/history?limit=${flags.limit || 50}`), null, 2));
+    return;
+  }
+  if (sub === "models" || sub === "binary") {
+    const provider = positional[1] || flags.provider || "claude";
+    console.log(JSON.stringify(await get(`/api/run/${sub}?provider=${provider}`), null, 2));
+    return;
+  }
+  if (sub === "cwds") {
+    console.log(JSON.stringify(await get("/api/run/cwds"), null, 2));
+    return;
+  }
+  if (sub === "files") {
+    if (!flags.cwd) {
+      console.error(c.red("✖ run files requires --cwd <dir>."));
+      process.exit(1);
+    }
+    const query = new URLSearchParams({ cwd: String(flags.cwd) });
+    if (flags.query) query.set("q", String(flags.query));
+    console.log(JSON.stringify(await get(`/api/run/files?${query}`), null, 2));
+    return;
+  }
+  if (sub === "get" && positional[1]) {
+    const suffix = flags.envelopes ? "?envelopes=1" : "";
+    console.log(
+      JSON.stringify(await get(`/api/run/${encodeURIComponent(positional[1])}${suffix}`), null, 2)
+    );
+    return;
+  }
+  if (sub === "start") {
+    const body = jsonFlag(flags) || {
+      provider: flags.provider || "claude",
+      prompt: flags.prompt || "",
+      mode: flags.mode || "conversation",
+      cwd: flags.cwd,
+      model: flags.model,
+      permissionMode: flags.permission,
+      resumeSessionId: flags.resume,
+      effort: flags.effort,
+      sandbox: flags.sandbox,
+    };
+    if (!flags.yes || !body.cwd) {
+      console.error(c.red("✖ run start requires --yes and a cwd in flags or JSON input."));
+      process.exit(1);
+    }
+    console.log(JSON.stringify(await post("/api/run", body), null, 2));
+    return;
+  }
+  if (sub === "send" && positional[1]) {
+    if (!flags.yes || !flags.text) {
+      console.error(c.red("✖ run send <id> requires --yes and --text <message>."));
+      process.exit(1);
+    }
+    const provider =
+      flags.provider ||
+      (await get(`/api/run/${encodeURIComponent(positional[1])}`)).provider ||
+      "claude";
+    console.log(
+      JSON.stringify(
+        await post(`/api/run/${encodeURIComponent(positional[1])}/message`, {
+          text: flags.text,
+          provider,
+        }),
+        null,
+        2
+      )
+    );
+    return;
+  }
+  if ((sub === "stop" || sub === "kill") && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ run stop <id> requires --yes."));
+      process.exit(1);
+    }
+    await api("DELETE", `/api/run/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} Stopped run ${positional[1]}`);
+    return;
+  }
+  console.error(
+    c.red("✖ Usage: ccam run list|history|models|binary|cwds|files|get|start|send|stop")
+  );
+  process.exit(1);
 }
 
 async function cmdCost(flags) {
@@ -984,6 +1184,55 @@ async function cmdRules() {
   table(["ID", "Enabled", "Type", "Name", "Cooldown"], rows);
 }
 
+async function cmdAlertRules(flags, positional) {
+  const sub = positional[0] || "list";
+  if (sub === "list") return cmdRules();
+  const writeSubcommands = new Set(["create", "update", "delete"]);
+  if (!writeSubcommands.has(sub)) {
+    console.error(c.red("✖ Usage: ccam alert-rules list|create|update <id>|delete <id>"));
+    process.exit(1);
+  }
+  if (!flags.yes) {
+    console.error(c.red("✖ Alert-rule writes require --yes."));
+    process.exit(1);
+  }
+  if (sub === "create") {
+    const config = jsonFlag(flags, "config") || {};
+    const body = {
+      name: flags.name,
+      rule_type: flags.type,
+      config,
+      enabled: flags.disabled ? false : true,
+      cooldown_seconds: Number(flags.cooldown ?? 300),
+    };
+    if (!body.name || !body.rule_type) {
+      console.error(c.red("✖ create requires --name, --type, and optional --config JSON."));
+      process.exit(1);
+    }
+    const result = await post("/api/alerts/rules", body);
+    console.log(`${c.green("✔")} Created alert rule ${result.rule.id}`);
+    return;
+  }
+  if (sub === "update" && positional[1]) {
+    const body = {};
+    if (flags.name !== undefined) body.name = flags.name;
+    if (flags.config !== undefined || flags.file !== undefined)
+      body.config = jsonFlag(flags, "config");
+    if (flags.enabled !== undefined) body.enabled = booleanFlag(flags.enabled);
+    if (flags.cooldown !== undefined) body.cooldown_seconds = Number(flags.cooldown);
+    await api("PATCH", `/api/alerts/rules/${encodeURIComponent(positional[1])}`, body);
+    console.log(`${c.green("✔")} Updated alert rule ${positional[1]}`);
+    return;
+  }
+  if (sub === "delete" && positional[1]) {
+    await api("DELETE", `/api/alerts/rules/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} Deleted alert rule ${positional[1]}`);
+    return;
+  }
+  console.error(c.red("✖ Usage: ccam alert-rules list|create|update <id>|delete <id>"));
+  process.exit(1);
+}
+
 async function cmdWebhooks(flags, positional) {
   const sub = positional[0];
   if (sub === "test" && positional[1]) {
@@ -995,6 +1244,44 @@ async function cmdWebhooks(flags, positional) {
         : `${c.red("✖")} Test delivery failed: ${r.error || `HTTP ${r.status}`}`
     );
     process.exit(ok ? 0 : 1);
+  }
+  if (sub === "providers") {
+    const data = await get("/api/webhooks/providers");
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+  if (sub === "deliveries" && positional[1]) {
+    const data = await get(
+      `/api/webhooks/${encodeURIComponent(positional[1])}/deliveries?limit=${flags.limit || 20}`
+    );
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+  if (["create", "update", "delete"].includes(sub)) {
+    if (!flags.yes) {
+      console.error(c.red("✖ Webhook writes require --yes."));
+      process.exit(1);
+    }
+    if (sub === "delete" && positional[1]) {
+      await api("DELETE", `/api/webhooks/${encodeURIComponent(positional[1])}`);
+      console.log(`${c.green("✔")} Deleted webhook ${positional[1]}`);
+      return;
+    }
+    if ((sub === "update" || sub === "delete") && !positional[1]) {
+      console.error(c.red(`✖ ${sub} requires a webhook id.`));
+      process.exit(1);
+    }
+    const body = jsonFlag(flags) || {};
+    if (sub === "create") {
+      const result = await post("/api/webhooks", body);
+      console.log(`${c.green("✔")} Created webhook ${result.target.id}`);
+      return;
+    }
+    if (sub === "update" && positional[1]) {
+      const result = await api("PATCH", `/api/webhooks/${encodeURIComponent(positional[1])}`, body);
+      console.log(`${c.green("✔")} Updated webhook ${result.target.id}`);
+      return;
+    }
   }
   const data = await get("/api/webhooks");
   const rows = (data.targets || []).map((t) => [
@@ -1011,8 +1298,9 @@ async function cmdWebhooks(flags, positional) {
 
 /**
  * `ccam remote-sources [list|add|test|sync|rm]` — manage the SSH machines this
- * dashboard pulls Claude Code history from (server/routes/remote-sources.js).
- * No secrets are handled here; auth defers to the host's SSH stack.
+ * dashboard pulls Claude Code and Codex history from (server/routes/remote-sources.js).
+ * One source can expose either provider or both. No secrets are handled here;
+ * auth defers to the host's SSH stack.
  */
 async function cmdRemoteSources(flags, positional) {
   const sub = positional[0] || "list";
@@ -1033,6 +1321,8 @@ async function cmdRemoteSources(flags, positional) {
       ssh_port: flags.port != null ? Number(flags.port) : null,
       identity_file: flags.identity != null ? String(flags.identity) : null,
       remote_home: flags["remote-home"] != null ? String(flags["remote-home"]) : null,
+      remote_codex_home:
+        flags["remote-codex-home"] != null ? String(flags["remote-codex-home"]) : null,
       enabled: flags.disabled ? false : true,
     };
     const r = await post("/api/remote-sources", body);
@@ -1040,26 +1330,43 @@ async function cmdRemoteSources(flags, positional) {
     return;
   }
 
+  if (sub === "update" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ remote-sources update requires --yes."));
+      process.exit(1);
+    }
+    const body = jsonFlag(flags) || {};
+    const r = await api("PATCH", `/api/remote-sources/${encodeURIComponent(positional[1])}`, body);
+    console.log(`${c.green("✔")} Updated remote source ${r.source.id}`);
+    return;
+  }
+
   if (sub === "test" && positional[1]) {
     const r = await post(`/api/remote-sources/${positional[1]}/test`);
     console.log(r.ok ? `${c.green("✔")} ${r.message}` : `${c.red("✖")} ${r.message}`);
+    for (const provider of ["claude", "codex"]) {
+      const detail = r.providers?.[provider];
+      if (!detail) continue;
+      const icon = detail.status === "ok" ? c.green("✔") : c.yellow("•");
+      console.log(
+        c.dim(
+          `  ${icon} ${provider === "codex" ? "Codex" : "Claude Code"}: ${detail.status} — ${detail.path}`
+        )
+      );
+    }
     process.exit(r.ok ? 0 : 1);
   }
 
   if (sub === "sync") {
     if (positional[1]) {
       const r = await post(`/api/remote-sources/${positional[1]}/sync`);
-      console.log(
-        `${c.green("✔")} Synced ${positional[1]}: ${r.imported ?? 0} imported, ${r.sessions_tagged ?? 0} tagged`
-      );
+      printRemoteSyncSummary(`${c.green("✔")} Synced ${positional[1]}`, r);
     } else {
       // No id → sync every source sequentially.
       const { sources = [] } = await get("/api/remote-sources");
       for (const s of sources) {
         const r = await post(`/api/remote-sources/${s.id}/sync`);
-        console.log(
-          `  ${c.bold(s.label)}: ${r.imported ?? 0} imported, ${r.sessions_tagged ?? 0} tagged`
-        );
+        printRemoteSyncSummary(`  ${c.bold(s.label)}`, r);
       }
       console.log(`${c.green("✔")} Synced ${sources.length} source(s)`);
     }
@@ -1068,6 +1375,10 @@ async function cmdRemoteSources(flags, positional) {
 
   if (sub === "rm" && positional[1]) {
     const purge = !!flags.purge;
+    if (purge && flags.confirm !== "PURGE_REMOTE_SOURCE_DATA") {
+      console.error(c.red("✖ --purge requires --confirm PURGE_REMOTE_SOURCE_DATA."));
+      process.exit(1);
+    }
     const r = await api(
       "DELETE",
       `/api/remote-sources/${positional[1]}${purge ? "?purge=true" : ""}`
@@ -1083,7 +1394,7 @@ async function cmdRemoteSources(flags, positional) {
   const rows = sources.map((s) => [
     s.id,
     s.enabled ? c.green("on") : c.dim("off"),
-    s.status,
+    `${s.status} (${s.claude_status || "idle"}/${s.codex_status || "idle"})`,
     (s.label || "").slice(0, 24),
     `${s.host}${s.ssh_port ? `:${s.ssh_port}` : ""}`,
     String(s.session_count ?? 0),
@@ -1101,6 +1412,23 @@ async function cmdRemoteSources(flags, positional) {
   } else {
     console.log(c.dim("  No remote sources configured. Add one: ccam remote-sources add --help"));
   }
+}
+
+/** Render combined and provider-specific counters from a remote-source sync. */
+function printRemoteSyncSummary(prefix, result) {
+  const providers = ["claude", "codex"]
+    .map((provider) => {
+      const detail = result.providers?.[provider];
+      if (!detail) return null;
+      const name = provider === "codex" ? "Codex" : "Claude";
+      return detail.status === "ok"
+        ? `${name} ${detail.imported ?? 0} imported/${detail.sessions_tagged ?? 0} tagged`
+        : `${name} ${detail.status}`;
+    })
+    .filter(Boolean);
+  console.log(
+    `${prefix}: ${result.imported ?? 0} imported, ${result.sessions_tagged ?? 0} tagged${providers.length ? ` (${providers.join(", ")})` : ""}`
+  );
 }
 
 // ── Pricing ─────────────────────────────────────────────────────────────────
@@ -1183,6 +1511,33 @@ async function cmdPricing(flags, positional) {
   renderPricingTable(data.pricing || data.rules || []);
 }
 
+async function cmdGptPricing(flags, positional) {
+  const sub = positional[0];
+  if (sub === "set" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ gpt-pricing set requires --yes."));
+      process.exit(1);
+    }
+    const body = {
+      ...(jsonFlag(flags) || {}),
+      model_pattern: positional[1],
+      display_name: flags.name || positional[1],
+    };
+    console.log(JSON.stringify(await api("PUT", "/api/pricing/gpt", body), null, 2));
+    return;
+  }
+  if (sub === "delete" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ gpt-pricing delete requires --yes."));
+      process.exit(1);
+    }
+    await api("DELETE", `/api/pricing/gpt/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} GPT pricing rule deleted: ${positional[1]}`);
+    return;
+  }
+  console.log(JSON.stringify(await get("/api/pricing/gpt"), null, 2));
+}
+
 // ── Updates ─────────────────────────────────────────────────────────────────
 
 async function cmdUpdateCheck() {
@@ -1215,9 +1570,20 @@ async function cmdUpdateCheck() {
 
 async function cmdImport(flags, positional) {
   const sub = positional[0];
+  const provider = flags.provider === "codex" ? "codex" : "claude";
+  if (sub === "guide") {
+    console.log(
+      JSON.stringify(
+        await get(`/api/import/guide?provider=${encodeURIComponent(provider)}`),
+        null,
+        2
+      )
+    );
+    return;
+  }
   if (sub === "rescan") {
-    console.log(c.dim("Rescanning ~/.claude/projects — this can take a while…"));
-    const r = await post("/api/import/rescan");
+    console.log(c.dim(`Rescanning ${provider} history — this can take a while…`));
+    const r = await post("/api/import/rescan", { provider });
     console.log(
       `${c.green("✔")} imported ${r.imported ?? 0}, backfilled ${r.backfilled ?? 0}, skipped ${r.skipped ?? 0}, errors ${r.errors ?? 0}`
     );
@@ -1225,17 +1591,218 @@ async function cmdImport(flags, positional) {
   }
   if (sub === "path" && positional[1]) {
     console.log(c.dim(`Scanning ${positional[1]} …`));
-    const r = await post("/api/import/scan-path", { path: positional[1] });
+    const r = await post("/api/import/scan-path", { path: positional[1], provider });
     console.log(
       `${c.green("✔")} imported ${r.imported ?? 0}, backfilled ${r.backfilled ?? 0}, skipped ${r.skipped ?? 0}, errors ${r.errors ?? 0}`
     );
     return;
   }
-  console.error(c.red("✖ Usage: ccam import rescan | ccam import path <dir>"));
+  if (sub === "upload" && positional.length > 1) {
+    const files = positional.slice(1).map((file) => path.resolve(process.cwd(), file));
+    for (const file of files) {
+      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+        console.error(c.red(`✖ File not found: ${file}`));
+        process.exit(1);
+      }
+    }
+    const form = new FormData();
+    form.append("provider", provider);
+    for (const file of files) {
+      const data = fs.readFileSync(file);
+      form.append("files", new Blob([data]), path.basename(file));
+    }
+    const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
+    let response;
+    try {
+      response = await fetch(`${baseUrl()}/api/import/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch {
+      throw new ServerDownError();
+    }
+    const raw = await response.text();
+    let result = {};
+    try {
+      result = raw ? JSON.parse(raw) : {};
+    } catch {
+      result = { error: { message: raw || `HTTP ${response.status}` } };
+    }
+    if (!response.ok) {
+      console.error(c.red(`✖ Upload failed: ${result?.error?.message || response.status}`));
+      process.exit(1);
+    }
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.error(
+    c.red(
+      "✖ Usage: ccam import guide|rescan|path <dir>|upload <files...> [--provider claude|codex]"
+    )
+  );
   process.exit(1);
 }
 
 // ── Administration ──────────────────────────────────────────────────────────
+
+async function cmdConfig(flags, positional) {
+  const provider = positional[0];
+  const sub = positional[1] || "overview";
+  if (provider === "claude") {
+    const surface = sub === "list" ? positional[2] || "overview" : sub;
+    const known = new Set([
+      "overview",
+      "skills",
+      "agents",
+      "commands",
+      "output-styles",
+      "plugins",
+      "mcp",
+      "hooks",
+      "settings",
+      "memory",
+      "marketplaces",
+      "keybindings",
+      "statusline",
+      "hook-scripts",
+      "backups",
+    ]);
+    if (known.has(surface)) {
+      const query = new URLSearchParams();
+      if (flags.scope) query.set("scope", String(flags.scope));
+      if (flags.cwd) query.set("cwd", String(flags.cwd));
+      if (flags.type) query.set("type", String(flags.type));
+      const suffix = query.size ? `?${query}` : "";
+      console.log(JSON.stringify(await get(`/api/cc-config/${surface}${suffix}`), null, 2));
+      return;
+    }
+    if (surface === "read" && positional[2]) {
+      console.log(
+        JSON.stringify(
+          await get(`/api/cc-config/file?path=${encodeURIComponent(positional[2])}`),
+          null,
+          2
+        )
+      );
+      return;
+    }
+    if (surface === "write" || surface === "delete" || surface === "keybindings-write") {
+      if (!flags.yes) {
+        console.error(c.red("✖ Config writes require --yes."));
+        process.exit(1);
+      }
+      if (surface === "keybindings-write") {
+        console.log(
+          JSON.stringify(
+            await api("PUT", "/api/cc-config/keybindings", jsonFlag(flags) || {}),
+            null,
+            2
+          )
+        );
+        return;
+      }
+      const body = jsonFlag(flags) || {};
+      console.log(
+        JSON.stringify(
+          await api(surface === "write" ? "PUT" : "DELETE", "/api/cc-config/file", body),
+          null,
+          2
+        )
+      );
+      return;
+    }
+  }
+  if (provider === "codex") {
+    if (sub === "overview") {
+      console.log(JSON.stringify(await get("/api/codex-config/overview"), null, 2));
+      return;
+    }
+    if ((sub === "read" || sub === "edit") && positional[2]) {
+      const route = sub === "edit" ? "edit-file" : "file";
+      console.log(
+        JSON.stringify(
+          await get(`/api/codex-config/${route}?path=${encodeURIComponent(positional[2])}`),
+          null,
+          2
+        )
+      );
+      return;
+    }
+    if (["write", "delete", "profile"].includes(sub)) {
+      if (!flags.yes) {
+        console.error(c.red("✖ Config writes require --yes."));
+        process.exit(1);
+      }
+      if (sub === "profile") {
+        console.log(
+          JSON.stringify(await post("/api/codex-config/profiles", { name: positional[2] }), null, 2)
+        );
+        return;
+      }
+      console.log(
+        JSON.stringify(
+          await api(
+            sub === "write" ? "PUT" : "DELETE",
+            "/api/codex-config/file",
+            jsonFlag(flags) || {}
+          ),
+          null,
+          2
+        )
+      );
+      return;
+    }
+  }
+  console.error(c.red("✖ Usage: ccam config claude|codex <action> [options]"));
+  process.exit(1);
+}
+
+async function cmdHooks(flags, positional) {
+  const sub = positional[0] || "status";
+  if (sub === "status") {
+    const info = await get("/api/settings/info");
+    console.log(JSON.stringify(info.hooks, null, 2));
+    return;
+  }
+  if (sub === "install") {
+    if (!flags.yes) {
+      console.error(c.red("✖ Hook installation requires --yes."));
+      process.exit(1);
+    }
+    const providers = positional.slice(1).filter((p) => p === "claude" || p === "codex");
+    console.log(JSON.stringify(await post("/api/settings/install-hooks", { providers }), null, 2));
+    return;
+  }
+  console.error(c.red("✖ Usage: ccam hooks status | ccam hooks install claude codex --yes"));
+  process.exit(1);
+}
+
+async function cmdApi(flags, positional) {
+  const method = String(positional[0] || "GET").toUpperCase();
+  const pathname = positional[1];
+  if (!pathname || !pathname.startsWith("/api/")) {
+    console.error(c.red("✖ Usage: ccam api <METHOD> /api/<path> [--data JSON|--file path]"));
+    process.exit(1);
+  }
+  const allowed = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
+  if (!allowed.has(method)) {
+    console.error(c.red(`✖ Unsupported method: ${method}`));
+    process.exit(1);
+  }
+  if (method !== "GET" && !flags.yes) {
+    console.error(c.red("✖ Generic API writes require --yes."));
+    process.exit(1);
+  }
+  if (pathname === "/api/settings/clear-data" && flags.confirm !== "CLEAR_ALL_DATA") {
+    console.error(c.red("✖ clear-data requires --confirm CLEAR_ALL_DATA in addition to --yes."));
+    process.exit(1);
+  }
+  const result = await api(method, pathname, jsonFlag(flags));
+  if (typeof result === "string") console.log(result);
+  else console.log(JSON.stringify(result, null, 2));
+}
 
 async function cmdDoctor() {
   let failed = false;
@@ -1360,6 +1927,33 @@ async function cmdReinstallHooks() {
   console.log(`${c.green("✔")} Claude Code hooks reinstalled`);
 }
 
+async function cmdMcp(positional) {
+  const mode = positional[0] || "stdio";
+  const script = path.join(REPO_ROOT, "mcp", "build", "index.js");
+  if (!fs.existsSync(script)) {
+    console.error(c.red("✖ MCP build is missing."));
+    console.error(c.dim("  Run: npm run mcp:install && npm run mcp:build"));
+    process.exit(1);
+  }
+  const args = [script];
+  if (mode === "http") args.push("--transport=http");
+  else if (mode === "repl") args.push("--transport=repl");
+  else if (mode !== "stdio") {
+    console.error(c.red("✖ Usage: ccam mcp [stdio|http|repl]"));
+    process.exit(1);
+  }
+  const child = spawn(process.execPath, args, { stdio: "inherit", env: process.env });
+  child.on("error", (error) => {
+    console.error(c.red(`✖ Failed to start MCP server: ${error.message}`));
+    console.error(c.dim("  Run npm run mcp:install && npm run mcp:build, then retry."));
+    process.exitCode = 1;
+  });
+  child.on("exit", (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    process.exit(code ?? 0);
+  });
+}
+
 /**
  * Start the dashboard server in the background (production mode, serving the
  * built client) and wait until /api/health answers. No-ops with a pointer to
@@ -1431,6 +2025,84 @@ async function cmdStart(flags) {
   process.exit(1);
 }
 
+/**
+ * Stop the dashboard server by reading the PID from the discovery file and
+ * sending SIGTERM (graceful), escalating to SIGKILL after 5 s.
+ */
+async function cmdStop() {
+  if (!(await serverIsUp())) {
+    console.log(`${c.dim("○")} Dashboard is not running — nothing to stop.`);
+    return;
+  }
+  // Resolve the discovery file and target port the same way baseUrl() does,
+  // so `stop` kills the exact server this CLI talks to rather than an
+  // arbitrary entry when multiple dashboards run side by side (e.g. the
+  // desktop app next to `npm run dev`).
+  const { getServerInfoPath, resolveDashboardPort } = require(
+    path.join(REPO_ROOT, "server", "lib", "server-info.js")
+  );
+  const serverInfoPath = getServerInfoPath();
+  const targetPort = resolveDashboardPort();
+  let pid;
+  try {
+    const raw = fs.readFileSync(serverInfoPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.servers) && parsed.servers.length > 0) {
+      const match = parsed.servers.find((s) => s.port === targetPort);
+      pid = match ? match.pid : parsed.servers[0].pid;
+    } else if (parsed.pid) {
+      pid = parsed.pid;
+    }
+  } catch {
+    // fall through
+  }
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    console.error(c.red("✖ Could not determine server PID from ") + c.dim(serverInfoPath));
+    console.error(c.dim("  Kill it manually: find the node process on port 4820"));
+    process.exit(1);
+  }
+  // Check if PID is alive
+  try {
+    process.kill(pid, 0);
+  } catch {
+    console.error(c.red(`✖ PID ${pid} is not running — stale discovery file.`));
+    process.exit(1);
+  }
+  // Send SIGTERM
+  console.log(`${c.dim("…")} Stopping dashboard server (pid ${pid})…`);
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch (err) {
+    console.error(c.red(`✖ Failed to send SIGTERM: ${err.message}`));
+    process.exit(1);
+  }
+  // Wait up to 5s for graceful shutdown
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      process.kill(pid, 0);
+    } catch {
+      // Process is gone
+      console.log(`${c.green("●")} Dashboard stopped.`);
+      return;
+    }
+  }
+  // Escalate to SIGKILL
+  try {
+    process.kill(pid, "SIGKILL");
+    console.log(`${c.green("●")} Dashboard stopped (forced).`);
+  } catch (err) {
+    if (err.code === "ESRCH") {
+      // Process exited between the last check and SIGKILL — success
+      console.log(`${c.green("●")} Dashboard stopped.`);
+    } else {
+      console.error(c.red(`✖ Failed to stop dashboard (pid ${pid}): ${err.message}`));
+      process.exit(1);
+    }
+  }
+}
+
 /** Up/down indicator without exiting non-zero noise — the at-a-glance check. */
 async function cmdStatus() {
   if (await serverIsUp()) {
@@ -1471,6 +2143,7 @@ const COMMAND_GROUPS = [
     [
       ["status", "", "Up/down indicator for the dashboard server"],
       ["start", "[--port N]", "Start the server in the background and wait for healthy"],
+      ["stop", "", "Stop the background server gracefully"],
       ["repl", "", "Open the interactive shell (also: shell, i)"],
     ],
   ],
@@ -1490,6 +2163,12 @@ const COMMAND_GROUPS = [
       ["session <id>", "", "Session detail: agents tree, cost, recent events"],
       ["agents", "[opts]", "List agents     (--status, --session, --limit)"],
       ["events", "[opts]", "List events     (--session, --limit)"],
+      ["transcript <session-id>", "[--agent id --run id --after n]", "Read transcript JSON"],
+      [
+        "transcript-image <session-id>",
+        "--line N --index N [--output file]",
+        "Download a persisted transcript image",
+      ],
     ],
   ],
   [
@@ -1498,6 +2177,7 @@ const COMMAND_GROUPS = [
       ["analytics", "", "Token totals, top-tool and agent-type charts"],
       ["workflows", "[--session id]", "Workflow intelligence stats and patterns"],
       ["runs", "[--session id]", "Dynamic Workflow-tool runs"],
+      ["run", "list|history|start|send|stop|…", "Inspect and control dashboard-launched agents"],
       ["cost", "[--session id]", "Total estimated cost (per-model chart; --session scopes to one)"],
     ],
   ],
@@ -1508,8 +2188,10 @@ const COMMAND_GROUPS = [
       ["alerts ack <id>", "", "Acknowledge one alert"],
       ["alerts ack-all", "", "Acknowledge every unacked alert"],
       ["rules", "", "List alert rules"],
+      ["alert-rules", "list|create|update|delete", "Manage alert rules (writes require --yes)"],
       ["webhooks", "", "List webhook targets"],
       ["webhooks test <id>", "", "Send a synthetic test alert to a target"],
+      ["webhooks providers|deliveries <id>", "", "Inspect providers and delivery history"],
     ],
   ],
   [
@@ -1523,13 +2205,20 @@ const COMMAND_GROUPS = [
       ],
       ["pricing delete <pattern>", "", "Delete a pricing rule"],
       ["pricing reset", "", "Reset pricing rules to defaults"],
+      ["gpt-pricing", "[set|delete]", "Manage OpenAI/Codex pricing rules"],
     ],
   ],
   [
     "Import",
     [
-      ["import rescan", "", "Re-scan ~/.claude/projects"],
-      ["import path <dir>", "", "Import every .jsonl under a directory"],
+      ["import guide", "[--provider]", "Show provider-specific import locations and limits"],
+      ["import rescan", "[--provider]", "Re-scan Claude Code or Codex history"],
+      [
+        "import path <dir>",
+        "[--provider]",
+        "Import every supported history file under a directory",
+      ],
+      ["import upload <files...>", "[--provider]", "Upload JSONL files or archives"],
       ["import-data <file>", "", "Restore a dashboard export (.json) — merge machines"],
     ],
   ],
@@ -1540,10 +2229,11 @@ const COMMAND_GROUPS = [
       [
         "remote-sources add",
         "",
-        "--label X --host user@host [--port N --identity path --remote-home path]",
+        "--label X --host user@host [--port N --identity path --remote-home path --remote-codex-home path]",
       ],
       ["remote-sources test <id>", "", "Probe SSH connectivity to a source"],
       ["remote-sources sync [id]", "", "Pull history now (all sources if id omitted)"],
+      ["remote-sources update <id>", "--data JSON --yes", "Update a remote source"],
       ["remote-sources rm <id>", "[--purge]", "Remove a source (--purge also deletes its data)"],
     ],
   ],
@@ -1555,6 +2245,10 @@ const COMMAND_GROUPS = [
       ["export", "[file.json]", "Export all data as JSON"],
       ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
       ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
+      ["hooks", "status|install …", "Inspect or install Claude Code/Codex hooks"],
+      ["config", "claude|codex <action>", "Inspect and edit supported agent configuration"],
+      ["api", "<METHOD> /api/path", "Call any JSON API endpoint; writes require --yes"],
+      ["mcp", "[stdio|http|repl]", "Launch the bundled MCP server"],
       ["update-check", "", "Check whether the dashboard checkout is behind upstream"],
       ["clear-data", "--yes", "Delete ALL data (requires --yes)"],
       ["open", "", "Open the dashboard in your browser"],
@@ -2256,9 +2950,16 @@ const COMMANDS = (() => {
 /** Subcommand tokens per command, used by the REPL's tab completer. */
 const SUBCOMMANDS = {
   alerts: ["ack", "ack-all"],
+  "alert-rules": ["list", "create", "update", "delete"],
   pricing: ["set", "delete", "reset"],
-  webhooks: ["test"],
-  import: ["rescan", "path"],
+  "gpt-pricing": ["set", "delete"],
+  webhooks: ["providers", "deliveries", "create", "update", "delete", "test"],
+  import: ["guide", "rescan", "path", "upload"],
+  run: ["list", "history", "models", "binary", "cwds", "files", "get", "start", "send", "stop"],
+  hooks: ["status", "install"],
+  config: ["claude", "codex"],
+  "remote-sources": ["list", "add", "update", "test", "sync", "rm"],
+  mcp: ["stdio", "http", "repl"],
 };
 
 /** Run one parsed command. Returns the handler's promise; may throw
@@ -2275,6 +2976,8 @@ async function runCommand(argv) {
       return cmdStatus();
     case "start":
       return cmdStart(flags);
+    case "stop":
+      return cmdStop();
     case "stats":
       return cmdStats();
     case "kanban":
@@ -2289,18 +2992,26 @@ async function runCommand(argv) {
       return cmdAgents(flags);
     case "events":
       return cmdEvents(flags);
+    case "transcript":
+      return cmdTranscript(flags, positional);
+    case "transcript-image":
+      return cmdTranscriptImage(flags, positional);
     case "analytics":
       return cmdAnalytics();
     case "workflows":
       return cmdWorkflows(flags);
     case "runs":
       return cmdRuns(flags);
+    case "run":
+      return cmdRun(flags, positional);
     case "cost":
       return cmdCost(flags);
     case "alerts":
       return cmdAlerts(flags, positional);
     case "rules":
       return cmdRules();
+    case "alert-rules":
+      return cmdAlertRules(flags, positional);
     case "webhooks":
       return cmdWebhooks(flags, positional);
     case "remote-sources":
@@ -2308,8 +3019,18 @@ async function runCommand(argv) {
       return cmdRemoteSources(flags, positional);
     case "pricing":
       return cmdPricing(flags, positional);
+    case "gpt-pricing":
+      return cmdGptPricing(flags, positional);
     case "import":
       return cmdImport(flags, positional);
+    case "config":
+      return cmdConfig(flags, positional);
+    case "hooks":
+      return cmdHooks(flags, positional);
+    case "api":
+      return cmdApi(flags, positional);
+    case "mcp":
+      return cmdMcp(positional);
     case "doctor":
       return cmdDoctor();
     case "info":

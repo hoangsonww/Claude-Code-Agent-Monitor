@@ -1,4 +1,5 @@
 ---
+name: cost-alert
 description: >
   Review the configured cost alert rules and the alerts currently fired on the
   Agent Monitor dashboard, then explain exactly what tripped and why. Uses

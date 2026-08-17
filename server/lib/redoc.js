@@ -26,14 +26,17 @@ function redocBundlePath() {
  * @param {string} specUrl    URL the browser fetches the OpenAPI JSON from.
  * @param {string} bundleUrl  URL the page loads the ReDoc bundle from.
  * @param {string} title      Document <title> and browser-tab label.
+ * @param {string} faviconUrl Dashboard favicon URL shared with the SPA.
  * @returns {string} A complete HTML document.
  */
-function renderRedocHtml(specUrl, bundleUrl, title) {
+function renderRedocHtml(specUrl, bundleUrl, title, faviconUrl = "/favicon.svg") {
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="${faviconUrl}" />
+    <link rel="apple-touch-icon" href="${faviconUrl}" />
     <title>${title}</title>
     <style>
       body {

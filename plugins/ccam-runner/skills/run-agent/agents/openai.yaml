@@ -1,0 +1,6 @@
+interface:
+  display_name: "Run Agent"
+  short_description: "Launch and supervise Claude Code or Codex through the CCAM..."
+  default_prompt: "Use $run-agent to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

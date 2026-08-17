@@ -5,6 +5,6 @@
   "resume": "Resume",
   "pause": "Pause",
   "noActivity": "No activity yet",
-  "noActivityDesc": "Events will stream here in real-time as Claude Code agents work.",
+  "noActivityDesc": "Events will stream here in real-time as agent sessions work.",
   "viewSession": "Session"
 }

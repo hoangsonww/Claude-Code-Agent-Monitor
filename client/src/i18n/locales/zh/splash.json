@@ -9,6 +9,38 @@
   "sub1": "为每一个 Claude Code 会话提供实时可观测性。",
   "sub2": "Token、工具、成本与工作流，全部实时呈现。",
   "brand": "Claude Code 监控",
+  "provider": {
+    "title": "您想监控什么？",
+    "description": "选择要在整个仪表板中显示的数据。您稍后可在设置中更改。",
+    "claude": { "description": "您的 Claude Code 会话、代理和成本。" },
+    "codex": { "description": "Codex 会话、GPT 令牌用量和成本。" },
+    "both": {
+      "label": "两者",
+      "description": "所有 Claude Code 和 Codex 会话、用量及成本。"
+    },
+    "beta": "测试版",
+    "continue": "进入仪表板"
+  },
+  "hookGate": {
+    "kicker": "实时追踪",
+    "title": "设置实时监控",
+    "description": "只为已选但仍缺少 hook 的提供方安装轻量级本地 hook。",
+    "selectedProviders": "仍需安装 hook 的提供方",
+    "realTime": "hook 会将生命周期事件实时发送到这个本地仪表板。您的数据始终留在这台机器上。",
+    "checking": "正在检查现有 hook 配置...",
+    "installed": "hook 已安装，可开始实时监控",
+    "existing": "检测到现有仪表板 hook",
+    "ready": "已准备好安装所选 hook",
+    "overrideWarning": "某个已选提供方已有仪表板 hook。安装只会刷新仪表板条目，其他 hook 将被保留。",
+    "output": "安装输出",
+    "failure": "无法安装全部所选 hook。请查看输出后重试，或者如果您已通过其他方式完成设置，也可继续。",
+    "checkFailed": "无法检查当前 hook 设置。您仍可安装所选 hook。",
+    "preserveNote": "这里只管理仪表板 hook。您的其他 hook 不会改变。",
+    "alreadyInstalled": "我已安装 hook",
+    "install": "安装 hook",
+    "installing": "正在安装 hook...",
+    "continue": "进入仪表板"
+  },
   "taglines": [
     "你的 Agent 所做的一切，都不会隐于黑暗。",
     "Agent 的每一步动作，尽收眼底。",

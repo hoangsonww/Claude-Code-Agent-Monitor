@@ -1,0 +1,6 @@
+interface:
+  display_name: "Model Mix"
+  short_description: "Break down Claude Code usage by model family (Opus / Sonnet..."
+  default_prompt: "Use $model-mix to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

@@ -8,8 +8,8 @@
   "analytics": "Phân tích",
   "workflows": "Quy trình",
   "alerts": "Cảnh báo",
-  "ccConfig": "Cấu hình Claude",
-  "run": "Chạy Claude",
+  "ccConfig": "Cấu hình Agent",
+  "run": "Chạy Agent",
   "settings": "Cài đặt",
   "language": "Ngôn ngữ",
   "github": "GitHub",
@@ -58,12 +58,14 @@
     "en": "English",
     "zh": "Tiếng Trung",
     "vi": "Tiếng Việt",
-    "ko": "Tiếng Hàn"
+    "ko": "Tiếng Hàn",
+    "es": "Tiếng Tây Ban Nha"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
-    "ko": "한국어"
+    "ko": "한국어",
+    "es": "ES"
   }
 }

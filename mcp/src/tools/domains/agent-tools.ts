@@ -56,7 +56,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { z } from "zod";
-import { createToolRegistrar } from "../../core/tool-registry.js";
+import { registrarFor } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { AgentStatusSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
@@ -69,8 +69,8 @@ import type { ToolContext } from "../../types/tool-context.js";
  * (`type: "subagent"`, optional `subagent_type`, linked via `parent_agent_id`).
  */
 export function registerAgentTools(context: ToolContext): void {
-  const { api, logger, server, config } = context;
-  const register = createToolRegistrar(server, logger);
+  const { api, config } = context;
+  const register = registrarFor(context);
 
   // Policy: none. Input: limit (1-500, default 50), offset (default 0),
   // status/session_id (optional). Calls GET /api/agents?... — the dashboard
@@ -86,6 +86,11 @@ export function registerAgentTools(context: ToolContext): void {
       offset: z.number().int().min(0).max(100_000).optional(),
       status: AgentStatusSchema.optional(),
       session_id: z.string().min(1).max(256).optional(),
+      sources: z.array(z.string().min(1).max(256)).max(100).optional(),
+      providers: z
+        .array(z.enum(["claude", "codex"]))
+        .max(2)
+        .optional(),
     },
     async (args) => {
       const limit = (args.limit as number | undefined) ?? 50;
@@ -96,6 +101,8 @@ export function registerAgentTools(context: ToolContext): void {
           offset,
           status: args.status as string | undefined,
           session_id: args.session_id as string | undefined,
+          sources: (args.sources as string[] | undefined)?.join(","),
+          providers: (args.providers as string[] | undefined)?.join(","),
         },
       });
     }

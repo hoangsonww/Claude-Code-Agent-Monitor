@@ -56,7 +56,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { z } from "zod";
-import { createToolRegistrar } from "../../core/tool-registry.js";
+import { registrarFor } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { HookTypeSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
@@ -70,8 +70,8 @@ import type { ToolContext } from "../../types/tool-context.js";
  * behavior without a live Claude Code session.
  */
 export function registerEventTools(context: ToolContext): void {
-  const { api, logger, server, config } = context;
-  const register = createToolRegistrar(server, logger);
+  const { api, config } = context;
+  const register = registrarFor(context);
 
   // Policy: none. Input: limit (1-200, default 50), offset (default 0),
   // session_id (optional). Calls GET /api/events?limit&offset&session_id.
@@ -83,6 +83,19 @@ export function registerEventTools(context: ToolContext): void {
       limit: z.number().int().min(1).max(200).optional(),
       offset: z.number().int().min(0).max(100_000).optional(),
       session_id: z.string().min(1).max(256).optional(),
+      session_ids: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
+      event_types: z.array(z.string().min(1).max(128)).min(1).max(100).optional(),
+      tool_names: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
+      agent_ids: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
+      query: z.string().max(1000).optional(),
+      from: z.string().max(128).optional(),
+      to: z.string().max(128).optional(),
+      sources: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
+      providers: z
+        .array(z.enum(["claude", "codex"]))
+        .min(1)
+        .max(2)
+        .optional(),
     },
     async (args) => {
       const limit = (args.limit as number | undefined) ?? 50;
@@ -91,7 +104,17 @@ export function registerEventTools(context: ToolContext): void {
         query: {
           limit,
           offset,
-          session_id: args.session_id as string | undefined,
+          session_id:
+            (args.session_ids as string[] | undefined)?.join(",") ??
+            (args.session_id as string | undefined),
+          event_type: (args.event_types as string[] | undefined)?.join(","),
+          tool_name: (args.tool_names as string[] | undefined)?.join(","),
+          agent_id: (args.agent_ids as string[] | undefined)?.join(","),
+          q: args.query as string | undefined,
+          from: args.from as string | undefined,
+          to: args.to as string | undefined,
+          sources: (args.sources as string[] | undefined)?.join(","),
+          providers: (args.providers as string[] | undefined)?.join(","),
         },
       });
     }

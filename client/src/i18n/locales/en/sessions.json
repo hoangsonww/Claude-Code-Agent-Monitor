@@ -1,6 +1,20 @@
 {
   "title": "Sessions",
   "searchPlaceholder": "Search sessions...",
+  "directoryFilterLabel": "Project directories",
+  "allDirectories": "All projects",
+  "selectedDirectories": "{{count}} projects",
+  "directorySearchPlaceholder": "Filter projects...",
+  "noDirectoriesFound": "No matching projects",
+  "clearDirectories": "Clear",
+  "sortTimeNewest": "Last active: newest",
+  "sortTimeOldest": "Last active: oldest",
+  "sortDurationLongest": "Duration: longest",
+  "sortDurationShortest": "Duration: shortest",
+  "sortPriceHighest": "Cost: highest",
+  "sortPriceLowest": "Cost: lowest",
+  "sortDescending": "Descending order",
+  "sortAscending": "Ascending order",
   "filterAll": "All",
   "filterActive": "Active",
   "filterWaiting": "Waiting",
@@ -11,7 +25,7 @@
   "sessionCount_plural": "{{count}} sessions recorded",
   "noSessions": "No sessions found",
   "noSessionsDesc": "Try adjusting your search or filters.",
-  "noSessionsHint": "Start a Claude Code session with hooks installed to begin tracking.",
+  "noSessionsHint": "Start a monitored agent session with hooks installed to begin tracking.",
   "tableSession": "Session",
   "tableStatus": "Status",
   "tableLastActive": "Last Active",
@@ -20,10 +34,37 @@
   "tableCost": "Cost",
   "tableDirectory": "Directory",
   "defaultName": "Session ",
+  "taskProgress": {
+    "title": "Task Progress",
+    "aria": "Task progress: {{completed}} of {{total}} complete",
+    "complete": "complete",
+    "completeCount": "{{completed}} / {{total}} complete · {{percent}}%",
+    "completeCountShort": "{{completed}} / {{total}} complete",
+    "current": "Current: {{task}}",
+    "more_one": "+{{count}} more task in Session Detail",
+    "more_other": "+{{count}} more tasks in Session Detail",
+    "includesSubagents": "Includes subagents",
+    "partialSource": "Derived from task lifecycle events",
+    "owners": "Owners",
+    "mainAgent": "Main agent",
+    "doneCount_one": "{{count}} done",
+    "doneCount_other": "{{count}} done",
+    "remainingCount_one": "{{count}} remaining",
+    "remainingCount_other": "{{count}} remaining",
+    "hiddenTasks_one": "{{count}} additional task is not shown.",
+    "hiddenTasks_other": "{{count}} additional tasks are not shown.",
+    "status": {
+      "completed": "Completed",
+      "inProgress": "In progress",
+      "pending": "Pending",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    }
+  },
   "detail": {
     "waitingBanner": {
       "title": "Waiting for your input",
-      "generic": "Claude Code is paused in this session until you respond in the terminal."
+      "generic": "This session is paused until you respond in the terminal."
     },
     "failedLoad": "Failed to load session",
     "loading": "Loading session...",
@@ -38,7 +79,10 @@
     "noEvents": "No events recorded.",
     "conversation": "Conversation",
     "timeline": "Timeline ({{shown}}/{{total}})",
-    "transcriptNotFound": "Conversation transcript not found for this agent. The transcript file may be missing or not yet linked."
+    "transcriptNotFound": "Conversation transcript not found for this agent. The transcript file may be missing or not yet linked.",
+    "transcript": {
+      "loadOlder": "↑ Load older messages"
+    }
   },
   "remoteSourceBadgeTitle": "Collected from a remote machine"
 }

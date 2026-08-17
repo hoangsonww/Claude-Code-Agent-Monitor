@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Timeline"
+  short_description: "Render an ordered timeline of one Claude Code session's..."
+  default_prompt: "Use $session-timeline to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

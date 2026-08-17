@@ -1,6 +1,6 @@
 /**
  * @file Analytics.tsx
- * @description Provides a comprehensive analytics dashboard for monitoring Claude Code sessions, agents, token usage, and events in real-time. Features include an activity heatmap, token distribution charts, session outcome breakdowns, and more, all with interactive tooltips and live updates via WebSocket.
+ * @description Provides a comprehensive analytics dashboard for monitoring Claude Code sessions, agents, token usage, and events in real-time. Features include an activity heatmap, token distribution charts, paginated chart legends, session outcome breakdowns, and more, all with interactive tooltips and live updates via WebSocket.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -77,6 +77,7 @@ import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
+import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
 import type { Analytics as AnalyticsData, CostResult } from "../lib/types";
 
@@ -551,18 +552,27 @@ function DonutChart({
           {t("common:total_lower")}
         </text>
       </svg>
-      <div className="space-y-2">
-        {segments.map(({ label, value, color }) => (
-          <div key={label} className="flex items-center gap-2 text-xs">
+      <PaginatedLegend
+        items={segments}
+        pageSize={6}
+        getKey={({ label }, index) => `${label}-${index}`}
+        className="min-w-0 flex-1"
+        listClassName="space-y-2"
+        renderItem={({ label, value, color }) => (
+          <div className="flex min-w-0 items-center gap-2 text-xs">
             <span
-              className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-sm"
               style={{ backgroundColor: color }}
             />
-            <span className="text-gray-400">{label}</span>
-            <span className="text-gray-500 ml-auto pl-4">{Math.round((value / total) * 100)}%</span>
+            <span className="truncate text-gray-400" title={label}>
+              {label}
+            </span>
+            <span className="ml-auto flex-shrink-0 pl-4 text-gray-500">
+              {Math.round((value / total) * 100)}%
+            </span>
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   );
 }

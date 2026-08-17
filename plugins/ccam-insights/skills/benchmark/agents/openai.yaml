@@ -1,0 +1,6 @@
+interface:
+  display_name: "Benchmark"
+  short_description: "Benchmark one session (or a small recent set) against the..."
+  default_prompt: "Use $benchmark to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

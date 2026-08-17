@@ -66,6 +66,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Columns3, ChevronDown, HelpCircle } from "lucide-react";
 import { api } from "../lib/api";
+import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { AgentCard } from "../components/AgentCard";
@@ -124,6 +125,7 @@ function persistView(view: BoardView): void {
 
 export function KanbanBoard() {
   const { t } = useTranslation("kanban");
+  const [dataScope] = useDataScope();
   const [view, setViewState] = useState<BoardView>(loadView);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -144,12 +146,16 @@ export function KanbanBoard() {
     // main-agent cards (they have no task and a generic name on their
     // own - the session metadata is what makes the card useful).
     const [agentResults, sessionsRes] = await Promise.all([
-      Promise.all(AGENT_FETCH_STATUSES.map((status) => api.agents.list({ status }))),
-      api.sessions.list({ limit: 10000 }),
+      Promise.all(
+        AGENT_FETCH_STATUSES.map((status) =>
+          api.agents.list({ status, include_transient: status === "waiting" })
+        )
+      ),
+      api.sessions.list({ limit: 10000, include_transient: true }),
     ]);
     setAgents(agentResults.flatMap((r) => r.agents));
     setSessions(sessionsRes.sessions);
-  }, []);
+  }, [dataScope]);
 
   const loadSessions = useCallback(async () => {
     // Each column needs the full set for its status - column-level
@@ -161,10 +167,16 @@ export function KanbanBoard() {
     // active set (see grouping below).
     const persistedStatuses = SESSION_COLUMNS.filter((s) => s !== "waiting");
     const results = await Promise.all(
-      persistedStatuses.map((status) => api.sessions.list({ status, limit: 10000 }))
+      persistedStatuses.map((status) =>
+        api.sessions.list({
+          status,
+          limit: 10000,
+          include_transient: status === "active",
+        })
+      )
     );
     setSessions(results.flatMap((r) => r.sessions));
-  }, []);
+  }, [dataScope]);
 
   const load = useCallback(async () => {
     try {

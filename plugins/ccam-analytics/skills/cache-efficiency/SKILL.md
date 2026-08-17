@@ -1,4 +1,5 @@
 ---
+name: cache-efficiency
 description: >
   Analyze prompt-cache effectiveness for Claude Code usage from the Agent
   Monitor dashboard — cache hit rate (total_cache_read / (total_cache_read +

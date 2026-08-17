@@ -1,8 +1,7 @@
 /**
  * @file dataScope.ts
- * @description Global "data scope" store — which source machines' data the whole
- * dashboard should show. Backs the Remote Data Sources feature: the user picks
- * Local only / All / a specific subset, and every scoped page reflects it
+ * @description Global source-and-provider scope store. It drives Remote Data
+ * Sources and the Claude Code/Codex selection so every scoped page updates
  * immediately.
  *
  * This is a tiny module-level singleton (one per tab), mirroring the eventBus
@@ -104,11 +103,14 @@
 import { useSyncExternalStore } from "react";
 
 export type ScopeMode = "all" | "local" | "selected";
+export type ProviderScope = "claude" | "codex" | "both";
 
 export interface DataScope {
   mode: ScopeMode;
   /** Source ids selected when `mode === "selected"`. */
   selected: string[];
+  /** Product data included globally. `both` leaves the API provider filter unset. */
+  provider?: ProviderScope;
 }
 
 const STORAGE_KEY = "ccam-data-scope";
@@ -126,7 +128,11 @@ function load(): DataScope {
     const selected = Array.isArray(parsed.selected)
       ? parsed.selected.filter((s): s is string => typeof s === "string")
       : [];
-    return { mode, selected };
+    const provider: ProviderScope | undefined =
+      parsed.provider === "codex" || parsed.provider === "both" || parsed.provider === "claude"
+        ? parsed.provider
+        : undefined;
+    return provider ? { mode, selected, provider } : { mode, selected };
   } catch {
     return DEFAULT_SCOPE;
   }
@@ -152,7 +158,11 @@ export function getScope(): DataScope {
 
 /** Replace the scope, persist it, and notify all subscribers. */
 export function setScope(next: DataScope): void {
-  current = { mode: next.mode, selected: [...next.selected] };
+  current = {
+    mode: next.mode,
+    selected: [...next.selected],
+    provider: next.provider ?? current.provider,
+  };
   persist();
   listeners.forEach((l) => l());
 }
@@ -174,6 +184,16 @@ export function activeSourcesParam(): string | null {
   // "selected": empty selection degrades to local-only rather than showing
   // nothing, which would look like a broken/empty dashboard.
   return current.selected.length > 0 ? current.selected.join(",") : "local";
+}
+
+/** The `providers` API query value, or null when the viewer selected both products. */
+export function activeProvidersParam(): string | null {
+  return current.provider === "both" ? null : current.provider || "claude";
+}
+
+/** Update only the product dimension while preserving the selected machines. */
+export function setProviderScope(provider: ProviderScope): void {
+  setScope({ ...current, provider });
 }
 
 /**

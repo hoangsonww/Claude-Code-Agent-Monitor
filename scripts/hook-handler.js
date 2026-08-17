@@ -19,7 +19,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const http = require("http");
+const { sendHook } = require("./hook-transport");
 
 const hookType = process.argv[2] || "unknown";
 
@@ -51,59 +51,16 @@ process.stdin.on("end", () => {
     parsedData = { raw: input };
   }
 
-  const payload = JSON.stringify({
+  const payload = {
     hook_type: hookType,
     data: parsedData,
-  });
-  const contentLength = Buffer.byteLength(payload);
-
-  // Fan out one POST per live server. Each per-target promise resolves the
-  // moment the request body has been flushed — NOT when the dashboard replies
-  // — so a busy, slow, or wedged dashboard can't stall the hook. Each promise
-  // always resolves (never rejects), so one dead listener can't starve the
-  // others and Promise.all can't be left hanging by a single failure.
-  const sends = ports.map(
-    (port) =>
-      new Promise((resolve) => {
-        let settled = false;
-        const done = () => {
-          if (settled) return;
-          settled = true;
-          resolve();
-        };
-
-        const req = http.request(
-          {
-            hostname: "127.0.0.1",
-            port,
-            path: "/api/hooks/event",
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Content-Length": contentLength,
-            },
-            timeout: 2000,
-          },
-          // Drain any response so the socket closes cleanly if the server does
-          // reply before we exit. We never block on it.
-          (res) => res.resume()
-        );
-
-        req.on("error", done); // dead listener (ECONNREFUSED) — nothing to deliver
-        req.on("timeout", () => {
-          req.destroy();
-          done();
-        });
-        req.write(payload);
-        // The 'end' callback fires once the body is on the wire: delivery is
-        // done and the local server will process it on its own schedule.
-        req.end(done);
-      })
-  );
+  };
 
   // Give the kernel one tick to hand the buffered request bytes to the local
   // server before our sockets close, then exit. The hook returns in ms.
-  Promise.all(sends).finally(() => setImmediate(() => process.exit(0)));
+  sendHook(() => ports, "/api/hooks/event", payload).finally(() =>
+    setImmediate(() => process.exit(0))
+  );
 });
 
 // Safety net — guarantees the hook never blocks Claude Code even if a send

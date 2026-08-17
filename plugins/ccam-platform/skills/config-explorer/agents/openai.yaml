@@ -1,0 +1,6 @@
+interface:
+  display_name: "Config Explorer"
+  short_description: "Inspect and safely edit the Claude Code and Codex..."
+  default_prompt: "Use $config-explorer to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

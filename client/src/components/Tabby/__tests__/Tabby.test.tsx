@@ -1,12 +1,12 @@
 /**
  * @file Tabby.test.tsx
- * @description Render tests for the Tabby companion component — mounting, mood rendering, the ⌘B panel toggle, and accessibility attributes.
+ * @description Render tests for the Tabby companion component — mounting, mood rendering, the hover greeting state, the ⌘B panel toggle, and accessibility attributes.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, act, cleanup, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { Tabby } from "../Tabby";
 import { eventBus } from "../../../lib/eventBus";
 import type { WSMessage, Session } from "../../../lib/types";
@@ -43,6 +43,18 @@ describe("Tabby widget", () => {
     renderTabby();
     expect(screen.getByRole("button", { name: /open tabby companion/i })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /tabby/i })).toBeInTheDocument();
+  });
+
+  it("greets a hovering pointer without scaling the draggable button", () => {
+    renderTabby();
+    const button = screen.getByRole("button", { name: /open tabby companion/i });
+    const cat = screen.getByRole("img", { name: /tabby/i });
+
+    fireEvent.mouseEnter(button);
+    expect(cat).toHaveAttribute("data-hovered", "1");
+
+    fireEvent.mouseLeave(button);
+    expect(cat).toHaveAttribute("data-hovered", "0");
   });
 
   it("opens the panel on click and answers a local status question", () => {

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Hook Failure Audit"
+  short_description: "Audit hook delivery health from Agent Monitor data — balance..."
+  default_prompt: "Use $hook-failure-audit to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

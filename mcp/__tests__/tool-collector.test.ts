@@ -10,12 +10,14 @@ import { collectAllTools } from "../src/transports/tool-collector.js";
 import { Logger } from "../src/core/logger.js";
 import type { AppConfig } from "../src/config/app-config.js";
 import { DashboardApiClient } from "../src/clients/dashboard-api-client.js";
+import { toolDomain } from "../src/transports/repl.js";
 
 function fakeConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
     serverName: "test",
     serverVersion: "1.0.0",
     dashboardBaseUrl: new URL("http://127.0.0.1:4820"),
+    dashboardApiToken: undefined,
     requestTimeoutMs: 10_000,
     retryCount: 0,
     retryBackoffMs: 250,
@@ -36,7 +38,7 @@ describe("collectAllTools", () => {
 
   it("registers all expected tools", () => {
     const tools = collectAllTools(config, api, logger);
-    assert.ok(tools.length >= 25, `Expected at least 25 tools, got ${tools.length}`);
+    assert.ok(tools.length >= 97, `Expected at least 97 tools, got ${tools.length}`);
   });
 
   it("every tool has name, description, and handler", () => {
@@ -63,6 +65,23 @@ describe("collectAllTools", () => {
         `Tool ${tool.name} should start with 'dashboard_'`
       );
       assert.ok(/^[a-z_]+$/.test(tool.name), `Tool ${tool.name} should be lowercase snake_case`);
+    }
+  });
+
+  it("classifies every collected tool into a known REPL domain", () => {
+    const tools = collectAllTools(config, api, logger);
+    for (const tool of tools) {
+      assert.notEqual(toolDomain(tool.name), "other", `${tool.name} must have a REPL domain`);
+    }
+    for (const name of [
+      "dashboard_get_update_status",
+      "dashboard_check_for_updates",
+      "dashboard_get_agent_homes",
+      "dashboard_set_claude_home",
+      "dashboard_set_codex_home",
+      "dashboard_install_hooks",
+    ]) {
+      assert.equal(toolDomain(name), "settings");
     }
   });
 
@@ -112,6 +131,21 @@ describe("collectAllTools", () => {
     assert.ok(names.has("dashboard_list_remote_sources"));
     assert.ok(names.has("dashboard_sync_remote_source"));
     assert.ok(names.has("dashboard_sync_all_remote_sources"));
+
+    // Workflows, alerts, webhooks, imports, config, runs, and settings
+    assert.ok(names.has("dashboard_get_workflows"));
+    assert.ok(names.has("dashboard_list_alerts"));
+    assert.ok(names.has("dashboard_list_webhooks"));
+    assert.ok(names.has("dashboard_get_import_guide"));
+    assert.ok(names.has("dashboard_get_claude_config"));
+    assert.ok(names.has("dashboard_get_codex_config"));
+    assert.ok(names.has("dashboard_list_runs"));
+    assert.ok(names.has("dashboard_install_hooks"));
+    assert.ok(names.has("dashboard_get_session_transcript"));
+    assert.ok(names.has("dashboard_upload_history_files"));
+    assert.ok(names.has("dashboard_get_push_public_key"));
+    assert.ok(names.has("dashboard_get_prometheus_metrics"));
+    assert.ok(names.has("dashboard_get_transcript_image"));
   });
 
   it("mutation tools throw when mutations disabled", async () => {

@@ -10,16 +10,17 @@
  * Design guarantees:
  *   • Complete — the bundle carries every table that holds user-owned captured
  *     data or portable configuration: sessions, agents, events, token_usage,
- *     workflows, dashboard_runs, alert_rules, and model_pricing. Machine-bound
- *     or secret-bearing tables (push_subscriptions, webhook_targets/deliveries,
- *     alert_events audit log) are intentionally excluded.
+ *     workflows, dashboard_runs, alert_rules, model_pricing, and the separate
+ *     gpt_model_pricing Codex rate card. Machine-bound or secret-bearing tables
+ *     (push_subscriptions, webhook_targets/deliveries, alert_events audit log,
+ *     Codex rollout cursors) are intentionally excluded.
  *   • Idempotent + non-destructive — restore is session-atomic: a session that
  *     already exists (matched by its stable UUID) is skipped WHOLE, together
  *     with its agents/events/token_usage/workflows, so re-importing the same
  *     bundle (or overlapping bundles from two machines) never duplicates rows
  *     or clobbers live data. Independent config rows (dashboard_runs,
- *     alert_rules, model_pricing) are inserted with INSERT OR IGNORE on their
- *     natural primary key.
+ *     alert_rules, model_pricing, gpt_model_pricing) are inserted with INSERT
+ *     OR IGNORE on their natural primary key.
  *   • Accurate — token_usage (including compaction baselines) is restored
  *     verbatim for every new session, so cost/analytics match the source
  *     machine exactly. events are re-inserted WITHOUT their source autoincrement
@@ -34,7 +35,8 @@
 "use strict";
 
 const EXPORT_FORMAT = "ccam-export";
-const EXPORT_VERSION = 1;
+// v2 adds the independent GPT/Codex rate card while keeping v1 imports valid.
+const EXPORT_VERSION = 2;
 
 // Tables serialized into the bundle. Order matters for restore (parents before
 // children); FK checks are deferred to COMMIT anyway (see importExportBundle).
@@ -61,6 +63,7 @@ function buildExportBundle(db, stmts) {
     dashboard_runs: db.prepare("SELECT * FROM dashboard_runs ORDER BY started_at DESC").all(),
     alert_rules: db.prepare("SELECT * FROM alert_rules ORDER BY created_at ASC").all(),
     model_pricing: stmts.listPricing.all(),
+    gpt_model_pricing: stmts.listGptPricing.all(),
   };
 }
 
@@ -135,7 +138,8 @@ function assertBundle(bundle) {
     Array.isArray(bundle.sessions) ||
     Array.isArray(bundle.model_pricing) ||
     Array.isArray(bundle.alert_rules) ||
-    Array.isArray(bundle.dashboard_runs);
+    Array.isArray(bundle.dashboard_runs) ||
+    Array.isArray(bundle.gpt_model_pricing);
   if (!bundle.format && !hasAnyTable) {
     throw new ImportFormatError(
       "Not a recognizable dashboard export (no sessions/pricing/rules arrays)."
@@ -152,7 +156,8 @@ function assertBundle(bundle) {
  * @param {object} bundle - parsed export JSON.
  * @returns {{sessions_imported:number, sessions_skipped:number, agents:number,
  *   events:number, token_usage:number, workflows:number, dashboard_runs:number,
- *   alert_rules:number, model_pricing:number, errors:number}}
+ *   alert_rules:number, model_pricing:number, gpt_model_pricing:number,
+ *   errors:number}}
  */
 function importExportBundle(db, bundle) {
   assertBundle(bundle);
@@ -167,10 +172,11 @@ function importExportBundle(db, bundle) {
     dashboard_runs: 0,
     alert_rules: 0,
     model_pricing: 0,
+    gpt_model_pricing: 0,
     errors: 0,
   };
 
-  const sessionExists = db.prepare("SELECT 1 FROM sessions WHERE id = ?").pluck();
+  const sessionExists = db.prepare("SELECT 1 AS present FROM sessions WHERE id = ?");
 
   const insert = {
     sessions: makeInserter(db, "sessions"),
@@ -181,6 +187,7 @@ function importExportBundle(db, bundle) {
     dashboard_runs: makeInserter(db, "dashboard_runs"),
     alert_rules: makeInserter(db, "alert_rules"),
     model_pricing: makeInserter(db, "model_pricing"),
+    gpt_model_pricing: makeInserter(db, "gpt_model_pricing"),
   };
 
   const childRows = {
@@ -238,6 +245,11 @@ function importExportBundle(db, bundle) {
     }
     for (const p of Array.isArray(bundle.model_pricing) ? bundle.model_pricing : []) {
       if (p && p.model_pattern && insert.model_pricing(p).changes > 0) counters.model_pricing++;
+    }
+    for (const p of Array.isArray(bundle.gpt_model_pricing) ? bundle.gpt_model_pricing : []) {
+      if (p && p.model_pattern && insert.gpt_model_pricing(p).changes > 0) {
+        counters.gpt_model_pricing++;
+      }
     }
   });
 

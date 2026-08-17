@@ -6,7 +6,7 @@ A step-by-step guide to get the Claude Code Agent Monitor up and running on your
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Node.js | 20+ (22+ recommended) | Required for server and client |
+| Node.js | 22.22+ (24 LTS recommended) | Required for server and client builds |
 | npm | 9+ | Comes with Node.js |
 | Claude Code | 2.x+ | Required for hook integration |
 | Python | 3.6+ | Optional — statusline utility only |
@@ -37,7 +37,7 @@ A plain root install already covers server **and** client — a `postinstall` ho
 npm install
 ```
 
-`npm run setup` additionally installs the VS Code extension and links the `ccam` CLI. (If you install with `--ignore-scripts`, the `postinstall` hook is skipped — run `cd client && npm install` manually in that case.)
+`npm run setup` additionally installs the VS Code extension, installs and builds the MCP package, and links the `ccam` CLI. The bundled Claude/Codex plugins use `ccam mcp stdio`, so the MCP build is part of normal setup. If you install with `--ignore-scripts`, the `postinstall` hook is skipped. Run `cd client && npm install` manually in that case.
 
 Or via Makefile (also installs MCP dependencies):
 
@@ -183,8 +183,8 @@ If you'd rather not keep a terminal window open, the project also ships an Elect
 |---|---|
 | Downloading a pre-built installer (macOS) | macOS — nothing else |
 | Downloading a pre-built installer (Windows) | Windows 10/11 (x64) — nothing else |
-| Building the DMG locally (macOS) | macOS, Node.js 20+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
-| Building the `.exe` locally (Windows) | Windows, Node.js 20+ (22+ recommended), npm 9+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
+| Building the DMG locally (macOS) | macOS, Node.js 22.22+ (24 LTS recommended), npm 10+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
+| Building the `.exe` locally (Windows) | Windows, Node.js 22.22+ (24 LTS recommended), npm 10+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
 
 ### Way 1 — Download a pre-built installer
 
@@ -222,7 +222,7 @@ Then jump to [Install the app](#install-the-app).
 From the project root, after `git clone`. electron-builder packages for the **host OS**, so build the macOS DMG on a Mac and the Windows `.exe` on Windows. The common prelude is the same:
 
 ```bash
-npm run setup                # install root + client + vscode-extension deps
+npm run setup                # install root + client + vscode-extension + MCP deps, build MCP, link ccam
 npm run build                # build the React client (the SPA the window loads)
 npm run desktop:install      # install Electron + electron-builder into desktop/
 
@@ -384,52 +384,34 @@ For advanced configuration, refer to the [.vscode](./.vscode) and [vscode-extens
 
 ## Container mode (Docker / Podman)
 
-The repository includes both a multi-stage `Dockerfile` and a `docker-compose.yml` file. Docker and Podman are both supported.
-
-### Compose
+The OCI runtime is non-root, uses Tini as PID 1, includes Git/OpenSSH/SQLite,
+and is read-only except for data/config volumes and tmpfs.
 
 ```bash
-# Docker Compose
+# Dashboard only
 docker compose up -d --build
+# or
+podman compose up -d --build
 
-# Podman Compose
-CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
+# Complete authenticated stack
+umask 077
+openssl rand -hex 32 > deployments/secrets/dashboard-token
+openssl rand -hex 32 > deployments/secrets/hook-token
+openssl rand -hex 32 > deployments/secrets/mcp-token
+openssl rand -base64 32 > deployments/secrets/grafana-admin-password
+npm run docker:full:up
 ```
 
-Open **http://localhost:4820** in your browser.
-
-### Plain Docker / Podman
-
-```bash
-# Docker
-docker build -t agent-monitor .
-docker run -d --name agent-monitor \
-  -p 127.0.0.1:4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
-  -v agent-monitor-data:/app/data \
-  agent-monitor
-
-# Podman
-podman build -t agent-monitor .
-podman run -d --name agent-monitor \
-  -p 127.0.0.1:4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
-  -v "$HOME/.claude/agent-dashboard:/app/data" \
-  agent-monitor
-```
-
-### Container notes
-
-| Mount | Purpose |
-|---|---|
-| `~/.claude:/root/.claude:ro` | Lets the server import legacy Claude session history |
-| `~/.claude/agent-dashboard:/app/data` | **Canonical SQLite database** (shared with native installs) |
-
-> [!NOTE]
-> The image sets `DASHBOARD_HOST=0.0.0.0` and `DASHBOARD_DATA_DIR=/app/data` internally (baked into the `Dockerfile`). The `0.0.0.0` bind is required because a container's loopback is a separate namespace the published port cannot reach; `/app/data` is bind-mounted to `~/.claude/agent-dashboard` on the host so Docker uses the same database as `npm start`. The trust boundary is the **host** port publish — the examples use `-p 127.0.0.1:4820:4820`, so the dashboard is local-only. To expose it on a LAN, publish on `0.0.0.0` (`-p 4820:4820`) **and** set `DASHBOARD_TOKEN`.
+Host ports bind loopback by default: dashboard `4820`, MCP `8819`, Nginx
+`8080`, Prometheus `9090`, and Grafana `3000`. Claude and Codex homes mount
+read-only at `/home/node/.claude` and `/home/node/.codex`. Named volumes retain
+SQLite and dashboard-owned config.
 
 > [!IMPORTANT]
-> Claude Code hooks run on the host, not inside the container. After the container is healthy on `http://localhost:4820`, run `npm run install-hooks` on the host so Claude Code posts hook events back to the containerized server. The installer refuses to run inside a container (issue #193) to avoid writing a container-internal handler path into a bind-mounted `~/.claude`; use `CCAM_ALLOW_CONTAINER_HOOKS=1` only if you run Claude Code inside the same container.
+> Install hooks on the host. For remote cloud hooks, use
+> `CCAM_DASHBOARD_URL=https://...` and `CCAM_HOOK_TOKEN`; non-loopback targets
+> require HTTPS. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the full stack,
+> Kubernetes, Terraform, backup, restore, and rollback.
 
 <p align="center">
   <img src="images/dashboard.png" alt="Dashboard Overview" width="100%">

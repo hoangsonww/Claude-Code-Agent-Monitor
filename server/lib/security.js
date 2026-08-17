@@ -18,6 +18,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 const crypto = require("node:crypto");
+const fs = require("node:fs");
 
 // Hostnames that count as "this machine". "0.0.0.0" is included because a
 // browser may resolve a 0.0.0.0 bind via localhost; an empty Host is treated as
@@ -36,10 +37,12 @@ function isLoopbackHostname(name) {
 
 /** Extra Host-header names the operator allows (set when binding to a LAN). */
 function allowedHostnames() {
-  return (process.env.DASHBOARD_ALLOWED_HOSTS || "")
+  const configured = (process.env.DASHBOARD_ALLOWED_HOSTS || "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+  const podIp = (process.env.POD_IP || "").trim().toLowerCase();
+  return podIp ? [...new Set([...configured, podIp])] : configured;
 }
 
 /** Strip the port from a Host header, preserving bracketed IPv6 literals. */
@@ -95,10 +98,27 @@ function corsOptions() {
   };
 }
 
-/** The configured auth token, or null when auth is disabled (the default). */
+function readSecret(envName, fileEnvName) {
+  const direct = process.env[envName];
+  if (typeof direct === "string" && direct.trim().length > 0) return direct.trim();
+  const filePath = process.env[fileEnvName];
+  if (typeof filePath !== "string" || filePath.trim().length === 0) return null;
+  try {
+    const value = fs.readFileSync(filePath.trim(), "utf8").trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+/** The configured dashboard auth token, or null when auth is disabled. */
 function getDashboardToken() {
-  const t = process.env.DASHBOARD_TOKEN;
-  return typeof t === "string" && t.length > 0 ? t : null;
+  return readSecret("DASHBOARD_TOKEN", "DASHBOARD_TOKEN_FILE");
+}
+
+/** Optional independent token for remote hook ingestion. */
+function getHookToken() {
+  return readSecret("DASHBOARD_HOOK_TOKEN", "DASHBOARD_HOOK_TOKEN_FILE");
 }
 
 function tokensMatch(provided, expected) {
@@ -116,6 +136,12 @@ function extractToken(req) {
   if (typeof header === "string" && header) return header;
   if (req.query && typeof req.query.token === "string") return req.query.token;
   return null;
+}
+
+function extractHookToken(req) {
+  const hookHeader = req.headers["x-ccam-hook-token"];
+  if (typeof hookHeader === "string" && hookHeader) return hookHeader;
+  return extractToken(req);
 }
 
 // API subpaths exempt from the token gate even when a token is set:
@@ -139,6 +165,21 @@ function tokenGuard(req, res, next) {
   return res
     .status(401)
     .json({ error: { code: "EUNAUTHORIZED", message: "missing or invalid dashboard token" } });
+}
+
+/**
+ * Hook-ingest middleware. Local deployments remain zero-config, but when a
+ * dedicated hook token is configured every Claude Code/Codex hook POST must
+ * carry it. This lets a cloud ingress expose hook endpoints without reusing the
+ * browser/API token.
+ */
+function hookGuard(req, res, next) {
+  const expected = getHookToken();
+  if (!expected) return next();
+  if (tokensMatch(extractHookToken(req), expected)) return next();
+  return res
+    .status(401)
+    .json({ error: { code: "EUNAUTHORIZED", message: "missing or invalid hook token" } });
 }
 
 /**
@@ -169,9 +210,12 @@ module.exports = {
   hostGuard,
   corsOptions,
   getDashboardToken,
+  getHookToken,
   tokenGuard,
+  hookGuard,
   isWebSocketAuthorized,
   // exported for tests
   tokensMatch,
   extractToken,
+  extractHookToken,
 };

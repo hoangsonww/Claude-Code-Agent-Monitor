@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard",
-  "version": "1.4.6",
+  "version": "2.0.8",
   "bin": {
     "ccam": "bin/ccam.js"
   },
@@ -60,7 +60,7 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "setup": "npm install && (cd client && npm install) && (cd vscode-extension && npm install) && npm run link-cli",
+    "setup": "npm install && (cd client && npm install) && (cd vscode-extension && npm install) && npm run mcp:install && npm run mcp:build && npm run link-cli",
     "update:pull-setup": "git pull --ff-only && npm run setup",
     "mcp:install": "npm --prefix mcp install",
     "mcp:build": "npm --prefix mcp run build",
@@ -71,6 +71,8 @@
     "mcp:dev:http": "npm --prefix mcp run dev:http",
     "mcp:dev:repl": "npm --prefix mcp run dev:repl",
     "mcp:typecheck": "npm --prefix mcp run typecheck",
+    "extensions:sync": "node scripts/sync-agent-extensions.js",
+    "extensions:validate": "node scripts/validate-agent-extensions.js",
     "mcp:docker:build": "docker build -f mcp/Dockerfile -t agent-dashboard-mcp:local .",
     "mcp:podman:build": "podman build -f mcp/Dockerfile -t localhost/agent-dashboard-mcp:local .",
     "desktop:install": "cd desktop && node scripts/install.js",
@@ -106,31 +108,35 @@
     "monitoring:verify": "node monitoring/scripts/verify.js",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "docker:full:up": "docker compose -f docker-compose.full.yml up -d --build",
-    "docker:full:down": "docker compose -f docker-compose.full.yml down"
+    "docker:full:up": "docker compose -f docker-compose.full.yml --profile mcp --profile edge up -d --build",
+    "docker:full:down": "docker compose -f docker-compose.full.yml --profile mcp --profile edge down",
+    "deploy:validate": "bash deployments/scripts/validate-deployment.sh"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "adm-zip": "0.6.0",
     "cors": "^2.8.5",
     "cross-spawn": "^7.0.6",
-    "express": "^4.21.2",
-    "multer": "^2.0.0",
+    "express": "4.22.2",
+    "multer": "2.2.0",
     "redoc": "^2.5.3",
     "swagger-ui-express": "^5.0.1",
-    "tar": "^7.4.3",
-    "uuid": "^11.1.0",
+    "tar": "7.5.22",
+    "uuid": "11.1.1",
     "web-push": "^3.6.7",
-    "ws": "^8.18.0"
+    "ws": "8.21.2"
   },
   "optionalDependencies": {
     "better-sqlite3": "^12.0.0"
   },
+  "overrides": {
+    "js-yaml": "4.3.1"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "4.3.1",
     "prettier": "^3.8.1"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.22.0"
   }
 }

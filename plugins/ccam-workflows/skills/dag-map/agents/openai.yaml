@@ -1,0 +1,6 @@
+interface:
+  display_name: "Dag Map"
+  short_description: "Render the multi-agent orchestration DAG for a session —..."
+  default_prompt: "Use $dag-map to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

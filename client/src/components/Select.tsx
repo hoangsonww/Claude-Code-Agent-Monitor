@@ -70,7 +70,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 
 /** Single option in a {@link Select} list. */
@@ -110,6 +110,7 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
   const [openUp, setOpenUp] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -155,7 +156,13 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
       setOpen(true);
       return;
     }
-    if (e.key === "ArrowDown") {
+    if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActive(Math.max(0, options.length - 1));
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setActive((a) => Math.min(options.length - 1, a + 1));
     } else if (e.key === "ArrowUp") {
@@ -178,6 +185,9 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
         ref={buttonRef}
         type="button"
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onKey}
         className="w-full flex items-center justify-between gap-2 bg-surface-2 border border-border rounded-md px-3 py-1.5 text-[11px] text-gray-100 focus:outline-none focus:border-accent/50 hover:bg-surface-3 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
@@ -187,6 +197,9 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
       </button>
       {open && (
         <div
+          id={menuId}
+          role="listbox"
+          aria-label={current?.label ?? "Select an option"}
           className={`absolute z-30 left-0 right-0 rounded-md border border-border bg-surface-1 shadow-lg shadow-black/40 max-h-72 overflow-auto py-1 ${
             openUp ? "bottom-full mb-1" : "top-full mt-1"
           }`}
@@ -198,6 +211,8 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
               <button
                 key={opt.value || "__default__"}
                 type="button"
+                role="option"
+                aria-selected={isSelected}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(opt)}
                 onMouseEnter={() => setActive(idx)}

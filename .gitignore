@@ -26,6 +26,9 @@ data/
 .env.test.local
 .env.production.local
 
+# Personal Claude Code overrides (the shared policy lives in .claude/settings.json)
+.claude/settings.local.json
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

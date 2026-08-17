@@ -7,12 +7,12 @@
     "sessions": "Sessions"
   },
   "noAgents": "No agents tracked yet",
-  "noAgentsDesc": "Start a Claude Code session with hooks installed to see agents appear here.",
+  "noAgentsDesc": "Start a monitored agent session with hooks installed to see agents appear here.",
   "agentCount": "{{count}} agent tracked",
   "agentCount_plural": "{{count}} agents tracked",
   "noAgentsInColumn": "No agents",
   "noSessions": "No sessions tracked yet",
-  "noSessionsDesc": "Start a Claude Code session with hooks installed to see sessions appear here.",
+  "noSessionsDesc": "Start a monitored agent session with hooks installed to see sessions appear here.",
   "sessionCount": "{{count}} session tracked",
   "sessionCount_plural": "{{count}} sessions tracked",
   "noSessionsInColumn": "No sessions",
@@ -29,17 +29,17 @@
   },
   "tooltip": {
     "agent": {
-      "working": "Agent is actively running a tool call right now.\n\nEntered on PreToolUse or UserPromptSubmit, exits on Stop (turn finished).",
-      "waiting": "Agent finished its turn and is blocked on the human - either Claude is waiting for the next user message or has prompted for permission to use a tool.\n\nCleared on the next PreToolUse / PostToolUse, or when the session ends.",
-      "completed": "Agent has fully ended for this session - typically because SessionEnd fired or, for subagents, SubagentStop was processed.\n\nNo further activity will be recorded against this agent.",
-      "error": "Agent recorded an error and will not continue. For main agents this comes from a Stop with stop_reason=error; for subagents, from a failed run."
+      "working": "Agent is actively processing work right now.\n\nIt moves back to Waiting when this turn ends.",
+      "waiting": "Agent finished its turn or needs a human response, such as permission approval.\n\nIt returns to work when the session continues.",
+      "completed": "Agent has fully ended for this session.\n\nNo further activity will be recorded against this agent.",
+      "error": "Agent recorded an error and will not continue until the session is resumed or retried."
     },
     "session": {
-      "active": "Session is mid-turn - Claude is currently running and the user isn't blocking anything. Brief by nature: a session moves through Active during tool calls and back to Waiting at end of turn.",
-      "waiting": "Session is sitting on the user. Either Claude finished its turn (most common) or it has surfaced a permission prompt and is blocked until the human responds.\n\nLook here for sessions you owe a reply to.",
-      "completed": "Session has fully closed - SessionEnd fired (CLI exited cleanly) or the user explicitly closed it.\n\nAll agents on this session are also completed.",
-      "error": "Session ended with an error - Claude returned stop_reason=error, an unrecoverable failure occurred, or an upstream API error terminated the run.",
-      "abandoned": "Session went stale without a clean SessionEnd. Marked abandoned after 5+ minutes of no activity (orphaned by /resume, network drop, or the CLI being killed). Distinct from Completed: we never saw a real exit signal."
+      "active": "Session is mid-turn — an agent is currently working and the user is not blocking anything. This state is brief: the session returns to Waiting when the turn ends.",
+      "waiting": "Session is waiting on you. A turn may have completed, or the agent may need permission or input.\n\nLook here for sessions you owe a reply to.",
+      "completed": "Session has fully closed because its CLI exited cleanly or it was explicitly closed.\n\nAll agents on this session are also completed.",
+      "error": "Session ended with an error — an unrecoverable failure or an upstream API error terminated the run.",
+      "abandoned": "Session went stale without a clean exit signal. Marked abandoned after 5+ minutes of no activity (for example after /resume, a network drop, or a killed CLI). Distinct from Completed: no real exit was observed."
     }
   }
 }

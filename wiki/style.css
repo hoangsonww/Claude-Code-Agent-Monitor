@@ -355,9 +355,11 @@ body {
   gap: 5px;
   padding: 5px 12px;
   border-radius: 8px;
+  background: rgba(129, 140, 248, 0.12);
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid;
+  border: 1px solid rgba(165, 180, 252, 0.34);
+  color: #c7d2fe;
   white-space: nowrap;
   transition:
     transform 0.2s,
@@ -573,6 +575,50 @@ body {
   background: rgba(255, 165, 0, 0.12);
   border-color: rgba(255, 165, 0, 0.3);
   color: #ffa500;
+}
+
+/* Cycle a vivid but restrained palette across every card. This deliberately
+ * overrides technology-specific colors so repeated badges never create a
+ * visually flat run while the marquee moves. */
+.marquee-content .tech-badge:nth-child(8n + 1) {
+  background: rgba(34, 211, 238, 0.13);
+  border-color: rgba(103, 232, 249, 0.34);
+  color: #a5f3fc;
+}
+.marquee-content .tech-badge:nth-child(8n + 2) {
+  background: rgba(129, 140, 248, 0.14);
+  border-color: rgba(165, 180, 252, 0.36);
+  color: #c7d2fe;
+}
+.marquee-content .tech-badge:nth-child(8n + 3) {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(110, 231, 183, 0.34);
+  color: #a7f3d0;
+}
+.marquee-content .tech-badge:nth-child(8n + 4) {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(252, 211, 77, 0.34);
+  color: #fde68a;
+}
+.marquee-content .tech-badge:nth-child(8n + 5) {
+  background: rgba(244, 63, 94, 0.13);
+  border-color: rgba(253, 164, 175, 0.34);
+  color: #fecdd3;
+}
+.marquee-content .tech-badge:nth-child(8n + 6) {
+  background: rgba(168, 85, 247, 0.14);
+  border-color: rgba(216, 180, 254, 0.34);
+  color: #e9d5ff;
+}
+.marquee-content .tech-badge:nth-child(8n + 7) {
+  background: rgba(14, 165, 233, 0.14);
+  border-color: rgba(125, 211, 252, 0.34);
+  color: #bae6fd;
+}
+.marquee-content .tech-badge:nth-child(8n) {
+  background: rgba(132, 204, 22, 0.13);
+  border-color: rgba(190, 242, 100, 0.34);
+  color: #d9f99d;
 }
 
 /* ─── Quick Start Cards ─────────────────────────────────────────────────── */
@@ -1753,19 +1799,22 @@ hr {
 
 /* ─── Language switch ───────────────────────────────────────────────────── */
 .lang-switch {
-  display: flex;
-  gap: 4px;
+  position: relative;
   padding: 10px 16px 12px;
   border-bottom: 1px solid var(--border);
 }
-.lang-btn {
-  flex: 1;
+.lang-select-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 5px 0;
+  padding: 7px 9px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -1773,17 +1822,121 @@ hr {
     border-color 0.15s,
     background 0.15s;
 }
-.lang-btn:hover {
+.lang-select-trigger:hover,
+.lang-select-trigger[aria-expanded="true"] {
   color: var(--text);
-  border-color: var(--text-dim);
-}
-.lang-btn.active {
-  color: #a5b4fc;
   border-color: var(--accent);
+}
+.lang-select-chevron {
+  color: #a5b4fc;
+  display: inline-block;
+  flex: 0 0 auto;
+  position: relative;
+  width: 12px;
+  height: 12px;
+  margin-right: 1px;
+}
+.lang-select-chevron::before,
+.lang-select-chevron::after {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  content: "";
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.18s ease;
+}
+.lang-select-chevron::before {
+  left: 0;
+  transform: translateY(-50%) rotate(45deg);
+}
+.lang-select-chevron::after {
+  right: 0;
+  transform: translateY(-50%) rotate(-45deg);
+}
+.lang-select-trigger[aria-expanded="true"] .lang-select-chevron {
+  transform: none;
+}
+.lang-select-trigger[aria-expanded="true"] .lang-select-chevron::before {
+  transform: translateY(-50%) rotate(-45deg);
+}
+.lang-select-trigger[aria-expanded="true"] .lang-select-chevron::after {
+  transform: translateY(-50%) rotate(45deg);
+}
+.lang-select-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% - 8px);
+  right: 16px;
+  left: 16px;
+  overflow: hidden;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.32);
+}
+.lang-option {
+  display: flex;
+  width: 100%;
+  padding: 7px 8px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.lang-option:hover,
+.lang-option:focus-visible {
+  color: var(--text);
+  background: var(--bg-hover);
+  outline: none;
+}
+.lang-option.active {
+  color: #a5b4fc;
   background: var(--accent-glow);
 }
 body.sidebar-collapsed .sidebar .lang-switch {
   display: none;
+}
+
+.mobile-language-switch {
+  display: none;
+}
+
+@media (max-width: 1400px) {
+  .mobile-language-switch {
+    display: block;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 110;
+    width: 176px;
+    padding: 0;
+    border: 0;
+  }
+
+  .mobile-language-switch .lang-select-menu {
+    top: calc(100% + 6px);
+    right: 0;
+    left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .mobile-language-switch {
+    top: 12px;
+    right: 12px;
+    width: min(176px, calc(100vw - 24px));
+  }
 }
 
 /* ─── Sidebar search: empty state ───────────────────────────────────────── */

@@ -112,7 +112,7 @@ export function useTabbyBrain(): TabbyBrain {
   const [bubble, setBubble] = useState<string | null>(null);
   const [muted, setMuted] = useState<boolean>(() => tabbyPrefs.getMuted());
 
-  const bubbleTimer = useRef<ReturnType<typeof setTimeout>>();
+  const bubbleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const lastBubbleAt = useRef(0);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;

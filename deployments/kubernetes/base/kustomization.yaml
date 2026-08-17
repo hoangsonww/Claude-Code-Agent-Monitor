@@ -4,11 +4,12 @@ kind: Kustomization
 metadata:
   name: agent-monitor-base
 
-commonLabels:
-  app.kubernetes.io/name: agent-monitor
-  app.kubernetes.io/instance: agent-monitor
-  app.kubernetes.io/version: "1.0.0"
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/name: agent-monitor
+      app.kubernetes.io/instance: agent-monitor
+      app.kubernetes.io/version: "2.0.8"
+      app.kubernetes.io/managed-by: kustomize
 
 resources:
   - namespace.yaml
@@ -18,6 +19,8 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
-  - hpa.yaml
-  - pdb.yaml
   - networkpolicy.yaml
+
+images:
+  - name: ccam-dashboard
+    newTag: 2.0.8

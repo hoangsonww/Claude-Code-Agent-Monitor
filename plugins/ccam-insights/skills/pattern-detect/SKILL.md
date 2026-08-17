@@ -1,4 +1,5 @@
 ---
+name: pattern-detect
 description: >
   Detect recurring patterns using the Agent Monitor's workflow intelligence —
   toolFlow transitions (tool A → B frequency matrices), recurring workflow

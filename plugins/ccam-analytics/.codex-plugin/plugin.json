@@ -1,0 +1,36 @@
+{
+  "name": "ccam-analytics",
+  "version": "2.0.8",
+  "description": "Deep analytics and monitoring for Claude Code sessions — cost tracking, token usage breakdowns, usage trends, and productivity scoring powered by Agent Monitor.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": [
+    "analytics",
+    "monitoring",
+    "cost-tracking",
+    "token-usage",
+    "productivity",
+    "claude-code"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Analytics",
+    "shortDescription": "Deep analytics and monitoring for Claude Code sessions — cost tracking, token usage...",
+    "longDescription": "Deep analytics and monitoring for Claude Code sessions — cost tracking, token usage breakdowns, usage trends, and productivity scoring powered by Agent Monitor.",
+    "developerName": "Son Nguyen",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Analytics to inspect the local CCAM dashboard.",
+      "Use CCAM Analytics to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

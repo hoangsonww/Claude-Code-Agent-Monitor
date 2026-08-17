@@ -1,0 +1,6 @@
+interface:
+  display_name: "Skill Inventory"
+  short_description: "Inventory the installed skills and which plugins contribute..."
+  default_prompt: "Use $skill-inventory to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

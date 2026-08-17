@@ -1,6 +1,6 @@
 /**
  * @file Express router for remote data sources — other machines whose Claude
- * Code history this dashboard pulls in over SSH (see server/lib/remote-sync.js).
+ * Code and Codex history this dashboard pulls in over SSH (see remote-sync).
  *
  *   GET    /api/remote-sources          — list configured sources + status
  *   POST   /api/remote-sources          — add a source
@@ -21,6 +21,7 @@
 const { Router } = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require("path");
 
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
@@ -54,8 +55,11 @@ function serialize(row, sessionCount = 0) {
     ssh_port: row.ssh_port,
     identity_file: row.identity_file,
     remote_home: row.remote_home,
+    remote_codex_home: row.remote_codex_home,
     enabled: !!row.enabled,
     status: row.status,
+    claude_status: row.claude_status,
+    codex_status: row.codex_status,
     last_error: row.last_error,
     last_sync_at: row.last_sync_at,
     last_sync_counts: lastCounts,
@@ -106,6 +110,7 @@ router.post("/", (req, res) => {
     v.sshPort ?? null,
     v.identityFile ?? null,
     v.remoteHome ?? null,
+    v.remoteCodexHome ?? null,
     enabled
   );
   const row = stmts.getRemoteSource.get(id);
@@ -146,6 +151,7 @@ router.patch("/:id", (req, res) => {
     v.sshPort !== undefined ? v.sshPort : existing.ssh_port,
     v.identityFile !== undefined ? v.identityFile : existing.identity_file,
     v.remoteHome !== undefined ? v.remoteHome : existing.remote_home,
+    v.remoteCodexHome !== undefined ? v.remoteCodexHome : existing.remote_codex_home,
     v.enabled === undefined ? null : v.enabled,
     req.params.id
   );
@@ -178,7 +184,7 @@ router.delete("/:id", (req, res) => {
   stmts.deleteRemoteSource.run(req.params.id);
   // Reclaim the mirrored staging dir.
   try {
-    fs.rmSync(stagingDir(req.params.id), { recursive: true, force: true });
+    fs.rmSync(path.dirname(stagingDir(req.params.id)), { recursive: true, force: true });
   } catch {
     /* non-fatal */
   }

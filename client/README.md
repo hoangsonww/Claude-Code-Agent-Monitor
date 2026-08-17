@@ -3,17 +3,17 @@
 Enterprise-grade React + TypeScript dashboard for real-time Claude Code agent monitoring.
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white)
-![React](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.22-339933?style=flat-square&logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2-61DAFB?style=flat-square&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Javascript](https://img.shields.io/badge/JavaScript-ES6-F7DF1E?style=flat-square&logo=javascript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-6.1-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-7.3-646CFF?style=flat-square&logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-RFC_6455-010101?style=flat-square&logo=socketdotio&logoColor=white)
 ![i18next](https://img.shields.io/badge/i18next-22.4-7A42FF?style=flat-square&logo=i18next&logoColor=white)
 ![i18next Language Detector](https://img.shields.io/badge/i18next_Language_Detector-6.1-7A42FF?style=flat-square&logo=i18next&logoColor=white)
 ![Mermaid](https://img.shields.io/badge/Mermaid-10.2-ff3333?style=flat-square&logo=mermaid&logoColor=white)
-![React Router](https://img.shields.io/badge/React_Router-6.28-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router-8.3-CA4245?style=flat-square&logo=reactrouter&logoColor=white)
 ![Lucide](https://img.shields.io/badge/Lucide_Icons-0.474-F56565?style=flat-square&logo=lucide&logoColor=white)
 ![D3.js](https://img.shields.io/badge/D3.js-7-F9A03C?style=flat-square&logo=d3&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-8.5-DD3A0A?style=flat-square&logo=postcss&logoColor=white)
@@ -21,8 +21,8 @@ Enterprise-grade React + TypeScript dashboard for real-time Claude Code agent mo
 ![ESLint](https://img.shields.io/badge/ESLint-8.44-4B32C3?style=flat-square&logo=eslint&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-20.10-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Podman](https://img.shields.io/badge/Podman-4.0-CC342D?style=flat-square&logo=podman&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Prometheus-2.x-E6522C?style=flat-square&logo=prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/Grafana-10.x-F46800?style=flat-square&logo=grafana&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-3.13-E6522C?style=flat-square&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-13.1-F46800?style=flat-square&logo=grafana&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-1.0-646CFF?style=flat-square&logo=vitest&logoColor=white)
 ![React Testing Library](https://img.shields.io/badge/React_Testing_Library-13.0-FF5733?style=flat-square&logo=testinglibrary&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
@@ -32,6 +32,7 @@ Enterprise-grade React + TypeScript dashboard for real-time Claude Code agent mo
 ## Table of Contents
 
 - [Overview](#overview)
+- [First-run hook setup](#first-run-hook-setup)
 - [Architecture](#architecture)
 - [Component Hierarchy](#component-hierarchy)
 - [State Management](#state-management)
@@ -52,13 +53,25 @@ Enterprise-grade React + TypeScript dashboard for real-time Claude Code agent mo
 
 The client is a single-page application (SPA) built with modern web technologies:
 
-- **React 18.3** - Component-based UI with hooks and concurrent features
+- **React 19.2** - Component-based UI with hooks and the current supported client runtime
 - **TypeScript 5.7** - Full type safety across components, utilities, and API contracts
-- **Vite 6.1** - Lightning-fast HMR during development, optimized production builds
+- **Vite 7.3** - Lightning-fast HMR during development, optimized production builds
 - **Tailwind CSS 3.4** - Utility-first CSS framework for rapid UI development
-- **React Router 6.28** - Client-side routing with nested layouts
+- **React Router 8.3** - Declarative client-side routing with nested layouts
 - **WebSocket** - Real-time event streaming from server
 - **Lucide Icons** - Modern, consistent icon set
+
+### First-run hook setup
+
+`SplashScreen.tsx` asks which provider data to display (Claude Code, Codex, or both) before dashboard routes render. Continuing checks the current hook state against that exact scope: Claude-only needs Claude hooks, Codex-only needs Codex hooks, and Both needs both. A ready selection enters the dashboard immediately. A partial or missing setup opens the live-monitoring gate with only the missing selected providers, then calls `POST /api/settings/install-hooks` for that subset and shows command output in place. A status-check failure remains fail-soft by opening manual setup for the full selected scope. API paths are deliberately excluded, so Swagger, ReDoc, and the raw OpenAPI document remain unobstructed and retain the dashboard favicon.
+
+Chart legends use the shared `PaginatedLegend.tsx` component. Lists at or below the configured page size render exactly as before with no controls. Longer Analytics donut legends and data-driven Workflows legends render one bounded page at a time with localized Previous / Next buttons and an accessible visible-range announcement, so labels stay reachable without expanding the chart card indefinitely.
+
+### Run Agent and Agent Config
+
+`/run` deliberately opens on a provider choice, then keeps an accessible Claude Code / Codex toggle beside the live-status chip. Claude preserves the established headless and stream-json conversation experience. Codex uses the native local `codex app-server` protocol for a real interactive thread: it supports a model selected from the signed-in live catalog, its own approval policy and sandbox selection, stop, resume, follow-ups, and re-attach. WebSocket `run_stream` frames are normalized in `Run.tsx`, so both providers render messages, reasoning, command/tool activity, file changes, and status changes in the same resilient live view.
+
+`/cc-config` is presented as **Agent Config**. Its Claude Code switch keeps the existing editable, backup-first explorer. Its Codex switch renders `CodexConfigExplorer.tsx`, with a matching overview, stats, scrolling tab rail, redacted previews, real installed-plugin cards, and a full local account-model catalog that is not truncated by generic file-preview limits. Profiles are created as Codex-native `<name>.config.toml` overlays, opened immediately in the guarded editor, and expose a one-click copy action for their exact `codex --profile <name>` launch command. The explicit editor reads unredacted text only for its server allowlist, including `config.toml`, profiles, `hooks.json`, user rules, `SKILL.md` files, and Codex/project instructions, so redaction can never destroy real secret values on save. The server canonicalizes preview paths, rejects symlink escapes, and refuses payloads containing `[redacted]`. User-maintained profiles, hooks, rules, skills, and instruction files use Claude-parity View source / Copy path / Edit / Delete controls: deletion needs confirmation and makes a timestamped backup (a skill's complete directory is preserved). `config.toml` stays edit-only. The editor warns that syntax is not validated; saves are atomic and receive a timestamped backup. It subscribes to `codex_config_changed`, so a local CLI, filesystem, or dashboard edit refreshes visible configuration without a page reload.
 
 ```mermaid
 graph TB
@@ -180,14 +193,19 @@ client/
 │   │   ├── EmptyState.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
+│   │   ├── SplashScreen.tsx   # First-run provider choice and live-hook setup gate
+│   │   ├── PaginatedLegend.tsx # Bounded responsive legends for Analytics and Workflows
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
+│   │   ├── TodoProgressIndicator.tsx # Micro donut + portal tooltip beside Sessions status
+│   │   ├── TodoProgressPanel.tsx # Full owner-aware tracker on Session Detail
+│   │   ├── todoProgress.ts       # Shared task status colors/formatters
 │   │   └── workflows/      # D3.js workflow visualization components (12 files)
 │   │
 │   ├── pages/              # Route pages
 │   │   ├── Dashboard.tsx
 │   │   ├── KanbanBoard.tsx
-│   │   ├── Sessions.tsx       # Filterable table; shows each session's real name (synced live from the transcript), falls back to the short ID
-│   │   ├── SessionDetail.tsx  # Agent tree + event timeline + Conversation tab (slash-command pills & output, inline rename markers)
+│   │   ├── Sessions.tsx       # Server-paginated table with task-progress donut, page-zero transient Codex startup row, searchable multi-project filtering, and custom sort menus
+│   │   ├── SessionDetail.tsx  # Overview + full task tracker + agent tree + event timeline + cursor-paginated Conversation tab
 │   │   ├── ActivityFeed.tsx  # Real-time event log; row click expands payload; Session btn navigates
 │   │   ├── Analytics.tsx
 │   │   ├── Workflows.tsx
@@ -206,7 +224,7 @@ client/
 │   │   ├── useWebSocket.ts      # Auto-reconnecting WebSocket hook
 │   │   └── useNotifications.ts  # Browser push notification triggers
 │   │
-│   ├── i18n/               # Internationalization (en / zh / vi / ko)
+│   ├── i18n/               # Internationalization (en / zh / vi / ko / es)
 │   ├── App.tsx             # Root component + router setup
 │   ├── main.tsx            # Entry point
 │   └── index.css           # Tailwind + custom utilities
@@ -232,7 +250,7 @@ graph TB
 
     Dashboard[Dashboard<br/>Monitor tab: stats + agents + events<br/>Health tab: SystemHealthTab]
     Kanban[KanbanBoard<br/>4-column agent board]
-    Sessions[Sessions<br/>filterable table]
+    Sessions[Sessions<br/>searchable multi-project table + custom sorting]
     Detail[SessionDetail<br/>agent hierarchy + timeline]
     Feed[ActivityFeed<br/>streaming event log]
     Analytics[Analytics<br/>tokens + heatmap + trends]
@@ -281,9 +299,17 @@ sequenceDiagram
 
 ## State Management
 
-The client uses **local component state** and **React hooks** for state management. No global state library (Redux, Zustand) is used to keep the architecture simple. The one small exception is the **data-scope store** (`lib/dataScope.ts`): a lightweight app-wide store holding the current set of data sources (`local` plus any configured [Remote Data Sources](../server/README.md#remote-data-sources)). Pages read it and append `?sources=` to their API requests, so a single selector narrows the whole app to one or more machines' data. Remote sources are managed from the Settings page via the `RemoteSources` component (`components/RemoteSources.tsx`), which drives the `/api/remote-sources` CRUD/test/sync endpoints and reflects live `remote_source.status` WebSocket updates. When a sync finishes, stats pages refetch via `lib/remoteDataEvents.ts` (`remote_data.updated`, `remote_source.status` with `ok`, or remote `import.progress` complete).
+The client uses **local component state** and **React hooks** for state management. No global state library (Redux, Zustand) is used to keep the architecture simple. The one small exception is the **data-scope store** (`lib/dataScope.ts`): a lightweight app-wide store holding the current source set (`local` plus any configured [Remote Data Sources](../server/README.md#remote-data-sources)) and provider set (`claude`, `codex`, or both). Pages append the resulting `?sources=` and `?providers=` parameters to their API requests, so the Settings selector immediately narrows the whole app to the chosen machines and/or agents. Remote sources are managed from the Settings page via the `RemoteSources` component (`components/RemoteSources.tsx`), which configures independent `~/.claude` and `~/.codex` homes, renders provider-specific connection/sync results, drives the `/api/remote-sources` CRUD/test/sync endpoints, and reflects live `remote_source.status` WebSocket updates. A source can be Claude-only, Codex-only, or both; a healthy provider's data keeps refreshing even if its sibling provider is unavailable. When a sync finishes, stats pages refetch via `lib/remoteDataEvents.ts` (`remote_data.updated`, `remote_source.status` with `ok`, or remote `import.progress` complete).
 
-**Cursor sessions (informational):** Settings surfaces a subtle note on the CLAUDE_HOME, Import History, and Remote Data Sources panels — **Cursor** agent sessions count too because Cursor stores transcripts under the same `~/.claude` paths as Claude Code locally (and on synced remotes).
+The Remote Data Sources form names its independent optional overrides **Remote Claude home** and **Remote Codex home**, with `~/.claude` / `~/.codex` defaults and `wsl:~/.claude` / `wsl:~/.codex` placeholders for CLI installs inside WSL.
+
+**Cursor sessions (informational):** Settings surfaces a subtle note on the Claude Code home, Import History, and Remote Data Sources panels — **Cursor** agent sessions count too because Cursor stores transcripts under the same `~/.claude` paths as Claude Code locally (and on synced remotes).
+
+**Settings data and homes:** the **Dashboard Data** cards select Claude Code, Codex, or both through the same global `dataScope` store used by Remote Data Sources. Every scoped sessions, agents, events, workflow, analytics, token, and cost request re-fetches as soon as the selection changes. The Session Data Locations section independently saves the Claude Code root and the dashboard-specific Codex root; saving the latter asks the server to re-arm its live rollout watcher and scan the new `sessions/` tree immediately. **Import History** uses matching Claude Code / Codex tabs: switching tabs reloads source-specific instructions and paths, then sends the selected provider with rescan, folder, and upload actions while provider-tagged WebSocket progress keeps concurrent work isolated.
+
+**Pricing controls:** the Claude and OpenAI GPT pricing sections use the same title, info-tooltip, **Reset Defaults**, and **Add Model** layout. Each Settings reset button resets only its own provider, while the GPT tooltip holds the USD-per-million-token units, 272K Short/Long threshold, Fast-mode behavior, pattern matching, manual-update guidance, and unpublished-rate handling that would otherwise crowd the table.
+
+**Provider-aware card context:** Dashboard agent cards and Kanban session cards show compact task context beneath a meaningful provider-native title. Claude Code and Codex both expose up to two recent distinct human prompts as a bounded two-row history: Claude refreshes its small persisted summary from the shared local JSONL cache during live hooks, imports, and watchdog sweeps; Codex refreshes from rollout records, with `codex_user_message` events covering older imports. Every real-time `session_updated` refresh flows through the ordinary scoped data path. Conversation rows render safe persisted raster attachments and quietly hide missing/expired files.
 
 ### State Strategy
 
@@ -398,8 +424,8 @@ Server broadcasts these event types over WebSocket:
 | `agent.updated` | Agent object | PostToolUse/Stop hooks |
 | `tool.executed` | Tool execution record | PostToolUse hook |
 | `notification.received` | Notification object | Notification hook |
-| `remote_source.status` | `{ id, status, error?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`) | Remote Data Source sync poller + `/api/remote-sources` routes |
-| `remote_data.updated` | `{ sourceId, source, label?, counters?, last_sync_at? }` | Emitted once per successful remote sync; triggers stats/cost/session refetches. The server also broadcasts `session_created` / `session_updated` (and main-agent frames) for each mirrored session so Kanban/Sessions update immediately |
+| `remote_source.status` | `{ id, status, error?, providers?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`; each provider can also be `unavailable`) | Remote Data Source sync poller + `/api/remote-sources` routes |
+| `remote_data.updated` | `{ sourceId, source, label?, counters?, providers?, last_sync_at? }` | Emitted once per successful remote sync; provider-aware counters trigger stats/cost/session refetches. The server also broadcasts `session_created` / `session_updated` (and main-agent frames) for each mirrored session so Kanban/Sessions update immediately |
 
 ### EventBus Pattern
 
@@ -469,7 +495,7 @@ graph TB
 
 ```tsx
 // App.tsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router';
 
 function App() {
   return (
@@ -632,7 +658,20 @@ interface SessionCardProps {
 
 #### AgentCard
 
-Shows agent type, status, tool usage, and cost breakdown.
+Shows agent type, status, tool usage, and cost breakdown. When the attached
+session has a `todo_summary`, the card renders the same accessible task-progress
+donut and portal tooltip used by the Sessions table immediately before the
+status badge. Session Detail renders the full task list with 10 rows per page.
+The server scopes these nullable values to the latest top-level work item, so a
+new Claude human turn or Codex task that emits no tracker removes the donut and
+detail panel instead of leaving an older in-progress list visible. A turn/task
+that ends without a final tracker update also drops unfinished state; fully
+completed progress remains available as history.
+
+The Sessions table opts into `include_transient=true` only on page zero, so the
+local in-memory Codex startup row appears immediately just as it does on
+Dashboard and Kanban. That row remains non-navigable until the durable session
+ID replaces it; durable totals and later pages stay unchanged.
 
 **Props:**
 ```typescript
@@ -966,7 +1005,7 @@ graph TB
 
 ### Prerequisites
 
-- Node.js >= 20.0.0
+- Node.js >= 22.22.0 (Node 24 LTS recommended)
 - npm >= 9.0.0
 
 ### Setup
@@ -1144,7 +1183,7 @@ graph TB
 
 The client is a production-ready React application with:
 
-- 🚀 **Modern Stack** - React 18, TypeScript, Vite, Tailwind
+- 🚀 **Modern Stack** - React 19, TypeScript, Vite 7, Tailwind
 - ⚡ **Real-time** - WebSocket integration for live updates
 - 🧪 **Tested** - Vitest + React Testing Library
 - 📦 **Optimized** - Code splitting, tree shaking, lazy loading
@@ -1152,4 +1191,3 @@ The client is a production-ready React application with:
 - 🎨 **Maintainable** - Clear architecture, type-safe, well-documented
 
 For server documentation, see [server/README.md](../server/README.md).
-

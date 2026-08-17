@@ -1,5 +1,9 @@
 /**
- * @file Express router for session endpoints, allowing creation, retrieval, and updating of sessions with optional pagination and filtering by status. It also computes costs for sessions based on token usage and pricing rules, and broadcasts session changes to connected WebSocket clients for real-time updates.
+ * @file Express router for session endpoints, allowing creation, retrieval, and
+ * updating of sessions with pagination plus status, search, and multi-directory
+ * filtering. It computes costs, derives optional owner-aware task progress,
+ * adds card-ready prompt context, safely exposes transcript images, and
+ * broadcasts live changes.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -9,8 +13,11 @@ const path = require("path");
 const readline = require("readline");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
-const { calculateCost, attachAgentCosts } = require("./pricing");
+const { calculateProviderCost, attachAgentCosts } = require("./pricing");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
+const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
+const { getCodexProcessSessions } = require("../lib/codex-process-overlay");
+const { extractSessionTaskProgress } = require("../lib/task-progress");
 const {
   getClaudeHome,
   getProjectsDir,
@@ -23,6 +30,112 @@ const {
 } = require("../lib/claude-home");
 
 const router = Router();
+const MAX_TASK_PROGRESS_ROWS = 100;
+
+// A session's mutable `updated_at` also changes for metadata repair, title
+// discovery, and other bookkeeping. The UI's "Last active" label must instead
+// reflect the latest durable CLI event, with lifecycle timestamps only as a
+// fallback for historical/eventless rows.
+const SESSION_LAST_ACTIVITY_SQL = `COALESCE(
+  (SELECT MAX(e.created_at) FROM events e WHERE e.session_id = s.id),
+  s.ended_at,
+  s.started_at
+)`;
+
+// Compact cards need enough context to distinguish a meaningful task from a
+// renamed session title. Both providers preserve their newest two distinct
+// human turns as a tiny newline-separated summary. Claude derives it from its
+// local JSONL scanner; Codex has equivalent append-only lifecycle events.
+// Historical rows still fall back to a main-agent task.
+const SESSION_PROMPT_PREVIEW_SQL = `COALESCE(
+  NULLIF(s.card_prompt_preview, ''),
+  CASE WHEN s.provider = 'codex' THEN (
+    SELECT group_concat(prompt, char(10))
+    FROM (
+      SELECT prompt
+      FROM (
+        SELECT e.summary AS prompt, e.created_at, e.id
+        FROM events e
+        WHERE e.session_id = s.id
+          AND e.event_type = 'codex_user_message'
+          AND e.summary IS NOT NULL
+          AND trim(e.summary) != ''
+        ORDER BY e.created_at DESC, e.id DESC
+        LIMIT 2
+      ) latest_prompts
+      ORDER BY created_at ASC, id ASC
+    ) ordered_prompts
+  ) END,
+  NULLIF((
+    SELECT a.task
+    FROM agents a
+    WHERE a.session_id = s.id
+      AND a.type = 'main'
+      AND a.task IS NOT NULL
+      AND trim(a.task) != ''
+    ORDER BY a.updated_at DESC
+    LIMIT 1
+  ), ''),
+  (
+    SELECT e.summary
+    FROM events e
+    WHERE e.session_id = s.id
+      AND e.event_type = 'codex_user_message'
+      AND e.summary IS NOT NULL
+      AND trim(e.summary) != ''
+    ORDER BY e.created_at DESC, e.id DESC
+    LIMIT 1
+  )
+)`;
+
+function sessionIsInScope(session, req) {
+  const sources = parseSources(req);
+  const providers = parseProviders(req);
+  return (
+    (!sources || sources.includes(session.source || "local")) &&
+    (!providers || providers.includes(session.provider || "claude"))
+  );
+}
+
+function taskEventsForSession(sessionId) {
+  return stmts.listTaskEventsBySession.all(sessionId);
+}
+
+function taskProgressForSession(session, agents, events) {
+  const mainTranscriptPath =
+    session.transcript_path && fs.existsSync(session.transcript_path)
+      ? session.transcript_path
+      : resolveSessionTranscriptPath(session, session.id, null, null);
+  return extractSessionTaskProgress({
+    session,
+    agents,
+    events,
+    mainTranscriptPath,
+  });
+}
+
+function attachTaskSummaries(sessions) {
+  for (const [index, session] of sessions.entries()) {
+    if (index >= MAX_TASK_PROGRESS_ROWS) continue;
+    if (
+      session.metadata &&
+      (() => {
+        try {
+          return JSON.parse(session.metadata)?.transient_process === true;
+        } catch {
+          return false;
+        }
+      })()
+    ) {
+      session.todo_summary = null;
+      continue;
+    }
+    const agents = stmts.listAgentsBySession.all(session.id);
+    const events = taskEventsForSession(session.id);
+    session.todo_summary = taskProgressForSession(session, agents, events).summary;
+  }
+  return sessions;
+}
 
 // JSONL entry types the transcript reader turns into renderable messages.
 // `user`/`assistant` are the conversation. `custom-title` is the metadata line
@@ -125,10 +238,20 @@ router.get("/", (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 10000);
   const offset = parseInt(req.query.offset) || 0;
   const status = req.query.status;
+  const includeTransient =
+    req.query.include_transient === "1" || req.query.include_transient === "true";
+  const includeTaskProgress =
+    req.query.include_task_progress === "1" || req.query.include_task_progress === "true";
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-  const cwd = req.query.cwd;
+  const cwds = Array.isArray(req.query.cwd)
+    ? req.query.cwd.filter((cwd) => typeof cwd === "string" && cwd)
+    : typeof req.query.cwd === "string" && req.query.cwd
+      ? [req.query.cwd]
+      : [];
   const sortBy = req.query.sort_by || "time"; // "time", "duration", "price"
   const sortDesc = req.query.sort_desc !== "false";
+  const sources = parseSources(req);
+  const providers = parseProviders(req);
 
   let where = [];
   let params = [];
@@ -142,16 +265,21 @@ router.get("/", (req, res) => {
     where.push("s.status = ?");
     params.push(status);
   }
-  if (cwd) {
-    where.push("s.cwd = ?");
-    params.push(cwd);
+  if (cwds.length > 0) {
+    where.push(`s.cwd IN (${cwds.map(() => "?").join(",")})`);
+    params.push(...cwds);
   }
   // Data-scope filter: restrict to sessions collected from a chosen set of
   // machines (local + any configured remote sources). Absent = all sources.
-  const sourceFilter = sourceColumnClause(parseSources(req));
+  const sourceFilter = sourceColumnClause(sources);
   if (sourceFilter.clause) {
     where.push(sourceFilter.clause);
     params.push(...sourceFilter.params);
+  }
+  const providerFilter = providerColumnClause(providers);
+  if (providerFilter.clause) {
+    where.push(providerFilter.clause);
+    params.push(...providerFilter.params);
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
@@ -162,7 +290,8 @@ router.get("/", (req, res) => {
   if (sortBy === "price") {
     const allRows = db
       .prepare(
-        `SELECT s.*, COUNT(a.id) as agent_count, s.updated_at as last_activity
+        `SELECT s.*, COUNT(a.id) as agent_count, ${SESSION_LAST_ACTIVITY_SQL} as last_activity,
+                ${SESSION_PROMPT_PREVIEW_SQL} AS prompt_preview
          FROM sessions s LEFT JOIN agents a ON a.session_id = s.id
          ${whereSql}
          GROUP BY s.id`
@@ -171,6 +300,7 @@ router.get("/", (req, res) => {
 
     if (allRows.length > 0) {
       const rules = stmts.listPricing.all();
+      const gptRules = stmts.listGptPricing.all();
 
       for (let i = 0; i < allRows.length; i += 900) {
         const chunk = allRows.slice(i, i + 900);
@@ -178,25 +308,33 @@ router.get("/", (req, res) => {
         const placeholders = ids.map(() => "?").join(",");
         const chunkTokens = db
           .prepare(
-            `SELECT session_id, model,
+            `SELECT session_id, model, speed, inference_geo, service_tier, context_size,
               input_tokens + baseline_input as input_tokens,
               output_tokens + baseline_output as output_tokens,
               cache_read_tokens + baseline_cache_read as cache_read_tokens,
-              cache_write_tokens + baseline_cache_write as cache_write_tokens
+              cache_write_tokens + baseline_cache_write as cache_write_tokens,
+              cache_write_1h_tokens + baseline_cache_write_1h as cache_write_1h_tokens,
+              web_search_requests + baseline_web_search as web_search_requests,
+              web_fetch_requests + baseline_web_fetch as web_fetch_requests,
+              code_execution_requests + baseline_code_execution as code_execution_requests
             FROM token_usage WHERE session_id IN (${placeholders})`
           )
           .all(...ids);
 
+        const providerBySession = new Map(chunk.map((session) => [session.id, session.provider]));
         const tokensBySession = {};
         for (const t of chunkTokens) {
           if (!tokensBySession[t.session_id]) tokensBySession[t.session_id] = [];
-          tokensBySession[t.session_id].push(t);
+          tokensBySession[t.session_id].push({
+            ...t,
+            provider: providerBySession.get(t.session_id) || "claude",
+          });
         }
 
         for (const row of chunk) {
           const sessionTokens = tokensBySession[row.id];
           row.cost = sessionTokens
-            ? calculateCost(sessionTokens, rules, row.started_at).total_cost
+            ? calculateProviderCost(sessionTokens, rules, gptRules, row.started_at).total_cost
             : 0;
         }
       }
@@ -207,16 +345,17 @@ router.get("/", (req, res) => {
       rows = allRows.slice(offset, offset + limit);
     }
   } else {
-    let orderSql = "s.updated_at DESC";
+    let orderSql = "last_activity DESC";
     if (sortBy === "time") {
-      orderSql = `s.updated_at ${sortDesc ? "DESC" : "ASC"}`;
+      orderSql = `last_activity ${sortDesc ? "DESC" : "ASC"}`;
     } else if (sortBy === "duration") {
       orderSql = `(julianday(COALESCE(s.ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))) - julianday(s.started_at)) ${sortDesc ? "DESC" : "ASC"}`;
     }
 
     rows = db
       .prepare(
-        `SELECT s.*, COUNT(a.id) as agent_count, s.updated_at as last_activity
+        `SELECT s.*, COUNT(a.id) as agent_count, ${SESSION_LAST_ACTIVITY_SQL} as last_activity,
+                ${SESSION_PROMPT_PREVIEW_SQL} AS prompt_preview
          FROM sessions s LEFT JOIN agents a ON a.session_id = s.id
          ${whereSql}
          GROUP BY s.id ORDER BY ${orderSql} LIMIT ? OFFSET ?`
@@ -228,53 +367,112 @@ router.get("/", (req, res) => {
       const placeholders = ids.map(() => "?").join(",");
       const allTokens = db
         .prepare(
-          `SELECT session_id, model,
+          `SELECT session_id, model, speed, inference_geo, service_tier, context_size,
             input_tokens + baseline_input as input_tokens,
             output_tokens + baseline_output as output_tokens,
             cache_read_tokens + baseline_cache_read as cache_read_tokens,
-            cache_write_tokens + baseline_cache_write as cache_write_tokens
+            cache_write_tokens + baseline_cache_write as cache_write_tokens,
+            cache_write_1h_tokens + baseline_cache_write_1h as cache_write_1h_tokens,
+            web_search_requests + baseline_web_search as web_search_requests,
+            web_fetch_requests + baseline_web_fetch as web_fetch_requests,
+            code_execution_requests + baseline_code_execution as code_execution_requests
           FROM token_usage WHERE session_id IN (${placeholders})`
         )
         .all(...ids);
 
       const rules = stmts.listPricing.all();
+      const gptRules = stmts.listGptPricing.all();
+      const providerBySession = new Map(rows.map((session) => [session.id, session.provider]));
       const tokensBySession = {};
       for (const t of allTokens) {
         if (!tokensBySession[t.session_id]) tokensBySession[t.session_id] = [];
-        tokensBySession[t.session_id].push(t);
+        tokensBySession[t.session_id].push({
+          ...t,
+          provider: providerBySession.get(t.session_id) || "claude",
+        });
       }
 
       for (const row of rows) {
         const sessionTokens = tokensBySession[row.id];
         row.cost = sessionTokens
-          ? calculateCost(sessionTokens, rules, row.started_at).total_cost
+          ? calculateProviderCost(sessionTokens, rules, gptRules, row.started_at).total_cost
           : 0;
       }
     }
   }
 
+  const includesLocal = !sources || sources.includes("local");
+  const includesCodex = !providers || providers.includes("codex");
+  const normalizedQuery = q.toLowerCase();
+  const transient =
+    includeTransient &&
+    (!status || status === "active") &&
+    includesLocal &&
+    includesCodex &&
+    offset === 0
+      ? getCodexProcessSessions(
+          db
+            .prepare(
+              `SELECT id, cwd FROM sessions
+               WHERE provider = 'codex' AND status = 'active'
+                 AND (source = 'local' OR source IS NULL)`
+            )
+            .all()
+        )
+          .filter(
+            (session) =>
+              !normalizedQuery ||
+              [session.id, session.name, session.cwd].some((value) =>
+                value?.toLowerCase().includes(normalizedQuery)
+              )
+          )
+          .filter((session) => cwds.length === 0 || cwds.includes(session.cwd))
+      : [];
+  if (transient.length > 0) {
+    rows = [...transient, ...rows];
+  }
+
+  if (includeTaskProgress) attachTaskSummaries(rows);
   res.json({ sessions: rows, limit, offset, total });
 });
 
-router.get("/facets", (_req, res) => {
+router.get("/facets", (req, res) => {
+  const sourceFilter = sourceColumnClause(parseSources(req), "s.source");
+  const providerFilter = providerColumnClause(parseProviders(req), "s.provider");
+  const clauses = [
+    "s.cwd IS NOT NULL",
+    "s.cwd != ''",
+    sourceFilter.clause,
+    providerFilter.clause,
+  ].filter(Boolean);
   const rows = db
-    .prepare("SELECT DISTINCT cwd FROM sessions WHERE cwd IS NOT NULL AND cwd != '' ORDER BY cwd")
-    .all();
+    .prepare(`SELECT DISTINCT s.cwd FROM sessions s WHERE ${clauses.join(" AND ")} ORDER BY s.cwd`)
+    .all(...sourceFilter.params, ...providerFilter.params);
   // Distinct origins present in the data, so the UI can offer a source facet /
   // scope selector. Always includes at least 'local' (the column default).
   const sources = stmts.distinctSessionSources.all().map((r) => r.source);
-  res.json({ cwds: rows.map((r) => r.cwd), sources });
+  const providers = stmts.distinctSessionProviders.all().map((r) => r.provider);
+  res.json({ cwds: rows.map((r) => r.cwd), sources, providers });
 });
 
 router.get("/:id", (req, res) => {
-  const session = stmts.getSession.get(req.params.id);
+  const session = db
+    .prepare(
+      `SELECT s.*, ${SESSION_PROMPT_PREVIEW_SQL} AS prompt_preview
+       FROM sessions s WHERE s.id = ?`
+    )
+    .get(req.params.id);
   if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  if (!sessionIsInScope(session, req)) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
   // Each agent's OWN cost (from its metadata token buckets) so subagent cards on
   // the session-detail tree show their real cost, not the session total.
   const agents = attachAgentCosts(stmts.listAgentsBySession.all(req.params.id));
   const events = stmts.listEventsBySession.all(req.params.id);
+  session.todo_snapshot = taskProgressForSession(session, agents, events).snapshot;
   // Workflow-tool runs launched within this session (issue #167). Parse the
   // JSON-blob columns so the client gets arrays, not strings.
   const workflows = stmts.listWorkflowsBySession.all(req.params.id).map((w) => {
@@ -305,6 +503,9 @@ router.get("/:id/stats", (req, res) => {
   const sessionId = req.params.id;
   const session = stmts.getSession.get(sessionId);
   if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  if (!sessionIsInScope(session, req)) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
 
@@ -390,6 +591,9 @@ router.patch("/:id", (req, res) => {
   if (!existing) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
+  if (!sessionIsInScope(existing, req)) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
 
   stmts.updateSession.run(
     name || null,
@@ -409,6 +613,32 @@ router.get("/:id/transcripts", async (req, res) => {
   const session = stmts.getSession.get(req.params.id);
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  if (!sessionIsInScope(session, req)) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+
+  // Codex uses a single append-only rollout rather than Claude Code's
+  // projects/<cwd>/<session>/subagents layout. Surface it through the same
+  // transcript contract so the Conversation tab stays provider-agnostic.
+  if (session.provider === "codex") {
+    const mainAgent = stmts.listAgentsBySession
+      .all(session.id)
+      .find((agent) => agent.type === "main");
+    return res.json({
+      transcripts:
+        session.transcript_path && fs.existsSync(session.transcript_path)
+          ? [
+              {
+                id: "main",
+                name: "Codex",
+                type: "main",
+                has_transcript: true,
+                db_agent_id: mainAgent?.id || null,
+              },
+            ]
+          : [],
+    });
   }
 
   const result = [];
@@ -605,9 +835,320 @@ router.get("/:id/transcripts", async (req, res) => {
 //   after: JSONL line number, only return messages after this line (incremental mode)
 //   before: JSONL line number, only return messages before this line (history mode)
 //   offset: legacy pagination offset (compatible, mutually exclusive with after/before)
+const MAX_INLINE_TRANSCRIPT_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_STORED_TRANSCRIPT_IMAGE_BYTES = 10 * 1024 * 1024;
+const SAFE_INLINE_IMAGE_DATA_URL = /^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=\s]+)$/i;
+const STORED_TRANSCRIPT_IMAGE_MIME = new Map([
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".webp", "image/webp"],
+]);
+
+/**
+ * Preserve only bounded raster image data that was already persisted inside a
+ * local transcript. This deliberately rejects remote URLs and SVG so opening
+ * a transcript never causes a network fetch or renders executable markup.
+ */
+function safeInlineTranscriptImage(value) {
+  if (typeof value !== "string") return null;
+  const match = value.match(SAFE_INLINE_IMAGE_DATA_URL);
+  if (!match) return null;
+  const base64 = match[2].replace(/\s/g, "");
+  if (Buffer.byteLength(base64, "base64") > MAX_INLINE_TRANSCRIPT_IMAGE_BYTES) return null;
+  const subtype = match[1].toLowerCase() === "jpg" ? "jpeg" : match[1].toLowerCase();
+  return `data:image/${subtype};base64,${base64}`;
+}
+
+/** Hide CLI image wrapper tags (and their local paths) from prose. */
+function stripTranscriptImageMarkup(value) {
+  return String(value || "")
+    .replace(/<image\b[^>]*>[\s\S]*?<\/image>/gi, "")
+    .replace(/<\/?image\b[^>]*>/gi, "")
+    .replace(/\n{3,}/g, "\n")
+    .trim();
+}
+
+/** Extract local paths from the CLI's persisted `<image … path="…">` wrappers. */
+function transcriptImagePaths(value) {
+  const paths = [];
+  const matcher = /<image\b[^>]*\bpath=(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>/gi;
+  for (const match of String(value || "").matchAll(matcher)) {
+    const candidate = match[1] || match[2] || match[3];
+    if (candidate && path.isAbsolute(candidate)) paths.push(candidate);
+  }
+  return paths;
+}
+
+function inlineClaudeImage(block) {
+  if (block?.type !== "image") return null;
+  const source = block.source || {};
+  if (typeof source.data !== "string") return null;
+  const mediaType = String(source.media_type || "").toLowerCase();
+  return safeInlineTranscriptImage(
+    source.data.startsWith("data:") ? source.data : `data:${mediaType};base64,${source.data}`
+  );
+}
+
+/** Resolve only the exact transcript selected by the reader/image request. */
+function resolveSessionTranscriptPath(session, sessionId, agentId, runId) {
+  if (session.provider === "codex") {
+    return session.transcript_path && fs.existsSync(session.transcript_path)
+      ? session.transcript_path
+      : null;
+  }
+  if (agentId && agentId !== "main") {
+    return (
+      getSubagentTranscriptPath(sessionId, session.cwd, agentId, runId) ||
+      findSubagentTranscriptPath(sessionId, agentId, runId) ||
+      getSnapshotSubagentTranscriptPath(sessionId, agentId, runId)
+    );
+  }
+  return (
+    getTranscriptPath(sessionId, session.cwd) ||
+    findTranscriptPath(sessionId) ||
+    getSnapshotTranscriptPath(sessionId)
+  );
+}
+
+async function jsonlEntryAtLine(jsonlPath, targetLine) {
+  let lineNumber = 0;
+  const rl = readline.createInterface({
+    input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+  for await (const line of rl) {
+    lineNumber++;
+    if (lineNumber !== targetLine) continue;
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Convert Codex's mixed input_text/input_image array into display blocks.
+ * Keeping images as their own block lets the client render the real persisted
+ * attachment instead of an "[Image #]" placeholder in the user prompt.
+ */
+function codexMessageContent(content) {
+  if (typeof content === "string") {
+    const text = stripTranscriptImageMarkup(content);
+    return text ? [{ type: "text", text: truncate(text, 10240) }] : [];
+  }
+  if (!Array.isArray(content)) return [];
+  const blocks = [];
+  for (const part of content) {
+    if (part?.type === "input_image") {
+      const src = safeInlineTranscriptImage(part.image_url);
+      if (src) blocks.push({ type: "image", src, alt: "Attached image" });
+      continue;
+    }
+    if (typeof part?.text === "string") {
+      const text = stripTranscriptImageMarkup(part.text);
+      if (text) blocks.push({ type: "text", text: truncate(text, 10240) });
+    }
+  }
+  return blocks;
+}
+
+function codexContentText(content) {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (typeof part?.text === "string") return part.text;
+      // Preserve the fact that a user shared an image without exposing a local
+      // file path or a base64 payload in the dashboard transcript.
+      if (part?.type === "input_image") return "[Image attached]";
+      return "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function codexToolInput(input) {
+  if (typeof input === "string") {
+    try {
+      return truncateObj(JSON.parse(input), 10240);
+    } catch {
+      // `exec` is a Codex custom tool call whose input is source code, not JSON.
+      // Keeping it under `code` lets the client render it as readable JavaScript.
+      return truncateObj({ code: input }, 10240);
+    }
+  }
+  return truncateObj(input || {}, 10240);
+}
+
+function codexToolOutput(output) {
+  if (typeof output === "string") return truncate(output, 10240);
+  if (Array.isArray(output)) return truncate(codexContentText(output), 10240);
+  return truncate(JSON.stringify(output || ""), 10240);
+}
+
+/** Translate Codex rollout records into the shared conversation DTO. */
+function parseCodexMessage(entry, line) {
+  if (entry.type === "event_msg" && entry.payload?.type === "user_message") {
+    const text =
+      typeof entry.payload.message === "string"
+        ? stripTranscriptImageMarkup(entry.payload.message)
+        : "";
+    if (!text.trim()) return null;
+    return {
+      type: "user",
+      sender: "user",
+      timestamp: entry.timestamp || null,
+      content: [{ type: "text", text: truncate(text, 10240) }],
+      line,
+      _codexUserKind: "event",
+    };
+  }
+  if (entry.type !== "response_item") return null;
+  const item = entry.payload || {};
+  const timestamp = entry.timestamp || null;
+  if (item.type === "message") {
+    const content = codexMessageContent(item.content);
+    const text = content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text || "")
+      .join("\n");
+    // Codex injects this descriptor at session start; it is not a human turn.
+    if ((!text.trim() && content.length === 0) || text.trim().startsWith("<environment_context>")) {
+      return null;
+    }
+    // `event_msg:user_message` is Codex's durable human-turn record. A matching
+    // response item normally immediately precedes it, but keep response-user
+    // records too: the reader dedupes adjacent twins and preserves image-only
+    // or future Codex shapes that do not emit the event record.
+    if (item.role !== "assistant" && item.role !== "user") return null;
+    return {
+      type: item.role === "assistant" ? "assistant" : "user",
+      sender: item.role === "assistant" ? "assistant" : "user",
+      timestamp,
+      content,
+      line,
+      ...(item.role === "user" ? { _codexUserKind: "response" } : {}),
+    };
+  }
+  if (item.type === "function_call" || item.type === "custom_tool_call") {
+    return {
+      type: "assistant",
+      sender: "assistant",
+      timestamp,
+      content: [
+        {
+          type: "tool_use",
+          name: item.name || "tool",
+          id: item.call_id || null,
+          input: codexToolInput(item.arguments ?? item.input),
+        },
+      ],
+      line,
+    };
+  }
+  if (item.type === "function_call_output" || item.type === "custom_tool_call_output") {
+    return {
+      type: "user",
+      sender: "tool",
+      timestamp,
+      content: [
+        {
+          type: "tool_result",
+          id: item.call_id || null,
+          output: codexToolOutput(item.output),
+          is_error: false,
+        },
+      ],
+      line,
+    };
+  }
+  return null;
+}
+
+async function readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, offset }) {
+  const messages = [];
+  let lineNum = 0;
+  let total = 0;
+  let hasMore = false;
+  let previousCodexUserResponse = null;
+  const rl = readline.createInterface({
+    input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
+    crlfDelay: Infinity,
+  });
+
+  for await (const line of rl) {
+    lineNum++;
+    if (!line.trim()) continue;
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const message = parseCodexMessage(entry, lineNum);
+    if (!message) continue;
+    if (beforeLine !== null && lineNum >= beforeLine) break;
+    const messageText = message.content
+      .filter((content) => content.type === "text")
+      .map((content) => content.text || "")
+      .join("\n");
+    // Codex writes the same human turn twice: a response_item message then an
+    // immediately following event_msg:user_message. Keep exactly one while
+    // retaining either form when it appears on its own at a page boundary.
+    if (
+      message._codexUserKind === "event" &&
+      previousCodexUserResponse &&
+      lineNum - previousCodexUserResponse.line <= 1 &&
+      messageText === previousCodexUserResponse.text
+    ) {
+      // The response record was already counted and retained. Drop only its
+      // immediately-following event twin so totals and cursor pages stay exact.
+      previousCodexUserResponse = null;
+      continue;
+    }
+    total++;
+    // Track response-user records even before an `after` cursor. A rollout may
+    // flush the response and its event twin in separate writes; carrying this
+    // one-record context prevents the next incremental request from appending
+    // that same human turn a second time.
+    if (message._codexUserKind === "response") {
+      previousCodexUserResponse = { line: lineNum, text: messageText };
+    } else if (message._codexUserKind === "event") {
+      previousCodexUserResponse = null;
+    }
+    if (afterLine !== null && lineNum <= afterLine) continue;
+    if (offset > 0 && total <= offset) continue;
+    messages.push(message);
+    if (afterLine !== null || offset > 0) {
+      if (messages.length >= limit) {
+        hasMore = true;
+        break;
+      }
+    } else if (messages.length > limit) {
+      messages.shift();
+      hasMore = true;
+    }
+  }
+
+  const firstLine = messages[0]?.line || 0;
+  const lastLine = messages[messages.length - 1]?.line || 0;
+  messages.forEach((message) => {
+    delete message.line;
+    delete message._codexUserKind;
+  });
+  return { messages, total, has_more: hasMore, first_line: firstLine, last_line: lastLine };
+}
+
 router.get("/:id/transcript", async (req, res) => {
   const session = stmts.getSession.get(req.params.id);
   if (!session) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  if (!sessionIsInScope(session, req)) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
 
@@ -621,22 +1162,25 @@ router.get("/:id/transcript", async (req, res) => {
   const beforeLine = req.query.before ? parseInt(req.query.before) : null;
   const offset = parseInt(req.query.offset) || 0;
 
+  if (session.provider === "codex") {
+    const jsonlPath = resolveSessionTranscriptPath(session, req.params.id, agentId, runId);
+    if (!jsonlPath) {
+      return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
+    }
+    try {
+      return res.json(
+        await readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, offset })
+      );
+    } catch {
+      return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
+    }
+  }
+
   // Determine the JSONL file path to read. Prefer the live file under
   // ~/.claude/projects, then fall back to the dashboard's durable snapshot —
   // the live file is gone once Claude Code prunes it under cleanupPeriodDays
   // (default 30 days), but the snapshot taken at import time survives.
-  let jsonlPath;
-  if (agentId && agentId !== "main") {
-    jsonlPath =
-      getSubagentTranscriptPath(req.params.id, session.cwd, agentId, runId) ||
-      findSubagentTranscriptPath(req.params.id, agentId, runId) ||
-      getSnapshotSubagentTranscriptPath(req.params.id, agentId, runId);
-  } else {
-    jsonlPath =
-      getTranscriptPath(req.params.id, session.cwd) ||
-      findTranscriptPath(req.params.id) ||
-      getSnapshotTranscriptPath(req.params.id);
-  }
+  const jsonlPath = resolveSessionTranscriptPath(session, req.params.id, agentId, runId);
 
   if (!jsonlPath || !fs.existsSync(jsonlPath)) {
     return res.json({ messages: [], total: 0, has_more: false, last_line: 0, first_line: 0 });
@@ -660,6 +1204,13 @@ router.get("/:id/transcript", async (req, res) => {
     // with the same value across a transcript, so only emit when the title
     // actually changes from the last one we surfaced.
     let lastRenameTitle = null;
+
+    function storedImageUrl(line, index) {
+      const query = new URLSearchParams({ line: String(line), index: String(index) });
+      if (agentId) query.set("agent_id", String(agentId));
+      if (runId) query.set("run_id", String(runId));
+      return `/api/sessions/${encodeURIComponent(req.params.id)}/transcript-image?${query.toString()}`;
+    }
 
     // Helper: parse a JSONL line into a message object, or null if not a displayable message
     function parseMessage(entry, num) {
@@ -736,11 +1287,29 @@ router.get("/:id/transcript", async (req, res) => {
       if (entry.type === "user") {
         const msgContent = entry.message?.content;
         if (typeof msgContent === "string") {
-          content.push({ type: "text", text: truncate(msgContent, 10240) });
+          const imagePaths = transcriptImagePaths(msgContent);
+          imagePaths.forEach((_, index) => {
+            content.push({ type: "image", src: storedImageUrl(num, index), alt: "Attached image" });
+          });
+          const text = stripTranscriptImageMarkup(msgContent);
+          if (text) content.push({ type: "text", text: truncate(text, 10240) });
         } else if (Array.isArray(msgContent)) {
+          let storedImageIndex = 0;
           for (const block of msgContent) {
             if (block.type === "text" && block.text) {
-              content.push({ type: "text", text: truncate(block.text, 10240) });
+              const imagePaths = transcriptImagePaths(block.text);
+              imagePaths.forEach(() => {
+                content.push({
+                  type: "image",
+                  src: storedImageUrl(num, storedImageIndex++),
+                  alt: "Attached image",
+                });
+              });
+              const text = stripTranscriptImageMarkup(block.text);
+              if (text) content.push({ type: "text", text: truncate(text, 10240) });
+            } else if (block.type === "image") {
+              const src = inlineClaudeImage(block);
+              if (src) content.push({ type: "image", src, alt: "Attached image" });
             } else if (block.type === "tool_result") {
               content.push({
                 type: "tool_result",
@@ -947,6 +1516,67 @@ router.get("/:id/transcript", async (req, res) => {
   }
 });
 
+// GET /:id/transcript-image — Stream one image that is explicitly referenced
+// by one persisted Claude transcript line. The client receives this opaque
+// same-origin URL rather than the machine's absolute screenshot path.
+router.get("/:id/transcript-image", async (req, res) => {
+  const session = stmts.getSession.get(req.params.id);
+  if (!session || !sessionIsInScope(session, req)) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+  }
+  const line = Number(req.query.line);
+  const index = Number(req.query.index);
+  if (!Number.isSafeInteger(line) || line < 1 || !Number.isSafeInteger(index) || index < 0) {
+    return res
+      .status(400)
+      .json({ error: { code: "INVALID_IMAGE", message: "Invalid image reference" } });
+  }
+  const agentId = req.query.agent_id || null;
+  const runId = req.query.run_id || null;
+  const jsonlPath = resolveSessionTranscriptPath(session, req.params.id, agentId, runId);
+  if (!jsonlPath) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+  }
+
+  try {
+    const entry = await jsonlEntryAtLine(jsonlPath, line);
+    if (!entry || entry.type !== "user") {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+    }
+    const rawContent = entry.message?.content;
+    const textBlocks =
+      typeof rawContent === "string"
+        ? [rawContent]
+        : Array.isArray(rawContent)
+          ? rawContent.filter((block) => block?.type === "text").map((block) => block.text)
+          : [];
+    const imagePath = textBlocks.flatMap(transcriptImagePaths)[index];
+    if (!imagePath) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+    }
+    const realPath = fs.realpathSync(imagePath);
+    const mime = STORED_TRANSCRIPT_IMAGE_MIME.get(path.extname(realPath).toLowerCase());
+    const stat = fs.statSync(realPath);
+    if (!mime || !stat.isFile() || stat.size > MAX_STORED_TRANSCRIPT_IMAGE_BYTES) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+    }
+    res.set({
+      "Cache-Control": "private, max-age=300",
+      "Content-Type": mime,
+      "Content-Length": String(stat.size),
+      "X-Content-Type-Options": "nosniff",
+    });
+    const stream = fs.createReadStream(realPath);
+    stream.on("error", () => {
+      if (!res.headersSent) res.status(404).end();
+      else res.destroy();
+    });
+    return stream.pipe(res);
+  } catch {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Image not found" } });
+  }
+});
+
 function truncate(str, maxLen) {
   if (!str || str.length <= maxLen) return str;
   return str.slice(0, maxLen) + "[truncated]";
@@ -962,3 +1592,4 @@ function truncateObj(obj, maxLen) {
 module.exports = router;
 // Exported for unit tests — sender attribution is correctness-critical.
 module.exports.classifyTranscriptSender = classifyTranscriptSender;
+module.exports.readCodexTranscript = readCodexTranscript;

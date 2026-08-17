@@ -1,0 +1,6 @@
+interface:
+  display_name: "Workflow Optimizer"
+  short_description: "Analyze workflow patterns using the Agent Monitor's workflow..."
+  default_prompt: "Use $workflow-optimizer to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

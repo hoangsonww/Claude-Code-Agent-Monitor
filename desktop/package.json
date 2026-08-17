@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard-desktop",
-  "version": "1.4.6",
+  "version": "2.0.8",
   "private": true,
   "description": "Native macOS and Windows desktop shell for Claude Code Agent Monitor.",
   "author": "Son Nguyen <hoangson091104@gmail.com>",
@@ -29,12 +29,12 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "electron": "^35.7.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.5.4"
   }
 }

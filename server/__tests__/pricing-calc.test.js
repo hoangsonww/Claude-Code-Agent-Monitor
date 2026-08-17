@@ -8,7 +8,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { calculateCost } = require("../routes/pricing");
+const { calculateCost, calculateGptCost, calculateProviderCost } = require("../routes/pricing");
 const {
   normalizeSpeed,
   normalizeGeo,
@@ -261,6 +261,82 @@ describe("calculateCost — model_pattern matching (dated ids, no cross-match)",
     // A model with no rule (sonnet-4-5 not in FAMILY) must be reported unpriced,
     // proving sonnet-5%/sonnet-4-6% don't greedily swallow it.
     assert.deepEqual(priceOf("claude-sonnet-4-5").unpriced, ["claude-sonnet-4-5"]);
+  });
+});
+
+describe("calculateGptCost — Codex pricing dimensions", () => {
+  const GPT_RULES = [
+    {
+      model_pattern: "gpt-5.6-terra%",
+      short_input_per_mtok: 2,
+      short_cached_input_per_mtok: 0.2,
+      short_cache_write_per_mtok: 2.5,
+      short_output_per_mtok: 12,
+      long_input_per_mtok: 4,
+      long_cached_input_per_mtok: 0.4,
+      long_cache_write_per_mtok: 5,
+      long_output_per_mtok: 18,
+      fast_input_per_mtok: 4,
+      fast_cached_input_per_mtok: 0.4,
+      fast_cache_write_per_mtok: 5,
+      fast_output_per_mtok: 24,
+    },
+  ];
+
+  const gptBucket = (extra = {}) => ({
+    model: "gpt-5.6-terra",
+    speed: "standard",
+    context_size: "short",
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    ...extra,
+  });
+
+  it("uses the short-context card at and below the 272K request threshold", () => {
+    const r = calculateGptCost(
+      [
+        gptBucket({
+          input_tokens: M,
+          output_tokens: M,
+          cache_read_tokens: M,
+          cache_write_tokens: M,
+        }),
+      ],
+      GPT_RULES
+    );
+    assert.equal(r.total_cost, 16.7); // 2 + 12 + .2 + 2.5
+    assert.equal(r.breakdown[0].context_size, "short");
+  });
+
+  it("uses the long-context card when ingestion labels the request long", () => {
+    const r = calculateGptCost(
+      [gptBucket({ context_size: "long", input_tokens: M, output_tokens: M })],
+      GPT_RULES
+    );
+    assert.equal(r.total_cost, 22); // 4 + 18
+  });
+
+  it("uses explicit fast-mode rates instead of a derived multiplier", () => {
+    const r = calculateGptCost(
+      [gptBucket({ speed: "fast", context_size: "long", input_tokens: M, output_tokens: M })],
+      GPT_RULES
+    );
+    assert.equal(r.total_cost, 28); // 4 + 24; Fast has its own published card
+  });
+
+  it("keeps Codex and Claude rate cards isolated in a combined total", () => {
+    const r = calculateProviderCost(
+      [
+        { ...bucket({ input_tokens: M }), provider: "claude" },
+        { ...gptBucket({ output_tokens: M }), provider: "codex" },
+      ],
+      RULES,
+      GPT_RULES
+    );
+    assert.equal(r.total_cost, 17); // Claude input 5 + Codex output 12
+    assert.equal(r.breakdown.length, 2);
   });
 });
 

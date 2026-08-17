@@ -1,4 +1,5 @@
 ---
+name: spend-forecast
 description: >
   Forecast Claude Code spend to the end of the week or month from the daily
   session trend on the Agent Monitor dashboard — moving average of daily spend

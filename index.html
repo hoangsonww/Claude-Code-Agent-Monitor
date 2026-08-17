@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Claude Code Agent Monitor - real-time dashboard for Claude Code</title>
+    <title>Claude Code Agent Monitor - Real-Time Dashboard for Claude Code</title>
     <meta
       name="description"
       content="Real-time local dashboard for Claude Code: sessions, kanban, analytics, cost tracking, run / resume Claude from your browser, and a 12-tab inspector for every plugin, skill, hook, and setting."
@@ -24,7 +24,7 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Claude Code Agent Monitor" />
-    <meta property="og:title" content="Claude Code Agent Monitor - real-time dashboard for Claude Code" />
+    <meta property="og:title" content="Claude Code Agent Monitor - Real-Time Dashboard for Claude Code" />
     <meta
       property="og:description"
       content="Real-time local dashboard for Claude Code with sessions, analytics, workflows, plugin marketplace, MCP server, in-browser Run page, and a 12-tab Claude Config Explorer."
@@ -33,7 +33,7 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/svg+xml" />
-    <meta property="og:image:alt" content="Claude Code Agent Monitor - real-time monitoring + run Claude in-browser" />
+    <meta property="og:image:alt" content="Claude Code Agent Monitor - Real-time monitoring + run Claude in-browser" />
 
     <!-- Twitter / X Card -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -2218,7 +2218,7 @@
       <div class="nav-inner">
         <a href="#" class="brand">
           <span class="brand-mark">CC</span>
-          <span>Claude Code Agent Monitor</span>
+          <span>Claude Code & Codex Agent Monitor</span>
         </a>
         <nav class="nav-links" aria-label="Primary">
           <a href="#values" data-section="values" class="nav-link">Why</a>
@@ -2374,7 +2374,7 @@
               <span class="marquee-item"><span class="dot emerald"></span>Conversation mode</span>
               <span class="marquee-item"><span class="dot amber"></span>One-shot headless</span>
               <span class="marquee-item"><span class="dot pink"></span>Resume sessions</span>
-              <span class="marquee-item"><span class="dot violet"></span>MCP server (25 tools)</span>
+              <span class="marquee-item"><span class="dot violet"></span>MCP server (97 tools)</span>
               <span class="marquee-item"><span class="dot rose"></span>Plugin marketplace</span>
               <span class="marquee-item"><span class="dot"></span>VS Code extension</span>
               <span class="marquee-item"><span class="dot cyan"></span>WebSocket push</span>
@@ -2401,7 +2401,7 @@
               <span class="marquee-item"><span class="dot emerald"></span>Conversation mode</span>
               <span class="marquee-item"><span class="dot amber"></span>One-shot headless</span>
               <span class="marquee-item"><span class="dot pink"></span>Resume sessions</span>
-              <span class="marquee-item"><span class="dot violet"></span>MCP server (25 tools)</span>
+              <span class="marquee-item"><span class="dot violet"></span>MCP server (97 tools)</span>
               <span class="marquee-item"><span class="dot rose"></span>Plugin marketplace</span>
               <span class="marquee-item"><span class="dot"></span>VS Code extension</span>
               <span class="marquee-item"><span class="dot cyan"></span>WebSocket push</span>
@@ -2573,8 +2573,8 @@
             <div class="stat-label">Workflow datasets</div>
           </div>
           <div class="stat">
-            <div class="stat-num" data-count="3">3</div>
-            <div class="stat-label">Languages (en/zh/vi/ko)</div>
+            <div class="stat-num" data-count="5">5</div>
+            <div class="stat-label">Languages (en/zh/vi/ko/es)</div>
           </div>
         </div>
       </section>
@@ -2607,7 +2607,8 @@
             <p>
               Hooks fire to the local server in milliseconds. WebSocket push updates the UI
               before you've taken your finger off the keyboard. A brief branding splash greets you
-              on load, and pulsing skeletons (never blank spinners) fill in while data streams.
+              on load, skips hook setup when the selected providers are already ready, and pulsing
+              skeletons (never blank spinners) fill in while data streams.
             </p>
           </div>
           <div class="value-card" style="--card-glow: rgba(52, 211, 153, 0.5)">
@@ -2638,7 +2639,7 @@
           <h2 class="section-title">Everything you need, on your machine.</h2>
           <p class="section-lead">
             Hooks-driven session capture, deep analytics, in-browser Claude spawning, full
-            configuration inspector, and a typed local MCP server with 25 tools.
+            configuration inspector, and a typed local MCP server with 97 tools across the full app surface.
           </p>
         </div>
         <div class="features-grid reveal-stagger">
@@ -2646,94 +2647,147 @@
             <div class="feature-icon indigo">⚡</div>
             <h3>Real-time dashboard</h3>
             <p>
-              Six-tile overview, live agent cards with collapsible subagent hierarchy, recent
-              activity feed, and a composite Health tab - all updated via WebSocket push, no
-              polling.
+              Six key metrics, recent activity, and a composite Health view update immediately
+              through WebSocket push.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon emerald">▶</div>
-            <h3>Run Claude in-browser</h3>
+            <h3>Run Agent</h3>
             <p>
-              Spawn <code>claude</code> subprocesses with a chat-style streaming UI. Conversation
-              or one-shot mode. Resume any past session in one click. Slash + <code>@</code>-file
-              autocomplete, live token meter, thinking-effort dial, and model picker.
+              Start a new interactive Claude Code or Codex session from the dashboard, without
+              leaving the browser.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon emerald">⌘</div>
+            <h3>Interactive run controls</h3>
+            <p>
+              Choose a model and run mode, resume prior work, attach files, and follow live
+              output with token and effort controls.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon amber">🧰</div>
             <h3>Claude Config Explorer</h3>
             <p>
-              12 tabs covering skills, subagents, slash commands, output styles, plugins,
-              marketplaces, MCP servers, hooks, settings, memory, keybindings, statusline. The
-              Memory tab surfaces not just the user and project <code>CLAUDE.md</code> files but
-              the per-project file-based memory store - every auto-memory fact under
-              <code>~/.claude/projects/&lt;slug&gt;/memory/</code>, grouped by project and
-              searchable. The Settings tab leads with a Current configuration summary of the
-              options <code>/config</code> controls (model, verbose, theme, output style,
-              auto-compact, notifications) resolved across scopes. Edit text-file artifacts -
-              including the auto-memory files - with timestamped backups.
+              Twelve focused tabs reveal skills, subagents, slash commands, plugins, MCP servers,
+              hooks, settings, memory, keybindings, and statusline details.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon amber">🧠</div>
+            <h3>Claude memory and settings</h3>
+            <p>
+              Search project memory, inspect resolved configuration, and safely edit low-risk
+              text artifacts with timestamped backups.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon indigo">⌘</div>
+            <h3>Codex Config Explorer</h3>
+            <p>
+              Inspect account models, profiles, MCP servers, projects, skills, hooks, rules,
+              plugins, and instructions from one workspace.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon indigo">✎</div>
+            <h3>Safe config editing</h3>
+            <p>
+              Backed-up View source, Copy path, Edit, and Delete actions protect supported
+              user-managed artifacts. <code>config.toml</code> remains edit-only.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon cyan">📊</div>
-            <h3>Workflows visualization</h3>
+            <h3>Workflow intelligence</h3>
             <p>
-              D3-powered orchestration DAG, tool execution Sankey, collaboration network, error
-              propagation map, concurrency timeline, complexity scatter, and a compaction-impact
-              histogram (sessions by compaction count) - 11 datasets, each with hover tooltips and
-              rich i18n.
+              Eleven provider-scoped datasets expose orchestration depth, delegation patterns,
+              concurrency, compactions, errors, and session complexity.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon cyan">⌁</div>
+            <h3>Workflow visualizations</h3>
+            <p>
+              Explore orchestration DAGs, tool-flow Sankeys, collaboration networks, timelines,
+              and scatter plots with hoverable, localized detail.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon amber">🔔</div>
             <h3>Rules-based alerts</h3>
             <p>
-              Server-side alerting on the live event stream - error bursts, stuck agents, idle
-              sessions, and token thresholds - with per-(rule, session, agent) cooldown dedup. Fired
-              alerts surface in a live feed with acknowledge / acknowledge-all and link back to the
-              session that triggered them.
+              Detect error bursts, stuck agents, idle sessions, and token thresholds directly
+              from the live event stream.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon amber">✓</div>
+            <h3>Alert triage</h3>
+            <p>
+              Per-rule, session, and agent cooldowns avoid duplicate noise. Acknowledge alerts
+              from the feed and return to the session that triggered them.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon violet">🔗</div>
             <h3>Universal webhooks</h3>
             <p>
-              Fan fired alerts out to <strong>14 first-class providers</strong> - Slack, Discord,
-              Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty, Opsgenie, Splunk
-              On-Call, Zapier, Make, n8n, Pipedream - plus any generic endpoint. Per-platform
-              payloads, optional HMAC-SHA256 signing, a one-click test probe, and a recorded
-              delivery log.
+              Route fired alerts to 14 first-class providers or any generic endpoint, with
+              provider-specific payloads.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon violet">⌁</div>
+            <h3>Webhook diagnostics</h3>
+            <p>
+              Use optional HMAC-SHA256 signing, send a one-click test probe, and inspect each
+              recorded delivery.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon pink">💰</div>
-            <h3>Cost &amp; token tracking</h3>
+            <h3>Cost estimates</h3>
             <p>
-              Per-model cost estimation with configurable pricing rules, editable time-limited
-              introductory rates (correct before and after the promo cutoff), per-subagent cost on
-              every card, compaction-aware token accounting that preserves totals across context
-              compressions, and a memory-bounded LRU JSONL extractor whose per-entry arrays are
-              tail-capped so a multi-day session cannot leak the cache.
+              Configure model pricing, introductory rates, and per-subagent estimates in the
+              same cost view.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon pink">⊚</div>
+            <h3>Reliable token accounting</h3>
+            <p>
+              Compaction-aware accounting preserves totals across context compression. Bounded
+              JSONL extraction keeps multi-day sessions from growing the cache without limit.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon violet">🔌</div>
             <h3>Local MCP server</h3>
             <p>
-              25 typed tools across 6 domains. Three transport modes (stdio, HTTP+SSE, interactive
-              REPL). Strict input schemas, retry/backoff, localhost-only API enforcement, and
-              tiered safety gates. Prefer plain shell? The dependency-free <code>ccam</code> CLI —
-              and its interactive <code>ccam repl</code> shell with tab-completion, history, a
-              live-status prompt, and a <code>watch</code> auto-refresh — brings the whole
-              dashboard surface to your terminal.
+              Ninety-seven typed tools across 16 domains run over stdio, HTTP plus SSE, or an
+              interactive REPL with strict local safety gates.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon violet">⌨</div>
+            <h3>Terminal companion</h3>
+            <p>
+              The dependency-free <code>ccam</code> CLI and <code>ccam repl</code> provide history,
+              live status, tab completion, and watch refreshes from your shell.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon rose">🪝</div>
             <h3>Hooks-driven capture</h3>
             <p>
-              Auto-installs into <code>~/.claude/settings.json</code>. SessionStart, PreToolUse,
+              Auto-installs into Claude Code and Codex hook settings. Claude Code creates a session
+              at <code>SessionStart</code>; Codex shows an in-memory card as soon as its interactive
+              TUI process starts, then hands off to its hook, live-thread row, rollout, or selected
+              Resume thread without persisting the temporary card or waiting for a new message.
+              SessionStart, PreToolUse,
               PostToolUse, Stop, SubagentStop, Notification - every event lands in SQLite within
               milliseconds.
             </p>
@@ -2742,143 +2796,160 @@
             <div class="feature-icon indigo">📦</div>
             <h3>Plugin marketplace</h3>
             <p>
-              Official plugin marketplace with 10 plugins: ccam-analytics, ccam-cost-guard
-              (budget guardrails &amp; spend forecasts), ccam-productivity, ccam-devtools,
-              ccam-insights, ccam-sessions (session forensics &amp; transcript replay),
-              ccam-workflows (multi-agent orchestration &amp; fleet intelligence), ccam-quality
-              (reliability &amp; SLO checks), ccam-config (Claude Code config &amp; memory
-              governance), and ccam-dashboard. 53 skills, 14 agents, 30 slash commands, 3 CLI
-              tools, 3 hook configs.
+              Fourteen shared Claude Code and Codex plugins add analytics, reporting, safe run
+              control, integrations, platform operations, session forensics, and workflow intelligence.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon indigo">✦</div>
+            <h3>Extensible by default</h3>
+            <p>
+              The marketplace includes 66 packaged skills, 18 Claude subagents, 34 Claude commands,
+              and two MCP-enabled plugins. The skills.sh CLI discovers 75 repository skills.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon emerald">🌐</div>
             <h3>Multi-language UI</h3>
             <p>
-              English, Chinese, Vietnamese, and Korean - coverage extends end-to-end through every chart
-              tooltip, Settings flow, Workflow narrative, Config Explorer tab, and Run page.
+              English, Chinese, Vietnamese, Korean, and Spanish cover charts, Settings, workflows,
+              Agent Config, and Run Agent end to end.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon cyan">📋</div>
             <h3>Kanban board</h3>
             <p>
-              Agents and sessions in toggleable views. Working / Waiting / Completed / Error /
-              Abandoned columns with card cost, model, and current tool at a glance. WebSocket-scoped
-              updates avoid unnecessary refetches. A background watchdog catches turns cancelled with
-              Esc - which fire no hook - and moves them out of Working into Waiting, so the board never
-              shows a phantom busy session. Hover any Waiting badge to see why - needs input, turn
-              done, at prompt, or interrupted.
+              Switch between agents and sessions across Working, Waiting, Completed, Error, and
+              Abandoned lanes with key metadata in view.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon cyan">◌</div>
+            <h3>Accurate idle state</h3>
+            <p>
+              A watchdog reconciles cancelled turns that emit no hook, so cards never remain
+              falsely busy. Waiting badges explain why.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon amber">📡</div>
-            <h3>Swagger &amp; ReDoc API docs</h3>
+            <h3>API documentation</h3>
             <p>
-              A comprehensive OpenAPI 3.0 spec documenting every backend route - parameters,
-              schemas, field descriptions, and examples. Explore it as interactive Swagger UI at
-              <code>/api/docs</code> or a clean, read-optimized ReDoc reference at
-              <code>/api/redoc</code> - both self-hosted alongside the dashboard, fully offline.
+              Browse the offline OpenAPI reference in interactive Swagger at <code>/api/docs</code>
+              or readable ReDoc at <code>/api/redoc</code>.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon rose">🧩</div>
             <h3>VS Code extension</h3>
             <p>
-              Full dashboard sidebar inside VS Code. Monitor active sessions, view agents, and
-              track tool calls without leaving your editor. Ships as a VSIX with zero external
-              dependencies.
+              Keep active sessions, agents, and tool activity in a dashboard sidebar. It ships as
+              a dependency-free VSIX.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon violet">🍎🪟</div>
-            <h3>Desktop app (macOS &amp; Windows)</h3>
+            <h3>Native desktop app</h3>
             <p>
-              The whole dashboard as a native desktop app - a macOS <code>.app</code> and a Windows
-              <code>.exe</code>, built with Electron 35. It embeds the Express server in-process,
-              lives in the menu-bar / notification-area (tray) with a live status snapshot dropdown,
-              auto-starts at login, and installs Claude Code hooks on first boot - zero-setup
-              monitoring. Runs alongside <code>npm run dev</code> with hooks fanning out to both
-              dashboards in parallel.
+              Use the full dashboard as a macOS <code>.app</code> or Windows <code>.exe</code>,
+              with the Express server embedded in-process.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon violet">◉</div>
+            <h3>Tray-first monitoring</h3>
+            <p>
+              Get a live status snapshot from the tray, start at login, and install hooks on
+              first boot without changing your CLI workflow.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon cyan">📰</div>
             <h3>Live activity feed</h3>
             <p>
-              A real-time streaming event log with pause/resume buffering, multi-dimension
-              filters, color-coded entries by event type, expandable hook payloads, and
-              per-row session navigation. WebSocket-scoped updates so off-screen events never
-              cost a refetch.
+              Pause and resume the streaming log, filter by event dimensions, expand payloads,
+              and open the related session.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon emerald">📥</div>
-            <h3>History import &amp; backfill</h3>
+            <h3>History import</h3>
             <p>
-              Rescan <code>~/.claude/projects/</code>, point at any directory, or drag-drop a
-              <code>.tar.gz</code> archive of transcripts. Imports are <strong>idempotent</strong>
-              — per-event-type high-water marks dedupe re-runs — with WebSocket progress, archive
-              extraction limits, and full subagent JSONL parsing. Sessions are named from their
-              transcript title — or their first user prompt when no title exists — instead of
-              placeholder IDs. A background sync watches the
-              projects folder and auto-imports new or changed sessions live — even ones that never
-              fire hooks — so projects added after launch appear without a manual rescan.
-              <strong>Remote Data Sources</strong> extend the same importer over SSH (scp/tar mirror),
-              pulling <code>~/.claude/projects</code> from other machines on a 15 s background poller
-              (immediate pull on add/re-enable) and tagging each session with its origin so a global
-              data-scope selector can filter the whole app.
+              Rescan Claude Code or Codex, import a directory, or drop a transcript archive.
+              Idempotent imports report progress live.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon emerald">↻</div>
+            <h3>Automatic discovery</h3>
+            <p>
+              Background sync watches local session folders and brings in new or changed work,
+              even when no hook fired.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon emerald">↗</div>
+            <h3>Remote data sources</h3>
+            <p>
+              Pull Claude Code and Codex histories over SSH, preserve Codex renamed titles, and
+              filter the whole dashboard by source.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon amber">🔔</div>
             <h3>Cross-surface notifications</h3>
             <p>
-              Configurable per event type (new session, error, completion, subagent spawn). The
-              web dashboard uses Web Push (VAPID); the macOS app fires <strong>native macOS
-              toasts</strong> directly from the embedded server, side-stepping Web Push (which
-              has no FCM credentials inside Electron). Both surfaces stay live when running
-              together.
+              Choose session and agent events to notify. The web uses VAPID Web Push while macOS
+              desktop sends native toasts.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon pink">🐱</div>
             <h3>Tabby, your companion</h3>
             <p>
-              A cute SVG cat pinned to the corner of every page who reacts to the
-              live session stream with 8 moods, cursor-tracking eyes, and playful
-              quips on notable events. Open her panel with a click or <code>⌘B</code>
-              for live status, quick actions, and an Ask box that answers status
-              questions or spawns a real Claude session — no backend or API key.
-              Keyboard-friendly, honors reduced motion, and toggleable in Settings.
+              A corner companion reacts to the live session stream with moods, cursor-tracking
+              eyes, and playful status quips.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon pink">⌘</div>
+            <h3>Tabby quick actions</h3>
+            <p>
+              Open Tabby with a click or <code>⌘B</code> for status, shortcuts, and an Ask box.
+              She respects reduced motion.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon cyan">💬</div>
             <h3>Conversation replay</h3>
             <p>
-              Full transcript replay for any session - user prompts, assistant turns, tool calls,
-              and thinking blocks rendered inline with syntax highlighting, plus slash-command
-              pills with their captured TUI output and inline session-rename markers. Step through
-              the session timeline and expand any event to inspect its raw hook payload.
+              Read prompts, assistant turns, thinking, tools, slash-command output, and renamed
+              sessions with inline syntax highlighting.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon cyan">⌁</div>
+            <h3>Transcript inspection</h3>
+            <p>
+              Codex replay includes native titles and <code>exec</code> output. Expand timeline
+              events to inspect their raw hook payload.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon violet">🔄</div>
             <h3>One-click self-update</h3>
             <p>
-              Checks the upstream git remote for new releases, then updates in place - pull,
-              reinstall, rebuild, and restart from a single action. Both the dev server and the
-              desktop app surface an update badge the moment you fall behind.
+              Check the upstream remote, then pull, reinstall, rebuild, and restart from one
+              action on web or desktop.
             </p>
           </div>
           <div class="feature-card">
             <div class="feature-icon emerald">🔒</div>
-            <h3>Local-first &amp; private</h3>
+            <h3>Local-first and private</h3>
             <p>
-              Everything runs on your machine: SQLite on disk, localhost-only APIs, and zero
-              telemetry. No account, no cloud, no data leaves your laptop - your Claude Code
-              history stays entirely yours.
+              SQLite, localhost-only APIs, and zero telemetry keep your agent history on your
+              machine. No account or cloud is required.
             </p>
           </div>
         </div>
@@ -2933,7 +3004,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Analytics</h4>
-                <p>Token usage, tool frequency, activity heatmap, session trends</p>
+                <p>Token usage, activity heatmap, session trends, and paginated long legends</p>
               </div>
             </div>
           </div>
@@ -2945,7 +3016,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Sessions</h4>
-                <p>Searchable, filterable, server-paginated table of recorded sessions, each shown by its real name synced live from the transcript</p>
+                <p>Searchable, server-paginated sessions with the live Codex startup row, task-progress donuts, project filters, and custom sorting</p>
               </div>
             </div>
           </div>
@@ -2955,7 +3026,17 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Session Detail</h4>
-                <p>Full session overview with metadata, cost, model, and tool breakdown</p>
+                <p>Full session overview with owner-aware task progress paginated at 10 tasks per page, metadata, cost, model, agents, and tool breakdown</p>
+              </div>
+            </div>
+          </div>
+          <div class="showcase-card" data-cat="sessions" data-title="Task Progress · Session Detail">
+            <div class="showcase-img">
+              <img src="images/tasks-details.png" alt="Owner-aware task progress panel on Session Detail" loading="lazy" />
+              <span class="showcase-expand-icon">⤢</span>
+              <div class="showcase-overlay">
+                <h4>Task Progress · Session Detail</h4>
+                <p>Latest-work progress that automatically removes stale trackers, with active task, owner breakdown, and 10 tasks per page</p>
               </div>
             </div>
           </div>
@@ -3053,6 +3134,23 @@
               </div>
             </div>
           </div>
+          <div class="showcase-card" data-cat="tools" data-title="Codex Config Explorer">
+            <div class="showcase-img">
+              <img
+                src="images/config-codex.png"
+                alt="Codex Config Explorer overview and workspace tabs"
+                loading="lazy"
+              />
+              <span class="showcase-expand-icon">⤢</span>
+              <div class="showcase-overlay">
+                <h4>Codex Config Explorer</h4>
+                <p>
+                  Config, profiles, MCP, skills, hooks, rules, plugins, and instructions — with
+                  safe backup-backed editing
+                </p>
+              </div>
+            </div>
+          </div>
           <div class="showcase-card" data-cat="tools" data-title="Claude Config Explorer · Skills">
             <div class="showcase-img">
               <img src="images/config-skills.png" alt="Claude Config Explorer Skills tab" loading="lazy" />
@@ -3069,7 +3167,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Workflows</h4>
-                <p>D3-powered orchestration DAG, tool Sankey, collaboration network</p>
+                <p>D3 orchestration, tool Sankey, collaboration network, bounded legends</p>
               </div>
             </div>
           </div>
@@ -3111,7 +3209,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Settings</h4>
-                <p>Model pricing rules, data management, and system information</p>
+                <p>Claude and Codex pricing, provider-scoped data, live-configurable session homes, selection-aware first-run hook readiness, and real-time lifecycle states that keep active, waiting, and completed cards accurate — including compact two-request task history for either provider</p>
               </div>
             </div>
           </div>
@@ -3181,7 +3279,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Remote Data Sources</h4>
-                <p>Pull sessions from other machines over SSH, tagged by origin, with a global data-scope selector</p>
+                <p>Pull Claude Code and Codex sessions from other machines over SSH, tagged by origin, with provider-aware stale-sync recovery</p>
               </div>
             </div>
           </div>
@@ -3191,7 +3289,7 @@
               <span class="showcase-expand-icon">⤢</span>
               <div class="showcase-overlay">
                 <h4>Grafana · CCAM Overview</h4>
-                <p>Four auto-provisioned dashboards — fleet totals, breakdowns, and rates from live /api/metrics scrapes (admin / admin on :3000)</p>
+                <p>Four auto-provisioned dashboards — fleet totals, breakdowns, and rates from bearer-authenticated /api/metrics scrapes</p>
               </div>
             </div>
           </div>
@@ -3296,7 +3394,9 @@
             <p>
               Single SQLite transaction per event. Auto-creates sessions and agents. Extracts
               token usage, tool calls, compactions, API errors, and turn durations from JSONL
-              transcripts via a stat-cached reader.
+              transcripts via a stat-cached reader. Stable turn identities prevent replayed
+              duration rows, while exact Codex rollout liveness keeps historical sessions off the
+              Active Agents board, and launcher/native PID pairs collapse into one TUI card.
             </p>
           </div>
           <div class="how-step">
@@ -3843,7 +3943,7 @@
               <div class="page-card-title"><span class="page-card-dot"></span><span class="page-card-name">Settings</span></div>
               <code class="page-card-route">/settings</code>
             </div>
-            <p class="page-card-desc">Pricing rules, hook installer, notification setup, theme, language, and data tools.</p>
+            <p class="page-card-desc">Provider data scope, Claude/Codex pricing, live session-home setup, hooks, notifications, theme, language, and data tools.</p>
             <svg class="page-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 5 7 7-7 7"/></svg>
           </a>
         </div>
@@ -3860,9 +3960,9 @@
           </p>
         </div>
         <div class="stack-grid reveal" id="stack-grid">
-          <div class="stack-item"><div class="stack-item-icon">⚛️</div><div class="stack-item-name">React 18</div><div class="stack-item-desc">+ TypeScript 5</div></div>
-          <div class="stack-item"><div class="stack-item-icon">⚡</div><div class="stack-item-name">Vite 6</div><div class="stack-item-desc">HMR + bundle</div></div>
-          <div class="stack-item"><div class="stack-item-icon">🚂</div><div class="stack-item-name">Express 4</div><div class="stack-item-desc">Node.js 20+</div></div>
+          <div class="stack-item"><div class="stack-item-icon">⚛️</div><div class="stack-item-name">React 19</div><div class="stack-item-desc">+ TypeScript 5</div></div>
+          <div class="stack-item"><div class="stack-item-icon">⚡</div><div class="stack-item-name">Vite 7</div><div class="stack-item-desc">HMR + bundle</div></div>
+          <div class="stack-item"><div class="stack-item-icon">🚂</div><div class="stack-item-name">Express 4</div><div class="stack-item-desc">Node.js 22.22+</div></div>
           <div class="stack-item"><div class="stack-item-icon">🗃️</div><div class="stack-item-name">SQLite</div><div class="stack-item-desc">better-sqlite3 + WAL</div></div>
           <div class="stack-item"><div class="stack-item-icon">🔌</div><div class="stack-item-name">WebSocket</div><div class="stack-item-desc">RFC 6455 push</div></div>
           <div class="stack-item"><div class="stack-item-icon">📡</div><div class="stack-item-name">MCP 1.0</div><div class="stack-item-desc">stdio / HTTP / REPL</div></div>
@@ -3873,7 +3973,7 @@
           <div class="stack-item"><div class="stack-item-icon">🔔</div><div class="stack-item-name">Web Push</div><div class="stack-item-desc">VAPID</div></div>
           <div class="stack-item"><div class="stack-item-icon">🐳</div><div class="stack-item-name">Docker</div><div class="stack-item-desc">+ Podman</div></div>
           <div class="stack-item"><div class="stack-item-icon">☸️</div><div class="stack-item-name">Kubernetes</div><div class="stack-item-desc">+ Kustomize + Helm</div></div>
-          <div class="stack-item"><div class="stack-item-icon">🌿</div><div class="stack-item-name">Terraform</div><div class="stack-item-desc">AWS / GCP / Azure / OCI</div></div>
+          <div class="stack-item"><div class="stack-item-icon">🌿</div><div class="stack-item-name">Terraform</div><div class="stack-item-desc">Kubernetes provider neutral</div></div>
           <div class="stack-item"><div class="stack-item-icon">🔥</div><div class="stack-item-name">Prometheus</div><div class="stack-item-desc">+ Grafana (4 boards)</div></div>
           <div class="stack-item"><div class="stack-item-icon">📈</div><div class="stack-item-name">Mermaid</div><div class="stack-item-desc">10.x diagrams</div></div>
           <div class="stack-item"><div class="stack-item-icon">🧪</div><div class="stack-item-name">Vitest</div><div class="stack-item-desc">+ Testing Library</div></div>
@@ -3887,7 +3987,7 @@
           <div class="stack-item"><div class="stack-item-icon">🎬</div><div class="stack-item-name">PostCSS</div><div class="stack-item-desc">+ Autoprefixer</div></div>
           <div class="stack-item"><div class="stack-item-icon">🔄</div><div class="stack-item-name">workbox</div><div class="stack-item-desc">service worker (planned)</div></div>
           <div class="stack-item"><div class="stack-item-icon">🐙</div><div class="stack-item-name">GitHub Actions</div><div class="stack-item-desc">CI / release</div></div>
-          <div class="stack-item"><div class="stack-item-icon">🦊</div><div class="stack-item-name">GitLab CI</div><div class="stack-item-desc">pipelines</div></div>
+          <div class="stack-item"><div class="stack-item-icon">🔏</div><div class="stack-item-name">Cosign</div><div class="stack-item-desc">keyless image signatures</div></div>
           <div class="stack-item"><div class="stack-item-icon">📦</div><div class="stack-item-name">VS Code</div><div class="stack-item-desc">extension API</div></div>
           <div class="stack-item"><div class="stack-item-icon">🐍</div><div class="stack-item-name">Python 3</div><div class="stack-item-desc">statusline script</div></div>
           <div class="stack-item"><div class="stack-item-icon">☁️</div><div class="stack-item-name">Coralogix</div><div class="stack-item-desc">observability</div></div>

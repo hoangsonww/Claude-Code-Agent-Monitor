@@ -1,0 +1,6 @@
+interface:
+  display_name: "Remote Collection"
+  short_description: "Configure and troubleshoot CCAM Remote Data Sources that..."
+  default_prompt: "Use $remote-collection to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

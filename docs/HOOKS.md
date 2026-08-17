@@ -155,9 +155,36 @@ graph TB
 npm run install-hooks
 ```
 
+The installer is interactive: use arrow keys, <kbd>Space</kbd>, then <kbd>Enter</kbd> to select Claude Code, Codex (beta), or both. It starts with Claude Code selected. Existing dashboard hook entries are detected and warned about before replacement; unrelated entries remain untouched. The same multi-select is available from **Settings → Hook Configuration → Install hooks**.
+
+On a browser's first dashboard visit, select the provider data to display and the app opens a provider-locked live-monitoring setup gate. It checks the selected providers' hook state, warns before dashboard-owned entries are refreshed, installs through the same endpoint, and displays the command output. A user can explicitly confirm that hooks were already installed, but otherwise the dashboard continues only after the in-app installation completes.
+
 > [!IMPORTANT]
 > **Hooks are a host-side step.** Claude Code runs on your host, so the hook
 > command must reference a `hook-handler.js` path that exists on the **host**.
+
+### Remote and cloud hook delivery
+
+Hook handlers use localhost discovery by default. To forward live Claude Code or
+Codex events to a remote dashboard, configure the host that runs the agent:
+
+```bash
+export CCAM_DASHBOARD_URL=https://agent-monitor.example.com
+export CCAM_HOOK_TOKEN_FILE=/secure/path/hook-token
+```
+
+Non-loopback `CCAM_DASHBOARD_URL` values must use HTTPS and must provide
+`CCAM_HOOK_TOKEN` or `CCAM_HOOK_TOKEN_FILE`. The handler sends the credential as
+`x-ccam-hook-token`; the dashboard verifies it against
+`DASHBOARD_HOOK_TOKEN` or `DASHBOARD_HOOK_TOKEN_FILE` with constant-time token
+matching. The hook remains fail-safe and non-blocking: invalid configuration,
+connection failures, timeouts, or authentication failures never block Claude
+Code or Codex.
+
+The supplied Nginx edge returns `404` for `/api/hooks/*` by default. Remote hook
+ingestion is enabled explicitly by mounting
+`deployments/nginx/snippets/hooks-proxy.conf` and terminating TLS before Nginx.
+Use a hook token separate from the browser/dashboard token.
 > Run `npm run install-hooks` on the host — never inside a container. When run
 > inside Docker/Podman, the installer **refuses** and exits non-zero (issue
 > #193): a container-internal path written into a bind-mounted `~/.claude` would
@@ -165,6 +192,12 @@ npm run install-hooks
 > `http://localhost:4820`, which a containerized dashboard already publishes.
 > (Escape hatch for running Claude Code *inside* the same container:
 > `CCAM_ALLOW_CONTAINER_HOOKS=1 npm run install-hooks`.)
+
+For Codex, the installer writes only this dashboard's lifecycle entries to `~/.codex/hooks.json`. Each entry runs `scripts/codex-hook-handler.js`, which immediately POSTs the rollout path — or a version-dependent session/thread id that the server resolves against the rollout tree — to `POST /api/hooks/codex` and exits. The server acknowledges `202` before parsing, then incrementally consumes `~/.codex/sessions/**/rollout-*.jsonl`; duplicate hook and watcher notifications are idempotent through a durable byte cursor. Before Codex creates either a hook identity or a native live-thread row, a one-second process probe exposes an in-memory Waiting card to the live Dashboard and Kanban reads. It never writes a session, agent, event, token, workflow, alert, or history row, and disappears when the process exits or durable Codex data takes its place. If Codex defers a new hook for trust approval after assigning an id, the synchronizer reads the very recent native `state_*.sqlite` live-thread row and creates the durable startup card before the rollout is flushed. Newest rollouts are scanned first, a bad historical file remains eligible for retry without blocking the rest, and long cold scans yield between small batches so fresh sessions reach the dashboard promptly. Supported lifecycle notifications are `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, and `SessionEnd`. `PreToolUse` intentionally ingests the just-completed model turn before a long-running tool delays its matching `PostToolUse` notification.
+
+Codex's append-only rollout is authoritative for live state: `user_message` and `task_started` clear the waiting overlay and set the main agent to `working`; `task_complete` keeps the session `active` but makes its cards **Waiting** with `awaiting_reason = stop`; and `turn_aborted` makes them **Waiting** with `awaiting_reason = interrupted`. Only `SessionEnd` is terminal. A new rollout turn reactivates a session prematurely completed by a missed or mistimed lifecycle notification. After a restart or partial write, the synchronizer reconciles the latest stored Codex lifecycle event and conservatively changes a silent `working` turn to interrupted Waiting after 90 seconds; the next rollout event self-heals it. On supported local hosts, the synchronizer and watchdog enumerate the exact `rollout-*.jsonl` files held open by live Codex processes. Historical files are created or reconciled as completed even when their `cwd` matches a live session; if the probe is unavailable, the existing fail-safe cwd behavior remains in force. The transient pre-identity overlay collapses the Node launcher/native-child PID pair before reconciliation, so a single interactive Codex launch cannot produce duplicate cards.
+
+Claude `TurnDuration` records use a stable transcript identity (the record UUID when present, otherwise its byte offset). Complete transcript parses atomically reconcile the persisted duration set and exact metadata totals, repairing legacy duplicates; capped tail parses remain append-only so older persisted turns are never deleted. This also keeps timestamp-less, equal-duration turns distinct and replay-safe.
 
 This copies hook scripts from `scripts/hooks/` to `.githooks/`:
 
@@ -222,7 +255,19 @@ ls -la .githooks/
 # session-end.py
 ```
 
+### Installation readiness checklist
+
+Before relying on hooks for production monitoring:
+
+- Confirm the target dashboard answers `curl http://127.0.0.1:4820/api/health` from the machine that runs Claude Code or Codex.
+- Run `npm run install-hooks` on that host, then review the provider's hook configuration to confirm the dashboard entries point at a real host-side `hook-handler.js` path.
+- Start one short test session and verify that it creates activity in the dashboard before assuming historical import or remote sync is covering live events.
+- For a remote dashboard, configure `CCAM_DASHBOARD_URL` and a file-backed `CCAM_HOOK_TOKEN_FILE`; do not put the hook token directly in a shared shell history or checked-in configuration.
+- Keep hook failures non-blocking. If delivery cannot be established, fix the dashboard connection rather than replacing the fail-safe hook behavior.
+
 ---
+
+> **Codex startup:** A fresh interactive Codex process first appears as an in-memory **Waiting** card, including while Codex is still at its trust screen or first prompt and has no stable session/thread ID. The card is local-only, non-navigable, excluded from durable APIs unless `include_transient=true`, and removed on process exit. A `SessionStart` hook, native live-thread row, or rollout then creates the durable session and main-agent rows without copying the temporary card into history.
 
 ## Hook Types
 
@@ -246,7 +291,7 @@ Triggered when a Claude Code session starts. The `source` field distinguishes th
 - Create the session and main-agent records on first contact
 - Stamp `awaiting_input_since` (with `awaiting_reason` = `session_start`) so the dashboard shows the row in **Waiting** from the moment the CLI lands at a prompt — **only for `startup`/`resume`/`clear`**. A `compact`-source SessionStart fires mid-turn while Claude is working, so it leaves the awaiting flag untouched: a genuinely-active session stays **Active** (not flipped to Waiting), and a session that compacted while idle keeps its existing Waiting flag and reason
 - Reactivate completed/abandoned sessions on resume
-- Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed` (Remote Data Source sessions, `source` ≠ `local`, are exempt — their status comes from the SSH-mirror reconciliation, not local activity)
+- Sweep other active sessions whose last activity is older than `DASHBOARD_STALE_MINUTES` (default 180), marking them `abandoned` with their agents `completed`. A Remote Data Source session (`source` ≠ `local`) remains mirror-reconciled and excluded only while its matching Claude Code or Codex provider is healthy; an unavailable, errored, or stranded-in-`syncing` provider falls back to this shared stale sweep so old Waiting rows cannot linger forever
 
 ---
 
@@ -440,124 +485,32 @@ Triggered when a Claude Code session ends.
 
 ## Hook Handler Implementation
 
-### hook-handler.js Architecture
+### Hook transport architecture
 
 ```mermaid
-graph TB
-    CLI[CLI Args] --> Parse[Parse Hook Type]
-    Stdin[stdin] --> ReadJSON[Read JSON]
-    
-    Parse --> HookType{Hook Type?}
-    ReadJSON --> Payload[Event Payload]
-    
-    HookType -->|session-start| Endpoint1[POST /hooks/session-start]
-    HookType -->|pre-tool-use| Endpoint2[POST /hooks/pre-tool-use]
-    HookType -->|post-tool-use| Endpoint3[POST /hooks/post-tool-use]
-    HookType -->|stop| Endpoint4[POST /hooks/stop]
-    HookType -->|subagent-stop| Endpoint5[POST /hooks/subagent-stop]
-    HookType -->|notification| Endpoint6[POST /hooks/notification]
-    HookType -->|session-end| Endpoint7[POST /hooks/session-end]
-    
-    Payload --> Endpoint1
-    Payload --> Endpoint2
-    Payload --> Endpoint3
-    Payload --> Endpoint4
-    Payload --> Endpoint5
-    Payload --> Endpoint6
-    Payload --> Endpoint7
-    
-    Endpoint1 --> HTTP[HTTP POST]
-    Endpoint2 --> HTTP
-    Endpoint3 --> HTTP
-    Endpoint4 --> HTTP
-    Endpoint5 --> HTTP
-    Endpoint6 --> HTTP
-    Endpoint7 --> HTTP
-    
-    HTTP --> Response{Success?}
-    Response -->|Yes| Exit0[exit 0]
-    Response -->|No| Exit1[exit 1]
-    
-    style HTTP fill:#10B981
-    style Exit0 fill:#10B981
-    style Exit1 fill:#EF4444
+flowchart LR
+  STDIN["Hook JSON on stdin"] --> WRAP["Add hook_type"]
+  WRAP --> TARGET{"CCAM_DASHBOARD_URL set?"}
+  TARGET -->|No| LOCAL["Discover local dashboard ports"]
+  TARGET -->|Yes| VALIDATE["Require HTTP(S); remote requires HTTPS + hook token"]
+  LOCAL --> SEND["Fire-and-forget POST"]
+  VALIDATE --> SEND
+  SEND --> EVENT["/api/hooks/event or /api/hooks/codex"]
+  SEND --> EXIT["Always exit 0; 2.5s safety net"]
 ```
 
-### Implementation
+The real handlers are intentionally small. `scripts/hook-handler.js` and
+`scripts/codex-hook-handler.js` parse stdin and delegate delivery to
+`scripts/hook-transport.js`. Local mode fans out to one live dashboard per
+unique SQLite data directory. Remote mode uses `CCAM_DASHBOARD_URL`, requires
+HTTPS outside loopback, reads `CCAM_HOOK_TOKEN` or `CCAM_HOOK_TOKEN_FILE`, and
+sends `x-ccam-hook-token`. Requests resolve when the body is flushed, not when
+the dashboard replies, so a slow or unavailable server never delays the agent
+CLI. Parse errors are wrapped as raw input, and all network/configuration errors
+fail silently with exit code 0.
 
-```javascript
-#!/usr/bin/env node
-// scripts/hook-handler.js
-
-const http = require('http');
-const fs = require('fs');
-
-const HOOK_TYPE = process.argv[2];
-const SERVER_URL = 'http://localhost:4820';
-const TIMEOUT = 5000; // 5s timeout
-
-// Read JSON from stdin
-let inputData = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => inputData += chunk);
-
-process.stdin.on('end', () => {
-  try {
-    const payload = JSON.parse(inputData);
-    sendToServer(HOOK_TYPE, payload);
-  } catch (err) {
-    console.error('[hook-handler] JSON parse error:', err);
-    process.exit(1);
-  }
-});
-
-function sendToServer(hookType, payload) {
-  const postData = JSON.stringify(payload);
-  
-  const options = {
-    hostname: 'localhost',
-    port: 4820,
-    path: `/hooks/${hookType}`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData)
-    },
-    timeout: TIMEOUT
-  };
-  
-  const req = http.request(options, (res) => {
-    let responseData = '';
-    res.on('data', (chunk) => responseData += chunk);
-    res.on('end', () => {
-      if (res.statusCode === 200) {
-        process.exit(0);
-      } else {
-        console.error(`[hook-handler] Server error: ${res.statusCode}`);
-        process.exit(1);
-      }
-    });
-  });
-  
-  req.on('error', (err) => {
-    console.error('[hook-handler] Request error:', err);
-    process.exit(1);
-  });
-  
-  req.on('timeout', () => {
-    console.error('[hook-handler] Request timeout');
-    req.destroy();
-    process.exit(1);
-  });
-  
-  req.write(postData);
-  req.end();
-}
-```
-
-> **Port resolution & fan-out.** The snippet above shows a single fixed `4820`
-> for clarity. The real `scripts/hook-handler.js` resolves hook targets at
-> runtime via `server/lib/server-info.js`:
+> **Port resolution & fan-out.** In local mode, `scripts/hook-handler.js`
+> resolves targets at runtime through `server/lib/server-info.js`:
 >
 > 1. If `CLAUDE_DASHBOARD_PORT` is set in the environment, the handler treats
 >    it as an explicit operator override and POSTs to that single port —
@@ -656,9 +609,9 @@ Both paths land the session in **Waiting** (main agent → `waiting`, `awaiting_
 
 ### Missed SessionEnd (dashboard down) — liveness reap
 
-`SessionEnd` is the only signal that a session closed, and hooks are fire-and-forget: if the dashboard was **not running** when the user quit (Ctrl+C, terminal closed), the POST fails silently and the event is lost forever — the session previously sat in **Waiting** until the stale sweep (3 h by default). The same 15 s watchdog closes the gap with a **process-liveness probe** (`server/lib/session-liveness.js`): it enumerates running `claude` CLI processes and their working directories (`ps` + `lsof` on macOS, `/proc/<pid>/cwd` on Linux) and completes any `active` session whose `cwd` has no live claude process — the same terminal state a real `SessionEnd` produces, plus a synthetic `SessionEnd` event (`data.source = "liveness-probe"`) on the timeline.
+`SessionEnd` is the only signal that a session closed, and hooks are fire-and-forget: if the dashboard was **not running** when the user quit (Ctrl+C, terminal closed), the POST fails silently and the event is lost forever — the session previously sat in **Waiting** until the stale sweep (3 h by default). The same 15 s watchdog closes the gap with a **process-liveness probe** (`server/lib/session-liveness.js`): it enumerates the matching running `claude` or `codex` CLI processes and their working directories (`ps` + `lsof` on macOS, `/proc/<pid>/cwd` on Linux) and completes an `active` local-provider session only when its matching CLI has no live process — the same terminal state a real `SessionEnd` produces, plus a synthetic `SessionEnd` event (`data.source = "liveness-probe"`) on the timeline.
 
-Fail-safe guards: the probe reports "no answer" (nothing changes) on Windows, inside containers (host processes are invisible), on `ps`/`lsof` failure, or when disabled via `DASHBOARD_LIVENESS_PROBE=0` (the escape hatch for hooks arriving from another machine); the session must have a `cwd`, and that `cwd` must be **POSIX-absolute** — a household-hook-forwarded session reports the origin machine's own path (e.g. a Windows `D:\Git\ai-deck`) that this host's `/proc`/`lsof` scan can never produce, so the reap skips it rather than falsely completing every remote session (this makes a mixed local + forwarded deployment correct without the blanket `DASHBOARD_LIVENESS_PROBE=0`); **Remote Data Source sessions** (`sessions.source` ≠ `local`) are also skipped outright — their POSIX-absolute `cwd` lives on another machine reached over SSH, so this host's process probe proves nothing about them, and their status is reconciled from the SSH mirror by `remote-sync.js` (the same `source = 'local'` guard also exempts them from the watchdog's error/interrupt scan and both stale sweeps); and — on watchdog ticks only — its transcript must not have been written for at least `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`; the last hook write is the fallback clock when no transcript exists on disk) so a mid-turn / just-resumed session never flickers out. The reap runs immediately at startup (rows from a previous run), again ~5 s after startup (rows the startup sync just imported) — both startup passes **skip the idle gate**, so a session quit even seconds before launch clears at once — and on every 15 s watchdog tick (gated) as the safety net. A false completion self-heals — the next hook event reactivates the session.
+Fail-safe guards: the probe reports "no answer" (nothing changes) on Windows, inside containers (host processes are invisible), on `ps`/`lsof` failure, or when disabled via `DASHBOARD_LIVENESS_PROBE=0` (the escape hatch for hooks arriving from another machine); the session must have a `cwd`, and that `cwd` must be **POSIX-absolute** — a household-hook-forwarded session reports the origin machine's own path (e.g. a Windows `D:\Git\ai-deck`) that this host's `/proc`/`lsof` scan can never produce, so the reap skips it rather than falsely completing every remote session (this makes a mixed local + forwarded deployment correct without the blanket `DASHBOARD_LIVENESS_PROBE=0`); **Remote Data Source sessions** (`sessions.source` ≠ `local`) are also skipped outright by the local process probe and the watchdog's error/interrupt scan — their POSIX-absolute `cwd` lives on another machine reached over SSH, so this host proves nothing about them. Healthy provider mirrors are also excluded from stale sweeps because `remote-sync.js` reconciles each provider's status from its matching mirror; if that provider reports `error`, is `unavailable`, or stays `syncing` longer than `DASHBOARD_STALE_MINUTES`, its old active session instead uses the ordinary stale fallback and becomes `abandoned` with its agents completed. A fresh mirror can reactivate it if the remote CLI is still writing; and — on watchdog ticks only — a local session's transcript must not have been written for at least `DASHBOARD_LIVENESS_IDLE_SECONDS` (default `60`; the last hook write is the fallback clock when no transcript exists on disk) so a mid-turn / just-resumed session never flickers out. The reap runs immediately at startup (rows from a previous run), again ~5 s after startup (rows the startup sync just imported) — both startup passes **skip the idle gate**, so a session quit even seconds before launch clears at once — and on every 15 s watchdog tick (gated) as the safety net. A false completion self-heals — the next hook event reactivates the session.
 
 ---
 

@@ -56,7 +56,7 @@
  * ----------------------------------------------------------------------------- */
 
 import { z } from "zod";
-import { createToolRegistrar } from "../../core/tool-registry.js";
+import { registrarFor } from "../../core/tool-registry.js";
 import { assertMutationsEnabled } from "../../policy/tool-guards.js";
 import { SessionStatusSchema, JsonObjectSchema } from "../schemas.js";
 import type { ToolContext } from "../../types/tool-context.js";
@@ -68,8 +68,8 @@ import type { ToolContext } from "../../types/tool-context.js";
  * destructive-tools flag.
  */
 export function registerSessionTools(context: ToolContext): void {
-  const { api, logger, server, config } = context;
-  const register = createToolRegistrar(server, logger);
+  const { api, config } = context;
+  const register = registrarFor(context);
 
   // Policy: none. Input: limit (1-200, default 50), offset (default 0),
   // status (optional; omitted means all). Calls
@@ -82,12 +82,34 @@ export function registerSessionTools(context: ToolContext): void {
       limit: z.number().int().min(1).max(200).optional(),
       offset: z.number().int().min(0).max(100_000).optional(),
       status: SessionStatusSchema.optional(),
+      query: z.string().max(1000).optional(),
+      cwd: z.array(z.string().min(1).max(4096)).max(100).optional(),
+      sort_by: z.enum(["time", "duration", "price"]).optional(),
+      sort_desc: z.boolean().optional(),
+      sources: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
+      providers: z
+        .array(z.enum(["claude", "codex"]))
+        .min(1)
+        .max(2)
+        .optional(),
     },
     async (args) => {
       const limit = (args.limit as number | undefined) ?? 50;
       const offset = (args.offset as number | undefined) ?? 0;
       const status = args.status as string | undefined;
-      return api.get("/api/sessions", { query: { limit, offset, status } });
+      return api.get("/api/sessions", {
+        query: {
+          limit,
+          offset,
+          status,
+          q: args.query as string | undefined,
+          cwd: args.cwd as string[] | undefined,
+          sort_by: args.sort_by as string | undefined,
+          sort_desc: args.sort_desc as boolean | undefined,
+          sources: (args.sources as string[] | undefined)?.join(","),
+          providers: (args.providers as string[] | undefined)?.join(","),
+        },
+      });
     }
   );
 

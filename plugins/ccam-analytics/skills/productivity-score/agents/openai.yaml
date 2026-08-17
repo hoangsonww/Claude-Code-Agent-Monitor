@@ -1,0 +1,6 @@
+interface:
+  display_name: "Productivity Score"
+  short_description: "Calculate a productivity score using actual Agent Monitor..."
+  default_prompt: "Use $productivity-score to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

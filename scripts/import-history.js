@@ -2,8 +2,9 @@
 
 /**
  * Import legacy Claude Code sessions from ~/.claude/ into the Agent Dashboard.
- * Reads per-project JSONL session files to populate sessions, agents, and
- * token usage that existed before the dashboard was installed.
+ * Reads per-project JSONL session files to populate sessions, agents, token
+ * usage, and compact recent-human-turn card context that existed before the
+ * dashboard was installed.
  *
  * Can be run standalone: node scripts/import-history.js [--dry-run] [--project <name>]
  * Also exported for auto-import on server startup.
@@ -29,7 +30,7 @@ const {
   getProjectsDir,
   getTranscriptSnapshotDir,
 } = require("../server/lib/claude-home");
-const { extractFirstUserText } = require("../server/lib/transcript-cache");
+const { extractFirstUserText, appendRecentUserMessage } = require("../server/lib/transcript-cache");
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
 
@@ -125,6 +126,18 @@ function firstUserLabel(text) {
 }
 
 /**
+ * Card context is intentionally tiny and never replaces the transcript: the
+ * two newest distinct user requests make an imported Claude session as useful
+ * on the dashboard as a live session or a Codex rollout.
+ */
+function cardPromptPreview(messages) {
+  const lines = Array.isArray(messages)
+    ? messages.map((message) => (typeof message === "string" ? message.trim() : "")).filter(Boolean)
+    : [];
+  return lines.slice(-2).join("\n") || null;
+}
+
+/**
  * Parse a single JSONL session file to extract session metadata.
  */
 async function parseSessionFile(filePath) {
@@ -164,6 +177,10 @@ async function parseSessionFile(filePath) {
   // First real user prompt (tool-result / meta / command entries skipped) —
   // fallback descriptor for sessions that never got a title. First wins.
   let firstUserMessage = null;
+  // The dashboard's card-only context follows the same two-turn rule as live
+  // hook ingestion. Keep it bounded while streaming so a large historic JSONL
+  // never needs to hold an entire conversation in memory.
+  let recentUserMessages = [];
 
   for await (const line of rl) {
     if (!line.trim()) continue;
@@ -243,9 +260,10 @@ async function parseSessionFile(filePath) {
 
     if (entry.type === "user") {
       userMessageCount++;
-      if (firstUserMessage === null) {
-        const firstText = extractFirstUserText(entry);
-        if (firstText) firstUserMessage = firstText;
+      const userText = extractFirstUserText(entry);
+      if (userText) {
+        if (firstUserMessage === null) firstUserMessage = userText;
+        recentUserMessages = appendRecentUserMessage(recentUserMessages, userText);
       }
       if (
         entry.toolUseResult &&
@@ -339,6 +357,7 @@ async function parseSessionFile(filePath) {
     customTitle,
     aiTitle,
     firstUserMessage,
+    recentUserMessages,
     cwd,
     model,
     version,
@@ -1171,6 +1190,12 @@ function importSession(dbModule, session) {
     const importedData = JSON.stringify({ imported: true });
     let backfilled = false;
 
+    const preview = cardPromptPreview(session.recentUserMessages);
+    if (preview) {
+      const upd = stmts.updateSessionCardPromptPreview.run(preview, session.sessionId, preview);
+      if (upd.changes > 0) backfilled = true;
+    }
+
     // Per-event-type "high water mark" — the newest timestamp already present
     // in the DB for each event_type belonging to this session. JSONL is
     // append-only and parsed in file order, so any JSONL entry whose timestamp
@@ -1514,6 +1539,11 @@ function importSession(dbModule, session) {
     isRecentlyActive ? null : session.endedAt,
     session.sessionId
   );
+
+  const preview = cardPromptPreview(session.recentUserMessages);
+  if (preview) {
+    stmts.updateSessionCardPromptPreview.run(preview, session.sessionId, preview);
+  }
 
   // Persist the transcript path so the abandon sweep, compaction scanner, and
   // per-agent cost backfill can locate this session's transcript later.

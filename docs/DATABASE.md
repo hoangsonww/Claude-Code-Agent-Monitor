@@ -139,8 +139,11 @@ erDiagram
         integer ssh_port "Optional SSH port (NULL = SSH default)"
         text identity_file "Optional private-key path (NULL = SSH default)"
         text remote_home "Optional remote Claude home (NULL = remote ~/.claude)"
+        text remote_codex_home "Optional remote Codex home (NULL = remote ~/.codex)"
         integer enabled "1 = eligible for sync, 0 = disabled"
         text status "idle | syncing | ok | error"
+        text claude_status "idle | syncing | ok | error | unavailable"
+        text codex_status "idle | syncing | ok | error | unavailable"
         text last_error "Last failure message, or NULL"
         text last_sync_at "ISO8601 timestamp of last successful sync, or NULL"
         text last_sync_counts "JSON blob of last sync counters, or NULL"
@@ -168,7 +171,7 @@ graph LR
 
 ### sessions
 
-Tracks Claude Code sessions (one per CLI invocation or background task). Schema mirrors `server/db.js`.
+Tracks Claude Code and Codex sessions (one per CLI invocation or background task). Schema mirrors `server/db.js`.
 
 > **Cursor (informational):** Rows imported from `~/.claude` JSONL transcripts may also represent **Cursor** agent sessions — Cursor happens to use the same on-disk layout as Claude Code. The schema does not record which app created a session.
 
@@ -180,9 +183,11 @@ CREATE TABLE sessions (
         CHECK (status IN ('active','completed','error','abandoned')),
     cwd TEXT,
     model TEXT,
+    provider TEXT NOT NULL DEFAULT 'claude',                          -- claude | codex
     started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     ended_at TEXT,
     metadata TEXT,
+    card_prompt_preview TEXT,                                        -- newest two distinct human prompts
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     awaiting_input_since TEXT,                                        -- NULL unless Waiting
     awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
@@ -197,17 +202,19 @@ CREATE TABLE sessions (
 |--------|------|----------|-------------|
 | `id` | TEXT | NO | Session UUID (assigned by Claude Code) |
 | `name` | TEXT | YES | Human-readable label. Synced from the transcript title by `routes/hooks.js` (and the 15 s watchdog) on every event: the `custom-title` line (`/rename`, `claude -n`, picker `Ctrl+R`) always wins, otherwise the auto-generated `ai-title` fills a placeholder/auto name, otherwise the session's first user prompt (60-char label) fills it. Falls back to `Session <id8>` |
-| `status` | TEXT | NO | `active`, `completed`, `error`, or `abandoned` (CHECK-constrained). Besides the `SessionEnd` hook, the 15 s watchdog's **liveness reap** also lands `active` → `completed` when no running `claude` process has the session's `cwd` (a `SessionEnd` lost while the dashboard was down); gated by `DASHBOARD_LIVENESS_IDLE_SECONDS`, disabled via `DASHBOARD_LIVENESS_PROBE=0`. Sessions with a non-`local` `source` (Remote Data Sources) are exempt from the reap and both stale sweeps — their status is reconciled from the SSH mirror by `remote-sync.js` instead |
+| `status` | TEXT | NO | `active`, `completed`, `error`, or `abandoned` (CHECK-constrained). Besides the `SessionEnd` hook, the 15 s watchdog's **liveness reap** also lands `active` → `completed` when no running matching local `claude` or `codex` process has the session's `cwd` (a `SessionEnd` lost while the dashboard was down); gated by `DASHBOARD_LIVENESS_IDLE_SECONDS`, disabled via `DASHBOARD_LIVENESS_PROBE=0`. Sessions with a non-`local` `source` (Remote Data Sources) are always exempt from the local process reap and transcript watchdog. Each remote provider has independent health: sessions stay out of stale sweeps only while their own Claude or Codex mirror is healthy. If that provider reports `error`/`unavailable`, or remains `syncing` longer than `DASHBOARD_STALE_MINUTES`, an active session older than that same window falls back to the ordinary stale sweep (`abandoned`, agents completed) until a fresh mirror can reactivate it |
 | `cwd` | TEXT | YES | Working directory the CLI was launched from |
 | `model` | TEXT | YES | Claude model ID (e.g. `claude-opus-4-7`) |
+| `provider` | TEXT | NO | Product that produced the session: `claude` (default) or `codex`. Powers the composable `providers` API scope and lets shared token buckets use the correct rate card. |
 | `started_at` | TEXT | NO | ISO 8601 timestamp |
 | `ended_at` | TEXT | YES | ISO 8601 timestamp on terminal transition |
 | `metadata` | TEXT | YES | JSON blob for extras (turn duration totals, thinking blocks, …) |
+| `card_prompt_preview` | TEXT | YES | Newline-separated, bounded card-only context containing the two newest distinct human prompts. Claude Code derives it from the shared transcript cache during hooks, imports, and watchdog sweeps; Codex reads equivalent durable `codex_user_message` events when list/detail responses are built. It is not a transcript copy: full conversation content remains in JSONL, and historical rows fall back to their main-agent task. |
 | `updated_at` | TEXT | NO | Bumped on every event for staleness detection |
-| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, or watchdog user-interrupt/Esc recovery). NULL otherwise. A SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting |
-| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (SessionStart→`session_start`, Stop→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery→`interrupted`). NULL otherwise. Exception: a `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
+| `awaiting_input_since` | TEXT | YES | ISO 8601 stamp set when the session is **Waiting** (Claude Stop, SessionStart with source `startup`/`resume`/`clear`, permission Notification, watchdog user-interrupt/Esc recovery, or Codex `task_complete` / `turn_aborted`). NULL otherwise. A Claude SessionStart with source `compact` (auto-compaction fires mid-turn while Claude is working) leaves this column untouched, so a genuinely-active session is not mislabeled Waiting |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since` (Claude SessionStart→`session_start`, Claude Stop and Codex `task_complete`→`stop`, permission/input Notification→`notification`, watchdog/Esc recovery and Codex `turn_aborted`→`interrupted`). NULL otherwise. Exception: a Claude `compact`-source SessionStart preserves the existing value (neither stamps `session_start` nor clears it) |
 | `transcript_path` | TEXT | YES | Absolute path to the session's JSONL transcript. Written by `routes/hooks.js` on the first event that carries it (subsequent events no-op via a SQL guard) and read by the periodic compaction sweep — so the sweep touches only active session rows instead of scanning the entire `events` table for `json_extract(data,'$.transcript_path')`. Backfilled once from `events` by the `db.js` migration |
-| `source` | TEXT | NO | Data source this session was captured from. `'local'` for this machine's own Claude Code history (the default); otherwise the `remote_sources.id` of the remote SSH machine it was pulled from. Powers the `sources` query filter on `/api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics`, and the `sources` facet on `/api/sessions/facets`. Indexed by `idx_sessions_source` |
+| `source` | TEXT | NO | Data source this session was captured from. `'local'` for this machine's own Claude Code or Codex history (the default); otherwise the `remote_sources.id` of the remote SSH machine it was pulled from. Powers the `sources` query filter on `/api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, and `/api/analytics`, and the `sources` facet on `/api/sessions/facets`. Indexed by `idx_sessions_source` |
 
 **Constraints:**
 - `status` must be one of the four enum values
@@ -219,8 +226,9 @@ CREATE TABLE sessions (
 stateDiagram-v2
     [*] --> waiting: SessionStart startup/resume/clear (status=active + awaiting_input_since)
     active --> active: SessionStart compact (mid-turn — state preserved)
-    waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-    active --> waiting: Stop (non-error) / Permission Notification
+    waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse / Codex task_started / user_message
+    active --> waiting: Stop (non-error) / Permission Notification / Codex task_complete
+    active --> waiting: Codex turn_aborted (interrupted)
     active --> waiting: Esc cancel (watchdog marker or idle timeout)
     active --> error: Stop (stop_reason=error)
     waiting --> completed: SessionEnd
@@ -278,17 +286,20 @@ CREATE TABLE agents (
 | `current_tool` | TEXT | YES | Tool currently running (cleared on `PostToolUse`) |
 | `parent_agent_id` | TEXT | YES | FK to the spawning agent for nested subagent trees (`ON DELETE SET NULL`). Set to the main agent at insert, then repointed to the true spawner by `reconcileSubagentParents` from each subagent transcript's Task tool result (`toolUseResult.agentId`), so subagents-of-subagents nest correctly instead of flattening under main |
 | `metadata` | TEXT | YES | JSON blob for extras. For subagents it carries `model` (the subagent's own model, issue #185) and `tokens` — an array of per-agent token buckets parsed from the subagent's transcript. The agent-list endpoints price `tokens` at the current rates to attach a per-agent `cost` (so a subagent card shows its OWN cost, not the session total). Empty `[]` means the subagent did no billable work; absent means its transcript wasn't available to parse |
-| `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent. NULL on subagents |
-| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since`; explains why the main agent is waiting. NULL on subagents |
+| `awaiting_input_since` | TEXT | YES | Mirrors the parent session's flag for the main agent, including Codex `task_complete` / `turn_aborted` waiting state. NULL on subagents |
+| `awaiting_reason` | TEXT | YES | Why the row is waiting: `notification`, `stop`, `session_start`, or `interrupted`. Set/cleared in lock-step with `awaiting_input_since`; for Codex, `task_complete` uses `stop` and `turn_aborted` uses `interrupted`. NULL on subagents |
 
 **Lifecycle:**
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Running: Agent created (SessionStart/PreToolUse)
+    [*] --> Running: Agent created (SessionStart/PreToolUse/Codex task_started)
+    Waiting --> Running: UserPromptSubmit / PreToolUse / Codex task_started / user_message
     Running --> Running: PreToolUse (set current_tool)
     Running --> Running: PostToolUse (increment tokens, cost)
-    Running --> Completed: Stop/SubagentStop hook
+    Running --> Waiting: Stop (non-error) / Codex task_complete
+    Running --> Waiting: Codex turn_aborted (interrupted)
+    Running --> Completed: SessionEnd/SubagentStop hook
     Running --> Failed: Error during processing
     Completed --> [*]
     Failed --> [*]
@@ -437,9 +448,45 @@ Standard rates and intro rates are edited independently: the pricing update path
 
 ---
 
+### gpt_model_pricing
+
+Separate OpenAI/Codex rate card. It deliberately does not reuse `model_pricing`: Codex tracks explicit cached-input and cache-write token classes, and OpenAI's published card has short, long, and Fast groups.
+
+```sql
+CREATE TABLE gpt_model_pricing (
+    model_pattern TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    short_input_per_mtok REAL NOT NULL DEFAULT 0,
+    short_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    short_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    short_output_per_mtok REAL NOT NULL DEFAULT 0,
+    long_input_per_mtok REAL NOT NULL DEFAULT 0,
+    long_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    long_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    long_output_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);
+```
+
+Standard Codex usage whose request input is `<= 272000` tokens uses the `short_*` group; requests above that boundary use `long_*`; `speed = fast` uses `fast_*`. A zero/missing group is reported as unpriced rather than treated as a free model. Users manage these rows through `/api/pricing/gpt` and the dedicated Settings table.
+
+### codex_ingest_state
+
+Durable append cursor for every Codex `rollout-*.jsonl`. It stores the byte offset, incomplete-line remainder, owning session id, and latest cumulative token snapshot. This makes simultaneous hook, `fs.watch`, and 4-second poll notifications idempotent: only newly appended complete JSONL records become events or token deltas. The latest persisted `codex_user_message`, `codex_task_started`, `codex_task_complete`, or `codex_turn_aborted` event also lets restart reconciliation restore the correct Working or Waiting card state without replaying the full rollout history.
+
+### codex_tool_ingest_state
+
+Independent durable byte cursor for each Codex rollout's `response_item` records. It is transactionally advanced only after every newly discovered invocation is stored as a `codex_tool_call` event with a normalized display category and its raw tool name. This gives the Workflows tool flow and session drill-in an exact, once-only record of Codex commands, edits, reads, searches, MCP calls, and delegation tools while the separate `codex_ingest_state` cursor remains responsible for messages, lifecycle state, and cumulative token deltas. Existing rollout history is safely backfilled without replaying token accounting or changing historical session freshness.
+
+---
+
 ### remote_sources
 
-Config for remote SSH machines the dashboard pulls Claude Code history from, so a single dashboard can consolidate sessions from several machines. **No secrets are stored** — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, key files). Each row's `id` is used as the `source` value on every session imported from that machine (see `sessions.source`).
+Config for remote SSH machines the dashboard pulls Claude Code and Codex history from, so a single dashboard can consolidate sessions from several machines. **No secrets are stored** — SSH authentication defers entirely to the host's SSH stack (ssh-agent, `~/.ssh/config`, key files). The optional `remote_home` and `remote_codex_home` values are the UI's **Remote Claude home** and **Remote Codex home** overrides; each row's `id` is used as the `source` value on every session imported from that machine (see `sessions.source`).
 
 ```sql
 CREATE TABLE remote_sources (
@@ -449,8 +496,11 @@ CREATE TABLE remote_sources (
     ssh_port INTEGER,
     identity_file TEXT,
     remote_home TEXT,
+    remote_codex_home TEXT,
     enabled INTEGER NOT NULL DEFAULT 1,
-    status TEXT NOT NULL DEFAULT 'idle'
+    status TEXT NOT NULL DEFAULT 'idle',
+    claude_status TEXT,
+    codex_status TEXT
         CHECK (status IN ('idle','syncing','ok','error')),
     last_error TEXT,
     last_sync_at TEXT,
@@ -470,15 +520,18 @@ CREATE TABLE remote_sources (
 | `ssh_port` | INTEGER | YES | Optional SSH port; NULL defers to the SSH default / `~/.ssh/config` |
 | `identity_file` | TEXT | YES | Optional private-key path passed to ssh (`-i`); NULL to omit |
 | `remote_home` | TEXT | YES | Optional remote Claude home to read transcripts from; NULL defaults to remote `~/.claude` |
+| `remote_codex_home` | TEXT | YES | Optional remote Codex home; NULL defaults to remote `~/.codex` and sync imports `sessions/` plus the native title index when available |
 | `enabled` | INTEGER | NO | `1` = eligible for scheduled/manual syncs, `0` = disabled (default `1`) |
 | `status` | TEXT | NO | Last sync status: `idle`, `syncing`, `ok`, or `error` (CHECK-constrained) |
+| `claude_status` | TEXT | YES | Provider-specific Claude Code sync state: `idle`, `syncing`, `ok`, `error`, or `unavailable`; existing sources retain NULL until their first provider-aware sync |
+| `codex_status` | TEXT | YES | Provider-specific Codex sync state: `idle`, `syncing`, `ok`, `error`, or `unavailable`; lets a healthy Codex mirror remain authoritative if Claude is unavailable (and vice versa) |
 | `last_error` | TEXT | YES | Error message from the last failed sync/test, or NULL |
 | `last_sync_at` | TEXT | YES | ISO 8601 timestamp of the last successful sync, or NULL |
 | `last_sync_counts` | TEXT | YES | JSON blob of the last sync's counters (imported/skipped/backfilled/errors/sessions_seen/sessions_tagged), or NULL |
 | `created_at` | TEXT | YES | ISO 8601 creation timestamp |
 | `updated_at` | TEXT | YES | ISO 8601 timestamp of the last edit |
 
-Managed through the `/api/remote-sources/*` routes; sync/status changes are broadcast over the WebSocket as `remote_source.status` and, on success, `remote_data.updated` plus per-session `session_created` / `session_updated`. See [docs/API.md → Remote Data Sources](./API.md#remote-data-sources).
+Managed through the `/api/remote-sources/*` routes. One source may expose Claude Code, Codex, or both; its top-level `status` is healthy when either provider imports, while `claude_status` / `codex_status` control the matching provider's remote lifecycle and stale-session fallback. Sync/status changes are broadcast over the WebSocket as `remote_source.status` and, on success, `remote_data.updated` plus per-session `session_created` / `session_updated`. See [docs/API.md → Remote Data Sources](./API.md#remote-data-sources).
 
 ---
 
@@ -807,6 +860,20 @@ function validateSession(session) {
 -- Using VACUUM INTO (SQLite 3.27+)
 VACUUM INTO '/backups/dashboard_20240318.db';
 ```
+
+### Backup Verification
+
+A backup is useful only when it can be opened independently of the live database. Verify each new snapshot before relying on it:
+
+```bash
+# Expect exactly: ok
+sqlite3 /backups/dashboard_20240318.db 'PRAGMA integrity_check;'
+
+# Confirm the snapshot contains expected dashboard data
+sqlite3 /backups/dashboard_20240318.db 'SELECT count(*) FROM sessions;'
+```
+
+Keep the verified snapshot outside the live data directory, and periodically perform a restore drill against a **copy** of the backup. Point that isolated dashboard at the copy with `DASHBOARD_DB_PATH` (or an isolated `DASHBOARD_DATA_DIR`) and a different port; never use a restore drill to overwrite the running database.
 
 ### Offline Backup
 

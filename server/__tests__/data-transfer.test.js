@@ -4,7 +4,8 @@
  *
  * Verifies the two product requirements:
  *   1. Export captures ALL user data (sessions, agents, events, token_usage,
- *      workflows, dashboard_runs, alert_rules, model_pricing) with a
+ *      workflows, dashboard_runs, alert_rules, model_pricing, and
+ *      gpt_model_pricing) with a
  *      format/version stamp.
  *   2. Re-importing that export reproduces the data accurately, is idempotent
  *      (re-import skips existing sessions, never duplicates), and merges cleanly
@@ -93,6 +94,22 @@ describe("data-transfer export/import round-trip", () => {
       "{}"
     );
     stmts.upsertPricing.run("custom-model-*", "Custom", 3, 15, 0.3, 3.75, 6, 0, 0);
+    stmts.upsertGptPricing.run(
+      "custom-gpt%",
+      "Custom GPT",
+      2,
+      0.2,
+      2.5,
+      12,
+      4,
+      0.4,
+      5,
+      18,
+      4,
+      0.4,
+      5,
+      24
+    );
 
     seedSession("S1", { events: 3 });
     seedSession("S2", { events: 2 });
@@ -111,6 +128,7 @@ describe("data-transfer export/import round-trip", () => {
     assert.ok(bundle.dashboard_runs.some((r) => r.id === "run_1"));
     assert.ok(bundle.alert_rules.some((r) => r.id === "rule_1"));
     assert.ok(bundle.model_pricing.some((p) => p.model_pattern === "custom-model-*"));
+    assert.ok(bundle.gpt_model_pricing.some((p) => p.model_pattern === "custom-gpt%"));
   });
 
   it("restores an exported bundle accurately into a fresh DB", () => {
@@ -118,7 +136,7 @@ describe("data-transfer export/import round-trip", () => {
 
     // Simulate a fresh machine: wipe everything the bundle carries.
     db.exec(
-      "DELETE FROM events; DELETE FROM token_usage; DELETE FROM workflows; DELETE FROM agents; DELETE FROM sessions; DELETE FROM dashboard_runs; DELETE FROM alert_rules; DELETE FROM model_pricing;"
+      "DELETE FROM events; DELETE FROM token_usage; DELETE FROM workflows; DELETE FROM agents; DELETE FROM sessions; DELETE FROM dashboard_runs; DELETE FROM alert_rules; DELETE FROM model_pricing; DELETE FROM gpt_model_pricing;"
     );
 
     const c = importExportBundle(db, bundle);
@@ -133,8 +151,12 @@ describe("data-transfer export/import round-trip", () => {
     // model_pricing includes the seeded default rows plus our custom one; all
     // are restored into the wiped DB.
     assert.equal(c.model_pricing, bundle.model_pricing.length);
+    assert.equal(c.gpt_model_pricing, bundle.gpt_model_pricing.length);
     assert.ok(
       db.prepare("SELECT 1 FROM model_pricing WHERE model_pattern = 'custom-model-*'").get()
+    );
+    assert.ok(
+      db.prepare("SELECT 1 FROM gpt_model_pricing WHERE model_pattern = 'custom-gpt%'").get()
     );
 
     // Accuracy: token totals (incl. baseline) restored verbatim.

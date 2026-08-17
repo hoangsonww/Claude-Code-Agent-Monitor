@@ -1,6 +1,7 @@
 /**
  * @file Dashboard.tsx
- * @description Main dashboard page showing real-time stats, active agents, and recent activity feed for Claude Code sessions.
+ * @description Main dashboard page showing real-time stats, active agents with
+ * session task-progress indicators, and recent activity for Claude and Codex.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -70,7 +71,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -161,6 +162,7 @@ function formatUptime(seconds: number): string {
 function SystemHealthTab() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
+  const [scope] = useDataScope();
 
   const loadData = useCallback(async () => {
     try {
@@ -170,7 +172,7 @@ function SystemHealthTab() {
     } catch (e) {
       console.error(e);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     loadData();
@@ -1006,8 +1008,8 @@ export function Dashboard() {
     return () => ro.disconnect();
   }, [activeTab]);
 
-  // Global data scope; a change re-runs `load` (the api layer injects the
-  // matching `sources` param into the calls below).
+  // Global data scope; a change re-runs `load` (the API layer injects matching
+  // source-machine and provider params into the calls below).
   const [scope] = useDataScope();
 
   const load = useCallback(async () => {
@@ -1016,10 +1018,15 @@ export function Dashboard() {
         [
           api.stats.get(),
           api.agents.list({ status: "working", limit: 20 }),
-          api.agents.list({ status: "waiting", limit: 20 }),
+          api.agents.list({ status: "waiting", limit: 20, include_transient: true }),
           api.events.list({ limit: 30 }),
           api.pricing.totalCost(),
-          api.sessions.list({ status: "active", limit: 100 }),
+          api.sessions.list({
+            status: "active",
+            limit: 100,
+            include_transient: true,
+            include_task_progress: true,
+          }),
         ]
       );
       setStats(statsRes);
@@ -1093,8 +1100,12 @@ export function Dashboard() {
         debounceRef.timer = setTimeout(load, 300);
       }
       if (msg.type === "new_event") {
+        const newEvent = msg.data as DashboardEvent;
+        if (newEvent.tool_name === "update_plan") {
+          if (debounceRef.timer) clearTimeout(debounceRef.timer);
+          debounceRef.timer = setTimeout(load, 300);
+        }
         setRecentEvents((prev) => {
-          const newEvent = msg.data as DashboardEvent;
           // Deduplicate by event ID to prevent WS + polling race condition
           if (newEvent.id && prev.some((e) => e.id === newEvent.id)) return prev;
           return [newEvent, ...prev.slice(0, 14)];

@@ -1,7 +1,7 @@
 # CCAM monitoring stack (Prometheus + Grafana)
 
-![Prometheus](https://img.shields.io/badge/Prometheus-2.x-E6522C?style=flat-square&logo=prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/Grafana-10.x-F46800?style=flat-square&logo=grafana&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-3.13-E6522C?style=flat-square&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-13.1-F46800?style=flat-square&logo=grafana&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-optional-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Node.js](https://img.shields.io/badge/npm-managed-339933?style=flat-square&logo=nodedotjs&logoColor=white)
 
@@ -26,10 +26,10 @@ runs `postinstall` in this folder and pulls official release binaries into
 | Linux | `arm64`, `amd64` (`x64`) |
 | Windows | `x64` |
 
-Node.js 20+ is the only prerequisite. On Windows, run the npm commands from
+Node.js 22.22+ is the only prerequisite. Node 24 LTS is recommended. On Windows, run the npm commands from
 PowerShell or Command Prompt in the repo root (same as the rest of CCAM).
 
-## Grafana login (local default)
+## Grafana login
 
 Open <http://localhost:3000> after `monitoring:up` or `monitoring:docker:up`.
 The admin account is **auto-created on first start** — no manual signup:
@@ -37,10 +37,12 @@ The admin account is **auto-created on first start** — no manual signup:
 | Field | Value |
 | --- | --- |
 | Username | `admin` |
-| Password | `admin` |
+| Password | `admin` for the npm-only local stack; secret file for containers |
 
-Credentials are defined in [`grafana.defaults.env`](./grafana.defaults.env) and
-applied by both the npm and Docker paths. **CCAM — Overview** is the default
+The npm-only local stack uses the development credential in
+[`grafana.defaults.env`](./grafana.defaults.env). Container stacks read the
+password from `deployments/secrets/grafana-admin-password`; they never use the
+development default. **CCAM — Overview** is the default
 home dashboard (`GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_UID=ccam-overview`) with
 PromQL queries against your live `/api/metrics` scrape — no sample or synthetic
 data. The Prometheus datasource is pre-provisioned, so you land straight in the
@@ -53,7 +55,7 @@ UI after login.
 ```
 monitoring/
 ├── package.json                           # npm install downloads binaries (postinstall)
-├── grafana.defaults.env                   # default admin / admin credentials
+├── grafana.defaults.env                   # npm-managed local defaults only
 ├── scripts/                               # lifecycle helpers (setup / up / down)
 ├── prometheus/
 │   ├── prometheus-native.yml              # scrape config for npm-managed stack
@@ -93,7 +95,8 @@ monitoring/
    npm run monitoring:up
    ```
 
-4. **Open Grafana** at <http://localhost:3000> (login `admin` / `admin`). The
+4. **Open Grafana** at <http://localhost:3000> (the npm-only local login is
+   `admin` / `admin`). The
    **CCAM — Overview** dashboard is already there — no import step. For
    Prometheus, open the pre-built **CCAM console** at
    <http://localhost:9090/consoles/index.html> (live graphs + tables), or
@@ -107,38 +110,38 @@ terminal, use `npm run monitoring:start` instead (Ctrl+C stops both).
 
 Use this when you prefer containers or when the dashboard itself runs in Docker.
 
-1. **Start the dashboard** so the container can scrape it. The server's
-   DNS-rebinding guard only accepts loopback `Host` headers, and Prometheus (in
-   Docker) reaches the host as `host.docker.internal` — so allow that Host:
+1. **Create the secret files** used by Prometheus and Grafana:
 
    ```bash
-   DASHBOARD_ALLOWED_HOSTS=host.docker.internal npm start
+   umask 077
+   openssl rand -hex 32 > deployments/secrets/dashboard-token
+   openssl rand -base64 32 > deployments/secrets/grafana-admin-password
    ```
 
-   When the dashboard runs **inside Docker** (`docker compose up` at the repo
-   root), set the same variable on the `agent-monitor` service:
+2. **Start the dashboard** with the same dashboard token, and allow the
+   container Host name when Prometheus reaches a host-native server:
 
    ```bash
-   DASHBOARD_ALLOWED_HOSTS=host.docker.internal docker compose up -d
+   DASHBOARD_TOKEN_FILE="$PWD/deployments/secrets/dashboard-token" \
+   DASHBOARD_ALLOWED_HOSTS=host.docker.internal \
+   npm start
    ```
 
-   > Without this you'll see the Prometheus target stuck **DOWN** with
-   > `403 EBADHOST`. If you also set `DASHBOARD_TOKEN`, see [Auth](#auth) below.
-
-2. **Bring up the monitoring stack:**
+3. **Bring up the pinned Prometheus 3.13.2 and Grafana 13.1.2 stack:**
 
    ```bash
    npm run monitoring:docker:up
    ```
 
-3. **Open Grafana** at <http://localhost:3000> (login `admin` / `admin`).
+4. **Open Grafana** at <http://localhost:3000>. The user defaults to `admin`;
+   the password is `deployments/secrets/grafana-admin-password`.
 
 Tear down with `npm run monitoring:docker:down`.
 
-### All-in-one Docker (app + monitoring)
+### All-in-one Docker or Podman
 
-Runs the dashboard, Prometheus, and Grafana on one network — no
-`host.docker.internal` wiring required:
+Runs dashboard, authenticated MCP, rootless Nginx, Prometheus, and Grafana on
+one private network:
 
 ```bash
 npm run docker:full:up
@@ -155,7 +158,7 @@ Stop with `npm run docker:full:down`.
 | **npm** | **Docker** | `DASHBOARD_ALLOWED_HOSTS=host.docker.internal npm start` → `monitoring:docker:up` |
 | **Docker** (`docker:up`) | **Docker** | `DASHBOARD_ALLOWED_HOSTS=host.docker.internal docker compose up -d` → `monitoring:docker:up` |
 | **Docker** | **npm** | `docker:up` + `monitoring:up` (scrapes host `127.0.0.1:4820`) |
-| **Docker full stack** | **included** | `docker:full:up` |
+| **Docker/Podman full stack** | **included** | create secrets → `docker:full:up` |
 
 Verify any running stack: `npm run monitoring:verify`.
 
@@ -173,7 +176,7 @@ Verify any running stack: `npm run monitoring:verify`.
 | `npm run monitoring:verify` | Health-check dashboard + Prometheus + Grafana + scrape target |
 | `npm run docker:up` | Start the dashboard container only |
 | `npm run docker:down` | Stop the dashboard container |
-| `npm run docker:full:up` | Dashboard + Prometheus + Grafana (all Docker) |
+| `npm run docker:full:up` | Dashboard + authenticated MCP + Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | Tear down the full Docker stack |
 
 ## Bundled Grafana dashboards
@@ -257,10 +260,12 @@ Pre-filled graph links (bookmark these):
   still required for Docker scrapes — the Host guard runs independently of the
   token.)
 - **Scrape interval** lives in the prometheus config (`global.scrape_interval`).
-- **Grafana admin password** — defaults to `admin` / `admin` via
-  [`grafana.defaults.env`](./grafana.defaults.env) (Docker) and `grafanaAdminEnv()`
-  in [`scripts/paths.js`](./scripts/paths.js) (npm). Applied on **first start**
-  only; wipe `monitoring/.data/grafana` or the `grafana-data` volume to re-seed.
+- **Grafana admin password.** The npm-only local stack uses `admin` / `admin`
+  via [`grafana.defaults.env`](./grafana.defaults.env) and
+  `grafanaAdminEnv()` in [`scripts/paths.js`](./scripts/paths.js). Docker and
+  Podman stacks read `deployments/secrets/grafana-admin-password`. Each value is
+  applied on **first start** only; wipe `monitoring/.data/grafana` or recreate
+  the `grafana-data` volume to re-seed.
 
 ## Security note
 

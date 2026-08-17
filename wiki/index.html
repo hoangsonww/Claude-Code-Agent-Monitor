@@ -77,7 +77,7 @@
 
     <!-- Assets -->
     <link rel="stylesheet" href="../fonts/fonts.css" />
-    <link rel="stylesheet" href="style.css?v=10" />
+    <link rel="stylesheet" href="style.css?v=13" />
 
     <!-- Global page styles -->
     <style>
@@ -534,11 +534,24 @@
           />
         </div>
 
-        <div class="lang-switch" role="group" aria-label="Language">
-          <button type="button" class="lang-btn" data-lang="en">EN</button>
-          <button type="button" class="lang-btn" data-lang="zh">中文</button>
-          <button type="button" class="lang-btn" data-lang="vi">VI</button>
-          <button type="button" class="lang-btn" data-lang="ko">한국어</button>
+        <div class="lang-switch">
+          <button
+            type="button"
+            class="lang-select-trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Select language"
+          >
+            <span class="lang-select-current">English</span>
+            <span class="lang-select-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="lang-select-menu" role="listbox" aria-label="Language" hidden>
+            <button type="button" class="lang-option active" data-lang="en" role="option" aria-selected="true">English</button>
+            <button type="button" class="lang-option" data-lang="zh" role="option" aria-selected="false">中文</button>
+            <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
+            <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
+            <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+          </div>
         </div>
 
         <div class="sidebar-nav">
@@ -661,6 +674,26 @@
         </div>
       </nav>
 
+      <div class="lang-switch mobile-language-switch">
+        <button
+          type="button"
+          class="lang-select-trigger"
+          aria-haspopup="listbox"
+          aria-expanded="false"
+          aria-label="Select language"
+        >
+          <span class="lang-select-current">English</span>
+          <span class="lang-select-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="lang-select-menu" role="listbox" aria-label="Language" hidden>
+          <button type="button" class="lang-option active" data-lang="en" role="option" aria-selected="true">English</button>
+          <button type="button" class="lang-option" data-lang="zh" role="option" aria-selected="false">中文</button>
+          <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
+          <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
+          <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+        </div>
+      </div>
+
       <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ MAIN CONTENT ━━━ -->
       <main class="main-content">
         <!-- ─── Hero ─────────────────────────────────────────────────────── -->
@@ -678,12 +711,12 @@
           <div class="marquee-wrapper">
             <div class="marquee-track">
               <div class="marquee-content">
-                <span class="tech-badge badge-node">Node.js ≥ 20</span>
-                <span class="tech-badge badge-express">Express 4.21</span>
-                <span class="tech-badge badge-react">React 18.3</span>
+                <span class="tech-badge badge-node">Node.js ≥ 22.22</span>
+                <span class="tech-badge badge-express">Express 4.22</span>
+                <span class="tech-badge badge-react">React 19.2</span>
                 <span class="tech-badge badge-ts">TypeScript 5.7</span>
                 <span class="tech-badge badge-js">JavaScript ES6</span>
-                <span class="tech-badge badge-vite">Vite 6</span>
+                <span class="tech-badge badge-vite">Vite 7.3</span>
                 <span class="tech-badge badge-tailwind">Tailwind CSS 3.4</span>
                 <span class="tech-badge badge-sqlite">SQLite 3</span>
                 <span class="tech-badge badge-ws">WebSocket</span>
@@ -693,7 +726,7 @@
                 <span class="tech-badge badge-i18n">i18next 22.4</span>
                 <span class="tech-badge badge-mermaid">Mermaid 10.2</span>
                 <span class="tech-badge badge-sqlite">better-sqlite3 12</span>
-                <span class="tech-badge badge-router">React Router 6.28</span>
+                <span class="tech-badge badge-router">React Router 8.3</span>
                 <span class="tech-badge badge-lucide">Lucide Icons</span>
                 <span class="tech-badge badge-d3">D3.js 7</span>
                 <span class="tech-badge badge-postcss">PostCSS 8.5</span>
@@ -705,20 +738,20 @@
                 <span class="tech-badge badge-vitest">Vitest 1.0</span>
                 <span class="tech-badge badge-react">Testing Library 13</span>
                 <span class="tech-badge badge-ws">SSE</span>
-                <span class="tech-badge badge-terraform">Terraform ≥ 1.5</span>
-                <span class="tech-badge badge-k8s">Kubernetes ≥ 1.24</span>
-                <span class="tech-badge badge-k8s">Helm 3</span>
+                <span class="tech-badge badge-terraform">Terraform ≥ 1.7</span>
+                <span class="tech-badge badge-k8s">Kubernetes ≥ 1.29</span>
+                <span class="tech-badge badge-k8s">Helm 4</span>
                 <span class="tech-badge badge-k8s">Kustomize 5.0</span>
-                <span class="tech-badge badge-prometheus">Prometheus 2.x</span>
-                <span class="tech-badge badge-grafana">Grafana 10.x</span>
+                <span class="tech-badge badge-prometheus">Prometheus 3.13</span>
+                <span class="tech-badge badge-grafana">Grafana 13.1</span>
                 <span class="tech-badge badge-nginx">Nginx Ingress</span>
                 <span class="tech-badge badge-coralogix">Coralogix</span>
                 <span class="tech-badge badge-otel">OpenTelemetry</span>
-                <span class="tech-badge badge-aws">AWS ECS | RDS</span>
+                <span class="tech-badge badge-aws">EKS / GKE / AKS / OKE</span>
                 <span class="tech-badge badge-gcp">Google Cloud</span>
                 <span class="tech-badge badge-azure">Azure AKS</span>
                 <span class="tech-badge badge-oracle">Oracle Cloud</span>
-                <span class="tech-badge badge-gitlab">GitLab CI</span>
+                <span class="tech-badge badge-gitlab">Cosign signatures</span>
                 <span class="tech-badge badge-make">Make 4.3</span>
                 <span class="tech-badge badge-github">GitHub Actions</span>
                 <span class="tech-badge badge-vscode">VS Code Extension</span>
@@ -754,12 +787,12 @@
                 <span class="tech-badge badge-mit">MIT License</span>
               </div>
               <div class="marquee-content" aria-hidden="true">
-                <span class="tech-badge badge-node">Node.js ≥ 20</span>
-                <span class="tech-badge badge-express">Express 4.21</span>
-                <span class="tech-badge badge-react">React 18.3</span>
+                <span class="tech-badge badge-node">Node.js ≥ 22.22</span>
+                <span class="tech-badge badge-express">Express 4.22</span>
+                <span class="tech-badge badge-react">React 19.2</span>
                 <span class="tech-badge badge-ts">TypeScript 5.7</span>
                 <span class="tech-badge badge-js">JavaScript ES6</span>
-                <span class="tech-badge badge-vite">Vite 6</span>
+                <span class="tech-badge badge-vite">Vite 7.3</span>
                 <span class="tech-badge badge-tailwind">Tailwind CSS 3.4</span>
                 <span class="tech-badge badge-sqlite">SQLite 3</span>
                 <span class="tech-badge badge-ws">WebSocket</span>
@@ -769,7 +802,7 @@
                 <span class="tech-badge badge-i18n">i18next 22.4</span>
                 <span class="tech-badge badge-mermaid">Mermaid 10.2</span>
                 <span class="tech-badge badge-sqlite">better-sqlite3 12</span>
-                <span class="tech-badge badge-router">React Router 6.28</span>
+                <span class="tech-badge badge-router">React Router 8.3</span>
                 <span class="tech-badge badge-lucide">Lucide Icons</span>
                 <span class="tech-badge badge-d3">D3.js 7</span>
                 <span class="tech-badge badge-postcss">PostCSS 8.5</span>
@@ -781,20 +814,20 @@
                 <span class="tech-badge badge-vitest">Vitest 1.0</span>
                 <span class="tech-badge badge-react">Testing Library 13</span>
                 <span class="tech-badge badge-ws">SSE</span>
-                <span class="tech-badge badge-terraform">Terraform ≥ 1.5</span>
-                <span class="tech-badge badge-k8s">Kubernetes ≥ 1.24</span>
-                <span class="tech-badge badge-k8s">Helm 3</span>
+                <span class="tech-badge badge-terraform">Terraform ≥ 1.7</span>
+                <span class="tech-badge badge-k8s">Kubernetes ≥ 1.29</span>
+                <span class="tech-badge badge-k8s">Helm 4</span>
                 <span class="tech-badge badge-k8s">Kustomize 5.0</span>
-                <span class="tech-badge badge-prometheus">Prometheus 2.x</span>
-                <span class="tech-badge badge-grafana">Grafana 10.x</span>
+                <span class="tech-badge badge-prometheus">Prometheus 3.13</span>
+                <span class="tech-badge badge-grafana">Grafana 13.1</span>
                 <span class="tech-badge badge-nginx">Nginx Ingress</span>
                 <span class="tech-badge badge-coralogix">Coralogix</span>
                 <span class="tech-badge badge-otel">OpenTelemetry</span>
-                <span class="tech-badge badge-aws">AWS ECS | RDS</span>
+                <span class="tech-badge badge-aws">EKS / GKE / AKS / OKE</span>
                 <span class="tech-badge badge-gcp">Google Cloud</span>
                 <span class="tech-badge badge-azure">Azure AKS</span>
                 <span class="tech-badge badge-oracle">Oracle Cloud</span>
-                <span class="tech-badge badge-gitlab">GitLab CI</span>
+                <span class="tech-badge badge-gitlab">Cosign signatures</span>
                 <span class="tech-badge badge-make">Make 4.3</span>
                 <span class="tech-badge badge-github">GitHub Actions</span>
                 <span class="tech-badge badge-vscode">VS Code Extension</span>
@@ -917,95 +950,74 @@
                   <div class="feature-icon ic-indigo">📡</div>
                   <h3 id="feat-dashboard">Live Dashboard</h3>
                   <p>
-                    Two tabs: <strong>Monitor</strong> shows overview stats, active agent cards with
-                    collapsible subagent hierarchy, and a recent activity feed whose item count fills
-                    available viewport height. <strong>Health</strong> renders a composite system
-                    health score ring, storage engine donut chart, cache/error/success gauges, tool
-                    invocation bars, subagent effectiveness ratios, model token distribution, and
-                    compaction stats. Both tabs auto-refresh every 5 seconds via WebSocket push so
-                    the view is always current without manual reload.
+                    <strong>Monitor</strong> combines overview stats, active agent cards, collapsible
+                    subagent trees, recent activity, and the same task-progress previews used by
+                    Sessions. <strong>Health</strong> summarizes system score, storage, cache, errors,
+                    tool use, subagent effectiveness, model tokens, and compactions. Both tabs refresh
+                    every 5 seconds through WebSocket push, while the activity feed adapts its item
+                    count to the available viewport height.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-emerald">📋</div>
                   <h3 id="feat-kanban">Kanban Board</h3>
                   <p>
-                    Toggle between <strong>Agents</strong> (Working / Waiting / Completed /
-                    Error) and <strong>Sessions</strong> (Active / Waiting / Completed / Error /
-                    Abandoned) swim lanes. A yellow <strong>Waiting</strong> column flags items
-                    sitting on the user — fresh prompt, between turns, or permission gate. Hover
-                    any column header for lifecycle tooltips explaining each state transition.
-                    Cards surface model name, cumulative cost, and the current tool being called.
-                    Counts update in real time via WebSocket so the board is always in sync with
-                    the live event store. Hover a Waiting badge to see why — needs input, turn done, at prompt, or interrupted.
+                    Switch between <strong>Agent</strong> and <strong>Session</strong> swim lanes for
+                    working, waiting, completed, error, and abandoned states. Yellow Waiting cards
+                    identify work paused for user input, a permission gate, or the next prompt;
+                    hover badges and column headers for the exact reason and lifecycle rules. Cards
+                    show model, cumulative cost, and current tool, while WebSocket updates keep lane
+                    counts synchronized with the live event store.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-amber">📂</div>
                   <h3 id="feat-sessions">Sessions Table</h3>
                   <p>
-                    <strong>Server-paginated</strong> table of every recorded session — each page
-                    fetches only its slice so cost computation stays bounded no matter how many
-                    sessions exist. Case-insensitive search across <code>id</code>,
-                    <code>name</code>, and <code>cwd</code> runs server-side with a 300 ms
-                    debounce; the status filter composes with search for precise narrowing.
-                    Each row shows the session's real name (synced live from the transcript — a
-                    <code>/rename</code> or <code>claude -n</code> title, else the auto title,
-                    else the first user prompt, with a short-ID fallback), status badge, agent
-                    count, duration, model, and estimated
-                    cost. Click any row to drill into the full session detail view with conversation
-                    transcript and agent hierarchy.
+                    Browse every recorded session in a <strong>server-paginated</strong> table with
+                    fast search, project and status filters, sorting, cost, model, duration, and
+                    agent counts. The first page can show a temporary local Codex startup row until
+                    its durable session arrives. Rows with task state add a compact progress donut
+                    and owner-aware preview; stale trackers disappear when newer work no longer uses
+                    them or a turn ends unfinished, while completed progress remains available. Open
+                    any durable row for its conversation, events, and agent hierarchy.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-violet">🔬</div>
                   <h3 id="feat-session-detail">Session Detail</h3>
                   <p>
-                    Per-session deep dive with a collapsible agent hierarchy tree and a full
-                    chronological event timeline showing every tool call name and summary. An
-                    overview panel at the top surfaces tile counters for events, tool calls,
-                    subagents, compactions, errors, and duration. Top-tool usage bars and a
-                    subagent type breakdown give quick distribution reads. The conversation
-                    viewer renders markdown with syntax highlighting, per-tool styled blocks,
-                    slash-command pills with their captured TUI output, and inline session-rename
-                    markers. Messages typed mid-turn (queued while Claude was still working) appear where Claude actually received them, and harness notifications are attributed to System. Export the entire session as JSON or share the permalink for async
-                    review. When the session is waiting on you, a yellow banner under the header names the reason and how long it has been waiting.
+                    Open any session for overview counters, top-tool and subagent breakdowns, a
+                    collapsible agent tree, and a chronological event timeline. When task state
+                    exists, an owner-aware panel adds a segmented donut, active task, completion
+                    bar, and paginated rows. The conversation view renders Markdown, highlighted
+                    code, tool blocks, slash-command output, renames, and correctly attributed
+                    queued messages. Waiting sessions explain why and for how long; export the
+                    record as JSON or share its permalink.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-amber">🔔</div>
                   <h3 id="feat-alerts">Alerts &amp; Webhooks</h3>
                   <p>
-                    A rules-based alerting engine evaluates the live event stream server-side:
-                    <strong>event pattern</strong> (match event type / tool / summary text,
-                    optionally N matches within a time window), <strong>inactivity</strong>,
-                    <strong>stuck agent</strong>, and <strong>token threshold</strong> — each with
-                    per-(rule, session, agent) cooldown dedup. Fired alerts surface in a live feed
-                    and fan out to <strong>14 first-class webhook providers</strong> — Slack,
-                    Discord, Teams, Google Chat, Mattermost, Rocket.Chat, Telegram, PagerDuty,
-                    Opsgenie, Splunk On-Call, Zapier, Make, n8n, Pipedream — plus any generic JSON
-                    endpoint (with optional HMAC-SHA256 signing and custom headers). Delivery is
-                    detached and fail-safe with a request timeout, bounded retry/backoff, secret
-                    redaction, a one-click test probe, and a per-target delivery log. Rules and
-                    channels are managed together in <strong>Settings → Alerts</strong>.
+                    Server-side rules detect event patterns, inactivity, stuck agents, and token
+                    thresholds with per-session cooldown dedup. Fired alerts appear in a live feed
+                    and can reach 14 built-in providers or a generic JSON endpoint with optional
+                    HMAC-SHA256 signing and custom headers. Delivery stays fail-safe through bounded
+                    timeouts, retries, secret redaction, test probes, and per-target logs. Configure
+                    rules and channels together in <strong>Settings → Alerts</strong>.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-cyan">🍎🪟</div>
                   <h3 id="feat-desktop-app">Desktop App (macOS &amp; Windows)</h3>
                   <p>
-                    A native desktop app — a macOS <code>.app</code> (shipped as a
-                    <code>.dmg</code>) and a Windows <code>.exe</code> (NSIS installer plus a
-                    no-install portable build) — built with Electron 35. It
-                    <strong>embeds the Express server in-process</strong> —
-                    <code>require()</code>-ing <code>server/index.js</code> directly, with no
-                    child process and no IPC — and renders the built React client in a
-                    <code>BrowserWindow</code>. Adds a menu-bar / notification-area (tray) icon, a
-                    native application menu, auto-start at login (macOS Login Items via
-                    <code>SMAppService</code>; Windows per-user <code>HKCU\…\Run</code>), and a
-                    single-instance lock. Closing the window hides it while the server keeps
-                    running, and the app auto-installs Claude Code hooks on first boot so an
-                    install-only user gets events flowing without a checkout.
+                    Electron packages CCAM as a macOS <code>.dmg</code> and Windows installer or
+                    portable <code>.exe</code>. The app embeds the Express server in-process and
+                    renders the React client in a native window, with tray controls, application
+                    menus, login startup, and a single-instance lock. Closing the window leaves the
+                    local server running, and first boot installs Claude Code hooks automatically so
+                    events flow without a repository checkout.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1025,13 +1037,11 @@
                   <div class="feature-icon ic-cyan">📊</div>
                   <h3 id="feat-analytics">Analytics</h3>
                   <p>
-                    Token usage breakdown by model with stacked bar charts, tool frequency
-                    rankings, agent type distribution donuts, and session outcome pie charts.
-                    A 52-week activity heatmap aligned by day-of-week shows density with hover
-                    tooltips. 30-day sparkline trends track cost and session volume at a glance.
-                    The cost summary panel totals input, output, and cache spend across all
-                    models. A live/offline indicator and auto-refresh via WebSocket keep
-                    everything current. All charts are responsive and adapt to mobile viewports.
+                    Compare model tokens, tool frequency, agent types, session outcomes, and total
+                    input, output, and cache spend. A 52-week activity heatmap and 30-day cost and
+                    session sparklines reveal longer trends, while WebSocket refresh and a live
+                    indicator keep current values clear. Responsive charts adapt to mobile screens;
+                    long legends paginate with localized controls without changing compact legends.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1064,62 +1074,50 @@
                   <div class="feature-icon ic-emerald">🔄</div>
                   <h3>History Import</h3>
                   <p>
-                    Import existing Claude Code sessions from three sources — rescan the default
-                    <code>~/.claude/projects</code> folder, scan any absolute path on disk, or
+                    Import existing Claude Code or Codex sessions from three sources — rescan the selected
+                    default <code>~/.claude/projects</code> or <code>~/.codex/sessions</code> folder, scan any
+                    absolute path on disk, or
                     drag-drop <code>.jsonl</code>, <code>.zip</code>, <code>.tar.gz</code>, and
                     <code>.gz</code> archives through <b>Settings → Import History</b>. All paths
-                    funnel into the same ingestion pipeline the server uses for live hooks, so
-                    imported tokens and per-model cost match real-time capture exactly. Re-imports
-                    are idempotent via session-ID dedup, and archive extraction is guarded against
-                    path traversal and zip-bomb expansion.
+                    use each provider's live ingestion pipeline, so imported tokens, per-model cost,
+                    and tool data match real-time capture exactly. Codex uploads are snapshotted before
+                    temporary files are cleaned up, and re-imports are idempotent.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-emerald">🛰️</div>
                   <h3>Continuous Project Sync</h3>
                   <p>
-                    The startup auto-import of <code>~/.claude/projects</code> is one-time and
-                    marker-gated, so a project folder created after first launch — whose sessions
-                    never flow through hooks (for example with host-only hooks disabled) — would
-                    stay invisible until a manual rescan. A background sync closes that gap with
-                    three triggers sharing one mtime cache and a single coalesced sweep: an
-                    immediate sweep at startup, a debounced <code>fs.watch</code> (recursive on
-                    macOS and Windows; root plus immediate child folders on Linux to avoid the
-                    userland recursive-watcher hazard) that fires the moment a new session file or
-                    project folder appears, and a periodic safety-net poll tunable via
-                    <code>DASHBOARD_SESSION_SYNC_MS</code> (default <code>30000</code> ms;
-                    <code>0</code> disables the poll while leaving the watcher running). Each sweep
-                    re-parses only files whose mtime advanced and broadcasts
-                    <code>session_created</code> / <code>session_updated</code> (plus the main
-                    agent) so the UI refreshes live, while an already-imported unchanged session is
-                    skipped without re-parsing.
+                    Background sync keeps new Claude project folders and session files visible
+                    after the one-time startup import. An immediate sweep, debounced filesystem
+                    watcher, and optional 30-second safety poll share one mtime cache and coalesce
+                    overlapping work; set <code>DASHBOARD_SESSION_SYNC_MS</code> to tune or disable
+                    only the poll. Each sweep parses only changed transcripts, skips unchanged
+                    imports, and broadcasts session and main-agent updates so the UI refreshes live
+                    across macOS, Windows, and Linux.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-blue">🛜</div>
                   <h3>Remote Data Sources</h3>
                   <p>
-                    Pull Claude Code history from other machines over SSH. Each remote's
-                    <code>~/.claude/projects</code> tree is mirrored via <code>scp</code> into a sandboxed staging
-                    directory, fed through the same importer as local history, and every session
-                    is tagged with its source. A background poller keeps remote data
-                    near-real-time, a global data-scope selector (Local only / All / a specific
-                    source) narrows the whole app, and sessions from a remote show a source badge.
-                    Auth defers entirely to the host's SSH stack — no passwords or secrets are
-                    stored. Managed in <b>Settings → Remote Data Sources</b>.
+                    One remote source can independently import <b>Claude Code</b>, <b>Codex</b>, or both.
+                    Codex mirrors <code>~/.codex/sessions</code> and its lightweight
+                    <code>session_index.jsonl</code> title index; the connection test and sync result show
+                    a separate state for each provider, so a missing provider never hides fresh data from the other.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-cyan">💾</div>
                   <h3>Transcript Cache</h3>
                   <p>
-                    Incremental JSONL reader shared across the hook handler, compaction scanner,
-                    conversation viewer, and import pipeline. Byte-offset tracking skips
-                    already-parsed content; cache hits short-circuit disk I/O so even sessions
-                    with tens of thousands of turns stay fast. It also extracts the live session
-                    title (<code>custom-title</code> / <code>ai-title</code>) so renames surface in
-                    real time, plus the first user prompt as a fallback descriptor for
-                    placeholder-named sessions and agents.
+                    Reads Claude and Codex transcripts incrementally, keeping long-running sessions
+                    fast while powering conversation history, live titles, prompt previews,
+                    attachments, and turn statistics. Renames and recent human prompts flow to
+                    session and agent cards in real time, older conversation pages load on demand,
+                    and duplicate Codex records collapse into one readable turn. Stable transcript
+                    identities also prevent replayed events from inflating totals, while
+                    provider-aware process matching keeps historical sessions from appearing active.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1159,16 +1157,13 @@
                   <div class="feature-icon ic-amber">💰</div>
                   <h3>Cost Tracking</h3>
                   <p>
-                    Per-model cost estimation with configurable pricing rules — set input, output,
-                    and cache-read rates per model variant through the Settings UI. View total and
-                    per-session breakdowns on Sessions, Session Detail, and Analytics. Compaction-
-                    aware token accounting preserves baselines across context compressions so no
-                    usage is silently dropped. Cost chips appear on Kanban cards, session rows,
-                    and the sidebar summary. Subagent cards show each subagent's own cost, computed
-                    from that subagent's transcript token usage priced at current rates, so a
-                    subagent card no longer misleadingly reads as if it cost the whole session;
-                    main-agent cards still show the session total. Pricing changes retroactively
-                    recalculate all stored sessions, and imports apply the same rate table.
+                    Configure per-model input, output, cache, and Codex reasoning rates in Settings,
+                    then see consistent totals across Sessions, Session Detail, Analytics, Kanban,
+                    and agent cards. Compaction-aware accounting preserves usage across context
+                    compression, imports reuse the same pricing table, and rate edits recalculate
+                    stored sessions. Subagent cards show only their own transcript cost while main
+                    agents retain session totals. GPT pricing distinguishes standard, long-context,
+                    and Fast modes, leaving unpublished tiers explicitly unpriced.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1188,13 +1183,12 @@
                   <div class="feature-icon ic-blue">🔌</div>
                   <h3>Local MCP Server</h3>
                   <p>
-                    Local MCP sidecar with three transport modes — stdio for Claude Code
-                    native integration, HTTP+SSE for remote clients, and an interactive REPL
-                    for ad-hoc terminal queries. Exposes 25 typed tools across 6 domains:
-                    sessions, agents, events, analytics, settings, and system health. Every
-                    mutation is gated behind a tiered policy so nothing dangerous fires without
-                    opt-in. Retry-aware API access handles transient failures. Runs as a
-                    standalone Node process with no Docker or cloud dependency.
+                    Local MCP sidecar with three transport modes and 97 typed tools across 16
+                    domain modules. It covers the complete supported app surface, including
+                    scoped data, transcripts and images, Claude/GPT pricing, workflows, alerts,
+                    webhooks, imports and restore, Claude/Codex config, Run Agent, remote sources,
+                    push, and maintenance. Every transport shares one validated catalog with
+                    bearer-token support and tiered mutation/destructive gates.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1227,13 +1221,12 @@
                   <div class="feature-icon ic-indigo">📊</div>
                   <h3>Workflow Analytics</h3>
                   <p>
-                    Subagent effectiveness scorecards with success-rate rings and day-of-week
-                    sparklines. Auto-detected workflow patterns expand on click into a detail
-                    panel with the full step chain, stats grid, and a narrative with loop
-                    detection. Model delegation flow, error propagation bars with API error
-                    cards, concurrency swim-lanes, and complexity bubble charts round out the
-                    view. Six headline stat cards each include an info popover explaining
-                    the metric and its current value. Status filter applies globally.
+                    Measure subagent effectiveness, workflow patterns, model delegation, error
+                    propagation, concurrency, and complexity in one view. Expand detected patterns
+                    for their full step chain, statistics, and loop-aware narrative; info popovers
+                    explain each headline metric, and the status filter applies across the page.
+                    Data-driven legends paginate when needed so every label remains reachable
+                    without making chart cards excessively tall.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1280,47 +1273,34 @@
                   <div class="feature-icon ic-teal">🐳</div>
                   <h3>Docker Deployment</h3>
                   <p>
-                    Ready-to-use Dockerfile and docker-compose.yml for one-command deployment.
-                    Supports both Docker and Podman with persistent volume mounts for the SQLite
-                    database and hook data. Configurable port mapping via environment variables
-                    and a health-check endpoint the container runtime can poll. Multi-stage build
-                    keeps the image lean — only production deps and the compiled bundle ship.
-                    Run <code>docker compose up -d --build</code> and the dashboard is live
-                    with zero additional setup or configuration required.
+                    Rootless Docker and Podman stacks cover the dashboard, authenticated MCP,
+                    Nginx, Prometheus, and Grafana. Read-only root filesystems, file-backed
+                    secrets, health checks, WebSocket proxying, private metrics, backup tooling,
+                    and one-writer SQLite safeguards ship together.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-violet">🏪</div>
                   <h3>Plugin Marketplace</h3>
                   <p>
-                    Official Claude Code plugin marketplace shipping 10 plugins with 53 skills,
-                    14 agents, 30 slash commands, 3 CLI tools, 3 hook configs, and 1 MCP server.
-                    Deep analytics with compaction-aware baselines, productivity automation,
-                    developer diagnostics, AI-powered workflow intelligence, and dashboard MCP
-                    integration. Five newer plugins go further:
-                    <code>ccam-cost-guard</code> (budget guardrails, spend forecasts, and
-                    cost-threshold alerts), <code>ccam-sessions</code> (session forensics —
-                    search, timeline, and transcript replay), <code>ccam-workflows</code>
-                    (multi-agent orchestration and fleet intelligence), <code>ccam-quality</code>
-                    (reliability and SLO checks), and <code>ccam-config</code> (Claude Code
-                    config and memory governance). Install with
-                    <code>claude plugin install</code> — no restart needed. Each listing shows
-                    author, license, homepage, and per-skill contribution breakdown. The Config
-                    Explorer's Plugins tab surfaces installed plugins with live status.
+                    One shared marketplace ships 14 plugins for Claude Code and Codex, with 66
+                    packaged skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, and
+                    2 MCP-enabled plugins. Every skill includes canonical frontmatter and OpenAI
+                    metadata. The skills.sh CLI discovers 75 repository skills from the same
+                    public source. Install with <code>claude plugin marketplace add</code>,
+                    <code>codex plugin marketplace add</code>, or <code>npx skills add</code>.
                   </p>
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-emerald">▶️</div>
-                  <h3 id="feat-run-claude">Run Claude</h3>
+                  <h3 id="feat-run-claude">Run Agent</h3>
                   <p>
-                    Spawn <code>claude</code> subprocesses straight from the dashboard with
-                    a chat-style streaming UI — multi-turn <b>Conversation</b> or single-shot
-                    <b>Headless</b> mode. One-click <b>Resume</b> on any past conversation
-                    spawns <code>claude --resume</code> seeded with the prior transcript. Re-
-                    attach reconciles in-memory logs with the on-disk JSONL so navigating away
-                    never loses history. Slash-command autocomplete, file references, live
-                    token/context-window meter, and a thinking-effort dial bring TUI parity
-                    to the browser. Same-origin guard blocks drive-by spawns.
+                    Start Claude Code or Codex from a streaming browser chat, using multi-turn,
+                    headless, or resumable sessions. Re-attachment reconciles memory with the saved
+                    transcript, while slash-command completion, file references, token context, and
+                    effort controls bring core TUI workflows to the dashboard. Codex uses a native
+                    interactive <code>app-server</code> thread with provider approval, sandbox, and
+                    signed-in model discovery; same-origin checks protect every spawn.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1340,28 +1320,15 @@
                 </div>
                 <div class="feature-card">
                   <div class="feature-icon ic-amber">🧰</div>
-                  <h3 id="feat-config-explorer">Claude Config Explorer</h3>
+                  <h3 id="feat-config-explorer">Agent Config</h3>
                   <p>
-                    A 12-tab inspector at <code>/cc-config</code> for everything Claude Code
-                    knows about: skills, subagents, slash commands, output styles, plugins,
-                    marketplaces, MCP servers, hooks, settings, memory, keybindings, and
-                    statusline scripts. The Settings tab leads with a Current configuration summary
-                    of the options <code>/config</code> controls — model, verbose, theme, output
-                    style, auto-compact, notifications — resolved across scopes. The Memory tab
-                    surfaces both the user and project <code>CLAUDE.md</code> files and the
-                    per-project file-based memory store — every auto-memory <code>*.md</code>
-                    under <code>~/.claude/projects/&lt;slug&gt;/memory/</code> (a
-                    <code>MEMORY.md</code> index plus one file per remembered fact, often 100+),
-                    grouped by project, searchable, and editable — the <code>MEMORY.md</code>
-                    index links are clickable and jump to (scroll to + highlight) the matching
-                    fact file.                     Create, edit, and
-                    delete the low-risk surfaces — text-file artifacts, per-project auto-memory
-                    files, and <code>keybindings.json</code> (structured inline editor) —
-                    with mandatory timestamped backups before every write. Plugins, MCP, hooks,
-                    and live settings stay read-only with explainer banners and copy-able CLI
-                    commands. See the dedicated
-                    <a href="#config-explorer">Config Explorer</a> section for the full tour.
-                    Per-plugin contribution breakdowns show author and license.
+                    Explore Claude Code configuration in 12 tabs covering skills, subagents,
+                    commands, styles, plugins, MCP, hooks, settings, memory, keybindings, and
+                    statusline scripts. The page resolves <code>/config</code> values across scopes,
+                    searches project memory, links <code>MEMORY.md</code> entries to their source
+                    facts, and shows plugin authorship. Low-risk text, memory, and keybinding files
+                    support create, edit, and delete with timestamped backups; plugins, MCP, hooks,
+                    and live settings remain read-only with copyable CLI guidance.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1464,7 +1431,7 @@
           <div class="screenshot-gallery">
             <div class="screenshot-card" id="ss-dashboard">
               <img src="../images/dashboard.png" alt="Dashboard Overview" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">📡</span> <span><strong>Dashboard · Monitor</strong> — live overview of active sessions and agents. Stats tiles, collapsible subagent hierarchy cards, and a recent activity feed. Auto-refreshes every 5 s via WebSocket</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">📡</span> <span><strong>Dashboard · Monitor</strong> — live overview of active sessions and agents. Cards with task state show a progress donut beside status with the same detailed preview as Sessions. Stats tiles, collapsible subagent hierarchy cards, and a recent activity feed auto-refresh via WebSocket</span></div>
             </div>
             <div class="screenshot-card">
               <img src="../images/dashboard-health.png" alt="Dashboard — System Health tab" width="100%" loading="lazy" decoding="async" />
@@ -1480,11 +1447,15 @@
             </div>
             <div class="screenshot-card" id="ss-sessions">
               <img src="../images/sessions.png" alt="Sessions Overview" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">📂</span> <span><strong>Sessions</strong> — searchable, filterable, server-paginated table. Each row shows status badge, agent count, duration, model, and cost. Click any row to drill into session detail</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">📂</span> <span><strong>Sessions</strong> — searchable, filterable, server-paginated table. Rows with task state add a progress donut beside status; hover or focus opens a detailed task preview. Click any row to drill into session detail</span></div>
             </div>
             <div class="screenshot-card" id="ss-session-detail">
               <img src="../images/session-agents.png" alt="Session Detail — Agents tab" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">🤖</span> <span><strong>Session Detail · Agents</strong> — overview tiles (events, tool calls, subagents, errors, duration), top-tool usage bars, subagent type breakdown, and a collapsible parent–child agent hierarchy tree</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">🤖</span> <span><strong>Session Detail · Agents</strong> — overview tiles, an owner-aware task-progress panel with 10 tasks per page when available, top-tool usage, subagent breakdown, and a collapsible parent–child agent hierarchy tree</span></div>
+            </div>
+            <div class="screenshot-card">
+              <img src="../images/tasks-details.png" alt="Task Progress panel on Session Detail" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">✅</span> <span><strong>Task Progress · Session Detail</strong> — the full owner-aware tracker combines a segmented completion donut, active task, completion bar, owner breakdown, and a task list paginated at 10 rows per page</span></div>
             </div>
             <div class="screenshot-card">
               <img src="../images/session-conversation.png" alt="Session Detail — Conversation tab" width="100%" loading="lazy" decoding="async" />
@@ -1519,20 +1490,24 @@
               <div class="screenshot-caption"><span class="caption-icon">🧬</span> <span><strong>Workflow Runs · in a session</strong> — the same fleets linked to their launching session, so a session's dynamic-workflow sub-agents and their folded-in token cost are visible inline</span></div>
             </div>
             <div class="screenshot-card" id="ss-config">
-              <img src="../images/config.png" alt="Claude Config Explorer" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">🧰</span> <span><strong>Claude Config Explorer</strong> — 12-tab inspector for skills, subagents, slash commands, plugins, MCP servers, hooks, settings, memory, keybindings, and statusline. Safe edits with backups</span></div>
+              <img src="../images/config.png" alt="Agent Config — Claude Code and Codex explorers" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">🧰</span> <span><strong>Agent Config</strong> — switch between the editable Claude Code explorer and a live Codex workspace for defaults, models, profiles, MCP, projects, skills, rules, hooks, plugins, and instructions. Previews redact secret-like values; user-maintained files receive backup-backed edits.</span></div>
+            </div>
+            <div class="screenshot-card" id="ss-config-codex">
+              <img src="../images/config-codex.png" alt="Codex Config Explorer — overview, configuration source, and workspace tabs" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">🧰</span> <span><strong>Codex Config Explorer</strong> — the Codex workspace brings together <code>config.toml</code>, account models, profiles, MCP servers, projects, skills, hooks, rules, plugins, and instructions. Edit supported user-managed files with timestamped backups; <code>config.toml</code> is edit-only.</span></div>
             </div>
             <div class="screenshot-card" id="ss-config-skills">
               <img src="../images/config-skills.png" alt="Claude Config Explorer — Skills tab" width="100%" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🧩</span> <span><strong>Claude Config Explorer · Skills</strong> — the Skills tab lists every discovered skill (user, project, and plugin) with its description and source, is searchable across the whole set, and opens any skill file for a safe, timestamp-backed edit</span></div>
             </div>
             <div class="screenshot-card" id="ss-run">
-              <img src="../images/run.png" alt="Run Claude — pre-run configuration" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">▶️</span> <span><strong>Run Claude</strong> — spawn or resume Claude subprocesses from the browser. Pick Conversation or Headless mode, set cwd, model, permission level, and thinking effort. Same-origin guard included</span></div>
+              <img src="../images/run.png" alt="Run Agent — Claude Code and Codex launch selection" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">▶️</span> <span><strong>Run Agent</strong> — choose Claude Code or Codex each time you open the launcher. Claude supports Conversation or Headless mode; Codex starts a native interactive thread with approval and sandbox controls.</span></div>
             </div>
             <div class="screenshot-card">
-              <img src="../images/run-results.png" alt="Run Claude — live streaming output" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">💬</span> <span><strong>Run Claude · live stream</strong> — character-by-character streaming output. Tool uses, tool results, and thinking blocks are collapsible. Active runs switcher juggles multiple sessions</span></div>
+              <img src="../images/run-results.png" alt="Run Agent — live streaming output" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">💬</span> <span><strong>Run Agent · live stream</strong> — Claude stream-json and Codex app-server events render together as chat, including reasoning, commands, file changes, and tool activity. Dashboard Runs lets you re-attach later.</span></div>
             </div>
             <div class="screenshot-card" id="ss-settings">
               <img src="../images/settings.png" alt="Settings Overview" width="100%" loading="lazy" decoding="async" />
@@ -1544,7 +1519,7 @@
             </div>
             <div class="screenshot-card" id="ss-remote">
               <img src="../images/remote.png" alt="Settings — Remote Data Sources" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">🛰️</span> <span><strong>Settings · Remote Data Sources</strong> — pull Claude Code activity from other machines over SSH: add sources by destination, test connectivity, sync manually or on a background poller, and switch the global data scope between local, all sources, or a specific machine with per-session source badges</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">🛰️</span> <span><strong>Settings · Remote Data Sources</strong> — pull Claude Code and Codex activity from other machines over SSH: optionally set independent Remote Claude home and Remote Codex home paths, test each provider, sync manually or on a background poller, and switch the global data scope between local, all sources, or a specific machine with per-session source badges</span></div>
             </div>
             <div class="screenshot-card" id="ss-swagger">
               <img src="../images/swagger.png" alt="Swagger UI API docs" width="100%" loading="lazy" decoding="async" />
@@ -1556,7 +1531,7 @@
             </div>
             <div class="screenshot-card" id="ss-grafana">
               <img src="../images/grafana.png" alt="Grafana CCAM — Overview dashboard" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">📊</span> <span><strong>Observability · Grafana</strong> — default home dashboard <em>CCAM — Overview</em> (four boards auto-provisioned): live fleet snapshot, database totals, breakdown charts, and rates from <code>/api/metrics</code> scrapes. Login <code>admin</code> / <code>admin</code> on port 3000</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">📊</span> <span><strong>Observability · Grafana</strong> — default home dashboard <em>CCAM — Overview</em> (four boards auto-provisioned): live fleet snapshot, database totals, breakdown charts, and rates from <code>/api/metrics</code> scrapes. The npm-only local helper uses <code>admin</code> / <code>admin</code>; container stacks read the admin password from <code>deployments/secrets/grafana-admin-password</code>.</span></div>
             </div>
             <div class="screenshot-card" id="ss-prometheus-console">
               <img src="../images/prometheus-console.png" alt="Prometheus CCAM console" width="100%" loading="lazy" decoding="async" />
@@ -1738,7 +1713,7 @@ npm run setup
 npm run install-hooks
 
 # Optional: develop in a preconfigured VS Code Dev Container / Codespace
-# (Node 22 + native build tools + Python, ports 4820/5173). Opt-in only —
+# (Node 24 LTS + native build tools + Python, ports 4820/5173). Opt-in only —
 # host-based dev is unaffected. See .devcontainer/.
 
 # 3. Start in development mode
@@ -1757,6 +1732,22 @@ npm run mcp:start:repl         # interactive CLI with tab completion
 # http://localhost:5173  (dev)
 # http://localhost:4820  (prod after npm run build && npm start)</code></pre>
 
+          <p>
+            The manual installer is interactive: Claude Code starts selected; use arrow keys,
+            <kbd>Space</kbd>, then <kbd>Enter</kbd> to choose Claude Code, Codex (beta), or both.
+            If a selected dashboard hook is already present, it warns before replacing only that
+            entry and preserves unrelated hooks. The same guided installer is available from
+            <strong>Settings → Hook Configuration</strong>. On the first dashboard visit, choose a data
+            source, then use the provider-locked live-monitoring setup gate to install the selected
+            hooks in place and review its output. You can also explicitly confirm hooks are already
+            installed before continuing.
+          </p>
+          <p>
+            First-run readiness follows the selected scope: Claude Code requires Claude hooks,
+            Codex requires Codex hooks, and Both requires both. Ready selections open the
+            dashboard immediately; otherwise only missing selected providers appear in setup.
+          </p>
+
           <h3>Alternative: Docker / Podman</h3>
           <p>
             A multi-stage <code>Dockerfile</code> and <code>docker-compose.yml</code> are included.
@@ -1768,13 +1759,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion
 docker compose up -d --build
 
 # Podman Compose
-CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
+podman compose up -d --build
 
 # Plain Docker / Podman
 docker build -t agent-monitor .
 docker run -d --name agent-monitor \
   -p 127.0.0.1:4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
+  -v "$HOME/.claude:/home/node/.claude:ro" \
+  -v "$HOME/.codex:/home/node/.codex:ro" \
   -v agent-monitor-data:/app/data \
   agent-monitor</code></pre>
 
@@ -1894,7 +1886,19 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>MCP_DASHBOARD_BASE_URL</code></td>
                   <td><code>http://127.0.0.1:4820</code></td>
-                  <td>Base URL used by the local MCP server when calling dashboard APIs</td>
+                  <td>
+                    Base URL used by the local MCP server when calling dashboard APIs. Direct
+                    loopback HTTP is allowed with a bearer token; tokenized container-host aliases
+                    require HTTPS.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>MCP_DASHBOARD_API_TOKEN</code></td>
+                  <td><code>(unset)</code></td>
+                  <td>
+                    Bearer token for a protected dashboard. Falls back to
+                    <code>DASHBOARD_API_TOKEN</code>.
+                  </td>
                 </tr>
                 <tr>
                   <td><code>MCP_TRANSPORT</code></td>
@@ -1912,6 +1916,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Bind address for the MCP HTTP server</td>
                 </tr>
                 <tr>
+                  <td><code>MCP_HTTP_AUTH_TOKEN</code> / <code>_FILE</code></td>
+                  <td><code>(unset)</code></td>
+                  <td>Protects MCP <code>/mcp</code>, <code>/sse</code>, and <code>/messages</code>; <code>/health</code> remains available to probes</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_DB_PATH</code></td>
                   <td><code>data/dashboard.db</code></td>
                   <td>Path to the SQLite database file</td>
@@ -1924,6 +1933,26 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   </td>
                 </tr>
                 <tr>
+                  <td><code>DASHBOARD_TOKEN_FILE</code></td>
+                  <td><code>(unset)</code></td>
+                  <td>File-backed dashboard REST and WebSocket token for Docker or Kubernetes secrets</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_HOOK_TOKEN</code> / <code>_FILE</code></td>
+                  <td><code>(unset)</code></td>
+                  <td>Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_ENV_PATH</code></td>
+                  <td>repository <code>.env</code></td>
+                  <td>Writable dotenv path used when Settings persists Claude or Codex home overrides</td>
+                </tr>
+                <tr>
+                  <td><code>CCAM_DASHBOARD_URL</code></td>
+                  <td>local discovery</td>
+                  <td>Optional remote hook destination; non-loopback URLs require HTTPS and a hook token</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_WORKING_IDLE_SECONDS</code></td>
                   <td><code>120</code></td>
                   <td>
@@ -1934,7 +1963,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_LIVENESS_PROBE</code></td>
                   <td><code>1</code></td>
                   <td>
-                    Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active sessions with no running <code>claude</code> process; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.
+                    Set to <code>0</code> to disable the dead-session liveness reap — the watchdog completes active local sessions only when their matching <code>claude</code> or <code>codex</code> process is gone; auto-disabled on Windows and in containers. Sessions forwarded from another machine (household hooks) report a non-POSIX <code>cwd</code> and are auto-skipped, so a mixed local + forwarded deployment no longer needs this off.
                   </td>
                 </tr>
                 <tr>
@@ -1950,6 +1979,16 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>
                     Poll interval for the background sync of <code>~/.claude/projects</code>; <code>0</code> disables the poll but keeps the filesystem watcher
                   </td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_CODEX_HOME</code></td>
+                  <td><code>~/.codex</code></td>
+                  <td>Optional Codex home. Settings saves this dashboard-only override, re-arms live rollout watching, and immediately scans the new <code>sessions/</code> tree.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_CODEX_SYNC_MS</code></td>
+                  <td><code>4000</code></td>
+                  <td>Safety-net interval (ms) for incremental Codex rollout scanning. Default <code>4000</code>; <code>0</code> disables polling but keeps the watcher.</td>
                 </tr>
                 <tr>
                   <td><code>NODE_ENV</code></td>
@@ -2444,9 +2483,10 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <div class="mermaid">
               stateDiagram-v2
                 [*] --> waiting: ensureSession (first hook)
-                waiting --> working: PreToolUse / UserPromptSubmit
+                waiting --> working: PreToolUse / UserPromptSubmit / Codex task_started / user_message
                 working --> working: PostToolUse (tool completed)
-                working --> waiting: Stop (non-error)
+                working --> waiting: Stop (non-error) / Codex task_complete
+                working --> waiting: Codex turn_aborted (interrupted)
                 working --> waiting: Notification (input prompt)
                 working --> waiting: Esc cancel (watchdog marker or idle timeout)
                 waiting --> error: Stop with error
@@ -2474,8 +2514,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               stateDiagram-v2
                 [*] --> waiting: SessionStart startup/resume/clear (status=active + flag)
                 active --> active: SessionStart compact (mid-turn — state preserved, no flag)
-                waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse
-                active --> waiting: Stop (non-error, flag re-stamped)
+                waiting --> active: UserPromptSubmit / PreToolUse / PostToolUse / Codex task_started / user_message
+                active --> waiting: Stop (non-error) / Codex task_complete (flag re-stamped)
+                active --> waiting: Codex turn_aborted (interrupted)
                 active --> waiting: Permission Notification (agent → waiting)
                 active --> waiting: Esc cancel (watchdog marker or idle timeout)
                 active --> error: Stop (stop_reason=error)
@@ -3319,7 +3360,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <div class="route-item">
               <span class="method method-post">POST</span>
               <span class="route-path">/api/settings/reset-pricing</span>
-              <span class="route-desc">Reset pricing rules to defaults</span>
+              <span class="route-desc">Reset Claude, Codex, or both pricing tables to defaults</span>
             </div>
             <div class="route-item">
               <span class="method method-get">GET</span>
@@ -3329,7 +3370,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <div class="route-item">
               <span class="method method-post">POST</span>
               <span class="route-path">/api/settings/import</span>
-              <span class="route-desc">Restore an export bundle (multipart <code>file</code> or JSON <code>{ path }</code>) — idempotent, non-destructive; consolidate machines</span>
+              <span class="route-desc">Restore one export bundle up to 25 MiB (multipart <code>file</code> or JSON <code>{ path }</code>). The restore is idempotent and non-destructive, so it can consolidate machines.</span>
             </div>
             <div class="route-item">
               <span class="method method-post">POST</span>
@@ -3575,6 +3616,31 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <p>
             <code>scripts/hook-handler.js</code> is a minimal, fail-safe forwarder. It always exits
             0 so it can never block Claude Code regardless of server state.
+          </p>
+          <p>
+            Codex rollout records are the source of truth for live cards: <code>user_message</code>
+            and <code>task_started</code> mark the main agent working; <code>task_complete</code>
+            keeps the session active while showing Waiting; and <code>turn_aborted</code> shows
+            interrupted Waiting. Newest rollouts are processed first, and an unreadable historical
+            file is retried without delaying the rest.
+          </p>
+          <p>
+            A fresh interactive Codex process first appears as an in-memory Waiting card, including
+            while Codex is still at its trust screen or first prompt and has no stable session ID.
+            The card is local-only, non-navigable, excluded from durable APIs unless
+            <code>include_transient=true</code>, and removed on process exit. A
+            <code>SessionStart</code> hook, native live-thread row, or rollout then creates the
+            durable session and main-agent rows without copying the temporary card into history.
+            If the user selects an existing thread in Codex's Resume picker, that exact Codex PID
+            opens the resumed rollout or writer lock immediately. CCAM uses that signal to switch
+            from the temporary card to the durable resumed session before the first new message.
+          </p>
+          <p>
+            Codex <code>response_item</code> tool calls are indexed exactly once through a separate
+            rollout cursor, so provider-scoped Workflows shows recorded tool flows, session drill-ins,
+            token/model totals, and <code>context_compacted</code> counts without replaying lifecycle
+            or token accounting. Dynamic Workflows stays hidden in a Codex-only scope because its
+            on-disk journals are a Claude Code feature.
           </p>
 
           <div class="diagram-wrap">
@@ -3878,19 +3944,10 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           </div>
 
           <p>
-            Beyond local history, the dashboard can pull Claude Code activity from
-            <b>other machines over SSH</b> and fold it into the same views as your local
-            sessions. Each remote's <code>~/.claude/projects</code> tree is mirrored via
-            <code>scp</code> (or <code>wsl.exe</code> + <code>tar</code> when Claude runs in WSL
-            on a Windows SSH host) into a sandboxed staging directory, fed through the exact same
-            importer used for local history, and every imported session is tagged with the source it
-            came from. A background poller (<code>DASHBOARD_REMOTE_SYNC_MS</code>, default
-            <code>15000</code> ms) keeps remote data near-real-time — adding or re-enabling a source
-            also triggers an immediate pull — and successful syncs broadcast
-            <code>remote_data.updated</code> plus per-session <code>session_created</code> /
-            <code>session_updated</code> frames. A global <b>data scope</b> selector lets you narrow
-            the entire app to local sessions only, all sources, or a specific machine. Sources are
-            managed in <b>Settings → Remote Data Sources</b>.
+            One remote source can independently import <b>Claude Code</b>, <b>Codex</b>, or both.
+            Codex mirrors <code>~/.codex/sessions</code> and its lightweight
+            <code>session_index.jsonl</code> title index; the connection test and sync result show
+            a separate state for each provider, so a missing provider never hides fresh data from the other.
           </p>
 
           <h3>How It Works</h3>
@@ -3898,8 +3955,8 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <!-- prettier-ignore -->
             <div class="mermaid">
               flowchart LR
-                RH["Remote host\n~/.claude/projects"] -->|scp over SSH| ST["Sandboxed\nstaging dir"]
-                ST -->|same pipeline\nas local history| P["parseSessionFile +\nimportSession"]
+                RH["Remote host\nClaude projects + Codex sessions"] -->|scp over SSH| ST["Sandboxed\nprovider stages"]
+                ST -->|same provider pipeline\nas local history| P["Claude + Codex\nimporters"]
                 P -->|tagged with source| D[("SQLite\nsessions / agents / events")]
                 POLL["Background poller\nDASHBOARD_REMOTE_SYNC_MS"] -.->|periodic sync| RH
                 D -.->|remote_source.status\nremote_data.updated\nsession_created/updated| W["WebSocket /ws"]
@@ -3931,17 +3988,18 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 
           <h3>Live Status</h3>
           <p>
-            Because a remote session is pulled over SSH, it never emits live hooks to this
-            dashboard, so remote sessions (<code>source</code> ≠ <code>local</code>) are excluded
-            from every local liveness and stale sweep — the process liveness reap, the watchdog
-            transcript scan, the startup cleanup, and the periodic abandon sweep all skip them.
-            Instead, a remote session's live status is reconciled from the mirrored transcript on
-            every sync: activity is judged from the <b>newest event timestamp inside the
-            JSONL</b> (falling back to mirror mtime). If the last event is within
-            <code>DASHBOARD_REMOTE_ACTIVE_WINDOW_MS</code> (default 10 minutes) the session stays
-            <code>active</code>; once the mirror stops advancing for longer than that window, the
-            session is reconciled to <code>completed</code>. This keeps a still-running remote
-            session from being wrongly shown as Completed.
+            Remote sessions never emit live hooks to this dashboard, so a healthy Claude Code or
+            Codex provider mirror remains exempt from the local process-liveness reap and watchdog
+            transcript scan. Every successful provider sync still reconciles live status from the
+            matching mirrored transcript: activity is judged from the <b>newest event timestamp
+            inside the JSONL</b> (falling back to mirror mtime); within
+            <code>DASHBOARD_REMOTE_ACTIVE_WINDOW_MS</code> (default 10 minutes) keeps the session
+            <code>active</code>, otherwise it is reconciled to <code>completed</code>. If that
+            provider's SSH sync fails, is unavailable, or is stranded in <code>syncing</code> longer
+            than <code>DASHBOARD_STALE_MINUTES</code> — and an active session is itself older than
+            that same window — the ordinary stale-session sweep marks it <code>abandoned</code> and
+            completes its agents. A later fresh mirror reactivates a session that is still writing,
+            so unavailable providers never leave permanent Waiting cards.
           </p>
 
           <h3>Security Model</h3>
@@ -3984,7 +4042,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_REMOTE_ACTIVE_WINDOW_MS</code></td>
                   <td><code>600000</code></td>
-                  <td>Freshness window (10 min) for a Remote Data Source session's live status — judged from the newest JSONL event timestamp in the mirror (mtime fallback); remote sessions receive no live hooks, so this replaces the local liveness and stale sweeps (which skip them)</td>
+                  <td>Freshness window (10 min) for a Remote Data Source session's live status — judged from the newest JSONL event timestamp in the mirror (mtime fallback); healthy sources stay out of local liveness/stale checks, while errored or stale-syncing sources fall back to the global abandon sweep</td>
                 </tr>
               </tbody>
             </table>
@@ -4110,6 +4168,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             variables and disabled by default. HTTP mode serves both Streamable HTTP (protocol
             2025-11-25) and legacy SSE (protocol 2024-11-05). REPL mode provides tab-completed
             interactive tool invocation with colored output and JSON syntax highlighting.
+          </p>
+          <p>
+            All dashboard requests reject redirects. Direct loopback HTTP may carry the dashboard
+            bearer token, while tokenized container-host aliases require HTTPS. History uploads are
+            capped at 50 MiB per file and 100 MiB per call, binary responses at 10 MiB, and backup
+            restore at 25 MiB. Only GET requests retry automatically.
           </p>
           <div class="table-wrap">
             <table>
@@ -4248,31 +4312,35 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <div class="section-label">◈ Integrations</div>
           <h2>Plugin Marketplace</h2>
           <p>
-            The Agent Monitor ships with an official Claude Code plugin marketplace containing ten
-            production-ready plugins (53 skills, 14 agents, 30 slash commands, 3 CLI tools, 3 hook
-            configs, and 1 MCP server). These extend Claude Code with skills, agents, hooks, CLI tools,
-            and MCP integration — all grounded in the real data model (token tracking with compaction
-            baselines, cost calculation via pattern-matched pricing rules, workflow intelligence with
-            11 datasets per session, and session metadata including thinking blocks, turn counts, and
-            inference geography).
+            The Agent Monitor ships one shared marketplace containing 14 plugins for Claude Code and
+            Codex, 66 packaged plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers,
+            3 hook configurations, and 2 MCP-enabled plugins. The skills.sh CLI discovers 75 total
+            repository skills. Product-specific manifests stay separate while skill instructions and
+            validation remain shared.
           </p>
 
           <h3>Installation</h3>
           <div class="code-header"><span class="code-lang">bash</span></div>
           <pre><code># Add the marketplace
 claude plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
+codex plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
+npx skills add hoangsonww/Claude-Code-Agent-Monitor --list
 
 # Install individual plugins
-claude plugin install ccam-analytics@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-cost-guard@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-productivity@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-devtools@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-insights@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-sessions@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-workflows@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-quality@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-config@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor</code></pre>
+claude plugin install ccam-analytics@claude-code-agent-monitor-plugins
+claude plugin install ccam-cost-guard@claude-code-agent-monitor-plugins
+claude plugin install ccam-productivity@claude-code-agent-monitor-plugins
+claude plugin install ccam-devtools@claude-code-agent-monitor-plugins
+claude plugin install ccam-insights@claude-code-agent-monitor-plugins
+claude plugin install ccam-sessions@claude-code-agent-monitor-plugins
+claude plugin install ccam-workflows@claude-code-agent-monitor-plugins
+claude plugin install ccam-quality@claude-code-agent-monitor-plugins
+claude plugin install ccam-config@claude-code-agent-monitor-plugins
+claude plugin install ccam-dashboard@claude-code-agent-monitor-plugins
+claude plugin install ccam-runner@claude-code-agent-monitor-plugins
+claude plugin install ccam-integrations@claude-code-agent-monitor-plugins
+claude plugin install ccam-platform@claude-code-agent-monitor-plugins
+claude plugin install ccam-reports@claude-code-agent-monitor-plugins</code></pre>
 
           <h3>Available Plugins</h3>
           <div class="table-wrap">
@@ -4357,6 +4425,34 @@ claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor</code>
                   <td>—</td>
                   <td>Dashboard connector with MCP integration and one-line metric summaries</td>
                 </tr>
+                <tr>
+                  <td><strong>ccam-runner</strong></td>
+                  <td>run-agent, run-history</td>
+                  <td>run-operator</td>
+                  <td>—</td>
+                  <td>Safe monitored Claude Code/Codex launch, follow-up, stop, resume, and run history</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-integrations</strong></td>
+                  <td>alert-management, webhook-management, remote-collection</td>
+                  <td>integration-operator</td>
+                  <td>—</td>
+                  <td>Alert rules, webhook providers, push notifications, and SSH remote collection</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-platform</strong></td>
+                  <td>config-explorer, history-portability, hook-setup, mcp-server</td>
+                  <td>platform-admin</td>
+                  <td>—</td>
+                  <td>Claude/Codex config, hooks, provider imports, backup restore, updates, and MCP operations</td>
+                </tr>
+                <tr>
+                  <td><strong>ccam-reports</strong></td>
+                  <td>executive-report, cost-report, reliability-report, workflow-report</td>
+                  <td>report-analyst</td>
+                  <td>—</td>
+                  <td>Stakeholder-ready executive, cost, reliability, and workflow reports with explicit scope and evidence</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -4402,19 +4498,21 @@ ccam-export all --output backup.json</code></pre>
 
           <h3>Plugin Architecture</h3>
           <p>
-            Each plugin follows the official Claude Code plugin specification. The marketplace manifest
-            at <code>.claude-plugin/marketplace.json</code> catalogs all ten plugins. Each plugin
-            directory contains:
+            Each plugin carries product-specific Claude Code and Codex manifests. The catalogs live at
+            <code>.claude-plugin/marketplace.json</code> and
+            <code>.agents/plugins/marketplace.json</code>. Each plugin directory contains:
           </p>
           <div class="code-header"><span class="code-lang">text</span></div>
           <pre><code>plugins/ccam-{name}/
 ├── .claude-plugin/plugin.json    # Plugin manifest (name, version, description)
-├── skills/{skill-name}/SKILL.md  # Skill definitions with $ARGUMENTS
+├── .codex-plugin/plugin.json     # Codex plugin manifest and interface metadata
+├── skills/{skill-name}/SKILL.md  # Shared skill instructions
+├── skills/{skill-name}/agents/openai.yaml # OpenAI skill UI metadata
 ├── commands/{command-name}.md    # Slash command definitions
 ├── agents/{agent-name}.md        # Agent definitions (model, tools, instructions)
 ├── hooks/hooks.json              # Event hooks (fail-safe, non-blocking)
 ├── bin/{cli-tool}                # CLI scripts (added to PATH)
-├── .mcp.json                     # MCP server configuration (dashboard plugin)
+├── .mcp.json                     # Optional stable ccam mcp stdio launcher
 └── settings.json                 # Plugin settings (dashboard plugin)</code></pre>
 
           <h3>Data Model Reference</h3>
@@ -5182,6 +5280,12 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
             The <code>/settings</code> route provides a comprehensive management interface with
             six sections:
           </p>
+          <p>
+            <strong>Dashboard Data</strong> lets you switch the entire app between Claude Code,
+            Codex, or both. Sessions, agents, events, token totals, workflows, analytics, and
+            costs refetch immediately. The same page saves separate Claude Code and Codex homes;
+            saving the Codex home re-arms live rollout watching and performs a fresh scan.
+          </p>
 
           <div class="feature-grid">
             <div class="feature-card">
@@ -5268,12 +5372,16 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
         <!-- ─── Claude Config Explorer ─────────────────────────────────────── -->
         <section id="config-explorer">
           <div class="section-label">◈ Integrations</div>
-          <h2>Claude Config Explorer</h2>
+          <h2>Agent Config</h2>
 
           <div class="screenshot-gallery">
             <div class="screenshot-card">
               <img src="../images/config.png" alt="Claude Config Explorer — 12-tab inspector with overview counts, scope filter, and tab bar" width="3024" height="1722" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🧰</span> <span><strong>Claude Config Explorer</strong> — the <code>/cc-config</code> page: 12 tabs (skills, subagents, slash commands, output styles, plugins, marketplaces, MCP servers, hooks, keybindings, settings, memory), a scope filter (user / project / all), search, and safe edit affordances on the low-risk surfaces</span></div>
+            </div>
+            <div class="screenshot-card">
+              <img src="../images/config-codex.png" alt="Codex Config Explorer — overview, configuration source, and workspace tabs" width="3024" height="1652" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">🧰</span> <span><strong>Codex Config Explorer</strong> — the Codex workspace brings together <code>config.toml</code>, account models, profiles, MCP servers, projects, skills, hooks, rules, plugins, and instructions. Edit supported user-managed files with timestamped backups; <code>config.toml</code> is edit-only.</span></div>
             </div>
             <div class="screenshot-card">
               <img src="../images/config-skills.png" alt="Claude Config Explorer — Skills tab with searchable skill list and edit actions" width="3024" height="1722" loading="lazy" decoding="async" />
@@ -5292,6 +5400,32 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
             mutation. A <code>cc-watcher</code> on <code>CLAUDE_HOME</code> plus
             <code>cc_config_changed</code> WebSocket messages keep the page live when files change
             outside the dashboard.
+          </p>
+          <p>
+            Configuration file reads canonicalize the target and allowed roots, so symlinks cannot
+            escape the trusted Claude directories.
+          </p>
+          <p>
+            The same page also has a <strong>Codex</strong> switch. Its workspace shows defaults,
+            the full local account model catalog, profiles, MCP servers, projects, skills, rules,
+            hooks, installed plugins, and instruction files from <code>CODEX_HOME</code>. The model
+            catalog is read apart from the small redacted-preview limit, so long account instructions
+            cannot make the Models tab report zero. Create a standard named
+            <code>&lt;name&gt;.config.toml</code> profile in place; Codex overlays it only for
+            <code>codex --profile &lt;name&gt;</code>, and its card copies that exact command in one
+            click. Plugin cards use <code>codex plugin list</code> rather than exposing cache folders.
+            Secret-like TOML and JSON values are redacted in previews; an explicit local editor
+            supports <code>config.toml</code>, profile overlays, <code>hooks.json</code>, user rules,
+            skills, and instruction files with atomic saves and timestamped backups. User-maintained
+            profiles, hooks, rules, skills, and instructions also have confirmed backup-backed
+            <strong>View source / Copy path / Edit / Delete</strong> actions; a skill deletion preserves
+            its whole directory, while <code>config.toml</code> stays edit-only. It warns that syntax is
+            not validated, and <code>codex_config_changed</code> refreshes the view when those files
+            change.
+          </p>
+          <p>
+            Codex preview targets are canonicalized before containment checks. Edits reject symlinked
+            path components and refuse content containing <code>[redacted]</code>.
           </p>
 
           <div class="feature-grid">
@@ -5577,6 +5711,10 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 <code>result:"failure"</code>). Delivery is <strong>detached and fail-safe</strong> —
                 it never throws into, slows, or blocks the alert path.
               </p>
+              <p>
+                Redirects are rejected rather than forwarding credentials or signed headers to
+                another URL.
+              </p>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-rose">🔒</div>
@@ -5589,6 +5727,10 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 (<code>X-Webhook-Signature</code> + <code>X-Webhook-Timestamp</code>) so receivers
                 can verify authenticity.
               </p>
+              <p>
+                Hosted providers require HTTPS. Generic and n8n targets may use HTTP for local or
+                self-hosted receivers.
+              </p>
             </div>
             <div class="feature-card">
               <div class="feature-icon ic-violet">🧭</div>
@@ -5599,7 +5741,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 names. Each webhook provider ships a collapsible step-by-step setup guide linking to
                 the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic
                 alert and reports the delivery result inline, and targets can be scoped to specific
-                rules. Fully localized (en / zh / vi / ko).
+                rules. Fully localized (en / zh / vi / ko / es).
               </p>
             </div>
           </div>
@@ -5875,7 +6017,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <div class="screenshot-gallery">
             <div class="screenshot-card">
               <img src="../images/grafana.png" alt="Grafana CCAM — Overview dashboard with live fleet metrics" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">📊</span> <span><strong>Grafana · CCAM — Overview</strong> — default home dashboard after login (<code>admin</code> / <code>admin</code> on port 3000): fleet snapshot, database totals, breakdown charts, and rates from live <code>/api/metrics</code> scrapes — no sample or synthetic data</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">📊</span> <span><strong>Grafana · CCAM — Overview</strong> — default home dashboard after login on port 3000: fleet snapshot, database totals, breakdown charts, and rates from live <code>/api/metrics</code> scrapes — no sample or synthetic data. The npm-only local helper uses <code>admin</code> / <code>admin</code>; container stacks use <code>deployments/secrets/grafana-admin-password</code>.</span></div>
             </div>
             <div class="screenshot-card">
               <img src="../images/prometheus-console.png" alt="Prometheus CCAM console landing page" width="100%" loading="lazy" decoding="async" />
@@ -5920,8 +6062,9 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 <strong>CCAM — Tokens &amp; Events</strong>, and
                 <strong>CCAM — Platform</strong> — all provisioned from
                 <code>monitoring/grafana/dashboards/</code> with PromQL against your live scrape.
-                Credentials default to <code>admin</code> / <code>admin</code> via
-                <code>monitoring/grafana.defaults.env</code>.
+                The npm-only local helper uses <code>admin</code> / <code>admin</code> via
+                <code>monitoring/grafana.defaults.env</code>. Container stacks read the password
+                from <code>deployments/secrets/grafana-admin-password</code>.
               </p>
             </div>
             <div class="feature-card">
@@ -5978,12 +6121,12 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <h2>Internationalization (i18n)</h2>
 
           <p>
-            The entire UI ships in <strong>four languages — English, 简体中文, Tiếng Việt, and 한국어</strong>
+            The entire UI ships in <strong>five languages — English, 简体中文, Tiếng Việt, 한국어, and Español</strong>
             — built on <code>i18next</code> + <code>react-i18next</code> with
             <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart
             tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts
             rule-help tooltips + webhook setup guides are translated. Switch languages from the
-            sidebar (EN / 中文 / VI / 한국어) — the choice persists in <code>localStorage</code>.
+            sidebar's custom language dropdown — the choice persists in <code>localStorage</code>.
           </p>
 
           <div class="feature-grid">
@@ -6068,7 +6211,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="../images/tabby.png" alt="Tabby Companio" width="3024" height="1746" loading="lazy" decoding="async" />
+              <img src="../images/tabby.png" alt="Tabby Companion" width="3024" height="1746" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📥</span> Tabby Companion — a cute SVG cat in the edges of every page, reacting in real time to the live session stream with eight distinct moods and animations, auto-surfacing speech bubbles for notable events, and serving as the gateway to a status panel and Ask box</div>
             </div>
           </div>
@@ -6279,77 +6422,34 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
 
           <h3>Container Runtime (Docker / Podman)</h3>
           <p>
-            The production image is OCI-compatible and works with both Docker and Podman. The
-            server listens on <code>4820</code>, reads legacy Claude history from a read-only mount,
-            and persists SQLite data under <code>/app/data</code>.
+            The OCI runtime is non-root, uses Tini as PID 1, includes Git, OpenSSH, and SQLite,
+            and becomes read-only except for persistent data/config volumes and tmpfs. Docker
+            Compose and Podman Compose use the same file.
           </p>
-
-          <div class="diagram-wrap">
-            <!-- prettier-ignore -->
-            <div class="mermaid">
-              graph LR
-                subgraph build["Multi-stage image build"]
-                  C1["server-deps\nnode:22-alpine\nnpm ci --omit=dev"]
-                  C2["client-build\nvite build"]
-                  C3["runtime image\nnode server/index.js"]
-                  C1 --> C3
-                  C2 --> C3
-                end
-
-                subgraph runtime["Container runtime"]
-                  V1["~/.claude\nmounted read-only"]
-                  V2["agent-monitor-data\npersistent volume"]
-                  PORT["localhost:4820"]
-                  C3 --> PORT
-                  V1 --> C3
-                  V2 --> C3
-                end
-            </div>
-            <p class="diagram-label">Container image build and runtime mounts</p>
-          </div>
-
-          <div class="code-header"><span class="code-lang">bash</span></div>
-          <pre><code># Docker Compose
+          <pre><code># Dashboard only
 docker compose up -d --build
-
-# Podman Compose
-CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
-
-# Stop the stack
-docker compose down
 # or
-podman compose down</code></pre>
+podman compose up -d --build
 
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mount</th>
-                  <th>Purpose</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>~/.claude:/root/.claude:ro</code></td>
-                  <td>Read historical Claude session files for import without modifying them</td>
-                </tr>
-                <tr>
-                  <td><code>agent-monitor-data:/app/data</code></td>
-                  <td>Persist the SQLite database across rebuilds and container restarts</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
+# Complete authenticated stack
+umask 077
+openssl rand -hex 32 &gt; deployments/secrets/dashboard-token
+openssl rand -hex 32 &gt; deployments/secrets/hook-token
+openssl rand -hex 32 &gt; deployments/secrets/mcp-token
+openssl rand -base64 32 &gt; deployments/secrets/grafana-admin-password
+npm run docker:full:up</code></pre>
+          <p>
+            Dashboard, MCP, Nginx, Prometheus, and Grafana bind host loopback by default.
+            Nginx proxies the UI, authenticated API, and WebSocket, while hooks, metrics, and
+            MCP remain blocked at the edge unless explicitly enabled.
+          </p>
           <div class="callout callout-warning">
             <div class="callout-icon">⚠</div>
             <div class="callout-body">
-              <strong>Hooks still run on the host</strong>
+              <strong>One SQLite writer</strong>
               <p>
-                Claude Code fires hooks from the host machine, not from inside the container. After
-                the container is healthy on <code>http://localhost:4820</code>, run
-                <code>npm run install-hooks</code> on the host so hook events post back to the
-                containerized server.
+                Run exactly one dashboard container per data volume. Install hooks on the host.
+                Remote hook destinations must use HTTPS plus <code>CCAM_HOOK_TOKEN</code>.
               </p>
             </div>
           </div>
@@ -6360,102 +6460,38 @@ podman compose down</code></pre>
           <div class="section-label">◈ Operations</div>
           <h2>Docker / Podman</h2>
           <p>
-            A multi-stage <code>Dockerfile</code> and <code>docker-compose.yml</code> are included.
-            Both <strong>Docker</strong> and <strong>Podman</strong> are fully supported — the image is OCI-compliant.
+            The dashboard image runs as UID/GID 1000 with a read-only root filesystem, dropped
+            capabilities, <code>no-new-privileges</code>, health checks, and persistent
+            <code>/app/data</code> plus <code>/app/config</code> volumes. Claude and Codex homes
+            mount read-only at <code>/home/node/.claude</code> and <code>/home/node/.codex</code>.
           </p>
-
-          <h3>Quick Start</h3>
-          <pre><code># Docker Compose
+          <pre><code># Dashboard only
 docker compose up -d --build
 
-# Podman Compose
-CLAUDE_HOME="$HOME/.claude" podman compose up -d --build</code></pre>
+# Full stack
+npm run docker:full:up
+npm run monitoring:verify
 
-          <h3>Plain Docker / Podman (no Compose)</h3>
-          <pre><code># Build the image
-docker build -t agent-monitor .
-# — or —
-podman build -t agent-monitor .
-
-# Run the container
-docker run -d --name agent-monitor \
-  -p 127.0.0.1:4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
-  -v agent-monitor-data:/app/data \
-  agent-monitor</code></pre>
-
-          <h3>Volume Mounts</h3>
+# Validate all deployment assets
+npm run deploy:validate</code></pre>
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr><th>Mount</th><th>Purpose</th></tr>
-              </thead>
+              <thead><tr><th>Service</th><th>Loopback port</th><th>Protection</th></tr></thead>
               <tbody>
-                <tr>
-                  <td><code>~/.claude:/root/.claude:ro</code></td>
-                  <td>Read-only access to legacy session history for automatic import on startup</td>
-                </tr>
-                <tr>
-                  <td><code>agent-monitor-data:/app/data</code></td>
-                  <td>Persists the SQLite database across container restarts</td>
-                </tr>
+                <tr><td>Dashboard</td><td><code>4820</code></td><td><code>dashboard-token</code></td></tr>
+                <tr><td>MCP HTTP/SSE</td><td><code>8819</code></td><td><code>mcp-token</code></td></tr>
+                <tr><td>Nginx edge</td><td><code>8080</code></td><td>hooks, metrics, MCP blocked by default</td></tr>
+                <tr><td>Prometheus</td><td><code>9090</code></td><td>private bearer scrape</td></tr>
+                <tr><td>Grafana</td><td><code>3000</code></td><td>password file</td></tr>
               </tbody>
             </table>
           </div>
-
-          <div class="callout callout-info">
-            <div class="callout-icon">ℹ</div>
-            <div class="callout-body">
-              <strong>Local-only by default</strong>
-              <p>
-                The image bakes <code>DASHBOARD_HOST=0.0.0.0</code> (the server binds loopback by
-                default, but a container's loopback is a separate namespace the published port cannot
-                reach) and <code>DASHBOARD_DATA_DIR=/app/data</code> (the read-only
-                <code>~/.claude</code> mount cannot hold the SQLite data dir). The trust boundary is
-                the host port publish: the examples use <code>-p 127.0.0.1:4820:4820</code>, so the
-                dashboard is local-only. To expose it on a LAN, publish on <code>0.0.0.0</code>
-                (<code>-p 4820:4820</code>) and set <code>DASHBOARD_TOKEN</code>.
-              </p>
-            </div>
-          </div>
-
-          <h3>Multi-Stage Build</h3>
           <p>
-            The Dockerfile uses three stages to minimize the final image size:
+            The optional <code>agent-runtime</code> image target adds pinned Claude Code and Codex
+            CLIs for container-native Run Agent workflows. Cloud deployments use one
+            Recreate-managed dashboard replica on a retained ReadWriteOnce PVC through Helm,
+            Kustomize, or Terraform-to-existing-Kubernetes. See <a href="../DEPLOYMENT.md">DEPLOYMENT.md</a>.
           </p>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Stage</th><th>Purpose</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>server-deps</strong></td>
-                  <td>Installs production <code>node_modules</code> on <code>node:22-alpine</code>. <code>better-sqlite3</code> is optional — if prebuilds are unavailable, the server falls back to built-in <code>node:sqlite</code></td>
-                </tr>
-                <tr>
-                  <td><strong>client-build</strong></td>
-                  <td>Runs <code>npm ci</code> + <code>vite build</code> to produce optimized static assets</td>
-                </tr>
-                <tr>
-                  <td><strong>runtime</strong></td>
-                  <td>Clean <code>node:22-alpine</code> with only <code>node_modules</code>, server code, and <code>client/dist</code></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="callout callout-warning">
-            <div class="callout-icon">⚠</div>
-            <div class="callout-body">
-              <strong>Hook note</strong>
-              <p>
-                Claude Code hooks run on the host, not inside the container. The containerized server
-                receives hook events via HTTP on <code>localhost:4820</code>. Run
-                <code>npm run install-hooks</code> on the host after starting the container.
-              </p>
-            </div>
-          </div>
         </section>
 
         <!-- ─── Performance ───────────────────────────────────────────────── -->
@@ -6749,14 +6785,14 @@ npm run install-hooks</code></pre>
                   </td>
                 </tr>
                 <tr>
-                  <td><strong>React 18</strong></td>
+                  <td><strong>React 19</strong></td>
                   <td>
-                    Stable, widely known, strong TypeScript support. No Server Components or RSC
-                    needed for a client-rendered local SPA.
+                    Current supported client runtime with strong TypeScript support. CCAM remains a
+                    client-rendered SPA and does not enable Server Components or RSC.
                   </td>
                 </tr>
                 <tr>
-                  <td><strong>Vite 6</strong></td>
+                  <td><strong>Vite 7</strong></td>
                   <td>
                     Fast builds, native ESM, excellent dev experience. Proxy config handles the dev
                     server split cleanly with no ejection.
@@ -6770,10 +6806,11 @@ npm run install-hooks</code></pre>
                   </td>
                 </tr>
                 <tr>
-                  <td><strong>React Router 6</strong></td>
+                  <td><strong>React Router 8</strong></td>
                   <td>
-                    Standard routing for React SPAs. Layout routes with
-                    <code>&lt;Outlet&gt;</code> give clean shell composition without prop drilling.
+                    Standard declarative routing for React SPAs. Layout routes with
+                    <code>&lt;Outlet&gt;</code> give clean shell composition without enabling
+                    framework or RSC modes.
                   </td>
                 </tr>
                 <tr>
@@ -6846,11 +6883,11 @@ npm run install-hooks</code></pre>
     </div>
     <!-- /.wiki-layout -->
 
-    <!-- Body-content translations (zh/vi) — must load before script.js so the
+    <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=40" defer></script>
-    <script src="script.js?v=32" defer></script>
+    <script src="i18n-content.js?v=79" defer></script>
+    <script src="script.js?v=56" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");
