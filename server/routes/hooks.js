@@ -1143,7 +1143,13 @@ const processEvent = db.transaction((hookType, data) => {
     created_at: new Date().toISOString(),
     // Expose that redaction happened and what it touched, without ever
     // including the original (unredacted) values in the broadcast payload.
-    privacy_redacted: !!(privacy_meta && (privacy_meta.dropped || privacy_meta.preserve_metadata_only || privacy_meta.redacted_fields.length || privacy_meta.matched_patterns.length)),
+    privacy_redacted: !!(
+      privacy_meta &&
+      (privacy_meta.dropped ||
+        privacy_meta.preserve_metadata_only ||
+        privacy_meta.redacted_fields.length ||
+        privacy_meta.matched_patterns.length)
+    ),
     privacy_meta: privacy_meta || undefined,
   };
   broadcast("new_event", event);
