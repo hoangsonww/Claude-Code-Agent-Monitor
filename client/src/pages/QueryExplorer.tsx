@@ -62,8 +62,14 @@ function buildExportUrl(
   format: string
 ) {
   const params = new URLSearchParams({ entity, format });
-  Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-  if (scopeParam) scopeParam.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) params.set(k, v); });
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v) params.set(k, v);
+  });
+  if (scopeParam)
+    scopeParam.split("&").forEach((p) => {
+      const [k, v] = p.split("=");
+      if (k && v) params.set(k, v);
+    });
   return `/api/query/export?${params.toString()}`;
 }
 
@@ -73,7 +79,12 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
     return <span title={value}>{formatDateTime(value)}</span>;
   }
   const s = String(value);
-  if (s.length > 60) return <span title={s} className="truncate max-w-[200px] block">{s.slice(0, 60)}…</span>;
+  if (s.length > 60)
+    return (
+      <span title={s} className="truncate max-w-[200px] block">
+        {s.slice(0, 60)}…
+      </span>
+    );
   return <span>{s}</span>;
 }
 
@@ -94,25 +105,28 @@ export function QueryExplorer() {
 
   const activeFilters = { ...filters, q, sort_by: sortBy, sort_dir: sortDir };
 
-  const runQuery = useCallback(async (off = 0) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.query.run({
-        entity,
-        filters: activeFilters,
-        limit: PAGE_SIZE,
-        offset: off,
-        scope: scopeParam ?? "",
-      });
-      setResult(data as QueryResult);
-      setOffset(off);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Query failed");
-    } finally {
-      setLoading(false);
-    }
-  }, [entity, activeFilters, scopeParam]); // eslint-disable-line
+  const runQuery = useCallback(
+    async (off = 0) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.query.run({
+          entity,
+          filters: activeFilters,
+          limit: PAGE_SIZE,
+          offset: off,
+          scope: scopeParam ?? "",
+        });
+        setResult(data as QueryResult);
+        setOffset(off);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Query failed");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [entity, activeFilters, scopeParam]
+  ); // eslint-disable-line
 
   const loadFacets = useCallback(async () => {
     try {
@@ -144,10 +158,14 @@ export function QueryExplorer() {
   const totalPages = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
-  const setFilter = (key: string, val: string) =>
-    setFilters((prev) => ({ ...prev, [key]: val }));
+  const setFilter = (key: string, val: string) => setFilters((prev) => ({ ...prev, [key]: val }));
 
-  const clearFilters = () => { setFilters({}); setQ(""); setSortBy(""); setSortDir("desc"); };
+  const clearFilters = () => {
+    setFilters({});
+    setQ("");
+    setSortBy("");
+    setSortDir("desc");
+  };
 
   const hasActiveFilters = q || Object.values(filters).some(Boolean);
 
@@ -172,10 +190,12 @@ export function QueryExplorer() {
             {t("queryRun")}
           </button>
           <button className={btnGhost} onClick={() => handleExport("csv")} disabled={!result}>
-            <FileText size={13} />CSV
+            <FileText size={13} />
+            CSV
           </button>
           <button className={btnGhost} onClick={() => handleExport("json")} disabled={!result}>
-            <FileJson size={13} />JSON
+            <FileJson size={13} />
+            JSON
           </button>
         </div>
       </div>
@@ -184,7 +204,9 @@ export function QueryExplorer() {
       <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 flex flex-col gap-4">
         {/* Entity tabs */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t("queryEntity")}</label>
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {t("queryEntity")}
+          </label>
           <div className="flex gap-1">
             {(["sessions", "agents", "events"] as Entity[]).map((e) => (
               <button
@@ -207,13 +229,18 @@ export function QueryExplorer() {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500">{t("querySearch")}</label>
             <div className="relative">
-              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search
+                size={12}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500"
+              />
               <input
                 className={`${inputCls} pl-6`}
                 placeholder={t("querySearchPlaceholder")}
                 value={q}
                 onChange={(ev) => setQ(ev.target.value)}
-                onKeyDown={(ev) => { if (ev.key === "Enter") runQuery(0); }}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter") runQuery(0);
+                }}
               />
             </div>
           </div>
@@ -225,7 +252,9 @@ export function QueryExplorer() {
               type="datetime-local"
               className={inputCls}
               value={isoToLocalInput(filters.from)}
-              onChange={(ev) => setFilter("from", ev.target.value ? new Date(ev.target.value).toISOString() : "")}
+              onChange={(ev) =>
+                setFilter("from", ev.target.value ? new Date(ev.target.value).toISOString() : "")
+              }
             />
           </div>
 
@@ -236,7 +265,9 @@ export function QueryExplorer() {
               type="datetime-local"
               className={inputCls}
               value={isoToLocalInput(filters.to)}
-              onChange={(ev) => setFilter("to", ev.target.value ? new Date(ev.target.value).toISOString() : "")}
+              onChange={(ev) =>
+                setFilter("to", ev.target.value ? new Date(ev.target.value).toISOString() : "")
+              }
             />
           </div>
 
@@ -250,7 +281,11 @@ export function QueryExplorer() {
                 onChange={(ev) => setFilter("status", ev.target.value)}
               >
                 <option value="">{t("queryAll")}</option>
-                {facets.statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                {facets.statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -265,7 +300,11 @@ export function QueryExplorer() {
                 onChange={(ev) => setFilter("event_type", ev.target.value)}
               >
                 <option value="">{t("queryAll")}</option>
-                {facets.event_types.map((s) => <option key={s} value={s}>{s}</option>)}
+                {facets.event_types.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -280,7 +319,11 @@ export function QueryExplorer() {
                 onChange={(ev) => setFilter("tool_name", ev.target.value)}
               >
                 <option value="">{t("queryAll")}</option>
-                {facets.tool_names.map((s) => <option key={s} value={s}>{s}</option>)}
+                {facets.tool_names.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -309,11 +352,7 @@ export function QueryExplorer() {
 
       {/* Empty state (before first query) */}
       {!result && !loading && !error && (
-        <EmptyState
-          icon={Search}
-          title={t("queryEmptyTitle")}
-          description={t("queryEmptyDesc")}
-        />
+        <EmptyState icon={Search} title={t("queryEmptyTitle")} description={t("queryEmptyDesc")} />
       )}
 
       {/* Results */}
@@ -330,7 +369,9 @@ export function QueryExplorer() {
                 >
                   <ChevronLeft size={14} />
                 </button>
-                <span className="px-2 text-xs">{currentPage} / {totalPages}</span>
+                <span className="px-2 text-xs">
+                  {currentPage} / {totalPages}
+                </span>
                 <button
                   className="p-1 rounded border border-[#30363d] hover:border-[#58a6ff] disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={offset + PAGE_SIZE >= (result?.total ?? 0) || loading}
@@ -362,7 +403,8 @@ export function QueryExplorer() {
                         }
                       }}
                     >
-                      {col}{sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      {col}
+                      {sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                     </th>
                   ))}
                 </tr>
@@ -373,7 +415,10 @@ export function QueryExplorer() {
                       <TableRowSkeleton key={i} columns={result?.columns.length ?? 5} />
                     ))
                   : result?.rows.map((row, i) => (
-                      <tr key={i} className="border-b border-[#21262d] hover:bg-[#1c2128] transition-colors">
+                      <tr
+                        key={i}
+                        className="border-b border-[#21262d] hover:bg-[#1c2128] transition-colors"
+                      >
                         {result.columns.map((col) => (
                           <td key={col} className="px-3 py-2 text-gray-300 whitespace-nowrap">
                             <CellValue col={col} value={row[col]} />
