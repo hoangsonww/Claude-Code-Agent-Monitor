@@ -41,11 +41,11 @@ function req(method, urlPath, body) {
   });
 }
 
-const get  = (p)      => req("GET",    p);
-const post = (p, b)   => req("POST",   p, b);
-const put  = (p, b)   => req("PUT",    p, b);
-const del  = (p)      => req("DELETE", p);
-const patch = (p, b)  => req("PATCH",  p, b);
+const get = (p) => req("GET", p);
+const post = (p, b) => req("POST", p, b);
+const put = (p, b) => req("PUT", p, b);
+const del = (p) => req("DELETE", p);
+const patch = (p, b) => req("PATCH", p, b);
 
 before(async () => {
   const app = createApp();
@@ -56,7 +56,11 @@ before(async () => {
 
 after(() => {
   server.close();
-  try { require("fs").unlinkSync(TEST_DB); } catch { /* best-effort */ }
+  try {
+    require("fs").unlinkSync(TEST_DB);
+  } catch {
+    /* best-effort */
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -118,7 +122,11 @@ describe("PUT /api/privacy/rules/:id", () => {
   let ruleId;
 
   before(async () => {
-    const { data } = await post("/api/privacy/rules", { name: "editable", action: "hash", pattern: "foo" });
+    const { data } = await post("/api/privacy/rules", {
+      name: "editable",
+      action: "hash",
+      pattern: "foo",
+    });
     ruleId = data.id;
   });
 
@@ -148,13 +156,19 @@ describe("PUT /api/privacy/rules/:id", () => {
     assert.equal(status, 404);
   });
 
-  after(async () => { if (ruleId) await del(`/api/privacy/rules/${ruleId}`); });
+  after(async () => {
+    if (ruleId) await del(`/api/privacy/rules/${ruleId}`);
+  });
 });
 
 describe("PATCH /api/privacy/rules/:id/toggle", () => {
   let ruleId;
   before(async () => {
-    const { data } = await post("/api/privacy/rules", { name: "toggleable", action: "mask", pattern: "x" });
+    const { data } = await post("/api/privacy/rules", {
+      name: "toggleable",
+      action: "mask",
+      pattern: "x",
+    });
     ruleId = data.id;
   });
 
@@ -166,12 +180,18 @@ describe("PATCH /api/privacy/rules/:id/toggle", () => {
     assert.notEqual(data.enabled, original.enabled);
   });
 
-  after(async () => { if (ruleId) await del(`/api/privacy/rules/${ruleId}`); });
+  after(async () => {
+    if (ruleId) await del(`/api/privacy/rules/${ruleId}`);
+  });
 });
 
 describe("DELETE /api/privacy/rules/:id", () => {
   it("deletes a user rule", async () => {
-    const { data } = await post("/api/privacy/rules", { name: "to-delete", action: "mask", pattern: "z" });
+    const { data } = await post("/api/privacy/rules", {
+      name: "to-delete",
+      action: "mask",
+      pattern: "z",
+    });
     const { status, data: result } = await del(`/api/privacy/rules/${data.id}`);
     assert.equal(status, 200);
     assert.equal(result.deleted, true);
