@@ -3,7 +3,7 @@
   "subtitle": "Vue d'ensemble en temps réel de l'activité des agents",
   "totalSessions": "Sessions totales",
   "activeAgents": "Agents actifs",
-  "activeSubagents": "Subagents actifs",
+  "activeSubagents": "subagents actifs",
   "eventsToday": "Événements aujourd'hui",
   "totalEvents": "Événements totaux",
   "totalCost": "Coût total",
