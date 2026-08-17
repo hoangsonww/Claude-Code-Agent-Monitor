@@ -1,4 +1,5 @@
 ---
+name: transcript-replay
 description: >
   Walk a Claude Code session transcript turn-by-turn from Agent Monitor data,
   summarizing each user, assistant, and tool message in order so a long conversation

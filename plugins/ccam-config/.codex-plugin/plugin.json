@@ -1,0 +1,29 @@
+{
+  "name": "ccam-config",
+  "version": "2.0.8",
+  "description": "Audit and govern your Claude Code configuration and file-based memory via the Agent Monitor Config Explorer API — skills, subagents, commands, MCP servers, hooks, settings, and the per-project memory store. Surfaces sprawl, duplication, risky hooks, and stale facts, all read through the dashboard at http://localhost:4820.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["config", "memory", "governance", "audit", "mcp", "hooks", "claude-code"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Config",
+    "shortDescription": "Audit and govern your Claude Code configuration and file-based memory via the Agent Monitor...",
+    "longDescription": "Audit and govern your Claude Code configuration and file-based memory via the Agent Monitor Config Explorer API — skills, subagents, commands, MCP servers, hooks, settings, and the per-project memory store. Surfaces sprawl, duplication, risky hooks, and stale facts, all read through the dashboard at http://localhost:4820.",
+    "developerName": "Son Nguyen",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Config to inspect the local CCAM dashboard.",
+      "Use CCAM Config to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

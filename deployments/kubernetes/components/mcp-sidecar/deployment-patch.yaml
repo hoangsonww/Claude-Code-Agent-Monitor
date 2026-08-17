@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: mcp-sidecar
-          image: ${IMAGE_REGISTRY}/agent-monitor-mcp:${IMAGE_TAG}
+          image: ccam-mcp:2.0.8
           imagePullPolicy: IfNotPresent
 
           ports:
@@ -20,9 +20,19 @@ spec:
             - name: MCP_TRANSPORT
               value: "http"
             - name: MCP_DASHBOARD_BASE_URL
-              value: "http://localhost:4820"
-            - name: MCP_PORT
+              value: "http://127.0.0.1:4820"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
               value: "8819"
+            - name: MCP_HTTP_AUTH_TOKEN_FILE
+              value: "/run/ccam-secrets/mcp-token"
+            - name: MCP_DASHBOARD_API_TOKEN_FILE
+              value: "/run/ccam-secrets/dashboard-token"
+            - name: MCP_DASHBOARD_ALLOW_MUTATIONS
+              value: "false"
+            - name: MCP_DASHBOARD_ALLOW_DESTRUCTIVE
+              value: "false"
 
           resources:
             requests:
@@ -33,22 +43,34 @@ spec:
               cpu: "250m"
 
           startupProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             failureThreshold: 30
             periodSeconds: 2
 
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
 
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: mcp
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 10
             periodSeconds: 30
             timeoutSeconds: 5
@@ -67,3 +89,6 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: secrets
+              mountPath: /run/ccam-secrets
+              readOnly: true

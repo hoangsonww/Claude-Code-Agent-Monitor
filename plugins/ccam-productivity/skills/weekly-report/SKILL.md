@@ -1,4 +1,5 @@
 ---
+name: weekly-report
 description: >
   Compile a weekly productivity report using Agent Monitor data — daily_sessions
   and daily_events trends, per-session costs from pricing engine, token volumes

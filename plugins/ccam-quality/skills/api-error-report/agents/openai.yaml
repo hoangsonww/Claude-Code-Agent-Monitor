@@ -1,0 +1,6 @@
+interface:
+  display_name: "Api Error Report"
+  short_description: "Produce a detailed report on APIError events from Agent..."
+  default_prompt: "Use $api-error-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

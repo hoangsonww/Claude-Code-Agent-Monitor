@@ -1,0 +1,6 @@
+interface:
+  display_name: "Reliability Report"
+  short_description: "Generate a CCAM reliability report from session outcomes,..."
+  default_prompt: "Use $reliability-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

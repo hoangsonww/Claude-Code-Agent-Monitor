@@ -1,10 +1,10 @@
 /**
  * @file Tests for the first-user-prompt fallback descriptor (issue #201).
  * Covers:
- *   - TranscriptCache capturing the first real user message (tool-result,
- *     meta/caveat, slash-command plumbing, and interrupt entries skipped),
- *     normalized and length-capped, first value winning across incremental
- *     re-reads.
+ *   - TranscriptCache capturing the first real user message plus the two
+ *     newest distinct human prompts (tool-result, meta/caveat, slash-command
+ *     plumbing, and interrupt entries skipped), normalized and length-capped
+ *     across incremental re-reads.
  *   - The hook ingestor filling placeholder session/main-agent names and the
  *     main agent task from the descriptor — without clobbering real titles,
  *     user-set names, or an in-flight current_tool — and staying idempotent.
@@ -155,6 +155,7 @@ describe("TranscriptCache — first user message extraction", () => {
     assert.ok(r, "result should not be null");
     // Whitespace runs / newlines collapse to single spaces; first prompt wins.
     assert.equal(r.firstUserMessage, "fix the login bug in auth.ts");
+    assert.deepEqual(r.recentUserMessages, ["fix the login bug in auth.ts", "a later prompt"]);
   });
 
   it("skips user-interrupt entries and caps the captured text at 500 chars", () => {
@@ -199,7 +200,22 @@ describe("TranscriptCache — first user message extraction", () => {
     ]);
     // Force a fresh stat (mtime granularity) by touching size — append above
     // already grew the file, so the incremental path runs.
-    assert.equal(cache.extract(p).firstUserMessage, "original prompt");
+    const appended = cache.extract(p);
+    assert.equal(appended.firstUserMessage, "original prompt");
+    assert.deepEqual(appended.recentUserMessages, ["original prompt", "second prompt"]);
+  });
+
+  it("keeps only the two newest distinct prompts for compact card context", () => {
+    const cwd = "/tmp/fud-cache-recent";
+    const sid = "cache-recent";
+    const p = writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "first task" } },
+      { type: "user", message: { role: "user", content: "second task" } },
+      { type: "user", message: { role: "user", content: "first task" } },
+      { type: "user", message: { role: "user", content: "final refinement" } },
+    ]);
+    const result = new TranscriptCache().extract(p);
+    assert.deepEqual(result.recentUserMessages, ["first task", "final refinement"]);
   });
 });
 
@@ -220,6 +236,36 @@ describe("hook ingestor — descriptor fills placeholders", () => {
     const main = stmts.getAgent.get(`${sid}-main`);
     assert.equal(main.name, "Main Agent - add dark mode to settings");
     assert.equal(main.task, "add dark mode to settings");
+    assert.equal(sess.card_prompt_preview, "add dark mode to settings");
+  });
+
+  it("refreshes Claude card context with the two newest real prompts", async () => {
+    const cwd = "/tmp/fud-hook-card-preview";
+    const sid = "10000000-0000-0000-0000-000000000008";
+    const tpath = writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "investigate the sync delay" } },
+    ]);
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath },
+    });
+    appendTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "also cover remote sources" } },
+    ]);
+    await req("POST", "/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, cwd, transcript_path: tpath },
+    });
+
+    assert.equal(
+      stmts.getSession.get(sid).card_prompt_preview,
+      "investigate the sync delay\nalso cover remote sources"
+    );
+    const listed = await req("GET", "/api/sessions?limit=20");
+    assert.equal(
+      listed.body.sessions.find((session) => session.id === sid).prompt_preview,
+      "investigate the sync delay\nalso cover remote sources"
+    );
   });
 
   it("truncates long prompts to 60 chars for names but keeps the task longer", async () => {
@@ -396,6 +442,7 @@ describe("import — descriptor for imported sessions", () => {
     importSession(dbModule, parsed);
     const sess = stmts.getSession.get(sid);
     assert.equal(sess.name, "wire up the pricing table");
+    assert.equal(sess.card_prompt_preview, "wire up the pricing table");
     const main = stmts.getAgent.get(`${sid}-main`);
     assert.equal(main.name, "Main Agent - wire up the pricing table");
     assert.equal(main.task, "wire up the pricing table");

@@ -1,4 +1,5 @@
 ---
+name: cwd-rollup
 description: >
   Roll up Claude Code sessions by working directory (project) from Agent Monitor
   data — session count, total cost, total tokens, and last-active timestamp per cwd

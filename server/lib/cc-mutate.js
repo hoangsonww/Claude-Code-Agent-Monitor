@@ -327,6 +327,118 @@ function deleteArtifact(args) {
   return { ok: true, file: r.filePath, target: r.target, backupPath };
 }
 
+// ── Keybindings (structured JSON edit) ─────────────────────────────────
+//
+// keybindings.json is a single user-scope JSON file (~/.claude/keybindings.json).
+// Unlike settings.json / ~/.claude.json it is not rewritten mid-session by the
+// live CLI, so a backup-before-write edit is safe. We read-modify-write: any
+// existing top-level keys ($schema, $docs, and anything we don't model) are
+// preserved and only the `bindings` array is replaced, so metadata is never
+// dropped. Backups land under CLAUDE_HOME/cc-config-backups/keybindings/.
+
+function keybindingsFile() {
+  return path.join(getClaudeHome(), "keybindings.json");
+}
+
+function keybindingsBackupRoot() {
+  return path.join(getClaudeHome(), "cc-config-backups", "keybindings");
+}
+
+// A keybinding key ("ctrl+t", "escape", "shift+ctrl+f") or action id
+// ("toggleTodos"). Bounded, non-empty, single-line printable text.
+function validKbString(s, max) {
+  return typeof s === "string" && s.trim().length >= 1 && s.length <= max && !/[\r\n\t]/.test(s);
+}
+
+/**
+ * Overwrite ~/.claude/keybindings.json from a structured list of groups. Each
+ * group is `{ context, bindings: [{ key, action }] }`; on disk the bindings
+ * become an object keyed by `key`. Validates shape, rejects duplicate contexts
+ * and duplicate keys within a context, backs up the existing file first, then
+ * writes atomically. Returns `{ ok, file, backupPath, created }`.
+ *
+ * @param {{ groups: Array<{context:string, bindings:Array<{key:string,action:string}>}> }} args
+ */
+function writeKeybindings(args = {}) {
+  const { groups } = args;
+  if (!Array.isArray(groups)) {
+    throw makeError("EBADCONTENT", "groups must be an array");
+  }
+  if (groups.length > 200) {
+    throw makeError("ETOOLARGE", "too many keybinding contexts (max 200)");
+  }
+
+  const outBindings = [];
+  const seenContexts = new Set();
+  for (const g of groups) {
+    if (!g || typeof g !== "object") {
+      throw makeError("EBADCONTENT", "each group must be an object");
+    }
+    const context = typeof g.context === "string" ? g.context.trim() : "";
+    if (!validKbString(context, 128)) {
+      throw makeError("EBADCONTENT", "each group needs a non-empty context (<= 128 chars)");
+    }
+    if (seenContexts.has(context)) {
+      throw makeError("EBADCONTENT", `duplicate context: ${context}`);
+    }
+    seenContexts.add(context);
+
+    const list = Array.isArray(g.bindings) ? g.bindings : [];
+    if (list.length > 1000) {
+      throw makeError("ETOOLARGE", `too many bindings in context ${context} (max 1000)`);
+    }
+    const map = {};
+    for (const b of list) {
+      if (!b || typeof b !== "object") {
+        throw makeError("EBADCONTENT", `each binding in context ${context} must be an object`);
+      }
+      const key = typeof b.key === "string" ? b.key.trim() : "";
+      const action = typeof b.action === "string" ? b.action.trim() : "";
+      if (!validKbString(key, 64)) {
+        throw makeError("EBADCONTENT", `invalid key in context ${context}`);
+      }
+      if (!validKbString(action, 128)) {
+        throw makeError("EBADCONTENT", `invalid action for key "${key}" in context ${context}`);
+      }
+      if (Object.prototype.hasOwnProperty.call(map, key)) {
+        throw makeError("EBADCONTENT", `duplicate key "${key}" in context ${context}`);
+      }
+      map[key] = action;
+    }
+    outBindings.push({ context, bindings: map });
+  }
+
+  const file = keybindingsFile();
+
+  // Preserve any existing top-level metadata ($schema, $docs, unknown keys).
+  let base = {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) base = parsed;
+  } catch {
+    base = {};
+  }
+
+  const nextObj = { ...base, bindings: outBindings };
+  const content = JSON.stringify(nextObj, null, 2) + "\n";
+  if (Buffer.byteLength(content, "utf8") > MAX_FILE_BYTES) {
+    throw makeError("ETOOLARGE", `content exceeds ${MAX_FILE_BYTES} bytes`);
+  }
+
+  const existedBefore = fs.existsSync(file);
+  let backupPath = null;
+  if (existedBefore) {
+    const root = keybindingsBackupRoot();
+    fs.mkdirSync(root, { recursive: true });
+    backupPath = path.join(root, `keybindings.json.${timestamp()}.bak`);
+    fs.copyFileSync(file, backupPath);
+  }
+
+  atomicWriteFile(file, content);
+
+  return { ok: true, file, target: file, backupPath, created: !existedBefore };
+}
+
 /**
  * List backups for either all types or a specific (scope, type) bucket.
  * Returns [{ scope, type, name, backupPath, mtime, size }].
@@ -415,6 +527,7 @@ function listBackups(opts = {}) {
 module.exports = {
   writeArtifact,
   deleteArtifact,
+  writeKeybindings,
   listBackups,
   resolveTarget, // exported for tests
   TYPES,

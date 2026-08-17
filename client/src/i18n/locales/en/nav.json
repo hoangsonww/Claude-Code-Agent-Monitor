@@ -8,12 +8,14 @@
   "analytics": "Analytics",
   "workflows": "Workflows",
   "alerts": "Alerts",
-  "ccConfig": "Claude Config",
-  "run": "Run Claude",
+  "ccConfig": "Agent Config",
+  "run": "Run Agent",
   "settings": "Settings",
   "language": "Language",
   "github": "GitHub",
   "website": "Website",
+  "notFound": "Not found",
+  "skipToContent": "Skip to content",
   "expand": "Expand sidebar",
   "collapse": "Collapse sidebar",
   "collapseShort": "Collapse",
@@ -56,12 +58,14 @@
     "en": "English",
     "zh": "Chinese",
     "vi": "Vietnamese",
-    "ko": "Korean"
+    "ko": "Korean",
+    "es": "Spanish"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
-    "ko": "한국어"
+    "ko": "한국어",
+    "es": "ES"
   }
 }

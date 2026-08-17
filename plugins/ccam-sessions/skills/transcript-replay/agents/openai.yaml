@@ -1,0 +1,6 @@
+interface:
+  display_name: "Transcript Replay"
+  short_description: "Walk a Claude Code session transcript turn-by-turn from..."
+  default_prompt: "Use $transcript-replay to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

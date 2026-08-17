@@ -1,6 +1,27 @@
 {
-  "title": "运行 Claude",
-  "subtitle": "直接在仪表盘内启动一个 Claude Code 会话。实时流式输出、多轮对话,与你终端里运行的会话共享同一套 hooks 分析。",
+  "title": "运行 Agent",
+  "subtitle": "直接从仪表盘启动本地编程 Agent。",
+  "provider": {
+    "aria": "运行提供方",
+    "kicker": "运行 Agent",
+    "chooseTitle": "想运行哪个 Agent？",
+    "chooseDescription": "选择一个交互式本地 Agent。开始新运行前可以切换。",
+    "choose": "选择",
+    "cancel": "取消",
+    "beta": "测试版",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "使用实时流、多轮对话和终端相同的 hooks 分析启动 Claude Code。",
+      "description": "以对话或单次任务模式运行 Claude Code。"
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "启动原生交互式 Codex 线程，获得实时回复、工具活动与后续对话。",
+      "description": "通过已登录的本地 CLI 运行持久 Codex app-server 线程。",
+      "interactiveLabel": "交互式 Codex 线程",
+      "interactiveHint": "启动具有实时回复、工具活动、取消和后续对话的持久本地线程。"
+    }
+  },
   "mode": {
     "label": "模式",
     "conversation": "对话",
@@ -21,7 +42,7 @@
     },
     "cwdNoMatches": "无匹配。输入绝对路径直接使用。",
     "model": "模型",
-    "modelInheritLabel": "继承 settings 配置",
+    "modelInheritLabel": "默认（推荐）",
     "modelCustom": "自定义…",
     "modelCustomPlaceholder": "model id(例如 claude-opus-4-7-20260101)",
     "permissionMode": "权限模式",
@@ -29,6 +50,16 @@
     "permissionDefault": "default(交互式提示 - headless 会卡住)",
     "permissionPlan": "plan(只读规划)",
     "permissionBypass": "bypassPermissions(危险 - 允许一切而不询问)",
+    "approvalUntrusted": "不受信任（非受信任命令前询问）",
+    "approvalOnRequest": "按需（由 Codex 决定何时询问）",
+    "approvalNever": "从不（直接返回执行失败）",
+    "sandbox": "沙盒",
+    "sandboxReadOnly": "只读",
+    "sandboxWorkspaceWrite": "工作区写入",
+    "sandboxDanger": "危险的完全访问",
+    "modelLiveCatalog": "来自已登录 Codex CLI 的实时目录",
+    "modelCuratedCatalog": "Claude Code 不提供账户模型列表；请选择其稳定别名，或输入其他模型 ID。",
+    "modelCustomClaudeHint": "对于旧版或账户专属 Claude 模型，请输入其准确的 --model 值。",
     "effort": "思考强度",
     "effortHint": "控制模型在回答前的推理量。越高 = 越多思考 token,越慢、越深入。留空使用模型默认值。"
   },
@@ -56,8 +87,9 @@
     "found": "使用 {{path}}"
   },
   "concurrency": {
-    "active_other": "已有 {{count}} 个运行进行中",
-    "viewActive": "查看进行中的运行",
+    "active_one": "当前有 {{count}} 个运行正在进行",
+    "active_other": "当前有 {{count}} 个运行正在进行",
+    "viewActive": "仪表盘运行",
     "atCap": "已达并发上限({{max}})。停止一个正在运行的以启动新运行。"
   },
   "hint": {
@@ -93,12 +125,12 @@
     "attachFailed": "无法附加到运行:{{message}}"
   },
   "runs": {
-    "switcher": "进行中的运行",
+    "switcher": "仪表盘运行",
     "switcherEmpty": "暂无进行中的运行",
     "attached": "已附加到现有运行",
     "started": "已开始 {{when}}",
-    "viewActive": "查看进行中的运行",
-    "viewActive_other": "{{count}} 个进行中的运行",
+    "viewActive": "仪表盘运行",
+    "viewActive_other": "{{count}} 个仪表盘运行",
     "scopeNote": "仅显示通过此仪表盘启动的运行。",
     "allSessionsLink": "查看所有 Claude Code 会话 →",
     "viewLabel": "查看"

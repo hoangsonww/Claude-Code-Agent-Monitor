@@ -6,7 +6,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { SessionDetail } from "../SessionDetail";
 import type { Agent, Session, DashboardEvent } from "../../lib/types";
 import { fmtCost } from "../../lib/format";
@@ -47,6 +47,7 @@ const mockSession: Session = {
 
 let mockAgents: Agent[] = [];
 let mockCost: { total_cost: number; breakdown: unknown[] } = { total_cost: 0, breakdown: [] };
+const eventBusHandlers = new Set<(message: { type: "new_event"; data: DashboardEvent }) => void>();
 
 vi.mock("../../lib/api", () => ({
   api: {
@@ -98,7 +99,10 @@ vi.mock("../../lib/api", () => ({
 
 vi.mock("../../lib/eventBus", () => ({
   eventBus: {
-    subscribe: vi.fn(() => () => {}),
+    subscribe: vi.fn((handler: (message: { type: "new_event"; data: DashboardEvent }) => void) => {
+      eventBusHandlers.add(handler);
+      return () => eventBusHandlers.delete(handler);
+    }),
   },
 }));
 
@@ -123,6 +127,7 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
   beforeEach(() => {
     mockAgents = [];
     mockCost = { total_cost: 0, breakdown: [] };
+    eventBusHandlers.clear();
   });
 
   it("shows the session total cost on the main agent card (cost is loaded separately)", async () => {
@@ -134,6 +139,35 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
     renderPage();
     const tree = await findTree();
     await waitFor(() => expect(within(tree).getByText(fmtCost(42.5))).toBeInTheDocument());
+  });
+
+  it("does not reload session details for another session's task event", async () => {
+    const { api } = await import("../../lib/api");
+    mockAgents = [makeAgent({ id: "main-1", name: "Main Agent" })];
+    renderPage();
+    await findTree();
+    await waitFor(() => expect(api.sessions.get).toHaveBeenCalled());
+    const sessionLoads = vi.mocked(api.sessions.get).mock.calls.length;
+    const pricingLoads = vi.mocked(api.pricing.sessionCost).mock.calls.length;
+
+    const message = {
+      type: "new_event" as const,
+      data: {
+        id: 91,
+        session_id: "sess-2",
+        agent_id: "sess-2-main",
+        event_type: "TaskCompleted",
+        tool_name: null,
+        summary: "Finished another session task",
+        data: null,
+        created_at: "2026-03-05T10:05:00.000Z",
+      },
+    };
+    eventBusHandlers.forEach((handler) => handler(message));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.sessions.get).toHaveBeenCalledTimes(sessionLoads);
+    expect(api.pricing.sessionCost).toHaveBeenCalledTimes(pricingLoads);
   });
 
   it("renders a flat main → subagent hierarchy (depth 1)", async () => {

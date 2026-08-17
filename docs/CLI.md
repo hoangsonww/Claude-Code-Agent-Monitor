@@ -10,12 +10,16 @@ The complete guide to `ccam`, the Claude Code Agent Monitor command-line interfa
 - [Installation & Linking](#installation--linking)
 - [Server Discovery](#server-discovery)
 - [Commands](#commands)
+  - [Server Lifecycle](#server-lifecycle)
+  - [Interactive REPL](#interactive-repl)
+  - [Offline Mode](#offline-mode)
   - [Monitoring](#monitoring)
   - [Data Browsing](#data-browsing)
   - [Insights](#insights)
   - [Alerts & Webhooks](#alerts--webhooks)
   - [Pricing](#pricing)
   - [Import](#import)
+  - [Remote Sources](#remote-sources)
   - [Administration](#administration)
 - [Safety Model](#safety-model)
 - [Output & Scripting](#output--scripting)
@@ -85,7 +89,47 @@ The CLI talks to the local dashboard server — **API-backed commands require it
 | Command | Description |
 | ------- | ----------- |
 | `ccam status` | At-a-glance up/down indicator (`●` running / `○` not running); exits `1` when down |
-| `ccam start [--port N]` | Start the production server **in the background** (detached; survives closing the terminal), wait up to 30 s for `/api/health`, print the URL + PID and the `kill <pid>` stop command. Logs append to `data/ccam-server.log`. No-ops with a pointer when a server is already up. Requires a built client (`npm run build` once) |
+| `ccam start [--port N]` | Start the production server **in the background** (detached; survives closing the terminal), wait up to 30 s for `/api/health`, print the URL + PID and the `ccam stop` command. Logs append to `data/ccam-server.log`. No-ops with a pointer when a server is already up. Requires a built client (`npm run build` once) |
+| `ccam stop` | Stop the background server: reads the PID from the discovery file, sends `SIGTERM` for a graceful shutdown, and escalates to `SIGKILL` after 5 s if it hasn't exited |
+| `ccam repl` (aliases `shell`, `i`) | Open the **interactive shell** — see [Interactive REPL](#interactive-repl) |
+
+### Interactive REPL
+
+`ccam repl` (also `ccam shell` / `ccam i`) opens a persistent prompt where you type commands **without the `ccam` prefix** — ideal for a monitoring session where you run `sessions`, drill into a `session <id>`, check `kanban`, then `cost`, without re-typing `ccam` each time. On entry it prints a **CCAM word-mark welcome banner** with the version and live server status.
+
+```
+          _____                    _____                    _____                    _____
+         /\    \                  /\    \                  /\    \                  /\    \
+        /::\    \                /::\    \                /::\    \                /::\____\
+        …  (CCAM word-mark)  …
+  Claude Code Agent Monitor · interactive shell · v1.3.0   ● 127.0.0.1:4820
+  Type commands without the 'ccam' prefix — e.g. sessions --limit 5
+  help all commands · help <cmd> details · Tab completes · ↑/↓ history · exit to quit
+
+● ccam 127.0.0.1:4820 › sessions --limit 3
+… table …
+○ ccam offline › stats        # prompt dot turns red when the server is down
+```
+
+- **Live status prompt** — a green `●` + resolved host when the server is up, a red `○` + `offline` when it isn't (probed with a short, cached health check).
+- **Tab completion** for commands, subcommands (`alerts ack`, `pricing set`, …), and flags (`--limit`, `--status`, …).
+- **Arrow-key history**, persisted across sessions to `data/.ccam_repl_history`.
+- **Full command surface** — every command in this reference works inside the shell exactly as on the one-shot CLI (they are dispatched as child `ccam` processes).
+- **Shell built-ins:**
+
+  | Built-in | Description |
+  | -------- | ----------- |
+  | `help` / `?` | Shell built-ins **plus the full grouped command catalog** |
+  | `help <command>` | Details (invocation + description) for one command |
+  | `commands` | Compact list of every command, grouped by category |
+  | `watch [seconds] <command …>` | Re-run a command on a timer (default 2 s), clearing the screen each tick, until `Ctrl+C` — a terminal live view (e.g. `watch 5 kanban`) |
+  | `history` | Recent command history |
+  | `banner` | Reprint the welcome banner |
+  | `clear` / `cls` | Clear the screen |
+  | `exit` / `quit` / `q` | Leave the shell (also `Ctrl+D`) |
+
+- **Robust isolation** — each entered line runs as a short-lived child `ccam` process, so a non-zero exit, an offline refusal, or a blocking `tail` / `watch` (both stop on `Ctrl+C`) can **never** take the shell down with it. Offline reads and server-only refusals behave exactly as they do on the one-shot CLI.
+- Works with piped input too (`printf 'stats\nexit\n' | ccam repl`) for scripting, running each line in order and exiting at EOF.
 
 ### Offline Mode
 
@@ -98,7 +142,7 @@ When the server is down, **read-only commands automatically fall back to reading
 
 | Works offline | Server required (with the printed reason) |
 | ------------- | ----------------------------------------- |
-| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `cleanup`, `clear-data`, `reinstall-hooks`, `info`, `health` |
+| `sessions`, `session <id>`*, `agents`, `events`, `kanban`, `stats`, `pricing` (list), `alerts` (list), `rules`, `export`, `doctor` | `tail` (live capture), `analytics` / `workflows` / `runs` / `cost` (server-side aggregation & pricing math), `alerts ack`, `webhooks` (all), `pricing set/delete/reset`, `import`, `remote-sources` (all — SSH pull needs the server), `cleanup`, `clear-data`, `reinstall-hooks`, `update-check` (server-side git fetch), `info`, `health` |
 
 \* `session <id>` shows everything except the cost line, which requires the server's pricing engine. Offline export payloads carry `"exported_offline": true`. Offline data is as of the last capture — with no server running, no hooks are being ingested either.
 
@@ -121,6 +165,8 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam session <id>` | Deep dive: metadata card, per-session cost, a parent→child **agent tree** (`├─`/`└─`) with live tools, and the most recent events |
 | `ccam agents [--status s] [--session id] [--limit n]` | Agent table with type, current tool, and duration |
 | `ccam events [--session id] [--limit n]` | Newest-first event log with type, tool, and summary |
+| `ccam transcript <session-id> [--agent id] [--run id] [--after n] [--before n]` | Read the provider-aware, cursor-paginated conversation payload |
+| `ccam transcript-image <session-id> --line N --index N [--output file]` | Download a persisted PNG/JPEG/GIF/WebP transcript attachment without exposing its original local path |
 
 ### Insights
 
@@ -129,7 +175,13 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam analytics` | Token totals (input / output / cache read / cache write), top tools by call count, agent-type distribution, average events per session |
 | `ccam workflows [--session id]` | Workflow-intelligence stats (sessions analyzed, subagents, success rate, depth, compactions) and the top detected patterns; `--session` drills into one session |
 | `ccam runs [--session id]` | Dynamic Workflow-tool runs: status, agent count, tokens, tool calls, duration |
-| `ccam cost` | Total estimated cost with a per-model bar-chart breakdown |
+| `ccam run list\|history\|get <id>` | Inspect live dashboard-launched Claude Code/Codex handles and persisted run history |
+| `ccam run models\|binary <provider>` | Inspect the signed-in provider's model catalog and binary availability |
+| `ccam run cwds\|files --cwd <dir>` | Discover valid working directories and prompt-reference files |
+| `ccam run start … --yes` | Launch a monitored Claude Code or Codex process. Supports provider, prompt, cwd, model, approval mode, sandbox, effort, and resume session |
+| `ccam run send <id> --text <message> --yes` | Send a follow-up to a live run |
+| `ccam run stop <id> --yes` | Stop a live dashboard-launched process |
+| `ccam cost [--session <id>]` | Total estimated cost with a per-model bar-chart breakdown; `--session` scopes it to one session (mirrors `/api/pricing/cost/:sessionId`). Any billed **server-tool surcharges** (web search $/1k, code-execution container-time) are shown on a surcharges line. Models with usage but **no matching pricing rule** (priced at $0 and excluded from the total) are listed in a warning with their token volume and the `ccam pricing set` invocation that fixes it |
 
 ### Alerts & Webhooks
 
@@ -139,24 +191,50 @@ When the server is down, **read-only commands automatically fall back to reading
 | `ccam alerts ack <id>` | Acknowledge one alert |
 | `ccam alerts ack-all` | Acknowledge every unacknowledged alert |
 | `ccam rules` | Alert rules with enabled state, type, and cooldown |
+| `ccam alert-rules list\|create\|update\|delete` | Full alert-rule lifecycle. Writes require `--yes`; rule config is supplied with `--config '<json>'` or `--file <json>` |
 | `ccam webhooks` | Webhook targets (URLs masked server-side, secrets never returned) |
+| `ccam webhooks providers` | Provider catalog and required public configuration fields |
+| `ccam webhooks deliveries <id>` | Delivery history for one target |
+| `ccam webhooks create\|update\|delete … --yes` | Manage targets using a JSON body from `--data` or `--file` |
 | `ccam webhooks test <id>` | Fire a synthetic test alert at a target and report the delivery result; exits non-zero on failure |
 
 ### Pricing
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam pricing` | All model pricing rules with per-mtok rates |
-| `ccam pricing set <pattern> --input N --output N [--cache-read N] [--cache-write N] [--name label]` | Create or update a rule (SQL `LIKE` pattern, e.g. `claude-opus-4-6%`) |
+| `ccam pricing` | All model pricing rules with per-mtok rates, including **Fast In/Out** and **Intro In/Out** columns for fast-mode premiums and time-limited promo pricing |
+| `ccam pricing set <pattern> --input N --output N [--cache-read N] [--cache-write N] [--cache-write-1h N] [--name label]` | Create or update a rule (SQL `LIKE` pattern, e.g. `claude-opus-4-6%`) |
+| `ccam pricing set <pattern> … [--fast-input N] [--fast-output N]` | Also set **fast-mode** premium rates on the rule |
+| `ccam pricing set <pattern> … [--intro-input N] [--intro-output N] [--intro-cache-read N] [--intro-cache-write N] [--intro-cache-write-1h N] --intro-until YYYY-MM-DD` | Set a **time-limited introductory (promo) rate block**. The intro fields are only sent when an `--intro-*` flag is present, so a plain rate edit never clobbers an existing promo; a bare `--intro-until` (no date) clears it |
 | `ccam pricing delete <pattern>` | Delete a rule |
 | `ccam pricing reset` | Restore the default rate table |
+| `ccam gpt-pricing` | List the independent OpenAI/Codex rate card |
+| `ccam gpt-pricing set <pattern> --file rates.json --yes` | Upsert short-context, long-context, and fast-mode GPT/Codex pricing |
+| `ccam gpt-pricing delete <pattern> --yes` | Delete a GPT/Codex pricing rule |
 
 ### Import
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam import rescan` | Re-scan the default `~/.claude/projects` tree (idempotent; prints imported / backfilled / skipped / errors) |
-| `ccam import path <dir>` | Recursively import every `.jsonl` under an absolute directory (`~` is expanded server-side) |
+| `ccam import guide --provider claude\|codex` | Show the provider's live history location, archive command, file limits, and supported formats |
+| `ccam import rescan --provider claude\|codex` | Re-scan the selected provider's configured history tree |
+| `ccam import path <dir> --provider claude\|codex` | Import an existing provider history directory |
+| `ccam import upload <files...> --provider claude\|codex` | Upload JSONL files or archives through the same multipart importer used by the app |
+| `ccam import-data <file.json>` | Restore a full dashboard export produced by `ccam export` (or **Settings → Export data**). Idempotent and non-destructive — sessions already present are skipped whole, so it safely **consolidates several machines** into one dashboard. The file path is resolved to absolute and read server-side |
+
+### Remote Sources
+
+Manage the remote (SSH) machines this dashboard pulls Claude Code, Codex, or both histories from — the terminal equivalent of **Settings → Remote Data Sources**. Authentication defers entirely to your SSH stack (`~/.ssh/config`, ssh-agent, keys, known_hosts); **no secrets are passed or stored**. `remotes` is an alias for `remote-sources`.
+
+| Command | Description |
+| ------- | ----------- |
+| `ccam remote-sources` (alias `remotes`) | List configured sources with id, auto-sync on/off, status, label, host, **session count**, and last-sync time, followed by a totals line (sources / auto-syncing / sessions collected) |
+| `ccam remote-sources add --label <name> --host <user@host> [--port N] [--identity <path>] [--remote-home <path>] [--remote-codex-home <path>] [--disabled]` | Add a source. `--host` is an ssh destination (`user@host`) or a `~/.ssh/config` alias; provider homes default to `~/.claude` and `~/.codex`; `--disabled` skips it in the background poller |
+| `ccam remote-sources test <id>` | Probe SSH connectivity and report Claude Code / Codex history availability; exits non-zero only when neither provider is available |
+| `ccam remote-sources sync [id]` | Pull history now — one source by id, or **all** sources when the id is omitted. Prints combined and per-provider imported / tagged counts |
+| `ccam remote-sources update <id> --file patch.json --yes` | Update any allowlisted source field |
+| `ccam remote-sources rm <id>` | Remove a source while retaining imported sessions as local data |
+| `ccam remote-sources rm <id> --purge --confirm PURGE_REMOTE_SOURCE_DATA` | Remove the source and permanently delete its imported sessions |
 
 ### Administration
 
@@ -164,9 +242,16 @@ When the server is down, **read-only commands automatically fall back to reading
 | ------- | ----------- |
 | `ccam doctor` | Diagnosis: API reachability, hook installation status + path, database path/size/row counts, server uptime and Node version, WS connections |
 | `ccam info` | The raw `/api/settings/info` JSON (pipe it to `jq`) |
-| `ccam export [file.json]` | Full JSON data export (sessions, agents, events, tokens, pricing) — defaults to a dated filename |
+| `ccam export [file.json]` | Full JSON data export (sessions, agents, events, tokens, workflows, dashboard runs, alert rules, pricing) — defaults to a dated filename. Re-importable via `ccam import-data` |
 | `ccam cleanup --hours N --days M` | Abandon active sessions idle for `N` hours and/or purge completed sessions older than `M` days |
 | `ccam reinstall-hooks` | Rewrite the Claude Code hook entries in `~/.claude/settings.json` |
+| `ccam hooks status` | Read Claude Code and Codex hook installation state |
+| `ccam hooks install claude codex --yes` | Install either or both provider hook sets |
+| `ccam config claude <surface>` | Inspect Claude skills, agents, commands, plugins, marketplaces, MCP, hooks, settings, memory, keybindings, statusline, and backups |
+| `ccam config codex <action>` | Inspect or backup-backed edit Codex config, profiles, hooks, rules, skills, plugins, and instructions |
+| `ccam mcp [stdio|http|repl]` | Launch the MCP server built by `npm run setup` |
+| `ccam api <METHOD> /api/path [--data JSON\|--file path]` | Future-proof access to every JSON API route. Non-GET requests require `--yes`; clear-data additionally requires `--confirm CLEAR_ALL_DATA` |
+| `ccam update-check` | Ask the server whether the dashboard checkout is behind the canonical remote (branch- and fork-aware). Prints the behind-by count, a situation note for fork/feature-branch checkouts, and the **copy-paste update command** — the dashboard never restarts itself. Also refreshes the update banner in any open dashboard tab (same `update_status` broadcast) |
 | `ccam clear-data --yes` | Delete **all** data (schema preserved). Refuses to run without `--yes` |
 | `ccam open` | Open the dashboard in your default browser (`open` / `xdg-open` / `start`) |
 | `ccam version` | Print the ccam version (also `--version` / `-v`) |
@@ -175,8 +260,13 @@ When the server is down, **read-only commands automatically fall back to reading
 ## Safety Model
 
 - **Read commands are always safe** — they only issue `GET`s.
-- **Mutating commands** (`alerts ack`, `pricing set/delete/reset`, `import`, `cleanup`, `reinstall-hooks`) map 1:1 to explicit dashboard actions and run immediately, exactly like clicking the equivalent button.
-- **The one destructive command, `clear-data`, refuses to run without `--yes`** and prints exactly what it would delete. There is no bulk-destructive behavior anywhere else.
+- High-level legacy mutations keep their established behavior. New generic mutation surfaces (`run`, config writes, alert-rule CRUD, webhook CRUD, generic `api`) require `--yes`.
+- `clear-data` refuses to run without `--yes`. The generic API path additionally requires `--confirm CLEAR_ALL_DATA`.
+- Remote-source removal retains imported data by default. Purging requires `--confirm PURGE_REMOTE_SOURCE_DATA`.
+- Webhook tests, push sends, process launches, and run messages are real side effects. Confirm the target and content first.
+- Set `MCP_DASHBOARD_API_TOKEN` or `DASHBOARD_API_TOKEN` for MCP, and
+  `DASHBOARD_API_TOKEN` or `CCAM_API_TOKEN` for the CLI, when the dashboard
+  server uses `DASHBOARD_TOKEN`.
 
 ## Output & Scripting
 

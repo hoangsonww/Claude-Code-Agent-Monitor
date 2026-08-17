@@ -1,0 +1,6 @@
+interface:
+  display_name: "Hook Setup"
+  short_description: "Inspect and install CCAM monitoring hooks for Claude Code..."
+  default_prompt: "Use $hook-setup to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

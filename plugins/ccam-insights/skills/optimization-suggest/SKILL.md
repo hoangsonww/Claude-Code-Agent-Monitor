@@ -1,4 +1,5 @@
 ---
+name: optimization-suggest
 description: >
   Suggest concrete optimizations for Claude Code usage based on historical
   session data. Covers cost reduction, speed improvement, error prevention,

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Cleanup"
+  short_description: "Identify stale and empty Claude Code sessions in the Agent..."
+  default_prompt: "Use $session-cleanup to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

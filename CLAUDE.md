@@ -8,7 +8,7 @@
 ## Repo map
 - `server/`: Express API, hook ingestion, SQLite access, websocket broadcast (includes optional git upstream checks and `routes/updates.js`, plus `lib/workflow-ingest.js` which ingests on-disk Workflow-tool run journals — fleets that emit no hooks).
 - `client/`: React + Vite UI.
-- `scripts/`: hook installer/handler, import, seed, cleanup utilities, `self-update-restart.js` (pull → setup → restart).
+- `scripts/`: hook installer/handler, import, seed, cleanup utilities. (Update detection lives server-side in `server/lib/update-check.js`; the dashboard never restarts itself — users run the printed command, surfaced in the UI and by `ccam update-check`.)
 - `mcp/`: local MCP server exposing dashboard operations as tools.
 
 ## Non-negotiable engineering rules
@@ -16,6 +16,7 @@
 - Prefer minimal, reversible diffs.
 - Never silently weaken safety controls around destructive actions.
 - Keep docs updated when behavior, commands, file locations, or workflows change — apply the `update-project-docs` skill automatically at the end of every change-set that alters behavior, config, interfaces, events, schema, CLI commands, or features (do not wait to be asked).
+- Apply the `version-release` skill for every release bump: patch for backward-compatible fixes/small improvements, minor for larger backward-compatible capabilities, and major for breaking/fundamental changes; synchronize root, desktop, OpenAPI, snapshots, and generated plugin metadata, create or reuse the matching `v<version>` GitHub milestone, and assign the release PR plus linked closing issues to it.
 - Every applicable source file you create or update (`.js/.ts/.tsx/.cjs/.mjs/.py/.sh/.css`) must start with the copyright/authorship header — file overview + the exact line `@author Son Nguyen <hoangson091104@gmail.com>`. Formats and audit script: `.claude/skills/file-headers/` (verify with `bash .claude/skills/file-headers/scripts/check-headers.sh`). This binds every coding agent (Claude Code, Codex, or others).
 
 ## Commands you should know

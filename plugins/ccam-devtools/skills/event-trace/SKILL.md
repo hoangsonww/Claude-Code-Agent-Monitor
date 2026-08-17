@@ -1,4 +1,5 @@
 ---
+name: event-trace
 description: >
   Trace the full event chain for one Claude Code session into an ordered
   timeline of every event type with tool_name and summary, highlighting gaps,

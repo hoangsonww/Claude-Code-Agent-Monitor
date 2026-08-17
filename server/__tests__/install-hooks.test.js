@@ -19,8 +19,20 @@ const path = require("path");
 const TMP_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-hooks-"));
 process.env.CLAUDE_HOME = TMP_HOME;
 const SETTINGS = path.join(TMP_HOME, "settings.json");
+const CODEX_HOME = path.join(TMP_HOME, "codex");
+const CODEX_HOOKS = path.join(CODEX_HOME, "hooks.json");
+process.env.DASHBOARD_CODEX_HOME = CODEX_HOME;
 
-const { installHooks, isInsideContainer } = require("../../scripts/install-hooks");
+const {
+  installHooks,
+  isInsideContainer,
+  getClaudeHookStatus,
+} = require("../../scripts/install-hooks");
+const {
+  HOOK_TYPES: CODEX_HOOK_TYPES,
+  getCodexHookStatus,
+  installCodexHooks,
+} = require("../../scripts/install-codex-hooks");
 
 const HOOK_TYPES = [
   "PreToolUse",
@@ -47,10 +59,19 @@ function rmSettings() {
   }
 }
 
+function rmCodexHooks() {
+  try {
+    fs.unlinkSync(CODEX_HOOKS);
+  } catch {
+    /* not present */
+  }
+}
+
 describe("install-hooks host-only guard (#193)", () => {
   beforeEach(() => {
     clearEnv();
     rmSettings();
+    rmCodexHooks();
   });
 
   after(() => {
@@ -104,11 +125,61 @@ describe("install-hooks host-only guard (#193)", () => {
     assert.equal(ours.length, 1, "must not duplicate our hook entry on re-run");
   });
 
+  it("reports partial dashboard hooks and unrelated hook configuration before installing", () => {
+    fs.writeFileSync(
+      SETTINGS,
+      JSON.stringify({
+        hooks: {
+          Stop: [{ hooks: [{ type: "command", command: "keep-me" }] }],
+          SessionStart: [
+            { hooks: [{ type: "command", command: "node /tmp/hook-handler.js SessionStart" }] },
+          ],
+        },
+      })
+    );
+    const status = getClaudeHookStatus();
+    assert.equal(status.installed, false);
+    assert.equal(status.has_dashboard_hooks, true);
+    assert.equal(status.has_existing_hooks, true);
+
+    fs.mkdirSync(CODEX_HOME, { recursive: true });
+    fs.writeFileSync(
+      CODEX_HOOKS,
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: "keep-me" }] }] } })
+    );
+    const codexStatus = getCodexHookStatus();
+    assert.equal(codexStatus.installed, false);
+    assert.equal(codexStatus.has_dashboard_hooks, false);
+    assert.equal(codexStatus.has_existing_hooks, true);
+  });
+
   it("isInsideContainer honors the force flags", () => {
     process.env.CCAM_FORCE_CONTAINER = "1";
     assert.equal(isInsideContainer(), true);
     delete process.env.CCAM_FORCE_CONTAINER;
     process.env.CCAM_FORCE_HOST = "1";
     assert.equal(isInsideContainer(), false);
+  });
+
+  it("installs and updates Codex entries without disturbing unrelated hooks", () => {
+    fs.mkdirSync(CODEX_HOME, { recursive: true });
+    fs.writeFileSync(
+      CODEX_HOOKS,
+      JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "keep-me" }] }] } })
+    );
+    const first = installCodexHooks({ silent: true });
+    const second = installCodexHooks({ silent: true });
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    assert.equal(second.replaced, true);
+    assert.equal(getCodexHookStatus().installed, true);
+    const config = JSON.parse(fs.readFileSync(CODEX_HOOKS, "utf8"));
+    assert.ok(config.hooks.Stop.some((entry) => JSON.stringify(entry).includes("keep-me")));
+    for (const type of CODEX_HOOK_TYPES) {
+      const ours = config.hooks[type].filter((entry) =>
+        JSON.stringify(entry).includes("codex-hook-handler.js")
+      );
+      assert.equal(ours.length, 1, `${type} should contain one dashboard hook`);
+    }
   });
 });

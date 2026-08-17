@@ -1,6 +1,20 @@
 {
   "title": "Phiên",
   "searchPlaceholder": "Tìm phiên...",
+  "directoryFilterLabel": "Thư mục dự án",
+  "allDirectories": "Tất cả dự án",
+  "selectedDirectories": "{{count}} dự án",
+  "directorySearchPlaceholder": "Lọc dự án...",
+  "noDirectoriesFound": "Không có dự án phù hợp",
+  "clearDirectories": "Xóa",
+  "sortTimeNewest": "Hoạt động gần nhất: mới nhất",
+  "sortTimeOldest": "Hoạt động gần nhất: cũ nhất",
+  "sortDurationLongest": "Thời lượng: dài nhất",
+  "sortDurationShortest": "Thời lượng: ngắn nhất",
+  "sortPriceHighest": "Chi phí: cao nhất",
+  "sortPriceLowest": "Chi phí: thấp nhất",
+  "sortDescending": "Thứ tự giảm dần",
+  "sortAscending": "Thứ tự tăng dần",
   "filterAll": "Tất cả",
   "filterActive": "Đang hoạt động",
   "filterWaiting": "Đang chờ",
@@ -11,7 +25,7 @@
   "sessionCount_plural": "Đã ghi nhận {{count}} phiên",
   "noSessions": "Không tìm thấy phiên",
   "noSessionsDesc": "Hãy thử điều chỉnh tìm kiếm hoặc bộ lọc.",
-  "noSessionsHint": "Bắt đầu một phiên Claude Code với hooks đã cài để theo dõi.",
+  "noSessionsHint": "Bắt đầu một phiên Agent được theo dõi với hooks đã cài để bắt đầu theo dõi.",
   "tableSession": "Phiên",
   "tableStatus": "Trạng thái",
   "tableLastActive": "Hoạt động gần nhất",
@@ -20,7 +34,39 @@
   "tableCost": "Chi phí",
   "tableDirectory": "Thư mục",
   "defaultName": "Phiên ",
+  "taskProgress": {
+    "title": "Tiến độ công việc",
+    "aria": "Tiến độ công việc: hoàn thành {{completed}} trên {{total}}",
+    "complete": "hoàn thành",
+    "completeCount": "{{completed}} / {{total}} hoàn thành · {{percent}}%",
+    "completeCountShort": "{{completed}} / {{total}} hoàn thành",
+    "current": "Đang làm: {{task}}",
+    "more_one": "+{{count}} công việc khác trong chi tiết phiên",
+    "more_other": "+{{count}} công việc khác trong chi tiết phiên",
+    "includesSubagents": "Bao gồm subagent",
+    "partialSource": "Suy ra từ sự kiện vòng đời công việc",
+    "owners": "Agent phụ trách",
+    "mainAgent": "Agent chính",
+    "doneCount_one": "{{count}} đã xong",
+    "doneCount_other": "{{count}} đã xong",
+    "remainingCount_one": "Còn lại {{count}}",
+    "remainingCount_other": "Còn lại {{count}}",
+    "hiddenTasks_one": "{{count}} công việc bổ sung không được hiển thị.",
+    "hiddenTasks_other": "{{count}} công việc bổ sung không được hiển thị.",
+    "status": {
+      "completed": "Đã hoàn thành",
+      "inProgress": "Đang thực hiện",
+      "pending": "Đang chờ",
+      "cancelled": "Đã hủy",
+      "unknown": "Không rõ"
+    }
+  },
+  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
   "detail": {
+    "waitingBanner": {
+      "title": "Đang chờ phản hồi của bạn",
+      "generic": "Phiên này đang tạm dừng cho đến khi bạn phản hồi trong terminal."
+    },
     "failedLoad": "Không thể tải phiên",
     "loading": "Đang tải phiên...",
     "notFound": "Không tìm thấy phiên",
@@ -30,6 +76,12 @@
     "unparented": "Subagent không có cha",
     "costBreakdown": "Phân rã chi phí",
     "eventTimeline": "Dòng thời gian sự kiện",
-    "noEvents": "Chưa có sự kiện được ghi nhận."
+    "noEvents": "Chưa có sự kiện được ghi nhận.",
+    "conversation": "Hội thoại",
+    "timeline": "Dòng thời gian ({{shown}}/{{total}})",
+    "transcriptNotFound": "Không tìm thấy bản ghi hội thoại cho agent này. Tệp transcript có thể bị thiếu hoặc chưa được liên kết.",
+    "transcript": {
+      "loadOlder": "↑ Tải các tin nhắn cũ hơn"
+    }
   }
 }

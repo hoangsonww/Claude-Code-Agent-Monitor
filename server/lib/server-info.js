@@ -5,8 +5,9 @@
  * The conventional port is 4820, and a plain `npm start` setup almost always
  * binds it. But more than one dashboard can run on a single machine — most
  * commonly the macOS desktop app side-by-side with `npm run dev`. The hook
- * handler should reach **every** live dashboard so each one keeps its
- * real-time stream, not just whichever started last.
+ * handler fans out to every live dashboard that uses a **different** SQLite
+ * data directory. Servers sharing the same `dataDir` receive hooks through a
+ * single lowest-port ingest target so events are never duplicated.
  *
  * The on-disk file is a JSON document under the Claude Code home directory.
  * Every server writes its own entry on startup, prunes any stale entries it
@@ -29,7 +30,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { getClaudeHome } = require("./claude-home");
+const { getClaudeHome, getDataDir } = require("./claude-home");
 
 /** Conventional dashboard port — used when discovery yields nothing. */
 const DEFAULT_PORT = 4820;
@@ -37,6 +38,34 @@ const DEFAULT_PORT = 4820;
 /** Absolute path of the discovery file. */
 function getServerInfoPath() {
   return path.join(getClaudeHome(), ".agent-dashboard.json");
+}
+
+/**
+ * Canonical absolute path for comparing data directories across processes.
+ * Falls back to `path.resolve` when the directory does not exist yet.
+ *
+ * @param {string} dir
+ * @returns {string}
+ */
+function normalizeDataDir(dir) {
+  if (!dir || typeof dir !== "string") return "";
+  try {
+    return fs.realpathSync(dir);
+  } catch {
+    return path.resolve(dir);
+  }
+}
+
+/**
+ * Grouping key for hook-ingest deduplication. Entries without `dataDir` are
+ * treated as unique (legacy servers before this field existed).
+ *
+ * @param {{ port: number, dataDir?: string }} server
+ * @returns {string}
+ */
+function ingestGroupKey(server) {
+  if (server.dataDir) return normalizeDataDir(server.dataDir);
+  return `__legacy__:${server.port}`;
 }
 
 /**
@@ -146,6 +175,7 @@ function writeServerInfo(port) {
       port,
       pid: process.pid,
       startedAt: new Date().toISOString(),
+      dataDir: normalizeDataDir(getDataDir()),
     };
     persist([...existing, ours]);
   } catch {
@@ -190,6 +220,56 @@ function resolveAllDashboardPorts() {
 }
 
 /**
+ * Ports that should receive hook POSTs. When several live servers share the
+ * same SQLite data directory, only the lowest port per directory is returned
+ * so parallel instances (Docker + dev, two terminals on the same DB) never
+ * double-ingest events.
+ *
+ * @returns {number[]}
+ */
+function resolveHookIngestPorts() {
+  const envPort = parseInt(process.env.CLAUDE_DASHBOARD_PORT || "", 10);
+  if (Number.isInteger(envPort) && envPort > 0) return [envPort];
+
+  const live = readInfoFile().filter(
+    (s) => Number.isInteger(s.port) && s.port > 0 && isPidAlive(s.pid)
+  );
+  if (live.length === 0) return [DEFAULT_PORT];
+
+  const byDataDir = new Map();
+  for (const server of live) {
+    const key = ingestGroupKey(server);
+    const prev = byDataDir.get(key);
+    if (!prev || server.port < prev.port) {
+      byDataDir.set(key, server);
+    }
+  }
+  return [...byDataDir.values()].map((s) => s.port).sort((a, b) => a - b);
+}
+
+/**
+ * Other live dashboard processes using the same SQLite data directory as this
+ * one. Used for startup warnings when multiple UIs point at one database.
+ *
+ * @returns {Array<{port: number, pid: number, startedAt: string}>}
+ */
+function peersSharingDataDir() {
+  try {
+    const mine = normalizeDataDir(getDataDir());
+    if (!mine) return [];
+    return readInfoFile().filter((s) => {
+      if (!Number.isInteger(s.port) || s.port <= 0) return false;
+      if (s.pid === process.pid) return false;
+      if (!isPidAlive(s.pid)) return false;
+      if (!s.dataDir) return false;
+      return normalizeDataDir(s.dataDir) === mine;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Single-port helper kept for callers that have always asked the file for
  * "the" port (e.g. legacy code paths and tests). Returns the first live
  * server's port, or the default if none are alive.
@@ -207,4 +287,9 @@ module.exports = {
   removeServerInfo,
   resolveDashboardPort,
   resolveAllDashboardPorts,
+  resolveHookIngestPorts,
+  peersSharingDataDir,
+  // Exported for tests.
+  normalizeDataDir,
+  ingestGroupKey,
 };

@@ -4,22 +4,31 @@ kind: Kustomization
 metadata:
   name: agent-monitor-staging
 
-namespace: agent-monitor
+namespace: agent-monitor-staging
 
 resources:
   - ../../base
 
 patches:
   - path: patches/deployment-patch.yaml
+  - target:
+      kind: Namespace
+      name: agent-monitor
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: agent-monitor-staging
+  - target:
+      kind: ConfigMap
+      name: agent-monitor-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: agent-monitor-config
+      data:
+        NODE_ENV: production
 
 images:
-  - name: ${IMAGE_REGISTRY}/agent-monitor
-    newName: agent-monitor
-    newTag: staging
-
-configMapGenerator:
-  - name: agent-monitor-config
-    behavior: merge
-    literals:
-      - NODE_ENV=staging
-      - LOG_LEVEL=info
+  - name: ccam-dashboard
+    newTag: 2.0.8

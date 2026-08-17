@@ -8,12 +8,14 @@
   "analytics": "分析",
   "workflows": "工作流",
   "alerts": "警报",
-  "ccConfig": "Claude 配置",
-  "run": "运行 Claude",
+  "ccConfig": "Agent 配置",
+  "run": "运行 Agent",
   "settings": "设置",
   "language": "语言",
   "github": "GitHub",
   "website": "网站",
+  "notFound": "未找到页面",
+  "skipToContent": "跳到主要内容",
   "expand": "展开侧边栏",
   "collapse": "收起侧边栏",
   "collapseShort": "收起",
@@ -56,12 +58,14 @@
     "en": "英文",
     "zh": "中文",
     "vi": "越南语",
-    "ko": "韩语"
+    "ko": "韩语",
+    "es": "西班牙语"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
-    "ko": "한국어"
+    "ko": "한국어",
+    "es": "ES"
   }
 }

@@ -5,6 +5,6 @@
   "resume": "继续",
   "pause": "暂停",
   "noActivity": "暂无活动",
-  "noActivityDesc": "Claude Code Agent工作时，事件将实时流式传输到此处。",
+  "noActivityDesc": "Agent 会话工作时，事件会实时显示在这里。",
   "viewSession": "会话"
 }

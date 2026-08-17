@@ -1,4 +1,5 @@
 ---
+name: session-compare
 description: >
   Compare two sessions side-by-side using Agent Monitor data — per-model
   token usage (input/output/cache_read/cache_write + compaction baselines),

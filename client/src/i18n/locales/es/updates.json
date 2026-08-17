@@ -1,0 +1,15 @@
+{
+  "title": "Actualización disponible",
+  "lead": "Hay una nueva versión del panel disponible. Para actualizar, ejecuta el siguiente comando en tu terminal:",
+  "commitsBehind": "{{count}} commit(s) detrás de {{ref}}",
+  "copy": "Copiar comando",
+  "commandLabel": "Comando de terminal para actualizar el panel",
+  "copied": "Copiado",
+  "dismiss": "Descartar",
+  "fetchError": "No se pudo alcanzar el repositorio remoto. Inténtalo de nuevo cuando estés en línea.",
+  "notGit": "Esta instalación no es un clon de git; usa una ruta de actualización manual.",
+  "restartNote": "Cuando termine el comando, cierra y reinicia el panel de la misma forma en que lo iniciaste: si usaste npm start, vuelve a ejecutar npm start.",
+  "checkNow": "Buscar ahora",
+  "checking": "Buscando...",
+  "checkError": "No se pudieron buscar actualizaciones"
+}

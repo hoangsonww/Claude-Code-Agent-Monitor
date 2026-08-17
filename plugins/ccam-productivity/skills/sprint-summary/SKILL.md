@@ -1,4 +1,5 @@
 ---
+name: sprint-summary
 description: >
   Summarize a sprint's worth of Claude Code activity — sessions grouped by
   project (cwd), per-model cost breakdown, token efficiency (cache hit rate,

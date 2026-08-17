@@ -1,0 +1,6 @@
+interface:
+  display_name: "Fleet Runs"
+  short_description: "Summarize Workflow-tool fleet runs from the Agent Monitor —..."
+  default_prompt: "Use $fleet-runs to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

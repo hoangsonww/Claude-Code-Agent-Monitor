@@ -89,6 +89,29 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
+  /* Visually hidden until focused — first Tab lands here before the sidebar. */
+  .skip-to-content {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 100;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid #363650;
+    background: #15151f;
+    color: #e4e4ed;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-decoration: none;
+    transform: translateY(-150%);
+    transition: transform 0.15s ease;
+  }
+  .skip-to-content:focus {
+    transform: translateY(0);
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+  }
 }
 
 @keyframes pulse-dot {

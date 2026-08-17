@@ -1,5 +1,5 @@
 # Optional dev-container image for Claude Code Agent Monitor.
-# Node 22 to match the production Dockerfile and the project's engines.
+# Node 24 LTS to match the production Dockerfile and recommended toolchain.
 # Adds the native-addon toolchain (better-sqlite3 builds via node-gyp) plus
 # Python 3 (statusline.py and helper scripts) and the sqlite3 CLI.
 #
@@ -7,7 +7,7 @@
 # (npm run dev / npm start) is unaffected.
 #
 # Author: Son Nguyen <hoangson091104@gmail.com>
-FROM mcr.microsoft.com/devcontainers/javascript-node:22
+FROM mcr.microsoft.com/devcontainers/javascript-node:24
 
 # node-gyp needs python3 + a C/C++ toolchain to compile better-sqlite3.
 # python-is-python3 makes `python` resolve to python3 for node-gyp.

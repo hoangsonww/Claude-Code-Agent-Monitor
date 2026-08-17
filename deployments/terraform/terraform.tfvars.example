@@ -1,0 +1,10 @@
+image_repository     = "ghcr.io/your-org/claude-code-agent-monitor"
+image_tag            = "sha-0123456789abcdef"
+allowed_hosts        = "agent-monitor.example.com"
+existing_secret_name = "agent-monitor-secrets"
+storage_class        = "your-cloud-csi-storage-class"
+hostname             = "agent-monitor.example.com"
+ingress_enabled      = true
+ingress_class_name   = "nginx"
+tls_secret_name      = "agent-monitor-tls"
+service_monitor_enabled = true

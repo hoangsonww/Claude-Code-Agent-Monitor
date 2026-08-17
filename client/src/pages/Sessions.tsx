@@ -1,11 +1,69 @@
 /**
  * @file Sessions.tsx
- * @description Displays a list of all recorded sessions with filtering, searching, and pagination features. Sessions are updated in real-time based on events received from the event bus.
+ * @description Displays all recorded sessions with searchable multi-project,
+ * status, text, and custom sort filters plus server-side pagination. Rows can
+ * show an accessible task-progress donut beside status and the local transient
+ * Codex startup row before its durable session id exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/pages/Sessions.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/eventBus`
+ * - `../lib/dataScope`
+ * - `../components/StatusBadge`
+ * - `../components/EmptyState`
+ * - `../components/Skeleton`
+ * - `../lib/format`
+ * - `../lib/types`
+ *
+ * ## Public surface
+ * - `Sessions` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Sessions**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
@@ -14,19 +72,39 @@ import {
   RefreshCw,
   SortDesc,
   SortAsc,
-  ChevronDown,
   Play,
+  Server,
 } from "lucide-react";
 import { api } from "../lib/api";
+import type { RemoteSource } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
+import { useDataScope } from "../lib/dataScope";
 import { SessionStatusBadge } from "../components/StatusBadge";
+import { TodoProgressIndicator } from "../components/TodoProgressIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
+import { MultiSelect } from "../components/MultiSelect";
+import { Select } from "../components/Select";
 import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
-import { effectiveSessionStatus, isSessionAwaitingInput } from "../lib/types";
+import {
+  effectiveSessionStatus,
+  isSessionAwaitingInput,
+  sessionAwaitingReason,
+} from "../lib/types";
 import type { Session, DashboardEvent } from "../lib/types";
 
 const PAGE_SIZE = 10;
+type SessionSort = "time" | "duration" | "price";
+
+function isTransientProcessSession(session: Session): boolean {
+  if (!session.metadata) return false;
+  try {
+    return JSON.parse(session.metadata)?.pre_identity_process === true;
+  } catch {
+    return false;
+  }
+}
 
 export function Sessions() {
   const navigate = useNavigate();
@@ -42,10 +120,16 @@ export function Sessions() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
 
-  const [cwd, setCwd] = useState("");
-  const [sortBy, setSortBy] = useState("time");
+  const [cwds, setCwds] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SessionSort>("time");
   const [sortDesc, setSortDesc] = useState(true);
   const [directories, setDirectories] = useState<string[]>([]);
+  // Global data scope (which source machines to show). Included in `load`'s deps
+  // so switching scope re-fetches; the actual `sources` param is injected by the
+  // api layer (see lib/api.ts applyScope).
+  const [scope] = useDataScope();
+  // source id → label, so remote-origin rows show a friendly badge.
+  const [sourceLabels, setSourceLabels] = useState<Map<string, string>>(() => new Map());
   // Set of session IDs that are currently being driven by an in-flight Run
   // handle on /run. Lets us badge those rows with a "Run" link.
   const [dashboardRunIds, setDashboardRunIds] = useState<Set<string>>(new Set());
@@ -75,23 +159,38 @@ export function Sessions() {
       .catch(console.error);
   }, []);
 
+  // Load remote-source labels so remote-origin rows can show a friendly badge
+  // instead of a raw `src_…` id. Refreshed when a source's status changes.
+  const loadSourceLabels = useCallback(() => {
+    api.remoteSources
+      .list()
+      .then((res: { sources: RemoteSource[] }) => {
+        setSourceLabels(new Map(res.sources.map((s) => [s.id, s.label])));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    loadSourceLabels();
+  }, [loadSourceLabels]);
+
   // Server-side pagination: only the visible page is fetched. Cost
   // computation on the server scales with PAGE_SIZE, not with the total
   // session count, so this stays cheap regardless of how many sessions
   // exist in the database.
   const load = useCallback(async () => {
     try {
-      // The "waiting" filter is a UI-only overlay derived from the
-      // awaiting_input_since column - the underlying SessionStatus is
-      // still "active". Map it to a client-side filter on top of the
-      // active set so paging/totals stay consistent with the visible rows.
+      // Waiting is a presentation state over active sessions, so preserve the
+      // existing client-side filter without expanding the server status enum.
       if (filter === "waiting") {
         const res = await api.sessions.list({
           status: "active",
           q: search || undefined,
-          cwd: cwd || undefined,
+          cwd: cwds.length > 0 ? cwds : undefined,
           sort_by: sortBy,
           sort_desc: sortDesc,
+          include_transient: page === 0,
+          include_task_progress: true,
           limit: 10000,
           offset: 0,
         });
@@ -103,9 +202,11 @@ export function Sessions() {
       const params: {
         status?: string;
         q?: string;
-        cwd?: string;
-        sort_by?: string;
+        cwd?: string[];
+        sort_by?: SessionSort;
         sort_desc?: boolean;
+        include_transient?: boolean;
+        include_task_progress?: boolean;
         limit: number;
         offset: number;
       } = {
@@ -113,17 +214,21 @@ export function Sessions() {
         offset: page * PAGE_SIZE,
         sort_by: sortBy,
         sort_desc: sortDesc,
+        include_transient: page === 0,
+        include_task_progress: true,
       };
       if (filter) params.status = filter;
       if (search) params.q = search;
-      if (cwd) params.cwd = cwd;
+      if (cwds.length > 0) params.cwd = cwds;
       const res = await api.sessions.list(params);
       setSessions(res.sessions);
       setTotal(res.total);
     } finally {
       setLoading(false);
     }
-  }, [filter, search, cwd, sortBy, sortDesc, page]);
+    // `scope` is a dep so a data-scope change re-fetches; the api layer injects
+    // the matching `sources` param.
+  }, [filter, search, cwds, sortBy, sortDesc, page, scope]);
 
   useEffect(() => {
     load();
@@ -132,7 +237,7 @@ export function Sessions() {
   // Reset to page 0 whenever filters or sort changes.
   useEffect(() => {
     setPage(0);
-  }, [filter, search, cwd, sortBy, sortDesc]);
+  }, [filter, search, cwds, sortBy, sortDesc]);
 
   useEffect(() => {
     return eventBus.subscribe((msg) => {
@@ -141,15 +246,32 @@ export function Sessions() {
       }
       if (msg.type === "new_event") {
         const ev = msg.data as DashboardEvent;
-        if (ev.event_type === "Stop" || ev.event_type === "SessionEnd") {
+        if (
+          ev.event_type === "Stop" ||
+          ev.event_type === "SessionEnd" ||
+          ev.event_type === "TaskCreated" ||
+          ev.event_type === "TaskCompleted" ||
+          ["TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TodoWrite", "update_plan"].includes(
+            ev.tool_name || ""
+          )
+        ) {
           load();
         }
       }
       if (msg.type === "run_status") {
         loadDashboardRuns();
       }
+      // A remote source finished syncing: new remote sessions may have landed.
+      if (msg.type === "remote_source.status") {
+        loadSourceLabels();
+        if (isRemoteDataRefreshMessage(msg)) load();
+      } else if (isRemoteDataRefreshMessage(msg)) {
+        load();
+      }
     });
-  }, [load]);
+    // loadDashboardRuns is a stable useCallback declared below; referenced at
+    // event time only (not in deps) to avoid a temporal-dead-zone at render.
+  }, [load, loadSourceLabels]);
 
   // Pull active Run handles so we can mark which sessions are being driven
   // from /run right now. Refresh on mount, on run_status WS messages, and
@@ -177,8 +299,15 @@ export function Sessions() {
   // The server already paginates, so the rendered page IS the loaded list.
   const paged = sessions;
   const filtered = sessions; // kept for empty-state checks below
+  const displayedTotal =
+    total + (filter === "waiting" ? 0 : sessions.filter(isTransientProcessSession).length);
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
+  const SORT_OPTIONS: Array<{ label: string; value: SessionSort }> = [
+    { label: t(sortDesc ? "sortTimeNewest" : "sortTimeOldest"), value: "time" },
+    { label: t(sortDesc ? "sortDurationLongest" : "sortDurationShortest"), value: "duration" },
+    { label: t(sortDesc ? "sortPriceHighest" : "sortPriceLowest"), value: "price" },
+  ];
 
   return (
     <div className="animate-fade-in">
@@ -202,13 +331,13 @@ export function Sessions() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500">
-              {t("sessionCount", { count: total })}
+            <p className="text-xs text-gray-500" aria-live="polite" aria-atomic="true">
+              {t("sessionCount", { count: displayedTotal })}
               {filter ? ` ${filter}` : ""}
             </p>
           </div>
         </div>
-        <button onClick={load} className="btn-ghost flex-shrink-0">
+        <button type="button" onClick={load} className="btn-ghost flex-shrink-0">
           <RefreshCw className="w-4 h-4" /> {t("common:refresh")}
         </button>
       </div>
@@ -220,6 +349,7 @@ export function Sessions() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
+            aria-label={t("searchPlaceholder")}
             placeholder={t("searchPlaceholder")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -228,43 +358,33 @@ export function Sessions() {
         </div>
 
         {/* Directory Selector */}
-        <div className="relative shrink-0 w-[180px]">
-          <select
-            value={cwd}
-            onChange={(e) => setCwd(e.target.value)}
-            className="input w-full text-ellipsis bg-surface-1 pr-9 appearance-none cursor-pointer"
-          >
-            <option value="">All Directories</option>
-            {directories.map((d) => (
-              <option key={d} value={d} title={d}>
-                {truncate(d, 30)}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+        <div className="w-full shrink-0 sm:w-[280px] lg:w-[300px]">
+          <MultiSelect
+            label={t("directoryFilterLabel")}
+            options={directories.map((directory) => ({ value: directory, label: directory }))}
+            value={cwds}
+            onChange={setCwds}
+            allLabel={t("allDirectories")}
+            selectedCountLabel={(count) => t("selectedDirectories", { count })}
+            searchPlaceholder={t("directorySearchPlaceholder")}
+            emptyLabel={t("noDirectoriesFound")}
+            clearLabel={t("clearDirectories")}
+          />
         </div>
 
         {/* Sort Controls */}
         <div className="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]">
-          <div className="relative flex-1">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent w-full text-sm text-gray-200 outline-none pl-3 pr-8 appearance-none cursor-pointer whitespace-nowrap"
-            >
-              <option value="time">Sort by Time ({sortDesc ? "Newest" : "Oldest"})</option>
-              <option value="duration">
-                Sort by Duration ({sortDesc ? "Longest" : "Shortest"})
-              </option>
-              <option value="price">Sort by Price ({sortDesc ? "Highest" : "Lowest"})</option>
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+          <div className="flex-1">
+            <Select<SessionSort> value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
           </div>
           <div className="w-px h-4 bg-border mx-1" />
           <button
+            type="button"
             onClick={() => setSortDesc(!sortDesc)}
+            aria-pressed={sortDesc}
             className="p-1.5 rounded hover:bg-surface-3 text-gray-400 hover:text-gray-200 transition-colors shrink-0"
-            title={sortDesc ? "Descending" : "Ascending"}
+            title={sortDesc ? t("sortDescending") : t("sortAscending")}
+            aria-label={sortDesc ? t("sortDescending") : t("sortAscending")}
           >
             {sortDesc ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
           </button>
@@ -275,7 +395,9 @@ export function Sessions() {
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
+              type="button"
               onClick={() => setFilter(opt.value)}
+              aria-pressed={filter === opt.value}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                 filter === opt.value
                   ? "bg-surface-4 text-gray-200"
@@ -292,7 +414,9 @@ export function Sessions() {
         <EmptyState
           icon={FolderOpen}
           title={t("noSessions")}
-          description={search || filter || cwd ? t("noSessionsDesc") : t("noSessionsHint")}
+          description={
+            search || filter || cwds.length > 0 ? t("noSessionsDesc") : t("noSessionsHint")
+          }
         />
       ) : (
         <>
@@ -337,15 +461,35 @@ export function Sessions() {
                 {paged.map((session) => (
                   <tr
                     key={session.id}
-                    onClick={() => navigate(`/sessions/${session.id}`)}
-                    className="hover:bg-surface-4 transition-colors cursor-pointer group"
+                    onClick={
+                      isTransientProcessSession(session)
+                        ? undefined
+                        : () => navigate(`/sessions/${session.id}`)
+                    }
+                    className={`hover:bg-surface-4 transition-colors group ${
+                      isTransientProcessSession(session) ? "cursor-default" : "cursor-pointer"
+                    }`}
                   >
                     <td className="px-5 py-4">
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-200">
                             {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
                           </p>
+                          <p className="text-[11px] text-gray-600 font-mono">
+                            {session.id.slice(0, 12)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {session.source && session.source !== "local" && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
+                              title={t("remoteSourceBadgeTitle", "Collected from a remote machine")}
+                            >
+                              <Server className="w-2.5 h-2.5" />
+                              {sourceLabels.get(session.source) || session.source}
+                            </span>
+                          )}
                           {dashboardRunIds.has(session.id) && (
                             <Link
                               to={`/run?session=${encodeURIComponent(session.id)}`}
@@ -358,13 +502,19 @@ export function Sessions() {
                             </Link>
                           )}
                         </div>
-                        <p className="text-[11px] text-gray-600 font-mono">
-                          {session.id.slice(0, 12)}
-                        </p>
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <SessionStatusBadge status={effectiveSessionStatus(session)} />
+                      <div className="flex items-center gap-2">
+                        <SessionStatusBadge
+                          status={effectiveSessionStatus(session)}
+                          reason={sessionAwaitingReason(session)}
+                          provider={session.provider}
+                        />
+                        {session.todo_summary && (
+                          <TodoProgressIndicator progress={session.todo_summary} />
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-400">
                       {formatDateTime(session.last_activity || session.started_at)}
@@ -387,7 +537,9 @@ export function Sessions() {
                       {session.cwd ? truncate(session.cwd, 30) : "-"}
                     </td>
                     <td className="px-3 py-4">
-                      <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+                      {!isTransientProcessSession(session) && (
+                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -405,6 +557,7 @@ export function Sessions() {
               </span>
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="px-3 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -415,6 +568,7 @@ export function Sessions() {
                   {page + 1} / {totalPages}
                 </span>
                 <button
+                  type="button"
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="px-3 py-1.5 text-xs font-medium rounded-md bg-surface-2 text-gray-400 hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed"

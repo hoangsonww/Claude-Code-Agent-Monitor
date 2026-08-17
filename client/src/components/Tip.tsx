@@ -1,22 +1,85 @@
 /**
  * @file Tip.tsx
- * @description A reusable React component that displays a tooltip with custom content when the user hovers over the wrapped children.
- * Tooltip follows the cursor position and uses a portal to avoid clipping by parent overflow or screen edges.
+ * @description Cursor-following tooltip for revealing extra detail on hover — used
+ * by {@link StatCard} for raw metric values and anywhere a compact display needs
+ * a full-precision expansion without cluttering the layout.
+ *
+ * ## Portal rendering
+ * Tooltip content is portaled to `document.body` with `position: fixed` so
+ * parent `overflow: hidden` cannot clip it. Placement flips left/up when the
+ * cursor is near viewport edges.
+ *
+ * ## No-op mode
+ * When `raw` is omitted the component returns `children` unchanged — callers
+ * do not need conditional wrappers.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/Tip.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Public surface
+ * - `Tip` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Tip**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 
+/** Props for {@link Tip}. */
 interface TipProps {
+  /** Tooltip body; when absent, only `children` are rendered. */
   raw?: string;
+  /** Element that triggers the tooltip on hover. */
   children: React.ReactNode;
-  /** Override max width of tooltip (px). Default 320 */
+  /** Max tooltip width in pixels. Default `320`. */
   maxWidth?: number;
-  /** Render wrapper as block-level div instead of inline span. Use when wrapping full-width elements. */
+  /** Use a block-level wrapper instead of inline `span` for full-width targets. */
   block?: boolean;
 }
 
+/**
+ * Hover tooltip anchored to the mouse cursor.
+ * @param props See {@link TipProps}.
+ */
 export function Tip({ raw, children, maxWidth = 320, block = false }: TipProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });

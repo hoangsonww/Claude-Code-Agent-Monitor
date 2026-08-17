@@ -14,6 +14,10 @@
  *   4. A malformed intro_until is rejected with 400 and writes nothing.
  *   5. Editing standard rates never disturbs the intro block.
  *
+ * It also covers the route's numeric-rate validation: any present rate field
+ * must be a non-negative finite number, else the PUT is rejected with 400 and
+ * nothing is written (NaN/negative rates would corrupt all cost math).
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -172,5 +176,72 @@ describe("PUT /api/pricing — introductory rate editing", () => {
     assert.equal(row.intro_until, null);
     assert.equal(row.intro_input_per_mtok, 0);
     assert.equal(row.intro_output_per_mtok, 0);
+  });
+});
+
+describe("PUT /api/pricing — numeric rate validation", () => {
+  it("rejects a non-numeric rate without mutating the row", async () => {
+    const before = stmts.getPricing.get(PATTERN);
+    const res = await fetch("/api/pricing", {
+      method: "PUT",
+      body: {
+        model_pattern: PATTERN,
+        display_name: "Test Promo Model",
+        input_per_mtok: "abc",
+        output_per_mtok: 16,
+      },
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+    assert.match(res.body.error.message, /input_per_mtok/);
+    assert.deepEqual(stmts.getPricing.get(PATTERN), before);
+  });
+
+  it("rejects a negative rate without mutating the row", async () => {
+    const before = stmts.getPricing.get(PATTERN);
+    const res = await fetch("/api/pricing", {
+      method: "PUT",
+      body: {
+        model_pattern: PATTERN,
+        display_name: "Test Promo Model",
+        input_per_mtok: 4,
+        output_per_mtok: -1,
+      },
+    });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error.message, /output_per_mtok/);
+    assert.deepEqual(stmts.getPricing.get(PATTERN), before);
+  });
+
+  it("rejects NaN in intro and fast rate fields too", async () => {
+    for (const field of ["fast_input_per_mtok", "intro_output_per_mtok"]) {
+      const res = await fetch("/api/pricing", {
+        method: "PUT",
+        body: {
+          model_pattern: PATTERN,
+          display_name: "Test Promo Model",
+          intro_until: "2026-12-31",
+          [field]: "not-a-number",
+        },
+      });
+      assert.equal(res.status, 400, `${field} should be rejected`);
+      assert.match(res.body.error.message, new RegExp(field));
+    }
+  });
+
+  it("accepts numeric strings by coercing them to numbers", async () => {
+    const res = await fetch("/api/pricing", {
+      method: "PUT",
+      body: {
+        model_pattern: PATTERN,
+        display_name: "Test Promo Model",
+        input_per_mtok: "4.5",
+        output_per_mtok: "18",
+      },
+    });
+    assert.equal(res.status, 200);
+    const row = stmts.getPricing.get(PATTERN);
+    assert.equal(row.input_per_mtok, 4.5);
+    assert.equal(row.output_per_mtok, 18);
   });
 });

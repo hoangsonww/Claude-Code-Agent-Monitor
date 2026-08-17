@@ -4,9 +4,12 @@
  * Seeds the database with sample data for development and demo purposes.
  *
  * Default behavior is ADDITIVE and IDEMPOTENT:
- *   node scripts/seed.js              Insert the two stable test fixtures
- *                                     (single-agent + deeply-nested). Re-runs
- *                                     are no-ops if fixtures already exist.
+ *   node scripts/seed.js              Insert the three stable test fixtures
+ *                                     (single-agent, deeply-nested, and a
+ *                                     waiting-on-input session that exercises
+ *                                     the Waiting badge / reason chip /
+ *                                     banner UI). Re-runs are no-ops if
+ *                                     fixtures already exist.
  *
  *   node scripts/seed.js --full       Also insert the random/demo sessions
  *                                     (old behavior; produces unbounded data
@@ -35,6 +38,10 @@ const FIXTURES = {
     sessionId: "demo-solo-0001-0001-0001-000000000001",
     mainAgentId: "demo-solo-0001-main",
   },
+  waiting: {
+    sessionId: "demo-waiting-0001-0001-0001-000000000001",
+    mainAgentId: "demo-waiting-0001-main",
+  },
   nested: {
     sessionId: "demo-nested-0001-0001-0001-000000000001",
     mainAgentId: "demo-nested-0001-main",
@@ -51,7 +58,11 @@ const FIXTURES = {
   },
 };
 
-const FIXTURE_SESSION_IDS = [FIXTURES.solo.sessionId, FIXTURES.nested.sessionId];
+const FIXTURE_SESSION_IDS = [
+  FIXTURES.solo.sessionId,
+  FIXTURES.waiting.sessionId,
+  FIXTURES.nested.sessionId,
+];
 
 const args = new Set(process.argv.slice(2));
 const FULL = args.has("--full");
@@ -137,7 +148,7 @@ function deleteFixtureRows() {
   tx();
 }
 
-// ── Stable fixtures (the two test cases for AgentCard click behavior) ──────
+// ── Stable fixtures (AgentCard click behavior + the Waiting overlay demo) ──
 function seedFixtures() {
   const result = { inserted: [], skipped: [] };
 
@@ -172,7 +183,41 @@ function seedFixtures() {
       result.inserted.push("Single Agent: Quick Hotfix");
     }
 
-    // 2. Deeply-nested session (depth 4, branching — click PARENT toggles, LEAF navigates)
+    // 2. Waiting-on-input session — exercises the yellow Waiting overlay end
+    //    to end: awaiting_input_since + awaiting_reason drive the Waiting
+    //    badge, the reason chip/tooltip (urgent "notification" → amber), the
+    //    Kanban Waiting column, and SessionDetail's waiting-for-input banner.
+    if (sessionExists(FIXTURES.waiting.sessionId)) {
+      result.skipped.push("Waiting Demo: Permission Prompt");
+    } else {
+      stmts.insertSession.run(
+        FIXTURES.waiting.sessionId,
+        "Waiting Demo: Permission Prompt",
+        "active",
+        "/home/dev/waiting-demo",
+        "claude-opus-4-6",
+        null
+      );
+      stmts.insertAgent.run(
+        FIXTURES.waiting.mainAgentId,
+        FIXTURES.waiting.sessionId,
+        "Main Agent",
+        "main",
+        null,
+        "waiting",
+        "Blocked on a permission prompt (Bash: npm publish)",
+        null,
+        null
+      );
+      // Stamp the awaiting overlay a few minutes in the past so the banner's
+      // "how long" readout shows something real on first render.
+      const awaitingTs = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+      stmts.setSessionAwaitingInput.run(awaitingTs, "notification", FIXTURES.waiting.sessionId);
+      stmts.setAgentAwaitingInput.run(awaitingTs, "notification", FIXTURES.waiting.mainAgentId);
+      result.inserted.push("Waiting Demo: Permission Prompt");
+    }
+
+    // 3. Deeply-nested session (depth 4, branching — click PARENT toggles, LEAF navigates)
     if (sessionExists(FIXTURES.nested.sessionId)) {
       result.skipped.push("Deep Nesting: Multi-Agent Research Pipeline");
     } else {
@@ -582,6 +627,7 @@ function main() {
   console.log("");
   console.log("Test URLs:");
   console.log(`  Single-agent:   /sessions/${FIXTURES.solo.sessionId}`);
+  console.log(`  Waiting (reason): /sessions/${FIXTURES.waiting.sessionId}`);
   console.log(`  Nested (depth 4): /sessions/${FIXTURES.nested.sessionId}`);
 }
 

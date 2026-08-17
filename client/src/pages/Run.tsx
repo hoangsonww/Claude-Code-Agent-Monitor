@@ -1,7 +1,9 @@
 /**
  * @file Run.tsx
- * @description Lets the user spawn a Claude Code subprocess from inside the
- * dashboard. Two modes:
+ * @description Lets the user run Claude Code or Codex interactively from the
+ * dashboard. Claude supports conversation and one-shot modes; Codex uses its
+ * native app-server thread protocol for multi-turn conversation, tool events,
+ * interruption, and session resumption.
  *   - Conversation: multi-turn, follow-up input box appears once running.
  *     Optionally resumes an existing session via `claude --resume <id>`.
  *   - One-shot (headless): single prompt, single response, stdin closes.
@@ -23,10 +25,62 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/pages/Run.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/types`
+ * - `../lib/eventBus`
+ * - `../components/conversation/MarkdownContent`
+ * - `../components/Select`
+ *
+ * ## Public surface
+ * - `Run` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Run**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Play,
@@ -64,15 +118,19 @@ import {
   Activity,
   Eye,
 } from "lucide-react";
-import { api, RUN_MODEL_CHOICES, RUN_EFFORT_CHOICES } from "../lib/api";
+import { api, RUN_EFFORT_CHOICES } from "../lib/api";
 import type {
+  CodexApprovalPolicy,
+  CodexSandbox,
   CwdSuggestion,
   DashboardRunHistoryItem,
   EffortLevel,
+  ModelChoice,
   PermissionMode,
   RunHandle,
   RunListResponse,
   RunMode,
+  RunProvider,
   RunStatus,
 } from "../lib/api";
 import type { Session, TranscriptMessage, TranscriptContent } from "../lib/types";
@@ -137,6 +195,12 @@ type Envelope =
   | SystemInit
   | ResultEnvelope
   | { type: string; [k: string]: unknown };
+
+interface CodexEventEnvelope {
+  type: "codex_event";
+  method: string;
+  params?: Record<string, unknown>;
+}
 
 // Convert past-session transcript messages into envelope shapes so the chat
 // view can render the prior conversation alongside live output from the
@@ -242,6 +306,14 @@ function findLastStreamingAssistant(prev: Envelope[]): number {
   return -1;
 }
 
+function findLastCodexAssistant(prev: Envelope[], itemId: string): number {
+  for (let i = prev.length - 1; i >= 0; i--) {
+    const candidate = prev[i] as { type?: string; itemId?: string };
+    if (candidate.type === "codex_assistant" && candidate.itemId === itemId) return i;
+  }
+  return -1;
+}
+
 function findAssistantByMessageId(prev: Envelope[], id: string | undefined): number {
   if (!id) return findLastStreamingAssistant(prev);
   for (let i = prev.length - 1; i >= 0; i--) {
@@ -269,6 +341,78 @@ function mutateAssistantAt(
 function mergeEnvelope(prev: Envelope[], envelope: Envelope): Envelope[] {
   if (!envelope || typeof envelope !== "object") return prev;
   const env = envelope as { type?: string };
+
+  if (env.type === "codex_event") {
+    const codex = envelope as unknown as CodexEventEnvelope;
+    const params = codex.params || {};
+    const item = params.item as Record<string, unknown> | undefined;
+    if (codex.method === "item/agentMessage/delta") {
+      const itemId = String(params.itemId || "");
+      const delta = String(params.delta || "");
+      const index = findLastCodexAssistant(prev, itemId);
+      if (index >= 0) {
+        const next = [...prev];
+        const prior = next[index] as { type: string; text: string };
+        next[index] = { ...prior, text: `${prior.text}${delta}` } as Envelope;
+        return next;
+      }
+      return [
+        ...prev,
+        { type: "codex_assistant", itemId, text: delta, streaming: true } as Envelope,
+      ];
+    }
+    if (codex.method === "item/completed" && item) {
+      const itemType = item.type;
+      if (itemType === "agentMessage") {
+        const itemId = String(item.id || "");
+        const index = findLastCodexAssistant(prev, itemId);
+        const complete = {
+          type: "codex_assistant",
+          itemId,
+          text: String(item.text || ""),
+          streaming: false,
+        } as Envelope;
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = complete;
+          return next;
+        }
+        return [...prev, complete];
+      }
+      if (itemType === "reasoning") {
+        const content = Array.isArray(item.content)
+          ? item.content.map((part) => String((part as { text?: string }).text || part)).join("\n")
+          : String(item.text || item.summary || "");
+        return content ? [...prev, { type: "codex_reasoning", text: content } as Envelope] : prev;
+      }
+      if (itemType === "commandExecution") {
+        return [
+          ...prev,
+          {
+            type: "codex_tool",
+            name: "Command",
+            command: item.command,
+            cwd: item.cwd,
+            output: item.aggregatedOutput,
+            exitCode: item.exitCode,
+            status: item.status,
+          } as Envelope,
+        ];
+      }
+      if (itemType === "fileChange") {
+        return [
+          ...prev,
+          {
+            type: "codex_tool",
+            name: "File changes",
+            changes: item.changes || item,
+            status: item.status,
+          } as Envelope,
+        ];
+      }
+    }
+    return prev;
+  }
 
   if (env.type === "stream_event") {
     const sse = envelope as StreamEventEnvelope;
@@ -534,12 +678,22 @@ function useTypewriterEnvelopes(envelopes: Envelope[]): Envelope[] {
 
 export function Run() {
   const { t } = useTranslation("run");
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
+  // The choice dialog is intentionally shown on every page mount. The header
+  // remains a fast switcher once a provider is selected for this visit.
+  const [provider, setProvider] = useState<RunProvider | null>(null);
   const [mode, setMode] = useState<RunMode>("conversation");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("");
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("acceptEdits");
+  const [models, setModels] = useState<ModelChoice[]>([]);
+  const [modelsSource, setModelsSource] = useState<string | null>(null);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode | CodexApprovalPolicy>(
+    "acceptEdits"
+  );
+  const [sandbox, setSandbox] = useState<CodexSandbox>("workspace-write");
   const [effort, setEffort] = useState<EffortLevel>("");
   const [cwd, setCwd] = useState("");
   const [resumeSession, setResumeSession] = useState<Session | null>(null);
@@ -551,18 +705,17 @@ export function Run() {
   const [error, setError] = useState<string | null>(null);
   const [activeRuns, setActiveRuns] = useState<RunListResponse | null>(null);
   const [runHistory, setRunHistory] = useState<DashboardRunHistoryItem[]>([]);
-  const [binaryStatus, setBinaryStatus] = useState<{ found: boolean; path: string | null } | null>(
-    null
-  );
+  const [binaryStatus, setBinaryStatus] = useState<{
+    found: boolean;
+    path: string | null;
+    provider: RunProvider;
+  } | null>(null);
   const [cwdSuggestions, setCwdSuggestions] = useState<CwdSuggestion[]>([]);
   const [slashCommands, setSlashCommands] = useState<SlashCommand[]>(BUILTIN_SLASH_COMMANDS);
 
-  // Pre-flight: probe binary + active runs + cwd suggestions on mount
+  // Pre-flight: active runs + cwd suggestions on mount. The binary and live
+  // model catalog are fetched only after the user chooses a provider.
   useEffect(() => {
-    api.run
-      .binary()
-      .then(setBinaryStatus)
-      .catch(() => setBinaryStatus({ found: false, path: null }));
     api.run
       .list()
       .then(setActiveRuns)
@@ -614,6 +767,32 @@ export function Run() {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!provider) return;
+    setBinaryStatus(null);
+    setModels([]);
+    setModelsSource(null);
+    setModelsLoading(true);
+    api.run
+      .binary(provider)
+      .then(setBinaryStatus)
+      .catch(() => setBinaryStatus({ found: false, path: null, provider }));
+    api.run
+      .models(provider)
+      .then((response) => {
+        setModels(response.items);
+        setModelsSource(response.source);
+        const defaultModel = response.items.find((item) => item.isDefault)?.id;
+        setModel((current) => current || defaultModel || "");
+      })
+      .catch(() => setModels([]))
+      .finally(() => setModelsLoading(false));
+    setMode("conversation");
+    setPermissionMode(provider === "codex" ? "on-request" : "acceptEdits");
+    setSandbox("workspace-write");
+    setResumeSession(null);
+  }, [provider]);
 
   const refreshList = useCallback(() => {
     api.run
@@ -676,9 +855,11 @@ export function Run() {
           api.run.start({
             prompt: "",
             mode: "conversation",
+            provider: item.provider,
             cwd: item.cwd || undefined,
             model: item.model || undefined,
             permissionMode: item.permission_mode || undefined,
+            sandbox: item.sandbox || undefined,
             effort: item.effort || undefined,
             resumeSessionId: item.session_id,
           }),
@@ -687,6 +868,7 @@ export function Run() {
             .catch(() => ({ messages: [] as TranscriptMessage[] })),
         ]);
         setHandle(fetched);
+        setProvider(item.provider);
         setEnvelopes(transcriptToEnvelopes(transcript.messages));
         setFollowUp("");
         setResumeSession(null);
@@ -715,11 +897,13 @@ export function Run() {
         const transcript = await api.sessions.transcript(item.session_id, { limit: 200 });
         const synthetic: RunHandle = {
           id: item.id,
+          provider: item.provider,
           pid: null,
           mode: item.mode,
           cwd: item.cwd,
           model: item.model,
           permissionMode: item.permission_mode || "acceptEdits",
+          sandbox: item.sandbox,
           effort: item.effort,
           prompt: item.prompt_preview || "",
           argv: [],
@@ -736,6 +920,7 @@ export function Run() {
           stderrTail: "",
         };
         setHandle(synthetic);
+        setProvider(item.provider);
         setEnvelopes(transcriptToEnvelopes(transcript.messages));
         setMode(item.mode);
         setFollowUp("");
@@ -754,7 +939,7 @@ export function Run() {
       if (msg.type === "run_stream") {
         const p = msg.data as RunStreamPayload;
         if (handle && p.id === handle.id) {
-          // React 18 auto-batches async setStates, which collapses bursts of
+          // React auto-batches async setStates, which collapses bursts of
           // stream_event deltas (and the final `assistant` envelope that
           // follows them) into a single render - visually erasing the
           // streaming effect. flushSync forces a commit per envelope so the
@@ -821,6 +1006,8 @@ export function Run() {
         cwd: effectiveCwd,
         model: model || undefined,
         permissionMode,
+        provider: provider || "claude",
+        sandbox: provider === "codex" ? sandbox : undefined,
         resumeSessionId: resumeSession?.id,
         effort: effort || undefined,
       });
@@ -834,7 +1021,20 @@ export function Run() {
     } finally {
       setBusy(null);
     }
-  }, [prompt, mode, cwd, model, permissionMode, busy, refreshList, t, resumeSession]);
+  }, [
+    prompt,
+    mode,
+    cwd,
+    model,
+    permissionMode,
+    provider,
+    sandbox,
+    busy,
+    refreshList,
+    t,
+    resumeSession,
+    slashCommands,
+  ]);
 
   const attachToRun = useCallback(
     async (id: string) => {
@@ -874,6 +1074,7 @@ export function Run() {
         }
 
         setHandle(fetched);
+        setProvider(fetched.provider);
         setEnvelopes(envelopesToUse);
         setFollowUp("");
       } catch (err: unknown) {
@@ -975,7 +1176,7 @@ export function Run() {
     setError(null);
     try {
       const expanded = await maybeExpandSlashCommand(followUp, slashCommands);
-      await api.run.send(handle.id, expanded);
+      await api.run.send(handle.id, expanded, handle.provider);
       // The user envelope is appended optimistically when the WS ack arrives
       // (so deduping is consistent with stream order). Clear the input now.
       setFollowUp("");
@@ -1029,6 +1230,13 @@ export function Run() {
       }
     >
       <Header
+        provider={provider || "claude"}
+        providerLocked={!!handle}
+        onProviderChange={(next) => {
+          if (handle) return;
+          setProvider(next);
+          setModel("");
+        }}
         activeRuns={activeRuns}
         currentHandleId={handle?.id || null}
         onAttach={attachToRun}
@@ -1039,10 +1247,17 @@ export function Run() {
         onRefresh={refreshList}
       />
 
-      {binaryStatus && !binaryStatus.found && (
+      {provider && binaryStatus && !binaryStatus.found && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex items-center gap-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{t("binary.missing")}</span>
+          <span>
+            {provider === "codex"
+              ? t(
+                  "binary.missingCodex",
+                  "The `codex` CLI isn't on your PATH. Install Codex CLI or set PATH so the dashboard can spawn it."
+                )
+              : t("binary.missing")}
+          </span>
         </div>
       )}
 
@@ -1059,11 +1274,26 @@ export function Run() {
         </div>
       )}
 
-      {!handle && <LimitationsBanner />}
+      {!provider && (
+        <ProviderChooser
+          onChoose={setProvider}
+          onCancel={() => {
+            // A direct deep-link to /run still has the browser's initial
+            // about:blank entry. React Router records an `idx` only for
+            // actual app navigation, so do not send a first-time visitor
+            // back to that blank entry.
+            if (Number(window.history.state?.idx) > 0) navigate(-1);
+            else navigate("/", { replace: true });
+          }}
+        />
+      )}
 
-      {!handle ? (
+      {provider && !handle && <LimitationsBanner />}
+
+      {provider && !handle ? (
         // Config card uses normal page flow - page scrolls if needed.
         <ConfigCard
+          provider={provider}
           mode={mode}
           onModeChange={(m) => {
             setMode(m);
@@ -1080,6 +1310,11 @@ export function Run() {
           onModelChange={setModel}
           permissionMode={permissionMode}
           onPermissionModeChange={setPermissionMode}
+          sandbox={sandbox}
+          onSandboxChange={setSandbox}
+          models={models}
+          modelsLoading={modelsLoading}
+          modelsSource={modelsSource}
           effort={effort}
           onEffortChange={setEffort}
           binaryFound={binaryStatus?.found ?? true}
@@ -1092,7 +1327,7 @@ export function Run() {
           runHistory={runHistory}
           onResumeFromHistory={onResumeFromHistory}
         />
-      ) : (
+      ) : handle ? (
         // Run session is wrapped in a flex container so its inner chat panel
         // can take all remaining viewport height; long chats scroll inside.
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1111,7 +1346,7 @@ export function Run() {
             slashCommands={slashCommands}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1913,6 +2148,9 @@ function PromptEditor({
 // ── Header ────────────────────────────────────────────────────────────
 
 function Header({
+  provider,
+  providerLocked,
+  onProviderChange,
   activeRuns,
   currentHandleId,
   onAttach,
@@ -1922,6 +2160,9 @@ function Header({
   onViewFromHistory,
   onRefresh,
 }: {
+  provider: RunProvider;
+  providerLocked: boolean;
+  onProviderChange: (provider: RunProvider) => void;
   activeRuns: RunListResponse | null;
   currentHandleId: string | null;
   onAttach: (id: string) => void;
@@ -1952,8 +2193,13 @@ function Header({
               {tCommon("offline")}
             </span>
           )}
+          <RunProviderToggle
+            value={provider}
+            disabled={providerLocked}
+            onChange={onProviderChange}
+          />
         </div>
-        <p className="text-xs text-gray-500 max-w-3xl">{t("subtitle")}</p>
+        <p className="text-xs text-gray-500 max-w-3xl">{t(`provider.${provider}.subtitle`)}</p>
       </div>
       <ActiveRunsSwitcher
         activeRuns={activeRuns}
@@ -1965,6 +2211,109 @@ function Header({
         onRefresh={onRefresh}
       />
     </header>
+  );
+}
+
+function RunProviderToggle({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: RunProvider;
+  disabled: boolean;
+  onChange: (provider: RunProvider) => void;
+}) {
+  const { t } = useTranslation("run");
+  return (
+    <div
+      className="inline-flex rounded-full border border-border bg-surface-2 p-0.5"
+      aria-label={t("provider.aria", "Run provider")}
+    >
+      {(["claude", "codex"] as const).map((option) => (
+        <button
+          key={option}
+          disabled={disabled}
+          onClick={() => onChange(option)}
+          className={`rounded-full px-2 py-px text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${value === option ? "bg-accent/20 text-accent" : "text-gray-400 hover:text-gray-200"}`}
+        >
+          {t(`provider.${option}.label`)}
+          {option === "codex" && (
+            <span className="ml-1 text-[9px] text-amber-400">{t("provider.beta", "BETA")}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ProviderChooser({
+  onChoose,
+  onCancel,
+}: {
+  onChoose: (provider: RunProvider) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation("run");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="run-provider-title"
+    >
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-surface-1 p-6 shadow-2xl shadow-black/60">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">
+          {t("provider.kicker", "Run Agent")}
+        </p>
+        <h2
+          id="run-provider-title"
+          className="mt-2 text-center text-xl font-semibold text-gray-100"
+        >
+          {t("provider.chooseTitle", "Which agent would you like to run?")}
+        </h2>
+        <p className="mx-auto mt-2 max-w-lg text-center text-sm leading-relaxed text-gray-500">
+          {t(
+            "provider.chooseDescription",
+            "Choose an interactive local agent. You can switch before starting a new run."
+          )}
+        </p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {(["claude", "codex"] as const).map((option) => (
+            <button
+              key={option}
+              onClick={() => onChoose(option)}
+              className="group rounded-xl border border-border bg-surface-2 p-5 text-left transition-colors hover:border-accent/50 hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent/40"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base font-semibold text-gray-100">
+                  {t(`provider.${option}.label`)}
+                </span>
+                {option === "codex" && (
+                  <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+                    {t("provider.beta", "BETA")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500">
+                {t(`provider.${option}.description`)}
+              </p>
+              <span className="mt-4 inline-flex text-xs font-medium text-accent group-hover:underline">
+                {t("provider.choose", "Choose")} →
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-center border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-border bg-surface-2 px-4 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-surface-3 hover:text-gray-100"
+          >
+            {t("provider.cancel", "Cancel")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2480,6 +2829,7 @@ function UnifiedRunRowView({
 // ── Config card (pre-run) ────────────────────────────────────────────
 
 interface ConfigCardProps {
+  provider: RunProvider;
   mode: RunMode;
   onModeChange: (m: RunMode) => void;
   prompt: string;
@@ -2489,8 +2839,13 @@ interface ConfigCardProps {
   cwdSuggestions: CwdSuggestion[];
   model: string;
   onModelChange: (s: string) => void;
-  permissionMode: PermissionMode;
-  onPermissionModeChange: (m: PermissionMode) => void;
+  permissionMode: PermissionMode | CodexApprovalPolicy;
+  onPermissionModeChange: (m: PermissionMode | CodexApprovalPolicy) => void;
+  sandbox: CodexSandbox;
+  onSandboxChange: (sandbox: CodexSandbox) => void;
+  models: ModelChoice[];
+  modelsLoading: boolean;
+  modelsSource: string | null;
   effort: EffortLevel;
   onEffortChange: (e: EffortLevel) => void;
   binaryFound: boolean;
@@ -2506,9 +2861,25 @@ interface ConfigCardProps {
 
 function ConfigCard(props: ConfigCardProps) {
   const { t } = useTranslation("run");
+  const providerLabel = t(
+    `provider.${props.provider}.label`,
+    props.provider === "codex" ? "Codex" : "Claude Code"
+  );
   const atCap =
     props.activeRuns != null && props.activeRuns.activeCount >= props.activeRuns.maxConcurrent;
   const isResume = !!props.resumeSession;
+  const selectedModel = props.models.find((item) => item.id === props.model);
+  const supportedEfforts =
+    props.provider === "codex" && selectedModel?.supportedEfforts?.length
+      ? new Set(selectedModel.supportedEfforts)
+      : null;
+  const effortOptions = RUN_EFFORT_CHOICES.filter((choice) =>
+    props.provider === "claude"
+      ? choice.id !== "ultra"
+      : !supportedEfforts ||
+        choice.id === "" ||
+        supportedEfforts.has(choice.id as Exclude<EffortLevel, "">)
+  );
   const [resumePicked, setResumePicked] = useState(isResume);
   // Keep "resume picked" in sync with the parent. Two cases:
   //  1. Parent set a resume session (e.g. user clicked Resume in the runs
@@ -2523,35 +2894,51 @@ function ConfigCard(props: ConfigCardProps) {
 
   return (
     <div className="rounded-xl border border-border bg-surface-1">
-      {/* Step 1: Mode (always visible - the primary decision) */}
-      <div className="border-b border-border px-4 py-3">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
-          {t("mode.label")}
+      {/* Claude has a native one-shot mode; Codex's app-server is intentionally
+          interactive, so we present that distinction plainly instead of a
+          non-functional mode toggle. */}
+      {props.provider === "claude" ? (
+        <div className="border-b border-border px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-2">
+            {t("mode.label")}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <ModeOption
+              active={props.mode === "conversation"}
+              label={t("mode.conversation")}
+              hint={t("mode.conversationHint")}
+              onClick={() => props.onModeChange("conversation")}
+            />
+            <ModeOption
+              active={props.mode === "headless"}
+              label={t("mode.headless")}
+              hint={t("mode.headlessHint")}
+              onClick={() => {
+                props.onModeChange("headless");
+                setResumePicked(false);
+              }}
+            />
+          </div>
+          {props.mode === "headless" && (
+            <p className="mt-2 text-[11px] text-gray-500 leading-relaxed flex items-start gap-1.5">
+              <Info className="w-3 h-3 text-gray-500 flex-shrink-0 mt-0.5" />
+              {t("hint.headlessExplain")}
+            </p>
+          )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <ModeOption
-            active={props.mode === "conversation"}
-            label={t("mode.conversation")}
-            hint={t("mode.conversationHint")}
-            onClick={() => props.onModeChange("conversation")}
-          />
-          <ModeOption
-            active={props.mode === "headless"}
-            label={t("mode.headless")}
-            hint={t("mode.headlessHint")}
-            onClick={() => {
-              props.onModeChange("headless");
-              setResumePicked(false);
-            }}
-          />
-        </div>
-        {props.mode === "headless" && (
-          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed flex items-start gap-1.5">
-            <Info className="w-3 h-3 text-gray-500 flex-shrink-0 mt-0.5" />
-            {t("hint.headlessExplain")}
+      ) : (
+        <div className="border-b border-border px-4 py-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            {t("provider.codex.interactiveLabel", "Interactive Codex thread")}
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-gray-500">
+            {t(
+              "provider.codex.interactiveHint",
+              "Starts a persistent local thread with live replies, tool activity, cancellation, and follow-up turns."
+            )}
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Step 2 (only for multi-turn): Source - new vs resume */}
       {props.mode === "conversation" && (
@@ -2563,7 +2950,9 @@ function ConfigCard(props: ConfigCardProps) {
             <ModeOption
               active={!resumePicked}
               label={t("resume.freshOption")}
-              hint={t("resume.freshHint")}
+              hint={t("resume.freshHintWithProvider", "Start a fresh {{agent}} session.", {
+                agent: providerLabel,
+              })}
               onClick={() => {
                 setResumePicked(false);
                 props.onResumeSessionChange(null);
@@ -2578,6 +2967,7 @@ function ConfigCard(props: ConfigCardProps) {
           </div>
           {resumePicked && (
             <SessionPicker
+              provider={props.provider}
               selected={props.resumeSession}
               onSelect={(s) => {
                 props.onResumeSessionChange(s);
@@ -2600,7 +2990,9 @@ function ConfigCard(props: ConfigCardProps) {
           value={props.prompt}
           onChange={props.onPromptChange}
           onSubmit={props.onStart}
-          placeholder={t("fields.promptPlaceholder")}
+          placeholder={t("fields.promptPlaceholderWithProvider", "Ask {{agent}} anything…", {
+            agent: providerLabel,
+          })}
           rows={5}
           slashCommands={props.slashCommands}
           fileCwd={props.resumeSession?.cwd || props.cwd}
@@ -2620,6 +3012,7 @@ function ConfigCard(props: ConfigCardProps) {
             </div>
           ) : (
             <CwdAutocomplete
+              provider={props.provider}
               value={props.cwd}
               onChange={props.onCwdChange}
               suggestions={props.cwdSuggestions}
@@ -2630,25 +3023,72 @@ function ConfigCard(props: ConfigCardProps) {
           </p>
         </Field>
         <Field label={t("fields.model")}>
-          <ModelPicker value={props.model} onChange={props.onModelChange} />
+          <ModelPicker
+            provider={props.provider}
+            value={props.model}
+            onChange={props.onModelChange}
+            models={props.models}
+            loading={props.modelsLoading}
+          />
+          {props.modelsSource && (
+            <p className="mt-1 text-[10px] text-gray-500">
+              {props.provider === "codex"
+                ? t("fields.modelLiveCatalog", "Live catalog from your signed-in Codex CLI")
+                : t(
+                    "fields.modelCuratedCatalog",
+                    "Claude Code does not publish an account model list; choose its stable aliases or enter another model ID."
+                  )}
+            </p>
+          )}
         </Field>
         <Field label={t("fields.permissionMode")}>
-          <Select<PermissionMode>
-            value={props.permissionMode}
-            onChange={props.onPermissionModeChange}
-            options={[
-              { value: "acceptEdits", label: t("fields.permissionAcceptEdits") },
-              { value: "default", label: t("fields.permissionDefault") },
-              { value: "plan", label: t("fields.permissionPlan") },
-              { value: "bypassPermissions", label: t("fields.permissionBypass") },
-            ]}
-          />
+          {props.provider === "claude" ? (
+            <Select<PermissionMode>
+              value={props.permissionMode as PermissionMode}
+              onChange={props.onPermissionModeChange}
+              options={[
+                { value: "acceptEdits", label: t("fields.permissionAcceptEdits") },
+                { value: "default", label: t("fields.permissionDefault") },
+                { value: "plan", label: t("fields.permissionPlan") },
+                { value: "bypassPermissions", label: t("fields.permissionBypass") },
+              ]}
+            />
+          ) : (
+            <Select<CodexApprovalPolicy>
+              value={props.permissionMode as CodexApprovalPolicy}
+              onChange={props.onPermissionModeChange}
+              options={[
+                { value: "untrusted", label: t("fields.approvalUntrusted", "Untrusted") },
+                { value: "on-request", label: t("fields.approvalOnRequest", "On request") },
+                { value: "never", label: t("fields.approvalNever", "Never") },
+              ]}
+            />
+          )}
         </Field>
+        {props.provider === "codex" && (
+          <Field label={t("fields.sandbox", "Sandbox")}>
+            <Select<CodexSandbox>
+              value={props.sandbox}
+              onChange={props.onSandboxChange}
+              options={[
+                { value: "read-only", label: t("fields.sandboxReadOnly", "Read-only") },
+                {
+                  value: "workspace-write",
+                  label: t("fields.sandboxWorkspaceWrite", "Workspace write"),
+                },
+                {
+                  value: "danger-full-access",
+                  label: t("fields.sandboxDanger", "Danger full access"),
+                },
+              ]}
+            />
+          </Field>
+        )}
         <Field label={t("fields.effort")}>
           <Select<EffortLevel>
             value={props.effort}
             onChange={props.onEffortChange}
-            options={RUN_EFFORT_CHOICES.map((c) => ({
+            options={effortOptions.map((c) => ({
               value: c.id,
               label: c.label,
               hint: c.hint,
@@ -2658,7 +3098,8 @@ function ConfigCard(props: ConfigCardProps) {
         </Field>
       </div>
 
-      {props.permissionMode === "bypassPermissions" && (
+      {(props.permissionMode === "bypassPermissions" ||
+        (props.provider === "codex" && props.sandbox === "danger-full-access")) && (
         <div className="mx-4 mb-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-200 flex items-start gap-2">
           <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>{t("hint.permissionWarning")}</span>
@@ -2747,10 +3188,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ── CWD autocomplete ──────────────────────────────────────────────────
 
 function CwdAutocomplete({
+  provider,
   value,
   onChange,
   suggestions,
 }: {
+  provider: RunProvider;
   value: string;
   onChange: (s: string) => void;
   suggestions: CwdSuggestion[];
@@ -2861,7 +3304,14 @@ function CwdAutocomplete({
                   ) : (
                     <HistoryIcon className="w-3 h-3" />
                   )}
-                  {t(`fields.cwdGroups.${g.kind}`)}
+                  {g.kind === "recent"
+                    ? t("fields.cwdGroups.recentWithProvider", "Recent - used by {{agent}}", {
+                        agent: t(
+                          `provider.${provider}.label`,
+                          provider === "codex" ? "Codex" : "Claude Code"
+                        ),
+                      })
+                    : t(`fields.cwdGroups.${g.kind}`)}
                 </div>
                 {g.items.map((s) => {
                   const idx = flat.indexOf(s);
@@ -2896,9 +3346,11 @@ function CwdAutocomplete({
 // ── Session picker (for resume) ───────────────────────────────────────
 
 function SessionPicker({
+  provider,
   selected,
   onSelect,
 }: {
+  provider: RunProvider;
   selected: Session | null;
   onSelect: (s: Session | null) => void;
 }) {
@@ -2908,14 +3360,19 @@ function SessionPicker({
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    setSessions(null);
+    setQuery("");
+  }, [provider]);
+
   // Lazily load sessions when the picker is opened.
   useEffect(() => {
     if (!open || sessions !== null) return;
     api.sessions
-      .list({ sort_by: "started_at", sort_desc: true, limit: 100 })
+      .list({ sort_by: "started_at", sort_desc: true, limit: 100, provider })
       .then((r) => setSessions(r.sessions))
       .catch(() => setSessions([]));
-  }, [open, sessions]);
+  }, [open, provider, sessions]);
 
   useEffect(() => {
     if (!open) return;
@@ -3043,10 +3500,24 @@ function SessionPicker({
 // the "inherit from settings" choice, so use a non-empty marker.
 const MODEL_CUSTOM = "__custom__";
 
-function ModelPicker({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+function ModelPicker({
+  provider,
+  value,
+  onChange,
+  models,
+  loading,
+}: {
+  provider: RunProvider;
+  value: string;
+  onChange: (s: string) => void;
+  models: ModelChoice[];
+  loading: boolean;
+}) {
   const { t } = useTranslation("run");
-  // "Custom" is selected when the value isn't one of our curated IDs.
-  const knownIds = useMemo(() => RUN_MODEL_CHOICES.map((c) => c.id), []);
+  // "Custom" is selected when the value isn't part of the live/observed
+  // response. This keeps advanced CLI model aliases available without making
+  // a static client catalog the source of truth.
+  const knownIds = useMemo(() => models.map((c) => c.id), [models]);
   const isCustom = value !== "" && !knownIds.includes(value);
   const [showCustom, setShowCustom] = useState(isCustom);
 
@@ -3055,14 +3526,16 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (s: string)
   // a browser-native <select>.
   const options = useMemo(
     () => [
-      ...RUN_MODEL_CHOICES.map((c) => ({
-        value: c.id === "" ? "" : c.id,
-        label: c.id === "" ? t("fields.modelInheritLabel") : c.label,
+      ...models.map((c) => ({
+        value: c.id,
+        // The empty model ID intentionally omits --model and therefore
+        // matches Claude's own "Default (recommended)" behavior.
+        label: c.id === "" ? t("fields.modelInheritLabel", "Default (recommended)") : c.label,
         hint: c.hint,
       })),
-      { value: MODEL_CUSTOM, label: t("fields.modelCustom") },
+      { value: MODEL_CUSTOM, label: t("fields.modelCustom"), hint: undefined },
     ],
-    [t]
+    [models, t]
   );
 
   const onSelect = (v: string) => {
@@ -3075,10 +3548,16 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (s: string)
   };
 
   const selectValue = showCustom || isCustom ? MODEL_CUSTOM : value;
+  const selected = options.find((option) => option.value === selectValue);
 
   return (
     <div className="space-y-1.5">
-      <Select<string> value={selectValue} onChange={onSelect} options={options} />
+      <Select<string>
+        value={selectValue}
+        onChange={onSelect}
+        options={options}
+        disabled={loading}
+      />
       {(showCustom || isCustom) && (
         <input
           type="text"
@@ -3089,6 +3568,17 @@ function ModelPicker({ value, onChange }: { value: string; onChange: (s: string)
           spellCheck={false}
           className="w-full bg-surface-2 border border-border rounded-md px-3 py-1.5 text-[11px] font-mono text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-accent/50"
         />
+      )}
+      {selected?.hint && !(showCustom || isCustom) && (
+        <p className="text-[10px] leading-relaxed text-gray-500">{selected.hint}</p>
+      )}
+      {(showCustom || isCustom) && provider === "claude" && (
+        <p className="text-[10px] leading-relaxed text-gray-500">
+          {t(
+            "fields.modelCustomClaudeHint",
+            "For a previous or account-specific Claude model, enter its exact --model value."
+          )}
+        </p>
       )}
     </div>
   );
@@ -3113,6 +3603,10 @@ interface RunSessionProps {
 
 function RunSession(props: RunSessionProps) {
   const { t } = useTranslation("run");
+  const providerLabel = t(
+    `provider.${props.handle.provider}.label`,
+    props.handle.provider === "codex" ? "Codex" : "Claude Code"
+  );
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [pinnedToBottom, setPinnedToBottom] = useState(true);
 
@@ -3218,7 +3712,9 @@ function RunSession(props: RunSessionProps) {
             value={props.followUp}
             onChange={props.onFollowUpChange}
             onSubmit={props.onSend}
-            placeholder={t("fields.promptPlaceholder")}
+            placeholder={t("fields.promptPlaceholderWithProvider", "Ask {{agent}} anything…", {
+              agent: providerLabel,
+            })}
             rows={2}
             slashCommands={props.slashCommands}
             fileCwd={props.handle.cwd}
@@ -3321,10 +3817,72 @@ function EnvelopeRow({ envelope }: { envelope: Envelope }) {
       return null; // shown in the footer
     case "stream_event":
       return null; // kept in state for token accounting only - never rendered
+    case "codex_assistant":
+      return <CodexAssistantTurn env={envelope as { text?: string; streaming?: boolean }} />;
+    case "codex_reasoning":
+      return <ThinkingBlock text={String((envelope as { text?: string }).text || "")} />;
+    case "codex_tool":
+      return <CodexToolEvent env={envelope as Record<string, unknown>} />;
     default:
       // Unknown envelope: render compact JSON for transparency
       return <UnknownTurn env={envelope} />;
   }
+}
+
+function CodexAssistantTurn({ env }: { env: { text?: string; streaming?: boolean } }) {
+  const { t } = useTranslation("run");
+  const text = env.text || "";
+  if (!text) return null;
+  return (
+    <div className="flex gap-3">
+      <Avatar tone="accent" letter="G" />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 text-[11px] font-semibold text-accent">
+          {t("provider.codex.label", "Codex")}
+          {env.streaming && (
+            <span className="ml-2 text-[10px] font-normal text-gray-500">
+              {t("status.running")}
+            </span>
+          )}
+        </div>
+        <div className="prose-claude text-sm leading-relaxed text-gray-200">
+          <MarkdownContent text={text} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CodexToolEvent({ env }: { env: Record<string, unknown> }) {
+  const [open, setOpen] = useState(false);
+  const name = String(env.name || "Tool");
+  const command = typeof env.command === "string" ? env.command : "";
+  const output = typeof env.output === "string" ? env.output : "";
+  const exitCode = typeof env.exitCode === "number" ? env.exitCode : null;
+  const details = command || output || JSON.stringify(env.changes || env, null, 2);
+  return (
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/5">
+      <button
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-amber-200 hover:bg-amber-500/10"
+      >
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <Wrench className="h-3 w-3" />
+        <span>{name}</span>
+        {command && <span className="truncate font-mono text-gray-500">· {command}</span>}
+        {exitCode != null && (
+          <span className={exitCode === 0 ? "ml-auto text-emerald-300" : "ml-auto text-red-300"}>
+            {exitCode === 0 ? "OK" : `Exit ${exitCode}`}
+          </span>
+        )}
+      </button>
+      {open && (
+        <pre className="max-h-72 overflow-auto border-t border-amber-500/30 px-3 py-2 text-[11px] text-gray-300 whitespace-pre-wrap break-words">
+          {details}
+        </pre>
+      )}
+    </div>
+  );
 }
 
 function extractText(content: ContentBlock[] | string | undefined): string {

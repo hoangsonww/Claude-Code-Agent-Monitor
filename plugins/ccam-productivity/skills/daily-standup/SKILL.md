@@ -1,4 +1,5 @@
 ---
+name: daily-standup
 description: >
   Generate a daily standup summary from recent Claude Code sessions — completed
   work grouped by project (cwd), session costs from the pricing engine,

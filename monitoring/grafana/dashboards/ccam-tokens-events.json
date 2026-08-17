@@ -1,0 +1,350 @@
+{
+  "uid": "ccam-tokens-events",
+  "title": "CCAM — Tokens & Events",
+  "description": "Cumulative and rate views of hook events and token usage from live /api/metrics scrapes.",
+  "tags": ["ccam", "claude-code", "tokens", "events"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "15s",
+  "time": { "from": "now-24h", "to": "now" },
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/ccam-overview/ccam-overview",
+      "keepTime": true
+    },
+    {
+      "title": "Sessions & Agents",
+      "type": "link",
+      "url": "/d/ccam-sessions-agents/ccam-sessions-agents",
+      "keepTime": true
+    },
+    {
+      "title": "Platform Health",
+      "type": "link",
+      "url": "/d/ccam-platform/ccam-platform",
+      "keepTime": true
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Cumulative totals",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total events",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_events_total", "legendFormat": "events" }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Input tokens",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": { "steps": [{ "color": "yellow", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_tokens_total{kind=\"input\"}", "legendFormat": "input" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Output tokens",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": { "steps": [{ "color": "orange", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_tokens_total{kind=\"output\"}", "legendFormat": "output" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Cache read",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ccam_tokens_total{kind=\"cache_read\"}",
+          "legendFormat": "cache_read"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Cache write",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "thresholds": { "steps": [{ "color": "teal", "value": null }] }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ccam_tokens_total{kind=\"cache_write\"}",
+          "legendFormat": "cache_write"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "piechart",
+      "title": "Token share by kind",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 9, "w": 8, "x": 0, "y": 5 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        { "refId": "A", "expr": "ccam_tokens_total", "legendFormat": "{{kind}}", "instant": true }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Cumulative tokens by kind",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 9, "w": 16, "x": 8, "y": 5 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_tokens_total", "legendFormat": "{{kind}}" }]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Cumulative events",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never"
+          },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_events_total", "legendFormat": "events" }]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Throughput rates",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Events per second (5m rate)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "rate(ccam_events_total[5m])", "legendFormat": "events/s" },
+        { "refId": "B", "expr": "ccam:events:rate5m", "legendFormat": "recording rule" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Tokens per second by kind (5m rate)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "rate(ccam_tokens_total[5m])", "legendFormat": "{{kind}}" }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Cache efficiency",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Cache read share of prompt tokens",
+      "description": "cache_read / (input + cache_read) — higher means more prompt served from cache.",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 32 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.2 },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ccam_tokens_total{kind=\"cache_read\"} / clamp_min(ccam_tokens_total{kind=\"input\"} + ccam_tokens_total{kind=\"cache_read\"}, 1)",
+          "legendFormat": "cache hit ratio"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Input vs cache read tokens (cumulative)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 16, "x": 8, "y": 32 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_tokens_total{kind=\"input\"}", "legendFormat": "input" },
+        {
+          "refId": "B",
+          "expr": "ccam_tokens_total{kind=\"cache_read\"}",
+          "legendFormat": "cache_read"
+        }
+      ]
+    }
+  ]
+}

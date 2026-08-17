@@ -1,4 +1,5 @@
 ---
+name: api-error-report
 description: >
   Produce a detailed report on APIError events from Agent Monitor data — counts
   over time, which sessions and models are affected, and the likely root cause

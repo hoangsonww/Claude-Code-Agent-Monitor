@@ -193,7 +193,10 @@ module.exports = {
           "fast-mode usage at a premium; leave them 0 otherwise. " +
           "Note the asymmetry with the list endpoint: the response wraps a SINGLE " +
           "stored rule as `{ pricing: <rule> }` (not an array). A missing " +
-          "`model_pattern` or `display_name` returns 400 `INVALID_INPUT`.",
+          "`model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so " +
+          "does any `*_per_mtok` rate that is not a non-negative finite number " +
+          "(numeric strings are coerced; NaN and negative rates are rejected " +
+          "before anything is written).",
         requestBody: {
           required: true,
           content: {
@@ -305,7 +308,9 @@ module.exports = {
           "total stays honest), and `daily_costs` bucketed by local calendar day. " +
           "Pass `tz_offset` (minutes; the JS `Date.getTimezoneOffset()` value, " +
           "e.g. 300 for US Eastern, -120 for CEST) so day boundaries align with " +
-          "the viewer's timezone; omitted/invalid offsets fall back to UTC.",
+          "the viewer's timezone; omitted/invalid offsets fall back to UTC. " +
+          "Honors the `sources` data-scope filter, like the sessions / stats / " +
+          "analytics endpoints, so the reported cost matches the active scope.",
         parameters: [
           {
             name: "tz_offset",
@@ -318,6 +323,17 @@ module.exports = {
               "300 = US Eastern, -120 = CEST). Shifts the `daily_costs` day " +
               "boundaries; invalid or omitted values default to UTC.",
             example: 300,
+          },
+          {
+            name: "sources",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description:
+              "Comma-separated data-source ids to include (local history is " +
+              "`local`; remote SSH machines use their `remote_sources.id`). Omit " +
+              "for all sources. Narrows the aggregate cost to the given origins.",
+            example: "local",
           },
         ],
         responses: {

@@ -1,0 +1,18 @@
+# Prometheus scrape config when BOTH CCAM and Prometheus run in Docker on the
+# shared `ccam` network (docker-compose.full.yml). The Host guard on the
+# dashboard must allow `agent-monitor` — set via DASHBOARD_ALLOWED_HOSTS there.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - ccam-rules.yml
+
+scrape_configs:
+  - job_name: ccam
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ["agent-monitor:4820"]
+    authorization:
+      type: Bearer
+      credentials_file: /run/ccam-secrets/dashboard-token

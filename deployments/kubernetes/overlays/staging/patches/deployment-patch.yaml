@@ -4,7 +4,6 @@ metadata:
   name: agent-monitor
   namespace: agent-monitor
 spec:
-  replicas: 2
   template:
     spec:
       containers:

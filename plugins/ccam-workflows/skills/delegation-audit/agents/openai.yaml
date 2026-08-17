@@ -1,0 +1,6 @@
+interface:
+  display_name: "Delegation Audit"
+  short_description: "Audit model delegation and subagent effectiveness for a..."
+  default_prompt: "Use $delegation-audit to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

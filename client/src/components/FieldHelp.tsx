@@ -1,28 +1,91 @@
 /**
  * @file FieldHelp.tsx
- * @description A small "(?)" info trigger that reveals a rich popover explaining
- * how to fill in a form field - description, optional copy-able examples, and an
- * optional note. Hover/focus/click to open; the popover is portal'd to <body>
- * and clamped to the viewport so it never clips inside scrolling cards.
+ * @description Contextual "(?)" help trigger for dense settings forms. Opens a
+ * rich popover with title, description, optional example chips, and an optional
+ * footnote — all portaled to `<body>` and repositioned on scroll/resize so the
+ * panel never clips inside scrolling cards.
+ *
+ * ## Interaction model
+ * Opens on hover, focus, or click (toggle). Escape dismisses. The popover uses
+ * `pointer-events-none` so moving the pointer toward it does not accidentally
+ * close the trigger's hover state mid-read.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/FieldHelp.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Public surface
+ * - `FieldHelpProps` — exported API; see TSDoc on the symbol for behavior.
+ * - `FieldHelp` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **FieldHelpProps**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **FieldHelp**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { HelpCircle } from "lucide-react";
 
-export function FieldHelp({
-  title,
-  description,
-  examples,
-  note,
-}: {
+/** Props for {@link FieldHelp}. */
+export interface FieldHelpProps {
+  /** Optional bold heading inside the popover. */
   title?: string;
+  /** Main explanatory copy. */
   description: string;
+  /** Short example values rendered as monospace chips. */
   examples?: string[];
+  /** Secondary note shown below examples. */
   note?: string;
-}) {
+}
+
+/**
+ * Inline help control for form fields.
+ * @param props See {@link FieldHelpProps}.
+ */
+export function FieldHelp({ title, description, examples, note }: FieldHelpProps) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);

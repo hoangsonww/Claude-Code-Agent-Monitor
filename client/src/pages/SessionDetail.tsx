@@ -1,10 +1,71 @@
 /**
  * @file SessionDetail.tsx
- * @description Displays detailed information about a specific session, including its agents, events, and cost breakdown, with real-time updates and an expandable agent hierarchy view.
+ * @description Displays session agents, owner-aware task progress, events, and
+ * cost details with real-time updates and an expandable agent hierarchy.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/pages/SessionDetail.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/eventBus`
+ * - `../components/AgentCard`
+ * - `../components/SessionOverview`
+ * - `../components/conversation/ConversationView`
+ * - `../components/StatusBadge`
+ * - `../lib/types`
+ * - `../components/EventDetail`
+ * - `../components/EventFilters`
+ * - `../components/EventFiltersInfo`
+ * - `../components/Skeleton`
+ * - `../lib/event-grouping`
+ *
+ * ## Public surface
+ * - `SessionDetail` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **SessionDetail**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
+
 import { useEffect, useState, useCallback, useMemo, useRef, type ReactNode } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -23,14 +84,24 @@ import {
   Play,
   ExternalLink,
   Workflow,
+  Hourglass,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
+import { useDataScope } from "../lib/dataScope";
 import { AgentCard } from "../components/AgentCard";
 import { SessionOverview } from "../components/SessionOverview";
+import { TodoProgressPanel } from "../components/TodoProgressPanel";
 import { ConversationView } from "../components/conversation/ConversationView";
-import { SessionStatusBadge, AgentStatusBadge } from "../components/StatusBadge";
-import { effectiveSessionStatus } from "../lib/types";
+import { SessionStatusBadge, AgentStatusBadge, REASON_ICONS } from "../components/StatusBadge";
+import { CopyButton } from "../components/event-views/primitives";
+import {
+  effectiveSessionStatus,
+  isSessionAwaitingInput,
+  sessionAwaitingReason,
+  AWAITING_REASON_CONFIG,
+} from "../lib/types";
 import { EventDetail } from "../components/EventDetail";
 import {
   EventFilters,
@@ -80,6 +151,7 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const { t } = useTranslation("sessions");
   const { t: wfT } = useTranslation("workflows");
+  const [scope] = useDataScope();
   const [session, setSession] = useState<Session | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
@@ -192,7 +264,7 @@ export function SessionDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id, t]);
+  }, [id, scope, t]);
 
   useEffect(() => {
     load();
@@ -211,7 +283,7 @@ export function SessionDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, scope]);
 
   // Navigate to Conversation tab and select the matching transcript when clicking an agent
   const navigateToAgentConversation = useCallback(
@@ -435,6 +507,15 @@ export function SessionDetail() {
 
   useEffect(() => {
     const unsubscribe = eventBus.subscribe((msg) => {
+      if (isRemoteDataRefreshMessage(msg)) {
+        load();
+        if (eventsRefreshTimerRef.current) clearTimeout(eventsRefreshTimerRef.current);
+        eventsRefreshTimerRef.current = setTimeout(() => {
+          eventsRefreshTimerRef.current = null;
+          refreshEventsWithPagination();
+        }, EVENTS_REFRESH_DEBOUNCE_MS);
+        return;
+      }
       if (
         msg.type === "agent_created" ||
         msg.type === "agent_updated" ||
@@ -443,6 +524,22 @@ export function SessionDetail() {
         load();
       }
       if (msg.type === "new_event") {
+        const event = msg.data as DashboardEvent;
+        if (
+          event.session_id === id &&
+          (event.event_type === "TaskCreated" ||
+            event.event_type === "TaskCompleted" ||
+            [
+              "TaskCreate",
+              "TaskGet",
+              "TaskUpdate",
+              "TaskList",
+              "TodoWrite",
+              "update_plan",
+            ].includes(event.tool_name || ""))
+        ) {
+          load();
+        }
         // Debounce bursts into one filter-aware refetch that preserves the
         // current "Load more" pagination size.
         if (eventsRefreshTimerRef.current) clearTimeout(eventsRefreshTimerRef.current);
@@ -521,11 +618,16 @@ export function SessionDetail() {
             <h2 className="text-xl font-semibold text-gray-100">
               {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
             </h2>
-            <SessionStatusBadge status={effectiveSessionStatus(session)} />
+            <SessionStatusBadge
+              status={effectiveSessionStatus(session)}
+              reason={sessionAwaitingReason(session)}
+              provider={session.provider}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 font-mono bg-surface-2 px-2 py-1 rounded">
-              {session.id.slice(0, 16)}
+            <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-mono bg-surface-2 px-2 py-1 rounded">
+              <span title={session.id}>{session.id.slice(0, 16)}</span>
+              <CopyButton text={session.id} />
             </span>
             {session.model && (
               <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 bg-surface-2 px-2 py-1 rounded">
@@ -550,9 +652,12 @@ export function SessionDetail() {
             )}
           </div>
           {session.cwd && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-2 min-w-0">
               <FolderOpen className="w-3 h-3 flex-shrink-0" />
-              <span className="font-mono truncate">{session.cwd}</span>
+              <span className="font-mono truncate" title={session.cwd}>
+                {session.cwd}
+              </span>
+              <CopyButton text={session.cwd} />
             </div>
           )}
         </div>
@@ -560,6 +665,78 @@ export function SessionDetail() {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Waiting-for-input callout: WHY the session sits in the yellow Waiting
+          state (awaiting_reason) and for how long. Reason-specific icon/label
+          when the server sent a known reason; a generic hourglass fallback for
+          legacy rows that predate the awaiting_reason column. Urgent reasons
+          (permission prompt / interruption) render hotter amber than the calm
+          idle-between-turns ones. */}
+      {isSessionAwaitingInput(session) &&
+        (() => {
+          const reason = sessionAwaitingReason(session);
+          const cfg = reason ? AWAITING_REASON_CONFIG[reason] : null;
+          const ReasonIcon = reason ? REASON_ICONS[reason] : Hourglass;
+          const urgent = cfg?.urgent ?? false;
+          return (
+            <div
+              className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
+                urgent
+                  ? "border-amber-500/40 bg-amber-500/[0.08]"
+                  : "border-yellow-500/25 bg-yellow-500/[0.05]"
+              }`}
+            >
+              <span
+                className={`w-7 h-7 rounded-md inline-flex items-center justify-center flex-shrink-0 border ${
+                  urgent
+                    ? "bg-amber-500/15 border-amber-500/30"
+                    : "bg-yellow-500/10 border-yellow-500/25"
+                }`}
+              >
+                <ReasonIcon
+                  className={`w-3.5 h-3.5 ${urgent ? "text-amber-300" : "text-yellow-300"}`}
+                />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div
+                  className={`text-sm font-medium ${urgent ? "text-amber-200" : "text-yellow-200"}`}
+                >
+                  {t("detail.waitingBanner.title")}
+                  {cfg && (
+                    <span className={urgent ? "text-amber-300/90" : "text-yellow-300/80"}>
+                      {" · "}
+                      {t(cfg.labelKey)}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`text-[11px] ${urgent ? "text-amber-400/70" : "text-yellow-400/60"}`}
+                >
+                  {cfg
+                    ? t(cfg.descKey, {
+                        provider: session.provider === "codex" ? "Codex" : "Claude",
+                      })
+                    : t("detail.waitingBanner.generic")}
+                </div>
+              </div>
+              {session.awaiting_input_since && (
+                <span
+                  className={`text-[11px] flex-shrink-0 flex items-center gap-1.5 ${
+                    urgent ? "text-amber-300/80" : "text-yellow-400/70"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full animate-pulse-dot ${
+                      urgent ? "bg-amber-400" : "bg-yellow-400"
+                    }`}
+                    aria-hidden="true"
+                  />
+                  {timeAgo(session.awaiting_input_since)}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
       {isDashboardRun && (
         <Link
@@ -612,7 +789,7 @@ export function SessionDetail() {
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          Conversation
+          {t("detail.conversation")}
         </button>
         <button
           onClick={() => {
@@ -626,7 +803,7 @@ export function SessionDetail() {
           }`}
         >
           <List className="w-4 h-4" />
-          Timeline ({events.length}/{eventsTotal})
+          {t("detail.timeline", { shown: events.length, total: eventsTotal })}
         </button>
       </div>
 
@@ -634,10 +811,7 @@ export function SessionDetail() {
       {transcriptNotFound && (
         <div className="flex items-center gap-2 px-4 py-2.5 mb-3 text-sm text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>
-            Conversation transcript not found for this agent. The transcript file may be missing or
-            not yet linked.
-          </span>
+          <span>{t("detail.transcriptNotFound")}</span>
           <button
             onClick={() => setTranscriptNotFound(false)}
             className="ml-auto text-amber-400/60 hover:text-amber-400 transition-colors"
@@ -650,6 +824,7 @@ export function SessionDetail() {
       {visitedTabs.has("agents") && (
         <div hidden={activeTab !== "agents"}>
           <SessionOverview session={session} agents={agents} />
+          {session.todo_snapshot && <TodoProgressPanel snapshot={session.todo_snapshot} />}
 
           {workflows.length > 0 && (
             <div className="mb-4">

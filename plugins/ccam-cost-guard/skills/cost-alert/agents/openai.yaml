@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cost Alert"
+  short_description: "Review the configured cost alert rules and the alerts..."
+  default_prompt: "Use $cost-alert to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

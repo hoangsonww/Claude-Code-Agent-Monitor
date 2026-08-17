@@ -1,4 +1,5 @@
 ---
+name: quick-stats
 description: >
   One-line summary of key Agent Monitor metrics — active sessions, total
   cost from the pricing engine, events today from daily_events, top tool

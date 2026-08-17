@@ -1,0 +1,6 @@
+interface:
+  display_name: "Data Export"
+  short_description: "Export Claude Code session and analytics data in JSON, CSV,..."
+  default_prompt: "Use $data-export to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

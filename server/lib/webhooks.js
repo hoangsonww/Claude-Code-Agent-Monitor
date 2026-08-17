@@ -131,7 +131,7 @@ async function postOnce(url, body, headers) {
       headers,
       body,
       signal: controller.signal,
-      redirect: "follow",
+      redirect: "error",
     });
     // Read the response body — some providers (Splunk On-Call) signal failure
     // in the body despite a 200, so deliver() may need to inspect it. Also

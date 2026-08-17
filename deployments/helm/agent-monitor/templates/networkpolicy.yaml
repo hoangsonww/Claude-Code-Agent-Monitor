@@ -13,16 +13,24 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow HTTP traffic to the application port from any pod (ingress controllers, etc.)
-    - ports:
+    -
+      from:
+        - podSelector: {}
+        {{- if .Values.networkPolicy.ingressNamespaceSelector }}
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 12 }}
+        {{- end }}
+      ports:
         - port: {{ .Values.service.targetPort }}
           protocol: TCP
-      {{- if .Values.mcp.enabled }}
-    # Allow MCP traffic when sidecar is enabled
-    - ports:
+    {{- if and .Values.mcp.enabled .Values.mcp.exposeService }}
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.mcp.allowedNamespaceSelector | nindent 12 }}
+      ports:
         - port: {{ .Values.mcp.port }}
           protocol: TCP
-      {{- end }}
+    {{- end }}
     {{- with .Values.networkPolicy.additionalIngressRules }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -33,13 +41,12 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
-    # Allow outbound HTTPS (for external API calls)
     - ports:
         - port: 443
           protocol: TCP
-    # Allow internal communication within the cluster
-    - to:
-        - podSelector: {}
+    - ports:
+        - port: 22
+          protocol: TCP
     {{- with .Values.networkPolicy.additionalEgressRules }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

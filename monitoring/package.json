@@ -1,0 +1,20 @@
+{
+  "name": "@ccam/monitoring",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CCAM Prometheus + Grafana stack (npm-managed binaries, no Docker required)",
+  "scripts": {
+    "postinstall": "node scripts/ensure-binaries.js",
+    "start": "node scripts/start.js --detach",
+    "start:foreground": "node scripts/start.js --foreground",
+    "stop": "node scripts/stop.js",
+    "verify": "node scripts/verify.js"
+  },
+  "dependencies": {
+    "adm-zip": "0.6.0",
+    "tar": "7.5.22"
+  },
+  "engines": {
+    "node": ">=22.22.0"
+  }
+}

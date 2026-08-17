@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Compare"
+  short_description: "Compare two sessions side-by-side using Agent Monitor data —..."
+  default_prompt: "Use $session-compare to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

@@ -5,9 +5,17 @@ metadata:
   name: {{ include "agent-monitor.fullname" . }}-data
   labels:
     {{- include "agent-monitor.labels" . | nindent 4 }}
+  {{- if .Values.persistence.retain }}
+  annotations:
+    helm.sh/resource-policy: keep
+    {{- with .Values.persistence.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- else }}
   {{- with .Values.persistence.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- end }}
 spec:
   accessModes:

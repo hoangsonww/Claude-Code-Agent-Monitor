@@ -37,6 +37,7 @@ REVISION=""
 NAMESPACE=""
 HELM_RELEASE="${APP_NAME}"
 SKIP_HEALTH_CHECK=false
+SKIP_BACKUP=false
 
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {
@@ -53,6 +54,7 @@ ${BOLD}Options:${NC}
   --namespace, -n    Kubernetes namespace (default: agent-monitor-<env>)
   --release          Helm release name (default: ${APP_NAME})
   --skip-health      Skip post-rollback health check
+  --skip-backup      Skip the mandatory pre-rollback database backup
   --help, -h         Show this help message
 
 ${BOLD}Examples:${NC}
@@ -76,6 +78,7 @@ parse_args() {
       --namespace|-n)   NAMESPACE="$2"; shift 2 ;;
       --release)        HELM_RELEASE="$2"; shift 2 ;;
       --skip-health)    SKIP_HEALTH_CHECK=true; shift ;;
+      --skip-backup)    SKIP_BACKUP=true; shift ;;
       --help|-h)        usage ;;
       *)                fatal "Unknown option: $1" ;;
     esac
@@ -84,6 +87,34 @@ parse_args() {
   [[ -z "$ENVIRONMENT" ]] && fatal "Missing required argument: --env"
   [[ -z "$METHOD" ]]      && fatal "Missing required argument: --method"
   [[ -z "$NAMESPACE" ]]   && NAMESPACE="agent-monitor-${ENVIRONMENT}"
+  case "$METHOD" in
+    helm|kustomize) ;;
+    *) fatal "Rollback not supported for method: ${METHOD}" ;;
+  esac
+}
+
+discover_resources() {
+  DEPLOYMENT_NAME=$(kubectl get deployment -n "${NAMESPACE}" \
+    -l "app.kubernetes.io/name=${APP_NAME}" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  SERVICE_NAME=$(kubectl get service -n "${NAMESPACE}" \
+    -l "app.kubernetes.io/name=${APP_NAME}" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  [[ -n "$DEPLOYMENT_NAME" ]] || fatal "No CCAM Deployment found in ${NAMESPACE}"
+  [[ -n "$SERVICE_NAME" ]] || fatal "No CCAM Service found in ${NAMESPACE}"
+}
+
+backup_current() {
+  if [[ "$SKIP_BACKUP" == true ]]; then
+    warn "Skipping pre-rollback backup (--skip-backup)"
+    return
+  fi
+  local backup_dir="${SCRIPT_DIR}/../../data/pre-rollback-backups"
+  "${SCRIPT_DIR}/db-backup.sh" \
+    --env "${ENVIRONMENT}" \
+    --namespace "${NAMESPACE}" \
+    --output "${backup_dir}" \
+    || fatal "Pre-rollback backup failed"
 }
 
 # ── Show release history ───────────────────────────────────────────────────
@@ -133,9 +164,9 @@ rollback_helm() {
 
 # ── Kustomize rollback ─────────────────────────────────────────────────────
 rollback_kustomize() {
-  info "Rolling back deployment '${APP_NAME}' in namespace '${NAMESPACE}'..."
+  info "Rolling back deployment '${DEPLOYMENT_NAME}' in namespace '${NAMESPACE}'..."
 
-  local undo_args=(rollout undo "deployment/${APP_NAME}" -n "${NAMESPACE}")
+  local undo_args=(rollout undo "deployment/${DEPLOYMENT_NAME}" -n "${NAMESPACE}")
   if [[ -n "$REVISION" ]]; then
     undo_args+=(--to-revision="${REVISION}")
   fi
@@ -146,7 +177,7 @@ rollback_kustomize() {
 
   # Wait for rollout
   info "Waiting for rollout to complete..."
-  if ! kubectl rollout status "deployment/${APP_NAME}" -n "${NAMESPACE}" --timeout=300s; then
+  if ! kubectl rollout status "deployment/${DEPLOYMENT_NAME}" -n "${NAMESPACE}" --timeout=300s; then
     fatal "Rollout did not complete in time!"
   fi
 
@@ -173,16 +204,29 @@ run_health_check() {
   if [[ -x "${SCRIPT_DIR}/health-check.sh" ]]; then
     # Port forward for check
     local local_port=14820
-    kubectl port-forward "svc/${APP_NAME}" "${local_port}:${APP_PORT}" -n "${NAMESPACE}" &
+    kubectl port-forward "svc/${SERVICE_NAME}" "${local_port}:80" -n "${NAMESPACE}" &
     local pf_pid=$!
     sleep 3
 
-    if "${SCRIPT_DIR}/health-check.sh" --url "http://localhost:${local_port}" --retries 10 --interval 3; then
+    local token_file=""
+    local secret_name
+    secret_name=$(kubectl get deployment "${DEPLOYMENT_NAME}" -n "${NAMESPACE}" \
+      -o jsonpath='{.spec.template.spec.volumes[?(@.name=="secrets")].secret.secretName}' 2>/dev/null || true)
+    if [[ -n "$secret_name" ]]; then
+      token_file=$(mktemp)
+      kubectl get secret "$secret_name" -n "${NAMESPACE}" \
+        -o jsonpath='{.data.dashboard-token}' | base64 --decode > "$token_file"
+      chmod 600 "$token_file"
+    fi
+    local health_args=(--url "http://localhost:${local_port}" --retries 10 --interval 3)
+    [[ -n "$token_file" ]] && health_args+=(--token-file "$token_file")
+    if "${SCRIPT_DIR}/health-check.sh" "${health_args[@]}"; then
       ok "Health check passed after rollback"
     else
       err "Health check failed after rollback!"
     fi
 
+    [[ -n "$token_file" ]] && rm -f "$token_file"
     kill "$pf_pid" 2>/dev/null || true
   else
     ok "Pods are ready"
@@ -198,8 +242,10 @@ main() {
   echo ""
 
   parse_args "$@"
+  discover_resources
   show_history
   confirm_rollback
+  backup_current
 
   case "$METHOD" in
     helm)       rollback_helm ;;

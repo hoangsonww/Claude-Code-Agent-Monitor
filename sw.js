@@ -4,7 +4,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const CACHE_NAME = "landing-v1";
+const CACHE_NAME = "landing-v2";
 const PRECACHE = ["./", "./index.html", "./favicon.svg", "./og-image.svg", "./manifest.json"];
 
 self.addEventListener("install", (event) => {

@@ -9,6 +9,38 @@
   "sub1": "Khả năng quan sát thời gian thực cho mọi phiên Claude Code.",
   "sub2": "Token, công cụ, chi phí và workflow, tất cả trực tiếp.",
   "brand": "Giám sát Claude Code",
+  "provider": {
+    "title": "Bạn muốn theo dõi gì?",
+    "description": "Chọn dữ liệu hiển thị trên toàn bộ bảng điều khiển. Bạn có thể đổi lại trong Cài đặt.",
+    "claude": { "description": "Phiên Claude Code, agent và chi phí của bạn." },
+    "codex": { "description": "Phiên Codex, mức dùng token GPT và chi phí." },
+    "both": {
+      "label": "Cả hai",
+      "description": "Tất cả phiên Claude Code và Codex, mức sử dụng và chi phí."
+    },
+    "beta": "Beta",
+    "continue": "Tiếp tục đến bảng điều khiển"
+  },
+  "hookGate": {
+    "kicker": "Theo dõi trực tiếp",
+    "title": "Thiết lập giám sát trực tiếp",
+    "description": "Chỉ cài hook cục bộ gọn nhẹ cho những nhà cung cấp đã chọn còn thiếu hook.",
+    "selectedProviders": "Nhà cung cấp vẫn cần hook",
+    "realTime": "Hook gửi sự kiện vòng đời đến bảng điều khiển cục bộ này theo thời gian thực. Dữ liệu vẫn ở trên máy của bạn.",
+    "checking": "Đang kiểm tra cấu hình hook hiện có...",
+    "installed": "Hook đã được cài và sẵn sàng để giám sát trực tiếp",
+    "existing": "Đã phát hiện hook bảng điều khiển hiện có",
+    "ready": "Sẵn sàng cài các hook đã chọn",
+    "overrideWarning": "Một nguồn đã chọn đã có hook bảng điều khiển. Cài đặt chỉ làm mới các mục của bảng điều khiển. Các hook khác của bạn vẫn được giữ nguyên.",
+    "output": "Kết quả cài đặt",
+    "failure": "Không thể cài tất cả hook đã chọn. Hãy xem kết quả, sau đó thử lại hoặc tiếp tục nếu bạn đã hoàn tất thiết lập theo cách khác.",
+    "checkFailed": "Không thể kiểm tra cấu hình hook hiện tại. Bạn vẫn có thể cài các hook đã chọn.",
+    "preserveNote": "Chỉ các hook của bảng điều khiển được quản lý. Các hook khác của bạn không thay đổi.",
+    "alreadyInstalled": "Tôi đã cài hook",
+    "install": "Cài hook",
+    "installing": "Đang cài hook...",
+    "continue": "Tiếp tục đến bảng điều khiển"
+  },
   "taglines": [
     "Mọi điều agent của bạn làm đều không ẩn trong bóng tối.",
     "Thấy rõ từng bước đi của agent.",

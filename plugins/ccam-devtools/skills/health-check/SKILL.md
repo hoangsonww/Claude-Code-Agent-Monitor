@@ -1,4 +1,5 @@
 ---
+name: health-check
 description: >
   Run comprehensive health checks on the Claude Code Agent Monitor system.
   Validates dashboard API, database, WebSocket, hooks, and disk usage.

@@ -11,11 +11,11 @@
     "sessionDefault": "Phiên ",
     "sessionError": "Lỗi phiên",
     "subagentSpawned": "Đã tạo Subagent",
-    "finishedResponding": "Claude đã phản hồi xong",
+    "finishedResponding": "Agent đã phản hồi xong",
     "readyForInput": "Sẵn sàng nhận đầu vào",
     "sessionCompleted": "Phiên đã hoàn tất",
     "sessionClosed": "Phiên đã đóng",
-    "defaultTitle": "Claude Code",
+    "defaultTitle": "Bảng điều khiển Agent",
     "defaultBody": "Thông báo"
   },
   "toolLegend": {

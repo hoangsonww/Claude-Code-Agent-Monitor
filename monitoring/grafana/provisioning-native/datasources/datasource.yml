@@ -1,0 +1,12 @@
+# Auto-provisions the Prometheus datasource for a NATIVE (non-Docker) stack.
+# Prometheus is expected on the host loopback interface (see start-native.sh).
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: ccam-prometheus
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true
+    editable: true

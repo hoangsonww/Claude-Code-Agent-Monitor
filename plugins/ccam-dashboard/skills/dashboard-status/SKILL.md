@@ -1,9 +1,10 @@
 ---
+name: dashboard-status
 description: >
   Quick dashboard health and status overview — checks the Agent Monitor API
   (port 4820), reports session/agent/event counts from /api/stats, confirms
-  WebSocket connectivity, validates hook configuration in ~/.claude/settings.json,
-  and shows data freshness (last event timestamp). Use to verify the monitoring
+  WebSocket connectivity, reads the redacted hook status returned by
+  /api/settings/info, and shows data freshness (last event timestamp). Use to verify the monitoring
   system is operational.
 ---
 
@@ -46,9 +47,10 @@ From latest event:
 - If >1 hour: warn about possible hook disconnect
 
 ### 4. Hook Status
-Check `~/.claude/settings.json` for configured hooks:
+Use `/api/settings/info` → `hooks` for configured hook names:
 - Expected: PreToolUse, PostToolUse, Stop, SubagentStop, Notification, SessionStart, SessionEnd
-- Report which hooks are present vs missing
+- Report which hook names are present vs missing. Do not read hook commands or
+  unrelated settings.
 
 ### 5. Dashboard Info
 From `/api/settings/info`:

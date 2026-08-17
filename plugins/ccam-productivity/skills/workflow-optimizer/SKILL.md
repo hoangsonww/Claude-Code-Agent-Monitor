@@ -1,4 +1,5 @@
 ---
+name: workflow-optimizer
 description: >
   Analyze workflow patterns using the Agent Monitor's workflow intelligence
   API — orchestration DAGs, tool flow transitions, subagent effectiveness,

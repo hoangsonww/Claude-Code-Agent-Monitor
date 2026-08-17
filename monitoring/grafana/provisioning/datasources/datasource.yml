@@ -1,0 +1,12 @@
+# Auto-provisions the Prometheus datasource the CCAM dashboard queries. The uid
+# is fixed so the bundled dashboard JSON can reference it deterministically.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: ccam-prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

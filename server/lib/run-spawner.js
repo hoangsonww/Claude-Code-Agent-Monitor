@@ -1,7 +1,7 @@
 /**
  * @file run-spawner.js
  * @description Spawns and supervises Claude Code subprocesses for the
- * dashboard's Run page. Two modes:
+ * dashboard's Run Agent page. Two modes:
  *   - "headless"     — single-shot. Stdin is closed after spawn; the prompt
  *                      lives in argv via `-p`. Process exits when the model
  *                      finishes the turn.
@@ -32,7 +32,12 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { spawn } = require("node:child_process");
+// cross-spawn (not node:child_process): on Windows the npm-installed `claude`
+// is a `.cmd` shim that plain spawn can't launch, and the naive fix (`shell:
+// true`) would run argv — including the user-controlled prompt/model — through
+// cmd.exe, opening a command-injection hole. cross-spawn resolves the shim and
+// escapes arguments safely without a shell. On macOS/Linux it is a plain spawn.
+const spawn = require("cross-spawn");
 const { randomUUID } = require("node:crypto");
 const { broadcast } = require("../websocket");
 const { createLineParser } = require("./stream-json-parser");
@@ -303,14 +308,18 @@ function spawnRun(args) {
 
   const id = randomUUID();
   const argv = buildArgv({ prompt, mode, model, permissionMode, resumeSessionId, effort });
+  // cross-spawn handles the Windows `.cmd` shim safely (see the require above);
+  // deliberately no `shell` option, so argv is never parsed by cmd.exe.
   const child = spawn("claude", argv, {
     env: cleanSpawnEnv(),
     cwd: cwd || process.cwd(),
     stdio: ["pipe", "pipe", "pipe"],
+    windowsHide: true,
   });
 
   const handle = {
     id,
+    provider: "claude",
     pid: child.pid || null,
     mode,
     cwd: cwd || process.cwd(),
@@ -424,6 +433,7 @@ function publicHandle(handle, opts = {}) {
   if (!handle) return null;
   const out = {
     id: handle.id,
+    provider: handle.provider || "claude",
     pid: handle.pid,
     mode: handle.mode,
     cwd: handle.cwd,
@@ -472,6 +482,7 @@ function __injectChildForTest({ child, mode = "conversation", prompt = "test" })
   const id = randomUUID();
   const handle = {
     id,
+    provider: "claude",
     pid: 0,
     mode,
     cwd: process.cwd(),

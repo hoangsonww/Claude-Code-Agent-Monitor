@@ -9,9 +9,14 @@ const { getUpdatesStatus } = require("../lib/update-check");
 
 const router = Router();
 
-router.get("/status", async (_req, res) => {
+function updateStatusProvider(req) {
+  const injected = req.app?.locals?.updateStatusProvider;
+  return typeof injected === "function" ? injected : getUpdatesStatus;
+}
+
+router.get("/status", async (req, res) => {
   try {
-    const status = await getUpdatesStatus();
+    const status = await updateStatusProvider(req)();
     res.json(status);
   } catch (err) {
     res.status(500).json({
@@ -20,9 +25,9 @@ router.get("/status", async (_req, res) => {
   }
 });
 
-router.post("/check", async (_req, res) => {
+router.post("/check", async (req, res) => {
   try {
-    const status = await getUpdatesStatus();
+    const status = await updateStatusProvider(req)();
     try {
       const { broadcast } = require("../websocket");
       broadcast("update_status", status);

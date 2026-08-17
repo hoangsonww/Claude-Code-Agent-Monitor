@@ -1,0 +1,6 @@
+interface:
+  display_name: "Daily Standup"
+  short_description: "Generate a daily standup summary from recent Claude Code..."
+  default_prompt: "Use $daily-standup to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

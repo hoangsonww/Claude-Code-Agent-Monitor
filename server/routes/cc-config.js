@@ -8,8 +8,8 @@
  *
  * Read paths cover every surface. Write paths exist only for low-risk
  * text-file artifacts (skills, agents, commands, output styles, memory, and
- * per-project auto-memory files) and always create a timestamped backup
- * before mutating. Plugins, MCP servers,
+ * per-project auto-memory files) plus the structured keybindings.json editor,
+ * and always create a timestamped backup before mutating. Plugins, MCP servers,
  * and the live settings.json files stay read-only because they are written
  * concurrently by the running Claude Code CLI.
  *
@@ -109,6 +109,25 @@ router.get("/marketplaces", (_req, res) => {
 
 router.get("/keybindings", (_req, res) => {
   res.json(cc.readKeybindings());
+});
+
+// PUT /api/cc-config/keybindings — structured overwrite of the user's
+// ~/.claude/keybindings.json. Body: { groups: [{ context, bindings: [{ key,
+// action }] }] }. Backs the file up first and preserves top-level metadata.
+router.put("/keybindings", (req, res) => {
+  const { groups } = req.body || {};
+  if (!Array.isArray(groups)) {
+    return res
+      .status(400)
+      .json({ error: { code: "EBADREQ", message: "groups array is required" } });
+  }
+  try {
+    const result = ccMutate.writeKeybindings({ groups });
+    emitChanged({ action: "write", type: "keybindings", name: null, project: null });
+    res.json(result);
+  } catch (err) {
+    return mutateError(res, err);
+  }
 });
 
 router.get("/statusline", (_req, res) => {

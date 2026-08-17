@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CCAM — Prometheus Console</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b0f14;
+      --card: #141a22;
+      --text: #e8edf4;
+      --muted: #9aa7b5;
+      --accent: #e6522c;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --border: #243041;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f6f8;
+        --card: #fff;
+        --text: #1a1f26;
+        --muted: #5c6b7a;
+        --border: #d8dee6;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+    h1 { margin: 0 0 8px; font-size: 1.6rem; }
+    .sub { color: var(--muted); margin: 0 0 24px; }
+    .banner {
+      display: none;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--warn);
+      background: color-mix(in srgb, var(--warn) 12%, transparent);
+      margin-bottom: 20px;
+    }
+    .banner.show { display: block; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .card .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 1.5rem; font-weight: 600; margin-top: 4px; }
+    .card .value.ok { color: var(--ok); }
+    .card .value.bad { color: #f87171; }
+    .card a.graph { font-size: 0.8rem; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; }
+    tr:last-child td { border-bottom: none; }
+    ul { margin: 0; padding-left: 20px; }
+    li { margin: 6px 0; }
+    code { font-size: 0.9em; }
+    .footer { color: var(--muted); font-size: 0.85rem; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CCAM — Claude Code Agent Monitor</h1>
+    <p class="sub">
+      Live metrics from <code>GET /api/metrics</code> via Prometheus — your SQLite
+      database on each scrape. No synthetic data.
+    </p>
+
+    <div id="warn" class="banner" role="alert">
+      <strong>No <code>ccam</code> scrape target yet.</strong>
+      Start the dashboard (<code>npm start</code> on port 4820), wait ~15s, then
+      <a href="">refresh</a>.
+    </div>
+
+    <div id="cards" class="grid" aria-live="polite"></div>
+
+    <h2>Sessions by status</h2>
+    <table>
+      <thead><tr><th>Status</th><th>Count</th><th>Graph</th></tr></thead>
+      <tbody id="sessions-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+    </table>
+
+    <h2>Tokens by kind</h2>
+    <table>
+      <thead><tr><th>Kind</th><th>Total</th><th>Graph</th></tr></thead>
+      <tbody id="tokens-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+    </table>
+
+    <h2>Starter expressions</h2>
+    <ul id="starters"></ul>
+
+    <p class="footer">
+      Grafana:
+      <a href="http://localhost:3000/d/ccam-overview/ccam-overview" target="_blank" rel="noopener">Overview</a>
+      &middot;
+      <a href="http://localhost:3000/dashboards" target="_blank" rel="noopener">All dashboards</a>
+      &middot;
+      <a href="/graph">Prometheus Graph</a>
+      &middot;
+      <a href="/targets">Targets</a>
+    </p>
+  </div>
+
+  <script>
+    const STARTERS = [
+      ["sum(ccam_sessions)", "Total sessions"],
+      ["ccam_sessions{status=\"completed\"}", "Completed sessions"],
+      ["ccam_events_total", "Cumulative events"],
+      ["sum(ccam_tokens_total)", "All tokens"],
+      ["rate(ccam_events_total[5m])", "Event throughput (/s)"],
+      ["sum(rate(ccam_tokens_total[5m]))", "Token throughput (/s)"],
+      ["ccam:sessions:total", "Recording rule — total sessions"],
+      ["ccam_websocket_clients", "WebSocket clients"],
+    ];
+
+    function graphUrl(expr) {
+      return "/graph?g0.expr=" + encodeURIComponent(expr) + "&g0.tab=0";
+    }
+
+    function humanize(n) {
+      const x = Number(n);
+      if (!Number.isFinite(x)) return "—";
+      if (Math.abs(x) >= 1e9) return (x / 1e9).toFixed(2) + "B";
+      if (Math.abs(x) >= 1e6) return (x / 1e6).toFixed(2) + "M";
+      if (Math.abs(x) >= 1e4) return (x / 1e3).toFixed(1) + "K";
+      if (Number.isInteger(x)) return String(x);
+      return x.toFixed(2);
+    }
+
+    function bytes(n) {
+      const x = Number(n);
+      if (!Number.isFinite(x)) return "—";
+      if (x >= 1073741824) return (x / 1073741824).toFixed(2) + " GiB";
+      if (x >= 1048576) return (x / 1048576).toFixed(1) + " MiB";
+      if (x >= 1024) return (x / 1024).toFixed(1) + " KiB";
+      return x + " B";
+    }
+
+    async function promql(query) {
+      const res = await fetch("/api/v1/query?" + new URLSearchParams({ query }));
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const body = await res.json();
+      if (body.status !== "success") throw new Error(body.error || "query failed");
+      return body.data.result;
+    }
+
+    function scalar(results) {
+      if (!results || !results.length) return null;
+      return results[0].value[1];
+    }
+
+    function card(label, value, opts) {
+      const el = document.createElement("div");
+      el.className = "card";
+      const cls = opts && opts.cls ? " value " + opts.cls : " value";
+      el.innerHTML =
+        '<div class="label">' + label + "</div>" +
+        '<div class="' + cls.trim() + '">' + value + "</div>" +
+        (opts && opts.expr
+          ? ' <div><a class="graph" href="' + graphUrl(opts.expr) + '">Graph →</a></div>'
+          : "");
+      return el;
+    }
+
+    function tableRows(container, rows, emptyText) {
+      container.innerHTML = "";
+      if (!rows.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = '<td colspan="3">' + emptyText + "</td>";
+        container.appendChild(tr);
+        return;
+      }
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td><code>" + row.label + "</code></td>" +
+          "<td>" + row.value + "</td>" +
+          '<td><a href="' + graphUrl(row.expr) + '">Open</a></td>';
+        container.appendChild(tr);
+      }
+    }
+
+    async function main() {
+      const warn = document.getElementById("warn");
+      const cards = document.getElementById("cards");
+      const sessionsBody = document.getElementById("sessions-body");
+      const tokensBody = document.getElementById("tokens-body");
+      const starters = document.getElementById("starters");
+
+      for (const [expr, label] of STARTERS) {
+        const li = document.createElement("li");
+        li.innerHTML = label + ': <a href="' + graphUrl(expr) + '"><code>' + expr + "</code></a>";
+        starters.appendChild(li);
+      }
+
+      try {
+        const [
+          scrapeUp,
+          apiUp,
+          totalSessions,
+          activeSessions,
+          totalEvents,
+          allTokens,
+          workingAgents,
+          rss,
+          sessionVec,
+          tokenVec,
+        ] = await Promise.all([
+          promql('up{job="ccam"}'),
+          promql("ccam_up"),
+          promql("sum(ccam_sessions)"),
+          promql('ccam_sessions{status="active"}'),
+          promql("ccam_events_total"),
+          promql("sum(ccam_tokens_total)"),
+          promql('ccam_agents{status="working"}'),
+          promql("ccam_process_resident_memory_bytes"),
+          promql("ccam_sessions"),
+          promql("ccam_tokens_total"),
+        ]);
+
+        const scrapeVal = scalar(scrapeUp);
+        if (scrapeVal !== "1") warn.classList.add("show");
+
+        const upCls = (v) => (v === "1" ? "ok" : "bad");
+        const upText = (v) => (v === "1" ? "UP" : v == null ? "—" : "DOWN");
+
+        cards.appendChild(card("Scrape", upText(scrapeVal), { cls: upCls(scrapeVal), expr: 'up{job="ccam"}' }));
+        cards.appendChild(card("API", upText(scalar(apiUp)), { cls: upCls(scalar(apiUp)), expr: "ccam_up" }));
+        cards.appendChild(card("Total sessions", humanize(scalar(totalSessions)), { expr: "sum(ccam_sessions)" }));
+        cards.appendChild(card("Active sessions", humanize(scalar(activeSessions)), { expr: 'ccam_sessions{status="active"}' }));
+        cards.appendChild(card("Total events", humanize(scalar(totalEvents)), { expr: "ccam_events_total" }));
+        cards.appendChild(card("All tokens", humanize(scalar(allTokens)), { expr: "sum(ccam_tokens_total)" }));
+        cards.appendChild(card("Working agents", humanize(scalar(workingAgents)), { expr: 'ccam_agents{status="working"}' }));
+        cards.appendChild(card("Memory (RSS)", bytes(scalar(rss)), { expr: "ccam_process_resident_memory_bytes" }));
+
+        tableRows(
+          sessionsBody,
+          sessionVec.map((s) => ({
+            label: s.metric.status || "?",
+            value: humanize(s.value[1]),
+            expr: 'ccam_sessions{status="' + (s.metric.status || "") + '"}',
+          })),
+          "No session series yet."
+        );
+
+        tableRows(
+          tokensBody,
+          tokenVec.map((s) => ({
+            label: s.metric.kind || "?",
+            value: humanize(s.value[1]),
+            expr: 'ccam_tokens_total{kind="' + (s.metric.kind || "") + '"}',
+          })),
+          "No token series yet."
+        );
+      } catch (err) {
+        warn.classList.add("show");
+        warn.innerHTML =
+          "<strong>Could not query Prometheus.</strong> " +
+          (err && err.message ? err.message : err) +
+          ' — is Prometheus running on this host?';
+        cards.innerHTML = "";
+        sessionsBody.innerHTML = '<tr><td colspan="3">Query failed.</td></tr>';
+        tokensBody.innerHTML = '<tr><td colspan="3">Query failed.</td></tr>';
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>

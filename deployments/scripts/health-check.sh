@@ -35,6 +35,8 @@ RESPONSE_THRESHOLD=2000  # milliseconds
 JSON_OUTPUT=false
 CHECK_WEBSOCKET=true
 HEALTH_PATH="/api/health"
+TOKEN="${DASHBOARD_TOKEN:-}"
+TOKEN_FILE="${DASHBOARD_TOKEN_FILE:-}"
 
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {
@@ -52,6 +54,8 @@ ${BOLD}Options:${NC}
   --threshold        Max response time in ms (default: 2000)
   --path             Health endpoint path (default: /api/health)
   --no-websocket     Skip WebSocket connectivity check
+  --token            Dashboard bearer token
+  --token-file       Read the dashboard bearer token from a file
   --json             Output results as JSON
   --help, -h         Show this help message
 
@@ -81,6 +85,8 @@ parse_args() {
       --threshold)       RESPONSE_THRESHOLD="$2"; shift 2 ;;
       --path)            HEALTH_PATH="$2"; shift 2 ;;
       --no-websocket)    CHECK_WEBSOCKET=false; shift ;;
+      --token)           TOKEN="$2"; shift 2 ;;
+      --token-file)      TOKEN_FILE="$2"; shift 2 ;;
       --json)            JSON_OUTPUT=true; shift ;;
       --help|-h)         usage ;;
       *)                 echo "Unknown option: $1" >&2; exit 1 ;;
@@ -91,6 +97,10 @@ parse_args() {
 
   # Strip trailing slash
   BASE_URL="${BASE_URL%/}"
+  if [[ -z "$TOKEN" && -n "$TOKEN_FILE" ]]; then
+    [[ -r "$TOKEN_FILE" ]] || { echo "Token file is not readable: $TOKEN_FILE" >&2; exit 1; }
+    TOKEN="$(tr -d '\r\n' < "$TOKEN_FILE")"
+  fi
 }
 
 # ── HTTP health check ──────────────────────────────────────────────────────
@@ -112,7 +122,10 @@ check_http_health() {
     start_ns=$(date +%s%N 2>/dev/null || echo "0")
 
     local http_response
+    local auth_args=()
+    [[ -n "$TOKEN" ]] && auth_args=(-H "Authorization: Bearer ${TOKEN}")
     http_response=$(curl -sf \
+      "${auth_args[@]}" \
       --max-time "${TIMEOUT}" \
       --write-out "\n%{http_code}\n%{time_total}" \
       "${url}" 2>/dev/null) || true
@@ -185,8 +198,9 @@ check_websocket() {
   ws_url="${ws_url/http:/ws:}"
   ws_url="${ws_url/https:/wss:}"
   ws_url="${ws_url}/ws"
+  [[ -n "$TOKEN" ]] && ws_url="${ws_url}?token=${TOKEN}"
 
-  info "Checking WebSocket: ${ws_url}"
+  info "Checking WebSocket: ${BASE_URL}/ws"
 
   # Check if we have a WebSocket testing tool
   if command -v websocat &>/dev/null; then
@@ -207,7 +221,7 @@ check_websocket() {
     -H "Connection: Upgrade" \
     -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
     -H "Sec-WebSocket-Version: 13" \
-    "${BASE_URL}/ws" 2>/dev/null) || ws_status="000"
+    "${BASE_URL}/ws$([[ -n "$TOKEN" ]] && printf '?token=%s' "$TOKEN")" 2>/dev/null) || ws_status="000"
 
   # 101 = Switching Protocols (WebSocket upgrade success)
   # 400 = Bad Request (server recognized WS but rejected – still proves WS is available)

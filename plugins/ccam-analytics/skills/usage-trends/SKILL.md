@@ -1,4 +1,5 @@
 ---
+name: usage-trends
 description: >
   Analyze Claude Code usage trends over time using the Agent Monitor's
   analytics API — daily session counts, daily event counts, token volumes

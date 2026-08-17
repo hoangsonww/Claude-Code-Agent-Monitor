@@ -32,6 +32,7 @@ process.env.DASHBOARD_LIVENESS_PROBE = "0";
 
 const { createApp, startServer } = require("../index");
 const { db } = require("../db");
+const { getUpdatesStatus } = require("../lib/update-check");
 
 const CLI = path.resolve(__dirname, "..", "..", "bin", "ccam.js");
 
@@ -87,6 +88,12 @@ function post(urlPath, body) {
 
 before(async () => {
   const app = createApp();
+  // Keep this CLI-to-HTTP integration test deterministic and offline. The
+  // dedicated update-check suite exercises fetch/branch/ref behavior; this
+  // suite only verifies that the real CLI formats the route payload correctly.
+  // A live network fetch may legally run for 120s, longer than the CLI test
+  // harness's 20s subprocess guard, and previously produced exit code null in CI.
+  app.locals.updateStatusProvider = () => getUpdatesStatus(undefined, { skipFetch: true });
   server = await startServer(app, 0);
   PORT = server.address().port;
   // Seed one session via the real hook path so list commands have a row.
@@ -113,6 +120,7 @@ describe("ccam CLI — monitoring", () => {
     assert.equal(code, 0);
     assert.match(out, /Dashboard/);
     assert.match(out, /up/);
+    assert.match(out, /v\d+\.\d+\.\d+/);
     assert.match(out, new RegExp(String(PORT)));
   });
 
@@ -173,6 +181,26 @@ describe("ccam CLI — data browsing", () => {
     assert.equal(code, 0);
     assert.match(out, /Stop/);
   });
+
+  it("transcript reads the provider-aware transcript endpoint", async () => {
+    const { code, out } = await ccam("transcript", "cli-test-session-0001", "--limit", "5");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.ok(Array.isArray(parsed.messages));
+  });
+
+  it("transcript-image rejects an invalid persisted image reference", async () => {
+    const { code, err } = await ccam(
+      "transcript-image",
+      "cli-test-session-0001",
+      "--line",
+      "1",
+      "--index",
+      "0"
+    );
+    assert.equal(code, 1);
+    assert.match(err, /Image download failed/);
+  });
 });
 
 describe("ccam CLI — insights", () => {
@@ -197,10 +225,60 @@ describe("ccam CLI — insights", () => {
     assert.match(out, /Status/);
   });
 
+  it("run list exposes the live Run API", async () => {
+    const { code, out } = await ccam("run", "list");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.ok(Array.isArray(parsed.items));
+  });
+
   it("cost prints a total", async () => {
     const { code, out } = await ccam("cost");
     assert.equal(code, 0);
     assert.match(out, /Total estimated cost: \$/);
+  });
+
+  it("cost --session scopes the total to one session", async () => {
+    const { code, out } = await ccam("cost", "--session", "cli-test-session-0001");
+    assert.equal(code, 0);
+    assert.match(out, /Session cost/);
+    assert.match(out, /cli-test-session-0001/);
+    assert.match(out, /Total estimated cost: \$/);
+  });
+
+  it("cost surfaces server-tool surcharges when web search was billed", async () => {
+    // Feature surcharges accrue independent of per-model pricing rules, so a
+    // web_search_requests count alone drives the line ($10 / 1k searches).
+    db.prepare(
+      "INSERT INTO token_usage (session_id, model, web_search_requests) VALUES (?, ?, ?)"
+    ).run("cli-test-session-0001", "claude-sonnet-5", 200);
+    try {
+      const { code, out } = await ccam("cost", "--session", "cli-test-session-0001");
+      assert.equal(code, 0);
+      assert.match(out, /Server-tool surcharges/);
+      assert.match(out, /web search \$/);
+    } finally {
+      db.prepare(
+        "DELETE FROM token_usage WHERE session_id = 'cli-test-session-0001' AND model = 'claude-sonnet-5'"
+      ).run();
+    }
+  });
+
+  it("cost warns about models with usage but no pricing rule", async () => {
+    // Usage on a model no default pattern matches: the API prices it at $0
+    // and reports it via unpriced_models; the CLI must surface that.
+    db.prepare(
+      "INSERT INTO token_usage (session_id, model, input_tokens, output_tokens) VALUES (?, ?, ?, ?)"
+    ).run("cli-test-session-0001", "ccam-mystery-model-9", 1200, 300);
+    try {
+      const { code, out } = await ccam("cost");
+      assert.equal(code, 0);
+      assert.match(out, /no pricing rule/);
+      assert.match(out, /ccam-mystery-model-9/);
+      assert.match(out, /ccam pricing set/);
+    } finally {
+      db.prepare("DELETE FROM token_usage WHERE model = 'ccam-mystery-model-9'").run();
+    }
   });
 });
 
@@ -227,6 +305,70 @@ describe("ccam CLI — alerts, rules, webhooks", () => {
     const { code, out } = await ccam("webhooks");
     assert.equal(code, 0);
     assert.match(out, /Provider/);
+  });
+
+  it("webhooks providers exposes the provider catalog", async () => {
+    const { code, out } = await ccam("webhooks", "providers");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.deepEqual(parsed.providers.map((provider) => provider.type).sort(), [
+      "discord",
+      "generic",
+      "google_chat",
+      "make",
+      "mattermost",
+      "n8n",
+      "opsgenie",
+      "pagerduty",
+      "pipedream",
+      "rocketchat",
+      "slack",
+      "splunk_oncall",
+      "teams",
+      "telegram",
+      "zapier",
+    ]);
+  });
+
+  it("webhook update and delete require an id", async () => {
+    for (const action of ["update", "delete"]) {
+      const result = await ccam("webhooks", action, "--yes");
+      assert.equal(result.code, 1);
+      assert.match(result.err, new RegExp(`${action} requires a webhook id`, "i"));
+    }
+  });
+
+  it("unknown alert-rule subcommands report usage before confirmation", async () => {
+    const result = await ccam("alert-rules", "unknown");
+    assert.equal(result.code, 1);
+    assert.match(result.err, /Usage: ccam alert-rules/);
+    assert.doesNotMatch(result.err, /require --yes/);
+  });
+});
+
+describe("ccam CLI — remote sources", () => {
+  it("adds and lists an independent remote Codex home", async () => {
+    const added = await ccam(
+      "remote-sources",
+      "add",
+      "--label",
+      "Codex build host",
+      "--host",
+      "codex-host",
+      "--remote-codex-home",
+      "/srv/codex-home",
+      "--disabled"
+    );
+    assert.equal(added.code, 0, `stderr: ${added.err} stdout: ${added.out}`);
+    assert.match(added.out, /Added remote source/);
+
+    const source = db.prepare("SELECT * FROM remote_sources WHERE host = ?").get("codex-host");
+    assert.equal(source.remote_codex_home, "/srv/codex-home");
+
+    const listed = await ccam("remote-sources");
+    assert.equal(listed.code, 0);
+    assert.match(listed.out, /Codex build host/);
+    assert.match(listed.out, /idle \(idle\/idle\)/);
   });
 });
 
@@ -260,9 +402,52 @@ describe("ccam CLI — pricing", () => {
     assert.equal(del.code, 0);
     assert.match(del.out, /deleted/);
   });
+
+  it("pricing set persists fast-mode and intro rates via flags", async () => {
+    const set = await ccam(
+      "pricing",
+      "set",
+      "ccam-fast-model%",
+      "--input",
+      "5",
+      "--output",
+      "25",
+      "--fast-input",
+      "10",
+      "--fast-output",
+      "50",
+      "--intro-input",
+      "2",
+      "--intro-output",
+      "10",
+      "--intro-until",
+      "2099-01-01"
+    );
+    assert.equal(set.code, 0, `stderr: ${set.err} stdout: ${set.out}`);
+    const list = await ccam("pricing");
+    assert.match(list.out, /ccam-fast-model%/);
+    assert.match(list.out, /\$10\/\$50/); // fast in/out column
+    assert.match(list.out, /\$2\/\$10/); // intro in/out column
+    assert.match(list.out, /2099-01-01/);
+    // A plain rate edit without intro flags must preserve the promo (the
+    // intro block is only sent when an --intro-* flag is present).
+    const edit = await ccam("pricing", "set", "ccam-fast-model%", "--input", "6", "--output", "30");
+    assert.equal(edit.code, 0);
+    const after = await ccam("pricing");
+    assert.match(after.out, /\$6/);
+    assert.match(after.out, /2099-01-01/);
+    await ccam("pricing", "delete", "ccam-fast-model%");
+  });
 });
 
 describe("ccam CLI — import & administration", () => {
+  it("import guide supports Codex", async () => {
+    const { code, out } = await ccam("import", "guide", "--provider", "codex");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.equal(parsed.provider, "codex");
+  });
+
   it("import rescan runs against the (empty) default projects dir", async () => {
     const { code, out } = await ccam("import", "rescan");
     assert.equal(code, 0);
@@ -275,13 +460,15 @@ describe("ccam CLI — import & administration", () => {
     assert.match(err, /Usage: ccam import/);
   });
 
-  it("doctor reports API, hooks, database, and uptime lines", async () => {
+  it("doctor reports API, hooks, database, remotes, and uptime lines", async () => {
     const { code, out } = await ccam("doctor");
-    assert.equal(code, 0);
+    // Exit 1 when hooks are missing (common in the test harness) — still prints a full report.
+    assert.ok(code === 0 || code === 1, `unexpected exit ${code}`);
     assert.match(out, /API reachable/);
     assert.match(out, /Claude Code hooks/);
     assert.match(out, /Database/);
     assert.match(out, /Server uptime/);
+    assert.match(out, /Remote sources/);
   });
 
   it("info dumps system info JSON", async () => {
@@ -292,6 +479,46 @@ describe("ccam CLI — import & administration", () => {
     assert.ok(parsed.server);
   });
 
+  it("config claude overview exposes the Config Explorer API", async () => {
+    const { code, out } = await ccam("config", "claude", "overview");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.ok(parsed.roots);
+  });
+
+  it("hooks status exposes both providers", async () => {
+    const { code, out } = await ccam("hooks", "status");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.ok(parsed.providers.claude);
+    assert.ok(parsed.providers.codex);
+  });
+
+  it("api GET provides complete low-level read coverage", async () => {
+    const { code, out } = await ccam("api", "GET", "/api/health");
+    assert.equal(code, 0);
+    const parsed = JSON.parse(out);
+    assert.equal(parsed.status, "ok");
+  });
+
+  it("api GET preserves non-JSON responses such as Prometheus metrics", async () => {
+    const { code, out } = await ccam("api", "GET", "/api/metrics");
+    assert.equal(code, 0);
+    assert.match(out, /^# HELP ccam_up/m);
+  });
+
+  it("api writes require --yes", async () => {
+    const { code, err } = await ccam("api", "POST", "/api/alerts/ack-all");
+    assert.equal(code, 1);
+    assert.match(err, /require --yes/);
+  });
+
+  it("generic clear-data requires the exact confirmation token", async () => {
+    const { code, err } = await ccam("api", "POST", "/api/settings/clear-data", "--yes");
+    assert.equal(code, 1);
+    assert.match(err, /CLEAR_ALL_DATA/);
+  });
+
   it("export writes a JSON file containing the seeded session", async () => {
     const file = path.join(TMP, "export.json");
     const { code, out } = await ccam("export", file);
@@ -299,6 +526,49 @@ describe("ccam CLI — import & administration", () => {
     assert.match(out, /Exported to/);
     const data = JSON.parse(fs.readFileSync(file, "utf8"));
     assert.ok(JSON.stringify(data).includes("cli-test-session-0001"));
+  });
+
+  it("import-data round-trips an export through the server restore route", async () => {
+    const file = path.join(TMP, "roundtrip-export.json");
+    const exported = await ccam("export", file);
+    assert.equal(exported.code, 0);
+    const restored = await ccam("import-data", file);
+    assert.equal(restored.code, 0, `stderr: ${restored.err}`);
+    assert.match(restored.out, /already present/);
+  });
+
+  it("import upload sends multipart history files through the CLI", async () => {
+    const file = path.join(TMP, "empty-history.jsonl");
+    fs.writeFileSync(file, "");
+    const uploaded = await ccam("import", "upload", file, "--provider", "claude");
+    assert.equal(uploaded.code, 0, `stderr: ${uploaded.err}`);
+    assert.equal(JSON.parse(uploaded.out).ok, true);
+  });
+
+  it("the app multipart backup restore path is idempotent", async () => {
+    const exported = await fetch(`http://127.0.0.1:${PORT}/api/settings/export`);
+    assert.equal(exported.status, 200);
+    const payload = await exported.text();
+    const form = new FormData();
+    form.append("file", new Blob([payload], { type: "application/json" }), "dashboard-export.json");
+    const restored = await fetch(`http://127.0.0.1:${PORT}/api/settings/import`, {
+      method: "POST",
+      body: form,
+    });
+    assert.equal(restored.status, 200);
+    const result = await restored.json();
+    assert.equal(result.ok, true);
+    assert.ok(result.sessions_skipped >= 1);
+  });
+
+  it("update-check reports the checkout's update status", async () => {
+    // The route uses the app-local offline provider configured in before().
+    // Branch/ref behavior remains real, but no external GitHub fetch can race
+    // the test harness timeout.
+    const { code, out } = await ccam("update-check");
+    assert.equal(code, 0);
+    assert.match(out, /Dashboard updates/);
+    assert.match(out, /checkout|commit|remote|update/i);
   });
 
   it("cleanup without flags exits 1 with usage", async () => {
@@ -419,10 +689,11 @@ describe("ccam CLI — offline mode (server down, DB read directly)", () => {
 
   it("doctor works offline and reports the server as down", async () => {
     const { code, out } = await offline("doctor");
-    assert.equal(code, 0);
+    assert.equal(code, 1);
     assert.match(out, /NOT running/);
     assert.match(out, /Database/);
     assert.match(out, /rows: sessions/);
+    assert.match(out, /Remote sources/);
   });
 
   it("cost refuses offline with the server-side-math reason", async () => {
@@ -523,6 +794,7 @@ describe("ccam CLI — help & errors", () => {
       "export",
       "cleanup",
       "reinstall-hooks",
+      "update-check",
       "clear-data",
       "open",
     ]) {
@@ -614,5 +886,89 @@ describe("ccam CLI — help & errors", () => {
     const { code, out } = await ccam("start");
     assert.equal(code, 0);
     assert.match(out, /already running/);
+  });
+});
+
+describe("ccam CLI — interactive REPL", () => {
+  /**
+   * Drive `ccam repl` with piped stdin (non-TTY). Each typed line is executed
+   * as a child `ccam` process, so grandchildren reach the in-test server via
+   * the DASHBOARD_PORT override; async spawn keeps the event loop free.
+   */
+  function repl(input, port = PORT) {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, [CLI, "repl"], {
+        env: { ...process.env, DASHBOARD_PORT: String(port) },
+      });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      const killer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+      child.on("close", (code) => {
+        clearTimeout(killer);
+        resolve({ code, out, err });
+      });
+      child.stdin.write(input);
+      child.stdin.end();
+    });
+  }
+
+  it("runs piped commands in order and exits at EOF", async () => {
+    const { code, out } = await repl("version\nstats\nexit\n");
+    assert.equal(code, 0);
+    // version output precedes the stats table → sequential execution.
+    const vIdx = out.indexOf("ccam ");
+    const sIdx = out.indexOf("Total sessions");
+    assert.ok(vIdx >= 0 && sIdx >= 0 && vIdx < sIdx, `order: v=${vIdx} s=${sIdx}`);
+  });
+
+  it("dispatches real commands (sessions) through child processes", async () => {
+    const { code, out } = await repl("sessions --limit 5\nexit\n");
+    assert.equal(code, 0);
+    assert.match(out, /of \d+ session/);
+  });
+
+  it("the `commands` built-in lists every command", async () => {
+    const { out } = await repl("commands\nexit\n");
+    assert.match(out, /sessions/);
+    assert.match(out, /kanban/);
+    assert.match(out, /repl/);
+  });
+
+  it("the `help` built-in shows shell built-ins and the grouped catalog", async () => {
+    const { out } = await repl("help\nexit\n");
+    assert.match(out, /built-ins/i);
+    assert.match(out, /Server/); // catalog group headers are present
+    assert.match(out, /Administration/);
+    assert.match(out, /watch/); // the new built-in is documented
+  });
+
+  it("`help <command>` shows that command's details", async () => {
+    const { out } = await repl("help sessions\nexit\n");
+    assert.match(out, /sessions/);
+    assert.match(out, /--status/); // the args hint / description is shown
+  });
+
+  it("`commands` groups every command under its category", async () => {
+    const { out } = await repl("commands\nexit\n");
+    assert.match(out, /Server/);
+    assert.match(out, /Insights/);
+    assert.match(out, /sessions/);
+  });
+
+  it("an unknown command does not kill the shell — later commands still run", async () => {
+    const { code, out, err } = await repl("frobnicate\nstats\nexit\n");
+    assert.equal(code, 0);
+    assert.match(err, /Unknown command/); // the refusal lands on stderr
+    assert.match(out, /Total sessions/); // the shell survived and ran stats
+  });
+
+  it("a server-only refusal (offline) does not kill the shell", async () => {
+    // Point the shell at a dead port: `cost` refuses, but the shell survives
+    // to run `exit` and close cleanly.
+    const { code, out, err } = await repl("cost\nexit\n", 1);
+    assert.equal(code, 0);
+    assert.match(err + out, /runs server-side|NOT running/);
   });
 });

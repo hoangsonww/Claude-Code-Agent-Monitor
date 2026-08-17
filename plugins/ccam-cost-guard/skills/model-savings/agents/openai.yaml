@@ -1,0 +1,6 @@
+interface:
+  display_name: "Model Savings"
+  short_description: "Estimate the dollars saved by routing eligible Claude Code..."
+  default_prompt: "Use $model-savings to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

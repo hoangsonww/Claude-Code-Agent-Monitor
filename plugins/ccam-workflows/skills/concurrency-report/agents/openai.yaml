@@ -1,0 +1,6 @@
+interface:
+  display_name: "Concurrency Report"
+  short_description: "Report concurrency and parallelism for a session — how many..."
+  default_prompt: "Use $concurrency-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

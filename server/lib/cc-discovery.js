@@ -45,6 +45,25 @@ function isUnder(root, target) {
   return t.startsWith(r + path.sep);
 }
 
+function canonicalAllowedPath(absPath, allowedRoots) {
+  let canonical;
+  try {
+    canonical = fs.realpathSync(absPath);
+  } catch {
+    return null;
+  }
+  const canonicalRoots = allowedRoots
+    .map((root) => {
+      try {
+        return fs.realpathSync(root);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  return canonicalRoots.some((root) => isUnder(root, canonical)) ? canonical : null;
+}
+
 function readJson(absPath) {
   try {
     const raw = fs.readFileSync(absPath, "utf8");
@@ -140,6 +159,41 @@ function listDir(absPath) {
   }
 }
 
+/**
+ * True if `ent` is a directory, OR a symlink that resolves to one.
+ * Dirent.isDirectory() returns false for symlinks even when they point at a
+ * directory (e.g. a skill installed via `ln -s` so it can live in a git
+ * repo) — this follows the link with statSync so those aren't skipped.
+ * Broken symlinks are treated as non-directories rather than throwing.
+ */
+function isDirLike(ent, absPath) {
+  if (ent.isDirectory()) return true;
+  if (!ent.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(absPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * File counterpart of {@link isDirLike}: true if `ent` is a regular file, OR a
+ * symlink that resolves to one. Same Dirent quirk — `ent.isFile()` returns
+ * false for a symlink even when it points at a file, so agents/commands/hook
+ * scripts installed via `ln -s` were invisible to the Config Explorer while
+ * Claude Code itself resolves and uses them. Broken symlinks are treated as
+ * non-files rather than throwing.
+ */
+function isFileLike(ent, absPath) {
+  if (ent.isFile()) return true;
+  if (!ent.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(absPath).isFile();
+  } catch {
+    return false;
+  }
+}
+
 // ── Skills ──────────────────────────────────────────────────────────────
 
 function readSkillsAt(scope, claudeDir) {
@@ -147,8 +201,8 @@ function readSkillsAt(scope, claudeDir) {
   const entries = listDir(dir);
   const skills = [];
   for (const ent of entries) {
-    if (!ent.isDirectory()) continue;
     const skillDir = path.join(dir, ent.name);
+    if (!isDirLike(ent, skillDir)) continue;
     const skillFile = path.join(skillDir, "SKILL.md");
     const read = safeReadText(skillFile);
     if (!read) continue;
@@ -186,8 +240,9 @@ function readMdFilesAt(scope, claudeDir, subdir) {
   const entries = listDir(dir);
   const out = [];
   for (const ent of entries) {
-    if (!ent.isFile() || !ent.name.endsWith(".md")) continue;
+    if (!ent.name.endsWith(".md")) continue;
     const file = path.join(dir, ent.name);
+    if (!isFileLike(ent, file)) continue;
     const read = safeReadText(file);
     if (!read) continue;
     const { frontmatter, body } = parseFrontmatter(read.text);
@@ -228,7 +283,7 @@ function countMdIn(dir) {
   try {
     return fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(".md")).length;
+      .filter((e) => e.name.endsWith(".md") && isFileLike(e, path.join(dir, e.name))).length;
   } catch {
     return 0;
   }
@@ -237,7 +292,7 @@ function countMdIn(dir) {
 function countSkillDirsIn(dir) {
   try {
     return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => {
-      if (!e.isDirectory()) return false;
+      if (!isDirLike(e, path.join(dir, e.name))) return false;
       try {
         return fs.statSync(path.join(dir, e.name, "SKILL.md")).isFile();
       } catch {
@@ -267,7 +322,7 @@ function readPluginContributions(installPath) {
       try {
         return fs
           .readdirSync(path.join(installPath, "hooks"), { withFileTypes: true })
-          .filter((e) => e.isFile()).length;
+          .filter((e) => isFileLike(e, path.join(installPath, "hooks", e.name))).length;
       } catch {
         return 0;
       }
@@ -585,7 +640,7 @@ function readHookScripts() {
   return {
     dir,
     items: entries
-      .filter((e) => e.isFile())
+      .filter((e) => isFileLike(e, path.join(dir, e.name)))
       .map((e) => {
         const file = path.join(dir, e.name);
         let stat;
@@ -692,18 +747,18 @@ function readFileSafe(absPath, opts = {}) {
     getProjectRoot(opts.cwd), // for CLAUDE.md only — caller must pass exact name
   ];
   const resolved = path.resolve(absPath);
-  const inside = allowedRoots.some((root) => isUnder(root, resolved));
-  if (!inside) return { error: "path is outside allowed roots" };
+  const canonical = canonicalAllowedPath(resolved, allowedRoots);
+  if (!canonical) return { error: "path is outside allowed roots" };
   // Extra guard: under project root we only allow CLAUDE.md (avoid leaking
   // arbitrary repo files via this endpoint).
   if (
     isUnder(getProjectRoot(opts.cwd), resolved) &&
     !isUnder(getProjectClaudeDir(opts.cwd), resolved) &&
-    path.basename(resolved) !== "CLAUDE.md"
+    path.basename(canonical) !== "CLAUDE.md"
   ) {
     return { error: "only CLAUDE.md is readable from project root" };
   }
-  const r = safeReadText(resolved);
+  const r = safeReadText(canonical);
   if (!r) return { error: "file not readable" };
   return { ok: true, file: resolved, ...r };
 }
@@ -789,6 +844,7 @@ module.exports = {
   parseFrontmatter,
   redactSettings,
   isUnder,
+  isFileLike,
   MAX_FILE_BYTES,
   HOOK_EVENT_TYPES,
 };

@@ -1,0 +1,401 @@
+{
+  "uid": "ccam-platform",
+  "title": "CCAM — Platform Health",
+  "description": "Scrape health, process resources, remote sources, and build info from live metrics.",
+  "tags": ["ccam", "claude-code", "platform", "health"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "15s",
+  "time": { "from": "now-24h", "to": "now" },
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/ccam-overview/ccam-overview",
+      "keepTime": true
+    },
+    {
+      "title": "Sessions & Agents",
+      "type": "link",
+      "url": "/d/ccam-sessions-agents/ccam-sessions-agents",
+      "keepTime": true
+    },
+    {
+      "title": "Tokens & Events",
+      "type": "link",
+      "url": "/d/ccam-tokens-events/ccam-tokens-events",
+      "keepTime": true
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Availability",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Prometheus scrape",
+      "description": "up{job=\"ccam\"} — 1 when Prometheus successfully scrapes /api/metrics.",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red" },
+                "1": { "text": "UP", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "up{job=\"ccam\"}", "legendFormat": "scrape" }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CCAM API",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "DOWN", "color": "red" },
+                "1": { "text": "UP", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_up", "legendFormat": "api" }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Server uptime",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_process_uptime_seconds", "legendFormat": "uptime" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Memory (RSS)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_process_resident_memory_bytes", "legendFormat": "rss" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Scrape health over time",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "scrape" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "api" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "expr": "up{job=\"ccam\"}", "legendFormat": "scrape" },
+        { "refId": "B", "expr": "ccam_up", "legendFormat": "api" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Process memory (RSS)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_process_resident_memory_bytes", "legendFormat": "rss" }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Realtime & federation",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "WebSocket clients",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 14 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "purple", "value": null }] }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_websocket_clients", "legendFormat": "clients" }]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Remote sources (enabled)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 14 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_remote_sources{enabled=\"true\"}", "legendFormat": "enabled" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Remote sources (disabled)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 14 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "orange", "value": null }] }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ccam_remote_sources{enabled=\"false\"}",
+          "legendFormat": "disabled"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Hook activity (events/s)",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 14 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "decimals": 3,
+          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "rate(ccam_events_total[5m])", "legendFormat": "events/s" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "WebSocket clients over time",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 18 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never"
+          },
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_websocket_clients", "legendFormat": "clients" }]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Remote data sources",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 18 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_remote_sources", "legendFormat": "enabled={{enabled}}" }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Build",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "CCAM build info",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 26 },
+      "options": { "showHeader": true },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [{ "id": "custom.hidden", "value": true }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Time" },
+            "properties": [{ "id": "custom.hidden", "value": true }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "job" },
+            "properties": [{ "id": "custom.hidden", "value": true }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "instance" },
+            "properties": [{ "id": "custom.hidden", "value": true }]
+          }
+        ]
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_build_info", "format": "table", "instant": true }]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Server uptime",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 26 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_process_uptime_seconds", "legendFormat": "uptime" }]
+    }
+  ]
+}

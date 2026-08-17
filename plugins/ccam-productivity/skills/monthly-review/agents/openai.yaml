@@ -1,0 +1,6 @@
+interface:
+  display_name: "Monthly Review"
+  short_description: "Compile a month-over-month retrospective from Agent Monitor..."
+  default_prompt: "Use $monthly-review to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

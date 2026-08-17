@@ -1,0 +1,6 @@
+interface:
+  display_name: "Error Propagation"
+  short_description: "Trace error propagation through a multi-agent session by..."
+  default_prompt: "Use $error-propagation to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

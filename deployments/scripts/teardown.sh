@@ -4,7 +4,6 @@
 #
 # Usage:
 #   ./teardown.sh --env dev --method helm
-#   ./teardown.sh --env production --method terraform
 #   ./teardown.sh --help
 # ─────────────────────────────────────────────────────────────────────────────
 # @author Son Nguyen <hoangson091104@gmail.com>
@@ -49,7 +48,7 @@ ${BOLD}Usage:${NC}
 
 ${BOLD}Required:${NC}
   --env, -e          Environment: dev, staging, production
-  --method, -m       Method: helm, kustomize, terraform
+  --method, -m       Method: helm, kustomize
 
 ${BOLD}Options:${NC}
   --namespace, -n    Kubernetes namespace (default: agent-monitor-<env>)
@@ -63,7 +62,6 @@ ${BOLD}Options:${NC}
 ${BOLD}Examples:${NC}
   $(basename "$0") --env dev --method helm
   $(basename "$0") --env staging --method kustomize --delete-namespace
-  $(basename "$0") --env production --method terraform
 
 EOF
   exit 0
@@ -91,6 +89,10 @@ parse_args() {
   [[ -z "$ENVIRONMENT" ]] && fatal "Missing required argument: --env"
   [[ -z "$METHOD" ]]      && fatal "Missing required argument: --method"
   [[ -z "$NAMESPACE" ]]   && NAMESPACE="agent-monitor-${ENVIRONMENT}"
+  case "$METHOD" in
+    helm|kustomize) ;;
+    *) fatal "Invalid method: ${METHOD}. Must be helm or kustomize." ;;
+  esac
 }
 
 # ── Confirm teardown ───────────────────────────────────────────────────────
@@ -144,9 +146,9 @@ backup_data() {
       --output "${backup_dir}" \
       --namespace "${NAMESPACE}" \
       && ok "Pre-teardown backup created" \
-      || warn "Backup failed – continuing with teardown"
+      || fatal "Pre-teardown backup failed"
   else
-    warn "db-backup.sh not found – skipping backup"
+    fatal "db-backup.sh not found"
   fi
 }
 
@@ -157,11 +159,9 @@ show_resources() {
 
   kubectl get all -n "${NAMESPACE}" 2>/dev/null || warn "Could not list resources"
 
-  if [[ "$METHOD" != "terraform" ]]; then
-    echo ""
-    info "PersistentVolumeClaims:"
-    kubectl get pvc -n "${NAMESPACE}" 2>/dev/null || warn "No PVCs found"
-  fi
+  echo ""
+  info "PersistentVolumeClaims:"
+  kubectl get pvc -n "${NAMESPACE}" 2>/dev/null || warn "No PVCs found"
   echo ""
 }
 
@@ -176,16 +176,6 @@ teardown_helm() {
   else
     warn "Helm release '${HELM_RELEASE}' not found in namespace '${NAMESPACE}'"
   fi
-
-  # Also try uninstalling blue/green releases
-  for color in blue green; do
-    if helm status "${HELM_RELEASE}-${color}" -n "${NAMESPACE}" &>/dev/null; then
-      info "Uninstalling ${color} slot release..."
-      helm uninstall "${HELM_RELEASE}-${color}" -n "${NAMESPACE}" --wait --timeout 300s \
-        && ok "Release '${HELM_RELEASE}-${color}' uninstalled" \
-        || warn "Failed to uninstall ${color} release"
-    fi
-  done
 }
 
 # ── Kustomize teardown ─────────────────────────────────────────────────────
@@ -203,33 +193,6 @@ teardown_kustomize() {
     kubectl delete all -l "app.kubernetes.io/name=${APP_NAME}" -n "${NAMESPACE}" --wait=true \
       || warn "Could not delete resources by label"
   fi
-}
-
-# ── Terraform teardown ─────────────────────────────────────────────────────
-teardown_terraform() {
-  local tf_dir="${DEPLOY_DIR}/terraform"
-  local env_vars_file="${tf_dir}/environments/${ENVIRONMENT}/terraform.tfvars"
-
-  info "Destroying Terraform-managed infrastructure..."
-
-  pushd "${tf_dir}" > /dev/null
-
-  terraform init -input=false
-
-  local destroy_args=(-input=false -auto-approve)
-  if [[ -f "$env_vars_file" ]]; then
-    destroy_args+=(-var-file="$env_vars_file")
-  fi
-  # Need to provide required variables that may not have defaults
-  destroy_args+=(-var "environment=${ENVIRONMENT}")
-
-  if ! terraform destroy "${destroy_args[@]}"; then
-    popd > /dev/null
-    fatal "Terraform destroy failed! Review state manually."
-  fi
-
-  popd > /dev/null
-  ok "Terraform infrastructure destroyed"
 }
 
 # ── Cleanup PVCs ────────────────────────────────────────────────────────────
@@ -272,11 +235,6 @@ cleanup_namespace() {
 verify_teardown() {
   info "Verifying teardown..."
 
-  if [[ "$METHOD" == "terraform" ]]; then
-    ok "Terraform state should reflect no resources"
-    return
-  fi
-
   local remaining
   remaining=$(kubectl get all -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
 
@@ -304,9 +262,7 @@ main() {
   echo -e "  ${BOLD}Namespace:${NC}    ${NAMESPACE}"
   echo ""
 
-  if [[ "$METHOD" != "terraform" ]]; then
-    show_resources
-  fi
+  show_resources
 
   confirm_teardown
   backup_data
@@ -314,15 +270,11 @@ main() {
   case "$METHOD" in
     helm)       teardown_helm ;;
     kustomize)  teardown_kustomize ;;
-    terraform)  teardown_terraform ;;
-    *)          fatal "Invalid method: ${METHOD}" ;;
   esac
 
-  if [[ "$METHOD" != "terraform" ]]; then
-    cleanup_pvcs
-    cleanup_namespace
-    verify_teardown
-  fi
+  cleanup_pvcs
+  cleanup_namespace
+  verify_teardown
 
   echo ""
   ok "${BOLD}Teardown complete!${NC}"

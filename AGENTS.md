@@ -9,6 +9,7 @@
 - Small, scoped, reversible diffs.
 - Preserve existing behavior unless change is requested.
 - Update docs whenever workflow or architecture changes — follow `.claude/skills/update-project-docs/` automatically at the end of every change-set (README + VN/CN/KO mirrors, ARCHITECTURE, wiki + i18n + cache bump, server/client READMEs, docs/*).
+- Apply `.agents/skills/version-release/` for every release bump: patch for backward-compatible fixes/small improvements, minor for larger backward-compatible capabilities, and major for breaking/fundamental changes; synchronize every shipping release surface, create or reuse the matching `v<version>` GitHub milestone, and assign the release PR plus linked closing issues to it.
 - Every applicable source file you create or update (`.js/.ts/.tsx/.cjs/.mjs/.py/.sh/.css`) must start with the authorship header: a truthful file overview plus the exact line `@author Son Nguyen <hoangson091104@gmail.com>`. See `.claude/skills/file-headers/` and `.claude/rules/file-headers.md`; verify with `bash .claude/skills/file-headers/scripts/check-headers.sh`.
 
 ## Where to work

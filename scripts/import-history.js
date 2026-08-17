@@ -2,8 +2,9 @@
 
 /**
  * Import legacy Claude Code sessions from ~/.claude/ into the Agent Dashboard.
- * Reads per-project JSONL session files to populate sessions, agents, and
- * token usage that existed before the dashboard was installed.
+ * Reads per-project JSONL session files to populate sessions, agents, token
+ * usage, and compact recent-human-turn card context that existed before the
+ * dashboard was installed.
  *
  * Can be run standalone: node scripts/import-history.js [--dry-run] [--project <name>]
  * Also exported for auto-import on server startup.
@@ -29,9 +30,20 @@ const {
   getProjectsDir,
   getTranscriptSnapshotDir,
 } = require("../server/lib/claude-home");
-const { extractFirstUserText } = require("../server/lib/transcript-cache");
+const { extractFirstUserText, appendRecentUserMessage } = require("../server/lib/transcript-cache");
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
+
+// Max session files a directory sweep scans synchronously before it yields to
+// the event loop. The desktop app hosts this Express server IN the Electron main
+// process (see desktop/src/server-host.ts), so a long synchronous scan of a
+// large ~/.claude/projects tree — one statSync + one getSession query per file —
+// would freeze the whole app window, not just delay an API response. Yielding
+// every N files keeps each synchronous burst short so a multi-thousand-session
+// history never monopolizes the loop. Under `npm start` the server is its own
+// process, so the same scan can't freeze the UI there — which is exactly why
+// the issue only reproduces in the packaged app (#223).
+const SWEEP_YIELD_EVERY_FILES = 100;
 
 /**
  * Snapshot an imported session's JSONL transcript (and its subagent
@@ -114,6 +126,18 @@ function firstUserLabel(text) {
 }
 
 /**
+ * Card context is intentionally tiny and never replaces the transcript: the
+ * two newest distinct user requests make an imported Claude session as useful
+ * on the dashboard as a live session or a Codex rollout.
+ */
+function cardPromptPreview(messages) {
+  const lines = Array.isArray(messages)
+    ? messages.map((message) => (typeof message === "string" ? message.trim() : "")).filter(Boolean)
+    : [];
+  return lines.slice(-2).join("\n") || null;
+}
+
+/**
  * Parse a single JSONL session file to extract session metadata.
  */
 async function parseSessionFile(filePath) {
@@ -153,6 +177,10 @@ async function parseSessionFile(filePath) {
   // First real user prompt (tool-result / meta / command entries skipped) —
   // fallback descriptor for sessions that never got a title. First wins.
   let firstUserMessage = null;
+  // The dashboard's card-only context follows the same two-turn rule as live
+  // hook ingestion. Keep it bounded while streaming so a large historic JSONL
+  // never needs to hold an entire conversation in memory.
+  let recentUserMessages = [];
 
   for await (const line of rl) {
     if (!line.trim()) continue;
@@ -232,9 +260,10 @@ async function parseSessionFile(filePath) {
 
     if (entry.type === "user") {
       userMessageCount++;
-      if (firstUserMessage === null) {
-        const firstText = extractFirstUserText(entry);
-        if (firstText) firstUserMessage = firstText;
+      const userText = extractFirstUserText(entry);
+      if (userText) {
+        if (firstUserMessage === null) firstUserMessage = userText;
+        recentUserMessages = appendRecentUserMessage(recentUserMessages, userText);
       }
       if (
         entry.toolUseResult &&
@@ -328,6 +357,7 @@ async function parseSessionFile(filePath) {
     customTitle,
     aiTitle,
     firstUserMessage,
+    recentUserMessages,
     cwd,
     model,
     version,
@@ -1160,6 +1190,12 @@ function importSession(dbModule, session) {
     const importedData = JSON.stringify({ imported: true });
     let backfilled = false;
 
+    const preview = cardPromptPreview(session.recentUserMessages);
+    if (preview) {
+      const upd = stmts.updateSessionCardPromptPreview.run(preview, session.sessionId, preview);
+      if (upd.changes > 0) backfilled = true;
+    }
+
     // Per-event-type "high water mark" — the newest timestamp already present
     // in the DB for each event_type belonging to this session. JSONL is
     // append-only and parsed in file order, so any JSONL entry whose timestamp
@@ -1504,6 +1540,11 @@ function importSession(dbModule, session) {
     session.sessionId
   );
 
+  const preview = cardPromptPreview(session.recentUserMessages);
+  if (preview) {
+    stmts.updateSessionCardPromptPreview.run(preview, session.sessionId, preview);
+  }
+
   // Persist the transcript path so the abandon sweep, compaction scanner, and
   // per-agent cost backfill can locate this session's transcript later.
   if (session.transcriptPath) {
@@ -1804,10 +1845,41 @@ async function importAllSessions(dbModule) {
       for (const session of batch) {
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
+      // Link Workflow-tool inner agents to their run. Workflow runs write a
+      // per-run journal + nested agent transcripts that emit NO hooks, so an
+      // offline/headless/CI/cluster run never had them ingested live — leaving
+      // every inner agent orphaned (workflow_run_id = NULL). Run it here, OUTSIDE
+      // the sqlite transaction (the ingest is async), mirroring the server's
+      // startup ingestAllWorkflows so a CLI rescan links them too. Idempotent and
+      // cheap for sessions with no workflow artifacts (early return).
+      await ingestWorkflowsForBatch(dbModule, batch);
     }
   }
 
   return { imported, skipped, errors };
+}
+
+/**
+ * Link Workflow-tool inner agents for a batch of just-imported sessions by
+ * running the shared workflow-journal ingest per session. Extracted so the
+ * default rescan (importAllSessions) and the arbitrary-directory import
+ * (importFromDirectory) link workflow fleets identically, matching the server's
+ * ingestWorkflowsForSession path. Lazy-requires workflow-ingest to avoid the
+ * import-history ⇆ workflow-ingest require cycle. Per-session failures are
+ * non-fatal: a malformed journal must never abort the import.
+ */
+async function ingestWorkflowsForBatch(dbModule, sessions) {
+  const { ingestWorkflowsForSession } = require("../server/lib/workflow-ingest");
+  for (const session of sessions) {
+    try {
+      await ingestWorkflowsForSession(dbModule, {
+        id: session.sessionId,
+        transcript_path: session._sourceJsonlPath,
+      });
+    } catch {
+      /* non-fatal — one bad workflow journal must not fail the whole import */
+    }
+  }
 }
 
 /**
@@ -1841,6 +1913,10 @@ async function syncDefaultProjects(dbModule, options = {}) {
     return { changed };
   }
 
+  // Files scanned so far this sweep, across all project dirs — drives the
+  // cooperative yield below so a huge history never blocks the event loop.
+  let scanned = 0;
+
   for (const projDir of projectDirs) {
     const projPath = path.join(PROJECTS_DIR, projDir);
     let files;
@@ -1851,6 +1927,18 @@ async function syncDefaultProjects(dbModule, options = {}) {
     }
 
     for (const file of files) {
+      // Cooperative yield BEFORE the per-file work, so it covers the unchanged
+      // -file fast paths below (statSync + a getSession query) that otherwise
+      // never await. Without this, a cold-cache sweep of a large projects tree
+      // runs thousands of files back-to-back with no yield and freezes the
+      // desktop app's window (its server shares the Electron main event loop —
+      // see SWEEP_YIELD_EVERY_FILES). The heavy-parse path keeps its own yield
+      // further down; this one is what makes the common skip path cooperative.
+      if (scanned > 0 && scanned % SWEEP_YIELD_EVERY_FILES === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      scanned++;
+
       const sourcePath = path.join(projPath, file);
       let mtime;
       try {
@@ -2222,7 +2310,12 @@ function classifyJsonl(filePath) {
   // ancestor chain (rather than just parent/grandparent) stops workflow
   // inner-agent files from being misimported as bogus top-level sessions when a
   // user points the directory importer at a tree that contains workflow runs.
-  const segments = path.dirname(filePath).split(path.sep);
+  // Split on BOTH separators rather than the platform-specific path.sep:
+  // transcript paths can arrive in POSIX form even on Windows (forwarded
+  // household hooks, imported trees, the unit tests), and splitting a
+  // "/a/b/subagents/x.jsonl" path on "\\" would yield one giant segment that
+  // never equals "subagents", misclassifying every subagent as a session.
+  const segments = path.dirname(filePath).split(/[\\/]/);
   if (segments.includes("subagents")) return "subagent";
   return "session";
 }
@@ -2412,6 +2505,15 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
     }
+
+    // Link Workflow-tool inner agents to their run for any imported session that
+    // carries an on-disk workflow journal — the same offline/headless/CI/cluster
+    // gap importAllSessions closes, but for a directory import. Runs outside the
+    // DB transaction (async) and is idempotent.
+    await ingestWorkflowsForBatch(
+      dbModule,
+      parsedSessions.filter((s) => s._sourceJsonlPath)
+    );
   }
 
   // Orphan subagent JSONLs (parent session not present in DB or not among the

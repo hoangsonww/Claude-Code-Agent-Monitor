@@ -1,4 +1,5 @@
 ---
+name: regression-alert
 description: >
   Compare this period's reliability against the prior period using Agent Monitor
   data — error rate (APIError/total) and tool-failure rate (PreToolUse→PostToolUse

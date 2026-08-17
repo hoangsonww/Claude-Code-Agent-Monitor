@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Debug"
+  short_description: "Debug a specific session by inspecting its full event chain..."
+  default_prompt: "Use $session-debug to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

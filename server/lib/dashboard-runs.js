@@ -1,11 +1,10 @@
 /**
  * @file dashboard-runs.js
- * @description Persistence layer for runs spawned via the dashboard's
- * /api/run endpoint. The in-memory handle map in run-spawner.js reaps
- * handles 5 min after exit, which is fine for live re-attach but loses
- * historical data. This module mirrors every spawn / status transition
- * into a sqlite row so the Run page can show a full history of what
- * the user has spawned and resume any of those sessions.
+ * @description Persistence layer for Claude Code and Codex runs spawned via
+ * the dashboard's /api/run endpoint. The in-memory handle maps reap handles
+ * 5 min after exit, which is fine for live re-attach but loses historical
+ * data. This module mirrors every spawn / status transition into a sqlite row
+ * so the Run Agent page can show a full history and resume either provider.
  *
  * All db operations are wrapped in try/catch so a failure here can never
  * take down a live run — persistence is a side benefit, not a blocker.
@@ -19,10 +18,10 @@ const PROMPT_PREVIEW_LIMIT = 500;
 
 const insertStmt = db.prepare(`
   INSERT OR REPLACE INTO dashboard_runs (
-    id, session_id, mode, cwd, model, permission_mode, effort,
+    id, session_id, provider, mode, cwd, model, permission_mode, sandbox, effort,
     resume_session_id, prompt_preview, status, exit_code, started_at, ended_at
   ) VALUES (
-    @id, @session_id, @mode, @cwd, @model, @permission_mode, @effort,
+    @id, @session_id, @provider, @mode, @cwd, @model, @permission_mode, @sandbox, @effort,
     @resume_session_id, @prompt_preview, @status, @exit_code, @started_at, @ended_at
   )
 `);
@@ -37,7 +36,7 @@ const updateStmt = db.prepare(`
 `);
 
 const listStmt = db.prepare(`
-  SELECT id, session_id, mode, cwd, model, permission_mode, effort,
+  SELECT id, session_id, provider, mode, cwd, model, permission_mode, sandbox, effort,
          resume_session_id, prompt_preview, status, exit_code,
          started_at, ended_at
   FROM dashboard_runs
@@ -46,7 +45,7 @@ const listStmt = db.prepare(`
 `);
 
 const getStmt = db.prepare(`
-  SELECT id, session_id, mode, cwd, model, permission_mode, effort,
+  SELECT id, session_id, provider, mode, cwd, model, permission_mode, sandbox, effort,
          resume_session_id, prompt_preview, status, exit_code,
          started_at, ended_at
   FROM dashboard_runs WHERE id = @id
@@ -63,10 +62,12 @@ function recordRun(handle) {
     insertStmt.run({
       id: handle.id,
       session_id: handle.sessionId || null,
+      provider: handle.provider || "claude",
       mode: handle.mode,
       cwd: handle.cwd || "",
       model: handle.model || null,
       permission_mode: handle.permissionMode || null,
+      sandbox: handle.sandbox || null,
       effort: handle.effort || null,
       resume_session_id: handle.resumeSessionId || null,
       prompt_preview: prompt.slice(0, PROMPT_PREVIEW_LIMIT) || null,

@@ -777,7 +777,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   window.__lightboxSlides = slides;
 })();
 
-/* ─── Wiki i18n (en source in DOM; zh / vi swap by English-text key) ──────────
+/* ─── Wiki i18n (en source in DOM; zh / vi / ko / es swap by English-text key) ─
  * The wiki is a static page, so localization swaps text in place. The scannable
  * layer (nav, section labels, headings, hero, UI chrome) is keyed by plain text
  * in T below; body content (paragraphs, list items, table cells, image
@@ -839,6 +839,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Alerts & Webhooks": "告警与 Webhook",
       "Update Notifier": "更新提醒",
       "Connection Status": "连接状态",
+      "Prometheus & Grafana": "Prometheus 与 Grafana",
       Tabby: "Tabby",
       "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby —— 会响应的小猫伴侣",
       Internationalization: "国际化",
@@ -910,6 +911,11 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Error Propagation Map": "错误传播图",
       "Evaluation engine": "评估引擎",
       "Event Ingestion Pipeline": "事件摄取管道",
+      "Embedded Dashboard & Deep Navigation": "嵌入式仪表板与深度导航",
+      "Server startup": "服务器启动",
+      "Hook-to-broadcast latency": "Hook 到广播延迟",
+      "JS bundle (63 KB gzipped)": "JS 包（gzip 后 63 KB）",
+      "SQLite inserts/sec (WAL)": "SQLite 插入/秒（WAL）",
       "Events, Stats, Analytics": "事件、统计、分析",
       "First-Boot Bootstrap": "首次启动引导",
       "Fresh-by-Default Caching": "默认保鲜的缓存",
@@ -918,6 +924,10 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       Health: "健康",
       "History Import": "历史导入",
       "Hook Configuration": "Hook 配置",
+      "Hook latency": "Hook 延迟",
+      "Hook types captured": "已捕获的 Hook 类型",
+      "Server memory": "服务器内存",
+      "Events before slowdown": "性能下降前的事件数",
       "Hook Events Captured": "捕获的 Hook 事件",
       "Hook Handler Design": "Hook 处理器设计",
       "Hook Installation Flow": "Hook 安装流程",
@@ -933,6 +943,9 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Key Client Modules": "关键客户端模块",
       Launch: "启动",
       "Live Dashboard": "实时仪表盘",
+      "Live Monitoring Sidebar": "实时监控侧边栏",
+      "Interactive Analytics & Usage": "交互式分析与使用情况",
+      "Smart Auto-Detection & Connection": "智能自动检测与连接",
       "Local MCP Server": "本地 MCP 服务器",
       "Local MCP Server Runtime": "本地 MCP 服务器运行时",
       "Locale-aware formatting": "区域感知格式化",
@@ -949,6 +962,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Optional: Enable MCP and Agent Extensions": "可选：启用 MCP 与 Agent 扩展",
       "Plain Docker / Podman (no Compose)": "纯 Docker / Podman（不用 Compose）",
       "Plugin Architecture": "插件架构",
+      Plugin: "插件",
       "Port Discovery": "端口发现",
       Pricing: "定价",
       "Progressive Web App": "渐进式 Web 应用",
@@ -996,6 +1010,24 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "What It Adds": "它新增了什么",
       "Workflow Analytics": "工作流分析",
       "Workflow Graphs": "工作流图",
+      "Workflow Runs": "工作流运行",
+      "ccam CLI": "ccam CLI",
+      Metrics: "指标",
+      "How It Works": "工作原理",
+      "Data Scope": "数据范围",
+      "Live Status": "实时状态",
+      "Security Model": "安全模型",
+      "API Endpoints": "API 端点",
+      "WebSocket Events": "WebSocket 事件",
+      CLI: "CLI",
+      "12 discovery tabs": "12 个发现标签页",
+      "Safe mutations": "安全修改",
+      "Keybindings editor": "按键绑定编辑器",
+      "Memory store": "内存存储",
+      "Read-only by design": "按设计只读",
+      "Live refresh": "实时刷新",
+      "Editable vs read-only": "可编辑与只读",
+      "API endpoints": "API 端点",
       Workflows: "工作流",
     },
     vi: {
@@ -1046,6 +1078,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Alerts & Webhooks": "Cảnh báo & Webhook",
       "Update Notifier": "Thông báo cập nhật",
       "Connection Status": "Trạng thái kết nối",
+      "Prometheus & Grafana": "Prometheus & Grafana",
       Tabby: "Tabby",
       "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby — Chú mèo bạn đồng hành biết phản ứng",
       Internationalization: "Quốc tế hóa",
@@ -1115,6 +1148,11 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Error Propagation Map": "Bản đồ lan truyền lỗi",
       "Evaluation engine": "Công cụ đánh giá",
       "Event Ingestion Pipeline": "Quy trình thu nhận sự kiện",
+      "Embedded Dashboard & Deep Navigation": "Bảng điều khiển nhúng và điều hướng sâu",
+      "Server startup": "Khởi động máy chủ",
+      "Hook-to-broadcast latency": "Độ trễ từ hook đến phát sóng",
+      "JS bundle (63 KB gzipped)": "Gói JS (63 KB nén gzip)",
+      "SQLite inserts/sec (WAL)": "Số lần chèn SQLite/giây (WAL)",
       "Events, Stats, Analytics": "Sự kiện, thống kê, phân tích",
       "First-Boot Bootstrap": "Khởi tạo lần đầu",
       "Fresh-by-Default Caching": "Cache mặc định luôn mới",
@@ -1123,6 +1161,10 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       Health: "Sức khỏe",
       "History Import": "Nhập lịch sử",
       "Hook Configuration": "Cấu hình Hook",
+      "Hook latency": "Độ trễ hook",
+      "Hook types captured": "Các loại hook đã ghi nhận",
+      "Server memory": "Bộ nhớ máy chủ",
+      "Events before slowdown": "Sự kiện trước khi chậm lại",
       "Hook Events Captured": "Sự kiện Hook được ghi",
       "Hook Handler Design": "Thiết kế bộ xử lý Hook",
       "Hook Installation Flow": "Quy trình cài Hook",
@@ -1138,6 +1180,9 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Key Client Modules": "Các module client chính",
       Launch: "Khởi chạy",
       "Live Dashboard": "Bảng điều khiển trực tiếp",
+      "Live Monitoring Sidebar": "Thanh bên giám sát thời gian thực",
+      "Interactive Analytics & Usage": "Phân tích và sử dụng tương tác",
+      "Smart Auto-Detection & Connection": "Tự động phát hiện và kết nối thông minh",
       "Local MCP Server": "Máy chủ MCP cục bộ",
       "Local MCP Server Runtime": "Runtime máy chủ MCP cục bộ",
       "Locale-aware formatting": "Định dạng theo locale",
@@ -1155,6 +1200,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Optional: Enable MCP and Agent Extensions": "Tùy chọn: bật MCP và tiện ích Agent",
       "Plain Docker / Podman (no Compose)": "Docker / Podman thuần (không Compose)",
       "Plugin Architecture": "Kiến trúc plugin",
+      Plugin: "Plugin",
       "Port Discovery": "Khám phá cổng",
       Pricing: "Giá",
       "Progressive Web App": "Progressive Web App",
@@ -1202,6 +1248,24 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "What It Adds": "Nó bổ sung gì",
       "Workflow Analytics": "Phân tích quy trình",
       "Workflow Graphs": "Đồ thị quy trình",
+      "Workflow Runs": "Lần chạy quy trình",
+      "ccam CLI": "ccam CLI",
+      Metrics: "Chỉ số",
+      "How It Works": "Cách hoạt động",
+      "Data Scope": "Phạm vi dữ liệu",
+      "Live Status": "Trạng thái trực tiếp",
+      "Security Model": "Mô hình bảo mật",
+      "API Endpoints": "Điểm cuối API",
+      "WebSocket Events": "Sự kiện WebSocket",
+      CLI: "CLI",
+      "12 discovery tabs": "12 tab khám phá",
+      "Safe mutations": "Thay đổi an toàn",
+      "Keybindings editor": "Trình chỉnh sửa phím tắt",
+      "Memory store": "Kho bộ nhớ",
+      "Read-only by design": "Chỉ đọc theo thiết kế",
+      "Live refresh": "Làm mới trực tiếp",
+      "Editable vs read-only": "Có thể chỉnh sửa và chỉ đọc",
+      "API endpoints": "Điểm cuối API",
       Workflows: "Quy trình",
     },
     ko: {
@@ -1247,6 +1311,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Alerts & Webhooks": "알림 & Webhook",
       "Update Notifier": "업데이트 알리미",
       "Connection Status": "연결 상태",
+      "Prometheus & Grafana": "Prometheus & Grafana",
       "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby — 반응형 고양이 동반자",
       "Internationalization (i18n)": "국제화 (i18n)",
       "Deployment Modes": "배포 모드",
@@ -1305,6 +1370,11 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Error Propagation Map": "오류 전파 맵",
       "Evaluation engine": "평가 엔진",
       "Event Ingestion Pipeline": "이벤트 수집 파이프라인",
+      "Embedded Dashboard & Deep Navigation": "내장 대시보드 및 심층 탐색",
+      "Server startup": "서버 시작",
+      "Hook-to-broadcast latency": "Hook-브로드캐스트 지연 시간",
+      "JS bundle (63 KB gzipped)": "JS 번들(gzip 63 KB)",
+      "SQLite inserts/sec (WAL)": "SQLite 초당 삽입 수(WAL)",
       "Events, Stats, Analytics": "이벤트, 통계, 분석",
       "First-Boot Bootstrap": "최초 부팅 부트스트랩",
       "Fresh-by-Default Caching": "기본 신선 캐싱",
@@ -1312,6 +1382,10 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Guided setup": "가이드 설정",
       "History Import": "히스토리 가져오기",
       "Hook Configuration": "Hook 설정",
+      "Hook latency": "Hook 지연 시간",
+      "Hook types captured": "캡처된 Hook 유형",
+      "Server memory": "서버 메모리",
+      "Events before slowdown": "성능 저하 전 이벤트 수",
       "Hook Events Captured": "캡처되는 Hook 이벤트",
       "Hook Handler Design": "Hook 핸들러 설계",
       "Hook Installation Flow": "Hook 설치 흐름",
@@ -1323,6 +1397,9 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Kanban Board": "Kanban 보드",
       "Key Client Modules": "주요 클라이언트 모듈",
       "Live Dashboard": "실시간 대시보드",
+      "Live Monitoring Sidebar": "실시간 모니터링 사이드바",
+      "Interactive Analytics & Usage": "대화형 분석 및 사용량",
+      "Smart Auto-Detection & Connection": "스마트 자동 감지 및 연결",
       "Local MCP Server": "로컬 MCP 서버",
       "Local MCP Server Runtime": "로컬 MCP 서버 런타임",
       "Locale-aware formatting": "로케일 인식 포맷팅",
@@ -1340,6 +1417,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Optional: Enable MCP and Agent Extensions": "선택 사항: MCP 및 에이전트 확장 활성화",
       "Plain Docker / Podman (no Compose)": "순수 Docker / Podman (Compose 미사용)",
       "Plugin Architecture": "플러그인 아키텍처",
+      Plugin: "플러그인",
       "Port Discovery": "포트 검색",
       "Progressive Web App": "프로그레시브 웹 앱",
       "Provider payloads": "프로바이더 페이로드",
@@ -1379,11 +1457,273 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "What It Adds": "추가되는 기능",
       "Workflow Analytics": "워크플로 분석",
       "Workflow Graphs": "워크플로 그래프",
+      "Workflow Runs": "워크플로 실행",
+      "ccam CLI": "ccam CLI",
+      Metrics: "지표",
+      "How It Works": "작동 방식",
+      "Data Scope": "데이터 범위",
+      "Live Status": "실시간 상태",
+      "Security Model": "보안 모델",
+      "API Endpoints": "API 엔드포인트",
+      "WebSocket Events": "WebSocket 이벤트",
+      CLI: "CLI",
+      "12 discovery tabs": "12개의 탐색 탭",
+      "Safe mutations": "안전한 변경",
+      "Keybindings editor": "키 바인딩 편집기",
+      "Memory store": "메모리 저장소",
+      "Read-only by design": "설계상 읽기 전용",
+      "Live refresh": "실시간 새로고침",
+      "Editable vs read-only": "편집 가능 및 읽기 전용",
+      "API endpoints": "API 엔드포인트",
+    },
+    es: {
+      "Search docs...": "Buscar documentación...",
+      "No results found": "No se encontraron resultados",
+      "Project Wiki": "Wiki del proyecto",
+      "Real-time · Local-first · Zero-config":
+        "En tiempo real · Primero local · Configuración cero",
+      "A professional monitoring platform for Claude Code agent activity. Captures sessions, agents, and tool events via native hooks, persists them in SQLite, and streams updates to a React UI over WebSocket — with no external services required.":
+        "Una plataforma de monitoreo profesional para la actividad del agente Claude Code. Captura sesiones, agentes y eventos de herramientas a través de ganchos nativos, los persiste en SQLite y transmite actualizaciones a una interfaz de usuario React a través de WebSocket, sin necesidad de servicios externos.",
+      "Getting Started": "Empezar",
+      Architecture: "Arquitectura",
+      "Data & APIs": "Datos y API",
+      Integrations: "Integraciones",
+      "Ops & Reference": "Operaciones y referencia",
+      "◈ Architecture": "◈ Arquitectura",
+      "◈ Components & UI": "◈ Componentes y interfaz de usuario",
+      "◈ Configuration": "◈ Configuración",
+      "◈ Data": "◈ Datos",
+      "◈ Features": "◈ Características",
+      "◈ Getting Started": "◈ Comenzando",
+      "◈ Integrations": "◈ Integraciones",
+      "◈ Introduction": "◈ Introducción",
+      "◈ Operations": "◈ Operaciones",
+      "◈ Reference": "◈ Referencia",
+      Overview: "Descripción general",
+      Features: "Características",
+      "Quick Start": "Inicio rápido",
+      Configuration: "Configuración",
+      "Scripts Reference": "Referencia de scripts",
+      "System Overview": "Visión general del sistema",
+      "What's Included": "Qué está incluido",
+      "System Architecture": "Arquitectura del sistema",
+      "Data Flow": "Flujo de datos",
+      "Server Architecture": "Arquitectura del servidor",
+      "Client Architecture": "Arquitectura del cliente",
+      "State Management": "Gestión estatal",
+      "Database Design": "Diseño de bases de datos",
+      "API Reference": "Referencia de API",
+      "WebSocket Protocol": "Protocolo WebSocket",
+      "Hook Integration": "Integración de ganchos",
+      "Import Pipeline": "Pipeline de importación",
+      "MCP & Agent Extensions": "Extensiones de MCP y agentes",
+      "Plugin Marketplace": "Mercado de complementos",
+      "Statusline Utility": "Herramienta de línea de estado",
+      "VS Code Extension": "Extensión de VS Code",
+      "Desktop App (macOS & Windows)": "Aplicación para escritorio (macOS y Windows)",
+      "Settings Page": "Página de ajustes",
+      "Alerts & Webhooks": "Alertas y Webhooks",
+      "Update Notifier": "Notificador de actualización",
+      "Connection Status": "Estado de la conexión",
+      "Prometheus & Grafana": "Prometheus y Grafana",
+      Tabby: "Tabby",
+      "🐾 Tabby — Reactive Cat Companion": "🐾 Tabby — Compañero de gato reactivo",
+      Internationalization: "Internacionalización",
+      "Internationalization (i18n)": "Internacionalización (i18n)",
+      "Deployment Modes": "Modos de despliegue",
+      "Docker / Podman": "Docker / Podman",
+      Performance: "Rendimiento",
+      "Performance Characteristics": "Características del rendimiento",
+      Security: "Seguridad",
+      "Security Considerations": "Consideraciones de seguridad",
+      Troubleshooting: "Resolución de problemas",
+      "Tech Choices": "Opciones tecnológicas",
+      "Technology Choices": "Opciones tecnológicas",
+      "Check 1 — Is the server running?": "Verificación 1: ¿Está funcionando el servidor?",
+      "Check 2 — Are hooks installed?": "Verificación 2: ¿Se han instalado los ganchos?",
+      "Check 3 — Start a new Claude Code session":
+        "Verificar 3 - Iniciar una nueva sesión de Claude Code",
+      "Check 4 — Is Node.js in PATH?": "Verificar 4: ¿Está Node.js en PATH?",
+      macOS: "macOS",
+      Windows: "Windows",
+      "Option A — download the latest GitHub Release (recommended)":
+        "Opción A: descargar la última versión de GitHub (recomendada)",
+      "Option B — per-commit CI artifact": "Opción B: artefacto CI por compromiso",
+      "Option C — build locally": "Opción C: construir localmente",
+      "14 first-class providers": "14 proveedores de primera clase",
+      "5-min Scheduler": "Programador de 5 minutos",
+      "Accessibility & Resilience": "Accesibilidad y resiliencia",
+      "Activity Feed": "Feed de actividad",
+      "Agent Extension Layout": "Diseño de extensión del agente",
+      "Agent State Machine": "Máquina de Estado del Agente",
+      Agents: "Agentes",
+      Alerts: "Alertas",
+      "Alternative: Docker / Podman": "Alternativa: Docker / Podman",
+      Analytics: "Análisis",
+      "API Surface": "Superficie de la API",
+      "Ask → Run Claude Handoff": "Transición de Ask a Run Claude",
+      "Auto-Reload on Update": "Recarga automática en la actualización",
+      "Auto-Start at Login": "Inicio automático al iniciar sesión",
+      "Auto-Surface Speech Bubbles": "Bocadillos automáticos",
+      "Available Plugins": "Plugins disponibles",
+      "Bounded Cache Memory": "Memoria de caché limitada",
+      "Browser Notifications": "Notificaciones del navegador",
+      "Claude + Codex Extensions": "Extensión de Claude + Codex",
+      "Agent Config — Claude Code and Codex explorers":
+        "Configuración de agentes — exploradores de Claude Code y Codex",
+      "Claude Config Explorer": "Explorador de configuración de Claude",
+      "Clear Quarantine": "Liberación de cuarentena",
+      "Clear SmartScreen": "Borrar SmartScreen",
+      "CLI Tools": "Herramientas CLI",
+      "Client Data Loading Pattern": "Patrón de carga de datos del cliente",
+      "Client Routes": "Rutas del cliente",
+      Clone: "Clonar",
+      "Close Hides, Server Stays Up": "Cerrar Oculta, el Servidor Se Mantiene Activado",
+      "Common Issues": "Problemas comunes",
+      "Concurrency Timeline": "Cronología de concurrencia",
+      "Constant-Time Sweep": "Recorrido de tiempo constante",
+      "Container Runtime (Docker / Podman)": "Tiempo de ejecución del contenedor (Docker / Podman)",
+      "Continuous Project Sync": "Sincronización continua del proyecto",
+      "Cost Tracking": "Seguimiento de costos",
+      "Data Export": "Exportación de datos",
+      "Data Management": "Gestión de datos",
+      "Data Model Reference": "Referencia del modelo de datos",
+      "Data Persistence & CLI Reliability": "Persistencia de datos y fiabilidad de la CLI",
+      "Delivery engine": "Motor de entrega",
+      "Detection & fallback": "Detección y fallback",
+      "Dismissal Memory": "Memoria de despido",
+      "Docker Deployment": "Implementación de Docker",
+      "Drag to Applications": "Arrastrar a Aplicaciones",
+      "Environment Variables": "Variables del entorno",
+      "Error Propagation Map": "Mapa de propagación de errores",
+      "Evaluation engine": "Motor de evaluación",
+      "Event Ingestion Pipeline": "Pipeline de ingestión de eventos",
+      "Embedded Dashboard & Deep Navigation": "Panel integrado y navegación profunda",
+      "Server startup": "Inicio del servidor",
+      "Hook-to-broadcast latency": "Latencia del gancho a la transmisión",
+      "JS bundle (63 KB gzipped)": "Paquete JS (63 KB comprimido con gzip)",
+      "SQLite inserts/sec (WAL)": "Inserciones de SQLite/segundo (WAL)",
+      "Events, Stats, Analytics": "Eventos, estadísticas, análisis",
+      "First-Boot Bootstrap": "Bootstrap de arranque inicial",
+      "Fresh-by-Default Caching": "Caching fresco por defecto",
+      "GitHub Star History": "Historial de estrellas de GitHub",
+      "Guided setup": "Configuración guiada",
+      Health: "Salud",
+      "History Import": "Importación de historial",
+      "Hook Configuration": "Configuración del gancho",
+      "Hook latency": "Latencia de ganchos",
+      "Hook types captured": "Tipos de ganchos capturados",
+      "Server memory": "Memoria del servidor",
+      "Events before slowdown": "Eventos antes de que el rendimiento disminuya",
+      "Hook Events Captured": "Eventos de captura de gancho",
+      "Hook Handler Design": "Diseño del manipulador de ganchos",
+      "Hook Installation Flow": "Flujo de instalación del gancho",
+      "Hooks Ingestion": "Ingestión de ganchos",
+      "How to Get It": "Cómo conseguirlo",
+      "Idempotence & Cost Accuracy": "Idempotencia y precisión de costos",
+      "Import History": "Historial de importaciones",
+      "In-Process Architecture": "Arquitectura en proceso",
+      Indexes: "Índices",
+      Install: "Instalar",
+      Installation: "Instalación",
+      "Kanban Board": "Tablero Kanban",
+      "Key Client Modules": "Módulos clave del cliente",
+      Launch: "Iniciar",
+      "Live Dashboard": "Panel de control en vivo",
+      "Live Monitoring Sidebar": "Barra lateral de monitorización en tiempo real",
+      "Interactive Analytics & Usage": "Análisis y uso interactivos",
+      "Smart Auto-Detection & Connection": "Detección y conexión automáticas inteligentes",
+      "Local MCP Server": "Servidor MCP local",
+      "Local MCP Server Runtime": "Tiempo de ejecución del servidor MCP local",
+      "Locale-aware formatting": "Formato con conciencia del lugar",
+      "Menu-Bar / Notification-Area (Tray) Icon":
+        "Icono de Barra de Menú / Área de Notificaciones ( bandeja)",
+      "Message Envelope": "Envelope de mensaje",
+      "Model Pricing": "Precio del modelo",
+      "Multi-Stage Build": "Construcción de múltiples etapas",
+      "Namespaced resources": "Recursos con espacio de nombres",
+      "Native Application Menu": "Menú de aplicaciones nativas",
+      "No sessions appearing after starting Claude Code":
+        "No aparecen sesiones después de iniciar Claude Code",
+      "Non-Blocking Detection": "Detección no bloqueante",
+      "Notification Preferences": "Preferencias de notificaciones",
+      "Open the DMG": "Abrir el DMG",
+      "Optional: Enable MCP and Agent Extensions":
+        "Opcional: Habilitar las extensiones MCP y Agent",
+      "Plain Docker / Podman (no Compose)": "Docker / Podman simple (sin Compose)",
+      "Plugin Architecture": "Arquitectura de plugins",
+      Plugin: "Complemento",
+      "Port Discovery": "Descubrimiento del puerto",
+      Pricing: "Precios",
+      "Progressive Web App": "Aplicación web progresiva",
+      "Provider payloads": "Carga útil del proveedor",
+      "PWA & Service Worker": "PWA y trabajador de servicio",
+      "Reactive Mascot — Eight Moods": "Mascota reactiva — Ocho estados de ánimo",
+      "Responsive Design": "Diseño Responsivo",
+      "Root Helper Scripts": "Scripts de ayuda para root",
+      "Rule types": "Tipos de reglas",
+      "Run Claude": "Corra Claude",
+      "Run the Installer": "Ejecutar el instalador",
+      "Runs Alongside the Web Dashboard": "Funciona junto al panel de control web",
+      "Safety Model": "Modelo de seguridad",
+      Screenshots: "Capturas de pantalla",
+      "Server Modules": "Módulos del servidor",
+      "Session Detail": "Detalles de la sesión",
+      "Session Drill-In": "Entrenamiento de la sesión",
+      "Session State Machine": "Máquina de estado de sesión",
+      Sessions: "Sesiones",
+      "Sessions Table": "Tabla de sesiones",
+      Settings: "Configuración",
+      "Settings & Management": "Configuración y gestión",
+      "Single-Instance Lock": "Bloqueo de instancia única",
+      "Situation-Aware Command": "Comando con conciencia de la situación",
+      "Skill Usage Examples": "Ejemplos de uso de habilidades",
+      "Soft Failure Semantics": "Semántica de fallos suaves",
+      "SQLite Configuration": "Configuración de SQLite",
+      Start: "Inicio",
+      Statusline: "Línea de estado",
+      "Subagent Hierarchy": "Jerarquía de subagentes",
+      "Supported Source Layouts": "Diseños de fuentes compatibles",
+      "System Health": "Estado de salud del sistema",
+      "Technical terms preserved": "Términos técnicos preservados",
+      "The ⌘B Panel": "El panel ⌘B",
+      "Three Modes, One Pipeline": "Tres modos, un solo flujo",
+      "Transcript Cache": "Cache de transcripciones",
+      "Two UI Surfaces": "Dos superficies de interfaz de usuario",
+      "Upload Request Sequence": "Secuencia de solicitud de carga de archivos",
+      "Use Claude": "Utiliza Claude",
+      Verification: "Verificación",
+      "Volume Mounts": "Montajes de volumen",
+      Webhooks: "Webhooks",
+      "WebSocket Progress Events": "Eventos de progreso de WebSocket",
+      "WebSocket Push": "Push WebSocket",
+      "What It Adds": "Lo que agrega",
+      "Workflow Analytics": "Análisis de flujo de trabajo",
+      "Workflow Graphs": "Gráficos de flujo de trabajo",
+      "Workflow Runs": "Ejecuciones de flujos de trabajo",
+      "ccam CLI": "CLI de ccam",
+      Metrics: "Métricas",
+      "How It Works": "Cómo funciona",
+      "Data Scope": "Alcance de datos",
+      "Live Status": "Estado en directo",
+      "Security Model": "Modelo de seguridad",
+      "API Endpoints": "Puntos finales de API",
+      "WebSocket Events": "Eventos de WebSocket",
+      CLI: "CLI",
+      "12 discovery tabs": "12 pestañas de descubrimiento",
+      "Safe mutations": "Modificaciones seguras",
+      "Keybindings editor": "Editor de asignaciones de teclas",
+      "Memory store": "Almacén de memoria",
+      "Read-only by design": "Solo lectura por diseño",
+      "Live refresh": "Actualización en tiempo real",
+      "Editable vs read-only": "Editable frente a solo lectura",
+      "API endpoints": "Puntos finales de API",
+      Workflows: "Flujos de trabajo",
     },
   };
 
   const PLAIN =
-    ".logo-sub, .section-label, .nav-section, .nav-empty, .main-content h2, .main-content h3, .main-content h4, .hero-desc";
+    ".logo-sub, .section-label, .nav-section, .nav-empty, .stat-label, .t-label, .main-content h2, .main-content h3, .main-content h4, .main-content th, .hero-desc";
   const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
   const tr = (lang, en) => (lang === "en" ? en : (T[lang] && T[lang][norm(en)]) || en);
 
@@ -1406,13 +1746,448 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   // source for each element is cached in a Map so re-applying a language always
   // translates from English (idempotent). Data ships in i18n-content.js.
   const CONTENT = (typeof window !== "undefined" && window.__WIKI_CONTENT_I18N) || {};
-  const H = { zh: CONTENT.zh || {}, vi: CONTENT.vi || {}, ko: CONTENT.ko || {} };
+  const H = {
+    zh: CONTENT.zh || {},
+    vi: CONTENT.vi || {},
+    ko: CONTENT.ko || {},
+    es: CONTENT.es || {},
+  };
+  // Attribute values do not participate in the body-content pass above. Keep
+  // image descriptions and assistive labels localized in every wiki language.
+  const ATTRIBUTE_TRANSLATIONS = {
+    "Wiki navigation": {
+      zh: "维基导航",
+      vi: "Điều hướng wiki",
+      ko: "위키 탐색",
+      es: "Navegación de la wiki",
+    },
+    "Toggle sidebar": {
+      zh: "切换侧边栏",
+      vi: "Bật hoặc tắt thanh bên",
+      ko: "사이드바 전환",
+      es: "Alternar barra lateral",
+    },
+    "Search docs...": {
+      zh: "搜索文档…",
+      vi: "Tìm tài liệu…",
+      ko: "문서 검색…",
+      es: "Buscar documentación…",
+    },
+    "Select language": {
+      zh: "选择语言",
+      vi: "Chọn ngôn ngữ",
+      ko: "언어 선택",
+      es: "Seleccionar idioma",
+    },
+    Language: { zh: "语言", vi: "Ngôn ngữ", ko: "언어", es: "Idioma" },
+    "Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed":
+      {
+        zh: "Claude Code Agent Monitor 仪表盘，显示实时 Agent 卡片、统计数据和最近活动流",
+        vi: "Bảng điều khiển Claude Code Agent Monitor hiển thị thẻ Agent trực tiếp, số liệu và luồng hoạt động gần đây",
+        ko: "실시간 Agent 카드, 통계, 최근 활동 피드를 보여 주는 Claude Code Agent Monitor 대시보드",
+        es: "Panel de Claude Code Agent Monitor con tarjetas de Agent en tiempo real, estadísticas y actividad reciente",
+      },
+    "Previous features": {
+      zh: "上一组功能",
+      vi: "Tính năng trước",
+      ko: "이전 기능",
+      es: "Funciones anteriores",
+    },
+    "Next features": {
+      zh: "下一组功能",
+      vi: "Tính năng tiếp theo",
+      ko: "다음 기능",
+      es: "Funciones siguientes",
+    },
+    "Dashboard Overview": {
+      zh: "仪表盘概览",
+      vi: "Tổng quan bảng điều khiển",
+      ko: "대시보드 개요",
+      es: "Resumen del panel",
+    },
+    "Dashboard — System Health tab": {
+      zh: "仪表盘 — 系统健康标签页",
+      vi: "Bảng điều khiển — tab Sức khỏe hệ thống",
+      ko: "대시보드 — 시스템 상태 탭",
+      es: "Panel — pestaña Estado del sistema",
+    },
+    "Kanban Board — Agents view": {
+      zh: "看板 — Agent 视图",
+      vi: "Bảng Kanban — chế độ xem Agent",
+      ko: "칸반 보드 — Agent 보기",
+      es: "Tablero Kanban — vista de Agent",
+    },
+    "Kanban Board — Sessions view": {
+      zh: "看板 — 会话视图",
+      vi: "Bảng Kanban — chế độ xem phiên",
+      ko: "칸반 보드 — 세션 보기",
+      es: "Tablero Kanban — vista de sesiones",
+    },
+    "Sessions Overview": {
+      zh: "会话概览",
+      vi: "Tổng quan phiên",
+      ko: "세션 개요",
+      es: "Resumen de sesiones",
+    },
+    "Session Detail — Agents tab": {
+      zh: "会话详情 — Agent 标签页",
+      vi: "Chi tiết phiên — tab Agent",
+      ko: "세션 상세 — Agent 탭",
+      es: "Detalle de sesión — pestaña Agent",
+    },
+    "Task Progress panel on Session Detail": {
+      zh: "会话详情中的任务进度面板",
+      vi: "Bảng tiến độ tác vụ trong Chi tiết phiên",
+      ko: "세션 상세의 작업 진행률 패널",
+      es: "Panel de progreso de tareas en el detalle de sesión",
+    },
+    "Session Detail — Conversation tab": {
+      zh: "会话详情 — 对话标签页",
+      vi: "Chi tiết phiên — tab Hội thoại",
+      ko: "세션 상세 — 대화 탭",
+      es: "Detalle de sesión — pestaña Conversación",
+    },
+    "Session Detail — Timeline tab": {
+      zh: "会话详情 — 时间线标签页",
+      vi: "Chi tiết phiên — tab Dòng thời gian",
+      ko: "세션 상세 — 타임라인 탭",
+      es: "Detalle de sesión — pestaña Cronología",
+    },
+    "Activity Feed Overview": {
+      zh: "活动流概览",
+      vi: "Tổng quan luồng hoạt động",
+      ko: "활동 피드 개요",
+      es: "Resumen del feed de actividad",
+    },
+    "Analytics Overview": {
+      zh: "分析概览",
+      vi: "Tổng quan phân tích",
+      ko: "분석 개요",
+      es: "Resumen de análisis",
+    },
+    "Workflows Overview": {
+      zh: "工作流概览",
+      vi: "Tổng quan quy trình",
+      ko: "워크플로 개요",
+      es: "Resumen de flujos de trabajo",
+    },
+    "Dynamic Workflow Runs on the Workflows page": {
+      zh: "工作流页面上的动态工作流运行",
+      vi: "Các lần chạy quy trình động trên trang Quy trình",
+      ko: "워크플로 페이지의 동적 워크플로 실행",
+      es: "Ejecuciones dinámicas en la página Flujos de trabajo",
+    },
+    "Dynamic Workflow Run expanded with phase filters and per-agent results": {
+      zh: "展开的动态工作流运行，包含阶段筛选和逐 Agent 结果",
+      vi: "Lần chạy quy trình động đã mở rộng với bộ lọc giai đoạn và kết quả theo Agent",
+      ko: "단계 필터와 Agent별 결과를 펼쳐 본 동적 워크플로 실행",
+      es: "Ejecución dinámica expandida con filtros de fase y resultados por Agent",
+    },
+    "Dynamic Workflow Runs on the session detail page": {
+      zh: "会话详情页面上的动态工作流运行",
+      vi: "Các lần chạy quy trình động trên trang chi tiết phiên",
+      ko: "세션 상세 페이지의 동적 워크플로 실행",
+      es: "Ejecuciones dinámicas en la página de detalle de sesión",
+    },
+    "Agent Config — Claude Code and Codex explorers": {
+      zh: "Agent 配置 — Claude Code 和 Codex 浏览器",
+      vi: "Cấu hình Agent — trình khám phá Claude Code và Codex",
+      ko: "Agent 구성 — Claude Code 및 Codex 탐색기",
+      es: "Configuración de Agent — exploradores de Claude Code y Codex",
+    },
+    "Claude Config Explorer": {
+      zh: "Claude 配置浏览器",
+      vi: "Trình khám phá cấu hình Claude",
+      ko: "Claude 구성 탐색기",
+      es: "Explorador de configuración de Claude",
+    },
+    "Codex Config Explorer — overview, configuration source, and workspace tabs": {
+      zh: "Codex 配置浏览器 — 概览、配置源和工作区标签页",
+      vi: "Trình khám phá cấu hình Codex — các tab tổng quan, nguồn cấu hình và workspace",
+      ko: "Codex 구성 탐색기 — 개요, 구성 소스, 워크스페이스 탭",
+      es: "Explorador de configuración de Codex — pestañas de resumen, fuente y espacio de trabajo",
+    },
+    "Claude Config Explorer — Skills tab": {
+      zh: "Claude 配置浏览器 — 技能标签页",
+      vi: "Trình khám phá cấu hình Claude — tab Skill",
+      ko: "Claude 구성 탐색기 — 스킬 탭",
+      es: "Explorador de configuración de Claude — pestaña Habilidades",
+    },
+    "Run Agent — Claude Code and Codex launch selection": {
+      zh: "运行 Agent — 选择启动 Claude Code 或 Codex",
+      vi: "Chạy Agent — chọn khởi chạy Claude Code hoặc Codex",
+      ko: "Agent 실행 — Claude Code 및 Codex 실행 선택",
+      es: "Ejecutar Agent — selección de Claude Code o Codex",
+    },
+    "Run Agent — live streaming output": {
+      zh: "运行 Agent — 实时流式输出",
+      vi: "Chạy Agent — đầu ra trực tiếp dạng luồng",
+      ko: "Agent 실행 — 실시간 스트리밍 출력",
+      es: "Ejecutar Agent — salida en streaming en tiempo real",
+    },
+    "Settings Overview": {
+      zh: "设置概览",
+      vi: "Tổng quan cài đặt",
+      ko: "설정 개요",
+      es: "Resumen de configuración",
+    },
+    "Settings — Alerts & Webhooks": {
+      zh: "设置 — 告警与 Webhook",
+      vi: "Cài đặt — Cảnh báo & Webhook",
+      ko: "설정 — 알림 및 Webhook",
+      es: "Configuración — Alertas y Webhooks",
+    },
+    "Settings — Remote Data Sources": {
+      zh: "设置 — 远程数据源",
+      vi: "Cài đặt — Nguồn dữ liệu từ xa",
+      ko: "설정 — 원격 데이터 소스",
+      es: "Configuración — Fuentes de datos remotas",
+    },
+    "Swagger UI API docs": {
+      zh: "Swagger UI API 文档",
+      vi: "Tài liệu API Swagger UI",
+      ko: "Swagger UI API 문서",
+      es: "Documentación de API de Swagger UI",
+    },
+    "ReDoc API reference": {
+      zh: "ReDoc API 参考",
+      vi: "Tham khảo API ReDoc",
+      ko: "ReDoc API 참조",
+      es: "Referencia de API de ReDoc",
+    },
+    "Grafana CCAM — Overview dashboard": {
+      zh: "Grafana CCAM — 概览仪表盘",
+      vi: "Grafana CCAM — bảng điều khiển tổng quan",
+      ko: "Grafana CCAM — 개요 대시보드",
+      es: "Grafana CCAM — panel de resumen",
+    },
+    "Prometheus CCAM console": {
+      zh: "Prometheus CCAM 控制台",
+      vi: "Bảng điều khiển Prometheus CCAM",
+      ko: "Prometheus CCAM 콘솔",
+      es: "Consola de Prometheus CCAM",
+    },
+    "Prometheus Graph with CCAM PromQL": {
+      zh: "使用 CCAM PromQL 的 Prometheus Graph",
+      vi: "Prometheus Graph với CCAM PromQL",
+      ko: "CCAM PromQL을 사용하는 Prometheus Graph",
+      es: "Prometheus Graph con CCAM PromQL",
+    },
+    "Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls":
+      {
+        zh: "交互式 Swagger UI 展示仪表盘的 OpenAPI 3.0 规范，包含可折叠端点组、请求/响应模式和试用控件",
+        vi: "Swagger UI tương tác hiển thị đặc tả OpenAPI 3.0 của bảng điều khiển, với nhóm endpoint có thể thu gọn, schema yêu cầu/phản hồi và điều khiển thử nghiệm",
+        ko: "접을 수 있는 엔드포인트 그룹, 요청/응답 스키마, 실행 컨트롤과 함께 대시보드 OpenAPI 3.0 명세를 보여 주는 대화형 Swagger UI",
+        es: "Swagger UI interactivo con la especificación OpenAPI 3.0, grupos plegables, esquemas de solicitud y respuesta y controles de prueba",
+      },
+    "ReDoc rendering the dashboard's OpenAPI 3.0 spec as a read-optimized three-panel reference, served self-hosted and fully offline":
+      {
+        zh: "ReDoc 将仪表盘 OpenAPI 3.0 规范呈现为便于阅读的三栏参考，自托管且完全离线",
+        vi: "ReDoc hiển thị đặc tả OpenAPI 3.0 dưới dạng tài liệu ba bảng tối ưu cho việc đọc, tự lưu trữ và hoàn toàn ngoại tuyến",
+        ko: "대시보드 OpenAPI 3.0 명세를 읽기 좋은 3패널 참조로 제공하는 자체 호스팅 완전 오프라인 ReDoc",
+        es: "ReDoc presenta la especificación OpenAPI 3.0 como referencia de tres paneles optimizada para lectura, autohospedada y sin conexión",
+      },
+    "Settings page Import History section showing rescan default folder, scan custom path, and upload controls with progress output":
+      {
+        zh: "设置页面的导入历史区域，显示重新扫描默认文件夹、扫描自定义路径和带进度输出的上传控件",
+        vi: "Mục Lịch sử nhập trên trang Cài đặt với quét lại thư mục mặc định, quét đường dẫn tùy chỉnh và điều khiển tải lên có tiến độ",
+        ko: "기본 폴더 재검색, 사용자 지정 경로 검색, 진행 출력이 있는 업로드 컨트롤을 보여 주는 설정 페이지의 가져오기 기록 섹션",
+        es: "Sección Historial de importaciones con reescaneo de carpeta, ruta personalizada y controles de carga con progreso",
+      },
+    "Settings page Remote Data Sources section showing configured SSH sources with live status, the data-scope selector, and per-source sync controls":
+      {
+        zh: "设置页面的远程数据源区域，显示已配置 SSH 源的实时状态、数据范围选择器和逐源同步控件",
+        vi: "Mục Nguồn dữ liệu từ xa với nguồn SSH đã cấu hình, trạng thái trực tiếp, bộ chọn phạm vi và điều khiển đồng bộ từng nguồn",
+        ko: "구성된 SSH 소스의 실시간 상태, 데이터 범위 선택기, 소스별 동기화 컨트롤을 보여 주는 설정 페이지의 원격 데이터 소스 섹션",
+        es: "Sección Fuentes remotas con orígenes SSH configurados, estado en vivo, selector de ámbito y controles de sincronización",
+      },
+    "MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output":
+      {
+        zh: "MCP Server 交互式 REPL，显示 MCP Tools 横幅、服务器信息和带彩色输出的工具列表",
+        vi: "REPL tương tác của MCP Server hiển thị biểu ngữ MCP Tools, thông tin server và danh sách công cụ có màu",
+        ko: "MCP Tools 배너, 서버 정보, 컬러 출력을 포함한 도구 목록을 보여 주는 MCP Server 대화형 REPL",
+        es: "REPL interactivo del MCP Server con el banner MCP Tools, información del servidor y lista de herramientas en color",
+      },
+    "CLI statusline showing model, user, git branch, context window bar, and token counts": {
+      zh: "CLI 状态栏，显示模型、用户、Git 分支、上下文窗口条和 Token 计数",
+      vi: "Statusline CLI hiển thị mô hình, người dùng, nhánh Git, thanh cửa sổ ngữ cảnh và số Token",
+      ko: "모델, 사용자, Git 브랜치, 컨텍스트 창 막대, Token 수를 보여 주는 CLI 상태 표시줄",
+      es: "Línea de estado de la CLI con modelo, usuario, rama Git, ventana de contexto y recuentos de Token",
+    },
+    "VS Code Extension sidebar showing live health, analytics, and navigation": {
+      zh: "VS Code 扩展侧边栏，显示实时健康状态、分析和导航",
+      vi: "Thanh bên tiện ích VS Code hiển thị sức khỏe trực tiếp, phân tích và điều hướng",
+      ko: "실시간 상태, 분석, 탐색을 보여 주는 VS Code 확장 사이드바",
+      es: "Barra lateral de la extensión de VS Code con estado, análisis y navegación en tiempo real",
+    },
+    "Claude Code Monitor running as a native desktop app": {
+      zh: "作为原生桌面应用运行的 Claude Code Monitor",
+      vi: "Claude Code Monitor chạy dưới dạng ứng dụng desktop gốc",
+      ko: "네이티브 데스크톱 앱으로 실행되는 Claude Code Monitor",
+      es: "Claude Code Monitor ejecutándose como aplicación de escritorio nativa",
+    },
+    "Claude Code Monitor running as a native desktop app on Windows, showing the Activity Feed, native Windows window menu, and Tabby companion":
+      {
+        zh: "在 Windows 上作为原生桌面应用运行的 Claude Code Monitor，显示活动流、原生窗口菜单和 Tabby 伴侣",
+        vi: "Claude Code Monitor chạy như ứng dụng Windows gốc, hiển thị luồng hoạt động, menu cửa sổ và bạn đồng hành Tabby",
+        ko: "Windows 네이티브 데스크톱 앱으로 실행되며 활동 피드, Windows 창 메뉴, Tabby 동반자를 보여 주는 Claude Code Monitor",
+        es: "Claude Code Monitor como aplicación nativa de Windows, con actividad, menú de ventana y compañero Tabby",
+      },
+    "Windows NSIS installer step 1 — Choose Installation Options": {
+      zh: "Windows NSIS 安装程序第 1 步 — 选择安装选项",
+      vi: "Trình cài đặt Windows NSIS bước 1 — Chọn tùy chọn cài đặt",
+      ko: "Windows NSIS 설치 프로그램 1단계 — 설치 옵션 선택",
+      es: "Instalador NSIS de Windows, paso 1 — Elegir opciones de instalación",
+    },
+    "Windows NSIS installer step 2 — Choose Install Location": {
+      zh: "Windows NSIS 安装程序第 2 步 — 选择安装位置",
+      vi: "Trình cài đặt Windows NSIS bước 2 — Chọn vị trí cài đặt",
+      ko: "Windows NSIS 설치 프로그램 2단계 — 설치 위치 선택",
+      es: "Instalador NSIS de Windows, paso 2 — Elegir ubicación de instalación",
+    },
+    "Windows NSIS installer step 3 — Completing Setup": {
+      zh: "Windows NSIS 安装程序第 3 步 — 完成设置",
+      vi: "Trình cài đặt Windows NSIS bước 3 — Hoàn tất thiết lập",
+      ko: "Windows NSIS 설치 프로그램 3단계 — 설정 완료",
+      es: "Instalador NSIS de Windows, paso 3 — Completar la instalación",
+    },
+    "Settings page with model pricing editor, hook status, data management, and system info": {
+      zh: "设置页面，包含模型定价编辑器、Hook 状态、数据管理和系统信息",
+      vi: "Trang Cài đặt với trình sửa giá mô hình, trạng thái hook, quản lý dữ liệu và thông tin hệ thống",
+      ko: "모델 가격 편집기, Hook 상태, 데이터 관리, 시스템 정보를 포함한 설정 페이지",
+      es: "Página Configuración con editor de precios, estado de Hooks, gestión de datos e información del sistema",
+    },
+    "Claude Config Explorer — 12-tab inspector with overview counts, scope filter, and tab bar": {
+      zh: "Claude 配置浏览器 — 带概览计数、范围筛选和标签栏的 12 标签检查器",
+      vi: "Trình khám phá cấu hình Claude — bộ kiểm tra 12 tab với số liệu tổng quan, bộ lọc phạm vi và thanh tab",
+      ko: "Claude 구성 탐색기 — 개요 수, 범위 필터, 탭 표시줄을 갖춘 12탭 검사기",
+      es: "Explorador de configuración de Claude — inspector de 12 pestañas con recuentos, filtro de ámbito y barra de pestañas",
+    },
+    "Claude Config Explorer — Skills tab with searchable skill list and edit actions": {
+      zh: "Claude 配置浏览器 — 带可搜索技能列表和编辑操作的技能标签页",
+      vi: "Trình khám phá cấu hình Claude — tab Skill với danh sách có thể tìm kiếm và thao tác chỉnh sửa",
+      ko: "Claude 구성 탐색기 — 검색 가능한 스킬 목록과 편집 작업이 있는 스킬 탭",
+      es: "Explorador de configuración de Claude — pestaña Habilidades con lista buscable y acciones de edición",
+    },
+    "Settings — Alerts & Webhooks: rule list, fired-alert feed, and webhook channels": {
+      zh: "设置 — 告警与 Webhook：规则列表、已触发告警流和 Webhook 渠道",
+      vi: "Cài đặt — Cảnh báo & Webhook: danh sách quy tắc, luồng cảnh báo đã kích hoạt và kênh Webhook",
+      ko: "설정 — 알림 및 Webhook: 규칙 목록, 발생한 알림 피드, Webhook 채널",
+      es: "Configuración — Alertas y Webhooks: reglas, alertas activadas y canales Webhook",
+    },
+    "Update modal showing commits-behind count and copy-to-clipboard command": {
+      zh: "更新弹窗，显示落后提交数和复制到剪贴板命令",
+      vi: "Hộp thoại cập nhật hiển thị số commit còn thiếu và lệnh sao chép",
+      ko: "뒤처진 커밋 수와 클립보드 복사 명령을 보여 주는 업데이트 모달",
+      es: "Modal de actualización con número de commits pendientes y comando para copiar",
+    },
+    "Connection details modal with throughput sparkline, top event types, and recent activity": {
+      zh: "连接详情弹窗，包含吞吐量迷你图、主要事件类型和最近活动",
+      vi: "Hộp thoại chi tiết kết nối với biểu đồ nhỏ thông lượng, loại sự kiện hàng đầu và hoạt động gần đây",
+      ko: "처리량 스파크라인, 주요 이벤트 유형, 최근 활동이 있는 연결 상세 모달",
+      es: "Modal de conexión con minigráfico de rendimiento, principales eventos y actividad reciente",
+    },
+    "Grafana CCAM — Overview dashboard with live fleet metrics": {
+      zh: "Grafana CCAM — 带实时集群指标的概览仪表盘",
+      vi: "Grafana CCAM — bảng điều khiển tổng quan với số liệu fleet trực tiếp",
+      ko: "Grafana CCAM — 실시간 플릿 메트릭이 있는 개요 대시보드",
+      es: "Grafana CCAM — panel de resumen con métricas de flota en tiempo real",
+    },
+    "Prometheus CCAM console landing page": {
+      zh: "Prometheus CCAM 控制台首页",
+      vi: "Trang đầu bảng điều khiển Prometheus CCAM",
+      ko: "Prometheus CCAM 콘솔 시작 페이지",
+      es: "Página de inicio de la consola Prometheus CCAM",
+    },
+    "Prometheus Graph UI running CCAM PromQL": {
+      zh: "运行 CCAM PromQL 的 Prometheus Graph UI",
+      vi: "Giao diện Prometheus Graph chạy CCAM PromQL",
+      ko: "CCAM PromQL을 실행하는 Prometheus Graph UI",
+      es: "Interfaz Prometheus Graph ejecutando CCAM PromQL",
+    },
+    "Tabby Companion": {
+      zh: "Tabby 伴侣",
+      vi: "Bạn đồng hành Tabby",
+      ko: "Tabby 동반자",
+      es: "Compañero Tabby",
+    },
+  };
+  const ATTR = Object.fromEntries(
+    ["zh", "vi", "ko", "es"].map((language) => [
+      language,
+      Object.fromEntries(
+        Object.entries(ATTRIBUTE_TRANSLATIONS).map(([english, translations]) => [
+          english,
+          translations[language],
+        ])
+      ),
+    ])
+  );
+  const META = {
+    en: {
+      title: "Claude Code Agent Monitor - Project Wiki",
+      description:
+        "Comprehensive technical wiki for Claude Code Agent Monitor — real-time local monitoring with MCP server integration plus Claude Code and Codex extension scaffolding.",
+      socialTitle: "Claude Code Agent Monitor - Project Wiki",
+      socialDescription:
+        "Comprehensive technical wiki for Claude Code Agent Monitor — real-time local monitoring with MCP server integration plus Claude Code and Codex extension scaffolding.",
+      twitterDescription:
+        "Real-time local monitoring for Claude Code agent activity with MCP integration, extension scaffolding, analytics, and WebSocket push.",
+      socialImageAlt: "Claude Code Agent Monitor — real-time Claude Code monitoring platform",
+    },
+    zh: {
+      title: "Claude Code Agent Monitor - 项目维基",
+      description:
+        "Claude Code Agent Monitor 综合技术维基：本地实时监控、MCP Server 集成，以及 Claude Code 和 Codex 扩展脚手架。",
+      socialTitle: "Claude Code Agent Monitor - 项目维基",
+      socialDescription:
+        "Claude Code Agent Monitor 综合技术维基：本地实时监控、MCP Server 集成，以及 Claude Code 和 Codex 扩展脚手架。",
+      twitterDescription:
+        "面向 Claude Code Agent 活动的本地实时监控，集成 MCP、扩展脚手架、分析和 WebSocket 推送。",
+      socialImageAlt: "Claude Code Agent Monitor — Claude Code 实时监控平台",
+    },
+    vi: {
+      title: "Claude Code Agent Monitor - Wiki dự án",
+      description:
+        "Wiki kỹ thuật toàn diện cho Claude Code Agent Monitor — giám sát cục bộ theo thời gian thực, tích hợp MCP Server và bộ khung tiện ích Claude Code cùng Codex.",
+      socialTitle: "Claude Code Agent Monitor - Wiki dự án",
+      socialDescription:
+        "Wiki kỹ thuật toàn diện cho Claude Code Agent Monitor — giám sát cục bộ theo thời gian thực, tích hợp MCP Server và bộ khung tiện ích Claude Code cùng Codex.",
+      twitterDescription:
+        "Giám sát cục bộ theo thời gian thực cho hoạt động Agent Claude Code, với MCP, tiện ích mở rộng, phân tích và WebSocket.",
+      socialImageAlt:
+        "Claude Code Agent Monitor — nền tảng giám sát Claude Code theo thời gian thực",
+    },
+    ko: {
+      title: "Claude Code Agent Monitor - 프로젝트 위키",
+      description:
+        "Claude Code Agent Monitor 종합 기술 위키 — 실시간 로컬 모니터링, MCP Server 통합, Claude Code 및 Codex 확장 스캐폴딩.",
+      socialTitle: "Claude Code Agent Monitor - 프로젝트 위키",
+      socialDescription:
+        "Claude Code Agent Monitor 종합 기술 위키 — 실시간 로컬 모니터링, MCP Server 통합, Claude Code 및 Codex 확장 스캐폴딩.",
+      twitterDescription:
+        "MCP 통합, 확장 스캐폴딩, 분석, WebSocket 푸시를 갖춘 Claude Code Agent 활동 실시간 로컬 모니터링.",
+      socialImageAlt: "Claude Code Agent Monitor — 실시간 Claude Code 모니터링 플랫폼",
+    },
+    es: {
+      title: "Claude Code Agent Monitor - Wiki del proyecto",
+      description:
+        "Wiki técnica completa para Claude Code Agent Monitor: monitorización local en tiempo real con integración de servidor MCP y andamiaje de extensiones para Claude Code y Codex.",
+      socialTitle: "Claude Code Agent Monitor - Wiki del proyecto",
+      socialDescription:
+        "Wiki técnica completa para Claude Code Agent Monitor: monitorización local en tiempo real con integración de servidor MCP y andamiaje de extensiones para Claude Code y Codex.",
+      twitterDescription:
+        "Monitorización local en tiempo real de la actividad del agente Claude Code con integración MCP, andamiaje de extensiones, análisis y envío por WebSocket.",
+      socialImageAlt:
+        "Claude Code Agent Monitor — plataforma de monitorización de Claude Code en tiempo real",
+    },
+  };
   const trH = (lang, en) => (lang === "en" ? en : (H[lang] && H[lang][norm(en)]) || en);
   // Heading / section-label translations from the content bundle fill any gaps
   // in T. Existing T entries always win, so this never regresses the scannable
   // layer — it only adds headings T didn't already cover.
   if (CONTENT.plain) {
-    ["zh", "vi", "ko"].forEach((lng) => {
+    ["zh", "vi", "ko", "es"].forEach((lng) => {
       const src = CONTENT.plain[lng] || {};
       for (const k in src) if (!(k in T[lng])) T[lng][k] = src[k];
     });
@@ -1432,6 +2207,66 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
   const htmlEls = Array.from(document.querySelectorAll(HTML_SEL));
   const enHtml = new Map();
   htmlEls.forEach((el) => enHtml.set(el, el.innerHTML));
+  const attrNames = ["alt", "aria-label", "placeholder", "title"];
+  const attrEls = Array.from(
+    document.querySelectorAll("[alt], [aria-label], [placeholder], [title]")
+  );
+  const enAttrs = new Map();
+  attrEls.forEach((el) => {
+    const attrs = {};
+    attrNames.forEach((name) => {
+      if (el.hasAttribute(name)) attrs[name] = el.getAttribute(name);
+    });
+    enAttrs.set(el, attrs);
+  });
+  const languageLabels = {
+    en: "English",
+    zh: "中文",
+    vi: "Tiếng Việt",
+    ko: "한국어",
+    es: "Español",
+  };
+  const languageSwitches = Array.from(document.querySelectorAll(".lang-switch"));
+  const languageTriggers = Array.from(document.querySelectorAll(".lang-select-trigger"));
+
+  function setLanguageMenu(languageSwitch, open) {
+    const languageTrigger = languageSwitch?.querySelector(".lang-select-trigger");
+    const languageMenu = languageSwitch?.querySelector(".lang-select-menu");
+    if (!languageTrigger || !languageMenu) return;
+    languageTrigger.setAttribute("aria-expanded", String(open));
+    languageMenu.hidden = !open;
+  }
+
+  function closeLanguageMenus() {
+    languageSwitches.forEach((languageSwitch) => setLanguageMenu(languageSwitch, false));
+  }
+
+  function updateLanguageControl(activeLanguage) {
+    document.querySelectorAll(".lang-select-current").forEach((languageCurrent) => {
+      languageCurrent.textContent = languageLabels[activeLanguage] || languageLabels.en;
+    });
+    document.querySelectorAll(".lang-option").forEach((option) => {
+      const active = option.dataset.lang === activeLanguage;
+      option.classList.toggle("active", active);
+      option.setAttribute("aria-selected", String(active));
+    });
+  }
+
+  function updateMetadata(activeLanguage) {
+    const meta = META[activeLanguage] || META.en;
+    document.title = meta.title;
+    const setContent = (selector, value) => {
+      const element = document.querySelector(selector);
+      if (element) element.setAttribute("content", value);
+    };
+    setContent('meta[name="description"]', meta.description);
+    setContent('meta[property="og:title"]', meta.socialTitle);
+    setContent('meta[property="og:description"]', meta.socialDescription);
+    setContent('meta[property="og:image:alt"]', meta.socialImageAlt);
+    setContent('meta[name="twitter:title"]', meta.socialTitle);
+    setContent('meta[name="twitter:description"]', meta.twitterDescription);
+    setContent('meta[name="twitter:image:alt"]', meta.socialImageAlt);
+  }
 
   function apply(lang) {
     document.querySelectorAll(PLAIN).forEach((el) => {
@@ -1453,13 +2288,25 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       const en = enHtml.get(el);
       if (en != null) el.innerHTML = trH(lang, en);
     });
+    enAttrs.forEach((attrs, el) => {
+      Object.entries(attrs).forEach(([name, en]) => {
+        el.setAttribute(name, (ATTR[lang] && ATTR[lang][en]) || en);
+      });
+    });
     const search = document.getElementById("sidebar-search");
     if (search) search.placeholder = tr(lang, "Search docs...");
     document.documentElement.lang =
-      lang === "zh" ? "zh-CN" : lang === "vi" ? "vi" : lang === "ko" ? "ko" : "en";
-    document
-      .querySelectorAll(".lang-btn")
-      .forEach((b) => b.classList.toggle("active", b.dataset.lang === lang));
+      lang === "zh"
+        ? "zh-CN"
+        : lang === "vi"
+          ? "vi"
+          : lang === "ko"
+            ? "ko"
+            : lang === "es"
+              ? "es"
+              : "en";
+    updateLanguageControl(lang);
+    updateMetadata(lang);
     if (typeof window.__wikiRunSearch === "function") window.__wikiRunSearch();
   }
 
@@ -1473,15 +2320,37 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
           ? "vi"
           : n.indexOf("ko") === 0
             ? "ko"
-            : "en";
+            : n.indexOf("es") === 0
+              ? "es"
+              : "en";
   }
 
-  document.querySelectorAll(".lang-btn").forEach((b) => {
-    b.addEventListener("click", () => {
-      lang = b.dataset.lang;
+  if (!Object.hasOwn(languageLabels, lang)) lang = "en";
+
+  document.querySelectorAll(".lang-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      lang = option.dataset.lang;
       localStorage.setItem("wiki-lang", lang);
       apply(lang);
+      closeLanguageMenus();
     });
+  });
+
+  languageTriggers.forEach((languageTrigger) => {
+    languageTrigger.addEventListener("click", () => {
+      const languageSwitch = languageTrigger.closest(".lang-switch");
+      const isOpen = languageTrigger.getAttribute("aria-expanded") === "true";
+      closeLanguageMenus();
+      setLanguageMenu(languageSwitch, !isOpen);
+    });
+    languageTrigger.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeLanguageMenus();
+    });
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!languageSwitches.some((languageSwitch) => languageSwitch.contains(event.target))) {
+      closeLanguageMenus();
+    }
   });
 
   apply(lang);

@@ -1,6 +1,20 @@
 {
   "title": "会话",
   "searchPlaceholder": "搜索会话...",
+  "directoryFilterLabel": "项目目录",
+  "allDirectories": "所有项目",
+  "selectedDirectories": "{{count}} 个项目",
+  "directorySearchPlaceholder": "筛选项目...",
+  "noDirectoriesFound": "没有匹配的项目",
+  "clearDirectories": "清除",
+  "sortTimeNewest": "最后活跃：最新",
+  "sortTimeOldest": "最后活跃：最早",
+  "sortDurationLongest": "持续时间：最长",
+  "sortDurationShortest": "持续时间：最短",
+  "sortPriceHighest": "费用：最高",
+  "sortPriceLowest": "费用：最低",
+  "sortDescending": "降序",
+  "sortAscending": "升序",
   "filterAll": "全部",
   "filterActive": "活跃",
   "filterWaiting": "等待中",
@@ -11,7 +25,7 @@
   "sessionCount_plural": "已记录 {{count}} 个会话",
   "noSessions": "未找到会话",
   "noSessionsDesc": "请尝试调整搜索条件或筛选器。",
-  "noSessionsHint": "启动一个安装了 hooks 的 Claude Code 会话以开始追踪。",
+  "noSessionsHint": "启动已安装 hooks 的受监控 Agent 会话即可开始追踪。",
   "tableSession": "会话",
   "tableStatus": "状态",
   "tableLastActive": "最后活跃",
@@ -20,7 +34,39 @@
   "tableCost": "费用",
   "tableDirectory": "目录",
   "defaultName": "会话 ",
+  "taskProgress": {
+    "title": "任务进度",
+    "aria": "任务进度：已完成 {{completed}} / {{total}}",
+    "complete": "已完成",
+    "completeCount": "已完成 {{completed}} / {{total}} · {{percent}}%",
+    "completeCountShort": "已完成 {{completed}} / {{total}}",
+    "current": "当前：{{task}}",
+    "more_one": "会话详情中还有 {{count}} 项",
+    "more_other": "会话详情中还有 {{count}} 项",
+    "includesSubagents": "包含 Subagent",
+    "partialSource": "根据任务生命周期事件推导",
+    "owners": "负责 Agent",
+    "mainAgent": "主 Agent",
+    "doneCount_one": "已完成 {{count}}",
+    "doneCount_other": "已完成 {{count}}",
+    "remainingCount_one": "剩余 {{count}}",
+    "remainingCount_other": "剩余 {{count}}",
+    "hiddenTasks_one": "另有 {{count}} 项任务未显示。",
+    "hiddenTasks_other": "另有 {{count}} 项任务未显示。",
+    "status": {
+      "completed": "已完成",
+      "inProgress": "进行中",
+      "pending": "待处理",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    }
+  },
+  "remoteSourceBadgeTitle": "从远程机器收集",
   "detail": {
+    "waitingBanner": {
+      "title": "正在等待你的输入",
+      "generic": "此会话已暂停，直到你在终端中响应。"
+    },
     "failedLoad": "会话加载失败",
     "loading": "正在加载会话...",
     "notFound": "未找到会话",
@@ -30,6 +76,12 @@
     "unparented": "独立Subagent",
     "costBreakdown": "费用明细",
     "eventTimeline": "事件时间线",
-    "noEvents": "暂无事件记录。"
+    "noEvents": "暂无事件记录。",
+    "conversation": "对话",
+    "timeline": "时间线 ({{shown}}/{{total}})",
+    "transcriptNotFound": "未找到此 Agent 的对话记录。Transcript 文件可能缺失或尚未关联。",
+    "transcript": {
+      "loadOlder": "↑ 加载更早的消息"
+    }
   }
 }

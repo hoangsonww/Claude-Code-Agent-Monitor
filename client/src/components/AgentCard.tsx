@@ -1,13 +1,69 @@
 /**
  * @file AgentCard.tsx
- * @description Defines the AgentCard component that displays a summary of an agent's information, including its name, status, task, current tool, and timestamps. The card is clickable and navigates to the agent's session details when clicked. It also visually distinguishes active agents with a border highlight.
+ * @description Defines the AgentCard component that displays a summary of an
+ * agent's name, status, task, current tool, timestamps, and native Codex
+ * title plus a latest-two-human-turn context. Cards reuse session task-progress
+ * donuts beside status when available. Durable cards navigate to session
+ * details while the brief pre-identity Codex process card stays non-navigable.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/AgentCard.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `./StatusBadge`
+ * - `../lib/types`
+ * - `../lib/format`
+ *
+ * ## Public surface
+ * - `AgentCard` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **AgentCard**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
+
 import { useTranslation } from "react-i18next";
 import { Bot, GitBranch, Clock, Wrench, Cpu, Coins } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { AgentStatusBadge } from "./StatusBadge";
-import { effectiveAgentStatus, isAgentAwaitingInput } from "../lib/types";
+import { TodoProgressIndicator } from "./TodoProgressIndicator";
+import { effectiveAgentStatus, isAgentAwaitingInput, agentAwaitingReason } from "../lib/types";
 import type { Agent, Session } from "../lib/types";
 import { formatDuration, timeAgo, formatModelName, pathBasename, fmtCost } from "../lib/format";
 
@@ -26,6 +82,23 @@ function mainAgentDisplayName(agentName: string, realSessionName: string): strin
   return sep >= 0 ? `${agentName.slice(0, sep)} - ${realSessionName}` : agentName;
 }
 
+/** Keep a compact card's history legible: at most two distinct human turns,
+ * one visual row each. This intentionally preserves a title-matching first
+ * request when a terse follow-up depends on it for context. */
+function promptPreviewLines(value: string | null | undefined): string[] {
+  const seen = new Set<string>();
+  return String(value || "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      const key = line.toLocaleLowerCase();
+      if (!line || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(-2);
+}
+
 interface AgentCardProps {
   agent: Agent;
   /** Optional session data for richer main-agent rendering (model, cwd,
@@ -34,6 +107,15 @@ interface AgentCardProps {
   session?: Session;
   label?: string;
   onClick?: () => void;
+}
+
+function isTransientProcessCard(metadata: string | null | undefined): boolean {
+  if (!metadata) return false;
+  try {
+    return JSON.parse(metadata)?.pre_identity_process === true;
+  } catch {
+    return false;
+  }
 }
 
 export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
@@ -64,10 +146,27 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
     : typeof agent.cost === "number"
       ? agent.cost
       : 0;
-  // Real (user-given) session name - the auto-generated "Session <id8>"
-  // fallback carries no extra info next to the ID, so it is suppressed.
+  // Real (user-given) session name - auto-generated Claude/Codex fallbacks
+  // carry no extra info next to the ID, so they are suppressed.
   const sessionName = session?.name?.trim() || "";
-  const realSessionName = /^Session [0-9a-f]{8}$/i.test(sessionName) ? "" : sessionName;
+  const realSessionName = /^(Session [0-9a-f]{8}|Codex session)$/i.test(sessionName)
+    ? ""
+    : sessionName;
+  const isCodexMain = isMain && session?.provider === "codex" && agent.name.trim() === "Codex";
+  const displayName = isCodexMain
+    ? `Codex · ${realSessionName || agent.session_id.slice(0, 8)}`
+    : isMain
+      ? mainAgentDisplayName(agent.name, realSessionName)
+      : agent.name;
+  // Session titles and requests are intentionally independent: Claude and
+  // Codex both persist two recent real human turns on the session, while a
+  // main-agent task remains the truthful fallback for pre-preview history.
+  // Subagents keep their own assigned task instead of inheriting the parent.
+  const taskPreview = isMain
+    ? session?.prompt_preview?.trim() || agent.task?.trim() || null
+    : agent.task?.trim() || null;
+  const taskPreviewLines = promptPreviewLines(taskPreview);
+  const isTransient = isTransientProcessCard(agent.metadata);
   // A subagent's own model lives in its metadata (resolved from its transcript,
   // not the parent session's — see issue #185). Use it everywhere this card
   // shows a model so a Haiku QA agent under an Opus orchestrator reads as
@@ -118,7 +217,7 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   function handleClick() {
     if (onClick) {
       onClick();
-    } else {
+    } else if (!isTransient) {
       navigate(`/sessions/${agent.session_id}`);
     }
   }
@@ -126,7 +225,9 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
   return (
     <div
       onClick={handleClick}
-      className={`card-hover p-4 cursor-pointer overflow-hidden ${
+      className={`card-hover p-4 overflow-hidden ${
+        isTransient ? "cursor-default" : "cursor-pointer"
+      } ${
         isWaiting
           ? "border-l-2 border-l-yellow-500/60"
           : isActive
@@ -147,18 +248,41 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
             <p className="text-sm font-medium text-gray-200 truncate">
               {/* Auto-generated main-agent titles (e.g. "Main Agent - Session
                   229d93fd" or "Main Agent - work - e3f8e613") swap the
-                  placeholder for the real session name when one exists; custom
-                  (sub)agent names are left untouched. */}
-              {isMain ? mainAgentDisplayName(agent.name, realSessionName) : agent.name}
+                  placeholder for the real session name when one exists. Codex
+                  main agents use their native renamed title (or short ID) so
+                  a board never shows a bare, indistinguishable "Codex". */}
+              {displayName}
             </p>
             {subtitle && <p className="text-[11px] text-gray-500 truncate">{subtitle}</p>}
           </div>
         </div>
-        <AgentStatusBadge status={status} />
+        {/* compact: cards are narrow — inline reason chip would squeeze the
+            title, so the reason stays hover-tooltip-only here. */}
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {session?.todo_summary && (
+            <TodoProgressIndicator progress={session.todo_summary} stopClickPropagation />
+          )}
+          <AgentStatusBadge
+            status={status}
+            reason={agentAwaitingReason(agent)}
+            provider={session?.provider}
+            compact
+          />
+        </div>
       </div>
 
-      {agent.task && (
-        <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{agent.task}</p>
+      {taskPreviewLines.length > 0 && (
+        <div className="mb-3 space-y-1 border-l-2 border-accent/25 pl-2.5">
+          {taskPreviewLines.map((prompt, index) => (
+            <p
+              key={`${index}-${prompt}`}
+              className="text-xs text-gray-400 leading-relaxed line-clamp-1"
+              title={prompt}
+            >
+              {prompt}
+            </p>
+          ))}
+        </div>
       )}
 
       <div className="flex items-center gap-3 text-[11px] text-gray-500 min-w-0 overflow-hidden flex-wrap">
@@ -196,11 +320,13 @@ export function AgentCard({ agent, session, label, onClick }: AgentCardProps) {
         ) : (
           <span className="flex items-center gap-1 flex-shrink-0">
             <Clock className="w-3 h-3" />
-            {timeAgo(agent.updated_at || agent.started_at)}
+            {timeAgo(agent.last_activity || agent.updated_at || agent.started_at)}
           </span>
         )}
         <span className="ml-auto flex items-center gap-1 min-w-0 opacity-50">
-          {realSessionName && <span className="truncate max-w-[10rem]">{realSessionName} ·</span>}
+          {realSessionName && !isCodexMain && (
+            <span className="truncate max-w-[10rem]">{realSessionName} ·</span>
+          )}
           <span className="font-mono flex-shrink-0">{agent.session_id.slice(0, 8)}</span>
         </span>
       </div>

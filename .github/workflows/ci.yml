@@ -13,7 +13,9 @@
 #    payload without the merge step. Both jobs run on any push, when the changes job flagged `desktop/**`, or when a PR
 #    carries the `desktop` label. The macOS build is resilient to flaky `hdiutil detach` (retries up to 3 times,
 #    force-detaching stale volumes between attempts).
-# 6. Docker Build & Push: Builds a Docker image and pushes it to GitHub Container Registry (GHCR) on pushes to main/master branches.
+# 6. Deployment and OCI supply chain: validates Docker/Compose/Nginx/Helm/Kustomize/Terraform,
+#    scans app + MCP images, publishes multi-architecture images with SBOM and provenance,
+#    and keyless-signs pushed digests on the default branch.
 # 7. Release: On a successful push to the default branch, publishes a GitHub Release tagged vX.Y.Z (matching the existing v1.0.0 /
 #    v1.1.0 convention, drawn from the root package.json `version`) with the macOS DMGs and Windows EXEs attached — but only if no
 #    release exists for that version yet, so bumping the version is what cuts a new release and re-running master with an unchanged
@@ -21,7 +23,6 @@
 # 8. Pipeline Summary: Compiles results from all stages and posts a summary to the GitHub Actions step summary, including status
 #    icons, commit details, and links to artifacts if applicable.
 # Any failure in the stages will cause the pipeline to fail, ensuring that only well-formatted, tested, and built code is merged and deployed.
-# NOTE: Not to be confused with the action files in `deployments/ci/` which are for deployment-related tasks. This workflow focuses on CI/CD for the codebase itself.
 #
 # Author: Son Nguyen <hoangson091104@gmail.com>
 name: 🚀 CI / CD Pipeline for Claude Code Agent Monitor
@@ -37,7 +38,7 @@ on:
     branches: ["**"]
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
   IMAGE_NAME: claude-code-agent-monitor
 
 jobs:
@@ -48,8 +49,8 @@ jobs:
     name: "🧹 Check Formatting"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -66,8 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: format
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -79,6 +80,10 @@ jobs:
         run: npm run test:server
       - name: Run client tests
         run: npm run test:client
+      - name: Install MCP dependencies
+        run: npm run mcp:install
+      - name: Typecheck and test MCP
+        run: npm run mcp:typecheck && npm run test:mcp
 
   # ────────────────────────────────────────────────────────────────
   #  🏗️ Build Client                                               #
@@ -88,8 +93,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -100,7 +105,7 @@ jobs:
       - name: Build client
         run: npm run build
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: client-dist
           path: client/dist/
@@ -117,8 +122,8 @@ jobs:
     outputs:
       desktop: ${{ steps.filter.outputs.desktop }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050 # v3
         id: filter
         with:
           filters: |
@@ -141,8 +146,8 @@ jobs:
       needs.changes.outputs.desktop == 'true' ||
       contains(toJSON(github.event.pull_request.labels.*.name), 'desktop')
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -157,6 +162,28 @@ jobs:
 
       - name: Install desktop dependencies
         run: cd desktop && npm ci
+
+      - name: Ensure Electron binary
+        # Electron 43 downloads its platform archive lazily on first require.
+        # Resolve it before the smoke test. Retry the primary release endpoint,
+        # then Electron's documented npm mirror, so a GitHub CDN outage does not
+        # fail an otherwise healthy desktop build.
+        run: |
+          cd desktop
+          for source in primary mirror; do
+            for attempt in 1 2 3; do
+              if [ "$source" = mirror ]; then
+                ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
+                  node node_modules/electron/install.js && exit 0
+              elif node node_modules/electron/install.js; then
+                exit 0
+              fi
+              echo "Electron $source download failed (attempt $attempt/3)" >&2
+              sleep $((attempt * 5))
+            done
+          done
+          echo "Electron binary download failed from primary and mirror" >&2
+          exit 1
 
       - name: Build desktop (tsc)
         run: cd desktop && npm run build
@@ -195,7 +222,9 @@ jobs:
             echo "::endgroup::"
             echo "DMG build attempt ${attempt} failed; detaching stale volumes"
             for vol in "/Volumes/Claude Code Monitor"*; do
-              [ -d "${vol}" ] && hdiutil detach -force "${vol}" || true
+              if [ -d "${vol}" ]; then
+                hdiutil detach -force "${vol}" || true
+              fi
             done
             sleep 10
           done
@@ -215,7 +244,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
       - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ClaudeCodeMonitor-dmg
           path: desktop/release/*.dmg
@@ -243,8 +272,8 @@ jobs:
         # trick below is bash-only).
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -263,6 +292,28 @@ jobs:
         # Visual Studio C++ toolchain needed in the common case).
         run: cd desktop && npm ci
 
+      - name: Ensure Electron binary
+        # Electron 43 downloads electron.exe lazily on first require. Resolve
+        # it before the smoke test. Retry the primary release endpoint, then
+        # Electron's documented npm mirror; master at 1d5c645 failed on a
+        # transient GitHub fetch, and one later runner saw a sustained 503.
+        run: |
+          cd desktop
+          for source in primary mirror; do
+            for attempt in 1 2 3; do
+              if [ "$source" = mirror ]; then
+                ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ \
+                  node node_modules/electron/install.js && exit 0
+              elif node node_modules/electron/install.js; then
+                exit 0
+              fi
+              echo "Electron $source download failed (attempt $attempt/3)" >&2
+              sleep $((attempt * 5))
+            done
+          done
+          echo "Electron binary download failed from primary and mirror" >&2
+          exit 1
+
       - name: Build desktop (tsc)
         run: cd desktop && npm run build
 
@@ -274,68 +325,194 @@ jobs:
         # desktop/assets/icon.ico. Windows builds stay unsigned unless an
         # explicit cert is provided; GitHub resolves a missing secret to "",
         # which electron-builder would treat as a bogus cert path — so strip
-        # empty sign vars before invoking it.
+        # empty sign vars before invoking it. Packaging downloads auxiliary
+        # tools such as NSIS lazily, so retry each target on transient CDN
+        # failures without rerunning the whole job.
         run: |
           cd desktop
           for v in CSC_LINK CSC_KEY_PASSWORD; do
             if [ -z "${!v:-}" ]; then unset "$v"; fi
           done
-          npm run win
-          npm run win:portable
+          for target in win win:portable; do
+            packaged=false
+            for source in primary mirror; do
+              for attempt in 1 2 3; do
+                if [ "$source" = mirror ]; then
+                  if ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ \
+                    npm run "$target"; then
+                    packaged=true
+                    break 2
+                  fi
+                elif npm run "$target"; then
+                  packaged=true
+                  break 2
+                fi
+                echo "Windows $target $source packaging failed (attempt $attempt/3)" >&2
+                sleep $((attempt * 10))
+              done
+            done
+            if [ "$packaged" != true ]; then
+              echo "Windows $target packaging failed with primary and mirror downloads" >&2
+              exit 1
+            fi
+          done
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ClaudeCodeMonitor-win
           path: desktop/release/*.exe
           retention-days: 14
 
+  deployment:
+    name: "☁️ Validate Deployment Stack"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: v4.2.3
+      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+        with:
+          version: v1.36.1
+      - name: Install root and MCP dependencies
+        run: npm ci && npm run mcp:install
+      - name: Validate Docker, Compose, Nginx, Helm, Kustomize, Terraform, and dependencies
+        run: npm run deploy:validate
+
   # ────────────────────────────────────────────────────────────────
-  #  🐳 Docker Build & Push to GHCR                                #
-  #   Only pushes on push to main/master (not PRs)                 #
+  #  🐳 OCI images, attestations, and GHCR publish                 #
   # ────────────────────────────────────────────────────────────────
   docker:
-    name: "🐳 Docker → GHCR"
+    name: "🐳 OCI Supply Chain"
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: [test, build, deployment]
     permissions:
       contents: read
       packages: write
+      id-token: write
+    outputs:
+      app-digest: ${{ steps.build-app.outputs.digest }}
+      mcp-digest: ${{ steps.build-mcp.outputs.digest }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Read package version
+        id: package-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Extract app metadata
+        id: meta-app
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.package-version.outputs.version }},enable={{is_default_branch}}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Extract MCP metadata
+        id: meta-mcp
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-mcp
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.package-version.outputs.version }},enable={{is_default_branch}}
+
+      - name: Build app image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
-          push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          file: ./Dockerfile
+          target: runtime
+          load: true
+          tags: ccam-dashboard:ci
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      - name: Build MCP image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./mcp/Dockerfile
+          target: runtime
+          load: true
+          tags: ccam-mcp:ci
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
+
+      - name: Build and push multi-architecture app image
+        id: build-app
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runtime
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+          provenance: mode=max
+          sbom: true
+
+      - name: Build and push multi-architecture MCP image
+        id: build-mcp
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./mcp/Dockerfile
+          target: runtime
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta-mcp.outputs.tags }}
+          labels: ${{ steps.meta-mcp.outputs.labels }}
+          cache-from: type=gha,scope=mcp
+          cache-to: type=gha,mode=max,scope=mcp
+          provenance: mode=max
+          sbom: true
+
+      - name: Install Cosign
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Keyless-sign pushed image digests
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        env:
+          APP_DIGEST: ${{ steps.build-app.outputs.digest }}
+          MCP_DIGEST: ${{ steps.build-mcp.outputs.digest }}
+        run: |
+          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}@${APP_DIGEST}"
+          cosign sign --yes "ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}-mcp@${MCP_DIGEST}"
 
   # ────────────────────────────────────────────────────────────────
   #  🚢 Publish GitHub Release                                      #
@@ -350,7 +527,7 @@ jobs:
   release:
     name: "🚢 Publish Release"
     runs-on: ubuntu-latest
-    needs: [desktop, desktop-win]
+    needs: [desktop, desktop-win, docker]
     if: |
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
@@ -362,7 +539,7 @@ jobs:
       group: publish-release-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Resolve version and release tag
         id: ver
@@ -391,14 +568,14 @@ jobs:
 
       - name: Download macOS DMG artifact
         if: steps.check.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ClaudeCodeMonitor-dmg
           path: dmg
 
       - name: Download Windows EXE artifact
         if: steps.check.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ClaudeCodeMonitor-win
           path: win
@@ -427,7 +604,7 @@ jobs:
     name: "🎉 Pipeline Status"
     if: always()
     runs-on: ubuntu-latest
-    needs: [format, test, build, desktop, desktop-win, docker, release]
+    needs: [format, test, build, deployment, desktop, desktop-win, docker, release]
     steps:
       - name: Determine overall result
         id: result
@@ -436,26 +613,30 @@ jobs:
           FORMAT="${{ needs.format.result }}"
           TEST="${{ needs.test.result }}"
           BUILD="${{ needs.build.result }}"
+          DEPLOYMENT="${{ needs.deployment.result }}"
           DESKTOP="${{ needs.desktop.result }}"
           DESKTOP_WIN="${{ needs['desktop-win'].result }}"
           DOCKER="${{ needs.docker.result }}"
           RELEASE="${{ needs.release.result }}"
 
-          echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
-          echo "test=$TEST" >> "$GITHUB_OUTPUT"
-          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
-          echo "desktop=$DESKTOP" >> "$GITHUB_OUTPUT"
-          echo "desktop_win=$DESKTOP_WIN" >> "$GITHUB_OUTPUT"
-          echo "docker=$DOCKER" >> "$GITHUB_OUTPUT"
-          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          {
+            echo "format=$FORMAT"
+            echo "test=$TEST"
+            echo "build=$BUILD"
+            echo "deployment=$DEPLOYMENT"
+            echo "desktop=$DESKTOP"
+            echo "desktop_win=$DESKTOP_WIN"
+            echo "docker=$DOCKER"
+            echo "release=$RELEASE"
+          } >> "$GITHUB_OUTPUT"
 
           # Overall: fail if any required job failed. Desktop jobs and release
           # are treated as non-blocking when skipped (the desktop jobs are
           # path-filtered out for non-desktop PRs; release runs only on the
           # default branch).
-          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DESKTOP" == "failure" || "$DESKTOP_WIN" == "failure" || "$DOCKER" == "failure" || "$RELEASE" == "failure" ]]; then
+          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DEPLOYMENT" == "failure" || "$DESKTOP" == "failure" || "$DESKTOP_WIN" == "failure" || "$DOCKER" == "failure" || "$RELEASE" == "failure" ]]; then
             echo "overall=failure" >> "$GITHUB_OUTPUT"
-          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DESKTOP" == "cancelled" || "$DESKTOP_WIN" == "cancelled" || "$DOCKER" == "cancelled" || "$RELEASE" == "cancelled" ]]; then
+          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DEPLOYMENT" == "cancelled" || "$DESKTOP" == "cancelled" || "$DESKTOP_WIN" == "cancelled" || "$DOCKER" == "cancelled" || "$RELEASE" == "cancelled" ]]; then
             echo "overall=cancelled" >> "$GITHUB_OUTPUT"
           else
             echo "overall=success" >> "$GITHUB_OUTPUT"
@@ -473,14 +654,17 @@ jobs:
               *)         echo "❓" ;;
             esac
           }
-          echo "format=$(icon ${{ steps.result.outputs.format }})" >> "$GITHUB_OUTPUT"
-          echo "test=$(icon ${{ steps.result.outputs.test }})" >> "$GITHUB_OUTPUT"
-          echo "build=$(icon ${{ steps.result.outputs.build }})" >> "$GITHUB_OUTPUT"
-          echo "desktop=$(icon ${{ steps.result.outputs.desktop }})" >> "$GITHUB_OUTPUT"
-          echo "desktop_win=$(icon ${{ steps.result.outputs.desktop_win }})" >> "$GITHUB_OUTPUT"
-          echo "docker=$(icon ${{ steps.result.outputs.docker }})" >> "$GITHUB_OUTPUT"
-          echo "release=$(icon ${{ steps.result.outputs.release }})" >> "$GITHUB_OUTPUT"
-          echo "overall=$(icon ${{ steps.result.outputs.overall }})" >> "$GITHUB_OUTPUT"
+          {
+            echo "format=$(icon ${{ steps.result.outputs.format }})"
+            echo "test=$(icon ${{ steps.result.outputs.test }})"
+            echo "build=$(icon ${{ steps.result.outputs.build }})"
+            echo "deployment=$(icon ${{ steps.result.outputs.deployment }})"
+            echo "desktop=$(icon ${{ steps.result.outputs.desktop }})"
+            echo "desktop_win=$(icon ${{ steps.result.outputs.desktop_win }})"
+            echo "docker=$(icon ${{ steps.result.outputs.docker }})"
+            echo "release=$(icon ${{ steps.result.outputs.release }})"
+            echo "overall=$(icon ${{ steps.result.outputs.overall }})"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Write pipeline summary
         run: |
@@ -497,6 +681,7 @@ jobs:
           | Formatting | ${{ steps.icons.outputs.format }} \`${{ steps.result.outputs.format }}\` | \`format\` |
           | Tests | ${{ steps.icons.outputs.test }} \`${{ steps.result.outputs.test }}\` | \`test\` |
           | Client Build | ${{ steps.icons.outputs.build }} \`${{ steps.result.outputs.build }}\` | \`build\` |
+          | Deployment Stack | ${{ steps.icons.outputs.deployment }} \`${{ steps.result.outputs.deployment }}\` | \`deployment\` |
           | macOS Desktop | ${{ steps.icons.outputs.desktop }} \`${{ steps.result.outputs.desktop }}\` | \`desktop\` |
           | Windows Desktop | ${{ steps.icons.outputs.desktop_win }} \`${{ steps.result.outputs.desktop_win }}\` | \`desktop-win\` |
           | Docker | ${{ steps.icons.outputs.docker }} \`${{ steps.result.outputs.docker }}\` | \`docker\` |

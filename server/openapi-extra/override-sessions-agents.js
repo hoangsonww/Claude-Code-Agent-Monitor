@@ -4,9 +4,11 @@
  * loader (server/openapi-extra.js) merges `paths` with override-on-key
  * semantics, so the operations below REPLACE the terser base versions while
  * preserving their contract: same `operationId`, same `tags`, and the same
- * request/response `$ref` schema names. The only additions are richer
- * `description`s and realistic `example`s on every parameter, response media
- * type, and request body — purely documentation, no contract change.
+ * request/response `$ref` schema names. It adds richer `description`s and
+ * realistic `example`s on every parameter, response media type, and request
+ * body, including the repeatable project-directory and sorting parameters on
+ * the Sessions list endpoint. This fragment documents the runtime contract;
+ * it does not change route behavior itself.
  *
  * No new schemas are defined here (`schemas` is empty by design); everything
  * reuses the base `components.schemas` and `components.parameters`. Error
@@ -22,6 +24,7 @@
  *   - GET   /api/sessions/{id}/stats            (getSessionStats)
  *   - GET   /api/sessions/{id}/transcripts      (listSessionTranscripts)
  *   - GET   /api/sessions/{id}/transcript       (getSessionTranscript)
+ *   - GET   /api/sessions/{id}/transcript-image (getTranscriptImage)
  *   - GET   /api/agents                         (listAgents)
  *   - POST  /api/agents                         (createAgent)
  *   - GET   /api/agents/{id}                     (getAgent)
@@ -48,11 +51,47 @@ const exampleSession = {
   started_at: "2026-06-25T14:02:11.004Z",
   ended_at: null,
   metadata: '{"source":"hook","git_branch":"feat/spend-budgets"}',
+  prompt_preview: "Refactor the pricing route and add the cost endpoint.",
   updated_at: "2026-06-25T14:31:50.119Z",
   agent_count: 4,
   last_activity: "2026-06-25T14:31:50.119Z",
   cost: 0.8421,
   awaiting_input_since: null,
+  awaiting_reason: null,
+};
+
+const exampleTaskSummary = {
+  total: 3,
+  completed: 1,
+  inProgress: 1,
+  pending: 1,
+  cancelled: 0,
+  unknown: 0,
+  percentComplete: 33,
+  activeText: "Implement task progress UI",
+  sourceTool: "TaskList",
+  updatedAt: "2026-06-25T14:31:50.119Z",
+  previewItems: [
+    {
+      id: "task-1",
+      text: "Inspect task transcripts",
+      status: "completed",
+      sourceStatus: "completed",
+      order: 0,
+      agentId: "b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main",
+      agentType: "main",
+      description: null,
+    },
+  ],
+  overflowCount: 2,
+  ownerBreakdown: [
+    {
+      agentId: "b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main",
+      agentType: "main",
+      completed: 1,
+      total: 3,
+    },
+  ],
 };
 
 const exampleCompletedSession = {
@@ -64,11 +103,13 @@ const exampleCompletedSession = {
   started_at: "2026-06-24T09:12:00.000Z",
   ended_at: "2026-06-24T09:48:32.501Z",
   metadata: null,
+  prompt_preview: "Fix the flaky transcript pagination test.",
   updated_at: "2026-06-24T09:48:32.501Z",
   agent_count: 1,
   last_activity: "2026-06-24T09:48:32.501Z",
   cost: 0.1532,
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleMainAgent = {
@@ -85,7 +126,9 @@ const exampleMainAgent = {
   parent_agent_id: null,
   metadata: '{"model":"claude-opus-4-20250514"}',
   updated_at: "2026-06-25T14:31:50.119Z",
+  last_activity: "2026-06-25T14:31:50.119Z",
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleSubagent = {
@@ -102,7 +145,9 @@ const exampleSubagent = {
   parent_agent_id: "b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d-main",
   metadata: null,
   updated_at: "2026-06-25T14:14:09.882Z",
+  last_activity: "2026-06-25T14:14:09.882Z",
   awaiting_input_since: null,
+  awaiting_reason: null,
 };
 
 const exampleEvent = {
@@ -122,7 +167,7 @@ const paths = {
       tags: ["Sessions"],
       summary: "List sessions",
       description:
-        "Returns a paginated list of sessions, newest activity first, each enriched with a SQL `agent_count` (LEFT JOIN onto agents), a `last_activity` alias of `updated_at`, and a `cost` computed from the session's token usage against the current pricing rules. The `status` and `q` filters compose (AND) with each other and with pagination; `q` is a case-insensitive LIKE across `id`, `name`, and `cwd`. `total` reflects all rows matching the filters independent of `limit`/`offset` so paginators stay accurate, while `cost` is only calculated for the rows on the returned page (when `sort_by=price` it is computed across all matching rows so the price sort is correct). The endpoint is read-only with no side effects; `metadata` on each session is returned as a raw JSON-encoded string, not a parsed object.",
+        "Returns a paginated list of durable sessions, newest real activity first, each enriched with agent count, durable last activity, prompt preview, and calculated cost. Set `include_task_progress=true` to attach a nullable owner-aware `todo_summary` derived from Claude Task*/TodoWrite or Codex update_plan state for the latest top-level work item, with up to five preview items. A new Claude human turn or Codex task with no tracker clears older state; a completed or aborted turn drops unfinished tracker state while retaining fully completed history. Task progress is computed for at most the first 100 returned rows, and each transcript read scans only its newest 32 MiB. The opt-in keeps high-volume Dashboard/Kanban calls from parsing transcripts. The persisted `status`, `q`, and repeatable `cwd` filters compose. `total` remains independent of `limit`/`offset`.",
       operationId: "listSessions",
       parameters: [
         { $ref: "#/components/parameters/SessionStatusQuery", example: "active" },
@@ -134,6 +179,50 @@ const paths = {
             "Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.",
           example: "pricing",
         },
+        {
+          name: "cwd",
+          in: "query",
+          style: "form",
+          explode: true,
+          schema: { type: "array", items: { type: "string" } },
+          description:
+            "One or more exact working directories. Repeat `cwd` to include sessions from multiple projects; combines with status and text search.",
+          example: ["/Users/son/code/project-a", "/Users/son/code/project-b"],
+        },
+        {
+          name: "sort_by",
+          in: "query",
+          schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
+          description: "Session ordering dimension.",
+          example: "time",
+        },
+        {
+          name: "sort_desc",
+          in: "query",
+          schema: { type: "boolean", default: true },
+          description: "Sort descending when true and ascending when false.",
+          example: true,
+        },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+        {
+          name: "include_transient",
+          in: "query",
+          schema: { type: "boolean", default: false },
+          description:
+            "Opt in to local, in-memory Codex cards that exist before the CLI exposes a durable session id. Honored only on the first page when status is absent or `active`; transient cards are prepended without changing durable `total`, pagination, analytics, or history.",
+          example: true,
+        },
+        {
+          name: "include_task_progress",
+          in: "query",
+          schema: { type: "boolean", default: false },
+          description:
+            "Attach owner-aware `todo_summary` objects for the latest top-level work item to at most the first 100 returned rows. A newer work item with no tracker, or a finished/aborted turn with unfinished tracker state, returns null; fully completed history remains available. Each transcript scan reads only the newest 32 MiB. Intended for the Sessions table; omitted by high-volume Dashboard/Kanban calls.",
+          example: true,
+        },
         { $ref: "#/components/parameters/LimitQuery", example: 50 },
         { $ref: "#/components/parameters/OffsetQuery", example: 0 },
       ],
@@ -144,7 +233,10 @@ const paths = {
             "application/json": {
               schema: { $ref: "#/components/schemas/SessionsListResponse" },
               example: {
-                sessions: [exampleSession, exampleCompletedSession],
+                sessions: [
+                  { ...exampleSession, todo_summary: exampleTaskSummary },
+                  { ...exampleCompletedSession, todo_summary: null },
+                ],
                 limit: 50,
                 offset: 0,
                 total: 137,
@@ -223,7 +315,7 @@ const paths = {
       tags: ["Sessions"],
       summary: "Get session details",
       description:
-        "Returns a single session together with all of its agents (chronological) and persisted events. Read-only, no side effects. The session's `metadata` and each event's `data` are returned as raw JSON-encoded strings, not parsed objects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.",
+        "Returns a single session together with its agents, persisted events, workflow runs, and a nullable full `todo_snapshot`. Task state is reduced from Claude TaskCreate/TaskGet/TaskUpdate/TaskList and lifecycle events, legacy TodoWrite snapshots, or Codex update_plan snapshots; subagent ownership remains visible on items and owner summaries. Real top-level Claude human turns and Codex task_started records clear every older owner snapshot, while a subagent's next turn clears only that owner. Claude turn-end records and Codex task_complete/turn_aborted drop owner snapshots with unfinished work but retain fully completed/cancelled history, so stale in-progress state returns null. Persisted Claude prompt/terminal events apply the same boundary before a matching transcript marker flushes. Transcript parsing scans only the newest 32 MiB and the snapshot contains at most 200 tasks. Read-only, no side effects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.",
       operationId: "getSession",
       parameters: [
         {
@@ -238,7 +330,29 @@ const paths = {
             "application/json": {
               schema: { $ref: "#/components/schemas/SessionDetailResponse" },
               example: {
-                session: exampleSession,
+                session: {
+                  ...exampleSession,
+                  todo_snapshot: {
+                    provider: "claude",
+                    source: "transcript",
+                    sourceTool: "TaskList",
+                    sourceLine: 42,
+                    updatedAt: "2026-06-25T14:31:50.119Z",
+                    explanation: null,
+                    confidence: "full",
+                    items: exampleTaskSummary.previewItems,
+                    total: 3,
+                    completed: 1,
+                    inProgress: 1,
+                    pending: 1,
+                    cancelled: 0,
+                    unknown: 0,
+                    percentComplete: 33,
+                    activeText: "Implement task progress UI",
+                    includesSubagents: false,
+                    ownerBreakdown: exampleTaskSummary.ownerBreakdown,
+                  },
+                },
                 agents: [exampleMainAgent, exampleSubagent],
                 events: [exampleEvent],
               },
@@ -559,18 +673,83 @@ const paths = {
       },
     },
   },
+  "/api/sessions/{id}/transcript-image": {
+    get: {
+      tags: ["Sessions"],
+      summary: "Read one persisted transcript image",
+      description:
+        "Streams a bounded PNG, JPEG, GIF, or WebP image only when it is explicitly referenced by the selected Claude transcript line. Transcript JSON exposes an opaque same-origin URL instead of the local file path. Codex inline images are already delivered as validated data URLs in the transcript response, so this route is primarily for persisted Claude CLI image wrappers. Read-only, no side effects.",
+      operationId: "getTranscriptImage",
+      parameters: [
+        { $ref: "#/components/parameters/SessionIdPath" },
+        {
+          name: "line",
+          in: "query",
+          required: true,
+          schema: { type: "integer", minimum: 1 },
+          description: "Raw JSONL line number that contains the image wrapper.",
+        },
+        {
+          name: "index",
+          in: "query",
+          required: true,
+          schema: { type: "integer", minimum: 0 },
+          description: "Zero-based image wrapper index within that transcript line.",
+        },
+        {
+          name: "agent_id",
+          in: "query",
+          schema: { type: "string" },
+          description: "Optional selected subagent or compaction transcript id.",
+        },
+        {
+          name: "run_id",
+          in: "query",
+          schema: { type: "string" },
+          description: "Optional workflow run id for a nested subagent transcript.",
+        },
+      ],
+      responses: {
+        200: {
+          description: "Image bytes",
+          content: {
+            "image/png": { schema: { type: "string", format: "binary" } },
+            "image/jpeg": { schema: { type: "string", format: "binary" } },
+            "image/gif": { schema: { type: "string", format: "binary" } },
+            "image/webp": { schema: { type: "string", format: "binary" } },
+          },
+        },
+        400: { description: "The line or image index is invalid." },
+        404: {
+          description: "Session, transcript, persisted image, or allowed image type was not found.",
+        },
+      },
+    },
+  },
   "/api/agents": {
     get: {
       tags: ["Agents"],
       summary: "List agents",
       description:
-        "Returns agents, most recent first. Filters are applied with precedence rather than composition: when `session_id` is supplied it wins and returns every agent for that session (ignoring `status` and pagination); otherwise a `status` filter returns paginated agents in that lifecycle state; otherwise all agents are returned paginated. `limit` defaults to 10000 when not a positive integer. Read-only, no side effects. Each agent's `metadata` is returned as a raw JSON-encoded string, not a parsed object.",
+        "Returns durable agents, most recent first. Filters are applied with precedence rather than composition: when `session_id` is supplied it wins and returns every agent for that session (ignoring `status` and pagination); otherwise a `status` filter returns paginated agents in that lifecycle state; otherwise all agents are returned paginated. `limit` defaults to 10000 when not a positive integer. The optional `include_transient=true` dashboard overlay prepends local pre-identity Codex main-agent cards only to the first `status=waiting` page without a `session_id`; those cards are never persisted, priced, or included in analytics/history. Read-only, no side effects. Each agent's `metadata` is returned as a raw JSON-encoded string, not a parsed object.",
       operationId: "listAgents",
       parameters: [
         { $ref: "#/components/parameters/AgentStatusQuery", example: "working" },
         {
           $ref: "#/components/parameters/SessionFilterQuery",
           example: "b7f3a2c1-4e5d-4a8b-9c2f-1d6e8a0b3c4d",
+        },
+        {
+          $ref: "#/components/parameters/SourcesQuery",
+          example: "local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11",
+        },
+        {
+          name: "include_transient",
+          in: "query",
+          schema: { type: "boolean", default: false },
+          description:
+            "Opt in to local, in-memory Codex main-agent cards before the CLI exposes a durable session id. Honored only on the first `status=waiting` page without `session_id`.",
+          example: true,
         },
         { $ref: "#/components/parameters/LimitQuery", example: 50 },
         { $ref: "#/components/parameters/OffsetQuery", example: 0 },

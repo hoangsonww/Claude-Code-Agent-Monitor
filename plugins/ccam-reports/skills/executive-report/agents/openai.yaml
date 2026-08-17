@@ -1,0 +1,6 @@
+interface:
+  display_name: "Executive Report"
+  short_description: "Generate a concise stakeholder report from CCAM sessions,..."
+  default_prompt: "Use $executive-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

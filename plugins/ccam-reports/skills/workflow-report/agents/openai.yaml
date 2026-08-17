@@ -1,0 +1,6 @@
+interface:
+  display_name: "Workflow Report"
+  short_description: "Create a workflow-intelligence report from CCAM..."
+  default_prompt: "Use $workflow-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

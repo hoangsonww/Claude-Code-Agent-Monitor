@@ -1,4 +1,5 @@
 ---
+name: session-search
 description: >
   Find Claude Code sessions tracked by the Agent Monitor by project (cwd), model,
   status, or date, then rank the matches by cost or recency. Pulls the session list

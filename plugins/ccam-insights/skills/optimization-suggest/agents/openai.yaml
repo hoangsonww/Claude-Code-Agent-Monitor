@@ -1,0 +1,6 @@
+interface:
+  display_name: "Optimization Suggest"
+  short_description: "Suggest concrete optimizations for Claude Code usage based..."
+  default_prompt: "Use $optimization-suggest to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

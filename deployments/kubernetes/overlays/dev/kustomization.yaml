@@ -4,33 +4,31 @@ kind: Kustomization
 metadata:
   name: agent-monitor-dev
 
-namespace: agent-monitor
+namespace: agent-monitor-dev
 
 resources:
   - ../../base
 
 images:
-  - name: ${IMAGE_REGISTRY}/agent-monitor
-    newName: agent-monitor
-    newTag: dev
-
-configMapGenerator:
-  - name: agent-monitor-config
-    behavior: merge
-    literals:
-      - NODE_ENV=development
-      - LOG_LEVEL=debug
+  - name: ccam-dashboard
+    newTag: 2.0.8
 
 patches:
-  # Disable HPA in dev (single replica, no autoscaling needed)
+  - path: patches/deployment-patch.yaml
   - target:
-      kind: HorizontalPodAutoscaler
+      kind: Namespace
       name: agent-monitor
     patch: |
-      $patch: delete
-      apiVersion: autoscaling/v2
-      kind: HorizontalPodAutoscaler
+      - op: replace
+        path: /metadata/name
+        value: agent-monitor-dev
+  - target:
+      kind: ConfigMap
+      name: agent-monitor-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
       metadata:
-        name: agent-monitor
-  # Deployment overrides for dev
-  - path: patches/deployment-patch.yaml
+        name: agent-monitor-config
+      data:
+        NODE_ENV: production

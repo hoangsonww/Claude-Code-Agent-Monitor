@@ -54,7 +54,7 @@
       "why": "Why it matters"
     },
     "orchestration": {
-      "what": "A layered DAG of how Claude Code sessions fan out: from the originating sessions, into the main agent, into each subagent type, through any context compactions, and finally into terminal outcomes (completed / error / abandoned).",
+      "what": "A layered DAG of how agent sessions fan out: from the originating sessions, into the main agent, into each subagent type, through any context compactions, and finally into terminal outcomes (completed / error / abandoned).",
       "howToRead": "Each column is one layer. Box width is constant; the small badge is the count. Edges flow left-to-right; thicker edges = more frequent transitions. Hover any node for stats; click to filter the rest of the page by it.",
       "why": "Use it to answer 'where does work go in my workflows?' - which subagent types dominate, where compaction kicks in, and which paths end in errors vs clean completions."
     },
@@ -99,7 +99,7 @@
       "why": "Gives a single view of the cost/complexity distribution. Outliers are the sessions worth investigating for runaway behavior or cost spikes."
     },
     "compaction": {
-      "what": "How often Claude triggered context compaction across sessions: total events, tokens recovered, and a per-session distribution.",
+      "what": "How often agents compacted context across sessions: total events, tokens recovered, and a per-session distribution.",
       "howToRead": "The two stat boxes show total compaction events and the cumulative tokens reclaimed. The bar chart lists sessions with at least one compaction, sorted descending by count.",
       "why": "Compactions indicate context pressure. A long tail of high-compaction sessions usually means workflows that should be split, summarized, or migrated to a longer-context model."
     },
@@ -135,7 +135,7 @@
         "success": "Across all main + subagent runs in scope: completed runs ÷ (completed + errored + abandoned) × 100. A run counts as completed when a Stop / SubagentStop is observed without an error event in between.",
         "topFlow": "Every consecutive pair of tool calls within a session is counted as one transition. The pair that appears most frequently across all sessions is shown here as 'source → target'.",
         "compactions": "Total number of context-compaction events recorded by the PreCompact / SessionStart(compact) hooks, divided by the number of sessions in scope.",
-        "duration": "Mean wall-clock time from each session's first event (SessionStart) to its last event (Stop / SessionEnd / latest hook), averaged across all sessions in scope."
+        "duration": "Mean wall-clock time from each session's first recorded event to its last recorded event, averaged across all sessions in scope."
       },
       "depth": {
         "zero": "no nested agents have been observed. Every session ran with just the main agent - no subagent delegation occurred.",
@@ -152,7 +152,7 @@
         "veryHeavy": "very orchestration-heavy: sessions average 6+ subagent runs each."
       },
       "success": {
-        "perfect": "near-perfect. Almost every agent run finishes with a clean Stop event - no errors or abandonment.",
+        "perfect": "near-perfect. Almost every agent run finishes cleanly, without errors or abandonment.",
         "healthy": "healthy. The vast majority of agent runs complete successfully; only sporadic failures.",
         "acceptable": "acceptable, but watch the error trend - roughly 1 in every 5–20 runs fails or is abandoned.",
         "concerning": "concerning - a meaningful share of agent runs are failing. Inspect the Errors page for top culprits.",
@@ -211,18 +211,18 @@
         "outcome": "Layer 4 - Outcome"
       },
       "desc": {
-        "session": "Each unit here is a Claude Code session matching the current status filter. Outgoing edges fan out to the main agents these sessions launched.",
-        "main": "The top-level Claude run for each session. Every session has exactly one main agent; from here the graph branches into the subagent types it delegated to.",
+        "session": "Each unit here is an agent session matching the current status filter. Outgoing edges fan out to the main agents these sessions launched.",
+        "main": "The top-level agent run for each session. Every session has exactly one main agent; from here the graph branches into the subagent types it delegated to.",
         "subagent": "A specialized subagent the main agent delegated to (e.g. via the Task tool).",
         "subagentClean": " Every run of this subagent has completed cleanly.",
         "subagentAllError": " Every run of this subagent has errored - investigate the agent definition.",
         "subagentSomeErrors": " {{count}} run(s) errored - see Error Propagation below for details.",
         "subagentOverflow": "All remaining subagent types collapsed into one node so the graph stays readable. Hover any other subagent node to see individual stats.",
-        "nested": "Context-window compaction events. Claude triggers a compaction when the running context approaches the model's limit; the count reflects how often that happened across the sessions in scope.",
-        "outcomeCompleted": "Sessions whose final hook was a clean Stop event. No error events were emitted before termination.",
+        "nested": "Context-window compaction events. An agent compacts when the running context approaches the model's limit; the count reflects how often that happened across the sessions in scope.",
+        "outcomeCompleted": "Sessions that ended cleanly without any recorded errors before termination.",
         "outcomeError": "Sessions that emitted at least one error event (tool error, subagent error, or session error) before terminating.",
-        "outcomeAbandoned": "Sessions that stopped without a clean Stop event and without explicit errors - usually closed mid-flight.",
-        "outcomeFallback": "The terminal status of sessions in scope, computed from the last hook event observed for each session."
+        "outcomeAbandoned": "Sessions that stopped without a clean exit signal and without explicit errors — usually closed mid-flight.",
+        "outcomeFallback": "The terminal status of sessions in scope, computed from the last event observed for each session."
       }
     }
   },
@@ -422,7 +422,7 @@
   "compaction": {
     "title": "Compaction Impact Analysis",
     "subtitle": "How context compression is spread across your sessions",
-    "help": "When a session's context window fills up, Claude Code compresses older history into a summary. Each compaction is one such event.",
+    "help": "When a session's context window fills up, the active agent compresses older history into a summary. Each compaction is one such event.",
     "noData": "No compactions recorded",
     "totalCompactions": "Total compactions",
     "sessionsAffected": "Sessions affected",

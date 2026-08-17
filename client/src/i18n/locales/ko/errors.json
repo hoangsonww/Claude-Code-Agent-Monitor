@@ -11,11 +11,11 @@
     "sessionDefault": "세션 ",
     "sessionError": "세션 오류",
     "subagentSpawned": "Subagent 생성됨",
-    "finishedResponding": "Claude 응답 완료",
+    "finishedResponding": "Agent 응답 완료",
     "readyForInput": "입력 대기 중",
     "sessionCompleted": "세션 완료됨",
     "sessionClosed": "세션 종료됨",
-    "defaultTitle": "Claude Code",
+    "defaultTitle": "Agent 대시보드",
     "defaultBody": "알림"
   },
   "toolLegend": {

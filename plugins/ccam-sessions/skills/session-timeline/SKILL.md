@@ -1,4 +1,5 @@
 ---
+name: session-timeline
 description: >
   Render an ordered timeline of one Claude Code session's events (every event type)
   with per-event durations and tool names, reconstructed from Agent Monitor data.

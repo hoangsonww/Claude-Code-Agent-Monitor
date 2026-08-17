@@ -4,8 +4,16 @@ kind: Component
 metadata:
   name: mcp-sidecar
 
+resources:
+  - service.yaml
+  - networkpolicy.yaml
+
 patches:
   - path: deployment-patch.yaml
     target:
       kind: Deployment
       name: agent-monitor
+
+images:
+  - name: ccam-mcp
+    newTag: 2.0.8

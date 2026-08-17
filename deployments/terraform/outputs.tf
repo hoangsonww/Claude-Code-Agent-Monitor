@@ -1,53 +1,19 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Root module outputs – Claude Code Agent Monitor
-# ─────────────────────────────────────────────────────────────────────────────
+output "namespace" {
+  description = "Namespace containing CCAM."
+  value       = kubernetes_namespace_v1.ccam.metadata[0].name
+}
+
+output "release_name" {
+  description = "Helm release name."
+  value       = helm_release.ccam.name
+}
 
 output "application_url" {
-  description = "Public URL of the Claude Code Agent Monitor dashboard"
-  value       = module.loadbalancer.application_url
+  description = "Configured public URL, or the port-forward URL when no public route is enabled."
+  value       = var.hostname != "" ? "https://${var.hostname}" : "http://127.0.0.1:4820"
 }
 
-output "loadbalancer_dns" {
-  description = "DNS name of the application load balancer"
-  value       = module.loadbalancer.dns_name
-}
-
-output "vpc_id" {
-  description = "ID of the provisioned VPC / VNet / VCN"
-  value       = module.networking.vpc_id
-}
-
-output "private_subnet_ids" {
-  description = "IDs of the private subnets hosting compute workloads"
-  value       = module.networking.private_subnet_ids
-}
-
-output "public_subnet_ids" {
-  description = "IDs of the public subnets hosting the load balancer"
-  value       = module.networking.public_subnet_ids
-}
-
-output "filesystem_id" {
-  description = "ID of the persistent file system for SQLite storage"
-  value       = module.database.filesystem_id
-}
-
-output "blue_service_name" {
-  description = "Name of the blue deployment compute service"
-  value       = module.compute_blue.service_name
-}
-
-output "green_service_name" {
-  description = "Name of the green deployment compute service"
-  value       = module.compute_green.service_name
-}
-
-output "active_slot" {
-  description = "Currently active deployment slot"
-  value       = var.active_deployment_slot
-}
-
-output "monitoring_dashboard_url" {
-  description = "URL of the monitoring dashboard (if enabled)"
-  value       = var.enable_monitoring ? module.monitoring[0].dashboard_url : "monitoring disabled"
+output "port_forward_command" {
+  description = "Local access command."
+  value       = "kubectl -n ${var.namespace} port-forward svc/$(kubectl -n ${var.namespace} get svc -l app.kubernetes.io/name=agent-monitor -o jsonpath='{.items[0].metadata.name}') 4820:80"
 }

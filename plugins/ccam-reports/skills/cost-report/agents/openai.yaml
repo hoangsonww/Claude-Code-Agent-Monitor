@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cost Report"
+  short_description: "Produce a scoped CCAM cost and token report by model,..."
+  default_prompt: "Use $cost-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

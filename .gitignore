@@ -26,6 +26,9 @@ data/
 .env.test.local
 .env.production.local
 
+# Personal Claude Code overrides (the shared policy lives in .claude/settings.json)
+.claude/settings.local.json
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -64,6 +67,9 @@ coverage/
 # Temporary files
 .tmp/
 .temp/
+
+# Local-only remote data source test playbook (not shipped)
+scripts/remote-test-commands.txt
 
 # Playwright MCP
 .playwright_mcp/

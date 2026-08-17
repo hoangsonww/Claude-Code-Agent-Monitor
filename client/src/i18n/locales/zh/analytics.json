@@ -1,6 +1,6 @@
 {
   "title": "分析",
-  "subtitle": "Claude Code 会话的实时监控和分析",
+  "subtitle": "Agent 会话的实时监控和分析",
   "export": "导出",
   "totalSessions": "总会话数",
   "totalAgents": "总Agent数",
@@ -27,7 +27,7 @@
   "tokenMix": "Token 构成",
   "cacheEfficiency": "缓存效率",
   "tokenBreakdown": "Token 细分",
-  "tokenInfo": "Token 数据从 Claude Code Stop 事件中捕获。",
+  "tokenInfo": "Token 数据从已记录的会话事件中捕获。",
   "costByModel": "按模型的费用",
   "dailyCostTrends": "每日费用趋势",
   "costByWeekday": "按星期的费用",

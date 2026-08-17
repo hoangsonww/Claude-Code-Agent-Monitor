@@ -5,6 +5,6 @@
   "resume": "재개",
   "pause": "일시중지",
   "noActivity": "아직 활동이 없습니다",
-  "noActivityDesc": "Claude Code Agent가 작업하면 여기에 실시간으로 이벤트가 표시됩니다.",
+  "noActivityDesc": "Agent 세션이 작업하면 여기에 실시간으로 이벤트가 표시됩니다.",
   "viewSession": "세션"
 }

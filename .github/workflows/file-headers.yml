@@ -1,0 +1,44 @@
+# Verifies that every applicable source file touched in a pull request includes
+# the mandatory @author Son Nguyen copyright/authorship header. Supports JS/TS,
+# Python, shell, and CSS comment styles — see .claude/skills/file-headers/.
+#
+# @author Son Nguyen <hoangson091104@gmail.com>
+name: 📋 File Headers
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  file-headers:
+    name: "📋 Copyright / authorship headers"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check headers on PR diff
+        id: check
+        run: |
+          set +e
+          bash .claude/skills/file-headers/scripts/check-headers-pr.sh \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" | tee /tmp/header-check.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=${code}" >> "$GITHUB_OUTPUT"
+          exit "${code}"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## 📋 File header check"
+            echo
+            echo "**Base:** \`${{ github.event.pull_request.base.sha }}\`"
+            echo "**Head:** \`${{ github.event.pull_request.head.sha }}\`"
+            echo
+            echo '```'
+            cat /tmp/header-check.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

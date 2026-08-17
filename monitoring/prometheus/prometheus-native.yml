@@ -1,0 +1,26 @@
+# Prometheus scrape config for a NATIVE (non-Docker) CCAM + monitoring stack.
+#
+# Use this when Prometheus runs directly on the host (Homebrew, apt, a release
+# tarball, etc.) and the dashboard is a plain `npm start` on loopback :4820.
+# No DASHBOARD_ALLOWED_HOSTS override is required — 127.0.0.1 is already
+# accepted by the server's Host guard.
+#
+# Started by: monitoring/scripts/start-native.sh  (or npm run monitoring:native)
+# See ../README.md.
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+
+rule_files:
+  - ccam-rules.yml
+
+scrape_configs:
+  - job_name: ccam
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ["127.0.0.1:4820"]
+    # If the server sets DASHBOARD_TOKEN (LAN deployments), uncomment and fill in
+    # so the scrape passes the token guard:
+    # authorization:
+    #   type: Bearer
+    #   credentials: "<DASHBOARD_TOKEN>"

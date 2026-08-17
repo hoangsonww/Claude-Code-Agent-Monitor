@@ -1,4 +1,5 @@
 ---
+name: time-of-day
 description: >
   Discover when you are most active and most productive with Claude Code by
   bucketing sessions and events into hour-of-day and day-of-week bins from their

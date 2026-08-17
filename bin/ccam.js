@@ -6,17 +6,25 @@
  * A dependency-free umbrella CLI that brings the full dashboard feature
  * surface to the terminal. After the normal project setup (`npm run setup`,
  * which links this binary via `npm link`), every command is available
- * directly from any shell as `ccam <command>`.
+ * directly from any shell as `ccam <command>`, or interactively at the
+ * `ccam ›` prompt via `ccam repl`.
  *
+ * Server                status · start · repl (interactive shell)
  * Monitoring            health · stats · kanban · tail
  * Data browsing         sessions · session <id> · agents · events
  * Insights              analytics · workflows · runs · cost
  * Alerting              alerts · alerts ack <id> · alerts ack-all · rules
  * Webhooks              webhooks · webhooks test <id>
  * Pricing               pricing · pricing set/delete/reset
- * Import                import rescan · import path <dir>
+ * Import                import rescan · import path <dir> · import-data <file>
  * Administration        doctor · info · export · cleanup · reinstall-hooks ·
- *                       clear-data --yes · open
+ *                       update-check · clear-data --yes · open · version
+ *
+ * The REPL (`ccam repl`, aliases `shell` / `i`) runs each entered line as a
+ * short-lived child `ccam` process, so its behavior is identical to the
+ * one-shot CLI and no single command — a non-zero exit, a blocking `tail`, an
+ * offline refusal — can take the shell down with it. It adds tab-completion,
+ * persisted arrow-key history, and a live server-status prompt.
  *
  * Port resolution mirrors the hook handler: an explicit
  * CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env var wins, otherwise the live
@@ -158,21 +166,28 @@ class ServerDownError extends Error {}
 async function api(method, pathname, body) {
   const url = `${baseUrl()}${pathname}`;
   let res;
+  const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
   try {
     res = await fetch(url, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      headers: {
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
     throw new ServerDownError();
   }
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    /* non-JSON body */
+  const raw = await res.text();
+  let data = raw || null;
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw;
+    }
   }
   if (!res.ok) {
     const msg = data?.error?.message || `HTTP ${res.status}`;
@@ -234,6 +249,26 @@ function parseArgs(argv) {
     }
   }
   return { flags, positional };
+}
+
+function jsonFlag(flags, key = "data") {
+  const file = flags.file;
+  if (file) {
+    const target = path.resolve(process.cwd(), String(file));
+    return JSON.parse(fs.readFileSync(target, "utf8"));
+  }
+  const raw = flags[key];
+  if (raw == null) return undefined;
+  return JSON.parse(String(raw));
+}
+
+function booleanFlag(value) {
+  if (value === true) return true;
+  if (value == null) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return undefined;
 }
 
 const stripAnsi = (s) => String(s ?? "").replace(/\x1b\[[0-9;]*m/g, "");
@@ -543,7 +578,8 @@ const offlineData = {
 
 async function cmdHealth() {
   const h = await get("/api/health");
-  console.log(`${c.green("●")} Dashboard ${c.bold("up")} at ${baseUrl()} (${h.timestamp})`);
+  const ver = h.version ? ` v${h.version}` : "";
+  console.log(`${c.green("●")} Dashboard ${c.bold("up")}${ver} at ${baseUrl()} (${h.timestamp})`);
 }
 
 function renderStats(s, source) {
@@ -780,6 +816,88 @@ async function cmdEvents(flags) {
   renderEvents(await get(`/api/events?${params}`));
 }
 
+async function cmdTranscript(flags, positional) {
+  const sessionId = positional[0];
+  if (!sessionId) {
+    console.error(c.red("✖ Usage: ccam transcript <session-id> [options]"));
+    process.exit(1);
+  }
+  const query = new URLSearchParams();
+  for (const [flag, param] of [
+    ["agent", "agent_id"],
+    ["run", "run_id"],
+    ["limit", "limit"],
+    ["offset", "offset"],
+    ["after", "after"],
+    ["before", "before"],
+    ["sources", "sources"],
+    ["providers", "providers"],
+  ]) {
+    if (flags[flag] !== undefined) query.set(param, String(flags[flag]));
+  }
+  const suffix = query.size ? `?${query}` : "";
+  console.log(
+    JSON.stringify(
+      await get(`/api/sessions/${encodeURIComponent(sessionId)}/transcript${suffix}`),
+      null,
+      2
+    )
+  );
+}
+
+async function cmdTranscriptImage(flags, positional) {
+  const sessionId = positional[0];
+  if (!sessionId || flags.line === undefined || flags.index === undefined) {
+    console.error(
+      c.red("✖ Usage: ccam transcript-image <session-id> --line N --index N [--output image.png]")
+    );
+    process.exit(1);
+  }
+  const query = new URLSearchParams({
+    line: String(flags.line),
+    index: String(flags.index),
+  });
+  if (flags.agent) query.set("agent_id", String(flags.agent));
+  if (flags.run) query.set("run_id", String(flags.run));
+  if (flags.sources) query.set("sources", String(flags.sources));
+  if (flags.providers) query.set("providers", String(flags.providers));
+  const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
+  let response;
+  try {
+    response = await fetch(
+      `${baseUrl()}/api/sessions/${encodeURIComponent(sessionId)}/transcript-image?${query}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        signal: AbortSignal.timeout(30_000),
+      }
+    );
+  } catch {
+    throw new ServerDownError();
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    console.error(c.red(`✖ Image download failed: ${body?.error?.message || response.status}`));
+    process.exit(1);
+  }
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const extension =
+    contentType === "image/png"
+      ? ".png"
+      : contentType === "image/jpeg"
+        ? ".jpg"
+        : contentType === "image/gif"
+          ? ".gif"
+          : contentType === "image/webp"
+            ? ".webp"
+            : ".bin";
+  const output = path.resolve(
+    process.cwd(),
+    String(flags.output || `transcript-${sessionId}-${flags.line}-${flags.index}${extension}`)
+  );
+  fs.writeFileSync(output, Buffer.from(await response.arrayBuffer()));
+  console.log(`${c.green("✔")} Saved transcript image to ${c.bold(output)}`);
+}
+
 // ── Insights ────────────────────────────────────────────────────────────────
 
 async function cmdAnalytics() {
@@ -876,8 +994,106 @@ async function cmdRuns(flags) {
   table(["Run", "Status", "Name", "Agents", "Tokens", "Tools", "Duration"], rows);
 }
 
-async function cmdCost() {
-  const cost = await get("/api/pricing/cost");
+async function cmdRun(flags, positional) {
+  const sub = positional[0] || "list";
+  if (sub === "list") {
+    console.log(JSON.stringify(await get("/api/run"), null, 2));
+    return;
+  }
+  if (sub === "history") {
+    console.log(JSON.stringify(await get(`/api/run/history?limit=${flags.limit || 50}`), null, 2));
+    return;
+  }
+  if (sub === "models" || sub === "binary") {
+    const provider = positional[1] || flags.provider || "claude";
+    console.log(JSON.stringify(await get(`/api/run/${sub}?provider=${provider}`), null, 2));
+    return;
+  }
+  if (sub === "cwds") {
+    console.log(JSON.stringify(await get("/api/run/cwds"), null, 2));
+    return;
+  }
+  if (sub === "files") {
+    if (!flags.cwd) {
+      console.error(c.red("✖ run files requires --cwd <dir>."));
+      process.exit(1);
+    }
+    const query = new URLSearchParams({ cwd: String(flags.cwd) });
+    if (flags.query) query.set("q", String(flags.query));
+    console.log(JSON.stringify(await get(`/api/run/files?${query}`), null, 2));
+    return;
+  }
+  if (sub === "get" && positional[1]) {
+    const suffix = flags.envelopes ? "?envelopes=1" : "";
+    console.log(
+      JSON.stringify(await get(`/api/run/${encodeURIComponent(positional[1])}${suffix}`), null, 2)
+    );
+    return;
+  }
+  if (sub === "start") {
+    const body = jsonFlag(flags) || {
+      provider: flags.provider || "claude",
+      prompt: flags.prompt || "",
+      mode: flags.mode || "conversation",
+      cwd: flags.cwd,
+      model: flags.model,
+      permissionMode: flags.permission,
+      resumeSessionId: flags.resume,
+      effort: flags.effort,
+      sandbox: flags.sandbox,
+    };
+    if (!flags.yes || !body.cwd) {
+      console.error(c.red("✖ run start requires --yes and a cwd in flags or JSON input."));
+      process.exit(1);
+    }
+    console.log(JSON.stringify(await post("/api/run", body), null, 2));
+    return;
+  }
+  if (sub === "send" && positional[1]) {
+    if (!flags.yes || !flags.text) {
+      console.error(c.red("✖ run send <id> requires --yes and --text <message>."));
+      process.exit(1);
+    }
+    const provider =
+      flags.provider ||
+      (await get(`/api/run/${encodeURIComponent(positional[1])}`)).provider ||
+      "claude";
+    console.log(
+      JSON.stringify(
+        await post(`/api/run/${encodeURIComponent(positional[1])}/message`, {
+          text: flags.text,
+          provider,
+        }),
+        null,
+        2
+      )
+    );
+    return;
+  }
+  if ((sub === "stop" || sub === "kill") && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ run stop <id> requires --yes."));
+      process.exit(1);
+    }
+    await api("DELETE", `/api/run/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} Stopped run ${positional[1]}`);
+    return;
+  }
+  console.error(
+    c.red("✖ Usage: ccam run list|history|models|binary|cwds|files|get|start|send|stop")
+  );
+  process.exit(1);
+}
+
+async function cmdCost(flags) {
+  // Mirror the two cost endpoints: the whole-database aggregate, or one
+  // session's cost when --session is given (same response shape, so the
+  // rendering below is shared).
+  const sessionId = flags.session;
+  const cost = sessionId
+    ? await get(`/api/pricing/cost/${encodeURIComponent(sessionId)}`)
+    : await get("/api/pricing/cost");
+  if (sessionId) heading("Session cost", sessionId);
   console.log(`${c.bold("Total estimated cost:")} ${c.cyan(c.bold(fmtCost(cost.total_cost)))}`);
   const breakdown = (cost.breakdown || []).slice(0, 15);
   if (breakdown.length) {
@@ -889,6 +1105,41 @@ async function cmdCost() {
         `  ${fmtModel(b.model).padEnd(w)}  ${bar(b.cost, max, 20, c.green)} ${c.bold(fmtCost(b.cost))}`
       );
     }
+  }
+  // Server-tool surcharges billed on top of tokens (web search $/1k, code
+  // execution container-time beyond the org free allowance). The API always
+  // returns feature_costs; show the line only when something is actually
+  // billed so a plain token-only total stays uncluttered.
+  const fc = cost.feature_costs || {};
+  const featureLines = [];
+  if ((fc.web_search_cost || 0) > 0)
+    featureLines.push(`web search ${c.bold(fmtCost(fc.web_search_cost))}`);
+  if ((fc.code_execution_cost || 0) > 0)
+    featureLines.push(`code execution ${c.bold(fmtCost(fc.code_execution_cost))}`);
+  if (featureLines.length) {
+    console.log();
+    console.log(`${c.dim("Server-tool surcharges:")} ${featureLines.join(c.dim(" · "))}`);
+  }
+  // The API prices unmatched models at $0 and reports them in unpriced_models
+  // so the total stays honest — surface that here instead of silently showing
+  // an under-reported number (e.g. right after a brand-new model id ships).
+  const unpriced = cost.unpriced_models || [];
+  if (unpriced.length) {
+    console.log();
+    console.log(
+      c.yellow(
+        `⚠ ${unpriced.length} model(s) have usage but no pricing rule — excluded from the total:`
+      )
+    );
+    for (const u of unpriced) {
+      const tokens =
+        (u.input_tokens || 0) +
+        (u.output_tokens || 0) +
+        (u.cache_read_tokens || 0) +
+        (u.cache_write_tokens || 0);
+      console.log(`  ${c.bold(u.model)}  ${c.dim(`${fmtTokens(tokens)} tokens`)}`);
+    }
+    console.log(c.dim("  Add a rule with: ccam pricing set <pattern> --input N --output N"));
   }
 }
 
@@ -933,6 +1184,55 @@ async function cmdRules() {
   table(["ID", "Enabled", "Type", "Name", "Cooldown"], rows);
 }
 
+async function cmdAlertRules(flags, positional) {
+  const sub = positional[0] || "list";
+  if (sub === "list") return cmdRules();
+  const writeSubcommands = new Set(["create", "update", "delete"]);
+  if (!writeSubcommands.has(sub)) {
+    console.error(c.red("✖ Usage: ccam alert-rules list|create|update <id>|delete <id>"));
+    process.exit(1);
+  }
+  if (!flags.yes) {
+    console.error(c.red("✖ Alert-rule writes require --yes."));
+    process.exit(1);
+  }
+  if (sub === "create") {
+    const config = jsonFlag(flags, "config") || {};
+    const body = {
+      name: flags.name,
+      rule_type: flags.type,
+      config,
+      enabled: flags.disabled ? false : true,
+      cooldown_seconds: Number(flags.cooldown ?? 300),
+    };
+    if (!body.name || !body.rule_type) {
+      console.error(c.red("✖ create requires --name, --type, and optional --config JSON."));
+      process.exit(1);
+    }
+    const result = await post("/api/alerts/rules", body);
+    console.log(`${c.green("✔")} Created alert rule ${result.rule.id}`);
+    return;
+  }
+  if (sub === "update" && positional[1]) {
+    const body = {};
+    if (flags.name !== undefined) body.name = flags.name;
+    if (flags.config !== undefined || flags.file !== undefined)
+      body.config = jsonFlag(flags, "config");
+    if (flags.enabled !== undefined) body.enabled = booleanFlag(flags.enabled);
+    if (flags.cooldown !== undefined) body.cooldown_seconds = Number(flags.cooldown);
+    await api("PATCH", `/api/alerts/rules/${encodeURIComponent(positional[1])}`, body);
+    console.log(`${c.green("✔")} Updated alert rule ${positional[1]}`);
+    return;
+  }
+  if (sub === "delete" && positional[1]) {
+    await api("DELETE", `/api/alerts/rules/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} Deleted alert rule ${positional[1]}`);
+    return;
+  }
+  console.error(c.red("✖ Usage: ccam alert-rules list|create|update <id>|delete <id>"));
+  process.exit(1);
+}
+
 async function cmdWebhooks(flags, positional) {
   const sub = positional[0];
   if (sub === "test" && positional[1]) {
@@ -945,6 +1245,44 @@ async function cmdWebhooks(flags, positional) {
     );
     process.exit(ok ? 0 : 1);
   }
+  if (sub === "providers") {
+    const data = await get("/api/webhooks/providers");
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+  if (sub === "deliveries" && positional[1]) {
+    const data = await get(
+      `/api/webhooks/${encodeURIComponent(positional[1])}/deliveries?limit=${flags.limit || 20}`
+    );
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+  if (["create", "update", "delete"].includes(sub)) {
+    if (!flags.yes) {
+      console.error(c.red("✖ Webhook writes require --yes."));
+      process.exit(1);
+    }
+    if (sub === "delete" && positional[1]) {
+      await api("DELETE", `/api/webhooks/${encodeURIComponent(positional[1])}`);
+      console.log(`${c.green("✔")} Deleted webhook ${positional[1]}`);
+      return;
+    }
+    if ((sub === "update" || sub === "delete") && !positional[1]) {
+      console.error(c.red(`✖ ${sub} requires a webhook id.`));
+      process.exit(1);
+    }
+    const body = jsonFlag(flags) || {};
+    if (sub === "create") {
+      const result = await post("/api/webhooks", body);
+      console.log(`${c.green("✔")} Created webhook ${result.target.id}`);
+      return;
+    }
+    if (sub === "update" && positional[1]) {
+      const result = await api("PATCH", `/api/webhooks/${encodeURIComponent(positional[1])}`, body);
+      console.log(`${c.green("✔")} Updated webhook ${result.target.id}`);
+      return;
+    }
+  }
   const data = await get("/api/webhooks");
   const rows = (data.targets || []).map((t) => [
     t.id,
@@ -956,7 +1294,169 @@ async function cmdWebhooks(flags, positional) {
   table(["ID", "Enabled", "Provider", "Name", "URL"], rows);
 }
 
+// ── Remote data sources ─────────────────────────────────────────────────────
+
+/**
+ * `ccam remote-sources [list|add|test|sync|rm]` — manage the SSH machines this
+ * dashboard pulls Claude Code and Codex history from (server/routes/remote-sources.js).
+ * One source can expose either provider or both. No secrets are handled here;
+ * auth defers to the host's SSH stack.
+ */
+async function cmdRemoteSources(flags, positional) {
+  const sub = positional[0] || "list";
+
+  if (sub === "add") {
+    if (!flags.label || !flags.host) {
+      console.error(c.red("✖ add requires --label and --host"));
+      console.error(
+        c.dim(
+          "  e.g. ccam remote-sources add --label 'Dev box' --host son@dev --port 22 --identity ~/.ssh/id_ed25519"
+        )
+      );
+      process.exit(1);
+    }
+    const body = {
+      label: String(flags.label),
+      host: String(flags.host),
+      ssh_port: flags.port != null ? Number(flags.port) : null,
+      identity_file: flags.identity != null ? String(flags.identity) : null,
+      remote_home: flags["remote-home"] != null ? String(flags["remote-home"]) : null,
+      remote_codex_home:
+        flags["remote-codex-home"] != null ? String(flags["remote-codex-home"]) : null,
+      enabled: flags.disabled ? false : true,
+    };
+    const r = await post("/api/remote-sources", body);
+    console.log(`${c.green("✔")} Added remote source ${c.bold(r.source.label)} (${r.source.id})`);
+    return;
+  }
+
+  if (sub === "update" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ remote-sources update requires --yes."));
+      process.exit(1);
+    }
+    const body = jsonFlag(flags) || {};
+    const r = await api("PATCH", `/api/remote-sources/${encodeURIComponent(positional[1])}`, body);
+    console.log(`${c.green("✔")} Updated remote source ${r.source.id}`);
+    return;
+  }
+
+  if (sub === "test" && positional[1]) {
+    const r = await post(`/api/remote-sources/${positional[1]}/test`);
+    console.log(r.ok ? `${c.green("✔")} ${r.message}` : `${c.red("✖")} ${r.message}`);
+    for (const provider of ["claude", "codex"]) {
+      const detail = r.providers?.[provider];
+      if (!detail) continue;
+      const icon = detail.status === "ok" ? c.green("✔") : c.yellow("•");
+      console.log(
+        c.dim(
+          `  ${icon} ${provider === "codex" ? "Codex" : "Claude Code"}: ${detail.status} — ${detail.path}`
+        )
+      );
+    }
+    process.exit(r.ok ? 0 : 1);
+  }
+
+  if (sub === "sync") {
+    if (positional[1]) {
+      const r = await post(`/api/remote-sources/${positional[1]}/sync`);
+      printRemoteSyncSummary(`${c.green("✔")} Synced ${positional[1]}`, r);
+    } else {
+      // No id → sync every source sequentially.
+      const { sources = [] } = await get("/api/remote-sources");
+      for (const s of sources) {
+        const r = await post(`/api/remote-sources/${s.id}/sync`);
+        printRemoteSyncSummary(`  ${c.bold(s.label)}`, r);
+      }
+      console.log(`${c.green("✔")} Synced ${sources.length} source(s)`);
+    }
+    return;
+  }
+
+  if (sub === "rm" && positional[1]) {
+    const purge = !!flags.purge;
+    if (purge && flags.confirm !== "PURGE_REMOTE_SOURCE_DATA") {
+      console.error(c.red("✖ --purge requires --confirm PURGE_REMOTE_SOURCE_DATA."));
+      process.exit(1);
+    }
+    const r = await api(
+      "DELETE",
+      `/api/remote-sources/${positional[1]}${purge ? "?purge=true" : ""}`
+    );
+    console.log(
+      `${c.green("✔")} Removed ${positional[1]}${purge ? ` (purged ${r.purged} session(s))` : " (data kept)"}`
+    );
+    return;
+  }
+
+  // Default: list.
+  const { sources = [] } = await get("/api/remote-sources");
+  const rows = sources.map((s) => [
+    s.id,
+    s.enabled ? c.green("on") : c.dim("off"),
+    `${s.status} (${s.claude_status || "idle"}/${s.codex_status || "idle"})`,
+    (s.label || "").slice(0, 24),
+    `${s.host}${s.ssh_port ? `:${s.ssh_port}` : ""}`,
+    String(s.session_count ?? 0),
+    s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : "-",
+  ]);
+  table(["ID", "Auto", "Status", "Label", "Host", "Sessions", "Last sync"], rows);
+  if (sources.length > 0) {
+    const totalSessions = sources.reduce((n, s) => n + (s.session_count || 0), 0);
+    const enabled = sources.filter((s) => s.enabled).length;
+    console.log(
+      c.dim(
+        `  ${sources.length} source(s), ${enabled} auto-syncing, ${totalSessions} session(s) collected`
+      )
+    );
+  } else {
+    console.log(c.dim("  No remote sources configured. Add one: ccam remote-sources add --help"));
+  }
+}
+
+/** Render combined and provider-specific counters from a remote-source sync. */
+function printRemoteSyncSummary(prefix, result) {
+  const providers = ["claude", "codex"]
+    .map((provider) => {
+      const detail = result.providers?.[provider];
+      if (!detail) return null;
+      const name = provider === "codex" ? "Codex" : "Claude";
+      return detail.status === "ok"
+        ? `${name} ${detail.imported ?? 0} imported/${detail.sessions_tagged ?? 0} tagged`
+        : `${name} ${detail.status}`;
+    })
+    .filter(Boolean);
+  console.log(
+    `${prefix}: ${result.imported ?? 0} imported, ${result.sessions_tagged ?? 0} tagged${providers.length ? ` (${providers.join(", ")})` : ""}`
+  );
+}
+
 // ── Pricing ─────────────────────────────────────────────────────────────────
+
+/** Render pricing rules — shared by the online list and the offline fallback
+ *  so both show the full rate surface (standard, fast-mode, intro promo). */
+function renderPricingTable(rules) {
+  const fastCol = (p) =>
+    (p.fast_input_per_mtok || 0) > 0 ? `$${p.fast_input_per_mtok}/$${p.fast_output_per_mtok}` : "-";
+  const introCol = (p) =>
+    p.intro_until
+      ? `$${p.intro_input_per_mtok}/$${p.intro_output_per_mtok} ≤${p.intro_until}`
+      : "-";
+  const rows = (rules || []).map((p) => [
+    p.model_pattern,
+    (p.display_name || "").slice(0, 24),
+    `$${p.input_per_mtok}`,
+    `$${p.output_per_mtok}`,
+    `$${p.cache_read_per_mtok}`,
+    `$${p.cache_write_per_mtok}`,
+    fastCol(p),
+    introCol(p),
+  ]);
+  table(
+    ["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M", "Fast In/Out", "Intro In/Out"],
+    rows
+  );
+}
 
 async function cmdPricing(flags, positional) {
   const sub = positional[0];
@@ -969,6 +1469,30 @@ async function cmdPricing(flags, positional) {
       cache_read_per_mtok: Number(flags["cache-read"] ?? 0),
       cache_write_per_mtok: Number(flags["cache-write"] ?? 0),
     };
+    if (flags["cache-write-1h"] !== undefined)
+      body.cache_write_1h_per_mtok = Number(flags["cache-write-1h"]);
+    if (flags["fast-input"] !== undefined) body.fast_input_per_mtok = Number(flags["fast-input"]);
+    if (flags["fast-output"] !== undefined)
+      body.fast_output_per_mtok = Number(flags["fast-output"]);
+    // The intro block is only sent when at least one --intro-* flag is present:
+    // per the API contract, a PUT that omits every intro field preserves an
+    // existing promo, so a plain rate edit can never clobber one.
+    const INTRO_FLAGS = {
+      "intro-input": "intro_input_per_mtok",
+      "intro-output": "intro_output_per_mtok",
+      "intro-cache-read": "intro_cache_read_per_mtok",
+      "intro-cache-write": "intro_cache_write_per_mtok",
+      "intro-cache-write-1h": "intro_cache_write_1h_per_mtok",
+    };
+    const introProvided =
+      flags["intro-until"] !== undefined ||
+      Object.keys(INTRO_FLAGS).some((f) => flags[f] !== undefined);
+    if (introProvided) {
+      for (const [flag, field] of Object.entries(INTRO_FLAGS))
+        body[field] = Number(flags[flag] ?? 0);
+      // A bare --intro-until (no date) clears the promo, mirroring the API.
+      body.intro_until = typeof flags["intro-until"] === "string" ? flags["intro-until"] : "";
+    }
     await api("PUT", "/api/pricing", body);
     console.log(`${c.green("✔")} Pricing rule saved for ${c.bold(positional[1])}`);
     return;
@@ -984,24 +1508,82 @@ async function cmdPricing(flags, positional) {
     return;
   }
   const data = await get("/api/pricing");
-  const rows = (data.pricing || data.rules || []).map((p) => [
-    p.model_pattern,
-    (p.display_name || "").slice(0, 24),
-    `$${p.input_per_mtok}`,
-    `$${p.output_per_mtok}`,
-    `$${p.cache_read_per_mtok}`,
-    `$${p.cache_write_per_mtok}`,
-  ]);
-  table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+  renderPricingTable(data.pricing || data.rules || []);
+}
+
+async function cmdGptPricing(flags, positional) {
+  const sub = positional[0];
+  if (sub === "set" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ gpt-pricing set requires --yes."));
+      process.exit(1);
+    }
+    const body = {
+      ...(jsonFlag(flags) || {}),
+      model_pattern: positional[1],
+      display_name: flags.name || positional[1],
+    };
+    console.log(JSON.stringify(await api("PUT", "/api/pricing/gpt", body), null, 2));
+    return;
+  }
+  if (sub === "delete" && positional[1]) {
+    if (!flags.yes) {
+      console.error(c.red("✖ gpt-pricing delete requires --yes."));
+      process.exit(1);
+    }
+    await api("DELETE", `/api/pricing/gpt/${encodeURIComponent(positional[1])}`);
+    console.log(`${c.green("✔")} GPT pricing rule deleted: ${positional[1]}`);
+    return;
+  }
+  console.log(JSON.stringify(await get("/api/pricing/gpt"), null, 2));
+}
+
+// ── Updates ─────────────────────────────────────────────────────────────────
+
+async function cmdUpdateCheck() {
+  console.log(c.dim("Checking the canonical remote — this can take a few seconds…"));
+  // POST /check (rather than GET /status) so a dashboard open in the browser
+  // sees the same fresh result via the update_status websocket broadcast.
+  const s = await post("/api/updates/check");
+  heading("Dashboard updates", s.repo_root || baseUrl());
+  if (!s.git_repo) {
+    console.log(`${c.yellow("○")}  ${s.message}`);
+    return;
+  }
+  if (s.fetch_error) {
+    console.log(`${c.yellow("!")}  ${s.message} ${c.dim(`(${s.fetch_error})`)}`);
+    return;
+  }
+  if (s.update_available) {
+    console.log(`${c.yellow("⬆")}  ${s.message}`);
+    if (s.situation_note) console.log(c.dim(`   ${s.situation_note}`));
+    if (s.manual_command) {
+      console.log(`\n  ${c.bold("To update, run:")}`);
+      console.log(`  ${c.cyan(s.manual_command)}`);
+    }
+  } else {
+    console.log(`${c.green("✔")}  ${s.message || "Your checkout is up to date."}`);
+  }
 }
 
 // ── Import ──────────────────────────────────────────────────────────────────
 
 async function cmdImport(flags, positional) {
   const sub = positional[0];
+  const provider = flags.provider === "codex" ? "codex" : "claude";
+  if (sub === "guide") {
+    console.log(
+      JSON.stringify(
+        await get(`/api/import/guide?provider=${encodeURIComponent(provider)}`),
+        null,
+        2
+      )
+    );
+    return;
+  }
   if (sub === "rescan") {
-    console.log(c.dim("Rescanning ~/.claude/projects — this can take a while…"));
-    const r = await post("/api/import/rescan");
+    console.log(c.dim(`Rescanning ${provider} history — this can take a while…`));
+    const r = await post("/api/import/rescan", { provider });
     console.log(
       `${c.green("✔")} imported ${r.imported ?? 0}, backfilled ${r.backfilled ?? 0}, skipped ${r.skipped ?? 0}, errors ${r.errors ?? 0}`
     );
@@ -1009,31 +1591,234 @@ async function cmdImport(flags, positional) {
   }
   if (sub === "path" && positional[1]) {
     console.log(c.dim(`Scanning ${positional[1]} …`));
-    const r = await post("/api/import/scan-path", { path: positional[1] });
+    const r = await post("/api/import/scan-path", { path: positional[1], provider });
     console.log(
       `${c.green("✔")} imported ${r.imported ?? 0}, backfilled ${r.backfilled ?? 0}, skipped ${r.skipped ?? 0}, errors ${r.errors ?? 0}`
     );
     return;
   }
-  console.error(c.red("✖ Usage: ccam import rescan | ccam import path <dir>"));
+  if (sub === "upload" && positional.length > 1) {
+    const files = positional.slice(1).map((file) => path.resolve(process.cwd(), file));
+    for (const file of files) {
+      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
+        console.error(c.red(`✖ File not found: ${file}`));
+        process.exit(1);
+      }
+    }
+    const form = new FormData();
+    form.append("provider", provider);
+    for (const file of files) {
+      const data = fs.readFileSync(file);
+      form.append("files", new Blob([data]), path.basename(file));
+    }
+    const token = process.env.DASHBOARD_API_TOKEN || process.env.CCAM_API_TOKEN;
+    let response;
+    try {
+      response = await fetch(`${baseUrl()}/api/import/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form,
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch {
+      throw new ServerDownError();
+    }
+    const raw = await response.text();
+    let result = {};
+    try {
+      result = raw ? JSON.parse(raw) : {};
+    } catch {
+      result = { error: { message: raw || `HTTP ${response.status}` } };
+    }
+    if (!response.ok) {
+      console.error(c.red(`✖ Upload failed: ${result?.error?.message || response.status}`));
+      process.exit(1);
+    }
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.error(
+    c.red(
+      "✖ Usage: ccam import guide|rescan|path <dir>|upload <files...> [--provider claude|codex]"
+    )
+  );
   process.exit(1);
 }
 
 // ── Administration ──────────────────────────────────────────────────────────
 
+async function cmdConfig(flags, positional) {
+  const provider = positional[0];
+  const sub = positional[1] || "overview";
+  if (provider === "claude") {
+    const surface = sub === "list" ? positional[2] || "overview" : sub;
+    const known = new Set([
+      "overview",
+      "skills",
+      "agents",
+      "commands",
+      "output-styles",
+      "plugins",
+      "mcp",
+      "hooks",
+      "settings",
+      "memory",
+      "marketplaces",
+      "keybindings",
+      "statusline",
+      "hook-scripts",
+      "backups",
+    ]);
+    if (known.has(surface)) {
+      const query = new URLSearchParams();
+      if (flags.scope) query.set("scope", String(flags.scope));
+      if (flags.cwd) query.set("cwd", String(flags.cwd));
+      if (flags.type) query.set("type", String(flags.type));
+      const suffix = query.size ? `?${query}` : "";
+      console.log(JSON.stringify(await get(`/api/cc-config/${surface}${suffix}`), null, 2));
+      return;
+    }
+    if (surface === "read" && positional[2]) {
+      console.log(
+        JSON.stringify(
+          await get(`/api/cc-config/file?path=${encodeURIComponent(positional[2])}`),
+          null,
+          2
+        )
+      );
+      return;
+    }
+    if (surface === "write" || surface === "delete" || surface === "keybindings-write") {
+      if (!flags.yes) {
+        console.error(c.red("✖ Config writes require --yes."));
+        process.exit(1);
+      }
+      if (surface === "keybindings-write") {
+        console.log(
+          JSON.stringify(
+            await api("PUT", "/api/cc-config/keybindings", jsonFlag(flags) || {}),
+            null,
+            2
+          )
+        );
+        return;
+      }
+      const body = jsonFlag(flags) || {};
+      console.log(
+        JSON.stringify(
+          await api(surface === "write" ? "PUT" : "DELETE", "/api/cc-config/file", body),
+          null,
+          2
+        )
+      );
+      return;
+    }
+  }
+  if (provider === "codex") {
+    if (sub === "overview") {
+      console.log(JSON.stringify(await get("/api/codex-config/overview"), null, 2));
+      return;
+    }
+    if ((sub === "read" || sub === "edit") && positional[2]) {
+      const route = sub === "edit" ? "edit-file" : "file";
+      console.log(
+        JSON.stringify(
+          await get(`/api/codex-config/${route}?path=${encodeURIComponent(positional[2])}`),
+          null,
+          2
+        )
+      );
+      return;
+    }
+    if (["write", "delete", "profile"].includes(sub)) {
+      if (!flags.yes) {
+        console.error(c.red("✖ Config writes require --yes."));
+        process.exit(1);
+      }
+      if (sub === "profile") {
+        console.log(
+          JSON.stringify(await post("/api/codex-config/profiles", { name: positional[2] }), null, 2)
+        );
+        return;
+      }
+      console.log(
+        JSON.stringify(
+          await api(
+            sub === "write" ? "PUT" : "DELETE",
+            "/api/codex-config/file",
+            jsonFlag(flags) || {}
+          ),
+          null,
+          2
+        )
+      );
+      return;
+    }
+  }
+  console.error(c.red("✖ Usage: ccam config claude|codex <action> [options]"));
+  process.exit(1);
+}
+
+async function cmdHooks(flags, positional) {
+  const sub = positional[0] || "status";
+  if (sub === "status") {
+    const info = await get("/api/settings/info");
+    console.log(JSON.stringify(info.hooks, null, 2));
+    return;
+  }
+  if (sub === "install") {
+    if (!flags.yes) {
+      console.error(c.red("✖ Hook installation requires --yes."));
+      process.exit(1);
+    }
+    const providers = positional.slice(1).filter((p) => p === "claude" || p === "codex");
+    console.log(JSON.stringify(await post("/api/settings/install-hooks", { providers }), null, 2));
+    return;
+  }
+  console.error(c.red("✖ Usage: ccam hooks status | ccam hooks install claude codex --yes"));
+  process.exit(1);
+}
+
+async function cmdApi(flags, positional) {
+  const method = String(positional[0] || "GET").toUpperCase();
+  const pathname = positional[1];
+  if (!pathname || !pathname.startsWith("/api/")) {
+    console.error(c.red("✖ Usage: ccam api <METHOD> /api/<path> [--data JSON|--file path]"));
+    process.exit(1);
+  }
+  const allowed = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
+  if (!allowed.has(method)) {
+    console.error(c.red(`✖ Unsupported method: ${method}`));
+    process.exit(1);
+  }
+  if (method !== "GET" && !flags.yes) {
+    console.error(c.red("✖ Generic API writes require --yes."));
+    process.exit(1);
+  }
+  if (pathname === "/api/settings/clear-data" && flags.confirm !== "CLEAR_ALL_DATA") {
+    console.error(c.red("✖ clear-data requires --confirm CLEAR_ALL_DATA in addition to --yes."));
+    process.exit(1);
+  }
+  const result = await api(method, pathname, jsonFlag(flags));
+  if (typeof result === "string") console.log(result);
+  else console.log(JSON.stringify(result, null, 2));
+}
+
 async function cmdDoctor() {
+  let failed = false;
   await get("/api/health");
   heading("ccam doctor", baseUrl());
   console.log(`${c.green("✔")}  API reachable  ${baseUrl()}`);
   const info = await get("/api/settings/info");
   const hooks = info.hooks || {};
-  console.log(
-    `${hooks.installed ? c.green("✔") : c.red("✖")}  Claude Code hooks  ${
-      hooks.installed
-        ? `installed (${hooks.path || "~/.claude/settings.json"})`
-        : "NOT installed — run: npm run install-hooks"
-    }`
-  );
+  if (hooks.installed) {
+    console.log(
+      `${c.green("✔")}  Claude Code hooks  installed (${hooks.path || "~/.claude/settings.json"})`
+    );
+  } else {
+    failed = true;
+    console.log(`${c.red("✖")}  Claude Code hooks  NOT installed — run: npm run install-hooks`);
+  }
   const db = info.db || {};
   console.log(
     `${c.green("✔")}  Database  ${db.path || "?"} (${((db.size || 0) / 1048576).toFixed(1)} MB)`
@@ -1046,6 +1831,34 @@ async function cmdDoctor() {
     `${c.green("✔")}  Server uptime  ${Math.floor((srv.uptime || 0) / 60)} min (node ${srv.node_version || "?"})`
   );
   console.log(`${c.green("✔")}  WS connections  ${srv.ws_connections ?? 0}`);
+
+  try {
+    const { sources = [] } = await get("/api/remote-sources");
+    if (sources.length === 0) {
+      console.log(`${c.green("✔")}  Remote sources  none configured`);
+    } else {
+      const errored = sources.filter((s) => s.status === "error");
+      console.log(
+        `${errored.length ? c.yellow("!") : c.green("✔")}  Remote sources  ${sources.length} configured` +
+          (errored.length ? ` (${errored.length} in error)` : "")
+      );
+      for (const s of sources) {
+        const mark =
+          s.status === "error" ? c.red("✖") : s.status === "ok" ? c.green("·") : c.dim("·");
+        console.log(
+          `${mark}    ${s.label || s.id}  ${s.status}` +
+            (s.last_sync_at ? `  last sync ${s.last_sync_at}` : "") +
+            (s.last_error ? `  ${c.red(s.last_error)}` : "")
+        );
+      }
+      if (errored.length) failed = true;
+    }
+  } catch (err) {
+    failed = true;
+    console.log(`${c.red("✖")}  Remote sources  ${err.message || err}`);
+  }
+
+  if (failed) process.exit(1);
 }
 
 async function cmdInfo() {
@@ -1059,6 +1872,29 @@ async function cmdExport(positional) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   console.log(
     `${c.green("✔")} Exported to ${c.bold(file)} (${(fs.statSync(file).size / 1048576).toFixed(1)} MB)`
+  );
+}
+
+// Restore a bundle produced by `ccam export` (or the dashboard's Export data).
+// The local server reads the file from disk, so we pass an absolute path rather
+// than uploading — idempotent and non-destructive (existing sessions skipped).
+async function cmdImportData(positional) {
+  const target = positional[0];
+  if (!target) {
+    console.error(c.red("✖ Usage: ccam import-data <export.json>"));
+    process.exit(1);
+  }
+  const abs = path.resolve(process.cwd(), target);
+  if (!fs.existsSync(abs)) {
+    console.error(c.red(`✖ File not found: ${abs}`));
+    process.exit(1);
+  }
+  const r = await post("/api/settings/import", { path: abs });
+  console.log(
+    `${c.green("✔")} Restored: ${r.sessions_imported ?? 0} sessions added, ` +
+      `${r.sessions_skipped ?? 0} already present, ${r.events ?? 0} events, ` +
+      `${r.model_pricing ?? 0} pricing rules ` +
+      `(${r.agents ?? 0} agents · ${r.workflows ?? 0} workflows · ${r.dashboard_runs ?? 0} runs · ${r.alert_rules ?? 0} rules)`
   );
 }
 
@@ -1089,6 +1925,33 @@ async function cmdClearData(flags) {
 async function cmdReinstallHooks() {
   await post("/api/settings/reinstall-hooks");
   console.log(`${c.green("✔")} Claude Code hooks reinstalled`);
+}
+
+async function cmdMcp(positional) {
+  const mode = positional[0] || "stdio";
+  const script = path.join(REPO_ROOT, "mcp", "build", "index.js");
+  if (!fs.existsSync(script)) {
+    console.error(c.red("✖ MCP build is missing."));
+    console.error(c.dim("  Run: npm run mcp:install && npm run mcp:build"));
+    process.exit(1);
+  }
+  const args = [script];
+  if (mode === "http") args.push("--transport=http");
+  else if (mode === "repl") args.push("--transport=repl");
+  else if (mode !== "stdio") {
+    console.error(c.red("✖ Usage: ccam mcp [stdio|http|repl]"));
+    process.exit(1);
+  }
+  const child = spawn(process.execPath, args, { stdio: "inherit", env: process.env });
+  child.on("error", (error) => {
+    console.error(c.red(`✖ Failed to start MCP server: ${error.message}`));
+    console.error(c.dim("  Run npm run mcp:install && npm run mcp:build, then retry."));
+    process.exitCode = 1;
+  });
+  child.on("exit", (code, signal) => {
+    if (signal) process.kill(process.pid, signal);
+    process.exit(code ?? 0);
+  });
 }
 
 /**
@@ -1162,6 +2025,84 @@ async function cmdStart(flags) {
   process.exit(1);
 }
 
+/**
+ * Stop the dashboard server by reading the PID from the discovery file and
+ * sending SIGTERM (graceful), escalating to SIGKILL after 5 s.
+ */
+async function cmdStop() {
+  if (!(await serverIsUp())) {
+    console.log(`${c.dim("○")} Dashboard is not running — nothing to stop.`);
+    return;
+  }
+  // Resolve the discovery file and target port the same way baseUrl() does,
+  // so `stop` kills the exact server this CLI talks to rather than an
+  // arbitrary entry when multiple dashboards run side by side (e.g. the
+  // desktop app next to `npm run dev`).
+  const { getServerInfoPath, resolveDashboardPort } = require(
+    path.join(REPO_ROOT, "server", "lib", "server-info.js")
+  );
+  const serverInfoPath = getServerInfoPath();
+  const targetPort = resolveDashboardPort();
+  let pid;
+  try {
+    const raw = fs.readFileSync(serverInfoPath, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.servers) && parsed.servers.length > 0) {
+      const match = parsed.servers.find((s) => s.port === targetPort);
+      pid = match ? match.pid : parsed.servers[0].pid;
+    } else if (parsed.pid) {
+      pid = parsed.pid;
+    }
+  } catch {
+    // fall through
+  }
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    console.error(c.red("✖ Could not determine server PID from ") + c.dim(serverInfoPath));
+    console.error(c.dim("  Kill it manually: find the node process on port 4820"));
+    process.exit(1);
+  }
+  // Check if PID is alive
+  try {
+    process.kill(pid, 0);
+  } catch {
+    console.error(c.red(`✖ PID ${pid} is not running — stale discovery file.`));
+    process.exit(1);
+  }
+  // Send SIGTERM
+  console.log(`${c.dim("…")} Stopping dashboard server (pid ${pid})…`);
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch (err) {
+    console.error(c.red(`✖ Failed to send SIGTERM: ${err.message}`));
+    process.exit(1);
+  }
+  // Wait up to 5s for graceful shutdown
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    try {
+      process.kill(pid, 0);
+    } catch {
+      // Process is gone
+      console.log(`${c.green("●")} Dashboard stopped.`);
+      return;
+    }
+  }
+  // Escalate to SIGKILL
+  try {
+    process.kill(pid, "SIGKILL");
+    console.log(`${c.green("●")} Dashboard stopped (forced).`);
+  } catch (err) {
+    if (err.code === "ESRCH") {
+      // Process exited between the last check and SIGKILL — success
+      console.log(`${c.green("●")} Dashboard stopped.`);
+    } else {
+      console.error(c.red(`✖ Failed to stop dashboard (pid ${pid}): ${err.message}`));
+      process.exit(1);
+    }
+  }
+}
+
 /** Up/down indicator without exiting non-zero noise — the at-a-glance check. */
 async function cmdStatus() {
   if (await serverIsUp()) {
@@ -1190,59 +2131,142 @@ function cmdOpen() {
   console.log(`${c.green("✔")} Opening ${url}`);
 }
 
-function cmdHelp() {
-  const cmd = (name, args, desc) => {
-    const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
-    const pad = " ".repeat(Math.max(2, 28 - stripAnsi(left).length));
-    return `  ${left}${pad}${desc}`;
-  };
-  const section = (title) => `\n${c.cyan("▍")}${c.bold(title)}`;
-  console.log(`${c.cyan("▍")}${c.bold("ccam")} — Claude Code Agent Monitor CLI
+// ── Command catalog ─────────────────────────────────────────────────────────
+// One source of truth for every command's group, invocation, and one-line
+// description. The one-shot `help`, the REPL's categorized help / `commands` /
+// per-command `help <cmd>`, the tab-completer's command list, and unknown-
+// command detection are all derived from this so they can never drift apart.
+// Each item: [invocation, argsHint, description].
+const COMMAND_GROUPS = [
+  [
+    "Server",
+    [
+      ["status", "", "Up/down indicator for the dashboard server"],
+      ["start", "[--port N]", "Start the server in the background and wait for healthy"],
+      ["stop", "", "Stop the background server gracefully"],
+      ["repl", "", "Open the interactive shell (also: shell, i)"],
+    ],
+  ],
+  [
+    "Monitoring",
+    [
+      ["health", "", "Check the dashboard is up"],
+      ["stats", "", "Totals, today's events, status distribution chart"],
+      ["kanban", "", "Sessions + agents grouped by status columns"],
+      ["tail", "[--session id]", "Live event feed in the terminal (Ctrl+C stops)"],
+    ],
+  ],
+  [
+    "Data",
+    [
+      ["sessions", "[opts]", "List sessions   (--status, --q, --limit)"],
+      ["session <id>", "", "Session detail: agents tree, cost, recent events"],
+      ["agents", "[opts]", "List agents     (--status, --session, --limit)"],
+      ["events", "[opts]", "List events     (--session, --limit)"],
+      ["transcript <session-id>", "[--agent id --run id --after n]", "Read transcript JSON"],
+      [
+        "transcript-image <session-id>",
+        "--line N --index N [--output file]",
+        "Download a persisted transcript image",
+      ],
+    ],
+  ],
+  [
+    "Insights",
+    [
+      ["analytics", "", "Token totals, top-tool and agent-type charts"],
+      ["workflows", "[--session id]", "Workflow intelligence stats and patterns"],
+      ["runs", "[--session id]", "Dynamic Workflow-tool runs"],
+      ["run", "list|history|start|send|stop|…", "Inspect and control dashboard-launched agents"],
+      ["cost", "[--session id]", "Total estimated cost (per-model chart; --session scopes to one)"],
+    ],
+  ],
+  [
+    "Alerts & Webhooks",
+    [
+      ["alerts", "[--unacked]", "Fired-alert feed"],
+      ["alerts ack <id>", "", "Acknowledge one alert"],
+      ["alerts ack-all", "", "Acknowledge every unacked alert"],
+      ["rules", "", "List alert rules"],
+      ["alert-rules", "list|create|update|delete", "Manage alert rules (writes require --yes)"],
+      ["webhooks", "", "List webhook targets"],
+      ["webhooks test <id>", "", "Send a synthetic test alert to a target"],
+      ["webhooks providers|deliveries <id>", "", "Inspect providers and delivery history"],
+    ],
+  ],
+  [
+    "Pricing",
+    [
+      ["pricing", "", "List model pricing rules"],
+      [
+        "pricing set <pattern>",
+        "",
+        "--input/--output N, plus --cache-*, --fast-*, --intro-* --intro-until YYYY-MM-DD",
+      ],
+      ["pricing delete <pattern>", "", "Delete a pricing rule"],
+      ["pricing reset", "", "Reset pricing rules to defaults"],
+      ["gpt-pricing", "[set|delete]", "Manage OpenAI/Codex pricing rules"],
+    ],
+  ],
+  [
+    "Import",
+    [
+      ["import guide", "[--provider]", "Show provider-specific import locations and limits"],
+      ["import rescan", "[--provider]", "Re-scan Claude Code or Codex history"],
+      [
+        "import path <dir>",
+        "[--provider]",
+        "Import every supported history file under a directory",
+      ],
+      ["import upload <files...>", "[--provider]", "Upload JSONL files or archives"],
+      ["import-data <file>", "", "Restore a dashboard export (.json) — merge machines"],
+    ],
+  ],
+  [
+    "Remote sources",
+    [
+      ["remote-sources", "", "List remote (SSH) data sources + status"],
+      [
+        "remote-sources add",
+        "",
+        "--label X --host user@host [--port N --identity path --remote-home path --remote-codex-home path]",
+      ],
+      ["remote-sources test <id>", "", "Probe SSH connectivity to a source"],
+      ["remote-sources sync [id]", "", "Pull history now (all sources if id omitted)"],
+      ["remote-sources update <id>", "--data JSON --yes", "Update a remote source"],
+      ["remote-sources rm <id>", "[--purge]", "Remove a source (--purge also deletes its data)"],
+    ],
+  ],
+  [
+    "Administration",
+    [
+      ["doctor", "", "Connectivity, hooks, database, and remote sources diagnosis"],
+      ["info", "", "Raw system info JSON"],
+      ["export", "[file.json]", "Export all data as JSON"],
+      ["cleanup", "--hours N --days M", "Abandon stale / purge old sessions"],
+      ["reinstall-hooks", "", "Reinstall Claude Code hooks"],
+      ["hooks", "status|install …", "Inspect or install Claude Code/Codex hooks"],
+      ["config", "claude|codex <action>", "Inspect and edit supported agent configuration"],
+      ["api", "<METHOD> /api/path", "Call any JSON API endpoint; writes require --yes"],
+      ["mcp", "[stdio|http|repl]", "Launch the bundled MCP server"],
+      ["update-check", "", "Check whether the dashboard checkout is behind upstream"],
+      ["clear-data", "--yes", "Delete ALL data (requires --yes)"],
+      ["open", "", "Open the dashboard in your browser"],
+      ["version", "", "Print the ccam version (also: --version, -v)"],
+    ],
+  ],
+];
 
-${c.bold("Usage:")} ccam <command> [options]
-${section("Server")}
-${cmd("status", "", "Up/down indicator for the dashboard server")}
-${cmd("start", "[--port N]", "Start the server in the background and wait for healthy")}
-${section("Monitoring")}
-${cmd("health", "", "Check the dashboard is up")}
-${cmd("stats", "", "Totals, today's events, status distribution chart")}
-${cmd("kanban", "", "Sessions + agents grouped by status columns")}
-${cmd("tail", "[--session id]", "Live event feed in the terminal (Ctrl+C stops)")}
-${section("Data")}
-${cmd("sessions", "[opts]", "List sessions   (--status, --q, --limit)")}
-${cmd("session <id>", "", "Session detail: agents tree, cost, recent events")}
-${cmd("agents", "[opts]", "List agents     (--status, --session, --limit)")}
-${cmd("events", "[opts]", "List events     (--session, --limit)")}
-${section("Insights")}
-${cmd("analytics", "", "Token totals, top-tool and agent-type charts")}
-${cmd("workflows", "[--session id]", "Workflow intelligence stats and patterns")}
-${cmd("runs", "[--session id]", "Dynamic Workflow-tool runs")}
-${cmd("cost", "", "Total estimated cost (per-model chart)")}
-${section("Alerts & Webhooks")}
-${cmd("alerts", "[--unacked]", "Fired-alert feed")}
-${cmd("alerts ack <id>", "", "Acknowledge one alert")}
-${cmd("alerts ack-all", "", "Acknowledge every unacked alert")}
-${cmd("rules", "", "List alert rules")}
-${cmd("webhooks", "", "List webhook targets")}
-${cmd("webhooks test <id>", "", "Send a synthetic test alert to a target")}
-${section("Pricing")}
-${cmd("pricing", "", "List model pricing rules")}
-${cmd("pricing set <pattern>", "", "--input N --output N [--cache-read N --cache-write N]")}
-${cmd("pricing delete <pattern>", "", "Delete a pricing rule")}
-${cmd("pricing reset", "", "Reset pricing rules to defaults")}
-${section("Import")}
-${cmd("import rescan", "", "Re-scan ~/.claude/projects")}
-${cmd("import path <dir>", "", "Import every .jsonl under a directory")}
-${section("Administration")}
-${cmd("doctor", "", "Connectivity, hooks, and database diagnosis")}
-${cmd("info", "", "Raw system info JSON")}
-${cmd("export", "[file.json]", "Export all data as JSON")}
-${cmd("cleanup", "--hours N --days M", "Abandon stale / purge old sessions")}
-${cmd("reinstall-hooks", "", "Reinstall Claude Code hooks")}
-${cmd("clear-data", "--yes", "Delete ALL data (requires --yes)")}
-${cmd("open", "", "Open the dashboard in your browser")}
-${cmd("version", "", "Print the ccam version (also: --version, -v)")}
+/** Render one catalog line: `  cmd  args        description`. */
+function catalogRow(name, args, desc) {
+  const left = `${c.cyan(name)}${args ? ` ${c.dim(args)}` : ""}`;
+  const pad = " ".repeat(Math.max(2, 30 - stripAnsi(left).length));
+  return `  ${left}${pad}${desc}`;
+}
 
+/** The shared discovery/output/note footer shown under the command list. */
+function helpFooter() {
+  return `
 ${c.bold("Server discovery:")} CLAUDE_DASHBOARD_PORT / DASHBOARD_PORT env vars win,
 otherwise the live server is found via ~/.claude/.agent-dashboard.json,
 falling back to http://127.0.0.1:4820.
@@ -1251,17 +2275,39 @@ ${c.bold("Output:")} colors auto-enable on a TTY and turn off when piped.
 Disable with --no-color or NO_COLOR=1; force with FORCE_COLOR=1 / CCAM_COLOR=1.
 
 ${c.bold("Note:")} ccam talks to the local dashboard server — API-backed commands
-require it to be running (${c.bold("ccam start")} brings one up in the background).`);
+require it to be running (${c.bold("ccam start")} brings one up in the background).
+Prefer an interactive session? Run ${c.bold("ccam repl")} for a shell with completion,
+history, and a live status prompt.`;
 }
 
-/** Print the CLI/package version (single source of truth: package.json). */
-function cmdVersion() {
+function cmdHelp() {
+  const section = (title) => `\n${c.cyan("▍")}${c.bold(title)}`;
+  const body = COMMAND_GROUPS.map(
+    ([group, items]) =>
+      `${section(group)}\n` + items.map(([n, a, d]) => catalogRow(n, a, d)).join("\n")
+  ).join("\n");
+  console.log(
+    `${c.cyan("▍")}${c.bold("ccam")} — Claude Code Agent Monitor CLI\n\n` +
+      `${c.bold("Usage:")} ccam <command> [options]\n` +
+      body +
+      "\n" +
+      helpFooter()
+  );
+}
+
+/** Read the package version (single source of truth: package.json). */
+function pkgVersion() {
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8"));
-    console.log(`ccam ${pkg.version}`);
+    return JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")).version;
   } catch {
-    console.log("ccam (version unknown)");
+    return null;
   }
+}
+
+/** Print the CLI/package version. */
+function cmdVersion() {
+  const v = pkgVersion();
+  console.log(v ? `ccam ${v}` : "ccam (version unknown)");
 }
 
 // ── Offline command handlers & dispatch ────────────────────────────────────
@@ -1348,17 +2394,7 @@ const OFFLINE_HANDLERS = {
       );
     }
     const db = requireDb();
-    const rows = db
-      .all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC")
-      .map((p) => [
-        p.model_pattern,
-        (p.display_name || "").slice(0, 24),
-        `$${p.input_per_mtok}`,
-        `$${p.output_per_mtok}`,
-        `$${p.cache_read_per_mtok}`,
-        `$${p.cache_write_per_mtok}`,
-      ]);
-    table(["Pattern", "Name", "In/M", "Out/M", "CacheR/M", "CacheW/M"], rows);
+    renderPricingTable(db.all("SELECT * FROM model_pricing ORDER BY LENGTH(model_pattern) DESC"));
   },
   async alerts(flags, positional) {
     if (positional[0]) {
@@ -1417,8 +2453,12 @@ const OFFLINE_HANDLERS = {
   },
   async doctor() {
     heading("ccam doctor", "offline");
+    let failed = true; // offline is always a failure for live monitoring
     console.log(
       `${c.red("○")}  Dashboard server  NOT running ${c.dim(`(tried ${baseUrl()})`)} — start with: ${c.bold("ccam start")}`
+    );
+    console.log(
+      `${c.dim("·")}  Remote sources  require a live server (ccam remote-sources / Settings)`
     );
     const file = dbPath();
     if (fs.existsSync(file)) {
@@ -1436,6 +2476,7 @@ const OFFLINE_HANDLERS = {
         }
       }
     } else {
+      failed = true;
       console.log(`${c.red("✖")}  Database  not found at ${file}`);
     }
     try {
@@ -1446,12 +2487,16 @@ const OFFLINE_HANDLERS = {
       const installed =
         fs.existsSync(settingsPath) &&
         fs.readFileSync(settingsPath, "utf8").includes("hook-handler.js");
-      console.log(
-        `${installed ? c.green("✔") : c.red("✖")}  Claude Code hooks  ${installed ? `installed (${settingsPath})` : "NOT installed — run: npm run install-hooks"}`
-      );
+      if (installed) {
+        console.log(`${c.green("✔")}  Claude Code hooks  installed (${settingsPath})`);
+      } else {
+        failed = true;
+        console.log(`${c.red("✖")}  Claude Code hooks  NOT installed — run: npm run install-hooks`);
+      }
     } catch {
       console.log(`${c.dim("·")}  Claude Code hooks  could not be checked`);
     }
+    if (failed) process.exit(1);
   },
 };
 
@@ -1464,9 +2509,11 @@ const SERVER_ONLY_REASONS = {
   cost: "cost math (pricing rules, compaction baselines) runs server-side",
   webhooks: "webhook configuration and test deliveries are server-side",
   import: "imports must go through the server's ingestion pipeline",
+  "import-data": "restoring an export writes to the database through the server",
   cleanup: "cleanup is a server-side mutation",
   "clear-data": "data wipes must go through the server",
   "reinstall-hooks": "hook installation is performed by the server",
+  "update-check": "the update check runs server-side (git fetch against the canonical remote)",
   info: "system info (uptime, memory, WS connections) only exists on a running server",
   health: "health is, by definition, a check against the running server",
 };
@@ -1483,13 +2530,443 @@ function requireDb() {
   return db;
 }
 
-// ── Entry point ─────────────────────────────────────────────────────────────
+// ── Interactive REPL (ccam shell) ───────────────────────────────────────────
+// `ccam repl` opens a persistent prompt where commands are typed WITHOUT the
+// `ccam` prefix. Each command runs as a short-lived child `ccam` process, so
+// behavior is byte-identical to the one-shot CLI and a command that exits
+// non-zero, blocks (tail), or refuses offline can never take the shell down
+// with it. Colors, tab-completion, arrow-key history (persisted), and a live
+// server-status prompt make it a comfortable place to live while monitoring.
 
-async function main() {
-  // --no-color is a global presentation flag (already consumed by the color
-  // detector at module load) — strip it so it can appear anywhere without
-  // being mistaken for a command or a subcommand flag.
-  const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+/** Split a REPL input line into argv, honoring single/double quotes so
+ *  `session "my id"` and `pricing set 'foo%'` tokenize correctly. */
+function tokenizeLine(line) {
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  const out = [];
+  let m;
+  while ((m = re.exec(line)) !== null) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
+/** Known flags, offered by the completer after a command word. */
+const REPL_FLAGS = [
+  "--status",
+  "--session",
+  "--limit",
+  "--q",
+  "--unacked",
+  "--yes",
+  "--port",
+  "--hours",
+  "--days",
+  "--input",
+  "--output",
+  "--cache-read",
+  "--cache-write",
+  "--cache-write-1h",
+  "--fast-input",
+  "--fast-output",
+  "--intro-input",
+  "--intro-output",
+  "--intro-cache-read",
+  "--intro-cache-write",
+  "--intro-cache-write-1h",
+  "--intro-until",
+  "--name",
+  "--no-color",
+];
+
+/** readline completer: commands on the first word, subcommands on the second,
+ *  flags once a `--` token is being typed. Returns [hits, prefix]. */
+function replCompleter(line) {
+  const toks = line.split(/\s+/);
+  const word = toks[toks.length - 1];
+  if (toks.length <= 1) {
+    const hits = COMMANDS.filter((cmd) => cmd.startsWith(word));
+    return [hits.length ? hits : COMMANDS, word];
+  }
+  const subs = SUBCOMMANDS[toks[0]];
+  if (subs && toks.length === 2 && !word.startsWith("--")) {
+    const hits = subs.filter((s) => s.startsWith(word));
+    return [hits.length ? hits : subs, word];
+  }
+  if (word.startsWith("--")) {
+    const hits = REPL_FLAGS.filter((f) => f.startsWith(word));
+    return [hits.length ? hits : REPL_FLAGS, word];
+  }
+  return [[], word];
+}
+
+// The CCAM word-mark, shown once when the interactive shell starts (and via
+// the `banner` built-in). Kept as raw text so the backslashes render verbatim.
+const BANNER_ART = String.raw`
+          _____                    _____                    _____                    _____
+         /\    \                  /\    \                  /\    \                  /\    \
+        /::\    \                /::\    \                /::\    \                /::\____\
+       /::::\    \              /::::\    \              /::::\    \              /::::|   |
+      /::::::\    \            /::::::\    \            /::::::\    \            /:::::|   |
+     /:::/\:::\    \          /:::/\:::\    \          /:::/\:::\    \          /::::::|   |
+    /:::/  \:::\    \        /:::/  \:::\    \        /:::/__\:::\    \        /:::/|::|   |
+   /:::/    \:::\    \      /:::/    \:::\    \      /::::\   \:::\    \      /:::/ |::|   |
+  /:::/    / \:::\    \    /:::/    / \:::\    \    /::::::\   \:::\    \    /:::/  |::|___|______
+ /:::/    /   \:::\    \  /:::/    /   \:::\    \  /:::/\:::\   \:::\    \  /:::/   |::::::::\    \
+/:::/____/     \:::\____\/:::/____/     \:::\____\/:::/  \:::\   \:::\____\/:::/    |:::::::::\____\
+\:::\    \      \::/    /\:::\    \      \::/    /\::/    \:::\  /:::/    /\::/    / ~~~~~/:::/    /
+ \:::\    \      \/____/  \:::\    \      \/____/  \/____/ \:::\/:::/    /  \/____/      /:::/    /
+  \:::\    \               \:::\    \                       \::::::/    /               /:::/    /
+   \:::\    \               \:::\    \                       \::::/    /               /:::/    /
+    \:::\    \               \:::\    \                      /:::/    /               /:::/    /
+     \:::\    \               \:::\    \                    /:::/    /               /:::/    /
+      \:::\    \               \:::\    \                  /:::/    /               /:::/    /
+       \:::\____\               \:::\____\                /:::/    /               /:::/    /
+        \::/    /                \::/    /                \::/    /                \::/    /
+         \/____/                  \/____/                  \/____/                  \/____/
+`;
+
+/** Print the entry banner: the word-mark (when the terminal is wide enough),
+ *  a tagline with version and live status, and the one-line orientation tips. */
+function replBanner(up) {
+  const v = pkgVersion();
+  if (termWidth() >= 100) {
+    console.log(c.cyan(BANNER_ART));
+  } else {
+    console.log(`\n${c.cyan("▍")}${c.bold("ccam")}`);
+  }
+  const dot = up ? c.green("●") : c.red("○");
+  const where = up ? baseUrl().replace(/^https?:\/\//, "") : "offline";
+  console.log(
+    `  ${c.bold("Claude Code Agent Monitor")} ${c.dim("· interactive shell")}` +
+      (v ? c.dim(` · v${v}`) : "") +
+      `   ${dot} ${c.dim(where)}`
+  );
+  console.log(
+    c.dim("  Type commands without the 'ccam' prefix — e.g. ") + c.bold("sessions --limit 5")
+  );
+  console.log(
+    c.dim("  ") +
+      c.bold("help") +
+      c.dim(" all commands · ") +
+      c.bold("help <cmd>") +
+      c.dim(" details · Tab completes · ↑/↓ history · ") +
+      c.bold("exit") +
+      c.dim(" to quit")
+  );
+  console.log();
+}
+
+/** Categorized REPL help: shell built-ins first, then the full command
+ *  catalog (identical groups/descriptions to `ccam help`). */
+function replHelp() {
+  const row = (name, desc) => `  ${c.cyan(name.padEnd(20))}${desc}`;
+  console.log(`\n${c.cyan("▍")}${c.bold("ccam shell")} ${c.dim("— built-ins")}`);
+  console.log(row("help", "This help. " + c.dim("`help <command>` shows one command's details")));
+  console.log(row("commands", "Compact list of every command, grouped"));
+  console.log(
+    row("watch <cmd> [secs]", "Re-run a command on a timer, screen-clearing (Ctrl+C stops)")
+  );
+  console.log(row("history", "Show recent command history"));
+  console.log(row("banner", "Reprint the welcome banner"));
+  console.log(row("clear, cls", "Clear the screen"));
+  console.log(row("exit, quit, q", "Leave the shell (also Ctrl+D)"));
+
+  for (const [group, items] of COMMAND_GROUPS) {
+    console.log(`\n${c.cyan("▍")}${c.bold(group)}`);
+    for (const [name, args, desc] of items) console.log(catalogRow(name, args, desc));
+  }
+  console.log(
+    `\n${c.dim("Read commands work offline; server-only commands print the reason. Each line runs isolated, so nothing takes the shell down.")}\n`
+  );
+}
+
+/** Detailed help for one command (or command prefix): every catalog entry
+ *  whose invocation starts with the token. Returns false if none matched. */
+function commandHelp(token) {
+  const matches = [];
+  for (const [group, items] of COMMAND_GROUPS) {
+    for (const [name, args, desc] of items) {
+      if (name === token || name.startsWith(token + " ")) matches.push([group, name, args, desc]);
+    }
+  }
+  if (!matches.length) return false;
+  console.log(`\n${c.cyan("▍")}${c.bold(token)} ${c.dim(`— ${matches[0][0]}`)}`);
+  for (const [, name, args, desc] of matches) {
+    console.log(catalogRow(name, args, desc));
+  }
+  const subs = SUBCOMMANDS[token];
+  if (subs) console.log(c.dim(`  subcommands: ${subs.join(", ")}`));
+  console.log();
+  return true;
+}
+
+/** Compact grouped command list for the `commands` built-in. */
+function replCommandsList() {
+  for (const [group, items] of COMMAND_GROUPS) {
+    const names = items
+      .map(([n]) => c.cyan(n.split(" ")[0]))
+      .filter((v, i, a) => a.indexOf(v) === i);
+    console.log(`  ${c.bold(group.padEnd(20))}${[...new Set(names)].join("  ")}`);
+  }
+}
+
+/**
+ * The interactive shell. Reads lines, dispatches each as a child `ccam`
+ * process (inheriting stdio so tables/colors/streaming render natively),
+ * and keeps a persisted history. On a TTY the prompt shows live server
+ * status (● up / ○ offline) and the resolved host; piped input (tests,
+ * scripts) runs each line and exits at EOF.
+ */
+async function cmdRepl() {
+  const readline = require("node:readline");
+  const isTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const historyFile = path.join(REPO_ROOT, "data", ".ccam_repl_history");
+
+  let history = [];
+  try {
+    history = fs.readFileSync(historyFile, "utf8").split("\n").filter(Boolean).slice(-500);
+  } catch {
+    /* no history yet */
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: isTty,
+    completer: isTty ? replCompleter : undefined,
+    history: history.slice().reverse(), // readline wants most-recent first
+    historySize: 500,
+    prompt: "",
+  });
+
+  // Cache the health probe briefly so the prompt does not hammer the server.
+  let statusCache = { at: 0, up: false };
+  async function serverUpCached() {
+    const now = Date.now();
+    if (now - statusCache.at < 3000) return statusCache.up;
+    const up = await serverIsUp();
+    statusCache = { at: now, up };
+    return up;
+  }
+
+  async function renderPrompt() {
+    if (!isTty) return; // piped input needs no prompt
+    const up = await serverUpCached();
+    const dot = up ? c.green("●") : c.red("○");
+    const where = up ? c.dim(baseUrl().replace(/^https?:\/\//, "")) : c.dim("offline");
+    rl.setPrompt(`${dot} ${c.bold("ccam")} ${where} ${c.cyan("›")} `);
+    rl.prompt();
+  }
+
+  // Ctrl+C must never kill the shell: a no-op process handler keeps the
+  // parent alive while a child (e.g. `tail`) is the real SIGINT target; the
+  // readline SIGINT event (fires only at the prompt) just resets the line.
+  let childActive = false;
+  const sigintNoop = () => {};
+  process.on("SIGINT", sigintNoop);
+  rl.on("SIGINT", () => {
+    if (childActive) return;
+    console.log(c.dim("  (type exit or press Ctrl+D to quit)"));
+    renderPrompt();
+  });
+
+  /** Run one child `ccam` invocation with inherited stdio. */
+  function runChild(argv) {
+    return new Promise((resolve) => {
+      childActive = true;
+      const env = { ...process.env };
+      if (useColor) env.FORCE_COLOR = "1";
+      env.CCAM_REPL = "1";
+      const child = spawn(process.execPath, [__filename, ...argv], {
+        stdio: "inherit",
+        env,
+      });
+      child.on("close", () => {
+        childActive = false;
+        resolve();
+      });
+      child.on("error", (err) => {
+        childActive = false;
+        console.error(c.red(`✖ ${err?.message || err}`));
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * `watch <cmd…>` — re-run a command on a timer, clearing the screen each
+   * tick, until Ctrl+C. A dedicated SIGINT listener sets an abort flag so the
+   * loop unwinds cleanly (during a child the signal also reaches the child;
+   * between ticks the interruptible sleep notices the flag) — the shell
+   * itself always survives.
+   */
+  async function runWatch(argv, intervalMs) {
+    let abort = false;
+    const onSig = () => {
+      abort = true;
+    };
+    process.prependListener("SIGINT", onSig);
+    try {
+      while (!abort) {
+        if (isTty) process.stdout.write("\x1b[2J\x1b[H");
+        console.log(
+          c.dim(
+            `⟳ watch: ccam ${argv.join(" ")} — every ${Math.round(intervalMs / 1000)}s · ${new Date().toLocaleTimeString()} · Ctrl+C to stop`
+          )
+        );
+        await runChild(argv);
+        if (abort) break;
+        await new Promise((r) => {
+          const poll = setInterval(() => {
+            if (abort) {
+              clearInterval(poll);
+              r();
+            }
+          }, 100);
+          setTimeout(() => {
+            clearInterval(poll);
+            r();
+          }, intervalMs);
+        });
+      }
+    } finally {
+      process.removeListener("SIGINT", onSig);
+    }
+  }
+
+  // Welcome banner (word-mark + status + tips) on an interactive terminal.
+  if (isTty) replBanner(await serverUpCached());
+
+  // `for await` pulls one line at a time and only requests the next once the
+  // body finishes — this serializes command execution (crucial for piped
+  // input, where naive 'line' listeners would interleave async handlers).
+  await renderPrompt();
+  for await (const raw of rl) {
+    const line = raw.trim();
+    if (!line) {
+      await renderPrompt();
+      continue;
+    }
+    const toks = tokenizeLine(line);
+    const head = toks[0];
+
+    // Shell built-ins run in-process (no child spawn).
+    if (["exit", "quit", "q", ":q"].includes(head)) break;
+    if (head === "clear" || head === "cls") {
+      if (isTty) process.stdout.write("\x1b[2J\x1b[H");
+      await renderPrompt();
+      continue;
+    }
+    if (head === "banner") {
+      replBanner(await serverUpCached());
+      await renderPrompt();
+      continue;
+    }
+    if (head === "help" || head === "?") {
+      // `help` → everything; `help <cmd>` → that command's details.
+      if (toks.length === 1) replHelp();
+      else if (!commandHelp(toks[1])) {
+        console.log(c.dim(`No such command: ${toks[1]}. Type `) + c.bold("commands") + c.dim("."));
+      }
+      await renderPrompt();
+      continue;
+    }
+    if (head === "commands") {
+      replCommandsList();
+      await renderPrompt();
+      continue;
+    }
+    if (head === "watch") {
+      if (!isTty) {
+        console.log(c.dim("watch needs an interactive terminal."));
+        await renderPrompt();
+        continue;
+      }
+      // `watch <cmd…>` (default 2s) or `watch <secs> <cmd…>`.
+      let rest2 = toks.slice(1);
+      let secs = 2;
+      if (rest2.length && /^\d+$/.test(rest2[0])) {
+        secs = Math.max(1, Number(rest2[0]));
+        rest2 = rest2.slice(1);
+      }
+      if (!rest2.length) {
+        console.log(c.dim("Usage: watch [seconds] <command …>   e.g. watch 5 stats"));
+      } else {
+        await runWatch(rest2, secs * 1000);
+      }
+      await renderPrompt();
+      continue;
+    }
+    if (head === "history") {
+      const recent = history.slice(-30);
+      recent.forEach((h, i) =>
+        console.log(`${c.dim(String(history.length - recent.length + i + 1).padStart(4))}  ${h}`)
+      );
+      await renderPrompt();
+      continue;
+    }
+    if (head === "repl" || head === "shell" || head === "i") {
+      console.log(c.dim("Already in the ccam shell."));
+      await renderPrompt();
+      continue;
+    }
+
+    // Record history (skip consecutive duplicates), then dispatch as a child.
+    if (history[history.length - 1] !== line) {
+      history.push(line);
+      try {
+        fs.mkdirSync(path.dirname(historyFile), { recursive: true });
+        fs.appendFileSync(historyFile, line + "\n");
+      } catch {
+        /* history is best-effort */
+      }
+    }
+    await runChild(toks);
+    await renderPrompt();
+  }
+
+  rl.close();
+  if (isTty) console.log(c.dim("Bye."));
+  process.removeListener("SIGINT", sigintNoop);
+}
+
+// ── Command dispatch ────────────────────────────────────────────────────────
+// The single source of truth for "argv → command handler". Both the top-level
+// entry point and the interactive REPL route through here, so every command
+// behaves identically whether typed as `ccam <cmd>` or entered at the `ccam ›`
+// prompt. Handlers that need the server throw ServerDownError; the caller
+// decides whether to fall back to an offline reader or report the refusal.
+
+/** All top-level command tokens, derived from COMMAND_GROUPS (first word of
+ *  each invocation) plus the always-available `help`. Used by the REPL
+ *  completer and unknown-command detection so they never drift from help. */
+const COMMANDS = (() => {
+  const set = new Set();
+  for (const [, items] of COMMAND_GROUPS) {
+    for (const [name] of items) set.add(name.split(" ")[0]);
+  }
+  set.add("help");
+  return [...set];
+})();
+
+/** Subcommand tokens per command, used by the REPL's tab completer. */
+const SUBCOMMANDS = {
+  alerts: ["ack", "ack-all"],
+  "alert-rules": ["list", "create", "update", "delete"],
+  pricing: ["set", "delete", "reset"],
+  "gpt-pricing": ["set", "delete"],
+  webhooks: ["providers", "deliveries", "create", "update", "delete", "test"],
+  import: ["guide", "rescan", "path", "upload"],
+  run: ["list", "history", "models", "binary", "cwds", "files", "get", "start", "send", "stop"],
+  hooks: ["status", "install"],
+  config: ["claude", "codex"],
+  "remote-sources": ["list", "add", "update", "test", "sync", "rm"],
+  mcp: ["stdio", "http", "repl"],
+};
+
+/** Run one parsed command. Returns the handler's promise; may throw
+ *  ServerDownError (for the caller's offline routing) or call process.exit
+ *  for usage/validation failures. `cmd === "repl"` is handled by the entry
+ *  points, not here, to avoid recursive REPLs. */
+async function runCommand(argv) {
   const [cmd, ...rest] = argv;
   const { flags, positional } = parseArgs(rest);
   switch (cmd) {
@@ -1499,6 +2976,8 @@ async function main() {
       return cmdStatus();
     case "start":
       return cmdStart(flags);
+    case "stop":
+      return cmdStop();
     case "stats":
       return cmdStats();
     case "kanban":
@@ -1513,36 +2992,61 @@ async function main() {
       return cmdAgents(flags);
     case "events":
       return cmdEvents(flags);
+    case "transcript":
+      return cmdTranscript(flags, positional);
+    case "transcript-image":
+      return cmdTranscriptImage(flags, positional);
     case "analytics":
       return cmdAnalytics();
     case "workflows":
       return cmdWorkflows(flags);
     case "runs":
       return cmdRuns(flags);
+    case "run":
+      return cmdRun(flags, positional);
     case "cost":
-      return cmdCost();
+      return cmdCost(flags);
     case "alerts":
       return cmdAlerts(flags, positional);
     case "rules":
       return cmdRules();
+    case "alert-rules":
+      return cmdAlertRules(flags, positional);
     case "webhooks":
       return cmdWebhooks(flags, positional);
+    case "remote-sources":
+    case "remotes":
+      return cmdRemoteSources(flags, positional);
     case "pricing":
       return cmdPricing(flags, positional);
+    case "gpt-pricing":
+      return cmdGptPricing(flags, positional);
     case "import":
       return cmdImport(flags, positional);
+    case "config":
+      return cmdConfig(flags, positional);
+    case "hooks":
+      return cmdHooks(flags, positional);
+    case "api":
+      return cmdApi(flags, positional);
+    case "mcp":
+      return cmdMcp(positional);
     case "doctor":
       return cmdDoctor();
     case "info":
       return cmdInfo();
     case "export":
       return cmdExport(positional);
+    case "import-data":
+      return cmdImportData(positional);
     case "cleanup":
       return cmdCleanup(flags);
     case "clear-data":
       return cmdClearData(flags);
     case "reinstall-hooks":
       return cmdReinstallHooks();
+    case "update-check":
+      return cmdUpdateCheck();
     case "open":
       return cmdOpen();
     case "version":
@@ -1561,23 +3065,47 @@ async function main() {
   }
 }
 
+/**
+ * Route a ServerDownError: run the command's offline handler under the
+ * offline banner if one exists, otherwise print the server-required refusal.
+ * Shared by the top-level entry and (indirectly, via a child process) the
+ * REPL. `throwOnExit` makes the terminal refusal throw instead of exiting so
+ * an embedding loop can stay alive.
+ */
+async function handleServerDown(argv) {
+  const cmd = argv[0];
+  const { flags, positional } = parseArgs(argv.slice(1));
+  const handler = OFFLINE_HANDLERS[cmd];
+  if (handler) {
+    offlineBanner();
+    try {
+      await handler(flags, positional);
+      return;
+    } catch (offErr) {
+      console.error(c.red(`✖ Offline read failed: ${offErr?.message || offErr}`));
+      process.exit(1);
+    }
+  }
+  serverDownExit(SERVER_ONLY_REASONS[cmd]);
+}
+
+// ── Entry point ─────────────────────────────────────────────────────────────
+
+async function main() {
+  // --no-color is a global presentation flag (already consumed by the color
+  // detector at module load) — strip it so it can appear anywhere without
+  // being mistaken for a command or a subcommand flag.
+  const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
+  const cmd = argv[0];
+  if (cmd === "repl" || cmd === "shell" || cmd === "i") return cmdRepl();
+  return runCommand(argv);
+}
+
 main().catch(async (err) => {
   if (err instanceof ServerDownError) {
     const argv = process.argv.slice(2).filter((a) => a !== "--no-color");
-    const cmd = argv[0];
-    const { flags, positional } = parseArgs(argv.slice(1));
-    const handler = OFFLINE_HANDLERS[cmd];
-    if (handler) {
-      offlineBanner();
-      try {
-        await handler(flags, positional);
-        return;
-      } catch (offErr) {
-        console.error(c.red(`✖ Offline read failed: ${offErr?.message || offErr}`));
-        process.exit(1);
-      }
-    }
-    serverDownExit(SERVER_ONLY_REASONS[cmd]);
+    await handleServerDown(argv);
+    return;
   }
   console.error(c.red(`✖ ${err?.message || err}`));
   process.exit(1);

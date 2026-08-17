@@ -1,4 +1,5 @@
 ---
+name: regression-watch
 description: >
   Detect quality and efficiency regressions over time using Agent Monitor data —
   rising error rate (APIError events), falling cache hit rate, growing compaction

@@ -1,0 +1,5 @@
+# Agent Dashboard client — served locally by `ccam` (no fixed public origin,
+# so no Sitemap directive here; see /sitemap.xml at the project's GitHub
+# Pages site for that).
+User-agent: *
+Allow: /

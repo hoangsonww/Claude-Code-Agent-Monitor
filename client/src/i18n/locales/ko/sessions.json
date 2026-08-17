@@ -1,6 +1,20 @@
 {
   "title": "세션",
   "searchPlaceholder": "세션 검색...",
+  "directoryFilterLabel": "프로젝트 디렉터리",
+  "allDirectories": "모든 프로젝트",
+  "selectedDirectories": "{{count}}개 프로젝트",
+  "directorySearchPlaceholder": "프로젝트 필터...",
+  "noDirectoriesFound": "일치하는 프로젝트가 없습니다",
+  "clearDirectories": "지우기",
+  "sortTimeNewest": "최근 활동: 최신순",
+  "sortTimeOldest": "최근 활동: 오래된 순",
+  "sortDurationLongest": "소요 시간: 긴 순",
+  "sortDurationShortest": "소요 시간: 짧은 순",
+  "sortPriceHighest": "비용: 높은 순",
+  "sortPriceLowest": "비용: 낮은 순",
+  "sortDescending": "내림차순",
+  "sortAscending": "오름차순",
   "filterAll": "전체",
   "filterActive": "활성",
   "filterWaiting": "대기 중",
@@ -11,7 +25,7 @@
   "sessionCount_plural": "{{count}}개 세션 기록됨",
   "noSessions": "세션을 찾을 수 없습니다",
   "noSessionsDesc": "검색어나 필터를 조정해 보세요.",
-  "noSessionsHint": "hooks가 설치된 Claude Code 세션을 시작하면 추적이 시작됩니다.",
+  "noSessionsHint": "hooks가 설치된 모니터링 Agent 세션을 시작하면 추적이 시작됩니다.",
   "tableSession": "세션",
   "tableStatus": "상태",
   "tableLastActive": "마지막 활동",
@@ -20,7 +34,39 @@
   "tableCost": "비용",
   "tableDirectory": "디렉터리",
   "defaultName": "세션 ",
+  "taskProgress": {
+    "title": "작업 진행률",
+    "aria": "작업 진행률: {{total}}개 중 {{completed}}개 완료",
+    "complete": "완료",
+    "completeCount": "{{completed}} / {{total}} 완료 · {{percent}}%",
+    "completeCountShort": "{{completed}} / {{total}} 완료",
+    "current": "현재: {{task}}",
+    "more_one": "세션 상세에 {{count}}개 더 있음",
+    "more_other": "세션 상세에 {{count}}개 더 있음",
+    "includesSubagents": "Subagent 포함",
+    "partialSource": "작업 수명 주기 이벤트에서 파생됨",
+    "owners": "담당 Agent",
+    "mainAgent": "메인 Agent",
+    "doneCount_one": "{{count}}개 완료",
+    "doneCount_other": "{{count}}개 완료",
+    "remainingCount_one": "{{count}}개 남음",
+    "remainingCount_other": "{{count}}개 남음",
+    "hiddenTasks_one": "추가 작업 {{count}}개가 표시되지 않았습니다.",
+    "hiddenTasks_other": "추가 작업 {{count}}개가 표시되지 않았습니다.",
+    "status": {
+      "completed": "완료",
+      "inProgress": "진행 중",
+      "pending": "대기 중",
+      "cancelled": "취소됨",
+      "unknown": "알 수 없음"
+    }
+  },
+  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
   "detail": {
+    "waitingBanner": {
+      "title": "입력을 기다리는 중",
+      "generic": "터미널에서 응답할 때까지 이 세션이 일시 정지되어 있습니다."
+    },
     "failedLoad": "세션을 불러오지 못했습니다",
     "loading": "세션을 불러오는 중...",
     "notFound": "세션을 찾을 수 없습니다",
@@ -30,6 +76,12 @@
     "unparented": "상위가 없는 Subagent",
     "costBreakdown": "비용 내역",
     "eventTimeline": "이벤트 타임라인",
-    "noEvents": "기록된 이벤트가 없습니다."
+    "noEvents": "기록된 이벤트가 없습니다.",
+    "conversation": "대화",
+    "timeline": "타임라인 ({{shown}}/{{total}})",
+    "transcriptNotFound": "이 Agent의 대화 기록을 찾을 수 없습니다. Transcript 파일이 없거나 아직 연결되지 않았을 수 있습니다.",
+    "transcript": {
+      "loadOlder": "↑ 이전 메시지 불러오기"
+    }
   }
 }

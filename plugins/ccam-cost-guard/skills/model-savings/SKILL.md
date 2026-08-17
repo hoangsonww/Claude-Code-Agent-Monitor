@@ -1,4 +1,5 @@
 ---
+name: model-savings
 description: >
   Estimate the dollars saved by routing eligible Claude Code work to a cheaper
   model family, using the Agent Monitor pricing engine. Re-prices each model's

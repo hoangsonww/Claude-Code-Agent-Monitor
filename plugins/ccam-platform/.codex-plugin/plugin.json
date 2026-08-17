@@ -1,0 +1,30 @@
+{
+  "name": "ccam-platform",
+  "version": "2.0.8",
+  "description": "Administer CCAM's Claude Code and Codex configuration explorers, provider-aware history import, backup restore, hook installation, home directories, updates, and MCP server.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["claude-code", "codex", "config", "hooks", "import", "backup", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "CCAM Platform",
+    "shortDescription": "Administer CCAM's Claude Code and Codex configuration explorers, provider-aware history...",
+    "longDescription": "Administer CCAM's Claude Code and Codex configuration explorers, provider-aware history import, backup restore, hook installation, home directories, updates, and MCP server.",
+    "developerName": "Son Nguyen",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Platform to inspect the local CCAM dashboard.",
+      "Use CCAM Platform to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}
