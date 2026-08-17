@@ -30,6 +30,12 @@ router.post("/rules", (req, res) => {
   if (!VALID_ACTIONS.includes(action)) {
     return res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(", ")}` });
   }
+  if ((action === "mask" || action === "hash") && !String(pattern).trim()) {
+    return res.status(400).json({ error: `pattern is required for action "${action}"` });
+  }
+  if (action === "drop_field" && !String(field_path).trim()) {
+    return res.status(400).json({ error: `field_path is required for action "${action}"` });
+  }
   if (pattern) {
     try { new RegExp(pattern); } catch { return res.status(400).json({ error: "pattern is not a valid regex" }); }
   }
@@ -63,6 +69,13 @@ router.put("/rules/:id", (req, res) => {
     return res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(", ")}` });
   }
   const nextPattern = pattern !== undefined ? String(pattern) : existing.pattern;
+  const nextFieldPath = field_path !== undefined ? String(field_path) : existing.field_path;
+  if ((nextAction === "mask" || nextAction === "hash") && !nextPattern.trim()) {
+    return res.status(400).json({ error: `pattern is required for action "${nextAction}"` });
+  }
+  if (nextAction === "drop_field" && !nextFieldPath.trim()) {
+    return res.status(400).json({ error: `field_path is required for action "${nextAction}"` });
+  }
   if (nextPattern) {
     try { new RegExp(nextPattern); } catch { return res.status(400).json({ error: "pattern is not a valid regex" }); }
   }
