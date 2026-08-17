@@ -166,7 +166,7 @@
     "cwd": "Verzeichnis",
     "session": "Sitzung",
     "envelopes": "Ereignisse",
-    "duration": "Vergangen"
+    "duration": "Dauer"
   },
   "provider": {
     "aria": "Run provider",
