@@ -91,7 +91,8 @@ const BUILT_IN_RULES = [
       "INSERT INTO privacy_rules (name, action, field_path, pattern, enabled, built_in, priority) VALUES (?,?,?,?,1,1,?)"
     );
     const seed = db.transaction(() => {
-      for (const r of BUILT_IN_RULES) ins.run(r.name, r.action, r.field_path, r.pattern, r.priority);
+      for (const r of BUILT_IN_RULES)
+        ins.run(r.name, r.action, r.field_path, r.pattern, r.priority);
     });
     seed();
   }
@@ -318,7 +319,12 @@ function applyPrivacyPolicy(rawData) {
     return { data: rawData, privacy_meta: null };
   }
 
-  const stats = { redacted_fields: [], matched_patterns: [], dropped_payload: false, preserved_metadata_only: false };
+  const stats = {
+    redacted_fields: [],
+    matched_patterns: [],
+    dropped_payload: false,
+    preserved_metadata_only: false,
+  };
 
   // Whole-payload actions (drop_event_payload / preserve_metadata_only) are
   // applied AFTER every rule has run, not the moment they're encountered.
