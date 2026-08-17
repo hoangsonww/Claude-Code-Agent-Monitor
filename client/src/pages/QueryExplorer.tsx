@@ -28,6 +28,14 @@ import { formatDateTime } from "../lib/format";
 type Entity = "sessions" | "agents" | "events";
 type SortDir = "asc" | "desc";
 
+function isoToLocalInput(iso: string | undefined | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface QueryResult {
   entity: Entity;
   rows: Record<string, unknown>[];
@@ -55,7 +63,7 @@ function buildExportUrl(
 ) {
   const params = new URLSearchParams({ entity, format });
   Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
-  if (scopeParam) scopeParam.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) params.set(k, v); });
+  if (scopeParam) new URLSearchParams(scopeParam).forEach((v, k) => params.set(k, v));
   return `/api/query/export?${params.toString()}`;
 }
 
@@ -123,7 +131,7 @@ export function QueryExplorer() {
     setSortDir("desc");
     setResult(null);
     setOffset(0);
-  }, [entity]); // eslint-disable-line
+  }, [entity, scopeParam]); // eslint-disable-line
 
   const handleExport = (format: "csv" | "json") => {
     const url = buildExportUrl(entity, activeFilters, scopeParam ?? "", format);
@@ -133,7 +141,7 @@ export function QueryExplorer() {
     a.click();
   };
 
-  const totalPages = result ? Math.ceil(result.total / PAGE_SIZE) : 0;
+  const totalPages = result ? Math.max(1, Math.ceil(result.total / PAGE_SIZE)) : 0;
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   const setFilter = (key: string, val: string) =>
@@ -216,7 +224,7 @@ export function QueryExplorer() {
             <input
               type="datetime-local"
               className={inputCls}
-              value={filters.from ?? ""}
+              value={isoToLocalInput(filters.from)}
               onChange={(ev) => setFilter("from", ev.target.value ? new Date(ev.target.value).toISOString() : "")}
             />
           </div>
@@ -227,7 +235,7 @@ export function QueryExplorer() {
             <input
               type="datetime-local"
               className={inputCls}
-              value={filters.to ?? ""}
+              value={isoToLocalInput(filters.to)}
               onChange={(ev) => setFilter("to", ev.target.value ? new Date(ev.target.value).toISOString() : "")}
             />
           </div>
@@ -302,7 +310,7 @@ export function QueryExplorer() {
       {/* Empty state (before first query) */}
       {!result && !loading && !error && (
         <EmptyState
-          icon={<Search size={32} />}
+          icon={Search}
           title={t("queryEmptyTitle")}
           description={t("queryEmptyDesc")}
         />
@@ -343,8 +351,13 @@ export function QueryExplorer() {
                       key={col}
                       className={`px-3 py-2 text-xs font-medium text-gray-400 cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sortBy === col ? "text-[#58a6ff]" : ""}`}
                       onClick={() => {
-                        if (sortBy === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
-                        else { setSortBy(col); setSortDir("desc"); }
+                        if (sortBy === col) {
+                          setSortDir((d) => d === "asc" ? "desc" : "asc");
+                        } else {
+                          setSortBy(col);
+                          setSortDir("desc");
+                        }
+                        setTimeout(() => runQuery(0), 0);
                       }}
                     >
                       {col}{sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -372,7 +385,7 @@ export function QueryExplorer() {
 
           {result && result.rows.length === 0 && !loading && (
             <EmptyState
-              icon={<Download size={28} />}
+              icon={Download}
               title={t("queryNoResults")}
               description={t("queryNoResultsDesc")}
             />
