@@ -31,16 +31,16 @@
     "permissionBypass": "bypassPermissions (DANGER — permet tout sans demander)",
     "effort": "Effort de réflexion",
     "effortHint": "Contrôle combien le modèle raisonne avant de répondre. Plus élevé = plus de tokens de réflexion, plus lent, plus profond. Vide hérite du défaut du modèle.",
-    "approvalNever": "Never (return execution failures directly)",
-    "approvalOnRequest": "On request (Codex decides when to ask)",
-    "approvalUntrusted": "Untrusted (ask before non-trusted commands)",
-    "modelCuratedCatalog": "Claude Code does not publish an account model list; choose its stable aliases or enter another model ID.",
-    "modelCustomClaudeHint": "For a previous or account-specific Claude model, enter its exact --model value.",
-    "modelLiveCatalog": "Live catalog from your signed-in Codex CLI",
+    "approvalNever": "Jamais (renvoyer directement les échecs d'exécution)",
+    "approvalOnRequest": "Sur demande (Codex décide quand demander)",
+    "approvalUntrusted": "Non fiable (demander avant les commandes non fiables)",
+    "modelCuratedCatalog": "Claude Code ne publie pas de liste de modèles de compte ; choisissez ses alias stables ou saisissez un autre ID de modèle.",
+    "modelCustomClaudeHint": "Pour un modèle Claude antérieur ou spécifique à un compte, saisissez sa valeur --model exacte.",
+    "modelLiveCatalog": "Catalogue en direct depuis votre CLI Codex connectée",
     "sandbox": "Sandbox",
-    "sandboxDanger": "Danger full access",
-    "sandboxReadOnly": "Read-only",
-    "sandboxWorkspaceWrite": "Workspace write"
+    "sandboxDanger": "Danger — accès complet",
+    "sandboxReadOnly": "Lecture seule",
+    "sandboxWorkspaceWrite": "Écriture dans l'espace de travail"
   },
   "actions": {
     "start": "Exécuter",
@@ -147,7 +147,7 @@
     "label": "Contexte",
     "input": "Entrée",
     "output": "Sortie",
-    "cacheRead": "Cache hit",
+    "cacheRead": "Lecture du cache",
     "cost": "Coût"
   },
   "autocomplete": {
@@ -169,24 +169,24 @@
     "duration": "Écoulé"
   },
   "provider": {
-    "aria": "Run provider",
+    "aria": "Fournisseur d'exécution",
     "beta": "BETA",
-    "cancel": "Cancel",
-    "choose": "Choose",
-    "chooseDescription": "Choose an interactive local agent. You can switch before starting a new run.",
-    "chooseTitle": "Which agent would you like to run?",
+    "cancel": "Annuler",
+    "choose": "Choisir",
+    "chooseDescription": "Choisissez un agent local interactif. Vous pouvez changer avant de démarrer une nouvelle exécution.",
+    "chooseTitle": "Quel agent souhaitez-vous exécuter ?",
     "claude": {
-      "description": "Run Claude Code in conversation mode or as a one-shot task.",
+      "description": "Exécutez Claude Code en mode conversation ou comme tâche unique.",
       "label": "Claude Code",
-      "subtitle": "Start Claude Code sessions with live streaming, conversation, and the same hooks-driven analytics as your terminal."
+      "subtitle": "Démarrez des sessions Claude Code avec streaming en direct, conversation, et la même analytique basée sur les hooks que votre terminal."
     },
     "codex": {
-      "description": "Run a persistent Codex app-server thread from your signed-in local CLI.",
-      "interactiveHint": "Starts a persistent local thread with live replies, tool activity, cancellation, and follow-up turns.",
-      "interactiveLabel": "Interactive Codex thread",
+      "description": "Exécutez un thread de serveur d'application Codex persistant depuis votre CLI locale connectée.",
+      "interactiveHint": "Démarre un thread local persistant avec des réponses en direct, l'activité des outils, l'annulation et des tours de suivi.",
+      "interactiveLabel": "Thread Codex interactif",
       "label": "Codex",
-      "subtitle": "Start a native interactive Codex thread with live replies, tool activity, and follow-up turns."
+      "subtitle": "Démarrez un thread Codex interactif natif avec des réponses en direct, l'activité des outils et des tours de suivi."
     },
-    "kicker": "Run Agent"
+    "kicker": "Exécuter un agent"
   }
 }

@@ -31,16 +31,16 @@
     "permissionBypass": "bypassPermissions (GEFÄHRLICH – erlaubt alles ohne Nachfrage)",
     "effort": "Denkaufwand",
     "effortHint": "Steuert, wie viel das Modell vor der Antwort denkt. Höher = mehr Denk-Tokens, langsamer, tiefer. Leer lässt den Standard des Modells übernehmen.",
-    "approvalNever": "Never (return execution failures directly)",
-    "approvalOnRequest": "On request (Codex decides when to ask)",
-    "approvalUntrusted": "Untrusted (ask before non-trusted commands)",
-    "modelCuratedCatalog": "Claude Code does not publish an account model list; choose its stable aliases or enter another model ID.",
-    "modelCustomClaudeHint": "For a previous or account-specific Claude model, enter its exact --model value.",
-    "modelLiveCatalog": "Live catalog from your signed-in Codex CLI",
+    "approvalNever": "Nie (Ausführungsfehler direkt zurückgeben)",
+    "approvalOnRequest": "Auf Anfrage (Codex entscheidet, wann nachgefragt wird)",
+    "approvalUntrusted": "Nicht vertrauenswürdig (vor nicht vertrauenswürdigen Befehlen nachfragen)",
+    "modelCuratedCatalog": "Claude Code veröffentlicht keine kontobezogene Modellliste; wählen Sie dessen stabile Aliase oder geben Sie eine andere Modell-ID ein.",
+    "modelCustomClaudeHint": "Für ein früheres oder kontospezifisches Claude-Modell geben Sie den genauen --model-Wert ein.",
+    "modelLiveCatalog": "Live-Katalog aus Ihrer angemeldeten Codex-CLI",
     "sandbox": "Sandbox",
-    "sandboxDanger": "Danger full access",
-    "sandboxReadOnly": "Read-only",
-    "sandboxWorkspaceWrite": "Workspace write"
+    "sandboxDanger": "GEFAHR – Vollzugriff",
+    "sandboxReadOnly": "Schreibgeschützt",
+    "sandboxWorkspaceWrite": "Workspace-Schreibzugriff"
   },
   "actions": {
     "start": "Ausführen",
@@ -169,24 +169,24 @@
     "duration": "Dauer"
   },
   "provider": {
-    "aria": "Run provider",
+    "aria": "Ausführungsanbieter",
     "beta": "BETA",
-    "cancel": "Cancel",
-    "choose": "Choose",
-    "chooseDescription": "Choose an interactive local agent. You can switch before starting a new run.",
-    "chooseTitle": "Which agent would you like to run?",
+    "cancel": "Abbrechen",
+    "choose": "Wählen",
+    "chooseDescription": "Wählen Sie einen interaktiven lokalen Agenten. Sie können vor dem Start eines neuen Durchlaufs wechseln.",
+    "chooseTitle": "Welchen Agenten möchten Sie ausführen?",
     "claude": {
-      "description": "Run Claude Code in conversation mode or as a one-shot task.",
+      "description": "Führen Sie Claude Code im Konversationsmodus oder als einmalige Aufgabe aus.",
       "label": "Claude Code",
-      "subtitle": "Start Claude Code sessions with live streaming, conversation, and the same hooks-driven analytics as your terminal."
+      "subtitle": "Starten Sie Claude Code-Sitzungen mit Live-Streaming, Konversation und derselben Hooks-basierten Analytik wie in Ihrem Terminal."
     },
     "codex": {
-      "description": "Run a persistent Codex app-server thread from your signed-in local CLI.",
-      "interactiveHint": "Starts a persistent local thread with live replies, tool activity, cancellation, and follow-up turns.",
-      "interactiveLabel": "Interactive Codex thread",
+      "description": "Führen Sie einen dauerhaften Codex-App-Server-Thread über Ihre angemeldete lokale CLI aus.",
+      "interactiveHint": "Startet einen dauerhaften lokalen Thread mit Live-Antworten, Tool-Aktivität, Abbruchmöglichkeit und Folgezügen.",
+      "interactiveLabel": "Interaktiver Codex-Thread",
       "label": "Codex",
-      "subtitle": "Start a native interactive Codex thread with live replies, tool activity, and follow-up turns."
+      "subtitle": "Starten Sie einen nativen interaktiven Codex-Thread mit Live-Antworten, Tool-Aktivität und Folgezügen."
     },
-    "kicker": "Run Agent"
+    "kicker": "Agent ausführen"
   }
 }
