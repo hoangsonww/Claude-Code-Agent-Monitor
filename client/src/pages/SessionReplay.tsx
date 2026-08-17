@@ -6,13 +6,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import {
-  useEffect,
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -67,9 +61,7 @@ const SPEED_INTERVALS_MS: Record<string, number> = {
 
 // ── State reconstruction ─────────────────────────────────────────────────────
 
-function eventToAgentStatus(
-  eventType: string
-): ReplayAgentState["status"] {
+function eventToAgentStatus(eventType: string): ReplayAgentState["status"] {
   switch (eventType) {
     case "SessionStart":
     case "PreToolUse":
@@ -131,7 +123,10 @@ function seekToIndex(
   events: DashboardEvent[],
   checkpoints: Checkpoint[]
 ): Map<string, ReplayAgentState> {
-  let nearest: Checkpoint = checkpoints[0] ?? { index: 0, agents: new Map<string, ReplayAgentState>() };
+  let nearest: Checkpoint = checkpoints[0] ?? {
+    index: 0,
+    agents: new Map<string, ReplayAgentState>(),
+  };
   for (const cp of checkpoints) {
     if (cp.index <= index) nearest = cp;
     else break;
@@ -190,25 +185,18 @@ function MiniMap({
   const { t } = useTranslation("replay");
   const total = events.length;
   const markers = useMemo(
-    () =>
-      events
-        .map((ev, i) => ({ ev, i }))
-        .filter(({ ev }) => LIFECYCLE_TYPES.has(ev.event_type)),
+    () => events.map((ev, i) => ({ ev, i })).filter(({ ev }) => LIFECYCLE_TYPES.has(ev.event_type)),
     [events]
   );
 
   if (markers.length === 0) {
-    return (
-      <p className="text-xs text-gray-500 px-4 py-2">
-        {t("minimap.noTransitions")}
-      </p>
-    );
+    return <p className="text-xs text-gray-500 px-4 py-2">{t("minimap.noTransitions")}</p>;
   }
 
   return (
     <div
       className="relative h-8 bg-[#0d1117] rounded border border-gray-800 overflow-hidden cursor-pointer"
-      role="img"
+      role="group"
       aria-label={t("minimap.ariaLabel")}
     >
       {/* progress fill */}
@@ -227,9 +215,11 @@ function MiniMap({
       {markers.map(({ ev, i }) => (
         <button
           key={i}
+          type="button"
           title={`${ev.event_type} — ${new Date(ev.created_at).toLocaleTimeString()}`}
+          aria-label={`${ev.event_type} — ${new Date(ev.created_at).toLocaleTimeString()}`}
           onClick={() => onJump(i)}
-          className="absolute top-1 w-1.5 h-6 rounded-sm opacity-80 hover:opacity-100 focus:outline-none"
+          className="absolute top-1 w-1.5 h-6 rounded-sm opacity-80 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#58a6ff]"
           style={{
             left: `calc(${(i / Math.max(total - 1, 1)) * 100}% - 3px)`,
             background: MINIMAP_COLORS[ev.event_type] ?? "#6b7280",
@@ -255,23 +245,32 @@ export function SessionReplay() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     setLoading(true);
+    setCursor(0);
     api.sessions
       .get(id)
       .then(({ session, agents, events: evs }) => {
+        if (cancelled) return;
         setSession(session);
         const sorted = [...evs].sort(
           (a, b) =>
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
-            a.id - b.id
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id - b.id
         );
         setEvents(sorted);
         const meta = new Map<string, Agent>();
         agents.forEach((ag) => meta.set(ag.id, ag));
         setAgentMeta(meta);
       })
-      .catch((err) => setError(String(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) setError(String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // ── Checkpoints ───────────────────────────────────────────────────────────
@@ -418,9 +417,7 @@ export function SessionReplay() {
         <div>
           <h1 className="text-lg font-semibold text-gray-100">{t("title")}</h1>
           {session && (
-            <p className="text-xs text-gray-500 font-mono truncate max-w-xs">
-              {session.id}
-            </p>
+            <p className="text-xs text-gray-500 font-mono truncate max-w-xs">{session.id}</p>
           )}
         </div>
       </div>
@@ -456,11 +453,7 @@ export function SessionReplay() {
           aria-label={playing ? t("controls.pause") : t("controls.play")}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#58a6ff] hover:bg-[#79b8ff] text-[#0d1117] font-semibold text-sm transition-colors"
         >
-          {playing ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
+          {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           {playing ? t("controls.pause") : t("controls.play")}
         </button>
 
@@ -514,9 +507,7 @@ export function SessionReplay() {
 
       {/* Timeline scrubber */}
       <div className="bg-[#161b22] border border-gray-800 rounded-lg p-3 flex flex-col gap-2">
-        <label className="text-xs text-gray-500 font-medium">
-          {t("scrubber.label")}
-        </label>
+        <label className="text-xs text-gray-500 font-medium">{t("scrubber.label")}</label>
         <input
           type="range"
           min={0}
@@ -528,11 +519,7 @@ export function SessionReplay() {
         />
         <div className="flex justify-between text-[10px] text-gray-600 font-mono">
           <span>{events[0] ? new Date(events[0].created_at).toLocaleTimeString() : ""}</span>
-          <span>
-            {currentEvent
-              ? new Date(currentEvent.created_at).toLocaleTimeString()
-              : ""}
-          </span>
+          <span>{currentEvent ? new Date(currentEvent.created_at).toLocaleTimeString() : ""}</span>
           <span>
             {total > 0 && events[total - 1]
               ? new Date(events[total - 1]!.created_at).toLocaleTimeString()
@@ -551,9 +538,7 @@ export function SessionReplay() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Current event detail */}
         <div className="bg-[#161b22] border border-gray-800 rounded-lg p-4">
-          <h2 className="text-sm font-semibold text-gray-300 mb-3">
-            {t("cursor.eventType")}
-          </h2>
+          <h2 className="text-sm font-semibold text-gray-300 mb-3">{t("cursor.eventType")}</h2>
           {currentEvent ? (
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between gap-2">
@@ -619,18 +604,13 @@ export function SessionReplay() {
               {[...agentStates.values()].map((ag) => {
                 const meta = agentMeta.get(ag.agent_id);
                 return (
-                  <li
-                    key={ag.agent_id}
-                    className="flex items-start justify-between gap-3 text-sm"
-                  >
+                  <li key={ag.agent_id} className="flex items-start justify-between gap-3 text-sm">
                     <div className="min-w-0">
                       <p className="text-gray-300 font-mono text-xs truncate">
                         {meta?.subagent_type ?? ag.agent_id.replace(/^.*-main$/, "main")}
                       </p>
                       {ag.last_tool && (
-                        <p className="text-gray-600 text-[11px] truncate">
-                          {ag.last_tool}
-                        </p>
+                        <p className="text-gray-600 text-[11px] truncate">{ag.last_tool}</p>
                       )}
                     </div>
                     <StatusChip status={ag.status} />
@@ -648,9 +628,7 @@ export function SessionReplay() {
           <h2 className="text-sm font-semibold text-gray-300">
             {t("scrubber.eventOf", { current: cursor + 1, total })}
           </h2>
-          <span className="text-[11px] text-gray-600">
-            {t("keyboard.hint")}
-          </span>
+          <span className="text-[11px] text-gray-600">{t("keyboard.hint")}</span>
         </div>
         <div className="overflow-y-auto max-h-72 divide-y divide-gray-800/50">
           {windowedEvents.map(({ ev, globalIdx }) => {
@@ -678,9 +656,7 @@ export function SessionReplay() {
                   {t(`eventTypes.${ev.event_type}`, ev.event_type)}
                 </span>
                 {ev.tool_name && (
-                  <span className="text-gray-500 font-mono truncate">
-                    {ev.tool_name}
-                  </span>
+                  <span className="text-gray-500 font-mono truncate">{ev.tool_name}</span>
                 )}
                 {ev.summary && !ev.tool_name && (
                   <span className="text-gray-500 truncate">{ev.summary}</span>
