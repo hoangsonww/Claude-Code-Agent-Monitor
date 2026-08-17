@@ -7,7 +7,12 @@
  */
 
 const { Router } = require("express");
-const { applyPrivacyPolicy, previewPrivacyPolicy, invalidateCache, stmts } = require("../lib/privacy");
+const {
+  applyPrivacyPolicy,
+  previewPrivacyPolicy,
+  invalidateCache,
+  stmts,
+} = require("../lib/privacy");
 
 const router = Router();
 
@@ -22,11 +27,24 @@ router.get("/rules", (_req, res) => {
 // POST /api/privacy/rules — create a user rule
 // ---------------------------------------------------------------------------
 router.post("/rules", (req, res) => {
-  const { name, action, field_path = "", pattern = "", enabled = true, priority = 100 } = req.body ?? {};
+  const {
+    name,
+    action,
+    field_path = "",
+    pattern = "",
+    enabled = true,
+    priority = 100,
+  } = req.body ?? {};
   if (!name || typeof name !== "string" || !name.trim()) {
     return res.status(400).json({ error: "name is required" });
   }
-  const VALID_ACTIONS = ["mask", "hash", "drop_field", "drop_event_payload", "preserve_metadata_only"];
+  const VALID_ACTIONS = [
+    "mask",
+    "hash",
+    "drop_field",
+    "drop_event_payload",
+    "preserve_metadata_only",
+  ];
   if (!VALID_ACTIONS.includes(action)) {
     return res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(", ")}` });
   }
@@ -37,12 +55,20 @@ router.post("/rules", (req, res) => {
     return res.status(400).json({ error: `field_path is required for action "${action}"` });
   }
   if (pattern) {
-    try { new RegExp(pattern); } catch { return res.status(400).json({ error: "pattern is not a valid regex" }); }
+    try {
+      new RegExp(pattern);
+    } catch {
+      return res.status(400).json({ error: "pattern is not a valid regex" });
+    }
   }
   try {
     const info = stmts.insertRule.run(
-      name.trim(), action, String(field_path), String(pattern),
-      enabled ? 1 : 0, Number(priority) || 100
+      name.trim(),
+      action,
+      String(field_path),
+      String(pattern),
+      enabled ? 1 : 0,
+      Number(priority) || 100
     );
     invalidateCache();
     res.status(201).json(stmts.getRule.get(info.lastInsertRowid));
@@ -63,7 +89,13 @@ router.put("/rules/:id", (req, res) => {
   if (existing.built_in) return res.status(403).json({ error: "built-in rules are immutable" });
 
   const { name, action, field_path, pattern, enabled, priority } = req.body ?? {};
-  const VALID_ACTIONS = ["mask", "hash", "drop_field", "drop_event_payload", "preserve_metadata_only"];
+  const VALID_ACTIONS = [
+    "mask",
+    "hash",
+    "drop_field",
+    "drop_event_payload",
+    "preserve_metadata_only",
+  ];
   const nextAction = action ?? existing.action;
   if (!VALID_ACTIONS.includes(nextAction)) {
     return res.status(400).json({ error: `action must be one of: ${VALID_ACTIONS.join(", ")}` });
@@ -77,7 +109,11 @@ router.put("/rules/:id", (req, res) => {
     return res.status(400).json({ error: `field_path is required for action "${nextAction}"` });
   }
   if (nextPattern) {
-    try { new RegExp(nextPattern); } catch { return res.status(400).json({ error: "pattern is not a valid regex" }); }
+    try {
+      new RegExp(nextPattern);
+    } catch {
+      return res.status(400).json({ error: "pattern is not a valid regex" });
+    }
   }
 
   stmts.updateRule.run(
@@ -86,7 +122,7 @@ router.put("/rules/:id", (req, res) => {
     field_path !== undefined ? String(field_path) : existing.field_path,
     nextPattern,
     enabled !== undefined ? (enabled ? 1 : 0) : existing.enabled,
-    priority !== undefined ? (Number(priority) || existing.priority) : existing.priority,
+    priority !== undefined ? Number(priority) || existing.priority : existing.priority,
     id
   );
   invalidateCache();
