@@ -295,15 +295,17 @@ describe("applyPrivacyPolicy unit", () => {
     const info = ps.insertRule.run("hash-test", "hash", "", "FIXED_VALUE", 1, 5);
     privacyModule.invalidateCache();
 
-    const payload1 = { val: "FIXED_VALUE" };
-    const payload2 = { val: "FIXED_VALUE" };
-    const { data: r1 } = privacyModule.applyPrivacyPolicy(payload1);
-    const { data: r2 } = privacyModule.applyPrivacyPolicy(payload2);
-    assert.equal(r1.val, r2.val, "hash must be stable for same input");
-    assert.ok(r1.val.startsWith("[hashed:"), "should have hash marker");
-
-    ps.deleteRule.run(info.lastInsertRowid);
-    privacyModule.invalidateCache();
+    try {
+      const payload1 = { val: "FIXED_VALUE" };
+      const payload2 = { val: "FIXED_VALUE" };
+      const { data: r1 } = privacyModule.applyPrivacyPolicy(payload1);
+      const { data: r2 } = privacyModule.applyPrivacyPolicy(payload2);
+      assert.equal(r1.val, r2.val, "hash must be stable for same input");
+      assert.ok(r1.val.startsWith("[hashed:"), "should have hash marker");
+    } finally {
+      ps.deleteRule.run(info.lastInsertRowid);
+      privacyModule.invalidateCache();
+    }
   });
 
   it("drop_event_payload returns null data", () => {
@@ -311,12 +313,14 @@ describe("applyPrivacyPolicy unit", () => {
     const info = ps.insertRule.run("drop-test", "drop_event_payload", "", "", 1, 1);
     privacyModule.invalidateCache();
 
-    const { data, privacy_meta } = privacyModule.applyPrivacyPolicy({ sensitive: "stuff" });
-    assert.equal(data, null);
-    assert.equal(privacy_meta.dropped, true);
-
-    ps.deleteRule.run(info.lastInsertRowid);
-    privacyModule.invalidateCache();
+    try {
+      const { data, privacy_meta } = privacyModule.applyPrivacyPolicy({ sensitive: "stuff" });
+      assert.equal(data, null);
+      assert.equal(privacy_meta.dropped, true);
+    } finally {
+      ps.deleteRule.run(info.lastInsertRowid);
+      privacyModule.invalidateCache();
+    }
   });
 
   it("preserve_metadata_only strips nested objects", () => {
@@ -324,19 +328,21 @@ describe("applyPrivacyPolicy unit", () => {
     const info = ps.insertRule.run("meta-only-test", "preserve_metadata_only", "", "", 1, 1);
     privacyModule.invalidateCache();
 
-    const { data } = privacyModule.applyPrivacyPolicy({
-      scalar: "keep",
-      number_field: 42,
-      nested: { secret: "drop" },
-      arr: [1, 2, 3],
-    });
-    assert.equal(data.scalar, "keep");
-    assert.equal(data.number_field, 42);
-    assert.equal(data.nested, undefined, "nested object should be stripped");
-    assert.equal(data.arr, undefined, "array should be stripped");
-
-    ps.deleteRule.run(info.lastInsertRowid);
-    privacyModule.invalidateCache();
+    try {
+      const { data } = privacyModule.applyPrivacyPolicy({
+        scalar: "keep",
+        number_field: 42,
+        nested: { secret: "drop" },
+        arr: [1, 2, 3],
+      });
+      assert.equal(data.scalar, "keep");
+      assert.equal(data.number_field, 42);
+      assert.equal(data.nested, undefined, "nested object should be stripped");
+      assert.equal(data.arr, undefined, "array should be stripped");
+    } finally {
+      ps.deleteRule.run(info.lastInsertRowid);
+      privacyModule.invalidateCache();
+    }
   });
 
   it("drop_field action removes targeted field", () => {
@@ -344,14 +350,16 @@ describe("applyPrivacyPolicy unit", () => {
     const info = ps.insertRule.run("drop-field-test", "drop_field", "tool_input.api_key", "", 1, 1);
     privacyModule.invalidateCache();
 
-    const { data } = privacyModule.applyPrivacyPolicy({
-      tool_input: { api_key: "super-secret", other: "keep" },
-    });
-    assert.equal(data.tool_input.api_key, undefined, "targeted field should be removed");
-    assert.equal(data.tool_input.other, "keep", "sibling field should be preserved");
-
-    ps.deleteRule.run(info.lastInsertRowid);
-    privacyModule.invalidateCache();
+    try {
+      const { data } = privacyModule.applyPrivacyPolicy({
+        tool_input: { api_key: "super-secret", other: "keep" },
+      });
+      assert.equal(data.tool_input.api_key, undefined, "targeted field should be removed");
+      assert.equal(data.tool_input.other, "keep", "sibling field should be preserved");
+    } finally {
+      ps.deleteRule.run(info.lastInsertRowid);
+      privacyModule.invalidateCache();
+    }
   });
 
   it("handles large payload without crashing", () => {
