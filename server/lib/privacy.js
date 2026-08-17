@@ -116,15 +116,22 @@ function maskString(s) {
   return `${s.slice(0, 2)}${"*".repeat(Math.min(s.length - 4, 8))}${s.slice(-2)}`;
 }
 
+// Path segments that would otherwise let a user-supplied field_path reach
+// into an object's prototype chain (prototype pollution).
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 /** Resolve a dot-path on obj, e.g. "tool_input.command". Returns undefined if missing. */
 function resolvePath(obj, path) {
   if (!path) return undefined;
-  return path.split(".").reduce((cur, key) => (cur != null ? cur[key] : undefined), obj);
+  const keys = path.split(".");
+  if (keys.some((k) => UNSAFE_KEYS.has(k))) return undefined;
+  return keys.reduce((cur, key) => (cur != null ? cur[key] : undefined), obj);
 }
 
 /** Set a dot-path on obj. Creates intermediate objects as needed. */
 function setPath(obj, path, value) {
   const keys = path.split(".");
+  if (keys.some((k) => UNSAFE_KEYS.has(k))) return;
   let cur = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     if (cur[keys[i]] == null || typeof cur[keys[i]] !== "object") cur[keys[i]] = {};
@@ -136,6 +143,7 @@ function setPath(obj, path, value) {
 /** Delete a dot-path from obj. */
 function deletePath(obj, path) {
   const keys = path.split(".");
+  if (keys.some((k) => UNSAFE_KEYS.has(k))) return;
   let cur = obj;
   for (let i = 0; i < keys.length - 1; i++) {
     if (cur == null || typeof cur !== "object") return;
@@ -191,10 +199,23 @@ function applyRule(payload, rule, stats) {
     return null; // handled by caller
   }
 
+  if (action === "drop_field") {
+    if (!field_path) return payload;
+    const current = resolvePath(payload, field_path);
+    if (current === undefined) return payload;
+    stats.redacted_fields.push(field_path);
+    deletePath(payload, field_path);
+    return payload;
+  }
+
+  // mask/hash require an explicit pattern — an empty pattern must never
+  // fall back to a wildcard that matches (and redacts) every character.
+  if (!pattern) return payload;
+
   // Build regex (gracefully handle bad patterns)
   let regex;
   try {
-    regex = new RegExp(pattern || ".", "g");
+    regex = new RegExp(pattern, "g");
   } catch {
     return payload; // bad regex → skip rule
   }
@@ -203,12 +224,6 @@ function applyRule(payload, rule, stats) {
     // Targeted field redaction
     const current = resolvePath(payload, field_path);
     if (current === undefined) return payload;
-
-    if (action === "drop_field") {
-      stats.redacted_fields.push(field_path);
-      deletePath(payload, field_path);
-      return payload;
-    }
 
     const transformed = deepTransformStrings(current, (s) => {
       const [matched, result] = applyPatternToString(s, regex, action);
@@ -244,8 +259,16 @@ function invalidateCache() {
 
 function isPrivacyEnabled() {
   if (_enabledGlobal === null) {
-    const row = db.prepare("SELECT value FROM privacy_settings WHERE key='enabled'").get();
-    _enabledGlobal = row ? row.value === "1" : true;
+    try {
+      const row = db.prepare("SELECT value FROM privacy_settings WHERE key='enabled'").get();
+      _enabledGlobal = row ? row.value === "1" : true;
+    } catch {
+      // fail-safe: a transient DB error must not block ingestion or throw
+      // out of applyPrivacyPolicy's "never throws" contract. Don't cache
+      // the failure — retry on the next call instead of disabling privacy
+      // filtering for the rest of the process lifetime.
+      return false;
+    }
   }
   return _enabledGlobal;
 }
@@ -297,26 +320,17 @@ function applyPrivacyPolicy(rawData) {
 
   const stats = { redacted_fields: [], matched_patterns: [], dropped_payload: false, preserved_metadata_only: false };
 
+  // Whole-payload actions (drop_event_payload / preserve_metadata_only) are
+  // applied AFTER every rule has run, not the moment they're encountered.
+  // Otherwise a whole-payload rule that happens to sort before a
+  // higher-priority-number detector (e.g. the priority-50 email/home-path
+  // rules) would short-circuit the loop and skip those detectors entirely,
+  // leaking unmasked data in the preserved/whole-payload path.
   for (const rule of rules) {
     try {
       const result = applyRule(payload, rule, stats);
       meta.rules_applied++;
-      if (stats.dropped_payload) {
-        meta.dropped = true;
-        return { data: null, privacy_meta: meta };
-      }
-      if (stats.preserved_metadata_only) {
-        // Keep only top-level scalar fields (no nested objects/arrays with content)
-        const stripped = {};
-        if (payload && typeof payload === "object") {
-          for (const [k, v] of Object.entries(payload)) {
-            if (v === null || typeof v !== "object") stripped[k] = v;
-          }
-        }
-        meta.preserve_metadata_only = true;
-        return { data: stripped, privacy_meta: meta };
-      }
-      if (result !== null) payload = result;
+      if (result !== null && !stats.dropped_payload) payload = result;
     } catch {
       // fail-safe: skip this rule
     }
@@ -324,6 +338,24 @@ function applyPrivacyPolicy(rawData) {
 
   meta.redacted_fields = [...new Set(stats.redacted_fields)];
   meta.matched_patterns = [...new Set(stats.matched_patterns)];
+
+  if (stats.dropped_payload) {
+    meta.dropped = true;
+    return { data: null, privacy_meta: meta };
+  }
+  if (stats.preserved_metadata_only) {
+    // Keep only top-level scalar fields (no nested objects/arrays with content).
+    // By this point every other rule has already run, so any scalar that
+    // matched a mask/hash detector is already redacted.
+    const stripped = {};
+    if (payload && typeof payload === "object") {
+      for (const [k, v] of Object.entries(payload)) {
+        if (v === null || typeof v !== "object") stripped[k] = v;
+      }
+    }
+    meta.preserve_metadata_only = true;
+    return { data: stripped, privacy_meta: meta };
+  }
 
   return { data: payload, privacy_meta: meta };
 }
