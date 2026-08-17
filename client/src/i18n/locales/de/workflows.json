@@ -161,7 +161,7 @@
       "topFlow": {
         "none": "noch nicht genug aufeinanderfolgende Tool-Aufrufe aufgezeichnet.",
         "selfLoop": "{{tool}} folgt sich meist selbst — typisch für wiederholte Lese-/Bearbeitungsoperationen.",
-        "pair": "{{source}} läuft am häufigsten unmittelbar vor {{target}}."
+        "pair": "{{source}} läuft am häufigsten unmittelbar vor {{target}}. Betrachten Sie es als Gewohnheit: Auf {{sourceLower}} folgt meist {{targetLower}} als nächster Schritt."
       },
       "compactions": {
         "zero": "keine Kontextverdichtung beobachtet. Sitzungen blieben bequem im Kontextfenster.",
@@ -240,7 +240,7 @@
       "transitionsObserved": "Beobachtete Übergänge",
       "shareOfSourceFmt": "Anteil von {{source}} → nächstes",
       "shareOfTargetFmt": "Anteil von vorherigem → {{target}}",
-      "nodeDescFmt": "Die Balkenhöhe zeigt, wie oft {{name}} über alle Sitzungen im Umfang erscheint.",
+      "nodeDescFmt": "Die Balkenhöhe zeigt, wie oft {{name}} über alle Sitzungen im Umfang erscheint. Bänder, die links hereinfließen, zeigen, was vor {{name}} lief; Bänder, die rechts herausfließen, zeigen, was danach lief.",
       "linkDescFmt": "Über alle Sitzungen zählt dies, wie oft {{source}} unmittelbar vor {{target}} lief."
     }
   },
