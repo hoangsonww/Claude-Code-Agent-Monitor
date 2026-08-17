@@ -1,4 +1,5 @@
 ---
+name: hook-failure-audit
 description: >
   Audit hook delivery health from Agent Monitor data — balance PreToolUse vs
   PostToolUse (a gap means tools that started but never reported back), detect

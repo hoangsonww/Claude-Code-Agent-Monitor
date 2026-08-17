@@ -1,6 +1,6 @@
 {
   "title": "분석",
-  "subtitle": "Claude Code 세션에 대한 실시간 모니터링 및 분석",
+  "subtitle": "Agent 세션의 실시간 모니터링 및 분석",
   "export": "내보내기",
   "totalSessions": "전체 세션",
   "totalAgents": "전체 Agent",
@@ -27,7 +27,7 @@
   "tokenMix": "토큰 구성",
   "cacheEfficiency": "캐시 효율",
   "tokenBreakdown": "토큰 내역",
-  "tokenInfo": "Claude Code Stop 이벤트에서 수집한 토큰 데이터입니다.",
+  "tokenInfo": "기록된 세션 이벤트에서 수집한 토큰 데이터입니다.",
   "costByModel": "모델별 비용",
   "dailyCostTrends": "일별 비용 추이",
   "costByWeekday": "요일별 비용",

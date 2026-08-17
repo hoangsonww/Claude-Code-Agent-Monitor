@@ -6,7 +6,7 @@ A step-by-step guide to get the Claude Code Agent Monitor up and running on your
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Node.js | 18+ (22+ recommended) | Required for server and client |
+| Node.js | 22.22+ (24 LTS recommended) | Required for server and client builds |
 | npm | 9+ | Comes with Node.js |
 | Claude Code | 2.x+ | Required for hook integration |
 | Python | 3.6+ | Optional — statusline utility only |
@@ -29,12 +29,15 @@ cd Claude-Code-Agent-Monitor
 npm run setup
 ```
 
-This installs all server and client dependencies in a single command. It is equivalent to:
+This installs all server and client dependencies, plus the VS Code extension, and links the `ccam` CLI.
+
+A plain root install already covers server **and** client — a `postinstall` hook installs the client dependencies automatically, so this alone is enough to build and run the dashboard:
 
 ```bash
 npm install
-cd client && npm install
 ```
+
+`npm run setup` additionally installs the VS Code extension, installs and builds the MCP package, and links the `ccam` CLI. The bundled Claude/Codex plugins use `ccam mcp stdio`, so the MCP build is part of normal setup. If you install with `--ignore-scripts`, the `postinstall` hook is skipped. Run `cd client && npm install` manually in that case.
 
 Or via Makefile (also installs MCP dependencies):
 
@@ -180,8 +183,8 @@ If you'd rather not keep a terminal window open, the project also ships an Elect
 |---|---|
 | Downloading a pre-built installer (macOS) | macOS — nothing else |
 | Downloading a pre-built installer (Windows) | Windows 10/11 (x64) — nothing else |
-| Building the DMG locally (macOS) | macOS, Node.js 18+ (22+ recommended), npm 9+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
-| Building the `.exe` locally (Windows) | Windows, Node.js 18+ (22+ recommended), npm 9+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
+| Building the DMG locally (macOS) | macOS, Node.js 22.22+ (24 LTS recommended), npm 10+, and **Xcode command-line tools** (`xcode-select --install`) so the native `better-sqlite3` module can be rebuilt for Electron's ABI |
+| Building the `.exe` locally (Windows) | Windows, Node.js 22.22+ (24 LTS recommended), npm 10+. `better-sqlite3` is fetched as a **prebuilt Electron binary** by `npm run desktop:install`, so no Visual Studio C++ toolchain is needed in the common case. If the build _does_ fail, `npm run desktop:install` prints the exact fix (Visual Studio Build Tools + "Desktop development with C++") plus a no-toolchain alternative and exits non-zero rather than failing silently |
 
 ### Way 1 — Download a pre-built installer
 
@@ -219,7 +222,7 @@ Then jump to [Install the app](#install-the-app).
 From the project root, after `git clone`. electron-builder packages for the **host OS**, so build the macOS DMG on a Mac and the Windows `.exe` on Windows. The common prelude is the same:
 
 ```bash
-npm run setup                # install root + client + vscode-extension deps
+npm run setup                # install root + client + vscode-extension + MCP deps, build MCP, link ccam
 npm run build                # build the React client (the SPA the window loads)
 npm run desktop:install      # install Electron + electron-builder into desktop/
 
@@ -234,9 +237,10 @@ The artifact lands in `desktop/release/`. Pick the build command that matches yo
 
 | Command | Platform / Architecture | Speed | Use when |
 |---|---|---|---|
-| `npm run desktop:dmg` | macOS — Universal (x64 + arm64) | **Slow** | Building a release DMG for everyone |
+| `npm run desktop:dmg` | macOS — both per-arch DMGs (arm64 + x64) | **Slower** | Building the release DMGs for everyone |
 | `npm run desktop:dmg:arm64` | macOS — Apple Silicon only | Fast (~1 min) | Building for your own Apple Silicon Mac |
 | `npm run desktop:dmg:x64` | macOS — Intel only | Fast (~1 min) | Building for your own Intel Mac |
+| `npm run desktop:dmg:universal` | macOS — one merged universal DMG (arm64 + x86_64) | **Slowest** | Hand-distributing a single file that runs on any Mac (not what the release ships) |
 | `npm run desktop:win` | Windows — NSIS installer `.exe` (x64) | — | Building the per-user installer |
 | `npm run desktop:win:portable` | Windows — portable `.exe` (x64) | — | Building the no-install portable build |
 | `npm run desktop:install` | — | — | Install Electron + electron-builder deps; preflights the native `better-sqlite3` build and prints actionable setup help on failure |
@@ -245,15 +249,16 @@ The artifact lands in `desktop/release/`. Pick the build command that matches yo
 | `npm run desktop:test` | — | — | Smoke test (spawn Electron, probe `/api/health`) |
 
 > [!IMPORTANT]
-> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. On macOS, the universal `npm run desktop:dmg` build is **intentionally slow** — it builds the app twice (one tree per architecture), merges both with `@electron/universal`, then signs every binary. Expect the silent `packaging arch=universal` step to sit for several minutes. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds both the universal DMG and the Windows `.exe`s for you (see Way 1).
+> **DMGs build on macOS; Windows `.exe`s build on Windows** — electron-builder packages for the host OS. On macOS, `npm run desktop:dmg` builds the app **twice** (one tree per architecture) and emits **both** per-arch DMGs (`arm64` + `x64`) — the release build. It does **not** merge them into a single universal binary; the two DMGs are what ship. **When building for your own Mac, use `desktop:dmg:arm64` or `desktop:dmg:x64`** — a single architecture finishes in roughly a minute. CI already builds both DMGs and the Windows `.exe`s for you (see Way 1).
 
 ### Install the app
 
-**macOS.** Each `desktop:dmg*` build wipes `release/` and emits a single DMG —
-`desktop:dmg:arm64` → `…-arm64.dmg`, `desktop:dmg:x64` → `…-x64.dmg`, universal
-`desktop:dmg` → `…-universal.dmg` — and its mounted-volume title states the
-architecture (e.g. *Claude Code Monitor (Apple Silicon)*). Install the one
-matching your Mac: an x64 build on Apple Silicon makes macOS prompt for Rosetta.
+**macOS.** Each `desktop:dmg*` build wipes `release/` first. `desktop:dmg:arm64`
+→ `…-arm64.dmg` and `desktop:dmg:x64` → `…-x64.dmg` each emit a single DMG whose
+mounted-volume title states the architecture (e.g. *Claude Code Monitor (Apple
+Silicon)*); `desktop:dmg` emits **both** (`…-arm64.dmg` + `…-x64.dmg`) for
+release. Install the one matching your Mac: an x64 build on Apple Silicon makes
+macOS prompt for Rosetta.
 
 ```bash
 open desktop/release/ClaudeCodeMonitor-*-arm64.dmg   # the arch you built
@@ -379,49 +384,34 @@ For advanced configuration, refer to the [.vscode](./.vscode) and [vscode-extens
 
 ## Container mode (Docker / Podman)
 
-The repository includes both a multi-stage `Dockerfile` and a `docker-compose.yml` file. Docker and Podman are both supported.
-
-### Compose
+The OCI runtime is non-root, uses Tini as PID 1, includes Git/OpenSSH/SQLite,
+and is read-only except for data/config volumes and tmpfs.
 
 ```bash
-# Docker Compose
+# Dashboard only
 docker compose up -d --build
+# or
+podman compose up -d --build
 
-# Podman Compose
-CLAUDE_HOME="$HOME/.claude" podman compose up -d --build
+# Complete authenticated stack
+umask 077
+openssl rand -hex 32 > deployments/secrets/dashboard-token
+openssl rand -hex 32 > deployments/secrets/hook-token
+openssl rand -hex 32 > deployments/secrets/mcp-token
+openssl rand -base64 32 > deployments/secrets/grafana-admin-password
+npm run docker:full:up
 ```
 
-Open **http://localhost:4820** in your browser.
-
-### Plain Docker / Podman
-
-```bash
-# Docker
-docker build -t agent-monitor .
-docker run -d --name agent-monitor \
-  -p 4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
-  -v agent-monitor-data:/app/data \
-  agent-monitor
-
-# Podman
-podman build -t agent-monitor .
-podman run -d --name agent-monitor \
-  -p 4820:4820 \
-  -v "$HOME/.claude:/root/.claude:ro" \
-  -v agent-monitor-data:/app/data \
-  agent-monitor
-```
-
-### Container notes
-
-| Mount | Purpose |
-|---|---|
-| `~/.claude:/root/.claude:ro` | Lets the server import legacy Claude session history |
-| `agent-monitor-data:/app/data` | Persists the SQLite database across container restarts |
+Host ports bind loopback by default: dashboard `4820`, MCP `8819`, Nginx
+`8080`, Prometheus `9090`, and Grafana `3000`. Claude and Codex homes mount
+read-only at `/home/node/.claude` and `/home/node/.codex`. Named volumes retain
+SQLite and dashboard-owned config.
 
 > [!IMPORTANT]
-> Claude Code hooks run on the host, not inside the container. After the container is healthy on `http://localhost:4820`, run `npm run install-hooks` on the host so Claude Code posts hook events back to the containerized server. The installer refuses to run inside a container (issue #193) to avoid writing a container-internal handler path into a bind-mounted `~/.claude`; use `CCAM_ALLOW_CONTAINER_HOOKS=1` only if you run Claude Code inside the same container.
+> Install hooks on the host. For remote cloud hooks, use
+> `CCAM_DASHBOARD_URL=https://...` and `CCAM_HOOK_TOKEN`; non-loopback targets
+> require HTTPS. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the full stack,
+> Kubernetes, Terraform, backup, restore, and rollback.
 
 <p align="center">
   <img src="images/dashboard.png" alt="Dashboard Overview" width="100%">
@@ -457,7 +447,7 @@ This is expected and **non-fatal**. `better-sqlite3` is a native C++ module list
 
 At runtime the server uses this fallback chain:
 
-1. **`better-sqlite3`** — used when prebuilt binaries are available (Node 18/20/22 on Windows x64, macOS arm64/x64, Linux x64/arm64)
+1. **`better-sqlite3`** — used when prebuilt binaries are available (Node 20/22/24 on Windows x64, macOS arm64/x64, Linux x64/arm64)
 2. **`node:sqlite`** — Node.js built-in SQLite module, used automatically on Node 22+ when `better-sqlite3` is unavailable
 
 If you see an error box at startup saying *"SQLite backend not available"*, either:
@@ -510,7 +500,7 @@ See [SETUP.md — Troubleshooting](./SETUP.md#troubleshooting) for detailed hook
 |---|---|---|
 | *"Apple could not verify…"* on first launch (macOS) | The DMG is ad-hoc signed (no paid Apple Developer ID) | `xattr -cr "/Applications/Claude Code Monitor.app"`, then open it — or use *System Settings → Privacy & Security → Open Anyway* |
 | *"Windows protected your PC"* on first launch (Windows) | The `.exe` is unsigned by default, so SmartScreen prompts | Click **More info → Run anyway** |
-| `npm run desktop:dmg` hangs on `packaging arch=universal` (macOS) | Not hung — the universal build merges two architectures and is intentionally slow | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
+| `npm run desktop:dmg` seems slow (macOS) | Not hung — it packages two architectures back-to-back (`arch=x64` then `arch=arm64`) | Wait it out, or use `npm run desktop:dmg:arm64` / `npm run desktop:dmg:x64` for a fast single-arch build |
 | `entry file out/main.js does not exist` | `npm run clean` (in `desktop/`) deleted `out/`; `electron-builder` only packages, it does not compile | Re-run `npm run desktop:build` (or just use a `desktop:dmg*` / `desktop:win*` script, which chains the build) |
 | Desktop window opens but is blank | The embedded server failed `/api/health` within 30 s | Check the desktop log (`~/Library/Logs/Claude Code Monitor/desktop.log` on macOS, `%APPDATA%\Claude Code Monitor\logs\desktop.log` on Windows), then tray → *Restart Server* |
 | "Run Claude" says `claude` is not on your PATH | A Finder/Dock-launched macOS app only inherits launchd's minimal PATH, not your login-shell PATH (on Windows the process already inherits the user PATH) | The app recovers your login-shell PATH at startup so it can find and spawn the `claude` CLI. If it still fails, make sure `claude` is a real executable on your shell PATH — not a shell alias or function |

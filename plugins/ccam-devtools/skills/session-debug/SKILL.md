@@ -1,4 +1,5 @@
 ---
+name: session-debug
 description: >
   Debug a specific session by inspecting its full event chain (PreToolUse,
   PostToolUse, Stop, SubagentStop, Compaction, APIError, TurnDuration,

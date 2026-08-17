@@ -8,7 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 const { transcriptMock } = vi.hoisted(() => ({ transcriptMock: vi.fn() }));
 vi.mock("../../../lib/api", () => ({

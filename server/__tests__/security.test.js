@@ -7,9 +7,20 @@
  */
 const { describe, it, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const sec = require("../lib/security");
 
-const ENV_KEYS = ["DASHBOARD_HOST", "DASHBOARD_ALLOWED_HOSTS", "DASHBOARD_TOKEN"];
+const ENV_KEYS = [
+  "DASHBOARD_HOST",
+  "DASHBOARD_ALLOWED_HOSTS",
+  "DASHBOARD_TOKEN",
+  "DASHBOARD_TOKEN_FILE",
+  "DASHBOARD_HOOK_TOKEN",
+  "DASHBOARD_HOOK_TOKEN_FILE",
+  "POD_IP",
+];
 afterEach(() => {
   for (const k of ENV_KEYS) delete process.env[k];
 });
@@ -56,6 +67,11 @@ describe("Host allowlist (DNS-rebinding defense)", () => {
     assert.equal(sec.isHostAllowed("dash.internal:4820"), true);
     assert.equal(sec.isHostAllowed("192.168.1.50:4820"), true);
     assert.equal(sec.isHostAllowed("evil.example"), false);
+  });
+  it("permits the Kubernetes downward-API pod IP", () => {
+    process.env.POD_IP = "10.42.1.23";
+    assert.equal(sec.isHostAllowed("10.42.1.23:4820"), true);
+    assert.equal(sec.isHostAllowed("10.42.1.24:4820"), false);
   });
   it("hostGuard middleware 403s a disallowed Host", () => {
     const res = mockRes();
@@ -131,6 +147,18 @@ describe("token gate (optional, opt-in)", () => {
     assert.equal(ok({ path: "/stats", headers: {}, query: { token: "s3cret" } }), true);
   });
 
+  it("loads the dashboard token from a mounted secret file", () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-dashboard-token-"));
+    try {
+      const tokenPath = path.join(directory, "token");
+      fs.writeFileSync(tokenPath, "file-secret\n");
+      process.env.DASHBOARD_TOKEN_FILE = tokenPath;
+      assert.equal(sec.getDashboardToken(), "file-secret");
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("exempts health, docs, and local hook ingestion even when a token is set", () => {
     process.env.DASHBOARD_TOKEN = "s3cret";
     const ok = (path) => {
@@ -142,6 +170,29 @@ describe("token gate (optional, opt-in)", () => {
     assert.equal(ok("/openapi.json"), true);
     assert.equal(ok("/hooks/event"), true);
     assert.equal(ok("/sessions/abc"), false); // still gated
+  });
+});
+
+describe("hook token gate", () => {
+  it("is a no-op when no dedicated hook token is configured", () => {
+    let nexted = false;
+    sec.hookGuard({ headers: {}, query: {} }, mockRes(), () => (nexted = true));
+    assert.equal(nexted, true);
+  });
+
+  it("requires the dedicated hook token when configured", () => {
+    process.env.DASHBOARD_HOOK_TOKEN = "hook-secret";
+    const denied = mockRes();
+    sec.hookGuard({ headers: {}, query: {} }, denied, () => {});
+    assert.equal(denied.statusCode, 401);
+
+    let nexted = false;
+    sec.hookGuard(
+      { headers: { "x-ccam-hook-token": "hook-secret" }, query: {} },
+      mockRes(),
+      () => (nexted = true)
+    );
+    assert.equal(nexted, true);
   });
 });
 

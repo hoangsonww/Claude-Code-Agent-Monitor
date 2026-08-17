@@ -1,0 +1,38 @@
+{
+  "name": "ccam-workflows",
+  "version": "2.0.8",
+  "description": "Analyze multi-agent orchestration and Workflow-tool fleet runs — DAGs, delegation, concurrency, error propagation, and effectiveness — via the Agent Monitor workflow intelligence API at http://localhost:4820. Maps parent→child subagent edges, scores model delegation and subagent success, surfaces concurrency lanes and serialization bottlenecks, and traces error cascades by agent depth.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": [
+    "workflows",
+    "orchestration",
+    "subagents",
+    "dag",
+    "fleet",
+    "concurrency",
+    "delegation",
+    "claude-code"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Workflows",
+    "shortDescription": "Analyze multi-agent orchestration and Workflow-tool fleet runs — DAGs, delegation,...",
+    "longDescription": "Analyze multi-agent orchestration and Workflow-tool fleet runs — DAGs, delegation, concurrency, error propagation, and effectiveness — via the Agent Monitor workflow intelligence API at http://localhost:4820. Maps parent→child subagent edges, scores model delegation and subagent success, surfaces concurrency lanes and serialization bottlenecks, and traces error cascades by agent depth.",
+    "developerName": "Son Nguyen",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Workflows to inspect the local CCAM dashboard.",
+      "Use CCAM Workflows to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

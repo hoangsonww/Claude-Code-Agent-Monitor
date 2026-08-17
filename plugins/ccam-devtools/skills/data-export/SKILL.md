@@ -1,4 +1,5 @@
 ---
+name: data-export
 description: >
   Export Claude Code session and analytics data in JSON, CSV, or Markdown
   formats. Supports exporting sessions, events, costs, and analytics

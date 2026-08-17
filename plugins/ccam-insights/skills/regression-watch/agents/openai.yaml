@@ -1,0 +1,6 @@
+interface:
+  display_name: "Regression Watch"
+  short_description: "Detect quality and efficiency regressions over time using..."
+  default_prompt: "Use $regression-watch to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

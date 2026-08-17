@@ -1,4 +1,5 @@
 ---
+name: monthly-review
 description: >
   Compile a month-over-month retrospective from Agent Monitor data — sessions,
   cost, token volumes, completion rate, top projects by working directory, and

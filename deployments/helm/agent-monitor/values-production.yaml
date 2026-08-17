@@ -1,80 +1,16 @@
-# =============================================================================
-# Production Environment Overrides
-# =============================================================================
-# Usage: helm install agent-monitor ./agent-monitor -f values-production.yaml
-
-replicaCount: 3
-
-env:
-  NODE_ENV: production
-  DASHBOARD_PORT: "4820"
-  LOG_LEVEL: warn
-
 resources:
   requests:
     cpu: 250m
     memory: 256Mi
   limits:
     cpu: "1"
-    memory: "1Gi"
-
-autoscaling:
-  enabled: true
-  minReplicas: 3
-  maxReplicas: 20
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 80
-  scaleDownStabilizationWindowSeconds: 600
-
-deployment:
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-
+    memory: 1Gi
 persistence:
-  enabled: true
   size: 20Gi
-  storageClass: gp3
-
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 2
-
 networkPolicy:
-  enabled: true
-
-# -- Spread pods across nodes (required) and zones (preferred) for high availability
-affinity:
-  podAntiAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-            - key: app.kubernetes.io/name
-              operator: In
-              values:
-                - agent-monitor
-        topologyKey: kubernetes.io/hostname
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 50
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - agent-monitor
-          topologyKey: topology.kubernetes.io/zone
-
-topologySpreadConstraints:
-  - maxSkew: 1
-    topologyKey: topology.kubernetes.io/zone
-    whenUnsatisfiable: ScheduleAnyway
-    labelSelector:
-      matchLabels:
-        app.kubernetes.io/name: agent-monitor
-
+  ingressNamespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: ingress-nginx
 ingress:
   enabled: true
   className: nginx
@@ -82,10 +18,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      proxy_set_header Upgrade $http_upgrade;
-      proxy_set_header Connection "upgrade";
+    nginx.ingress.kubernetes.io/proxy-body-size: "1g"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -96,22 +29,13 @@ ingress:
           pathType: Prefix
   tls:
     - secretName: agent-monitor-production-tls
-      hosts:
-        - agent-monitor.example.com
-
+      hosts: [agent-monitor.example.com]
+config:
+  DASHBOARD_ALLOWED_HOSTS: agent-monitor.example.com
 monitoring:
-  enabled: true
   serviceMonitor:
     enabled: true
     interval: 15s
-    scrapeTimeout: 10s
-
 mcp:
   enabled: true
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
+  exposeService: false

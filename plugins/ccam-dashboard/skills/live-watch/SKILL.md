@@ -1,4 +1,5 @@
 ---
+name: live-watch
 description: >
   Polls the Agent Monitor /api/stats endpoint several times over a short window
   and reports the live deltas in active_sessions, active_agents, events_today,

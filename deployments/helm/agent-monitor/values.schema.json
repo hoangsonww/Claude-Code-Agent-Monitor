@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["replicaCount", "autoscaling", "persistence", "secrets"],
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "const": 1,
+      "description": "CCAM's SQLite backend requires exactly one active dashboard writer."
+    },
+    "autoscaling": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "const": false,
+          "description": "Horizontal scaling is unsupported while SQLite is the persistence backend."
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "const": true
+        },
+        "accessModes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "const": "ReadWriteOnce"
+          }
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "required": ["existingSecret", "create"],
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "minLength": 1
+        },
+        "create": {
+          "type": "boolean"
+        },
+        "dashboardToken": {
+          "type": "string"
+        },
+        "hookToken": {
+          "type": "string"
+        },
+        "mcpToken": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "create": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dashboardToken": {
+                "minLength": 32
+              },
+              "hookToken": {
+                "minLength": 32
+              },
+              "mcpToken": {
+                "minLength": 32
+              }
+            },
+            "required": ["dashboardToken", "hookToken", "mcpToken"]
+          }
+        }
+      ]
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "gatewayAPI": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "not": {
+        "properties": {
+          "ingress": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": ["enabled"]
+          },
+          "gatewayAPI": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": ["enabled"]
+          }
+        },
+        "required": ["ingress", "gatewayAPI"]
+      }
+    }
+  ]
+}

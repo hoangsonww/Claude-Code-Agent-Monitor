@@ -1,0 +1,107 @@
+name: ccam-full
+
+# Complete single-host production stack. The dashboard remains exactly one
+# SQLite writer. Nginx, MCP, Prometheus, and Grafana run around that writer.
+services:
+  agent-monitor:
+    extends:
+      file: docker-compose.yml
+      service: agent-monitor
+    ports:
+      - "${CCAM_DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-4820}:4820"
+    environment:
+      DASHBOARD_ALLOWED_HOSTS: ${DASHBOARD_ALLOWED_HOSTS:-localhost,agent-monitor,ccam-nginx}
+
+  mcp:
+    extends:
+      file: docker-compose.yml
+      service: mcp
+    profiles: []
+
+  nginx:
+    extends:
+      file: docker-compose.yml
+      service: nginx
+    profiles: []
+
+  prometheus:
+    image: prom/prometheus:v3.13.2@sha256:508729e0e2d18e11fd742a5a5ca70e557b940a93948c3c95fd0123a6fd538b69
+    restart: unless-stopped
+    depends_on:
+      agent-monitor:
+        condition: service_healthy
+    command:
+      - --config.file=/etc/prometheus/prometheus-docker.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.console.templates=/etc/prometheus/consoles
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - ${CCAM_SECRETS_DIR:-./deployments/secrets}:/run/ccam-secrets:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - ccam
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:13.1.2@sha256:d177053ab62253815f130d81504f77063baf5fd4ca93299d6048453bd31e047a
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/ccam-secrets/grafana-admin-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_UID: ccam-overview
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ${CCAM_SECRETS_DIR:-./deployments/secrets}:/run/ccam-secrets:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - ccam
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  ccam:
+    name: ccam-full
+
+volumes:
+  ccam-data:
+    name: ccam-full-data
+  ccam-config:
+    name: ccam-full-config
+  prometheus-data:
+    name: ccam-full-prometheus
+  grafana-data:
+    name: ccam-full-grafana

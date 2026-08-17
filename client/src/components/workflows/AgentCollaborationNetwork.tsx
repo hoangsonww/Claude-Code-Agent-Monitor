@@ -1,12 +1,64 @@
 /**
  * @file AgentCollaborationNetwork.tsx
- * @description Defines the AgentCollaborationNetwork React component that visualizes the collaboration between different agent types in a directed graph format using D3.js. The component takes in effectiveness data for each agent type and the edges representing their interactions, and renders an interactive force-directed graph where nodes represent agent types and edges represent the frequency of sequential runs. The graph includes tooltips for detailed information on hover and a legend for clarity.
+ * @description Defines the AgentCollaborationNetwork React component that visualizes the collaboration between different agent types in a directed graph format using D3.js. The component takes in effectiveness data and interaction edges, renders an interactive force-directed graph, and keeps data-driven legend labels bounded through pagination.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/workflows/AgentCollaborationNetwork.tsx`
+ * **Purpose:** Workflow analytics visualization built on D3; consumes aggregated session/run metrics from the workflows API.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Public surface
+ * - `AgentCollaborationNetworkProps` — exported API; see TSDoc on the symbol for behavior.
+ * - `AgentCollaborationNetwork` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **AgentCollaborationNetworkProps**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **AgentCollaborationNetwork**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import * as d3 from "d3";
+import { PaginatedLegend } from "../PaginatedLegend";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -564,29 +616,39 @@ export function AgentCollaborationNetwork({
           transition: "opacity 120ms ease-out",
         }}
       />
-      <div className="flex flex-wrap items-center gap-3 mt-3 px-1">
-        <span className="text-[10px] text-gray-600 uppercase tracking-widest font-medium">
-          {t("pipeline.legend")}
-        </span>
-        {nodes.map((n) => (
-          <div key={n.id} className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
-              style={{
-                backgroundColor: PALETTE[n.colorIndex] ?? PALETTE[0],
-                border: `1.5px solid ${STROKE_PALETTE[n.colorIndex] ?? STROKE_PALETTE[0]}`,
-              }}
-            />
-            <span className="text-[11px] text-gray-500">{n.id}</span>
+      <div className="mt-3 px-1">
+        <div className="mb-2 flex items-center gap-3">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-gray-600">
+            {t("pipeline.legend")}
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <svg width="20" height="8" className="flex-shrink-0">
+              <line x1="0" y1="4" x2="14" y2="4" stroke="#64748b" strokeWidth="1.5" />
+              <polygon points="14,1 20,4 14,7" fill="#64748b" />
+            </svg>
+            <span className="text-[11px] text-gray-500">{t("pipeline.legendDesc")}</span>
           </div>
-        ))}
-        <div className="flex items-center gap-1.5 ml-2">
-          <svg width="20" height="8" className="flex-shrink-0">
-            <line x1="0" y1="4" x2="14" y2="4" stroke="#64748b" strokeWidth="1.5" />
-            <polygon points="14,1 20,4 14,7" fill="#64748b" />
-          </svg>
-          <span className="text-[11px] text-gray-500">{t("pipeline.legendDesc")}</span>
         </div>
+        <PaginatedLegend
+          items={nodes}
+          pageSize={8}
+          getKey={(node) => node.id}
+          listClassName="flex flex-wrap items-center gap-x-4 gap-y-2"
+          renderItem={(node) => (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                style={{
+                  backgroundColor: PALETTE[node.colorIndex] ?? PALETTE[0],
+                  border: `1.5px solid ${STROKE_PALETTE[node.colorIndex] ?? STROKE_PALETTE[0]}`,
+                }}
+              />
+              <span className="max-w-40 truncate text-[11px] text-gray-500" title={node.id}>
+                {node.id}
+              </span>
+            </div>
+          )}
+        />
       </div>
     </div>
   );

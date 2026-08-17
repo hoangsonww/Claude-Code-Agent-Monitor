@@ -1,0 +1,6 @@
+interface:
+  display_name: "Endpoint Probe"
+  short_description: "Probes each major Agent Monitor API route — /api/stats,..."
+  default_prompt: "Use $endpoint-probe to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

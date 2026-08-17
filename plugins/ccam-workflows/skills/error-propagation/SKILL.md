@@ -1,4 +1,5 @@
 ---
+name: error-propagation
 description: >
   Trace error propagation through a multi-agent session by agent depth — where
   failures originated, the depth at which they appeared, and how they cascaded

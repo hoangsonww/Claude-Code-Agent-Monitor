@@ -105,3 +105,12 @@ bash .claude/skills/file-headers/scripts/check-headers.sh
 
 Exit code `0` = fully compliant; `1` = the printed files are missing headers.
 Run it before finishing any change-set that adds files, and during reviews.
+
+On every pull request, GitHub Actions runs
+`.claude/skills/file-headers/scripts/check-headers-pr.sh` against only the
+files changed in the PR diff (added, copied, renamed, or modified). Test locally
+before pushing:
+
+```bash
+bash .claude/skills/file-headers/scripts/check-headers-pr.sh origin/master HEAD
+```

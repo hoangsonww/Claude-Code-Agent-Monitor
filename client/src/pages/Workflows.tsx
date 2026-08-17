@@ -3,6 +3,65 @@
  * @description Displays comprehensive analytics on agent orchestration patterns, including DAGs of agent spawning, tool usage flows, collaboration networks, and session complexity metrics, with real-time updates and interactive filtering.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/pages/Workflows.tsx`
+ * **Purpose:** Workflow analytics visualization built on D3; consumes aggregated session/run metrics from the workflows API.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/eventBus`
+ * - `../lib/types`
+ * - `../components/workflows/WorkflowStats`
+ * - `../components/workflows/OrchestrationDAG`
+ * - `../components/workflows/ToolExecutionFlow`
+ * - `../components/workflows/AgentCollaborationNetwork`
+ * - `../components/workflows/SubagentEffectiveness`
+ * - `../components/workflows/WorkflowPatterns`
+ * - `../components/workflows/ModelDelegationFlow`
+ * - `../components/workflows/ErrorPropagationMap`
+ * - `../components/workflows/ConcurrencyTimeline`
+ *
+ * ## Public surface
+ * - `Workflows` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Workflows**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import {
   useCallback,
@@ -15,6 +74,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Workflow, RefreshCw, Download, AlertCircle, Info } from "lucide-react";
 import { api } from "../lib/api";
+import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import type { WorkflowData, WSMessage } from "../lib/types";
 
@@ -36,6 +96,8 @@ type StatusFilter = "all" | "active" | "completed";
 
 export function Workflows() {
   const { t } = useTranslation("workflows");
+  const [dataScope] = useDataScope();
+  const isCodexOnly = dataScope.provider === "codex";
   const [data, setData] = useState<WorkflowData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +117,7 @@ export function Workflows() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, dataScope]);
 
   useEffect(() => {
     fetchData();
@@ -150,17 +212,20 @@ export function Workflows() {
       {/* Stats Row */}
       <WorkflowStats stats={data.stats} />
 
-      {/* Workflow-tool runs (issue #167) - fleets ingested from on-disk journals */}
-      <div className="card p-4 space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
-            <Workflow className="w-4 h-4 text-violet-400" />
-            {t("runs.title")}
-          </h2>
-          <p className="text-xs text-gray-500 mt-0.5">{t("runs.subtitle")}</p>
+      {/* Workflow-tool runs are Claude-only on-disk journals. Codex has no
+          matching feature, so hide this rather than showing an empty card. */}
+      {!isCodexOnly && (
+        <div className="card p-4 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+              <Workflow className="w-4 h-4 text-violet-400" />
+              {t("runs.title")}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">{t("runs.subtitle")}</p>
+          </div>
+          <WorkflowRunsPanel statusFilter={statusFilter} />
         </div>
-        <WorkflowRunsPanel statusFilter={statusFilter} />
-      </div>
+      )}
 
       {/* Section 1: Agent Orchestration DAG */}
       <Section

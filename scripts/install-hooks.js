@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Installs Claude Code hooks that forward events to the Agent Dashboard.
- * Modifies ~/.claude/settings.json to add hook entries.
+ * Installs dashboard hooks. The exported installer writes Claude Code entries;
+ * the CLI chooser can also install the matching Codex hook set.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const fs = require("fs");
 const path = require("path");
+const readline = require("readline");
 
 const { getSettingsPath } = require("../server/lib/claude-home");
 const SETTINGS_PATH = getSettingsPath();
@@ -117,6 +118,26 @@ function isOurEntry(entry) {
   return false;
 }
 
+function getClaudeHookStatus() {
+  try {
+    if (!fs.existsSync(SETTINGS_PATH)) return { installed: false, path: SETTINGS_PATH, hooks: {} };
+    const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    const hooks = Object.fromEntries(
+      HOOK_TYPES.map((type) => [type, (settings.hooks?.[type] || []).some(isOurEntry)])
+    );
+    const hookLists = Object.values(settings.hooks || {}).filter(Array.isArray);
+    return {
+      installed: Object.values(hooks).every(Boolean),
+      has_dashboard_hooks: Object.values(hooks).some(Boolean),
+      has_existing_hooks: hookLists.some((entries) => entries.length > 0),
+      path: SETTINGS_PATH,
+      hooks,
+    };
+  } catch (err) {
+    return { installed: false, path: SETTINGS_PATH, hooks: {}, error: err.message };
+  }
+}
+
 function installHooks(silent = false) {
   // Host-only guard (issue #193): never write a container-internal handler path
   // into a (potentially bind-mounted) host settings file. Honors an explicit
@@ -171,9 +192,125 @@ function installHooks(silent = false) {
   return true;
 }
 
-if (require.main === module) {
-  // Non-zero exit on refusal/failure so CI and shell users notice it.
-  if (!installHooks(false)) process.exitCode = 1;
+function selectedFromArgs(args) {
+  if (args.includes("--both")) return ["claude", "codex"];
+  if (args.includes("--codex")) return ["codex"];
+  if (args.includes("--claude")) return ["claude"];
+  return null;
 }
 
-module.exports = { installHooks, isInsideContainer };
+function chooseHookProviders() {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return Promise.reject(
+      new Error(
+        "An interactive terminal is required. Use --claude, --codex, or --both for automation."
+      )
+    );
+  }
+  const options = [
+    { value: "claude", label: "Claude Code" },
+    { value: "codex", label: "Codex" },
+  ];
+  let cursor = 0;
+  const selected = new Set(["claude"]);
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  const draw = () => {
+    process.stdout.write("\x1b[2J\x1b[H");
+    process.stdout.write("Install dashboard hooks\n\n");
+    process.stdout.write("Use ↑/↓ to move, Space to select one or more, Enter to continue.\n\n");
+    for (let index = 0; index < options.length; index++) {
+      const option = options[index];
+      process.stdout.write(
+        `${index === cursor ? "›" : " "} [${selected.has(option.value) ? "x" : " "}] ${option.label}\n`
+      );
+    }
+  };
+  draw();
+  return new Promise((resolve, reject) => {
+    const onKey = (_str, key) => {
+      if (key?.name === "up") {
+        cursor = (cursor + options.length - 1) % options.length;
+        draw();
+      } else if (key?.name === "down") {
+        cursor = (cursor + 1) % options.length;
+        draw();
+      } else if (key?.name === "space") {
+        const value = options[cursor].value;
+        if (selected.has(value)) selected.delete(value);
+        else selected.add(value);
+        draw();
+      } else if (key?.name === "return") {
+        if (selected.size > 0) finish(resolve, [...selected]);
+      } else if (key?.name === "escape" || (key?.ctrl && key.name === "c")) {
+        finish(reject, new Error("Hook installation cancelled."));
+      }
+    };
+    const finish = (done, value) => {
+      process.stdin.off("keypress", onKey);
+      process.stdin.setRawMode(false);
+      process.stdout.write("\n");
+      done(value);
+    };
+    process.stdin.on("keypress", onKey);
+  });
+}
+
+function confirmOverwrite(selected) {
+  const statuses = {
+    claude: getClaudeHookStatus(),
+    codex: require("./install-codex-hooks").getCodexHookStatus(),
+  };
+  const detected = selected.filter((provider) => statuses[provider].has_existing_hooks);
+  if (detected.length === 0) return Promise.resolve(true);
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return Promise.resolve(true);
+  const dashboardInstalled = detected.filter((provider) => statuses[provider].has_dashboard_hooks);
+  process.stdout.write(
+    `Warning: existing ${detected.map((provider) => (provider === "claude" ? "Claude Code" : "Codex")).join(" and ")} hook configuration detected.\n` +
+      (dashboardInstalled.length
+        ? "Proceeding replaces this dashboard's existing entries and preserves unrelated hooks.\n"
+        : "Proceeding adds this dashboard's entries and preserves all existing hooks.\n") +
+      "Press Enter to override, or Esc to cancel.\n"
+  );
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  return new Promise((resolve) => {
+    const onKey = (_str, key) => {
+      if (key?.name !== "return" && key?.name !== "escape" && !(key?.ctrl && key.name === "c"))
+        return;
+      process.stdin.off("keypress", onKey);
+      process.stdin.setRawMode(false);
+      process.stdout.write("\n");
+      resolve(key?.name === "return");
+    };
+    process.stdin.on("keypress", onKey);
+  });
+}
+
+async function runInteractiveInstall() {
+  const selected = selectedFromArgs(process.argv.slice(2)) || (await chooseHookProviders());
+  if (!(await confirmOverwrite(selected))) {
+    console.log("Hook installation cancelled. No configuration was changed.");
+    return false;
+  }
+  const results = [];
+  if (selected.includes("claude")) results.push({ provider: "claude", ok: installHooks(false) });
+  if (selected.includes("codex")) {
+    const result = require("./install-codex-hooks").installCodexHooks({ silent: false });
+    results.push({ provider: "codex", ok: result.ok });
+  }
+  return results.every((result) => result.ok);
+}
+
+if (require.main === module) {
+  runInteractiveInstall()
+    .then((ok) => {
+      if (!ok) process.exitCode = 1;
+    })
+    .catch((err) => {
+      console.error(err.message);
+      process.exitCode = 1;
+    });
+}
+
+module.exports = { installHooks, getClaudeHookStatus, isInsideContainer, runInteractiveInstall };

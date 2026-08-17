@@ -10,11 +10,6 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
-  # Sticky sessions for WebSocket connections
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800
   ports:
     - name: http
       port: {{ .Values.service.port }}
@@ -23,11 +18,5 @@ spec:
       {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
       nodePort: {{ .Values.service.nodePort }}
       {{- end }}
-    {{- if .Values.mcp.enabled }}
-    - name: mcp
-      port: {{ .Values.mcp.port }}
-      targetPort: mcp
-      protocol: TCP
-    {{- end }}
   selector:
     {{- include "agent-monitor.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(node --test *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch --show-current)",
+      "Bash(git rev-parse *)",
+      "Bash(git ls-files*)",
+      "Bash(git ls-tree*)",
+      "Bash(git remote -v)",
+      "Bash(bash .claude/skills/file-headers/scripts/check-headers.sh)"
+    ],
+    "ask": [
+      "Bash(git add *)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(git merge*)",
+      "Bash(git rebase*)",
+      "Bash(git cherry-pick*)",
+      "Bash(git revert*)",
+      "Bash(git restore*)",
+      "Bash(npm install*)",
+      "Bash(npm ci*)",
+      "Bash(npm update*)",
+      "Bash(npm uninstall*)",
+      "Bash(npm run clear-data*)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(gh *)"
+    ],
+    "deny": [
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm --recursive --force *)",
+      "Bash(find * -delete*)",
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.development.local)",
+      "Read(.env.test.local)",
+      "Read(.env.production.local)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(secrets/**)",
+      "Read(**/secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/**)",
+      "Edit(.env)",
+      "Edit(.env.local)",
+      "Edit(.env.development.local)",
+      "Edit(.env.test.local)",
+      "Edit(.env.production.local)",
+      "Edit(**/.env)",
+      "Edit(**/.env.local)",
+      "Edit(**/.env.*.local)",
+      "Edit(secrets/**)",
+      "Edit(**/secrets/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "failIfUnavailable": false,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        ".env",
+        ".env.local",
+        ".env.development.local",
+        ".env.test.local",
+        ".env.production.local",
+        "secrets",
+        "~/.ssh",
+        "~/.aws",
+        "~/.config/gcloud",
+        "~/.kube"
+      ]
+    },
+    "credentials": {
+      "envVars": [
+        { "name": "ANTHROPIC_API_KEY", "mode": "deny" },
+        { "name": "ANTHROPIC_AUTH_TOKEN", "mode": "deny" },
+        { "name": "AWS_ACCESS_KEY_ID", "mode": "deny" },
+        { "name": "AWS_SECRET_ACCESS_KEY", "mode": "deny" },
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" },
+        { "name": "OPENAI_API_KEY", "mode": "deny" }
+      ]
+    }
+  }
+}

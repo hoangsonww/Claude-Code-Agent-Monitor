@@ -1,0 +1,11 @@
+{
+  "name": "ccam-runner",
+  "description": "Operate dashboard-launched Claude Code and Codex runs with safe launch, follow-up, stop, resume, model discovery, and persistent run-history workflows.",
+  "version": "2.0.8",
+  "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["claude-code", "codex", "run", "launcher", "resume", "agents"],
+  "skills": "./skills/"
+}

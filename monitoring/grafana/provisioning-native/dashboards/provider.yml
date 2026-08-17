@@ -1,0 +1,15 @@
+# Dashboard provider for the native stack. start-native.sh writes the absolute
+# dashboards path into .data/grafana-provisioning/dashboards/provider.runtime.yml
+# because Grafana requires an absolute path in file providers.
+apiVersion: 1
+
+providers:
+  - name: CCAM
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

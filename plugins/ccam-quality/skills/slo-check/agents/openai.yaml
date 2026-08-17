@@ -1,0 +1,6 @@
+interface:
+  display_name: "Slo Check"
+  short_description: "Define and check simple service-level objectives for Claude..."
+  default_prompt: "Use $slo-check to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

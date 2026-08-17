@@ -9,6 +9,8 @@
 
 const { Router } = require("express");
 const { db } = require("../db");
+const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
+const { parseProviders, sessionIdInProvidersClause } = require("../lib/provider-filter");
 
 const router = Router();
 
@@ -69,6 +71,19 @@ function buildWhere(filters) {
     params.push(filters.to);
   }
 
+  // Data-scope: restrict to events whose session was collected from a chosen
+  // set of machines. `events` carries only session_id, so filter via subquery.
+  const scope = sessionIdInSourcesClause(filters.sources, "session_id");
+  if (scope.clause) {
+    clauses.push(scope.clause);
+    params.push(...scope.params);
+  }
+  const providerScope = sessionIdInProvidersClause(filters.providers, "session_id");
+  if (providerScope.clause) {
+    clauses.push(providerScope.clause);
+    params.push(...providerScope.params);
+  }
+
   return {
     sql: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
     params,
@@ -88,6 +103,8 @@ router.get("/", (req, res) => {
     q: typeof req.query.q === "string" && req.query.q.trim() !== "" ? req.query.q.trim() : null,
     from: parseDate(req.query.from),
     to: parseDate(req.query.to),
+    sources: parseSources(req),
+    providers: parseProviders(req),
   };
 
   const { sql: whereSql, params: whereParams } = buildWhere(filters);
@@ -102,17 +119,25 @@ router.get("/", (req, res) => {
 });
 
 // GET /api/events/facets — distinct event_type / tool_name values in the DB.
-router.get("/facets", (_req, res) => {
+router.get("/facets", (req, res) => {
+  const { sql: whereSql, params } = buildWhere({
+    sources: parseSources(req),
+    providers: parseProviders(req),
+  });
+  const eventTypeWhere = whereSql
+    ? `${whereSql} AND event_type IS NOT NULL`
+    : "WHERE event_type IS NOT NULL";
+  const toolNameWhere = whereSql
+    ? `${whereSql} AND tool_name IS NOT NULL`
+    : "WHERE tool_name IS NOT NULL";
   const eventTypes = db
-    .prepare(
-      "SELECT DISTINCT event_type FROM events WHERE event_type IS NOT NULL ORDER BY event_type"
-    )
-    .all()
+    .prepare(`SELECT DISTINCT event_type FROM events ${eventTypeWhere} ORDER BY event_type`)
+    .all(...params)
     .map((r) => r.event_type);
 
   const toolNames = db
-    .prepare("SELECT DISTINCT tool_name FROM events WHERE tool_name IS NOT NULL ORDER BY tool_name")
-    .all()
+    .prepare(`SELECT DISTINCT tool_name FROM events ${toolNameWhere} ORDER BY tool_name`)
+    .all(...params)
     .map((r) => r.tool_name);
 
   res.json({ event_types: eventTypes, tool_names: toolNames });

@@ -1,4 +1,5 @@
 ---
+name: benchmark
 description: >
   Benchmark one session (or a small recent set) against the rolling average using
   Agent Monitor data — cost, total tokens, tool count, and workflow complexity

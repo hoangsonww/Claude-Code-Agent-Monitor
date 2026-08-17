@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sprint Summary"
+  short_description: "Summarize a sprint's worth of Claude Code activity —..."
+  default_prompt: "Use $sprint-summary to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

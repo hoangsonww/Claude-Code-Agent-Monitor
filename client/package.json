@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.22.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -18,10 +21,10 @@
     "i18next": "^26.0.8",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.474.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-i18next": "^17.0.4",
-    "react-router-dom": "^6.28.2"
+    "react-router": "8.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -29,15 +32,15 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/d3": "^7.4.3",
     "@types/d3-sankey": "^0.12.5",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "5.2.0",
     "autoprefixer": "^10.4.20",
     "jsdom": "^27.0.1",
-    "postcss": "^8.5.1",
+    "postcss": "8.5.25",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
-    "vite": "^6.1.0",
-    "vitest": "^3.2.4"
+    "vite": "7.3.6",
+    "vitest": "3.2.7"
   }
 }

@@ -3,6 +3,85 @@
  * @description Core functions for registering tools in the MCP server. This module defines the ToolRegistrar type, which is a function that can be used to register a tool with a name, description, input schema, and handler function. It also provides factory functions to create different types of registrars: one that registers tools directly with the MCP server and collects entries for REPL mode, and another that only collects entries without registering with the MCP server (for pure REPL mode). The registrars handle error logging and result formatting to ensure consistent behavior across different tool implementations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/mcp/src/core/tool-registry.ts`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `./logger.js`
+ * - `./tool-result.js`
+ *
+ * ## Public surface
+ * - `ToolHandler` — exported API; see TSDoc on the symbol for behavior.
+ * - `ToolRegistrar` — exported API; see TSDoc on the symbol for behavior.
+ * - `ToolEntry` — exported API; see TSDoc on the symbol for behavior.
+ * - `createToolRegistrar` — exported API; see TSDoc on the symbol for behavior.
+ * - `createDualRegistrar` — exported API; see TSDoc on the symbol for behavior.
+ * - `createCollectorRegistrar` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **ToolHandler**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **ToolRegistrar**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **ToolEntry**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **createToolRegistrar**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **createDualRegistrar**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * **createCollectorRegistrar**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -95,7 +174,27 @@ export function createDualRegistrar(
  * thrown errors propagate as real exceptions to the REPL's own try/catch.
  */
 export function createCollectorRegistrar(collector: ToolEntry[]): ToolRegistrar {
-  return (name, description, _inputSchema, handler) => {
-    collector.push({ name, description, handler });
+  return (name, description, inputSchema, handler) => {
+    const objectSchema = z.object(inputSchema);
+    collector.push({
+      name,
+      description,
+      handler: async (args) => handler(objectSchema.parse(args)),
+    });
   };
+}
+
+/**
+ * Resolve the registrar for one tool domain. Protocol transports provide a
+ * live MCP server, while the REPL injects a collector registrar. Keeping this
+ * decision here lets every domain declaration run unchanged in both surfaces.
+ */
+export function registrarFor(context: {
+  server?: McpServer;
+  register?: ToolRegistrar;
+  logger: Logger;
+}): ToolRegistrar {
+  if (context.register) return context.register;
+  if (context.server) return createToolRegistrar(context.server, context.logger);
+  throw new Error("Tool context requires either an MCP server or a registrar override.");
 }

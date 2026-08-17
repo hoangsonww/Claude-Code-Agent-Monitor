@@ -1,18 +1,5 @@
-{{- if .Values.podDisruptionBudget.enabled -}}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "agent-monitor.fullname" . }}
-  labels:
-    {{- include "agent-monitor.labels" . | nindent 4 }}
-spec:
-  {{- if .Values.podDisruptionBudget.minAvailable }}
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
-  {{- end }}
-  {{- if .Values.podDisruptionBudget.maxUnavailable }}
-  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
-  {{- end }}
-  selector:
-    matchLabels:
-      {{- include "agent-monitor.selectorLabels" . | nindent 6 }}
-{{- end }}
+{{/*
+A PodDisruptionBudget with minAvailable: 1 would block voluntary maintenance for
+CCAM's intentional one-pod SQLite topology. Availability comes from durable
+storage, verified backups, and controlled Recreate rollouts instead.
+*/}}

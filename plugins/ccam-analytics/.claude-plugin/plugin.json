@@ -1,16 +1,10 @@
 {
   "name": "ccam-analytics",
   "description": "Deep analytics and monitoring for Claude Code sessions — cost tracking, token usage breakdowns, usage trends, and productivity scoring powered by Agent Monitor.",
-  "version": "1.0.0",
-  "author": {
-    "name": "Son Nguyen",
-    "url": "https://github.com/hoangsonww"
-  },
+  "version": "2.0.8",
+  "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
   "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor.git"
-  },
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
   "license": "MIT",
   "keywords": [
     "analytics",
@@ -20,5 +14,6 @@
     "productivity",
     "claude-code"
   ],
-  "categories": ["analytics", "monitoring", "productivity"]
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
 }

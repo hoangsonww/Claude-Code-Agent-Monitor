@@ -1,4 +1,5 @@
 ---
+name: cost-breakdown
 description: >
   Break down Claude Code costs using the Agent Monitor pricing engine.
   Shows per-model costs (input, output, cache_read, cache_write at $/Mtok rates),

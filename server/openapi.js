@@ -79,12 +79,13 @@ function createOpenApiSpec() {
     ],
     tags: [
       { name: "Health", description: "Service liveness checks" },
-      { name: "Sessions", description: "Claude Code session lifecycle" },
+      { name: "Metrics", description: "Prometheus / OpenMetrics scrape endpoint" },
+      { name: "Sessions", description: "Claude Code and Codex session lifecycle" },
       { name: "Agents", description: "Main/subagent records and status" },
       { name: "Events", description: "Event stream persistence" },
       { name: "Stats", description: "High-level dashboard counters" },
       { name: "Analytics", description: "Aggregated analytics views" },
-      { name: "Hooks", description: "Claude hook ingestion endpoint" },
+      { name: "Hooks", description: "Claude Code and Codex hook ingestion endpoints" },
       { name: "Pricing", description: "Model pricing and token cost calculations" },
       { name: "Workflows", description: "Workflow intelligence and session drill-in" },
       { name: "Settings", description: "Operational maintenance endpoints" },
@@ -101,6 +102,11 @@ function createOpenApiSpec() {
         name: "Webhooks",
         description:
           "Universal webhook delivery for fired alerts: target CRUD (Slack/Discord/Teams/generic), test probe, and delivery log. Secrets are never returned.",
+      },
+      {
+        name: "Remote Sources",
+        description:
+          "Config for remote SSH machines the dashboard pulls Claude Code history from. No secrets are stored — SSH auth defers to the host's SSH stack (agent, ~/.ssh/config, keys).",
       },
       { name: "Documentation", description: "OpenAPI/Swagger endpoints" },
     ],
@@ -149,7 +155,7 @@ function createOpenApiSpec() {
             type: "string",
             enum: ["active", "completed", "error", "abandoned"],
           },
-          description: "Filter by session status",
+          description: "Filter by persisted session status",
         },
         AgentStatusQuery: {
           name: "status",
@@ -177,6 +183,22 @@ function createOpenApiSpec() {
             enum: ["all", "active", "completed", "error", "abandoned"],
           },
           description: "Filter workflow aggregates by session status",
+        },
+        SourcesQuery: {
+          name: "sources",
+          in: "query",
+          required: false,
+          schema: { type: "string" },
+          description:
+            "Comma-separated list of data-source ids to include. The built-in local history is the id `local`; remote SSH machines use their `remote_sources.id`. Omit to include every source. Filters on the `sessions.source` column.",
+        },
+        ProvidersQuery: {
+          name: "providers",
+          in: "query",
+          required: false,
+          schema: { type: "string", example: "claude,codex" },
+          description:
+            "Comma-separated product providers to include: `claude`, `codex`, or both. Omit to include every provider.",
         },
       },
       schemas: {
@@ -209,6 +231,117 @@ function createOpenApiSpec() {
           type: "object",
           additionalProperties: { type: "integer" },
         },
+        SessionTodoItem: {
+          type: "object",
+          required: ["id", "text", "status", "order", "agentId", "agentType"],
+          properties: {
+            id: { type: "string" },
+            text: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["pending", "in_progress", "completed", "cancelled", "unknown"],
+            },
+            sourceStatus: { type: "string", nullable: true },
+            order: { type: "integer" },
+            agentId: { type: "string" },
+            agentType: { type: "string" },
+            description: { type: "string", nullable: true },
+          },
+        },
+        SessionTodoOwnerSummary: {
+          type: "object",
+          required: ["agentId", "agentType", "completed", "total"],
+          properties: {
+            agentId: { type: "string" },
+            agentType: { type: "string" },
+            completed: { type: "integer" },
+            total: { type: "integer" },
+          },
+        },
+        SessionTodoSummary: {
+          type: "object",
+          required: [
+            "total",
+            "completed",
+            "inProgress",
+            "pending",
+            "cancelled",
+            "unknown",
+            "percentComplete",
+            "previewItems",
+            "overflowCount",
+            "ownerBreakdown",
+          ],
+          properties: {
+            total: { type: "integer" },
+            completed: { type: "integer" },
+            inProgress: { type: "integer" },
+            pending: { type: "integer" },
+            cancelled: { type: "integer" },
+            unknown: { type: "integer" },
+            percentComplete: { type: "integer", minimum: 0, maximum: 100, nullable: true },
+            activeText: { type: "string", nullable: true },
+            sourceTool: { type: "string", nullable: true },
+            updatedAt: { type: "string", format: "date-time", nullable: true },
+            previewItems: {
+              type: "array",
+              maxItems: 5,
+              items: { $ref: "#/components/schemas/SessionTodoItem" },
+            },
+            overflowCount: { type: "integer", minimum: 0 },
+            ownerBreakdown: {
+              type: "array",
+              maxItems: 200,
+              items: { $ref: "#/components/schemas/SessionTodoOwnerSummary" },
+            },
+          },
+        },
+        SessionTodoSnapshot: {
+          type: "object",
+          required: [
+            "provider",
+            "source",
+            "confidence",
+            "items",
+            "includesSubagents",
+            "total",
+            "completed",
+            "inProgress",
+            "pending",
+            "cancelled",
+            "unknown",
+            "percentComplete",
+            "ownerBreakdown",
+          ],
+          properties: {
+            provider: { type: "string", enum: ["claude", "codex"] },
+            source: { type: "string", enum: ["transcript", "mixed"] },
+            sourceTool: { type: "string", nullable: true },
+            sourceLine: { type: "integer", nullable: true },
+            updatedAt: { type: "string", format: "date-time", nullable: true },
+            explanation: { type: "string", nullable: true },
+            confidence: { type: "string", enum: ["full", "partial"] },
+            items: {
+              type: "array",
+              maxItems: 200,
+              items: { $ref: "#/components/schemas/SessionTodoItem" },
+            },
+            total: { type: "integer" },
+            completed: { type: "integer" },
+            inProgress: { type: "integer" },
+            pending: { type: "integer" },
+            cancelled: { type: "integer" },
+            unknown: { type: "integer" },
+            percentComplete: { type: "integer", minimum: 0, maximum: 100, nullable: true },
+            activeText: { type: "string", nullable: true },
+            includesSubagents: { type: "boolean" },
+            ownerBreakdown: {
+              type: "array",
+              maxItems: 200,
+              items: { $ref: "#/components/schemas/SessionTodoOwnerSummary" },
+            },
+          },
+        },
         Session: {
           type: "object",
           required: ["id", "status", "started_at", "updated_at"],
@@ -228,9 +361,21 @@ function createOpenApiSpec() {
               nullable: true,
               description: "JSON-encoded session metadata",
             },
+            prompt_preview: {
+              type: "string",
+              nullable: true,
+              description:
+                "Up to two newest distinct real human prompts, newline-separated, for compact card context. Claude derives the persisted summary from its local JSONL cache; Codex derives it from durable user-message records. Historical rows fall back to the main-agent task.",
+            },
             updated_at: { type: "string", format: "date-time" },
             agent_count: { type: "integer", nullable: true },
-            last_activity: { type: "string", format: "date-time", nullable: true },
+            last_activity: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description:
+                "Timestamp of the latest durable session event, falling back to lifecycle timestamps only for eventless historical rows. Unlike updated_at, metadata bookkeeping does not change this value.",
+            },
             cost: { type: "number", nullable: true },
             awaiting_input_since: {
               type: "string",
@@ -238,6 +383,25 @@ function createOpenApiSpec() {
               nullable: true,
               description:
                 "ISO timestamp set when Claude Code is blocked waiting for the user (permission prompt or input request). Null when not waiting; cleared on the next non-Notification hook event.",
+            },
+            awaiting_reason: {
+              type: "string",
+              enum: ["notification", "stop", "session_start", "interrupted"],
+              nullable: true,
+              description:
+                "Why the session is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
+            },
+            todo_summary: {
+              allOf: [{ $ref: "#/components/schemas/SessionTodoSummary" }],
+              nullable: true,
+              description:
+                "Compact task/checklist/plan state for the latest top-level work item on Sessions-list rows. Null when that work item emitted no task state or ended with unfinished tracker state; fully completed history remains available.",
+            },
+            todo_snapshot: {
+              allOf: [{ $ref: "#/components/schemas/SessionTodoSnapshot" }],
+              nullable: true,
+              description:
+                "Full latest owner-attributed task state for Session Detail. Null when no observable task state exists.",
             },
           },
         },
@@ -265,12 +429,26 @@ function createOpenApiSpec() {
               description: "JSON-encoded agent metadata",
             },
             updated_at: { type: "string", format: "date-time" },
+            last_activity: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description:
+                "Latest durable event attributed to this agent. List/detail reads derive it independently of mutable updated_at bookkeeping; lightweight live WebSocket frames may omit it.",
+            },
             awaiting_input_since: {
               type: "string",
               format: "date-time",
               nullable: true,
               description:
                 "ISO timestamp set when this agent is blocked waiting for user input. Cleared on the next non-Notification hook event for the session.",
+            },
+            awaiting_reason: {
+              type: "string",
+              enum: ["notification", "stop", "session_start", "interrupted"],
+              nullable: true,
+              description:
+                "Why this agent is awaiting input: 'notification' (Claude asked the user something), 'stop' (turn completed, waiting for the next prompt), 'session_start' (new/resumed session waiting for the first prompt), or 'interrupted' (watchdog/Esc recovery). Null when not waiting; cleared alongside awaiting_input_since.",
             },
           },
         },
@@ -294,9 +472,14 @@ function createOpenApiSpec() {
         },
         HealthResponse: {
           type: "object",
-          required: ["status", "timestamp"],
+          required: ["status", "timestamp", "version"],
           properties: {
             status: { type: "string", enum: ["ok"] },
+            version: {
+              type: "string",
+              description: "Dashboard release version from package.json",
+              example: "2.0.8",
+            },
             timestamp: { type: "string", format: "date-time" },
           },
         },
@@ -382,7 +565,7 @@ function createOpenApiSpec() {
           properties: {
             type: {
               type: "string",
-              enum: ["text", "tool_use", "tool_result", "thinking"],
+              enum: ["text", "tool_use", "tool_result", "thinking", "image"],
             },
             text: { type: "string" },
             name: { type: "string", description: "Tool name when type === tool_use." },
@@ -396,17 +579,42 @@ function createOpenApiSpec() {
             },
             output: { type: "string", description: "Tool output text when type === tool_result." },
             is_error: { type: "boolean" },
+            src: {
+              type: "string",
+              description:
+                "Same-origin persisted-image URL or validated inline raster data URL when type === image.",
+            },
+            alt: {
+              type: "string",
+              description: "Accessible image description when type === image.",
+            },
           },
         },
         TranscriptMessage: {
           type: "object",
           required: ["type", "content"],
           properties: {
-            type: { type: "string", enum: ["user", "assistant"] },
+            type: {
+              type: "string",
+              enum: ["user", "assistant", "session_event"],
+              description:
+                "Raw line type. session_event is a synthetic marker (e.g. a /rename) injected by the server, not a real transcript line. Mid-turn queued messages (queued_command attachments) surface as type user.",
+            },
+            sender: {
+              type: "string",
+              enum: ["user", "assistant", "orchestrator", "system", "tool"],
+              description:
+                "TRUE sender of the line: the human (user), the agent (assistant), a subagent's task assigned by its parent (orchestrator), a harness injection such as a task-notification or [SYSTEM NOTIFICATION …] banner (system), or a tool_result echoed on a user line (tool).",
+            },
             timestamp: { type: "string", format: "date-time", nullable: true },
             content: {
               type: "array",
               items: { $ref: "#/components/schemas/TranscriptContent" },
+            },
+            line: {
+              type: "integer",
+              minimum: 1,
+              description: "JSONL line number the message was parsed from (pagination cursor).",
             },
             model: { type: "string" },
             usage: {
@@ -414,7 +622,18 @@ function createOpenApiSpec() {
               properties: {
                 input_tokens: { type: "integer", minimum: 0 },
                 output_tokens: { type: "integer", minimum: 0 },
+                cache_read_input_tokens: { type: "integer", minimum: 0 },
+                cache_creation_input_tokens: { type: "integer", minimum: 0 },
               },
+            },
+            event_kind: {
+              type: "string",
+              enum: ["rename"],
+              description: "For type === session_event: the TUI action this marker represents.",
+            },
+            title: {
+              type: "string",
+              description: "For type === session_event: the new session title.",
             },
           },
         },
@@ -850,6 +1069,61 @@ function createOpenApiSpec() {
           required: ["pricing"],
           properties: { pricing: { $ref: "#/components/schemas/PricingRule" } },
         },
+        GptPricingRule: {
+          type: "object",
+          required: ["model_pattern", "display_name", "updated_at"],
+          description:
+            "OpenAI/Codex token pricing. Standard requests use short rates at or below 272K input tokens and long rates above that; Fast requests use the explicit fast rate card.",
+          properties: {
+            model_pattern: { type: "string" },
+            display_name: { type: "string" },
+            short_input_per_mtok: { type: "number" },
+            short_cached_input_per_mtok: { type: "number" },
+            short_cache_write_per_mtok: { type: "number" },
+            short_output_per_mtok: { type: "number" },
+            long_input_per_mtok: { type: "number" },
+            long_cached_input_per_mtok: { type: "number" },
+            long_cache_write_per_mtok: { type: "number" },
+            long_output_per_mtok: { type: "number" },
+            fast_input_per_mtok: { type: "number" },
+            fast_cached_input_per_mtok: { type: "number" },
+            fast_cache_write_per_mtok: { type: "number" },
+            fast_output_per_mtok: { type: "number" },
+            updated_at: { type: "string", format: "date-time" },
+          },
+        },
+        GptPricingUpsertRequest: {
+          type: "object",
+          required: ["model_pattern", "display_name"],
+          properties: {
+            model_pattern: { type: "string" },
+            display_name: { type: "string" },
+            short_input_per_mtok: { type: "number" },
+            short_cached_input_per_mtok: { type: "number" },
+            short_cache_write_per_mtok: { type: "number" },
+            short_output_per_mtok: { type: "number" },
+            long_input_per_mtok: { type: "number" },
+            long_cached_input_per_mtok: { type: "number" },
+            long_cache_write_per_mtok: { type: "number" },
+            long_output_per_mtok: { type: "number" },
+            fast_input_per_mtok: { type: "number" },
+            fast_cached_input_per_mtok: { type: "number" },
+            fast_cache_write_per_mtok: { type: "number" },
+            fast_output_per_mtok: { type: "number" },
+          },
+        },
+        GptPricingListResponse: {
+          type: "object",
+          required: ["pricing"],
+          properties: {
+            pricing: { type: "array", items: { $ref: "#/components/schemas/GptPricingRule" } },
+          },
+        },
+        GptPricingUpsertResponse: {
+          type: "object",
+          required: ["pricing"],
+          properties: { pricing: { $ref: "#/components/schemas/GptPricingRule" } },
+        },
         CostBreakdownItem: {
           type: "object",
           required: [
@@ -1080,8 +1354,12 @@ function createOpenApiSpec() {
             },
             server: {
               type: "object",
-              required: ["uptime", "node_version", "platform", "ws_connections"],
+              required: ["version", "uptime", "node_version", "platform", "ws_connections"],
               properties: {
+                version: {
+                  type: "string",
+                  description: "Dashboard release version from package.json",
+                },
                 uptime: { type: "number" },
                 node_version: { type: "string" },
                 platform: { type: "string" },
@@ -1122,6 +1400,7 @@ function createOpenApiSpec() {
         ImportGuideResponse: {
           type: "object",
           properties: {
+            provider: { type: "string", enum: ["claude", "codex"] },
             platform: { type: "string" },
             default_projects_dir: { type: "string" },
             default_projects_dir_display: { type: "string" },
@@ -1155,6 +1434,7 @@ function createOpenApiSpec() {
           required: ["ok", "source", "imported", "skipped", "errors"],
           properties: {
             ok: { type: "boolean", enum: [true] },
+            provider: { type: "string", enum: ["claude", "codex"] },
             source: { type: "string", enum: ["default", "path", "upload"] },
             path: { type: "string", nullable: true },
             imported: { type: "integer" },
@@ -1190,16 +1470,38 @@ function createOpenApiSpec() {
         },
         ResetPricingResponse: {
           type: "object",
-          required: ["ok", "pricing"],
+          required: ["ok", "provider", "pricing", "gpt_pricing"],
           properties: {
             ok: { type: "boolean", enum: [true] },
+            provider: { type: "string", enum: ["claude", "codex", "both"] },
             pricing: { type: "array", items: { $ref: "#/components/schemas/PricingRule" } },
+            gpt_pricing: {
+              type: "array",
+              items: { $ref: "#/components/schemas/GptPricingRule" },
+            },
           },
         },
         ExportResponse: {
           type: "object",
-          required: ["exported_at", "sessions", "agents", "events", "token_usage", "model_pricing"],
+          required: [
+            "format",
+            "version",
+            "exported_at",
+            "sessions",
+            "agents",
+            "events",
+            "token_usage",
+            "model_pricing",
+            "gpt_model_pricing",
+          ],
           properties: {
+            format: {
+              type: "string",
+              description:
+                'Bundle format marker (always "ccam-export" for exports from this version).',
+              example: "ccam-export",
+            },
+            version: { type: "integer", description: "Bundle schema version.", example: 2 },
             exported_at: { type: "string", format: "date-time" },
             sessions: { type: "array", items: { $ref: "#/components/schemas/Session" } },
             agents: { type: "array", items: { $ref: "#/components/schemas/Agent" } },
@@ -1211,7 +1513,56 @@ function createOpenApiSpec() {
                 additionalProperties: true,
               },
             },
+            workflows: { type: "array", items: { type: "object", additionalProperties: true } },
+            dashboard_runs: {
+              type: "array",
+              items: { type: "object", additionalProperties: true },
+            },
+            alert_rules: { type: "array", items: { type: "object", additionalProperties: true } },
             model_pricing: { type: "array", items: { $ref: "#/components/schemas/PricingRule" } },
+            gpt_model_pricing: {
+              type: "array",
+              items: { $ref: "#/components/schemas/GptPricingRule" },
+            },
+          },
+        },
+        ImportResponse: {
+          type: "object",
+          required: [
+            "ok",
+            "sessions_imported",
+            "sessions_skipped",
+            "agents",
+            "events",
+            "token_usage",
+            "workflows",
+            "dashboard_runs",
+            "alert_rules",
+            "model_pricing",
+            "gpt_model_pricing",
+            "errors",
+          ],
+          description:
+            "Per-table counts from restoring an export bundle. Session-scoped counts are rows newly inserted; sessions_skipped counts sessions already present (skipped whole to stay idempotent).",
+          properties: {
+            ok: { type: "boolean" },
+            source: { type: "string", description: "Uploaded filename or server-side path read." },
+            format: {
+              type: "string",
+              nullable: true,
+              description: "Bundle format marker, or null for a legacy export.",
+            },
+            sessions_imported: { type: "integer" },
+            sessions_skipped: { type: "integer" },
+            agents: { type: "integer" },
+            events: { type: "integer" },
+            token_usage: { type: "integer" },
+            workflows: { type: "integer" },
+            dashboard_runs: { type: "integer" },
+            alert_rules: { type: "integer" },
+            model_pricing: { type: "integer" },
+            gpt_model_pricing: { type: "integer" },
+            errors: { type: "integer" },
           },
         },
         CleanupRequest: {
@@ -1277,6 +1628,30 @@ function createOpenApiSpec() {
               description:
                 "Case-insensitive search across `id` / `name` / `cwd`. Composes with the status filter when both are present.",
             },
+            {
+              name: "cwd",
+              in: "query",
+              required: false,
+              style: "form",
+              explode: true,
+              schema: { type: "array", items: { type: "string" } },
+              description:
+                "One or more exact working directories. Repeat `cwd` to include sessions from multiple projects; combines with status and text search.",
+            },
+            {
+              name: "sort_by",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
+              description: "Session ordering dimension.",
+            },
+            {
+              name: "sort_desc",
+              in: "query",
+              required: false,
+              schema: { type: "boolean", default: true },
+              description: "Sort descending when true and ascending when false.",
+            },
             { $ref: "#/components/parameters/LimitQuery" },
             { $ref: "#/components/parameters/OffsetQuery" },
           ],
@@ -1336,7 +1711,11 @@ function createOpenApiSpec() {
           tags: ["Sessions"],
           summary: "Get session details",
           operationId: "getSession",
-          parameters: [{ $ref: "#/components/parameters/SessionIdPath" }],
+          parameters: [
+            { $ref: "#/components/parameters/SessionIdPath" },
+            { $ref: "#/components/parameters/SourcesQuery" },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+          ],
           responses: {
             200: {
               description: "Session with associated agents/events",
@@ -1396,7 +1775,11 @@ function createOpenApiSpec() {
           description:
             "Returns aggregated counts for the SessionOverview panel: events, events-by-type, top tool usage, error count, agent type/status counts, subagent type breakdown, and token totals. All aggregation runs in SQL — cheap to call even for sessions with tens of thousands of events. Frontend debounces calls to this endpoint on `new_event` / `agent_*` / `session_updated` websocket frames so counters track the running session.",
           operationId: "getSessionStats",
-          parameters: [{ $ref: "#/components/parameters/SessionIdPath" }],
+          parameters: [
+            { $ref: "#/components/parameters/SessionIdPath" },
+            { $ref: "#/components/parameters/SourcesQuery" },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+          ],
           responses: {
             200: {
               description: "Aggregated session stats",
@@ -1702,6 +2085,10 @@ function createOpenApiSpec() {
           tags: ["Events"],
           summary: "Distinct event_type and tool_name values available in the DB",
           operationId: "listEventFacets",
+          parameters: [
+            { $ref: "#/components/parameters/SourcesQuery" },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+          ],
           responses: {
             200: {
               description: "Facet values for populating filter dropdowns",
@@ -1725,6 +2112,38 @@ function createOpenApiSpec() {
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/StatsResponse" },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/metrics": {
+        get: {
+          tags: ["Metrics"],
+          summary: "Prometheus metrics exposition",
+          operationId: "getMetrics",
+          description:
+            "Exposes the dashboard's live counters (sessions/agents by status, " +
+            "event and token totals, connected realtime clients, configured " +
+            "remote sources, process uptime/memory, build version) in the " +
+            "Prometheus text-exposition format (v0.0.4) for scraping into " +
+            "Prometheus / Grafana. Read-only. Mounted under `/api`, so it honors " +
+            "the optional `DASHBOARD_TOKEN` guard — point the scrape job's bearer " +
+            "token at it when the server is bound to a LAN.",
+          responses: {
+            200: {
+              description: "Prometheus text exposition (v0.0.4).",
+              content: {
+                "text/plain": {
+                  schema: { type: "string" },
+                  example:
+                    "# HELP ccam_up 1 when the dashboard API is serving this scrape.\n" +
+                    "# TYPE ccam_up gauge\n" +
+                    "ccam_up 1\n" +
+                    "# HELP ccam_sessions Number of sessions by lifecycle status.\n" +
+                    "# TYPE ccam_sessions gauge\n" +
+                    'ccam_sessions{status="active"} 3\n',
                 },
               },
             },
@@ -1781,6 +2200,50 @@ function createOpenApiSpec() {
           },
         },
       },
+      "/api/hooks/codex": {
+        post: {
+          tags: ["Hooks"],
+          summary: "Queue a non-blocking Codex rollout ingest",
+          operationId: "ingestCodexHook",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["hook_type", "data"],
+                  properties: {
+                    hook_type: {
+                      type: "string",
+                      description:
+                        "Codex lifecycle hook (SessionStart, UserPromptSubmit, PostToolUse, Stop, or SessionEnd)",
+                    },
+                    data: {
+                      type: "object",
+                      properties: { transcript_path: { type: "string" } },
+                      additionalProperties: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            202: {
+              description: "Hook acknowledged; rollout parsing continues asynchronously",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["ok", "queued"],
+                    properties: { ok: { type: "boolean" }, queued: { type: "boolean" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
       "/api/pricing": {
         get: {
           tags: ["Pricing"],
@@ -1824,6 +2287,74 @@ function createOpenApiSpec() {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },
                 },
+              },
+            },
+          },
+        },
+      },
+      "/api/pricing/gpt": {
+        get: {
+          tags: ["Pricing"],
+          summary: "List OpenAI/Codex pricing rules",
+          operationId: "listGptPricingRules",
+          responses: {
+            200: {
+              description: "GPT pricing rules",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/GptPricingListResponse" },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ["Pricing"],
+          summary: "Create or update an OpenAI/Codex pricing rule",
+          operationId: "upsertGptPricingRule",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GptPricingUpsertRequest" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "GPT pricing rule stored",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/GptPricingUpsertResponse" },
+                },
+              },
+            },
+            400: {
+              description: "Invalid request body",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
+      "/api/pricing/gpt/{pattern}": {
+        delete: {
+          tags: ["Pricing"],
+          summary: "Delete an OpenAI/Codex pricing rule",
+          operationId: "deleteGptPricingRule",
+          parameters: [{ $ref: "#/components/parameters/PatternPath" }],
+          responses: {
+            200: {
+              description: "Rule deleted",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/DeleteOkResponse" } },
+              },
+            },
+            404: {
+              description: "Rule not found",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
               },
             },
           },
@@ -1902,7 +2433,10 @@ function createOpenApiSpec() {
           tags: ["Workflows"],
           summary: "Get workflow intelligence aggregates",
           operationId: "getWorkflowIntelligence",
-          parameters: [{ $ref: "#/components/parameters/WorkflowStatusQuery" }],
+          parameters: [
+            { $ref: "#/components/parameters/WorkflowStatusQuery" },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+          ],
           responses: {
             200: {
               description: "Workflow aggregate data",
@@ -1928,7 +2462,10 @@ function createOpenApiSpec() {
           tags: ["Workflows"],
           summary: "Get workflow drill-in for one session",
           operationId: "getWorkflowSession",
-          parameters: [{ $ref: "#/components/parameters/SessionIdPath" }],
+          parameters: [
+            { $ref: "#/components/parameters/SessionIdPath" },
+            { $ref: "#/components/parameters/ProvidersQuery" },
+          ],
           responses: {
             200: {
               description: "Workflow session detail",
@@ -2041,11 +2578,76 @@ function createOpenApiSpec() {
           },
         },
       },
+      "/api/settings/install-hooks": {
+        post: {
+          tags: ["Settings"],
+          summary: "Install dashboard hooks for Claude Code, Codex, or both",
+          operationId: "installSelectedHooks",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["providers"],
+                  properties: {
+                    providers: {
+                      type: "array",
+                      minItems: 1,
+                      uniqueItems: true,
+                      items: { type: "string", enum: ["claude", "codex"] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Selected hook installers completed",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["ok", "results", "hooks"],
+                    properties: {
+                      ok: { type: "boolean" },
+                      results: { type: "object", additionalProperties: true },
+                      hooks: {
+                        $ref: "#/components/schemas/ReinstallHooksResponse/properties/hooks",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description: "No valid product selected",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
       "/api/settings/reset-pricing": {
         post: {
           tags: ["Settings"],
           summary: "Reset pricing table to defaults",
           operationId: "resetPricing",
+          requestBody: {
+            required: false,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    provider: { type: "string", enum: ["claude", "codex"] },
+                  },
+                },
+              },
+            },
+          },
           responses: {
             200: {
               description: "Pricing defaults restored",

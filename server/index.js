@@ -1,5 +1,6 @@
 /**
- * @file Sets up the Express server with API routes and WebSocket, serves the React client in production, and includes periodic maintenance tasks like session cleanup and compaction scanning.
+ * @file Sets up the Express server, API routes, WebSocket, production client,
+ * and non-blocking Claude/Codex transcript synchronizers and maintenance jobs.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -9,7 +10,10 @@ if (!process.env.NODE_ENV) process.env.NODE_ENV = "production";
 (function loadDotEnv() {
   const fs = require("fs");
   const os = require("os");
-  const envPath = require("path").resolve(__dirname, "..", ".env");
+  const path = require("path");
+  const envPath = path.resolve(
+    process.env.DASHBOARD_ENV_PATH || path.resolve(__dirname, "..", ".env")
+  );
   if (!fs.existsSync(envPath)) return;
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const trimmed = line.trim();
@@ -36,13 +40,15 @@ const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
 const { createOpenApiSpec } = require("./openapi");
 const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
-const { writeServerInfo, removeServerInfo } = require("./lib/server-info");
+const { writeServerInfo, removeServerInfo, peersSharingDataDir } = require("./lib/server-info");
+const { getDataDir } = require("./lib/claude-home");
 const {
   resolveHost,
   isLoopbackHostname,
   corsOptions,
   hostGuard,
   tokenGuard,
+  hookGuard,
   getDashboardToken,
 } = require("./lib/security");
 
@@ -59,9 +65,25 @@ const pushRouter = require("./routes/push");
 const importRouter = require("./routes/import");
 const updatesRouter = require("./routes/updates");
 const ccConfigRouter = require("./routes/cc-config");
+const codexConfigRouter = require("./routes/codex-config");
 const runRouter = require("./routes/run");
 const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
+const remoteSourcesRouter = require("./routes/remote-sources");
+const metricsRouter = require("./routes/metrics");
+
+const APP_VERSION = (() => {
+  try {
+    return require("../package.json").version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+})();
+
+// API reference pages are served by Express even in development, while the
+// dashboard favicon normally comes from Vite's public directory. Keep one
+// explicit server route so Swagger and ReDoc always share the app identity.
+const DASHBOARD_FAVICON_PATH = path.join(__dirname, "..", "client", "public", "favicon.svg");
 
 function createApp() {
   const app = express();
@@ -73,6 +95,7 @@ function createApp() {
   app.use(hostGuard);
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", tokenGuard);
+  app.use("/api/hooks", hookGuard);
 
   app.use("/api/sessions", sessionsRouter);
   app.use("/api/agents", agentsRouter);
@@ -87,9 +110,15 @@ function createApp() {
   app.use("/api/import", importRouter);
   app.use("/api/updates", updatesRouter);
   app.use("/api/cc-config", ccConfigRouter);
+  app.use("/api/codex-config", codexConfigRouter);
   app.use("/api/run", runRouter);
   app.use("/api/alerts", alertsRouter);
   app.use("/api/webhooks", webhooksRouter);
+  app.use("/api/remote-sources", remoteSourcesRouter);
+  app.use("/api/metrics", metricsRouter);
+  app.get("/favicon.svg", (_req, res) => {
+    res.type("image/svg+xml").sendFile(DASHBOARD_FAVICON_PATH);
+  });
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApiSpec);
   });
@@ -98,6 +127,7 @@ function createApp() {
     swaggerUi.serve,
     swaggerUi.setup(openApiSpec, {
       customSiteTitle: "Agent Dashboard API Docs",
+      customfavIcon: "/favicon.svg",
     })
   );
 
@@ -116,13 +146,14 @@ function createApp() {
         renderRedocHtml(
           "/api/openapi.json",
           "/api/redoc/redoc.standalone.js",
-          "Agent Dashboard API Reference"
+          "Agent Dashboard API Reference",
+          "/favicon.svg"
         )
       );
   });
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
+    res.json({ status: "ok", version: APP_VERSION, timestamp: new Date().toISOString() });
   });
 
   return app;
@@ -164,6 +195,19 @@ function startServer(app, port) {
         },
       })
     );
+    // API handlers (including Swagger and ReDoc) are registered above. Never
+    // let an unrecognised `/api/*` request fall through to the React shell:
+    // otherwise a typo or stale reference asset can mount the dashboard's
+    // first-run overlay over API documentation instead of returning a useful
+    // API-shaped 404 response.
+    app.use("/api", (req, res) => {
+      res.status(404).json({
+        error: {
+          code: "ENOTFOUND",
+          message: `API route not found: ${req.method} ${req.originalUrl}`,
+        },
+      });
+    });
     app.get("*", (_req, res) => {
       res.setHeader("Cache-Control", "no-cache, must-revalidate");
       res.sendFile(path.join(clientDist, "index.html"));
@@ -182,6 +226,16 @@ function startServer(app, port) {
       // server even when it bound a non-default port (the desktop app falls
       // back off 4820 when that port is already taken).
       writeServerInfo(port);
+      const sharedDbPeers = peersSharingDataDir();
+      if (sharedDbPeers.length > 0) {
+        const peerPorts = sharedDbPeers.map((p) => p.port).join(", ");
+        const ingestPort = Math.min(port, ...sharedDbPeers.map((p) => p.port));
+        console.warn(
+          `⚠️  Another dashboard is running on port(s) ${peerPorts} using the same database ` +
+            `(${getDataDir()}). Hooks ingest through port ${ingestPort} only to avoid duplicate events. ` +
+            `Stop extra instances if you do not need them.`
+        );
+      }
       const mode = isProduction ? "production" : "development";
       const shown = boundLoopback ? "localhost" : host;
       console.log(`Agent Dashboard server running on http://${shown}:${port} (${mode})`);
@@ -295,7 +349,9 @@ function startBackgroundServices() {
   {
     const bootReap = (label) => {
       try {
-        require("./routes/hooks").livenessReap({ ignoreIdleGate: true });
+        const { livenessReap } = require("./routes/hooks");
+        livenessReap({ ignoreIdleGate: true });
+        livenessReap({ ignoreIdleGate: true, provider: "codex" });
       } catch (err) {
         console.warn(`${label} liveness reap failed:`, err?.message || err);
       }
@@ -335,6 +391,12 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("cc-watcher failed to start:", err.message);
   }
+  try {
+    const { startCodexConfigWatcher } = require("./lib/codex-config-watcher");
+    startCodexConfigWatcher({ broadcast });
+  } catch (err) {
+    console.warn("codex-config-watcher failed to start:", err.message);
+  }
   // Near-real-time Workflow-tool run ingestion. The run journal is written when
   // a workflow finishes — which may not coincide with a hook — so a fast,
   // change-fingerprinted poll over active sessions keeps the UI fresh without
@@ -354,6 +416,32 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("session sync failed to start:", err.message);
   }
+  // Codex rollouts are append-only JSONL files under ~/.codex/sessions. Hooks
+  // nudge this path immediately; this watcher + short poll closes the gap when
+  // a hook is unavailable, untrusted, or fired while the dashboard was down.
+  try {
+    startCodexSessionSync(broadcast);
+  } catch (err) {
+    console.warn("Codex session sync failed to start:", err.message);
+  }
+  // A new Codex TUI has no provider session id until its first prompt. Keep a
+  // process-only card in memory for that brief window. Durable rollout/state
+  // ingestion remains unchanged and takes over as soon as Codex exposes an id.
+  try {
+    const { startCodexProcessOverlay } = require("./lib/codex-process-overlay");
+    startCodexProcessOverlay({ broadcast });
+  } catch (err) {
+    console.warn("Codex startup overlay failed to start:", err.message);
+  }
+  // Pull Claude Code history from enabled remote (SSH) sources on an interval so
+  // usage collected on other machines shows up here in near real time. Off by
+  // default cost-wise: the loop only does work when the user has configured at
+  // least one enabled source. Disable entirely with DASHBOARD_REMOTE_SYNC_MS=0.
+  try {
+    startRemoteSourceSync(broadcast);
+  } catch (err) {
+    console.warn("remote source sync failed to start:", err.message);
+  }
   // Flip any dashboard_runs rows the previous process left flagged
   // running/spawning — those handles died with the previous server, so
   // there's no way to attach to them anymore. Marking them abandoned
@@ -367,6 +455,59 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("dashboard-runs reconciliation failed:", err.message);
   }
+}
+
+/**
+ * Periodic pull of Claude Code history from enabled remote (SSH) sources. Each
+ * tick rsyncs every enabled source's `~/.claude/projects` into a sandboxed
+ * staging dir and feeds it through the shared importer (see
+ * server/lib/remote-sync.js), so remote usage appears here in near real time.
+ * A first pass runs shortly after boot; thereafter every DASHBOARD_REMOTE_SYNC_MS
+ * (default 15s). Set the interval to 0 to disable. Unref'd so it never blocks
+ * shutdown; overlapping ticks queue one follow-up sweep (same as local sync).
+ */
+function startRemoteSourceSync(broadcast) {
+  const POLL_MS = process.env.DASHBOARD_REMOTE_SYNC_MS
+    ? Number(process.env.DASHBOARD_REMOTE_SYNC_MS)
+    : 15_000;
+  if (!Number.isFinite(POLL_MS) || POLL_MS <= 0) return;
+
+  const dbModule = require("./db");
+  const { syncAllEnabled } = require("./lib/remote-sync");
+  let running = false;
+  let queued = false;
+
+  const tick = () => {
+    if (running) {
+      queued = true;
+      return;
+    }
+    // Cheap gate: skip all SSH work unless the user has an enabled source.
+    let count = 0;
+    try {
+      count = dbModule.stmts.listEnabledRemoteSources.all().length;
+    } catch {
+      return;
+    }
+    if (count === 0) return;
+    running = true;
+    Promise.resolve()
+      .then(() => syncAllEnabled(dbModule, { broadcast }))
+      .catch((err) => console.warn("remote source sync tick failed:", err?.message || err))
+      .finally(() => {
+        running = false;
+        if (queued) {
+          queued = false;
+          tick();
+        }
+      });
+  };
+
+  // First pass 2s after boot (let local import settle), then interval.
+  const boot = setTimeout(tick, 2_000);
+  if (boot.unref) boot.unref();
+  const timer = setInterval(tick, POLL_MS);
+  if (timer.unref) timer.unref();
 }
 
 /**
@@ -419,6 +560,225 @@ function startWorkflowPoll(broadcast) {
     }
   }, POLL_MS);
   if (timer.unref) timer.unref();
+}
+
+/**
+ * Keep Codex rollout transcripts current with a debounced filesystem watcher
+ * plus a small safety-net poll. Codex hooks call the same incremental ingestor,
+ * so repeated notifications are harmless: its durable byte cursor means an
+ * unchanged file performs no token/event writes and emits no websocket frames.
+ * Fresh files are prioritized and the sweep reads Codex's native live-thread
+ * index first, so a large historical rollout tree cannot delay a new card.
+ */
+function startCodexSessionSync(broadcast) {
+  const fs = require("fs");
+  const { getCodexHome, getCodexSessionsDir, onCodexHomeChanged } = require("./lib/codex-home");
+  const {
+    findCodexTranscripts,
+    ingestCodexToolEvents,
+    ingestCodexTranscript,
+    reconcileCodexSessionLiveness,
+    refreshCodexSessionTitles,
+    syncCodexStateSessions,
+  } = require("./lib/codex-ingest");
+  const liveness = require("./lib/session-liveness");
+  const fingerprints = new Map();
+  let running = false;
+  let queued = false;
+  let watcher = null;
+  let watchedSessionsDir = null;
+  let homeWatcher = null;
+  let watchedCodexHome = null;
+
+  function publish(result) {
+    if (!result?.changed || !result.session) return;
+    broadcast(result.created ? "session_created" : "session_updated", result.session);
+    if (result.agent) broadcast(result.created ? "agent_created" : "agent_updated", result.agent);
+    for (const event of result.events || []) broadcast("new_event", event);
+  }
+
+  async function runSweep() {
+    if (running) {
+      queued = true;
+      return;
+    }
+    running = true;
+    try {
+      const sessionsDir = getCodexSessionsDir();
+      // A newly selected Codex home may not contain `sessions/` yet. Retry
+      // watcher attachment on each safety-net sweep so it becomes event-driven
+      // as soon as Codex creates the directory instead of polling forever.
+      watchSessionsDir();
+      watchCodexHome();
+      const rolloutProbe = liveness.probeLiveCodexRollouts();
+      const liveTranscripts = rolloutProbe.available ? rolloutProbe.paths : null;
+      // Hooks are the lowest-latency signal, but Codex may delay a new hook
+      // until the user approves it. Its local thread row is written at CLI
+      // launch, so use it to create the same Waiting card immediately.
+      for (const result of syncCodexStateSessions()) publish(result);
+      // `/rename` updates Codex's root-level session index instead of adding a
+      // rollout line. Refresh those titles before evaluating transcript bytes
+      // so cards change in real time even for an otherwise idle session.
+      for (const result of refreshCodexSessionTitles()) publish(result);
+      const transcripts = findCodexTranscripts(sessionsDir);
+      for (let index = 0; index < transcripts.length; index++) {
+        const transcriptPath = transcripts[index];
+        let stat;
+        try {
+          stat = fs.statSync(transcriptPath);
+        } catch {
+          continue;
+        }
+        const fingerprint = `${stat.size}:${stat.mtimeMs}`;
+        if (fingerprints.get(transcriptPath) !== fingerprint) {
+          try {
+            // Only retain a successful fingerprint. A temporarily unreadable or
+            // malformed rollout must retry on the next sweep rather than being
+            // silently skipped until another byte happens to arrive.
+            publish(ingestCodexTranscript(transcriptPath, { liveTranscripts }));
+            fingerprints.set(transcriptPath, fingerprint);
+          } catch (err) {
+            console.warn(
+              `[CODEX SYNC] Failed to ingest ${path.basename(transcriptPath)}:`,
+              err.message
+            );
+          }
+        }
+        try {
+          // This independent cursor backfills response-item tool calls from
+          // rollouts imported before Workflows understood Codex. It is a
+          // no-op after the first pass, and also catches records that arrive
+          // without one of Codex's lower-volume lifecycle event messages.
+          publish(ingestCodexToolEvents(transcriptPath));
+        } catch (err) {
+          console.warn(
+            `[CODEX SYNC] Failed to index tools for ${path.basename(transcriptPath)}:`,
+            err.message
+          );
+        }
+        // Cold history can contain hundreds of large JSONL files. Yielding in
+        // modest batches lets fs.watch/hook callbacks and WebSocket delivery
+        // run between imports while preserving the single-sweep cursor guard.
+        if (index > 0 && index % 12 === 0) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
+      for (const result of reconcileCodexSessionLiveness()) publish(result);
+    } catch {
+      // Codex is optional; an unreadable/missing home must not affect startup.
+    } finally {
+      running = false;
+      if (queued) {
+        queued = false;
+        setImmediate(() => void runSweep());
+      }
+    }
+  }
+
+  const initial = setTimeout(() => void runSweep(), 300);
+  if (initial.unref) initial.unref();
+
+  const pollMs = process.env.DASHBOARD_CODEX_SYNC_MS
+    ? Number(process.env.DASHBOARD_CODEX_SYNC_MS)
+    : 4_000;
+  if (Number.isFinite(pollMs) && pollMs > 0) {
+    const timer = setInterval(() => void runSweep(), pollMs);
+    if (timer.unref) timer.unref();
+  }
+
+  let debounce;
+  const schedule = () => {
+    if (debounce) return;
+    debounce = setTimeout(() => {
+      debounce = null;
+      void runSweep();
+    }, 150);
+    if (debounce.unref) debounce.unref();
+  };
+  function watchSessionsDir() {
+    const sessionsDir = getCodexSessionsDir();
+    if (sessionsDir !== watchedSessionsDir) {
+      try {
+        watcher?.close();
+      } catch {
+        // A stale watcher is optional; polling remains the real-time safety net.
+      }
+      watcher = null;
+      watchedSessionsDir = sessionsDir;
+    }
+    if (watcher) return;
+    try {
+      if (fs.existsSync(sessionsDir)) {
+        const recursive = process.platform === "darwin" || process.platform === "win32";
+        const nextWatcher = fs.watch(sessionsDir, { recursive }, schedule);
+        watcher = nextWatcher;
+        nextWatcher.on("error", () => {
+          // Only retire this watcher: an error from a recently closed previous
+          // directory must not detach a newer watch after a home change.
+          if (watcher !== nextWatcher) return;
+          try {
+            nextWatcher.close();
+          } catch {
+            // The next polling sweep retries attachment either way.
+          }
+          watcher = null;
+        });
+        if (nextWatcher.unref) nextWatcher.unref();
+      }
+    } catch {
+      // The poll remains the fallback on filesystems without watcher support.
+    }
+  }
+  function watchCodexHome() {
+    const codexHome = getCodexHome();
+    if (codexHome !== watchedCodexHome) {
+      try {
+        homeWatcher?.close();
+      } catch {
+        // Polling remains the fallback if a previous watcher cannot close.
+      }
+      homeWatcher = null;
+      watchedCodexHome = codexHome;
+    }
+    if (homeWatcher || !fs.existsSync(codexHome)) return;
+    try {
+      const nextWatcher = fs.watch(codexHome, { recursive: false }, (_event, filename) => {
+        const name = filename && path.basename(String(filename));
+        if (
+          !name ||
+          name === "session_index.jsonl" ||
+          /^state_\d+\.sqlite(?:-(wal|shm))?$/.test(name)
+        ) {
+          schedule();
+        }
+      });
+      homeWatcher = nextWatcher;
+      nextWatcher.on("error", () => {
+        if (homeWatcher !== nextWatcher) return;
+        try {
+          nextWatcher.close();
+        } catch {
+          // The polling sweep will retry this optional watcher.
+        }
+        homeWatcher = null;
+      });
+      if (nextWatcher.unref) nextWatcher.unref();
+    } catch {
+      // The polling sweep remains the title-sync safety net.
+    }
+  }
+  watchSessionsDir();
+  watchCodexHome();
+
+  // Settings can repoint Codex while the dashboard is running. Clear old-file
+  // fingerprints, re-arm the watcher, and schedule a fresh sweep after the
+  // response has been sent so a large history never delays the UI action.
+  onCodexHomeChanged(() => {
+    fingerprints.clear();
+    watchSessionsDir();
+    watchCodexHome();
+    setImmediate(() => void runSweep());
+  });
 }
 
 /**
@@ -772,7 +1132,12 @@ if (require.main === module) {
   const sweepWorkflowSeen = new Map();
   setInterval(() => {
     // 1. Stale session cleanup — batch agent updates to avoid N+1 queries
-    const stale = cleanupDb.stmts.findStaleSessions.all("__periodic__", STALE_MINUTES);
+    const stale = cleanupDb.stmts.findStaleSessions.all(
+      "__periodic__",
+      STALE_MINUTES,
+      STALE_MINUTES,
+      STALE_MINUTES
+    );
     const now = new Date().toISOString();
     if (stale.length > 0) {
       const staleIds = stale.map((s) => s.id);

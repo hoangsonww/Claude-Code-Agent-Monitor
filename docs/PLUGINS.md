@@ -1,321 +1,211 @@
-# Claude Code Agent Monitor — Plugin Marketplace
+# CCAM Skills and Plugin Marketplace
 
-Official Claude Code plugins for the Agent Monitor dashboard. **10 plugins** extend Claude Code with skills, agents, slash commands, hooks, and CLI tools for deep analytics, cost guardrails, productivity automation, developer tools, AI-powered insights, session forensics, workflow/fleet intelligence, reliability & SLOs, config & memory governance, and dashboard connectivity.
+CCAM ships one source tree that supports three distribution paths:
 
-Every plugin is powered by the local Agent Monitor REST API at `http://localhost:4820`. They are read-only advisors unless a skill explicitly documents a mutating endpoint (and those preview + confirm before acting).
+- **Claude Code plugins** through `.claude-plugin/marketplace.json`
+- **Codex plugins** through `.agents/plugins/marketplace.json` and each plugin's `.codex-plugin/plugin.json`
+- **Open Agent Skills / skills.sh** through standards-compliant `SKILL.md` files with required `name` and `description` metadata
 
-## Quick Start
+The verified bundle contains **14 plugins, 66 bundled plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, 3 hook configurations, and 2 MCP-enabled plugins**. The skills.sh CLI discovers **75 total repository skills** because it also includes the repository-maintenance skills under `.agents/skills/` and `.claude/skills/`.
 
-### Add the marketplace
+## Choose an Installation Path
+
+| Need | Recommended path | Why |
+| --- | --- | --- |
+| A curated capability pack for Claude Code | Claude Code plugin marketplace | Installs the plugin's skills, commands, agents, and metadata together. |
+| The same pack for Codex | Codex plugin marketplace | Uses the Codex manifest while sharing the canonical plugin source tree. |
+| One reusable workflow without the rest of a plugin | `npx skills add` | Keeps the install focused on the selected skill and supports project or global scope. |
+| Modify or contribute an extension | Clone this repository | Lets you run the sync and validation commands before using local manifests. |
+
+Do not install the same capability through multiple paths unless you intentionally want duplicates. Start with one path, verify it with the listed CLI command, and switch only after removing the previous installation.
+
+## Install for Claude Code
 
 ```bash
 claude plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
+claude plugin install ccam-platform@claude-code-agent-monitor-plugins
 ```
 
-### Install a plugin
+List the marketplace and install any plugin shown in the catalog:
 
-```bash
-claude plugin install ccam-analytics@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-cost-guard@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-productivity@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-devtools@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-insights@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-sessions@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-workflows@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-quality@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-config@hoangsonww-claude-code-agent-monitor
-claude plugin install ccam-dashboard@hoangsonww-claude-code-agent-monitor
-```
-
-### Or install locally during development
-
-```bash
-# From the repo root, test a plugin locally
-claude --plugin-dir plugins/ccam-analytics
-```
-
-## Prerequisites
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
-- Agent Monitor dashboard running at `http://localhost:4820` (see [SETUP.md](../SETUP.md))
-- Hooks installed: `npm run setup` from the Agent Monitor project
-
-Skills and commands are invoked as `/ccam-<plugin>:<name>`. Agents are dispatched automatically by Claude Code (or named explicitly).
-
-## Available Plugins
-
-### 1. `ccam-analytics` — Analytics & Monitoring
-
-Deep analytics on sessions, token usage, costs, cache efficiency, model mix, and productivity.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Session Report | `/ccam-analytics:session-report` | Per-model tokens (input/output/cache_read/cache_write + baselines), cost, agent hierarchy, tool activity, timeline |
-| Cost Breakdown | `/ccam-analytics:cost-breakdown` | Per-model cost via the pricing engine, daily trends, cache efficiency, optimization opportunities |
-| Usage Trends | `/ccam-analytics:usage-trends` | 365-day session/event trends, token volume, tool rankings, model distribution, event-type ratios |
-| Productivity Score | `/ccam-analytics:productivity-score` | Weighted scorecard: completion, token efficiency, tool effectiveness, velocity, cost efficiency |
-| Cache Efficiency | `/ccam-analytics:cache-efficiency` | Cache hit rate, write-vs-read reuse, sessions with poor cache reuse |
-| Model Mix | `/ccam-analytics:model-mix` | Share of tokens and cost per model family; expensive models doing cheap work |
-
-**Commands:** `/ccam-analytics:cost-today` · `/ccam-analytics:top-spenders` · `/ccam-analytics:burn-rate`
-
-**Agents:** `analytics-advisor` (full advisor incl. workflow intelligence) · `token-economist` (token economics & reduction tactics)
-
-**Hooks:** Logs `Stop` / `SubagentStop` events. **CLI:** `ccam-stats` — terminal stats (sessions, cost, tokens).
-
----
-
-### 2. `ccam-cost-guard` — Budget Guardrails
-
-Spend limits, forecasting, cost alerts, and model-routing savings.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Budget Set | `/ccam-cost-guard:budget-set` | Define a budget and (optionally) arm a `token_threshold` alert rule; explains the $→token conversion |
-| Spend Forecast | `/ccam-cost-guard:spend-forecast` | Project week/month-end spend from the daily trend (moving average × remaining days) |
-| Cost Alert | `/ccam-cost-guard:cost-alert` | Review alert rules and fired alerts; explain exactly what tripped |
-| Model Savings | `/ccam-cost-guard:model-savings` | Estimate $ saved by routing eligible work to a cheaper model family |
-| Daily Budget Check | `/ccam-cost-guard:daily-budget-check` | Today's spend vs a daily budget, pace vs target, projected overage |
-
-**Commands:** `/ccam-cost-guard:budget` · `/ccam-cost-guard:forecast` · `/ccam-cost-guard:overspend`
-
-**Agent:** `budget-sentinel` — watches spend vs target, projects month-end, recommends cuts. **Hooks:** fail-safe `Stop` event POST so budget tracking sees session ends.
-
----
-
-### 3. `ccam-productivity` — Productivity & Workflows
-
-Standups, weekly/monthly reviews, sprint tracking, focus analysis, and workflow optimization.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Daily Standup | `/ccam-productivity:daily-standup` | Standup from recent sessions — work by project (cwd), costs, tools, errors, velocity |
-| Weekly Report | `/ccam-productivity:weekly-report` | Daily session/event trends, per-session costs, token volumes, tool top-20, completion rates |
-| Sprint Summary | `/ccam-productivity:sprint-summary` | Per-project + per-model costs, token efficiency, subagent effectiveness, retrospective data |
-| Workflow Optimizer | `/ccam-productivity:workflow-optimizer` | Tool-flow transitions, effectiveness, delegation, error propagation, concurrency, compaction |
-| Monthly Review | `/ccam-productivity:monthly-review` | Month-over-month sessions, cost, tokens, completion, top projects, notable shifts |
-| Time of Day | `/ccam-productivity:time-of-day` | Activity/productivity bucketed by hour and day-of-week; peak vs low-output windows |
-
-**Commands:** `/ccam-productivity:standup` · `/ccam-productivity:whats-next` · `/ccam-productivity:focus-report`
-
-**Agents:** `productivity-coach` (work-pattern review) · `focus-analyst` (deep-work / focus blocks). **Hooks:** session start/end timing.
-
----
-
-### 4. `ccam-devtools` — Developer Tools
-
-Debugging, data-integrity inspection, event tracing, transcript search, diagnostics, export, and health checks.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Session Debug | `/ccam-devtools:session-debug` | Full event chain, agent hierarchy, token usage with baselines, workflow intelligence |
-| Hook Diagnostics | `/ccam-devtools:hook-diagnostics` | Hook install, connectivity, handler validation, event delivery, data freshness |
-| Data Export | `/ccam-devtools:data-export` | Export sessions/events/analytics/costs as JSON/CSV/Markdown |
-| Health Check | `/ccam-devtools:health-check` | API, SQLite (WAL), WebSocket, endpoints, hooks, disk, data freshness |
-| Event Trace | `/ccam-devtools:event-trace` | Ordered event timeline for a session, highlighting gaps/failures |
-| Transcript Grep | `/ccam-devtools:transcript-grep` | Search a session transcript for a string/pattern with context |
-
-**Commands:** `/ccam-devtools:doctor` · `/ccam-devtools:export` · `/ccam-devtools:tail-events`
-
-**Agents:** `issue-triager` (cross-component triage) · `db-inspector` (data-integrity inspection). **CLI:** `ccam-doctor`, `ccam-export`.
-
----
-
-### 5. `ccam-insights` — AI-Powered Insights
-
-Pattern detection, anomaly alerting, forecasting, regression watch, benchmarking, optimization, and comparison.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Pattern Detect | `/ccam-insights:pattern-detect` | Tool-flow transitions, recurring sequences, agent co-occurrence, delegation habits |
-| Anomaly Alert | `/ccam-insights:anomaly-alert` | Cost/token/event-ratio/complexity outliers (statistical) |
-| Optimization Suggest | `/ccam-insights:optimization-suggest` | Model downgrades, cache optimization, compaction reduction, tool reliability |
-| Session Compare | `/ccam-insights:session-compare` | Side-by-side tokens, costs, complexity, tool-flow, metadata deltas |
-| Regression Watch | `/ccam-insights:regression-watch` | Rising error rate, falling cache hits, growing compaction, climbing cost/session |
-| Benchmark | `/ccam-insights:benchmark` | Benchmark a session vs the rolling average; show percentile |
-
-**Commands:** `/ccam-insights:insights` · `/ccam-insights:compare` · `/ccam-insights:anomalies`
-
-**Agents:** `insights-advisor` (strategic analysis) · `trend-forecaster` (near-future cost/usage projection).
-
----
-
-### 6. `ccam-sessions` — Session Forensics
-
-Search, timeline, transcript replay, per-project rollups, and lifecycle management.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Session Search | `/ccam-sessions:session-search` | Find sessions by project/model/status/date; rank by cost or recency |
-| Session Timeline | `/ccam-sessions:session-timeline` | Ordered timeline of one session's events with durations and tool names |
-| Transcript Replay | `/ccam-sessions:transcript-replay` | Walk a transcript turn-by-turn, summarizing each message |
-| CWD Rollup | `/ccam-sessions:cwd-rollup` | Roll up sessions by working directory: counts, cost, tokens, last-active |
-| Session Cleanup | `/ccam-sessions:session-cleanup` | Identify stale/empty sessions; preview before the cleanup endpoint deletes (confirm required) |
-
-**Commands:** `/ccam-sessions:find-session` · `/ccam-sessions:replay` · `/ccam-sessions:recent`
-
-**Agent:** `session-investigator` — end-to-end investigation of a single session.
-
----
-
-### 7. `ccam-workflows` — Orchestration & Fleet Intelligence
-
-Multi-agent structure analysis using the workflow intelligence API and Workflow-tool run journals.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| DAG Map | `/ccam-workflows:dag-map` | Orchestration DAG: parent→child subagent edges, depth, fan-out |
-| Delegation Audit | `/ccam-workflows:delegation-audit` | Model delegation + subagent effectiveness; wasted delegations |
-| Concurrency Report | `/ccam-workflows:concurrency-report` | Concurrency lanes, parallelism, serialization bottlenecks |
-| Error Propagation | `/ccam-workflows:error-propagation` | Trace failures by depth and how they cascade across subagents |
-| Fleet Runs | `/ccam-workflows:fleet-runs` | Summarize Workflow-tool fleet runs (no-hook fleets ingested from run journals) |
-
-**Commands:** `/ccam-workflows:workflow` · `/ccam-workflows:dag` · `/ccam-workflows:runs`
-
-**Agent:** `orchestration-analyst` — analyzes the 11 workflow datasets + fleet runs.
-
----
-
-### 8. `ccam-quality` — Reliability & SLOs
-
-Error monitoring, hook-delivery health, SLO tracking with error budgets, and regression alerts.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Error Scan | `/ccam-quality:error-scan` | Scan events for APIError + failure signals; group by tool/model; rank by frequency |
-| API Error Report | `/ccam-quality:api-error-report` | APIError detail: counts over time, affected sessions/models, likely causes |
-| Hook Failure Audit | `/ccam-quality:hook-failure-audit` | PreToolUse/PostToolUse balance, missing terminators, stale ingestion |
-| SLO Check | `/ccam-quality:slo-check` | Completion rate, tool success rate, error rate; error budget remaining |
-| Regression Alert | `/ccam-quality:regression-alert` | Compare this period's error/failure rates to the prior period; optional alert rule |
-
-**Commands:** `/ccam-quality:errors` · `/ccam-quality:slo` · `/ccam-quality:health`
-
-**Agent:** `reliability-engineer` — treats Claude Code usage as a service with an error budget.
-
----
-
-### 9. `ccam-config` — Config & Memory Governance
-
-Audit your Claude Code configuration and curate the file-based memory store via the Config Explorer API.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Config Audit | `/ccam-config:config-audit` | Counts per surface (user vs project), duplicate skills/agents, shell-running hooks |
-| Memory Review | `/ccam-config:memory-review` | CLAUDE.md + per-project auto-memory files grouped by project; flag stale/oversized facts |
-| Skill Inventory | `/ccam-config:skill-inventory` | Installed skills + contributing plugins; overlap with your own skills |
-| MCP Audit | `/ccam-config:mcp-audit` | MCP servers (user + project): transport, command/args/env names, source file |
-| Hook Inventory | `/ccam-config:hook-inventory` | Hooks across settings + the hooks scripts dir; flag network/arbitrary-command hooks |
-
-**Commands:** `/ccam-config:audit-config` · `/ccam-config:memory` · `/ccam-config:inventory`
-
-**Agent:** `config-auditor` — audits config sprawl, duplication, risky hooks, and stale memory.
-
-> Memory Review can also edit the per-project memory store: auto-memory files are mutable via `PUT`/`DELETE /api/cc-config/file` with `{ scope: "auto-memory", type: "auto-memory", project, name }` (always backed up first).
-
----
-
-### 10. `ccam-dashboard` — Dashboard Connector
-
-Direct MCP integration, quick status, live watch, and endpoint probing.
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| Dashboard Status | `/ccam-dashboard:dashboard-status` | Health: API connectivity, session/event counts, hook status, data freshness |
-| Quick Stats | `/ccam-dashboard:quick-stats` | One-line metrics: active sessions, total cost, events, top tool, cache efficiency |
-| Live Watch | `/ccam-dashboard:live-watch` | Poll a few times to show live deltas (active sessions/agents, events, ws connections) |
-| Endpoint Probe | `/ccam-dashboard:endpoint-probe` | Probe each major API route and report reachability/shape |
-
-**Commands:** `/ccam-dashboard:status` · `/ccam-dashboard:ping` · `/ccam-dashboard:open-dashboard`
-
-**Agent:** `dashboard-operator` — verifies the dashboard is up and guides start/restart/import. **MCP Server:** direct tool access to the Agent Monitor API. **Settings:** default agent model.
-
----
-
-## Data Model Reference
-
-These plugins query the Agent Monitor API at `http://localhost:4820`. Key data shapes:
-
-### Token Tracking
-- **4 token types**: `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`
-- **4 baselines**: `baseline_input`, `baseline_output`, `baseline_cache_read`, `baseline_cache_write` (preserve pre-compaction tokens)
-- **Effective total** = current + baseline (the `/api/analytics` totals are pre-summed)
-
-### Cost Calculation
-- Formula: `(tokens / 1,000,000) × rate_per_mtok` for each token type
-- Model matching: longest `model_pattern` wins (e.g., `claude-sonnet-4-5%` beats `claude-sonnet-4%`)
-- Pre-seeded rates for Opus, Sonnet, Haiku families
-
-### Session Metadata (JSON)
-- `thinking_blocks`: count of extended thinking blocks
-- `turn_count`: number of conversation turns
-- `total_turn_duration_ms`: cumulative turn processing time
-- `usage_extras`: `{ service_tiers[], speeds[], inference_geos[] }`
-
-### Event Types
-`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, `Notification`, `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted`
-
-### Workflow Intelligence API (`/api/workflows/{sessionId}`)
-11 datasets: `stats`, `orchestration` (DAG), `toolFlow` (transitions), `effectiveness` (subagent success), `patterns` (recurring sequences), `modelDelegation`, `errorPropagation` (by depth), `concurrency` (lanes), `complexity` (score), `compaction` (impact), `cooccurrence` (agent pairs)
-
-### Alert Rules (`/api/alerts/rules`)
-Rule types: `token_threshold` (`{ total_tokens }` — the spend-relevant guardrail), `event_pattern`, `inactivity`, `status_duration`.
-
-### Config Explorer (`/api/cc-config/*`)
-Read every Claude Code surface (skills, agents, commands, output-styles, plugins, marketplaces, mcp, hooks, settings, keybindings, statusline, memory). `memory` includes the per-project file-based store with `scope: "auto-memory"` (carrying `project`, `name`, `isIndex`, `frontmatter`); those files plus `CLAUDE.md` are mutable via `PUT`/`DELETE /api/cc-config/file` with always-on timestamped backups.
-
-## Plugin Development
-
-To create your own plugins for the Agent Monitor, see the [Claude Code plugin documentation](https://docs.anthropic.com/en/docs/claude-code/plugins).
-
-### Plugin structure
-
-```
-my-plugin/
-├── .claude-plugin/
-│   └── plugin.json          # Required: name (== dir name), description, version
-├── skills/
-│   └── my-skill/
-│       └── SKILL.md         # Skill (description-only frontmatter; uses $ARGUMENTS)
-├── agents/
-│   └── my-agent.md          # Agent (name == filename, model, tools, instructions)
-├── commands/
-│   └── my-command.md        # Slash command (description, optional argument-hint)
-├── hooks/
-│   └── hooks.json           # Event hooks (fail-safe, non-blocking)
-├── bin/
-│   └── my-cli-tool          # CLI scripts (added to PATH)
-├── .mcp.json                # MCP server configuration
-└── settings.json            # Plugin settings
-```
-
-Structure is validated by `server/__tests__/plugins-marketplace.test.js`, which enforces the marketplace↔directory bijection, `plugin.json` shape, name/dir agreement, and required frontmatter on every agent / skill / command.
-
-### Testing locally
-
-```bash
-claude --plugin-dir /path/to/my-plugin   # then use /my-plugin:my-skill some args
-```
-
-## Troubleshooting
-
-### Dashboard not reachable
-```bash
-cd /path/to/Claude-Code-Agent-Monitor
-npm start        # or: npm run dev
-```
-
-### Hooks not installed
-```bash
-cd /path/to/Claude-Code-Agent-Monitor
-npm run setup
-```
-
-### Plugin not found
 ```bash
 claude plugin marketplace list
-claude plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
+claude plugin validate . --strict
 ```
 
-## License
+## Install for Codex
 
-Same as the parent project. See [LICENSE](../LICENSE).
+```bash
+codex plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
+codex plugin list --marketplace claude-code-agent-monitor-plugins --available --json
+codex plugin add ccam-platform@claude-code-agent-monitor-plugins
+```
+
+Codex reads `.agents/plugins/marketplace.json`. Every entry points to the same `plugins/<name>` directory used by Claude Code. Each plugin has a separate `.codex-plugin/plugin.json` with UI metadata, capabilities, skills, and optional MCP wiring.
+
+## Install skills with skills.sh
+
+The repository does not need a PR to the `vercel-labs/skills` source repository. The `skills` CLI installs from public GitHub repositories directly, and skills.sh discovery/ranking is driven by install telemetry.
+
+```bash
+# List all 75 repository skills without installing
+npx skills add hoangsonww/Claude-Code-Agent-Monitor --list
+
+# Install one skill into the current project for Claude Code and Codex
+npx skills add hoangsonww/Claude-Code-Agent-Monitor \
+  --skill mcp-server \
+  --agent claude-code \
+  --agent codex \
+  --yes
+
+# Verify project-scoped installation
+npx skills list --json
+
+# Install the same skill globally for both agents
+npx skills add hoangsonww/Claude-Code-Agent-Monitor \
+  --skill mcp-server \
+  --agent claude-code \
+  --agent codex \
+  --global \
+  --yes
+
+# Verify global installation
+npx skills list --global --json
+
+# Install all discovered skills for every supported agent in the current project
+npx skills add hoangsonww/Claude-Code-Agent-Monitor --all
+
+# Update project-scoped or global skills
+npx skills update --project --yes
+npx skills update --global --yes
+
+# Remove the selected skill from the current project or global scope
+npx skills remove mcp-server --yes
+npx skills remove --global mcp-server --yes
+```
+
+Project installs use the current repository's `.agents/skills/` directory and create agent-specific links such as `.claude/skills/mcp-server`. By default, global Claude Code skills resolve under `~/.claude/skills/` and global Codex skills under `~/.codex/skills/`; `CLAUDE_CONFIG_DIR` and `CODEX_HOME` replace those respective base directories. Multi-agent installs may deduplicate files through a shared store and link the agent-specific destinations. The CLI records source and hash metadata in `skills-lock.json` for project installs and a global skill lockfile so later `skills update` runs can check the original GitHub source.
+
+Every bundled skill carries:
+
+- `SKILL.md` frontmatter with canonical `name` and `description`
+- procedural instructions and safety boundaries
+- `agents/openai.yaml` with Codex/ChatGPT UI metadata and a `$skill-name` default prompt
+
+The public repository becomes installable as soon as these files are on the default branch. Site search or leaderboard visibility can lag and depends on real installs. This change does not publish or submit anything externally.
+
+## Plugin Catalog
+
+| Plugin | Focus | Bundled skills |
+| --- | --- | --- |
+| `ccam-analytics` | tokens, costs, cache, model mix, trends | `cache-efficiency`, `cost-breakdown`, `model-mix`, `productivity-score`, `session-report`, `usage-trends` |
+| `ccam-config` | Claude config and memory governance | `config-audit`, `hook-inventory`, `mcp-audit`, `memory-review`, `skill-inventory` |
+| `ccam-cost-guard` | budgets, forecasts, cost alerts | `budget-set`, `cost-alert`, `daily-budget-check`, `model-savings`, `spend-forecast` |
+| `ccam-dashboard` | dashboard status and MCP connector | `dashboard-status`, `endpoint-probe`, `live-watch`, `quick-stats` |
+| `ccam-devtools` | diagnostics, export, transcripts | `data-export`, `event-trace`, `health-check`, `hook-diagnostics`, `session-debug`, `transcript-grep` |
+| `ccam-insights` | anomalies, patterns, regressions | `anomaly-alert`, `benchmark`, `optimization-suggest`, `pattern-detect`, `regression-watch`, `session-compare` |
+| `ccam-integrations` | alerts, webhooks, remote collection | `alert-management`, `remote-collection`, `webhook-management` |
+| `ccam-platform` | Claude/Codex config, hooks, import, backup, MCP | `config-explorer`, `history-portability`, `hook-setup`, `mcp-server` |
+| `ccam-productivity` | standups and reviews | `daily-standup`, `monthly-review`, `sprint-summary`, `time-of-day`, `weekly-report`, `workflow-optimizer` |
+| `ccam-quality` | errors, SLOs, hook reliability | `api-error-report`, `error-scan`, `hook-failure-audit`, `regression-alert`, `slo-check` |
+| `ccam-reports` | executive, cost, reliability, workflow reports | `cost-report`, `executive-report`, `reliability-report`, `workflow-report` |
+| `ccam-runner` | monitored Claude Code/Codex launch and history | `run-agent`, `run-history` |
+| `ccam-sessions` | session search, timeline, replay, cleanup | `cwd-rollup`, `session-cleanup`, `session-search`, `session-timeline`, `transcript-replay` |
+| `ccam-workflows` | orchestration and fleet intelligence | `concurrency-report`, `dag-map`, `delegation-audit`, `error-propagation`, `fleet-runs` |
+
+## MCP-enabled plugins
+
+`ccam-dashboard` and `ccam-platform` include:
+
+```json
+{
+  "mcpServers": {
+    "ccam-dashboard": {
+      "command": "ccam",
+      "args": ["mcp", "stdio"]
+    }
+  }
+}
+```
+
+The stable `ccam mcp stdio` launcher resolves the MCP build from the linked CCAM checkout. This avoids plugin-cache-relative paths, which break after installation. Run `npm run setup` first. It now installs and builds MCP before linking `ccam`.
+
+## Source layout
+
+```text
+.claude-plugin/
+└── marketplace.json                 # Claude Code catalog
+.agents/plugins/
+└── marketplace.json                 # Codex catalog
+plugins/<name>/
+├── .claude-plugin/plugin.json       # Claude plugin manifest
+├── .codex-plugin/plugin.json        # Codex plugin manifest
+├── skills/<skill>/
+│   ├── SKILL.md
+│   └── agents/openai.yaml
+├── agents/*.md                      # Claude subagents where applicable
+├── commands/*.md                    # Claude commands where applicable
+├── hooks/hooks.json                 # optional
+├── bin/*                            # optional CLI helpers
+└── .mcp.json                        # optional MCP server wiring
+```
+
+`node scripts/sync-agent-extensions.js` is the deterministic source synchronizer. It:
+
+1. adds missing canonical skill names
+2. writes `agents/openai.yaml`
+3. generates `.codex-plugin/plugin.json`
+4. rebuilds both marketplace catalogs
+5. prints verified component totals
+
+Do not hand-edit generated Codex manifests or skill `agents/openai.yaml`. Edit the Claude manifest or `SKILL.md`, then run:
+
+```bash
+npm run extensions:sync
+npm run extensions:validate
+```
+
+## Validation
+
+```bash
+npm run extensions:sync
+npm run extensions:validate
+node --test server/__tests__/plugins-marketplace.test.js
+claude plugin validate . --strict
+npx skills add . --list
+```
+
+For a clean Codex installation test:
+
+```bash
+tmp="$(mktemp -d)"
+CODEX_HOME="$tmp" codex plugin marketplace add "$PWD" --json
+CODEX_HOME="$tmp" codex plugin add ccam-platform@claude-code-agent-monitor-plugins --json
+CODEX_HOME="$tmp" codex plugin list --json
+rm -rf "$tmp"
+```
+
+The repository test enforces:
+
+- marketplace-to-directory bijection for Claude and Codex
+- valid dual manifests whose names match their folders
+- required policy/category fields in the Codex catalog
+- skill name-to-directory agreement
+- `description` in every skill
+- `agents/openai.yaml` in every skill with a `$skill-name` prompt
+- required frontmatter for Claude agents and commands
+- valid hook JSON
+
+## Safety
+
+- Most analytical plugins are read-only.
+- Skills that can mutate show the intended change and require confirmation.
+- Webhook tests and push notifications are external sends.
+- Run tools launch or control real local processes.
+- Config edits remain inside server allowlists and create backups.
+- Remote-source deletion retains data unless purge is explicitly confirmed.
+- Full dashboard clearing stays behind MCP mutation/destructive flags and the exact `CLEAR_ALL_DATA` token.
+
+## Public publication
+
+A repository marketplace is immediately usable by Claude Code and Codex from Git. Public inclusion in OpenAI's universal plugin directory is a separate reviewed submission through OpenAI's plugin submission portal. This repository adds publication-ready manifests but does not submit them or perform any external publication action.

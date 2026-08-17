@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cache Efficiency"
+  short_description: "Analyze prompt-cache effectiveness for Claude Code usage..."
+  default_prompt: "Use $cache-efficiency to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

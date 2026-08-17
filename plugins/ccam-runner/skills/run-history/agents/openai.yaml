@@ -1,0 +1,6 @@
+interface:
+  display_name: "Run History"
+  short_description: "Inspect CCAM dashboard-run history and relate live run..."
+  default_prompt: "Use $run-history to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

@@ -1,88 +1,42 @@
-# Terraform Infrastructure
+# Terraform deployment
 
-Cloud-agnostic infrastructure modules for deploying the Claude Code Agent Monitor to AWS, GCP, Azure, or OCI.
+This module deploys CCAM to an existing conformant Kubernetes cluster through
+the validated Helm chart. It works with EKS, GKE, AKS, OKE, or self-managed
+Kubernetes because cloud infrastructure and identity are supplied by the
+cluster, CSI driver, ingress or Gateway implementation, and secret controller.
 
-## Architecture
+It deliberately does not provision cloud networks, load balancers, or container
+services. The previous provider-specific tree mixed AWS resources into a
+supposedly cloud-neutral root and allowed several active SQLite writers. That
+was not a safe portable production contract.
 
-```mermaid
-graph TD
-    subgraph Modules["Reusable Modules"]
-        NET["networking"]
-        COMP["compute"]
-        DB["database"]
-        LB["loadbalancer"]
-        MON["monitoring"]
-        SEC["secrets"]
-    end
+## Prerequisites
 
-    subgraph Providers["Provider Implementations"]
-        AWS["aws/"]
-        GCP["gcp/"]
-        AZ["azure/"]
-        OCI["oci/"]
-    end
+- Terraform 1.7 or newer
+- An existing Kubernetes cluster and kubeconfig
+- A default or named ReadWriteOnce CSI StorageClass
+- An existing Secret with `dashboard-token`, `hook-token`, and `mcp-token`
+- An Ingress controller or Gateway API implementation when public access is needed
+- Prometheus Operator when `service_monitor_enabled = true`
 
-    subgraph Envs["Environments"]
-        DEV["dev/terraform.tfvars"]
-        STG["staging/terraform.tfvars"]
-        PRD["production/terraform.tfvars"]
-    end
-
-    AWS --> NET & COMP & DB & LB & MON & SEC
-    GCP --> NET & COMP & DB & LB & MON & SEC
-    AZ --> NET & COMP & DB & LB & MON & SEC
-    OCI --> NET & COMP & DB & LB & MON & SEC
-    Envs -.->|var-file| Providers
-```
-
-## Usage
+## Apply
 
 ```bash
-# 1. Choose your provider
-cd providers/aws    # or gcp, azure, oci
-
-# 2. Initialize
+cd deployments/terraform
+cp terraform.tfvars.example terraform.tfvars
 terraform init
-
-# 3. Plan with environment
-terraform plan -var-file=../../environments/production/terraform.tfvars
-
-# 4. Apply
-terraform apply -var-file=../../environments/production/terraform.tfvars
-
-# 5. Get outputs
-terraform output
+terraform validate
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
-## Module Reference
+Use your cloud secret controller or External Secrets Operator to create
+`agent-monitor-secrets`. Do not put production tokens in Terraform variables or
+state.
 
-| Module | Purpose | Key Resources |
-|---|---|---|
-| `networking` | VPC/VNet, subnets, NAT, security groups | VPC, public/private subnets, NAT gateway, firewall rules |
-| `compute` | Container orchestration with blue-green slots | ECS tasks / Cloud Run / ACI / OKE deployments |
-| `database` | Persistent storage for SQLite | EFS / Filestore / Azure Files / FSS with encryption |
-| `loadbalancer` | Application LB with WebSocket + traffic splitting | ALB / GCLB / App Gateway / LBaaS, health checks |
-| `monitoring` | Metrics, logs, alerts, dashboards | CloudWatch / Cloud Monitoring / Azure Monitor / OCI Monitoring |
-| `secrets` | Secret management | Secrets Manager / Secret Manager / Key Vault / Vault |
+## Safety
 
-## Remote State
-
-Each provider is configured to use cloud-native remote state:
-
-| Provider | Backend | Bucket |
-|---|---|---|
-| AWS | S3 + DynamoDB locking | `agent-monitor-tfstate-{account_id}` |
-| GCP | GCS | `agent-monitor-tfstate-{project_id}` |
-| Azure | Azure Blob Storage | `agentmonitortfstate` |
-| OCI | OCI Object Storage | `agent-monitor-tfstate` |
-
-## Environment Sizing
-
-| Resource | Dev | Staging | Production |
-|---|---|---|---|
-| Replicas | 1 | 2 | 3 (auto-scale to 10) |
-| CPU | 256 | 512 | 1024 |
-| Memory | 512 MB | 1 GB | 2 GB |
-| Storage | 5 GB | 10 GB | 50 GB (encrypted) |
-| Multi-AZ | No | Yes | Yes |
-| Monitoring | Basic | Standard | Full + alerts |
+The module and Helm schema both reject more than one replica and reject HPA.
+CCAM uses SQLite and supports one active dashboard writer per persistent volume.
+Upgrades use Helm atomic Recreate rollouts. Back up with
+`deployments/scripts/db-backup.sh` before production changes.

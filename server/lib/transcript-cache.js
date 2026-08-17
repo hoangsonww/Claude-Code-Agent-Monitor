@@ -1,5 +1,7 @@
 /**
- * @file TranscriptCache class for efficient extraction of token usage and compaction data from JSONL transcript files, with stat-based caching and incremental reads to handle append-only growth without re-reading the entire file. Also extracts API error entries and turn duration system messages for enhanced analytics.
+ * @file TranscriptCache class for efficient extraction of token usage,
+ * compaction data, titles, interruption state, and compact recent human-turn
+ * context from JSONL transcript files with stat-based incremental reads.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -68,6 +70,7 @@ const PARSE_TRIM_WATERMARK = MAX_ARRAY_LEN * 2;
 // truncation the hook ingestor already applies to subagent prompts, so the
 // descriptor can be reused verbatim as an agent task downstream.
 const FIRST_USER_MESSAGE_MAX_LEN = 500;
+const RECENT_USER_MESSAGES_LIMIT = 2;
 
 // Synthetic user entries whose text is CLI plumbing, not something the human
 // typed: local slash-command invocations/output and the caveat preamble
@@ -108,6 +111,22 @@ function extractFirstUserText(entry) {
   return text.length > FIRST_USER_MESSAGE_MAX_LEN
     ? text.slice(0, FIRST_USER_MESSAGE_MAX_LEN)
     : text;
+}
+
+/**
+ * Keep the two newest distinct human prompts in their original chronological
+ * order. Repeating a prompt should refresh its position instead of consuming a
+ * second card row, and callers never receive more text than the compact cards
+ * can truthfully render.
+ */
+function appendRecentUserMessage(messages, value) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return Array.isArray(messages) ? messages.slice(-RECENT_USER_MESSAGES_LIMIT) : [];
+  const key = text.toLocaleLowerCase();
+  const prior = Array.isArray(messages) ? messages : [];
+  return [...prior.filter((message) => message.toLocaleLowerCase() !== key), text].slice(
+    -RECENT_USER_MESSAGES_LIMIT
+  );
 }
 
 class TranscriptCache {
@@ -166,12 +185,15 @@ class TranscriptCache {
             compaction: merged.compaction,
             errors: merged.errors,
             turnDurations: hasTurnDurations ? merged.turnDurations : null,
+            turnDurationsComplete: merged.turnDurationsComplete,
+            turnDurationCount: merged.turnDurationCount,
             thinkingBlockCount: merged.thinkingBlockCount || 0,
             usageExtras: hasUsageExtras ? merged.usageExtras : null,
             latestModel: merged.latestModel || null,
             customTitle: merged.customTitle || null,
             aiTitle: merged.aiTitle || null,
             firstUserMessage: merged.firstUserMessage || null,
+            recentUserMessages: merged.recentUserMessages || [],
             lastInterruptTs: merged.lastInterruptTs || null,
             lastTurnTs: merged.lastTurnTs || null,
             pendingInterrupt: computePendingInterrupt(merged.lastInterruptTs, merged.lastTurnTs),
@@ -187,6 +209,7 @@ class TranscriptCache {
             !result.customTitle &&
             !result.aiTitle &&
             !result.firstUserMessage &&
+            result.recentUserMessages.length === 0 &&
             !result.lastInterruptTs &&
             !result.lastTurnTs
           ) {
@@ -265,6 +288,7 @@ class TranscriptCache {
     const buf = Buffer.allocUnsafe(CHUNK);
     let pending = null; // bytes of partial trailing line not yet terminated by \n
     let pendingLen = 0;
+    let pendingStart = null;
     let pos = startOffset;
     let fd;
     try {
@@ -275,6 +299,7 @@ class TranscriptCache {
       }
 
       while (pos < endOffset) {
+        const chunkStart = pos;
         const want = Math.min(CHUNK, endOffset - pos);
         let got;
         try {
@@ -304,7 +329,9 @@ class TranscriptCache {
           if (line.length && line.charCodeAt(line.length - 1) === 13) {
             line = line.slice(0, -1); // strip CR
           }
-          if (line) this._consumeLine(line, state);
+          const sourceOffset = pendingStart ?? chunkStart + lineStart;
+          if (line) this._consumeLine(line, state, sourceOffset);
+          pendingStart = null;
           lineStart = i + 1;
         }
 
@@ -317,7 +344,9 @@ class TranscriptCache {
             // to one malformed line.
             pending = null;
             pendingLen = 0;
+            pendingStart = null;
           } else {
+            if (pendingLen === 0) pendingStart = chunkStart + lineStart;
             if (!pending) {
               pending = Buffer.allocUnsafe(Math.max(newLen, 8192));
             } else if (pending.length < newLen) {
@@ -336,7 +365,7 @@ class TranscriptCache {
         if (line.length && line.charCodeAt(line.length - 1) === 13) {
           line = line.slice(0, -1);
         }
-        if (line) this._consumeLine(line, state);
+        if (line) this._consumeLine(line, state, pendingStart);
       }
     } finally {
       if (fd !== undefined) {
@@ -357,6 +386,7 @@ class TranscriptCache {
       compaction: null,
       errors: [],
       turnDurations: [],
+      turnDurationCount: 0,
       thinkingBlockCount: 0,
       usageExtras: {
         service_tiers: new Set(),
@@ -381,6 +411,10 @@ class TranscriptCache {
       // and their main agent — first value wins (it describes what the
       // session set out to do), unlike the last-wins titles above.
       firstUserMessage: null,
+      // The two newest distinct human prompts complement the first-message
+      // descriptor: compact session and agent cards use them as a bounded
+      // chronological context, so a terse follow-up is still intelligible.
+      recentUserMessages: [],
       // Timestamps (ISO 8601, all from Claude Code's clock) used to recover a
       // turn cancelled with no hook. `lastInterruptTs` is the most recent
       // user-interrupt (Esc) entry; `lastTurnTs` is the most recent real turn
@@ -394,7 +428,7 @@ class TranscriptCache {
     };
   }
 
-  _consumeLine(line, state) {
+  _consumeLine(line, state, sourceOffset = null) {
     if (!line) return;
     let entry;
     try {
@@ -441,9 +475,12 @@ class TranscriptCache {
     // First real user prompt — captured once (first wins; the file is parsed
     // in order). extractFirstUserText filters out tool-result, meta, and
     // slash-command plumbing entries so only human-typed text qualifies.
-    if (state.firstUserMessage === null && entry.type === "user") {
-      const firstText = extractFirstUserText(entry);
-      if (firstText) state.firstUserMessage = firstText;
+    if (entry.type === "user") {
+      const userText = extractFirstUserText(entry);
+      if (userText) {
+        if (state.firstUserMessage === null) state.firstUserMessage = userText;
+        state.recentUserMessages = appendRecentUserMessage(state.recentUserMessages, userText);
+      }
     }
 
     if (entry.isCompactSummary) {
@@ -459,12 +496,22 @@ class TranscriptCache {
     }
 
     if (entry.type === "system" && entry.subtype === "turn_duration" && entry.durationMs) {
+      state.turnDurationCount++;
       const turnTs = entry.timestamp
         ? typeof entry.timestamp === "number"
           ? new Date(entry.timestamp).toISOString()
           : entry.timestamp
         : null;
-      state.turnDurations.push({ durationMs: entry.durationMs, timestamp: turnTs });
+      state.turnDurations.push({
+        durationMs: entry.durationMs,
+        timestamp: turnTs,
+        turnId:
+          typeof entry.uuid === "string" && entry.uuid
+            ? `uuid:${entry.uuid}`
+            : sourceOffset !== null
+              ? `offset:${sourceOffset}`
+              : `ordinal:${state.turnDurationCount}`,
+      });
       if (state.turnDurations.length >= PARSE_TRIM_WATERMARK) {
         this._trimArray(state.turnDurations);
       }
@@ -545,6 +592,7 @@ class TranscriptCache {
       !state.customTitle &&
       !state.aiTitle &&
       !state.firstUserMessage &&
+      state.recentUserMessages.length === 0 &&
       !state.lastInterruptTs &&
       !state.lastTurnTs
     ) {
@@ -570,12 +618,15 @@ class TranscriptCache {
       compaction: state.compaction,
       errors: hasErrors ? state.errors : null,
       turnDurations: hasTurnDurations ? state.turnDurations : null,
+      turnDurationsComplete: state.turnDurationCount <= MAX_ARRAY_LEN,
+      turnDurationCount: state.turnDurationCount,
       thinkingBlockCount: state.thinkingBlockCount,
       usageExtras: serializedExtras,
       latestModel: state.latestModel,
       customTitle: state.customTitle,
       aiTitle: state.aiTitle,
       firstUserMessage: state.firstUserMessage,
+      recentUserMessages: state.recentUserMessages,
       lastInterruptTs: state.lastInterruptTs,
       lastTurnTs: state.lastTurnTs,
       pendingInterrupt: computePendingInterrupt(state.lastInterruptTs, state.lastTurnTs),
@@ -594,13 +645,13 @@ class TranscriptCache {
       if (content.charCodeAt(i) !== 10) continue;
       let line = content.slice(start, i);
       if (line.length && line.charCodeAt(line.length - 1) === 13) line = line.slice(0, -1);
-      if (line) this._consumeLine(line, state);
+      if (line) this._consumeLine(line, state, start);
       start = i + 1;
     }
     if (start < content.length) {
       let line = content.slice(start);
       if (line.length && line.charCodeAt(line.length - 1) === 13) line = line.slice(0, -1);
-      if (line) this._consumeLine(line, state);
+      if (line) this._consumeLine(line, state, start);
     }
     return this._finalizeState(state);
   }
@@ -641,6 +692,14 @@ class TranscriptCache {
       turnDurations.push(...incremental.turnDurations);
       this._trimArray(turnDurations);
     }
+    const turnDurationCount =
+      (cached.result?.turnDurationCount || cached.result?.turnDurations?.length || 0) +
+      (incremental?.turnDurationCount || incremental?.turnDurations?.length || 0);
+    const turnDurationsComplete = Boolean(
+      cached.result?.turnDurationsComplete !== false &&
+      (!incremental || incremental.turnDurationsComplete !== false) &&
+      turnDurationCount <= MAX_ARRAY_LEN
+    );
 
     const thinkingBlockCount =
       (cached.result?.thinkingBlockCount || 0) + (incremental?.thinkingBlockCount || 0);
@@ -689,6 +748,17 @@ class TranscriptCache {
     const firstUserMessage =
       cached.result?.firstUserMessage || (incremental && incremental.firstUserMessage) || null;
 
+    // Both arrays are chronological and already bounded to two entries. Fold
+    // them through the same distinctness rule so an appended duplicate does
+    // not evict the earlier, useful request from the compact card context.
+    let recentUserMessages = [];
+    for (const prompt of [
+      ...(cached.result?.recentUserMessages || []),
+      ...(incremental?.recentUserMessages || []),
+    ]) {
+      recentUserMessages = appendRecentUserMessage(recentUserMessages, prompt);
+    }
+
     // Append-only: a newer interrupt / turn-activity timestamp in the
     // incremental chunk supersedes the cached one, otherwise keep what was
     // already known. pendingInterrupt is derived from the two by the caller.
@@ -701,12 +771,15 @@ class TranscriptCache {
       compaction,
       errors,
       turnDurations,
+      turnDurationsComplete,
+      turnDurationCount,
       thinkingBlockCount,
       usageExtras,
       latestModel,
       customTitle,
       aiTitle,
       firstUserMessage,
+      recentUserMessages,
       lastInterruptTs,
       lastTurnTs,
     };
@@ -791,3 +864,4 @@ class TranscriptCache {
 
 module.exports = TranscriptCache;
 module.exports.extractFirstUserText = extractFirstUserText;
+module.exports.appendRecentUserMessage = appendRecentUserMessage;

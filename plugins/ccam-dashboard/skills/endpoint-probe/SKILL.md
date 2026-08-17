@@ -1,4 +1,5 @@
 ---
+name: endpoint-probe
 description: >
   Probes each major Agent Monitor API route — /api/stats, /api/analytics,
   /api/sessions, /api/pricing/cost, /api/workflows/runs, /api/cc-config/overview

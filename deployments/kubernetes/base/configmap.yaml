@@ -6,10 +6,16 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.8"
     app.kubernetes.io/component: config
     app.kubernetes.io/managed-by: kustomize
 data:
   NODE_ENV: "production"
+  DASHBOARD_HOST: "0.0.0.0"
   DASHBOARD_PORT: "4820"
-  LOG_LEVEL: "info"
+  DASHBOARD_DATA_DIR: "/app/data"
+  DASHBOARD_ENV_PATH: "/app/data/config/.env"
+  CLAUDE_HOME: "/app/data/claude"
+  DASHBOARD_CODEX_HOME: "/app/data/codex"
+  DASHBOARD_LIVENESS_PROBE: "0"
+  DASHBOARD_ALLOWED_HOSTS: "agent-monitor,agent-monitor.example.com"

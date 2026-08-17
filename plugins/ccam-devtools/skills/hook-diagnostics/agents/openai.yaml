@@ -1,0 +1,6 @@
+interface:
+  display_name: "Hook Diagnostics"
+  short_description: "Diagnose Claude Code hook installation, delivery, and..."
+  default_prompt: "Use $hook-diagnostics to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

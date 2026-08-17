@@ -1,0 +1,6 @@
+interface:
+  display_name: "Daily Budget Check"
+  short_description: "Run a daily spend check-in against a daily budget on the..."
+  default_prompt: "Use $daily-budget-check to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

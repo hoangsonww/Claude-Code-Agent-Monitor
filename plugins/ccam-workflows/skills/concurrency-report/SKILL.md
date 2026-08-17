@@ -1,4 +1,5 @@
 ---
+name: concurrency-report
 description: >
   Report concurrency and parallelism for a session — how many agents ran in
   parallel, concurrency-lane utilization, peak parallel width, and

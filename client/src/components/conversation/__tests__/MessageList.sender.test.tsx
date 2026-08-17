@@ -1,8 +1,7 @@
 /**
  * @file MessageList.sender.test.tsx
- * @description Verifies the transcript renders each message under its TRUE
- * sender label — User / Assistant / Main agent / System — instead of labeling
- * every `type:"user"` line "User" (reported transcript mis-attribution).
+ * @description Verifies true transcript sender labels plus safe persisted-image
+ * rendering, avoiding blanket user attribution and raw image-path exposure.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 import { describe, it, expect } from "vitest";
@@ -50,5 +49,25 @@ describe("MessageList — sender attribution", () => {
     render(<MessageList messages={messages} loading={false} />);
     expect(screen.getByText("User")).toBeInTheDocument();
     expect(screen.getByText("Assistant")).toBeInTheDocument();
+  });
+
+  it("renders a persisted transcript image without exposing its source path", () => {
+    render(
+      <MessageList
+        loading={false}
+        messages={[
+          msg({
+            content: [
+              { type: "image", src: "data:image/png;base64,AA==", alt: "Attached image" },
+              { type: "text", text: "Please review this contrast." },
+            ],
+          }),
+        ]}
+      />
+    );
+
+    const image = screen.getByRole("img", { name: "Attached image" });
+    expect(image).toHaveAttribute("src", "data:image/png;base64,AA==");
+    expect(screen.getByText("Please review this contrast.")).toBeInTheDocument();
   });
 });

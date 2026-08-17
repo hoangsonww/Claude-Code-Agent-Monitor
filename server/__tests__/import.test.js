@@ -1,9 +1,7 @@
 /**
- * @file Tests for the Import History feature — the generalized directory
- * importer and the /api/import routes. Verifies that token counts and cost
- * computations come out identical between auto-import and manual import
- * for the same JSONL fixtures, that re-imports are idempotent, and that
- * archive extraction rejects path-traversal entries.
+ * @file Tests provider-aware Import History routes for Claude Code and Codex.
+ * Verifies equivalent accounting, durable imported transcripts, native titles,
+ * tool events, idempotent re-scans, and archive extraction hardening.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -126,6 +124,72 @@ function writeFixtureDir() {
   return root;
 }
 
+const CODEX_SESSION = "019a4ba6-a2b6-75f0-b186-bddd23ae4f2f";
+
+function writeCodexFixtureDir() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-codex-import-"));
+  const rollout = path.join(
+    root,
+    "sessions",
+    "2026",
+    "08",
+    "02",
+    `rollout-2026-08-02T12-00-00-${CODEX_SESSION}.jsonl`
+  );
+  const at = "2026-08-02T12:00:00.000Z";
+  fs.mkdirSync(path.dirname(rollout), { recursive: true });
+  fs.writeFileSync(
+    rollout,
+    [
+      {
+        type: "session_meta",
+        timestamp: at,
+        payload: { id: CODEX_SESSION, timestamp: at, cwd: "/workspace/imported-codex" },
+      },
+      { type: "turn_context", timestamp: at, payload: { model: "gpt-5.6-terra" } },
+      {
+        type: "event_msg",
+        timestamp: at,
+        payload: { type: "user_message", message: "Import this Codex rollout" },
+      },
+      {
+        type: "response_item",
+        timestamp: at,
+        payload: {
+          type: "function_call",
+          name: "exec_command",
+          call_id: "import-command",
+          arguments: '{"cmd":"git status"}',
+        },
+      },
+      {
+        type: "event_msg",
+        timestamp: at,
+        payload: {
+          type: "token_count",
+          info: {
+            total_token_usage: {
+              input_tokens: 100,
+              cached_input_tokens: 20,
+              cache_write_input_tokens: 10,
+              output_tokens: 15,
+              reasoning_output_tokens: 5,
+            },
+          },
+        },
+      },
+      { type: "event_msg", timestamp: at, payload: { type: "task_complete" } },
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n") + "\n"
+  );
+  fs.writeFileSync(
+    path.join(root, "session_index.jsonl"),
+    `${JSON.stringify({ id: CODEX_SESSION, thread_name: "Imported native Codex title" })}\n`
+  );
+  return root;
+}
+
 before(async () => {
   const app = createApp();
   server = await startServer(app, 0);
@@ -157,6 +221,21 @@ describe("GET /api/import/guide", () => {
     assert.ok(Array.isArray(res.body.steps));
     assert.ok(res.body.steps.length >= 4);
     assert.ok(res.body.archive_command.includes("tar"));
+  });
+
+  it("returns Codex-specific paths and instructions when requested", async () => {
+    const res = await fetch("/api/import/guide?provider=codex");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.provider, "codex");
+    assert.ok(res.body.default_projects_dir.endsWith("sessions"));
+    assert.ok(res.body.archive_command.includes("codex-history"));
+    assert.ok(res.body.steps[0].title.includes("Codex"));
+  });
+
+  it("rejects an unknown provider", async () => {
+    const res = await fetch("/api/import/guide?provider=other");
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_PROVIDER");
   });
 });
 
@@ -238,6 +317,55 @@ describe("POST /api/import/scan-path happy path", () => {
       assert.ok(costRes.body.total_cost > 0);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("imports Codex rollouts with tokens, tools, durable transcript access, and native titles", async () => {
+    const root = writeCodexFixtureDir();
+    const priorDataDir = process.env.DASHBOARD_DATA_DIR;
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-codex-import-data-"));
+    process.env.DASHBOARD_DATA_DIR = dataDir;
+    try {
+      const res = await post("/api/import/scan-path", { path: root, provider: "codex" });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.provider, "codex");
+      assert.equal(res.body.imported, 1);
+      assert.equal(res.body.errors, 0);
+
+      const session = stmts.getSession.get(CODEX_SESSION);
+      assert.equal(session.provider, "codex");
+      assert.equal(session.name, "Imported native Codex title");
+      assert.ok(
+        session.transcript_path.startsWith(path.join(dataDir, "codex-transcripts")),
+        "external Codex imports must persist outside the temporary/source directory"
+      );
+      assert.ok(fs.existsSync(session.transcript_path));
+      assert.equal(stmts.getAgent.get(`codex:${CODEX_SESSION}`).status, "waiting");
+
+      const tokens = stmts.getTokensBySession.all(CODEX_SESSION);
+      assert.equal(tokens.length, 1);
+      assert.equal(tokens[0].input_tokens, 70);
+      assert.equal(tokens[0].cache_read_tokens, 20);
+      assert.equal(tokens[0].cache_write_tokens, 10);
+      assert.equal(tokens[0].output_tokens, 20);
+      assert.equal(
+        stmts.listEventsBySession
+          .all(CODEX_SESSION)
+          .filter((event) => event.event_type === "codex_tool_call" && event.tool_name === "Bash")
+          .length,
+        1
+      );
+
+      const second = await post("/api/import/scan-path", { path: root, provider: "codex" });
+      assert.equal(second.status, 200);
+      assert.equal(second.body.imported, 0);
+      assert.equal(second.body.skipped >= 1, true);
+      assert.equal(stmts.getTokensBySession.all(CODEX_SESSION)[0].input_tokens, 70);
+    } finally {
+      if (priorDataDir === undefined) delete process.env.DASHBOARD_DATA_DIR;
+      else process.env.DASHBOARD_DATA_DIR = priorDataDir;
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(dataDir, { recursive: true, force: true });
     }
   });
 

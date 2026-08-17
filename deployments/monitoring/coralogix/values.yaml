@@ -170,7 +170,7 @@ opentelemetry-collector:
 # ── Gateway mode (optional – for centralized export) ─────────────────────────
 opentelemetry-gateway:
   enabled: false
-  replicaCount: 2
+  replicaCount: 1
   resources:
     requests:
       cpu: 250m

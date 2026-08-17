@@ -1,21 +1,5 @@
 # Default execution policy rules for this repository.
 
-# Safe, routine read-only git inspection can run with prompt.
-prefix_rule(
-    pattern = ["git", ["status", "diff", "log", "show"]],
-    decision = "prompt",
-    justification = "Git inspection is allowed with approval.",
-    match = [
-        "git status",
-        "git diff",
-        "git log --oneline -20",
-        "git show HEAD~1",
-    ],
-    not_match = [
-        "git checkout -b feature/new-branch",
-    ],
-)
-
 # Destructive reset-style operations are blocked.
 prefix_rule(
     pattern = ["git", "reset", "--hard"],

@@ -1,0 +1,6 @@
+interface:
+  display_name: "History Portability"
+  short_description: "Import Claude Code or Codex history and move complete CCAM..."
+  default_prompt: "Use $history-portability to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

@@ -23,7 +23,7 @@ dependencies (`npm run setup`) and builds the MCP server (`npm run mcp:install`,
 
 | Component        | Detail                                                              |
 | ---------------- | ------------------------------------------------------------------- |
-| Base image       | `mcr.microsoft.com/devcontainers/javascript-node:22` (matches prod) |
+| Base image       | `mcr.microsoft.com/devcontainers/javascript-node:24` (matches prod) |
 | Native toolchain | `build-essential` + `python3` so `better-sqlite3` compiles          |
 | Python           | `python3` / `python` for `statusline.py` and helper scripts         |
 | sqlite3 CLI      | inspect the dashboard DB during development                         |

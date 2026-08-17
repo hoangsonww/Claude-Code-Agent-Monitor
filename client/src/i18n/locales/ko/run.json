@@ -1,6 +1,27 @@
 {
-  "title": "Claude 실행",
-  "subtitle": "대시보드 안에서 바로 Claude Code 세션을 시작하세요. 실시간 스트리밍 출력, 멀티턴 대화, 그리고 터미널 세션과 동일한 hooks 기반 분석을 제공합니다.",
+  "title": "Agent 실행",
+  "subtitle": "대시보드에서 로컬 코딩 Agent를 바로 실행하세요.",
+  "provider": {
+    "aria": "실행 제공자",
+    "kicker": "Agent 실행",
+    "chooseTitle": "어떤 Agent를 실행할까요?",
+    "chooseDescription": "대화형 로컬 Agent를 선택하세요. 새 실행을 시작하기 전에는 변경할 수 있습니다.",
+    "choose": "선택",
+    "cancel": "취소",
+    "beta": "베타",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "실시간 스트리밍, 대화, 터미널과 동일한 hooks 기반 분석으로 Claude Code를 시작합니다.",
+      "description": "Claude Code를 대화 또는 단발성 작업으로 실행합니다."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "실시간 응답, 도구 활동, 후속 턴을 제공하는 네이티브 대화형 Codex 스레드를 시작합니다.",
+      "description": "로그인된 로컬 CLI에서 지속 Codex app-server 스레드를 실행합니다.",
+      "interactiveLabel": "대화형 Codex 스레드",
+      "interactiveHint": "실시간 응답, 도구 활동, 취소 및 후속 턴을 제공하는 지속 로컬 스레드를 시작합니다."
+    }
+  },
   "mode": {
     "label": "모드",
     "conversation": "대화",
@@ -21,7 +42,7 @@
     },
     "cwdNoMatches": "일치하는 항목이 없습니다. 절대 경로를 입력해 직접 사용하세요.",
     "model": "모델",
-    "modelInheritLabel": "설정에서 상속",
+    "modelInheritLabel": "기본값(권장)",
     "modelCustom": "직접 입력…",
     "modelCustomPlaceholder": "모델 ID(예: claude-opus-4-7-20260101)",
     "permissionMode": "권한 모드",
@@ -29,6 +50,16 @@
     "permissionDefault": "default(대화형 프롬프트 - 헤드리스에서는 세션이 멈출 수 있음)",
     "permissionPlan": "plan(읽기 전용 계획 수립)",
     "permissionBypass": "bypassPermissions(위험 - 확인 없이 모든 작업 허용)",
+    "approvalUntrusted": "신뢰되지 않음(신뢰되지 않은 명령 전 확인)",
+    "approvalOnRequest": "요청 시(Codex가 확인 시점을 결정)",
+    "approvalNever": "안 함(실행 실패를 직접 반환)",
+    "sandbox": "샌드박스",
+    "sandboxReadOnly": "읽기 전용",
+    "sandboxWorkspaceWrite": "작업 공간 쓰기",
+    "sandboxDanger": "위험한 전체 접근",
+    "modelLiveCatalog": "로그인된 Codex CLI의 실시간 카탈로그",
+    "modelCuratedCatalog": "Claude Code는 계정 모델 목록을 제공하지 않습니다. 안정적인 별칭을 선택하거나 다른 모델 ID를 입력하세요.",
+    "modelCustomClaudeHint": "이전 또는 계정별 Claude 모델은 정확한 --model 값을 입력하세요.",
     "effort": "사고 노력 수준",
     "effortHint": "모델이 답변 전에 얼마나 많이 추론할지를 결정합니다. 높을수록 더 많은 사고 토큰을 사용해 느리지만 더 깊게 생각합니다. 비워 두면 모델의 기본값을 상속합니다."
   },
@@ -58,7 +89,7 @@
   "concurrency": {
     "active_one": "이미 진행 중인 실행 {{count}}개",
     "active_other": "이미 진행 중인 실행 {{count}}개",
-    "viewActive": "진행 중인 실행 보기",
+    "viewActive": "대시보드 실행",
     "atCap": "동시 실행 한도에 도달했습니다({{max}}). 새로 시작하려면 실행 중인 항목 하나를 중지하세요."
   },
   "hint": {
@@ -94,12 +125,12 @@
     "attachFailed": "실행에 연결하지 못했습니다: {{message}}"
   },
   "runs": {
-    "switcher": "진행 중인 실행",
+    "switcher": "대시보드 실행",
     "switcherEmpty": "진행 중인 실행 없음",
     "attached": "기존 실행에 연결됨",
     "started": "{{when}} 시작됨",
-    "viewActive": "진행 중인 실행 보기",
-    "viewActive_other": "진행 중인 실행 {{count}}개",
+    "viewActive": "대시보드 실행",
+    "viewActive_other": "대시보드 실행 {{count}}개",
     "scopeNote": "이 대시보드에서 시작한 실행만 표시됩니다.",
     "allSessionsLink": "모든 Claude Code 세션 보기 →",
     "viewLabel": "보기"

@@ -1,8 +1,62 @@
 /**
  * @file Analytics.tsx
- * @description Provides a comprehensive analytics dashboard for monitoring Claude Code sessions, agents, token usage, and events in real-time. Features include an activity heatmap, token distribution charts, session outcome breakdowns, and more, all with interactive tooltips and live updates via WebSocket.
+ * @description Provides a comprehensive analytics dashboard for monitoring Claude Code sessions, agents, token usage, and events in real-time. Features include an activity heatmap, token distribution charts, paginated chart legends, session outcome breakdowns, and more, all with interactive tooltips and live updates via WebSocket.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/pages/Analytics.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/eventBus`
+ * - `../lib/dataScope`
+ * - `../lib/format`
+ * - `../components/Tip`
+ * - `../components/Skeleton`
+ * - `../lib/types`
+ *
+ * ## Public surface
+ * - `Analytics` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Analytics**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
 import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,8 +73,11 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
+import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
+import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
+import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
 import type { Analytics as AnalyticsData, CostResult } from "../lib/types";
 
@@ -495,18 +552,27 @@ function DonutChart({
           {t("common:total_lower")}
         </text>
       </svg>
-      <div className="space-y-2">
-        {segments.map(({ label, value, color }) => (
-          <div key={label} className="flex items-center gap-2 text-xs">
+      <PaginatedLegend
+        items={segments}
+        pageSize={6}
+        getKey={({ label }, index) => `${label}-${index}`}
+        className="min-w-0 flex-1"
+        listClassName="space-y-2"
+        renderItem={({ label, value, color }) => (
+          <div className="flex min-w-0 items-center gap-2 text-xs">
             <span
-              className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+              className="h-2.5 w-2.5 flex-shrink-0 rounded-sm"
               style={{ backgroundColor: color }}
             />
-            <span className="text-gray-400">{label}</span>
-            <span className="text-gray-500 ml-auto pl-4">{Math.round((value / total) * 100)}%</span>
+            <span className="truncate text-gray-400" title={label}>
+              {label}
+            </span>
+            <span className="ml-auto flex-shrink-0 pl-4 text-gray-500">
+              {Math.round((value / total) * 100)}%
+            </span>
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   );
 }
@@ -608,6 +674,8 @@ export function Analytics() {
     "cost"
   );
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
+  // Global data scope; a change re-runs `load` (api injects the `sources` param).
+  const [scope] = useDataScope();
 
   const load = useCallback(async () => {
     try {
@@ -621,7 +689,7 @@ export function Analytics() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     load();
@@ -635,7 +703,8 @@ export function Analytics() {
         msg.type === "session_created" ||
         msg.type === "session_updated" ||
         msg.type === "new_event" ||
-        msg.type === "agent_created"
+        msg.type === "agent_created" ||
+        isRemoteDataRefreshMessage(msg)
       ) {
         load();
       }

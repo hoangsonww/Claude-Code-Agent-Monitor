@@ -1,4 +1,5 @@
 ---
+name: daily-budget-check
 description: >
   Run a daily spend check-in against a daily budget on the Agent Monitor
   dashboard — today's spend vs the daily target, pace through the day, and the

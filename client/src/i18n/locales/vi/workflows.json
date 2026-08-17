@@ -54,7 +54,7 @@
       "why": "Vì sao quan trọng"
     },
     "orchestration": {
-      "what": "DAG nhiều lớp mô tả cách phiên Claude Code phân nhánh: từ phiên gốc, vào main agent, sang từng loại Subagent, qua các lần nén ngữ cảnh, rồi tới kết quả cuối (hoàn tất / lỗi / bỏ dở).",
+      "what": "DAG nhiều lớp mô tả cách các phiên Agent phân nhánh: từ phiên gốc, vào main agent, sang từng loại Subagent, qua các lần nén ngữ cảnh, rồi tới kết quả cuối (hoàn tất / lỗi / bỏ dở).",
       "howToRead": "Mỗi cột là một lớp. Khung node có cùng kích thước; con số là số lần. Cạnh đi từ trái sang phải; cạnh càng dày = lượt chuyển càng phổ biến. Hover bất kỳ node để xem thống kê; bấm để lọc phần còn lại của trang theo node đó.",
       "why": "Dùng để trả lời 'công việc trong workflow của tôi đi đâu?' - loại Subagent nào chiếm ưu thế, nén ngữ cảnh xảy ra ở đâu, và đường nào kết thúc bằng lỗi so với hoàn tất sạch."
     },
@@ -99,7 +99,7 @@
       "why": "Cho cái nhìn tổng thể về phân bố chi phí/độ phức tạp. Outlier chính là những phiên đáng điều tra vì hành vi bất thường hoặc đột biến chi phí."
     },
     "compaction": {
-      "what": "Tần suất Claude kích hoạt nén ngữ cảnh: tổng số sự kiện, token thu hồi và phân bố theo từng phiên.",
+      "what": "Tần suất Agent nén ngữ cảnh: tổng số sự kiện, token thu hồi và phân bố theo từng phiên.",
       "howToRead": "Hai ô số liệu cho biết tổng số lần nén và tổng token đã thu hồi. Biểu đồ cột liệt kê các phiên có ít nhất một lần nén, sắp xếp giảm dần theo số lần.",
       "why": "Nén ngữ cảnh là dấu hiệu áp lực bộ nhớ. Nhiều phiên có số lần nén cao thường có nghĩa workflow nên được chia nhỏ, tóm tắt, hoặc chuyển sang model có ngữ cảnh dài hơn."
     },
@@ -135,7 +135,7 @@
         "success": "Trên toàn bộ lượt chạy main + subagent: lượt hoàn tất ÷ (hoàn tất + lỗi + bỏ dở) × 100. Một lượt được tính hoàn tất khi quan sát được Stop / SubagentStop mà không có sự kiện lỗi xen vào.",
         "topFlow": "Mỗi cặp tool gọi liên tiếp trong một phiên được đếm là một lượt chuyển. Cặp xuất hiện thường xuyên nhất trên mọi phiên hiển thị tại đây dạng 'nguồn → đích'.",
         "compactions": "Tổng số sự kiện nén ngữ cảnh ghi nhận bởi hook PreCompact / SessionStart(compact), chia cho số phiên trong phạm vi.",
-        "duration": "Thời gian thực tính từ sự kiện đầu tiên (SessionStart) đến sự kiện cuối (Stop / SessionEnd / hook gần nhất) của mỗi phiên, trung bình trên mọi phiên trong phạm vi."
+        "duration": "Thời gian thực tính từ sự kiện được ghi nhận đầu tiên đến sự kiện được ghi nhận cuối cùng của mỗi phiên, trung bình trên mọi phiên trong phạm vi."
       },
       "depth": {
         "zero": "chưa quan sát được lồng Agent. Mọi phiên chỉ chạy với main agent - không có ủy quyền cho subagent.",
@@ -152,7 +152,7 @@
         "veryHeavy": "rất nặng về điều phối: phiên trung bình 6+ lượt subagent."
       },
       "success": {
-        "perfect": "gần như hoàn hảo. Hầu hết lượt chạy Agent kết thúc bằng Stop sạch - không lỗi, không bỏ dở.",
+        "perfect": "gần như hoàn hảo. Hầu hết lượt chạy Agent kết thúc sạch, không lỗi, không bỏ dở.",
         "healthy": "khỏe mạnh. Phần lớn lượt Agent hoàn tất thành công; chỉ thi thoảng có thất bại.",
         "acceptable": "chấp nhận được, nhưng cần theo dõi xu hướng lỗi - khoảng 1 trong 5–20 lượt thất bại hoặc bị bỏ dở.",
         "concerning": "đáng lo - một phần đáng kể lượt Agent thất bại. Hãy kiểm tra trang Errors.",
@@ -211,18 +211,18 @@
         "outcome": "Lớp 4 - Kết quả"
       },
       "desc": {
-        "session": "Mỗi đơn vị là một phiên Claude Code khớp với bộ lọc trạng thái hiện tại. Cạnh ra trỏ tới các main agent mà các phiên này đã khởi chạy.",
-        "main": "Lượt chạy Claude cấp cao nhất cho mỗi phiên. Mỗi phiên có đúng một main agent; từ đây đồ thị rẽ nhánh tới các loại Subagent đã được ủy quyền.",
+        "session": "Mỗi đơn vị là một phiên Agent khớp với bộ lọc trạng thái hiện tại. Cạnh ra trỏ tới các main agent mà các phiên này đã khởi chạy.",
+        "main": "Lượt chạy Agent cấp cao nhất cho mỗi phiên. Mỗi phiên có đúng một main agent; từ đây đồ thị rẽ nhánh tới các loại Subagent đã được ủy quyền.",
         "subagent": "Một Subagent chuyên biệt mà main agent đã ủy quyền (ví dụ qua tool Task).",
         "subagentClean": " Mọi lượt chạy của Subagent này đều hoàn tất sạch.",
         "subagentAllError": " Mọi lượt chạy của Subagent này đều lỗi - hãy kiểm tra định nghĩa Agent.",
         "subagentSomeErrors": " {{count}} lượt bị lỗi - xem Error Propagation bên dưới để biết chi tiết.",
         "subagentOverflow": "Tất cả các loại Subagent còn lại được gộp vào một node để đồ thị dễ đọc. Hover bất kỳ Subagent nào khác để xem số liệu riêng.",
-        "nested": "Sự kiện nén cửa sổ ngữ cảnh. Claude kích hoạt nén khi ngữ cảnh đang chạy gần chạm giới hạn của model; số đếm phản ánh điều đó xảy ra bao nhiêu lần trên các phiên trong phạm vi.",
-        "outcomeCompleted": "Phiên có hook cuối là Stop sạch. Không có sự kiện lỗi nào trước khi kết thúc.",
+        "nested": "Sự kiện nén cửa sổ ngữ cảnh. Agent nén khi ngữ cảnh đang chạy gần chạm giới hạn của model; số đếm phản ánh điều đó xảy ra bao nhiêu lần trên các phiên trong phạm vi.",
+        "outcomeCompleted": "Phiên kết thúc sạch mà không có lỗi nào được ghi nhận trước khi kết thúc.",
         "outcomeError": "Phiên có ít nhất một sự kiện lỗi (lỗi tool, lỗi Subagent hoặc lỗi phiên) trước khi kết thúc.",
-        "outcomeAbandoned": "Phiên dừng mà không có Stop sạch và cũng không có lỗi rõ ràng - thường là đóng giữa chừng.",
-        "outcomeFallback": "Trạng thái cuối của các phiên trong phạm vi, được tính từ sự kiện hook cuối quan sát được."
+        "outcomeAbandoned": "Phiên dừng mà không có tín hiệu thoát sạch và cũng không có lỗi rõ ràng — thường là đóng giữa chừng.",
+        "outcomeFallback": "Trạng thái cuối của các phiên trong phạm vi, được tính từ sự kiện cuối quan sát được."
       }
     }
   },
@@ -422,7 +422,7 @@
   "compaction": {
     "title": "Phân tích tác động nén ngữ cảnh",
     "subtitle": "Cách nén ngữ cảnh phân bố trên các phiên của bạn",
-    "help": "Khi cửa sổ ngữ cảnh của một phiên đầy, Claude Code nén phần lịch sử cũ thành bản tóm tắt. Mỗi lần nén dưới đây là một sự kiện như vậy.",
+    "help": "Khi cửa sổ ngữ cảnh của một phiên đầy, Agent đang hoạt động nén phần lịch sử cũ thành bản tóm tắt. Mỗi lần nén dưới đây là một sự kiện như vậy.",
     "noData": "Chưa ghi nhận nén ngữ cảnh",
     "totalCompactions": "Tổng số lần nén",
     "sessionsAffected": "Phiên bị ảnh hưởng",

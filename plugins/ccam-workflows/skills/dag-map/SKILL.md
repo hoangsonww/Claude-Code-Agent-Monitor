@@ -1,4 +1,5 @@
 ---
+name: dag-map
 description: >
   Render the multi-agent orchestration DAG for a session — parent→child
   subagent edges, tree depth, and fan-out — from the Agent Monitor workflow

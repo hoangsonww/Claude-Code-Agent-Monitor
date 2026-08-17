@@ -3,9 +3,59 @@
  * @description Implements the HTTP server transport for the MCP server, supporting both the newer Streamable HTTP protocol and the legacy SSE-based protocol. The server handles incoming requests, manages active sessions, and routes messages to the appropriate transport handlers. It also includes a health check endpoint and integrates with the MCP server instance to facilitate communication with connected clients. The module provides a shutdown function to gracefully close all active transports and the HTTP server itself.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/mcp/src/transports/http-server.ts`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../config/app-config.js`
+ * - `../core/logger.js`
+ * - `../ui/banner.js`
+ *
+ * ## Public surface
+ * - `startHttpServer` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **startHttpServer**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
-import { randomUUID } from "node:crypto";
-import type { Express, Request, Response } from "express";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import type { Express, NextFunction, Request, Response } from "express";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -23,6 +73,30 @@ import * as c from "../ui/colors.js";
 interface TransportEntry {
   transport: Transport;
   type: "streamable" | "sse";
+}
+
+function tokensMatch(provided: string | undefined, expected: string): boolean {
+  if (!provided) return false;
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+/** Pure helper exported for security regression tests. */
+export function isHttpRequestAuthorized(
+  headers: Record<string, string | string[] | undefined>,
+  expectedToken: string | undefined
+): boolean {
+  if (!expectedToken) return true;
+  const authorization = headers.authorization;
+  const bearer =
+    typeof authorization === "string" && authorization.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+  const rawHeader = headers["x-mcp-token"];
+  const tokenHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+  return tokensMatch(bearer || tokenHeader, expectedToken);
 }
 
 /**
@@ -59,6 +133,17 @@ export async function startHttpServer(
 ): Promise<{ app: Express; shutdown: () => Promise<void> }> {
   const app = createMcpExpressApp({ host: config.httpHost });
   const transports = new Map<string, TransportEntry>();
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === "/health" || isHttpRequestAuthorized(req.headers, config.httpAuthToken)) {
+      next();
+      return;
+    }
+    res.status(401).json({
+      error: "unauthorized",
+      message: "missing or invalid MCP HTTP token",
+    });
+  });
 
   // ── Health endpoint ───────────────────────────────────────────
   app.get("/health", (_req: Request, res: Response) => {

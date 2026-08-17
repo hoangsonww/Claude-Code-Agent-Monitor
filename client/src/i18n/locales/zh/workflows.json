@@ -54,7 +54,7 @@
       "why": "为何重要"
     },
     "orchestration": {
-      "what": "一张分层 DAG，描绘 Claude Code 会话的扩散路径：从源会话出发，进入主 Agent，再到各个 Subagent 类型，经过任何上下文压缩，最终到达终止结果（完成 / 错误 / 中止）。",
+      "what": "一张分层 DAG，描绘 Agent 会话的扩散路径：从源会话出发，进入主 Agent，再到各个 Subagent 类型，经过任何上下文压缩，最终到达终止结果（完成 / 错误 / 中止）。",
       "howToRead": "每一列代表一层。节点尺寸固定；小徽章是次数。边由左向右流动；边越粗 = 流转越频繁。悬停任意节点查看统计；点击即可按该节点筛选页面其余内容。",
       "why": "用以回答「我的工作流里工作流向哪里？」--哪些 Subagent 占主导、压缩在何处出现、以及哪些路径以错误而非干净完成收尾。"
     },
@@ -99,7 +99,7 @@
       "why": "在一个视图里看清成本/复杂度分布。离群点正是值得追查失控行为或费用峰值的会话。"
     },
     "compaction": {
-      "what": "Claude 触发上下文压缩的频率：总事件数、回收的 Token 与每会话分布。",
+      "what": "Agent 压缩上下文的频率：总事件数、回收的 Token 与每会话分布。",
       "howToRead": "两个数字框给出压缩事件总数及回收 Token 总量。柱状图列出至少触发过一次压缩的会话，按次数降序排序。",
       "why": "压缩是上下文压力的信号。大量高压缩会话通常意味着工作流应当被拆分、汇总或迁移到更长上下文的模型上。"
     },
@@ -135,7 +135,7 @@
         "success": "在范围内的所有 main + Subagent 运行中：完成数 ÷（完成 + 出错 + 中止）× 100。当观察到 Stop / SubagentStop 而期间没有错误事件时，该次运行计为已完成。",
         "topFlow": "会话内每对相邻的工具调用算作一次流转。所有会话中出现频率最高的那对在此处以「源 → 目标」的形式显示。",
         "compactions": "PreCompact / SessionStart(compact) 钩子记录的上下文压缩事件总数除以范围内的会话数。",
-        "duration": "每个会话从首个事件（SessionStart）到末个事件（Stop / SessionEnd / 最近钩子）的实际时间，在范围内的所有会话上取平均。"
+        "duration": "每个会话从首个记录事件到末个记录事件的实际时间，在范围内的所有会话上取平均。"
       },
       "depth": {
         "zero": "未观察到嵌套 Agent。所有会话都仅由主 Agent 运行--没有发生 Subagent 委派。",
@@ -152,7 +152,7 @@
         "veryHeavy": "编排负担很重：会话平均每次有 6+ 次 Subagent 运行。"
       },
       "success": {
-        "perfect": "几近完美。几乎所有 Agent 运行都以干净的 Stop 事件结束--没有错误或中止。",
+        "perfect": "几近完美。几乎所有 Agent 运行都干净结束，没有错误或中止。",
         "healthy": "健康。绝大多数 Agent 运行都成功完成；只有零星失败。",
         "acceptable": "可以接受，但需关注错误趋势--大约每 5–20 次运行有 1 次失败或被中止。",
         "concerning": "值得担忧--相当一部分 Agent 运行失败。请检查 Errors 页面找出主因。",
@@ -211,18 +211,18 @@
         "outcome": "第 4 层 - 结果"
       },
       "desc": {
-        "session": "此处每个单元都是与当前状态筛选匹配的 Claude Code 会话。出向边连向这些会话启动的主 Agent。",
-        "main": "每个会话最顶层的 Claude 运行。每个会话有且只有一个主 Agent；从这里图分支到其委派的各种 Subagent 类型。",
+        "session": "此处每个单元都是与当前状态筛选匹配的 Agent 会话。出向边连向这些会话启动的主 Agent。",
+        "main": "每个会话最顶层的 Agent 运行。每个会话有且只有一个主 Agent；从这里图分支到其委派的各种 Subagent 类型。",
         "subagent": "主 Agent 委派的专用 Subagent（例如通过 Task 工具）。",
         "subagentClean": " 该 Subagent 的每次运行都干净完成。",
         "subagentAllError": " 该 Subagent 的每次运行都出错--请检查 Agent 定义。",
         "subagentSomeErrors": " {{count}} 次运行出错--详见下方 Error Propagation。",
         "subagentOverflow": "其余所有 Subagent 类型已合并到一个节点，以保持图的可读性。悬停其它 Subagent 节点可查看各自统计。",
-        "nested": "上下文窗口压缩事件。当运行中的上下文接近模型上限时，Claude 触发压缩；此计数反映在范围内的会话中发生的次数。",
-        "outcomeCompleted": "末次钩子为干净 Stop 事件的会话。结束前没有发出任何错误事件。",
+        "nested": "上下文窗口压缩事件。当运行中的上下文接近模型上限时，Agent 会进行压缩；此计数反映在范围内的会话中发生的次数。",
+        "outcomeCompleted": "在结束前没有任何记录错误的干净完成会话。",
         "outcomeError": "在结束前至少发出一次错误事件（工具错误、Subagent 错误或会话错误）的会话。",
-        "outcomeAbandoned": "在没有干净 Stop 且没有显式错误的情况下停止的会话--通常是中途关闭。",
-        "outcomeFallback": "范围内会话的终止状态，依据每个会话最后观察到的钩子事件计算。"
+        "outcomeAbandoned": "没有干净退出信号且没有显式错误就停止的会话，通常是中途关闭。",
+        "outcomeFallback": "范围内会话的终止状态，依据每个会话最后观察到的事件计算。"
       }
     }
   },
@@ -422,7 +422,7 @@
   "compaction": {
     "title": "压缩影响分析",
     "subtitle": "上下文压缩如何分布在你的各个会话中",
-    "help": "当会话的上下文窗口被填满时，Claude Code 会把较早的历史压缩成摘要。下面每一次压缩即为一次这样的事件。",
+    "help": "当会话的上下文窗口被填满时，活动中的 Agent 会把较早的历史压缩成摘要。下面每一次压缩即为一次这样的事件。",
     "noData": "未记录压缩",
     "totalCompactions": "总压缩次数",
     "sessionsAffected": "受影响会话",

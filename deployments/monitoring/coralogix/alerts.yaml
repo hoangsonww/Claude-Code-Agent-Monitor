@@ -153,15 +153,15 @@ alerts:
     labels:
       service: agent-monitor
 
-  - name: "HPA Maxed Out"
-    description: "HPA replicas at max for 15 minutes — may need capacity increase"
+  - name: "Dashboard Replica Contract Violated"
+    description: "CCAM must run exactly one dashboard replica while SQLite is the persistence backend"
     severity: warning
     type: metric
     condition:
-      query: 'kube_horizontalpodautoscaler_status_current_replicas{namespace=~"agent-monitor.*"} == kube_horizontalpodautoscaler_spec_max_replicas{namespace=~"agent-monitor.*"}'
+      query: 'kube_deployment_spec_replicas{namespace=~"agent-monitor.*",deployment=~".*agent-monitor.*"} != 1'
       threshold: 1
       comparison: greater_than_or_equal
-      for_duration: "15m"
+      for_duration: "5m"
     notifications:
       - integration: slack
         channel: "#agent-monitor-alerts"

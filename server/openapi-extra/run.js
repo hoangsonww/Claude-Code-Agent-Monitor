@@ -1,9 +1,9 @@
 /**
  * @file OpenAPI 3.0 path + schema fragments for the dashboard's Run feature
  * (`server/routes/run.js`, mounted at `/api/run`). Spawns and supervises real
- * `claude` Code subprocesses (headless one-shot or multi-turn conversation),
- * streams structured envelopes over the dashboard WebSocket, and exposes a
- * small CRUD-ish surface for run management + history.
+ * Claude Code subprocesses and interactive Codex app-server threads. It
+ * streams structured envelopes over the dashboard WebSocket and exposes one
+ * provider-aware surface for run management, history, and model discovery.
  *
  * Merged into the base spec by `server/openapi-extra.js` -> `createOpenApiSpec()`.
  * Exports exactly `{ tags, schemas, paths }`. Every schema name is prefixed
@@ -17,7 +17,7 @@ const tags = [
   {
     name: "Run",
     description:
-      "Spawn and supervise Claude Code runs from the dashboard (headless or interactive conversation), stream output over WebSocket, and manage run history",
+      "Spawn and supervise Claude Code or interactive Codex runs from the dashboard, stream output over WebSocket, and manage run history",
   },
 ];
 
@@ -42,6 +42,13 @@ const ebadOrigin403 = {
 };
 
 const schemas = {
+  RunProvider: {
+    type: "string",
+    enum: ["claude", "codex"],
+    description: "The CLI provider used for the run.",
+    example: "codex",
+  },
+
   RunHandle: {
     type: "object",
     description:
@@ -69,6 +76,7 @@ const schemas = {
       "stderrTail",
     ],
     properties: {
+      provider: { $ref: "#/components/schemas/RunProvider" },
       id: {
         type: "string",
         format: "uuid",
@@ -102,14 +110,15 @@ const schemas = {
       },
       permissionMode: {
         type: "string",
-        enum: ["acceptEdits", "default", "plan", "bypassPermissions"],
+        description:
+          "Claude uses `acceptEdits`/`default`/`plan`/`bypassPermissions`; Codex uses `untrusted`/`on-request`/`never` approval policy.",
         description:
           "Permission mode passed via `--permission-mode`. Defaults to `acceptEdits` when omitted or invalid.",
         example: "acceptEdits",
       },
       effort: {
         type: "string",
-        enum: ["low", "medium", "high", "xhigh", "max"],
+        enum: ["low", "medium", "high", "xhigh", "max", "ultra"],
         nullable: true,
         description:
           "Thinking-effort level passed via `--effort` (higher = more reasoning tokens before the assistant turn). Null inherits the model default.",
@@ -145,6 +154,12 @@ const schemas = {
         description:
           "Claude session id this run resumed (`--resume`), or null for a fresh run. Conversation mode only.",
         example: null,
+      },
+      sandbox: {
+        type: "string",
+        nullable: true,
+        enum: ["read-only", "workspace-write", "danger-full-access"],
+        description: "Codex sandbox policy; null for Claude runs.",
       },
       status: {
         type: "string",
@@ -445,8 +460,9 @@ const schemas = {
     type: "object",
     description:
       "Whether the `claude` binary is resolvable on PATH (probed via which/where; the binary is not invoked). Lets the UI warn before the user clicks Run.",
-    required: ["found", "path"],
+    required: ["found", "path", "provider"],
     properties: {
+      provider: { $ref: "#/components/schemas/RunProvider" },
       found: {
         type: "boolean",
         description: "True when `claude` resolves on PATH.",
@@ -461,12 +477,44 @@ const schemas = {
     },
   },
 
+  RunModelsResponse: {
+    type: "object",
+    required: ["provider", "dynamic", "source", "items"],
+    properties: {
+      provider: { $ref: "#/components/schemas/RunProvider" },
+      dynamic: {
+        type: "boolean",
+        description: "True for Codex's signed-in live app-server catalog.",
+      },
+      source: { type: "string", example: "codex-app-server" },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["id", "label"],
+          properties: {
+            id: { type: "string" },
+            label: { type: "string" },
+            hint: { type: "string", nullable: true },
+            supportedEfforts: { type: "array", items: { type: "string" } },
+            defaultEffort: { type: "string", nullable: true },
+            isDefault: { type: "boolean" },
+          },
+        },
+      },
+    },
+  },
+
   RunSpawnRequest: {
     type: "object",
     description:
       "Request body for spawning a run. SIDE EFFECT: a successful call spawns a real `claude` process in `cwd`, begins streaming `run_stream`/`run_status` WebSocket messages, and persists a row to `dashboard_runs`.",
     required: ["prompt"],
     properties: {
+      provider: {
+        $ref: "#/components/schemas/RunProvider",
+        description: "Defaults to Claude. Codex always starts an interactive conversation thread.",
+      },
       prompt: {
         type: "string",
         description:
@@ -484,7 +532,7 @@ const schemas = {
       cwd: {
         type: "string",
         description:
-          "Absolute working directory for the child. Must exist as a directory at request time. Omitted/empty defaults to the dashboard server's cwd. Non-absolute or missing paths are rejected with EBADCWD.",
+          "Absolute working directory for the child. Must exist as a directory at request time and is canonicalized with realpath before use. It intentionally may be outside this repository so Run Agent can launch in a home directory or any recent project. Omitted/empty defaults to the dashboard server's cwd. Non-absolute or missing paths are rejected with EBADCWD.",
         example: "/Users/dev/projects/my-app",
       },
       model: {
@@ -508,11 +556,17 @@ const schemas = {
       },
       permissionMode: {
         type: "string",
-        enum: ["acceptEdits", "default", "plan", "bypassPermissions"],
-        default: "acceptEdits",
+        description:
+          "Claude permission mode, or Codex approval policy (`untrusted`, `on-request`, `never`).",
         description:
           "Permission mode passed via `--permission-mode`. Unknown values silently fall back to `acceptEdits`.",
         example: "acceptEdits",
+      },
+      sandbox: {
+        type: "string",
+        enum: ["read-only", "workspace-write", "danger-full-access"],
+        description: "Codex sandbox policy. Ignored for Claude.",
+        example: "workspace-write",
       },
     },
   },
@@ -548,6 +602,10 @@ const schemas = {
       "Request body for sending a follow-up turn into a running conversation. SIDE EFFECT: writes a stream-json user envelope to the child's stdin and broadcasts a `run_input_ack` WebSocket message.",
     required: ["text"],
     properties: {
+      provider: {
+        $ref: "#/components/schemas/RunProvider",
+        description: "Provider owning the run. Defaults to Claude for backwards compatibility.",
+      },
       text: {
         type: "string",
         description: "The follow-up user message. Required and non-empty (else EBADINPUT).",
@@ -582,6 +640,38 @@ const schemas = {
 };
 
 const paths = {
+  "/api/run/models": {
+    get: {
+      tags: ["Run"],
+      summary: "Discover models for a provider",
+      description:
+        "For Codex, queries the signed-in local `codex app-server` model catalog so newly available models appear without a dashboard release. Claude Code exposes no equivalent model-list command, so Claude returns durable aliases plus models observed in local session history.",
+      operationId: "runModels",
+      parameters: [
+        {
+          name: "provider",
+          in: "query",
+          schema: { $ref: "#/components/schemas/RunProvider", default: "claude" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Provider model choices.",
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/RunModelsResponse" } },
+          },
+        },
+        503: {
+          description:
+            "Codex model discovery failed (for example, the CLI is unavailable or not signed in).",
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+          },
+        },
+        403: ebadOrigin403,
+      },
+    },
+  },
   "/api/run": {
     get: {
       tags: ["Run"],
@@ -642,7 +732,7 @@ const paths = {
       tags: ["Run"],
       summary: "Spawn a new run",
       description:
-        "Spawns a real `claude` Code subprocess in the sanitised `cwd`. In `headless` mode the prompt is passed via argv and stdin is closed (one turn, then exit); in `conversation` mode stdin stays open for follow-ups via POST /api/run/{id}/message, and an existing session may be resumed with `resumeSessionId`. The child is always run with `--output-format stream-json --verbose --include-partial-messages`; parsed envelopes are broadcast as `run_stream` WebSocket messages and lifecycle transitions as `run_status`. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped 5 minutes after exit. Concurrency is capped (ECONCURRENCY -> 429). The loopback same-origin guard applies. Returns the freshly-created RunHandle.",
+        "Spawns a Claude Code subprocess or a native interactive Codex app-server thread in the sanitised `cwd`. Claude supports headless and multi-turn conversation modes; Codex always starts/resumes a multi-turn thread and emits structured app-server events in `run_stream`. Provider-specific approval/sandbox settings are validated before spawning. A row is persisted to `dashboard_runs`, and the in-memory handle is reaped after exit. Concurrency is capped (ECONCURRENCY -> 429). The loopback same-origin guard applies. Returns the freshly-created RunHandle.",
       operationId: "runSpawn",
       requestBody: {
         required: true,
@@ -877,7 +967,7 @@ const paths = {
       tags: ["Run"],
       summary: "Autocomplete files within a cwd",
       description:
-        "Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor's `@` references. The cwd is validated via the same sanitiser as spawning (must be an existing absolute directory). Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The loopback same-origin guard applies.",
+        "Walks the given `cwd` and returns up to 40 file paths (relative to that cwd, shortest first) for the prompt editor's `@` references. The cwd is validated via the same sanitiser as spawning: it must be an existing absolute directory, is canonicalized with realpath, and intentionally may be outside this repository. Dotfiles (except .env/.gitignore) and heavy build dirs (node_modules, .git, dist, build, out, .next, coverage, target, .venv, __pycache__, etc.) are skipped; the walk is bounded (≤5000 entries visited). Read-only — no process is spawned. The loopback same-origin guard applies.",
       operationId: "runFiles",
       parameters: [
         {
@@ -886,7 +976,7 @@ const paths = {
           required: false,
           schema: { type: "string" },
           description:
-            "Absolute directory to walk. Must exist; defaults to the dashboard server's cwd when omitted. Invalid values yield 400 EBADCWD.",
+            "Absolute directory to walk. Must exist and is canonicalized with realpath; defaults to the dashboard server's cwd when omitted. It may be outside this repository. Invalid values yield 400 EBADCWD.",
           example: "/Users/dev/projects/my-app",
         },
         {
@@ -925,17 +1015,24 @@ const paths = {
   "/api/run/binary": {
     get: {
       tags: ["Run"],
-      summary: "Check whether the `claude` binary is on PATH",
+      summary: "Check whether the selected agent binary is on PATH",
       description:
-        "Probes PATH (via which/where) for the `claude` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The loopback same-origin guard applies.",
+        "Probes PATH (via which/where) for the selected `claude` or `codex` binary so the UI can warn before the user clicks Run. The binary is NOT invoked — only resolved. Read-only — no process is spawned beyond the lookup. The loopback same-origin guard applies.",
       operationId: "runBinary",
+      parameters: [
+        {
+          name: "provider",
+          in: "query",
+          schema: { $ref: "#/components/schemas/RunProvider", default: "claude" },
+        },
+      ],
       responses: {
         200: {
           description: "Binary resolution result",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/RunBinaryResponse" },
-              example: { found: true, path: "/usr/local/bin/claude" },
+              example: { found: true, path: "/usr/local/bin/codex", provider: "codex" },
             },
           },
         },

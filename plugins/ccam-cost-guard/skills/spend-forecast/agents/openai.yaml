@@ -1,0 +1,6 @@
+interface:
+  display_name: "Spend Forecast"
+  short_description: "Forecast Claude Code spend to the end of the week or month..."
+  default_prompt: "Use $spend-forecast to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

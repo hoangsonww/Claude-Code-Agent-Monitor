@@ -18,10 +18,11 @@ while IFS= read -r f; do
 done < <(
   find "$ROOT" \
     \( -name node_modules -o -name dist -o -name build -o -name .git \
-       -o -path "$ROOT/data" -o -name "__snapshots__" \) -prune -o \
+       -o -path "$ROOT/data" -o -path "$ROOT/monitoring/.bin" \
+       -o -path "$ROOT/monitoring/.data" -o -name "__snapshots__" \) -prune -o \
     -type f \( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.cjs" \
        -o -name "*.mjs" -o -name "*.py" -o -name "*.sh" -o -name "*.css" \) \
-    ! -name "*.min.js" ! -path "*/wiki/i18n-content.js" -print
+    ! -name "*.min.js" ! -path "$ROOT/wiki/i18n-content.js" ! -path "*/wiki/i18n-content.js" -print
 )
 
 if [ "$missing" -eq 0 ]; then

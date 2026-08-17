@@ -11,6 +11,7 @@
 
 // New endpoint groups (previously-undocumented gaps in the base spec).
 const ccConfig = require("./openapi-extra/cc-config");
+const codexConfig = require("./openapi-extra/codex-config");
 const run = require("./openapi-extra/run");
 const push = require("./openapi-extra/push");
 const misc = require("./openapi-extra/misc");
@@ -43,6 +44,7 @@ function combine(...fragments) {
 
 module.exports = combine(
   ccConfig,
+  codexConfig,
   run,
   push,
   misc,

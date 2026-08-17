@@ -1,4 +1,5 @@
 ---
+name: slo-check
 description: >
   Define and check simple service-level objectives for Claude Code from Agent
   Monitor data — session completion rate, tool success rate

@@ -67,11 +67,19 @@ Create the name of the service account to use
 Return the container image string
 */}}
 {{- define "agent-monitor.image" -}}
+{{- if .Values.image.digest -}}
+{{- if .Values.image.registry -}}
+{{- printf "%s/%s@%s" .Values.image.registry .Values.image.repository .Values.image.digest -}}
+{{- else -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.digest -}}
+{{- end -}}
+{{- else -}}
 {{- $tag := default .Chart.AppVersion .Values.image.tag -}}
 {{- if .Values.image.registry -}}
 {{- printf "%s/%s:%s" .Values.image.registry .Values.image.repository $tag -}}
 {{- else -}}
 {{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- end -}}
 {{- end -}}
 {{- end }}
 
@@ -79,10 +87,18 @@ Return the container image string
 Return the MCP sidecar container image string
 */}}
 {{- define "agent-monitor.mcpImage" -}}
+{{- if .Values.mcp.image.digest -}}
+{{- if .Values.mcp.image.registry -}}
+{{- printf "%s/%s@%s" .Values.mcp.image.registry .Values.mcp.image.repository .Values.mcp.image.digest -}}
+{{- else -}}
+{{- printf "%s@%s" .Values.mcp.image.repository .Values.mcp.image.digest -}}
+{{- end -}}
+{{- else -}}
 {{- $tag := default .Chart.AppVersion .Values.mcp.image.tag -}}
 {{- if .Values.mcp.image.registry -}}
 {{- printf "%s/%s:%s" .Values.mcp.image.registry .Values.mcp.image.repository $tag -}}
 {{- else -}}
 {{- printf "%s:%s" .Values.mcp.image.repository $tag -}}
+{{- end -}}
 {{- end -}}
 {{- end }}

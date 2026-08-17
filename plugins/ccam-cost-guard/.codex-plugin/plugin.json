@@ -1,0 +1,29 @@
+{
+  "name": "ccam-cost-guard",
+  "version": "2.0.8",
+  "description": "Budget tracking, spend forecasting, and cost-threshold alerts for Claude Code usage via the Agent Monitor pricing engine. Watches spend against a target budget, projects month-end cost from the daily trend, surfaces the priciest sessions, estimates savings from cheaper-model routing, and wires up cost alert rules — all backed by the dashboard at http://localhost:4820.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["budget", "cost", "forecast", "alerts", "spend", "pricing", "claude-code"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Cost Guard",
+    "shortDescription": "Budget tracking, spend forecasting, and cost-threshold alerts for Claude Code usage via the...",
+    "longDescription": "Budget tracking, spend forecasting, and cost-threshold alerts for Claude Code usage via the Agent Monitor pricing engine. Watches spend against a target budget, projects month-end cost from the daily trend, surfaces the priciest sessions, estimates savings from cheaper-model routing, and wires up cost alert rules — all backed by the dashboard at http://localhost:4820.",
+    "developerName": "Son Nguyen",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Cost Guard to inspect the local CCAM dashboard.",
+      "Use CCAM Cost Guard to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

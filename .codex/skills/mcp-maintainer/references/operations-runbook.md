@@ -11,4 +11,6 @@
 
 ## Verification
 - `npm run mcp:typecheck`
+- `npm run test:mcp`
 - `npm run mcp:build`
+- `npm run extensions:validate`

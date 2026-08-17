@@ -1,0 +1,80 @@
+{
+  "title": "Alertas",
+  "subtitle": "Alertas basadas en reglas para sesiones, agentes, eventos y uso de tokens",
+  "refresh": "Actualizar",
+  "ackAll": "Reconocer todas ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Patrón de evento",
+    "inactivity": "Inactividad",
+    "status_duration": "Agente bloqueado",
+    "token_threshold": "Umbral de tokens"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Se activa cuando un evento ingestado coincide con el patrón. Establece un conteo superior a 1 para requerir N eventos coincidentes dentro de una ventana de tiempo (p. ej., más de 5 errores en 2 minutos).",
+    "inactivity": "Se activa cuando una sesión activa no ha recibido eventos durante el número de minutos configurado.",
+    "status_duration": "Se activa cuando un agente ha permanecido en el estado seleccionado sin actividad durante el número de minutos configurado.",
+    "token_threshold": "Se activa cuando el uso total de tokens de una sesión (entrada + salida + caché) supera el umbral."
+  },
+  "ruleDesc": {
+    "eventPattern": "Coincide con {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} en {{window}} min",
+    "inactivity": "Sin actividad de sesión durante {{minutes}} min",
+    "statusDuration": "Agente bloqueado en {{status}} durante {{minutes}} min",
+    "tokenThreshold": "Tokens de sesión superan {{tokens}}"
+  },
+  "rules": {
+    "title": "Reglas de alerta",
+    "add": "Añadir regla",
+    "cancel": "Cancelar",
+    "create": "Crear regla",
+    "saving": "Guardando…",
+    "empty": "Sin reglas de alerta aún. Añade una para comenzar a monitorear agentes bloqueados, ráfagas de errores, sesiones inactivas o picos de tokens.",
+    "enabled": "Habilitada",
+    "disabled": "Deshabilitada",
+    "enable": "Habilitar regla",
+    "disable": "Deshabilitar regla",
+    "delete": "Eliminar regla",
+    "confirmDelete": "¿Eliminar la regla \"{{name}}\" y su historial de alertas?",
+    "cooldown": "{{seconds}}s de tiempo de espera",
+    "form": {
+      "name": "Nombre de la regla",
+      "namePlaceholder": "p. ej., Ráfaga de errores",
+      "type": "Tipo de regla",
+      "eventType": "Tipo de evento (exacto)",
+      "toolName": "Nombre de herramienta (exacto)",
+      "summaryContains": "El resumen contiene",
+      "count": "Conteo de activación",
+      "windowMinutes": "Ventana (minutos)",
+      "agentStatus": "Estado del agente",
+      "minutes": "Minutos",
+      "totalTokens": "Total de tokens",
+      "cooldown": "Tiempo de espera (segundos)"
+    },
+    "deleteTitle": "¿Eliminar regla de alerta?",
+    "help": {
+      "name": "Una etiqueta para esta regla. Aparece en el feed de alertas y se incluye en los payloads de webhook (rule_name). p. ej., 'Errores Bash repetidos'.",
+      "type": "Qué observa esta regla. event_pattern coincide con el flujo de eventos en vivo; inactivity = una sesión activa queda en silencio; status_duration = un agente está bloqueado en un estado; token_threshold = el uso de tokens de una sesión cruza un límite.",
+      "eventType": "El evento hook de Claude Code a coincidir. Dejar en blanco para coincidir con cualquier tipo de evento. Se compara de forma exacta (sensible a mayúsculas).",
+      "toolName": "La herramienta que invocó el agente (en eventos PreToolUse / PostToolUse). Dejar en blanco para coincidir con cualquier herramienta. Se compara de forma exacta.",
+      "summaryContains": "Coincidencia de subcadena insensible a mayúsculas con el texto de resumen del evento. Útil para detectar errores o frases específicas. Dejar en blanco para omitir.",
+      "count": "Cuántos eventos coincidentes deben ocurrir antes de que se dispare la alerta. 1 = disparar en la primera coincidencia. Establecer por encima de 1 para detectar ráfagas (p. ej., errores repetidos).",
+      "window": "La ventana de retroceso continua para el conteo. p. ej., conteo 5 + ventana 2 significa '5 eventos coincidentes dentro de cualquier intervalo de 2 minutos'.",
+      "status": "Qué estado del agente observar. 'working' detecta agentes bloqueados a mitad de tarea; 'waiting' detecta agentes bloqueados en entrada/permiso.",
+      "minutesInactivity": "Disparar cuando una sesión activa no ha tenido eventos durante este número de minutos (una sesión bloqueada u olvidada).",
+      "minutesStatus": "Disparar cuando un agente permanece en el estado seleccionado sin actividad durante este número de minutos (un agente bloqueado).",
+      "totalTokens": "Disparar cuando los tokens acumulados de una sesión (entrada + salida + lectura de caché + escritura de caché) superan este número. p. ej., 1000000 = 1M tokens.",
+      "cooldown": "Segundos mínimos entre alertas repetidas para la misma regla + sesión + agente. Evita duplicados ruidosos. Por defecto 300 (5 min); 0 = sin tiempo de espera."
+    }
+  },
+  "feed": {
+    "title": "Feed de alertas",
+    "unackedCount": "{{count}} sin reconocer",
+    "unackedOnly": "Solo sin reconocer",
+    "ack": "Reconocer",
+    "viewSession": "Ver sesión",
+    "loadMore": "Cargar más ({{shown}} de {{total}})",
+    "emptyTitle": "Sin alertas",
+    "emptyDescription": "Las alertas disparadas por tus reglas aparecerán aquí en tiempo real.",
+    "emptyUnacked": "Todo está reconocido. Las nuevas alertas aparecerán aquí cuando se disparen."
+  }
+}

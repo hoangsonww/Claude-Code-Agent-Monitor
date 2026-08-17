@@ -1,9 +1,9 @@
 /**
  * @file run.js
- * @description HTTP routes for the dashboard's Run feature. Spawns and
- * supervises `claude` processes (headless one-shot or multi-turn
- * conversation), streams structured envelopes to the client over the
- * existing WebSocket, and exposes a tiny CRUD-ish surface for run management.
+ * @description HTTP routes for the dashboard's Run Agent feature. Spawns and
+ * supervises Claude Code processes or interactive Codex app-server threads,
+ * streams structured envelopes over the existing WebSocket, and exposes one
+ * provider-aware surface for live runs, history, and dynamic model discovery.
  *
  * Security model:
  *   - Local-first dashboard. The dashboard server is expected to bind to
@@ -22,7 +22,9 @@
 const { Router } = require("express");
 const fs = require("node:fs");
 const path = require("node:path");
-const runs = require("../lib/run-spawner");
+const claudeRuns = require("../lib/run-spawner");
+const codexRuns = require("../lib/codex-run-spawner");
+const { startCodexAppServer } = require("../lib/codex-app-server");
 
 const router = Router();
 
@@ -90,16 +92,37 @@ function sanitiseCwd(input) {
     e.code = "EBADCWD";
     throw e;
   }
-  return resolved;
+  try {
+    return fs.realpathSync(resolved);
+  } catch {
+    const e = new Error(`cwd is not readable: ${resolved}`);
+    e.code = "EBADCWD";
+    throw e;
+  }
 }
 
 const ALLOWED_PERMISSION_MODES = new Set(["acceptEdits", "default", "plan", "bypassPermissions"]);
+const ALLOWED_CODEX_APPROVALS = new Set(["untrusted", "on-request", "never"]);
+const ALLOWED_CODEX_SANDBOXES = new Set(["read-only", "workspace-write", "danger-full-access"]);
+
+function providerOf(value) {
+  return value === "codex" ? "codex" : "claude";
+}
+function spawnerFor(provider) {
+  return provider === "codex" ? codexRuns : claudeRuns;
+}
+function allLiveRuns() {
+  return [...claudeRuns.listRuns(), ...codexRuns.listRuns()];
+}
+function totalLiveCount() {
+  return claudeRuns.liveCount() + codexRuns.liveCount();
+}
 
 router.get("/", (_req, res) => {
   res.json({
-    items: runs.listRuns(),
-    maxConcurrent: runs.getMaxConcurrent(),
-    activeCount: runs.liveCount(),
+    items: allLiveRuns(),
+    maxConcurrent: claudeRuns.getMaxConcurrent(),
+    activeCount: totalLiveCount(),
   });
 });
 
@@ -123,7 +146,7 @@ router.get("/history", (req, res) => {
   // Cross-reference with live handles so the UI can mark which history
   // entries are still attached / running.
   const liveIds = new Set();
-  for (const h of runs.listRuns()) {
+  for (const h of allLiveRuns()) {
     if (h.id && (h.status === "running" || h.status === "spawning")) liveIds.add(h.id);
   }
   res.json({
@@ -239,34 +262,136 @@ router.get("/files", (req, res) => {
   res.json({ items: results.slice(0, MAX_RESULTS) });
 });
 
-router.get("/binary", (_req, res) => {
-  // Surface whether `claude` is on PATH so the UI can show a helpful error
+router.get("/binary", (req, res) => {
+  const provider = providerOf(req.query.provider);
+  const binary = provider === "codex" ? "codex" : "claude";
+  // Surface whether the selected CLI is on PATH so the UI can show a helpful error
   // before the user clicks Run. We don't actually invoke it — just let the
   // user know the spawn will work.
   const which = require("node:child_process").spawnSync(
     process.platform === "win32" ? "where" : "which",
-    ["claude"],
+    [binary],
     { encoding: "utf8" }
   );
   const stdout = (which.stdout || "").trim();
   res.json({
     found: which.status === 0 && stdout.length > 0,
     path: stdout || null,
+    provider,
+  });
+});
+
+const CLAUDE_FALLBACK_MODELS = [
+  {
+    id: "",
+    label: "Default (recommended)",
+    hint: "Use the default model configured in Claude Code",
+    isDefault: true,
+  },
+  {
+    id: "opus",
+    label: "Opus 5 (1M context)",
+    hint: "Best for everyday, complex tasks · $5/$25 per Mtok",
+  },
+  {
+    id: "fable",
+    label: "Fable 5",
+    hint: "Most capable for your hardest and longest-running tasks",
+  },
+  {
+    id: "sonnet",
+    label: "Sonnet 5",
+    hint: "Efficient for routine tasks · $3/$15 per Mtok",
+  },
+  {
+    id: "haiku",
+    label: "Haiku 4.5",
+    hint: "Fastest for quick answers · $1/$5 per Mtok",
+  },
+];
+
+async function discoverCodexModels() {
+  const server = startCodexAppServer({ cwd: process.cwd() });
+  try {
+    await server.initialize();
+    const result = await server.request("model/list", { includeHidden: false, limit: 100 }, 10_000);
+    const candidates = Array.isArray(result?.models)
+      ? result.models
+      : Array.isArray(result?.items)
+        ? result.items
+        : Array.isArray(result?.data)
+          ? result.data
+          : [];
+    return candidates
+      .filter((item) => typeof item?.id === "string" && item.id)
+      .map((item) => ({
+        id: item.id,
+        label: item.displayName || item.name || item.id,
+        hint: item.description || null,
+        supportedEfforts: Array.isArray(item.supportedReasoningEfforts)
+          ? item.supportedReasoningEfforts
+              .map((entry) => entry?.reasoningEffort || entry)
+              .filter(Boolean)
+          : [],
+        defaultEffort: item.defaultReasoningEffort || null,
+        isDefault: Boolean(item.isDefault),
+      }));
+  } finally {
+    server.close();
+  }
+}
+
+router.get("/models", async (req, res) => {
+  const provider = providerOf(req.query.provider);
+  if (provider === "codex") {
+    try {
+      const models = await discoverCodexModels();
+      return res.json({ provider, dynamic: true, source: "codex-app-server", items: models });
+    } catch (err) {
+      return res.status(503).json({
+        error: {
+          code: err.code || "ECODEXMODELS",
+          message: err.message || "Could not read Codex models",
+        },
+      });
+    }
+  }
+  // Claude Code intentionally does not expose an account model-list command.
+  // Do not infer availability from old transcript model strings: those can be
+  // stale, unavailable to this account, or difficult to understand. Mirror
+  // the CLI's stable chooser and leave uncommon/legacy IDs to Custom model.
+  return res.json({
+    provider,
+    dynamic: false,
+    source: "claude-cli-curated-aliases",
+    items: CLAUDE_FALLBACK_MODELS,
   });
 });
 
 router.post("/", (req, res) => {
   const body = req.body || {};
+  const provider = providerOf(body.provider);
   const prompt = typeof body.prompt === "string" ? body.prompt : "";
-  const mode = body.mode === "headless" ? "headless" : "conversation";
+  const mode =
+    provider === "codex" ? "conversation" : body.mode === "headless" ? "headless" : "conversation";
   const model = typeof body.model === "string" && body.model ? body.model : null;
   const resumeSessionId =
     typeof body.resumeSessionId === "string" && body.resumeSessionId ? body.resumeSessionId : null;
   const effort = typeof body.effort === "string" && body.effort ? body.effort : null;
   const permissionMode =
-    typeof body.permissionMode === "string" && ALLOWED_PERMISSION_MODES.has(body.permissionMode)
-      ? body.permissionMode
-      : "acceptEdits";
+    provider === "codex"
+      ? typeof body.permissionMode === "string" && ALLOWED_CODEX_APPROVALS.has(body.permissionMode)
+        ? body.permissionMode
+        : "on-request"
+      : typeof body.permissionMode === "string" && ALLOWED_PERMISSION_MODES.has(body.permissionMode)
+        ? body.permissionMode
+        : "acceptEdits";
+  const sandbox =
+    provider === "codex" &&
+    typeof body.sandbox === "string" &&
+    ALLOWED_CODEX_SANDBOXES.has(body.sandbox)
+      ? body.sandbox
+      : "workspace-write";
   // Resuming a conversation can spawn with an empty prompt — claude waits
   // on stdin until the user types a follow-up. Headless and fresh
   // conversation runs still need a prompt to do anything.
@@ -280,7 +405,15 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: { code: err.code, message: err.message } });
   }
   try {
-    const handle = runs.spawnRun({
+    if (totalLiveCount() >= claudeRuns.getMaxConcurrent()) {
+      const err = new Error(`concurrency limit ${claudeRuns.getMaxConcurrent()} reached`);
+      err.code = "ECONCURRENCY";
+      err.running = allLiveRuns().filter(
+        (run) => run.status === "running" || run.status === "spawning"
+      );
+      throw err;
+    }
+    const handle = spawnerFor(provider).spawnRun({
       prompt,
       mode,
       cwd,
@@ -288,8 +421,9 @@ router.post("/", (req, res) => {
       permissionMode,
       resumeSessionId,
       effort,
+      sandbox,
     });
-    return res.status(201).json(runs.getRun(handle.id));
+    return res.status(201).json(spawnerFor(provider).getRun(handle.id));
   } catch (err) {
     if (err.code === "ECONCURRENCY") {
       return res.status(429).json({
@@ -304,14 +438,15 @@ router.post("/", (req, res) => {
   }
 });
 
-router.post("/:id/message", (req, res) => {
+router.post("/:id/message", async (req, res) => {
   const body = req.body || {};
   const text = typeof body.text === "string" ? body.text : "";
   if (!text) {
     return res.status(400).json({ error: { code: "EBADINPUT", message: "text is required" } });
   }
   try {
-    const result = runs.sendInput(req.params.id, text);
+    const provider = providerOf(body.provider);
+    const result = await spawnerFor(provider).sendInput(req.params.id, text);
     return res.json(result);
   } catch (err) {
     const status = err.code === "ENOTFOUND" ? 404 : 400;
@@ -323,7 +458,9 @@ router.get("/:id", (req, res) => {
   // ?envelopes=1 includes the in-memory envelope history so the UI can
   // re-attach to an active run started elsewhere and see what it missed.
   const includeEnvelopes = req.query.envelopes === "1";
-  const handle = runs.getRun(req.params.id, { includeEnvelopes });
+  const handle =
+    claudeRuns.getRun(req.params.id, { includeEnvelopes }) ||
+    codexRuns.getRun(req.params.id, { includeEnvelopes });
   if (!handle) {
     return res.status(404).json({ error: { code: "ENOTFOUND", message: "run not found" } });
   }
@@ -331,7 +468,7 @@ router.get("/:id", (req, res) => {
 });
 
 router.delete("/:id", (req, res) => {
-  const ok = runs.killRun(req.params.id);
+  const ok = claudeRuns.killRun(req.params.id) || codexRuns.killRun(req.params.id);
   if (!ok) {
     return res.status(404).json({ error: { code: "ENOTFOUND", message: "run not found" } });
   }

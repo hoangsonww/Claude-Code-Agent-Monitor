@@ -1,8 +1,71 @@
 /**
  * @file index.ts
- * @description Initializes the i18n internationalization framework for the agent dashboard application, setting up language resources for English, Chinese, Vietnamese, and Korean locales. It configures language detection, fallback options, and namespaces for organized translation keys. This module allows the application to support multiple languages and provides a seamless experience for users across different regions.
+ * @description i18next bootstrap for the dashboard client. Registers bundled JSON
+ * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), and
+ * Korean (`ko`), wires browser language detection, and exports the configured
+ * singleton consumed by `react-i18next`.
+ *
+ * ## Namespaces
+ * Translations are split by feature area (`dashboard`, `sessions`, `settings`,
+ * etc.) so pages import only the keys they need via `useTranslation("ns")`.
+ * `common` is the default namespace for shared labels and buttons.
+ *
+ * ## Detection order
+ * 1. `localStorage` key `i18nextLng` (user override from Settings)
+ * 2. `navigator.language` fallback
+ *
+ * Unknown regional variants (e.g. `en-US`) map to supported base languages via
+ * `nonExplicitSupportedLngs`.
+ *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/i18n/index.ts`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `./locales/en/common.json`
+ * - `./locales/zh/common.json`
+ * - `./locales/vi/common.json`
+ * - `./locales/en/nav.json`
+ * - `./locales/zh/nav.json`
+ * - `./locales/vi/nav.json`
+ * - `./locales/en/dashboard.json`
+ * - `./locales/zh/dashboard.json`
+ * - `./locales/vi/dashboard.json`
+ * - `./locales/en/sessions.json`
+ * - `./locales/zh/sessions.json`
+ * - `./locales/vi/sessions.json`
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
 
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
@@ -69,6 +132,22 @@ import ccConfig_ko from "./locales/ko/ccConfig.json";
 import run_ko from "./locales/ko/run.json";
 import alerts_ko from "./locales/ko/alerts.json";
 import splash_ko from "./locales/ko/splash.json";
+
+import common_es from "./locales/es/common.json";
+import nav_es from "./locales/es/nav.json";
+import dashboard_es from "./locales/es/dashboard.json";
+import sessions_es from "./locales/es/sessions.json";
+import activity_es from "./locales/es/activity.json";
+import analytics_es from "./locales/es/analytics.json";
+import workflows_es from "./locales/es/workflows.json";
+import settings_es from "./locales/es/settings.json";
+import kanban_es from "./locales/es/kanban.json";
+import errors_es from "./locales/es/errors.json";
+import updates_es from "./locales/es/updates.json";
+import ccConfig_es from "./locales/es/ccConfig.json";
+import run_es from "./locales/es/run.json";
+import alerts_es from "./locales/es/alerts.json";
+import splash_es from "./locales/es/splash.json";
 
 i18n
   .use(LanguageDetector)
@@ -143,8 +222,25 @@ i18n
         alerts: alerts_ko,
         splash: splash_ko,
       },
+      es: {
+        common: common_es,
+        nav: nav_es,
+        dashboard: dashboard_es,
+        sessions: sessions_es,
+        activity: activity_es,
+        analytics: analytics_es,
+        workflows: workflows_es,
+        settings: settings_es,
+        kanban: kanban_es,
+        errors: errors_es,
+        updates: updates_es,
+        ccConfig: ccConfig_es,
+        run: run_es,
+        alerts: alerts_es,
+        splash: splash_es,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [
@@ -173,4 +269,5 @@ i18n
     },
   });
 
+/** Configured i18next instance — import side effects run {@link init}. */
 export default i18n;

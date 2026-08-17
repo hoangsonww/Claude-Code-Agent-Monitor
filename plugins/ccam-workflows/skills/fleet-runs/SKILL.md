@@ -1,4 +1,5 @@
 ---
+name: fleet-runs
 description: >
   Summarize Workflow-tool fleet runs from the Agent Monitor — these fleets emit
   no hooks and are ingested from on-disk run journals. List recent runs with

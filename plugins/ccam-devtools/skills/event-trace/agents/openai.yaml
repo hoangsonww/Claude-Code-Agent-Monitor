@@ -1,0 +1,6 @@
+interface:
+  display_name: "Event Trace"
+  short_description: "Trace the full event chain for one Claude Code session into..."
+  default_prompt: "Use $event-trace to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

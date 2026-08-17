@@ -1,0 +1,6 @@
+interface:
+  display_name: "Quick Stats"
+  short_description: "One-line summary of key Agent Monitor metrics — active..."
+  default_prompt: "Use $quick-stats to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

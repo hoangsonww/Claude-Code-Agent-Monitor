@@ -7,6 +7,57 @@
  * highlighting.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/conversation/ToolCallBlock.tsx`
+ * **Purpose:** Renders Claude transcript rows (user, assistant, tool calls) inside Session Detail with markdown, syntax highlighting, and TUI-style segments.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../../lib/types`
+ * - `./CodeBlock`
+ * - `./toolStyle`
+ *
+ * ## Public surface
+ * - `ToolCallBlock` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **ToolCallBlock**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
+
 import { useState } from "react";
 import { ChevronRight, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 import type { TranscriptContent } from "../../lib/types";
@@ -56,6 +107,7 @@ function buildSummary(toolUse: TranscriptContent): string | null {
   if (typeof obj.file_path === "string") return obj.file_path;
   if (typeof obj.path === "string") return obj.path;
   if (typeof obj.command === "string") return obj.command.slice(0, 200);
+  if (typeof obj.code === "string") return obj.code.replace(/\s+/g, " ").slice(0, 200);
   if (typeof obj.pattern === "string") return obj.pattern;
   if (typeof obj.query === "string") return obj.query;
   if (typeof obj.url === "string") return obj.url;
@@ -81,6 +133,13 @@ function renderInput(toolUse: TranscriptContent) {
 
   const obj = input as Record<string, unknown>;
   const tool = (toolUse.name ?? "").toLowerCase();
+
+  // Codex's primary tool is `exec`; unlike Claude's Bash tool it carries a
+  // JavaScript orchestration snippet under `code`. Render it as code instead
+  // of a JSON blob so the transcript shows what actually ran.
+  if (tool === "exec" && typeof obj.code === "string") {
+    return <CodeBlock code={obj.code} lang="javascript" label="Codex tool call" />;
+  }
 
   // Bash: show the command with shell highlighting
   if (tool === "bash" && typeof obj.command === "string") {

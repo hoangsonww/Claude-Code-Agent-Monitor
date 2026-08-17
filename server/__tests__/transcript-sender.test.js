@@ -65,6 +65,18 @@ describe("classifyTranscriptSender — main transcript", () => {
     assert.equal(classifyTranscriptSender(e, false), "system");
   });
 
+  it("[SYSTEM NOTIFICATION …] background-task banner → system", () => {
+    const e = {
+      type: "user",
+      message: {
+        role: "user",
+        content:
+          "[SYSTEM NOTIFICATION - NOT USER INPUT]\nThis is an automated background-task event…\n<task-notification>…",
+      },
+    };
+    assert.equal(classifyTranscriptSender(e, false), "system");
+  });
+
   it("/loop re-injection (isMeta) → system", () => {
     const e = {
       type: "user",

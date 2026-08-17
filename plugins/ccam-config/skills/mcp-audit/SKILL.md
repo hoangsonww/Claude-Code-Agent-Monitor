@@ -1,4 +1,5 @@
 ---
+name: mcp-audit
 description: >
   Audit the configured MCP servers (user + project scope) via the Agent
   Monitor Config Explorer API: transport (stdio vs http), command/args and env

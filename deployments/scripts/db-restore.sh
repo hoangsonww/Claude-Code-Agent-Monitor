@@ -12,7 +12,7 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly APP_NAME="agent-monitor"
 readonly APP_PORT=4820
-readonly DB_PATH_IN_CONTAINER="/app/data"
+readonly DB_PATH_IN_CONTAINER="/app/data/dashboard.db"
 
 # ── Colors & logging ───────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -37,6 +37,10 @@ NAMESPACE=""
 SKIP_HEALTH_CHECK=false
 FORCE=false
 BACKUP_BEFORE_RESTORE=true
+SCALED_DOWN=false
+RESTORE_FILE=""
+HELPER_POD=""
+TEMP_RESTORE_FILE=""
 
 # ── Usage ───────────────────────────────────────────────────────────────────
 usage() {
@@ -97,40 +101,36 @@ validate_input() {
   # Decompress if needed
   if [[ "$INPUT_FILE" == *.gz ]]; then
     info "Decompressing gzipped backup..."
-    restore_file="${INPUT_FILE%.gz}"
-    if [[ -f "$restore_file" ]]; then
-      warn "Decompressed file already exists: ${restore_file}"
-    else
-      gzip -dk "${INPUT_FILE}" || fatal "Failed to decompress ${INPUT_FILE}"
-    fi
+    TEMP_RESTORE_FILE="$(mktemp "${TMPDIR:-/tmp}/ccam-restore.XXXXXX.db")"
+    gzip -dc "${INPUT_FILE}" > "${TEMP_RESTORE_FILE}" || fatal "Failed to decompress ${INPUT_FILE}"
+    restore_file="${TEMP_RESTORE_FILE}"
   fi
 
   RESTORE_FILE="$restore_file"
 
-  # Validate with sqlite3 if available
-  if command -v sqlite3 &>/dev/null; then
-    local integrity
-    integrity=$(sqlite3 "${RESTORE_FILE}" "PRAGMA integrity_check;" 2>/dev/null || echo "error")
-    if [[ "$integrity" == "ok" ]]; then
-      ok "SQLite integrity check passed"
+  local checksum_file="${INPUT_FILE}.sha256"
+  if [[ -f "$checksum_file" ]]; then
+    info "Verifying SHA-256 checksum..."
+    if command -v shasum >/dev/null 2>&1; then
+      (cd "$(dirname "$INPUT_FILE")" && shasum -a 256 -c "$(basename "$checksum_file")") \
+        || fatal "Backup checksum verification failed"
+    elif command -v sha256sum >/dev/null 2>&1; then
+      (cd "$(dirname "$INPUT_FILE")" && sha256sum -c "$(basename "$checksum_file")") \
+        || fatal "Backup checksum verification failed"
     else
-      fatal "Input file failed integrity check: ${integrity}"
-    fi
-
-    local table_count
-    table_count=$(sqlite3 "${RESTORE_FILE}" "SELECT count(*) FROM sqlite_master WHERE type='table';" 2>/dev/null || echo "?")
-    info "Backup contains ${table_count} tables"
-  else
-    warn "sqlite3 not available – skipping integrity check"
-    # Basic file header check
-    local header
-    header=$(head -c 16 "${RESTORE_FILE}" | strings 2>/dev/null || echo "")
-    if echo "$header" | grep -q "SQLite format"; then
-      ok "File appears to be a valid SQLite database"
-    else
-      fatal "File does not appear to be a SQLite database"
+      fatal "shasum or sha256sum is required to verify ${checksum_file}"
     fi
   fi
+
+  command -v sqlite3 &>/dev/null || fatal "sqlite3 is required for restore validation"
+  local integrity
+  integrity=$(sqlite3 "${RESTORE_FILE}" "PRAGMA integrity_check;" 2>/dev/null || echo "error")
+  [[ "$integrity" == "ok" ]] || fatal "Input file failed integrity check: ${integrity}"
+  ok "SQLite integrity check passed"
+
+  local table_count
+  table_count=$(sqlite3 "${RESTORE_FILE}" "SELECT count(*) FROM sqlite_master WHERE type='table';")
+  info "Backup contains ${table_count} tables"
 
   local file_size
   file_size=$(du -sh "${RESTORE_FILE}" 2>/dev/null | awk '{print $1}')
@@ -178,6 +178,11 @@ get_deployment_info() {
   ORIGINAL_REPLICAS=$(kubectl get deployment "${DEPLOYMENT_NAME}" -n "${NAMESPACE}" \
     -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "1")
 
+  [[ "$ORIGINAL_REPLICAS" == "1" ]] || fatal "Refusing restore: expected one SQLite writer, found ${ORIGINAL_REPLICAS} replicas"
+  APP_IMAGE=$(kubectl get deployment "${DEPLOYMENT_NAME}" -n "${NAMESPACE}" \
+    -o jsonpath='{.spec.template.spec.containers[?(@.name=="agent-monitor")].image}')
+  [[ -n "$APP_IMAGE" ]] || fatal "Could not resolve the current agent-monitor image"
+
   info "Deployment: ${DEPLOYMENT_NAME} (${ORIGINAL_REPLICAS} replicas)"
 }
 
@@ -198,9 +203,9 @@ backup_current() {
       --namespace "${NAMESPACE}" \
       --no-compress \
       && ok "Pre-restore backup created in ${backup_dir}" \
-      || warn "Pre-restore backup failed – proceeding anyway"
+      || fatal "Pre-restore backup failed"
   else
-    warn "db-backup.sh not found – skipping pre-restore backup"
+    fatal "db-backup.sh not found"
   fi
 }
 
@@ -212,6 +217,7 @@ scale_down() {
     --replicas=0 \
     -n "${NAMESPACE}" \
     || fatal "Failed to scale down deployment"
+  SCALED_DOWN=true
 
   # Wait for all pods to terminate
   info "Waiting for pods to terminate..."
@@ -241,7 +247,7 @@ restore_database() {
 
   # We need a temporary pod to access the PVC
   # Create a helper pod that mounts the PVC
-  local helper_pod="${APP_NAME}-db-restore-helper"
+  HELPER_POD="${APP_NAME}-db-restore-helper"
 
   # Get PVC name
   local pvc_name
@@ -251,15 +257,17 @@ restore_database() {
 
   info "Creating helper pod to access PVC: ${pvc_name}"
 
+  kubectl delete pod "${HELPER_POD}" -n "${NAMESPACE}" --ignore-not-found=true --wait=true >/dev/null
   kubectl apply -n "${NAMESPACE}" -f - <<YAML
 apiVersion: v1
 kind: Pod
 metadata:
-  name: ${helper_pod}
+  name: ${HELPER_POD}
   labels:
     app: db-restore-helper
 spec:
   restartPolicy: Never
+  automountServiceAccountToken: false
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
@@ -269,7 +277,7 @@ spec:
       type: RuntimeDefault
   containers:
   - name: helper
-    image: alpine:3.19
+    image: ${APP_IMAGE}
     command: ["sleep", "3600"]
     securityContext:
       allowPrivilegeEscalation: false
@@ -279,37 +287,43 @@ spec:
     volumeMounts:
     - name: data
       mountPath: /data
+    - name: tmp
+      mountPath: /tmp
   volumes:
   - name: data
     persistentVolumeClaim:
       claimName: ${pvc_name}
+  - name: tmp
+    emptyDir:
+      sizeLimit: 1Gi
 YAML
 
   # Wait for helper pod to be ready
   info "Waiting for helper pod..."
-  if ! kubectl wait --for=condition=ready "pod/${helper_pod}" -n "${NAMESPACE}" --timeout=120s; then
-    kubectl delete pod "${helper_pod}" -n "${NAMESPACE}" --ignore-not-found=true
+  if ! kubectl wait --for=condition=ready "pod/${HELPER_POD}" -n "${NAMESPACE}" --timeout=120s; then
+    kubectl delete pod "${HELPER_POD}" -n "${NAMESPACE}" --ignore-not-found=true
     fatal "Helper pod did not become ready"
   fi
 
-  # Backup existing DB in the PVC
-  info "Moving existing database to .bak..."
-  kubectl exec "${helper_pod}" -n "${NAMESPACE}" -- \
-    sh -c "[ -f /data/dashboard.db ] && mv /data/dashboard.db /data/dashboard.db.bak || true"
-  kubectl exec "${helper_pod}" -n "${NAMESPACE}" -- \
-    sh -c "rm -f /data/dashboard.db-wal /data/dashboard.db-shm"
+  info "Uploading restore file to a temporary path..."
+  kubectl cp "${RESTORE_FILE}" "${NAMESPACE}/${HELPER_POD}:/tmp/restore.db" \
+    || fatal "Failed to copy restore file"
 
-  # Copy new database to pod, then to PVC path
-  info "Uploading restore file..."
-  kubectl cp "${RESTORE_FILE}" "${NAMESPACE}/${helper_pod}:/data/dashboard.db" \
-    || { kubectl delete pod "${helper_pod}" -n "${NAMESPACE}" --ignore-not-found=true; fatal "Failed to copy restore file"; }
-
-  # Verify copied file
-  kubectl exec "${helper_pod}" -n "${NAMESPACE}" -- ls -la /data/dashboard.db
+  kubectl exec "${HELPER_POD}" -n "${NAMESPACE}" -- sh -ceu "
+    test \"\$(sqlite3 /tmp/restore.db 'PRAGMA integrity_check;')\" = ok
+    if [ -f /data/dashboard.db ]; then
+      cp /data/dashboard.db /data/dashboard.db.pre-restore
+    fi
+    rm -f /data/dashboard.db-wal /data/dashboard.db-shm
+    mv /tmp/restore.db /data/dashboard.db
+    chmod 600 /data/dashboard.db
+    test \"\$(sqlite3 /data/dashboard.db 'PRAGMA integrity_check;')\" = ok
+  " || fatal "Restored database failed in-pod verification"
 
   # Cleanup helper pod
   info "Removing helper pod..."
-  kubectl delete pod "${helper_pod}" -n "${NAMESPACE}" --ignore-not-found=true --wait=false
+  kubectl delete pod "${HELPER_POD}" -n "${NAMESPACE}" --ignore-not-found=true --wait=true
+  HELPER_POD=""
 
   ok "Database file restored"
 }
@@ -322,6 +336,7 @@ scale_up() {
     --replicas="${ORIGINAL_REPLICAS}" \
     -n "${NAMESPACE}" \
     || fatal "Failed to scale up deployment"
+  SCALED_DOWN=false
 
   # Wait for rollout
   info "Waiting for pods to start..."
@@ -330,6 +345,20 @@ scale_up() {
   fi
 
   ok "Deployment scaled up successfully"
+}
+
+cleanup() {
+  local exit_code=$?
+  trap - EXIT
+  if [[ -n "${HELPER_POD}" ]]; then
+    kubectl delete pod "${HELPER_POD}" -n "${NAMESPACE}" --ignore-not-found=true --wait=false >/dev/null 2>&1 || true
+  fi
+  [[ -n "${TEMP_RESTORE_FILE}" ]] && rm -f "${TEMP_RESTORE_FILE}"
+  if [[ "$SCALED_DOWN" == true && -n "${DEPLOYMENT_NAME:-}" ]]; then
+    warn "Restore exited before scale-up; restoring the deployment to ${ORIGINAL_REPLICAS:-1} replica."
+    kubectl scale deployment "${DEPLOYMENT_NAME}" --replicas="${ORIGINAL_REPLICAS:-1}" -n "${NAMESPACE}" >/dev/null 2>&1 || true
+  fi
+  exit "$exit_code"
 }
 
 # ── Post-restore health check ──────────────────────────────────────────────
@@ -369,6 +398,7 @@ run_health_check() {
 
 # ── Main ────────────────────────────────────────────────────────────────────
 main() {
+  trap cleanup EXIT
   echo ""
   echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════╗${NC}"
   echo -e "${BOLD}${YELLOW}║   Claude Code Agent Monitor – DB Restore        ║${NC}"
@@ -384,6 +414,7 @@ main() {
   restore_database
   scale_up
   run_health_check
+  trap - EXIT
 
   echo ""
   ok "${BOLD}Database restore complete!${NC}"

@@ -1,0 +1,29 @@
+{
+  "name": "ccam-runner",
+  "version": "2.0.8",
+  "description": "Operate dashboard-launched Claude Code and Codex runs with safe launch, follow-up, stop, resume, model discovery, and persistent run-history workflows.",
+  "author": {
+    "name": "Son Nguyen",
+    "email": "hoangson091104@gmail.com",
+    "url": "https://github.com/hoangsonww"
+  },
+  "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+  "license": "MIT",
+  "keywords": ["claude-code", "codex", "run", "launcher", "resume", "agents"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCAM Runner",
+    "shortDescription": "Operate dashboard-launched Claude Code and Codex runs with safe launch, follow-up, stop,...",
+    "longDescription": "Operate dashboard-launched Claude Code and Codex runs with safe launch, follow-up, stop, resume, model discovery, and persistent run-history workflows.",
+    "developerName": "Son Nguyen",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
+    "defaultPrompt": [
+      "Use CCAM Runner to inspect the local CCAM dashboard.",
+      "Use CCAM Runner to analyze recent agent activity."
+    ],
+    "brandColor": "#6366F1"
+  }
+}

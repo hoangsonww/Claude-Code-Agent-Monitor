@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "2.0.8"
     app.kubernetes.io/component: network
     app.kubernetes.io/managed-by: kustomize
 spec:
@@ -29,11 +29,9 @@ spec:
       ports:
         - protocol: TCP
           port: 4820
-    # Allow intra-namespace traffic (pod-to-pod)
+    # Allow monitoring and operational access from same-namespace pods.
     - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: agent-monitor
+        - podSelector: {}
       ports:
         - protocol: TCP
           port: 4820
@@ -48,6 +46,7 @@ spec:
     - ports:
         - port: 443
           protocol: TCP
-    # Allow internal communication within the namespace (pod-to-pod)
-    - to:
-        - podSelector: {}
+    # Permit outbound SSH for Remote Data Sources.
+    - ports:
+        - port: 22
+          protocol: TCP

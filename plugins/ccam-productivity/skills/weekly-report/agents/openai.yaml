@@ -1,0 +1,6 @@
+interface:
+  display_name: "Weekly Report"
+  short_description: "Compile a weekly productivity report using Agent Monitor..."
+  default_prompt: "Use $weekly-report to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

@@ -1,12 +1,62 @@
 /**
  * @file Sidebar.tsx
- * @description Defines the Sidebar component that provides navigation links to different sections of the application, displays the connection status, and includes a toggle button for collapsing or expanding the sidebar. The component uses React Router's NavLink for navigation and Lucide icons for visual representation. The collapsed state of the sidebar is stored in localStorage to persist user preferences across sessions.
+ * @description Defines the Sidebar component that provides navigation links to different sections of the application, displays the connection status, and includes a toggle button for collapsing or expanding the sidebar. The component uses React Router's NavLink for navigation and Lucide icons for visual representation, including a portal-backed language picker that stays usable when the sidebar is collapsed. The collapsed state of the sidebar is stored in localStorage to persist user preferences across sessions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/client/src/components/Sidebar.tsx`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `../lib/api`
+ * - `../lib/eventBus`
+ * - `../lib/types`
+ *
+ * ## Public surface
+ * - `Sidebar` — exported API; see TSDoc on the symbol for behavior.
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
+/* -----------------------------------------------------------------------------
+ * EXPORT CATALOG — quick index of symbols defined below (documentation only).
+ * -----------------------------------------------------------------------------
+ * **Sidebar**
+ *   Part of this module's public contract. Downstream imports should treat
+ *   the signature and return type as stable unless release notes say otherwise.
+ *   When behavior changes, update the `@file` overview and relevant tests.
+ *
+ * ----------------------------------------------------------------------------- */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
@@ -24,12 +74,12 @@ import {
   Globe,
   PanelLeftClose,
   PanelLeftOpen,
-  Languages,
   RefreshCw,
   X,
   Plug,
   Clock,
   Gauge,
+  Check,
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
@@ -37,6 +87,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
+import { Select } from "./Select";
 
 function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
   return typeof x === "object" && x !== null && "git_repo" in x && "update_available" in x;
@@ -57,8 +108,12 @@ const NAV_KEYS = [
 const STORAGE_KEY = "sidebar-collapsed";
 const STATS_STORAGE_KEY = "sidebar-connection-stats";
 const RECENT_EVENTS_CAP = 8;
-const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko"] as const;
+const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+const COLLAPSED_LANGUAGE_MENU_WIDTH = 240;
+const VIEWPORT_GUTTER = 12;
+const LANGUAGE_MENU_MAX_HEIGHT = 288;
 
 interface PersistedStats {
   eventCount: number;
@@ -119,7 +174,7 @@ function loadStats(): PersistedStats {
 
 function normalizeLanguage(language: string): SupportedLanguage {
   const base = language.toLowerCase().split("-")[0];
-  if (base === "zh" || base === "vi" || base === "en" || base === "ko") {
+  if (base === "zh" || base === "vi" || base === "en" || base === "ko" || base === "es") {
     return base;
   }
   return "en";
@@ -129,6 +184,153 @@ interface SidebarProps {
   wsConnected: boolean;
   collapsed: boolean;
   onToggle: () => void;
+}
+
+interface CollapsedLanguagePickerProps {
+  value: SupportedLanguage;
+  options: Array<{ value: SupportedLanguage; label: string; hint: string }>;
+  label: string;
+  onChange: (language: SupportedLanguage) => void;
+}
+
+/**
+ * Keeps the collapsed-sidebar language control compact without forcing the
+ * full option list into the narrow rail. The list is portalled to the body so
+ * the sidebar's intentional overflow clipping cannot constrain it.
+ */
+function CollapsedLanguagePicker({
+  value,
+  options,
+  label,
+  onChange,
+}: CollapsedLanguagePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top?: number; bottom?: number }>(
+    {
+      left: VIEWPORT_GUTTER,
+      top: VIEWPORT_GUTTER,
+    }
+  );
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuId = useId();
+
+  const positionMenu = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(COLLAPSED_LANGUAGE_MENU_WIDTH, window.innerWidth - VIEWPORT_GUTTER * 2);
+    const left = Math.min(
+      Math.max(VIEWPORT_GUTTER, rect.left),
+      Math.max(VIEWPORT_GUTTER, window.innerWidth - width - VIEWPORT_GUTTER)
+    );
+    const opensAbove =
+      window.innerHeight - rect.bottom < LANGUAGE_MENU_MAX_HEIGHT &&
+      rect.top > window.innerHeight - rect.bottom;
+
+    setMenuPosition(
+      opensAbove
+        ? { left, bottom: Math.max(VIEWPORT_GUTTER, window.innerHeight - rect.top + 8) }
+        : { left, top: Math.min(window.innerHeight - VIEWPORT_GUTTER, rect.bottom + 8) }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    positionMenu();
+    const closeOnOutsidePress = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", positionMenu);
+      window.removeEventListener("scroll", positionMenu, true);
+    };
+  }, [open, positionMenu]);
+
+  const chooseLanguage = (language: SupportedLanguage) => {
+    onChange(language);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const menu = open && typeof document !== "undefined" && (
+    <div
+      ref={menuRef}
+      id={menuId}
+      role="listbox"
+      aria-label={label}
+      className="fixed z-[80] max-h-72 overflow-auto rounded-lg border border-border bg-surface-1 py-1 shadow-xl shadow-black/40 animate-fade-in"
+      style={{
+        ...menuPosition,
+        width: `min(${COLLAPSED_LANGUAGE_MENU_WIDTH}px, calc(100vw - ${VIEWPORT_GUTTER * 2}px))`,
+      }}
+    >
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => chooseLanguage(option.value)}
+            className={`w-full px-3 py-2 text-left transition-colors hover:bg-surface-3 ${
+              selected ? "bg-accent/10" : ""
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className={`min-w-0 flex-1 truncate text-xs ${
+                  selected ? "font-medium text-accent" : "text-gray-200"
+                }`}
+              >
+                {option.label}
+              </span>
+              {selected && <Check className="h-3.5 w-3.5 flex-shrink-0 text-accent" aria-hidden />}
+            </span>
+            <div className="mt-0.5 truncate text-[10px] text-gray-500">{option.hint}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        className="flex h-10 w-full items-center justify-center rounded-lg border border-border bg-surface-2 text-gray-400 transition-colors hover:bg-surface-3 hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <Globe className="h-4 w-4" aria-hidden />
+      </button>
+      {menu && createPortal(menu, document.body)}
+    </>
+  );
 }
 
 export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
@@ -325,15 +527,11 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
           ? t("nav:upToDate")
           : t("nav:checkForUpdates");
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const currentIndex = SUPPORTED_LANGUAGES.indexOf(currentLanguage);
-  const nextLanguage = SUPPORTED_LANGUAGES[(currentIndex + 1) % SUPPORTED_LANGUAGES.length];
-  const switchLanguageTitle = t("nav:switchLanguage", {
-    language: t(`nav:languageNames.${nextLanguage}`),
-  });
-
-  const toggleLang = () => {
-    i18n.changeLanguage(nextLanguage);
-  };
+  const languageOptions = SUPPORTED_LANGUAGES.map((language) => ({
+    value: language,
+    label: t(`nav:languageNames.${language}`),
+    hint: t(`nav:languageShort.${language}`),
+  }));
 
   const changeLanguage = (language: SupportedLanguage) => {
     if (language !== currentLanguage) {
@@ -419,42 +617,23 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
       {/* Language controls */}
       <div className="px-2 pb-2 flex-shrink-0">
         {collapsed ? (
-          <button
-            onClick={toggleLang}
-            className="w-full h-9 rounded-lg border border-border bg-surface-2 text-gray-300 hover:bg-surface-3 hover:text-gray-100 transition-colors flex flex-col items-center justify-center gap-0.5"
-            title={switchLanguageTitle}
-            aria-label={switchLanguageTitle}
-          >
-            <Languages className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-semibold leading-none">
-              {t(`nav:languageShort.${currentLanguage}`)}
-            </span>
-          </button>
+          <CollapsedLanguagePicker
+            value={currentLanguage}
+            options={languageOptions}
+            label={t("nav:language")}
+            onChange={changeLanguage}
+          />
         ) : (
           <div className="rounded-lg border border-border bg-surface-2 p-2">
             <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
               {t("nav:language")}
             </p>
-            <div className="mt-2 grid grid-cols-4 gap-1">
-              {SUPPORTED_LANGUAGES.map((language) => {
-                const active = language === currentLanguage;
-                return (
-                  <button
-                    key={language}
-                    onClick={() => changeLanguage(language)}
-                    aria-pressed={active}
-                    aria-label={t(`nav:languageNames.${language}`)}
-                    title={t(`nav:languageNames.${language}`)}
-                    className={`rounded-md px-2 py-1.5 text-[11px] font-semibold transition-colors ${
-                      active
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-surface-1 text-gray-400 border border-border hover:bg-surface-3 hover:text-gray-200"
-                    }`}
-                  >
-                    {t(`nav:languageShort.${language}`)}
-                  </button>
-                );
-              })}
+            <div className="mt-2">
+              <Select<SupportedLanguage>
+                value={currentLanguage}
+                onChange={changeLanguage}
+                options={languageOptions}
+              />
             </div>
           </div>
         )}
@@ -519,7 +698,9 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
                 </span>
               )}
             </span>
-            {!collapsed && <span className="text-[11px] font-medium text-gray-600">v1.0.0</span>}
+            {!collapsed && (
+              <span className="text-[11px] font-medium text-gray-600">{`v${__APP_VERSION__}`}</span>
+            )}
           </div>
         </button>
         {collapsed ? (

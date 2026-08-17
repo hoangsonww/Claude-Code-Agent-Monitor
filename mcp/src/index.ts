@@ -3,6 +3,49 @@
  * @description The main entry point for the MCP application, responsible for initializing the server, loading configuration, setting up logging, and starting the appropriate transport based on configuration or command-line arguments. The application supports multiple transport modes (stdio, http, repl) and includes graceful shutdown handling. It also collects tools and registers them with the server when using HTTP or REPL transports. The main function orchestrates the startup process and ensures that any unhandled errors are logged before exiting.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
+ * =============================================================================
+ * **Path:** `/Users/davidnguyen/WebstormProjects/Claude-Code-Agent-Monitor/mcp/src/index.ts`
+ * **Purpose:** Dashboard module consumed by the React client, MCP tools, or desktop shell depending on deployment mode.
+ *
+ * ## Design constraints
+ * - Local-first: no telemetry leaves the machine unless the user configures webhooks.
+ * - Fail-safe hooks path on the server must never block Claude Code; UI mirrors that
+ *   philosophy by degrading gracefully (empty states, stale badges, reconnect loops).
+ * - Destructive flows stay behind explicit confirmation modals and server-side gates.
+ * - Internationalization: user-visible strings belong in i18n JSON, not literals here.
+ *
+ * ## Remote data & SSH
+ * Remote Data Sources let operators aggregate multiple machines. SSH entries describe
+ * how to reach a peer dashboard; the global data scope (`dataScope.ts`) narrows every
+ * scoped GET via `?sources=`. Health checks and import history surface in Settings.
+ *
+ * ## Observability
+ * Prometheus scrapes `GET /api/metrics` (see `monitoring/`). Grafana ships four
+ * provisioned boards (overview, sessions, tools, alerts). Native npm scripts and
+ * Docker Compose profiles are documented in `monitoring/README.md`.
+ *
+ * ## Internal dependencies
+ * - `./clients/dashboard-api-client.js`
+ * - `./config/app-config.js`
+ * - `./core/logger.js`
+ * - `./server.js`
+ * - `./transports/http-server.js`
+ * - `./transports/repl.js`
+ * - `./transports/tool-collector.js`
+ * - `./ui/banner.js`
+ *
+ * ## Testing pointers
+ * - Prefer colocated `__tests__` with Vitest + Testing Library for UI.
+ * - Server contract changes require `npm run test:server` and OpenAPI sync.
+ * - MCP edits: `npm run mcp:typecheck` and `npm run mcp:build`.
+ *
+ * ## Related docs
+ * - `ARCHITECTURE.md` — hooks → API → SQLite → WebSocket → UI pipeline.
+ * - `docs/API.md` — REST reference.
+ * - `.claude/skills/file-headers/` — mandatory `@author` header policy.
+ * ============================================================================= */
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DashboardApiClient } from "./clients/dashboard-api-client.js";
@@ -10,7 +53,7 @@ import { loadConfig, type TransportMode } from "./config/app-config.js";
 import { Logger } from "./core/logger.js";
 import { buildServer } from "./server.js";
 import { startHttpServer } from "./transports/http-server.js";
-import { startRepl } from "./transports/repl.js";
+import { startRepl, toolDomain } from "./transports/repl.js";
 import { collectAllTools } from "./transports/tool-collector.js";
 import { printBanner, printServerInfo, printReady, printShutdown } from "./ui/banner.js";
 
@@ -94,39 +137,10 @@ async function main() {
 
   // ── REPL mode (interactive CLI) ─────────────────────────────
   else if (transport === "repl") {
-    const TOOL_DOMAINS: Record<string, string> = {
-      dashboard_health_check: "observability",
-      dashboard_get_stats: "observability",
-      dashboard_get_analytics: "observability",
-      dashboard_get_system_info: "observability",
-      dashboard_export_data: "observability",
-      dashboard_get_operational_snapshot: "observability",
-      dashboard_list_sessions: "sessions",
-      dashboard_get_session: "sessions",
-      dashboard_create_session: "sessions",
-      dashboard_update_session: "sessions",
-      dashboard_list_agents: "agents",
-      dashboard_get_agent: "agents",
-      dashboard_create_agent: "agents",
-      dashboard_update_agent: "agents",
-      dashboard_list_events: "events",
-      dashboard_ingest_hook_event: "events",
-      dashboard_get_pricing_rules: "pricing",
-      dashboard_get_total_cost: "pricing",
-      dashboard_get_session_cost: "pricing",
-      dashboard_upsert_pricing_rule: "pricing",
-      dashboard_delete_pricing_rule: "pricing",
-      dashboard_reset_pricing_defaults: "pricing",
-      dashboard_cleanup_data: "maintenance",
-      dashboard_reimport_history: "maintenance",
-      dashboard_reinstall_hooks: "maintenance",
-      dashboard_clear_all_data: "maintenance",
-    };
-
     const toolEntries = collectAllTools(config, api, logger);
     const replTools = toolEntries.map((t) => ({
       ...t,
-      domain: TOOL_DOMAINS[t.name] ?? "unknown",
+      domain: toolDomain(t.name),
     }));
     await startRepl(config, api, logger, replTools);
     return; // REPL handles its own lifecycle

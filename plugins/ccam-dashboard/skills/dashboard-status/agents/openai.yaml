@@ -1,0 +1,6 @@
+interface:
+  display_name: "Dashboard Status"
+  short_description: "Quick dashboard health and status overview — checks the..."
+  default_prompt: "Use $dashboard-status to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

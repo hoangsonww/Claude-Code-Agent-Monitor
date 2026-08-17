@@ -11,11 +11,11 @@
     "sessionDefault": "会话 ",
     "sessionError": "会话错误",
     "subagentSpawned": "Subagent已生成",
-    "finishedResponding": "Claude 已完成响应",
+    "finishedResponding": "Agent 已完成响应",
     "readyForInput": "等待输入",
     "sessionCompleted": "会话已完成",
     "sessionClosed": "会话已关闭",
-    "defaultTitle": "Claude Code",
+    "defaultTitle": "Agent 仪表盘",
     "defaultBody": "通知"
   },
   "toolLegend": {

@@ -94,7 +94,7 @@ terraform apply
 | Signal | Source | Destination |
 |--------|--------|-------------|
 | **Logs** | Pod stdout/stderr (JSON structured) | Coralogix Log Analytics |
-| **Metrics** | Prometheus scrape (`/api/health`) | Coralogix Metrics |
+| **Metrics** | Prometheus scrape (`/api/metrics`) | Coralogix Metrics |
 | **K8s Metrics** | kubelet, cAdvisor, host metrics | Coralogix Metrics |
 | **Traces** | OTLP from application (if instrumented) | Coralogix Tracing |
 
@@ -112,7 +112,7 @@ All 10 Prometheus/Alertmanager rules are replicated in Coralogix:
 | WebSocket Spike | Warning | ✓ | ✓ |
 | High Memory | Warning | ✓ | ✓ |
 | High CPU | Warning | ✓ | ✓ |
-| HPA Maxed Out | Warning | ✓ | ✓ |
+| Dashboard Replica Contract Violated | Warning | ✓ | ✓ |
 | Slow DB Queries | Warning | ✓ | ✓ |
 
 ## Dashboard Panels

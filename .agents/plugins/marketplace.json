@@ -1,0 +1,90 @@
+{
+  "name": "claude-code-agent-monitor-plugins",
+  "interface": { "displayName": "Claude Code Agent Monitor" },
+  "plugins": [
+    {
+      "name": "ccam-analytics",
+      "source": { "source": "local", "path": "./plugins/ccam-analytics" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-config",
+      "source": { "source": "local", "path": "./plugins/ccam-config" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-cost-guard",
+      "source": { "source": "local", "path": "./plugins/ccam-cost-guard" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-dashboard",
+      "source": { "source": "local", "path": "./plugins/ccam-dashboard" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-devtools",
+      "source": { "source": "local", "path": "./plugins/ccam-devtools" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-insights",
+      "source": { "source": "local", "path": "./plugins/ccam-insights" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-integrations",
+      "source": { "source": "local", "path": "./plugins/ccam-integrations" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-platform",
+      "source": { "source": "local", "path": "./plugins/ccam-platform" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-productivity",
+      "source": { "source": "local", "path": "./plugins/ccam-productivity" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-quality",
+      "source": { "source": "local", "path": "./plugins/ccam-quality" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-reports",
+      "source": { "source": "local", "path": "./plugins/ccam-reports" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-runner",
+      "source": { "source": "local", "path": "./plugins/ccam-runner" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    },
+    {
+      "name": "ccam-sessions",
+      "source": { "source": "local", "path": "./plugins/ccam-sessions" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ccam-workflows",
+      "source": { "source": "local", "path": "./plugins/ccam-workflows" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -21,11 +21,13 @@ const HANDLER = path.resolve(__dirname, "../../scripts/hook-handler.js");
 // told to delay its HTTP response — emulating a busy/slow/wedged server.
 function startMockServer({ responseDelayMs }) {
   const received = [];
+  const receivedHeaders = [];
   const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       received.push(body);
+      receivedHeaders.push(req.headers);
       const reply = () => {
         try {
           res.end('{"ok":true}');
@@ -39,18 +41,18 @@ function startMockServer({ responseDelayMs }) {
   });
   return new Promise((resolve) => {
     server.listen(0, "127.0.0.1", () => {
-      resolve({ server, port: server.address().port, received });
+      resolve({ server, port: server.address().port, received, receivedHeaders });
     });
   });
 }
 
 // Spawn the real handler, pipe a hook payload to stdin, and time how long it
 // takes to exit.
-function runHandler({ port, hookType = "Stop", payload }) {
+function runHandler({ port, hookType = "Stop", payload, env = {} }) {
   return new Promise((resolve, reject) => {
     const start = process.hrtime.bigint();
     const child = spawn(process.execPath, [HANDLER, hookType], {
-      env: { ...process.env, CLAUDE_DASHBOARD_PORT: String(port) },
+      env: { ...process.env, CLAUDE_DASHBOARD_PORT: String(port), ...env },
       stdio: ["pipe", "ignore", "ignore"],
     });
     child.on("error", reject);
@@ -105,5 +107,24 @@ describe("hook-handler non-blocking delivery", () => {
       ms < 2000,
       `handler should exit fast on a refused connection (was ${ms.toFixed(0)}ms)`
     );
+  });
+
+  it("sends the dedicated token to an explicitly configured remote dashboard", async () => {
+    const { server, port, receivedHeaders } = await startMockServer({ responseDelayMs: 0 });
+    try {
+      const { code } = await runHandler({
+        port,
+        payload: { session_id: "hh-remote", stop_reason: "end_turn" },
+        env: {
+          CCAM_DASHBOARD_URL: `http://127.0.0.1:${port}`,
+          CCAM_HOOK_TOKEN: "hook-secret",
+        },
+      });
+      assert.equal(code, 0);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.equal(receivedHeaders[0]["x-ccam-hook-token"], "hook-secret");
+    } finally {
+      server.close();
+    }
   });
 });

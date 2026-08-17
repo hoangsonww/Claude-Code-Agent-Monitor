@@ -1,4 +1,5 @@
 ---
+name: skill-inventory
 description: >
   Inventory the installed skills and which plugins contribute them, then flag
   overlap with the user's own skills — read through the Agent Monitor Config

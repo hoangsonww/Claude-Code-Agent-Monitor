@@ -4,23 +4,31 @@ kind: Kustomization
 metadata:
   name: agent-monitor-production
 
-namespace: agent-monitor
+namespace: agent-monitor-production
 
 resources:
   - ../../base
 
 patches:
   - path: patches/deployment-patch.yaml
-  - path: patches/hpa-patch.yaml
+  - target:
+      kind: Namespace
+      name: agent-monitor
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: agent-monitor-production
+  - target:
+      kind: ConfigMap
+      name: agent-monitor-config
+    patch: |
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: agent-monitor-config
+      data:
+        NODE_ENV: production
 
 images:
-  - name: ${IMAGE_REGISTRY}/agent-monitor
-    newName: agent-monitor
-    newTag: latest
-
-configMapGenerator:
-  - name: agent-monitor-config
-    behavior: merge
-    literals:
-      - NODE_ENV=production
-      - LOG_LEVEL=warn
+  - name: ccam-dashboard
+    newTag: 2.0.8

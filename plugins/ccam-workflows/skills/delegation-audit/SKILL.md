@@ -1,4 +1,5 @@
 ---
+name: delegation-audit
 description: >
   Audit model delegation and subagent effectiveness for a session — which
   models handled which subagent types, per-type success rates and average

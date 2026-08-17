@@ -33,14 +33,19 @@ const EXPECTED_API_PATHS = [
   "/api/sessions/{id}/stats",
   "/api/sessions/{id}/transcripts",
   "/api/sessions/{id}/transcript",
+  "/api/sessions/{id}/transcript-image",
   "/api/agents",
   "/api/agents/{id}",
   "/api/events",
   "/api/events/facets",
   "/api/stats",
+  "/api/metrics",
   "/api/analytics",
   "/api/hooks/event",
+  "/api/hooks/codex",
   "/api/pricing",
+  "/api/pricing/gpt",
+  "/api/pricing/gpt/{pattern}",
   "/api/pricing/{pattern}",
   "/api/pricing/cost",
   "/api/pricing/cost/{sessionId}",
@@ -52,10 +57,12 @@ const EXPECTED_API_PATHS = [
   "/api/settings/clear-data",
   "/api/settings/reimport",
   "/api/settings/reinstall-hooks",
+  "/api/settings/install-hooks",
   "/api/settings/reset-pricing",
   "/api/settings/export",
   "/api/settings/cleanup",
   "/api/settings/claude-home",
+  "/api/settings/codex-home",
   "/api/import/guide",
   "/api/import/rescan",
   "/api/import/scan-path",
@@ -86,11 +93,16 @@ const EXPECTED_API_PATHS = [
   "/api/cc-config/hook-scripts",
   "/api/cc-config/file",
   "/api/cc-config/backups",
+  "/api/codex-config/overview",
+  "/api/codex-config/file",
+  "/api/codex-config/edit-file",
+  "/api/codex-config/profiles",
   "/api/run",
   "/api/run/history",
   "/api/run/cwds",
   "/api/run/files",
   "/api/run/binary",
+  "/api/run/models",
   "/api/run/{id}",
   "/api/run/{id}/message",
   "/api/webhooks",
@@ -169,6 +181,7 @@ describe("GET /api/health", () => {
     const res = await fetch("/api/health");
     assert.equal(res.status, 200);
     assert.equal(res.body.status, "ok");
+    assert.equal(res.body.version, pkg.version);
     assert.ok(res.body.timestamp);
   });
 });
@@ -193,6 +206,8 @@ describe("OpenAPI / Swagger", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /text\/html/);
     assert.match(res.body, /swagger/i);
+    assert.match(res.body, /rel="icon" href="\/favicon\.svg"/i);
+    assert.doesNotMatch(res.body, /What would you like to monitor\?/i);
   });
 
   it("should serve the ReDoc reference page", async () => {
@@ -202,12 +217,21 @@ describe("OpenAPI / Swagger", () => {
     // References the spec and the locally-served bundle (no CDN).
     assert.match(res.body, /spec-url="\/api\/openapi\.json"/);
     assert.match(res.body, /src="\/api\/redoc\/redoc\.standalone\.js"/);
+    assert.match(res.body, /rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"/i);
+    assert.doesNotMatch(res.body, /What would you like to monitor\?/i);
   });
 
   it("should serve the self-hosted ReDoc bundle", async () => {
     const res = await fetch("/api/redoc/redoc.standalone.js");
     assert.equal(res.status, 200);
     assert.match(res.headers["content-type"], /javascript/);
+  });
+
+  it("should serve the dashboard favicon for both API references", async () => {
+    const res = await fetch("/favicon.svg");
+    assert.equal(res.status, 200);
+    assert.match(res.headers["content-type"], /image\/svg\+xml/);
+    assert.match(res.body, /<svg\b/i);
   });
 });
 
@@ -590,6 +614,114 @@ describe("Stats API", () => {
 });
 
 // ============================================================
+// Settings and GPT pricing API
+// ============================================================
+describe("Settings and GPT pricing API", () => {
+  it("returns the active Codex home without exposing a raw environment override", async () => {
+    const res = await fetch("/api/settings/codex-home");
+    assert.equal(res.status, 200);
+    assert.equal(typeof res.body.codex_home, "string");
+    assert.ok(path.isAbsolute(res.body.codex_home));
+  });
+
+  it("seeds the supplied GPT card with explicit long-context availability", async () => {
+    const res = await fetch("/api/pricing/gpt");
+    assert.equal(res.status, 200);
+    const byPattern = new Map(res.body.pricing.map((rule) => [rule.model_pattern, rule]));
+
+    assert.deepEqual(
+      [
+        "short_input_per_mtok",
+        "short_cached_input_per_mtok",
+        "short_cache_write_per_mtok",
+        "short_output_per_mtok",
+        "long_input_per_mtok",
+        "long_cached_input_per_mtok",
+        "long_cache_write_per_mtok",
+        "long_output_per_mtok",
+        "fast_input_per_mtok",
+        "fast_cached_input_per_mtok",
+        "fast_cache_write_per_mtok",
+        "fast_output_per_mtok",
+      ].map((field) => byPattern.get("gpt-5.6-luna%")[field]),
+      [0.2, 0.02, 0.25, 1.2, 0.4, 0.04, 0.5, 1.8, 0.4, 0.04, 0.5, 2.4]
+    );
+
+    // The published card intentionally has no long-context tier for these
+    // models; zero keeps costs honest and is surfaced as unavailable in the UI.
+    for (const pattern of ["gpt-5.4-mini%", "gpt-5.4-nano%"]) {
+      const rule = byPattern.get(pattern);
+      assert.ok(rule, `expected ${pattern} to be seeded`);
+      assert.deepEqual(
+        [
+          rule.long_input_per_mtok,
+          rule.long_cached_input_per_mtok,
+          rule.long_cache_write_per_mtok,
+          rule.long_output_per_mtok,
+        ],
+        [0, 0, 0, 0]
+      );
+    }
+  });
+
+  it("resets one provider without overwriting the other provider's custom rules", async () => {
+    const claudePattern = "test-claude-custom%";
+    const gptPattern = "test-gpt-custom%";
+    stmts.upsertPricing.run(claudePattern, "Custom Claude", 1, 2, 0.1, 1.25, 2, 0, 0);
+    stmts.upsertGptPricing.run(
+      gptPattern,
+      "Custom GPT",
+      1,
+      0.1,
+      1.25,
+      2,
+      3,
+      0.3,
+      3.75,
+      6,
+      4,
+      0.4,
+      5,
+      8
+    );
+
+    const codexReset = await post("/api/settings/reset-pricing", { provider: "codex" });
+    assert.equal(codexReset.status, 200);
+    assert.equal(codexReset.body.provider, "codex");
+    assert.ok(stmts.getPricing.get(claudePattern), "Claude custom rule must survive a GPT reset");
+    assert.equal(stmts.getGptPricing.get(gptPattern), undefined);
+
+    stmts.upsertGptPricing.run(
+      gptPattern,
+      "Custom GPT",
+      1,
+      0.1,
+      1.25,
+      2,
+      3,
+      0.3,
+      3.75,
+      6,
+      4,
+      0.4,
+      5,
+      8
+    );
+    const claudeReset = await post("/api/settings/reset-pricing", { provider: "claude" });
+    assert.equal(claudeReset.status, 200);
+    assert.equal(claudeReset.body.provider, "claude");
+    assert.equal(stmts.getPricing.get(claudePattern), undefined);
+    assert.ok(stmts.getGptPricing.get(gptPattern), "GPT custom rule must survive a Claude reset");
+
+    const invalid = await post("/api/settings/reset-pricing", { provider: "other" });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error.code, "INVALID_INPUT");
+
+    await post("/api/settings/reset-pricing");
+  });
+});
+
+// ============================================================
 // Hook Event Processing
 // ============================================================
 describe("Hook Event Processing", () => {
@@ -809,6 +941,7 @@ describe("Hook Event Processing", () => {
     // A non-waiting Notification should NOT stamp awaiting_input_since.
     const sessRes = await fetch("/api/sessions/hook-sess-1");
     assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
   });
 
   it("should mark session and main agent as awaiting input on permission-prompt Notification", async () => {
@@ -832,10 +965,12 @@ describe("Hook Event Processing", () => {
       sessRes.body.session.awaiting_input_since,
       "session should be flagged as awaiting input"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "notification");
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-wait");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.ok(main.awaiting_input_since, "main agent should be flagged as awaiting input");
+    assert.equal(main.awaiting_reason, "notification");
   });
 
   it("should clear awaiting_input_since when the user resumes (next PreToolUse)", async () => {
@@ -859,10 +994,12 @@ describe("Hook Event Processing", () => {
 
     const after = await fetch("/api/sessions/hook-sess-wait");
     assert.equal(after.body.session.awaiting_input_since, null);
+    assert.equal(after.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-wait");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.awaiting_reason, null);
   });
 
   it("should keep session active and set main agent waiting on Stop", async () => {
@@ -901,6 +1038,8 @@ describe("Hook Event Processing", () => {
       main.awaiting_input_since,
       "main agent should be flagged waiting after non-error Stop"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "stop");
+    assert.equal(main.awaiting_reason, "stop");
   });
 
   it("should mark a brand-new SessionStart as Waiting (sitting at the prompt)", async () => {
@@ -920,10 +1059,103 @@ describe("Hook Event Processing", () => {
       sessRes.body.session.awaiting_input_since,
       "fresh session should be flagged Waiting at SessionStart"
     );
+    assert.equal(sessRes.body.session.awaiting_reason, "session_start");
 
     const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.ok(main.awaiting_input_since, "fresh main agent should be flagged Waiting");
+    assert.equal(main.awaiting_reason, "session_start");
+  });
+
+  it("should NOT flip a genuinely-working session to Waiting on SessionStart source=compact", async () => {
+    // Auto-compaction fires SessionStart(source=compact) MID-TURN while Claude
+    // is actively working. The session is genuinely Active and must stay Active
+    // — a compact must not re-stamp it 'session_start' Waiting. This is the
+    // "in-progress session shows as Waiting" bug.
+    const sid = "hook-sess-compact-active";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "startup" },
+    });
+    // User submits a prompt → clears the session_start flag, main → working.
+    await post("/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, prompt: "do a big task" },
+    });
+    const working = await fetch(`/api/sessions/${sid}`);
+    assert.equal(
+      working.body.session.awaiting_input_since,
+      null,
+      "precondition: session is Active (working) before compaction"
+    );
+
+    // Auto-compaction kicks in mid-turn.
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "compact" },
+    });
+
+    const afterSess = await fetch(`/api/sessions/${sid}`);
+    assert.equal(afterSess.body.session.status, "active");
+    assert.equal(
+      afterSess.body.session.awaiting_input_since,
+      null,
+      "mid-turn compact must NOT stamp the Waiting flag on a working session"
+    );
+    assert.equal(afterSess.body.session.awaiting_reason, null);
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(main.status, "working", "main agent should stay working through a compaction");
+    assert.equal(main.awaiting_input_since, null);
+  });
+
+  it("should PRESERVE the Waiting flag on SessionStart source=compact when idle at the prompt", async () => {
+    // /compact run while the session sits idle at the prompt: it was already
+    // Waiting (from the prior Stop) and must stay Waiting. Compact must neither
+    // promote the agent to working nor overwrite the awaiting_reason.
+    const sid = "hook-sess-compact-idle";
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "startup" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "UserPromptSubmit",
+      data: { session_id: sid, prompt: "answer this" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, stop_reason: "end_turn" },
+    });
+    const before = await fetch(`/api/sessions/${sid}`);
+    assert.ok(before.body.session.awaiting_input_since, "precondition: Waiting after Stop");
+    assert.equal(before.body.session.awaiting_reason, "stop");
+
+    // /compact at idle.
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: sid, source: "compact" },
+    });
+
+    const after = await fetch(`/api/sessions/${sid}`);
+    assert.ok(
+      after.body.session.awaiting_input_since,
+      "idle compact must preserve the Waiting flag"
+    );
+    assert.equal(
+      after.body.session.awaiting_reason,
+      "stop",
+      "reason must remain 'stop', not be overwritten by 'session_start'"
+    );
+
+    const agentsRes = await fetch(`/api/agents?session_id=${sid}`);
+    const main = agentsRes.body.agents.find((a) => a.type === "main");
+    assert.equal(
+      main.status,
+      "waiting",
+      "main agent should stay waiting through an idle compaction"
+    );
+    assert.ok(main.awaiting_input_since);
   });
 
   it("should clear awaiting_input_since and promote main to working on UserPromptSubmit", async () => {
@@ -1038,6 +1270,7 @@ describe("Hook Event Processing", () => {
     // Confirm the flag carried forward from the previous Stop test.
     const before = await fetch("/api/sessions/hook-sess-1");
     assert.ok(before.body.session.awaiting_input_since);
+    assert.equal(before.body.session.awaiting_reason, "stop");
 
     await post("/api/hooks/event", {
       hook_type: "PreToolUse",
@@ -1046,10 +1279,12 @@ describe("Hook Event Processing", () => {
 
     const after = await fetch("/api/sessions/hook-sess-1");
     assert.equal(after.body.session.awaiting_input_since, null);
+    assert.equal(after.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-1");
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.equal(main.awaiting_input_since, null);
+    assert.equal(main.awaiting_reason, null);
   });
 
   it("should mark session as error when stop_reason is error", async () => {
@@ -1065,6 +1300,8 @@ describe("Hook Event Processing", () => {
 
     const sessRes = await fetch("/api/sessions/hook-sess-err");
     assert.equal(sessRes.body.session.status, "error");
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
   });
 
   it("should not create duplicate session on repeated events", async () => {
@@ -1379,6 +1616,10 @@ describe("Hook Event Processing", () => {
       "Session should be completed after SessionEnd"
     );
     assert.ok(sessRes.body.session.ended_at, "Session should have ended_at");
+    // SessionEnd clears any leftover waiting flag (and its reason) so the
+    // row lands in its final column without a stale awaiting_reason.
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+    assert.equal(sessRes.body.session.awaiting_reason, null);
 
     const agentsRes = await fetch("/api/agents?session_id=hook-sess-end");
     agentsRes.body.agents.forEach((a) => {
@@ -1746,6 +1987,12 @@ describe("Transcript cache integration", () => {
     assert.ok(Array.isArray(res.body.transcript_cache.keys), "should have keys array");
   });
 
+  it("should include server version in settings info", async () => {
+    const res = await fetch("/api/settings/info");
+    assert.strictEqual(res.status, 200);
+    assert.equal(res.body.server.version, pkg.version);
+  });
+
   it("should evict cache entry on SessionEnd", async () => {
     const tmpTranscript = path.join(os.tmpdir(), `test-evict-${Date.now()}.jsonl`);
     fs.writeFileSync(
@@ -2089,6 +2336,150 @@ describe("Watchdog API-error detection", () => {
       }
     }
   });
+
+  it("does not refresh an unchanged terminal error on later watchdog ticks", async () => {
+    const tmpTranscript = path.join(os.tmpdir(), `watchdog-duplicate-${Date.now()}.jsonl`);
+    const sessionId = `watchdog-duplicate-${Date.now()}`;
+    const hooks = require("../routes/hooks");
+
+    try {
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+
+      // Claude retries authentication failures in-place, leaving repeated
+      // identical terminal entries in the transcript. The dashboard records
+      // one durable error, then every later watchdog pass must be a no-op.
+      const base = Date.now() - 30_000;
+      fs.writeFileSync(
+        tmpTranscript,
+        [0, 1, 2]
+          .map((offset) =>
+            JSON.stringify({
+              isApiErrorMessage: true,
+              error: "authentication_failed",
+              message: { content: [{ text: "OAuth session expired" }] },
+              timestamp: new Date(base + offset).toISOString(),
+            })
+          )
+          .join("\n") + "\n"
+      );
+
+      const staleAt = new Date(Date.now() - 60_000).toISOString();
+      db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(staleAt, sessionId);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      assert.strictEqual(stmts.getSession.get(sessionId).status, "error");
+      assert.strictEqual(
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND event_type = 'APIError'"
+          )
+          .get(sessionId).count,
+        1,
+        "repeated identical transcript errors should produce one durable event"
+      );
+
+      // Age it again to force a second watchdog read. Prior behavior rewrote
+      // the error session here, turning the Sessions table's last-active value
+      // into 'just now' and emitting another error notification.
+      const secondStaleAt = new Date(Date.now() - 60_000).toISOString();
+      db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(secondStaleAt, sessionId);
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      const after = stmts.getSession.get(sessionId);
+      assert.strictEqual(after.status, "error");
+      assert.strictEqual(
+        after.updated_at,
+        secondStaleAt,
+        "an unchanged error must not be rewritten as new session activity"
+      );
+      assert.strictEqual(
+        db
+          .prepare(
+            "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND event_type = 'APIError'"
+          )
+          .get(sessionId).count,
+        1
+      );
+
+      const lastEventAt = db
+        .prepare("SELECT MAX(created_at) AS last_activity FROM events WHERE session_id = ?")
+        .get(sessionId).last_activity;
+      const list = await fetch(`/api/sessions?q=${encodeURIComponent(sessionId)}`);
+      assert.strictEqual(list.status, 200);
+      assert.strictEqual(
+        list.body.sessions[0].last_activity,
+        lastEventAt,
+        "the session list must report durable event time, not mutable updated_at bookkeeping"
+      );
+      const agents = await fetch(`/api/agents?session_id=${encodeURIComponent(sessionId)}`);
+      assert.strictEqual(agents.status, 200);
+      assert.strictEqual(
+        agents.body.agents[0].last_activity,
+        lastEventAt,
+        "dashboard agent cards must use durable activity time too"
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
+  });
+
+  it("must NOT flip a remote-source session to error from its mirrored transcript", async () => {
+    // Remote Data Source sessions are monitored via a delayed rsync mirror on
+    // this host, so the transcript-tail error heuristic must never act on them —
+    // their lifecycle is owned by remote-sync's reconciliation, not the watchdog.
+    const tmpTranscript = path.join(os.tmpdir(), `watchdog-remote-${Date.now()}.jsonl`);
+    fs.writeFileSync(tmpTranscript, "");
+    const sessionId = `watchdog-remote-${Date.now()}`;
+    const hooks = require("../routes/hooks");
+
+    try {
+      await post("/api/hooks/event", {
+        hook_type: "PreToolUse",
+        data: {
+          session_id: sessionId,
+          transcript_path: tmpTranscript,
+          tool_name: "Read",
+          cwd: "/tmp",
+        },
+      });
+      // Tag it as remote AFTER creation (mirrors what remote-sync does).
+      db.prepare("UPDATE sessions SET source = ? WHERE id = ?").run("src_remotebox", sessionId);
+
+      writeTranscriptWithError(tmpTranscript);
+      db.prepare("UPDATE sessions SET updated_at = ? WHERE id = ?").run(
+        new Date(Date.now() - 60_000).toISOString(),
+        sessionId
+      );
+      hooks.transcriptCache.invalidate(tmpTranscript);
+      hooks.watchdogCheck();
+
+      assert.strictEqual(
+        stmts.getSession.get(sessionId).status,
+        "active",
+        "watchdog must leave remote-source sessions untouched"
+      );
+    } finally {
+      try {
+        fs.unlinkSync(tmpTranscript);
+      } catch {
+        // ignore
+      }
+    }
+  });
 });
 
 // ============================================================
@@ -2158,8 +2549,10 @@ describe("Watchdog user-interrupt recovery", () => {
       const main = getMain(sessionId);
       assert.strictEqual(sess.status, "active", "session stays active (not closed)");
       assert.ok(sess.awaiting_input_since, "session should now be awaiting input");
+      assert.strictEqual(sess.awaiting_reason, "interrupted");
       assert.strictEqual(main.status, "waiting", "main agent should be waiting after interrupt");
       assert.ok(main.awaiting_input_since, "main agent should be flagged awaiting input");
+      assert.strictEqual(main.awaiting_reason, "interrupted");
 
       const evt = db
         .prepare("SELECT * FROM events WHERE session_id = ? AND event_type = 'Interrupted'")
@@ -2257,8 +2650,10 @@ describe("Watchdog user-interrupt recovery", () => {
       const sess = stmts.getSession.get(sessionId);
       const main = getMain(sessionId);
       assert.ok(sess.awaiting_input_since, "session should be awaiting input after idle timeout");
+      assert.strictEqual(sess.awaiting_reason, "interrupted");
       assert.strictEqual(main.status, "waiting", "main agent should be waiting after idle timeout");
       assert.ok(main.awaiting_input_since);
+      assert.strictEqual(main.awaiting_reason, "interrupted");
     } finally {
       try {
         fs.unlinkSync(tmpTranscript);

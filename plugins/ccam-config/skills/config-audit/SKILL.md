@@ -1,4 +1,5 @@
 ---
+name: config-audit
 description: >
   Run a full audit of the user's Claude Code configuration via the Agent
   Monitor Config Explorer API: counts per surface (user vs project),

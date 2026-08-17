@@ -1,4 +1,5 @@
 ---
+name: session-cleanup
 description: >
   Identify stale and empty Claude Code sessions in the Agent Monitor and explain the
   cleanup endpoint (POST /api/settings/cleanup), always showing the exact list of

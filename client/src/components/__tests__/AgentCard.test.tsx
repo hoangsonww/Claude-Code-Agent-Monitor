@@ -1,19 +1,25 @@
 /**
  * @file AgentCard.test.tsx
- * @description Unit tests for the AgentCard component, which displays information about an agent in the application. The tests cover rendering of agent details such as name, status, subagent type, task, and current tool, as well as interaction handling like click events. The tests use React Testing Library and Vitest for assertions and mocking.
+ * @description Unit tests for the AgentCard component, including Codex-native
+ * titles and transcript-derived prompt context alongside standard agent details.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import type { ReactElement } from "react";
 // render is used inside renderCard helper
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router";
 import { AgentCard } from "../AgentCard";
-import type { Agent } from "../../lib/types";
+import type { Agent, Session, SessionTodoSummary } from "../../lib/types";
 import { formatModelName, fmtCost } from "../../lib/format";
 
-function renderCard(element: JSX.Element) {
+function renderCard(element: ReactElement) {
   return render(<MemoryRouter>{element}</MemoryRouter>);
+}
+
+function LocationProbe() {
+  return <span data-testid="location">{useLocation().pathname}</span>;
 }
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
@@ -35,6 +41,22 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   };
 }
 
+const taskSummary: SessionTodoSummary = {
+  total: 3,
+  completed: 2,
+  inProgress: 1,
+  pending: 0,
+  cancelled: 0,
+  unknown: 0,
+  percentComplete: 67,
+  activeText: "Confirm the setup is ready for local testing",
+  sourceTool: "update_plan",
+  updatedAt: "2026-08-08T00:06:07.958Z",
+  previewItems: [],
+  overflowCount: 0,
+  ownerBreakdown: [],
+};
+
 describe("AgentCard", () => {
   it("should render agent name", () => {
     renderCard(<AgentCard agent={makeAgent({ name: "Test Agent" })} />);
@@ -44,6 +66,50 @@ describe("AgentCard", () => {
   it("should render status badge", () => {
     renderCard(<AgentCard agent={makeAgent({ status: "working" })} />);
     expect(screen.getByText("Working")).toBeInTheDocument();
+  });
+
+  it("renders session task progress immediately before the status badge", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ status: "waiting" })}
+        session={
+          {
+            id: "sess-1",
+            name: "Codex session",
+            provider: "codex",
+            status: "active",
+            todo_summary: taskSummary,
+          } as Session
+        }
+      />
+    );
+
+    const progress = screen.getByRole("button", { name: "Task progress: 2 of 3 complete" });
+    const status = screen.getByText("Waiting");
+    expect(
+      progress.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("keeps task-progress interaction from triggering the card click", () => {
+    const onClick = vi.fn();
+    renderCard(
+      <AgentCard
+        agent={makeAgent()}
+        session={
+          {
+            id: "sess-1",
+            name: "Task session",
+            status: "active",
+            todo_summary: taskSummary,
+          } as Session
+        }
+        onClick={onClick}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Task progress: 2 of 3 complete" }));
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("should render subagent_type when present", () => {
@@ -203,6 +269,87 @@ describe("AgentCard", () => {
     expect(screen.getByText("Main Agent - work - e3f8e613")).toBeInTheDocument();
   });
 
+  it("uses a native Codex title instead of a bare Codex agent name", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ name: "Codex", session_id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c" })}
+        session={
+          {
+            id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c",
+            name: "hehe",
+            provider: "codex",
+            status: "active",
+          } as never
+        }
+      />
+    );
+    expect(screen.getByText("Codex · hehe")).toBeInTheDocument();
+    expect(screen.queryByText("Codex")).not.toBeInTheDocument();
+  });
+
+  it("uses the stable Codex session ID while a native title is unavailable", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ name: "Codex", session_id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c" })}
+        session={
+          {
+            id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c",
+            name: "Codex session",
+            provider: "codex",
+            status: "active",
+          } as never
+        }
+      />
+    );
+    expect(screen.getByText("Codex · 019fbb99")).toBeInTheDocument();
+  });
+
+  it("uses the session prompt fallback to make an imported renamed Codex card informative", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ name: "Codex", session_id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c" })}
+        session={
+          {
+            id: "019fbb99-bd87-7c80-afec-ee65e2ebbe1c",
+            name: "hehe",
+            provider: "codex",
+            status: "active",
+            prompt_preview:
+              "Fix the real-time Codex discovery path and add coverage.\nThen include the missing edge case.",
+          } as never
+        }
+      />
+    );
+
+    expect(screen.getByText("Codex · hehe")).toBeInTheDocument();
+    expect(
+      screen.getByText("Fix the real-time Codex discovery path and add coverage.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Then include the missing edge case.")).toBeInTheDocument();
+  });
+
+  it("uses the same compact two-turn session context for a Claude main agent", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({ name: "Main Agent - live sync", task: "original task" })}
+        session={
+          {
+            id: "claude-two-turn-context",
+            name: "Live sync investigation",
+            provider: "claude",
+            status: "active",
+            prompt_preview:
+              "Investigate the live sync delay.\nThen cover the remote source retry path.",
+          } as never
+        }
+      />
+    );
+
+    expect(screen.getByText("Investigate the live sync delay.")).toBeInTheDocument();
+    expect(screen.getByText("Then cover the remote source retry path.")).toBeInTheDocument();
+    expect(screen.queryByText("original task")).not.toBeInTheDocument();
+  });
+
   it("should not render subagent_type when null", () => {
     const { container } = renderCard(<AgentCard agent={makeAgent({ subagent_type: null })} />);
     // Only the name should be in the name container, no subagent type
@@ -255,6 +402,40 @@ describe("AgentCard", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("does not navigate before a transient Codex process has a durable session id", () => {
+    const metadata = JSON.stringify({ transient: true, pre_identity_process: true });
+    const agent = makeAgent({
+      id: "codex:codex-process:4312:abc123",
+      session_id: "codex-process:4312:abc123",
+      name: "Codex",
+      status: "waiting",
+      metadata,
+    });
+    const session: Session = {
+      id: agent.session_id,
+      name: "Codex session",
+      status: "active",
+      cwd: "/workspace/pre-identity",
+      model: null,
+      started_at: "2026-08-05T12:00:00.000Z",
+      ended_at: null,
+      metadata,
+      provider: "codex",
+      awaiting_input_since: "2026-08-05T12:00:00.000Z",
+      awaiting_reason: "session_start",
+    };
+    const { container } = render(
+      <MemoryRouter initialEntries={["/kanban"]}>
+        <AgentCard agent={agent} session={session} />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText("Codex · codex-pr"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/kanban");
+    expect(container.querySelector(".card-hover")?.className).toContain("cursor-default");
+  });
+
   it("renders waiting badge and yellow accent when awaiting_input_since is set", () => {
     const { container } = renderCard(
       <AgentCard
@@ -267,6 +448,36 @@ describe("AgentCard", () => {
     expect(screen.getByText("Waiting")).toBeInTheDocument();
     const card = container.querySelector(".card-hover");
     expect(card?.className).toContain("border-l-yellow-500/60");
+  });
+
+  it("keeps the card badge compact: reason is tooltip-only, no inline chip", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({
+          status: "waiting",
+          awaiting_input_since: "2026-03-05T10:01:00.000Z",
+          awaiting_reason: "notification",
+        })}
+      />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    // Cards are narrow — the inline chip would squeeze the title, so the
+    // reason must NOT render inline here (hover tooltip only).
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
+  });
+
+  it("degrades to a plain Waiting badge on an unknown awaiting_reason", () => {
+    renderCard(
+      <AgentCard
+        agent={makeAgent({
+          status: "waiting",
+          awaiting_input_since: "2026-03-05T10:01:00.000Z",
+          awaiting_reason: "some_future_reason",
+        })}
+      />
+    );
+    expect(screen.getByText("Waiting")).toBeInTheDocument();
+    expect(screen.queryByText("Needs input")).not.toBeInTheDocument();
   });
 
   it("ignores awaiting_input_since once the agent has completed", () => {

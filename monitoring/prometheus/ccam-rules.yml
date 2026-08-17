@@ -1,0 +1,21 @@
+# Recording rules derived from live CCAM scrapes — no synthetic data.
+# Pre-aggregates common queries so Prometheus Graph/Explore autocomplete
+# surfaces useful series immediately after the ccam target comes up.
+groups:
+  - name: ccam_recording
+    interval: 15s
+    rules:
+      - record: ccam:sessions:total
+        expr: sum(ccam_sessions)
+      - record: ccam:sessions:active
+        expr: ccam_sessions{status="active"}
+      - record: ccam:sessions:completed
+        expr: ccam_sessions{status="completed"}
+      - record: ccam:agents:working
+        expr: ccam_agents{status="working"}
+      - record: ccam:events:rate5m
+        expr: rate(ccam_events_total[5m])
+      - record: ccam:tokens:rate5m
+        expr: sum by (kind) (rate(ccam_tokens_total[5m]))
+      - record: ccam:tokens:total
+        expr: sum(ccam_tokens_total)

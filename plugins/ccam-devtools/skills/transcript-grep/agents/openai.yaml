@@ -1,0 +1,6 @@
+interface:
+  display_name: "Transcript Grep"
+  short_description: "Search a Claude Code session transcript for a string or..."
+  default_prompt: "Use $transcript-grep to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

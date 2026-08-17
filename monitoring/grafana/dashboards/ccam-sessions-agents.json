@@ -1,0 +1,371 @@
+{
+  "uid": "ccam-sessions-agents",
+  "title": "CCAM — Sessions & Agents",
+  "description": "Session lifecycle and agent fleet metrics from live /api/metrics scrapes.",
+  "tags": ["ccam", "claude-code", "sessions", "agents"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "15s",
+  "time": { "from": "now-24h", "to": "now" },
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/ccam-overview/ccam-overview",
+      "keepTime": true
+    },
+    {
+      "title": "Tokens & Events",
+      "type": "link",
+      "url": "/d/ccam-tokens-events/ccam-tokens-events",
+      "keepTime": true
+    },
+    {
+      "title": "Platform Health",
+      "type": "link",
+      "url": "/d/ccam-platform/ccam-platform",
+      "keepTime": true
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Sessions",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Active",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_sessions{status=\"active\"}", "legendFormat": "active" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Completed",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_sessions{status=\"completed\"}", "legendFormat": "completed" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Error",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "red", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_sessions{status=\"error\"}", "legendFormat": "error" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Abandoned",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "orange", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_sessions{status=\"abandoned\"}", "legendFormat": "abandoned" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total sessions",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "purple", "value": null }] }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "sum(ccam_sessions)", "legendFormat": "total" }]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Active % of total",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ccam_sessions{status=\"active\"} / clamp_min(sum(ccam_sessions), 1)",
+          "legendFormat": "active ratio"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "Sessions by status",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 9, "w": 8, "x": 0, "y": 5 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": { "defaults": { "decimals": 0 } },
+      "targets": [
+        { "refId": "A", "expr": "ccam_sessions", "legendFormat": "{{status}}", "instant": true }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Sessions over time",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 9, "w": 16, "x": 8, "y": 5 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_sessions", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Agents",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Working",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 15 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "green", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_agents{status=\"working\"}", "legendFormat": "working" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Waiting",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 15 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "yellow", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_agents{status=\"waiting\"}", "legendFormat": "waiting" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Completed",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 15 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_agents{status=\"completed\"}", "legendFormat": "completed" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Error",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 15 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "steps": [{ "color": "red", "value": null }] }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "ccam_agents{status=\"error\"}", "legendFormat": "error" }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Agents by status",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": { "defaults": { "decimals": 0, "color": { "mode": "palette-classic" } } },
+      "targets": [
+        { "refId": "A", "expr": "ccam_agents", "legendFormat": "{{status}}", "instant": true }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Agents over time",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 19 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_agents", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Realtime dashboard clients",
+      "description": "WebSocket clients connected to the CCAM UI.",
+      "datasource": { "type": "prometheus", "uid": "ccam-prometheus" },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 27 },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        }
+      },
+      "targets": [{ "refId": "A", "expr": "ccam_websocket_clients", "legendFormat": "clients" }]
+    }
+  ]
+}

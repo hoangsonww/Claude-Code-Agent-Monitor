@@ -1,0 +1,6 @@
+interface:
+  display_name: "Live Watch"
+  short_description: "Polls the Agent Monitor /api/stats endpoint several times..."
+  default_prompt: "Use $live-watch to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,22 @@
+{{- if and .Values.mcp.enabled .Values.mcp.exposeService -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "agent-monitor.fullname" . }}-mcp
+  labels:
+    {{- include "agent-monitor.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+  {{- with .Values.mcp.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: mcp
+      port: {{ .Values.mcp.port }}
+      targetPort: mcp
+      protocol: TCP
+  selector:
+    {{- include "agent-monitor.selectorLabels" . | nindent 4 }}
+{{- end }}

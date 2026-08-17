@@ -1,17 +1,11 @@
 {
   "name": "ccam-devtools",
   "description": "Developer tools for Claude Code Agent Monitor — session debugging, hook diagnostics, data export, and system health checks for maintaining a healthy monitoring setup.",
-  "version": "1.0.0",
-  "author": {
-    "name": "Son Nguyen",
-    "url": "https://github.com/hoangsonww"
-  },
+  "version": "2.0.8",
+  "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
   "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor.git"
-  },
+  "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
   "license": "MIT",
   "keywords": ["devtools", "debugging", "diagnostics", "export", "health-check", "claude-code"],
-  "categories": ["devtools", "debugging", "diagnostics"]
+  "skills": "./skills/"
 }

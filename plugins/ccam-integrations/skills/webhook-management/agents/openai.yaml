@@ -1,0 +1,6 @@
+interface:
+  display_name: "Webhook Management"
+  short_description: "Configure and validate CCAM webhook targets across supported..."
+  default_prompt: "Use $webhook-management to inspect CCAM data and complete this workflow safely."
+policy:
+  allow_implicit_invocation: false

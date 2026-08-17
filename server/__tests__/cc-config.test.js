@@ -432,6 +432,19 @@ describe("/api/cc-config", () => {
     assert.equal(body.error.code, "READ_DENIED");
   });
 
+  it("file endpoint blocks symlinks inside an allowed root that escape outside", async () => {
+    const outside = path.join(TMP, "outside-secret.md");
+    const linked = path.join(FAKE_HOME, "agents", "linked-secret.md");
+    fs.writeFileSync(outside, "outside secret");
+    fs.symlinkSync(outside, linked);
+    const { status, body } = await fetchJson(
+      `/api/cc-config/file?cwd=${encodeURIComponent(FAKE_PROJECT)}&path=${encodeURIComponent(linked)}`
+    );
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "READ_DENIED");
+    fs.unlinkSync(linked);
+  });
+
   it("file endpoint blocks .. traversal", async () => {
     const tricky = path.join(FAKE_HOME, "..", "..", "etc", "passwd");
     const { status } = await fetchJson(
@@ -746,5 +759,80 @@ describe("/api/cc-config", () => {
     );
     assert.equal(status, 400);
     assert.equal(body.error.code, "EBADNAME");
+  });
+
+  // ── Keybindings structured edit (PUT /keybindings) ─────────────────────
+  // These run last so the earlier overview count assertion (keybindings === 3)
+  // sees the original fixture before we rewrite the file here.
+
+  it("PUT /keybindings overwrites, backs up, and preserves top-level metadata", async () => {
+    const { status, body } = await fetchJson("/api/cc-config/keybindings", {
+      method: "PUT",
+      body: {
+        groups: [
+          {
+            context: "Global",
+            bindings: [
+              { key: "ctrl+t", action: "toggleTodos" },
+              { key: "ctrl+n", action: "newThing" },
+            ],
+          },
+          { context: "Chat", bindings: [{ key: "escape", action: "cancel" }] },
+        ],
+      },
+    });
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.created, false);
+    assert.ok(body.backupPath, "existing keybindings.json should be backed up");
+
+    const onDisk = JSON.parse(fs.readFileSync(path.join(FAKE_HOME, "keybindings.json"), "utf8"));
+    // $schema from the fixture must survive a structured rewrite.
+    assert.equal(onDisk.$schema, "https://www.schemastore.org/x.json");
+    const global = onDisk.bindings.find((g) => g.context === "Global");
+    assert.equal(global.bindings["ctrl+n"], "newThing");
+    assert.equal(Object.keys(onDisk.bindings.find((g) => g.context === "Chat").bindings).length, 1);
+
+    // Re-reading through the API returns the updated groups.
+    const after = await fetchJson("/api/cc-config/keybindings");
+    const chat = after.body.groups.find((g) => g.context === "Chat");
+    assert.equal(chat.bindings.length, 1);
+  });
+
+  it("PUT /keybindings rejects a duplicate key within one context", async () => {
+    const { status, body } = await fetchJson("/api/cc-config/keybindings", {
+      method: "PUT",
+      body: {
+        groups: [
+          {
+            context: "Global",
+            bindings: [
+              { key: "ctrl+t", action: "toggleTodos" },
+              { key: "ctrl+t", action: "somethingElse" },
+            ],
+          },
+        ],
+      },
+    });
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "EBADCONTENT");
+  });
+
+  it("PUT /keybindings rejects a non-array groups payload", async () => {
+    const { status, body } = await fetchJson("/api/cc-config/keybindings", {
+      method: "PUT",
+      body: { groups: "nope" },
+    });
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "EBADREQ");
+  });
+
+  it("PUT /keybindings rejects an empty action", async () => {
+    const { status, body } = await fetchJson("/api/cc-config/keybindings", {
+      method: "PUT",
+      body: { groups: [{ context: "Global", bindings: [{ key: "ctrl+z", action: "" }] }] },
+    });
+    assert.equal(status, 400);
+    assert.equal(body.error.code, "EBADCONTENT");
   });
 });

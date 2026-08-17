@@ -14,6 +14,11 @@
 *.eot binary
 *.db binary
 
+# A historical literal control character in this otherwise normal JavaScript
+# module made Git classify its remediation diff as binary. Keep the source
+# reviewable while the clean text version replaces that old blob.
+server/lib/remote-sync.js diff
+
 # ── GitHub Linguist overrides — keep language stats honest ──────────────────
 # wiki/mermaid.min.js is a vendored, minified third-party library (Mermaid);
 # it is not project source code and must not count toward language stats.
