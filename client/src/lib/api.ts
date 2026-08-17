@@ -2054,7 +2054,7 @@ export const api = {
       if (params.limit != null) qs.set("limit", String(params.limit));
       if (params.offset != null) qs.set("offset", String(params.offset));
       Object.entries(params.filters ?? {}).forEach(([k, v]) => { if (v) qs.set(k, v); });
-      if (params.scope) params.scope.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) qs.set(k, v); });
+      if (params.scope) new URLSearchParams(params.scope).forEach((v, k) => qs.set(k, v));
       return request<{
         entity: string;
         rows: Record<string, unknown>[];
@@ -2071,7 +2071,7 @@ export const api = {
      */
     facets: (entity: string, scope?: string) => {
       const qs = new URLSearchParams({ entity });
-      if (scope) scope.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) qs.set(k, v); });
+      if (scope) new URLSearchParams(scope).forEach((v, k) => qs.set(k, v));
       return request<{
         entity: string;
         statuses?: string[];
