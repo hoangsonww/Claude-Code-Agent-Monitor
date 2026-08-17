@@ -161,7 +161,7 @@
       "topFlow": {
         "none": "pas encore assez d'appels d'outils consécutifs enregistrés pour faire émerger une paire dominante.",
         "selfLoop": "{{tool}} se suit le plus souvent lui-même — typique des lectures/éditions répétées ou des commandes shell enchaînées.",
-        "pair": "{{source}} tourne le plus souvent juste avant {{target}}."
+        "pair": "{{source}} tourne le plus souvent juste avant {{target}}. Voyez-le comme une habitude : {{sourceLower}} est généralement suivi de {{targetLower}} comme étape suivante."
       },
       "compactions": {
         "zero": "aucune compaction de contexte observée. Les sessions sont restées confortablement dans la fenêtre de contexte du modèle.",
@@ -240,7 +240,7 @@
       "transitionsObserved": "Transitions observées",
       "shareOfSourceFmt": "Part de {{source}} → suivant",
       "shareOfTargetFmt": "Part de précédent → {{target}}",
-      "nodeDescFmt": "La hauteur de la barre montre à quelle fréquence {{name}} apparaît dans toutes les sessions.",
+      "nodeDescFmt": "La hauteur de la barre montre à quelle fréquence {{name}} apparaît dans toutes les sessions. Les bandes entrant à gauche montrent ce qui a été exécuté avant {{name}} ; les bandes sortant à droite montrent ce qui a été exécuté après.",
       "linkDescFmt": "Sur toutes les sessions, ceci compte combien de fois {{source}} a tourné juste avant {{target}}."
     }
   },
