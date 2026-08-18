@@ -19,7 +19,7 @@
   "queryEntity_agents": "Agent",
   "queryEntity_events": "Sự kiện",
   "querySearch": "Tìm kiếm",
-  "querySearchPlaceholder": "Lọc theo ID, tiêu đề hoặc tóm tắt…",
+  "querySearchPlaceholder": "Lọc theo ID, tên hoặc tóm tắt…",
   "queryFrom": "Từ",
   "queryTo": "Đến",
   "queryStatus": "Trạng thái",
