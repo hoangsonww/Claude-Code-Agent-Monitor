@@ -19,7 +19,7 @@
   "queryEntity_agents": "에이전트",
   "queryEntity_events": "이벤트",
   "querySearch": "검색",
-  "querySearchPlaceholder": "ID, 제목 또는 요약으로 필터링…",
+  "querySearchPlaceholder": "ID, 이름 또는 요약으로 필터링…",
   "queryFrom": "시작",
   "queryTo": "종료",
   "queryStatus": "상태",
