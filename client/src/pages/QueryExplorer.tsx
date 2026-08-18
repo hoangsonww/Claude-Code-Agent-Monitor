@@ -6,7 +6,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Search,
@@ -65,11 +65,7 @@ function buildExportUrl(
   Object.entries(filters).forEach(([k, v]) => {
     if (v) params.set(k, v);
   });
-  if (scopeParam)
-    scopeParam.split("&").forEach((p) => {
-      const [k, v] = p.split("=");
-      if (k && v) params.set(k, v);
-    });
+  if (scopeParam) new URLSearchParams(scopeParam).forEach((v, k) => params.set(k, v));
   return `/api/query/export?${params.toString()}`;
 }
 
@@ -105,8 +101,13 @@ export function QueryExplorer() {
 
   const activeFilters = { ...filters, q, sort_by: sortBy, sort_dir: sortDir };
 
+  // Monotonic request id so an out-of-order/late response can never overwrite
+  // state produced by a request started after it.
+  const requestIdRef = useRef(0);
+
   const runQuery = useCallback(
     async (off = 0) => {
+      const reqId = ++requestIdRef.current;
       setLoading(true);
       setError(null);
       try {
@@ -117,25 +118,47 @@ export function QueryExplorer() {
           offset: off,
           scope: scopeParam ?? "",
         });
+        if (reqId !== requestIdRef.current) return; // superseded by a newer request
         setResult(data as QueryResult);
         setOffset(off);
       } catch (e) {
+        if (reqId !== requestIdRef.current) return;
         setError(e instanceof Error ? e.message : "Query failed");
       } finally {
-        setLoading(false);
+        if (reqId === requestIdRef.current) setLoading(false);
       }
     },
     [entity, activeFilters, scopeParam]
   ); // eslint-disable-line
 
+  // Always-current ref to runQuery, so callers that must fire it from inside
+  // a setState updater or a setTimeout (after sortBy/sortDir just changed)
+  // invoke the version closed over the latest activeFilters, not a stale one.
+  const runQueryRef = useRef(runQuery);
+  useEffect(() => {
+    runQueryRef.current = runQuery;
+  }, [runQuery]);
+
+  const facetRequestIdRef = useRef(0);
   const loadFacets = useCallback(async () => {
+    const reqId = ++facetRequestIdRef.current;
     try {
       const data = await api.query.facets(entity, scopeParam ?? "");
+      if (reqId !== facetRequestIdRef.current) return;
       setFacets(data as Facets);
     } catch {
       // facets are best-effort
     }
   }, [entity, scopeParam]);
+
+  const handleSort = useCallback((col: string) => {
+    setSortBy((prevBy) => {
+      const isSame = prevBy === col;
+      setSortDir((prevDir) => (isSame ? (prevDir === "asc" ? "desc" : "asc") : "desc"));
+      return col;
+    });
+    setTimeout(() => runQueryRef.current(0), 0);
+  }, []);
 
   useEffect(() => {
     loadFacets();
@@ -390,21 +413,20 @@ export function QueryExplorer() {
                   {(result?.columns ?? []).map((col) => (
                     <th
                       key={col}
-                      className={`px-3 py-2 text-xs font-medium text-gray-400 cursor-pointer select-none whitespace-nowrap hover:text-gray-200 ${sortBy === col ? "text-[#58a6ff]" : ""}`}
-                      onClick={() => {
-                        if (sortBy === col) {
-                          const nextDir = sortDir === "asc" ? "desc" : "asc";
-                          setSortDir(nextDir);
-                          setTimeout(() => runQuery(0), 0);
-                        } else {
-                          setSortBy(col);
-                          setSortDir("desc");
-                          setTimeout(() => runQuery(0), 0);
-                        }
-                      }}
+                      scope="col"
+                      aria-sort={
+                        sortBy === col ? (sortDir === "asc" ? "ascending" : "descending") : "none"
+                      }
+                      className="px-3 py-2 text-xs font-medium text-gray-400 whitespace-nowrap"
                     >
-                      {col}
-                      {sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      <button
+                        type="button"
+                        onClick={() => handleSort(col)}
+                        className={`flex items-center gap-1 select-none hover:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#58a6ff] rounded ${sortBy === col ? "text-[#58a6ff]" : ""}`}
+                      >
+                        {col}
+                        {sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      </button>
                     </th>
                   ))}
                 </tr>
