@@ -289,51 +289,50 @@ router.get("/facets", (req, res) => {
   const facets = {};
   if (entity === "sessions" || entity === "agents") {
     const table = entity === "sessions" ? "sessions" : "agents";
-    const clauses = [];
+    const sessionIdCol = entity === "sessions" ? "id" : "session_id";
+    const clauses = ["status IS NOT NULL"];
     const params = [];
-    const sourceScope = sessionIdInSourcesClause(filters.sources, "id");
+    const sourceScope = sessionIdInSourcesClause(filters.sources, sessionIdCol);
     if (sourceScope.clause) {
       clauses.push(sourceScope.clause);
       params.push(...sourceScope.params);
     }
-    const providerScope = sessionIdInProvidersClause(filters.providers, "id");
+    const providerScope = sessionIdInProvidersClause(filters.providers, sessionIdCol);
     if (providerScope.clause) {
       clauses.push(providerScope.clause);
       params.push(...providerScope.params);
     }
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     facets.statuses = db
       .prepare(
-        `SELECT DISTINCT status FROM ${table} ${where} WHERE status IS NOT NULL ORDER BY status`
+        `SELECT DISTINCT status FROM ${table} WHERE ${clauses.join(" AND ")} ORDER BY status`
       )
       .all(...params)
       .map((r) => r.status);
   }
   if (entity === "events") {
-    const clauses = [];
-    const params = [];
+    const baseClauses = [];
+    const baseParams = [];
     const sourceScope = sessionIdInSourcesClause(filters.sources, "session_id");
     if (sourceScope.clause) {
-      clauses.push(sourceScope.clause);
-      params.push(...sourceScope.params);
+      baseClauses.push(sourceScope.clause);
+      baseParams.push(...sourceScope.params);
     }
     const providerScope = sessionIdInProvidersClause(filters.providers, "session_id");
     if (providerScope.clause) {
-      clauses.push(providerScope.clause);
-      params.push(...providerScope.params);
+      baseClauses.push(providerScope.clause);
+      baseParams.push(...providerScope.params);
     }
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
     facets.event_types = db
       .prepare(
-        `SELECT DISTINCT event_type FROM events ${where} WHERE event_type IS NOT NULL ORDER BY event_type`
+        `SELECT DISTINCT event_type FROM events WHERE ${["event_type IS NOT NULL", ...baseClauses].join(" AND ")} ORDER BY event_type`
       )
-      .all(...params)
+      .all(...baseParams)
       .map((r) => r.event_type);
     facets.tool_names = db
       .prepare(
-        `SELECT DISTINCT tool_name  FROM events ${where} WHERE tool_name  IS NOT NULL ORDER BY tool_name`
+        `SELECT DISTINCT tool_name FROM events WHERE ${["tool_name IS NOT NULL", ...baseClauses].join(" AND ")} ORDER BY tool_name`
       )
-      .all(...params)
+      .all(...baseParams)
       .map((r) => r.tool_name);
   }
   res.json({ entity, ...facets });
@@ -380,20 +379,21 @@ router.get("/export", (req, res) => {
     if (/^[\s=+\-@]/.test(s)) {
       s = "'" + s;
     }
-    return s.includes(",") || s.includes('"') || s.includes("\n")
+    return s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")
       ? `"${s.replace(/"/g, '""')}"`
       : s;
   };
   const truncated = result.total > EXPORT_LIMIT;
   const lines = [
-    ...(truncated
-      ? [`# WARNING: Export limited to ${EXPORT_LIMIT} rows; ${result.total} total rows match.`]
-      : []),
     columns.join(","),
     ...rows.map((row) => columns.map((c) => escape(row[c])).join(",")),
   ];
   res.setHeader("Content-Disposition", `attachment; filename="${filename}.csv"`);
   res.setHeader("Content-Type", "text/csv");
+  if (truncated) {
+    res.setHeader("X-Export-Truncated", "true");
+    res.setHeader("X-Export-Total-Rows", String(result.total));
+  }
   res.send(lines.join("\r\n"));
 });
 
