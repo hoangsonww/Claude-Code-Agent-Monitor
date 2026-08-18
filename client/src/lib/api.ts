@@ -2053,8 +2053,10 @@ export const api = {
       const qs = new URLSearchParams({ entity: params.entity });
       if (params.limit != null) qs.set("limit", String(params.limit));
       if (params.offset != null) qs.set("offset", String(params.offset));
-      Object.entries(params.filters ?? {}).forEach(([k, v]) => { if (v) qs.set(k, v); });
-      if (params.scope) params.scope.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) qs.set(k, v); });
+      Object.entries(params.filters ?? {}).forEach(([k, v]) => {
+        if (v) qs.set(k, v);
+      });
+      if (params.scope) new URLSearchParams(params.scope).forEach((v, k) => qs.set(k, v));
       return request<{
         entity: string;
         rows: Record<string, unknown>[];
@@ -2071,7 +2073,7 @@ export const api = {
      */
     facets: (entity: string, scope?: string) => {
       const qs = new URLSearchParams({ entity });
-      if (scope) scope.split("&").forEach((p) => { const [k, v] = p.split("="); if (k && v) qs.set(k, v); });
+      if (scope) new URLSearchParams(scope).forEach((v, k) => qs.set(k, v));
       return request<{
         entity: string;
         statuses?: string[];
@@ -2113,12 +2115,7 @@ function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcAr
 /** Kind of Claude Code config artifact manageable via `api.ccConfig.write`/
  *  `delete` - each maps to a distinct on-disk location under `.claude/`. */
 export type CcArtifactType =
-  | "skills"
-  | "agents"
-  | "commands"
-  | "output-styles"
-  | "memory"
-  | "auto-memory";
+  "skills" | "agents" | "commands" | "output-styles" | "memory" | "auto-memory";
 
 /** Body for PUT /api/cc-config/file - create or overwrite one artifact. */
 export interface CcWriteArgs {
