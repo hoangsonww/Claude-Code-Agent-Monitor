@@ -19,7 +19,7 @@
   "queryEntity_agents": "Agentes",
   "queryEntity_events": "Eventos",
   "querySearch": "Buscar",
-  "querySearchPlaceholder": "Filtrar por ID, título o resumen…",
+  "querySearchPlaceholder": "Filtrar por ID, nombre o resumen…",
   "queryFrom": "Desde",
   "queryTo": "Hasta",
   "queryStatus": "Estado",
