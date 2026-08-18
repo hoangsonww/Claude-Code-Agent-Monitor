@@ -72,7 +72,10 @@
       "Verfolgen Sie jeden Tool-Aufruf über Ihren Agenten-Baum.",
       "Erkennen Sie die langsame Runde, das teure Modell, den stillen Fehler."
     ],
-    ["Hooks streamen direkt zu einem lokalen Dashboard.", "Ihre Daten verlassen niemals Ihr Gerät."],
+    [
+      "Hooks streamen direkt zu einem lokalen Dashboard.",
+      "Ihre Daten verlassen niemals Ihr Gerät."
+    ],
     [
       "Beobachten Sie, wie Orchestratoren an Subagenten delegieren.",
       "DAGs, Parallelität und Fehlerausbreitung, visualisiert."
@@ -93,7 +96,10 @@
       "Wissen Sie, welches Modell was getan hat und was es gekostet hat.",
       "Subagenten zum eigenen Tarif berechnet, nicht dem des Orchestrators."
     ],
-    ["Workflow-Flotten und innere Agenten, sichtbar gemacht.", "Auch Läufe, die nie einen Hook auslösen."],
+    [
+      "Workflow-Flotten und innere Agenten, sichtbar gemacht.",
+      "Auch Läufe, die nie einen Hook auslösen."
+    ],
     ["Ein lokal-erstes Fenster in Ihre Agenten.", "Keine Cloud, kein Konto, keine Telemetrie."],
     [
       "Messen Sie Produktivität, nicht Gefühl.",
