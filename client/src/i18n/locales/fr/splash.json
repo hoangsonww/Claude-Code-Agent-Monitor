@@ -72,7 +72,10 @@
       "Tracez chaque appel d'outil dans votre arbre d'agents.",
       "Repérez le tour lent, le modèle coûteux, l'échec silencieux."
     ],
-    ["Les hooks diffusent directement vers un tableau de bord local.", "Vos données ne quittent jamais votre machine."],
+    [
+      "Les hooks diffusent directement vers un tableau de bord local.",
+      "Vos données ne quittent jamais votre machine."
+    ],
     [
       "Regardez les orchestrateurs déléguer aux subagents.",
       "DAGs, concurrence et propagation d'erreurs, visualisés."
@@ -93,7 +96,10 @@
       "Sachez quel modèle a fait quoi, et ce que ça a coûté.",
       "Subagents tarifés à leur propre taux, pas celui de l'orchestrateur."
     ],
-    ["Flottes de workflows et agents internes, révélés.", "Même les exécutions qui ne déclenchent jamais un hook."],
+    [
+      "Flottes de workflows et agents internes, révélés.",
+      "Même les exécutions qui ne déclenchent jamais un hook."
+    ],
     ["Une fenêtre locale sur vos agents.", "Pas de cloud, pas de compte, pas de télémétrie."],
     [
       "Mesurez la productivité, pas les impressions.",
