@@ -1,6 +1,27 @@
 {
   "title": "Claude ausführen",
   "subtitle": "Starten Sie eine Claude Code-Sitzung direkt im Dashboard. Live-Streaming-Ausgabe, Mehrfach-Konversation und dieselbe Hooks-basierte Analytik wie bei Ihren Terminal-Sitzungen.",
+  "provider": {
+    "aria": "Ausführungsanbieter",
+    "kicker": "Agent ausführen",
+    "chooseTitle": "Welchen Agenten möchten Sie ausführen?",
+    "chooseDescription": "Wählen Sie einen interaktiven lokalen Agenten. Sie können vor dem Start eines neuen Durchlaufs wechseln.",
+    "choose": "Wählen",
+    "cancel": "Abbrechen",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Starten Sie Claude Code-Sitzungen mit Live-Streaming, Konversation und derselben Hooks-basierten Analytik wie in Ihrem Terminal.",
+      "description": "Führen Sie Claude Code im Konversationsmodus oder als einmalige Aufgabe aus."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Starten Sie einen nativen interaktiven Codex-Thread mit Live-Antworten, Tool-Aktivität und Folgezügen.",
+      "description": "Führen Sie einen dauerhaften Codex-App-Server-Thread über Ihre angemeldete lokale CLI aus.",
+      "interactiveLabel": "Interaktiver Codex-Thread",
+      "interactiveHint": "Startet einen dauerhaften lokalen Thread mit Live-Antworten, Tool-Aktivität, Abbruchmöglichkeit und Folgezügen."
+    }
+  },
   "mode": {
     "label": "Modus",
     "conversation": "Konversation",
@@ -29,18 +50,18 @@
     "permissionDefault": "default (interaktive Aufforderungen – Sitzungen können headless hängen)",
     "permissionPlan": "plan (nur-lesen Planung)",
     "permissionBypass": "bypassPermissions (GEFÄHRLICH – erlaubt alles ohne Nachfrage)",
-    "effort": "Denkaufwand",
-    "effortHint": "Steuert, wie viel das Modell vor der Antwort denkt. Höher = mehr Denk-Tokens, langsamer, tiefer. Leer lässt den Standard des Modells übernehmen.",
-    "approvalNever": "Nie (Ausführungsfehler direkt zurückgeben)",
-    "approvalOnRequest": "Auf Anfrage (Codex entscheidet, wann nachgefragt wird)",
     "approvalUntrusted": "Nicht vertrauenswürdig (vor nicht vertrauenswürdigen Befehlen nachfragen)",
+    "approvalOnRequest": "Auf Anfrage (Codex entscheidet, wann nachgefragt wird)",
+    "approvalNever": "Nie (Ausführungsfehler direkt zurückgeben)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Schreibgeschützt",
+    "sandboxWorkspaceWrite": "Workspace-Schreibzugriff",
+    "sandboxDanger": "GEFAHR – Vollzugriff",
+    "modelLiveCatalog": "Live-Katalog aus Ihrer angemeldeten Codex-CLI",
     "modelCuratedCatalog": "Claude Code veröffentlicht keine kontobezogene Modellliste; wählen Sie dessen stabile Aliase oder geben Sie eine andere Modell-ID ein.",
     "modelCustomClaudeHint": "Für ein früheres oder kontospezifisches Claude-Modell geben Sie den genauen --model-Wert ein.",
-    "modelLiveCatalog": "Live-Katalog aus Ihrer angemeldeten Codex-CLI",
-    "sandbox": "Sandbox",
-    "sandboxDanger": "GEFAHR – Vollzugriff",
-    "sandboxReadOnly": "Schreibgeschützt",
-    "sandboxWorkspaceWrite": "Workspace-Schreibzugriff"
+    "effort": "Denkaufwand",
+    "effortHint": "Steuert, wie viel das Modell vor der Antwort denkt. Höher = mehr Denk-Tokens, langsamer, tiefer. Leer lässt den Standard des Modells übernehmen."
   },
   "actions": {
     "start": "Ausführen",
@@ -167,26 +188,5 @@
     "session": "Sitzung",
     "envelopes": "Ereignisse",
     "duration": "Dauer"
-  },
-  "provider": {
-    "aria": "Ausführungsanbieter",
-    "beta": "BETA",
-    "cancel": "Abbrechen",
-    "choose": "Wählen",
-    "chooseDescription": "Wählen Sie einen interaktiven lokalen Agenten. Sie können vor dem Start eines neuen Durchlaufs wechseln.",
-    "chooseTitle": "Welchen Agenten möchten Sie ausführen?",
-    "claude": {
-      "description": "Führen Sie Claude Code im Konversationsmodus oder als einmalige Aufgabe aus.",
-      "label": "Claude Code",
-      "subtitle": "Starten Sie Claude Code-Sitzungen mit Live-Streaming, Konversation und derselben Hooks-basierten Analytik wie in Ihrem Terminal."
-    },
-    "codex": {
-      "description": "Führen Sie einen dauerhaften Codex-App-Server-Thread über Ihre angemeldete lokale CLI aus.",
-      "interactiveHint": "Startet einen dauerhaften lokalen Thread mit Live-Antworten, Tool-Aktivität, Abbruchmöglichkeit und Folgezügen.",
-      "interactiveLabel": "Interaktiver Codex-Thread",
-      "label": "Codex",
-      "subtitle": "Starten Sie einen nativen interaktiven Codex-Thread mit Live-Antworten, Tool-Aktivität und Folgezügen."
-    },
-    "kicker": "Agent ausführen"
   }
 }

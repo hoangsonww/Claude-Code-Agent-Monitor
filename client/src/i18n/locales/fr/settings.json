@@ -4,30 +4,6 @@
   "exportData": "Exporter les données",
   "acrossSessions": "Sur toutes les sessions suivies",
   "basedOnUsage": "Basé sur l'utilisation des tokens par modèle",
-  "display": {
-    "title": "Données du tableau de bord",
-    "description": "Choisissez les sessions, tokens, coûts et activités du produit qui apparaissent dans l'application. Le changement prend effet immédiatement.",
-    "claude": "Claude Code",
-    "codex": "Codex",
-    "both": "Les deux",
-    "claudeDescription": "Afficher uniquement les données Claude Code.",
-    "codexDescription": "Afficher uniquement les données Codex.",
-    "bothDescription": "Combiner les données Claude Code et Codex.",
-    "beta": "Bêta"
-  },
-  "codexHome": {
-    "title": "Répertoire Codex",
-    "description": "Le répertoire racine pour les sessions et hooks Codex. Enregistrer un nouvel emplacement réactive la surveillance en direct et analyse ses sessions immédiatement.",
-    "save": "Enregistrer",
-    "saving": "Enregistrement...",
-    "current": "Actuel :",
-    "placeholder": "/chemin/vers/codex-home",
-    "saveFailed": "Échec de la mise à jour du répertoire Codex"
-  },
-  "homes": {
-    "title": "Emplacements des données de session",
-    "description": "Configurez les répertoires locaux Claude Code et Codex que le tableau de bord lit. Chaque emplacement enregistré est appliqué sans redémarrer l'application."
-  },
   "tabby": {
     "title": "Compagnon Tabby",
     "description": "Un chat flottant qui réagit à vos sessions en direct.",
@@ -36,6 +12,8 @@
   },
   "pricing": {
     "title": "Tarification des modèles",
+    "navClaude": "Tarification Claude",
+    "navGpt": "Tarification Codex",
     "description": "Tarifs par million de tokens (USD). Utilisez % comme joker dans les modèles.",
     "introNote": "Intro ${{input}}/${{output}} jusqu'au {{until}}",
     "introRatesTitle": "Tarifs d'introduction",
@@ -67,31 +45,29 @@
     "fastInput": "Entrée rapide",
     "fastOutput": "Sortie rapide",
     "gpt": {
-      "cached": "Mis en cache",
-      "deleteConfirm": "Supprimer cette règle de tarification GPT ?",
-      "description": "Tarifs API OpenAI publiés pour l'utilisation de Codex. Les requêtes standard utilisent les tarifs Short à 272K tokens d'entrée ou moins et les tarifs Long au-delà de 272K ; le mode rapide utilise sa propre grille tarifaire. USD par million de tokens.",
-      "fast": "Mode rapide",
-      "input": "Entrée",
-      "long": "Standard · Long >272K",
-      "name": "Nom",
-      "output": "Sortie",
-      "short": "Standard · Court ≤272K",
       "title": "Tarification des modèles OpenAI GPT",
+      "description": "Tarifs API OpenAI publiés pour l'utilisation de Codex. Les requêtes standard utilisent les tarifs Short à 272K tokens d'entrée ou moins et les tarifs Long au-delà de 272K ; le mode rapide utilise sa propre grille tarifaire. USD par million de tokens.",
       "tooltip": {
-        "apiPricing": "Les tarifs non publiés restent non facturés",
-        "apiPricingBody": "Un tiret cadratin signifie qu'OpenAI ne publie pas ce tarif pour ce contexte ou le mode rapide. L'utilisation correspondante est marquée comme non facturée plutôt qu'estimée. Ce sont des tarifs API à la demande fournis à titre de référence, pas une facturation par abonnement.",
+        "title": "Comment fonctionne la tarification GPT",
         "howItWorks": "Comment ça fonctionne",
         "howItWorksBody": "Chaque montant est en USD par million de tokens. Les requêtes Codex standard utilisent les tarifs Short à 272K tokens d'entrée ou moins et les tarifs Long au-delà de 272K. Le mode rapide utilise sa propre grille tarifaire. L'entrée fraîche, l'entrée mise en cache, les écritures de cache et la sortie sont facturées séparément.",
+        "patternsTitle": "Syntaxe des modèles",
+        "patternsBody": "Les modèles utilisent des jokers % de style SQL. Le tableau de bord évalue d'abord les modèles les plus spécifiques et applique la première règle qui correspond à l'id du modèle signalé.",
         "manualUpdates": "Vous devez mettre à jour les prix manuellement",
         "manualUpdatesBody": "OpenAI publie les changements de tarification de l'API sur son site ; il n'y a pas de flux en direct. Mettez à jour ou ajoutez une règle correspondante lorsque les modèles ou les tarifs changent, afin que l'utilisation nouvellement enregistrée soit correctement facturée.",
-        "patternsBody": "Les modèles utilisent des jokers % de style SQL. Le tableau de bord évalue d'abord les modèles les plus spécifiques et applique la première règle qui correspond à l'id du modèle signalé.",
-        "patternsTitle": "Syntaxe des modèles",
-        "title": "Comment fonctionne la tarification GPT"
+        "apiPricing": "Les tarifs non publiés restent non facturés",
+        "apiPricingBody": "Un tiret cadratin signifie qu'OpenAI ne publie pas ce tarif pour ce contexte ou le mode rapide. L'utilisation correspondante est marquée comme non facturée plutôt qu'estimée. Ce sont des tarifs API à la demande fournis à titre de référence, pas une facturation par abonnement."
       },
-      "write": "Écriture cache"
-    },
-    "navClaude": "Tarification Claude",
-    "navGpt": "Tarification Codex"
+      "name": "Nom",
+      "short": "Standard · Court ≤272K",
+      "long": "Standard · Long >272K",
+      "fast": "Mode rapide",
+      "input": "Entrée",
+      "cached": "Mis en cache",
+      "write": "Écriture cache",
+      "output": "Sortie",
+      "deleteConfirm": "Supprimer cette règle de tarification GPT ?"
+    }
   },
   "claudeHome": {
     "title": "CLAUDE_HOME",
@@ -102,32 +78,56 @@
     "placeholder": "/chemin/vers/claude-home",
     "saveFailed": "Échec de la mise à jour de CLAUDE_HOME"
   },
+  "codexHome": {
+    "title": "Répertoire Codex",
+    "description": "Le répertoire racine pour les sessions et hooks Codex. Enregistrer un nouvel emplacement réactive la surveillance en direct et analyse ses sessions immédiatement.",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "current": "Actuel :",
+    "placeholder": "/chemin/vers/codex-home",
+    "saveFailed": "Échec de la mise à jour du répertoire Codex"
+  },
+  "homes": {
+    "title": "Emplacements des données de session",
+    "description": "Configurez les répertoires locaux Claude Code et Codex que le tableau de bord lit. Chaque emplacement enregistré est appliqué sans redémarrer l'application."
+  },
+  "display": {
+    "title": "Données du tableau de bord",
+    "description": "Choisissez les sessions, tokens, coûts et activités du produit qui apparaissent dans l'application. Le changement prend effet immédiatement.",
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "both": "Les deux",
+    "claudeDescription": "Afficher uniquement les données Claude Code.",
+    "codexDescription": "Afficher uniquement les données Codex.",
+    "bothDescription": "Combiner les données Claude Code et Codex.",
+    "beta": "Bêta"
+  },
   "hooks": {
     "title": "Configuration des hooks",
     "description": "Les hooks Claude Code transmettent les événements au tableau de bord en temps réel.",
     "allInstalled": "Tous les hooks installés",
+    "someInstalled": "Hooks configurés",
     "incomplete": "Hooks incomplets",
     "reinstall": "Réinstaller les hooks",
+    "configure": "Configurer les hooks",
     "success": "Hooks installés avec succès",
     "failed": "Échec de l'installation des hooks",
-    "configure": "Configurer les hooks",
     "display": {
-      "both": "Les deux",
+      "title": "Données du tableau de bord",
       "description": "Filtre immédiatement chaque vue du tableau de bord sur un produit. Le filtrage de la source de données machine reste indépendant.",
-      "title": "Données du tableau de bord"
+      "both": "Les deux"
     },
     "modal": {
+      "title": "Installer les hooks du tableau de bord",
+      "description": "Sélectionnez un ou les deux produits. Les entrées de hook existantes du tableau de bord sont mises à jour ; vos commandes de hook non liées restent inchangées.",
       "claude": "Hooks de cycle de vie depuis ~/.claude/settings.json.",
       "codex": "Hooks de cycle de vie depuis ~/.codex/hooks.json, avec le rollout JSONL comme repli en temps réel.",
-      "description": "Sélectionnez un ou les deux produits. Les entrées de hook existantes du tableau de bord sont mises à jour ; vos commandes de hook non liées restent inchangées.",
-      "failed": "Impossible d'installer les hooks sélectionnés.",
-      "install": "Installer les hooks sélectionnés",
       "installed": "Déjà installé",
       "overrideWarning": "Une configuration de hook existante a été trouvée pour un ou plusieurs produits sélectionnés. Continuer ne remplace que les entrées correspondantes de ce tableau de bord et préserve les hooks non liés.",
       "preserveNote": "Au moins un produit doit être sélectionné.",
-      "title": "Installer les hooks du tableau de bord"
-    },
-    "someInstalled": "Hooks configurés"
+      "install": "Installer les hooks sélectionnés",
+      "failed": "Impossible d'installer les hooks sélectionnés."
+    }
   },
   "notifications": {
     "title": "Notifications",
@@ -148,7 +148,13 @@
   },
   "import": {
     "title": "Historique d'import",
+    "providerLabel": "Fournisseur d'import",
+    "providerHint": "Choisissez l'historique de l'agent local que vous souhaitez importer dans ce tableau de bord.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "Les exports du tableau de bord peuvent contenir des données Claude Code et Codex. La restauration fusionne tous les fournisseurs inclus dans l'export.",
     "description": "Importez des sessions Claude Code existantes dans le tableau de bord.",
+    "scopeNote": "Cet import ne traite que les transcriptions Claude Code. Il ne modifie jamais votre historique Codex ni la configuration d'aucun des deux CLI.",
     "accuracyNote": "La réexécution est sûre. Les sessions sont dédupliquées par ID de session.",
     "supportedFiles": "Entrées supportées : .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
     "instructions": "Comment rassembler votre historique",
@@ -219,43 +225,37 @@
       "pathNotDir": "Le chemin n'est pas un répertoire",
       "generic": "Échec de l'import : {{message}}"
     },
-    "backupProviderNote": "Les exports du tableau de bord peuvent contenir des données Claude Code et Codex. La restauration fusionne tous les fournisseurs inclus dans l'export.",
     "codex": {
-      "accuracyNote": "La réexécution est sûre. Les curseurs de rollout importés sont conservés, de sorte que les deltas de tokens et les appels d'outils déjà comptabilisés ne sont jamais ajoutés deux fois.",
-      "defaultLocation": "Emplacement par défaut des sessions Codex sur cette machine",
       "description": "Importez les sessions Codex existantes dans le tableau de bord. Les messages utilisateur, la sortie de l'assistant, les instantanés de tokens, les appels d'outils et l'état de cycle de vie en attente/actif sont reconstruits à partir des fichiers rollout JSONL d'origine, en utilisant le même pipeline que le monitoring en temps réel.",
-      "dropzoneHint": "Faites glisser les fichiers rollout Codex ici ou cliquez pour sélectionner",
-      "dropzoneSub": "Accepte les fichiers rollout .jsonl, session_index.jsonl, .zip, .tar, .tar.gz, .tgz et les archives .gz",
-      "folderHelper": "Chemin absolu. Le tilde (~) est développé. Le dossier et tous ses sous-dossiers de dates sont scannés récursivement à la recherche de fichiers rollout Codex.",
-      "folderPlaceholder": "/chemin/absolu/vers/historique-codex",
-      "jsonlLabel": "fichiers rollout",
-      "locationFound": "Dossier de sessions trouvé",
-      "locationMissing": "Dossier de sessions introuvable",
-      "modeFolder": "Scanner un dossier Codex",
-      "modeFolderDesc": "Scanner un répertoire Codex copié ou extrait à la recherche de fichiers rollout JSONL, y compris les sous-dossiers de dates.",
-      "modeRescan": "Rescanner les sessions Codex",
-      "modeRescanDesc": "Relire ~/.codex/sessions et importer l'historique de rollout qui n'est pas encore dans le tableau de bord.",
-      "modeUpload": "Télécharger l'historique Codex",
-      "modeUploadDesc": "Déposez des fichiers rollout JSONL ou une archive (.zip / .tar.gz) directement dans le navigateur.",
-      "projectsLabel": "dossiers de sessions",
-      "runRescan": "Rescanner Codex maintenant",
-      "runScan": "Scanner le dossier Codex",
-      "runUpload": "Télécharger et importer Codex",
       "scopeNote": "Cet import ne traite que les transcriptions {{provider}}. Il ne modifie jamais votre historique Claude Code ni la configuration du CLI Codex.",
+      "accuracyNote": "La réexécution est sûre. Les curseurs de rollout importés sont conservés, de sorte que les deltas de tokens et les appels d'outils déjà comptabilisés ne sont jamais ajoutés deux fois.",
+      "stepLocate": "1. Localiser votre historique de rollout Codex",
+      "stepLocateBody": "Codex stocke chaque session sous forme de fichier rollout JSONL en ajout continu dans le dossier des sessions. Ses sous-dossiers de dates sont scannés automatiquement.",
       "stepArchive": "2. Grouper pour le transfert (optionnel)",
       "stepArchiveBody": "Pour déplacer l'historique depuis une autre machine, archivez d'abord le dossier des sessions, puis copiez-le (AirDrop, scp, USB, stockage cloud). Incluez aussi session_index.jsonl si vous voulez récupérer les titres natifs /rename de cette machine.",
       "stepChoose": "3. Choisir un mode d'import ci-dessous",
       "stepChooseBody": "Rescannez les sessions Codex de cette machine, pointez vers un dossier copié ou extrait, ou téléchargez directement des fichiers rollout et des archives.",
-      "stepLocate": "1. Localiser votre historique de rollout Codex",
-      "stepLocateBody": "Codex stocke chaque session sous forme de fichier rollout JSONL en ajout continu dans le dossier des sessions. Ses sous-dossiers de dates sont scannés automatiquement.",
       "stepVerify": "4. Vérifier les tokens et les coûts",
-      "stepVerifyBody": "Après l'import, ouvrez Analytique → Coût pour confirmer la répartition. Le même rollout peut toujours être réimporté en toute sécurité."
-    },
-    "providerClaude": "Claude Code",
-    "providerCodex": "Codex",
-    "providerHint": "Choisissez l'historique de l'agent local que vous souhaitez importer dans ce tableau de bord.",
-    "providerLabel": "Fournisseur d'import",
-    "scopeNote": "Cet import ne traite que les transcriptions Claude Code. Il ne modifie jamais votre historique Codex ni la configuration d'aucun des deux CLI."
+      "stepVerifyBody": "Après l'import, ouvrez Analytique → Coût pour confirmer la répartition. Le même rollout peut toujours être réimporté en toute sécurité.",
+      "defaultLocation": "Emplacement par défaut des sessions Codex sur cette machine",
+      "locationFound": "Dossier de sessions trouvé",
+      "locationMissing": "Dossier de sessions introuvable",
+      "projectsLabel": "dossiers de sessions",
+      "jsonlLabel": "fichiers rollout",
+      "modeRescan": "Rescanner les sessions Codex",
+      "modeRescanDesc": "Relire ~/.codex/sessions et importer l'historique de rollout qui n'est pas encore dans le tableau de bord.",
+      "modeFolder": "Scanner un dossier Codex",
+      "modeFolderDesc": "Scanner un répertoire Codex copié ou extrait à la recherche de fichiers rollout JSONL, y compris les sous-dossiers de dates.",
+      "modeUpload": "Télécharger l'historique Codex",
+      "modeUploadDesc": "Déposez des fichiers rollout JSONL ou une archive (.zip / .tar.gz) directement dans le navigateur.",
+      "folderPlaceholder": "/chemin/absolu/vers/historique-codex",
+      "folderHelper": "Chemin absolu. Le tilde (~) est développé. Le dossier et tous ses sous-dossiers de dates sont scannés récursivement à la recherche de fichiers rollout Codex.",
+      "runRescan": "Rescanner Codex maintenant",
+      "runScan": "Scanner le dossier Codex",
+      "runUpload": "Télécharger et importer Codex",
+      "dropzoneHint": "Faites glisser les fichiers rollout Codex ici ou cliquez pour sélectionner",
+      "dropzoneSub": "Accepte les fichiers rollout .jsonl, session_index.jsonl, .zip, .tar, .tar.gz, .tgz et les archives .gz"
+    }
   },
   "data": {
     "title": "Gestion des données",
@@ -399,26 +399,11 @@
         "Collez-la ci-dessus."
       ]
     },
-    "generic": {
-      "steps": [
-        "Pointez vers n'importe quel endpoint qui accepte un POST JSON.",
-        "Corps : { event: 'alert.triggered', source, sent_at, alert: { … } }.",
-        "Optionnel : définissez un secret de signature et des en-têtes personnalisés.",
-        "Astuce : utilisez un inspecteur gratuit comme webhook.site pour voir la charge utile exacte."
-      ]
-    },
     "google_chat": {
       "steps": [
         "Ouvrez l'espace Google Chat → titre de l'espace → 'Apps & integrations'.",
         "Cliquez sur 'Webhooks' → 'Add webhook' et donnez-lui un nom.",
         "Copiez l'URL du webhook et collez-la ci-dessus."
-      ]
-    },
-    "make": {
-      "steps": [
-        "Ajoutez un module 'Webhooks' → 'Custom webhook' comme première étape d'un scénario.",
-        "Cliquez sur 'Add', créez le hook et copiez son URL.",
-        "Collez-la ci-dessus, puis exécutez une fois pour que Make apprenne la structure de la charge utile."
       ]
     },
     "mattermost": {
@@ -428,49 +413,11 @@
         "Enregistrez, puis copiez l'URL du webhook et collez-la ci-dessus."
       ]
     },
-    "n8n": {
-      "steps": [
-        "Ajoutez un nœud 'Webhook' à votre workflow ; définissez la méthode sur POST.",
-        "Copiez l'URL de production.",
-        "Activez le workflow et collez l'URL ci-dessus (http est autorisé pour l'auto-hébergement)."
-      ]
-    },
-    "opsgenie": {
-      "steps": [
-        "Paramètres → Intégrations → ajoutez une intégration 'API'.",
-        "Copiez la clé API générée.",
-        "Notez la région de votre compte (US ou EU).",
-        "Saisissez la clé API et la région ci-dessus - l'URL des alertes est dérivée de la région."
-      ]
-    },
-    "pagerduty": {
-      "steps": [
-        "Ouvrez le service cible → Integrations → 'Add integration'.",
-        "Choisissez 'Events API v2'.",
-        "Copiez la clé d'intégration (la clé de routage).",
-        "Saisissez-la ci-dessus comme clé de routage - l'URL de l'Events API est déjà préremplie."
-      ]
-    },
-    "pipedream": {
-      "steps": [
-        "Créez un workflow avec un déclencheur 'HTTP / Webhook'.",
-        "Copiez l'URL de point de terminaison unique.",
-        "Collez-la ci-dessus ; inspectez les livraisons dans l'inspecteur d'événements Pipedream."
-      ]
-    },
     "rocketchat": {
       "steps": [
         "Administration → Intégrations → Nouveau → Entrant.",
         "Activez-le, choisissez un canal et enregistrez.",
         "Copiez l'« Webhook URL » et collez-la ci-dessus."
-      ]
-    },
-    "splunk_oncall": {
-      "steps": [
-        "Integrations → REST Endpoint, et activez-le.",
-        "Copiez l'URL REST - elle contient déjà votre clé API.",
-        "Remplacez le '$routing_key' final par l'une de vos clés de routage.",
-        "Collez l'URL complète ci-dessus."
       ]
     },
     "telegram": {
@@ -481,11 +428,64 @@
         "Saisissez le jeton du bot et l'ID de conversation ci-dessus - aucune URL n'est nécessaire."
       ]
     },
+    "pagerduty": {
+      "steps": [
+        "Ouvrez le service cible → Integrations → 'Add integration'.",
+        "Choisissez 'Events API v2'.",
+        "Copiez la clé d'intégration (la clé de routage).",
+        "Saisissez-la ci-dessus comme clé de routage - l'URL de l'Events API est déjà préremplie."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Paramètres → Intégrations → ajoutez une intégration 'API'.",
+        "Copiez la clé API générée.",
+        "Notez la région de votre compte (US ou EU).",
+        "Saisissez la clé API et la région ci-dessus - l'URL des alertes est dérivée de la région."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrations → REST Endpoint, et activez-le.",
+        "Copiez l'URL REST - elle contient déjà votre clé API.",
+        "Remplacez le '$routing_key' final par l'une de vos clés de routage.",
+        "Collez l'URL complète ci-dessus."
+      ]
+    },
     "zapier": {
       "steps": [
         "Créez un Zap avec le déclencheur 'Webhooks by Zapier' → 'Catch Hook'.",
         "Copiez l'URL de webhook personnalisée fournie.",
         "Collez-la ci-dessus. L'alerte arrive au format JSON : { event, alert }."
+      ]
+    },
+    "make": {
+      "steps": [
+        "Ajoutez un module 'Webhooks' → 'Custom webhook' comme première étape d'un scénario.",
+        "Cliquez sur 'Add', créez le hook et copiez son URL.",
+        "Collez-la ci-dessus, puis exécutez une fois pour que Make apprenne la structure de la charge utile."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "Ajoutez un nœud 'Webhook' à votre workflow ; définissez la méthode sur POST.",
+        "Copiez l'URL de production.",
+        "Activez le workflow et collez l'URL ci-dessus (http est autorisé pour l'auto-hébergement)."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "Créez un workflow avec un déclencheur 'HTTP / Webhook'.",
+        "Copiez l'URL de point de terminaison unique.",
+        "Collez-la ci-dessus ; inspectez les livraisons dans l'inspecteur d'événements Pipedream."
+      ]
+    },
+    "generic": {
+      "steps": [
+        "Pointez vers n'importe quel endpoint qui accepte un POST JSON.",
+        "Corps : { event: 'alert.triggered', source, sent_at, alert: { … } }.",
+        "Optionnel : définissez un secret de signature et des en-têtes personnalisés.",
+        "Astuce : utilisez un inspecteur gratuit comme webhook.site pour voir la charge utile exacte."
       ]
     }
   },
@@ -513,6 +513,8 @@
     "fieldIdentity": "Fichier d'identité (optionnel)",
     "fieldRemoteHome": "Claude home distant (optionnel)",
     "fieldRemoteHomeHint": "Linux/macOS : par défaut ~/.claude. Windows SSH + Claude dans WSL : laisser vide ou wsl:~/.claude. Windows natif : C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "Codex home distant (optionnel)",
+    "fieldRemoteCodexHomeHint": "Par défaut ~/.codex ; importe ses sessions ainsi que les titres natifs renommés. Pour Windows SSH avec Codex dans WSL, laissez vide (auto-détection) ou utilisez wsl:~/.codex.",
     "fieldEnabled": "Synchroniser automatiquement en arrière-plan",
     "empty": "Aucune source distante pour l'instant.",
     "emptyHint": "Ajoutez une machine que vous atteignez via SSH pour récupérer son utilisation de Claude Code.",
@@ -525,6 +527,16 @@
     "imported": "{{n}} importés",
     "syncNew": "{{n}} nouveaux",
     "syncOnRemote": "{{n}} sur distant",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} sessions",
+    "providerStatus": {
+      "idle": "Non vérifié",
+      "syncing": "Vérification en cours",
+      "ok": "Prêt",
+      "unavailable": "Introuvable",
+      "error": "Indisponible"
+    },
     "test": "Tester",
     "syncNow": "Synchroniser",
     "syncAll": "Tout synchroniser",
@@ -534,19 +546,7 @@
     "purgeData": "Supprimer aussi les sessions importées depuis cette source (irréversible)",
     "deleteAndPurge": "Supprimer + effacer les données",
     "removeKeep": "Supprimer (garder les données)",
-    "remoteSourceBadgeTitle": "Collecté depuis une machine distante",
-    "fieldRemoteCodexHome": "Codex home distant (optionnel)",
-    "fieldRemoteCodexHomeHint": "Par défaut ~/.codex ; importe ses sessions ainsi que les titres natifs renommés. Pour Windows SSH avec Codex dans WSL, laissez vide (auto-détection) ou utilisez wsl:~/.codex.",
-    "providerClaude": "Claude Code",
-    "providerCodex": "Codex",
-    "providerSessions": "{{n}} sessions",
-    "providerStatus": {
-      "error": "Indisponible",
-      "idle": "Non vérifié",
-      "ok": "Prêt",
-      "syncing": "Vérification en cours",
-      "unavailable": "Introuvable"
-    }
+    "remoteSourceBadgeTitle": "Collecté depuis une machine distante"
   },
   "cursorPathsNote": "Informatif : les sessions Cursor comptent ici aussi — Cursor utilise les mêmes chemins ~/.claude que Claude Code."
 }

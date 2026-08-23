@@ -1,6 +1,27 @@
 {
   "title": "Exécuter Claude",
   "subtitle": "Lancez une session Claude Code directement dans le tableau de bord. Sortie en streaming en direct, conversation multi-tours, et la même analytique basée sur les hooks que vos sessions terminal.",
+  "provider": {
+    "aria": "Fournisseur d'exécution",
+    "kicker": "Exécuter un agent",
+    "chooseTitle": "Quel agent souhaitez-vous exécuter ?",
+    "chooseDescription": "Choisissez un agent local interactif. Vous pouvez changer avant de démarrer une nouvelle exécution.",
+    "choose": "Choisir",
+    "cancel": "Annuler",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Démarrez des sessions Claude Code avec streaming en direct, conversation, et la même analytique basée sur les hooks que votre terminal.",
+      "description": "Exécutez Claude Code en mode conversation ou comme tâche unique."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Démarrez un thread Codex interactif natif avec des réponses en direct, l'activité des outils et des tours de suivi.",
+      "description": "Exécutez un thread de serveur d'application Codex persistant depuis votre CLI locale connectée.",
+      "interactiveLabel": "Thread Codex interactif",
+      "interactiveHint": "Démarre un thread local persistant avec des réponses en direct, l'activité des outils, l'annulation et des tours de suivi."
+    }
+  },
   "mode": {
     "label": "Mode",
     "conversation": "Conversation",
@@ -29,18 +50,18 @@
     "permissionDefault": "default (invites interactives — les sessions peuvent se bloquer en mode headless)",
     "permissionPlan": "plan (planification en lecture seule)",
     "permissionBypass": "bypassPermissions (DANGER — permet tout sans demander)",
-    "effort": "Effort de réflexion",
-    "effortHint": "Contrôle combien le modèle raisonne avant de répondre. Plus élevé = plus de tokens de réflexion, plus lent, plus profond. Vide hérite du défaut du modèle.",
-    "approvalNever": "Jamais (renvoyer directement les échecs d'exécution)",
-    "approvalOnRequest": "Sur demande (Codex décide quand demander)",
     "approvalUntrusted": "Non fiable (demander avant les commandes non fiables)",
+    "approvalOnRequest": "Sur demande (Codex décide quand demander)",
+    "approvalNever": "Jamais (renvoyer directement les échecs d'exécution)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Lecture seule",
+    "sandboxWorkspaceWrite": "Écriture dans l'espace de travail",
+    "sandboxDanger": "Danger — accès complet",
+    "modelLiveCatalog": "Catalogue en direct depuis votre CLI Codex connectée",
     "modelCuratedCatalog": "Claude Code ne publie pas de liste de modèles de compte ; choisissez ses alias stables ou saisissez un autre ID de modèle.",
     "modelCustomClaudeHint": "Pour un modèle Claude antérieur ou spécifique à un compte, saisissez sa valeur --model exacte.",
-    "modelLiveCatalog": "Catalogue en direct depuis votre CLI Codex connectée",
-    "sandbox": "Sandbox",
-    "sandboxDanger": "Danger — accès complet",
-    "sandboxReadOnly": "Lecture seule",
-    "sandboxWorkspaceWrite": "Écriture dans l'espace de travail"
+    "effort": "Effort de réflexion",
+    "effortHint": "Contrôle combien le modèle raisonne avant de répondre. Plus élevé = plus de tokens de réflexion, plus lent, plus profond. Vide hérite du défaut du modèle."
   },
   "actions": {
     "start": "Exécuter",
@@ -167,26 +188,5 @@
     "session": "Session",
     "envelopes": "Événements",
     "duration": "Écoulé"
-  },
-  "provider": {
-    "aria": "Fournisseur d'exécution",
-    "beta": "BETA",
-    "cancel": "Annuler",
-    "choose": "Choisir",
-    "chooseDescription": "Choisissez un agent local interactif. Vous pouvez changer avant de démarrer une nouvelle exécution.",
-    "chooseTitle": "Quel agent souhaitez-vous exécuter ?",
-    "claude": {
-      "description": "Exécutez Claude Code en mode conversation ou comme tâche unique.",
-      "label": "Claude Code",
-      "subtitle": "Démarrez des sessions Claude Code avec streaming en direct, conversation, et la même analytique basée sur les hooks que votre terminal."
-    },
-    "codex": {
-      "description": "Exécutez un thread de serveur d'application Codex persistant depuis votre CLI locale connectée.",
-      "interactiveHint": "Démarre un thread local persistant avec des réponses en direct, l'activité des outils, l'annulation et des tours de suivi.",
-      "interactiveLabel": "Thread Codex interactif",
-      "label": "Codex",
-      "subtitle": "Démarrez un thread Codex interactif natif avec des réponses en direct, l'activité des outils et des tours de suivi."
-    },
-    "kicker": "Exécuter un agent"
   }
 }

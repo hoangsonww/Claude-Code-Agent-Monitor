@@ -12,8 +12,12 @@
   "provider": {
     "title": "Was möchten Sie überwachen?",
     "description": "Wählen Sie die im gesamten Dashboard angezeigte Datenquelle. Sie können dies später in den Einstellungen ändern.",
-    "claude": { "description": "Ihre Claude Code-Sitzungen, Agenten und Kosten." },
-    "codex": { "description": "Codex-Sitzungen, GPT-Token-Nutzung und Kosten." },
+    "claude": {
+      "description": "Ihre Claude Code-Sitzungen, Agenten und Kosten."
+    },
+    "codex": {
+      "description": "Codex-Sitzungen, GPT-Token-Nutzung und Kosten."
+    },
     "both": {
       "label": "Beide",
       "description": "Alle Claude Code- und Codex-Sitzungen, Nutzung und Kosten."

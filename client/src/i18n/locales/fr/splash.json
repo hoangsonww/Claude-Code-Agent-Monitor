@@ -12,8 +12,12 @@
   "provider": {
     "title": "Que souhaitez-vous surveiller ?",
     "description": "Choisissez la source de données affichée dans le tableau de bord. Vous pouvez modifier cela plus tard dans les Paramètres.",
-    "claude": { "description": "Vos sessions Claude Code, agents et coûts." },
-    "codex": { "description": "Sessions Codex, utilisation des tokens GPT et coûts." },
+    "claude": {
+      "description": "Vos sessions Claude Code, agents et coûts."
+    },
+    "codex": {
+      "description": "Sessions Codex, utilisation des tokens GPT et coûts."
+    },
     "both": {
       "label": "Les deux",
       "description": "Toutes les sessions Claude Code et Codex, l'utilisation et les coûts."
