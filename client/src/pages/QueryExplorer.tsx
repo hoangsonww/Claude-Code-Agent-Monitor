@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file QueryExplorer.tsx
  * @description Advanced Query Explorer page. Lets power users filter sessions,
  * agents, or events across all tracked dimensions without raw SQL access. Results
@@ -6,7 +6,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Search,
@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { useDataScope } from "../lib/dataScope";
+import { activeProvidersParam, activeSourcesParam, useDataScope } from "../lib/dataScope";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { formatDateTime } from "../lib/format";
@@ -70,7 +70,7 @@ function buildExportUrl(
 }
 
 function CellValue({ col, value }: { col: string; value: unknown }) {
-  if (value == null || value === "") return <span className="text-gray-600">—</span>;
+  if (value == null || value === "") return <span className="text-gray-600">вЂ”</span>;
   if (DATETIME_COLS.has(col) && typeof value === "string") {
     return <span title={value}>{formatDateTime(value)}</span>;
   }
@@ -78,7 +78,7 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
   if (s.length > 60)
     return (
       <span title={s} className="truncate max-w-[200px] block">
-        {s.slice(0, 60)}…
+        {s.slice(0, 60)}вЂ¦
       </span>
     );
   return <span>{s}</span>;
@@ -86,7 +86,18 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
 
 export function QueryExplorer() {
   const { t } = useTranslation("nav");
-  const { scopeParam } = useDataScope();
+  const [scope] = useDataScope();
+  // `api.query.run` does not auto-inject the global scope (unlike sessions/stats
+  // endpoints), so build the `sources`/`providers` query fragment here. Rebuilt
+  // only when the global scope actually changes.
+  const scopeParam = useMemo(() => {
+    const qs = new URLSearchParams();
+    const sources = activeSourcesParam();
+    const providers = activeProvidersParam();
+    if (sources) qs.set("sources", sources);
+    if (providers) qs.set("providers", providers);
+    return qs.toString();
+  }, [scope]);
 
   const [entity, setEntity] = useState<Entity>("events");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -99,7 +110,10 @@ export function QueryExplorer() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [q, setQ] = useState("");
 
-  const activeFilters = { ...filters, q, sort_by: sortBy, sort_dir: sortDir };
+  const activeFilters = useMemo(
+    () => ({ ...filters, q, sort_by: sortBy, sort_dir: sortDir }),
+    [filters, q, sortBy, sortDir]
+  );
 
   const runQuery = useCallback(
     async (off = 0) => {
@@ -122,7 +136,7 @@ export function QueryExplorer() {
       }
     },
     [entity, activeFilters, scopeParam]
-  ); // eslint-disable-line
+  );
 
   const loadFacets = useCallback(async () => {
     try {
@@ -141,7 +155,7 @@ export function QueryExplorer() {
     setSortDir("desc");
     setResult(null);
     setOffset(0);
-  }, [entity, scopeParam]); // eslint-disable-line
+  }, [entity, scopeParam]);
 
   const handleExport = (format: "csv" | "json") => {
     const url = buildExportUrl(entity, activeFilters, scopeParam ?? "", format);
@@ -398,7 +412,7 @@ export function QueryExplorer() {
                       }}
                     >
                       {col}
-                      {sortBy === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
+                      {sortBy === col ? (sortDir === "asc" ? " в†‘" : " в†“") : ""}
                     </th>
                   ))}
                 </tr>
