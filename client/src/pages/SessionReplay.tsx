@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
@@ -243,15 +243,42 @@ export function SessionReplay() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Replay state ───────────────────────────────────────────────────────────
+  // Declared before the data-loading effect so the reset below can reference
+  // playback controls without crossing initialization order.
+  const [cursor, setCursor] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<string>("1");
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPlay = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setPlaying(false);
+  }, []);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     setLoading(true);
+    // A route change must not inherit state from the previous session: React
+    // reuses this page instance across ids, so a stale cursor can point past
+    // the new event set and a running interval would keep advancing it.
+    stopPlay();
+    setSession(null);
+    setEvents([]);
+    setAgentMeta(new Map());
     setCursor(0);
     api.sessions
       .get(id)
       .then(({ session, agents, events: evs }) => {
         if (cancelled) return;
+        // Reset again right before applying the payload in case the user
+        // started playback while the fetch was in flight.
+        stopPlay();
+        setCursor(0);
         setSession(session);
         const sorted = [...evs].sort(
           (a, b) =>
@@ -271,16 +298,10 @@ export function SessionReplay() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, stopPlay]);
 
   // ── Checkpoints ───────────────────────────────────────────────────────────
   const checkpoints = useMemo(() => buildCheckpoints(events), [events]);
-
-  // ── Replay state ──────────────────────────────────────────────────────────
-  const [cursor, setCursor] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<string>("1");
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const agentStates = useMemo(
     () => (events.length ? seekToIndex(cursor, events, checkpoints) : new Map()),
@@ -288,14 +309,6 @@ export function SessionReplay() {
   );
 
   const total = events.length;
-
-  const stopPlay = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setPlaying(false);
-  }, []);
 
   const startPlay = useCallback(() => {
     stopPlay();
