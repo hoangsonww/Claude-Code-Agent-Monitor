@@ -768,7 +768,7 @@ exports[`screen snapshots > Analytics 1`] = `
                     points="12 6 12 12 16 14"
                   />
                 </svg>
-                13:00:00
+                1:00:00 PM
               </span>
             </p>
           </div>
@@ -3128,7 +3128,7 @@ exports[`screen snapshots > Claude Config 1`] = `
         <span
           class="text-[11px] text-gray-500 self-end"
         >
-          Last updated 13:00:00
+          Last updated 01:00:00 PM
         </span>
       </div>
     </header>
@@ -10936,7 +10936,7 @@ exports[`screen snapshots > Workflows 1`] = `
           class="text-[10px] text-gray-600 ml-1"
         >
           Updated 
-          13:00:00
+          1:00:00 PM
         </span>
       </div>
     </div>

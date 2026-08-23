@@ -15,6 +15,14 @@ const nodeProcess = (
   globalThis as unknown as { process?: { env: Record<string, string | undefined> } }
 ).process;
 if (nodeProcess) nodeProcess.env.TZ = "UTC";
+// Pin the UI language as well: i18next detects it from localStorage/navigator,
+// so without this the Intl time rendering (12h vs 24h) follows the machine's
+// OS locale and snapshots differ between contributors and CI.
+try {
+  globalThis.localStorage?.setItem("i18nextLng", "en-US");
+} catch {
+  /* jsdom always provides storage; guard anyway */
+}
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import type { ReactNode } from "react";

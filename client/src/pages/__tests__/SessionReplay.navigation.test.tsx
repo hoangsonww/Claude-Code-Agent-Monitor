@@ -5,7 +5,7 @@
  * the first event instead of leaving it past the new event range. React reuses
  * the page component instance when only :id changes, so playback state must be
  * explicitly reset on navigation.
- * @author Anton <antonpetnitsky@users.noreply.github.com>
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
