@@ -768,7 +768,7 @@ exports[`screen snapshots > Analytics 1`] = `
                     points="12 6 12 12 16 14"
                   />
                 </svg>
-                1:00:00 PM
+                13:00:00
               </span>
             </p>
           </div>
@@ -3128,7 +3128,7 @@ exports[`screen snapshots > Claude Config 1`] = `
         <span
           class="text-[11px] text-gray-500 self-end"
         >
-          Last updated 01:00:00 PM
+          Last updated 13:00:00
         </span>
       </div>
     </header>
@@ -6175,6 +6175,30 @@ exports[`screen snapshots > Session detail 1`] = `
           </button>
         </div>
       </div>
+      <a
+        class="btn-ghost flex items-center gap-1.5 text-xs"
+        data-discover="true"
+        href="/sessions/sess-1/replay"
+        title="Replay"
+      >
+        <svg
+          class="lucide lucide-play w-4 h-4"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <polygon
+            points="6 3 20 12 6 21 6 3"
+          />
+        </svg>
+        Replay
+      </a>
       <button
         class="btn-ghost"
       >
@@ -10912,7 +10936,7 @@ exports[`screen snapshots > Workflows 1`] = `
           class="text-[10px] text-gray-600 ml-1"
         >
           Updated 
-          1:00:00 PM
+          13:00:00
         </span>
       </div>
     </div>

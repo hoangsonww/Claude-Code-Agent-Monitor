@@ -12,8 +12,12 @@
   "provider": {
     "title": "무엇을 모니터링할까요?",
     "description": "대시보드 전체에 표시할 데이터를 선택하세요. 나중에 설정에서 변경할 수 있습니다.",
-    "claude": { "description": "Claude Code 세션, 에이전트 및 비용을 표시합니다." },
-    "codex": { "description": "Codex 세션, GPT 토큰 사용량 및 비용을 표시합니다." },
+    "claude": {
+      "description": "Claude Code 세션, 에이전트 및 비용을 표시합니다."
+    },
+    "codex": {
+      "description": "Codex 세션, GPT 토큰 사용량 및 비용을 표시합니다."
+    },
     "both": {
       "label": "둘 다",
       "description": "모든 Claude Code 및 Codex 세션, 사용량 및 비용을 표시합니다."

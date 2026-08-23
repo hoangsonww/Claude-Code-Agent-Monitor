@@ -61,7 +61,6 @@
       "unknown": "未知"
     }
   },
-  "remoteSourceBadgeTitle": "从远程机器收集",
   "detail": {
     "waitingBanner": {
       "title": "正在等待你的输入",
@@ -84,5 +83,6 @@
     "transcript": {
       "loadOlder": "↑ 加载更早的消息"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "从远程机器收集"
 }

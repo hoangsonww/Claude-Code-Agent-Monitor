@@ -12,8 +12,12 @@
   "provider": {
     "title": "您想监控什么？",
     "description": "选择要在整个仪表板中显示的数据。您稍后可在设置中更改。",
-    "claude": { "description": "您的 Claude Code 会话、代理和成本。" },
-    "codex": { "description": "Codex 会话、GPT 令牌用量和成本。" },
+    "claude": {
+      "description": "您的 Claude Code 会话、代理和成本。"
+    },
+    "codex": {
+      "description": "Codex 会话、GPT 令牌用量和成本。"
+    },
     "both": {
       "label": "两者",
       "description": "所有 Claude Code 和 Codex 会话、用量及成本。"

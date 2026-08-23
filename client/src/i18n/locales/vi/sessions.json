@@ -61,7 +61,6 @@
       "unknown": "Không rõ"
     }
   },
-  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
   "detail": {
     "waitingBanner": {
       "title": "Đang chờ phản hồi của bạn",
@@ -84,5 +83,6 @@
     "transcript": {
       "loadOlder": "↑ Tải các tin nhắn cũ hơn"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa"
 }

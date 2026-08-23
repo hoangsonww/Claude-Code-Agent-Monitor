@@ -12,8 +12,12 @@
   "provider": {
     "title": "Bạn muốn theo dõi gì?",
     "description": "Chọn dữ liệu hiển thị trên toàn bộ bảng điều khiển. Bạn có thể đổi lại trong Cài đặt.",
-    "claude": { "description": "Phiên Claude Code, agent và chi phí của bạn." },
-    "codex": { "description": "Phiên Codex, mức dùng token GPT và chi phí." },
+    "claude": {
+      "description": "Phiên Claude Code, agent và chi phí của bạn."
+    },
+    "codex": {
+      "description": "Phiên Codex, mức dùng token GPT và chi phí."
+    },
     "both": {
       "label": "Cả hai",
       "description": "Tất cả phiên Claude Code và Codex, mức sử dụng và chi phí."

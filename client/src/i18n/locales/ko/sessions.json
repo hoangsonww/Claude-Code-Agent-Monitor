@@ -61,7 +61,6 @@
       "unknown": "알 수 없음"
     }
   },
-  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
   "detail": {
     "waitingBanner": {
       "title": "입력을 기다리는 중",
@@ -84,5 +83,6 @@
     "transcript": {
       "loadOlder": "↑ 이전 메시지 불러오기"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "원격 머신에서 수집됨"
 }
