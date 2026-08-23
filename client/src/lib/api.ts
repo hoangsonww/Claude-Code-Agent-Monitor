@@ -2115,7 +2115,12 @@ function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcAr
 /** Kind of Claude Code config artifact manageable via `api.ccConfig.write`/
  *  `delete` - each maps to a distinct on-disk location under `.claude/`. */
 export type CcArtifactType =
-  "skills" | "agents" | "commands" | "output-styles" | "memory" | "auto-memory";
+  | "skills"
+  | "agents"
+  | "commands"
+  | "output-styles"
+  | "memory"
+  | "auto-memory";
 
 /** Body for PUT /api/cc-config/file - create or overwrite one artifact. */
 export interface CcWriteArgs {

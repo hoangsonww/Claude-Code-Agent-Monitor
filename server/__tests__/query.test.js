@@ -21,18 +21,24 @@ let BASE;
 
 function get(path) {
   return new Promise((resolve, reject) => {
-    http.get(`${BASE}${path}`, (res) => {
-      let data = "";
-      res.on("data", (c) => (data += c));
-      res.on("end", () => {
-        resolve({ status: res.statusCode, headers: res.headers, body: data });
-      });
-    }).on("error", reject);
+    http
+      .get(`${BASE}${path}`, (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => {
+          resolve({ status: res.statusCode, headers: res.headers, body: data });
+        });
+      })
+      .on("error", reject);
   });
 }
 
 function jsonGet(path) {
-  return get(path).then((r) => ({ status: r.status, headers: r.headers, data: JSON.parse(r.body) }));
+  return get(path).then((r) => ({
+    status: r.status,
+    headers: r.headers,
+    data: JSON.parse(r.body),
+  }));
 }
 
 before(async () => {
@@ -41,22 +47,43 @@ before(async () => {
   BASE = `http://127.0.0.1:${server.address().port}`;
 
   // Seed minimal data for querying
-  db.prepare(
-    `INSERT INTO sessions (id, name, status, started_at) VALUES (?,?,?,?)`
-  ).run("qs-sess-1", "query-test-session", "completed", new Date(Date.now() - 60_000).toISOString());
+  db.prepare(`INSERT INTO sessions (id, name, status, started_at) VALUES (?,?,?,?)`).run(
+    "qs-sess-1",
+    "query-test-session",
+    "completed",
+    new Date(Date.now() - 60_000).toISOString()
+  );
 
   db.prepare(
     `INSERT INTO agents (id, session_id, name, status, type, started_at) VALUES (?,?,?,?,?,?)`
-  ).run("qs-agent-1", "qs-sess-1", "main agent", "completed", "main", new Date(Date.now() - 50_000).toISOString());
+  ).run(
+    "qs-agent-1",
+    "qs-sess-1",
+    "main agent",
+    "completed",
+    "main",
+    new Date(Date.now() - 50_000).toISOString()
+  );
 
   db.prepare(
     `INSERT INTO events (session_id, agent_id, event_type, tool_name, summary, created_at) VALUES (?,?,?,?,?,?)`
-  ).run("qs-sess-1", "qs-agent-1", "tool_use", "Bash", "ran bash command", new Date().toISOString());
+  ).run(
+    "qs-sess-1",
+    "qs-agent-1",
+    "tool_use",
+    "Bash",
+    "ran bash command",
+    new Date().toISOString()
+  );
 });
 
 after(() => {
   server.close();
-  try { require("fs").unlinkSync(TEST_DB); } catch { /* best-effort */ }
+  try {
+    require("fs").unlinkSync(TEST_DB);
+  } catch {
+    /* best-effort */
+  }
 });
 
 describe("GET /api/query", () => {
@@ -134,7 +161,9 @@ describe("GET /api/query", () => {
   });
 
   it("rejects injection via sort_by (falls back to default)", async () => {
-    const { status, data } = await jsonGet("/api/query?entity=events&sort_by=1;DROP TABLE events;--");
+    const { status, data } = await jsonGet(
+      "/api/query?entity=events&sort_by=1;DROP TABLE events;--"
+    );
     assert.equal(status, 200);
     // rows still valid — injection didn't execute
     assert.ok(Array.isArray(data.rows));
