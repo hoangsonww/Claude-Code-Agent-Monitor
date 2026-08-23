@@ -87,7 +87,8 @@
     "found": "使用 {{path}}"
   },
   "concurrency": {
-    "active_other": "已有 {{count}} 个运行进行中",
+    "active_one": "当前有 {{count}} 个运行正在进行",
+    "active_other": "当前有 {{count}} 个运行正在进行",
     "viewActive": "仪表盘运行",
     "atCap": "已达并发上限({{max}})。停止一个正在运行的以启动新运行。"
   },

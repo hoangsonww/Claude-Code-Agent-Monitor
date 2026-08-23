@@ -16,7 +16,7 @@ const { spawnSync } = require("node:child_process");
 const ROOT = path.resolve(__dirname, "..");
 const PLUGINS = path.join(ROOT, "plugins");
 const PROJECT_VERSION = json(path.join(ROOT, "package.json")).version;
-const NATIVE_SHARED_SKILLS = ["repo-onboarding", "version-release"];
+const NATIVE_SHARED_SKILLS = ["push-to-forked-pr", "repo-onboarding", "version-release"];
 const WRITE_CAPABLE = new Set([
   "ccam-config",
   "ccam-cost-guard",

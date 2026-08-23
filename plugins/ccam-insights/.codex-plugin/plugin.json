@@ -1,6 +1,6 @@
 {
   "name": "ccam-insights",
-  "version": "2.0.6",
+  "version": "2.0.11",
   "description": "AI-powered insights for Claude Code — pattern detection, anomaly alerting, optimization recommendations, and session comparison using Agent Monitor analytics.",
   "author": {
     "name": "Son Nguyen",

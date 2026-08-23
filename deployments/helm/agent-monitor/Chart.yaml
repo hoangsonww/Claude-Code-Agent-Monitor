@@ -2,8 +2,8 @@ apiVersion: v2
 name: agent-monitor
 description: Production-safe single-writer CCAM deployment for Claude Code and Codex monitoring
 type: application
-version: 2.0.6
-appVersion: "2.0.6"
+version: 2.0.11
+appVersion: "2.0.11"
 
 home: https://github.com/hoangsonww/Claude-Code-Agent-Monitor
 sources:

@@ -6,7 +6,7 @@ CCAM ships one source tree that supports three distribution paths:
 - **Codex plugins** through `.agents/plugins/marketplace.json` and each plugin's `.codex-plugin/plugin.json`
 - **Open Agent Skills / skills.sh** through standards-compliant `SKILL.md` files with required `name` and `description` metadata
 
-The verified bundle contains **14 plugins, 66 bundled plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, 3 hook configurations, and 2 MCP-enabled plugins**. The skills.sh CLI discovers **75 total repository skills** because it also includes the repository-maintenance skills under `.agents/skills/` and `.claude/skills/`.
+The verified bundle contains **14 plugins, 66 bundled plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, 3 hook configurations, and 2 MCP-enabled plugins**. The skills.sh CLI discovers **76 total repository skills** because it also includes the repository-maintenance skills under `.agents/skills/` and `.claude/skills/`.
 
 ## Choose an Installation Path
 
@@ -48,7 +48,7 @@ Codex reads `.agents/plugins/marketplace.json`. Every entry points to the same `
 The repository does not need a PR to the `vercel-labs/skills` source repository. The `skills` CLI installs from public GitHub repositories directly, and skills.sh discovery/ranking is driven by install telemetry.
 
 ```bash
-# List all 75 repository skills without installing
+# List all 76 repository skills without installing
 npx skills add hoangsonww/Claude-Code-Agent-Monitor --list
 
 # Install one skill into the current project for Claude Code and Codex

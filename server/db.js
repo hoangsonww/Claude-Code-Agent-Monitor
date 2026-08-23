@@ -1655,6 +1655,39 @@ const stmts = {
       web_fetch_requests = excluded.web_fetch_requests,
       code_execution_requests = excluded.code_execution_requests
   `),
+
+  // Repair variant of replaceTokenUsage: writes the given totals as the full
+  // truth and ZEROES the compaction baselines instead of folding a decrease
+  // into them. The high-water-mark fold above is correct for append-only
+  // transcripts, but it also preserves historical over-counts forever — a
+  // parser fix that lowers a session's re-derived totals gets silently folded
+  // back in. Used by `import-history.js --reconcile-tokens --reset-baselines`
+  // when the transcript was fully re-parsed, so the new reading IS the total.
+  resetTokenUsage: db.prepare(`
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
+                             input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+                             web_search_requests, web_fetch_requests, code_execution_requests,
+                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
+                             baseline_web_search, baseline_web_fetch, baseline_code_execution)
+    VALUES (?, ?, ?, ?, ?, 'short', ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+      input_tokens = excluded.input_tokens,
+      output_tokens = excluded.output_tokens,
+      cache_read_tokens = excluded.cache_read_tokens,
+      cache_write_tokens = excluded.cache_write_tokens,
+      cache_write_1h_tokens = excluded.cache_write_1h_tokens,
+      web_search_requests = excluded.web_search_requests,
+      web_fetch_requests = excluded.web_fetch_requests,
+      code_execution_requests = excluded.code_execution_requests,
+      baseline_input = 0,
+      baseline_output = 0,
+      baseline_cache_read = 0,
+      baseline_cache_write = 0,
+      baseline_cache_write_1h = 0,
+      baseline_web_search = 0,
+      baseline_web_fetch = 0,
+      baseline_code_execution = 0
+  `),
   // Incremental Codex counter deltas. Unlike the full Claude re-parser, Codex
   // rollouts expose an authoritative per-request delta, so we only ever add a
   // newly observed request to its model/tier/context-size bucket.

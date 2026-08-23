@@ -219,10 +219,16 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
     const tree = await findTree();
     // All levels should render in the tree (auto-expanded because they have working children).
     // The active-agent banner may also display "Level-1", so we scope to the tree.
-    await waitFor(() => expect(within(tree).getByText("Main")).toBeInTheDocument());
+    //
+    // Wait on the DEEPEST node, never on "Main": the tree renders (and "Main"
+    // appears) before the ancestor-expansion effect has run, so waiting on the
+    // root can resolve while every descendant is still collapsed. The deepest
+    // label is only reachable once each ancestor expanded, which is exactly the
+    // condition under test.
+    await waitFor(() => expect(within(tree).getByText("Level-3")).toBeInTheDocument());
+    expect(within(tree).getByText("Main")).toBeInTheDocument();
     expect(within(tree).getByText("Level-1")).toBeInTheDocument();
     expect(within(tree).getByText("Level-2")).toBeInTheDocument();
-    expect(within(tree).getByText("Level-3")).toBeInTheDocument();
   });
 
   it("shows descendant count in collapsed badge for nested agents", async () => {
@@ -342,11 +348,15 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
 
     renderPage();
     const tree = await findTree();
-    // All levels should be visible because l3 is working, triggering ancestor expansion
-    await waitFor(() => expect(within(tree).getByText("Main")).toBeInTheDocument());
+    // All levels should be visible because l3 is working, triggering ancestor
+    // expansion. Wait on the deepest node rather than "Main" — the tree (and
+    // its root label) render before the expansion effect runs, so waiting on
+    // the root proved nothing and this assertion raced the effect. CI caught
+    // it with the tree rendered but still aria-expanded="false".
+    await waitFor(() => expect(within(tree).getByText("Deep Active")).toBeInTheDocument());
+    expect(within(tree).getByText("Main")).toBeInTheDocument();
     expect(within(tree).getByText("Level-1")).toBeInTheDocument();
     expect(within(tree).getByText("Level-2")).toBeInTheDocument();
-    expect(within(tree).getByText("Deep Active")).toBeInTheDocument();
   });
 
   it("handles agents with no children (leaf nodes)", async () => {
@@ -383,10 +393,11 @@ describe("SessionDetail - Nested Agent Tree Rendering", () => {
 
     renderPage();
     const tree = await findTree();
-    await waitFor(() => expect(within(tree).getByText("Main-A")).toBeInTheDocument());
+    // "Sub of B" is the node gated on auto-expansion, so wait on it rather than
+    // on a root label that renders before the expansion effect has run.
+    await waitFor(() => expect(within(tree).getByText("Sub of B")).toBeInTheDocument());
+    expect(within(tree).getByText("Main-A")).toBeInTheDocument();
     expect(within(tree).getByText("Main-B")).toBeInTheDocument();
-    // Sub of B auto-expanded (working)
-    expect(within(tree).getByText("Sub of B")).toBeInTheDocument();
   });
 
   it("renders sibling subagents at the same depth", async () => {

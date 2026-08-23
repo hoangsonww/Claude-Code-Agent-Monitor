@@ -123,6 +123,13 @@ export interface AppConfig {
   /** Optional bearer token for HTTP/SSE clients. Read from
    * `MCP_HTTP_AUTH_TOKEN` or `MCP_HTTP_AUTH_TOKEN_FILE`. */
   httpAuthToken?: string;
+  /** How long an HTTP/SSE session may sit without a request before the
+   * server closes it, reclaiming its `McpServer`. Clients are not required
+   * to send `DELETE /mcp` on the way out, so without this a dropped client
+   * would hold its session for the life of the process. From
+   * `MCP_HTTP_SESSION_TIMEOUT_MS`, default 30 minutes, clamped
+   * `[60_000, 86_400_000]`; `0` disables reaping entirely. */
+  httpSessionTimeoutMs: number;
 }
 
 /** Allowlist of hostnames the dashboard URL may target: loopback addresses
@@ -275,5 +282,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     httpPort: parseInteger(env.MCP_HTTP_PORT, 8819, 1, 65535),
     httpHost: env.MCP_HTTP_HOST?.trim() || "127.0.0.1",
     httpAuthToken: readSecret(env, "MCP_HTTP_AUTH_TOKEN", "MCP_HTTP_AUTH_TOKEN_FILE"),
+    // `0` is an explicit "never reap" opt-out, so it bypasses the clamp.
+    httpSessionTimeoutMs:
+      env.MCP_HTTP_SESSION_TIMEOUT_MS?.trim() === "0"
+        ? 0
+        : parseInteger(env.MCP_HTTP_SESSION_TIMEOUT_MS, 1_800_000, 60_000, 86_400_000),
   };
 }

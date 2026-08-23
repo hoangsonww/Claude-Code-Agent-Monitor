@@ -8,25 +8,29 @@ paths:
 # Wiki Internationalization Rules
 
 The static wiki (`wiki/index.html`) is fully localized to English, Simplified
-Chinese (`zh`), and Vietnamese (`vi`). English is the DOM source of truth;
-`wiki/script.js` swaps text at runtime. **Any new or changed user-visible wiki
-text MUST ship with `zh` + `vi` translations in the same change** — otherwise it
-falls back to English and the page is half-translated.
+Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). English is
+the DOM source of truth; `wiki/script.js` swaps text at runtime. **Any new or
+changed user-visible wiki text MUST ship with `zh` + `vi` + `ko` + `es`
+translations in the same change** — otherwise it falls back to English and the
+page is half-translated.
 
 ## When you add or edit content in `wiki/index.html`
 
 - The scannable layer — `.section-label`, `.nav-section`, `h2/h3/h4`,
   `.hero-desc`, `.nav-link`, `.hero-badge` — is keyed by plain text in the `T`
   dictionary inside `wiki/script.js`. Add the new English text as a key with its
-  `zh` and `vi` values there.
+  `zh`, `vi`, `ko`, and `es` values there.
 - Body content — `.main-content p:not(.hero-desc)`, `li`, `td`, `th`,
   `.screenshot-caption`, `.callout-body > strong`, `.route-desc`, and the footer
   (`.wiki-footer .footer-note / .footer-col-title / .footer-col-links a`) — is
   keyed by **whitespace-normalized `innerHTML`** in `wiki/i18n-content.js`
-  (`window.__WIKI_CONTENT_I18N`). Add an entry to `zh` and `vi` whose **key is
-  the element's `innerHTML` with every whitespace run collapsed to one space and
-  ends trimmed**, and whose value keeps every inline tag (`<code>`, `<strong>`,
-  `<a>`, `<span>`) in the same position.
+  (`window.__WIKI_CONTENT_I18N`). Add an entry to every non-English locale whose
+  **key is the element's `innerHTML` with every whitespace run collapsed to one
+  space and ends trimmed**, and whose value keeps the same complete set of
+  inline tags (`<code>`, `<strong>`, `<a>`, `<span>`).
+- Add every new image `alt`, `aria-label`, `placeholder`, or `title` value to
+  `ATTRIBUTE_TRANSLATIONS` in `wiki/script.js`, and keep `META` complete for
+  every locale whenever page metadata changes.
 - If you introduce a **new content container/class**, add its selector to
   `HTML_SEL` in `wiki/script.js` so the engine translates it.
 
@@ -45,6 +49,9 @@ code/identifier/product-name needs no entry (it correctly falls back to English)
   the same `norm(s) = s.replace(/\s+/g," ").trim()`, and confirm every
   real-prose block matches a dictionary key. Misses that are pure
   code/identifiers are fine; prose misses are bugs.
+- Run `npx vitest run src/i18n/__tests__/wiki-i18n.test.ts` from `client/` to
+  check live-DOM prose and label coverage, metadata and assistive attributes,
+  inline-tag preservation, and asset-version synchronization.
 - The service worker is cache-first. After editing `index.html`, `script.js`, or
   `i18n-content.js`, bump the asset query strings (`script.js?v=N`,
   `i18n-content.js?v=N`) in `index.html` AND bump `CACHE_NAME` in `wiki/sw.js`,

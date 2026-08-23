@@ -63,6 +63,30 @@ function rememberTranscriptPath(transcriptPath) {
   return sessionId;
 }
 
+/**
+ * Read `[offset, offset + length)` from a file as UTF-8, closing the descriptor
+ * on EVERY exit path.
+ *
+ * `Buffer.alloc` and `fs.readSync` can both throw after the open, and callers
+ * retry a failed rollout on every subsequent sweep — so an fd leaked here does
+ * not leak once, it leaks once per sweep and will eventually exhaust the
+ * process descriptor limit on a file with a persistent read error.
+ */
+function readRangeUtf8(filePath, offset, length) {
+  const fd = fs.openSync(filePath, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    fs.readSync(fd, buffer, 0, length, offset);
+    return buffer.toString("utf8");
+  } finally {
+    try {
+      fs.closeSync(fd);
+    } catch {
+      // Already closed or otherwise invalid — there is nothing left to release.
+    }
+  }
+}
+
 function isCodexTranscript(transcriptPath, options = {}) {
   if (typeof transcriptPath !== "string" || !transcriptPath.endsWith(".jsonl")) return false;
   const root = path.resolve(options.root || getCodexSessionsDir());
@@ -90,20 +114,24 @@ function findCodexTranscripts(root = getCodexSessionsDir(), options = {}) {
         (entry.name.startsWith("rollout-") || options.includeAllJsonl)
       ) {
         rememberTranscriptPath(fullPath);
-        files.push(fullPath);
+        // Stat once here rather than inside the sort comparator below — with
+        // thousands of historical rollouts a comparator statSync turns one
+        // discovery pass into O(n log n) stat syscalls (measured 25k+ per
+        // sweep on a 4k-file corpus).
+        let mtimeMs = 0;
+        try {
+          mtimeMs = fs.statSync(fullPath).mtimeMs;
+        } catch {
+          /* sort unstattable files last */
+        }
+        files.push({ path: fullPath, mtimeMs });
       }
     }
   }
   // New/active rollouts must win over a large historical backlog. The syncer
   // yields between files, but this ordering ensures a just-created session is
   // visible on the first cooperative slice rather than after every old file.
-  return files.sort((a, b) => {
-    try {
-      return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs;
-    } catch {
-      return 0;
-    }
-  });
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).map((file) => file.path);
 }
 
 /**
@@ -605,7 +633,10 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
   try {
     stat = fs.statSync(transcriptPath);
   } catch {
-    return { changed: false, events: [] };
+    // An I/O failure is NOT a completed no-op: the caller's retry bookkeeping
+    // has to keep this file queued, otherwise a transient error leaves its
+    // response-item tool calls unindexed until the file happens to grow.
+    return { changed: false, events: [], failed: true };
   }
   const state = stmts.getCodexToolIngestState.get(transcriptPath);
   const offset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
@@ -617,13 +648,10 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
 
   let body;
   try {
-    const fd = fs.openSync(transcriptPath, "r");
-    const buffer = Buffer.alloc(length);
-    fs.readSync(fd, buffer, 0, length, offset);
-    fs.closeSync(fd);
-    body = buffer.toString("utf8");
+    body = readRangeUtf8(transcriptPath, offset, length);
   } catch {
-    return { changed: false, events: [] };
+    // Same as the stat failure above — a read error must stay retryable.
+    return { changed: false, events: [], failed: true };
   }
   const lastNewline = body.lastIndexOf("\n");
   if (lastNewline < 0) return { changed: false, events: [] };
@@ -674,7 +702,8 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   try {
     stat = fs.statSync(transcriptPath);
   } catch {
-    return { changed: false, events: [] };
+    // Same reasoning as the read failure below — keep it retryable.
+    return { changed: false, events: [], failed: true };
   }
   const state = stmts.getCodexIngestState.get(transcriptPath);
   const offset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
@@ -682,13 +711,14 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   try {
     const length = stat.size - offset;
     if (length <= 0) return { changed: false, events: [] };
-    const fd = fs.openSync(transcriptPath, "r");
-    const buffer = Buffer.alloc(length);
-    fs.readSync(fd, buffer, 0, length, offset);
-    fs.closeSync(fd);
-    body = buffer.toString("utf8");
+    body = readRangeUtf8(transcriptPath, offset, length);
   } catch {
-    return { changed: false, events: [] };
+    // An I/O failure is NOT a completed no-op. The sweep records this file's
+    // size+mtime fingerprint after any non-throwing return, so reporting a read
+    // error as an ordinary no-op would make the next sweep skip the transcript
+    // entirely — leaving its lifecycle and token events unprocessed until some
+    // later write happens to move the fingerprint.
+    return { changed: false, events: [], failed: true };
   }
 
   const lastNewline = body.lastIndexOf("\n");

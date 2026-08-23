@@ -1086,8 +1086,24 @@ export function Dashboard() {
   }, [allSubagents]);
 
   useEffect(() => {
-    const debounceRef = { timer: null as ReturnType<typeof setTimeout> | null };
-    return eventBus.subscribe((msg: WSMessage) => {
+    // Trailing throttle, NOT a debounce: with several chatty sessions a
+    // session_updated arrives on nearly every hook event, and a debounce that
+    // re-arms per message either fires once per hook (>300ms apart) or starves.
+    // Each reload is expensive server-side (task-progress recomputation), so
+    // collapse bursts to at most one load per window; the trailing call keeps
+    // the view eventually consistent and the 10s poll remains the backstop.
+    const THROTTLE_MS = 2_000;
+    const throttleRef = { timer: null as ReturnType<typeof setTimeout> | null, lastRun: 0 };
+    const scheduleLoad = () => {
+      if (throttleRef.timer) return; // trailing run already scheduled
+      const wait = Math.max(0, THROTTLE_MS - (Date.now() - throttleRef.lastRun));
+      throttleRef.timer = setTimeout(() => {
+        throttleRef.timer = null;
+        throttleRef.lastRun = Date.now();
+        load();
+      }, wait);
+    };
+    const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
       if (
         msg.type === "agent_created" ||
         msg.type === "agent_updated" ||
@@ -1095,15 +1111,12 @@ export function Dashboard() {
         msg.type === "session_updated" ||
         isRemoteDataRefreshMessage(msg)
       ) {
-        // Debounce rapid-fire updates (e.g., 5 agents created in 100ms)
-        if (debounceRef.timer) clearTimeout(debounceRef.timer);
-        debounceRef.timer = setTimeout(load, 300);
+        scheduleLoad();
       }
       if (msg.type === "new_event") {
         const newEvent = msg.data as DashboardEvent;
         if (newEvent.tool_name === "update_plan") {
-          if (debounceRef.timer) clearTimeout(debounceRef.timer);
-          debounceRef.timer = setTimeout(load, 300);
+          scheduleLoad();
         }
         setRecentEvents((prev) => {
           // Deduplicate by event ID to prevent WS + polling race condition
@@ -1112,6 +1125,12 @@ export function Dashboard() {
         });
       }
     });
+    return () => {
+      unsubscribe();
+      // Drop any pending trailing reload: after cleanup its closure is stale
+      // (old filters/scope) and its response could overwrite newer state.
+      if (throttleRef.timer) clearTimeout(throttleRef.timer);
+    };
   }, [load]);
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);

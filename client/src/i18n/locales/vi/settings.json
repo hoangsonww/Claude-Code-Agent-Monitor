@@ -10,6 +10,25 @@
     "enable": "Hiện Tabby",
     "enableDesc": "Hiển thị bạn đồng hành ở góc trên toàn bảng điều khiển (⌘B để mở)"
   },
+  "sound": {
+    "title": "Âm thanh",
+    "description": "Tiếng chuông ngắn, nhẹ cho hoạt động phiên trực tiếp. Được tạo ngay trong trình duyệt - không tải xuống, không theo dõi.",
+    "enable": "Bật tín hiệu âm thanh",
+    "enableDesc": "Phát âm thanh nhẹ khi phiên bắt đầu, kết thúc hoặc gặp lỗi",
+    "volume": "Âm lượng",
+    "playWhen": "Phát âm thanh khi...",
+    "newSession": "Một phiên bắt đầu",
+    "sessionComplete": "Một phiên phản hồi xong",
+    "sessionError": "Một phiên gặp lỗi",
+    "subagentSpawned": "Một subagent được tạo",
+    "notification": "Claude Code gửi thông báo",
+    "connection": "Kết nối trực tiếp mất hoặc trở lại",
+    "interaction": "Nhấp vào nút và liên kết",
+    "interactionDesc": "Một tiếng tích rất nhỏ mỗi lần nhấn",
+    "preview": "Nghe thử",
+    "throttleInfo": "Tín hiệu được giới hạn tần suất, nên hoạt động dồn dập không biến thành một tràng âm thanh.",
+    "disabledInfo": "Tín hiệu âm thanh đang tắt - bảng điều khiển hoàn toàn im lặng"
+  },
   "pricing": {
     "title": "Định giá mô hình Claude của Anthropic",
     "navClaude": "Giá Claude",
@@ -42,8 +61,8 @@
     },
     "cacheWrite5m": "Ghi bộ nhớ đệm (5m)",
     "cacheWrite1h": "Ghi bộ nhớ đệm (1h)",
-    "fastInput": "Fast Input",
-    "fastOutput": "Fast Output",
+    "fastInput": "Đầu vào Fast",
+    "fastOutput": "Đầu ra Fast",
     "gpt": {
       "title": "Định giá mô hình GPT của OpenAI",
       "description": "Đơn giá API OpenAI công bố cho mức dùng Codex. Yêu cầu chuẩn dùng mức Short với đầu vào không quá 272K token và Long khi vượt 272K; Fast mode dùng bảng giá riêng. USD trên 1M token.",
@@ -289,7 +308,7 @@
     "uptime": "Thời gian chạy",
     "nodejs": "Node.js",
     "platform": "Nền tảng",
-    "wsClients": "WS Clients",
+    "wsClients": "Máy khách WS",
     "loadingInfo": "Đang tải thông tin máy chủ..."
   },
   "tables": {

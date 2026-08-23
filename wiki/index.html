@@ -610,6 +610,7 @@
           <a href="#prometheus-grafana" class="nav-link"><span class="nav-icon">◈</span>Prometheus &amp; Grafana</a>
           <a href="#i18n" class="nav-link"><span class="nav-icon">◈</span>Internationalization</a>
           <a href="#tabby" class="nav-link"><span class="nav-icon">🐾</span>Tabby</a>
+          <a href="#sound-cues" class="nav-link"><span class="nav-icon">🔊</span>Sound Cues</a>
 
           <div class="nav-section">Ops & Reference</div>
           <a href="#deployment" class="nav-link"><span class="nav-icon">◈</span>Deployment Modes</a>
@@ -1286,7 +1287,7 @@
                     One shared marketplace ships 14 plugins for Claude Code and Codex, with 66
                     packaged skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, and
                     2 MCP-enabled plugins. Every skill includes canonical frontmatter and OpenAI
-                    metadata. The skills.sh CLI discovers 75 repository skills from the same
+                    metadata. The skills.sh CLI discovers 76 repository skills from the same
                     public source. Install with <code>claude plugin marketplace add</code>,
                     <code>codex plugin marketplace add</code>, or <code>npx skills add</code>.
                   </p>
@@ -1921,6 +1922,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Protects MCP <code>/mcp</code>, <code>/sse</code>, and <code>/messages</code>; <code>/health</code> remains available to probes</td>
                 </tr>
                 <tr>
+                  <td><code>MCP_HTTP_SESSION_TIMEOUT_MS</code></td>
+                  <td><code>1800000</code></td>
+                  <td>Closes an idle MCP HTTP or SSE session after this long with no request, reclaiming its server; <code>0</code> disables reaping</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_DB_PATH</code></td>
                   <td><code>data/dashboard.db</code></td>
                   <td>Path to the SQLite database file</td>
@@ -1989,6 +1995,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_CODEX_SYNC_MS</code></td>
                   <td><code>4000</code></td>
                   <td>Safety-net interval (ms) for incremental Codex rollout scanning. Default <code>4000</code>; <code>0</code> disables polling but keeps the watcher.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_TASK_SUMMARY_TTL_MS</code></td>
+                  <td><code>2000</code></td>
+                  <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A transcript being actively appended to rarely hits the size+mtime cache key, so without this floor every list reload fully re-parses each multi-MB live transcript. <code>0</code> restores immediate re-parse on every change.</td>
+                  <td><code>DASHBOARD_TOKEN_REPAIR</code></td>
+                  <td><code>1</code></td>
+                  <td>One-time automatic repair of token totals inflated before usage was reconciled per <code>message.id</code>. <code>replaceTokenUsage</code> is a high-water mark, so the parser fix alone can never lower a historical total. Marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory, and it snapshots the old rows to <code>token_usage_pre_repair</code> first. <code>0</code> skips it — repair manually with <code>npm run repair-tokens</code>.</td>
                 </tr>
                 <tr>
                   <td><code>NODE_ENV</code></td>
@@ -2096,6 +2110,16 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>import-history</code></td>
                   <td><code>npm run import-history</code></td>
                   <td>Import historical Claude Code sessions from <code>~/.claude</code> with deep JSONL extraction (API errors, turn durations, thinking blocks, subagent data)</td>
+                </tr>
+                <tr>
+                  <td><code>reconcile-tokens</code></td>
+                  <td><code>npm run reconcile-tokens</code></td>
+                  <td>Refresh token totals for imported sessions from their transcripts. Never lowers an existing total</td>
+                </tr>
+                <tr>
+                  <td><code>repair-tokens</code></td>
+                  <td><code>npm run repair-tokens</code></td>
+                  <td>Re-derive non-workflow token totals for Claude sessions whose transcripts are still on disk and reset the compaction baselines, preserving workflow and Codex rows. One-time repair for databases inflated by the old per-record usage sum; stop the dashboard before running it</td>
                 </tr>
                 <tr>
                   <td><code>clear-data</code></td>
@@ -4117,6 +4141,16 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             clients, and an interactive REPL for operator debugging.
           </p>
 
+          <p>
+            Every transport reclaims its own resources. A stdio server self-terminates once its
+            host process is gone — stdin closing, or the process being re-parented away from the
+            parent it started under — so a host that dies without signalling leaves no orphan
+            behind. An HTTP session is released by <code>DELETE /mcp</code>, by an SSE
+            disconnect, or by an idle sweep governed by
+            <code>MCP_HTTP_SESSION_TIMEOUT_MS</code>, because terminating a session is optional in
+            the protocol and a vanished client would otherwise hold its server forever.
+          </p>
+
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
               <img src="../images/mcp.png" alt="MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output" width="2852" height="1680" loading="lazy" decoding="async" />
@@ -4314,7 +4348,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <p>
             The Agent Monitor ships one shared marketplace containing 14 plugins for Claude Code and
             Codex, 66 packaged plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers,
-            3 hook configurations, and 2 MCP-enabled plugins. The skills.sh CLI discovers 75 total
+            3 hook configurations, and 2 MCP-enabled plugins. The skills.sh CLI discovers 76 total
             repository skills. Product-specific manifests stay separate while skill instructions and
             validation remain shared.
           </p>
@@ -6211,7 +6245,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
-              <img src="../images/tabby.png" alt="Tabby Companio" width="3024" height="1746" loading="lazy" decoding="async" />
+              <img src="../images/tabby.png" alt="Tabby Companion" width="3024" height="1746" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📥</span> Tabby Companion — a cute SVG cat in the edges of every page, reacting in real time to the live session stream with eight distinct moods and animations, auto-surfacing speech bubbles for notable events, and serving as the gateway to a status panel and Ask box</div>
             </div>
           </div>
@@ -6331,6 +6365,126 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
               Degrades gracefully to a calm, dimmed disconnected state when offline.
             </li>
           </ul>
+        </section>
+
+        <!-- ─── Sound Cues ─────────────────────────────────────────────────── -->
+        <section id="sound-cues">
+          <div class="section-label">◈ Components &amp; UI</div>
+          <h2>🔊 Sound Cues</h2>
+
+          <p>
+            The dashboard gives you <strong>subtle audio feedback</strong> for live session
+            activity, so you can leave it on a second monitor and still hear when a run finishes or
+            fails. Sound is <strong>on by default</strong> and can be switched off entirely in one
+            click from <strong>Settings → Sound</strong>. Like Tabby, it is a purely additive
+            client-side subscriber to the existing <code>eventBus</code> WebSocket stream:
+            <strong>no server code, no new API routes, no new message types, and no new
+            dependencies</strong>.
+          </p>
+
+          <h3>Zero-dependency synthesis</h3>
+
+          <p>
+            There are no <code>.mp3</code> or <code>.wav</code> assets anywhere in the repository
+            and no audio library in <code>package.json</code>. Every cue is generated at play time
+            with the <strong>Web Audio API</strong>: a short list of oscillators (sine or triangle),
+            each with its own exponential gain envelope, mixed through a master gain node and a
+            low-pass filter so the result sits behind your work rather than cutting through it. The
+            whole engine is one file, <code>client/src/lib/sound.ts</code>.
+          </p>
+
+          <h3>The cues</h3>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cue</th>
+                  <th>When it fires</th>
+                  <th>What it sounds like</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>sessionStart</code></td>
+                  <td>A new session appears</td>
+                  <td>Rising perfect fifth (C5 → G5)</td>
+                </tr>
+                <tr>
+                  <td><code>sessionComplete</code></td>
+                  <td>A session finishes responding or closes</td>
+                  <td>Resolving major arpeggio (E5 → G5 → C6)</td>
+                </tr>
+                <tr>
+                  <td><code>sessionError</code></td>
+                  <td>A session enters the error state</td>
+                  <td>Soft falling minor third on a triangle wave</td>
+                </tr>
+                <tr>
+                  <td><code>subagentSpawn</code></td>
+                  <td>A subagent spawns</td>
+                  <td>Single short pluck</td>
+                </tr>
+                <tr>
+                  <td><code>notification</code></td>
+                  <td>Claude Code emits a notification event</td>
+                  <td>Detuned pair ringing like a small bell</td>
+                </tr>
+                <tr>
+                  <td><code>connected</code> / <code>disconnected</code></td>
+                  <td>The dashboard WebSocket returns or drops</td>
+                  <td>Two-note lift or drop</td>
+                </tr>
+                <tr>
+                  <td><code>click</code></td>
+                  <td>You press a button, link, tab, or switch</td>
+                  <td>Barely-audible tick</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            Cues live inside a C-major set so overlapping tails never sound dissonant, and every
+            envelope decays exponentially rather than cutting off, which avoids the click of a hard
+            stop.
+          </p>
+
+          <h3>Staying out of your way</h3>
+
+          <ul>
+            <li>
+              <strong>Per-cue cooldown</strong> — the same cue will not repeat within about 350 ms
+              (45 ms for the interaction tick).
+            </li>
+            <li>
+              <strong>Global burst budget</strong> — at most 4 cues start within any 1.2 s window,
+              so importing history or reconnecting after a drop never turns a flood of WebSocket
+              messages into a flood of beeps.
+            </li>
+            <li>
+              <strong>Autoplay policy</strong> — nothing plays until your first pointer, key, or
+              touch interaction with the page. Cues before that are silently dropped, not queued.
+            </li>
+            <li>
+              If the browser has no Web Audio support at all, every call is a safe no-op and the
+              dashboard simply stays silent.
+            </li>
+          </ul>
+
+          <h3>Settings</h3>
+
+          <p>
+            <strong>Settings → Sound</strong> has a master toggle, a volume slider, and an
+            individual switch for each cue. Flipping a switch on plays that cue immediately so you
+            can hear exactly what you just enabled, and a preview button plays the completion chime
+            on demand. Preferences persist to <code>localStorage</code> under
+            <code>agent-monitor-sound</code> and take effect instantly across the app — no reload.
+            By default, session start, session complete, session error, notifications, and the
+            interaction tick are on; subagent spawns and connection changes are off because they are
+            the chattiest. The wiring lives in <code>client/src/hooks/useSoundCues.ts</code>, mounted
+            once in <code>client/src/App.tsx</code>.
+          </p>
         </section>
 
         <!-- ─── Deployment ─────────────────────────────────────────────────── -->
@@ -6886,8 +7040,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=78" defer></script>
-    <script src="script.js?v=55" defer></script>
+    <script src="i18n-content.js?v=85" defer></script>
+    <script src="script.js?v=56" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

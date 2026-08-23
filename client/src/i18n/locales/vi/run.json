@@ -36,7 +36,7 @@
     "cwdHint": "Đường dẫn tuyệt đối. Mặc định là cwd của dashboard.",
     "cwdPlaceholder": "Gõ để tìm hoặc dán đường dẫn tuyệt đối…",
     "cwdGroups": {
-      "dashboard": "Dashboard server",
+      "dashboard": "Máy chủ dashboard",
       "home": "Home",
       "recent": "Gần đây - Claude Code đã dùng"
     },
@@ -45,7 +45,7 @@
     "modelInheritLabel": "Mặc định (khuyến nghị)",
     "modelCustom": "Tuỳ chỉnh…",
     "modelCustomPlaceholder": "model id (vd: claude-opus-4-7-20260101)",
-    "permissionMode": "Permission mode",
+    "permissionMode": "Chế độ quyền",
     "permissionAcceptEdits": "acceptEdits (khuyên dùng)",
     "permissionDefault": "default (prompt tương tác - headless sẽ treo)",
     "permissionPlan": "plan (chỉ đọc, lập kế hoạch)",
@@ -87,6 +87,7 @@
     "found": "Đang dùng {{path}}"
   },
   "concurrency": {
+    "active_one": "Có {{count}} run đang chạy",
     "active_other": "Có {{count}} run đang chạy",
     "viewActive": "Lượt chạy dashboard",
     "atCap": "Đạt giới hạn concurrent ({{max}}). Dừng một run đang chạy để bắt đầu run mới."
@@ -114,8 +115,8 @@
     "duration": "Thời lượng",
     "cost": "Chi phí",
     "turns": "Lượt",
-    "exitCode": "Exit code",
-    "sessionId": "Session ID"
+    "exitCode": "Mã thoát",
+    "sessionId": "ID phiên"
   },
   "errors": {
     "startFailed": "Không khởi động được: {{message}}",
@@ -167,7 +168,7 @@
     "label": "Context",
     "input": "Input",
     "output": "Output",
-    "cacheRead": "Cache hit",
+    "cacheRead": "Đọc từ bộ nhớ đệm",
     "cost": "Chi phí"
   },
   "autocomplete": {

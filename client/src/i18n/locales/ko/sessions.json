@@ -41,14 +41,18 @@
     "completeCount": "{{completed}} / {{total}} 완료 · {{percent}}%",
     "completeCountShort": "{{completed}} / {{total}} 완료",
     "current": "현재: {{task}}",
-    "more": "세션 상세에 {{count}}개 더 있음",
+    "more_one": "세션 상세에 {{count}}개 더 있음",
+    "more_other": "세션 상세에 {{count}}개 더 있음",
     "includesSubagents": "Subagent 포함",
     "partialSource": "작업 수명 주기 이벤트에서 파생됨",
     "owners": "담당 Agent",
     "mainAgent": "메인 Agent",
-    "doneCount": "{{count}}개 완료",
-    "remainingCount": "{{count}}개 남음",
-    "hiddenTasks": "추가 작업 {{count}}개가 표시되지 않았습니다.",
+    "doneCount_one": "{{count}}개 완료",
+    "doneCount_other": "{{count}}개 완료",
+    "remainingCount_one": "{{count}}개 남음",
+    "remainingCount_other": "{{count}}개 남음",
+    "hiddenTasks_one": "추가 작업 {{count}}개가 표시되지 않았습니다.",
+    "hiddenTasks_other": "추가 작업 {{count}}개가 표시되지 않았습니다.",
     "status": {
       "completed": "완료",
       "inProgress": "진행 중",
@@ -57,6 +61,7 @@
       "unknown": "알 수 없음"
     }
   },
+  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
   "detail": {
     "waitingBanner": {
       "title": "입력을 기다리는 중",

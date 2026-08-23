@@ -19,6 +19,8 @@ const {
   bucketKey,
   emptyBucket,
   extractUsageFields,
+  subtractBucket,
+  rememberUsageContribution,
   normalizeSpeed,
   normalizeGeo,
   normalizeTier,
@@ -169,6 +171,14 @@ async function parseSessionFile(filePath) {
   let thinkingBlockCount = 0;
   const toolResultErrors = [];
   const usageExtras = { service_tiers: new Set(), speeds: new Set(), inference_geos: new Set() };
+  // One API response spans several JSONL records (one per content block),
+  // each carrying the message's `usage` — summing every record inflates
+  // totals 2-4x, and the copies are not identical: streaming writes partial
+  // usage first, so the LAST record per message.id is authoritative.
+  // Mirrors the reconciliation in server/lib/transcript-cache.js; kept to a
+  // bounded tail window by rememberUsageContribution so a multi-hundred-MiB
+  // transcript can't grow this map without limit.
+  const usageByMessageId = new Map();
   // Human-readable session title: custom-title (explicit /rename, claude -n)
   // takes precedence over ai-title (auto-generated). Both are append-only
   // metadata lines, so the last value seen wins.
@@ -291,6 +301,11 @@ async function parseSessionFile(filePath) {
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
       if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
         const usage = msg.usage;
+        const usageMsgId = typeof msg.id === "string" && msg.id ? msg.id : null;
+        if (usageMsgId) {
+          const prev = usageByMessageId.get(usageMsgId);
+          if (prev) subtractBucket(tokensByModel[prev.key], prev.fields);
+        }
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
@@ -305,7 +320,9 @@ async function parseSessionFile(filePath) {
             normalizeTier(usage)
           );
         }
-        accumulateBucket(tokensByModel[key], extractUsageFields(usage));
+        const fields = extractUsageFields(usage);
+        accumulateBucket(tokensByModel[key], fields);
+        if (usageMsgId) rememberUsageContribution(usageByMessageId, usageMsgId, { key, fields });
       }
       if (msg.usage) {
         if (msg.usage.service_tier) usageExtras.service_tiers.add(msg.usage.service_tier);
@@ -411,6 +428,9 @@ async function parseSubagentFile(filePath) {
   let userMessageCount = 0;
   let assistantMessageCount = 0;
   const tokensByModel = {};
+  // Usage reconciliation (last record per message.id wins), bounded to the
+  // same tail window — see the matching map in parseSessionFile.
+  const usageByMessageId = new Map();
   const toolNames = new Set();
   let thinkingBlockCount = 0;
   // Subagent tool calls aren't broadcast via hooks — they live only in this JSONL.
@@ -475,8 +495,16 @@ async function parseSubagentFile(filePath) {
       const msg = entry.message || {};
       const msgModel = msg.model || null;
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
+      // Same reconciliation as parseSessionFile: one API response spans
+      // several records (same message.id) whose usage evolves — the last
+      // record is authoritative.
       if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
         const usage = msg.usage;
+        const usageMsgId = typeof msg.id === "string" && msg.id ? msg.id : null;
+        if (usageMsgId) {
+          const prev = usageByMessageId.get(usageMsgId);
+          if (prev) subtractBucket(tokensByModel[prev.key], prev.fields);
+        }
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
@@ -491,7 +519,9 @@ async function parseSubagentFile(filePath) {
             normalizeTier(usage)
           );
         }
-        accumulateBucket(tokensByModel[key], extractUsageFields(usage));
+        const fields = extractUsageFields(usage);
+        accumulateBucket(tokensByModel[key], fields);
+        if (usageMsgId) rememberUsageContribution(usageByMessageId, usageMsgId, { key, fields });
       }
       const content = msg.content || [];
       if (Array.isArray(content)) {
@@ -798,8 +828,12 @@ function combineSessionTokens(session) {
  * repeatedly: the underlying SQL preserves the highest-seen value via the
  * baseline_* columns, so a re-run never reduces totals.
  */
-function writeSessionTokens(dbModule, sessionId, tokensByModel) {
+function writeSessionTokens(dbModule, sessionId, tokensByModel, options = {}) {
   const { stmts } = dbModule;
+  // resetBaselines: the totals come from a full transcript re-parse and are
+  // the whole truth — zero the compaction baselines instead of letting the
+  // high-water-mark fold preserve a historical over-count.
+  const stmt = options.resetBaselines ? stmts.resetTokenUsage : stmts.replaceTokenUsage;
   let written = 0;
   for (const tokens of Object.values(tokensByModel || {})) {
     if (
@@ -811,7 +845,7 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel) {
       (tokens.webFetch || 0) > 0 ||
       (tokens.codeExec || 0) > 0
     ) {
-      stmts.replaceTokenUsage.run(
+      stmt.run(
         sessionId,
         tokens.model,
         tokens.speed,
@@ -1999,22 +2033,41 @@ async function syncDefaultProjects(dbModule, options = {}) {
 }
 
 /**
- * Re-walk every JSONL file under ~/.claude/projects/ for sessions that already
- * exist in the DB, sum parent + subagent tokens, and refresh token_usage via
- * replaceTokenUsage. Safe to run repeatedly: never reduces totals because of
- * replaceTokenUsage's baseline-shift behavior.
+ * Re-derive token totals for CLAUDE sessions that already exist in the DB from
+ * their transcripts (parent + subagents) and refresh token_usage.
+ *
+ * A session's transcript is located by scanning ~/.claude/projects/ for the
+ * default `<proj>/<sid>.jsonl` layout, falling back to the `transcript_path`
+ * persisted on the session row; sessions with neither are counted in
+ * `missingFiles` and left untouched. Codex sessions are excluded outright —
+ * their usage comes from rollout journals, not Claude transcripts.
+ *
+ * Default mode writes through replaceTokenUsage, so it is safe to run
+ * repeatedly and never reduces a total (the baseline high-water mark).
+ * `options.resetBaselines` instead clears each session's non-workflow rows and
+ * writes the re-derivation as the whole truth with zeroed baselines — the
+ * repair for databases inflated before usage was reconciled per message.id.
+ * `options.all` widens the sweep beyond `imported`-marked sessions.
  *
  * Returns { reconciled, sessionsTouched, modelsWritten, missingFiles }.
  */
 async function reconcileTokens(dbModule, options = {}) {
   const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
   const counters = { reconciled: 0, sessionsTouched: 0, modelsWritten: 0, missingFiles: 0 };
-  if (!fs.existsSync(PROJECTS_DIR)) return counters;
 
-  const projectDirs = fs
-    .readdirSync(PROJECTS_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name);
+  // A missing scan root is an EMPTY directory listing, not a reason to bail:
+  // sessions can carry a `transcript_path` pointing outside this tree (a custom
+  // import directory, a non-default CLAUDE_HOME), and returning early here
+  // would leave those repairable sessions with stale token rows.
+  let projectDirs = [];
+  try {
+    projectDirs = fs
+      .readdirSync(PROJECTS_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+  } catch {
+    /* no projects tree — fall through to the persisted-path sweep below */
+  }
 
   // Build a map of session_id -> JSONL path so we only parse files for sessions
   // already present in the DB.
@@ -2033,16 +2086,48 @@ async function reconcileTokens(dbModule, options = {}) {
     }
   }
 
-  const known = dbModule.db
-    .prepare("SELECT id FROM sessions WHERE metadata LIKE '%\"imported\":true%'")
-    .all();
+  // options.all widens the sweep from imported sessions to every CLAUDE
+  // session whose transcript is still on disk — needed to repair rows written
+  // by the live ingestion path (they don't carry the imported marker).
+  //
+  // The `provider = 'claude'` filter is a SAFETY GUARD, not an optimization.
+  // Codex sessions' token_usage is derived from rollout journals via
+  // upsertCodexTokenDelta, never from a Claude JSONL transcript. Feeding a
+  // Codex transcript to parseSessionFile would produce a bogus derivation, and
+  // in reset mode the sweep clears a session's rows before writing — so
+  // including them would DELETE real Codex usage and replace it with garbage.
+  // They were previously excluded only by accident (their transcripts live
+  // outside PROJECTS_DIR, so the directory scan never matched them); resolving
+  // `transcript_path` below removes that accident, hence the explicit filter.
+  const known = options.all
+    ? dbModule.db
+        .prepare("SELECT id, transcript_path FROM sessions WHERE provider = 'claude'")
+        .all()
+    : dbModule.db
+        .prepare(
+          "SELECT id, transcript_path FROM sessions WHERE provider = 'claude' AND metadata LIKE '%\"imported\":true%'"
+        )
+        .all();
 
   const total = known.length;
   let processed = 0;
 
+  const writeOptions = { resetBaselines: !!options.resetBaselines };
+  // In reset mode the re-derived totals are the whole truth for the session,
+  // so stale bucket rows whose (model, speed, geo, tier) key no longer occurs
+  // in the corrected derivation must not survive — clear before writing.
+  // Workflow rows (service_tier = 'workflow') are owned by workflow-ingest
+  // and derived from run journals, not transcripts — this sweep can't rebuild
+  // them, so it must not delete them.
+  const clearSessionTokens = options.resetBaselines
+    ? dbModule.db.prepare(
+        "DELETE FROM token_usage WHERE session_id = ? AND service_tier != 'workflow'"
+      )
+    : null;
   const tx = dbModule.db.transaction((batch) => {
     for (const { sessionId, tokens } of batch) {
-      const written = writeSessionTokens(dbModule, sessionId, tokens);
+      if (clearSessionTokens) clearSessionTokens.run(sessionId);
+      const written = writeSessionTokens(dbModule, sessionId, tokens, writeOptions);
       if (written > 0) {
         counters.sessionsTouched++;
         counters.modelsWritten += written;
@@ -2054,9 +2139,22 @@ async function reconcileTokens(dbModule, options = {}) {
   let batch = [];
   const FLUSH = 50;
 
-  for (const { id: sessionId } of known) {
+  for (const { id: sessionId, transcript_path: storedPath } of known) {
     processed++;
-    const jsonlPath = sessionPaths.get(sessionId);
+    // Prefer the PROJECTS_DIR scan (the default `<proj>/<sid>.jsonl` layout),
+    // then fall back to the transcript path persisted on the session row. The
+    // scan alone misses every Claude session whose transcript lives outside
+    // the default tree — e.g. one imported from a custom directory via
+    // `ccam import path`, or a non-default CLAUDE_HOME — which would silently
+    // leave those sessions un-repaired despite having a transcript on disk.
+    let jsonlPath = sessionPaths.get(sessionId);
+    if (!jsonlPath && storedPath && storedPath.endsWith(".jsonl")) {
+      try {
+        if (fs.statSync(storedPath).isFile()) jsonlPath = storedPath;
+      } catch {
+        /* stale path — treated as missing below */
+      }
+    }
     if (!jsonlPath) {
       counters.missingFiles++;
       if (processed % 25 === 0) onProgress({ processed, total, counters });
@@ -2085,7 +2183,10 @@ async function reconcileTokens(dbModule, options = {}) {
       }
 
       const tokens = combineSessionTokens(session);
-      if (Object.keys(tokens).length > 0) {
+      // In reset mode an EMPTY corrected derivation still has to reach the
+      // transaction: the session's stale rows must be cleared even when
+      // nothing replaces them.
+      if (Object.keys(tokens).length > 0 || writeOptions.resetBaselines) {
         batch.push({ sessionId, tokens });
         if (batch.length >= FLUSH) {
           tx(batch);
@@ -2110,6 +2211,8 @@ async function reconcileTokens(dbModule, options = {}) {
 if (require.main === module) {
   const dryRun = process.argv.includes("--dry-run");
   const reconcile = process.argv.includes("--reconcile-tokens");
+  const reconcileAll = process.argv.includes("--all");
+  const resetBaselines = process.argv.includes("--reset-baselines");
   const projectIdx = process.argv.indexOf("--project");
   const projectFilter = projectIdx !== -1 ? process.argv[projectIdx + 1] : null;
 
@@ -2117,8 +2220,16 @@ if (require.main === module) {
     console.log("Claude Code Session Importer");
     console.log("============================");
     if (dryRun) console.log("DRY RUN - no data will be written\n");
-    if (reconcile)
-      console.log("RECONCILE — refreshing token totals for already-imported sessions\n");
+    if (reconcile) {
+      const scope = reconcileAll
+        ? "every session whose transcript is still on disk"
+        : "already-imported sessions";
+      console.log(
+        resetBaselines
+          ? `REPAIR — re-deriving token totals for ${scope} and zeroing compaction baselines\n`
+          : `RECONCILE — refreshing token totals for ${scope}\n`
+      );
+    }
     if (projectFilter) console.log(`Filtering to project: ${projectFilter}\n`);
 
     if (!fs.existsSync(PROJECTS_DIR)) {
@@ -2127,6 +2238,49 @@ if (require.main === module) {
     }
 
     if (reconcile) {
+      // reconcileTokens has no dry-run support — writes (and in reset mode,
+      // deletes) happen inside its transaction. Refuse rather than pretend.
+      if (dryRun) {
+        console.error("--dry-run is not supported with --reconcile-tokens; aborting.");
+        process.exit(1);
+      }
+      // The reset repair re-derives totals from transcripts parsed OUTSIDE
+      // the write transaction, so a live dashboard ingesting hooks in
+      // parallel can be clobbered with a stale reading (lost update). Refuse
+      // while a dashboard answers on any known port.
+      if (resetBaselines) {
+        const { resolveAllDashboardPorts } = require("../server/lib/server-info");
+        for (const port of resolveAllDashboardPorts()) {
+          let reason = null;
+          try {
+            const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
+              signal: AbortSignal.timeout(2000),
+            });
+            // Any response at all means something is listening. A non-2xx
+            // dashboard is still a running writer, so it must block the repair
+            // just as a healthy one does.
+            reason = res.ok ? "is running" : `answered with HTTP ${res.status}`;
+          } catch (err) {
+            // ONLY a refused connection proves nothing is listening. A timeout
+            // or any other transport error is ambiguous — a busy dashboard
+            // that failed to answer within the deadline is still writing — so
+            // fail closed rather than assuming the port is free.
+            const code = err?.cause?.code || err?.code || err?.name;
+            if (code !== "ECONNREFUSED") {
+              reason = `could not be probed (${code || "unknown error"})`;
+            }
+          }
+          if (reason) {
+            console.error(
+              `A dashboard server on port ${port} ${reason} — stop it before running` +
+                ` --reconcile-tokens --reset-baselines (live hook ingestion races the repair).` +
+                ` The repair parses transcripts outside its write transaction, so a` +
+                ` concurrent writer can be clobbered with stale totals.`
+            );
+            process.exit(1);
+          }
+        }
+      }
       const dbModule = require("../server/db");
       const before = dbModule.db
         .prepare(
@@ -2139,6 +2293,8 @@ if (require.main === module) {
         )
         .get();
       const result = await reconcileTokens(dbModule, {
+        all: reconcileAll,
+        resetBaselines,
         onProgress: ({ processed, total, counters }) => {
           process.stdout.write(
             `  reconciling ${processed}/${total} (touched: ${counters.sessionsTouched}, models: ${counters.modelsWritten})\r`

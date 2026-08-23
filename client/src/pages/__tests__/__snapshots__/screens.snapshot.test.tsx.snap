@@ -7515,6 +7515,35 @@ exports[`screen snapshots > Settings 1`] = `
         </button>
         <button
           class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
+          data-settings-section="sound"
+          type="button"
+        >
+          <svg
+            class="lucide lucide-volume2 w-3.5 h-3.5"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+            />
+            <path
+              d="M16 9a5 5 0 0 1 0 6"
+            />
+            <path
+              d="M19.364 18.364a9 9 0 0 0 0-12.728"
+            />
+          </svg>
+          Sound
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 text-xs whitespace-nowrap px-2.5 py-1.5 rounded-lg border transition-colors flex-shrink-0 border-border text-gray-400 hover:text-gray-200 hover:bg-surface-3"
           data-settings-section="notifications"
           type="button"
         >
@@ -9723,6 +9752,536 @@ exports[`screen snapshots > Settings 1`] = `
     </section>
     <section
       class="scroll-mt-24"
+      id="sound"
+    >
+      <h3
+        class="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1"
+      >
+        <svg
+          class="lucide lucide-volume2 w-4 h-4 text-gray-500"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+          />
+          <path
+            d="M16 9a5 5 0 0 1 0 6"
+          />
+          <path
+            d="M19.364 18.364a9 9 0 0 0 0-12.728"
+          />
+        </svg>
+        Sound
+      </h3>
+      <p
+        class="text-xs text-gray-500 mb-4"
+      >
+        Short, quiet chimes for live session activity. Generated in the browser - no downloads, no tracking.
+      </p>
+      <div
+        class="card p-5 space-y-5"
+      >
+        <div
+          class="flex items-center gap-3"
+        >
+          <div
+            class="w-10 h-10 rounded-xl flex items-center justify-center transition-colors bg-blue-500/10 border border-blue-500/20"
+          >
+            <svg
+              class="lucide lucide-volume2 w-5 h-5 text-blue-400"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+              />
+              <path
+                d="M16 9a5 5 0 0 1 0 6"
+              />
+              <path
+                d="M19.364 18.364a9 9 0 0 0 0-12.728"
+              />
+            </svg>
+          </div>
+          <label
+            class="flex items-center justify-between gap-3 cursor-pointer group"
+          >
+            <div
+              class="min-w-0"
+            >
+              <p
+                class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+              >
+                Enable Sound Cues
+              </p>
+              <p
+                class="text-xs text-gray-500 mt-0.5"
+              >
+                Play a subtle tone when sessions start, finish, or error out
+              </p>
+            </div>
+            <button
+              aria-checked="true"
+              class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+              role="switch"
+              type="button"
+            >
+              <span
+                class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+              />
+            </button>
+          </label>
+        </div>
+        <div
+          class="pt-4 border-t border-border"
+        >
+          <div
+            class="flex items-center justify-between gap-3 mb-2"
+          >
+            <label
+              class="text-sm text-gray-300"
+              for="sound-volume"
+            >
+              Volume
+            </label>
+            <span
+              class="text-xs text-gray-500 tabular-nums"
+            >
+              50
+              %
+            </span>
+          </div>
+          <input
+            aria-label="Volume"
+            class="w-full accent-blue-500 cursor-pointer"
+            id="sound-volume"
+            max="100"
+            min="0"
+            step="5"
+            type="range"
+            value="50"
+          />
+        </div>
+        <div
+          class="pt-4 border-t border-border"
+        >
+          <p
+            class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3"
+          >
+            Play a cue when...
+          </p>
+          <div
+            class="space-y-2"
+          >
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-play w-4 h-4 text-green-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <polygon
+                  points="6 3 20 12 6 21 6 3"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    A session starts
+                  </p>
+                </div>
+                <button
+                  aria-checked="true"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-circle-check-big w-4 h-4 text-violet-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M21.801 10A10 10 0 1 1 17 3.335"
+                />
+                <path
+                  d="m9 11 3 3L22 4"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    A session finishes responding
+                  </p>
+                </div>
+                <button
+                  aria-checked="true"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-circle-alert w-4 h-4 text-red-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                />
+                <line
+                  x1="12"
+                  x2="12"
+                  y1="8"
+                  y2="12"
+                />
+                <line
+                  x1="12"
+                  x2="12.01"
+                  y1="16"
+                  y2="16"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    A session errors
+                  </p>
+                </div>
+                <button
+                  aria-checked="true"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-git-branch w-4 h-4 text-blue-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <line
+                  x1="6"
+                  x2="6"
+                  y1="3"
+                  y2="15"
+                />
+                <circle
+                  cx="18"
+                  cy="6"
+                  r="3"
+                />
+                <circle
+                  cx="6"
+                  cy="18"
+                  r="3"
+                />
+                <path
+                  d="M18 9a9 9 0 0 1-9 9"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    A subagent spawns
+                  </p>
+                </div>
+                <button
+                  aria-checked="false"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-surface-4"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-0"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-bell w-4 h-4 text-amber-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M10.268 21a2 2 0 0 0 3.464 0"
+                />
+                <path
+                  d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    Claude Code sends a notification
+                  </p>
+                </div>
+                <button
+                  aria-checked="true"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-wifi w-4 h-4 text-cyan-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 20h.01"
+                />
+                <path
+                  d="M2 8.82a15 15 0 0 1 20 0"
+                />
+                <path
+                  d="M5 12.859a10 10 0 0 1 14 0"
+                />
+                <path
+                  d="M8.5 16.429a5 5 0 0 1 7 0"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    The live connection drops or returns
+                  </p>
+                </div>
+                <button
+                  aria-checked="false"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-surface-4"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-0"
+                  />
+                </button>
+              </label>
+            </div>
+            <div
+              class="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3"
+            >
+              <svg
+                class="lucide lucide-zap w-4 h-4 text-gray-400 flex-shrink-0"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"
+                />
+              </svg>
+              <label
+                class="flex items-center justify-between gap-3 cursor-pointer group"
+              >
+                <div
+                  class="min-w-0"
+                >
+                  <p
+                    class="text-sm text-gray-300 group-hover:text-gray-200 transition-colors"
+                  >
+                    Clicking buttons and links
+                  </p>
+                  <p
+                    class="text-xs text-gray-500 mt-0.5"
+                  >
+                    A barely-audible tick on each press
+                  </p>
+                </div>
+                <button
+                  aria-checked="true"
+                  class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 bg-blue-500"
+                  role="switch"
+                  type="button"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200 translate-x-4"
+                  />
+                </button>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div
+          class="pt-4 border-t border-border"
+        >
+          <button
+            class="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-surface-4 border border-border transition-colors"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-volume2 w-3 h-3"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"
+              />
+              <path
+                d="M16 9a5 5 0 0 1 0 6"
+              />
+              <path
+                d="M19.364 18.364a9 9 0 0 0 0-12.728"
+              />
+            </svg>
+            Preview Sound
+          </button>
+          <p
+            class="text-[11px] text-gray-600 mt-2"
+          >
+            Cues are rate-limited, so a burst of activity never turns into a burst of sound.
+          </p>
+        </div>
+      </div>
+    </section>
+    <section
+      class="scroll-mt-24"
       id="notifications"
     >
       <h3
@@ -10553,7 +11112,7 @@ exports[`screen snapshots > Settings 1`] = `
             <p
               class="text-[10px] text-amber-400/90 mt-1"
             >
-              UI build v2.0.6 (rebuild client to match)
+              UI build v2.0.11 (rebuild client to match)
             </p>
           </div>
           <div

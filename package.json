@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard",
-  "version": "2.0.6",
+  "version": "2.0.11",
   "bin": {
     "ccam": "bin/ccam.js"
   },
@@ -94,6 +94,9 @@
     "test:server": "node --test server/__tests__/*.test.js",
     "test:client": "cd client && npm test",
     "test:mcp": "npm --prefix mcp run test",
+    "check:headers": "bash .claude/skills/file-headers/scripts/check-headers.sh",
+    "typecheck:client": "npm --prefix client run typecheck",
+    "verify": "npm run check:headers && npm run format:check && npm run typecheck:client && npm run test:server && npm run test:client",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "openapi:yaml": "node scripts/generate-openapi-yaml.js",

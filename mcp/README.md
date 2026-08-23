@@ -39,6 +39,10 @@ npm run mcp:start:repl
 | Streamable HTTP + SSE | `ccam mcp http` | `/mcp`, `/sse`, `/messages`, `/health` on port `8819` by default |
 | REPL | `ccam mcp repl` | Direct validated tool invocation with domain filtering |
 
+A stdio server self-terminates when its host process goes away — stdin reaching end/close, or the process being re-parented away from the parent it started under (polled every 5s). This prevents the orphaned, unreachable servers that a host crashing without `SIGTERM`/`SIGINT` would otherwise leave behind. Re-parenting is measured against the startup parent rather than pid 1, so a server launched under an init-like parent (a container running `tini` as PID 1) is not killed off as a false positive. See `docs/MCP.md` for the full lifecycle.
+
+An HTTP session is tracked under the `mcp-session-id` returned by `initialize` (or the `sessionId` handed to a legacy SSE client) and released on `DELETE /mcp`, on SSE disconnect, or by an idle sweep — terminating a session is optional in the protocol, so a client that crashes would otherwise pin its `McpServer` forever. `GET /health` reports the live count as `activeSessions`; tune with `MCP_HTTP_SESSION_TIMEOUT_MS`.
+
 ## Tool Catalog
 
 ### Observability
@@ -209,6 +213,7 @@ All dashboard fetches reject HTTP redirects. Binary transcript-image responses a
 | `MCP_HTTP_PORT` | `8819` | HTTP transport port |
 | `MCP_HTTP_AUTH_TOKEN` | unset | Bearer token required by `/mcp`, `/sse`, and `/messages`; `/health` remains probeable |
 | `MCP_HTTP_AUTH_TOKEN_FILE` | unset | File-backed MCP client token |
+| `MCP_HTTP_SESSION_TIMEOUT_MS` | `1800000` | Close an HTTP/SSE session after this long with no request; `0` disables reaping. Clamped to `[60000, 86400000]` |
 | `MCP_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 
 Direct loopback URLs (`127.0.0.1`, `localhost`, or `::1`) and the private Compose service `agent-monitor` may use a bearer token over HTTP. A tokenized container-host alias such as `host.docker.internal`, `gateway.docker.internal`, or `host.containers.internal` must use HTTPS. Startup fails instead of sending the token over an unsafe route.
@@ -251,4 +256,6 @@ npm run extensions:validate
 - Mutation denied: set `MCP_DASHBOARD_ALLOW_MUTATIONS=true` for that MCP process.
 - Plugin MCP launch fails: run `npm run setup`, then verify `ccam mcp repl`.
 - HTTP clients cannot connect: verify `/health`, bind host, firewall, and the exact `/mcp` endpoint.
+- Streamable HTTP requests fail with `Bad Request: No valid session or initialization`: send the `mcp-session-id` header returned by `initialize` on every later request. A session ends when the client sends `DELETE /mcp` with that header, and `/health` reports the live count as `activeSessions`.
+- stdio server exited on its own: check stderr for `shutting down orphaned stdio server` and its `reason` (`stdin_end`, `stdin_close`, or `reparented`) — the host process ended or the server was re-parented.
 - Never write protocol logs to stdout in stdio mode. MCP logs use stderr.

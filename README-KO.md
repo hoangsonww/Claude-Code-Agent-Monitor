@@ -72,6 +72,9 @@ Claude Code & Codex 에이전트 세션, 도구 사용, 서브에이전트 오�
 > [!TIP]
 > 참고: 영어 원문은 [README.md](./README.md), 중국어 버전은 [README-CN.md](./README-CN.md) (中文版本), 베트남어 버전은 [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), 스페인어 버전은 [README-ES.md](./README-ES.md) (Español)를 확인하세요. 이 문서는 한국어 버전입니다.
 
+> [!NOTE]
+> 작업 중심의 도움이 필요하신가요? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki)는 일상적인 사용, 팀 운영, 문제 해결, CLI/MCP 자동화 및 배포 절차를 위한 실용 핸드북입니다. [현지화된 정적 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/)는 영어, 베트남어, 중국어, 한국어 및 스페인어 제품·아키텍처 둘러보기를 계속 제공하며, 정확한 기술 계약은 [`docs/`](./docs/README.md)에 유지됩니다.
+
 ---
 
 ## 목차
@@ -91,6 +94,7 @@ Claude Code & Codex 에이전트 세션, 도구 사용, 서브에이전트 오�
 - [브라우저 알림](#브라우저-알림)
 - [업데이트 알리미](#업데이트-알리미)
 - [Tabby — 떠다니는 고양이 동반자](#tabby--떠다니는-고양이-동반자)
+- [사운드 큐](#사운드-큐)
 - [연결 상태 모달](#연결-상태-모달)
 - [VS Code 확장](#vs-code-확장)
 - [데스크톱 앱 (macOS & Windows)](#데스크톱-앱-macos--windows)
@@ -331,10 +335,11 @@ flowchart LR
 | **시드 데이터**                   | 데모와 개발을 위한 내장 시드 스크립트                                                                                                                                                                                                                               |
 | **Statusline**                    | 모델, 컨텍스트 사용량, git 브랜치, 방향별 토큰, 세션 비용(USD)을 표시하는 색상 코드 CLI Statusline                                                                                                                                                                            |
 | **모델 이름 형식화**              | UI 전반의 사람 친화적인 모델 이름: `claude-opus-4-7-20260101`이나 `claude-opus-4-7[1m]` 같은 원시 식별자는 "Claude Opus 4.7" 또는 "Claude Opus 4.7 (1M)"로 표시됩니다. 자동 버전 점 결합, 날짜/latest 접미사 제거, 제공자 접두사 제거, 컨텍스트 창 태그 형식화를 통해 Claude, GPT, Gemini 제품군을 처리합니다. 설정 페이지는 가격 책정 규칙 구성을 위해 원시 이름을 유지합니다 |
-| **Claude + Codex 플러그인 마켓플레이스** | 하나의 14개 플러그인 소스 트리가 Claude Code와 Codex Manifest, 두 Marketplace Catalog, 66개 번들 스킬, 18개 Claude 서브에이전트, 34개 Claude 명령 및 OpenAI 스킬 메타데이터를 제공합니다. skills.sh CLI는 `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list`로 저장소의 총 75개 스킬을 찾습니다. `claude plugin marketplace add`, `codex plugin marketplace add`, `npx skills add`를 지원합니다 |
+| **Claude + Codex 플러그인 마켓플레이스** | 하나의 14개 플러그인 소스 트리가 Claude Code와 Codex Manifest, 두 Marketplace Catalog, 66개 번들 스킬, 18개 Claude 서브에이전트, 34개 Claude 명령 및 OpenAI 스킬 메타데이터를 제공합니다. skills.sh CLI는 `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list`로 저장소의 총 76개 스킬을 찾습니다. `claude plugin marketplace add`, `codex plugin marketplace add`, `npx skills add`를 지원합니다 |
 | **Run Claude**                    | 채팅 스타일 스트리밍 UI로 대시보드에서 직접 `claude` 서브프로세스를 생성합니다. 두 가지 모드: **대화**(멀티턴 — stdin이 열린 상태로 유지되고 후속 턴은 stream-json 봉투로 파이프됨)와 **원샷**(헤드리스, 단일 프롬프트 → 단일 응답). 대화 모드는 `claude --resume <id>`를 통한 **기존 세션 재개**도 지원합니다 — 검색 가능한 피커로 전체 세션 기록에서 선택하세요. 통합된 활성 실행 / 기록 모달은 설정이 필요 없는 두 개의 이동 버튼도 제공합니다: 과거 대화 행의 **재개**는 즉시 `claude --resume <id>`를 생성하고 이전 트랜스크립트로 채팅을 시딩하여 전체 컨텍스트가 있는 라이브 뷰에 도달합니다(프롬프트를 다시 입력할 필요 없음 — 생성된 프로세스는 후속 메시지를 보낼 때까지 stdin에서 대기합니다); 과거 원샷 행의 **보기**는 캡처된 트랜스크립트를 읽기 전용으로 실행 뷰어에 인라인 로드합니다(생성 없음 — 동일한 패널, 중지/후속 컨트롤 없음). 헤더의 활성 실행 전환기로 실행을 백그라운드에 두고 다른 실행을 시작한 뒤 나중에 다시 연결할 수 있습니다. 재연결은 내구성이 있습니다: 클라이언트가 스포너의 메모리 내 봉투 로그(`?envelopes=1`)와 세션의 디스크 JSONL 트랜스크립트를 대조하여 사용자/어시스턴트 메시지가 더 많은 쪽을 선택하므로, 재개된 실행에서 벗어났다가 돌아와도 이전 전체 기록이 계속 보입니다(스포너는 생성 이후의 턴만 보고, 트랜스크립트 파일에는 이전 + 현재가 있습니다). 모델 드롭다운(Opus 4.7 / 1M / Sonnet 4.6 / Haiku 4.5 / 사용자 지정), 명시적 `bypassPermissions` 경고가 있는 권한 모드 피커, **thinking-effort** 필드(low / medium / high — `--effort`에 연결), 사용자의 **홈 디렉터리**로 미리 채워진 cwd 자동완성 — 대시보드 저장소 자체의 `.claude` 프로젝트 컨텍스트(에이전트, 스킬, 규칙, `CLAUDE.md`, `.mcp.json`)를 상속하지 않는 중립적 생성 위치입니다; 홈 제안이 없으면 대시보드 cwd로 폴백하며, 제안 그룹에서 홈이 먼저 나열됩니다(홈 → 대시보드 → 최근). `--include-partial-messages`를 통한 실제 문자 단위 스트리밍에 더해, 각 `text_delta` / `thinking_delta`를 `requestAnimationFrame`으로 흘려보내는 클라이언트 측 **타자기 스무딩 레이어**가 있어 짧은 응답(claude가 전체 답변을 한두 청크로 묶는 경우)도 타이핑되듯 나타납니다. 병합 코드는 claude의 정식 `assistant` 봉투가 스트림 도중 도착해도 `_streaming` 플래그와 델타 누적 `content` 배열을 온전히 유지하므로 완료 시 thinking 블록이 사라지지 않습니다. WebSocket 디스패치는 각 봉투를 `flushSync`로 감싸 React의 자동 배칭이 델타 폭주를 단일 렌더로 뭉개지 않게 합니다. **TUI 동등성(Tier 1)**: stream-json 모드가 터미널 TUI 대비 무엇을 할 수 있고 없는지 설명하는, 슬림한 필로 최소화되는(절대 사라지지 않음) 접을 수 있는 **제한 사항 배너**; 사용자 / 프로젝트 / 플러그인 명령을 나열하고(전송 전 템플릿 확장을 통해 클라이언트 측에서 실행) `/clear`, `/model`, `/config` 같은 내장 CLI 명령을 "CLI 전용 — 여기서는 실행되지 않음" 배지와 함께 표시하는, 계층적 점수(정확한 이름 → 시작 일치 → 단어 경계 → 포함 → 부분 시퀀스 → 설명 포함)의 **슬래시 명령 자동완성이 있는 프롬프트 편집기**; 실행의 cwd 전체에 걸친 디바운스된 퍼지 검색(`node_modules`, `.git`, `dist`, `build` 등은 건너뜀)이 있는 **`@` 파일 참조**; 라이브 스트리밍 중에는 `stream_event`와 `result.usage` 봉투에서, 재개 / 보기 / 재연결로 트랜스크립트에서 시딩될 때는 확정된 어시스턴트 `usage` 블록(input / output / cache-read / cache-creation)에서 계산되는, 입력 + 출력 + 캐시 읽기 토큰과 누적 비용을 보여주는 **라이브 컨텍스트 창 / 토큰 미터** — 그래서 미터는 0/200k에 머물지 않고 즉시 채워집니다. 진행 막대는 모델 컨텍스트 한도의 80% / 95%에서 인디고 → 앰버 → 레드로 바뀝니다; 활성 모델, effort, 권한 모드, cwd, 세션 ID, 봉투 수, 경과 시간이 있는 **상태 헤더**. 자동완성 드롭다운은 위쪽으로 열려 아래의 cwd 피커와 충돌하지 않습니다. 제목 옆의 라이브 / 오프라인 표시기. 라우트의 동일 출처 가드가 브라우저 드라이브바이 생성을 방지합니다. 동시성은 기본적으로 사실상 무제한입니다(버그 있는 클라이언트의 포크밤 실수를 막기 위한 10000의 안전 상한; 터미널 TUI에는 상한이 없고 우리도 마찬가지). 실제 상한을 원하면 `RUN_MAX_CONCURRENT`를 설정하세요. 생성된 세션은 다른 `claude` 프로세스와 동일한 Hook을 발생시키므로 세션 / 분석 / Kanban / 워크플로에 자동으로 나타나며 — 세션 / 세션 상세는 현재 Run 페이지에서 구동 중인 세션에 대해 Run 페이지로 다시 연결되는 녹색 **▶ Run** 배지 / 배너를 표시합니다 |
 | **Claude 설정 탐색기**            | Claude Code가 알고 있는 모든 것을 위한 `/cc-config`의 12탭 인스펙터: 스킬, 서브에이전트, 슬래시 명령, 출력 스타일, 플러그인(`plugin.json`의 플러그인별 기여 항목 수 + 작성자/라이선스/홈페이지 포함), 마켓플레이스(각 `marketplace.json`에서 읽은 플러그인 수 포함), MCP 서버, Hook(`~/.claude/hooks/` 스크립트 목록 포함), 설정(`/config`가 제어하는 옵션 — 모델, verbose, 테마, 출력 스타일, effort, 자동 컴팩트, 알림 등 — 을 사용자/프로젝트/프로젝트 로컬 범위에 걸쳐 해석하고 설정되지 않은 옵션은 기본값으로 표시하는 한눈에 보는 **현재 구성** 요약, 그리고 파일별 구조화된 키-값 보기 + 원시 JSON 토글, 비밀 키 마스킹), 메모리(사용자 + 프로젝트 `CLAUDE.md` 파일 **그리고** 프로젝트별 파일 기반 메모리 저장소 — `~/.claude/projects/<slug>/memory/` 아래의 모든 `*.md`, 즉 `MEMORY.md` 인덱스와 기억된 사실당 하나의 파일로 종종 100개 이상; 인덱스 파일과 사실별 파일을 분리하는 접을 수 있는 섹션에 프로젝트별로 그룹화되고 검색 상자와 대응하는 사실 파일로 이동(스크롤 + 강조)하는 클릭 가능한 `MEMORY.md` 인덱스 링크 제공), 키바인딩(`<kbd>` 칩과 함께 컨텍스트별 그룹화), Statusline(구성 + 스크립트 내용). 저위험 텍스트 파일 표면(스킬 / 에이전트 / 명령 / 출력 스타일 / 메모리 — 프로젝트별 자동 메모리 파일 포함)에 대해 이 페이지는 Claude Code가 스캔하는 디렉터리 외부에 원자적으로 기록되는 **필수 타임스탬프 백업과 함께 생성 / 편집 / 삭제**를 지원하며, 자동 생성된 `mv` 복원 명령이 있는 백업 모달도 제공합니다. 플러그인, MCP, 설정 내 Hook, `settings.json` 파일은 설명 배너 + 복사 가능한 CLI 명령과 함께 읽기 전용으로 유지되어 사용자가 직접 실행할 정확한 명령을 알 수 있습니다. **실시간 업데이트**: 서버에서 실행되는 `cc-watcher`가 `~/.claude/`(플랫폼이 지원하는 경우 재귀적)와 `~/.claude.json`에 대해 500 ms 디바운스로 `fs.watch`를 사용하여, 대시보드 변경이든 외부 도구(플러그인을 설치하는 CLI, `settings.json` 수동 편집, 새 스킬 추가)든 Claude Code 구성이 변경될 때마다 `cc_config_changed` WebSocket 메시지를 브로드캐스트합니다. 페이지는 이를 구독하고 자동으로 다시 가져옵니다; 제목 옆의 라이브 / 오프라인 필이 WebSocket 상태를 표시합니다 |
 | **Tabby**                         | 모든 페이지의 오른쪽 아래 모서리에 고정된 떠다니는 고양이 친구. 기존 WebSocket `eventBus` 위에 전적으로 구축 — **새 백엔드 없음, API 키 없음, 새 의존성 없음**. 커서를 추적하는 눈과 라이브 세션 스트림에서 도출되는 **8가지 기분**(`idle`, `watching`, `happy`, `worried`, `stuck`, `thinking`, `sleeping`, `disconnected`)을 가진 반응형 SVG 마스코트로, 각 기분마다 고유한 애니메이션(꼬리 흔들기, 귀 쫑긋, 고개 까딱, 떨림, 반짝임, zzz, 경고 "!")이 있습니다. **자동 표시 말풍선**은 주목할 만한 이벤트(세션 시작/종료, 오류, 실행 완료)에 대해 짧고, 스로틀되고, 합쳐진 한마디를 게시하며 음소거할 수 있습니다. 고양이를 클릭하거나 **⌘B / Ctrl+B**를 누르면(Esc로 닫기) 라이브 상태 줄(`N live · M errored · 연결 상태`), 빠른 작업(Run Claude / 활동 / 세션 / 오류 세션으로 이동, 말풍선 음소거, 알림 지우기), **Ask** 상자가 있는 **패널**이 열립니다: 간단한 상태 질문("what's running", "any errors", "status")은 캐시된 데이터에서 로컬로 답변되고, 그 외의 질문은 **Run Claude** 페이지로 넘겨(`/run?prompt=…`로 딥링크) 실제 Claude Code 세션을 생성합니다. 접근성을 갖추었고(키보드 조작 가능, `aria-live` 말풍선, `prefers-reduced-motion` 준수), 소켓이 끊기면 차분한 `disconnected` 상태로 안전하게 저하되며, **설정**에서 토글할 수 있습니다(en/zh/vi/ko/es로 현지화). 구현은 `client/src/components/Tabby/`에 있습니다 |
+| **사운드 큐** | 라이브 활동에 대한 은은한 오디오 피드백. **기본으로 켜져 있으며** 완전히 끌 수 있습니다. 모든 큐는 **브라우저에서 Web Audio API로 합성**됩니다 — 오실레이터와 게인 엔벨로프만 사용하므로 **다운로드할 오디오 파일도, 새 의존성도 없습니다**. 일곱 가지 큐가 세션 수명 주기를 다룹니다: 세션이 시작될 때의 상행 완전5도, 응답을 마쳤을 때의 장3화음 해결, 오류 시 부드러운 하행 단3도, 서브에이전트 생성 시 짧은 플럭, Claude Code 알림에 대한 디튠된 종소리, 실시간 연결이 복구되거나 끊길 때의 두 음 상승/하강, 그리고 버튼과 링크를 누를 때 거의 들리지 않는 틱. 큐에는 **속도 제한**(큐별 쿨다운 + 전역 버스트 예산)이 있고, 로우패스 필터를 거쳐 작업 뒤로 물러나며, 페이지와 처음 상호작용하기 전까지는 무음을 유지합니다(브라우저 자동재생 정책). **설정 → 사운드**에서 마스터 토글, 볼륨 슬라이더, 큐별 스위치와 즉시 미리 듣기를 제공하며, 설정은 `localStorage`의 `agent-monitor-sound` 키에 저장됩니다(en/zh/vi/ko/es 현지화). 구현은 `client/src/lib/sound.ts`와 `client/src/hooks/useSoundCues.ts`에 있습니다 |
 | **프로그레시브 웹 앱(PWA)**       | 세 개의 독립적인 PWA — 대시보드, 랜딩 페이지, 위키 — 각각 자체 Web App Manifest와 Service Worker를 갖습니다. 어느 것이든 홈 화면 / 독에 설치하면 크롬 없는 독립 실행형 경험을 얻습니다. 대시보드 SW는 `/assets/` 아래 Vite의 콘텐츠 해시 번들을 캐시 우선으로 제공하고(URL은 빌드마다 불변이므로 캐시 적중은 항상 정확), 그 외 모든 것 — 내비게이션, SW 자체, `manifest.json`, 아이콘, 루트 `/` — 은 캐시 폴백이 있는 네트워크 우선으로 처리합니다. 프로덕션 Express 정적 미들웨어의 명시적 `Cache-Control` 헤더(`/assets/*`는 `immutable`, `index.html`, `sw.js`, `manifest.json`은 `no-cache, must-revalidate`)와 결합하여 재빌드는 하드 새로고침 없이 항상 브라우저 내 번들을 교체합니다; 클라이언트의 `controllerchange` 리스너는 이미 제어 중인 페이지를 새 SW가 인수할 때 정확히 한 번만 다시 로드합니다. VAPID 푸시 알림 파이프라인은 보존됩니다. 랜딩 페이지와 위키 SW는 각자의 셸을 프리캐시하고 첫 방문 시 이미지를 지연 캐시하여, 한 번만 로드하면 오프라인 접근이 가능합니다. 모든 매니페스트는 최신 브라우저를 위해 `sizes="any"`의 SVG 아이콘(`favicon.svg`)을 사용하고, iOS 독립 실행형 모드를 위한 `apple-mobile-web-app-capable` + `apple-touch-icon` 메타 태그를 포함합니다 |
 | **데스크톱 앱(macOS & Windows)**  | `client/`, `server/`, `mcp/`, `vscode-extension/`과 나란히 `desktop/` 워크스페이스에 있는, Electron 35로 빌드된 선택적 네이티브 데스크톱 앱. macOS `.app`(`.dmg`) **및** Windows `.exe`(NSIS 설치 관리자 + 무설치 포터블)로 제공됩니다. 기존 Express 서버를 **인프로세스로** 임베드하고(`server/index.js`를 `require()` — 자식 프로세스 없음, IPC 없음) 빌드된 React 클라이언트를 `BrowserWindow`에 렌더링합니다. 네이티브 타이틀 바, 클릭 시점에 SQLite에서 가져온 **라이브 상태 스냅샷**(세션, 에이전트, 오늘의 이벤트)을 단일 클릭 드롭다운으로 보여주는 메뉴 바 / 알림 영역(트레이) 아이콘, 네이티브 애플리케이션 메뉴, 로그인 시 자동 시작(macOS는 `SMAppService`를 통한 로그인 항목; Windows는 사용자별 `HKCU\…\Run`), **⌘Q / Ctrl+Q 확인 대화 상자**(두 번째 누름은 우회), 창을 닫아도 서버는 계속 실행되는 동작, 단일 인스턴스 잠금, 그리고 **브라우저에서 열기**, **서버 재시작**, **로그 표시** 트레이 작업이 추가됩니다. 포트 4820을 선호하고(4821–4829, 그다음 임의의 높은 포트로 폴백), 4820에서 이미 실행 중인 정상 대시보드가 있으면 이중 바인딩하는 대신 이를 채택하며, **웹 대시보드와 공존합니다** — `npm run dev`와 데스크톱 앱을 함께 실행할 수 있고 Hook이 양쪽 모두로 전파됩니다. 알림은 네이티브 OS 토스트로 발생합니다(Electron 내부에서 Web Push는 안정적으로 작동하지 않음). 처음으로 자체 서버를 부팅할 때 Claude Code Hook을 자동 설치하고 백그라운드 서비스를 시작하므로, 설치만 한 사용자도 수동 설정 없이 이벤트가 흐릅니다. [`DESKTOP.md`](./DESKTOP.md)와 [`desktop/README.md`](./desktop/README.md)를 참조하세요 |
 | **자체 호스팅 자산(CDN 없음)**    | 모든 폰트와 스크립트가 로컬에서 제공되므로 대시보드와 문서는 **제3자 CDN 요청을 전혀 하지 않습니다** — 완전히 오프라인으로 렌더링되며 외부 호스트에 아무것도 유출하지 않습니다. React 앱은 [`@fontsource`](https://fontsource.org/)를 통해 Inter + JetBrains Mono를 번들합니다(latin 서브셋; Vite가 빌드 시 콘텐츠 해시 WOFF2를 `dist/assets/`에 출력하며 Google Fonts로의 `<link>` 없음). 랜딩 페이지와 위키는 저장소 루트 `fonts/` 디렉터리에서 자체 호스팅 `fonts/fonts.css` `@font-face` 시트를 로드합니다. 위키의 Mermaid는 jsDelivr 대신 `wiki/mermaid.min.js`(정품 축소판 `mermaid@10.9.6`)로 로컬 벤더링되고, VS Code 확장의 오류 페이지는 시스템 폰트 스택으로 폴백합니다. `fonts.googleapis.com`, `fonts.gstatic.com`, `cdn.jsdelivr.net` 호출은 어디에도 남아 있지 않습니다 |
@@ -626,6 +631,7 @@ flowchart LR
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | 시작 후 추가되어 세션이 Hook을 통해 흐르지 않는 프로젝트를 표면화하는 지속적 `~/.claude/projects` 백그라운드 동기화의 폴링 간격(ms). `fs.watch` 워처는 이와 무관하게 거의 즉시 발동합니다; 이 폴링은 안전망입니다(워처는 이벤트를 놓치거나 네트워크 파일시스템에서 발동하지 않을 수 있음). 워처는 계속 실행하면서 폴링만 비활성화하려면 `0`으로 설정하십시오 |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 또는 `~/.codex` | 선택적 로컬 Codex 상태 디렉터리입니다. 설정에서 새 위치를 저장하면 이 대시보드 전용 재정의를 유지하고 실시간 감시를 다시 시작하며 새 `sessions/` 트리를 즉시 스캔합니다. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | append-only Codex rollout을 위한 안전망 폴링 간격(ms)입니다. Codex Hook은 같은 증분 수집을 즉시 실행합니다; `0`으로 설정하면 폴링만 끄고 가능한 경우 파일 시스템 워처는 유지합니다. |
+| `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | `include_task_progress` 목록 요청**과** 세션 상세의 `todo_snapshot`을 뒷받침하는 작업 진행 캐시의 stale-허용 창(ms)입니다. 계속 append되는 트랜스크립트는 size+mtime 캐시 키에 거의 적중하지 못하므로, 이 하한이 없으면 연속된 목록 리로드(예: Hook 기반 WebSocket 이벤트로 대시보드가 새로고침될 때)마다 수 MB의 활성 트랜스크립트를 매 요청 전체 재파싱합니다. 창 내에서는 방금 파싱된(약간 오래된, 표시 전용) 결과를 반환합니다; `0`으로 설정하면 변경 시마다 즉시 재파싱합니다 |
 | `DASHBOARD_REMOTE_SYNC_MS` | `15000` | **원격 데이터 소스** 백그라운드 동기화 간격(ms)입니다. 활성 원격마다 `~/.claude/projects`와 `~/.codex/sessions`(Codex의 가벼운 `session_index.jsonl` 제목 인덱스 포함)를 독립적으로 가져와 각 로컬 임포터로 다시 가져옵니다. 새 소스 추가/활성화 시 즉시 1회 동기화됩니다. `0`으로 설정하면 원격 소스 폴링이 비활성화됩니다 |
 | `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` | `600000` (10분) | **원격 데이터 소스** 세션의 실시간 상태에 대한 신선도 윈도우입니다. 각 동기화 시 Claude Code 또는 Codex 세션의 해당 미러 transcript에 **마지막 JSONL 이벤트**가 이 윈도우 내에 있으면 여전히 실행 중(`active`)으로 취급되고, 미러가 더 오래 진행을 멈추면 세션은 `completed`로 조정됩니다. 원격 세션은 실시간 Hook을 받지 않으므로 provider별 미러 조정이 로컬 liveness를 대체하며, 오류·부재·정지 상태 provider 미러는 일반 stale 스윕으로 폴백합니다. 느린 링크나 매우 긴 유휴 턴에는 값을 높이십시오 |
 | `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 원격 소스별 `scp` 타임아웃 |
@@ -728,6 +734,9 @@ API 기반 명령어는 서버가 실행 중이어야 합니다 — 서버가 �
 | `npm run install-hooks` | `~/.claude/settings.json`에 Claude Code Hook을 구성합니다   |
 | `npm run seed`          | 샘플 데이터로 데이터베이스를 채웁니다                           |
 | `npm run import-history`| `~/.claude/`에서 레거시 세션을 가져옵니다 (시작 시에도 실행됨) |
+| `npm run reconcile-tokens`| 가져온 세션의 토큰 합계를 새로 계산합니다 (기존 합계를 낮추지는 않습니다) |
+| `npm run repair-tokens` | 트랜스크립트가 디스크에 남아 있는 모든 **Claude** 세션(`~/.claude/projects/` 또는 세션에 저장된 `transcript_path` 로 탐색)의 **workflow 가 아닌** 토큰 합계를 다시 도출하고 컨텍스트 압축 baseline 을 0으로 만듭니다. workflow 및 Codex 행은 그대로 유지됩니다. v2.0.9 이전의 레코드 단위 usage 합산으로 부풀려진 데이터베이스를 위한 일회성 복구입니다. 먼저 대시보드를 중지하세요 |
+| `DASHBOARD_TOKEN_REPAIR` | `1`(활성) | usage 가 `message.id` 단위로 조정되기 전에 부풀려진 토큰 합계를 일회성으로 자동 복구합니다. `replaceTokenUsage` 는 high-water mark 이므로 파서 수정만으로는 과거 합계를 낮출 수 없습니다 — 이 단계가 없으면 업그레이드 이전의 모든 세션이 잘못된 비용을 영구히 유지합니다. 데이터베이스당 한 번만 실행되며(마커 기반, 부팅 경로에서 지연, 다른 대시보드가 같은 데이터 디렉터리를 공유하면 건너뜀), 먼저 기존 행을 `token_usage_pre_repair` 로 스냅숏합니다. `0` 으로 설정하면 건너뛰고 `npm run repair-tokens` 로 직접 복구합니다 |
 | `npm run clear-data`    | 모든 세션, 에이전트, 이벤트, 토큰 사용량을 삭제합니다            |
 | `npm run mcp:install`   | 로컬 MCP 패키지(`mcp/`)의 의존성을 설치합니다       |
 | `npm run mcp:build`     | MCP 서버 TypeScript를 `mcp/build/`로 빌드합니다             |
@@ -1542,6 +1551,46 @@ Tabby는 키보드로 조작할 수 있고, 말풍선에 `aria-live`를 사용�
 
 ---
 
+## 사운드 큐
+
+대시보드는 라이브 세션 활동에 대해 **은은한 오디오 피드백**을 제공하므로, 보조 모니터에 띄워 두어도 실행이 끝났는지 실패했는지 소리로 알 수 있습니다. 사운드는 **기본으로 켜져 있으며** 클릭 한 번으로 완전히 끌 수 있습니다.
+
+### 의존성 없는 합성
+
+저장소 어디에도 `.mp3`나 `.wav` 자산이 없고 `package.json`에도 오디오 라이브러리가 없습니다. 모든 큐는 재생 시점에 **Web Audio API**로 생성됩니다: 짧은 오실레이터 목록(사인 또는 삼각파)에 각각 지수 게인 엔벨로프를 걸고, 마스터 게인 노드와 로우패스 필터를 거쳐 믹싱하여 결과가 작업을 뚫고 나오는 대신 그 뒤에 자리 잡도록 합니다. 엔진 전체가 `client/src/lib/sound.ts` 한 파일입니다.
+
+### 큐 목록
+
+| 큐 | 언제 울리는가 | 어떤 소리인가 |
+| --- | --- | --- |
+| `sessionStart` | 새 세션이 나타날 때 | 상행 완전5도 (C5 → G5) |
+| `sessionComplete` | 세션이 응답을 마치거나(`Stop`) 종료될 때(`SessionEnd`) | 장3화음 해결 (E5 → G5 → C6) |
+| `sessionError` | 세션이 `error` 상태에 들어갈 때 | 삼각파의 부드러운 하행 단3도 — 알아차릴 수 있지만 자극적이지 않음 |
+| `subagentSpawn` | 서브에이전트가 생성될 때 | 짧은 플럭 한 번 |
+| `notification` | Claude Code가 `Notification` 이벤트를 낼 때 | 작은 종처럼 울리는 디튠된 한 쌍 |
+| `connected` / `disconnected` | 대시보드 WebSocket이 복구되거나 끊길 때 | 두 음 상승 / 하강 |
+| `click` | 버튼, 링크, 탭, 스위치를 누를 때 | 거의 들리지 않는 틱 |
+
+큐는 다장조 음 집합 안에 머물러 겹치는 잔향이 불협화음이 되지 않으며, 모든 엔벨로프는 딱 끊기지 않고 지수적으로 감쇠하여 하드 스톱 특유의 팝 소리를 피합니다.
+
+### 방해하지 않기
+
+세 가지 장치가 오디오를 소음으로 만들지 않습니다:
+
+- **큐별 쿨다운** — 같은 큐는 약 350 ms 이내에 반복되지 않습니다(상호작용 틱은 45 ms).
+- **전역 버스트 예산** — 1.2초 창 안에서 최대 4개의 큐만 시작되므로, 히스토리를 가져오거나 끊긴 뒤 재연결할 때 쏟아지는 WebSocket 메시지가 쏟아지는 알림음이 되지 않습니다.
+- **자동재생 정책** — 브라우저 규칙에 따라, 페이지와의 첫 포인터·키·터치 상호작용 전에는 아무것도 재생되지 않습니다. 그 이전의 큐는 대기열에 쌓이지 않고 조용히 버려집니다.
+
+브라우저가 Web Audio를 전혀 지원하지 않으면 모든 호출이 안전한 no-op이 됩니다 — 대시보드는 그저 조용할 뿐입니다.
+
+### 설정
+
+**설정 → 사운드**에는 마스터 토글, 볼륨 슬라이더, 그리고 각 큐의 개별 스위치가 있습니다. 스위치를 켜면 해당 큐가 즉시 재생되어 방금 무엇을 켰는지 정확히 들을 수 있고, **소리 미리 듣기** 버튼은 완료 차임을 원할 때 재생합니다. 설정은 `localStorage`의 `agent-monitor-sound` 키에 저장되며 앱 전체에 즉시 적용됩니다 — 새로고침이 필요 없습니다. 이 패널은 영어, 중국어, 베트남어, 한국어, 스페인어로 현지화되어 있습니다.
+
+기본적으로 세션 시작, 세션 완료, 세션 오류, Claude Code 알림, 상호작용 틱이 켜져 있고, 서브에이전트 생성과 연결 변화는 꺼져 있습니다(가장 잦기 때문입니다). 구현은 `client/src/lib/sound.ts`(엔진 + 설정)와 `client/src/hooks/useSoundCues.ts`(이벤트 버스 연결)에 있으며, `client/src/App.tsx`에서 한 번 마운트됩니다.
+
+---
+
 ## 연결 상태 모달
 
 사이드바 푸터의 **Live** / **Disconnected** 알약(pill)을 클릭하면 대시보드의 WebSocket 전송에 관한 작은 세부 정보 패널이 열립니다. 활성 `ws://` 엔드포인트, 현재 소켓이 연결된 지 얼마나 되었는지, 수신된 총 이벤트 수, 가로 막대 차트로 표시되는 상위 이벤트 유형, 60초 처리량 스파크라인, 최근 활동 목록으로 표시되는 마지막 8개 이벤트를 보여줍니다. 누적 통계(총계, 유형별 분류, 최근 목록)는 `localStorage`의 `sidebar-connection-stats` 아래에 저장되어 다시 로드해도 유지되며, 롤링 스파크라인과 "connected since" 타이머는 의도적으로 일시적입니다. 푸터의 **초기화** 버튼으로 언제든 모든 것을 지울 수 있습니다.
@@ -1821,7 +1870,7 @@ erDiagram
 
 ## 플러그인 마켓플레이스
 
-CCAM은 Claude Code와 Codex가 공유하는 14개 플러그인, 66개 번들 스킬, 18개 Claude 서브에이전트, 34개 Claude 명령, 3개 CLI 도구, 3개 Hook 구성, 2개의 MCP 플러그인을 제공합니다. skills.sh CLI는 저장소 전체에서 75개 스킬을 찾습니다. 전체 카탈로그와 설치 및 검증 절차는 `docs/PLUGINS.md`를 참조하십시오.
+CCAM은 Claude Code와 Codex가 공유하는 14개 플러그인, 66개 번들 스킬, 18개 Claude 서브에이전트, 34개 Claude 명령, 3개 CLI 도구, 3개 Hook 구성, 2개의 MCP 플러그인을 제공합니다. skills.sh CLI는 저장소 전체에서 76개 스킬을 찾습니다. 전체 카탈로그와 설치 및 검증 절차는 `docs/PLUGINS.md`를 참조하십시오.
 
 ### 마켓플레이스 추가
 
@@ -1833,7 +1882,7 @@ codex plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
 ### skills.sh로 스킬 설치
 
 ```bash
-# 설치하지 않고 전체 75개 스킬 확인
+# 설치하지 않고 전체 76개 스킬 확인
 npx skills add hoangsonww/Claude-Code-Agent-Monitor --list
 
 # 현재 프로젝트에 Claude Code와 Codex용 스킬 하나 설치
@@ -1860,7 +1909,7 @@ npx skills update --global --yes
 npx skills remove --global mcp-server --yes
 ```
 
-프로젝트 설치는 `.agents/skills/`와 Agent별 링크를 사용합니다. 전역 Claude Code 스킬은 기본적으로 `~/.claude/skills/`에 설치되며, `CLAUDE_CONFIG_DIR`이 설정된 경우 해당 디렉터리의 `skills/` 아래에 설치됩니다. 전역 Codex 스킬은 기본적으로 `~/.codex/skills/`에 설치되며, `CODEX_HOME`이 설정된 경우 해당 디렉터리의 `skills/` 아래에 설치됩니다. 여러 Agent에 설치할 때는 공유 저장소에서 파일을 중복 제거한 뒤 해당 대상 디렉터리로 링크할 수 있습니다. skills.sh CLI는 66개 플러그인 스킬과 저장소 유지보수 스킬을 포함해 총 75개 저장소 스킬을 찾습니다.
+프로젝트 설치는 `.agents/skills/`와 Agent별 링크를 사용합니다. 전역 Claude Code 스킬은 기본적으로 `~/.claude/skills/`에 설치되며, `CLAUDE_CONFIG_DIR`이 설정된 경우 해당 디렉터리의 `skills/` 아래에 설치됩니다. 전역 Codex 스킬은 기본적으로 `~/.codex/skills/`에 설치되며, `CODEX_HOME`이 설정된 경우 해당 디렉터리의 `skills/` 아래에 설치됩니다. 여러 Agent에 설치할 때는 공유 저장소에서 파일을 중복 제거한 뒤 해당 대상 디렉터리로 링크할 수 있습니다. skills.sh CLI는 66개 플러그인 스킬과 저장소 유지보수 스킬을 포함해 총 76개 저장소 스킬을 찾습니다.
 
 ### 사용 가능한 플러그인
 

@@ -1561,10 +1561,10 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Alternative: Docker / Podman": "Alternativa: Docker / Podman",
       Analytics: "Análisis",
       "API Surface": "Superficie de la API",
-      "Ask → Run Claude Handoff": "Pregunta → Ejecuta Claude Handoff",
+      "Ask → Run Claude Handoff": "Transición de Ask a Run Claude",
       "Auto-Reload on Update": "Recarga automática en la actualización",
       "Auto-Start at Login": "Inicio automático al iniciar sesión",
-      "Auto-Surface Speech Bubbles": "Bolas de diálogo de voz automáticas en la superficie",
+      "Auto-Surface Speech Bubbles": "Bocadillos automáticos",
       "Available Plugins": "Plugins disponibles",
       "Bounded Cache Memory": "Memoria de caché limitada",
       "Browser Notifications": "Notificaciones del navegador",
@@ -1658,7 +1658,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "Progressive Web App": "Aplicación web progresiva",
       "Provider payloads": "Carga útil del proveedor",
       "PWA & Service Worker": "PWA y trabajador de servicio",
-      "Reactive Mascot — Eight Moods": "Mascota Reactiva — Ocho Ámbitos de Estilo",
+      "Reactive Mascot — Eight Moods": "Mascota reactiva — Ocho estados de ánimo",
       "Responsive Design": "Diseño Responsivo",
       "Root Helper Scripts": "Scripts de ayuda para root",
       "Rule types": "Tipos de reglas",
@@ -1687,7 +1687,7 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       "System Health": "Estado de salud del sistema",
       "Technical terms preserved": "Términos técnicos preservados",
       "The ⌘B Panel": "El panel ⌘B",
-      "Three Modes, One Pipeline": "Tres modos, un oleoducto",
+      "Three Modes, One Pipeline": "Tres modos, un solo flujo",
       "Transcript Cache": "Cache de transcripciones",
       "Two UI Surfaces": "Dos superficies de interfaz de usuario",
       "Upload Request Sequence": "Secuencia de solicitud de carga de archivos",
@@ -1753,94 +1753,376 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
     es: CONTENT.es || {},
   };
   // Attribute values do not participate in the body-content pass above. Keep
-  // Spanish image descriptions and assistive labels localized too, including
-  // every screenshot in the long-form wiki.
-  const ATTR = {
-    es: {
-      "Activity Feed Overview": "Resumen del feed de actividad",
-      "Analytics Overview": "Resumen de análisis",
-      "CLI statusline showing model, user, git branch, context window bar, and token counts":
-        "Línea de estado de la CLI que muestra el modelo, el usuario, la rama de Git, la barra de ventana de contexto y los recuentos de tokens",
-      "Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed":
-        "Panel de Claude Code Agent Monitor con tarjetas de agentes en tiempo real, estadísticas y el feed de actividad reciente",
-      "Claude Code Monitor running as a native desktop app":
-        "Claude Code Monitor ejecutándose como una aplicación de escritorio nativa",
-      "Claude Code Monitor running as a native desktop app on Windows, showing the Activity Feed, native Windows window menu, and Tabby companion":
-        "Claude Code Monitor ejecutándose como una aplicación de escritorio nativa en Windows, con el feed de actividad, el menú nativo de ventana de Windows y el compañero Tabby",
-      "Claude Config Explorer": "Explorador de configuración de Claude",
-      "Claude Config Explorer — 12-tab inspector with overview counts, scope filter, and tab bar":
-        "Explorador de configuración de Claude — inspector de 12 pestañas con recuentos generales, filtro de ámbito y barra de pestañas",
-      "Claude Config Explorer — Skills tab":
-        "Explorador de configuración de Claude — pestaña Habilidades",
-      "Claude Config Explorer — Skills tab with searchable skill list and edit actions":
-        "Explorador de configuración de Claude — pestaña Habilidades con lista de habilidades buscable y acciones de edición",
-      "Connection details modal with throughput sparkline, top event types, and recent activity":
-        "Modal de detalles de conexión con minigráfico de rendimiento, principales tipos de eventos y actividad reciente",
-      "Dashboard Overview": "Resumen del panel",
-      "Dashboard — System Health tab": "Panel — pestaña Estado del sistema",
-      "Dynamic Workflow Run expanded with phase filters and per-agent results":
-        "Ejecución dinámica de flujo de trabajo expandida con filtros de fase y resultados por agente",
-      "Dynamic Workflow Runs on the Workflows page":
-        "Ejecuciones dinámicas de flujo de trabajo en la página Flujos de trabajo",
-      "Dynamic Workflow Runs on the session detail page":
-        "Ejecuciones dinámicas de flujo de trabajo en la página de detalle de sesión",
-      "Grafana CCAM — Overview dashboard": "Grafana CCAM — panel de resumen",
-      "Grafana CCAM — Overview dashboard with live fleet metrics":
-        "Grafana CCAM — panel de resumen con métricas de flota en tiempo real",
-      "Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls":
-        "Swagger UI interactivo que representa la especificación OpenAPI 3.0 del panel, con grupos de endpoints plegables, esquemas de solicitud/respuesta y controles para probarla",
-      "Kanban Board — Agents view": "Tablero Kanban — vista de agentes",
-      "Kanban Board — Sessions view": "Tablero Kanban — vista de sesiones",
-      Language: "Idioma",
-      "MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output":
-        "REPL interactivo del servidor MCP que muestra el banner de herramientas MCP, información del servidor y la lista de herramientas con salida en color",
-      "Next features": "Características siguientes",
-      "Previous features": "Características anteriores",
-      "Prometheus CCAM console": "Consola de Prometheus CCAM",
-      "Prometheus CCAM console landing page": "Página de inicio de la consola de Prometheus CCAM",
-      "Prometheus Graph UI running CCAM PromQL":
-        "Interfaz Graph de Prometheus ejecutando PromQL de CCAM",
-      "Prometheus Graph with CCAM PromQL": "Gráfico de Prometheus con PromQL de CCAM",
-      "ReDoc API reference": "Referencia de API de ReDoc",
-      "ReDoc rendering the dashboard's OpenAPI 3.0 spec as a read-optimized three-panel reference, served self-hosted and fully offline":
-        "ReDoc representa la especificación OpenAPI 3.0 del panel como una referencia de tres paneles optimizada para lectura, alojada localmente y totalmente sin conexión",
-      "Run Agent — live streaming output": "Ejecutar agente — salida en streaming en tiempo real",
-      "Run Agent — Claude Code and Codex launch selection":
-        "Ejecutar agente — selección de Claude Code y Codex",
-      "Search docs...": "Buscar documentación...",
-      "Select language": "Seleccionar idioma",
-      "Session Detail — Agents tab": "Detalle de sesión — pestaña Agentes",
-      "Session Detail — Conversation tab": "Detalle de sesión — pestaña Conversación",
-      "Session Detail — Timeline tab": "Detalle de sesión — pestaña Cronología",
-      "Sessions Overview": "Resumen de sesiones",
-      "Settings Overview": "Resumen de configuración",
-      "Settings page Import History section showing rescan default folder, scan custom path, and upload controls with progress output":
-        "Sección Historial de importaciones de la página Configuración que muestra volver a analizar la carpeta predeterminada, analizar una ruta personalizada y controles de carga con salida de progreso",
-      "Settings page Remote Data Sources section showing configured SSH sources with live status, the data-scope selector, and per-source sync controls":
-        "Sección Fuentes de datos remotas de la página Configuración que muestra fuentes SSH configuradas con estado en tiempo real, el selector de ámbito de datos y controles de sincronización por fuente",
-      "Settings page with model pricing editor, hook status, data management, and system info":
-        "Página Configuración con editor de precios de modelos, estado de hooks, gestión de datos e información del sistema",
-      "Settings — Alerts & Webhooks": "Configuración — Alertas y webhooks",
-      "Settings — Alerts & Webhooks: rule list, fired-alert feed, and webhook channels":
-        "Configuración — Alertas y webhooks: lista de reglas, feed de alertas activadas y canales de webhook",
-      "Settings — Remote Data Sources": "Configuración — Fuentes de datos remotas",
-      "Swagger UI API docs": "Documentación de API de Swagger UI",
-      "Tabby Companio": "Compañero Tabby",
-      "Toggle sidebar": "Alternar barra lateral",
-      "Update modal showing commits-behind count and copy-to-clipboard command":
-        "Modal de actualización que muestra el número de commits pendientes y el comando para copiar al portapapeles",
-      "VS Code Extension sidebar showing live health, analytics, and navigation":
-        "Barra lateral de la extensión de VS Code que muestra estado, análisis y navegación en tiempo real",
-      "Wiki navigation": "Navegación de la wiki",
-      "Windows NSIS installer step 1 — Choose Installation Options":
-        "Instalador NSIS de Windows, paso 1 — Elegir opciones de instalación",
-      "Windows NSIS installer step 2 — Choose Install Location":
-        "Instalador NSIS de Windows, paso 2 — Elegir ubicación de instalación",
-      "Windows NSIS installer step 3 — Completing Setup":
-        "Instalador NSIS de Windows, paso 3 — Completando la instalación",
-      "Workflows Overview": "Resumen de flujos de trabajo",
+  // image descriptions and assistive labels localized in every wiki language.
+  const ATTRIBUTE_TRANSLATIONS = {
+    "Wiki navigation": {
+      zh: "维基导航",
+      vi: "Điều hướng wiki",
+      ko: "위키 탐색",
+      es: "Navegación de la wiki",
+    },
+    "Toggle sidebar": {
+      zh: "切换侧边栏",
+      vi: "Bật hoặc tắt thanh bên",
+      ko: "사이드바 전환",
+      es: "Alternar barra lateral",
+    },
+    "Search docs...": {
+      zh: "搜索文档…",
+      vi: "Tìm tài liệu…",
+      ko: "문서 검색…",
+      es: "Buscar documentación…",
+    },
+    "Select language": {
+      zh: "选择语言",
+      vi: "Chọn ngôn ngữ",
+      ko: "언어 선택",
+      es: "Seleccionar idioma",
+    },
+    Language: { zh: "语言", vi: "Ngôn ngữ", ko: "언어", es: "Idioma" },
+    "Claude Code Agent Monitor dashboard showing live agent cards, stats, and recent activity feed":
+      {
+        zh: "Claude Code Agent Monitor 仪表盘，显示实时 Agent 卡片、统计数据和最近活动流",
+        vi: "Bảng điều khiển Claude Code Agent Monitor hiển thị thẻ Agent trực tiếp, số liệu và luồng hoạt động gần đây",
+        ko: "실시간 Agent 카드, 통계, 최근 활동 피드를 보여 주는 Claude Code Agent Monitor 대시보드",
+        es: "Panel de Claude Code Agent Monitor con tarjetas de Agent en tiempo real, estadísticas y actividad reciente",
+      },
+    "Previous features": {
+      zh: "上一组功能",
+      vi: "Tính năng trước",
+      ko: "이전 기능",
+      es: "Funciones anteriores",
+    },
+    "Next features": {
+      zh: "下一组功能",
+      vi: "Tính năng tiếp theo",
+      ko: "다음 기능",
+      es: "Funciones siguientes",
+    },
+    "Dashboard Overview": {
+      zh: "仪表盘概览",
+      vi: "Tổng quan bảng điều khiển",
+      ko: "대시보드 개요",
+      es: "Resumen del panel",
+    },
+    "Dashboard — System Health tab": {
+      zh: "仪表盘 — 系统健康标签页",
+      vi: "Bảng điều khiển — tab Sức khỏe hệ thống",
+      ko: "대시보드 — 시스템 상태 탭",
+      es: "Panel — pestaña Estado del sistema",
+    },
+    "Kanban Board — Agents view": {
+      zh: "看板 — Agent 视图",
+      vi: "Bảng Kanban — chế độ xem Agent",
+      ko: "칸반 보드 — Agent 보기",
+      es: "Tablero Kanban — vista de Agent",
+    },
+    "Kanban Board — Sessions view": {
+      zh: "看板 — 会话视图",
+      vi: "Bảng Kanban — chế độ xem phiên",
+      ko: "칸반 보드 — 세션 보기",
+      es: "Tablero Kanban — vista de sesiones",
+    },
+    "Sessions Overview": {
+      zh: "会话概览",
+      vi: "Tổng quan phiên",
+      ko: "세션 개요",
+      es: "Resumen de sesiones",
+    },
+    "Session Detail — Agents tab": {
+      zh: "会话详情 — Agent 标签页",
+      vi: "Chi tiết phiên — tab Agent",
+      ko: "세션 상세 — Agent 탭",
+      es: "Detalle de sesión — pestaña Agent",
+    },
+    "Task Progress panel on Session Detail": {
+      zh: "会话详情中的任务进度面板",
+      vi: "Bảng tiến độ tác vụ trong Chi tiết phiên",
+      ko: "세션 상세의 작업 진행률 패널",
+      es: "Panel de progreso de tareas en el detalle de sesión",
+    },
+    "Session Detail — Conversation tab": {
+      zh: "会话详情 — 对话标签页",
+      vi: "Chi tiết phiên — tab Hội thoại",
+      ko: "세션 상세 — 대화 탭",
+      es: "Detalle de sesión — pestaña Conversación",
+    },
+    "Session Detail — Timeline tab": {
+      zh: "会话详情 — 时间线标签页",
+      vi: "Chi tiết phiên — tab Dòng thời gian",
+      ko: "세션 상세 — 타임라인 탭",
+      es: "Detalle de sesión — pestaña Cronología",
+    },
+    "Activity Feed Overview": {
+      zh: "活动流概览",
+      vi: "Tổng quan luồng hoạt động",
+      ko: "활동 피드 개요",
+      es: "Resumen del feed de actividad",
+    },
+    "Analytics Overview": {
+      zh: "分析概览",
+      vi: "Tổng quan phân tích",
+      ko: "분석 개요",
+      es: "Resumen de análisis",
+    },
+    "Workflows Overview": {
+      zh: "工作流概览",
+      vi: "Tổng quan quy trình",
+      ko: "워크플로 개요",
+      es: "Resumen de flujos de trabajo",
+    },
+    "Dynamic Workflow Runs on the Workflows page": {
+      zh: "工作流页面上的动态工作流运行",
+      vi: "Các lần chạy quy trình động trên trang Quy trình",
+      ko: "워크플로 페이지의 동적 워크플로 실행",
+      es: "Ejecuciones dinámicas en la página Flujos de trabajo",
+    },
+    "Dynamic Workflow Run expanded with phase filters and per-agent results": {
+      zh: "展开的动态工作流运行，包含阶段筛选和逐 Agent 结果",
+      vi: "Lần chạy quy trình động đã mở rộng với bộ lọc giai đoạn và kết quả theo Agent",
+      ko: "단계 필터와 Agent별 결과를 펼쳐 본 동적 워크플로 실행",
+      es: "Ejecución dinámica expandida con filtros de fase y resultados por Agent",
+    },
+    "Dynamic Workflow Runs on the session detail page": {
+      zh: "会话详情页面上的动态工作流运行",
+      vi: "Các lần chạy quy trình động trên trang chi tiết phiên",
+      ko: "세션 상세 페이지의 동적 워크플로 실행",
+      es: "Ejecuciones dinámicas en la página de detalle de sesión",
+    },
+    "Agent Config — Claude Code and Codex explorers": {
+      zh: "Agent 配置 — Claude Code 和 Codex 浏览器",
+      vi: "Cấu hình Agent — trình khám phá Claude Code và Codex",
+      ko: "Agent 구성 — Claude Code 및 Codex 탐색기",
+      es: "Configuración de Agent — exploradores de Claude Code y Codex",
+    },
+    "Claude Config Explorer": {
+      zh: "Claude 配置浏览器",
+      vi: "Trình khám phá cấu hình Claude",
+      ko: "Claude 구성 탐색기",
+      es: "Explorador de configuración de Claude",
+    },
+    "Codex Config Explorer — overview, configuration source, and workspace tabs": {
+      zh: "Codex 配置浏览器 — 概览、配置源和工作区标签页",
+      vi: "Trình khám phá cấu hình Codex — các tab tổng quan, nguồn cấu hình và workspace",
+      ko: "Codex 구성 탐색기 — 개요, 구성 소스, 워크스페이스 탭",
+      es: "Explorador de configuración de Codex — pestañas de resumen, fuente y espacio de trabajo",
+    },
+    "Claude Config Explorer — Skills tab": {
+      zh: "Claude 配置浏览器 — 技能标签页",
+      vi: "Trình khám phá cấu hình Claude — tab Skill",
+      ko: "Claude 구성 탐색기 — 스킬 탭",
+      es: "Explorador de configuración de Claude — pestaña Habilidades",
+    },
+    "Run Agent — Claude Code and Codex launch selection": {
+      zh: "运行 Agent — 选择启动 Claude Code 或 Codex",
+      vi: "Chạy Agent — chọn khởi chạy Claude Code hoặc Codex",
+      ko: "Agent 실행 — Claude Code 및 Codex 실행 선택",
+      es: "Ejecutar Agent — selección de Claude Code o Codex",
+    },
+    "Run Agent — live streaming output": {
+      zh: "运行 Agent — 实时流式输出",
+      vi: "Chạy Agent — đầu ra trực tiếp dạng luồng",
+      ko: "Agent 실행 — 실시간 스트리밍 출력",
+      es: "Ejecutar Agent — salida en streaming en tiempo real",
+    },
+    "Settings Overview": {
+      zh: "设置概览",
+      vi: "Tổng quan cài đặt",
+      ko: "설정 개요",
+      es: "Resumen de configuración",
+    },
+    "Settings — Alerts & Webhooks": {
+      zh: "设置 — 告警与 Webhook",
+      vi: "Cài đặt — Cảnh báo & Webhook",
+      ko: "설정 — 알림 및 Webhook",
+      es: "Configuración — Alertas y Webhooks",
+    },
+    "Settings — Remote Data Sources": {
+      zh: "设置 — 远程数据源",
+      vi: "Cài đặt — Nguồn dữ liệu từ xa",
+      ko: "설정 — 원격 데이터 소스",
+      es: "Configuración — Fuentes de datos remotas",
+    },
+    "Swagger UI API docs": {
+      zh: "Swagger UI API 文档",
+      vi: "Tài liệu API Swagger UI",
+      ko: "Swagger UI API 문서",
+      es: "Documentación de API de Swagger UI",
+    },
+    "ReDoc API reference": {
+      zh: "ReDoc API 参考",
+      vi: "Tham khảo API ReDoc",
+      ko: "ReDoc API 참조",
+      es: "Referencia de API de ReDoc",
+    },
+    "Grafana CCAM — Overview dashboard": {
+      zh: "Grafana CCAM — 概览仪表盘",
+      vi: "Grafana CCAM — bảng điều khiển tổng quan",
+      ko: "Grafana CCAM — 개요 대시보드",
+      es: "Grafana CCAM — panel de resumen",
+    },
+    "Prometheus CCAM console": {
+      zh: "Prometheus CCAM 控制台",
+      vi: "Bảng điều khiển Prometheus CCAM",
+      ko: "Prometheus CCAM 콘솔",
+      es: "Consola de Prometheus CCAM",
+    },
+    "Prometheus Graph with CCAM PromQL": {
+      zh: "使用 CCAM PromQL 的 Prometheus Graph",
+      vi: "Prometheus Graph với CCAM PromQL",
+      ko: "CCAM PromQL을 사용하는 Prometheus Graph",
+      es: "Prometheus Graph con CCAM PromQL",
+    },
+    "Interactive Swagger UI rendering the dashboard's OpenAPI 3.0 spec, with collapsible endpoint groups, request/response schemas, and try-it-out controls":
+      {
+        zh: "交互式 Swagger UI 展示仪表盘的 OpenAPI 3.0 规范，包含可折叠端点组、请求/响应模式和试用控件",
+        vi: "Swagger UI tương tác hiển thị đặc tả OpenAPI 3.0 của bảng điều khiển, với nhóm endpoint có thể thu gọn, schema yêu cầu/phản hồi và điều khiển thử nghiệm",
+        ko: "접을 수 있는 엔드포인트 그룹, 요청/응답 스키마, 실행 컨트롤과 함께 대시보드 OpenAPI 3.0 명세를 보여 주는 대화형 Swagger UI",
+        es: "Swagger UI interactivo con la especificación OpenAPI 3.0, grupos plegables, esquemas de solicitud y respuesta y controles de prueba",
+      },
+    "ReDoc rendering the dashboard's OpenAPI 3.0 spec as a read-optimized three-panel reference, served self-hosted and fully offline":
+      {
+        zh: "ReDoc 将仪表盘 OpenAPI 3.0 规范呈现为便于阅读的三栏参考，自托管且完全离线",
+        vi: "ReDoc hiển thị đặc tả OpenAPI 3.0 dưới dạng tài liệu ba bảng tối ưu cho việc đọc, tự lưu trữ và hoàn toàn ngoại tuyến",
+        ko: "대시보드 OpenAPI 3.0 명세를 읽기 좋은 3패널 참조로 제공하는 자체 호스팅 완전 오프라인 ReDoc",
+        es: "ReDoc presenta la especificación OpenAPI 3.0 como referencia de tres paneles optimizada para lectura, autohospedada y sin conexión",
+      },
+    "Settings page Import History section showing rescan default folder, scan custom path, and upload controls with progress output":
+      {
+        zh: "设置页面的导入历史区域，显示重新扫描默认文件夹、扫描自定义路径和带进度输出的上传控件",
+        vi: "Mục Lịch sử nhập trên trang Cài đặt với quét lại thư mục mặc định, quét đường dẫn tùy chỉnh và điều khiển tải lên có tiến độ",
+        ko: "기본 폴더 재검색, 사용자 지정 경로 검색, 진행 출력이 있는 업로드 컨트롤을 보여 주는 설정 페이지의 가져오기 기록 섹션",
+        es: "Sección Historial de importaciones con reescaneo de carpeta, ruta personalizada y controles de carga con progreso",
+      },
+    "Settings page Remote Data Sources section showing configured SSH sources with live status, the data-scope selector, and per-source sync controls":
+      {
+        zh: "设置页面的远程数据源区域，显示已配置 SSH 源的实时状态、数据范围选择器和逐源同步控件",
+        vi: "Mục Nguồn dữ liệu từ xa với nguồn SSH đã cấu hình, trạng thái trực tiếp, bộ chọn phạm vi và điều khiển đồng bộ từng nguồn",
+        ko: "구성된 SSH 소스의 실시간 상태, 데이터 범위 선택기, 소스별 동기화 컨트롤을 보여 주는 설정 페이지의 원격 데이터 소스 섹션",
+        es: "Sección Fuentes remotas con orígenes SSH configurados, estado en vivo, selector de ámbito y controles de sincronización",
+      },
+    "MCP Server interactive REPL showing the MCP Tools banner, server info, and tool listing with colored output":
+      {
+        zh: "MCP Server 交互式 REPL，显示 MCP Tools 横幅、服务器信息和带彩色输出的工具列表",
+        vi: "REPL tương tác của MCP Server hiển thị biểu ngữ MCP Tools, thông tin server và danh sách công cụ có màu",
+        ko: "MCP Tools 배너, 서버 정보, 컬러 출력을 포함한 도구 목록을 보여 주는 MCP Server 대화형 REPL",
+        es: "REPL interactivo del MCP Server con el banner MCP Tools, información del servidor y lista de herramientas en color",
+      },
+    "CLI statusline showing model, user, git branch, context window bar, and token counts": {
+      zh: "CLI 状态栏，显示模型、用户、Git 分支、上下文窗口条和 Token 计数",
+      vi: "Statusline CLI hiển thị mô hình, người dùng, nhánh Git, thanh cửa sổ ngữ cảnh và số Token",
+      ko: "모델, 사용자, Git 브랜치, 컨텍스트 창 막대, Token 수를 보여 주는 CLI 상태 표시줄",
+      es: "Línea de estado de la CLI con modelo, usuario, rama Git, ventana de contexto y recuentos de Token",
+    },
+    "VS Code Extension sidebar showing live health, analytics, and navigation": {
+      zh: "VS Code 扩展侧边栏，显示实时健康状态、分析和导航",
+      vi: "Thanh bên tiện ích VS Code hiển thị sức khỏe trực tiếp, phân tích và điều hướng",
+      ko: "실시간 상태, 분석, 탐색을 보여 주는 VS Code 확장 사이드바",
+      es: "Barra lateral de la extensión de VS Code con estado, análisis y navegación en tiempo real",
+    },
+    "Claude Code Monitor running as a native desktop app": {
+      zh: "作为原生桌面应用运行的 Claude Code Monitor",
+      vi: "Claude Code Monitor chạy dưới dạng ứng dụng desktop gốc",
+      ko: "네이티브 데스크톱 앱으로 실행되는 Claude Code Monitor",
+      es: "Claude Code Monitor ejecutándose como aplicación de escritorio nativa",
+    },
+    "Claude Code Monitor running as a native desktop app on Windows, showing the Activity Feed, native Windows window menu, and Tabby companion":
+      {
+        zh: "在 Windows 上作为原生桌面应用运行的 Claude Code Monitor，显示活动流、原生窗口菜单和 Tabby 伴侣",
+        vi: "Claude Code Monitor chạy như ứng dụng Windows gốc, hiển thị luồng hoạt động, menu cửa sổ và bạn đồng hành Tabby",
+        ko: "Windows 네이티브 데스크톱 앱으로 실행되며 활동 피드, Windows 창 메뉴, Tabby 동반자를 보여 주는 Claude Code Monitor",
+        es: "Claude Code Monitor como aplicación nativa de Windows, con actividad, menú de ventana y compañero Tabby",
+      },
+    "Windows NSIS installer step 1 — Choose Installation Options": {
+      zh: "Windows NSIS 安装程序第 1 步 — 选择安装选项",
+      vi: "Trình cài đặt Windows NSIS bước 1 — Chọn tùy chọn cài đặt",
+      ko: "Windows NSIS 설치 프로그램 1단계 — 설치 옵션 선택",
+      es: "Instalador NSIS de Windows, paso 1 — Elegir opciones de instalación",
+    },
+    "Windows NSIS installer step 2 — Choose Install Location": {
+      zh: "Windows NSIS 安装程序第 2 步 — 选择安装位置",
+      vi: "Trình cài đặt Windows NSIS bước 2 — Chọn vị trí cài đặt",
+      ko: "Windows NSIS 설치 프로그램 2단계 — 설치 위치 선택",
+      es: "Instalador NSIS de Windows, paso 2 — Elegir ubicación de instalación",
+    },
+    "Windows NSIS installer step 3 — Completing Setup": {
+      zh: "Windows NSIS 安装程序第 3 步 — 完成设置",
+      vi: "Trình cài đặt Windows NSIS bước 3 — Hoàn tất thiết lập",
+      ko: "Windows NSIS 설치 프로그램 3단계 — 설정 완료",
+      es: "Instalador NSIS de Windows, paso 3 — Completar la instalación",
+    },
+    "Settings page with model pricing editor, hook status, data management, and system info": {
+      zh: "设置页面，包含模型定价编辑器、Hook 状态、数据管理和系统信息",
+      vi: "Trang Cài đặt với trình sửa giá mô hình, trạng thái hook, quản lý dữ liệu và thông tin hệ thống",
+      ko: "모델 가격 편집기, Hook 상태, 데이터 관리, 시스템 정보를 포함한 설정 페이지",
+      es: "Página Configuración con editor de precios, estado de Hooks, gestión de datos e información del sistema",
+    },
+    "Claude Config Explorer — 12-tab inspector with overview counts, scope filter, and tab bar": {
+      zh: "Claude 配置浏览器 — 带概览计数、范围筛选和标签栏的 12 标签检查器",
+      vi: "Trình khám phá cấu hình Claude — bộ kiểm tra 12 tab với số liệu tổng quan, bộ lọc phạm vi và thanh tab",
+      ko: "Claude 구성 탐색기 — 개요 수, 범위 필터, 탭 표시줄을 갖춘 12탭 검사기",
+      es: "Explorador de configuración de Claude — inspector de 12 pestañas con recuentos, filtro de ámbito y barra de pestañas",
+    },
+    "Claude Config Explorer — Skills tab with searchable skill list and edit actions": {
+      zh: "Claude 配置浏览器 — 带可搜索技能列表和编辑操作的技能标签页",
+      vi: "Trình khám phá cấu hình Claude — tab Skill với danh sách có thể tìm kiếm và thao tác chỉnh sửa",
+      ko: "Claude 구성 탐색기 — 검색 가능한 스킬 목록과 편집 작업이 있는 스킬 탭",
+      es: "Explorador de configuración de Claude — pestaña Habilidades con lista buscable y acciones de edición",
+    },
+    "Settings — Alerts & Webhooks: rule list, fired-alert feed, and webhook channels": {
+      zh: "设置 — 告警与 Webhook：规则列表、已触发告警流和 Webhook 渠道",
+      vi: "Cài đặt — Cảnh báo & Webhook: danh sách quy tắc, luồng cảnh báo đã kích hoạt và kênh Webhook",
+      ko: "설정 — 알림 및 Webhook: 규칙 목록, 발생한 알림 피드, Webhook 채널",
+      es: "Configuración — Alertas y Webhooks: reglas, alertas activadas y canales Webhook",
+    },
+    "Update modal showing commits-behind count and copy-to-clipboard command": {
+      zh: "更新弹窗，显示落后提交数和复制到剪贴板命令",
+      vi: "Hộp thoại cập nhật hiển thị số commit còn thiếu và lệnh sao chép",
+      ko: "뒤처진 커밋 수와 클립보드 복사 명령을 보여 주는 업데이트 모달",
+      es: "Modal de actualización con número de commits pendientes y comando para copiar",
+    },
+    "Connection details modal with throughput sparkline, top event types, and recent activity": {
+      zh: "连接详情弹窗，包含吞吐量迷你图、主要事件类型和最近活动",
+      vi: "Hộp thoại chi tiết kết nối với biểu đồ nhỏ thông lượng, loại sự kiện hàng đầu và hoạt động gần đây",
+      ko: "처리량 스파크라인, 주요 이벤트 유형, 최근 활동이 있는 연결 상세 모달",
+      es: "Modal de conexión con minigráfico de rendimiento, principales eventos y actividad reciente",
+    },
+    "Grafana CCAM — Overview dashboard with live fleet metrics": {
+      zh: "Grafana CCAM — 带实时集群指标的概览仪表盘",
+      vi: "Grafana CCAM — bảng điều khiển tổng quan với số liệu fleet trực tiếp",
+      ko: "Grafana CCAM — 실시간 플릿 메트릭이 있는 개요 대시보드",
+      es: "Grafana CCAM — panel de resumen con métricas de flota en tiempo real",
+    },
+    "Prometheus CCAM console landing page": {
+      zh: "Prometheus CCAM 控制台首页",
+      vi: "Trang đầu bảng điều khiển Prometheus CCAM",
+      ko: "Prometheus CCAM 콘솔 시작 페이지",
+      es: "Página de inicio de la consola Prometheus CCAM",
+    },
+    "Prometheus Graph UI running CCAM PromQL": {
+      zh: "运行 CCAM PromQL 的 Prometheus Graph UI",
+      vi: "Giao diện Prometheus Graph chạy CCAM PromQL",
+      ko: "CCAM PromQL을 실행하는 Prometheus Graph UI",
+      es: "Interfaz Prometheus Graph ejecutando CCAM PromQL",
+    },
+    "Tabby Companion": {
+      zh: "Tabby 伴侣",
+      vi: "Bạn đồng hành Tabby",
+      ko: "Tabby 동반자",
+      es: "Compañero Tabby",
     },
   };
+  const ATTR = Object.fromEntries(
+    ["zh", "vi", "ko", "es"].map((language) => [
+      language,
+      Object.fromEntries(
+        Object.entries(ATTRIBUTE_TRANSLATIONS).map(([english, translations]) => [
+          english,
+          translations[language],
+        ])
+      ),
+    ])
+  );
   const META = {
     en: {
       title: "Claude Code Agent Monitor - Project Wiki",
@@ -1852,6 +2134,40 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
       twitterDescription:
         "Real-time local monitoring for Claude Code agent activity with MCP integration, extension scaffolding, analytics, and WebSocket push.",
       socialImageAlt: "Claude Code Agent Monitor — real-time Claude Code monitoring platform",
+    },
+    zh: {
+      title: "Claude Code Agent Monitor - 项目维基",
+      description:
+        "Claude Code Agent Monitor 综合技术维基：本地实时监控、MCP Server 集成，以及 Claude Code 和 Codex 扩展脚手架。",
+      socialTitle: "Claude Code Agent Monitor - 项目维基",
+      socialDescription:
+        "Claude Code Agent Monitor 综合技术维基：本地实时监控、MCP Server 集成，以及 Claude Code 和 Codex 扩展脚手架。",
+      twitterDescription:
+        "面向 Claude Code Agent 活动的本地实时监控，集成 MCP、扩展脚手架、分析和 WebSocket 推送。",
+      socialImageAlt: "Claude Code Agent Monitor — Claude Code 实时监控平台",
+    },
+    vi: {
+      title: "Claude Code Agent Monitor - Wiki dự án",
+      description:
+        "Wiki kỹ thuật toàn diện cho Claude Code Agent Monitor — giám sát cục bộ theo thời gian thực, tích hợp MCP Server và bộ khung tiện ích Claude Code cùng Codex.",
+      socialTitle: "Claude Code Agent Monitor - Wiki dự án",
+      socialDescription:
+        "Wiki kỹ thuật toàn diện cho Claude Code Agent Monitor — giám sát cục bộ theo thời gian thực, tích hợp MCP Server và bộ khung tiện ích Claude Code cùng Codex.",
+      twitterDescription:
+        "Giám sát cục bộ theo thời gian thực cho hoạt động Agent Claude Code, với MCP, tiện ích mở rộng, phân tích và WebSocket.",
+      socialImageAlt:
+        "Claude Code Agent Monitor — nền tảng giám sát Claude Code theo thời gian thực",
+    },
+    ko: {
+      title: "Claude Code Agent Monitor - 프로젝트 위키",
+      description:
+        "Claude Code Agent Monitor 종합 기술 위키 — 실시간 로컬 모니터링, MCP Server 통합, Claude Code 및 Codex 확장 스캐폴딩.",
+      socialTitle: "Claude Code Agent Monitor - 프로젝트 위키",
+      socialDescription:
+        "Claude Code Agent Monitor 종합 기술 위키 — 실시간 로컬 모니터링, MCP Server 통합, Claude Code 및 Codex 확장 스캐폴딩.",
+      twitterDescription:
+        "MCP 통합, 확장 스캐폴딩, 분석, WebSocket 푸시를 갖춘 Claude Code Agent 활동 실시간 로컬 모니터링.",
+      socialImageAlt: "Claude Code Agent Monitor — 실시간 Claude Code 모니터링 플랫폼",
     },
     es: {
       title: "Claude Code Agent Monitor - Wiki del proyecto",

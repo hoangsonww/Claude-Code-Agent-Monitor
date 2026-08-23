@@ -109,11 +109,20 @@ import {
   ChevronLeft,
   ChevronRight,
   Cloud,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { tabbyPrefs } from "../components/Tabby/prefs";
+import {
+  getSoundPrefs,
+  playCue,
+  setSoundPrefs,
+  subscribeToSoundPrefs,
+  type SoundPrefs,
+} from "../lib/sound";
 import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
@@ -145,11 +154,25 @@ const SETTINGS_SECTIONS: {
     Icon: Cloud,
   },
   { id: "tabby", labelKey: "tabby.title", fallback: "Tabby", Icon: Cat },
+  { id: "sound", labelKey: "sound.title", fallback: "Sound", Icon: Volume2 },
   { id: "notifications", labelKey: "notifications.title", Icon: Bell },
   { id: "alerts", labelKey: "alertsHub.title", Icon: BellRing },
   { id: "data", labelKey: "data.title", Icon: Database },
   { id: "about", labelKey: "about.title", Icon: Server },
 ];
+
+// Keys that change a range input's value - the only ones that should trigger a
+// volume preview cue (Tab / Enter / character keys must stay silent).
+const VOLUME_PREVIEW_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
 
 // ─── Notification preferences ───
 
@@ -968,6 +991,16 @@ export function Settings() {
     tabbyPrefs.setEnabled(v);
     setTabbyEnabled(v);
   }, []);
+  const [soundPrefs, setSoundPrefsState] = useState<SoundPrefs>(getSoundPrefs);
+  // Apply a preference change, then preview it so the user hears the result of
+  // the switch they just flipped (the click itself is the required gesture).
+  const updateSoundPrefs = useCallback(
+    (patch: Partial<SoundPrefs>, preview?: Parameters<typeof playCue>[0]) => {
+      setSoundPrefsState(setSoundPrefs(patch));
+      if (preview) playCue(preview, { force: true });
+    },
+    []
+  );
   const [abandonHours, setAbandonHours] = useState("24");
   const [purgeDays, setPurgeDays] = useState("90");
   const [claudeHome, setClaudeHomeState] = useState("");
@@ -1106,6 +1139,9 @@ export function Settings() {
       }
     });
   }, [load]);
+
+  // Keep the panel honest if preferences are changed anywhere else in the tab.
+  useEffect(() => subscribeToSoundPrefs(() => setSoundPrefsState(getSoundPrefs())), []);
 
   useEffect(() => {
     if (!actionResult) return;
@@ -2100,6 +2136,189 @@ export function Settings() {
               )}
             />
           </div>
+        </div>
+      </section>
+
+      {/* ─── SOUND ─── */}
+      <section id="sound" className="scroll-mt-24">
+        <h3 className="text-sm font-medium text-gray-300 flex items-center gap-2 mb-1">
+          <Volume2 className="w-4 h-4 text-gray-500" />
+          {t("sound.title", "Sound")}
+        </h3>
+        <p className="text-xs text-gray-500 mb-4">
+          {t(
+            "sound.description",
+            "Short, quiet chimes for live session activity. Generated in the browser - no downloads, no tracking."
+          )}
+        </p>
+
+        <div className="card p-5 space-y-5">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                soundPrefs.enabled
+                  ? "bg-blue-500/10 border border-blue-500/20"
+                  : "bg-surface-2 border border-border"
+              }`}
+            >
+              {soundPrefs.enabled ? (
+                <Volume2 className="w-5 h-5 text-blue-400" />
+              ) : (
+                <VolumeX className="w-5 h-5 text-gray-500" />
+              )}
+            </div>
+            <Toggle
+              checked={soundPrefs.enabled}
+              onChange={(v) => updateSoundPrefs({ enabled: v }, v ? "sessionComplete" : undefined)}
+              label={t("sound.enable", "Enable Sound Cues")}
+              description={t(
+                "sound.enableDesc",
+                "Play a subtle tone when sessions start, finish, or error out"
+              )}
+            />
+          </div>
+
+          {soundPrefs.enabled ? (
+            <>
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <label htmlFor="sound-volume" className="text-sm text-gray-300">
+                    {t("sound.volume", "Volume")}
+                  </label>
+                  <span className="text-xs text-gray-500 tabular-nums">
+                    {Math.round(soundPrefs.volume * 100)}%
+                  </span>
+                </div>
+                <input
+                  id="sound-volume"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={Math.round(soundPrefs.volume * 100)}
+                  onChange={(e) => updateSoundPrefs({ volume: Number(e.target.value) / 100 })}
+                  onPointerUp={() => playCue("sessionStart", { force: true })}
+                  onKeyUp={(e) => {
+                    // Only the keys that actually move a range input; a bare
+                    // Tab or Enter must not fire a preview.
+                    if (VOLUME_PREVIEW_KEYS.has(e.key)) playCue("sessionStart", { force: true });
+                  }}
+                  className="w-full accent-blue-500 cursor-pointer"
+                  aria-label={t("sound.volume", "Volume")}
+                />
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">
+                  {t("sound.playWhen", "Play a cue when...")}
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <Play className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onSessionStart}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onSessionStart: v }, v ? "sessionStart" : undefined)
+                      }
+                      label={t("sound.newSession", "A session starts")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <CheckCircle className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onSessionComplete}
+                      onChange={(v) =>
+                        updateSoundPrefs(
+                          { onSessionComplete: v },
+                          v ? "sessionComplete" : undefined
+                        )
+                      }
+                      label={t("sound.sessionComplete", "A session finishes responding")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onSessionError}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onSessionError: v }, v ? "sessionError" : undefined)
+                      }
+                      label={t("sound.sessionError", "A session errors")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <GitBranch className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onSubagentSpawn}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onSubagentSpawn: v }, v ? "subagentSpawn" : undefined)
+                      }
+                      label={t("sound.subagentSpawned", "A subagent spawns")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <Bell className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onNotification}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onNotification: v }, v ? "notification" : undefined)
+                      }
+                      label={t("sound.notification", "Claude Code sends a notification")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <Wifi className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onConnection}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onConnection: v }, v ? "connected" : undefined)
+                      }
+                      label={t("sound.connection", "The live connection drops or returns")}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 bg-surface-2 rounded-lg px-3.5 py-3">
+                    <Zap className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <Toggle
+                      checked={soundPrefs.onInteraction}
+                      onChange={(v) =>
+                        updateSoundPrefs({ onInteraction: v }, v ? "click" : undefined)
+                      }
+                      label={t("sound.interaction", "Clicking buttons and links")}
+                      description={t(
+                        "sound.interactionDesc",
+                        "A barely-audible tick on each press"
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => playCue("sessionComplete", { force: true })}
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-surface-4 border border-border transition-colors"
+                >
+                  <Volume2 className="w-3 h-3" />
+                  {t("sound.preview", "Preview Sound")}
+                </button>
+                <p className="text-[11px] text-gray-600 mt-2">
+                  {t(
+                    "sound.throttleInfo",
+                    "Cues are rate-limited, so a burst of activity never turns into a burst of sound."
+                  )}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-gray-500 pt-4 border-t border-border">
+              <VolumeX className="w-3.5 h-3.5" />
+              {t(
+                "sound.disabledInfo",
+                "Sound cues are off - the dashboard stays completely silent"
+              )}
+            </div>
+          )}
         </div>
       </section>
 

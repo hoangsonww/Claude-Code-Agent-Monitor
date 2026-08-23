@@ -19,7 +19,9 @@ An explicit user-requested version takes precedence over automatic classificatio
 - Explain the chosen bump from the current root version.
 - Update root and desktop package/lockfile versions.
 - Update the OpenAPI version example and regenerate `openapi.yaml`.
-- Update version-sensitive UI snapshots.
+- Update the deployment surface: `docker-compose.yml` image tags (`ccam-dashboard`, `ccam-mcp`), the Helm chart's `version` and `appVersion`, every `deployments/kubernetes/**` version label, image tag, and kustomize `newTag`, and `deployments/scripts/deploy.sh` (both the `--tag` example and the `sed` substitution).
+- Update the release shown in `DEPLOYMENT.md`, `docs/DEPLOYMENT.md`, and `CITATION.cff`.
+- Update version-sensitive UI snapshots; the dashboard renders `UI build v<version>`, so regenerate and confirm the diff is only that line.
 - Run `npm run extensions:sync` to regenerate Claude/Codex plugin manifests and both marketplaces.
 - Keep independently shipped client/MCP/monitoring/VS Code package versions unchanged unless explicitly included.
 - Create or reuse the exact open GitHub milestone `v<version>` for the new root version. Query all milestones first. If the exact title already exists closed or more than once, stop and resolve that release state instead of creating a duplicate.
@@ -27,6 +29,35 @@ An explicit user-requested version takes precedence over automatic classificatio
 - Verify the PR and every linked issue report the expected milestone with fresh GitHub reads.
 - Run `npm run extensions:validate`, relevant tests/builds, and the CLI version check.
 - Never create or move a release tag without explicit user approval.
+
+## Authoritative surface list
+
+`server/__tests__/release-version-consistency.test.js` is the machine-checkable release contract. Read it before bumping and run it after:
+
+```bash
+node --test server/__tests__/release-version-consistency.test.js
+```
+
+It covers root/desktop packages and lockfiles, live and generated OpenAPI, Compose and Helm, Kubernetes labels/images/kustomize tags, generated plugin manifests, both marketplaces, the deployment guides and `deploy.sh`, and the negative assertion that independently shipped subprojects were not dragged along.
+
+Any new file carrying the release version needs an assertion added in the same change. An unasserted surface drifts silently — `CITATION.cff` sat at `1.1.0` across many releases for exactly this reason.
+
+Before finishing, sweep for the previous version and expect zero hits outside lockfile history and deliberate historical references such as "pre-v2.0.9":
+
+```bash
+previous_version="$(git show HEAD:package.json | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')"
+grep -rFn "$previous_version" --exclude-dir=node_modules --exclude-dir=.git \
+  --exclude-dir=dist --exclude-dir=.worktrees .
+```
+
+`grep -F` matters: the dots in a version are regex wildcards otherwise, so a
+plain `grep -r` also matches unrelated strings like `2a0b11`. Reading the
+previous value from `HEAD:package.json` keeps the command runnable as-is
+mid-bump, before the change is committed.
+
+Do not bump: `sw.js` / `client/public/sw.js` cache generations (not release-tied; `wiki/sw.js` belongs to the docs skill), the Helm `values.yaml` `tag: ""` which falls back to `appVersion`, or the independently versioned `client`, `mcp`, `monitoring`, and `vscode-extension` packages.
+
+Never blanket find-and-replace the version across the repo: it pulls in the independent subprojects and rewrites historical references.
 
 ## GitHub milestone workflow
 

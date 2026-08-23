@@ -75,3 +75,6 @@ scripts/remote-test-commands.txt
 .playwright_mcp/
 .playwright-mcp/
 __pycache__/
+
+# Git worktrees created for parallel agent work (never part of a commit)
+.worktrees/

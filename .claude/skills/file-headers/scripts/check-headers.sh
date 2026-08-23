@@ -18,6 +18,7 @@ while IFS= read -r f; do
 done < <(
   find "$ROOT" \
     \( -name node_modules -o -name dist -o -name build -o -name .git \
+       -o -name .worktrees \
        -o -path "$ROOT/data" -o -path "$ROOT/monitoring/.bin" \
        -o -path "$ROOT/monitoring/.data" -o -name "__snapshots__" \) -prune -o \
     -type f \( -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.cjs" \

@@ -755,16 +755,73 @@ describe("task progress extraction", () => {
     ]);
   });
 
-  it("invalidates the stat cache when a transcript grows", () => {
+  it("invalidates the stat cache when a transcript grows (TTL disabled)", () => {
+    // TTL 0 restores immediate re-parse on growth; the default TTL's
+    // serve-stale window is covered by the next test.
+    // Save and restore rather than delete: the variable may be supplied by the
+    // test command, and clobbering it would leak into later tests.
+    const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = "0";
+    try {
+      const root = tempRoot();
+      const transcript = path.join(root, "growing.jsonl");
+      writeJsonl(transcript, [
+        claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+          todos: [{ content: "Inspect", status: "in_progress" }],
+        }),
+      ]);
+      const first = extractSessionTaskProgress({
+        session: { id: "growing", provider: "claude" },
+        mainTranscriptPath: transcript,
+      });
+      assert.equal(first.snapshot.completed, 0);
+
+      fs.appendFileSync(
+        transcript,
+        `${JSON.stringify(
+          claudeToolUse("2026-08-07T10:01:00.000Z", "todo-2", "TodoWrite", {
+            todos: [{ content: "Inspect", status: "completed" }],
+          })
+        )}\n`
+      );
+
+      const second = extractSessionTaskProgress({
+        session: { id: "growing", provider: "claude" },
+        mainTranscriptPath: transcript,
+      });
+      assert.equal(second.snapshot.completed, 1);
+    } finally {
+      if (priorTtl === undefined) delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+      else process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = priorTtl;
+    }
+  });
+
+  it("serves a just-parsed result for a grown transcript within the TTL", () => {
+    // Default TTL: a burst of requests against an actively-appended transcript
+    // must not re-parse per request — the second read inside the window sees
+    // the cached (stale) snapshot, and clearing the cache forces a fresh one.
+    // Clear the override explicitly so this asserts the DEFAULT, not whatever
+    // the test command happened to export.
+    const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    try {
+      runDefaultTtlAssertions();
+    } finally {
+      if (priorTtl === undefined) delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+      else process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = priorTtl;
+    }
+  });
+
+  function runDefaultTtlAssertions() {
     const root = tempRoot();
-    const transcript = path.join(root, "growing.jsonl");
+    const transcript = path.join(root, "growing-ttl.jsonl");
     writeJsonl(transcript, [
       claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
         todos: [{ content: "Inspect", status: "in_progress" }],
       }),
     ]);
     const first = extractSessionTaskProgress({
-      session: { id: "growing", provider: "claude" },
+      session: { id: "growing-ttl", provider: "claude" },
       mainTranscriptPath: transcript,
     });
     assert.equal(first.snapshot.completed, 0);
@@ -778,10 +835,159 @@ describe("task progress extraction", () => {
       )}\n`
     );
 
-    const second = extractSessionTaskProgress({
-      session: { id: "growing", provider: "claude" },
+    const stale = extractSessionTaskProgress({
+      session: { id: "growing-ttl", provider: "claude" },
       mainTranscriptPath: transcript,
     });
-    assert.equal(second.snapshot.completed, 1);
+    assert.equal(stale.snapshot.completed, 0);
+
+    clearTaskProgressCache();
+    const fresh = extractSessionTaskProgress({
+      session: { id: "growing-ttl", provider: "claude" },
+      mainTranscriptPath: transcript,
+    });
+    assert.equal(fresh.snapshot.completed, 1);
+  }
+
+  it("re-parses a grown transcript automatically once the TTL expires", async () => {
+    // Guards against an accidentally-infinite TTL: with a 1ms window, a read
+    // after the window must pick up appended data without any manual clear.
+    const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = "1";
+    try {
+      const root = tempRoot();
+      const transcript = path.join(root, "growing-ttl-expiry.jsonl");
+      writeJsonl(transcript, [
+        claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+          todos: [{ content: "Inspect", status: "in_progress" }],
+        }),
+      ]);
+      const first = extractSessionTaskProgress({
+        session: { id: "growing-ttl-expiry", provider: "claude" },
+        mainTranscriptPath: transcript,
+      });
+      assert.equal(first.snapshot.completed, 0);
+
+      fs.appendFileSync(
+        transcript,
+        `${JSON.stringify(
+          claudeToolUse("2026-08-07T10:01:00.000Z", "todo-2", "TodoWrite", {
+            todos: [{ content: "Inspect", status: "completed" }],
+          })
+        )}\n`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 15));
+
+      const fresh = extractSessionTaskProgress({
+        session: { id: "growing-ttl-expiry", provider: "claude" },
+        mainTranscriptPath: transcript,
+      });
+      assert.equal(fresh.snapshot.completed, 1);
+    } finally {
+      if (priorTtl === undefined) delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+      else process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = priorTtl;
+    }
+  });
+});
+
+describe("task-progress caches validate file identity", () => {
+  /**
+   * Replace a transcript with a DIFFERENT file at the same path, matching the
+   * original's size and mtime exactly. Only the inode differs — which is
+   * precisely what a size+mtime (or TTL) cache key cannot see.
+   */
+  function replaceInPlace(filePath, entries) {
+    // Pin the ORIGINAL to a whole-millisecond mtime first. utimesSync only
+    // round-trips millisecond precision, so without this the original's
+    // sub-millisecond mtimeMs could never be reproduced on the replacement and
+    // the "same size + same mtime" collision this test needs would not happen.
+    const pinned = new Date(Math.floor(fs.statSync(filePath).mtimeMs));
+    fs.utimesSync(filePath, pinned, pinned);
+    const before = fs.statSync(filePath);
+    const sibling = `${filePath}.replacement`;
+    writeJsonl(sibling, entries);
+    // Pad or truncate so the replacement is byte-identical in length.
+    const target = before.size;
+    let body = fs.readFileSync(sibling);
+    if (body.length < target)
+      body = Buffer.concat([body, Buffer.alloc(target - body.length, 0x20)]);
+    else body = body.subarray(0, target);
+    fs.writeFileSync(sibling, body);
+    fs.renameSync(sibling, filePath);
+    fs.utimesSync(filePath, before.atime, before.mtime);
+    return { before, after: fs.statSync(filePath) };
+  }
+
+  it("does not serve a replaced file from the previous file's parse", () => {
+    // Within the TTL — and even on an exact size+mtime match — a different
+    // inode at the same path must force a fresh parse.
+    const root = tempRoot();
+    const transcript = path.join(root, "replaced.jsonl");
+    writeJsonl(transcript, [
+      claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+        todos: [{ content: "Inspect", status: "in_progress" }],
+      }),
+    ]);
+    const first = extractSessionTaskProgress({
+      session: { id: "replaced", provider: "claude" },
+      mainTranscriptPath: transcript,
+    });
+    assert.equal(first.snapshot.completed, 0);
+
+    const { before, after } = replaceInPlace(transcript, [
+      claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+        todos: [{ content: "Inspect", status: "completed" }],
+      }),
+    ]);
+    // Assert the PRECONDITION, not just the outcome: without proving that size
+    // and mtime actually collided, a filesystem that fails to preserve mtimeMs
+    // would make this test pass through mtime detection and quietly stop
+    // testing inode detection at all.
+    assert.equal(after.size, before.size, "replacement must match the original size");
+    assert.equal(after.mtimeMs, before.mtimeMs, "replacement must match the original mtime");
+    assert.notEqual(after.ino, before.ino, "replacement must be a different inode");
+
+    const second = extractSessionTaskProgress({
+      session: { id: "replaced", provider: "claude" },
+      mainTranscriptPath: transcript,
+    });
+    assert.equal(
+      second.snapshot.completed,
+      1,
+      "a different inode at the same path must not reuse the cached parse"
+    );
+  });
+
+  it("re-parses a truncated transcript instead of serving stale observations", () => {
+    // Transcripts are append-only, so a SMALLER file means truncation or
+    // replacement — the cached observations no longer describe it, even inside
+    // the TTL window.
+    const root = tempRoot();
+    const transcript = path.join(root, "truncated.jsonl");
+    writeJsonl(transcript, [
+      claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+        todos: [
+          { content: "One", status: "completed" },
+          { content: "Two", status: "completed" },
+        ],
+      }),
+    ]);
+    const first = extractSessionTaskProgress({
+      session: { id: "truncated", provider: "claude" },
+      mainTranscriptPath: transcript,
+    });
+    assert.equal(first.snapshot.completed, 2);
+
+    writeJsonl(transcript, [
+      claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+        todos: [{ content: "One", status: "in_progress" }],
+      }),
+    ]);
+
+    const second = extractSessionTaskProgress({
+      session: { id: "truncated", provider: "claude" },
+      mainTranscriptPath: transcript,
+    });
+    assert.equal(second.snapshot.completed, 0, "a shrunken file must be re-parsed");
   });
 });

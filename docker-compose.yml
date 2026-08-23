@@ -5,7 +5,7 @@ name: ccam
 # or run two active containers against the same data volume.
 services:
   agent-monitor:
-    image: ${CCAM_IMAGE:-ccam-dashboard:2.0.6}
+    image: ${CCAM_IMAGE:-ccam-dashboard:2.0.11}
     build:
       context: .
       dockerfile: Dockerfile
@@ -62,7 +62,7 @@ services:
   # Compose network and publishes MCP on host loopback only.
   mcp:
     profiles: ["mcp"]
-    image: ${CCAM_MCP_IMAGE:-ccam-mcp:2.0.6}
+    image: ${CCAM_MCP_IMAGE:-ccam-mcp:2.0.11}
     build:
       context: .
       dockerfile: mcp/Dockerfile

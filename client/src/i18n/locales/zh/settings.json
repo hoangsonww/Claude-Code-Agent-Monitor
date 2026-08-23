@@ -10,6 +10,25 @@
     "enable": "显示 Tabby",
     "enableDesc": "在整个仪表板的角落显示伙伴（按 ⌘B 打开）"
   },
+  "sound": {
+    "title": "声音",
+    "description": "为实时会话活动播放简短、轻柔的提示音。完全在浏览器中合成——无需下载，不做追踪。",
+    "enable": "启用声音提示",
+    "enableDesc": "会话开始、结束或出错时播放轻柔提示音",
+    "volume": "音量",
+    "playWhen": "在以下情况播放提示音…",
+    "newSession": "会话开始时",
+    "sessionComplete": "会话回复完成时",
+    "sessionError": "会话出错时",
+    "subagentSpawned": "子代理启动时",
+    "notification": "Claude Code 发送通知时",
+    "connection": "实时连接断开或恢复时",
+    "interaction": "点击按钮和链接时",
+    "interactionDesc": "每次按下时发出极轻微的滴答声",
+    "preview": "试听",
+    "throttleInfo": "提示音已限流，活动激增时不会变成连续的提示音。",
+    "disabledInfo": "声音提示已关闭——仪表板将保持完全静音"
+  },
   "pricing": {
     "title": "Anthropic Claude 模型定价",
     "navClaude": "Claude 定价",

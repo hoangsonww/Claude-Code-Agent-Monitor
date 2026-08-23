@@ -16,6 +16,24 @@ const MAX_TEXT = 500;
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 const MAX_SCAN_BYTES = 32 * 1024 * 1024;
 const READ_CHUNK_BYTES = 1024 * 1024;
+// How long a parse of a since-grown transcript may be served from cache. The
+// size+mtime cache key can never hit while a file is being appended to, so
+// without this floor a burst of list requests (e.g. the dashboard reloading on
+// every hook-driven WebSocket event) re-parses a multi-MB active transcript
+// once per request. Task summaries tolerate a couple seconds of staleness.
+// Tunable via DASHBOARD_TASK_SUMMARY_TTL_MS; 0 disables the floor (every
+// change re-parses immediately, the pre-TTL behavior). Read lazily so tests
+// and operators can adjust it without a restartable module-load dependency.
+const FRESH_PARSE_TTL_MS = 2_000;
+function freshParseTtlMs() {
+  const raw = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+  // Trim first: Number(" ") is 0, which would silently DISABLE stale reuse
+  // for a whitespace-only value instead of applying the documented default.
+  const trimmed = typeof raw === "string" ? raw.trim() : raw;
+  if (trimmed === undefined || trimmed === "") return FRESH_PARSE_TTL_MS;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value >= 0 ? value : FRESH_PARSE_TTL_MS;
+}
 const cache = new Map();
 const RESET_ALL_EVENT_TYPES = new Set(["UserPromptSubmit"]);
 const FINALIZE_ALL_EVENT_TYPES = new Set(["Stop", "SessionEnd", "Interrupted"]);
@@ -529,7 +547,20 @@ function parseTranscript(filePath, owner) {
   }
   const key = `${filePath}:${owner.id}:${owner.type}`;
   const cached = cache.get(key);
-  if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) {
+  // `dev`+`ino` identify the actual inode, so a DIFFERENT file rotated in at
+  // the same path can never be served from the previous file's parse — neither
+  // through the TTL window nor through a size+mtime collision. The serve-stale
+  // branch additionally refuses a shrunken file: transcripts are append-only,
+  // so a smaller size means truncation or replacement and the cached
+  // observations no longer describe it.
+  const sameFile =
+    cached && (cached.dev === undefined || (cached.dev === stat.dev && cached.ino === stat.ino));
+  if (
+    cached &&
+    sameFile &&
+    ((cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) ||
+      (stat.size >= cached.size && Date.now() - cached.parsedAt < freshParseTtlMs()))
+  ) {
     cache.delete(key);
     cache.set(key, cached);
     return cached.observations;
@@ -582,7 +613,14 @@ function parseTranscript(filePath, owner) {
   } catch {
     return [];
   }
-  cacheSet(key, { size: stat.size, mtimeMs: stat.mtimeMs, observations });
+  cacheSet(key, {
+    size: stat.size,
+    mtimeMs: stat.mtimeMs,
+    dev: stat.dev,
+    ino: stat.ino,
+    parsedAt: Date.now(),
+    observations,
+  });
   return observations;
 }
 
@@ -628,7 +666,34 @@ function observationFromEvent(event, agentsById) {
   });
 }
 
+// A JSONL transcript is append-only, so its first timestamp never changes —
+// cache it per path. Without this, every list request re-opens (with a 1 MiB
+// read buffer) every discovered subagent file just to re-read line one. A hit
+// still pays one statSync: a file whose size SHRANK was truncated or replaced
+// at the same path, so the cached first line no longer applies and the entry
+// is dropped. Growth keeps the hit — appends cannot change line one.
+const timestampCache = new Map();
+const MAX_TIMESTAMP_CACHE_ENTRIES = 2_000;
+
 function transcriptTimestamp(filePath) {
+  let stat = null;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    timestampCache.delete(filePath);
+    return null;
+  }
+  const size = stat.size;
+  const cached = timestampCache.get(filePath);
+  if (cached) {
+    // Growth alone is not proof of identity: a replacement file at the same
+    // path can be the same size or larger, and its first line may differ. Pin
+    // the entry to the inode (dev+ino) as well, so only a genuine append to
+    // the SAME file keeps the cached first-line timestamp.
+    const sameFile = cached.dev === stat.dev && cached.ino === stat.ino;
+    if (sameFile && size >= cached.size) return cached.timestamp;
+    timestampCache.delete(filePath);
+  }
   let timestamp = null;
   try {
     parseFileLines(filePath, (line) => {
@@ -642,6 +707,13 @@ function transcriptTimestamp(filePath) {
     });
   } catch {
     return null;
+  }
+  // Only a found timestamp is immutable; a file with none yet may gain one.
+  if (timestamp) {
+    timestampCache.set(filePath, { timestamp, size, dev: stat.dev, ino: stat.ino });
+    while (timestampCache.size > MAX_TIMESTAMP_CACHE_ENTRIES) {
+      timestampCache.delete(timestampCache.keys().next().value);
+    }
   }
   return timestamp;
 }
@@ -963,6 +1035,7 @@ function extractSessionTaskProgress({
 
 function clearTaskProgressCache() {
   cache.clear();
+  timestampCache.clear();
 }
 
 module.exports = {

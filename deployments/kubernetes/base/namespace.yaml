@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "2.0.6"
+    app.kubernetes.io/version: "2.0.11"
     app.kubernetes.io/component: namespace
     app.kubernetes.io/managed-by: kustomize
     # Enable Pod Security Standards (restricted)

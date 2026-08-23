@@ -73,6 +73,9 @@ import * as c from "../ui/colors.js";
 interface TransportEntry {
   transport: Transport;
   type: "streamable" | "sse";
+  /** `Date.now()` of the last request routed to this session, used by the
+   * idle reaper. Refreshed by the `/mcp` and `/messages` handlers. */
+  lastActivityMs: number;
 }
 
 function tokensMatch(provided: string | undefined, expected: string): boolean {
@@ -81,6 +84,26 @@ function tokensMatch(provided: string | undefined, expected: string): boolean {
   const expectedBuffer = Buffer.from(expected);
   if (providedBuffer.length !== expectedBuffer.length) return false;
   return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+/**
+ * Tears down an untracked transport/server pair without letting a teardown
+ * error escape into the request path — the client's response is already sent
+ * by the time this runs, so the only useful action is to log.
+ */
+async function closeQuietly(
+  transport: Transport,
+  server: McpServer,
+  logger: Logger
+): Promise<void> {
+  try {
+    await transport.close?.();
+    await server.close();
+  } catch (err) {
+    logger.error("Error closing an uninitialized Streamable HTTP session", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 /** Pure helper exported for security regression tests. */
@@ -122,15 +145,25 @@ export function isHttpRequestAuthorized(
  *
  * On successful bind, prints the banner/info panel/endpoint table to
  * stdout — this transport owns stdout, unlike stdio's protocol stream.
- * @returns The Express `app` and a `shutdown` closing every tracked
- *   transport before the HTTP server itself.
+ * Sessions are reclaimed two ways: a client's explicit `DELETE /mcp`, and a
+ * periodic sweep of sessions idle longer than `config.httpSessionTimeoutMs`
+ * (clients may vanish without terminating, and each abandoned session pins an
+ * `McpServer`). Set `MCP_HTTP_SESSION_TIMEOUT_MS=0` to disable the sweep.
+ *
+ * @returns The Express `app`, a `shutdown` closing every tracked transport
+ *   before the HTTP server itself, and `reapIdleSessions` — the sweep run on
+ *   demand, accepting an explicit `now` so tests and operators can force it.
  */
 export async function startHttpServer(
   config: AppConfig,
   buildServerFn: () => McpServer,
   logger: Logger,
   toolCount: number
-): Promise<{ app: Express; shutdown: () => Promise<void> }> {
+): Promise<{
+  app: Express;
+  shutdown: () => Promise<void>;
+  reapIdleSessions: (now?: number) => Promise<number>;
+}> {
   const app = createMcpExpressApp({ host: config.httpHost });
   const transports = new Map<string, TransportEntry>();
 
@@ -164,6 +197,7 @@ export async function startHttpServer(
     try {
       if (sessionId && transports.has(sessionId)) {
         const entry = transports.get(sessionId)!;
+        entry.lastActivityMs = Date.now();
         if (entry.type !== "streamable") {
           res.status(400).json({
             jsonrpc: "2.0",
@@ -180,10 +214,21 @@ export async function startHttpServer(
         logger.info("New Streamable HTTP session");
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
+          // The SDK assigns `transport.sessionId` *while* handling the
+          // initialize request, so reading the field before or right after
+          // constructing the transport yields undefined. Register from this
+          // callback instead — filing the session under any other id (e.g. a
+          // second randomUUID()) means the id handed to the client in the
+          // `mcp-session-id` response header is not in `transports`, and every
+          // follow-up request falls through to the 400 below.
+          onsessioninitialized: (sid: string) => {
+            transports.set(sid, { transport, type: "streamable", lastActivityMs: Date.now() });
+            logger.debug("Streamable HTTP session initialized", { sessionId: sid });
+          },
         });
 
         transport.onclose = () => {
-          const sid = (transport as unknown as { sessionId?: string }).sessionId;
+          const sid = transport.sessionId;
           if (sid) transports.delete(sid);
           logger.debug("Streamable HTTP session closed", { sessionId: sid });
         };
@@ -191,10 +236,14 @@ export async function startHttpServer(
         const server = buildServerFn();
         await server.connect(transport);
 
-        const sid = (transport as unknown as { sessionId?: string }).sessionId ?? randomUUID();
-        transports.set(sid, { transport, type: "streamable" });
-
         await transport.handleRequest(req, res, req.body);
+
+        // A handshake the SDK rejected never fires `onsessioninitialized`, so
+        // nothing tracks this pair and no client can ever reach it. Close it
+        // here rather than leaking an McpServer for the process lifetime.
+        if (!transport.sessionId) {
+          await closeQuietly(transport, server, logger);
+        }
         return;
       }
 
@@ -221,7 +270,11 @@ export async function startHttpServer(
   app.get("/sse", async (_req: Request, res: Response) => {
     logger.info("New SSE session");
     const transport = new SSEServerTransport("/messages", res);
-    transports.set(transport.sessionId, { transport, type: "sse" });
+    transports.set(transport.sessionId, {
+      transport,
+      type: "sse",
+      lastActivityMs: Date.now(),
+    });
 
     res.on("close", () => {
       transports.delete(transport.sessionId);
@@ -244,6 +297,7 @@ export async function startHttpServer(
     }
 
     const entry = transports.get(sessionId)!;
+    entry.lastActivityMs = Date.now();
     if (entry.type !== "sse") {
       res.status(400).json({
         jsonrpc: "2.0",
@@ -255,6 +309,54 @@ export async function startHttpServer(
 
     await (entry.transport as SSEServerTransport).handlePostMessage(req, res, req.body);
   });
+
+  // ── Idle session reaper ───────────────────────────────────────
+  // MCP clients are not required to send `DELETE /mcp` before going away, and
+  // the SDK client's `close()` does not (that is `terminateSession()`), so a
+  // dropped or crashed client leaves its session — and the `McpServer` behind
+  // it — tracked for the life of the process. Sweep sessions that have gone
+  // quiet for longer than the configured timeout.
+  const idleTimeoutMs = config.httpSessionTimeoutMs;
+  const sweepIntervalMs = Math.max(
+    30_000,
+    Math.min(60_000, Math.floor(idleTimeoutMs / 2) || 60_000)
+  );
+
+  async function reapIdleSessions(now: number = Date.now()): Promise<number> {
+    if (idleTimeoutMs <= 0) return 0;
+    const expired = [...transports.entries()].filter(
+      ([, entry]) => now - entry.lastActivityMs >= idleTimeoutMs
+    );
+    for (const [sid, entry] of expired) {
+      logger.info("Closing idle MCP session", {
+        sessionId: sid,
+        type: entry.type,
+        idleMs: now - entry.lastActivityMs,
+      });
+      // `close()` fires the transport's `onclose`, which removes the entry;
+      // delete defensively so a transport that never calls back cannot pin
+      // the session in the map forever.
+      try {
+        await entry.transport.close?.();
+      } catch (err) {
+        logger.error("Error closing idle session", {
+          sessionId: sid,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      transports.delete(sid);
+    }
+    return expired.length;
+  }
+
+  const reaper =
+    idleTimeoutMs > 0
+      ? setInterval(() => {
+          void reapIdleSessions();
+        }, sweepIntervalMs)
+      : undefined;
+  // Never hold the event loop open just to run the sweep.
+  reaper?.unref();
 
   // ── Start listening ───────────────────────────────────────────
   printBanner();
@@ -293,6 +395,7 @@ export async function startHttpServer(
   // ── Shutdown ──────────────────────────────────────────────────
   const shutdown = async () => {
     printShutdown();
+    if (reaper) clearInterval(reaper);
     const closePromises: Promise<void>[] = [];
     for (const [sid, entry] of transports) {
       logger.debug("Closing transport", { sessionId: sid });
@@ -314,5 +417,5 @@ export async function startHttpServer(
     logger.info("HTTP server stopped");
   };
 
-  return { app, shutdown };
+  return { app, shutdown, reapIdleSessions };
 }

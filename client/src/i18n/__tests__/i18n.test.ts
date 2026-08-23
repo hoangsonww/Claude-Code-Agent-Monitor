@@ -7,7 +7,60 @@
 import { describe, it, expect } from "vitest";
 import i18n from "i18next";
 
+const flattenResource = (
+  value: unknown,
+  prefix = "",
+  result: Record<string, unknown> = {}
+): Record<string, unknown> => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      flattenResource(child, prefix ? `${prefix}.${key}` : key, result);
+    }
+  } else {
+    result[prefix] = value;
+  }
+
+  return result;
+};
+
+const interpolationTokens = (value: unknown): string[] => {
+  if (typeof value !== "string") return [];
+
+  return [...value.matchAll(/{{\s*([^},\s]+)[^}]*}}|%\{\s*([^}\s]+)\s*\}/g)]
+    .flatMap((match) => {
+      const token = match[1] ?? match[2];
+      return token ? [token] : [];
+    })
+    .sort();
+};
+
 describe("i18n resources", () => {
+  it("keeps every locale's keys, value types, and interpolation tokens aligned with English", () => {
+    const namespaces = Object.keys(i18n.getDataByLanguage("en") ?? {});
+
+    for (const namespace of namespaces) {
+      const english = flattenResource(i18n.getResourceBundle("en", namespace));
+
+      for (const language of ["zh", "vi", "ko", "es"]) {
+        const locale = flattenResource(i18n.getResourceBundle(language, namespace));
+
+        expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
+          Object.keys(english).sort()
+        );
+
+        for (const key of Object.keys(english)) {
+          expect(typeof locale[key], `${language}/${namespace}:${key} type`).toBe(
+            typeof english[key]
+          );
+          expect(
+            interpolationTokens(locale[key]),
+            `${language}/${namespace}:${key} interpolation tokens`
+          ).toEqual(interpolationTokens(english[key]));
+        }
+      }
+    }
+  });
+
   it("should provide Vietnamese translations for navigation keys", async () => {
     await i18n.changeLanguage("vi");
 

@@ -25,3 +25,6 @@ desktop/assets/icon.iconset/
 wiki/mermaid.min.js
 fonts/*.woff2
 monitoring/.bin/
+
+# Git worktrees hold full checkouts, including vendored files
+.worktrees/

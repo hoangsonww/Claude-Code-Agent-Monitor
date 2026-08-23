@@ -6,6 +6,8 @@ Comprehensive documentation for the Agent Dashboard project.
 
 ## Quick Links
 
+- [Operator Handbook](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) - Task-oriented usage, operations, automation, and troubleshooting
+- [Localized Product Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) - English, Vietnamese, Chinese, Korean, and Spanish product and architecture tour
 - [Architecture Overview](../ARCHITECTURE.md) - System design and technical reference
 - [I18N Architecture](./I18N.md) - Internationalization architecture and usage guide
 - [CLI Reference](./CLI.md) - The `ccam` terminal CLI: every command, discovery, safety model
@@ -20,6 +22,7 @@ Start with the smallest set of documents for the job at hand, then use the catal
 
 | Goal | Start here | Continue with |
 | --- | --- | --- |
+| Use or troubleshoot CCAM day to day | [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) | [Localized product Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) or the exact references below |
 | Run CCAM locally | [INSTALL.md](../INSTALL.md) | [SETUP.md](../SETUP.md), then the dashboard |
 | Integrate with the API or WebSocket | [API.md](./API.md) | [MCP.md](./MCP.md) for an MCP-based integration |
 | Understand captured activity | [HOOKS.md](./HOOKS.md) | [DATABASE.md](./DATABASE.md) and [ARCHITECTURE.md](../ARCHITECTURE.md) |

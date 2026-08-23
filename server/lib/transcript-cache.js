@@ -14,6 +14,8 @@ const {
   normalizeGeo,
   normalizeTier,
   accumulateBucket,
+  subtractBucket,
+  rememberUsageContribution,
 } = require("./token-usage");
 
 const MAX_CACHE_ENTRIES = 200;
@@ -170,7 +172,12 @@ class TranscriptCache {
 
       // File grew → incremental read from last position
       if (stat.size > cached.bytesRead) {
-        const incremental = this._streamRange(transcriptPath, cached.bytesRead, stat.size);
+        const incremental = this._streamRange(
+          transcriptPath,
+          cached.bytesRead,
+          stat.size,
+          cached.result?.usageByMessageId
+        );
         if (incremental) {
           const merged = this._merge(cached, incremental);
           const hasTokens = Object.keys(merged.tokensByModel).length > 0;
@@ -189,6 +196,7 @@ class TranscriptCache {
             turnDurationCount: merged.turnDurationCount,
             thinkingBlockCount: merged.thinkingBlockCount || 0,
             usageExtras: hasUsageExtras ? merged.usageExtras : null,
+            usageByMessageId: merged.usageByMessageId || null,
             latestModel: merged.latestModel || null,
             customTitle: merged.customTitle || null,
             aiTitle: merged.aiTitle || null,
@@ -279,8 +287,8 @@ class TranscriptCache {
    * straddling a chunk boundary are not corrupted. Never builds a string
    * larger than a single line, so V8 string-length limits cannot be hit.
    */
-  _streamRange(filePath, startOffset, endOffset) {
-    const state = this._initParseState();
+  _streamRange(filePath, startOffset, endOffset, usageByMessageId) {
+    const state = this._initParseState(usageByMessageId);
     if (endOffset <= startOffset) return this._finalizeState(state);
 
     const CHUNK = 4 * 1024 * 1024; // 4 MiB
@@ -380,9 +388,21 @@ class TranscriptCache {
     return this._finalizeState(state);
   }
 
-  _initParseState() {
+  _initParseState(usageByMessageId) {
     return {
       tokensByModel: {},
+      // Claude Code writes one JSONL record per content block, so a single
+      // API response (one message.id) appears as several records carrying the
+      // message's `usage`. Accumulating every record inflates token totals
+      // 2-4x — and the copies are not always identical: streaming writes
+      // partial usage first (e.g. output_tokens 5, then the final 742), so
+      // the LAST record for a message.id is authoritative. This maps
+      // message.id → the bucket contribution currently counted for it, so a
+      // later record can retract and replace it. Seeded from the cached
+      // result on incremental reads so a message whose records straddle a
+      // read boundary is still reconciled. Bounded via MAX_ARRAY_LEN
+      // (a message's records are adjacent in practice).
+      usageByMessageId: new Map(usageByMessageId || []),
       compaction: null,
       errors: [],
       turnDurations: [],
@@ -550,14 +570,44 @@ class TranscriptCache {
     // Bucket tokens by the pricing dimensions (speed / geo / tier) so cost can
     // apply fast-mode, data-residency, and Batch modifiers per bucket. The value
     // carries those dimensions so the DB writer can key the row correctly.
+    // One API response spans several records (same message.id) whose usage
+    // evolves — streaming writes partial usage first, so the LAST record is
+    // authoritative: retract the previously counted contribution and count
+    // this record's instead. Records without an id (rare) are counted
+    // unconditionally, as before.
+    const usageMsgId = typeof msg.id === "string" && msg.id ? msg.id : null;
     const speed = normalizeSpeed(msg.usage);
     const geo = normalizeGeo(msg.usage);
     const tier = normalizeTier(msg.usage);
     const key = bucketKey(model, speed, geo, tier);
+    if (usageMsgId) {
+      const prev = state.usageByMessageId.get(usageMsgId);
+      if (prev) {
+        // Retract the earlier contribution — possibly into a bucket that only
+        // exists in the cached result of a previous incremental parse; a
+        // transiently negative local bucket nets out at merge time.
+        if (!state.tokensByModel[prev.key]) {
+          state.tokensByModel[prev.key] = emptyBucket(prev.model, prev.speed, prev.geo, prev.tier);
+        }
+        subtractBucket(state.tokensByModel[prev.key], prev.fields);
+      }
+    }
     if (!state.tokensByModel[key]) {
       state.tokensByModel[key] = emptyBucket(model, speed, geo, tier);
     }
-    accumulateBucket(state.tokensByModel[key], extractUsageFields(msg.usage));
+    const fields = extractUsageFields(msg.usage);
+    accumulateBucket(state.tokensByModel[key], fields);
+    if (usageMsgId) {
+      // Bounded tail window (see rememberUsageContribution) — a message's
+      // records sit adjacent, so a tail window reconciles every real case
+      // without letting the map grow with the transcript.
+      rememberUsageContribution(
+        state.usageByMessageId,
+        usageMsgId,
+        { key, model, speed, geo, tier, fields },
+        MAX_ARRAY_LEN
+      );
+    }
 
     if (msg.usage.service_tier) state.usageExtras.service_tiers.add(msg.usage.service_tier);
     if (msg.usage.speed) state.usageExtras.speeds.add(msg.usage.speed);
@@ -622,6 +672,12 @@ class TranscriptCache {
       turnDurationCount: state.turnDurationCount,
       thinkingBlockCount: state.thinkingBlockCount,
       usageExtras: serializedExtras,
+      // Exported as [id, contribution] entries (tail-capped) so the next
+      // incremental parse can be seeded with what is already counted — see
+      // _initParseState.
+      usageByMessageId: state.usageByMessageId.size
+        ? this._capArrayFromSet(state.usageByMessageId.entries())
+        : null,
       latestModel: state.latestModel,
       customTitle: state.customTitle,
       aiTitle: state.aiTitle,
@@ -766,6 +822,12 @@ class TranscriptCache {
       (incremental && incremental.lastInterruptTs) || cached.result?.lastInterruptTs || null;
     const lastTurnTs = (incremental && incremental.lastTurnTs) || cached.result?.lastTurnTs || null;
 
+    // The incremental parse state was seeded with the cached entries, so its
+    // exported list already reflects the union (tail-capped). Fall back to
+    // the cached entries when the chunk carried no usage records.
+    const usageByMessageId =
+      (incremental && incremental.usageByMessageId) || cached.result?.usageByMessageId || null;
+
     return {
       tokensByModel,
       compaction,
@@ -775,6 +837,7 @@ class TranscriptCache {
       turnDurationCount,
       thinkingBlockCount,
       usageExtras,
+      usageByMessageId,
       latestModel,
       customTitle,
       aiTitle,

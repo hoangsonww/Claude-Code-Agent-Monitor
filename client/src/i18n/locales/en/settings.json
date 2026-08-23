@@ -10,6 +10,25 @@
     "enable": "Show Tabby",
     "enableDesc": "Display the corner companion across the dashboard (⌘B to open)"
   },
+  "sound": {
+    "title": "Sound",
+    "description": "Short, quiet chimes for live session activity. Generated in the browser - no downloads, no tracking.",
+    "enable": "Enable Sound Cues",
+    "enableDesc": "Play a subtle tone when sessions start, finish, or error out",
+    "volume": "Volume",
+    "playWhen": "Play a cue when...",
+    "newSession": "A session starts",
+    "sessionComplete": "A session finishes responding",
+    "sessionError": "A session errors",
+    "subagentSpawned": "A subagent spawns",
+    "notification": "Claude Code sends a notification",
+    "connection": "The live connection drops or returns",
+    "interaction": "Clicking buttons and links",
+    "interactionDesc": "A barely-audible tick on each press",
+    "preview": "Preview Sound",
+    "throttleInfo": "Cues are rate-limited, so a burst of activity never turns into a burst of sound.",
+    "disabledInfo": "Sound cues are off - the dashboard stays completely silent"
+  },
   "pricing": {
     "title": "Anthropic Claude Model Pricing",
     "navClaude": "Claude Pricing",

@@ -78,7 +78,7 @@ npx skills update --global --yes
 npx skills remove --global mcp-server --yes
 ```
 
-The skills CLI discovers 75 repository skills. Codex project installs use
+The skills CLI discovers 76 repository skills. Codex project installs use
 `.agents/skills/`; global installs use `${CODEX_HOME:-~/.codex}/skills/`.
 Multi-agent installs may deduplicate files through a shared store and create
 agent-specific links. Run `npm run extensions:sync`

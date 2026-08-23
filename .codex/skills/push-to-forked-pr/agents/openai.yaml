@@ -1,0 +1,6 @@
+interface:
+  display_name: "Push To Forked PR"
+  short_description: "Update a pull request whose head branch lives on a fork, without new branches or pushes to origin."
+  default_prompt: "Use push-to-forked-pr to verify, commit, and push the current work to the pull request's fork branch."
+policy:
+  allow_implicit_invocation: false

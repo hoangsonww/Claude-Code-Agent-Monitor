@@ -3,13 +3,13 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const CACHE_NAME = "wiki-v97";
+const CACHE_NAME = "wiki-v104";
 const PRECACHE = [
   "./",
   "./index.html",
   "./style.css",
-  "./script.js?v=55",
-  "./i18n-content.js?v=78",
+  "./script.js?v=56",
+  "./i18n-content.js?v=85",
   "./manifest.json",
   "../favicon.svg",
 ];

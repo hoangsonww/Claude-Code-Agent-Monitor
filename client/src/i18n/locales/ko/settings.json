@@ -10,6 +10,25 @@
     "enable": "Tabby 표시",
     "enableDesc": "대시보드 전반에 코너 도우미를 표시합니다(⌘B로 열기)"
   },
+  "sound": {
+    "title": "사운드",
+    "description": "실시간 세션 활동에 대한 짧고 조용한 알림음입니다. 브라우저에서 직접 생성되며 다운로드나 추적이 없습니다.",
+    "enable": "사운드 큐 사용",
+    "enableDesc": "세션이 시작·완료되거나 오류가 발생할 때 은은한 소리를 재생합니다",
+    "volume": "볼륨",
+    "playWhen": "다음의 경우 소리 재생...",
+    "newSession": "세션이 시작될 때",
+    "sessionComplete": "세션이 응답을 마쳤을 때",
+    "sessionError": "세션에 오류가 발생했을 때",
+    "subagentSpawned": "서브에이전트가 생성될 때",
+    "notification": "Claude Code가 알림을 보낼 때",
+    "connection": "실시간 연결이 끊기거나 복구될 때",
+    "interaction": "버튼과 링크를 클릭할 때",
+    "interactionDesc": "누를 때마다 거의 들리지 않는 틱 소리",
+    "preview": "소리 미리 듣기",
+    "throttleInfo": "알림음에는 속도 제한이 있어 활동이 몰려도 소리가 쏟아지지 않습니다.",
+    "disabledInfo": "사운드 큐가 꺼져 있습니다 - 대시보드는 완전히 무음입니다"
+  },
   "pricing": {
     "title": "Anthropic Claude 모델 가격 정책",
     "navClaude": "Claude 가격",
@@ -42,8 +61,8 @@
     },
     "cacheWrite5m": "캐시 쓰기(5분)",
     "cacheWrite1h": "캐시 쓰기(1시간)",
-    "fastInput": "Fast Input",
-    "fastOutput": "Fast Output",
+    "fastInput": "Fast 입력",
+    "fastOutput": "Fast 출력",
     "gpt": {
       "title": "OpenAI GPT 모델 가격 정책",
       "description": "Codex 사용을 위한 공개 OpenAI API 요금입니다. 표준 요청은 입력 토큰이 272K 이하일 때 Short, 초과일 때 Long 요율을 사용하며 Fast 모드는 별도 요금표를 사용합니다. 토큰 100만 개당 USD입니다.",

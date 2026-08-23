@@ -218,11 +218,13 @@ client/
 │   │   ├── eventBus.ts     # WebSocket pub/sub + connection state
 │   │   ├── dataScope.ts    # Global data-scope store (app-wide ?sources= selection)
 │   │   ├── format.ts       # Formatters (formatTime, timeAgo, fmtCost)
+│   │   ├── sound.ts        # Web Audio cue synthesis + sound preferences
 │   │   └── types.ts        # TypeScript type definitions
 │   │
 │   ├── hooks/
 │   │   ├── useWebSocket.ts      # Auto-reconnecting WebSocket hook
-│   │   └── useNotifications.ts  # Browser push notification triggers
+│   │   ├── useNotifications.ts  # Browser push notification triggers
+│   │   └── useSoundCues.ts      # Event-bus → synthesized audio cues
 │   │
 │   ├── i18n/               # Internationalization (en / zh / vi / ko / es)
 │   ├── App.tsx             # Root component + router setup
@@ -375,6 +377,25 @@ function SessionDetailPage() {
 ---
 
 ## WebSocket Integration
+
+### Reload Throttling
+
+Implemented in [`src/pages/Dashboard.tsx`](src/pages/Dashboard.tsx) and
+[`src/pages/Sessions.tsx`](src/pages/Sessions.tsx).
+
+`session_updated` fires on essentially every hook event of every active session, and the list requests it
+triggers are expensive server-side (`include_task_progress` re-parses live transcripts). Both pages therefore
+collapse WebSocket-driven reloads through a **2 s trailing throttle** rather than reloading per frame —
+Sessions previously reloaded un-debounced and Dashboard on a 300 ms debounce, which together produced a
+continuous parse storm with a few chatty sessions and one open tab. The trailing call keeps the list current,
+the existing periodic polls remain the backstop, and effect cleanup clears any pending reload so a stale
+closure cannot overwrite newer state after a filter change or unmount.
+
+Validate with:
+
+```bash
+npm run test:client
+```
 
 ### WebSocket Lifecycle
 
@@ -812,6 +833,54 @@ export function timeAgo(date: string | Date | null | undefined): string;
 // Examples: timeAgo('2024-03-18T12:00:00Z') → "2 hours ago"
 //           timeAgo(null) → "—"
 ```
+
+### Browser storage keys
+
+The client keeps every user preference in the browser rather than the database,
+so preferences stay per-machine and no settings round-trip is needed. There is
+no central store — each feature owns its own key — so this is the inventory:
+
+| Key | Storage | Owner | Holds |
+| --- | --- | --- | --- |
+| `agent-monitor-sound` | local | `lib/sound.ts` | Audio-cue preferences: master switch, volume, per-cue flags. Defaults to enabled |
+| `agent-monitor-notifications` | local | `hooks/useNotifications.ts` | Browser-notification preferences. Defaults to disabled (opt-in, needs permission) |
+| `agent-monitor-update-dismissed-sha` | local | `components/UpdateNotifier.tsx` | Upstream SHA the user dismissed, so a new commit re-surfaces the notice |
+| `agent-dashboard-tabby-enabled` | local | `components/Tabby/prefs.ts` | Whether the Tabby companion is shown |
+| `agent-dashboard-tabby-muted` | local | `components/Tabby/prefs.ts` | Whether Tabby's speech bubbles are muted |
+| `agent-dashboard-tabby-pos` | local | `components/Tabby/prefs.ts` | Tabby's docked edge and vertical offset, as a viewport fraction |
+| `ccam-data-scope` | local | `lib/dataScope.ts` | App-wide data scope — selected remote sources and providers |
+| `sidebar-collapsed` | local | `components/Sidebar.tsx` | Sidebar collapsed state |
+| `sidebar-connection-stats` | local | `components/Sidebar.tsx` | Cumulative WebSocket stats for the connection modal |
+| `provider-onboarding-shown-v1` | **session** | `components/SplashScreen.tsx` | Splash shown once per browser session, not once ever |
+
+Conventions worth keeping:
+
+- **Reads must never throw.** Private mode and quota limits make storage
+  unavailable at any moment; every reader wraps access in `try`/`catch` and
+  falls back to defaults.
+- **Merge over defaults rather than trusting the parse.** A key written by an
+  older build can be missing fields, so readers spread the stored object over a
+  complete default object instead of using it directly.
+- **Writes are best-effort.** A failed write should not break the interaction
+  that triggered it; the in-memory value still applies for the session.
+
+### Audio cues (lib/sound.ts + hooks/useSoundCues.ts)
+
+`lib/sound.ts` is a self-contained audio-cue engine. It ships **no audio files and no third-party dependency** — every cue is synthesized at play time with the Web Audio API from a declarative list of partials (frequency, offset, duration, peak gain, oscillator type), routed through a master gain node and a low-pass filter.
+
+| Export | Purpose |
+| --- | --- |
+| `playCue(cue, { force })` | Plays one of `sessionStart`, `sessionComplete`, `sessionError`, `subagentSpawn`, `notification`, `connected`, `disconnected`, `click`. Returns whether audio was actually scheduled. `force` bypasses the per-cue flag and the rate limiter (used by the Settings previews). |
+| `getSoundPrefs()` / `setSoundPrefs(patch)` | Read / merge-write the `SoundPrefs` object persisted to `localStorage` under `agent-monitor-sound`. Defaults have `enabled: true`. |
+| `subscribeToSoundPrefs(handler)` | Subscribe to preference changes within the tab; returns an unsubscribe function. |
+| `installSoundUnlock()` / `unlockSound()` | Satisfy browser autoplay policy — cues stay silent until the first pointer / key / touch gesture. |
+| `DEFAULT_SOUND_PREFS` | The shipped defaults, also used as the merge base for partial saved objects. |
+
+`hooks/useSoundCues.ts` is the automatic, event-driven consumer of the engine (the Settings page is the other caller, driving `playCue(..., { force: true })` for its previews). Mounted once in `App.tsx`, it subscribes to `eventBus` (mapping `session_created`, `session_updated` with `status: "error"`, `agent_created` for subagents, and `new_event` for `Stop` / `SessionEnd` / `Notification`), to `eventBus.onConnection`, and installs a single delegated `pointerdown` listener for the interaction tick. It adds **no new WebSocket message types** and no server-side code.
+
+Playback is throttled by a per-cue cooldown (~350 ms; 45 ms for `click`) plus a global budget of 4 cues per 1.2 s, so a burst of WebSocket traffic never becomes a burst of sound. Every call degrades to a silent no-op when sound is disabled, the volume is zero, the cue's own toggle is off, no gesture has happened yet, or Web Audio is unavailable.
+
+Users control all of this from **Settings → Sound** (master toggle, volume slider, per-cue switches, preview button).
 
 ### Type Definitions (lib/types.ts)
 

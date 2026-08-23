@@ -104,6 +104,7 @@ For cloud deployment, Run Agent containers, remote hooks, Kubernetes, Terraform,
 | `MCP_HTTP_PORT` | `8819` | Port for the MCP HTTP+SSE server (only when `MCP_TRANSPORT=http`) |
 | `MCP_HTTP_HOST` | `127.0.0.1` | Bind address for the MCP HTTP server |
 | `MCP_HTTP_AUTH_TOKEN` / `_FILE` | unset | Protect MCP `/mcp`, `/sse`, and `/messages`; `/health` stays probeable |
+| `MCP_HTTP_SESSION_TIMEOUT_MS` | `1800000` | Close an idle MCP HTTP/SSE session after this long with no request; `0` disables reaping. Other values are clamped to `[60000, 86400000]`, and an unparseable value falls back to the default |
 | `DASHBOARD_TOKEN_FILE` | unset | File-backed dashboard API/WebSocket token |
 | `DASHBOARD_HOOK_TOKEN` / `_FILE` | unset | Dedicated credential for remote hook ingestion |
 | `DASHBOARD_ENV_PATH` | repo `.env` | Writable dotenv path for persisted Settings overrides |
@@ -409,7 +410,40 @@ node scripts/import-history.js --dry-run
 
 # Scope to a single project dir
 node scripts/import-history.js --project my-project
+
+# Refresh token totals for imported sessions (high-water mark: never lowers a total)
+npm run reconcile-tokens
+
+# One-time repair for token totals inflated by the pre-v2.0.9 per-record usage sum.
+# Re-derives every CLAUDE session that still has a transcript on disk and zeroes
+# the compaction baselines, so corrected (lower) totals actually stick.
+# Stop the dashboard first — live hook ingestion races the repair, and the
+# command refuses to run while a dashboard answers on a known port.
+npm run repair-tokens
 ```
+
+`--reconcile-tokens` accepts two flags: `--all` widens the sweep from
+already-imported sessions to every **Claude** session with a transcript on disk
+(live-ingested sessions carry no `imported` marker), and `--reset-baselines`
+writes the re-derived totals as the whole truth instead of folding a decrease
+into the `baseline_*` high-water columns. `npm run repair-tokens` is the two
+together. `--dry-run` is rejected rather than ignored, since the sweep writes
+inside a transaction.
+
+Scope, precisely:
+
+- A session's transcript is found by scanning `~/.claude/projects/` for the
+  default `<proj>/<sid>.jsonl` layout, then by the `transcript_path` stored on
+  the session row — so a session imported from a custom directory via
+  `ccam import path` is covered too.
+- Only **non-workflow** rows are rewritten. Workflow rows (`service_tier =
+  'workflow'`) come from run journals, not transcripts, and are preserved.
+- **Codex sessions are skipped entirely.** Their usage comes from rollout
+  journals rather than Claude transcripts, so the sweep must not rebuild — or
+  clear — their rows.
+- Sessions whose transcript has been deleted, or whose stored path is stale,
+  are skipped and reported as `missingFiles`: their totals cannot be re-derived,
+  so they keep whatever was recorded.
 
 ---
 
@@ -425,6 +459,8 @@ node scripts/import-history.js --project my-project
 | `clear-data` | `npm run clear-data` | Delete all data from the database |
 | `seed` | `npm run seed` | Insert demo sessions/agents/events |
 | `import-history` | `npm run import-history` | Import legacy sessions from `~/.claude/` (also runs on startup) |
+| `reconcile-tokens` | `npm run reconcile-tokens` | Refresh token totals for imported sessions (never lowers a total) |
+| `repair-tokens` | `npm run repair-tokens` | Re-derive non-workflow token totals for every Claude session with a transcript on disk and zero the compaction baselines, preserving workflow and Codex rows (one-time fix for pre-v2.0.9 inflation; stop the dashboard first) |
 | `mcp:install` | `npm run mcp:install` | Install MCP package dependencies |
 | `mcp:build` | `npm run mcp:build` | Build MCP server into `mcp/build/` |
 | `mcp:start` | `npm run mcp:start` | Start MCP server (stdio, for MCP hosts) |

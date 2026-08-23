@@ -81,6 +81,34 @@ describe("loadConfig", () => {
     assert.equal(cfg.httpPort, 8819);
   });
 
+  it("defaults the HTTP session timeout to 30 minutes", () => {
+    assert.equal(loadConfig(env({})).httpSessionTimeoutMs, 1_800_000);
+  });
+
+  it("parses and clamps MCP_HTTP_SESSION_TIMEOUT_MS", () => {
+    assert.equal(
+      loadConfig(env({ MCP_HTTP_SESSION_TIMEOUT_MS: "120000" })).httpSessionTimeoutMs,
+      120_000
+    );
+    // Below the floor, a typo like "500" would otherwise reap live sessions.
+    assert.equal(
+      loadConfig(env({ MCP_HTTP_SESSION_TIMEOUT_MS: "500" })).httpSessionTimeoutMs,
+      60_000
+    );
+    assert.equal(
+      loadConfig(env({ MCP_HTTP_SESSION_TIMEOUT_MS: "999999999" })).httpSessionTimeoutMs,
+      86_400_000
+    );
+    assert.equal(
+      loadConfig(env({ MCP_HTTP_SESSION_TIMEOUT_MS: "banana" })).httpSessionTimeoutMs,
+      1_800_000
+    );
+  });
+
+  it("treats MCP_HTTP_SESSION_TIMEOUT_MS=0 as an explicit opt-out", () => {
+    assert.equal(loadConfig(env({ MCP_HTTP_SESSION_TIMEOUT_MS: "0" })).httpSessionTimeoutMs, 0);
+  });
+
   it("parses MCP_HTTP_HOST", () => {
     const cfg = loadConfig(env({ MCP_HTTP_HOST: "0.0.0.0" }));
     assert.equal(cfg.httpHost, "0.0.0.0");

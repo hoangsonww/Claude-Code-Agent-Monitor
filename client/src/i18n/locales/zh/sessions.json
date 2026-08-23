@@ -41,14 +41,18 @@
     "completeCount": "已完成 {{completed}} / {{total}} · {{percent}}%",
     "completeCountShort": "已完成 {{completed}} / {{total}}",
     "current": "当前：{{task}}",
-    "more": "会话详情中还有 {{count}} 项",
+    "more_one": "会话详情中还有 {{count}} 项",
+    "more_other": "会话详情中还有 {{count}} 项",
     "includesSubagents": "包含 Subagent",
     "partialSource": "根据任务生命周期事件推导",
     "owners": "负责 Agent",
     "mainAgent": "主 Agent",
-    "doneCount": "已完成 {{count}}",
-    "remainingCount": "剩余 {{count}}",
-    "hiddenTasks": "另有 {{count}} 项任务未显示。",
+    "doneCount_one": "已完成 {{count}}",
+    "doneCount_other": "已完成 {{count}}",
+    "remainingCount_one": "剩余 {{count}}",
+    "remainingCount_other": "剩余 {{count}}",
+    "hiddenTasks_one": "另有 {{count}} 项任务未显示。",
+    "hiddenTasks_other": "另有 {{count}} 项任务未显示。",
     "status": {
       "completed": "已完成",
       "inProgress": "进行中",
@@ -57,6 +61,7 @@
       "unknown": "未知"
     }
   },
+  "remoteSourceBadgeTitle": "从远程机器收集",
   "detail": {
     "waitingBanner": {
       "title": "正在等待你的输入",

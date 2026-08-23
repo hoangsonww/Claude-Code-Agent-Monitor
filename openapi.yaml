@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code API
-  version: 2.0.6
+  version: 2.0.11
   description: HTTP API for real-time Claude Code session monitoring, agent lifecycle tracking, analytics, pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -573,7 +573,7 @@ components:
         version:
           type: string
           description: Dashboard release version from package.json
-          example: 2.0.6
+          example: 2.0.11
         timestamp:
           type: string
           format: date-time

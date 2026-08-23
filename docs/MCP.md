@@ -45,6 +45,30 @@ npm run mcp:start:repl
 - Use **Streamable HTTP + SSE** only when a separate local process must share the MCP server. Keep the listener on loopback unless you intentionally operate a protected reverse-proxy deployment, and set `MCP_HTTP_AUTH_TOKEN` for non-probe endpoints.
 - Use the **REPL** for an operator's one-off inspection or an explicitly reviewed mutation. It invokes the same schema and safety gates as the protocol transports, so it is a good way to validate an operation before wiring it into automation.
 
+### Stdio lifecycle and orphan shutdown
+
+A stdio server is owned by the host that launched it, and the MCP SDK's stdio transport only reacts to stdin `data`/`error` events. When a host exits without sending `SIGTERM`/`SIGINT` first, stdin simply goes quiet and the server would otherwise linger forever with nothing to talk to. CCAM therefore watches two independent conditions — stdin closing, and the process being re-parented — and shuts the server down the moment either fires:
+
+| Signal | Logged reason | Fires when |
+| --- | --- | --- |
+| stdin reaches end of stream | `stdin_end` | The host closed its end of the pipe, including a normal protocol-level shutdown |
+| stdin is destroyed | `stdin_close` | The host process died and took the pipe with it |
+| The process is re-parented | `reparented` | The launching parent exited while stdin stayed open — checked every 5s |
+
+Re-parenting is detected by comparing the current parent pid against the one captured at startup, **not** by testing for pid 1. That distinction matters in both directions: a server legitimately launched with an init-like parent (a container running `tini` as PID 1, or an `exec`-style launcher) keeps pid 1 as its parent while perfectly healthy, and a Linux orphan under a `systemd --user` session or another subreaper is re-parented to that supervisor rather than to pid 1.
+
+Shutdown closes the transport and the server, then exits `0`. A 2-second deadline forces the exit even when teardown hangs, since an unresponsive shutdown is exactly how an orphaned process ends up running indefinitely. Each shutdown is logged to stderr with its reason, so `reason` in the log tells you which signal ended a session.
+
+Only the stdio transport does this. HTTP servers outlive any single client by design and stop on `SIGINT`/`SIGTERM` only; the REPL owns its own lifecycle.
+
+### HTTP session lifecycle
+
+Each Streamable HTTP or SSE client gets its own `McpServer`, tracked under the session id returned in the `mcp-session-id` header (`sessionId` query parameter for legacy SSE). Send that id on every later request, or the server answers `Bad Request: No valid session or initialization`.
+
+Sessions are released three ways: an explicit `DELETE /mcp` carrying the session id, an SSE stream disconnecting, and an idle sweep for everything else. The sweep matters because terminating a session is optional in the protocol — the SDK client's `close()` does not send `DELETE` (only `terminateSession()` does), so a client that crashes or simply walks away would otherwise pin its `McpServer` for the life of the process. Any request on a session counts as activity. `GET /health` reports the live count as `activeSessions`.
+
+Tune the timeout with `MCP_HTTP_SESSION_TIMEOUT_MS` (default 30 minutes, floor 60 seconds so a typo cannot reap live sessions), or set it to `0` to disable reaping and manage sessions yourself.
+
 ## Tool Catalog
 
 ### Observability
@@ -215,6 +239,7 @@ All dashboard fetches reject HTTP redirects. Binary transcript-image responses a
 | `MCP_HTTP_PORT` | `8819` | HTTP transport port |
 | `MCP_HTTP_AUTH_TOKEN` | unset | Bearer token required by `/mcp`, `/sse`, and `/messages`; `/health` remains probeable |
 | `MCP_HTTP_AUTH_TOKEN_FILE` | unset | File-backed MCP client token |
+| `MCP_HTTP_SESSION_TIMEOUT_MS` | `1800000` | Close an HTTP/SSE session after this long with no request; `0` disables reaping. Clamped to `[60000, 86400000]` |
 | `MCP_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, or `error` |
 
 Direct loopback URLs (`127.0.0.1`, `localhost`, or `::1`) and the private Compose service `agent-monitor` may use a bearer token over HTTP. A tokenized container-host alias such as `host.docker.internal`, `gateway.docker.internal`, or `host.containers.internal` must use HTTPS. Startup fails instead of sending the token over an unsafe route.
@@ -257,4 +282,5 @@ npm run extensions:validate
 - Mutation denied: set `MCP_DASHBOARD_ALLOW_MUTATIONS=true` for that MCP process.
 - Plugin MCP launch fails: run `npm run setup`, then verify `ccam mcp repl`.
 - HTTP clients cannot connect: verify `/health`, bind host, firewall, and the exact `/mcp` endpoint.
+- Streamable HTTP requests fail with `Bad Request: No valid session or initialization`: send the `mcp-session-id` header returned by `initialize` on every later request. A session ends when the client sends `DELETE /mcp` with that header, and `/health` reports the live count as `activeSessions`.
 - Never write protocol logs to stdout in stdio mode. MCP logs use stderr.
