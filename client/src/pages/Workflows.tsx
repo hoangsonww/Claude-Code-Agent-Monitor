@@ -72,6 +72,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrentLocale } from "../lib/format";
 import { Workflow, RefreshCw, Download, AlertCircle, Info } from "lucide-react";
 import { api } from "../lib/api";
 import { useDataScope } from "../lib/dataScope";
@@ -603,7 +604,7 @@ function PageHeader({
         {lastUpdated && (
           <span className="text-[10px] text-gray-600 ml-1">
             {t("common:updated")}
-            {lastUpdated.toLocaleTimeString()}
+            {lastUpdated.toLocaleTimeString(getCurrentLocale())}
           </span>
         )}
       </div>

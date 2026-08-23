@@ -64,6 +64,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrentLocale } from "../lib/format";
 import { eventBus } from "../lib/eventBus";
 import {
   Boxes,
@@ -615,7 +616,7 @@ function Header({
   const { t } = useTranslation("ccConfig");
   const { t: tCommon } = useTranslation("common");
   const formatted = lastUpdated
-    ? lastUpdated.toLocaleTimeString(undefined, {
+    ? lastUpdated.toLocaleTimeString(getCurrentLocale(), {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",

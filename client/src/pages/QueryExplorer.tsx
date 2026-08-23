@@ -6,7 +6,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Search,
@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { useDataScope } from "../lib/dataScope";
+import { activeProvidersParam, activeSourcesParam, useDataScope } from "../lib/dataScope";
 import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { formatDateTime } from "../lib/format";
@@ -86,7 +86,18 @@ function CellValue({ col, value }: { col: string; value: unknown }) {
 
 export function QueryExplorer() {
   const { t } = useTranslation("nav");
-  const { scopeParam } = useDataScope();
+  const [scope] = useDataScope();
+  // `api.query.run` does not auto-inject the global scope (unlike sessions/stats
+  // endpoints), so build the `sources`/`providers` query fragment here. Rebuilt
+  // only when the global scope actually changes.
+  const scopeParam = useMemo(() => {
+    const qs = new URLSearchParams();
+    const sources = activeSourcesParam();
+    const providers = activeProvidersParam();
+    if (sources) qs.set("sources", sources);
+    if (providers) qs.set("providers", providers);
+    return qs.toString();
+  }, [scope]);
 
   const [entity, setEntity] = useState<Entity>("events");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -99,7 +110,10 @@ export function QueryExplorer() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [q, setQ] = useState("");
 
-  const activeFilters = { ...filters, q, sort_by: sortBy, sort_dir: sortDir };
+  const activeFilters = useMemo(
+    () => ({ ...filters, q, sort_by: sortBy, sort_dir: sortDir }),
+    [filters, q, sortBy, sortDir]
+  );
 
   // Monotonic request id so an out-of-order/late response can never overwrite
   // state produced by a request started after it.
@@ -129,7 +143,7 @@ export function QueryExplorer() {
       }
     },
     [entity, activeFilters, scopeParam]
-  ); // eslint-disable-line
+  );
 
   // Always-current ref to runQuery, so callers that must fire it from inside
   // a setState updater or a setTimeout (after sortBy/sortDir just changed)
@@ -168,7 +182,7 @@ export function QueryExplorer() {
     setSortDir("desc");
     setResult(null);
     setOffset(0);
-  }, [entity, scopeParam]); // eslint-disable-line
+  }, [entity, scopeParam]);
 
   const handleExport = (format: "csv" | "json") => {
     const url = buildExportUrl(entity, activeFilters, scopeParam ?? "", format);
