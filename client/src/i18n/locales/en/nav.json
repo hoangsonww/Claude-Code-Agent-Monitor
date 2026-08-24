@@ -67,5 +67,21 @@
     "vi": "VI",
     "ko": "한국어",
     "es": "ES"
+  },
+  "palette": {
+    "title": "Command palette",
+    "placeholder": "Search pages, sessions, and actions…",
+    "searching": "Searching…",
+    "noResults": "No matches",
+    "groupPages": "Pages",
+    "groupSessions": "Sessions",
+    "groupActions": "Actions",
+    "actionNewRun": "Start a new agent run",
+    "actionAlerts": "Configure alerts and webhooks",
+    "actionActiveSessions": "Show active sessions",
+    "hintNavigate": "↑↓ navigate",
+    "hintSelect": "↵ open",
+    "hintClose": "esc close",
+    "open": "Open command palette"
   }
 }

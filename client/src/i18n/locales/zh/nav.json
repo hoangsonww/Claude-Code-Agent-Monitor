@@ -67,5 +67,21 @@
     "vi": "VI",
     "ko": "한국어",
     "es": "ES"
+  },
+  "palette": {
+    "title": "命令面板",
+    "placeholder": "搜索页面、会话与操作…",
+    "searching": "搜索中…",
+    "noResults": "无匹配项",
+    "groupPages": "页面",
+    "groupSessions": "会话",
+    "groupActions": "操作",
+    "actionNewRun": "启动新的 Agent 运行",
+    "actionAlerts": "配置告警与 Webhook",
+    "actionActiveSessions": "显示活跃会话",
+    "hintNavigate": "↑↓ 移动",
+    "hintSelect": "↵ 打开",
+    "hintClose": "esc 关闭",
+    "open": "打开命令面板"
   }
 }

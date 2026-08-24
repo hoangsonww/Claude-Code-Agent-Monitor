@@ -193,6 +193,7 @@ client/
 │   │   ├── EmptyState.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
+│   │   ├── CommandPalette.tsx # Cmd/Ctrl+K launcher: pages + session search + actions
 │   │   ├── SplashScreen.tsx   # First-run provider choice and live-hook setup gate
 │   │   ├── PaginatedLegend.tsx # Bounded responsive legends for Analytics and Workflows
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
@@ -655,6 +656,39 @@ graph TB
 ## UI Components
 
 ### Component Catalog
+
+#### CommandPalette
+
+Global launcher mounted once by `Layout`. Opens with `Cmd/Ctrl+K` anywhere in the app, or from the search button at the top of the sidebar. Takes no props.
+
+One query resolves against three groups:
+
+| Group | Source |
+| --- | --- |
+| Pages | The nine sidebar routes, matched on their **translated** labels so it works in every locale |
+| Sessions | `GET /api/sessions?q=` — debounced 180 ms, minimum 2 characters, capped at 6 results |
+| Actions | A small static list of jumps that are otherwise several clicks deep |
+
+Session search is server-side on purpose: the dashboard routinely holds thousands of sessions, so no client-side index is kept, and reusing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope. A failed or slow query degrades quietly — page and action results are local and render immediately, so the palette is never blocked by the network.
+
+```
+┌──────────────────────────────────────────────┐
+│ 🔍  Search pages, sessions, and actions…     │
+├──────────────────────────────────────────────┤
+│ PAGES                                        │
+│  ▸ Analytics                      /analytics │
+│ SESSIONS                                     │
+│    Refactor the token parser  /work/api · ●  │
+│ ACTIONS                                      │
+│    Start a new agent run          Run Agent  │
+├──────────────────────────────────────────────┤
+│ ↑↓ navigate   ↵ open   esc close             │
+└──────────────────────────────────────────────┘
+```
+
+Other chrome can open it without lifted state or a context provider by calling the exported `openCommandPalette()`, which dispatches a `ccam:command-palette` window event.
+
+Accessibility: modal `dialog`, `combobox` input driving an `aria-activedescendant` listbox, arrow-key navigation with feature-detected `scrollIntoView`, `Enter` to run, `Escape` to close, `Tab` trapped inside, and focus restored on close.
 
 #### SessionCard
 

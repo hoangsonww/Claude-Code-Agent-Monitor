@@ -67,5 +67,21 @@
     "vi": "VI",
     "ko": "한국어",
     "es": "ES"
+  },
+  "palette": {
+    "title": "Bảng lệnh",
+    "placeholder": "Tìm trang, phiên và hành động…",
+    "searching": "Đang tìm…",
+    "noResults": "Không có kết quả",
+    "groupPages": "Trang",
+    "groupSessions": "Phiên",
+    "groupActions": "Hành động",
+    "actionNewRun": "Bắt đầu một lượt chạy agent mới",
+    "actionAlerts": "Cấu hình cảnh báo và webhook",
+    "actionActiveSessions": "Hiện các phiên đang hoạt động",
+    "hintNavigate": "↑↓ di chuyển",
+    "hintSelect": "↵ mở",
+    "hintClose": "esc đóng",
+    "open": "Mở bảng lệnh"
   }
 }

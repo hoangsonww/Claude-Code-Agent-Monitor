@@ -1,7 +1,8 @@
 /**
  * @file Layout.tsx
  * @description Application shell that frames every authenticated route: persistent
- * sidebar, main content column, update notifier, and the Tabby assistant overlay.
+ * sidebar, main content column, update notifier, the Cmd/Ctrl+K command palette,
+ * and the Tabby assistant overlay.
  * The layout is the single parent route in {@link App} — child pages render inside
  * React Router's `<Outlet />` so navigation never remounts chrome.
  *
@@ -44,6 +45,7 @@
  * ## Internal dependencies
  * - `./Sidebar`
  * - `./UpdateNotifier`
+ * - `./CommandPalette`
  * - `./Tabby/Tabby`
  *
  * ## Public surface
@@ -74,6 +76,7 @@ import { Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Sidebar, SIDEBAR_STORAGE_KEY, loadCollapsed } from "./Sidebar";
 import { UpdateNotifier } from "./UpdateNotifier";
+import { CommandPalette } from "./CommandPalette";
 import { Tabby } from "./Tabby/Tabby";
 
 /** Props for {@link Layout}. */
@@ -106,6 +109,7 @@ export function Layout({ wsConnected }: LayoutProps) {
         {t("skipToContent")}
       </a>
       <UpdateNotifier />
+      <CommandPalette />
       <Tabby />
       <Sidebar wsConnected={wsConnected} collapsed={collapsed} onToggle={toggle} />
       <main

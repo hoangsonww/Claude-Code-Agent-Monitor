@@ -82,15 +82,32 @@ import {
   Check,
   ChevronUp,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 import { Select } from "./Select";
+import { openCommandPalette } from "./CommandPalette";
 
 function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
   return typeof x === "object" && x !== null && "git_repo" in x && "update_available" in x;
+}
+
+/**
+ * Shortcut hint for the palette trigger. Rendering the wrong glyph is worse than
+ * rendering none, so this reads the platform rather than assuming a Mac; it falls
+ * back to the Ctrl form wherever the platform cannot be determined (SSR, tests).
+ */
+function paletteShortcutLabel(): string {
+  const platform =
+    typeof navigator === "undefined"
+      ? ""
+      : navigator.platform ||
+        (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ||
+        "";
+  return /mac|iphone|ipad|ipod/i.test(platform) ? "\u2318K" : "Ctrl K";
 }
 
 const NAV_KEYS = [
@@ -564,6 +581,31 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
           the sidebar (brand, language, collapse toggle, footer) stays pinned.
           Chevron buttons appear at the edges when content is clipped, so the
           user knows there's more to reach without inspecting the scrollbar. */}
+      {/* Search / command palette trigger. The Cmd/Ctrl+K shortcut is the fast
+          path, but a shortcut nobody can see is a shortcut nobody uses — this
+          row is what makes it discoverable. */}
+      <div className="px-2 pt-3">
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          title={collapsed ? t("nav:palette.open") : undefined}
+          aria-label={t("nav:palette.open")}
+          className={`w-full flex items-center gap-3 rounded-lg border border-border bg-surface-2 text-sm text-gray-500 hover:text-gray-300 hover:bg-surface-3 transition-colors duration-150 ${
+            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"
+          }`}
+        >
+          <Search className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left truncate">{t("nav:palette.title")}</span>
+              <kbd className="text-[10px] font-sans text-gray-600 border border-border rounded px-1.5 py-0.5 flex-shrink-0">
+                {paletteShortcutLabel()}
+              </kbd>
+            </>
+          )}
+        </button>
+      </div>
+
       <div className="flex-1 min-h-0 relative flex">
         <nav ref={navRef} className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-1">
           {NAV_KEYS.map(({ to, icon: Icon, key }) => {

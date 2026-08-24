@@ -468,6 +468,7 @@ graph TD
     APP["App.tsx<br/>Router + WebSocket"]
     LAYOUT["Layout.tsx<br/>Sidebar + Outlet"]
     SIDEBAR["Sidebar.tsx<br/>Nav (scroll-bounded with overflow<br/>chevrons) + Connection Status"]
+    PALETTE["CommandPalette.tsx<br/>Cmd/Ctrl+K launcher:<br/>pages + session search + actions"]
     DASH["Dashboard.tsx"]
     KANBAN["KanbanBoard.tsx"]
     SESS["Sessions.tsx"]
@@ -481,6 +482,8 @@ graph TD
 
     APP --> LAYOUT
     LAYOUT --> SIDEBAR
+    LAYOUT --> PALETTE
+    SIDEBAR -.->|search button| PALETTE
     LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
 
     DASH --> SC1["StatCard x6<br/>(sessions/agents/subagents/<br/>events today/total events/cost)<br/>3-column grid"]
@@ -636,6 +639,22 @@ graph TD
     style EB fill:#f59e0b,stroke:#fbbf24,color:#000
     style API fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+### Command Palette
+
+`client/src/components/CommandPalette.tsx` is a global launcher mounted once by `Layout`, opened with `Cmd/Ctrl+K` from anywhere or by the search button at the top of the sidebar. It resolves one query against three groups:
+
+| Group | Source | Notes |
+| --- | --- | --- |
+| Pages | The nine sidebar routes | Matched on the **translated** label, so it works in every locale |
+| Sessions | `GET /api/sessions?q=` | Debounced 180 ms, capped at 6 results, minimum 2 characters |
+| Actions | A small static list | Jumps that are otherwise several clicks deep (new run, alert config, active sessions) |
+
+Session search is deliberately **server-side**. The dashboard routinely holds thousands of sessions, so the palette keeps no client-side index; issuing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope (machine + provider) without duplicating any filter logic. A failed or slow session query never blocks the palette — page and action results are computed locally and render immediately, and the session group simply stays empty, in line with the app-wide rule that network delays must not make the UI unusable.
+
+The sidebar trigger opens the palette by dispatching a `ccam:command-palette` window event rather than through lifted state or a context provider, which keeps the trigger decoupled from the component and usable from anywhere in the tree.
+
+Accessibility: the panel is a modal `dialog` whose input is a `combobox` driving an `aria-activedescendant` listbox. Arrow keys move the active option (with feature-detected `scrollIntoView`), `Enter` runs it, `Escape` closes, `Tab` is trapped inside the dialog, and focus returns to the previously focused element on close. The shortcut hint rendered on the sidebar button is platform-derived (`⌘K` vs `Ctrl K`) and falls back to the Ctrl form when the platform cannot be determined.
 
 ### Routing
 
@@ -2192,7 +2211,7 @@ Tabby's only contact with the rest of the app is four light, additive touchpoint
 
 | File | Touchpoint |
 | --- | --- |
-| `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, as a sibling of `<UpdateNotifier />`. |
+| `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, as a sibling of `<UpdateNotifier />` and `<CommandPalette />`. |
 | `client/src/pages/Settings.tsx` | On/off toggle wired to `tabbyPrefs` (`localStorage`). |
 | `client/src/pages/Run.tsx` | Reads `?prompt=` to prefill the prompt box for Tabby's Ask handoff. |
 | `client/src/i18n/locales/{en,zh,vi,ko,es}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi / ko / es). |

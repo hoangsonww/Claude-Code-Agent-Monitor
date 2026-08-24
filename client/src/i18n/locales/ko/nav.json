@@ -67,5 +67,21 @@
     "vi": "VI",
     "ko": "한국어",
     "es": "ES"
+  },
+  "palette": {
+    "title": "명령 팔레트",
+    "placeholder": "페이지, 세션, 작업 검색…",
+    "searching": "검색 중…",
+    "noResults": "일치 항목 없음",
+    "groupPages": "페이지",
+    "groupSessions": "세션",
+    "groupActions": "작업",
+    "actionNewRun": "새 에이전트 실행 시작",
+    "actionAlerts": "알림 및 웹훅 설정",
+    "actionActiveSessions": "활성 세션 보기",
+    "hintNavigate": "↑↓ 이동",
+    "hintSelect": "↵ 열기",
+    "hintClose": "esc 닫기",
+    "open": "명령 팔레트 열기"
   }
 }
