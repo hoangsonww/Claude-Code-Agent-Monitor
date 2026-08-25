@@ -18,7 +18,7 @@ process.env.DASHBOARD_DB_PATH = TEST_DB;
 
 const { createApp, startServer } = require("../index");
 const { db, stmts } = require("../db");
-const { sweepTimeRules } = require("../lib/alerts");
+const { sweepTimeRules, evaluateEvent } = require("../lib/alerts");
 
 let server;
 let BASE;
@@ -227,6 +227,45 @@ describe("Event-driven alert evaluation", () => {
     const fired = feed.body.alerts.filter((a) => a.rule_id === ruleId);
     assert.equal(fired.length, 1);
     assert.match(fired[0].message, /3 matching events/);
+
+    await del(`/api/alerts/rules/${ruleId}`);
+  });
+
+  it("counts only literal matches when summary_contains holds a LIKE metacharacter", async () => {
+    const created = await post("/api/alerts/rules", {
+      name: "Percent burst",
+      rule_type: "event_pattern",
+      config: { event_type: "LikeProbe", summary_contains: "%", count: 2, window_minutes: 5 },
+    });
+    assert.equal(created.status, 201);
+    const ruleId = created.body.rule.id;
+
+    const sessionId = `alerts-like-${Date.now()}`;
+    db.prepare(
+      "INSERT INTO sessions (id, name, status, started_at, updated_at) VALUES (?, ?, 'active', ?, ?)"
+    ).run(sessionId, "like probe", new Date().toISOString(), new Date().toISOString());
+
+    // Only one of these summaries literally contains "%". An unescaped LIKE
+    // pattern of "%%%" would match all three and fire the count-2 rule.
+    const insertEvent = db.prepare(
+      "INSERT INTO events (session_id, event_type, summary, created_at) VALUES (?, 'LikeProbe', ?, ?)"
+    );
+    for (const summary of ["100% done", "no percent", "still none"]) {
+      insertEvent.run(sessionId, summary, new Date().toISOString());
+    }
+
+    // matchesPattern gates on the literal substring, so drive evaluation with
+    // the one event that genuinely contains "%".
+    evaluateEvent({
+      session_id: sessionId,
+      agent_id: null,
+      event_type: "LikeProbe",
+      tool_name: null,
+      summary: "100% done",
+    });
+
+    const feed = await fetch("/api/alerts");
+    assert.equal(feed.body.alerts.filter((a) => a.rule_id === ruleId).length, 0);
 
     await del(`/api/alerts/rules/${ruleId}`);
   });

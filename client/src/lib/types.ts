@@ -1520,6 +1520,62 @@ export interface AlertRule {
   updated_at: string;
 }
 
+/** One would-be firing returned by an {@link AlertRulePreview}. Shaped like the
+ *  fired alert it stands in for, but never persisted — `triggered_at` is null
+ *  for current-state rule types, which have no historical firing moment. */
+export interface AlertRulePreviewSample {
+  /** ISO timestamp the rule would have fired, or null for current-state rules. */
+  triggered_at: string | null;
+  /** Session the match belongs to. */
+  session_id: string;
+  /** Session display name, when the session row still carries one. */
+  session_name: string | null;
+  /** Agent scope of the match, when the rule matches per-agent. */
+  agent_id: string | null;
+  /** The exact message the real alert would carry. */
+  message: string;
+  /** Type-specific match details, mirroring a fired alert's `details`. */
+  details: Record<string, unknown> | null;
+}
+
+/** Result of POST /api/alerts/rules/preview — a read-only backtest of a
+ *  candidate rule. Nothing is persisted, broadcast, or delivered to webhooks. */
+export interface AlertRulePreview {
+  /** Rule kind that was previewed. */
+  rule_type: AlertRuleType;
+  /** The normalized config the server validated the request down to. */
+  config: AlertRuleConfig;
+  /** `"history"` — replayed over recorded events (event_pattern); or
+   *  `"current_state"` — evaluated against live state, because the rule kind
+   *  has no reconstructible history. */
+  evaluated: "history" | "current_state";
+  /** History window actually used (after clamping), in hours. */
+  lookback_hours: number;
+  /** token_threshold only: the activity window used to pick *candidate* sessions.
+   *  Totals themselves are current — a session with no events inside this window
+   *  can no longer fire the rule, so it is excluded rather than reported as a
+   *  match that cannot happen. Absent for every other rule type. */
+  candidate_window_hours?: number;
+  /** Cooldown that was simulated, in seconds. */
+  cooldown_seconds: number;
+  /** ISO start of the evaluated window. */
+  since: string;
+  /** ISO end of the evaluated window (request time). */
+  until: string;
+  /** Rows that matched the pattern before cooldown was applied. */
+  matched_count: number;
+  /** Matches that would actually have produced an alert. */
+  would_fire_count: number;
+  /** Matches swallowed by the simulated cooldown. */
+  suppressed_by_cooldown: number;
+  /** True when the scan hit its row ceiling and the counts are a lower bound. */
+  truncated: boolean;
+  /** Max samples the server was allowed to return. */
+  sample_limit: number;
+  /** Up to `sample_limit` example firings, oldest first. */
+  samples: AlertRulePreviewSample[];
+}
+
 /** One firing of an {@link AlertRule}, from GET /api/alerts; pushed live via
  *  the `alert_triggered` (new) / `alert_updated` (acknowledged) WS messages.
  *  Denormalizes the rule's name/type at fire time so the row still renders even

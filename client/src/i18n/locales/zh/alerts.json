@@ -50,6 +50,23 @@
       "totalTokens": "Token 总量",
       "cooldown": "冷却时间（秒）"
     },
+    "preview": {
+      "button": "预览匹配",
+      "running": "预览中…",
+      "title": "预览",
+      "lookback": "回溯范围",
+      "lookbackHours": "{{hours}} 小时",
+      "help": "保存前先用已记录的历史数据试运行该规则。不会写入任何数据，也不会发送通知。",
+      "wouldFire": "将会触发：",
+      "matched": "匹配：",
+      "suppressed": "被冷却抑制：",
+      "history": "已在最近 {{hours}} 小时的历史事件上回放。",
+      "currentState": "该规则类型没有可回放的历史 — 显示当前匹配的结果。",
+      "currentStateTokens": "统计值为当前值。仅考虑最近 {{hours}} 小时内有活动的会话 —— 没有近期事件的会话已无法再触发该规则。",
+      "truncated": "已达到扫描上限，因此统计值为下限。",
+      "none": "无匹配 — 该规则不会触发。",
+      "more": "另有 {{extra}} 条未显示"
+    },
     "deleteTitle": "删除告警规则？",
     "help": {
       "name": "此规则的名称。显示在告警列表中，并包含在 Webhook 负载里（rule_name）。例如“Bash 反复报错”。",

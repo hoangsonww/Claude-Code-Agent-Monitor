@@ -1,6 +1,7 @@
 /**
  * @file Express router for the rules-based alerting engine: CRUD for alert
- * rules, the fired-alert feed with pagination and unacked filtering, and
+ * rules, a read-only preview that backtests a candidate rule against recorded
+ * history, the fired-alert feed with pagination and unacked filtering, and
  * acknowledge endpoints. Rule evaluation itself lives in server/lib/alerts.js.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -9,7 +10,12 @@ const { Router } = require("express");
 const { v4: uuidv4 } = require("uuid");
 const { stmts } = require("../db");
 const { broadcast } = require("../websocket");
-const { RULE_TYPES, validateRuleConfig, invalidateRuleCache } = require("../lib/alerts");
+const {
+  RULE_TYPES,
+  validateRuleConfig,
+  invalidateRuleCache,
+  previewRule,
+} = require("../lib/alerts");
 
 const router = Router();
 
@@ -59,6 +65,24 @@ router.post("/rules", (req, res) => {
   );
   invalidateRuleCache();
   res.status(201).json({ rule: serializeRule(stmts.getAlertRule.get(id)) });
+});
+
+// POST /api/alerts/rules/preview - Dry-run a candidate rule against recorded
+// history. Read-only: nothing is persisted, broadcast, or delivered to
+// webhooks. Registered before the "/rules/:id" handlers so "preview" is never
+// swallowed as a rule id.
+router.post("/rules/preview", (req, res) => {
+  const { name, rule_type, config, lookback_hours, cooldown_seconds, limit } = req.body || {};
+  const result = previewRule(rule_type, config, {
+    name,
+    lookbackHours: lookback_hours,
+    cooldownSeconds: cooldown_seconds,
+    limit,
+  });
+  if (!result.ok) {
+    return res.status(400).json({ error: { code: "INVALID_INPUT", message: result.error } });
+  }
+  res.json({ preview: result.preview });
 });
 
 // PATCH /api/alerts/rules/:id - Update an alert rule (partial)

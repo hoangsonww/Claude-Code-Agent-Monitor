@@ -387,6 +387,7 @@ import type {
   Agent,
   AlertEvent,
   AlertRule,
+  AlertRulePreview,
   Analytics,
   CostResult,
   DashboardEvent,
@@ -1808,6 +1809,33 @@ export const api = {
         request<{ rule: AlertRule }>("/alerts/rules", {
           method: "POST",
           body: JSON.stringify(rule),
+        }),
+      /**
+       * POST /api/alerts/rules/preview - dry-run a candidate rule against
+       * recorded history without saving it.
+       *
+       * Read-only on the server: no rule row, no fired alert, no webhook
+       * delivery. `event_pattern` rules are replayed over historical events
+       * (including the per-session count-in-window and a simulated cooldown);
+       * the other kinds are evaluated against current state, which the result
+       * reports via `evaluated`.
+       *
+       * @param body Candidate rule plus optional `lookback_hours`,
+       *   `cooldown_seconds` and sample `limit` (all server-clamped).
+       * @returns `{ preview }` — an {@link AlertRulePreview} with match counts
+       *   and up to `limit` example firings.
+       */
+      preview: (body: {
+        name?: string;
+        rule_type: AlertRule["rule_type"];
+        config: AlertRule["config"];
+        lookback_hours?: number;
+        cooldown_seconds?: number;
+        limit?: number;
+      }) =>
+        request<{ preview: AlertRulePreview }>("/alerts/rules/preview", {
+          method: "POST",
+          body: JSON.stringify(body),
         }),
       /**
        * PATCH /api/alerts/rules/:id - partially update an existing rule.

@@ -104,6 +104,25 @@ function validateRuleConfig(ruleType, config) {
 }
 
 /**
+ * Alert message builders. Both the live evaluators and the read-only rule
+ * preview render their text through these, so a preview shows the exact
+ * sentence the rule would produce when it really fires — no second copy of
+ * the wording to drift out of sync.
+ */
+const messages = {
+  patternMatch: (ruleName, event) =>
+    `${ruleName}: event matched (${event.event_type}${event.tool_name ? ` · ${event.tool_name}` : ""})`,
+  patternCount: (ruleName, seen, cfg) =>
+    `${ruleName}: ${seen} matching events in ${cfg.window_minutes} min (threshold ${cfg.count})`,
+  tokenThreshold: (ruleName, total, threshold) =>
+    `${ruleName}: session used ${total.toLocaleString()} tokens (threshold ${threshold.toLocaleString()})`,
+  inactivity: (ruleName, session, minutes) =>
+    `${ruleName}: no activity on "${session.name || session.id}" for ${minutes} min`,
+  statusDuration: (ruleName, agent, cfg) =>
+    `${ruleName}: agent "${agent.name}" stuck in ${cfg.status} for ${cfg.minutes} min`,
+};
+
+/**
  * Fire an alert unless the same rule already fired for the same scope inside
  * its cooldown window. Persists the alert row and broadcasts it. Returns the
  * inserted row, or null when suppressed by cooldown.
@@ -140,6 +159,20 @@ function fireAlert(rule, { sessionId = null, agentId = null, message, details = 
   return alert;
 }
 
+// `summary_contains` is a literal substring in the rule's contract — matchesPattern
+// implements it with String#includes. SQL LIKE, however, treats `%` and `_` as
+// wildcards, so an unescaped pattern silently widens the match: `summary_contains:
+// "%"` would hit every non-null summary, and `a_b` would also match `axb`. Escaping
+// the metacharacters (and the escape character itself) keeps every SQL path
+// agreeing with matchesPattern.
+const LIKE_ESCAPE_CHAR = "\\";
+const LIKE_ESCAPE_CLAUSE = `ESCAPE '${LIKE_ESCAPE_CHAR}'`;
+
+function likeContains(value) {
+  const escaped = value.toLowerCase().replace(/[\\%_]/g, (ch) => `${LIKE_ESCAPE_CHAR}${ch}`);
+  return `%${escaped}%`;
+}
+
 // Dynamic count-in-window queries vary by which pattern fields a rule sets;
 // cache prepared statements by their SQL so hot rules don't re-prepare.
 const countStmtCache = new Map();
@@ -156,8 +189,8 @@ function countMatchingEvents(sessionId, cfg) {
     params.push(cfg.tool_name);
   }
   if (cfg.summary_contains) {
-    where.push("LOWER(COALESCE(summary, '')) LIKE ?");
-    params.push(`%${cfg.summary_contains.toLowerCase()}%`);
+    where.push(`LOWER(COALESCE(summary, '')) LIKE ? ${LIKE_ESCAPE_CLAUSE}`);
+    params.push(likeContains(cfg.summary_contains));
   }
   const sql = `SELECT COUNT(*) as count FROM events WHERE ${where.join(" AND ")}`;
   let stmt = countStmtCache.get(sql);
@@ -223,14 +256,14 @@ function evaluateEvent(event) {
           fireAlert(rule, {
             sessionId: event.session_id,
             agentId: event.agent_id || null,
-            message: `${rule.name}: ${seen} matching events in ${cfg.window_minutes} min (threshold ${cfg.count})`,
+            message: messages.patternCount(rule.name, seen, cfg),
             details: { matched: cfg, observed_count: seen, last_event_type: event.event_type },
           });
         } else {
           fireAlert(rule, {
             sessionId: event.session_id,
             agentId: event.agent_id || null,
-            message: `${rule.name}: event matched (${event.event_type}${event.tool_name ? ` · ${event.tool_name}` : ""})`,
+            message: messages.patternMatch(rule.name, event),
             details: { matched: cfg, summary: event.summary || null },
           });
         }
@@ -245,7 +278,7 @@ function evaluateEvent(event) {
         if (total < rule.config.total_tokens) continue;
         fireAlert(rule, {
           sessionId: event.session_id,
-          message: `${rule.name}: session used ${total.toLocaleString()} tokens (threshold ${rule.config.total_tokens.toLocaleString()})`,
+          message: messages.tokenThreshold(rule.name, total, rule.config.total_tokens),
           details: { total_tokens: total, threshold: rule.config.total_tokens },
         });
       }
@@ -277,7 +310,7 @@ function sweepTimeRules() {
         for (const session of stale) {
           fireAlert(rule, {
             sessionId: session.id,
-            message: `${rule.name}: no activity on "${session.name || session.id}" for ${rule.config.minutes} min`,
+            message: messages.inactivity(rule.name, session, rule.config.minutes),
             details: { minutes: rule.config.minutes },
           });
         }
@@ -293,7 +326,7 @@ function sweepTimeRules() {
           fireAlert(rule, {
             sessionId: agent.session_id,
             agentId: agent.id,
-            message: `${rule.name}: agent "${agent.name}" stuck in ${rule.config.status} for ${rule.config.minutes} min`,
+            message: messages.statusDuration(rule.name, agent, rule.config),
             details: { status: rule.config.status, minutes: rule.config.minutes },
           });
         }
@@ -310,9 +343,293 @@ const SWEEP_INTERVAL_MS = 60_000;
 const sweepTimer = setInterval(sweepTimeRules, SWEEP_INTERVAL_MS);
 if (sweepTimer.unref) sweepTimer.unref();
 
+// ── Rule preview (backtest) ──────────────────────────────────────────────────
+//
+// A rule is cheap to write and expensive to get wrong: too loose and it pages
+// you every minute, too tight and it never fires at all. Both failure modes are
+// only discoverable by waiting. `previewRule` answers "what would this rule have
+// done?" against data already on disk, before the rule is ever saved.
+//
+// It is strictly read-only: no alert_events rows, no broadcast, no webhook
+// dispatch. It reuses the live matching predicates and message builders above so
+// the preview cannot drift from what the engine actually does.
+
+const PREVIEW_DEFAULT_LOOKBACK_HOURS = 24;
+const PREVIEW_MAX_LOOKBACK_HOURS = 24 * 30;
+const PREVIEW_DEFAULT_SAMPLE_LIMIT = 20;
+const PREVIEW_MAX_SAMPLE_LIMIT = 200;
+// Hard ceiling on rows pulled into memory for the event_pattern backtest. A
+// broad pattern over a long lookback can match hundreds of thousands of rows;
+// scanning the oldest slice and reporting `truncated` beats blocking the event
+// loop on an unbounded read.
+const PREVIEW_SCAN_LIMIT = 20000;
+
+const previewStmtCache = new Map();
+
+function preparedCached(sql) {
+  let stmt = previewStmtCache.get(sql);
+  if (!stmt) {
+    stmt = db.prepare(sql);
+    previewStmtCache.set(sql, stmt);
+  }
+  return stmt;
+}
+
+/** Rule name used for preview message rendering when none is supplied yet. */
+const PREVIEW_RULE_NAME = "Preview";
+
+function isoSince(hours) {
+  return new Date(Date.now() - hours * 3600 * 1000).toISOString();
+}
+
+/**
+ * Replay `event_pattern` against historical events. Mirrors evaluateEvent:
+ * events are walked oldest-first and, for count > 1 rules, each event is tested
+ * against a per-session sliding window of the same width the live counter uses.
+ */
+function previewEventPattern(cfg, { since, ruleName, cooldownSeconds, sampleLimit }) {
+  const where = ["e.created_at >= ?"];
+  const params = [since];
+  if (cfg.event_type) {
+    where.push("e.event_type = ?");
+    params.push(cfg.event_type);
+  }
+  if (cfg.tool_name) {
+    where.push("e.tool_name = ?");
+    params.push(cfg.tool_name);
+  }
+  if (cfg.summary_contains) {
+    where.push(`LOWER(COALESCE(e.summary, '')) LIKE ? ${LIKE_ESCAPE_CLAUSE}`);
+    params.push(likeContains(cfg.summary_contains));
+  }
+
+  const rows = preparedCached(
+    `SELECT e.id, e.session_id, e.agent_id, e.event_type, e.tool_name, e.summary, e.created_at,
+            s.name AS session_name
+     FROM events e
+     LEFT JOIN sessions s ON s.id = e.session_id
+     WHERE ${where.join(" AND ")}
+     ORDER BY e.created_at ASC, e.id ASC
+     LIMIT ?`
+  ).all(...params, PREVIEW_SCAN_LIMIT);
+
+  const windowMs = (cfg.window_minutes || 0) * 60 * 1000;
+  const sessionWindows = new Map(); // session_id -> ascending match timestamps
+  const lastFireAt = new Map(); // cooldown scope key -> ms
+  const samples = [];
+  let wouldFire = 0;
+  let suppressed = 0;
+
+  for (const row of rows) {
+    const at = Date.parse(row.created_at);
+    let seen = 1;
+
+    if (cfg.count > 1) {
+      // The live counter asks SQLite for "matching events in this session over
+      // the last window_minutes", which at fire time includes the event that
+      // triggered the check. The sliding window reproduces that exactly.
+      let times = sessionWindows.get(row.session_id);
+      if (!times) {
+        times = [];
+        sessionWindows.set(row.session_id, times);
+      }
+      times.push(at);
+      while (times.length && times[0] < at - windowMs) times.shift();
+      seen = times.length;
+      if (seen < cfg.count) continue;
+    }
+
+    // Cooldown dedup is scoped per (session, agent) exactly as lastAlertFor is.
+    const scopeKey = `${row.session_id || ""}|${row.agent_id || ""}`;
+    const last = lastFireAt.get(scopeKey);
+    if (last != null && at - last < cooldownSeconds * 1000) {
+      suppressed++;
+      continue;
+    }
+    lastFireAt.set(scopeKey, at);
+    wouldFire++;
+
+    if (samples.length < sampleLimit) {
+      samples.push({
+        triggered_at: row.created_at,
+        session_id: row.session_id,
+        session_name: row.session_name || null,
+        agent_id: row.agent_id || null,
+        message:
+          cfg.count > 1
+            ? messages.patternCount(ruleName, seen, cfg)
+            : messages.patternMatch(ruleName, row),
+        details:
+          cfg.count > 1
+            ? { matched: cfg, observed_count: seen, last_event_type: row.event_type }
+            : { matched: cfg, summary: row.summary || null },
+      });
+    }
+  }
+
+  return {
+    evaluated: "history",
+    matched_count: rows.length,
+    would_fire_count: wouldFire,
+    suppressed_by_cooldown: suppressed,
+    scanned_events: rows.length,
+    truncated: rows.length >= PREVIEW_SCAN_LIMIT,
+    samples,
+  };
+}
+
+/**
+ * `token_threshold` is evaluated against *current* session totals, not replayed.
+ * token_usage stores running totals rather than a per-instant history, so the
+ * moment a session first crossed the threshold is not recoverable — reporting
+ * which sessions sit above it today is the honest answer, and callers get
+ * `evaluated: "current_state"` so the UI can say so.
+ *
+ * The lookback still applies, but as a *candidate filter* rather than a replay
+ * window: evaluateEvent only tests this rule when a token-bearing event arrives,
+ * and sessions.updated_at is bumped on every ingested event, so a session with
+ * no activity inside the window can no longer fire the rule no matter how large
+ * its stored total is. Listing those would report matches that provably cannot
+ * happen. Callers are told which sessions were considered via
+ * `candidate_window_hours` on the result.
+ */
+function previewTokenThreshold(cfg, { since, ruleName, sampleLimit, lookbackHours }) {
+  const rows = preparedCached(
+    `SELECT s.id AS session_id, s.name AS session_name,
+            COALESCE(SUM(t.input_tokens), 0) + COALESCE(SUM(t.output_tokens), 0)
+              + COALESCE(SUM(t.cache_read_tokens), 0) + COALESCE(SUM(t.cache_write_tokens), 0)
+              AS total_tokens
+     FROM sessions s
+     LEFT JOIN token_usage t ON t.session_id = s.id
+     WHERE COALESCE(s.updated_at, s.started_at) >= ?
+     GROUP BY s.id
+     HAVING total_tokens >= ?
+     ORDER BY total_tokens DESC`
+  ).all(since, cfg.total_tokens);
+
+  return {
+    evaluated: "current_state",
+    // Surfaced so a client never has to infer why the lookback control changes
+    // this rule type's results even though the totals themselves are current.
+    candidate_window_hours: lookbackHours,
+    matched_count: rows.length,
+    would_fire_count: rows.length,
+    suppressed_by_cooldown: 0,
+    truncated: false,
+    samples: rows.slice(0, sampleLimit).map((row) => ({
+      triggered_at: null,
+      session_id: row.session_id,
+      session_name: row.session_name || null,
+      agent_id: null,
+      message: messages.tokenThreshold(ruleName, row.total_tokens, cfg.total_tokens),
+      details: { total_tokens: row.total_tokens, threshold: cfg.total_tokens },
+    })),
+  };
+}
+
+/**
+ * Time-based rules describe a condition that holds *right now* — an active
+ * session with no recent events, or an agent parked in a status. Both are read
+ * off live state with the same statements the sweep uses.
+ */
+function previewTimeRule(ruleType, cfg, { ruleName, sampleLimit }) {
+  const modifier = `-${cfg.minutes * 60} seconds`;
+  const rows =
+    ruleType === "inactivity"
+      ? staleSessionsStmt.all(modifier).map((session) => ({
+          session_id: session.id,
+          session_name: session.name || null,
+          agent_id: null,
+          message: messages.inactivity(ruleName, session, cfg.minutes),
+          details: { minutes: cfg.minutes },
+        }))
+      : stuckAgentsStmt.all(cfg.status, modifier).map((agent) => ({
+          session_id: agent.session_id,
+          session_name: null,
+          agent_id: agent.id,
+          message: messages.statusDuration(ruleName, agent, cfg),
+          details: { status: cfg.status, minutes: cfg.minutes },
+        }));
+
+  return {
+    evaluated: "current_state",
+    matched_count: rows.length,
+    would_fire_count: rows.length,
+    suppressed_by_cooldown: 0,
+    truncated: false,
+    samples: rows.slice(0, sampleLimit).map((row) => ({ triggered_at: null, ...row })),
+  };
+}
+
+/**
+ * Dry-run a candidate rule. `config` is validated with the same
+ * validateRuleConfig the CRUD routes use, so a preview of an invalid rule fails
+ * the same way saving it would.
+ *
+ * @param {string} ruleType One of RULE_TYPES.
+ * @param {object} config Raw (unvalidated) rule config.
+ * @param {object} [opts]
+ * @param {string} [opts.name] Rule name, used to render sample messages.
+ * @param {number} [opts.lookbackHours] History window for replayed rule types.
+ * @param {number} [opts.cooldownSeconds] Cooldown to simulate (default 300).
+ * @param {number} [opts.limit] Max sample rows to return.
+ * @returns {{ok: true, preview: object}|{ok: false, error: string}}
+ */
+function previewRule(ruleType, config, opts = {}) {
+  const validated = validateRuleConfig(ruleType, config);
+  if (!validated.ok) return validated;
+  const cfg = validated.config;
+
+  const rawLookback = opts.lookbackHours;
+  if (rawLookback != null && (!Number.isFinite(rawLookback) || rawLookback <= 0)) {
+    return { ok: false, error: "lookback_hours must be a positive number" };
+  }
+  const lookbackHours = Math.min(
+    rawLookback || PREVIEW_DEFAULT_LOOKBACK_HOURS,
+    PREVIEW_MAX_LOOKBACK_HOURS
+  );
+
+  const rawCooldown = opts.cooldownSeconds;
+  if (rawCooldown != null && (!Number.isInteger(rawCooldown) || rawCooldown < 0)) {
+    return { ok: false, error: "cooldown_seconds must be a non-negative integer" };
+  }
+  const cooldownSeconds = rawCooldown == null ? 300 : rawCooldown;
+
+  const rawLimit = opts.limit;
+  if (rawLimit != null && (!Number.isInteger(rawLimit) || rawLimit <= 0)) {
+    return { ok: false, error: "limit must be a positive integer" };
+  }
+  const sampleLimit = Math.min(rawLimit || PREVIEW_DEFAULT_SAMPLE_LIMIT, PREVIEW_MAX_SAMPLE_LIMIT);
+
+  const ruleName =
+    typeof opts.name === "string" && opts.name.trim() ? opts.name.trim() : PREVIEW_RULE_NAME;
+  const since = isoSince(lookbackHours);
+  const ctx = { since, ruleName, cooldownSeconds, sampleLimit, lookbackHours };
+
+  let result;
+  if (ruleType === "event_pattern") result = previewEventPattern(cfg, ctx);
+  else if (ruleType === "token_threshold") result = previewTokenThreshold(cfg, ctx);
+  else result = previewTimeRule(ruleType, cfg, ctx);
+
+  return {
+    ok: true,
+    preview: {
+      rule_type: ruleType,
+      config: cfg,
+      lookback_hours: lookbackHours,
+      cooldown_seconds: cooldownSeconds,
+      since,
+      until: new Date().toISOString(),
+      sample_limit: sampleLimit,
+      ...result,
+    },
+  };
+}
+
 module.exports = {
   RULE_TYPES,
   validateRuleConfig,
+  previewRule,
   evaluateEvent,
   sweepTimeRules,
   fireAlert,

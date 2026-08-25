@@ -1455,6 +1455,8 @@ window.__WIKI_CONTENT_I18N = {
     "List alert rules": "列出告警规则",
     "Create a rule (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)":
       "创建一条规则（<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>）",
+    "Dry-run a draft rule — read-only, nothing is saved or notified. <code>event_pattern</code> replays recorded history; <code>inactivity</code>, <code>status_duration</code> and <code>token_threshold</code> are evaluated against current state":
+      "试运行草稿规则 —— 只读，不保存任何数据，也不发送通知。<code>event_pattern</code> 会回放已记录的历史；<code>inactivity</code>、<code>status_duration</code> 和 <code>token_threshold</code> 则按当前状态评估",
     "Update name / config / enabled / cooldown": "更新名称 / 配置 / 启用状态 / 冷却时间",
     "Delete a rule and its fired-alert history": "删除一条规则及其已触发告警的历史记录",
     "Supported providers + their config fields (drives the UI form)":
@@ -2972,6 +2974,8 @@ window.__WIKI_CONTENT_I18N = {
     "List alert rules": "Liệt kê các quy tắc cảnh báo",
     "Create a rule (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)":
       "Tạo một quy tắc (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)",
+    "Dry-run a draft rule — read-only, nothing is saved or notified. <code>event_pattern</code> replays recorded history; <code>inactivity</code>, <code>status_duration</code> and <code>token_threshold</code> are evaluated against current state":
+      "Chạy thử một quy tắc nháp — chỉ đọc, không lưu và không gửi thông báo. <code>event_pattern</code> phát lại lịch sử đã ghi; <code>inactivity</code>, <code>status_duration</code> và <code>token_threshold</code> được đánh giá theo trạng thái hiện tại",
     "Update name / config / enabled / cooldown":
       "Cập nhật tên / cấu hình / trạng thái bật / thời gian chờ",
     "Delete a rule and its fired-alert history":
@@ -4444,6 +4448,8 @@ window.__WIKI_CONTENT_I18N = {
     "List alert rules": "알림 규칙 목록 조회",
     "Create a rule (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)":
       "규칙 생성(<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)",
+    "Dry-run a draft rule — read-only, nothing is saved or notified. <code>event_pattern</code> replays recorded history; <code>inactivity</code>, <code>status_duration</code> and <code>token_threshold</code> are evaluated against current state":
+      "초안 규칙 시험 실행 — 읽기 전용, 저장이나 알림 없음. <code>event_pattern</code>은 기록된 이력을 재생하고, <code>inactivity</code>, <code>status_duration</code>, <code>token_threshold</code>는 현재 상태로 평가됩니다",
     "Update name / config / enabled / cooldown": "이름/설정/활성화 여부/쿨다운 업데이트",
     "Delete a rule and its fired-alert history": "규칙과 해당 알림 발생 이력 삭제",
     "Supported providers + their config fields (drives the UI form)":
@@ -5947,6 +5953,8 @@ window.__WIKI_CONTENT_I18N = {
     "List alert rules": "Lista de reglas de alerta",
     "Create a rule (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)":
       "Crear una regla (<code>event_pattern</code> | <code>inactivity</code> | <code>status_duration</code> | <code>token_threshold</code>)",
+    "Dry-run a draft rule — read-only, nothing is saved or notified. <code>event_pattern</code> replays recorded history; <code>inactivity</code>, <code>status_duration</code> and <code>token_threshold</code> are evaluated against current state":
+      "Prueba en seco una regla borrador: solo lectura, no se guarda ni se notifica nada. <code>event_pattern</code> reproduce el historial registrado; <code>inactivity</code>, <code>status_duration</code> y <code>token_threshold</code> se evalúan contra el estado actual",
     "Update name / config / enabled / cooldown":
       "Actualizar nombre / configuración / habilitado / tiempo de espera",
     "Delete a rule and its fired-alert history":

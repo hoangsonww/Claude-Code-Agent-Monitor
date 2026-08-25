@@ -2994,6 +2994,73 @@ function createOpenApiSpec() {
           },
         },
       },
+      "/api/alerts/rules/preview": {
+        post: {
+          tags: ["Alerts"],
+          summary: "Dry-run an alert rule against recorded history (read-only)",
+          description:
+            "Backtests a candidate rule without saving it. Nothing is persisted, broadcast, or delivered to webhooks. event_pattern rules are replayed over historical events (including the per-session count-in-window and a simulated cooldown); inactivity, status_duration and token_threshold are evaluated against current state, indicated by preview.evaluated. For token_threshold the lookback acts as a candidate filter (echoed as preview.candidate_window_hours), not a replay window: a session idle beyond it can no longer fire the rule. summary_contains is matched as a literal substring \u2014 SQL LIKE metacharacters are escaped.",
+          operationId: "previewAlertRule",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["rule_type", "config"],
+                  properties: {
+                    name: {
+                      type: "string",
+                      description: "Rule name used to render sample messages",
+                    },
+                    rule_type: {
+                      type: "string",
+                      enum: ["event_pattern", "inactivity", "status_duration", "token_threshold"],
+                    },
+                    config: {
+                      type: "object",
+                      additionalProperties: true,
+                      description: "Same shape and validation as createAlertRule.",
+                    },
+                    lookback_hours: {
+                      type: "number",
+                      default: 24,
+                      description: "History window for replayed rule types; clamped to 720.",
+                    },
+                    cooldown_seconds: {
+                      type: "integer",
+                      default: 300,
+                      description: "Cooldown to simulate when replaying.",
+                    },
+                    limit: {
+                      type: "integer",
+                      default: 20,
+                      description: "Max sample rows returned; clamped to 200.",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description:
+                "Preview result: matched_count, would_fire_count, suppressed_by_cooldown, truncated, and up to `limit` sample firings.",
+              content: {
+                "application/json": {
+                  schema: { type: "object", additionalProperties: true },
+                },
+              },
+            },
+            400: {
+              description: "Validation error",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+              },
+            },
+          },
+        },
+      },
       "/api/alerts/rules/{id}": {
         patch: {
           tags: ["Alerts"],

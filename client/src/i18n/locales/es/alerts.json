@@ -50,6 +50,23 @@
       "totalTokens": "Total de tokens",
       "cooldown": "Tiempo de espera (segundos)"
     },
+    "preview": {
+      "button": "Previsualizar coincidencias",
+      "running": "Previsualizando…",
+      "title": "Previsualización",
+      "lookback": "Periodo",
+      "lookbackHours": "{{hours}} h",
+      "help": "Prueba esta regla contra el historial registrado antes de guardarla. No se almacena nada ni se envía ninguna notificación.",
+      "wouldFire": "Se habría activado:",
+      "matched": "coincidencias:",
+      "suppressed": "suprimidas por el enfriamiento:",
+      "history": "Reproducida sobre las últimas {{hours}} h de eventos registrados.",
+      "currentState": "Este tipo de regla no tiene historial reproducible: se muestra lo que coincide ahora mismo.",
+      "currentStateTokens": "Los totales son actuales. Solo se consideran las sesiones con actividad en las últimas {{hours}} h: una sesión sin eventos recientes ya no puede activar esta regla.",
+      "truncated": "Se alcanzó el límite de escaneo, así que los totales son un mínimo.",
+      "none": "Sin coincidencias: esta regla no se habría activado.",
+      "more": "+{{extra}} más no mostradas"
+    },
     "deleteTitle": "¿Eliminar regla de alerta?",
     "help": {
       "name": "Una etiqueta para esta regla. Aparece en el feed de alertas y se incluye en los payloads de webhook (rule_name). p. ej., 'Errores Bash repetidos'.",

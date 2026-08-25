@@ -19,6 +19,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Settings](#settings)
   - [Import History](#import-history)
   - [Notifications](#notifications)
+  - [Alerts](#alerts)
   - [Remote Data Sources](#remote-data-sources)
 - [WebSocket API](#websocket-api)
 - [Error Handling](#error-handling)
@@ -965,6 +966,95 @@ curl http://localhost:4820/api/sessions/sess_abc123/notifications
   ]
 }
 ```
+
+### Alerts
+
+The `/api/alerts/*` namespace covers the rules-based alerting engine: the rule definitions, a read-only preview, the fired-alert feed, and acknowledgement.
+
+```http
+GET    /api/alerts
+POST   /api/alerts/:id/ack
+POST   /api/alerts/ack-all
+GET    /api/alerts/rules
+POST   /api/alerts/rules
+POST   /api/alerts/rules/preview
+PATCH  /api/alerts/rules/:id
+DELETE /api/alerts/rules/:id
+```
+
+#### Preview (dry-run) an Alert Rule
+
+```http
+POST /api/alerts/rules/preview
+```
+
+Backtests a candidate rule **without saving it**. The request is strictly read-only: no rule row, no `alert_events` row, no WebSocket broadcast, and no webhook delivery.
+
+**Body Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `rule_type` | string | — | `event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold` |
+| `config` | object | — | Same shape and validation as `POST /api/alerts/rules` |
+| `name` | string | `"Preview"` | Used only to render the sample messages |
+| `lookback_hours` | number | `24` | History window for replayed rule types; clamped to 720 |
+| `cooldown_seconds` | integer | `300` | Cooldown to simulate while replaying. Validated as a non-negative integer; deliberately **not** capped, so any cooldown a real rule can carry is previewable |
+| `limit` | integer | `20` | Max sample firings returned; clamped to 200 |
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:4820/api/alerts/rules/preview \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "name": "Bash burst",
+        "rule_type": "event_pattern",
+        "config": { "tool_name": "Bash", "count": 5, "window_minutes": 2 },
+        "lookback_hours": 24
+      }'
+```
+
+**Example Response:**
+
+```json
+{
+  "preview": {
+    "rule_type": "event_pattern",
+    "config": { "tool_name": "Bash", "count": 5, "window_minutes": 2 },
+    "evaluated": "history",
+    "lookback_hours": 24,
+    "cooldown_seconds": 300,
+    "since": "2026-08-23T09:00:00.000Z",
+    "until": "2026-08-24T09:00:00.000Z",
+    "matched_count": 412,
+    "would_fire_count": 7,
+    "suppressed_by_cooldown": 39,
+    "truncated": false,
+    "sample_limit": 20,
+    "samples": [
+      {
+        "triggered_at": "2026-08-23T14:22:07.311Z",
+        "session_id": "sess_abc123",
+        "session_name": "auth-refactor",
+        "agent_id": null,
+        "message": "Bash burst: 5 matching events in 2 min (threshold 5)",
+        "details": { "matched": { "tool_name": "Bash", "count": 5, "window_minutes": 2 }, "observed_count": 5, "last_event_type": "PreToolUse" }
+      }
+    ]
+  }
+}
+```
+
+`evaluated` says how the answer was produced:
+
+- `"history"` — `event_pattern` rules are replayed over recorded events, reproducing the live per-session count-in-window check and simulating the cooldown.
+- `"current_state"` — `inactivity`, `status_duration` and `token_threshold` have no reconstructible history (`token_usage` stores running totals, not a per-instant series), so the response reports what matches *right now*. `triggered_at` is `null` on those samples.
+
+For `token_threshold`, `lookback_hours` still applies — but as a **candidate filter**, not a replay window, echoed back as `candidate_window_hours`. The rule is only evaluated when a token-bearing event arrives, and `sessions.updated_at` moves on every ingested event, so a session idle beyond the window can no longer fire the rule however large its stored total is. Listing it would report a match that provably cannot happen, so it is excluded. The totals themselves are always current.
+
+`summary_contains` is a **literal** substring, matching the live engine's `String#includes` semantics. `%`, `_` and the escape character are escaped and an `ESCAPE` clause is applied, so `summary_contains: "%"` matches only summaries that literally contain a percent sign rather than every non-null summary.
+
+`truncated: true` means the scan hit its 20 000-row ceiling and the counts are a lower bound — narrow the pattern or shorten `lookback_hours`.
 
 ### Webhooks
 

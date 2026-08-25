@@ -1136,6 +1136,7 @@ npm run monitoring:docker:up
 | `POST`   | `/api/alerts/ack-all`    | 확인되지 않은 모든 알림을 확인 처리                                    |
 | `GET`    | `/api/alerts/rules`      | 알림 규칙 목록 조회                                                    |
 | `POST`   | `/api/alerts/rules`      | 규칙 생성(`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
+| `POST`   | `/api/alerts/rules/preview` | 초안 규칙 시험 실행 — 읽기 전용, 저장이나 알림 없음. `event_pattern`은 기록된 이력을 재생하고, `inactivity` / `status_duration` / `token_threshold`는 현재 상태로 평가됩니다(`evaluated`가 어느 쪽인지 표시) |
 | `PATCH`  | `/api/alerts/rules/:id`  | 이름 / 설정 / 활성화 / 쿨다운 업데이트(규칙 유형은 변경 불가)          |
 | `DELETE` | `/api/alerts/rules/:id`  | 규칙과 해당 발생 알림 기록 삭제                                        |
 

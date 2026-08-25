@@ -3502,6 +3502,16 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               >
             </div>
             <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/alerts/rules/preview</span>
+              <span class="route-desc"
+                >Dry-run a draft rule — read-only, nothing is saved or notified.
+                <code>event_pattern</code> replays recorded history; <code>inactivity</code>,
+                <code>status_duration</code> and <code>token_threshold</code> are evaluated against
+                current state</span
+              >
+            </div>
+            <div class="route-item">
               <span class="method method-patch">PATCH</span>
               <span class="route-path">/api/alerts/rules/:id</span>
               <span class="route-desc">Update name / config / enabled / cooldown</span>
@@ -7040,7 +7050,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=85" defer></script>
+    <script src="i18n-content.js?v=87" defer></script>
     <script src="script.js?v=56" defer></script>
     <script>
       (function () {

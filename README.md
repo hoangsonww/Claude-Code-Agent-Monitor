@@ -1162,6 +1162,7 @@ See [docs/API.md → Metrics](./docs/API.md#metrics) for the full metric list an
 | `POST`   | `/api/alerts/ack-all`    | Acknowledge every unacked alert                                        |
 | `GET`    | `/api/alerts/rules`      | List alert rules                                                       |
 | `POST`   | `/api/alerts/rules`      | Create a rule (`event_pattern` \| `inactivity` \| `status_duration` \| `token_threshold`) |
+| `POST`   | `/api/alerts/rules/preview` | Dry-run a draft rule — read-only, nothing is saved or notified. `event_pattern` replays recorded history; `inactivity` / `status_duration` / `token_threshold` are evaluated against current state (`evaluated` says which) |
 | `PATCH`  | `/api/alerts/rules/:id`  | Update name / config / enabled / cooldown (rule type is immutable)     |
 | `DELETE` | `/api/alerts/rules/:id`  | Delete a rule and its fired-alert history                              |
 

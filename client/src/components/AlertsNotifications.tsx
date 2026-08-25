@@ -3,7 +3,8 @@
  * @description Unified "Alerts" control center embedded in the Settings page
  * (replaces the standalone /alerts route). A segmented tab UI
  * combines three concerns that used to be split across a page and a panel:
- *   • Rules    - define what conditions trigger an alert
+ *   • Rules    - define what conditions trigger an alert, with a read-only
+ *                preview that backtests a draft rule before it is saved
  *   • Channels - webhook targets that receive fired alerts (Slack/Discord/…)
  *   • Activity - the live fired-alert feed with acknowledge controls
  * Tab badges reflect live state (rule count, unacked alert count), and the feed
@@ -68,7 +69,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -77,6 +78,7 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
+  FlaskConical,
   ListChecks,
   Plus,
   RefreshCw,
@@ -93,7 +95,13 @@ import { ConfirmModal } from "./ConfirmModal";
 import { Checkbox } from "./Checkbox";
 import { FieldHelp } from "./FieldHelp";
 import { timeAgo } from "../lib/format";
-import type { AlertEvent, AlertRule, AlertRuleType, WSMessage } from "../lib/types";
+import type {
+  AlertEvent,
+  AlertRule,
+  AlertRulePreview,
+  AlertRuleType,
+  WSMessage,
+} from "../lib/types";
 
 const PAGE_SIZE = 25;
 
@@ -225,6 +233,17 @@ export function AlertsNotifications() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmRule, setConfirmRule] = useState<AlertRule | null>(null);
+  // Draft-rule backtest. Kept alongside the form (not inside it) so editing any
+  // field can invalidate a stale result rather than leaving numbers on screen
+  // that no longer describe what the form now says.
+  const [preview, setPreview] = useState<AlertRulePreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewLookback, setPreviewLookback] = useState(24);
+  // Monotonic id for the in-flight preview request. Editing the form clears the
+  // result, but a response already on the wire would otherwise land afterwards
+  // and repopulate the panel with numbers describing the *previous* draft. Only
+  // the response whose id still matches is applied.
+  const previewRequestId = useRef(0);
 
   // Feed
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
@@ -296,7 +315,37 @@ export function AlertsNotifications() {
     });
   }, [loadAlerts]);
 
-  const set = (patch: Partial<RuleFormState>) => setForm((prev) => ({ ...prev, ...patch }));
+  const set = (patch: Partial<RuleFormState>) => {
+    // Invalidate any in-flight preview along with the displayed one.
+    previewRequestId.current += 1;
+    setPreview(null);
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const onPreviewRule = async () => {
+    if (previewing) return;
+    const requestId = ++previewRequestId.current;
+    setPreviewing(true);
+    setFormError(null);
+    try {
+      const cooldown = parseInt(form.cooldown_seconds, 10);
+      const res = await api.alerts.rules.preview({
+        name: form.name.trim() || undefined,
+        rule_type: form.rule_type,
+        config: buildConfig(form),
+        lookback_hours: previewLookback,
+        cooldown_seconds: Number.isFinite(cooldown) && cooldown >= 0 ? cooldown : 300,
+      });
+      if (previewRequestId.current !== requestId) return; // superseded — drop it
+      setPreview(res.preview);
+    } catch (err) {
+      if (previewRequestId.current !== requestId) return;
+      setPreview(null);
+      setFormError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (previewRequestId.current === requestId) setPreviewing(false);
+    }
+  };
 
   const onCreateRule = async () => {
     if (saving) return;
@@ -311,6 +360,8 @@ export function AlertsNotifications() {
         cooldown_seconds: Number.isFinite(cooldown) && cooldown >= 0 ? cooldown : 300,
       });
       setForm(EMPTY_FORM);
+      previewRequestId.current += 1;
+      setPreview(null);
       setFormOpen(false);
       loadRules();
     } catch (err) {
@@ -364,8 +415,8 @@ export function AlertsNotifications() {
   const tokensVal = parseInt(form.total_tokens, 10);
   const countVal = parseInt(form.count, 10);
   const windowVal = parseFloat(form.window_minutes);
-  const canSubmit =
-    form.name.trim().length > 0 &&
+  // The rule config alone — a preview does not need a name, only a valid shape.
+  const configValid =
     (form.rule_type !== "event_pattern" ||
       (Boolean(form.event_type.trim() || form.tool_name.trim() || form.summary_contains.trim()) &&
         Number.isFinite(countVal) &&
@@ -374,6 +425,7 @@ export function AlertsNotifications() {
     ((form.rule_type !== "inactivity" && form.rule_type !== "status_duration") ||
       (Number.isFinite(minutesVal) && minutesVal > 0)) &&
     (form.rule_type !== "token_threshold" || (Number.isFinite(tokensVal) && tokensVal > 0));
+  const canSubmit = form.name.trim().length > 0 && configValid;
 
   const TABS: { key: TabKey; label: string; icon: typeof ListChecks; badge?: number }[] = [
     {
@@ -440,6 +492,8 @@ export function AlertsNotifications() {
               onClick={() => {
                 setFormOpen((open) => !open);
                 setFormError(null);
+                previewRequestId.current += 1;
+                setPreview(null);
               }}
               className="btn-ghost border border-border inline-flex items-center gap-1.5 text-xs flex-shrink-0"
             >
@@ -647,15 +701,109 @@ export function AlertsNotifications() {
                     className="input w-40"
                   />
                 </label>
-                <button
-                  onClick={onCreateRule}
-                  disabled={!canSubmit || saving}
-                  className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {saving ? t("rules.saving") : t("rules.create")}
-                </button>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block text-xs text-gray-400">
+                    <span className="mb-1.5 flex items-center gap-1">
+                      {t("rules.preview.lookback")}
+                      <FieldHelp description={t("rules.preview.help")} />
+                    </span>
+                    <select
+                      value={previewLookback}
+                      onChange={(e) => {
+                        previewRequestId.current += 1;
+                        setPreviewLookback(Number(e.target.value));
+                        setPreview(null);
+                      }}
+                      className="input w-28"
+                    >
+                      {[1, 6, 24, 72, 168].map((hours) => (
+                        <option key={hours} value={hours}>
+                          {t("rules.preview.lookbackHours", { hours })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    onClick={onPreviewRule}
+                    disabled={!configValid || previewing}
+                    className="btn-ghost border border-border inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FlaskConical className="w-3.5 h-3.5" />
+                    {previewing ? t("rules.preview.running") : t("rules.preview.button")}
+                  </button>
+                  <button
+                    onClick={onCreateRule}
+                    disabled={!canSubmit || saving}
+                    className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {saving ? t("rules.saving") : t("rules.create")}
+                  </button>
+                </div>
               </div>
+
+              {preview && (
+                <div className="rounded-lg border border-border bg-surface-3 p-3 space-y-2">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <span className="text-xs font-semibold text-gray-200">
+                      {t("rules.preview.title")}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {t("rules.preview.wouldFire")}{" "}
+                      <strong
+                        className={preview.would_fire_count > 0 ? "text-accent" : "text-gray-300"}
+                      >
+                        {preview.would_fire_count}
+                      </strong>
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {t("rules.preview.matched")} {preview.matched_count}
+                    </span>
+                    {preview.suppressed_by_cooldown > 0 && (
+                      <span className="text-xs text-gray-500">
+                        {t("rules.preview.suppressed")} {preview.suppressed_by_cooldown}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-gray-500">
+                    {preview.evaluated === "history"
+                      ? t("rules.preview.history", { hours: preview.lookback_hours })
+                      : preview.candidate_window_hours != null
+                        ? t("rules.preview.currentStateTokens", {
+                            hours: preview.candidate_window_hours,
+                          })
+                        : t("rules.preview.currentState")}
+                    {preview.truncated ? ` ${t("rules.preview.truncated")}` : ""}
+                  </p>
+
+                  {preview.samples.length === 0 ? (
+                    <p className="text-xs text-gray-500">{t("rules.preview.none")}</p>
+                  ) : (
+                    <ul className="space-y-1 max-h-48 overflow-y-auto">
+                      {preview.samples.map((sample, i) => (
+                        <li
+                          key={`${sample.session_id}-${sample.triggered_at ?? i}`}
+                          className="text-[11px] text-gray-400 border-l-2 border-border pl-2"
+                        >
+                          <span className="text-gray-300">{sample.message}</span>
+                          {sample.triggered_at && (
+                            <span className="text-gray-600"> · {timeAgo(sample.triggered_at)}</span>
+                          )}
+                        </li>
+                      ))}
+                      {preview.would_fire_count > preview.samples.length && (
+                        <li className="text-[11px] text-gray-600 pl-2">
+                          {t("rules.preview.more", {
+                            extra: preview.would_fire_count - preview.samples.length,
+                          })}
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               {formError && <p className="text-xs text-red-400">{formError}</p>}
             </div>
           )}

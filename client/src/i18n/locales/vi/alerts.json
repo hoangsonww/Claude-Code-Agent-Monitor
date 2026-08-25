@@ -50,6 +50,23 @@
       "totalTokens": "Tổng token",
       "cooldown": "Thời gian chờ (giây)"
     },
+    "preview": {
+      "button": "Xem trước kết quả khớp",
+      "running": "Đang xem trước…",
+      "title": "Xem trước",
+      "lookback": "Khoảng thời gian",
+      "lookbackHours": "{{hours}} giờ",
+      "help": "Chạy thử quy tắc này trên lịch sử đã ghi trước khi lưu. Không có gì được lưu lại và không gửi thông báo nào.",
+      "wouldFire": "Sẽ kích hoạt:",
+      "matched": "khớp:",
+      "suppressed": "bị chặn bởi thời gian chờ:",
+      "history": "Phát lại trên {{hours}} giờ sự kiện đã ghi gần nhất.",
+      "currentState": "Loại quy tắc này không có lịch sử để phát lại — hiển thị những gì khớp ngay lúc này.",
+      "currentStateTokens": "Các tổng số là hiện tại. Chỉ những phiên có hoạt động trong {{hours}} giờ gần nhất được xét đến — một phiên không có sự kiện gần đây thì không thể kích hoạt quy tắc này nữa.",
+      "truncated": "Đã chạm giới hạn quét nên các số liệu chỉ là mức tối thiểu.",
+      "none": "Không có kết quả khớp — quy tắc này sẽ không kích hoạt.",
+      "more": "+{{extra}} mục khác không hiển thị"
+    },
     "deleteTitle": "Xóa quy tắc cảnh báo?",
     "help": {
       "name": "Nhãn cho quy tắc này. Hiển thị trong danh sách cảnh báo và đính kèm trong payload webhook (rule_name). vd: 'Lỗi Bash lặp lại'.",

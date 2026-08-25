@@ -50,6 +50,23 @@
       "totalTokens": "전체 토큰",
       "cooldown": "쿨다운(초)"
     },
+    "preview": {
+      "button": "일치 항목 미리보기",
+      "running": "미리보는 중…",
+      "title": "미리보기",
+      "lookback": "조회 기간",
+      "lookbackHours": "{{hours}}시간",
+      "help": "저장하기 전에 기록된 이력으로 이 규칙을 시험 실행합니다. 아무것도 저장되지 않고 알림도 전송되지 않습니다.",
+      "wouldFire": "발생했을 횟수:",
+      "matched": "일치:",
+      "suppressed": "쿨다운으로 억제됨:",
+      "history": "최근 {{hours}}시간의 기록된 이벤트로 재생했습니다.",
+      "currentState": "이 규칙 유형은 재생할 이력이 없어 현재 일치하는 항목을 표시합니다.",
+      "currentStateTokens": "합계는 현재 값입니다. 최근 {{hours}}시간 동안 활동이 있었던 세션만 대상으로 합니다 — 최근 이벤트가 없는 세션은 더 이상 이 규칙을 발생시킬 수 없습니다.",
+      "truncated": "스캔 한도에 도달하여 집계는 최솟값입니다.",
+      "none": "일치 항목 없음 — 이 규칙은 발생하지 않았을 것입니다.",
+      "more": "표시되지 않은 항목 {{extra}}개 더"
+    },
     "deleteTitle": "알림 규칙을 삭제하시겠습니까?",
     "help": {
       "name": "이 규칙의 라벨입니다. 알림 피드에 표시되며 웹훅 페이로드(rule_name)에 포함됩니다. 예: 'Repeated Bash errors'.",
