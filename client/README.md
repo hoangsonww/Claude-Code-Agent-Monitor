@@ -671,7 +671,7 @@ One query resolves against three groups:
 
 Session search is server-side on purpose: the dashboard routinely holds thousands of sessions, so no client-side index is kept, and reusing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope. A failed or slow query degrades quietly — page and action results are local and render immediately, so the palette is never blocked by the network.
 
-```
+```text
 ┌──────────────────────────────────────────────┐
 │ 🔍  Search pages, sessions, and actions…     │
 ├──────────────────────────────────────────────┤

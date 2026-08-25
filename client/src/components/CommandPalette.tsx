@@ -111,7 +111,16 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  // Results are stored with the term that produced them. Rendering is derived by
+  // comparing that term to what is typed now, so a slow response can never leave
+  // the previous query's sessions on screen — and therefore selectable — while a
+  // newer query is pending. Clearing on every keystroke instead would work, but
+  // this keeps the two facts (results, and what they answer) impossible to
+  // desynchronize.
+  const [sessionResults, setSessionResults] = useState<{ term: string; sessions: Session[] }>({
+    term: "",
+    sessions: [],
+  });
   const [searching, setSearching] = useState(false);
 
   const listboxId = useId();
@@ -147,7 +156,7 @@ export function CommandPalette() {
     if (!open) return;
     setQuery("");
     setActiveIndex(0);
-    setSessions([]);
+    setSessionResults({ term: "", sessions: [] });
     previouslyFocused.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -163,7 +172,7 @@ export function CommandPalette() {
     if (!open) return;
     const term = query.trim();
     if (term.length < 2) {
-      setSessions([]);
+      setSessionResults({ term: "", sessions: [] });
       setSearching(false);
       return;
     }
@@ -174,12 +183,12 @@ export function CommandPalette() {
       api.sessions
         .list({ q: term, limit: SESSION_RESULT_LIMIT, sort_by: "started_at", sort_desc: true })
         .then((res) => {
-          if (!cancelled) setSessions(res.sessions);
+          if (!cancelled) setSessionResults({ term, sessions: res.sessions });
         })
         .catch(() => {
           // Search is an enhancement, not the palette's reason to exist — page
           // and action results still work, so fail quiet rather than erroring.
-          if (!cancelled) setSessions([]);
+          if (!cancelled) setSessionResults({ term, sessions: [] });
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
@@ -195,6 +204,8 @@ export function CommandPalette() {
 
   const items = useMemo<PaletteItem[]>(() => {
     const term = query.trim();
+    // Only show results that actually answer what is typed right now.
+    const sessions = sessionResults.term === term ? sessionResults.sessions : [];
     const go = (to: string) => () => {
       close();
       navigate(to);
@@ -251,7 +262,7 @@ export function CommandPalette() {
     ].filter((action) => matches(action.label, term));
 
     return [...pages, ...sessionItems, ...actions];
-  }, [query, sessions, navigate, close, t]);
+  }, [query, sessionResults, navigate, close, t]);
 
   // Clamp the cursor whenever the result set shrinks under it.
   useEffect(() => {

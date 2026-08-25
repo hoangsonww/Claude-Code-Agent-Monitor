@@ -3,8 +3,9 @@
  * @description Tests for the global Cmd/Ctrl+K launcher: hotkey open/close on
  * both platforms' modifiers, page filtering, keyboard navigation and selection,
  * debounced server-side session search (including graceful degradation when the
- * query fails), the programmatic open event used by the sidebar trigger, and
- * dismissal behavior.
+ * query fails and the guarantee that a slow response never leaves a previous
+ * query's sessions on screen), the programmatic open event used by the sidebar
+ * trigger, and dismissal behavior.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -216,6 +217,82 @@ describe("CommandPalette", () => {
     fireEvent.click(result);
 
     expect(screen.getByTestId("location")).toHaveTextContent("/sessions/sess-42");
+  });
+
+  it("drops the previous query's sessions as soon as the term changes", async () => {
+    const first = {
+      id: "sess-old",
+      name: "Old result for freeze",
+      status: "completed",
+      cwd: "/work/app",
+      model: "claude-opus-5",
+      started_at: "2026-08-01T00:00:00.000Z",
+      ended_at: null,
+      metadata: null,
+    };
+    listSessions.mockResolvedValue({ sessions: [first], total: 1, limit: 6, offset: 0 });
+
+    renderPalette();
+    pressHotkey();
+    const input = screen.getByRole("combobox");
+
+    fireEvent.change(input, { target: { value: "freeze" } });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    await screen.findByText("Old result for freeze");
+
+    // A new eligible term whose request has not resolved yet must not leave the
+    // previous term's session visible — it would be selectable and wrong.
+    let resolveSecond: (value: unknown) => void = () => {};
+    listSessions.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSecond = resolve;
+      })
+    );
+    fireEvent.change(input, { target: { value: "unrelated" } });
+
+    expect(screen.queryByText("Old result for freeze")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    await act(async () => {
+      resolveSecond({ sessions: [], total: 0, limit: 6, offset: 0 });
+    });
+    expect(screen.queryByText("Old result for freeze")).not.toBeInTheDocument();
+  });
+
+  it("drops session results when the term falls back below the search floor", async () => {
+    listSessions.mockResolvedValue({
+      sessions: [
+        {
+          id: "sess-floor",
+          name: "Result above the floor",
+          status: "active",
+          cwd: "/work/app",
+          model: "claude-opus-5",
+          started_at: "2026-08-01T00:00:00.000Z",
+          ended_at: null,
+          metadata: null,
+        },
+      ],
+      total: 1,
+      limit: 6,
+      offset: 0,
+    });
+
+    renderPalette();
+    pressHotkey();
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "ab" } });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    await screen.findByText("Result above the floor");
+
+    fireEvent.change(input, { target: { value: "a" } });
+    expect(screen.queryByText("Result above the floor")).not.toBeInTheDocument();
   });
 
   it("stays usable when the session search fails", async () => {
