@@ -84,5 +84,6 @@
       "loadOlder": "↑ Tải các tin nhắn cũ hơn"
     }
   },
-  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa"
+  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
+  "replay": "Phát lại"
 }

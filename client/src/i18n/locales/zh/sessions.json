@@ -84,5 +84,6 @@
       "loadOlder": "↑ 加载更早的消息"
     }
   },
-  "remoteSourceBadgeTitle": "从远程机器收集"
+  "remoteSourceBadgeTitle": "从远程机器收集",
+  "replay": "回放"
 }

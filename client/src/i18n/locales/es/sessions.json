@@ -84,5 +84,6 @@
       "loadOlder": "↑ Cargar mensajes anteriores"
     }
   },
-  "remoteSourceBadgeTitle": "Recopilado desde una máquina remota"
+  "remoteSourceBadgeTitle": "Recopilado desde una máquina remota",
+  "replay": "Reproducción"
 }

@@ -84,5 +84,6 @@
       "loadOlder": "↑ 이전 메시지 불러오기"
     }
   },
-  "remoteSourceBadgeTitle": "원격 머신에서 수집됨"
+  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
+  "replay": "다시 재생"
 }
