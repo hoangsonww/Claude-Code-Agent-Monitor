@@ -1,70 +1,70 @@
 {
-  "title": "Session Replay",
-  "subtitle": "Step through events and watch agent state evolve over time",
-  "backToSession": "Back to session",
-  "loading": "Loading events…",
-  "loadError": "Failed to load session events",
-  "noEvents": "No events recorded for this session",
-  "noEventsDesc": "Replay requires at least one ingested event. Check that hooks are installed and the session has run.",
+  "title": "会话回放",
+  "subtitle": "逐步浏览事件，观察智能体状态的变化",
+  "backToSession": "返回会话",
+  "loading": "正在加载事件:",
+  "loadError": "加载会话事件失败",
+  "noEvents": "此会话未记录任何事件",
+  "noEventsDesc": "回放需要至少一个已记录的事件。请检查钩子是否已安装及会话是否已运行。",
   "controls": {
-    "play": "Play",
-    "pause": "Pause",
-    "stepBack": "Step back",
-    "stepForward": "Step forward",
-    "toStart": "Jump to start",
-    "toEnd": "Jump to end",
-    "speed": "Speed",
+    "play": "播放",
+    "pause": "暂停",
+    "stepBack": "上一步",
+    "stepForward": "下一步",
+    "toStart": "跳到开始",
+    "toEnd": "跳到结束",
+    "speed": "速度",
     "speeds": {
-      "1": "1×",
-      "2": "2×",
-      "5": "5×",
-      "0.5": "0.5×"
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
     }
   },
   "scrubber": {
-    "label": "Timeline",
-    "ariaLabel": "Event timeline scrubber — drag or use arrow keys to step through events",
-    "eventOf": "Event {{current}} of {{total}}"
+    "label": "时间线",
+    "ariaLabel": "事件时间线滑块 - 拖动或使用方向键逐个事件浏览",
+    "eventOf": "第 {{current}} 个事件 / 共 {{total}} 个"
   },
   "cursor": {
-    "timestamp": "Timestamp",
-    "eventIndex": "Event",
-    "eventType": "Type",
-    "tool": "Tool",
-    "agent": "Agent",
-    "summary": "Summary"
+    "timestamp": "时间戳",
+    "eventIndex": "事件",
+    "eventType": "类型",
+    "tool": "工具",
+    "agent": "智能体",
+    "summary": "摘要"
   },
   "minimap": {
-    "title": "Lifecycle transitions",
-    "ariaLabel": "Mini-map of major lifecycle events — click to jump",
-    "noTransitions": "No lifecycle transitions"
+    "title": "生命周期转换",
+    "ariaLabel": "主要生命周期事件缩略图 - 点击跳转",
+    "noTransitions": "无生命周期转换"
   },
   "agents": {
-    "title": "Agent states at cursor",
-    "noAgents": "No agents seen up to this point"
+    "title": "游标处的智能体状态",
+    "noAgents": "此位置之前未观察到智能体"
   },
   "keyboard": {
-    "hint": "Keyboard: Space play/pause · ← → step · Home/End jump to start/end"
+    "hint": "键盘: 空格 播放/暂停, 左/右 步进, Home/End 跳到开始/结束"
   },
   "status": {
-    "working": "Working",
-    "waiting": "Waiting",
-    "completed": "Completed",
-    "error": "Error",
-    "abandoned": "Abandoned",
-    "idle": "Idle"
+    "working": "工作中",
+    "waiting": "等待中",
+    "completed": "已完成",
+    "error": "错误",
+    "abandoned": "已放弃",
+    "idle": "空闲"
   },
   "eventTypes": {
-    "SessionStart": "Session Start",
-    "PreToolUse": "Tool Call",
-    "PostToolUse": "Tool Result",
-    "Stop": "Stop",
-    "SubagentStop": "Subagent Stop",
-    "Notification": "Notification",
-    "TurnDuration": "Turn Duration",
-    "Compaction": "Compaction",
-    "APIError": "API Error",
-    "error": "Error"
+    "SessionStart": "会话开始",
+    "PreToolUse": "工具调用",
+    "PostToolUse": "工具结果",
+    "Stop": "停止",
+    "SubagentStop": "子智能体停止",
+    "Notification": "通知",
+    "TurnDuration": "轮次时长",
+    "Compaction": "压缩",
+    "APIError": "API 错误",
+    "error": "错误"
   },
-  "checkpoints": "Checkpoints built: {{count}}"
+  "checkpoints": "已创建 {{count}} 个检查点"
 }

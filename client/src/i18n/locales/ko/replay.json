@@ -1,70 +1,70 @@
 {
-  "title": "Session Replay",
-  "subtitle": "Step through events and watch agent state evolve over time",
-  "backToSession": "Back to session",
-  "loading": "Loading events…",
-  "loadError": "Failed to load session events",
-  "noEvents": "No events recorded for this session",
-  "noEventsDesc": "Replay requires at least one ingested event. Check that hooks are installed and the session has run.",
+  "title": "세션 다시 재생",
+  "subtitle": "이벤트를 한 단계씩 살펴보고 에이전트 상태가 어떻게 변하는지 확인하세요",
+  "backToSession": "세션으로 돌아가기",
+  "loading": "이벤트 로드 중:",
+  "loadError": "세션 이벤트 로드 실패",
+  "noEvents": "이 세션에 기록된 이벤트가 없습니다",
+  "noEventsDesc": "재생에는 기록된 이벤트가 최소 하나 필요합니다. 훅이 설치되었고 세션이 실행되었는지 확인하세요.",
   "controls": {
-    "play": "Play",
-    "pause": "Pause",
-    "stepBack": "Step back",
-    "stepForward": "Step forward",
-    "toStart": "Jump to start",
-    "toEnd": "Jump to end",
-    "speed": "Speed",
+    "play": "재생",
+    "pause": "일시정지",
+    "stepBack": "이전 한 단계",
+    "stepForward": "다음 한 단계",
+    "toStart": "시작으로",
+    "toEnd": "끝으로",
+    "speed": "속도",
     "speeds": {
-      "1": "1×",
-      "2": "2×",
-      "5": "5×",
-      "0.5": "0.5×"
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
     }
   },
   "scrubber": {
-    "label": "Timeline",
-    "ariaLabel": "Event timeline scrubber — drag or use arrow keys to step through events",
-    "eventOf": "Event {{current}} of {{total}}"
+    "label": "타임라인",
+    "ariaLabel": "이벤트 타임라인 스크러버 - 끌거나 화살표로 단계를 이동하세요",
+    "eventOf": "총 {{total}}개 중 {{current}}번째 이벤트"
   },
   "cursor": {
-    "timestamp": "Timestamp",
-    "eventIndex": "Event",
-    "eventType": "Type",
-    "tool": "Tool",
-    "agent": "Agent",
-    "summary": "Summary"
+    "timestamp": "시간각적",
+    "eventIndex": "이벤트",
+    "eventType": "유형",
+    "tool": "도구",
+    "agent": "에이전트",
+    "summary": "요약"
   },
   "minimap": {
-    "title": "Lifecycle transitions",
-    "ariaLabel": "Mini-map of major lifecycle events — click to jump",
-    "noTransitions": "No lifecycle transitions"
+    "title": "생명주기 전환",
+    "ariaLabel": "주요 생명주기 이벤트 미니맵 - 클릭하여 이동",
+    "noTransitions": "생명주기 전환 없음"
   },
   "agents": {
-    "title": "Agent states at cursor",
-    "noAgents": "No agents seen up to this point"
+    "title": "커서의 에이전트 상태",
+    "noAgents": "이 지점까지는 에이전트가 관찰되지 않음"
   },
   "keyboard": {
-    "hint": "Keyboard: Space play/pause · ← → step · Home/End jump to start/end"
+    "hint": "키보드: Space 재생/일시정지, 화살표로 단계 이동, Home/End로 시작/끝으로"
   },
   "status": {
-    "working": "Working",
-    "waiting": "Waiting",
-    "completed": "Completed",
-    "error": "Error",
-    "abandoned": "Abandoned",
-    "idle": "Idle"
+    "working": "작업 중",
+    "waiting": "대기 중",
+    "completed": "완료",
+    "error": "오류",
+    "abandoned": "중단된 테이크 확인",
+    "idle": "비활성"
   },
   "eventTypes": {
-    "SessionStart": "Session Start",
-    "PreToolUse": "Tool Call",
-    "PostToolUse": "Tool Result",
-    "Stop": "Stop",
-    "SubagentStop": "Subagent Stop",
-    "Notification": "Notification",
-    "TurnDuration": "Turn Duration",
-    "Compaction": "Compaction",
-    "APIError": "API Error",
-    "error": "Error"
+    "SessionStart": "세션 시작",
+    "PreToolUse": "도구 호출",
+    "PostToolUse": "도구 결과",
+    "Stop": "정지",
+    "SubagentStop": "서브에이전트 정지",
+    "Notification": "알림",
+    "TurnDuration": "턴 시간",
+    "Compaction": "컴팩션",
+    "APIError": "API 오류",
+    "error": "오류"
   },
-  "checkpoints": "Checkpoints built: {{count}}"
+  "checkpoints": "체크포인트 {{count}}개 작성됨"
 }

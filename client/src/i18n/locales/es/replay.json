@@ -1,70 +1,70 @@
 {
-  "title": "Session Replay",
-  "subtitle": "Step through events and watch agent state evolve over time",
-  "backToSession": "Back to session",
-  "loading": "Loading events…",
-  "loadError": "Failed to load session events",
-  "noEvents": "No events recorded for this session",
-  "noEventsDesc": "Replay requires at least one ingested event. Check that hooks are installed and the session has run.",
+  "title": "Reproducción de sesión",
+  "subtitle": "Revive los eventos paso a paso y observa cómo evoluciona el estado del agente",
+  "backToSession": "Volver a la sesión",
+  "loading": "Cargando eventos:",
+  "loadError": "Error al cargar los eventos de la sesión",
+  "noEvents": "No hay eventos registrados para esta sesión",
+  "noEventsDesc": "La reproducción requiere al menos un evento registrado. Verifica que los hooks estén instalados y la sesión se haya ejecutado.",
   "controls": {
-    "play": "Play",
-    "pause": "Pause",
-    "stepBack": "Step back",
-    "stepForward": "Step forward",
-    "toStart": "Jump to start",
-    "toEnd": "Jump to end",
-    "speed": "Speed",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "stepBack": "Paso atrás",
+    "stepForward": "Paso adelante",
+    "toStart": "Ir al inicio",
+    "toEnd": "Ir al final",
+    "speed": "Velocidad",
     "speeds": {
-      "1": "1×",
-      "2": "2×",
-      "5": "5×",
-      "0.5": "0.5×"
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
     }
   },
   "scrubber": {
-    "label": "Timeline",
-    "ariaLabel": "Event timeline scrubber — drag or use arrow keys to step through events",
-    "eventOf": "Event {{current}} of {{total}}"
+    "label": "Línea de tiempo",
+    "ariaLabel": "Control deslizable de eventos - arrastra o usa las flechas para navegar por los eventos",
+    "eventOf": "Evento {{current}} de {{total}}"
   },
   "cursor": {
-    "timestamp": "Timestamp",
-    "eventIndex": "Event",
-    "eventType": "Type",
-    "tool": "Tool",
-    "agent": "Agent",
-    "summary": "Summary"
+    "timestamp": "Marca temporal",
+    "eventIndex": "Evento",
+    "eventType": "Tipo",
+    "tool": "Herramienta",
+    "agent": "Agente",
+    "summary": "Resumen"
   },
   "minimap": {
-    "title": "Lifecycle transitions",
-    "ariaLabel": "Mini-map of major lifecycle events — click to jump",
-    "noTransitions": "No lifecycle transitions"
+    "title": "Transiciones de ciclo de vida",
+    "ariaLabel": "Mini-mapa de eventos principales - haz clic para saltar",
+    "noTransitions": "Sin transiciones de ciclo de vida"
   },
   "agents": {
-    "title": "Agent states at cursor",
-    "noAgents": "No agents seen up to this point"
+    "title": "Estados del agente en el cursor",
+    "noAgents": "No se han visto agentes hasta este punto"
   },
   "keyboard": {
-    "hint": "Keyboard: Space play/pause · ← → step · Home/End jump to start/end"
+    "hint": "Teclado: Espacio reproducir/pausar, flechas paso, Inicio/Fin saltar al inicio/fin"
   },
   "status": {
-    "working": "Working",
-    "waiting": "Waiting",
-    "completed": "Completed",
+    "working": "Trabajando",
+    "waiting": "Esperando",
+    "completed": "Completado",
     "error": "Error",
-    "abandoned": "Abandoned",
-    "idle": "Idle"
+    "abandoned": "Abandonado",
+    "idle": "Inactivo"
   },
   "eventTypes": {
-    "SessionStart": "Session Start",
-    "PreToolUse": "Tool Call",
-    "PostToolUse": "Tool Result",
-    "Stop": "Stop",
-    "SubagentStop": "Subagent Stop",
-    "Notification": "Notification",
-    "TurnDuration": "Turn Duration",
-    "Compaction": "Compaction",
-    "APIError": "API Error",
+    "SessionStart": "Inicio de sesión",
+    "PreToolUse": "Llamada a herramienta",
+    "PostToolUse": "Resultado de herramienta",
+    "Stop": "Detener",
+    "SubagentStop": "Detener subagente",
+    "Notification": "Notificación",
+    "TurnDuration": "Duración del turno",
+    "Compaction": "Compactación",
+    "APIError": "Error de API",
     "error": "Error"
   },
-  "checkpoints": "Checkpoints built: {{count}}"
+  "checkpoints": "Puntos de control creados: {{count}}"
 }

@@ -1,70 +1,70 @@
 {
-  "title": "Session Replay",
-  "subtitle": "Step through events and watch agent state evolve over time",
-  "backToSession": "Back to session",
-  "loading": "Loading events…",
-  "loadError": "Failed to load session events",
-  "noEvents": "No events recorded for this session",
-  "noEventsDesc": "Replay requires at least one ingested event. Check that hooks are installed and the session has run.",
+  "title": "Phát lại phiên",
+  "subtitle": "Xem qua từng sự kiện để cõng cụ tác nhân",
+  "backToSession": "Quay lại phiên",
+  "loading": "Đang tải sự kiện:",
+  "loadError": "Lỗi khi tải sự kiện phiên",
+  "noEvents": "Không có sự kiện nào cho phiên này",
+  "noEventsDesc": "Phát lại yêu cầu ít nhất một sự kiện đã được ghi nhận. Vui lòng kiểm tra các hook đã cài đặt và phiên đã chạy.",
   "controls": {
-    "play": "Play",
-    "pause": "Pause",
-    "stepBack": "Step back",
-    "stepForward": "Step forward",
-    "toStart": "Jump to start",
-    "toEnd": "Jump to end",
-    "speed": "Speed",
+    "play": "Phát",
+    "pause": "Tạm dừng",
+    "stepBack": "Lùi một bước",
+    "stepForward": "Tiến một bước",
+    "toStart": "Về đầu",
+    "toEnd": "Về cuối",
+    "speed": "Tốc độ",
     "speeds": {
-      "1": "1×",
-      "2": "2×",
-      "5": "5×",
-      "0.5": "0.5×"
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
     }
   },
   "scrubber": {
-    "label": "Timeline",
-    "ariaLabel": "Event timeline scrubber — drag or use arrow keys to step through events",
-    "eventOf": "Event {{current}} of {{total}}"
+    "label": "Dòng thời gian",
+    "ariaLabel": "Thanh trượt sự kiện - kéo hoặc dùng phím mũi tên để bước qua từng sự kiện",
+    "eventOf": "Sự kiện {{current}} / {{total}}"
   },
   "cursor": {
-    "timestamp": "Timestamp",
-    "eventIndex": "Event",
-    "eventType": "Type",
-    "tool": "Tool",
-    "agent": "Agent",
-    "summary": "Summary"
+    "timestamp": "Thời gian",
+    "eventIndex": "Sự kiện",
+    "eventType": "Loại",
+    "tool": "Công cụ",
+    "agent": "Tác nhân",
+    "summary": "Tóm tắt"
   },
   "minimap": {
-    "title": "Lifecycle transitions",
-    "ariaLabel": "Mini-map of major lifecycle events — click to jump",
-    "noTransitions": "No lifecycle transitions"
+    "title": "Các lần chuyển vòng đời",
+    "ariaLabel": "Bản đồ các sự kiện chuyển vòng quan trọng - nhấp để nhảy",
+    "noTransitions": "Không có lần chuyển vòng đời"
   },
   "agents": {
-    "title": "Agent states at cursor",
-    "noAgents": "No agents seen up to this point"
+    "title": "Trạng thái tác nhân tại con trỏ",
+    "noAgents": "Chưa thấy tác nhân nào"
   },
   "keyboard": {
-    "hint": "Keyboard: Space play/pause · ← → step · Home/End jump to start/end"
+    "hint": "Bàn phím: Space phát/tạm dừng, mũi tên để bước qua từng sự kiện, Home/End về đầu/cuối"
   },
   "status": {
-    "working": "Working",
-    "waiting": "Waiting",
-    "completed": "Completed",
-    "error": "Error",
-    "abandoned": "Abandoned",
-    "idle": "Idle"
+    "working": "Đang xử lý",
+    "waiting": "Đang chờ",
+    "completed": "Hoàn thành",
+    "error": "Lỗi",
+    "abandoned": "Bỏ dở",
+    "idle": "Chờ"
   },
   "eventTypes": {
-    "SessionStart": "Session Start",
-    "PreToolUse": "Tool Call",
-    "PostToolUse": "Tool Result",
-    "Stop": "Stop",
-    "SubagentStop": "Subagent Stop",
-    "Notification": "Notification",
-    "TurnDuration": "Turn Duration",
-    "Compaction": "Compaction",
-    "APIError": "API Error",
-    "error": "Error"
+    "SessionStart": "Bắt đầu phiên",
+    "PreToolUse": "Gọi công cụ",
+    "PostToolUse": "Kết quả công cụ",
+    "Stop": "Dừng",
+    "SubagentStop": "Dừng tác nhân con",
+    "Notification": "Thông báo",
+    "TurnDuration": "Thời lượng lượt",
+    "Compaction": "Nén",
+    "APIError": "Lỗi API",
+    "error": "Lỗi"
   },
-  "checkpoints": "Checkpoints built: {{count}}"
+  "checkpoints": "Đã tạo {{count}} điểm checkpoint"
 }
