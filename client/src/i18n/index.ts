@@ -1,9 +1,9 @@
 /**
  * @file index.ts
  * @description i18next bootstrap for the dashboard client. Registers bundled JSON
- * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), and
- * Korean (`ko`), wires browser language detection, and exports the configured
- * singleton consumed by `react-i18next`.
+ * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean
+ * (`ko`), and Spanish (`es`), wires browser language detection, and exports
+ * the configured singleton consumed by `react-i18next`.
  *
  * ## Namespaces
  * Translations are split by feature area (`dashboard`, `sessions`, `settings`,
