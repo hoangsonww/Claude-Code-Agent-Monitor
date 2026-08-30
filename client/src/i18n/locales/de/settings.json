@@ -1,0 +1,552 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Preise, Benachrichtigungen, Daten und Hooks verwalten",
+  "exportData": "Daten exportieren",
+  "acrossSessions": "Über alle verfolgten Sitzungen",
+  "basedOnUsage": "Basierend auf Token-Nutzung pro Modell",
+  "tabby": {
+    "title": "Tabby-Begleiter",
+    "description": "Eine schwebende Katze, die auf Ihre Live-Sitzungen reagiert.",
+    "enable": "Tabby anzeigen",
+    "enableDesc": "Ecken-Begleiter im Dashboard anzeigen (⌘B zum Öffnen)"
+  },
+  "pricing": {
+    "title": "Modell-Preise",
+    "navClaude": "Claude-Preise",
+    "navGpt": "Codex-Preise",
+    "description": "Preise pro Million Tokens (USD). Verwenden Sie % als Platzhalter in Mustern.",
+    "introNote": "Einführung ${{input}}/${{output}} bis {{until}}",
+    "introRatesTitle": "Einführungspreise",
+    "introRatesHint": "Datum leer lassen für keine Promo",
+    "introUntil": "Bis (Datum)",
+    "introUntilInvalid": "Einführungsgrenze muss ein JJJJ-MM-TT-Datum sein",
+    "resetConfirm": "Zurücksetzen bestätigen",
+    "resetDefaults": "Standards zurücksetzen",
+    "resetResult": "Auf {{count}} Standardregeln zurückgesetzt",
+    "addModel": "Modell hinzufügen",
+    "pattern": "Muster",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "Muster und Anzeigename sind erforderlich",
+    "lastUpdated": "Zuletzt aktualisiert: ",
+    "tooltip": {
+      "title": "Wie Modell-Preise funktionieren",
+      "howItWorks": "Wie es funktioniert",
+      "howItWorksBody": "Wenn eine Sitzung Nutzung meldet, findet das Dashboard die erste Preisregel, deren Muster zur Modell-ID passt, und multipliziert (Eingabe-Tokens / 1M) und (Ausgabe-Tokens / 1M) mit den unten stehenden Preisen.",
+      "patternsTitle": "Mustersyntax",
+      "patternsBody": "Muster sind SQL-ähnliche Globs. % ist ein Platzhalter, der beliebige Zeichen entspricht.",
+      "manualUpdates": "Sie müssen Preise manuell aktualisieren",
+      "manualUpdatesBody": "Anthropic veröffentlicht Preisänderungen auf ihrer Website – es gibt keinen Live-Feed.",
+      "apiPricing": "Nur zur Referenz – API-Tarife",
+      "apiPricingBody": "Dies sind Pay-as-you-go-API-Tarife. Bei Abonnement-Plänen ist Ihr tatsächlicher Preis eine monatliche Pauschale."
+    },
+    "cacheWrite5m": "Cache-Schreiben (5m)",
+    "cacheWrite1h": "Cache-Schreiben (1h)",
+    "fastInput": "Schnelle Eingabe",
+    "fastOutput": "Schnelle Ausgabe",
+    "gpt": {
+      "title": "OpenAI-GPT-Modellpreise",
+      "description": "Veröffentlichte OpenAI-API-Tarife für die Codex-Nutzung. Standard-Anfragen verwenden Short-Tarife bei oder unter 272K Eingabe-Tokens und Long-Tarife darüber; der Schnellmodus verwendet eine eigene Preistabelle. USD pro 1 Mio. Tokens.",
+      "tooltip": {
+        "title": "Wie die GPT-Preisgestaltung funktioniert",
+        "howItWorks": "Wie es funktioniert",
+        "howItWorksBody": "Jeder Betrag ist in USD pro 1 Mio. Tokens. Standard-Codex-Anfragen verwenden Short-Tarife bei oder unter 272K Eingabe-Tokens und Long-Tarife darüber. Der Schnellmodus verwendet eine eigene Preistabelle. Neue Eingabe, zwischengespeicherte Eingabe, Cache-Schreibvorgänge und Ausgabe werden separat bepreist.",
+        "patternsTitle": "Mustersyntax",
+        "patternsBody": "Muster verwenden SQL-ähnliche %-Platzhalter. Das Dashboard wertet zuerst die spezifischsten Modellmuster aus und verwendet die erste Regel, die zur gemeldeten Modell-ID passt.",
+        "manualUpdates": "Sie müssen Preise manuell aktualisieren",
+        "manualUpdatesBody": "OpenAI veröffentlicht Preisänderungen der API auf ihrer Website; es gibt keinen Live-Feed. Aktualisieren oder fügen Sie eine passende Regel hinzu, wenn sich Modelle oder Tarife ändern, damit neu erfasste Nutzung korrekt bepreist wird.",
+        "apiPricing": "Nicht veröffentlichte Tarife bleiben unbepreist",
+        "apiPricingBody": "Ein Gedankenstrich bedeutet, dass OpenAI diesen Kontext- oder Schnellmodus-Tarif nicht veröffentlicht. Passende Nutzung wird als unbepreist markiert, anstatt geschätzt zu werden. Dies sind Pay-as-you-go-API-Tarife zur Referenz, keine Abrechnung nach Abonnement-Plan."
+      },
+      "name": "Name",
+      "short": "Standard · Kurz ≤272K",
+      "long": "Standard · Lang >272K",
+      "fast": "Schnellmodus",
+      "input": "Eingabe",
+      "cached": "Zwischengespeichert",
+      "write": "Cache-Schreiben",
+      "output": "Ausgabe",
+      "deleteConfirm": "Diese GPT-Preisregel löschen?"
+    }
+  },
+  "claudeHome": {
+    "title": "CLAUDE_HOME",
+    "description": "Stammverzeichnis für Claude Code-Sitzungsdaten. Durch Änderung wird der Scan-Pfad für Transkripte und Importe sofort aktualisiert.",
+    "save": "Speichern",
+    "saving": "Speichert...",
+    "current": "Aktuell:",
+    "placeholder": "/pfad/zu/claude-home",
+    "saveFailed": "CLAUDE_HOME konnte nicht aktualisiert werden"
+  },
+  "codexHome": {
+    "title": "Codex-Startverzeichnis",
+    "description": "Das Stammverzeichnis für Codex-Sitzungen und Hooks. Das Speichern eines neuen Speicherorts aktiviert die Live-Überwachung neu und scannt sofort Sitzungen.",
+    "save": "Speichern",
+    "saving": "Wird gespeichert...",
+    "current": "Aktuell:",
+    "placeholder": "/pfad/zum/codex-home",
+    "saveFailed": "Fehler beim Aktualisieren des Codex-Startverzeichnisses"
+  },
+  "homes": {
+    "title": "Sitzungsdaten-Speicherorte",
+    "description": "Konfigurieren Sie die lokalen Claude Code- und Codex-Verzeichnisse, die das Dashboard liest. Jeder gespeicherte Speicherort wird ohne Neustart der App angewendet."
+  },
+  "display": {
+    "title": "Dashboard-Daten",
+    "description": "Wählen Sie, welche Sitzungen, Tokens, Kosten und Aktivitäten des Produkts in der App angezeigt werden. Die Änderung tritt sofort in Kraft.",
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "both": "Beide",
+    "claudeDescription": "Nur Claude Code-Daten anzeigen.",
+    "codexDescription": "Nur Codex-Daten anzeigen.",
+    "bothDescription": "Claude Code- und Codex-Daten kombinieren.",
+    "beta": "Beta"
+  },
+  "hooks": {
+    "title": "Hook-Konfiguration",
+    "description": "Claude Code-Hooks leiten Ereignisse in Echtzeit an das Dashboard weiter.",
+    "allInstalled": "Alle Hooks installiert",
+    "someInstalled": "Hooks konfiguriert",
+    "incomplete": "Hooks unvollständig",
+    "reinstall": "Hooks neu installieren",
+    "configure": "Hooks konfigurieren",
+    "success": "Hooks erfolgreich installiert",
+    "failed": "Hook-Installation fehlgeschlagen",
+    "display": {
+      "title": "Dashboard-Daten",
+      "description": "Filtert sofort jede Dashboard-Ansicht auf ein Produkt. Die maschinelle Datenquellenfilterung bleibt davon unabhängig.",
+      "both": "Beide"
+    },
+    "modal": {
+      "title": "Dashboard-Hooks installieren",
+      "description": "Wählen Sie ein oder beide Produkte aus. Vorhandene Dashboard-Hook-Einträge werden aktualisiert; Ihre übrigen Hook-Befehle bleiben unberührt.",
+      "claude": "Lifecycle-Hooks aus ~/.claude/settings.json.",
+      "codex": "Lifecycle-Hooks aus ~/.codex/hooks.json, mit Rollout-JSONL als Echtzeit-Fallback.",
+      "installed": "Bereits installiert",
+      "overrideWarning": "Für ein oder mehrere ausgewählte Produkte wurde eine bestehende Hook-Konfiguration gefunden. Ein Fortfahren ersetzt nur die passenden Einträge dieses Dashboards und erhält nicht verwandte Hooks.",
+      "preserveNote": "Mindestens ein Produkt muss ausgewählt sein.",
+      "install": "Ausgewählte Hooks installieren",
+      "failed": "Die ausgewählten Hooks konnten nicht installiert werden."
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "description": "Browser-Benachrichtigungen für wichtige Ereignisse. Erfordert Berechtigung.",
+    "enable": "Browser-Benachrichtigungen aktivieren",
+    "granted": "Berechtigung erteilt",
+    "blocked": "Berechtigung blockiert",
+    "required": "Berechtigung erforderlich",
+    "notifyWhen": "Benachrichtigen bei...",
+    "newSession": "Neue Sitzung startet",
+    "sessionComplete": "Sitzung abgeschlossen",
+    "sessionError": "Sitzungsfehler",
+    "subagentSpawned": "Subagent gestartet",
+    "testTitle": "Agent Monitor",
+    "testBody": "Benachrichtigungen funktionieren!",
+    "sendTest": "Testbenachrichtigung senden",
+    "disabledInfo": "Benachrichtigungen sind deaktiviert – aktivieren Sie sie, um Alarme für Sitzungsereignisse zu erhalten"
+  },
+  "import": {
+    "title": "Importverlauf",
+    "providerLabel": "Import-Anbieter",
+    "providerHint": "Wählen Sie den lokalen Agenten-Verlauf, den Sie in dieses Dashboard übernehmen möchten.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "Dashboard-Exporte können Claude Code- und Codex-Daten enthalten. Die Wiederherstellung führt alle im Export enthaltenen Anbieter zusammen.",
+    "description": "Bringen Sie bestehende Claude Code-Sitzungen in das Dashboard.",
+    "scopeNote": "Dieser Import verarbeitet nur Claude Code-Transkripte. Er ändert niemals Ihren Codex-Verlauf oder eine der beiden CLI-Konfigurationen.",
+    "accuracyNote": "Erneutes Ausführen ist sicher. Sitzungen werden nach Sitzungs-ID dedupliziert.",
+    "supportedFiles": "Unterstützte Eingaben: .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "instructions": "Wie Sie Ihren Verlauf sammeln",
+    "stepLocate": "1. Claude Code-Verlauf suchen",
+    "stepLocateBody": "Jede Claude Code-Sitzung wird als JSONL-Transkript unter dem Projektordner gespeichert.",
+    "stepArchive": "2. Für Transfer bündeln (optional)",
+    "stepArchiveBody": "Um den Verlauf von einem anderen Rechner zu verschieben, archivieren Sie den gesamten Ordner zuerst.",
+    "stepChoose": "3. Importmodus auswählen",
+    "stepChooseBody": "Standard-Speicherort erneut scannen, auf einen extrahierten Ordner verweisen oder Dateien/Archive direkt hochladen.",
+    "stepVerify": "4. Tokens und Kosten überprüfen",
+    "stepVerifyBody": "Nach dem Import öffnen Sie Analytik → Kosten, um die Aufschlüsselung zu bestätigen.",
+    "defaultLocation": "Standardspeicherort auf diesem Rechner",
+    "locationFound": "Ordner gefunden",
+    "locationMissing": "Ordner nicht gefunden",
+    "projectsLabel": "Projekte",
+    "jsonlLabel": "JSONL-Dateien",
+    "modeRescan": "Standardordner erneut scannen",
+    "modeRescanDesc": "~/.claude/projects erneut lesen und alles Neue importieren.",
+    "modeFolder": "Ordner scannen",
+    "modeFolderDesc": "Beliebiges Verzeichnis auf diesem Rechner nach JSONL-Transkripten scannen.",
+    "modeUpload": "Dateien hochladen",
+    "modeUploadDesc": "JSONL-Dateien oder ein Archiv direkt in den Browser ziehen.",
+    "modeBackup": "Backup wiederherstellen",
+    "modeBackupDesc": "Ein Dashboard-Export (.json) importieren – Verlauf eines anderen Rechners einbinden.",
+    "backupHint": "Export-.json hier ablegen oder klicken, um auszuwählen",
+    "backupSub": "Die vom Export-Daten-Button erzeugte Datei (oben in Einstellungen)",
+    "runRestore": "Wiederherstellen",
+    "backupResult": {
+      "title": "Wiederherstellung abgeschlossen",
+      "sessionsImported": "Hinzugefügte Sitzungen: {{count}}",
+      "sessionsSkipped": "Bereits vorhanden: {{count}}",
+      "events": "Ereignisse: {{count}}",
+      "pricing": "Preisregeln: {{count}}",
+      "detail": "{{agents}} Agenten · {{workflows}} Workflows · {{runs}} Durchläufe · {{rules}} Alarmregeln"
+    },
+    "folderPlaceholder": "/absoluter/pfad/zu/claude-verlauf",
+    "folderHelper": "Absoluter Pfad. Tilde (~) wird erweitert. Unterordner werden rekursiv gescannt.",
+    "runRescan": "Jetzt erneut scannen",
+    "runScan": "Ordner scannen",
+    "runUpload": "Hochladen & importieren",
+    "dropzoneHint": "Dateien hier ablegen oder klicken, um auszuwählen",
+    "dropzoneSub": "Akzeptiert .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "filesSelected": "{{count}} Datei(en) ausgewählt",
+    "clearSelection": "Löschen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "progress": {
+      "scan": "Verzeichnis wird gescannt...",
+      "extract": "Archive werden entpackt ({{processed}}/{{total}})...",
+      "parse": "Transkripte werden geparst ({{processed}}/{{total}})...",
+      "complete": "Import abgeschlossen",
+      "error": "Import fehlgeschlagen"
+    },
+    "result": {
+      "imported": "Importiert: {{count}}",
+      "backfilled": "Vorhandene angereichert: {{count}}",
+      "skipped": "Bereits aktuell: {{count}}",
+      "errors": "Fehler: {{count}}",
+      "filesScanned": "Dateien gescannt: {{count}}",
+      "title": "Letztes Importergebnis"
+    },
+    "errors": {
+      "noFiles": "Keine Dateien ausgewählt",
+      "noJsonl": "Keine .jsonl-Dateien im hochgeladenen Inhalt gefunden",
+      "pathRequired": "Pfad ist erforderlich",
+      "pathInvalid": "Pfad muss absolut sein",
+      "pathNotFound": "Pfad existiert nicht",
+      "pathNotDir": "Pfad ist kein Verzeichnis",
+      "generic": "Import fehlgeschlagen: {{message}}"
+    },
+    "codex": {
+      "description": "Bringt bestehende Codex-Sitzungen in das Dashboard. Benutzernachrichten, Assistenten-Ausgabe, Token-Schnappschüsse, Tool-Aufrufe und wartende/aktive Lifecycle-Zustände werden aus den ursprünglichen Rollout-JSONL-Dateien mit derselben Pipeline wie beim Echtzeit-Monitoring rekonstruiert.",
+      "scopeNote": "Dieser Import verarbeitet nur {{provider}}-Transkripte. Er ändert niemals Ihren Claude Code-Verlauf oder die Codex-CLI-Konfiguration.",
+      "accuracyNote": "Erneutes Ausführen ist sicher. Importierte Rollout-Cursor werden beibehalten, sodass bereits erfasste Token-Deltas und Tool-Aufrufe nie doppelt hinzugefügt werden.",
+      "stepLocate": "1. Ihren Codex-Rollout-Verlauf finden",
+      "stepLocateBody": "Codex speichert jede Sitzung als anhängende Rollout-JSONL-Datei unter dem Sitzungsordner. Verschachtelte Datumsordner werden automatisch durchsucht.",
+      "stepArchive": "2. Für Transfer bündeln (optional)",
+      "stepArchiveBody": "Um den Verlauf von einem anderen Rechner zu verschieben, archivieren Sie zuerst den Sitzungsordner und kopieren ihn dann (AirDrop, scp, USB, Cloud-Speicher). Fügen Sie auch session_index.jsonl hinzu, wenn Sie die nativen /rename-Titel dieses Rechners übernehmen möchten.",
+      "stepChoose": "3. Importmodus unten auswählen",
+      "stepChooseBody": "Scannen Sie die Codex-Sitzungen dieses Rechners erneut, verweisen Sie auf einen kopierten oder extrahierten Ordner, oder laden Sie Rollout-Dateien und Archive direkt hoch.",
+      "stepVerify": "4. Tokens und Kosten überprüfen",
+      "stepVerifyBody": "Öffnen Sie nach dem Import Analytik → Kosten, um die Aufschlüsselung zu bestätigen. Derselbe Rollout kann jederzeit sicher erneut importiert werden.",
+      "defaultLocation": "Standard-Speicherort der Codex-Sitzungen auf diesem Rechner",
+      "locationFound": "Sitzungsordner gefunden",
+      "locationMissing": "Sitzungsordner nicht gefunden",
+      "projectsLabel": "Sitzungsordner",
+      "jsonlLabel": "Rollout-Dateien",
+      "modeRescan": "Codex-Sitzungen erneut scannen",
+      "modeRescanDesc": "~/.codex/sessions erneut lesen und Rollout-Verlauf importieren, der noch nicht im Dashboard ist.",
+      "modeFolder": "Codex-Ordner scannen",
+      "modeFolderDesc": "Ein kopiertes oder extrahiertes Codex-Verzeichnis nach Rollout-JSONL-Dateien durchsuchen, einschließlich verschachtelter Datumsordner.",
+      "modeUpload": "Codex-Verlauf hochladen",
+      "modeUploadDesc": "Rollout-JSONL-Dateien oder ein Archiv (.zip / .tar.gz) direkt in den Browser ziehen.",
+      "folderPlaceholder": "/absoluter/pfad/zu/codex-verlauf",
+      "folderHelper": "Absoluter Pfad. Tilde (~) wird erweitert. Der Ordner und alle verschachtelten Datumsordner werden rekursiv nach Codex-Rollout-Dateien durchsucht.",
+      "runRescan": "Codex jetzt erneut scannen",
+      "runScan": "Codex-Ordner scannen",
+      "runUpload": "Codex hochladen & importieren",
+      "dropzoneHint": "Codex-Rollout-Dateien hierher ziehen oder klicken, um auszuwählen",
+      "dropzoneSub": "Akzeptiert Rollout-.jsonl-Dateien, session_index.jsonl, .zip, .tar, .tar.gz, .tgz und .gz-Archive"
+    }
+  },
+  "data": {
+    "title": "Datenverwaltung",
+    "description": "Datenbankinfo, Import/Export und Bereinigung.",
+    "dbOverview": "Datenbankübersicht",
+    "dbSize": "DB-Größe",
+    "loadingDb": "Datenbankinfo wird geladen...",
+    "sessionCleanup": "Sitzungsbereinigung",
+    "cleanupDesc": "Veraltete Sitzungen abbrechen und alte Daten löschen",
+    "abandonAfter": "Veraltete aktive Sitzungen abbrechen, die älter sind als",
+    "purgeAfter": "Abgeschlossene/fehlerhafte Sitzungen löschen, die älter sind als",
+    "confirmCleanup": "Bereinigung bestätigen",
+    "runCleanup": "Bereinigung ausführen",
+    "nothingToClean": "Nichts zu bereinigen",
+    "abandonedResult": " Sitzungen abgebrochen",
+    "purgedResult": " Sitzungen gelöscht ({{events}} Ereignisse, {{agents}} Agenten)"
+  },
+  "danger": {
+    "title": "Gefahrenbereich",
+    "description": "Nicht rückgängig zu machende Aktionen, die Daten dauerhaft löschen",
+    "warning": "Dadurch werden alle Sitzungen, Agenten, Ereignisse und Token-Daten gelöscht. Sind Sie sicher?",
+    "yesClearAll": "Ja, alles löschen",
+    "clearAllData": "Alle Daten löschen",
+    "clearedResult": "{{count}} Zeilen gelöscht"
+  },
+  "about": {
+    "title": "Über",
+    "description": "Server-Laufzeitinformationen.",
+    "release": "Version",
+    "uiBuild": "UI-Build v{{version}} (Client neu erstellen, um zu synchronisieren)",
+    "uptime": "Betriebszeit",
+    "nodejs": "Node.js",
+    "platform": "Plattform",
+    "wsClients": "WS-Clients",
+    "loadingInfo": "Serverinfo wird geladen..."
+  },
+  "tables": {
+    "sessions": "Sitzungen",
+    "agents": "Agenten",
+    "events": "Ereignisse",
+    "sessionsWithCost": "Sitzungen mit Kosten",
+    "pricingRules": "Preisregeln"
+  },
+  "messages": {
+    "failedLoad": "Laden fehlgeschlagen",
+    "failedSave": "Speichern fehlgeschlagen",
+    "failedDelete": "Löschen fehlgeschlagen",
+    "unknownError": "Unbekannt",
+    "actionFailed": "Fehler: {{message}}"
+  },
+  "webhooks": {
+    "title": "Webhook-Benachrichtigungen",
+    "description": "Ausgelöste Alarme an Slack, Discord, Microsoft Teams oder einen beliebigen HTTP-Endpunkt weiterleiten.",
+    "count_one": "{{count}} Ziel",
+    "count_other": "{{count}} Ziele",
+    "add": "Webhook hinzufügen",
+    "loading": "Webhooks werden geladen…",
+    "empty": "Keine Webhooks konfiguriert. Fügen Sie einen hinzu, um Alarme an Slack, Discord, Teams oder einen benutzerdefinierten Endpunkt weiterzuleiten.",
+    "scopedTo_one": "{{count}} Regel",
+    "scopedTo_other": "{{count}} Regeln",
+    "enabled": "Aktiviert",
+    "test": "Testen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "confirmDelete": "Bestätigen",
+    "testOk": "Zugestellt (HTTP {{status}})",
+    "testFail": "Fehlgeschlagen: {{error}}",
+    "addTitle": "Neuer Webhook",
+    "editTitle": "Webhook bearbeiten",
+    "fieldName": "Name",
+    "fieldNamePlaceholder": "z. B. Team Slack #alarme",
+    "fieldType": "Typ",
+    "type": {
+      "slack": "Slack",
+      "discord": "Discord",
+      "teams": "Microsoft Teams",
+      "generic": "Generisch (benutzerdefiniertes JSON)"
+    },
+    "fieldUrl": "Webhook-URL",
+    "urlKeepHint": "leer lassen, um die aktuelle zu behalten",
+    "urlKeepPlaceholder": "•••••••• (unverändert)",
+    "urlPlaceholder": {
+      "slack": "https://hooks.slack.com/services/…",
+      "discord": "https://discord.com/api/webhooks/…",
+      "teams": "https://outlook.office.com/webhook/…",
+      "generic": "https://example.com/webhook"
+    },
+    "fieldSecret": "Signierschlüssel (optional)",
+    "secretPlaceholder": "HMAC-SHA256-Schlüssel",
+    "secretKeepPlaceholder": "•••••••• (leer lassen, um zu behalten)",
+    "secretHint": "Wenn gesetzt, werden Anfragen mit einem X-Webhook-Signature-Header signiert.",
+    "fieldHeaders": "Benutzerdefinierte Header (optional)",
+    "replaceHeaders": "Header ersetzen",
+    "headerKey": "Header",
+    "headerValue": "Wert",
+    "addHeader": "Header hinzufügen",
+    "scopeAll": "Alarme von allen Regeln empfangen",
+    "enabledOnSave": "Aktiviert",
+    "save": "Speichern",
+    "create": "Erstellen",
+    "cancel": "Abbrechen",
+    "urlOptional": "optionale Überschreibung",
+    "urlAuto": "URL wird automatisch aus den unten stehenden Zugangsdaten gesetzt.",
+    "deleteTitle": "Webhook löschen?",
+    "deleteMessage": "\"{{name}}\" löschen? Ausgelöste Alarme werden nicht mehr an dieses Ziel geliefert.",
+    "guideToggle": "So richten Sie {{provider}} ein",
+    "guideDocs": "Offizielle {{provider}}-Dokumentation",
+    "guideStaleNote": "Anbieter-Einrichtungsbildschirme ändern sich oft, daher können diese Schritte veraltet sein."
+  },
+  "alertsHub": {
+    "title": "Alarme",
+    "description": "Alarmregeln definieren, an Webhook-Kanäle weiterleiten und prüfen, was ausgelöst wurde – alles an einem Ort.",
+    "tabRules": "Regeln",
+    "tabChannels": "Kanäle",
+    "tabActivity": "Aktivität",
+    "rulesHint": "Bedingungen, die einen Alarm auslösen. Serverseitig gegen den Live-Ereignis-Stream ausgewertet.",
+    "rulesEmptyHint": "Fügen Sie eine Regel hinzu, um Alarme für Fehler, Inaktivität, feststeckende Agenten oder Token-Schwellenwerte zu erhalten."
+  },
+  "jumpTo": "Springen zu",
+  "webhookGuides": {
+    "slack": {
+      "steps": [
+        "Erstellen oder öffnen Sie eine Slack-App unter api.slack.com/apps.",
+        "Aktivieren Sie 'Incoming Webhooks', dann klicken Sie auf 'Add New Webhook to Workspace'.",
+        "Wählen Sie den Kanal und autorisieren Sie.",
+        "Kopieren Sie die generierte URL und fügen Sie sie oben ein."
+      ]
+    },
+    "discord": {
+      "steps": [
+        "Öffnen Sie Ihren Server → Servereinstellungen → Integrationen → Webhooks.",
+        "Klicken Sie auf 'Neuer Webhook', wählen Sie einen Kanal.",
+        "Klicken Sie auf 'Webhook-URL kopieren' und fügen Sie sie oben ein."
+      ]
+    },
+    "teams": {
+      "steps": [
+        "Klicken Sie im Ziel-Teams-Kanal auf ⋯ → 'Workflows'.",
+        "Wählen Sie die Vorlage 'Post to a channel when a webhook request is received'.",
+        "Schließen Sie den Flow ab und kopieren Sie die generierte HTTP-POST-URL.",
+        "Fügen Sie sie oben ein."
+      ]
+    },
+    "google_chat": {
+      "steps": [
+        "Öffnen Sie den Google Chat-Bereich → Bereichstitel → 'Apps & integrations'.",
+        "Klicken Sie auf 'Webhooks' → 'Add webhook' und vergeben Sie einen Namen.",
+        "Kopieren Sie die Webhook-URL und fügen Sie sie oben ein."
+      ]
+    },
+    "mattermost": {
+      "steps": [
+        "Hauptmenü → Integrationen → Incoming Webhooks (ein Administrator muss Webhooks zuerst aktivieren).",
+        "Klicken Sie auf 'Add Incoming Webhook' und wählen Sie einen Kanal.",
+        "Speichern Sie, kopieren Sie dann die Webhook-URL und fügen Sie sie oben ein."
+      ]
+    },
+    "rocketchat": {
+      "steps": [
+        "Administration → Integrationen → Neu → Incoming.",
+        "Aktivieren Sie es, wählen Sie einen Kanal und speichern Sie.",
+        "Kopieren Sie die 'Webhook URL' und fügen Sie sie oben ein."
+      ]
+    },
+    "telegram": {
+      "steps": [
+        "Schreiben Sie @BotFather, führen Sie /newbot aus und kopieren Sie den Bot-Token.",
+        "Fügen Sie den Bot zu Ihrer Gruppe/Ihrem Kanal hinzu (oder schreiben Sie ihm einfach direkt).",
+        "Ermitteln Sie die Chat-ID: Senden Sie eine Nachricht, öffnen Sie https://api.telegram.org/bot<token>/getUpdates und lesen Sie result[].message.chat.id.",
+        "Geben Sie oben den Bot-Token und die Chat-ID ein - keine URL erforderlich."
+      ]
+    },
+    "pagerduty": {
+      "steps": [
+        "Öffnen Sie den Ziel-Service → Integrations → 'Add integration'.",
+        "Wählen Sie 'Events API v2'.",
+        "Kopieren Sie den Integration Key (den Routing-Key).",
+        "Geben Sie ihn oben als Routing Key ein - die Events-API-URL ist bereits ausgefüllt."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Settings → Integrations → eine 'API'-Integration hinzufügen.",
+        "Kopieren Sie den generierten API-Schlüssel.",
+        "Notieren Sie sich Ihre Kontoregion (US oder EU).",
+        "Geben Sie oben den API-Schlüssel und die Region ein - die Alarm-URL wird aus der Region abgeleitet."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrations → REST Endpoint und aktivieren Sie ihn.",
+        "Kopieren Sie die REST-URL - sie enthält bereits Ihren API-Schlüssel.",
+        "Ersetzen Sie das abschließende '$routing_key' durch einen Ihrer Routing-Keys.",
+        "Fügen Sie die vollständige URL oben ein."
+      ]
+    },
+    "zapier": {
+      "steps": [
+        "Erstellen Sie einen Zap mit dem Trigger 'Webhooks by Zapier' → 'Catch Hook'.",
+        "Kopieren Sie die daraus resultierende benutzerdefinierte Webhook-URL.",
+        "Fügen Sie sie oben ein. Der Alarm kommt als JSON an: { event, alert }."
+      ]
+    },
+    "make": {
+      "steps": [
+        "Fügen Sie als ersten Schritt eines Szenarios ein 'Webhooks' → 'Custom webhook'-Modul hinzu.",
+        "Klicken Sie auf 'Add', erstellen Sie den Hook und kopieren Sie seine URL.",
+        "Fügen Sie sie oben ein und führen Sie einmal aus, damit Make die Payload-Struktur lernt."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "Fügen Sie Ihrem Workflow einen 'Webhook'-Node hinzu; stellen Sie die Methode auf POST.",
+        "Kopieren Sie die Production-URL.",
+        "Aktivieren Sie den Workflow und fügen Sie die URL oben ein (http ist bei selbst gehosteten Instanzen erlaubt)."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "Erstellen Sie einen Workflow mit einem 'HTTP / Webhook'-Trigger.",
+        "Kopieren Sie die eindeutige Endpunkt-URL.",
+        "Fügen Sie sie oben ein; prüfen Sie Zustellungen im Pipedream-Event-Inspector."
+      ]
+    },
+    "generic": {
+      "steps": [
+        "Verweisen Sie auf einen beliebigen Endpunkt, der einen JSON-POST akzeptiert.",
+        "Body: { event: 'alert.triggered', source, sent_at, alert: { … } }.",
+        "Optional: Signierschlüssel und benutzerdefinierte Header setzen.",
+        "Tipp: Verwenden Sie einen kostenlosen Inspektor wie webhook.site."
+      ]
+    }
+  },
+  "remoteSources": {
+    "title": "Remote-Datenquellen",
+    "description": "Claude Code-Nutzung von anderen Rechnern über SSH sammeln.",
+    "scopeTitle": "Datenbereich",
+    "scopeDesc": "Wählen Sie, welche Daten der Rechner das gesamte Dashboard anzeigt. Änderungen gelten sofort.",
+    "scopeAll": "Alle Quellen",
+    "scopeAllDesc": "Dieser Rechner plus jede konfigurierte Remote-Quelle, kombiniert.",
+    "scopeLocal": "Nur dieser Rechner",
+    "scopeLocalDesc": "Nur lokal erfasste Sitzungen – versteckt alle Remote-Quelldaten.",
+    "scopeSelected": "Ausgewählte Quellen",
+    "scopeSelectedDesc": "Genau auswählen, welche Rechner einbezogen werden sollen.",
+    "scopeSelectedCount": "{{n}} von {{total}} ausgewählt",
+    "scopePickMachines": "Einzubeziehende Rechner",
+    "thisMachine": "Dieser Rechner",
+    "listTitle": "Konfigurierte Quellen",
+    "add": "Quelle hinzufügen",
+    "addTitle": "Remote-Quelle hinzufügen",
+    "editTitle": "Quelle bearbeiten",
+    "fieldLabel": "Bezeichnung",
+    "fieldHost": "SSH-Host",
+    "fieldPort": "Port (optional)",
+    "fieldIdentity": "Identitätsdatei (optional)",
+    "fieldRemoteHome": "Remote Claude-Home (optional)",
+    "fieldRemoteHomeHint": "Linux/macOS: Standard ~/.claude. Windows SSH + Claude in WSL: leer lassen (Auto-Erkennung) oder wsl:~/.claude. Natives Windows: C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "Remote Codex-Home (optional)",
+    "fieldRemoteCodexHomeHint": "Standardmäßig ~/.codex; importiert dessen Sitzungen sowie native umbenannte Titel. Für Windows-SSH mit Codex in WSL leer lassen (Auto-Erkennung) oder wsl:~/.codex verwenden.",
+    "fieldEnabled": "Im Hintergrund automatisch synchronisieren",
+    "empty": "Noch keine Remote-Quellen.",
+    "emptyHint": "Fügen Sie einen Rechner hinzu, den Sie über SSH erreichen, um dessen Claude Code-Nutzung einzuziehen.",
+    "paused": "Auto-Sync aus",
+    "sessionCount": "{{n}} Sitzungen",
+    "sessionCountLinked": "{{n}} verknüpft",
+    "sessionCountHint": "Mit dieser Quelle verknüpfte Sitzungen",
+    "lastSync": "Letzter Sync: {{when}}",
+    "neverSynced": "Nie synchronisiert",
+    "imported": "{{n}} importiert",
+    "syncNew": "{{n}} neu",
+    "syncOnRemote": "{{n}} auf Remote",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} Sitzungen",
+    "providerStatus": {
+      "idle": "Nicht geprüft",
+      "syncing": "Wird geprüft",
+      "ok": "Bereit",
+      "unavailable": "Nicht gefunden",
+      "error": "Nicht verfügbar"
+    },
+    "test": "Testen",
+    "syncNow": "Jetzt synchronisieren",
+    "syncAll": "Alle synchronisieren",
+    "enable": "Aktivieren",
+    "disable": "Deaktivieren",
+    "confirmDelete": "Diese Quelle entfernen?",
+    "purgeData": "Auch die von dieser Quelle importierten Sitzungen löschen (nicht rückgängig zu machen)",
+    "deleteAndPurge": "Entfernen + Daten löschen",
+    "removeKeep": "Entfernen (Daten behalten)",
+    "remoteSourceBadgeTitle": "Von einem Remote-Rechner gesammelt"
+  },
+  "cursorPathsNote": "Informativ: Cursor-Sitzungen werden hier auch gezählt – Cursor verwendet dieselben ~/.claude-Pfade wie Claude Code."
+}

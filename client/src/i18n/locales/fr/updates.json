@@ -1,0 +1,15 @@
+{
+  "title": "Mise à jour du tableau de bord disponible",
+  "lead": "Une nouvelle version du tableau de bord est disponible. Pour mettre à jour, exécutez la commande suivante dans votre terminal :",
+  "commitsBehind": "{{count}} commit(s) derrière {{ref}}",
+  "copy": "Copier la commande",
+  "commandLabel": "Commande terminal pour mettre à jour le tableau de bord",
+  "copied": "Copié",
+  "dismiss": "Ignorer",
+  "fetchError": "Impossible d'atteindre le dépôt git distant. Réessayez lorsque vous êtes en ligne.",
+  "notGit": "Cette installation n'est pas un clone git ; utilisez un chemin de mise à niveau manuel.",
+  "restartNote": "Une fois la commande terminée, fermez et redémarrez le tableau de bord de la même façon que vous l'avez démarré : si vous avez utilisé npm start, relancez npm start.",
+  "checkNow": "Vérifier maintenant",
+  "checking": "Vérification…",
+  "checkError": "Échec de la vérification des mises à jour"
+}

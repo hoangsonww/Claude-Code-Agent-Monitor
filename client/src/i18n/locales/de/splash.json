@@ -1,0 +1,121 @@
+{
+  "greeting": {
+    "morning": "Guten Morgen",
+    "afternoon": "Guten Tag",
+    "evening": "Guten Abend",
+    "night": "Nachtschicht"
+  },
+  "tagline": "Was auch immer Ihre Agenten tun, bleibt nicht im Dunkeln.",
+  "sub1": "Echtzeit-Beobachtbarkeit für jede Claude Code-Sitzung.",
+  "sub2": "Tokens, Tools, Kosten und Workflows – alles live.",
+  "brand": "Claude Code Monitor",
+  "provider": {
+    "title": "Was möchten Sie überwachen?",
+    "description": "Wählen Sie die im gesamten Dashboard angezeigte Datenquelle. Sie können dies später in den Einstellungen ändern.",
+    "claude": {
+      "description": "Ihre Claude Code-Sitzungen, Agenten und Kosten."
+    },
+    "codex": {
+      "description": "Codex-Sitzungen, GPT-Token-Nutzung und Kosten."
+    },
+    "both": {
+      "label": "Beide",
+      "description": "Alle Claude Code- und Codex-Sitzungen, Nutzung und Kosten."
+    },
+    "beta": "Beta",
+    "continue": "Zum Dashboard"
+  },
+  "hookGate": {
+    "kicker": "Live-Tracking",
+    "title": "Live-Überwachung einrichten",
+    "description": "Installieren Sie leichtgewichtige lokale Hooks nur für die ausgewählten Anbieter, die diese noch benötigen.",
+    "selectedProviders": "Hooks noch benötigt für",
+    "realTime": "Hooks senden Lebenszyklus-Ereignisse in Echtzeit an dieses lokale Dashboard. Ihre Daten bleiben auf diesem Gerät.",
+    "checking": "Vorhandene Hook-Konfiguration wird überprüft...",
+    "installed": "Hooks installiert und bereit für Live-Überwachung",
+    "existing": "Vorhandene Dashboard-Hooks erkannt",
+    "ready": "Bereit, ausgewählte Hooks zu installieren",
+    "overrideWarning": "Dashboard-Hooks für einen ausgewählten Anbieter existieren bereits. Die Installation aktualisiert nur die Dashboard-Einträge. Ihre nicht zugehörigen Hooks werden beibehalten.",
+    "output": "Installationsausgabe",
+    "failure": "Nicht alle ausgewählten Hooks konnten installiert werden. Überprüfen Sie die Ausgabe und versuchen Sie es erneut oder fahren Sie fort, wenn Sie die Einrichtung auf andere Weise abgeschlossen haben.",
+    "checkFailed": "Ihre aktuelle Hook-Konfiguration konnte nicht überprüft werden. Sie können die ausgewählten Hooks trotzdem installieren.",
+    "preserveNote": "Dies verwaltet nur Dashboard-Hooks. Ihre anderen Hooks bleiben unverändert.",
+    "alreadyInstalled": "Ich habe bereits Hooks installiert",
+    "install": "Hooks installieren",
+    "installing": "Hooks werden installiert...",
+    "continue": "Zum Dashboard"
+  },
+  "taglines": [
+    "Was auch immer Ihre Agenten tun, bleibt nicht im Dunkeln.",
+    "Sehen Sie jeden Schritt Ihrer Agenten.",
+    "Ihre Agenten, vollständig beobachtbar.",
+    "Jeder Token, jedes Tool, jede Runde – im Blick.",
+    "Beobachten Sie, wie Ihre Flotte denkt.",
+    "Wo Claude Code-Sitzungen in den Fokus rücken.",
+    "Echtzeit-Einblick in jeden Agenten.",
+    "Vom Prompt zum Ergebnis – alles festgehalten.",
+    "Der Kontrollraum für Ihre KI-Agenten.",
+    "Jeder Subagent erfasst.",
+    "Wissen Sie genau, was Ihre Agenten kosten.",
+    "Ihre agentischen Workflows, verständlich gemacht.",
+    "Beobachten. Messen. Optimieren.",
+    "Mission Control für Claude Code.",
+    "Aus Agenten-Chaos ein klares Bild machen.",
+    "Die Quittungen für jeden Lauf."
+  ],
+  "subs": [
+    [
+      "Echtzeit-Beobachtbarkeit für jede Claude Code-Sitzung.",
+      "Tokens, Tools, Kosten und Workflows – alles live."
+    ],
+    [
+      "Live-Sitzungen, Agenten und Ereignisse, wie sie passieren.",
+      "Token- und Kostenaufschlüsselung pro Modell, ohne Rätselraten."
+    ],
+    [
+      "Verfolgen Sie jeden Tool-Aufruf über Ihren Agenten-Baum.",
+      "Erkennen Sie die langsame Runde, das teure Modell, den stillen Fehler."
+    ],
+    [
+      "Hooks streamen direkt zu einem lokalen Dashboard.",
+      "Ihre Daten verlassen niemals Ihr Gerät."
+    ],
+    [
+      "Beobachten Sie, wie Orchestratoren an Subagenten delegieren.",
+      "DAGs, Parallelität und Fehlerausbreitung, visualisiert."
+    ],
+    [
+      "Kostenverfolgung bis zum Cache-Token.",
+      "Modellspezifische Preise mit kompaktierungsbewussten Baselines."
+    ],
+    [
+      "Jede Sitzung, jeder Agent und jedes Ereignis an einem Ort.",
+      "Suchen, wiederholen und prüfen ohne das Dashboard zu verlassen."
+    ],
+    [
+      "Von SessionStart bis SessionEnd erfasst.",
+      "Kompaktierungen, API-Fehler und Runden-Dauern eingeschlossen."
+    ],
+    [
+      "Wissen Sie, welches Modell was getan hat und was es gekostet hat.",
+      "Subagenten zum eigenen Tarif berechnet, nicht dem des Orchestrators."
+    ],
+    [
+      "Workflow-Flotten und innere Agenten, sichtbar gemacht.",
+      "Auch Läufe, die nie einen Hook auslösen."
+    ],
+    ["Ein lokal-erstes Fenster in Ihre Agenten.", "Keine Cloud, kein Konto, keine Telemetrie."],
+    [
+      "Messen Sie Produktivität, nicht Gefühl.",
+      "Geschwindigkeit, Cache-Effizienz und Tool-Effektivität, bewertet."
+    ],
+    [
+      "Erkennen Sie die Anomalie, bevor die Rechnung es tut.",
+      "Kostenausreißer und Token-Spitzen, frühzeitig markiert."
+    ],
+    [
+      "Ihre Claude Code-Konfiguration, vollständig abgebildet.",
+      "Skills, Agenten, Hooks, MCP und Speicher auf einen Blick."
+    ]
+  ]
+}

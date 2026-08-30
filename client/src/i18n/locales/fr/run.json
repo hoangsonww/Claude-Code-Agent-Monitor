@@ -1,0 +1,192 @@
+{
+  "title": "Exécuter Claude",
+  "subtitle": "Lancez une session Claude Code directement dans le tableau de bord. Sortie en streaming en direct, conversation multi-tours, et la même analytique basée sur les hooks que vos sessions terminal.",
+  "provider": {
+    "aria": "Fournisseur d'exécution",
+    "kicker": "Exécuter un agent",
+    "chooseTitle": "Quel agent souhaitez-vous exécuter ?",
+    "chooseDescription": "Choisissez un agent local interactif. Vous pouvez changer avant de démarrer une nouvelle exécution.",
+    "choose": "Choisir",
+    "cancel": "Annuler",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Démarrez des sessions Claude Code avec streaming en direct, conversation, et la même analytique basée sur les hooks que votre terminal.",
+      "description": "Exécutez Claude Code en mode conversation ou comme tâche unique."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Démarrez un thread Codex interactif natif avec des réponses en direct, l'activité des outils et des tours de suivi.",
+      "description": "Exécutez un thread de serveur d'application Codex persistant depuis votre CLI locale connectée.",
+      "interactiveLabel": "Thread Codex interactif",
+      "interactiveHint": "Démarre un thread local persistant avec des réponses en direct, l'activité des outils, l'annulation et des tours de suivi."
+    }
+  },
+  "mode": {
+    "label": "Mode",
+    "conversation": "Conversation",
+    "conversationHint": "Multi-tours — continuez à taper des questions pendant que l'agent travaille.",
+    "headless": "Exécution unique",
+    "headlessHint": "Invite unique, réponse unique. Stdin se ferme après le lancement."
+  },
+  "fields": {
+    "prompt": "Invite",
+    "promptPlaceholder": "Demandez n'importe quoi à Claude…",
+    "cwd": "Répertoire de travail",
+    "cwdHint": "Chemin absolu. Par défaut le répertoire courant du tableau de bord.",
+    "cwdPlaceholder": "Tapez pour rechercher ou collez un chemin absolu…",
+    "cwdGroups": {
+      "dashboard": "Serveur du tableau de bord",
+      "home": "Accueil",
+      "recent": "Récent — utilisé par Claude Code"
+    },
+    "cwdNoMatches": "Aucune correspondance. Tapez un chemin absolu pour l'utiliser directement.",
+    "model": "Modèle",
+    "modelInheritLabel": "Hériter des paramètres",
+    "modelCustom": "Personnalisé…",
+    "modelCustomPlaceholder": "id de modèle (ex. claude-opus-4-7-20260101)",
+    "permissionMode": "Mode de permission",
+    "permissionAcceptEdits": "acceptEdits (recommandé)",
+    "permissionDefault": "default (invites interactives — les sessions peuvent se bloquer en mode headless)",
+    "permissionPlan": "plan (planification en lecture seule)",
+    "permissionBypass": "bypassPermissions (DANGER — permet tout sans demander)",
+    "approvalUntrusted": "Non fiable (demander avant les commandes non fiables)",
+    "approvalOnRequest": "Sur demande (Codex décide quand demander)",
+    "approvalNever": "Jamais (renvoyer directement les échecs d'exécution)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Lecture seule",
+    "sandboxWorkspaceWrite": "Écriture dans l'espace de travail",
+    "sandboxDanger": "Danger — accès complet",
+    "modelLiveCatalog": "Catalogue en direct depuis votre CLI Codex connectée",
+    "modelCuratedCatalog": "Claude Code ne publie pas de liste de modèles de compte ; choisissez ses alias stables ou saisissez un autre ID de modèle.",
+    "modelCustomClaudeHint": "Pour un modèle Claude antérieur ou spécifique à un compte, saisissez sa valeur --model exacte.",
+    "effort": "Effort de réflexion",
+    "effortHint": "Contrôle combien le modèle raisonne avant de répondre. Plus élevé = plus de tokens de réflexion, plus lent, plus profond. Vide hérite du défaut du modèle."
+  },
+  "actions": {
+    "start": "Exécuter",
+    "starting": "Démarrage…",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "stop": "Arrêter",
+    "stopping": "Arrêt…",
+    "newRun": "Nouvelle exécution",
+    "viewSession": "Voir la session"
+  },
+  "status": {
+    "idle": "Inactif",
+    "spawning": "Lancement…",
+    "running": "En cours",
+    "completed": "Terminé",
+    "error": "Erreur",
+    "killed": "Tué",
+    "abandoned": "Abandonné"
+  },
+  "binary": {
+    "missing": "Le CLI `claude` n'est pas dans votre PATH. Installez Claude Code ou définissez PATH pour que le tableau de bord puisse le lancer.",
+    "found": "Utilise {{path}}"
+  },
+  "concurrency": {
+    "active_one": "{{count}} exécution déjà en cours",
+    "active_other": "{{count}} exécutions déjà en cours",
+    "viewActive": "Voir les exécutions actives",
+    "atCap": "Limite de concurrence atteinte ({{max}}). Arrêtez l'une des exécutions en cours pour en démarrer une nouvelle."
+  },
+  "hint": {
+    "shortcut": "Cmd+Entrée / Ctrl+Entrée pour envoyer",
+    "permissionWarning": "bypassPermissions permet TOUTES les invocations d'outils sans confirmation. À utiliser uniquement pour des invites de confiance.",
+    "headlessExplain": "Le mode headless est idéal pour les tâches scriptées où vous savez exactement ce que vous voulez."
+  },
+  "empty": {
+    "title": "Rien pour l'instant",
+    "body": "Tapez une invite et cliquez sur Exécuter. La sortie est diffusée ici pendant que le modèle pense, appelle des outils et répond."
+  },
+  "events": {
+    "you": "Vous",
+    "claude": "Claude",
+    "tool": "Outil",
+    "toolResult": "Résultat de l'outil",
+    "system": "Système",
+    "thinking": "Réflexion",
+    "expand": "Développer",
+    "collapse": "Réduire"
+  },
+  "footer": {
+    "duration": "Durée",
+    "cost": "Coût",
+    "turns": "Tours",
+    "exitCode": "Code de sortie",
+    "sessionId": "ID de session"
+  },
+  "errors": {
+    "startFailed": "Impossible de démarrer l'exécution : {{message}}",
+    "sendFailed": "Envoi impossible : {{message}}",
+    "killFailed": "Arrêt impossible : {{message}}",
+    "attachFailed": "Impossible de s'attacher à l'exécution : {{message}}"
+  },
+  "runs": {
+    "switcher": "Exécutions actives",
+    "switcherEmpty": "Aucune exécution active",
+    "attached": "Attaché à une exécution existante",
+    "started": "Démarré {{when}}",
+    "viewActive": "Voir l'exécution active",
+    "viewActive_other": "{{count}} exécutions actives",
+    "scopeNote": "Affiche uniquement les exécutions démarrées depuis ce tableau de bord.",
+    "allSessionsLink": "Voir toutes les sessions Claude Code →",
+    "viewLabel": "Voir"
+  },
+  "resume": {
+    "label": "Session source",
+    "freshOption": "Nouvelle session",
+    "freshHint": "Démarrer une nouvelle session Claude Code.",
+    "resumeOption": "Reprendre une session existante",
+    "resumeHint": "Choisissez une session de votre historique et continuez la conversation. Le répertoire est verrouillé sur l'original.",
+    "pickSession": "Choisir une session…",
+    "search": "Rechercher par ID, répertoire ou statut…",
+    "noSessions": "Aucune session trouvée.",
+    "originalCwd": "Répertoire original",
+    "preview": "Dernière activité",
+    "selectedBadge": "Reprise",
+    "clear": "Effacer la sélection"
+  },
+  "limitations": {
+    "title": "Exécuter Claude dans votre navigateur",
+    "subtitle": "même binaire, surface différente",
+    "peek": "La plupart des fonctionnalités TUI se transfèrent. Quelques interactives ne se transfèrent pas.",
+    "why": "Pourquoi",
+    "intro": "Sous le capot, nous lançons le même binaire `claude` que votre terminal utilise — mais stream-json est un flux unidirectionnel, pas le TUI interactif.",
+    "supported": "Fonctionne ici",
+    "limited": "CLI uniquement",
+    "tldr": "Si une fonctionnalité n'est pas disponible ici, ouvrez la même session dans votre terminal avec `claude --resume <session-id>` — les deux côtés partagent le même transcript JSONL sur disque.",
+    "dismiss": "Compris",
+    "minimize": "Minimiser",
+    "restore": "Afficher les notes d'exécution dans le navigateur",
+    "expand": "Lire plus",
+    "collapse": "Réduire"
+  },
+  "tokens": {
+    "label": "Contexte",
+    "input": "Entrée",
+    "output": "Sortie",
+    "cacheRead": "Lecture du cache",
+    "cost": "Coût"
+  },
+  "autocomplete": {
+    "slashHint": "Tapez / pour les commandes slash",
+    "fileHint": "Tapez @ pour référencer un fichier",
+    "noMatches": "Aucune correspondance",
+    "groupBuiltin": "Intégré (CLI uniquement — ne s'exécutera pas ici)",
+    "groupUser": "Commandes utilisateur",
+    "groupProject": "Commandes de projet",
+    "groupFiles": "Fichiers dans le répertoire"
+  },
+  "statusHeader": {
+    "model": "Modèle",
+    "effort": "Effort",
+    "permissionMode": "Mode",
+    "cwd": "Répertoire",
+    "session": "Session",
+    "envelopes": "Événements",
+    "duration": "Écoulé"
+  }
+}

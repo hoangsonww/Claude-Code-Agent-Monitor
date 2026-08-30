@@ -1,0 +1,80 @@
+{
+  "title": "Alertes",
+  "subtitle": "Alertes basées sur des règles pour les sessions, agents, événements et utilisation des tokens",
+  "refresh": "Actualiser",
+  "ackAll": "Tout acquitter ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Modèle d'événement",
+    "inactivity": "Inactivité",
+    "status_duration": "Agent bloqué",
+    "token_threshold": "Seuil de tokens"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Se déclenche lorsqu'un événement ingéré correspond au modèle. Définissez un compte supérieur à 1 pour exiger N événements correspondants dans une fenêtre temporelle (par exemple plus de 5 erreurs en 2 minutes).",
+    "inactivity": "Se déclenche lorsqu'une session active n'a reçu aucun événement pendant le nombre de minutes configuré.",
+    "status_duration": "Se déclenche lorsqu'un agent est resté dans le statut sélectionné sans activité pendant le nombre de minutes configuré.",
+    "token_threshold": "Se déclenche lorsque l'utilisation totale de tokens d'une session (entrée + sortie + cache) dépasse le seuil."
+  },
+  "ruleDesc": {
+    "eventPattern": "Correspond à {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} dans {{window}} min",
+    "inactivity": "Aucune activité de session pendant {{minutes}} min",
+    "statusDuration": "Agent bloqué en {{status}} pendant {{minutes}} min",
+    "tokenThreshold": "Les tokens de session dépassent {{tokens}}"
+  },
+  "rules": {
+    "title": "Règles d'alerte",
+    "add": "Ajouter une règle",
+    "cancel": "Annuler",
+    "create": "Créer une règle",
+    "saving": "Enregistrement…",
+    "empty": "Aucune règle d'alerte pour l'instant. Ajoutez-en une pour surveiller les agents bloqués, les rafales d'erreurs, les sessions inactives ou les pics de tokens.",
+    "enabled": "Activée",
+    "disabled": "Désactivée",
+    "enable": "Activer la règle",
+    "disable": "Désactiver la règle",
+    "delete": "Supprimer la règle",
+    "confirmDelete": "Supprimer la règle \"{{name}}\" et son historique d'alertes ?",
+    "cooldown": "Délai de {{seconds}}s",
+    "form": {
+      "name": "Nom de la règle",
+      "namePlaceholder": "ex. Rafale d'erreurs",
+      "type": "Type de règle",
+      "eventType": "Type d'événement (exact)",
+      "toolName": "Nom de l'outil (exact)",
+      "summaryContains": "Le résumé contient",
+      "count": "Nombre de déclenchements",
+      "windowMinutes": "Fenêtre (minutes)",
+      "agentStatus": "Statut de l'agent",
+      "minutes": "Minutes",
+      "totalTokens": "Tokens totaux",
+      "cooldown": "Délai (secondes)"
+    },
+    "deleteTitle": "Supprimer la règle d'alerte ?",
+    "help": {
+      "name": "Un label pour cette règle. Affiché dans le flux d'alertes et inclus dans les payloads webhook (rule_name). ex. 'Erreurs Bash répétées'.",
+      "type": "Ce que cette règle surveille. event_pattern correspond au flux d'événements en direct ; inactivity = une session active se tait ; status_duration = un agent est bloqué dans un état ; token_threshold = l'utilisation de tokens d'une session dépasse une limite.",
+      "eventType": "L'événement hook Claude Code à faire correspondre. Laissez vide pour correspondre à n'importe quel type d'événement. Correspondance exacte (sensible à la casse).",
+      "toolName": "L'outil invoqué par l'agent (sur les événements PreToolUse / PostToolUse). Laissez vide pour correspondre à n'importe quel outil. Correspondance exacte.",
+      "summaryContains": "Correspondance de sous-chaîne insensible à la casse avec le texte de résumé de l'événement. Utile pour détecter des erreurs ou des phrases spécifiques. Laissez vide pour ignorer.",
+      "count": "Combien d'événements correspondants doivent se produire avant que l'alerte se déclenche. 1 = déclencher à la première correspondance. Définir au-dessus de 1 pour détecter les rafales (ex. erreurs répétées).",
+      "window": "La fenêtre de recul glissante pour le compte. ex. compte 5 + fenêtre 2 signifie '5 événements correspondants dans n'importe quelle durée de 2 minutes'.",
+      "status": "Quel état de l'agent surveiller. 'working' détecte les agents bloqués en pleine tâche ; 'waiting' détecte les agents bloqués en attente d'entrée/permission.",
+      "minutesInactivity": "Déclencher lorsqu'une session active n'a eu aucun événement pendant ce nombre de minutes (une session bloquée ou oubliée).",
+      "minutesStatus": "Déclencher lorsqu'un agent reste dans le statut sélectionné sans activité pendant ce nombre de minutes (un agent bloqué).",
+      "totalTokens": "Déclencher lorsque les tokens cumulés d'une session (entrée + sortie + lecture cache + écriture cache) dépassent ce nombre. ex. 1000000 = 1M tokens.",
+      "cooldown": "Secondes minimales entre les alertes répétées pour la même règle + session + agent. Évite les doublons bruyants. Défaut 300 (5 min) ; 0 = pas de délai."
+    }
+  },
+  "feed": {
+    "title": "Flux d'alertes",
+    "unackedCount": "{{count}} non acquitté(s)",
+    "unackedOnly": "Non acquittés seulement",
+    "ack": "Acquitter",
+    "viewSession": "Voir la session",
+    "loadMore": "Charger plus ({{shown}} sur {{total}})",
+    "emptyTitle": "Aucune alerte",
+    "emptyDescription": "Les alertes déclenchées par vos règles apparaîtront ici en temps réel.",
+    "emptyUnacked": "Tout est acquitté. Les nouvelles alertes apparaîtront ici dès qu'elles se déclencheront."
+  }
+}

@@ -149,6 +149,38 @@ import run_es from "./locales/es/run.json";
 import alerts_es from "./locales/es/alerts.json";
 import splash_es from "./locales/es/splash.json";
 
+import common_de from "./locales/de/common.json";
+import nav_de from "./locales/de/nav.json";
+import dashboard_de from "./locales/de/dashboard.json";
+import sessions_de from "./locales/de/sessions.json";
+import activity_de from "./locales/de/activity.json";
+import analytics_de from "./locales/de/analytics.json";
+import workflows_de from "./locales/de/workflows.json";
+import settings_de from "./locales/de/settings.json";
+import kanban_de from "./locales/de/kanban.json";
+import errors_de from "./locales/de/errors.json";
+import updates_de from "./locales/de/updates.json";
+import ccConfig_de from "./locales/de/ccConfig.json";
+import run_de from "./locales/de/run.json";
+import alerts_de from "./locales/de/alerts.json";
+import splash_de from "./locales/de/splash.json";
+
+import common_fr from "./locales/fr/common.json";
+import nav_fr from "./locales/fr/nav.json";
+import dashboard_fr from "./locales/fr/dashboard.json";
+import sessions_fr from "./locales/fr/sessions.json";
+import activity_fr from "./locales/fr/activity.json";
+import analytics_fr from "./locales/fr/analytics.json";
+import workflows_fr from "./locales/fr/workflows.json";
+import settings_fr from "./locales/fr/settings.json";
+import kanban_fr from "./locales/fr/kanban.json";
+import errors_fr from "./locales/fr/errors.json";
+import updates_fr from "./locales/fr/updates.json";
+import ccConfig_fr from "./locales/fr/ccConfig.json";
+import run_fr from "./locales/fr/run.json";
+import alerts_fr from "./locales/fr/alerts.json";
+import splash_fr from "./locales/fr/splash.json";
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -239,8 +271,42 @@ i18n
         alerts: alerts_es,
         splash: splash_es,
       },
+      de: {
+        common: common_de,
+        nav: nav_de,
+        dashboard: dashboard_de,
+        sessions: sessions_de,
+        activity: activity_de,
+        analytics: analytics_de,
+        workflows: workflows_de,
+        settings: settings_de,
+        kanban: kanban_de,
+        errors: errors_de,
+        updates: updates_de,
+        ccConfig: ccConfig_de,
+        run: run_de,
+        alerts: alerts_de,
+        splash: splash_de,
+      },
+      fr: {
+        common: common_fr,
+        nav: nav_fr,
+        dashboard: dashboard_fr,
+        sessions: sessions_fr,
+        activity: activity_fr,
+        analytics: analytics_fr,
+        workflows: workflows_fr,
+        settings: settings_fr,
+        kanban: kanban_fr,
+        errors: errors_fr,
+        updates: updates_fr,
+        ccConfig: ccConfig_fr,
+        run: run_fr,
+        alerts: alerts_fr,
+        splash: splash_fr,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko", "es"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es", "de", "fr"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [

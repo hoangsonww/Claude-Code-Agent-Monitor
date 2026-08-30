@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "Seite nicht gefunden",
+    "description": "Die angeforderte Route existiert nicht. Verwenden Sie die Navigation, um zu einer gültigen Seite zurückzukehren.",
+    "goDashboard": "Zum Dashboard",
+    "goBack": "Zurück"
+  },
+  "notifications": {
+    "newSession": "Neue Sitzung",
+    "sessionDefault": "Sitzung ",
+    "sessionError": "Sitzungsfehler",
+    "subagentSpawned": "Subagent gestartet",
+    "finishedResponding": "Agent hat geantwortet",
+    "readyForInput": "Bereit für Eingabe",
+    "sessionCompleted": "Sitzung abgeschlossen",
+    "sessionClosed": "Sitzung geschlossen",
+    "defaultTitle": "Agent Dashboard",
+    "defaultBody": "Benachrichtigung"
+  },
+  "toolLegend": {
+    "read": "Lesen",
+    "write": "Schreiben",
+    "edit": "Bearbeiten",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "Sonstiges"
+  }
+}

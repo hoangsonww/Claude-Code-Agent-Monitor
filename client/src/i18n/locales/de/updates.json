@@ -1,0 +1,15 @@
+{
+  "title": "Dashboard-Update verfügbar",
+  "lead": "Eine neue Version des Dashboards ist verfügbar. Um zu aktualisieren, führen Sie folgenden Befehl im Terminal aus:",
+  "commitsBehind": "{{count}} Commit(s) hinter {{ref}}",
+  "copy": "Befehl kopieren",
+  "commandLabel": "Terminal-Befehl zum Aktualisieren des Dashboards",
+  "copied": "Kopiert",
+  "dismiss": "Schließen",
+  "fetchError": "Git-Remote nicht erreichbar. Versuchen Sie es erneut, wenn Sie online sind.",
+  "notGit": "Diese Installation ist kein Git-Klon; verwenden Sie einen manuellen Upgrade-Pfad.",
+  "restartNote": "Schließen Sie das Dashboard nach Abschluss des Befehls und starten Sie es auf dieselbe Weise neu, wie Sie es gestartet haben: Wenn Sie npm start verwendet haben, führen Sie npm start erneut aus.",
+  "checkNow": "Jetzt prüfen",
+  "checking": "Wird geprüft…",
+  "checkError": "Update-Prüfung fehlgeschlagen"
+}

@@ -1,0 +1,80 @@
+{
+  "title": "Warnungen",
+  "subtitle": "Regelbasierte Warnungen für Sitzungen, Agenten, Ereignisse und Token-Nutzung",
+  "refresh": "Aktualisieren",
+  "ackAll": "Alle bestätigen ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Ereignismuster",
+    "inactivity": "Inaktivität",
+    "status_duration": "Feststeckender Agent",
+    "token_threshold": "Token-Schwellenwert"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Löst aus, wenn ein eingehend erfasstes Ereignis dem Muster entspricht. Setzen Sie eine Anzahl über 1, um N übereinstimmende Ereignisse innerhalb eines Zeitfensters zu erfordern (z. B. mehr als 5 Fehler in 2 Minuten).",
+    "inactivity": "Löst aus, wenn eine aktive Sitzung für die konfigurierte Anzahl von Minuten keine Ereignisse empfangen hat.",
+    "status_duration": "Löst aus, wenn ein Agent für die konfigurierte Anzahl von Minuten ohne Aktivität im ausgewählten Status verblieben ist.",
+    "token_threshold": "Löst aus, wenn die gesamte Token-Nutzung einer Sitzung (Eingabe + Ausgabe + Cache) den Schwellenwert überschreitet."
+  },
+  "ruleDesc": {
+    "eventPattern": "Entspricht {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} innerhalb von {{window}} Min.",
+    "inactivity": "Keine Sitzungsaktivität für {{minutes}} Min.",
+    "statusDuration": "Agent im Status {{status}} feststeckend für {{minutes}} Min.",
+    "tokenThreshold": "Sitzungs-Tokens überschreiten {{tokens}}"
+  },
+  "rules": {
+    "title": "Warnregeln",
+    "add": "Regel hinzufügen",
+    "cancel": "Abbrechen",
+    "create": "Regel erstellen",
+    "saving": "Wird gespeichert…",
+    "empty": "Noch keine Warnregeln. Fügen Sie eine hinzu, um feststeckende Agenten, Fehler-Bursts, inaktive Sitzungen oder Token-Spitzen zu überwachen.",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "enable": "Regel aktivieren",
+    "disable": "Regel deaktivieren",
+    "delete": "Regel löschen",
+    "confirmDelete": "Regel \"{{name}}\" und ihren Verlauf löschen?",
+    "cooldown": "{{seconds}}s Abklingzeit",
+    "form": {
+      "name": "Regelname",
+      "namePlaceholder": "z. B. Fehler-Burst",
+      "type": "Regeltyp",
+      "eventType": "Ereignistyp (exakt)",
+      "toolName": "Tool-Name (exakt)",
+      "summaryContains": "Zusammenfassung enthält",
+      "count": "Auslöseanzahl",
+      "windowMinutes": "Fenster (Minuten)",
+      "agentStatus": "Agentenstatus",
+      "minutes": "Minuten",
+      "totalTokens": "Gesamt-Tokens",
+      "cooldown": "Abklingzeit (Sekunden)"
+    },
+    "deleteTitle": "Warnregel löschen?",
+    "help": {
+      "name": "Ein Label für diese Regel. Wird im Warn-Feed angezeigt und in Webhook-Payloads (rule_name) einbezogen. z. B. 'Wiederholte Bash-Fehler'.",
+      "type": "Was diese Regel überwacht. event_pattern entspricht dem Live-Ereignisstrom; inactivity = eine aktive Sitzung wird still; status_duration = ein Agent steckt in einem Status fest; token_threshold = die Token-Nutzung einer Sitzung überschreitet ein Limit.",
+      "eventType": "Das Claude Code-Hook-Ereignis, das übereinstimmen soll. Leer lassen, um einen beliebigen Ereignistyp zu entsprechen. Exakt übereinstimmend (Groß-/Kleinschreibung beachten).",
+      "toolName": "Das vom Agenten aufgerufene Tool (bei PreToolUse / PostToolUse-Ereignissen). Leer lassen, um ein beliebiges Tool zu entsprechen. Exakt übereinstimmend.",
+      "summaryContains": "Groß-/Kleinschreibung-unempfindliche Teilstringübereinstimmung mit dem Zusammenfassungstext des Ereignisses. Nützlich zum Erfassen von Fehlern oder bestimmten Phrasen. Leer lassen zum Überspringen.",
+      "count": "Wie viele übereinstimmende Ereignisse auftreten müssen, bevor die Warnung ausgelöst wird. 1 = beim ersten Treffer auslösen. Über 1 setzen, um Bursts zu erkennen (z. B. wiederholte Fehler).",
+      "window": "Das rollende Rückblickfenster für die Anzahl. z. B. Anzahl 5 + Fenster 2 bedeutet '5 übereinstimmende Ereignisse innerhalb eines 2-Minuten-Zeitraums'.",
+      "status": "Welchen Agentenstatus überwachen. 'working' erfasst mitten in einer Aufgabe feststeckende Agenten; 'waiting' erfasst auf Eingabe/Genehmigung blockierte Agenten.",
+      "minutesInactivity": "Auslösen, wenn eine aktive Sitzung für diese Anzahl von Minuten keine Ereignisse hatte (eine abgestürzte oder vergessene Sitzung).",
+      "minutesStatus": "Auslösen, wenn ein Agent ohne Aktivität für diese Anzahl von Minuten im ausgewählten Status bleibt (ein feststeckender Agent).",
+      "totalTokens": "Auslösen, wenn die kumulierten Tokens einer Sitzung (Eingabe + Ausgabe + Cache-Lesen + Cache-Schreiben) diese Zahl überschreiten. z. B. 1000000 = 1M Tokens.",
+      "cooldown": "Minimale Sekunden zwischen wiederholten Warnungen für dieselbe Regel + Sitzung + Agent. Verhindert störende Duplikate. Standard 300 (5 Min.); 0 = keine Abklingzeit."
+    }
+  },
+  "feed": {
+    "title": "Warn-Feed",
+    "unackedCount": "{{count}} unbestätigt",
+    "unackedOnly": "Nur Unbestätigte",
+    "ack": "Bestätigen",
+    "viewSession": "Sitzung anzeigen",
+    "loadMore": "Mehr laden ({{shown}} von {{total}})",
+    "emptyTitle": "Keine Warnungen",
+    "emptyDescription": "Von Ihren Regeln ausgelöste Warnungen erscheinen hier in Echtzeit.",
+    "emptyUnacked": "Alles ist bestätigt. Neue Warnungen erscheinen hier, sobald sie ausgelöst werden."
+  }
+}

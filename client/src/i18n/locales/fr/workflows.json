@@ -1,0 +1,468 @@
+{
+  "title": "Workflows",
+  "subtitle": "Intelligence d'orchestration d'agents",
+  "failedLoad": "Échec du chargement des données de workflow",
+  "filteredBy": "Filtré par :",
+  "clearFilter": "Effacer le filtre",
+  "refreshData": "Actualiser les données",
+  "exportJson": "Exporter en JSON",
+  "allSessions": "Toutes les sessions",
+  "activeOnly": "Actives uniquement",
+  "completed": "Terminées",
+  "runs": {
+    "title": "Workflows dynamiques",
+    "subtitle": "Flottes lancées par l'outil Workflow, reconstituées depuis les journaux d'exécution sur disque",
+    "sessionTitle": "Workflows dynamiques",
+    "loading": "Chargement des workflows dynamiques…",
+    "empty": "Aucun workflow dynamique pour l'instant. Les exécutions de l'outil Workflow apparaissent ici une fois leur journal écrit (à la fin).",
+    "noAgents": "Aucun agent interne enregistré pour cette exécution.",
+    "openSession": "Ouvrir la session parente",
+    "filterPhase": "Filtrer par phase",
+    "clearFilter": "Effacer",
+    "resultsLabel": "Résultats",
+    "promptLabel": "Invite",
+    "resultLabel": "Résultat",
+    "loadingFull": "Chargement du texte complet…",
+    "tokens": "tokens",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "tools_one": "{{count}} appel d'outil",
+    "tools_other": "{{count}} appels d'outils",
+    "status": {
+      "running": "En cours",
+      "working": "En cours",
+      "queued": "En attente",
+      "completed": "Terminé",
+      "done": "Fait",
+      "success": "Fait",
+      "error": "Erreur",
+      "failed": "Échoué"
+    },
+    "col": {
+      "agent": "Agent",
+      "phase": "Phase",
+      "state": "État",
+      "tokens": "Tokens",
+      "tools": "Outils",
+      "duration": "Durée"
+    }
+  },
+  "chartInfo": {
+    "labels": {
+      "what": "Ce que cela montre",
+      "howToRead": "Comment le lire",
+      "why": "Pourquoi c'est important"
+    },
+    "orchestration": {
+      "what": "Un DAG en couches montrant comment les sessions Claude Code se déploient : depuis les sessions d'origine, vers l'agent principal, vers chaque type de sous-agent, à travers les compactions de contexte, et enfin vers les résultats finaux (terminé / erreur / abandonné).",
+      "howToRead": "Chaque colonne est une couche. La largeur des boîtes est constante ; le petit badge indique le nombre. Les arêtes coulent de gauche à droite ; des arêtes plus épaisses = des transitions plus fréquentes. Survolez un nœud pour les statistiques ; cliquez pour filtrer le reste de la page.",
+      "why": "Pour répondre à « où va le travail dans mes workflows ? » — quels types de sous-agents dominent, où la compaction intervient, et quels chemins mènent à des erreurs vs des terminaisons propres."
+    },
+    "toolFlow": {
+      "what": "Un graphique de style Sankey des transitions consécutives d'appels d'outils sur toutes les sessions dans le périmètre.",
+      "howToRead": "Les outils apparaissent comme des barres colorées à gauche et à droite. Les bandes les connectent : épaisseur = nombre de fois que la source a tourné juste avant la cible. Survolez une bande pour le pourcentage source/cible.",
+      "why": "Révèle les chaînes d'outils habituelles (ex. Read → Edit → Bash). Utile pour repérer les boucles, les sauts inutiles et le manque de diversité d'outils."
+    },
+    "pipeline": {
+      "what": "Un graphe dirigé de la co-occurrence des types d'agents : quels types d'agents ont tendance à s'exécuter séquentiellement après quels autres, et à quelle fréquence.",
+      "howToRead": "Les cercles sont des types d'agents ; la taille encode le nombre total de lancements. Les flèches vont A → B quand B a été observé juste après A dans la même session. Survolez une flèche pour le taux ; faites glisser les nœuds pour réorganiser.",
+      "why": "Révèle de vraies pipelines de délégation que vous n'avez peut-être pas conçues intentionnellement — ex. un agent de révision de code qui suit presque toujours un agent de build."
+    },
+    "effectiveness": {
+      "what": "Une carte par type de sous-agent avec un anneau de taux de succès, les sessions totales, la durée moyenne et un sparkline d'activité sur 7 jours.",
+      "howToRead": "Le remplissage de l'anneau est le taux de succès. Les deux boîtes donnent les comptages et la durée moyenne. Le sparkline montre les sessions par jour de la semaine dernière.",
+      "why": "Bilan de santé rapide par agent : quels agents sont fiables, lesquels sont lents, et lesquels sont en hausse ou en baisse d'utilisation."
+    },
+    "patterns": {
+      "what": "Une liste classée de séquences d'orchestration d'agents récurrentes détectées dans les traces de sessions, plus un encadré pour les sessions solo sans sous-agents.",
+      "howToRead": "Chaque ligne est une séquence d'étapes (principal → sous → sous…). La partie droite montre combien de sessions correspondent et quel pourcentage cela représente. Cliquez sur un motif pour le mettre en évidence.",
+      "why": "Révèle les « formes » standard du travail dans votre projet. Les motifs fréquents sont de bons candidats à formaliser comme workflows nommés ou skills."
+    },
+    "modelDelegation": {
+      "what": "Un flux en deux colonnes montrant quels modèles principaux délèguent à quels modèles de sous-agents, plus le nombre d'agents et les tokens totaux par nœud.",
+      "howToRead": "Colonne gauche = modèles principaux pour les sessions ; colonne droite = modèles utilisés dans les sous-agents. Les lignes indiquent les pairages principal → sous-agent observés.",
+      "why": "Aide à confirmer le tiering coût/latence — ex. principal sur Sonnet, sous-agents sur Haiku — et à détecter les escalades involontaires vers Opus."
+    },
+    "errorPropagation": {
+      "what": "Où les erreurs se concentrent dans la hiérarchie d'agents : par profondeur, par type d'agent et par catégorie d'erreur API/session.",
+      "howToRead": "La bannière supérieure donne le taux d'erreur au niveau session. Les barres de profondeur montrent combien d'erreurs se sont produites à chaque niveau d'imbrication.",
+      "why": "Indique si les échecs se situent dans la colonne d'orchestration (agent principal), dans des sous-agents spécifiques ou dans des chaînes profondément imbriquées."
+    },
+    "concurrency": {
+      "what": "Timing agrégé de quand chaque type d'agent est actif par rapport à la ligne temporelle de la session, plus combien de sessions le comportent.",
+      "howToRead": "Chaque ligne est un type d'agent. La longueur de la barre est proportionnelle au nombre de sessions. Les pourcentages à droite montrent la position moyenne de début et de fin dans une session (0% = début, 100% = fin).",
+      "why": "Révèle le rythme de vos sessions — ex. le linting au début, la révision de code à la fin — et met en évidence les agents qui monopolisent toute la session."
+    },
+    "complexity": {
+      "what": "Un nuage de points de chaque session : x = durée réelle, y = agents impliqués, taille de la bulle = tokens totaux, couleur = statut final.",
+      "howToRead": "Les bulles en haut à droite sont des sessions longues et lourdes en agents. Les grandes bulles ont consumé le plus de tokens. Survolez une bulle pour les stats complètes ; cliquez pour zoomer dedans.",
+      "why": "Donne une vue unique de la distribution coût/complexité. Les valeurs aberrantes méritent d'être examinées pour un comportement incontrôlé ou des pics de coûts."
+    },
+    "compaction": {
+      "what": "À quelle fréquence Claude a déclenché la compaction de contexte sur les sessions : événements totaux, tokens récupérés et une distribution par session.",
+      "howToRead": "Les deux boîtes de statistiques montrent les événements de compaction totaux et les tokens récupérés cumulés. Le graphique en barres liste les sessions avec au moins une compaction.",
+      "why": "Les compactions indiquent une pression de contexte. Une longue traîne de sessions à haute compaction signifie généralement des workflows qui devraient être divisés ou migrés vers un modèle à contexte plus long."
+    },
+    "drillIn": {
+      "what": "Vue de détail par session : arbre d'agents complet, chronologie des appels d'outils et séquence d'événements bruts pour la session sélectionnée.",
+      "howToRead": "Choisissez une session dans la liste déroulante ou cliquez sur une bulle dans le nuage de points. Les onglets permettent de basculer entre les vues hiérarchique (Arbre d'agents), temporelle (Chronologie d'outils) et chronologique (Séquence d'événements).",
+      "why": "Quand un graphique agrégé signale une session suspecte, c'est ici qu'on lit exactement ce qui s'est passé, dans l'ordre."
+    }
+  },
+  "stats": {
+    "avgAgentDepth": "Profondeur d'agent moy.",
+    "avgSubagentsPerSession": "Sous-agents moy. / session",
+    "agentSuccessRate": "Taux de succès des agents",
+    "mostCommonFlow": "Flux le plus fréquent",
+    "avgCompactions": "Compactions moy.",
+    "avgDuration": "Durée moyenne",
+    "tooltip": {
+      "howCalc": "Comment c'est calculé",
+      "whatItMeans": "Ce que ce nombre signifie",
+      "moreInfo": "Expliquer cette métrique",
+      "valueMeansFmt": "{{value}} {{phrase}} signifie {{interpretation}}",
+      "phrase": {
+        "depth": "profondeur d'agent moyenne",
+        "subagents": "sous-agents par session",
+        "success": "taux de succès des agents",
+        "topFlow": "flux le plus fréquent",
+        "compactions": "compactions par session",
+        "duration": "durée moyenne"
+      },
+      "calc": {
+        "depth": "Pour chaque session, on enregistre le niveau d'imbrication d'agents le plus profond (principal = 0, sous-agent direct = 1, sous-sous-agent = 2…) et on fait la moyenne de ces maximums.",
+        "subagents": "Nombre total d'invocations de sous-agents (chaque paire Task/SubagentStop) divisé par le nombre de sessions dans le périmètre.",
+        "success": "Sur toutes les exécutions principales et sous-agents : exécutions terminées ÷ (terminées + en erreur + abandonnées) × 100.",
+        "topFlow": "Chaque paire consécutive d'appels d'outils dans une session compte comme une transition. La paire la plus fréquente est affichée ici comme « source → cible ».",
+        "compactions": "Nombre total d'événements de compaction de contexte enregistrés, divisé par le nombre de sessions dans le périmètre.",
+        "duration": "Temps réel moyen du premier événement (SessionStart) au dernier événement (Stop/SessionEnd) de chaque session."
+      },
+      "depth": {
+        "zero": "aucun agent imbriqué observé. Chaque session a tourné avec seulement l'agent principal — aucune délégation de sous-agent.",
+        "rare": "l'imbrication est rare. La plupart des sessions restent à la profondeur 0.",
+        "single": "les sessions délèguent typiquement à une seule couche de sous-agents (principal → sous-agent).",
+        "multi": "l'orchestration multi-couches est courante — les sous-agents eux-mêmes lancent fréquemment d'autres sous-agents.",
+        "deep": "l'orchestration profonde et récursive est la norme. Les sessions enchaînent systématiquement trois couches d'agents ou plus."
+      },
+      "subagents": {
+        "zero": "aucun sous-agent n'a été déclenché. Les sessions se sont terminées entièrement sur l'agent principal.",
+        "lowFreq": "pratiquement : environ un sous-agent toutes les ~{{count}} sessions. La plupart des sessions n'en lancent aucun.",
+        "moderate": "les sessions délèguent typiquement à 1–3 sous-agents — utilisation modérée d'assistants spécialisés.",
+        "heavy": "délégation intensive — les sessions se déploient régulièrement vers plusieurs sous-agents.",
+        "veryHeavy": "très orienté orchestration : les sessions ont en moyenne 6+ exécutions de sous-agents chacune."
+      },
+      "success": {
+        "perfect": "quasi parfait. Presque chaque exécution d'agent se termine par un événement Stop propre.",
+        "healthy": "sain. La grande majorité des exécutions d'agents se terminent avec succès.",
+        "acceptable": "acceptable, mais surveiller la tendance d'erreur — environ 1 exécution sur 5 à 20 échoue.",
+        "concerning": "préoccupant — une part significative des exécutions d'agents échoue.",
+        "critical": "critique : la plupart des exécutions d'agents échouent ou sont abandonnées."
+      },
+      "topFlow": {
+        "none": "pas encore assez d'appels d'outils consécutifs enregistrés pour faire émerger une paire dominante.",
+        "selfLoop": "{{tool}} se suit le plus souvent lui-même — typique des lectures/éditions répétées ou des commandes shell enchaînées.",
+        "pair": "{{source}} tourne le plus souvent juste avant {{target}}. Voyez-le comme une habitude : {{sourceLower}} est généralement suivi de {{targetLower}} comme étape suivante."
+      },
+      "compactions": {
+        "zero": "aucune compaction de contexte observée. Les sessions sont restées confortablement dans la fenêtre de contexte du modèle.",
+        "lowFreq": "pratiquement : ~1 compaction toutes les {{count}} sessions.",
+        "moderate": "les sessions atteignent typiquement la compaction une ou deux fois — la pression de contexte existe mais est gérable.",
+        "high": "taux de compaction élevé. Envisagez de diviser le travail."
+      },
+      "duration": {
+        "zero": "aucune session terminée — la durée est 0.",
+        "veryShort": "sessions très courtes (moins d'une minute) — probablement des appels d'outils rapides.",
+        "short": "sessions courtes, de l'ordre de quelques minutes.",
+        "medium": "sessions de durée moyenne (5–30 min). Cadence de développement standard.",
+        "long": "sessions longues (30–60 min). Probablement des workflows en plusieurs étapes.",
+        "veryLong": "sessions très longues (1–3 h). Surveiller la compaction et la pression de contexte.",
+        "marathon": "sessions marathon (3+ heures). Envisager de diviser le travail en sessions plus courtes."
+      }
+    }
+  },
+  "orchestration": {
+    "title": "Graphe d'orchestration des agents",
+    "subtitle": "Motifs de lancement agrégés sur toutes les sessions — Cliquez sur un nœud pour filtrer",
+    "sessions": "Sessions",
+    "mainAgent": "Agent principal",
+    "compactions": "Compactions",
+    "noData": "Pas de données d'orchestration",
+    "noDataDesc": "Les données de lancement d'agents apparaîtront ici une fois que des sessions avec des sous-agents auront été enregistrées.",
+    "legend": "Légende",
+    "edgeWeight": "Poids des arêtes = fréquence",
+    "count": "Nombre",
+    "otherTypes": "{{count}} autres types",
+    "ariaLabel": "Graphe acyclique dirigé d'orchestration d'agents",
+    "layers": {
+      "origin": "Origine",
+      "mainAgent": "Agent principal",
+      "subagentTypes": "Types de sous-agents",
+      "compactions": "Compactions",
+      "outcomes": "Résultats"
+    },
+    "tooltip": {
+      "tipClickToFilter": "Astuce : cliquez pour filtrer le reste de la page par ce nœud.",
+      "layer": {
+        "session": "Couche 0 — Origine",
+        "main": "Couche 1 — Agent principal",
+        "subagent": "Couche 2 — Type de sous-agent",
+        "subagentOverflow": "Couche 2 — Types de sous-agents",
+        "nested": "Couche 3 — Compactions",
+        "outcome": "Couche 4 — Résultat"
+      },
+      "desc": {
+        "session": "Chaque unité ici est une session Claude Code correspondant au filtre de statut actuel.",
+        "main": "L'exécution Claude de niveau supérieur pour chaque session.",
+        "subagent": "Un sous-agent spécialisé auquel l'agent principal a délégué (ex. via l'outil Task).",
+        "subagentClean": " Chaque exécution de ce sous-agent s'est terminée proprement.",
+        "subagentAllError": " Chaque exécution de ce sous-agent a échoué — examinez la définition de l'agent.",
+        "subagentSomeErrors": " {{count}} exécution(s) en erreur — voir Propagation des erreurs ci-dessous.",
+        "subagentOverflow": "Tous les types de sous-agents restants sont regroupés en un seul nœud pour garder le graphe lisible.",
+        "nested": "Événements de compaction de la fenêtre de contexte.",
+        "outcomeCompleted": "Sessions dont le dernier hook était un événement Stop propre.",
+        "outcomeError": "Sessions ayant émis au moins un événement d'erreur avant de se terminer.",
+        "outcomeAbandoned": "Sessions qui se sont arrêtées sans événement Stop propre ni erreur explicite.",
+        "outcomeFallback": "Le statut final des sessions dans le périmètre."
+      }
+    }
+  },
+  "toolFlow": {
+    "title": "Flux d'exécution des outils",
+    "subtitle": "Comment les outils s'enchaînent — flux dirigé de style Sankey",
+    "noData": "Pas de données de flux d'outils",
+    "transitionCount_one": "{{count}} transition",
+    "transitionCount_other": "{{count}} transitions",
+    "tooltip": {
+      "node": "Nœud d'outil",
+      "link": "Transition d'outil",
+      "totalCalls": "Appels totaux",
+      "shareOfAll": "Part de toutes les utilisations d'outils",
+      "transitionsObserved": "Transitions observées",
+      "shareOfSourceFmt": "Part de {{source}} → suivant",
+      "shareOfTargetFmt": "Part de précédent → {{target}}",
+      "nodeDescFmt": "La hauteur de la barre montre à quelle fréquence {{name}} apparaît dans toutes les sessions. Les bandes entrant à gauche montrent ce qui a été exécuté avant {{name}} ; les bandes sortant à droite montrent ce qui a été exécuté après.",
+      "linkDescFmt": "Sur toutes les sessions, ceci compte combien de fois {{source}} a tourné juste avant {{target}}."
+    }
+  },
+  "pipeline": {
+    "title": "Graphe de pipeline d'agents",
+    "subtitle": "Workflow dirigé — quels types d'agents s'exécutent après quels autres, avec des étiquettes de fréquence",
+    "noData": "Pas encore de données de pipeline",
+    "noDataDesc": "Les arêtes de workflow dirigé apparaissent une fois que des types d'agents s'exécutent séquentiellement sur plusieurs sessions.",
+    "legend": "Légende",
+    "legendDesc": "A tourne avant B (nombre étiqueté)",
+    "frequency": "Fréquence",
+    "meaning": "Signification",
+    "times": " fois",
+    "ranAfter": " a tourné après ",
+    "spawns": " lancements",
+    "spawned": "Lancé",
+    "inSessions": "Dans les sessions",
+    "ariaLabel": "Graphe de pipeline d'agents",
+    "tooltip": {
+      "agentType": "Type d'agent",
+      "edge": "Arête séquentielle",
+      "shareOfAllSpawns": "Part de tous les lancements",
+      "sequentialPairs": "Paires séquentielles",
+      "totalSpawnsFmt": "{{id}} lancements totaux",
+      "shareOfSrcFmt": "Part de {{source}} → suivant",
+      "shareOfTgtFmt": "Part de précédent → {{target}}",
+      "edgeDescFmt": "{{target}} a tourné juste après {{source}} {{count}} fois sur toutes les sessions.",
+      "nodeDescFmt": "{{id}} a tourné {{total}} fois sur {{sessions}} session(s) ; taux de succès {{rate}}% ({{health}}).",
+      "health": {
+        "perfect": "quasi parfait",
+        "healthy": "sain",
+        "shaky": "instable",
+        "failing": "souvent en échec"
+      }
+    }
+  },
+  "effectiveness": {
+    "title": "Efficacité des sous-agents",
+    "subtitle": "Métriques de performance par type d'agent",
+    "success": "Succès",
+    "sessions": "Sessions",
+    "avgDuration": "Durée moyenne",
+    "weeklyActivity": "Activité hebdomadaire",
+    "noData": "Aucune donnée de sous-agent disponible",
+    "successRateAria": "Taux de succès : {{rate}}%",
+    "weeklyActivityAria": "Sparkline d'activité hebdomadaire",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions"
+  },
+  "patterns": {
+    "title": "Motifs de workflow détectés",
+    "subtitle": "Séquences courantes d'orchestration d'agents",
+    "noData": "Aucun motif détecté pour l'instant",
+    "noDataDesc": "Les motifs apparaissent une fois que plusieurs sessions partagent la même séquence d'agents.",
+    "solo": "Solo (sans sous-agents)",
+    "label": "Motifs de workflow",
+    "detail": {
+      "clickHint": "Cliquez pour les détails",
+      "stepsHeading": "Séquence d'étapes complète",
+      "statsHeading": "Statistiques",
+      "stepsCount_one": "{{count}} étape",
+      "stepsCount_other": "{{count}} étapes",
+      "uniqueAgents": "Types d'agents uniques",
+      "occurrences": "Sessions correspondant à ce motif",
+      "shareOfSessions": "Part de toutes les sessions",
+      "narrativeHeading": "Ce que cela signifie",
+      "suggestionHeading": "Suggestion",
+      "narrative": {
+        "soloFmt": "Sessions qui n'ont tourné qu'avec {{first}} — aucune délégation à d'autres types d'agents.",
+        "twoStepFmt": "Un transfert en deux étapes : {{first}} délègue directement à {{last}}.",
+        "shortFmt": "Une chaîne de {{count}} étapes qui commence à {{first}} et se termine à {{last}}.",
+        "longFmt": "Une longue chaîne de {{count}} étapes — commence à {{first}}, passe par plusieurs agents, se termine à {{last}}.",
+        "loopHintFmt": " {{agent}} apparaît plus d'une fois dans cette séquence — typique d'une boucle de vérification ou de révision.",
+        "dominant": " C'est le workflow dominant dans votre projet — plus de la moitié des sessions le suivent.",
+        "common": " Un workflow courant, représentant environ un quart des sessions.",
+        "regular": " Un workflow reconnu, mais pas le motif majoritaire.",
+        "niche": " Un motif de niche qui ne se manifeste qu'occasionnellement."
+      },
+      "suggestion": {
+        "solo": "Exécution solo — un sous-agent de révision de code ou de test améliorerait-il la qualité de ces sessions ?",
+        "shortChain": "Chaîne courte. Si elle continue de revenir, nommez-la comme commande slash, skill ou workflow nommé.",
+        "mediumChain": "Assez fréquent pour être formalisé. Un workflow nommé ou un modèle rendrait ce motif réutilisable.",
+        "longChain": "Longue chaîne — vérifiez si chaque étape est nécessaire ou si certains agents pourraient être fusionnés ou ignorés.",
+        "loop": "Boucle détectée. Confirmez que l'étape répétée est une vérification intentionnelle plutôt qu'un retry silencieux d'un appel échoué."
+      }
+    }
+  },
+  "modelDelegation": {
+    "title": "Flux de délégation de modèles",
+    "subtitle": "Comment les modèles se déplacent dans les hiérarchies d'agents",
+    "mainModels": "MODÈLES PRINCIPAUX",
+    "subagentModels": "MODÈLES DE SOUS-AGENTS",
+    "noData": "Aucune donnée de délégation de modèles disponible",
+    "agentsCount_one": "{{count}} agent",
+    "agentsCount_other": "{{count}} agents",
+    "tokensCount": "{{tokens}} tokens",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessions",
+    "ariaLabel": "Diagramme de flux de délégation de modèles",
+    "tooltip": {
+      "mainModel": "Modèle principal",
+      "subagentModel": "Modèle de sous-agent",
+      "agentRuns": "Exécutions d'agents",
+      "shareOfAll": "Part de tous les agents",
+      "sessionsOnModel": "Sessions sur ce modèle",
+      "totalTokens": "Tokens totaux",
+      "family": {
+        "opus": "Opus — niveau de capacité le plus élevé ; meilleur pour le raisonnement complexe, contexte le plus long, coût le plus élevé par token.",
+        "sonnet": "Sonnet — niveau équilibré ; bon choix par défaut pour la plupart des workflows de codage et d'utilisation d'outils.",
+        "haiku": "Haiku — niveau le plus rapide et le moins cher ; idéal pour les sous-agents courts sensibles à la latence.",
+        "other": "Modèle non-Anthropic ou non reconnu — en dehors des familles Opus/Sonnet/Haiku standard."
+      },
+      "lines": {
+        "main": "Les lignes à droite montrent les modèles de sous-agents à qui ce modèle principal a délégué du travail.",
+        "sub": "Les lignes à gauche montrent les modèles principaux qui ont délégué du travail à ce modèle de sous-agent."
+      }
+    }
+  },
+  "errorPropagation": {
+    "title": "Carte de propagation des erreurs",
+    "subtitle": "Où les erreurs se concentrent dans la profondeur de la hiérarchie d'agents",
+    "noErrors": "Aucune erreur enregistrée",
+    "allSuccess": "Toutes les sessions se sont terminées avec succès",
+    "sessionsHadErrors": " sessions avaient des erreurs",
+    "sessionsErrorSummary": "{{errorSessions}} sur {{totalSessions}} sessions avaient des erreurs",
+    "agentErrors": " erreur(s) au niveau agent dans la hiérarchie",
+    "sessionErrorsOnly": "Erreurs au niveau session uniquement",
+    "errorsByDepth": "Erreurs par profondeur de hiérarchie",
+    "errorProneTypes": "Types d'agents sujets aux erreurs",
+    "apiSessionErrors": "Erreurs API et session",
+    "depthLabels": {
+      "sessionMain": "Session / Principal",
+      "directSubagent": "Sous-agent direct",
+      "nested": "Imbriqué (profondeur 2)",
+      "deep": "Profond (profondeur 3+)"
+    }
+  },
+  "concurrency": {
+    "title": "Chronologie de concurrence des agents",
+    "subtitle": "Motifs d'exécution parallèle des agents — Montre comment les agents se chevauchent dans le temps",
+    "noData": "Pas de données de concurrence",
+    "noDataDesc": "Les données de concurrence apparaissent une fois que des sessions avec des sous-agents ont été enregistrées.",
+    "sessions": "Sessions",
+    "timing": "Timing",
+    "max": " max",
+    "sessionInfo_one": "{{count}} session — active {{from}}%–{{to}}% de la session",
+    "sessionInfo_other": "{{count}} sessions — actives {{from}}%–{{to}}% de la session",
+    "tooltip": {
+      "lane": "Voie de concurrence",
+      "sessionsWith": "Sessions avec cet agent",
+      "avgStart": "Démarrage moyen dans la session",
+      "avgEnd": "Fin moyenne dans la session",
+      "barHint": "La longueur de la barre est proportionnelle au nombre de sessions comportant ce type d'agent.",
+      "timing": {
+        "wholeSession": "Actif sur presque toute la session — de début à fin.",
+        "frontLoadedFmt": "Concentré au début : actif du début de session jusqu'à ~{{end}}%.",
+        "backLoadedFmt": "Concentré à la fin : se déclenche vers {{start}}% de la session et reste jusqu'à la fin.",
+        "tightFmt": "Étroitement délimité : tourne dans une bande étroite entre {{start}}% et {{end}}%.",
+        "midSessionFmt": "Travail en milieu de session : tourne approximativement de {{start}}% à {{end}}%."
+      }
+    }
+  },
+  "complexity": {
+    "title": "Nuage de points de complexité des sessions",
+    "subtitle": "Durée vs nombre d'agents vs tokens — Taille de bulle = utilisation des tokens",
+    "noData": "Pas de données de complexité de session",
+    "noDataDesc": "Les sessions apparaissent ici une fois qu'elles se terminent avec une activité d'agents.",
+    "duration": "Durée",
+    "agentCount": "Nombre d'agents",
+    "ariaLabel": "Nuage de points de complexité des sessions",
+    "tooltip": {
+      "duration": "Durée :",
+      "agents": "Agents :",
+      "subagents": "Sous-agents :",
+      "tokens": "Tokens :",
+      "model": "Modèle :"
+    }
+  },
+  "compaction": {
+    "title": "Analyse d'impact de la compaction",
+    "subtitle": "Comment la compression de contexte est répartie sur vos sessions",
+    "help": "Quand la fenêtre de contexte d'une session se remplit, Claude Code compresse l'historique plus ancien en un résumé. Chaque compaction est un tel événement.",
+    "noData": "Aucune compaction enregistrée",
+    "totalCompactions": "Compactions totales",
+    "sessionsAffected": "Sessions affectées",
+    "ofTotal": "sur {{total}}",
+    "avgPerSession": "Moy. / session affectée",
+    "peakSession": "Maximum en une session",
+    "tokensRecovered": "Tokens récupérés",
+    "distribution": "Sessions par nombre de compactions",
+    "xAxis": "Compactions par session",
+    "yAxis": "Sessions",
+    "summary": "{{affected}} sur {{total}} sessions ({{pct}}%) ont utilisé la compaction de contexte.",
+    "tokensFreed": "La compaction a libéré ~{{tokens}} tokens de contexte.",
+    "ariaLabel": "Nombre de sessions par nombre de compactions",
+    "tipTitle": "Compacté {{count}}x",
+    "tipDetail": "{{sessions}} sessions · {{pct}}% des affectées"
+  },
+  "drillIn": {
+    "title": "Analyse approfondie de session",
+    "subtitle": "Sélectionnez une session dans le nuage de points ou utilisez la liste déroulante pour explorer",
+    "searchPlaceholder": "Rechercher des sessions…",
+    "noSessionSelected": "Aucune session sélectionnée",
+    "noSessionDesc": "Recherchez et sélectionnez une session ci-dessus, ou cliquez sur une bulle dans le nuage de points, pour explorer son arbre d'agents, sa chronologie d'outils et sa séquence d'événements.",
+    "failedLoad": "Échec du chargement de la session",
+    "loading": "Chargement…",
+    "loadMore": "Charger plus",
+    "noMatch": "Aucune session ne correspond à votre recherche.",
+    "notFound": "Aucune session trouvée.",
+    "unknownModel": "modèle inconnu",
+    "closePanel": "Fermer le panneau d'analyse",
+    "close": "Fermer",
+    "tabs": {
+      "agentTree": "Arbre d'agents",
+      "toolTimeline": "Chronologie d'outils",
+      "eventSequence": "Séquence d'événements"
+    },
+    "noAgentTree": "Pas de données d'arbre d'agents disponibles.",
+    "noToolEvents": "Aucun événement d'outil enregistré.",
+    "noEvents": "Aucun événement enregistré pour cette session.",
+    "showingOf": "Affichage de 100 sur {{total}} événements",
+    "sessionInfo": " session(s) — active {{from}}%–{{to}}% de la session",
+    "sortedByCompaction": " session(s) (triées par nombre de compactions)"
+  }
+}
