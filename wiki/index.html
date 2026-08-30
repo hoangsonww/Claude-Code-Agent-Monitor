@@ -2007,6 +2007,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_TASK_SUMMARY_TTL_MS</code></td>
                   <td><code>2000</code></td>
                   <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A transcript being actively appended to rarely hits the size+mtime cache key, so without this floor every list reload fully re-parses each multi-MB live transcript. <code>0</code> restores immediate re-parse on every change.</td>
+                  <td><code>DASHBOARD_SSE_MAX_CLIENTS</code></td>
+                  <td><code>50</code></td>
+                  <td>Maximum concurrent Server-Sent Events clients on <code>GET /api/events/stream</code>. Each open stream holds a socket for its lifetime, so the cap bounds what a runaway script can consume; further connections are refused with <code>503 STREAM_LIMIT</code> until one disconnects. <code>0</code> disables the SSE endpoint entirely — the WebSocket feed at <code>/ws</code> is unaffected.</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_TOKEN_REPAIR</code></td>
                   <td><code>1</code></td>
                   <td>One-time automatic repair of token totals inflated before usage was reconciled per <code>message.id</code>. <code>replaceTokenUsage</code> is a high-water mark, so the parser fix alone can never lower a historical total. Marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory, and it snapshots the old rows to <code>token_usage_pre_repair</code> first. <code>0</code> skips it — repair manually with <code>npm run repair-tokens</code>.</td>
@@ -3302,6 +3307,15 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               <span class="route-desc"
                 >List events newest-first — params: <code>session_id</code>, <code>limit</code>,
                 <code>offset</code></span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/events/stream</span>
+              <span class="route-desc"
+                >Live feed over Server-Sent Events — the same envelopes the WebSocket broadcasts, for
+                clients that cannot open one. Optional <code>?types=</code> filter; resumes via
+                <code>Last-Event-ID</code></span
               >
             </div>
             <div class="route-item">

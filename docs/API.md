@@ -14,6 +14,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
   - [Agents](#agents)
   - [Tools](#tools)
   - [Metrics](#metrics)
+  - [Live Event Stream (SSE)](#live-event-stream-sse)
   - [Pricing](#pricing)
   - [Workflows](#workflows)
   - [Settings](#settings)
@@ -689,6 +690,60 @@ scrape_configs:
 A ready-to-run Prometheus + Grafana stack (four auto-provisioned dashboards; default home **CCAM — Overview**) lives in [`monitoring/`](../monitoring/README.md). **npm path (no Docker):** `npm run monitoring:install` then `npm run monitoring:up` (binaries are pulled via the monitoring package's `postinstall` — there is no official `grafana`/`prometheus` server package on npm). **Docker path:** `npm run monitoring:docker:up` or `npm run docker:full:up` (set `DASHBOARD_ALLOWED_HOSTS=host.docker.internal` on the dashboard when Prometheus runs in a container). Pre-built Prometheus console: `http://localhost:9090/consoles/index.html`.
 
 ---
+
+### Live Event Stream (SSE)
+
+```http
+GET /api/events/stream
+```
+
+Streams the same realtime messages the WebSocket endpoint broadcasts, as [Server-Sent Events](https://developer.mozilla.org/docs/Web/API/Server-sent_events). There is no `Upgrade` handshake, so `curl`, shell scripts, CI jobs, automation runners, and browsers behind proxies that strip WebSocket upgrades can all consume live activity. The response never ends on its own.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `types` | string | all | Comma-separated message types to forward, e.g. `new_event,session_updated`. Filtering happens server-side. |
+
+**Frame format:**
+
+```text
+id: 17
+event: new_event
+data: {"type":"new_event","data":{"id":42,"tool_name":"Bash"},"timestamp":"2026-08-24T09:00:00.000Z"}
+
+```
+
+- `event:` is the message type, so `EventSource.addEventListener("new_event", …)` works directly.
+- `data:` is byte-identical to the envelope a WebSocket client receives — see [WebSocket Event Types](#event-types) for the full list of types and payloads.
+- `id:` is monotonic and enables reconnect (below).
+- A comment heartbeat (`: ping`) is sent every 25 s so proxies do not reap an idle stream.
+
+**Reconnecting:** browsers resend the last seen id as `Last-Event-ID` automatically; other clients should do the same. Anything still held in the 500-message replay buffer is re-sent. If the client was away longer than the buffer covers, a `stream_gap` event is emitted **before** the replay so the gap is never silent:
+
+```text
+event: stream_gap
+data: {"last_event_id":4,"oldest_available_id":812,"message":"Some events were dropped from the replay buffer; refetch via the REST API."}
+```
+
+Treat `stream_gap` as "resynchronize over REST" — the stream is live again, but it is not complete.
+
+**The buffer only exists while someone is listening.** The hub attaches to the broadcast bus on the first client and detaches — discarding the ring — when the last one leaves, so a dashboard nobody is streaming does no extra work and never accumulates a buffer to replay. The consequence is that events broadcast during a period with **zero** connected clients are not recoverable: a `Last-Event-ID` sent by the first client back after a full disconnect resumes from an empty ring, and no `stream_gap` is emitted because the hub has no record of what it missed. After any reconnect where your process was the only consumer, refetch current state over REST (`/api/sessions`, `/api/events`) rather than assuming the stream is contiguous. `stream_gap` covers overflow while listening; it is not a completeness guarantee across a gap in listening.
+
+**Example Request:**
+
+```bash
+curl -N http://localhost:4820/api/events/stream?types=new_event,session_updated
+```
+
+With a token configured, `EventSource` cannot set headers, so pass it in the query string:
+
+```js
+const es = new EventSource("/api/events/stream?token=YOUR_TOKEN");
+es.addEventListener("new_event", (e) => console.log(JSON.parse(e.data)));
+```
+
+**Limits:** concurrent streams are capped by `DASHBOARD_SSE_MAX_CLIENTS` (default `50`); past the cap a connection is refused with `503` and `error.code = "STREAM_LIMIT"`. Setting it to `0` disables the endpoint (the WebSocket feed at `/ws` is unaffected). A client that stops reading and lets more than 1 MiB of writes queue on its socket is dropped rather than allowed to grow server memory. `GET /api/stats` reports the current count as `sse_connections`, and `GET /api/metrics` exposes it as the `ccam_sse_clients` gauge.
 
 ### Pricing
 

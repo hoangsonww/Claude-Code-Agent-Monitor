@@ -258,6 +258,7 @@ const paths = {
                 total_events: 28451,
                 events_today: 612,
                 ws_connections: 2,
+                sse_connections: 1,
                 agents_by_status: {
                   working: 4,
                   waiting: 1,

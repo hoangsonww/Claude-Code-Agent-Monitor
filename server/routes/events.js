@@ -3,7 +3,9 @@
  * multi-dimensional filtering (event type, tool name, agent, session, text
  * search, date range) plus pagination. Also exposes a `/facets` endpoint that
  * returns the distinct event_type and tool_name values currently in the DB,
- * so the UI can populate filter dropdowns without hardcoding them.
+ * so the UI can populate filter dropdowns without hardcoding them. Also serves
+ * `/stream`, a Server-Sent Events mirror of the WebSocket broadcast feed for
+ * clients that cannot open a WebSocket (curl, scripts, proxied browsers).
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -11,6 +13,7 @@ const { Router } = require("express");
 const { db } = require("../db");
 const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
 const { parseProviders, sessionIdInProvidersClause } = require("../lib/provider-filter");
+const { addClient } = require("../lib/sse");
 
 const router = Router();
 
@@ -119,6 +122,31 @@ router.get("/", (req, res) => {
 });
 
 // GET /api/events/facets — distinct event_type / tool_name values in the DB.
+// GET /api/events/stream - Server-Sent Events mirror of the WebSocket feed.
+//
+// Same envelopes, same message types, no Upgrade handshake — so `curl -N`, a
+// shell script, an automation runner, or a browser behind a proxy that strips
+// WebSocket upgrades can all consume live activity. `?types=` narrows the feed
+// server-side; `Last-Event-ID` resumes a dropped connection from the replay
+// buffer (a `stream_gap` event is emitted when the gap is too large to cover).
+//
+// Declared before the `/` list handler purely for readability — Express matches
+// on the exact path either way.
+router.get("/stream", (req, res) => {
+  const types = parseCsv(req.query.types);
+  if (!addClient(req, res, { types })) {
+    return res.status(503).json({
+      error: {
+        code: "STREAM_LIMIT",
+        message:
+          "Too many concurrent event streams. Close an existing stream or raise DASHBOARD_SSE_MAX_CLIENTS.",
+      },
+    });
+  }
+  // No response is sent here: addClient() has taken ownership of `res` and holds
+  // it open until the client disconnects or the server shuts down.
+});
+
 router.get("/facets", (req, res) => {
   const { sql: whereSql, params } = buildWhere({
     sources: parseSources(req),

@@ -6,6 +6,7 @@
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { getConnectionCount } = require("../websocket");
+const { getStreamClientCount } = require("../lib/sse");
 const { parseSources } = require("../lib/source-filter");
 const { parseProviders } = require("../lib/provider-filter");
 const scoped = require("../lib/scoped-stats");
@@ -40,6 +41,7 @@ router.get("/", (req, res) => {
     ...overview,
     events_today: eventsToday?.count ?? 0,
     ws_connections: getConnectionCount(),
+    sse_connections: getStreamClientCount(),
     agents_by_status: Object.fromEntries(agentsByStatus.map((r) => [r.status, r.count])),
     sessions_by_status: Object.fromEntries(sessionsByStatus.map((r) => [r.status, r.count])),
   });

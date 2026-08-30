@@ -26,6 +26,7 @@
 const { Router } = require("express");
 const { stmts, db } = require("../db");
 const { getConnectionCount } = require("../websocket");
+const { getStreamClientCount } = require("../lib/sse");
 
 const router = Router();
 
@@ -145,6 +146,23 @@ router.get("/", (_req, res) => {
     "Currently connected realtime (WebSocket) dashboard clients.",
     "gauge",
     [{ value: clients }]
+  );
+
+  // Connected Server-Sent Events clients on /api/events/stream. Tracked
+  // separately from WebSocket clients because they are capped independently
+  // (DASHBOARD_SSE_MAX_CLIENTS) and are typically scripts, not browsers.
+  let streamClients = 0;
+  try {
+    streamClients = getStreamClientCount();
+  } catch {
+    /* sse hub not loaded — report 0 */
+  }
+  appendMetric(
+    out,
+    "ccam_sse_clients",
+    "Currently connected Server-Sent Events clients on /api/events/stream.",
+    "gauge",
+    [{ value: streamClients }]
   );
 
   // Remote Data Sources, split by whether background auto-sync is enabled.

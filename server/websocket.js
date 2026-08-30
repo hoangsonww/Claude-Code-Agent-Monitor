@@ -1,5 +1,5 @@
 /**
- * @file WebSocket functionalities for real-time communication with clients, including connection management, heartbeat for detecting dead connections, and broadcasting messages to all connected clients.
+ * @file WebSocket functionalities for real-time communication with clients, including connection management, heartbeat for detecting dead connections, and broadcasting messages to all connected clients. Also exposes the broadcast bus itself via subscribeToBroadcasts(), so other transports (see lib/sse.js) can mirror the same stream without a second set of call sites.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -59,9 +59,43 @@ function initWebSocket(server) {
   return wss;
 }
 
+// Non-WebSocket listeners on the same broadcast bus. Kept deliberately generic
+// (type + envelope) so a transport can be added without touching any of the
+// ~17 broadcast() call sites scattered across routes and lib modules.
+const subscribers = new Set();
+
+/**
+ * Observe every broadcast. The listener receives `(type, envelope)` where
+ * `envelope` is the exact `{ type, data, timestamp }` object WebSocket clients
+ * get, so alternative transports stay byte-identical to the WS feed.
+ *
+ * @param {(type: string, envelope: {type: string, data: unknown, timestamp: string}) => void} fn
+ * @returns {() => void} Unsubscribe.
+ */
+function subscribeToBroadcasts(fn) {
+  subscribers.add(fn);
+  return () => subscribers.delete(fn);
+}
+
 function broadcast(type, data) {
+  const envelope = { type, data, timestamp: new Date().toISOString() };
+
+  // Fan out to non-WS transports first, and independently of `wss`: SSE clients
+  // must still receive events when the WebSocket server was never initialised
+  // (e.g. an API-only or test process).
+  if (subscribers.size > 0) {
+    for (const fn of [...subscribers]) {
+      try {
+        fn(type, envelope);
+      } catch (err) {
+        // A misbehaving subscriber must never break the primary WS broadcast.
+        console.warn("[WS] broadcast subscriber failed:", err?.message || err);
+      }
+    }
+  }
+
   if (!wss) return;
-  const message = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
+  const message = JSON.stringify(envelope);
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
       try {
@@ -106,4 +140,10 @@ function closeWebSocket() {
   wss = null;
 }
 
-module.exports = { initWebSocket, broadcast, getConnectionCount, closeWebSocket };
+module.exports = {
+  initWebSocket,
+  broadcast,
+  subscribeToBroadcasts,
+  getConnectionCount,
+  closeWebSocket,
+};

@@ -1165,12 +1165,18 @@ if (require.main === module) {
     shutdownInProgress = true;
     console.log(`\n${signal} received — shutting down gracefully… (hit Ctrl+C again to force)`);
 
-    // Drop realtime clients first — open WS sockets otherwise hold the HTTP
-    // server open and stall the shutdown until the force-exit backstop fires.
+    // Drop realtime clients first — open WS sockets and SSE responses otherwise
+    // hold the HTTP server open and stall the shutdown until the force-exit
+    // backstop fires.
     try {
       require("./websocket").closeWebSocket();
     } catch {
       /* websocket may not be initialised */
+    }
+    try {
+      require("./lib/sse").closeAllStreams();
+    } catch {
+      /* no streams attached */
     }
 
     const closeDb = () => {

@@ -637,6 +637,7 @@ flowchart LR
 | `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` | `600000` (10분) | **원격 데이터 소스** 세션의 실시간 상태에 대한 신선도 윈도우입니다. 각 동기화 시 Claude Code 또는 Codex 세션의 해당 미러 transcript에 **마지막 JSONL 이벤트**가 이 윈도우 내에 있으면 여전히 실행 중(`active`)으로 취급되고, 미러가 더 오래 진행을 멈추면 세션은 `completed`로 조정됩니다. 원격 세션은 실시간 Hook을 받지 않으므로 provider별 미러 조정이 로컬 liveness를 대체하며, 오류·부재·정지 상태 provider 미러는 일반 stale 스윕으로 폴백합니다. 느린 링크나 매우 긴 유휴 턴에는 값을 높이십시오 |
 | `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 원격 소스별 `scp` 타임아웃 |
 | `DASHBOARD_REMOTE_TEST_TIMEOUT_MS` | `15000` | 소스로의 SSH 연결 프로브 타임아웃 |
+| `DASHBOARD_SSE_MAX_CLIENTS` | `50` | `GET /api/events/stream`에 동시 접속할 수 있는 SSE 클라이언트 최대 수. 열린 스트림은 수명 동안 소켓을 점유하므로 이 상한이 폭주하는 스크립트의 자원 사용을 제한합니다. 초과 연결은 하나가 끊길 때까지 `503 STREAM_LIMIT`로 거부됩니다. `0`으로 설정하면 SSE 엔드포인트를 완전히 비활성화합니다(WebSocket 피드는 영향 없음) |
 | `DASHBOARD_HOST`        | `127.0.0.1`   | 서버가 바인딩하는 인터페이스. 기본값은 루프백(네트워크에서 접근 불가). LAN에 노출하려면 `0.0.0.0`으로 설정(시작 시 경고를 로깅) |
 | `DASHBOARD_TOKEN`       | _(설정 안 됨)_     | 설정하면 모든 `/api/*` 요청과 WebSocket이 토큰을 제시해야 합니다(`Authorization: Bearer <token>`, `x-dashboard-token` 헤더, 또는 `?token=`). 기본적으로 꺼져 있습니다 — 루프백 바인딩이 신뢰 경계입니다 |
 | `DASHBOARD_ALLOWED_HOSTS` | _(루프백)_ | HTTP + WebSocket 업그레이드에서 허용되는 추가 `Host` 값의 쉼표 구분 목록(DNS 리바인딩 방지). 루프백을 넘어 바인딩할 때 LAN 호스트명을 여기에 추가하십시오 |

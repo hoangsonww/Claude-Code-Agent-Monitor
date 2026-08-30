@@ -880,6 +880,10 @@ function createOpenApiSpec() {
             total_events: { type: "integer" },
             events_today: { type: "integer" },
             ws_connections: { type: "integer" },
+            sse_connections: {
+              type: "integer",
+              description: "Currently attached Server-Sent Events clients on /api/events/stream.",
+            },
             agents_by_status: { $ref: "#/components/schemas/CountMap" },
             sessions_by_status: { $ref: "#/components/schemas/CountMap" },
           },
@@ -2075,6 +2079,44 @@ function createOpenApiSpec() {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/EventsListResponse" },
                 },
+              },
+            },
+          },
+        },
+      },
+      "/api/events/stream": {
+        get: {
+          tags: ["Events"],
+          summary: "Live activity feed over Server-Sent Events",
+          description:
+            "Streams the same realtime messages the WebSocket endpoint broadcasts, as an SSE response — no Upgrade handshake, so curl, shell scripts, automation runners and proxied browsers can consume it. Each frame carries `event: <message type>`, a monotonic `id:`, and a `data:` payload identical to the WebSocket envelope `{ type, data, timestamp }`. A comment heartbeat is sent every 25 s. Reconnecting with the standard `Last-Event-ID` header replays anything still held in the 500-message buffer; if the gap is larger than the buffer, a `stream_gap` event is emitted first so the client knows to refetch over REST rather than assume continuity. The response never ends on its own.",
+          operationId: "streamEvents",
+          parameters: [
+            {
+              name: "types",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description:
+                "Comma-separated message types to forward (e.g. `new_event,session_updated`). Omit for every type.",
+              example: "new_event,agent_updated",
+            },
+          ],
+          responses: {
+            200: {
+              description: "An open text/event-stream that stays connected.",
+              content: {
+                "text/event-stream": {
+                  schema: { type: "string" },
+                  example:
+                    'id: 1\nevent: new_event\ndata: {"type":"new_event","data":{"id":42},"timestamp":"2026-08-24T09:00:00.000Z"}\n\n',
+                },
+              },
+            },
+            503: {
+              description: "Concurrent stream limit reached (see DASHBOARD_SSE_MAX_CLIENTS).",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
               },
             },
           },

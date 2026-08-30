@@ -238,6 +238,7 @@ the **Graph** tab (all read live scraped data — never seeded):
 | `sum(ccam_tokens_total)` | All token kinds combined |
 | `ccam:sessions:total` | Same as above via [recording rule](./prometheus/ccam-rules.yml) |
 | `ccam:events:rate5m` | Events per second (5m window) |
+| `ccam_sse_clients` | Clients currently attached to the `/api/events/stream` SSE feed (counted separately from `ccam_websocket_clients`, since streams are capped independently by `DASHBOARD_SSE_MAX_CLIENTS`) |
 
 Pre-filled graph links (bookmark these):
 

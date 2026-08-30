@@ -467,11 +467,12 @@ The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), 
 | `POST`  | `/api/agents`       | Create agent (idempotent by `id`)               |
 | `PATCH` | `/api/agents/:id`   | Update agent                                     |
 | `GET`   | `/api/events`       | List events (`session_id`, `limit`, `offset`)   |
+| `GET`   | `/api/events/stream` | Live feed over Server-Sent Events (no WebSocket needed) |
 | `GET`   | `/api/stats`        | Dashboard aggregate counters                     |
 | `GET`   | `/api/analytics`    | Analytics aggregates for charts/trends           |
 | `GET`   | `/api/metrics`      | Prometheus / OpenMetrics exposition (text; v0.0.4) |
 
-**Prometheus metrics (`GET /api/metrics`).** Exposes the dashboard's live counters — `ccam_sessions`/`ccam_agents` by status, `ccam_events_total`, `ccam_tokens_total` by kind, `ccam_websocket_clients`, `ccam_remote_sources` by enabled state, `ccam_process_uptime_seconds`/`ccam_process_resident_memory_bytes`, and `ccam_build_info{version}` — in the Prometheus v0.0.4 text-exposition format for scraping into Prometheus / Grafana (`server/routes/metrics.js`). Values come from the same `server/db.js` prepared statements the REST API uses, so they match the UI; status series are enumerated so a gauge never drops out of the exposition at zero. The route is read-only and, being under `/api`, sits behind both the Host-header (DNS-rebinding) guard and the optional `DASHBOARD_TOKEN` guard: a non-loopback scraper (e.g. Prometheus in Docker via `host.docker.internal`) must be allowlisted with `DASHBOARD_ALLOWED_HOSTS` or it gets `403 EBADHOST`, and must send the token when one is set. A ready-to-run Prometheus + Grafana stack with four auto-provisioned dashboards (default home **CCAM — Overview**) lives in [`monitoring/`](../monitoring/README.md).
+**Prometheus metrics (`GET /api/metrics`).** Exposes the dashboard's live counters — `ccam_sessions`/`ccam_agents` by status, `ccam_events_total`, `ccam_tokens_total` by kind, `ccam_websocket_clients`, `ccam_sse_clients`, `ccam_remote_sources` by enabled state, `ccam_process_uptime_seconds`/`ccam_process_resident_memory_bytes`, and `ccam_build_info{version}` — in the Prometheus v0.0.4 text-exposition format for scraping into Prometheus / Grafana (`server/routes/metrics.js`). Values come from the same `server/db.js` prepared statements the REST API uses, so they match the UI; status series are enumerated so a gauge never drops out of the exposition at zero. The route is read-only and, being under `/api`, sits behind both the Host-header (DNS-rebinding) guard and the optional `DASHBOARD_TOKEN` guard: a non-loopback scraper (e.g. Prometheus in Docker via `host.docker.internal`) must be allowlisted with `DASHBOARD_ALLOWED_HOSTS` or it gets `403 EBADHOST`, and must send the token when one is set. A ready-to-run Prometheus + Grafana stack with four auto-provisioned dashboards (default home **CCAM — Overview**) lives in [`monitoring/`](../monitoring/README.md).
 
 **Data scope (`?sources=` and `?providers=`).** `GET /api/sessions`, `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`, `/api/workflows`, workflow drill-ins, and pricing cost endpoints accept an optional source list and a provider list (`claude`, `codex`, or both). The filters compose, so a single Settings choice immediately scopes every page by both machine and product. `server/lib/source-filter.js` and `server/lib/provider-filter.js` build the SQL predicates; `/api/stats` and `/api/analytics` use their scoped aggregates only when a filter is present. `GET /api/sessions/facets` returns both `sources` and `providers`.
 
@@ -826,6 +827,20 @@ sequenceDiagram
     Client->>Server: Close connection
     Server-->>Client: Connection closed
 ```
+
+### Server-Sent Events mirror (`GET /api/events/stream`)
+
+Not every consumer can open a WebSocket. `curl`, a shell script, a CI job, an automation runner, or a browser behind a proxy that strips `Upgrade` headers all need the same live feed over ordinary HTTP. `server/lib/sse.js` provides it by subscribing to the broadcast bus (`subscribeToBroadcasts()` in `server/websocket.js`) and re-emitting each envelope as an SSE frame:
+
+```text
+id: 17
+event: new_event
+data: {"type":"new_event","data":{ … },"timestamp":"2026-08-24T09:00:00.000Z"}
+```
+
+The `data:` payload is byte-identical to what a WebSocket client receives, so the message types below apply unchanged. `?types=new_event,session_updated` narrows the feed server-side.
+
+The hub subscribes lazily — only while at least one client is attached — so a dashboard with no stream consumers does no extra work and keeps no buffer. Reconnects use the standard `Last-Event-ID` header against a 500-message replay ring; when a client was away longer than the ring covers, a `stream_gap` event is emitted before the replay so a hole is never presented as continuity. That lazy attachment has a documented cost: the ring is discarded when the last client leaves, so events broadcast while **no** client is connected are not replayable, and the first client back gets no `stream_gap` because the hub has no record of what it missed. A single-consumer integration should refetch current state over REST after any full disconnect rather than treat the stream as contiguous. A `: ping` comment every 25s keeps proxies from reaping idle streams, a consumer that stops draining past 1 MiB of queued writes is dropped rather than allowed to grow the heap, and `DASHBOARD_SSE_MAX_CLIENTS` (default `50`, `0` disables the endpoint) bounds concurrency. Streams are torn down on shutdown alongside the WebSocket clients — an open SSE response holds its socket and would otherwise stall `httpServer.close()`.
 
 ### Message Types
 
@@ -1494,6 +1509,7 @@ DASHBOARD_CODEX_HOME=              # Optional Codex home; Settings saves this da
 DASHBOARD_CODEX_SYNC_MS=4000       # Codex rollout safety-net poll (ms); 0 disables poll (watcher stays)
 DASHBOARD_CODEX_HOOK_IDLE_SECONDS=60 # Wait for a lost SessionEnd on a hook-only (rollout-less) Codex session
 DASHBOARD_TASK_SUMMARY_TTL_MS=2000 # Serve-stale window (ms) for task-progress summaries of actively-growing transcripts; 0 re-parses on every change
+DASHBOARD_SSE_MAX_CLIENTS=50       # Max concurrent SSE clients on GET /api/events/stream; 0 disables the endpoint (WebSocket unaffected)
 DASHBOARD_TOKEN_REPAIR=1           # One-time startup repair of pre-reconciliation token totals; 0 skips it
 DASHBOARD_LIVENESS_PROBE=1         # 0 disables the local Claude Code/Codex dead-session liveness reap (use when hooks arrive from another machine)
 DASHBOARD_LIVENESS_IDLE_SECONDS=60 # Idle gate before the liveness reap may complete a process-less session
