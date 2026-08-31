@@ -114,7 +114,8 @@ import {
 } from "lucide-react";
 import { useLocation } from "react-router";
 import { api } from "../lib/api";
-import { useRefreshShortcut } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { tabbyPrefs } from "../components/Tabby/prefs";
@@ -1132,7 +1133,9 @@ export function Settings() {
     }
   }, [t, dataScope]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     load();

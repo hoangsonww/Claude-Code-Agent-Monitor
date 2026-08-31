@@ -105,12 +105,9 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { CodexConfigExplorer } from "../components/CodexConfigExplorer";
-import {
-  useRefreshShortcut,
-  useSearchShortcut,
-  useTabShortcuts,
-  useUrlTab,
-} from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+import { PaletteHint } from "../components/PaletteHint";
 import type {
   CcArtifactType,
   CcBackup,
@@ -381,9 +378,9 @@ export function CcConfig() {
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
 
-  useRefreshShortcut(fetchAll);
-  useSearchShortcut(searchRef);
-  useTabShortcuts(TAB_KEYS, tab, setTab);
+  usePaletteAction("page.refresh", () => {
+    void fetchAll();
+  });
 
   const openViewer = useCallback(async (path: string) => {
     setViewer({ path, data: null, error: null });
@@ -556,6 +553,7 @@ export function CcConfig() {
                   placeholder={t("common.search")}
                   className="h-7 bg-transparent text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none flex-1"
                 />
+                <PaletteHint />
                 {search && (
                   <button
                     type="button"

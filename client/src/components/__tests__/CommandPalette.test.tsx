@@ -14,26 +14,51 @@ import { fireEvent, render, screen, waitFor, act } from "@testing-library/react"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 const listSessions = vi.fn();
+const listFacets = vi.fn();
+const listRemoteSources = vi.fn();
 
 vi.mock("../../lib/api", () => ({
-  api: { sessions: { list: (...args: unknown[]) => listSessions(...args) } },
+  api: {
+    sessions: {
+      list: (...args: unknown[]) => listSessions(...args),
+      // Powers the Projects group and the machine-scoping actions.
+      facets: () => listFacets(),
+    },
+    remoteSources: { list: () => listRemoteSources() },
+  },
 }));
 
 import { CommandPalette, openCommandPalette } from "../CommandPalette";
+import { PaletteActionProvider, usePaletteAction } from "../PaletteActionProvider";
+import { hasDiscoveredPalette, resetPaletteDiscovery } from "../../lib/paletteDiscovery";
 
 function LocationProbe() {
   return <span data-testid="location">{useLocation().pathname + useLocation().search}</span>;
 }
 
 function renderPalette() {
+  // The provider supplies the page-action registry the palette reads.
   return render(
     <MemoryRouter initialEntries={["/"]}>
-      <CommandPalette />
-      <Routes>
-        <Route path="*" element={<LocationProbe />} />
-      </Routes>
+      <PaletteActionProvider>
+        <CommandPalette />
+        <Routes>
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </PaletteActionProvider>
     </MemoryRouter>
   );
+}
+
+/** Registers a page action the way a real page does, so the palette lists it. */
+function PageAction({ id }: { id: string }) {
+  usePaletteAction(id, () => {});
+  return null;
+}
+
+/** Labels of the rows currently rendered, in order. */
+function optionLabels(): string[] {
+  return screen.getAllByRole("option").map((option) => option.textContent ?? "");
 }
 
 /** Fire the platform-agnostic open shortcut. */
@@ -42,8 +67,14 @@ function pressHotkey(init: Partial<KeyboardEventInit> = { metaKey: true }) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  resetPaletteDiscovery();
   listSessions.mockReset();
   listSessions.mockResolvedValue({ sessions: [], total: 0, limit: 6, offset: 0 });
+  listFacets.mockReset();
+  listFacets.mockResolvedValue({ cwds: [], sources: [], providers: [] });
+  listRemoteSources.mockReset();
+  listRemoteSources.mockResolvedValue({ sources: [] });
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -80,6 +111,16 @@ describe("CommandPalette", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("retires the discovery hints the first time it opens", () => {
+    renderPalette();
+    expect(hasDiscoveredPalette()).toBe(false);
+
+    pressHotkey();
+
+    // The hints beside the page search fields exist only to teach this chord.
+    expect(hasDiscoveredPalette()).toBe(true);
+  });
+
   it("opens from the programmatic event the sidebar trigger dispatches", () => {
     renderPalette();
     act(() => openCommandPalette());
@@ -89,10 +130,31 @@ describe("CommandPalette", () => {
   it("lists every page when the query is empty", () => {
     renderPalette();
     pressHotkey();
-    const options = screen.getAllByRole("option");
-    // Nine sidebar routes plus the three quick actions.
-    expect(options).toHaveLength(12);
+    // With no query and nothing in the MRU list the palette shows the nine
+    // sidebar routes: the rest of the catalog is one keystroke away, and dumping
+    // ~150 rows into an empty launcher would bury them.
+    expect(screen.getAllByRole("option")).toHaveLength(9);
     expect(screen.getByText("Analytics")).toBeInTheDocument();
+  });
+
+  it("offers the current page's own actions before anything is typed", () => {
+    // Opening the launcher on a page should immediately surface what that page
+    // can do, not just the nine routes.
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <PaletteActionProvider>
+          <PageAction id="activity.togglePause" />
+          <CommandPalette />
+          <Routes>
+            <Route path="*" element={<LocationProbe />} />
+          </Routes>
+        </PaletteActionProvider>
+      </MemoryRouter>
+    );
+    pressHotkey();
+
+    expect(screen.getByText("This page")).toBeInTheDocument();
+    expect(optionLabels().some((label) => label.includes("live stream"))).toBe(true);
   });
 
   it("filters pages by their translated label", () => {
@@ -311,10 +373,137 @@ describe("CommandPalette", () => {
     expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
   });
 
+  it("reaches a Settings section, an Agent Config tab, and a sub-view", () => {
+    renderPalette();
+    pressHotkey();
+    const input = screen.getByRole("combobox");
+
+    fireEvent.change(input, { target: { value: "sound" } });
+    expect(optionLabels().some((label) => label.includes("Sound"))).toBe(true);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+    expect(screen.getByTestId("location")).toHaveTextContent("/settings");
+
+    act(() => openCommandPalette());
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "mcp" } });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+    expect(screen.getByTestId("location")).toHaveTextContent("/cc-config?tab=mcp");
+
+    act(() => openCommandPalette());
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "cost analytics" } });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+    expect(screen.getByTestId("location")).toHaveTextContent("/analytics?tab=cost");
+  });
+
+  it("matches on a subsequence, not just a substring", () => {
+    renderPalette();
+    pressHotkey();
+    // "kb" is not a substring of "Kanban Board" — only a subsequence of it.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "kbrd" } });
+    expect(optionLabels().some((label) => label.includes("Kanban"))).toBe(true);
+  });
+
+  it("remembers the last command run and offers it first on reopen", () => {
+    renderPalette();
+    pressHotkey();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "workflows" } });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+
+    act(() => openCommandPalette());
+    expect(screen.getByText("Recent")).toBeInTheDocument();
+    expect(optionLabels()[0]).toContain("Workflows");
+  });
+
+  it("does not remember session picks, whose ids stop resolving", async () => {
+    listSessions.mockResolvedValue({
+      sessions: [
+        {
+          id: "sess-7",
+          name: "Transient session",
+          status: "active",
+          cwd: "/work/app",
+          model: "claude-opus-5",
+          started_at: "2026-08-01T00:00:00.000Z",
+          ended_at: null,
+          metadata: null,
+        },
+      ],
+      total: 1,
+      limit: 6,
+      offset: 0,
+    });
+
+    renderPalette();
+    pressHotkey();
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "transient" } });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(await screen.findByText("Transient session"));
+
+    act(() => openCommandPalette());
+    expect(screen.queryByText("Recent")).not.toBeInTheDocument();
+  });
+
+  it("jumps to the first and last row with Home and End", () => {
+    renderPalette();
+    pressHotkey();
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.keyDown(dialog, { key: "End" });
+    let options = screen.getAllByRole("option");
+    expect(options[options.length - 1]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(dialog, { key: "Home" });
+    options = screen.getAllByRole("option");
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("moves between groups with Tab", () => {
+    renderPalette();
+    pressHotkey();
+    const dialog = screen.getByRole("dialog");
+    // "se" spans several groups (pages, settings sections, actions).
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "se" } });
+
+    const groupOf = (index: number) =>
+      screen.getAllByRole("option")[index]?.closest("div")?.textContent ?? "";
+    const firstGroup = groupOf(0);
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    const selected = screen
+      .getAllByRole("option")
+      .findIndex((option) => option.getAttribute("aria-selected") === "true");
+
+    expect(selected).toBeGreaterThan(0);
+    expect(groupOf(selected)).not.toBe(firstGroup);
+  });
+
+  it("wraps Shift+Tab to the first row of the last group, not its last row", () => {
+    renderPalette();
+    pressHotkey();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "se" } });
+
+    // From the first row of the first group, Shift+Tab wraps backwards. It must
+    // land on a group *start*, the same thing Tab means going forwards.
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    const options = screen.getAllByRole("option");
+    const selected = options.findIndex((option) => option.getAttribute("aria-selected") === "true");
+    const groupOf = (index: number) => options[index]?.closest("div")?.textContent ?? "";
+
+    expect(selected).toBeGreaterThan(0);
+    // The row above it belongs to a different group, i.e. this is a boundary.
+    expect(groupOf(selected)).not.toBe(groupOf(selected - 1));
+    // And it is the last group: nothing after it starts a new one.
+    const lastGroupStart = options.findIndex(
+      (_, index) => index > 0 && groupOf(index) !== groupOf(index - 1) && index >= selected
+    );
+    expect(lastGroupStart).toBe(selected);
+  });
+
   it("reports no matches for a term nothing satisfies", () => {
     renderPalette();
     pressHotkey();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzzzqqq" } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzzzqqqxyw" } });
 
     expect(screen.queryAllByRole("option")).toHaveLength(0);
     expect(screen.getByText("No matches")).toBeInTheDocument();

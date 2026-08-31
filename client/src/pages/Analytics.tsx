@@ -79,7 +79,8 @@ import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
 import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
-import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
 import type { Analytics as AnalyticsData, CostResult } from "../lib/types";
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -684,7 +685,6 @@ export function Analytics() {
   const [loading, setLoading] = useState(true);
   // URL-backed so the palette can jump straight to a specific analytics view.
   const [activeTab, setActiveTab] = useUrlTab(ANALYTICS_TABS, "cost");
-  useTabShortcuts(ANALYTICS_TABS, activeTab, setActiveTab);
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   // Global data scope; a change re-runs `load` (api injects the `sources` param).
   const [scope] = useDataScope();
@@ -703,7 +703,9 @@ export function Analytics() {
     }
   }, [scope]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     load();

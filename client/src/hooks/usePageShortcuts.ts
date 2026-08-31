@@ -1,78 +1,17 @@
 /**
  * @file usePageShortcuts.ts
- * @description Page-level shortcut helpers. Every page binds the same small set
- * of actions — reload this page's data, focus its search field, move between its
- * tabs — so the bindings live here once instead of being re-derived (and
- * re-diverged) on each page.
+ * @description Keeps a page's tab or filter selection in the URL.
  *
- * Handlers registered by a page shadow the shell's defaults for as long as the
- * page is mounted, which is what makes `r` mean "reload analytics" on
- * `/analytics` and "reload sessions" on `/sessions` without either page knowing
- * the other exists.
+ * This is what lets the command palette address a page's interior — a Settings
+ * section, an Analytics tab, the active-session filter — and what makes those
+ * links shareable. Without it the palette could only ever reach a page, never a
+ * view inside it.
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-import { useCallback, useEffect, type RefObject } from "react";
+import { useCallback } from "react";
 import { useSearchParams } from "react-router";
-import { useShortcutHandler, useShortcuts } from "../components/ShortcutProvider";
-
-/** Bind `r` to this page's data reload. */
-export function useRefreshShortcut(reload: (() => void) | undefined): void {
-  useShortcutHandler("page.refresh", reload ?? null, Boolean(reload));
-}
-
-/**
- * Bind `/` to focusing this page's search field.
- *
- * Selects any existing text so the key acts as "start a new search" rather than
- * appending to the last one, and returns `false` when the field is not mounted
- * so the shell's fallback (open the palette) still runs.
- */
-export function useSearchShortcut(ref: RefObject<HTMLInputElement | null>): void {
-  useShortcutHandler("page.search", () => {
-    const input = ref.current;
-    if (!input) return false;
-    input.focus();
-    input.select();
-    return true;
-  });
-}
-
-/**
- * Bind `[` / `]` and `1`…`9` to this page's tab strip.
- *
- * @param tabs      Tab keys in the order they are rendered.
- * @param active    The current tab.
- * @param setActive Selects a tab.
- */
-export function useTabShortcuts<T extends string>(
-  tabs: readonly T[],
-  active: T,
-  setActive: (tab: T) => void
-): void {
-  const { register } = useShortcuts();
-
-  useEffect(() => {
-    const step = (delta: number) => () => {
-      if (tabs.length === 0) return false;
-      const index = tabs.indexOf(active);
-      // Wrap, so `]` from the last tab lands on the first rather than dead-ending.
-      const next = tabs[((index < 0 ? 0 : index) + delta + tabs.length) % tabs.length];
-      if (next === undefined) return false;
-      setActive(next);
-      return true;
-    };
-
-    const offs = [register("tab.prev", step(-1)), register("tab.next", step(1))];
-    // Only bind digits that address a real tab: an unbound digit falls through
-    // to the browser instead of being silently swallowed.
-    tabs.slice(0, 9).forEach((tab, index) => {
-      offs.push(register(`tab.${index + 1}`, () => setActive(tab)));
-    });
-    return () => offs.forEach((off) => off());
-  }, [register, tabs, active, setActive]);
-}
 
 /**
  * Keep a tab selection in the URL so the palette (and any bookmark, or a link a

@@ -74,7 +74,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { Workflow, RefreshCw, Download, AlertCircle, Info } from "lucide-react";
 import { api } from "../lib/api";
-import { useRefreshShortcut } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+
 import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import type { WorkflowData, WSMessage } from "../lib/types";
@@ -124,7 +125,9 @@ export function Workflows() {
     fetchData();
   }, [fetchData]);
 
-  useRefreshShortcut(fetchData);
+  usePaletteAction("page.refresh", () => {
+    void fetchData();
+  });
 
   // Auto-refresh on WebSocket events
   useEffect(() => {

@@ -72,7 +72,8 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Activity, Pause, Play, RefreshCw, ChevronRight, ExternalLink } from "lucide-react";
 import { api } from "../lib/api";
-import { useRefreshShortcut } from "../hooks/usePageShortcuts";
+
+import { usePaletteAction } from "../components/PaletteActionProvider";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -192,7 +193,12 @@ export function ActivityFeed() {
     }
   }, [apiParams, page, scope]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
+  // Palette-only actions for the two controls that otherwise need the toolbar.
+  usePaletteAction("activity.togglePause", () => (paused ? resume() : setPaused(true)));
+  usePaletteAction("activity.clearFilters", () => setFilters(EMPTY_FILTERS));
 
   useEffect(() => {
     load();

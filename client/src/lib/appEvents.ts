@@ -21,6 +21,9 @@ export const COMMAND_PALETTE_EVENT = "ccam:command-palette";
 /** Asks the sidebar to run an update check. Handled by `Sidebar`. */
 export const UPDATE_CHECK_EVENT = "ccam:check-updates";
 
+/** Carries a short confirmation to the toast. Handled by `ActionToast`. */
+export const ACTION_TOAST_EVENT = "ccam:action-toast";
+
 /** Open the command palette from outside the component. */
 export function openCommandPalette(): void {
   window.dispatchEvent(new CustomEvent(COMMAND_PALETTE_EVENT));
@@ -33,4 +36,15 @@ export function openCommandPalette(): void {
  */
 export function requestUpdateCheck(): void {
   window.dispatchEvent(new CustomEvent(UPDATE_CHECK_EVENT));
+}
+
+/**
+ * Confirm an action that changed something without moving the user.
+ *
+ * A palette command that toggles a preference or copies a link closes the
+ * palette and then, visibly, does nothing — which reads as broken even when it
+ * worked. Navigation is its own feedback; everything else needs this.
+ */
+export function announceAction(message: string): void {
+  window.dispatchEvent(new CustomEvent(ACTION_TOAST_EVENT, { detail: message }));
 }

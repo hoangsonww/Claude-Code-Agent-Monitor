@@ -71,18 +71,15 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useCallback, useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { useCallback, useState } from "react";
+import { Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Sidebar, SIDEBAR_STORAGE_KEY, loadCollapsed } from "./Sidebar";
 import { UpdateNotifier } from "./UpdateNotifier";
 import { CommandPalette } from "./CommandPalette";
 import { Tabby } from "./Tabby/Tabby";
-import { KeyboardShortcutsOverlay } from "./KeyboardShortcutsOverlay";
-import { ShortcutHintOverlay } from "./ShortcutHintOverlay";
-import { ShortcutProvider, useShortcutHandler, useShortcuts } from "./ShortcutProvider";
-import { PAGE_COMMANDS } from "../lib/paletteCommands";
-import { openCommandPalette } from "../lib/appEvents";
+import { ActionToast } from "./ActionToast";
+import { PaletteActionProvider, usePaletteAction } from "./PaletteActionProvider";
 
 /** Props for {@link Layout}. */
 interface LayoutProps {
@@ -91,41 +88,18 @@ interface LayoutProps {
 }
 
 /**
- * Binds the shortcuts that belong to the shell rather than to any one page:
- * the `g …` route jumps, the sidebar toggle, scroll-to-edge, and the `/`
- * fallback that opens the palette when the current page has no search field of
- * its own. Split out as a child component so it sits inside
- * {@link ShortcutProvider} and can use the registry.
+ * Registers the shell-level commands the palette offers on every page: the
+ * sidebar toggle and the two scroll jumps. They are palette actions rather than
+ * chords — ⌘/Ctrl+K is the dashboard's only navigation shortcut.
  */
-function LayoutShortcuts({ onToggleSidebar }: { onToggleSidebar: () => void }) {
-  const navigate = useNavigate();
-  const { register } = useShortcuts();
-
-  useEffect(() => {
-    const unregister = PAGE_COMMANDS.map((page) =>
-      register(page.shortcutId, () => {
-        // `navigate` returns a promise in react-router 8; a shortcut handler's
-        // return value means "declined", so swallow it rather than leak a
-        // truthy Promise into the dispatcher's fall-through logic.
-        void navigate(page.to);
-      })
-    );
-    return () => unregister.forEach((off) => off());
-  }, [register, navigate]);
-
-  useShortcutHandler("sidebar.toggle", onToggleSidebar);
-  useShortcutHandler("goto.top", () => {
+function LayoutActions({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  usePaletteAction("layout.toggleSidebar", onToggleSidebar);
+  usePaletteAction("layout.scrollTop", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
-  useShortcutHandler("goto.bottom", () => {
+  usePaletteAction("layout.scrollBottom", () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   });
-  // Lowest-precedence `/` handler: a page that registers its own search focus
-  // shadows this one, so `/` always means "search what is in front of me".
-  useShortcutHandler("page.search", () => {
-    openCommandPalette();
-  });
-
   return null;
 }
 
@@ -149,16 +123,15 @@ export function Layout({ wsConnected }: LayoutProps) {
   }, []);
 
   return (
-    <ShortcutProvider>
+    <PaletteActionProvider>
       <div className="min-h-screen bg-surface-0">
         <a href="#main-content" className="skip-to-content">
           {t("skipToContent")}
         </a>
-        <LayoutShortcuts onToggleSidebar={toggle} />
+        <LayoutActions onToggleSidebar={toggle} />
         <UpdateNotifier />
         <CommandPalette />
-        <KeyboardShortcutsOverlay />
-        <ShortcutHintOverlay />
+        <ActionToast />
         <Tabby />
         <Sidebar wsConnected={wsConnected} collapsed={collapsed} onToggle={toggle} />
         <main
@@ -178,6 +151,6 @@ export function Layout({ wsConnected }: LayoutProps) {
           </div>
         </main>
       </div>
-    </ShortcutProvider>
+    </PaletteActionProvider>
   );
 }

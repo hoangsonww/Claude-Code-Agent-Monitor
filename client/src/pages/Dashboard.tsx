@@ -105,7 +105,8 @@ import { AgentCard } from "../components/AgentCard";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Tip } from "../components/Tip";
-import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
 import { timeAgo, fmt, fmtCost, formatModelName } from "../lib/format";
 import { activityStatusFromEvent } from "../lib/event-grouping";
 import type { Stats, Agent, DashboardEvent, WSMessage, WorkflowData, Session } from "../lib/types";
@@ -972,7 +973,6 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useUrlTab(DASHBOARD_TABS, "monitor", {
     storageKey: "dashboard_tab",
   });
-  useTabShortcuts(DASHBOARD_TABS, activeTab, setActiveTab);
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [activeAgents, setActiveAgents] = useState<Agent[]>([]);
@@ -1056,7 +1056,9 @@ export function Dashboard() {
     }
   }, [t, scope]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     load();

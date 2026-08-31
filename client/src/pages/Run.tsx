@@ -119,7 +119,6 @@ import {
   Eye,
 } from "lucide-react";
 import { api, RUN_EFFORT_CHOICES } from "../lib/api";
-import { useShortcutHandler } from "../components/ShortcutProvider";
 import type {
   CodexApprovalPolicy,
   CodexSandbox,
@@ -680,10 +679,6 @@ function useTypewriterEnvelopes(envelopes: Envelope[]): Envelope[] {
 export function Run() {
   const { t } = useTranslation("run");
   const navigate = useNavigate();
-  // ⌘/Ctrl+Enter is handled by the prompt textarea itself (it needs the caret and
-  // the autocomplete state), but declaring it here marks it live on this route so
-  // the `?` sheet and the hold-to-reveal panel stop dimming it.
-  useShortcutHandler("run.submit", () => false);
   const [searchParams, setSearchParams] = useSearchParams();
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   // The choice dialog is intentionally shown on every page mount. The header

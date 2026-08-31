@@ -66,7 +66,8 @@ import { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Columns3, ChevronDown, HelpCircle } from "lucide-react";
 import { api } from "../lib/api";
-import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
 import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
@@ -130,8 +131,6 @@ export function KanbanBoard() {
     [setViewState]
   );
 
-  useTabShortcuts(BOARD_VIEWS, view, setView);
-
   const loadAgents = useCallback(async () => {
     // Fetch every persisted agent status. Bucketing happens below in
     // `groupedAgents`.
@@ -181,7 +180,9 @@ export function KanbanBoard() {
     }
   }, [view, loadAgents, loadSessions]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     setLoading(true);

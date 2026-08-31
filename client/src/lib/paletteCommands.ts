@@ -29,6 +29,9 @@
 
 import {
   Activity,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpDown,
   BarChart3,
   Bell,
   BellRing,
@@ -42,7 +45,9 @@ import {
   Database,
   DollarSign,
   Eraser,
+  FilterX,
   FolderOpen,
+  FolderTree,
   Github,
   Globe,
   Heart,
@@ -52,7 +57,9 @@ import {
   LayoutDashboard,
   Link2,
   MonitorPlay,
+  MoveDown,
   MoveUp,
+  Pause,
   Palette,
   PanelLeftClose,
   Play,
@@ -62,15 +69,17 @@ import {
   Settings as SettingsIcon,
   Slash,
   Sparkles,
+  Timer,
   Store,
   UserRound,
   Volume2,
+  Volume1,
   VolumeX,
   Webhook,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import type { ProviderScope } from "./dataScope";
+import type { DataScope, ProviderScope } from "./dataScope";
 
 /** Result buckets, rendered in this order. */
 export type CommandGroup =
@@ -78,6 +87,8 @@ export type CommandGroup =
   | "pages"
   | "sessions"
   | "views"
+  | "thisPage"
+  | "projects"
   | "settings"
   | "config"
   | "actions";
@@ -87,7 +98,11 @@ export const COMMAND_GROUP_ORDER: readonly CommandGroup[] = [
   "recent",
   "pages",
   "sessions",
+  // Actions the current page registered rank above the generic catalog: when a
+  // command exists for what is on screen, it is almost always the one meant.
+  "thisPage",
   "views",
+  "projects",
   "settings",
   "config",
   "actions",
@@ -103,8 +118,6 @@ export interface PaletteCommand {
   keywords?: string[];
   group: CommandGroup;
   icon: LucideIcon;
-  /** Registry id whose key caps are shown on the row, when one exists. */
-  shortcutId?: string;
   /** Live on/off state, rendered as a pill for toggle commands. */
   state?: string;
   run: () => void;
@@ -117,12 +130,6 @@ export interface PaletteContext {
   navigate: (to: string) => void;
   /** Current pathname, so page-scoped commands can be filtered in. */
   pathname: string;
-  openHelp: () => void;
-  toggleSidebar: () => void;
-  sidebarCollapsed: boolean;
-  refreshPage: () => void;
-  scrollTop: () => void;
-  scrollBottom: () => void;
   copyLink: () => void;
   language: string;
   setLanguage: (language: string) => void;
@@ -134,24 +141,150 @@ export interface PaletteContext {
   setProviderScope: (scope: ProviderScope) => void;
   checkForUpdates: () => void;
   clearRecents: () => void;
+  /**
+   * Ids the current page has registered with the shortcut registry. Page
+   * commands are offered **only** when their handler exists, so the palette can
+   * never list an action that would do nothing — the failure mode that made the
+   * original three quick actions feel broken.
+   */
+  boundIds: ReadonlySet<string>;
+  /** Fire a registered page action. */
+  runAction: (id: string) => void;
+  /** Confirm an action that changed something without moving the user. */
+  announce: (message: string) => void;
+  /** Distinct project directories seen across sessions, for direct jumps. */
+  projects: string[];
+  /** Known data sources (machines), for scoping without visiting Settings. */
+  sources: { id: string; label: string }[];
+  scope: DataScope;
+  setScope: (scope: DataScope) => void;
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  soundVolume: number;
+  setSoundVolume: (volume: number) => void;
+  tabbyMuted: boolean;
+  setTabbyMuted: (muted: boolean) => void;
+  goBack: () => void;
+  goForward: () => void;
 }
 
-/** The nine sidebar destinations, with the `g …` shortcut each one answers to. */
+/**
+ * Commands a page registers for itself. Each is listed only while its handler is
+ * mounted, which is what keeps the palette honest: an entry that appears is an
+ * entry that works, on the page you are looking at.
+ *
+ * These ids are intentionally absent from `lib/shortcuts.ts` — they are palette
+ * commands, not chords, so they neither consume a key nor appear in the `?`
+ * sheet.
+ */
+export const PAGE_ACTION_COMMANDS: {
+  id: string;
+  labelKey: string;
+  icon: LucideIcon;
+  /** Extra searchable text. */
+  keywords?: string[];
+}[] = [
+  {
+    id: "activity.togglePause",
+    labelKey: "nav:palette.actionToggleStream",
+    icon: Pause,
+    keywords: ["pause", "resume", "live", "stream"],
+  },
+  {
+    id: "activity.clearFilters",
+    labelKey: "common:eventFilters.clearAll",
+    icon: FilterX,
+    keywords: ["reset", "filters"],
+  },
+  {
+    id: "sessions.sortTime",
+    labelKey: "sessions:sortTimeNewest",
+    icon: Clock,
+    keywords: ["sort", "recent"],
+  },
+  {
+    id: "sessions.sortDuration",
+    labelKey: "sessions:sortDurationLongest",
+    icon: Timer,
+    keywords: ["sort", "longest"],
+  },
+  {
+    id: "sessions.sortCost",
+    labelKey: "sessions:sortPriceHighest",
+    icon: DollarSign,
+    keywords: ["sort", "expensive", "price"],
+  },
+  {
+    id: "sessions.toggleSortDirection",
+    labelKey: "nav:palette.actionToggleSortDirection",
+    icon: ArrowUpDown,
+    keywords: ["ascending", "descending", "reverse"],
+  },
+  {
+    id: "sessions.clearFilters",
+    labelKey: "nav:palette.actionClearSessionFilters",
+    icon: FilterX,
+    keywords: ["reset", "all", "filters"],
+  },
+  {
+    id: "session.copyId",
+    labelKey: "nav:palette.actionCopySessionId",
+    icon: ClipboardCopy,
+    keywords: ["uuid", "identifier"],
+  },
+  {
+    id: "session.copyPath",
+    labelKey: "nav:palette.actionCopySessionPath",
+    icon: FolderOpen,
+    keywords: ["cwd", "directory", "project"],
+  },
+  {
+    id: "page.refresh",
+    labelKey: "nav:palette.actionRefresh",
+    icon: RefreshCw,
+    keywords: ["reload", "refresh", "update"],
+  },
+  {
+    id: "layout.toggleSidebar",
+    labelKey: "nav:palette.actionCollapseSidebar",
+    icon: PanelLeftClose,
+    keywords: ["sidebar", "collapse", "expand"],
+  },
+  {
+    id: "layout.scrollTop",
+    labelKey: "nav:palette.actionScrollTop",
+    icon: MoveUp,
+    keywords: ["top", "up", "beginning"],
+  },
+  {
+    id: "layout.scrollBottom",
+    labelKey: "nav:palette.actionScrollBottom",
+    icon: MoveDown,
+    keywords: ["bottom", "down", "end"],
+  },
+  {
+    id: "session.openInRun",
+    labelKey: "nav:palette.actionResumeSession",
+    icon: Play,
+    keywords: ["resume", "continue", "run"],
+  },
+];
+
+/** The nine sidebar destinations. */
 export const PAGE_COMMANDS: {
   to: string;
   icon: LucideIcon;
   navKey: string;
-  shortcutId: string;
 }[] = [
-  { to: "/", icon: LayoutDashboard, navKey: "nav:dashboard", shortcutId: "goto.dashboard" },
-  { to: "/kanban", icon: Columns3, navKey: "nav:agentBoard", shortcutId: "goto.kanban" },
-  { to: "/sessions", icon: FolderOpen, navKey: "nav:sessions", shortcutId: "goto.sessions" },
-  { to: "/activity", icon: Activity, navKey: "nav:activityFeed", shortcutId: "goto.activity" },
-  { to: "/analytics", icon: BarChart3, navKey: "nav:analytics", shortcutId: "goto.analytics" },
-  { to: "/workflows", icon: Workflow, navKey: "nav:workflows", shortcutId: "goto.workflows" },
-  { to: "/cc-config", icon: Boxes, navKey: "nav:ccConfig", shortcutId: "goto.ccConfig" },
-  { to: "/run", icon: Play, navKey: "nav:run", shortcutId: "goto.run" },
-  { to: "/settings", icon: SettingsIcon, navKey: "nav:settings", shortcutId: "goto.settings" },
+  { to: "/", icon: LayoutDashboard, navKey: "nav:dashboard" },
+  { to: "/kanban", icon: Columns3, navKey: "nav:agentBoard" },
+  { to: "/sessions", icon: FolderOpen, navKey: "nav:sessions" },
+  { to: "/activity", icon: Activity, navKey: "nav:activityFeed" },
+  { to: "/analytics", icon: BarChart3, navKey: "nav:analytics" },
+  { to: "/workflows", icon: Workflow, navKey: "nav:workflows" },
+  { to: "/cc-config", icon: Boxes, navKey: "nav:ccConfig" },
+  { to: "/run", icon: Play, navKey: "nav:run" },
+  { to: "/settings", icon: SettingsIcon, navKey: "nav:settings" },
 ];
 
 /**
@@ -288,7 +421,6 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
     keywords: [page.to],
     group: "pages",
     icon: page.icon,
-    shortcutId: page.shortcutId,
     run: go(page.to),
   }));
 
@@ -341,44 +473,7 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
       keywords: ["new", "start", "prompt"],
       group: "actions",
       icon: Play,
-      shortcutId: "goto.run",
       run: go("/run"),
-    },
-    {
-      id: "action:shortcuts",
-      label: t("nav:palette.actionShortcuts"),
-      keywords: ["keyboard", "keys", "help", "cheatsheet"],
-      group: "actions",
-      icon: Keyboard,
-      shortcutId: "help.open",
-      run: ctx.openHelp,
-    },
-    {
-      id: "action:refresh",
-      label: t("nav:palette.actionRefresh"),
-      detail: t("nav:palette.currentPage"),
-      group: "actions",
-      icon: RefreshCw,
-      shortcutId: "page.refresh",
-      run: ctx.refreshPage,
-    },
-    {
-      id: "action:sidebar",
-      label: ctx.sidebarCollapsed
-        ? t("nav:palette.actionExpandSidebar")
-        : t("nav:palette.actionCollapseSidebar"),
-      group: "actions",
-      icon: PanelLeftClose,
-      shortcutId: "sidebar.toggle",
-      run: ctx.toggleSidebar,
-    },
-    {
-      id: "action:scroll-top",
-      label: t("nav:palette.actionScrollTop"),
-      group: "actions",
-      icon: MoveUp,
-      shortcutId: "goto.top",
-      run: ctx.scrollTop,
     },
     {
       id: "action:copy-link",
@@ -405,7 +500,6 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
       keywords: ["assistant", "cat", "helper"],
       group: "actions",
       icon: Cat,
-      shortcutId: "tabby.toggle",
       run: () => ctx.setTabbyEnabled(!ctx.tabbyEnabled),
     },
     ...PROVIDER_SCOPES.map((scope) => ({
@@ -426,6 +520,60 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
       icon: Globe,
       run: () => ctx.setLanguage(language),
     })),
+    {
+      id: "action:back",
+      label: t("nav:palette.actionBack"),
+      keywords: ["history", "previous", "return"],
+      group: "actions",
+      icon: ArrowLeft,
+      run: ctx.goBack,
+    },
+    {
+      id: "action:forward",
+      label: t("nav:palette.actionForward"),
+      keywords: ["history", "next"],
+      group: "actions",
+      icon: ArrowRight,
+      run: ctx.goForward,
+    },
+    {
+      id: "action:notifications",
+      label: t("settings:notifications.enable"),
+      state: onOff(ctx.notificationsEnabled),
+      keywords: ["browser", "alert", "desktop", "notify"],
+      group: "actions",
+      icon: Bell,
+      run: () => ctx.setNotificationsEnabled(!ctx.notificationsEnabled),
+    },
+    {
+      id: "action:volume-up",
+      label: t("nav:palette.actionVolumeUp"),
+      // Rendered as a percentage so the row states where it is starting from —
+      // a blind "louder" gives no way to know when to stop.
+      state: `${Math.round(ctx.soundVolume * 100)}%`,
+      keywords: ["sound", "louder", "audio"],
+      group: "actions",
+      icon: Volume2,
+      run: () => ctx.setSoundVolume(Math.min(1, ctx.soundVolume + 0.1)),
+    },
+    {
+      id: "action:volume-down",
+      label: t("nav:palette.actionVolumeDown"),
+      state: `${Math.round(ctx.soundVolume * 100)}%`,
+      keywords: ["sound", "quieter", "audio"],
+      group: "actions",
+      icon: Volume1,
+      run: () => ctx.setSoundVolume(Math.max(0, ctx.soundVolume - 0.1)),
+    },
+    {
+      id: "action:tabby-mute",
+      label: t("nav:palette.actionMuteTabby"),
+      state: onOff(ctx.tabbyMuted),
+      keywords: ["tabby", "quiet", "silence"],
+      group: "actions",
+      icon: VolumeX,
+      run: () => ctx.setTabbyMuted(!ctx.tabbyMuted),
+    },
     {
       id: "action:check-updates",
       label: t("nav:checkForUpdates"),
@@ -469,10 +617,90 @@ export function buildPaletteCommands(ctx: PaletteContext): PaletteCommand[] {
       detail: "/api/docs",
       keywords: ["swagger", "openapi", "reference"],
       group: "actions",
-      icon: ClipboardCopy,
+      icon: BookOpen,
       run: () => window.open("/api/docs", "_blank", "noopener,noreferrer"),
+    },
+    {
+      id: "action:issues",
+      label: t("nav:palette.actionReportIssue"),
+      detail: "github.com",
+      keywords: ["bug", "issue", "feedback", "support"],
+      group: "actions",
+      icon: Github,
+      run: () =>
+        window.open(
+          "https://github.com/hoangsonww/Claude-Code-Agent-Monitor/issues/new",
+          "_blank",
+          "noopener,noreferrer"
+        ),
+    },
+    {
+      id: "action:releases",
+      label: t("nav:palette.actionReleases"),
+      detail: "github.com",
+      keywords: ["changelog", "version", "notes"],
+      group: "actions",
+      icon: History,
+      run: () =>
+        window.open(
+          "https://github.com/hoangsonww/Claude-Code-Agent-Monitor/releases",
+          "_blank",
+          "noopener,noreferrer"
+        ),
     },
   ];
 
-  return [...pages, ...views, ...settings, ...config, ...actions];
+  // Only offer what the current page actually registered — an entry that
+  // appears is an entry that works, here.
+  const pageActions: PaletteCommand[] = PAGE_ACTION_COMMANDS.filter((action) =>
+    ctx.boundIds.has(action.id)
+  ).map((action) => ({
+    id: `page-action:${action.id}`,
+    label: t(action.labelKey),
+    detail: t("nav:palette.currentPage"),
+    keywords: action.keywords,
+    group: "thisPage",
+    icon: action.icon,
+    run: () => ctx.runAction(action.id),
+  }));
+
+  // Project directories come from the same facets the Sessions filter uses, so
+  // "everything I did in this repo" is one query rather than a page visit plus
+  // a multi-select.
+  const projects: PaletteCommand[] = ctx.projects.map((cwd) => ({
+    id: `project:${cwd}`,
+    label: cwd.split("/").filter(Boolean).pop() || cwd,
+    detail: cwd,
+    keywords: [cwd, "project", "directory", "cwd"],
+    group: "projects",
+    icon: FolderTree,
+    run: go(`/sessions?cwd=${encodeURIComponent(cwd)}`),
+  }));
+
+  const sourceActions: PaletteCommand[] = ctx.sources.map((source) => ({
+    id: `action:source:${source.id}`,
+    label: t("nav:palette.actionScopeToSource", { source: source.label }),
+    state:
+      ctx.scope.mode === "selected" && ctx.scope.selected.includes(source.id)
+        ? t("nav:palette.active")
+        : undefined,
+    keywords: ["scope", "machine", "source", source.id, source.label],
+    group: "actions",
+    icon: Cloud,
+    run: () => {
+      ctx.setScope({ ...ctx.scope, mode: "selected", selected: [source.id] });
+      ctx.announce(t("nav:palette.actionScopeToSource", { source: source.label }));
+    },
+  }));
+
+  return [
+    ...pages,
+    ...pageActions,
+    ...views,
+    ...projects,
+    ...settings,
+    ...config,
+    ...actions,
+    ...sourceActions,
+  ];
 }

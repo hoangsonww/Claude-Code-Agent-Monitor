@@ -86,12 +86,9 @@ import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { MultiSelect } from "../components/MultiSelect";
 import { Select } from "../components/Select";
-import {
-  useRefreshShortcut,
-  useSearchShortcut,
-  useTabShortcuts,
-  useUrlTab,
-} from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+import { PaletteHint } from "../components/PaletteHint";
 import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
 import {
   effectiveSessionStatus,
@@ -134,7 +131,14 @@ export function Sessions() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
 
-  const [cwds, setCwds] = useState<string[]>([]);
+  // Seeded from `?cwd=` so the palette's project jump lands on a filtered list.
+  // Only the initial value is read from the URL: the multi-select is the source
+  // of truth afterwards, and rewriting the query on every toggle would make Back
+  // walk through filter states instead of pages.
+  const [cwds, setCwds] = useState<string[]>(() => {
+    const initial = new URLSearchParams(window.location.search).get("cwd");
+    return initial ? [initial] : [];
+  });
   const [sortBy, setSortBy] = useState<SessionSort>("time");
   const [sortDesc, setSortDesc] = useState(true);
   const [directories, setDirectories] = useState<string[]>([]);
@@ -247,9 +251,18 @@ export function Sessions() {
     // the matching `sources` param.
   }, [filter, search, cwds, sortBy, sortDesc, page, scope]);
 
-  useRefreshShortcut(load);
-  useSearchShortcut(searchRef);
-  useTabShortcuts(SESSION_FILTERS, filter, setFilter);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
+  usePaletteAction("sessions.sortTime", () => setSortBy("time"));
+  usePaletteAction("sessions.sortDuration", () => setSortBy("duration"));
+  usePaletteAction("sessions.sortCost", () => setSortBy("price"));
+  usePaletteAction("sessions.toggleSortDirection", () => setSortDesc((prev) => !prev));
+  usePaletteAction("sessions.clearFilters", () => {
+    setFilter("");
+    setSearchInput("");
+    setCwds([]);
+  });
 
   useEffect(() => {
     load();
@@ -387,7 +400,12 @@ export function Sessions() {
       {/* Filters */}
       <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full">
         {/* Search */}
-        <div className="relative flex-1 min-w-[180px] max-w-[340px]">
+        {/* The floor is sized so the field still fits its placeholder alongside
+            the ⌘K chip. A viewport breakpoint cannot express this — the field's
+            width comes from the space the toolbar has left, not the window — so
+            the constraint lives on the field itself, and the row wraps rather
+            than truncating "Search sessions…" to "Search ses". */}
+        <div className="relative flex-1 min-w-[260px] max-w-[340px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             ref={searchRef}
@@ -396,8 +414,9 @@ export function Sessions() {
             placeholder={t("searchPlaceholder")}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="input w-full pl-10"
+            className="input w-full pl-10 pr-12"
           />
+          <PaletteHint variant="absolute" />
         </div>
 
         {/* Directory Selector */}
@@ -433,15 +452,19 @@ export function Sessions() {
           </button>
         </div>
 
-        {/* Status Filters */}
-        <div className="flex gap-1 bg-surface-1 rounded-lg p-1 border border-border ml-auto shrink-0">
+        {/* Status Filters — six pills that together outrun the toolbar on a
+            narrow window. `shrink-0` made the group refuse to yield, so it spilled
+            past the toolbar's rounded edge; it now caps at the space left over and
+            scrolls inside itself, with the pills kept at full size so none of them
+            compress into an unreadable sliver. */}
+        <div className="ml-auto flex min-w-0 max-w-full gap-1 overflow-x-auto no-scrollbar rounded-lg border border-border bg-surface-1 p-1">
           {FILTER_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               type="button"
               onClick={() => setFilter(opt.value)}
               aria-pressed={filter === opt.value}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+              className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                 filter === opt.value
                   ? "bg-surface-4 text-gray-200"
                   : "text-gray-500 hover:text-gray-300"

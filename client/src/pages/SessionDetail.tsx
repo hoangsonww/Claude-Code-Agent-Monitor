@@ -88,7 +88,9 @@ import {
   Hourglass,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+import { announceAction } from "../lib/appEvents";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -175,7 +177,6 @@ export function SessionDetail() {
   // URL-backed so a link can point at a session's conversation or timeline
   // directly, not just at the session.
   const [activeTab, setActiveTab] = useUrlTab(DETAIL_TABS, "agents");
-  useTabShortcuts(DETAIL_TABS, activeTab, setActiveTab);
   // Keep tabs mounted once visited so switching between them doesn't unmount/
   // remount their subtrees (which causes a perceptible flash on click).
   const [visitedTabs, setVisitedTabs] = useState<Set<DetailTab>>(() => new Set(["agents"]));
@@ -273,7 +274,28 @@ export function SessionDetail() {
     }
   }, [id, scope, t]);
 
-  useRefreshShortcut(load);
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
+  // Contextual palette commands. Each declines (returns false) when the datum it
+  // would copy is not loaded, so the palette never offers an empty clipboard.
+  usePaletteAction("session.copyId", () => {
+    if (!session) return false;
+    void navigator.clipboard?.writeText(session.id);
+    announceAction(session.id);
+    return true;
+  });
+  usePaletteAction("session.copyPath", () => {
+    if (!session?.cwd) return false;
+    void navigator.clipboard?.writeText(session.cwd);
+    announceAction(session.cwd);
+    return true;
+  });
+  usePaletteAction("session.openInRun", () => {
+    if (!session) return false;
+    void navigate(`/run?session=${encodeURIComponent(session.id)}`);
+    return true;
+  });
 
   useEffect(() => {
     load();
