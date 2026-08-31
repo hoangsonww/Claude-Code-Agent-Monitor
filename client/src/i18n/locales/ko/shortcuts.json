@@ -1,0 +1,54 @@
+{
+  "title": "키보드 단축키",
+  "filterPlaceholder": "단축키 검색…",
+  "close": "닫기",
+  "noMatches": "일치하는 단축키가 없습니다",
+  "footerHint": "입력란에 입력하는 동안에는 수정 키가 없는 단축키가 동작하지 않습니다.",
+  "unavailableHere": "이 페이지에서는 사용할 수 없음",
+  "then": "다음",
+  "hintPanelTitle": "단축키",
+  "hintPanelRelease": "{{key}} 키를 놓으면 닫힙니다",
+  "hintPanelAll": "모든 단축키 보기",
+  "categories": {
+    "global": "전역",
+    "navigation": "이동",
+    "page": "현재 페이지",
+    "palette": "명령 팔레트"
+  },
+  "global": {
+    "palette": "명령 팔레트 열기",
+    "help": "키보드 단축키 보기",
+    "tabby": "Tabby 켜기/끄기",
+    "sidebar": "사이드바 접기 또는 펼치기",
+    "search": "현재 페이지 검색",
+    "refresh": "현재 페이지 데이터 새로고침",
+    "hints": "길게 눌러 단축키 힌트 보기"
+  },
+  "goto": {
+    "dashboard": "대시보드",
+    "kanban": "칸반 보드",
+    "sessions": "세션",
+    "activity": "활동 피드",
+    "analytics": "분석",
+    "workflows": "워크플로",
+    "ccConfig": "Agent 설정",
+    "run": "Agent 실행",
+    "settings": "설정",
+    "top": "페이지 맨 위",
+    "bottom": "페이지 맨 아래"
+  },
+  "page": {
+    "tabPrev": "이전 탭",
+    "tabNext": "다음 탭",
+    "tabNumber": "번호로 탭 이동",
+    "runSubmit": "실행 시작"
+  },
+  "palette": {
+    "move": "결과 사이 이동",
+    "jump": "결과 6개 건너뛰기",
+    "edges": "첫 번째 또는 마지막 결과",
+    "run": "선택한 결과 열기",
+    "group": "다음 또는 이전 그룹",
+    "close": "명령 팔레트 닫기"
+  }
+}

@@ -85,6 +85,7 @@ import { useTabbyBrain } from "./useTabbyBrain";
 import { useTabbyPosition, TABBY_SIZE } from "./useTabbyPosition";
 import { matchIntent } from "./intents";
 import { tabbyPrefs } from "./prefs";
+import { useShortcutHandler } from "../ShortcutProvider";
 import "./tabby.css";
 
 const FLYOUT_GAP = 10; // px between avatar and flyout
@@ -178,15 +179,15 @@ export function Tabby() {
   // Keep enabled in sync with Settings / other tabs.
   useEffect(() => tabbyPrefs.subscribe(() => setEnabled(tabbyPrefs.getEnabled())), []);
 
-  // ⌘B / Ctrl+B toggles the panel; Esc closes it.
+  // ⌘B / Ctrl+B toggles the panel — bound through the shortcut registry so the
+  // chord is documented in the `?` sheet and checked against the browser-reserved
+  // list. Escape stays a local listener: it is a dismissal, not a binding, and
+  // every overlay owns its own.
+  useShortcutHandler("tabby.toggle", () => setOpen((v) => !v));
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        setOpen((v) => !v);
-      } else if (e.key === "Escape") {
-        setOpen(false);
-      }
+      if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

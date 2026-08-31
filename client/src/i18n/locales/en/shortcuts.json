@@ -1,0 +1,54 @@
+{
+  "title": "Keyboard shortcuts",
+  "filterPlaceholder": "Filter shortcuts…",
+  "close": "Close",
+  "noMatches": "No shortcuts match that filter",
+  "footerHint": "Shortcuts without a modifier are ignored while you are typing in a field.",
+  "unavailableHere": "Not available on this page",
+  "then": "then",
+  "hintPanelTitle": "Shortcuts",
+  "hintPanelRelease": "Release {{key}} to dismiss",
+  "hintPanelAll": "Show every shortcut",
+  "categories": {
+    "global": "Global",
+    "navigation": "Go to",
+    "page": "This page",
+    "palette": "Command palette"
+  },
+  "global": {
+    "palette": "Open the command palette",
+    "help": "Show keyboard shortcuts",
+    "tabby": "Toggle Tabby",
+    "sidebar": "Collapse or expand the sidebar",
+    "search": "Search this page",
+    "refresh": "Reload this page's data",
+    "hints": "Hold to reveal shortcut hints"
+  },
+  "goto": {
+    "dashboard": "Dashboard",
+    "kanban": "Kanban Board",
+    "sessions": "Sessions",
+    "activity": "Activity Feed",
+    "analytics": "Analytics",
+    "workflows": "Workflows",
+    "ccConfig": "Agent Config",
+    "run": "Run Agent",
+    "settings": "Settings",
+    "top": "Top of the page",
+    "bottom": "Bottom of the page"
+  },
+  "page": {
+    "tabPrev": "Previous tab",
+    "tabNext": "Next tab",
+    "tabNumber": "Jump to a tab by number",
+    "runSubmit": "Start the run"
+  },
+  "palette": {
+    "move": "Move through results",
+    "jump": "Jump six results",
+    "edges": "First or last result",
+    "run": "Open the highlighted result",
+    "group": "Next or previous group",
+    "close": "Close the palette"
+  }
+}

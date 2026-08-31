@@ -10,11 +10,17 @@ import { MemoryRouter } from "react-router";
 import { Tabby } from "../Tabby";
 import { eventBus } from "../../../lib/eventBus";
 import type { WSMessage, Session } from "../../../lib/types";
+import { ShortcutProvider } from "../../ShortcutProvider";
 
 function renderTabby() {
+  // Tabby's ⌘B binding goes through the shared shortcut registry, so the panel
+  // is only reachable by keyboard inside a provider — the same way it is mounted
+  // in `Layout`.
   return render(
     <MemoryRouter>
-      <Tabby />
+      <ShortcutProvider>
+        <Tabby />
+      </ShortcutProvider>
     </MemoryRouter>
   );
 }

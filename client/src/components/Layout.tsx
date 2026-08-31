@@ -71,13 +71,18 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useState, useCallback } from "react";
-import { Outlet } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { Outlet, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Sidebar, SIDEBAR_STORAGE_KEY, loadCollapsed } from "./Sidebar";
 import { UpdateNotifier } from "./UpdateNotifier";
 import { CommandPalette } from "./CommandPalette";
 import { Tabby } from "./Tabby/Tabby";
+import { KeyboardShortcutsOverlay } from "./KeyboardShortcutsOverlay";
+import { ShortcutHintOverlay } from "./ShortcutHintOverlay";
+import { ShortcutProvider, useShortcutHandler, useShortcuts } from "./ShortcutProvider";
+import { PAGE_COMMANDS } from "../lib/paletteCommands";
+import { openCommandPalette } from "../lib/appEvents";
 
 /** Props for {@link Layout}. */
 interface LayoutProps {
@@ -86,7 +91,47 @@ interface LayoutProps {
 }
 
 /**
- * Root layout wrapping all dashboard routes.
+ * Binds the shortcuts that belong to the shell rather than to any one page:
+ * the `g …` route jumps, the sidebar toggle, scroll-to-edge, and the `/`
+ * fallback that opens the palette when the current page has no search field of
+ * its own. Split out as a child component so it sits inside
+ * {@link ShortcutProvider} and can use the registry.
+ */
+function LayoutShortcuts({ onToggleSidebar }: { onToggleSidebar: () => void }) {
+  const navigate = useNavigate();
+  const { register } = useShortcuts();
+
+  useEffect(() => {
+    const unregister = PAGE_COMMANDS.map((page) =>
+      register(page.shortcutId, () => {
+        // `navigate` returns a promise in react-router 8; a shortcut handler's
+        // return value means "declined", so swallow it rather than leak a
+        // truthy Promise into the dispatcher's fall-through logic.
+        void navigate(page.to);
+      })
+    );
+    return () => unregister.forEach((off) => off());
+  }, [register, navigate]);
+
+  useShortcutHandler("sidebar.toggle", onToggleSidebar);
+  useShortcutHandler("goto.top", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  useShortcutHandler("goto.bottom", () => {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  });
+  // Lowest-precedence `/` handler: a page that registers its own search focus
+  // shadows this one, so `/` always means "search what is in front of me".
+  useShortcutHandler("page.search", () => {
+    openCommandPalette();
+  });
+
+  return null;
+}
+
+/**
+ * Root layout wrapping all dashboard routes: sidebar, global overlays, and the
+ * routed page outlet.
  * @param props See {@link LayoutProps}.
  */
 export function Layout({ wsConnected }: LayoutProps) {
@@ -104,30 +149,35 @@ export function Layout({ wsConnected }: LayoutProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-surface-0">
-      <a href="#main-content" className="skip-to-content">
-        {t("skipToContent")}
-      </a>
-      <UpdateNotifier />
-      <CommandPalette />
-      <Tabby />
-      <Sidebar wsConnected={wsConnected} collapsed={collapsed} onToggle={toggle} />
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="min-h-screen min-w-0 transition-[margin-left,width] duration-200 outline-none"
-        style={{
-          marginLeft: collapsed ? "4.25rem" : "15rem",
-          width: collapsed ? "calc(100% - 4.25rem)" : "calc(100% - 15rem)",
-        }}
-      >
-        {/* overflow-x-clip (not -hidden) clips horizontal overflow without
+    <ShortcutProvider>
+      <div className="min-h-screen bg-surface-0">
+        <a href="#main-content" className="skip-to-content">
+          {t("skipToContent")}
+        </a>
+        <LayoutShortcuts onToggleSidebar={toggle} />
+        <UpdateNotifier />
+        <CommandPalette />
+        <KeyboardShortcutsOverlay />
+        <ShortcutHintOverlay />
+        <Tabby />
+        <Sidebar wsConnected={wsConnected} collapsed={collapsed} onToggle={toggle} />
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-screen min-w-0 transition-[margin-left,width] duration-200 outline-none"
+          style={{
+            marginLeft: collapsed ? "4.25rem" : "15rem",
+            width: collapsed ? "calc(100% - 4.25rem)" : "calc(100% - 15rem)",
+          }}
+        >
+          {/* overflow-x-clip (not -hidden) clips horizontal overflow without
             creating a scroll container, so descendant `position: sticky`
             elements (e.g. the Settings page TOC) still pin to the window. */}
-        <div className="p-5 lg:p-6 max-w-full overflow-x-clip">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+          <div className="p-5 lg:p-6 max-w-full overflow-x-clip">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </ShortcutProvider>
   );
 }

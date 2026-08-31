@@ -83,43 +83,49 @@ import {
   ChevronUp,
   ChevronDown,
   Search,
+  Keyboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 import { Select } from "./Select";
-import { openCommandPalette } from "./CommandPalette";
+import { openCommandPalette, UPDATE_CHECK_EVENT } from "../lib/appEvents";
+import { SHORTCUT_BY_ID, sequenceLabel } from "../lib/shortcuts";
+import { ShortcutHint } from "./Kbd";
+import { useShortcuts } from "./ShortcutProvider";
 
 function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
   return typeof x === "object" && x !== null && "git_repo" in x && "update_available" in x;
 }
 
 /**
- * Shortcut hint for the palette trigger. Rendering the wrong glyph is worse than
- * rendering none, so this reads the platform rather than assuming a Mac; it falls
- * back to the Ctrl form wherever the platform cannot be determined (SSR, tests).
+ * Shortcut hint for the palette trigger, derived from the registry so the glyph
+ * shown here can never drift from the chord that is actually bound.
  */
 function paletteShortcutLabel(): string {
-  const platform =
-    typeof navigator === "undefined"
-      ? ""
-      : navigator.platform ||
-        (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ||
-        "";
-  return /mac|iphone|ipad|ipod/i.test(platform) ? "\u2318K" : "Ctrl K";
+  const def = SHORTCUT_BY_ID.get("palette.open");
+  return def ? sequenceLabel(def.sequence) : "";
 }
 
+/** Same, for the `?` cheat sheet the footer button opens. */
+function shortcutHelpLabel(): string {
+  const def = SHORTCUT_BY_ID.get("help.open");
+  return def ? sequenceLabel(def.sequence) : "?";
+}
+
+/** Each nav row carries the `g …` sequence that reaches it, so the hold-to-reveal
+ *  layer can badge the row with the same chord the help sheet documents. */
 const NAV_KEYS = [
-  { to: "/", icon: LayoutDashboard, key: "nav:dashboard" },
-  { to: "/kanban", icon: Columns3, key: "nav:agentBoard" },
-  { to: "/sessions", icon: FolderOpen, key: "nav:sessions" },
-  { to: "/activity", icon: Activity, key: "nav:activityFeed" },
-  { to: "/analytics", icon: BarChart3, key: "nav:analytics" },
-  { to: "/workflows", icon: Workflow, key: "nav:workflows" },
-  { to: "/cc-config", icon: Boxes, key: "nav:ccConfig" },
-  { to: "/run", icon: Play, key: "nav:run" },
-  { to: "/settings", icon: Settings, key: "nav:settings" },
+  { to: "/", icon: LayoutDashboard, key: "nav:dashboard", shortcutId: "goto.dashboard" },
+  { to: "/kanban", icon: Columns3, key: "nav:agentBoard", shortcutId: "goto.kanban" },
+  { to: "/sessions", icon: FolderOpen, key: "nav:sessions", shortcutId: "goto.sessions" },
+  { to: "/activity", icon: Activity, key: "nav:activityFeed", shortcutId: "goto.activity" },
+  { to: "/analytics", icon: BarChart3, key: "nav:analytics", shortcutId: "goto.analytics" },
+  { to: "/workflows", icon: Workflow, key: "nav:workflows", shortcutId: "goto.workflows" },
+  { to: "/cc-config", icon: Boxes, key: "nav:ccConfig", shortcutId: "goto.ccConfig" },
+  { to: "/run", icon: Play, key: "nav:run", shortcutId: "goto.run" },
+  { to: "/settings", icon: Settings, key: "nav:settings", shortcutId: "goto.settings" },
 ] as const;
 
 const STORAGE_KEY = "sidebar-collapsed";
@@ -352,6 +358,7 @@ function CollapsedLanguagePicker({
 
 export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
   const { t, i18n } = useTranslation();
+  const { openHelp: openShortcutHelp, hintsVisible } = useShortcuts();
   const websiteLabel = "sonnguyenhoang.com";
   // Track whether nav items are clipped by overflow so we can render
   // chevron affordances pointing toward the hidden items. Recomputed on
@@ -533,6 +540,20 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
     }
   };
 
+  // The palette can ask for a check, but the check itself stays here: it owns the
+  // spinner, the failure state, the dismissal reset, and the modal that reports
+  // the result. A ref keeps the listener bound once while still calling the
+  // current closure, so a check in flight is never restarted by a re-render.
+  const checkUpdatesRef = useRef(onCheckUpdates);
+  checkUpdatesRef.current = onCheckUpdates;
+  useEffect(() => {
+    const onRequest = () => {
+      void checkUpdatesRef.current();
+    };
+    window.addEventListener(UPDATE_CHECK_EVENT, onRequest);
+    return () => window.removeEventListener(UPDATE_CHECK_EVENT, onRequest);
+  }, []);
+
   const updateAvailable = Boolean(updateStatus?.update_available);
   const checkTitle = checking
     ? t("nav:checkingForUpdates")
@@ -590,7 +611,8 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
           onClick={openCommandPalette}
           title={collapsed ? t("nav:palette.open") : undefined}
           aria-label={t("nav:palette.open")}
-          className={`w-full flex items-center gap-3 rounded-lg border border-border bg-surface-2 text-sm text-gray-500 hover:text-gray-300 hover:bg-surface-3 transition-colors duration-150 ${
+          aria-keyshortcuts={paletteShortcutLabel()}
+          className={`relative w-full flex items-center gap-3 rounded-lg border border-border bg-surface-2 text-sm text-gray-500 hover:text-gray-300 hover:bg-surface-3 transition-colors duration-150 ${
             collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2"
           }`}
         >
@@ -608,16 +630,18 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
 
       <div className="flex-1 min-h-0 relative flex">
         <nav ref={navRef} className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-1">
-          {NAV_KEYS.map(({ to, icon: Icon, key }) => {
+          {NAV_KEYS.map(({ to, icon: Icon, key, shortcutId }) => {
             const label = t(key);
+            const shortcut = SHORTCUT_BY_ID.get(shortcutId);
             return (
               <NavLink
                 key={to}
                 to={to}
                 end={to === "/"}
                 title={collapsed ? label : undefined}
+                aria-keyshortcuts={shortcut ? sequenceLabel(shortcut.sequence) : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                  `relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
                     collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
                   } ${
                     isActive
@@ -628,11 +652,18 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 {!collapsed && <span>{label}</span>}
+                {/* Collapsed rows are icon-only, so a badge would land on top of
+                    the icon rather than beside it. */}
+                {shortcut && !collapsed && <ShortcutHint def={shortcut} />}
               </NavLink>
             );
           })}
         </nav>
-        {!collapsed && navOverflow.up && (
+        {/* The scroll affordances are pinned over the nav's right edge, exactly
+            where the hold-to-reveal badges land. They are a discoverability hint
+            themselves, so during the (momentary) reveal gesture they step aside
+            rather than occluding the shortcut they would compete with. */}
+        {!collapsed && navOverflow.up && !hintsVisible && (
           <button
             type="button"
             onClick={() => scrollNavBy(-160)}
@@ -643,7 +674,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
             <ChevronUp className="w-3.5 h-3.5" aria-hidden />
           </button>
         )}
-        {!collapsed && navOverflow.down && (
+        {!collapsed && navOverflow.down && !hintsVisible && (
           <button
             type="button"
             onClick={() => scrollNavBy(160)}
@@ -791,6 +822,30 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
             )}
           </button>
         )}
+        <button
+          type="button"
+          onClick={openShortcutHelp}
+          title={t("nav:palette.shortcuts")}
+          aria-label={t("nav:palette.shortcuts")}
+          aria-keyshortcuts={shortcutHelpLabel()}
+          className={`relative rounded-lg border border-border bg-surface-2 text-gray-400 hover:text-gray-200 hover:bg-surface-3 transition-colors ${
+            collapsed
+              ? "w-8 h-8 mx-auto flex items-center justify-center"
+              : "w-full px-2.5 py-2 flex items-center justify-between gap-2 text-xs"
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 truncate">
+            <Keyboard className="w-3.5 h-3.5 flex-shrink-0" aria-hidden />
+            {!collapsed && (
+              <span className="font-medium truncate">{t("nav:palette.shortcuts")}</span>
+            )}
+          </span>
+          {!collapsed && (
+            <kbd className="flex-shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-[10px] text-gray-600">
+              {shortcutHelpLabel()}
+            </kbd>
+          )}
+        </button>
         {!collapsed && (
           <div className="space-y-1.5">
             <a

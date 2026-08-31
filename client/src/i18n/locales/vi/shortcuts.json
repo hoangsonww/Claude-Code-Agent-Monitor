@@ -1,0 +1,54 @@
+{
+  "title": "Phím tắt",
+  "filterPlaceholder": "Lọc phím tắt…",
+  "close": "Đóng",
+  "noMatches": "Không có phím tắt nào khớp",
+  "footerHint": "Phím tắt không có phím bổ trợ sẽ bị bỏ qua khi bạn đang nhập vào một ô.",
+  "unavailableHere": "Không khả dụng trên trang này",
+  "then": "rồi",
+  "hintPanelTitle": "Phím tắt",
+  "hintPanelRelease": "Thả {{key}} để đóng",
+  "hintPanelAll": "Xem mọi phím tắt",
+  "categories": {
+    "global": "Toàn cục",
+    "navigation": "Đi tới",
+    "page": "Trang này",
+    "palette": "Bảng lệnh"
+  },
+  "global": {
+    "palette": "Mở bảng lệnh",
+    "help": "Hiện các phím tắt",
+    "tabby": "Bật hoặc tắt Tabby",
+    "sidebar": "Thu gọn hoặc mở rộng thanh bên",
+    "search": "Tìm trong trang này",
+    "refresh": "Tải lại dữ liệu của trang này",
+    "hints": "Giữ để hiện gợi ý phím tắt"
+  },
+  "goto": {
+    "dashboard": "Tổng quan",
+    "kanban": "Bảng Kanban",
+    "sessions": "Phiên",
+    "activity": "Luồng hoạt động",
+    "analytics": "Phân tích",
+    "workflows": "Quy trình",
+    "ccConfig": "Cấu hình Agent",
+    "run": "Chạy Agent",
+    "settings": "Cài đặt",
+    "top": "Đầu trang",
+    "bottom": "Cuối trang"
+  },
+  "page": {
+    "tabPrev": "Tab trước",
+    "tabNext": "Tab kế tiếp",
+    "tabNumber": "Nhảy tới tab theo số",
+    "runSubmit": "Bắt đầu chạy"
+  },
+  "palette": {
+    "move": "Di chuyển giữa các kết quả",
+    "jump": "Nhảy sáu kết quả",
+    "edges": "Kết quả đầu hoặc cuối",
+    "run": "Mở kết quả đang chọn",
+    "group": "Nhóm kế tiếp hoặc trước đó",
+    "close": "Đóng bảng lệnh"
+  }
+}
