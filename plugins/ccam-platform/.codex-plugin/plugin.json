@@ -1,6 +1,6 @@
 {
   "name": "ccam-platform",
-  "version": "2.0.12",
+  "version": "2.1.0",
   "description": "Administer CCAM's Claude Code and Codex configuration explorers, provider-aware history import, backup restore, hook installation, home directories, updates, and MCP server.",
   "author": {
     "name": "Son Nguyen",
