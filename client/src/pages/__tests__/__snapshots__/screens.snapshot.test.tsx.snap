@@ -4859,7 +4859,8 @@ exports[`screen snapshots > Dashboard 1`] = `
                 d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
               />
             </svg>
-             Monitor
+             
+            Monitor
           </button>
           <button
             class="px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 text-gray-500 hover:text-gray-300"
@@ -4905,7 +4906,8 @@ exports[`screen snapshots > Dashboard 1`] = `
                 y2="18"
               />
             </svg>
-             Health
+             
+            Health
           </button>
         </div>
         <button

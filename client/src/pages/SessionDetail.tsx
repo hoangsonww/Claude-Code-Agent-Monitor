@@ -88,6 +88,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -139,7 +140,9 @@ import type {
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
 
-type DetailTab = "agents" | "conversation" | "timeline";
+/** Tab keys in render order — also the order `1`…`3` and `[`/`]` address them. */
+const DETAIL_TABS = ["agents", "conversation", "timeline"] as const;
+type DetailTab = (typeof DETAIL_TABS)[number];
 
 const EVENTS_INITIAL_BATCH = 50;
 const EVENTS_MORE_BATCH = 500;
@@ -169,7 +172,10 @@ export function SessionDetail() {
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(() => {
     return new Set<string>();
   });
-  const [activeTab, setActiveTab] = useState<DetailTab>("agents");
+  // URL-backed so a link can point at a session's conversation or timeline
+  // directly, not just at the session.
+  const [activeTab, setActiveTab] = useUrlTab(DETAIL_TABS, "agents");
+  useTabShortcuts(DETAIL_TABS, activeTab, setActiveTab);
   // Keep tabs mounted once visited so switching between them doesn't unmount/
   // remount their subtrees (which causes a perceptible flash on click).
   const [visitedTabs, setVisitedTabs] = useState<Set<DetailTab>>(() => new Set(["agents"]));
@@ -266,6 +272,8 @@ export function SessionDetail() {
       setLoading(false);
     }
   }, [id, scope, t]);
+
+  useRefreshShortcut(load);
 
   useEffect(() => {
     load();

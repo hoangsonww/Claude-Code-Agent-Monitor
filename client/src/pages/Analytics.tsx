@@ -79,6 +79,7 @@ import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
 import { Tip } from "../components/Tip";
 import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
+import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
 import type { Analytics as AnalyticsData, CostResult } from "../lib/types";
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
@@ -662,6 +663,17 @@ function AnalyticsChartsSkeleton() {
   );
 }
 
+/** Tab keys in render order — also the order `1`…`4` and `[`/`]` address them. */
+const ANALYTICS_TABS = ["cost", "tokens", "productivity", "workflow"] as const;
+
+/** Label key per tab, kept beside the order so the two cannot drift. */
+const ANALYTICS_TAB_LABEL_KEYS: Record<(typeof ANALYTICS_TABS)[number], string> = {
+  cost: "tabs.costAnalytics",
+  tokens: "tabs.tokenAnalytics",
+  productivity: "tabs.productivityAnalytics",
+  workflow: "tabs.workflowIntelligence",
+};
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function Analytics() {
@@ -670,9 +682,9 @@ export function Analytics() {
   const [costData, setCostData] = useState<CostResult | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"tokens" | "cost" | "workflow" | "productivity">(
-    "cost"
-  );
+  // URL-backed so the palette can jump straight to a specific analytics view.
+  const [activeTab, setActiveTab] = useUrlTab(ANALYTICS_TABS, "cost");
+  useTabShortcuts(ANALYTICS_TABS, activeTab, setActiveTab);
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   // Global data scope; a change re-runs `load` (api injects the `sources` param).
   const [scope] = useDataScope();
@@ -690,6 +702,8 @@ export function Analytics() {
       setLoading(false);
     }
   }, [scope]);
+
+  useRefreshShortcut(load);
 
   useEffect(() => {
     load();
@@ -1046,14 +1060,7 @@ export function Analytics() {
           {/* Tabs */}
           <div>
             <div className="flex gap-1 bg-surface-2 rounded-lg p-1 mb-6 w-fit">
-              {(
-                [
-                  { key: "cost" as const, label: t("tabs.costAnalytics") },
-                  { key: "tokens" as const, label: t("tabs.tokenAnalytics") },
-                  { key: "productivity" as const, label: t("tabs.productivityAnalytics") },
-                  { key: "workflow" as const, label: t("tabs.workflowIntelligence") },
-                ] as const
-              ).map(({ key, label }) => (
+              {ANALYTICS_TABS.map((key) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
@@ -1063,7 +1070,7 @@ export function Analytics() {
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {label}
+                  {t(ANALYTICS_TAB_LABEL_KEYS[key])}
                 </button>
               ))}
             </div>

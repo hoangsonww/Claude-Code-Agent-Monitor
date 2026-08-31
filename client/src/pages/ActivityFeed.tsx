@@ -72,6 +72,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Activity, Pause, Play, RefreshCw, ChevronRight, ExternalLink } from "lucide-react";
 import { api } from "../lib/api";
+import { useRefreshShortcut } from "../hooks/usePageShortcuts";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -190,6 +191,8 @@ export function ActivityFeed() {
       setLoading(false);
     }
   }, [apiParams, page, scope]);
+
+  useRefreshShortcut(load);
 
   useEffect(() => {
     load();

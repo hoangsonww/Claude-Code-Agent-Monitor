@@ -105,6 +105,12 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { CodexConfigExplorer } from "../components/CodexConfigExplorer";
+import {
+  useRefreshShortcut,
+  useSearchShortcut,
+  useTabShortcuts,
+  useUrlTab,
+} from "../hooks/usePageShortcuts";
 import type {
   CcArtifactType,
   CcBackup,
@@ -164,6 +170,22 @@ interface TabDef {
   icon: typeof Sparkles;
   i18nKey: string;
 }
+
+/** Tab keys in render order — also the order `1`…`9` and `[`/`]` address them. */
+const TAB_KEYS = [
+  "overview",
+  "skills",
+  "agents",
+  "commands",
+  "memory",
+  "plugins",
+  "marketplaces",
+  "mcp",
+  "hooks",
+  "keybindings",
+  "settings",
+  "outputStyles",
+] as const;
 
 const TABS: TabDef[] = [
   { key: "overview", icon: Boxes, i18nKey: "tabs.overview" },
@@ -245,13 +267,15 @@ type Toast = { kind: "success" | "error"; message: string } | null;
 export function CcConfig() {
   const { t } = useTranslation("ccConfig");
   const [provider, setProvider] = useState<"claude" | "codex">("claude");
-  const [tab, setTab] = useState<TabKey>("overview");
+  // URL-backed so the palette can open any Agent Config tab directly.
+  const [tab, setTab] = useUrlTab(TAB_KEYS, "overview");
   const [scope, setScope] = useState<CcScope>("all");
   const [data, setData] = useState<PageState>(EMPTY_STATE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [viewer, setViewer] = useState<{
     path: string;
     data: CcFileResponse | null;
@@ -356,6 +380,10 @@ export function CcConfig() {
   }, []);
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
+
+  useRefreshShortcut(fetchAll);
+  useSearchShortcut(searchRef);
+  useTabShortcuts(TAB_KEYS, tab, setTab);
 
   const openViewer = useCallback(async (path: string) => {
     setViewer({ path, data: null, error: null });
@@ -522,6 +550,7 @@ export function CcConfig() {
               <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
                 <Search className="w-4 h-4 text-gray-500" />
                 <input
+                  ref={searchRef}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("common.search")}

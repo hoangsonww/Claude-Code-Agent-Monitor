@@ -62,7 +62,7 @@
  *
  * ----------------------------------------------------------------------------- */
 
-import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useCallback, useSyncExternalStore } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -86,6 +86,12 @@ import { EmptyState } from "../components/EmptyState";
 import { TableRowSkeleton } from "../components/Skeleton";
 import { MultiSelect } from "../components/MultiSelect";
 import { Select } from "../components/Select";
+import {
+  useRefreshShortcut,
+  useSearchShortcut,
+  useTabShortcuts,
+  useUrlTab,
+} from "../hooks/usePageShortcuts";
 import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
 import {
   effectiveSessionStatus,
@@ -106,16 +112,24 @@ function isTransientProcessSession(session: Session): boolean {
   }
 }
 
+/** Status filters in render order — also the order `1`…`6` addresses them.
+ *  `""` is the "all" pseudo-filter the server treats as no status constraint. */
+const SESSION_FILTERS = ["", "active", "waiting", "completed", "error", "abandoned"] as const;
+
 export function Sessions() {
   const navigate = useNavigate();
   const { t } = useTranslation("sessions");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [total, setTotal] = useState(0);
-  const [filter, setFilter] = useState("");
+  // The status filter lives in the URL so the command palette (and any shared
+  // link) can open the list already narrowed. `""` is "all", which the hook
+  // treats as a valid value like any other.
+  const [filter, setFilter] = useUrlTab(SESSION_FILTERS, "", { param: "status" });
   // `searchInput` is what the user types; `search` is the debounced value
   // actually sent to the server. Without debouncing, every keystroke would
   // hit /api/sessions.
   const [searchInput, setSearchInput] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -134,14 +148,17 @@ export function Sessions() {
   // handle on /run. Lets us badge those rows with a "Run" link.
   const [dashboardRunIds, setDashboardRunIds] = useState<Set<string>>(new Set());
 
-  const FILTER_OPTIONS: Array<{ label: string; value: string }> = [
-    { label: t("filterAll"), value: "" },
-    { label: t("filterActive"), value: "active" },
-    { label: t("filterWaiting"), value: "waiting" },
-    { label: t("filterCompleted"), value: "completed" },
-    { label: t("filterError"), value: "error" },
-    { label: t("filterAbandoned"), value: "abandoned" },
-  ];
+  // Keyed off SESSION_FILTERS so the buttons, the `1`…`6` shortcuts, and the
+  // `?status=` values can never fall out of order with one another.
+  const FILTER_LABELS: Record<(typeof SESSION_FILTERS)[number], string> = {
+    "": t("filterAll"),
+    active: t("filterActive"),
+    waiting: t("filterWaiting"),
+    completed: t("filterCompleted"),
+    error: t("filterError"),
+    abandoned: t("filterAbandoned"),
+  };
+  const FILTER_OPTIONS = SESSION_FILTERS.map((value) => ({ value, label: FILTER_LABELS[value] }));
 
   // Debounce the search input → 300 ms after the user stops typing, the
   // committed value flips and triggers a fresh fetch.
@@ -229,6 +246,10 @@ export function Sessions() {
     // `scope` is a dep so a data-scope change re-fetches; the api layer injects
     // the matching `sources` param.
   }, [filter, search, cwds, sortBy, sortDesc, page, scope]);
+
+  useRefreshShortcut(load);
+  useSearchShortcut(searchRef);
+  useTabShortcuts(SESSION_FILTERS, filter, setFilter);
 
   useEffect(() => {
     load();
@@ -369,6 +390,7 @@ export function Sessions() {
         <div className="relative flex-1 min-w-[180px] max-w-[340px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
+            ref={searchRef}
             type="text"
             aria-label={t("searchPlaceholder")}
             placeholder={t("searchPlaceholder")}

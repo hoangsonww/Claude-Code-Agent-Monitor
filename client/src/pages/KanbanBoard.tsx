@@ -66,6 +66,7 @@ import { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Columns3, ChevronDown, HelpCircle } from "lucide-react";
 import { api } from "../lib/api";
+import { useRefreshShortcut, useTabShortcuts, useUrlTab } from "../hooks/usePageShortcuts";
 import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
@@ -88,7 +89,9 @@ import type {
   WSMessage,
 } from "../lib/types";
 
-type BoardView = "agents" | "sessions";
+/** Board views in render order — also the order `1`/`2` and `[`/`]` address them. */
+const BOARD_VIEWS = ["agents", "sessions"] as const;
+type BoardView = (typeof BOARD_VIEWS)[number];
 
 // Persisted statuses we fetch from the API.
 const AGENT_FETCH_STATUSES: AgentStatus[] = ["working", "waiting", "completed", "error"];
@@ -105,38 +108,29 @@ const SESSION_COLUMNS: EffectiveSessionStatus[] = [
 const COLUMN_PAGE_SIZE = 10;
 const VIEW_STORAGE_KEY = "kanban-board-view";
 
-function loadView(): BoardView {
-  try {
-    const stored = localStorage.getItem(VIEW_STORAGE_KEY);
-    if (stored === "agents" || stored === "sessions") return stored;
-  } catch {
-    /* ignore */
-  }
-  return "agents";
-}
-
-function persistView(view: BoardView): void {
-  try {
-    localStorage.setItem(VIEW_STORAGE_KEY, view);
-  } catch {
-    /* ignore */
-  }
-}
-
 export function KanbanBoard() {
   const { t } = useTranslation("kanban");
   const [dataScope] = useDataScope();
-  const [view, setViewState] = useState<BoardView>(loadView);
+  // URL-backed so the palette and shared links can open either board directly;
+  // `kanban-board-view` still mirrors the last choice for an unqualified visit.
+  const [view, setViewState] = useUrlTab(BOARD_VIEWS, "agents", {
+    param: "view",
+    storageKey: VIEW_STORAGE_KEY,
+  });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
 
-  const setView = useCallback((next: BoardView) => {
-    setViewState(next);
-    persistView(next);
-    setExpanded({}); // reset per-column pagination when switching views
-  }, []);
+  const setView = useCallback(
+    (next: BoardView) => {
+      setViewState(next);
+      setExpanded({}); // reset per-column pagination when switching views
+    },
+    [setViewState]
+  );
+
+  useTabShortcuts(BOARD_VIEWS, view, setView);
 
   const loadAgents = useCallback(async () => {
     // Fetch every persisted agent status. Bucketing happens below in
@@ -186,6 +180,8 @@ export function KanbanBoard() {
       setLoading(false);
     }
   }, [view, loadAgents, loadSessions]);
+
+  useRefreshShortcut(load);
 
   useEffect(() => {
     setLoading(true);
