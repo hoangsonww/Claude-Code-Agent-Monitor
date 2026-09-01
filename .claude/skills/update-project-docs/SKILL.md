@@ -87,7 +87,7 @@ the layout, so **measure before you write, and copy the pattern you find**.
 - **Coverage**: run `scripts/doc-coverage.sh <new-term> [...]` (e.g. the new env var / event type / identifier) and confirm every doc the mapping flags shows a HIT. The matrix is advisory — not every term belongs in every file — but a flagged doc reading `0` is a miss to fix.
 - **Tables**: markdown tables stay pipe-balanced (header column count == every row).
 - **Mermaid**: each edited block still parses (valid `source --> target: label`).
-- **i18n**: every new wiki English string resolves to `zh`, `vi`, `ko`, and `es`; cache versions bumped (`CACHE_NAME` in `wiki/sw.js` plus the matching `?v=` query strings).
+- **i18n**: every new wiki English string resolves to `zh`, `vi`, `ko`, and `es`; cache versions bumped — `CACHE_NAME` in `wiki/sw.js` plus the `?v=` query strings, which must match between `wiki/index.html` and the service-worker `PRECACHE` list (it matches on the full URL, query included, so a stale entry is simply never served).
 - **Wiki block sizing**: `.claude/skills/update-project-docs/scripts/wiki-block-lengths.sh` exits 0 — no carousel card or caption is an outlier, and any new card is placed by importance rather than dropped at the front.
 - **Format/tests**: run `npm run format` (or `prettier --check` on touched files); for any code touched, run the verification from `CLAUDE.md` (`npm run test:server` / `test:client` / `mcp:typecheck`).
 - State exactly which docs were updated and which were intentionally skipped (with reason), mirroring the repo's verification policy.

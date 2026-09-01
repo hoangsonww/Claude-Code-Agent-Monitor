@@ -990,45 +990,47 @@ code {
  * its indent and renders its markers outside the content column. Restore the
  * indent, marker, and item rhythm here.
  *
- * Do NOT scope these with :not([class]) — the scroll-reveal pass in script.js
- * adds `reveal-on-scroll` to every below-the-fold direct child of a <section>
- * at runtime, so a class-free selector matches in the static file and then
- * silently stops matching in the browser. Every <ul>/<ol> under .main-content
- * is prose today; a future bespoke list component overrides these rules with
- * its own class. */
-.main-content ul,
-.main-content ol {
+ * Scoped to a section's own children for two reasons. It excludes bespoke
+ * lists nested inside components (the arrow-marker list in the VS Code
+ * timeline brings its own inline list-style and spacing). And it must not be
+ * scoped with :not([class]) — the scroll-reveal pass in script.js adds
+ * `reveal-on-scroll` to exactly these elements at runtime, so a class-free
+ * selector matches in the static file and then silently stops matching in the
+ * browser. `section > ul` is the same set the reveal pass targets, by
+ * construction. */
+.main-content section > ul,
+.main-content section > ol {
   margin: 12px 0 20px;
   padding-left: 24px;
 }
 
-.main-content ul {
+.main-content section > ul {
   list-style: disc outside;
 }
 
-.main-content ol {
+.main-content section > ol {
   list-style: decimal outside;
 }
 
-.main-content ul > li,
-.main-content ol > li {
+.main-content section > ul > li,
+.main-content section > ol > li {
   margin-bottom: 8px;
   padding-left: 4px;
   color: var(--text-muted);
 }
 
-.main-content ul > li::marker,
-.main-content ol > li::marker {
+.main-content section > ul > li::marker,
+.main-content section > ol > li::marker {
   color: var(--accent);
 }
 
-.main-content ul > li:last-child,
-.main-content ol > li:last-child {
+.main-content section > ul > li:last-child,
+.main-content section > ol > li:last-child {
   margin-bottom: 0;
 }
 
-.main-content ul > li strong,
-.main-content ol > li strong {
+.main-content section > ul > li strong,
+.main-content section > ol > li strong {
   color: var(--text);
 }
 

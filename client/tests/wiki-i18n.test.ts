@@ -182,23 +182,36 @@ describe("wiki i18n resources", () => {
   });
 
   it("indents wiki prose lists despite the runtime reveal class", () => {
+    const PROSE_LISTS = ".main-content section > ul, .main-content section > ol";
     const dom = new JSDOM(INDEX_SOURCE);
-    const lists = [...dom.window.document.querySelectorAll(".main-content ul, .main-content ol")];
+    const lists = [...dom.window.document.querySelectorAll(PROSE_LISTS)];
     expect(lists.length, "prose lists exist").toBeGreaterThan(0);
     for (const list of lists) {
+      /* The reveal pass classes exactly this set, so the indent rules have to
+       * keep matching afterwards. */
       list.classList.add("reveal-on-scroll");
       expect(
-        list.matches(".main-content ul, .main-content ol"),
+        list.matches(PROSE_LISTS),
         `${list.closest("section")?.id} list still matches the indent rule`
       ).toBe(true);
     }
     expect(STYLE_SOURCE).toMatch(
-      /\.main-content ul,\s*\n\.main-content ol \{[^}]*padding-left: 24px;/
+      /\.main-content section > ul,\s*\n\.main-content section > ol \{[^}]*padding-left: 24px;/
     );
+
+    /* Bespoke lists nested inside a component keep their own layout — the
+     * prose rules must not reach them. */
+    const nested = [...dom.window.document.querySelectorAll(".main-content ul, .main-content ol")]
+      .filter((list) => !list.matches(PROSE_LISTS))
+      .map((list) => list.closest("section")?.id);
+    expect(nested, "component lists excluded from the prose rules").toContain("vscode-ext");
   });
 
   it("keeps wiki asset versions synchronized with the service-worker precache", () => {
-    for (const asset of ["script.js", "i18n-content.js"]) {
+    /* The service worker is cache-first and matches on the full URL, query
+     * string included, so a precache entry without the `?v=` the page requests
+     * is never served — first load and offline would miss that asset. */
+    for (const asset of ["style.css", "script.js", "i18n-content.js"]) {
       const indexVersion = INDEX_SOURCE.match(
         new RegExp(`${asset.replace(".", "\\.")}\\?v=(\\d+)`)
       )?.[1];

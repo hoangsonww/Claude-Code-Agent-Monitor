@@ -3,6 +3,8 @@ paths:
   - "wiki/index.html"
   - "wiki/script.js"
   - "wiki/i18n-content.js"
+  - "wiki/style.css"
+  - "wiki/sw.js"
 ---
 
 # Wiki Internationalization Rules
@@ -56,10 +58,12 @@ and heading depth — never invent a new pattern for one entry.**
 
 ## Indentation and list markup
 
-Prose lists use plain `<ul>` / `<ol>` with `<li>` children; the stylesheet's
-`.main-content ul` / `.main-content ol` rules supply the indent, marker, and
-item rhythm (the global reset zeroes list padding, so without them a list
-renders its markers outside the content column). Do not add ad-hoc inline
+Prose lists use plain `<ul>` / `<ol>` with `<li>` children placed as **direct
+children of their `<section>`**; the stylesheet's `.main-content section > ul` /
+`> ol` rules supply the indent, marker, and item rhythm (the global reset zeroes
+list padding, so without them a list renders its markers outside the content
+column). A list nested inside a component (card, timeline step, callout) is
+deliberately outside those rules and carries its own layout. Do not add ad-hoc inline
 `padding-left` / `list-style` to fix indentation, and in new content keep a
 `<ul>` out of a `<p>` — the browser closes the paragraph for you and the i18n
 key then no longer matches the DOM.
@@ -101,11 +105,14 @@ code/identifier/product-name needs no entry (it correctly falls back to English)
   the same `norm(s) = s.replace(/\s+/g," ").trim()`, and confirm every
   real-prose block matches a dictionary key. Misses that are pure
   code/identifiers are fine; prose misses are bugs.
-- Run `npx vitest run src/i18n/__tests__/wiki-i18n.test.ts` from `client/` to
+- Run `npx vitest run tests/wiki-i18n.test.ts` from `client/` to
   check live-DOM prose and label coverage, metadata and assistive attributes,
   inline-tag preservation, and asset-version synchronization.
-- The service worker is cache-first. After editing `index.html`, `script.js`, or
-  `i18n-content.js`, bump the asset query strings (`script.js?v=N`,
-  `i18n-content.js?v=N`) in `index.html` AND bump `CACHE_NAME` in `wiki/sw.js`,
-  or returning users keep the stale bundle.
+- The service worker is cache-first. After editing `index.html`, `style.css`,
+  `script.js`, or `i18n-content.js`, bump that asset's query string
+  (`style.css?v=N`, `script.js?v=N`, `i18n-content.js?v=N`) in `index.html`,
+  bump the SAME value in the `PRECACHE` list in `wiki/sw.js`, and bump
+  `CACHE_NAME`. The fetch handler matches on the full URL including the query,
+  so a precache entry whose version differs from the page's is never served —
+  first load and offline silently fall back to the network for that asset.
 - Run `npm run format` before committing (the static wiki files are Prettier-managed).
