@@ -35,6 +35,9 @@ def report(title, items, tolerance):
         return
     lengths = [n for _, n in items]
     lo, hi = min(lengths), max(lengths)
+    # Keep this arithmetic identical to the gate in client/tests/wiki-i18n.test.ts:
+    # statistics median (mean of the two middles when the group is even), then
+    # truncate both it and the budget, so the two never disagree on a block.
     med = int(statistics.median(lengths))
     budget = int(med * tolerance)
     print(
@@ -69,9 +72,13 @@ if which in ("all", "cards"):
     report("Feature carousel cards", cards, 1.5)
 
 if which in ("all", "captions"):
+    # Same class-token match as the cards: one caption carries an inline style,
+    # and an exact-tag pattern would skip it.
+    caption_re = re.compile(
+        r'<div\b[^>]*\bclass="[^"]*\bscreenshot-caption\b[^"]*"[^>]*>(.*?)</div>', re.S
+    )
     caps = [
-        (strip(m.group(1))[:48], len(strip(m.group(1))))
-        for m in re.finditer(r'<div class="screenshot-caption">(.*?)</div>', html, re.S)
+        (strip(m.group(1))[:48], len(strip(m.group(1)))) for m in caption_re.finditer(html)
     ]
     report("Screenshot captions", caps, 2.0)
 

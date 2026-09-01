@@ -166,7 +166,10 @@ describe("wiki i18n resources", () => {
      * breaks the layout rather than just reading long. Same budgets the
      * .claude/skills/update-project-docs/scripts/wiki-block-lengths.sh helper
      * reports, enforced here so `npm run verify` catches an outlier. */
-    const length = (element: Element | null): number => normalize(element?.textContent).length;
+    /* Count code points, not UTF-16 units: every caption opens with a non-BMP
+     * emoji, which would otherwise read one character longer here than in the
+     * helper script and drift the two budgets apart. */
+    const length = (element: Element | null): number => [...normalize(element?.textContent)].length;
 
     const groups: { label: string; sizes: number[]; names: string[]; tolerance: number }[] = [
       {
@@ -195,8 +198,15 @@ describe("wiki i18n resources", () => {
 
     for (const { label, sizes, names, tolerance } of groups) {
       expect(sizes.length, `${label}s found`).toBeGreaterThan(0);
-      const median = [...sizes].sort((a, b) => a - b)[Math.floor(sizes.length / 2)];
-      const budget = Math.round(median * tolerance);
+      /* Same arithmetic as the helper script: statistics median (mean of the two
+       * middles on an even group), truncated, then a truncated budget — so the
+       * two never disagree about whether a block passes. */
+      const ordered = [...sizes].sort((a, b) => a - b);
+      const middle = Math.floor(ordered.length / 2);
+      const median = Math.trunc(
+        ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2
+      );
+      const budget = Math.trunc(median * tolerance);
       const overlong = names
         .map((name, index) => ({ name, size: sizes[index] }))
         .filter((block) => block.size > budget)
