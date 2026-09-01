@@ -74,6 +74,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { Workflow, RefreshCw, Download, AlertCircle, Info } from "lucide-react";
 import { api } from "../lib/api";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+
 import { useDataScope } from "../lib/dataScope";
 import { eventBus } from "../lib/eventBus";
 import type { WorkflowData, WSMessage } from "../lib/types";
@@ -122,6 +124,10 @@ export function Workflows() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  usePaletteAction("page.refresh", () => {
+    void fetchData();
+  });
 
   // Auto-refresh on WebSocket events
   useEffect(() => {

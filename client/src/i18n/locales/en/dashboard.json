@@ -18,5 +18,9 @@
   "failedConnect": "Failed to connect to server",
   "failedLoad": "Failed to load data",
   "activeTrend": " active",
-  "totalTrend": " in active sessions"
+  "totalTrend": " in active sessions",
+  "tabs": {
+    "monitor": "Monitor",
+    "health": "Health"
+  }
 }

@@ -4859,7 +4859,8 @@ exports[`screen snapshots > Dashboard 1`] = `
                 d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
               />
             </svg>
-             Monitor
+             
+            Monitor
           </button>
           <button
             class="px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-2 text-gray-500 hover:text-gray-300"
@@ -4905,7 +4906,8 @@ exports[`screen snapshots > Dashboard 1`] = `
                 y2="18"
               />
             </svg>
-             Health
+             
+            Health
           </button>
         </div>
         <button
@@ -6913,7 +6915,7 @@ exports[`screen snapshots > Sessions 1`] = `
       class="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full"
     >
       <div
-        class="relative flex-1 min-w-[180px] max-w-[340px]"
+        class="relative flex-1 min-w-[260px] max-w-[340px]"
       >
         <svg
           class="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
@@ -6938,11 +6940,17 @@ exports[`screen snapshots > Sessions 1`] = `
         </svg>
         <input
           aria-label="Search sessions..."
-          class="input w-full pl-10"
+          class="input w-full pl-10 pr-12"
           placeholder="Search sessions..."
           type="text"
           value=""
         />
+        <kbd
+          aria-hidden="true"
+          class="pointer-events-none select-none rounded border border-border bg-surface-2 px-1.5 py-0.5 font-sans text-[10px] text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2"
+        >
+          Ctrl K
+        </kbd>
       </div>
       <div
         class="w-full shrink-0 sm:w-[280px] lg:w-[300px]"
@@ -7063,46 +7071,46 @@ exports[`screen snapshots > Sessions 1`] = `
         </button>
       </div>
       <div
-        class="flex gap-1 bg-surface-1 rounded-lg p-1 border border-border ml-auto shrink-0"
+        class="ml-auto flex min-w-0 max-w-full gap-1 overflow-x-auto no-scrollbar rounded-lg border border-border bg-surface-1 p-1"
       >
         <button
           aria-pressed="true"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap bg-surface-4 text-gray-200"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap bg-surface-4 text-gray-200"
           type="button"
         >
           All
         </button>
         <button
           aria-pressed="false"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
           type="button"
         >
           Active
         </button>
         <button
           aria-pressed="false"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
           type="button"
         >
           Waiting
         </button>
         <button
           aria-pressed="false"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
           type="button"
         >
           Completed
         </button>
         <button
           aria-pressed="false"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
           type="button"
         >
           Error
         </button>
         <button
           aria-pressed="false"
-          class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
+          class="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap text-gray-500 hover:text-gray-300"
           type="button"
         >
           Abandoned
@@ -11112,7 +11120,7 @@ exports[`screen snapshots > Settings 1`] = `
             <p
               class="text-[10px] text-amber-400/90 mt-1"
             >
-              UI build v2.0.12 (rebuild client to match)
+              UI build v2.1.0 (rebuild client to match)
             </p>
           </div>
           <div

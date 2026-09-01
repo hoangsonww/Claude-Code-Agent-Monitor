@@ -281,6 +281,44 @@ sequenceDiagram
 
 ---
 
+### Command Palette
+
+`Cmd/Ctrl+K` is the dashboard's only navigation shortcut. One query resolves nine groups spanning every page, view, setting, and session.
+
+```mermaid
+graph TB
+    Key["Cmd/Ctrl+K"] --> Palette[CommandPalette]
+    Palette --> Static["buildPaletteCommands()<br/>pages, views, settings,<br/>config tabs, actions"]
+    Palette --> Live["GET /api/sessions?q=<br/>debounced 180ms"]
+    Palette --> Facets["GET /api/sessions/facets<br/>projects and machines"]
+    Palette --> Registry{"boundIds from<br/>PaletteActionProvider"}
+
+    Registry -->|handler mounted| Offer["Listed under 'This page'"]
+    Registry -->|not mounted| Hide["Not offered at all"]
+
+    Static --> Rank["fuzzyMatch ranking<br/>+ matched-character highlight"]
+    Live --> Rank
+    Facets --> Rank
+    Offer --> Rank
+    Rank --> Row[Rendered row]
+    Row -->|navigates| Route[Route change]
+    Row -->|changes state| Toast[ActionToast confirmation]
+
+    style Registry fill:#F59E0B
+    style Hide fill:#EF4444
+    style Toast fill:#10B981
+```
+
+A page command is offered **only** while its handler is mounted, so the palette can never list an action that does nothing — the failure that made its first three quick actions feel broken. Anything that changes state without moving the user confirms itself with a toast, because navigation is its own feedback and nothing else is.
+
+**Documentation:**
+- [Palette architecture](../ARCHITECTURE.md#command-palette)
+- [Palette action registry](../ARCHITECTURE.md#palette-action-registry)
+- [URL-addressable sub-views](../ARCHITECTURE.md#url-addressable-sub-views)
+- [Client components](../client/README.md#commandpalette)
+
+---
+
 ### Pricing System
 
 ```mermaid

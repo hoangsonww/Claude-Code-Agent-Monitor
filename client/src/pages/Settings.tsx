@@ -112,7 +112,10 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { useLocation } from "react-router";
 import { api } from "../lib/api";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { tabbyPrefs } from "../components/Tabby/prefs";
@@ -1020,6 +1023,30 @@ export function Settings() {
   const [dataScope, setDataScope] = useDataScope();
   const animatedTotalCost = useCountUp(totalCost);
 
+  // Deep links (`/settings#alerts`) are how the command palette reaches an
+  // individual section. React Router does not scroll to a hash on its own, and
+  // the sections only exist once the page has loaded, so resolve it here — after
+  // `loading` clears and after a frame, so the target has been laid out.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (loading || !hash) return;
+    let id: string;
+    try {
+      id = decodeURIComponent(hash.slice(1));
+    } catch {
+      // A malformed percent-encoding (`#%zz`, often from a link mangled in
+      // transit) throws URIError. An unusable hash is not worth taking the
+      // Settings page down for — ignore it and leave the scroll position alone.
+      return;
+    }
+    if (!SETTINGS_SECTIONS.some((section) => section.id === id)) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveSection(id);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [hash, loading]);
+
   // Scroll-spy: highlight the TOC entry for the section nearest the top.
   useEffect(() => {
     if (loading) return;
@@ -1105,6 +1132,10 @@ export function Settings() {
       setLoading(false);
     }
   }, [t, dataScope]);
+
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     load();

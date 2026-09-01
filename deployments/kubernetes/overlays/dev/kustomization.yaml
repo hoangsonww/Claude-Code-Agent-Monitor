@@ -11,7 +11,7 @@ resources:
 
 images:
   - name: ccam-dashboard
-    newTag: 2.0.12
+    newTag: 2.1.0
 
 patches:
   - path: patches/deployment-patch.yaml

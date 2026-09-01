@@ -88,6 +88,7 @@ import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 import { Select } from "./Select";
+import { UPDATE_CHECK_EVENT } from "../lib/appEvents";
 
 function isUpdatePayload(x: unknown): x is UpdateStatusPayload {
   return typeof x === "object" && x !== null && "git_repo" in x && "update_available" in x;
@@ -516,6 +517,20 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
     }
   };
 
+  // The palette can ask for a check, but the check itself stays here: it owns the
+  // spinner, the failure state, the dismissal reset, and the modal that reports
+  // the result. A ref keeps the listener bound once while still calling the
+  // current closure, so a check in flight is never restarted by a re-render.
+  const checkUpdatesRef = useRef(onCheckUpdates);
+  checkUpdatesRef.current = onCheckUpdates;
+  useEffect(() => {
+    const onRequest = () => {
+      void checkUpdatesRef.current();
+    };
+    window.addEventListener(UPDATE_CHECK_EVENT, onRequest);
+    return () => window.removeEventListener(UPDATE_CHECK_EVENT, onRequest);
+  }, []);
+
   const updateAvailable = Boolean(updateStatus?.update_available);
   const checkTitle = checking
     ? t("nav:checkingForUpdates")
@@ -575,7 +590,7 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
                 end={to === "/"}
                 title={collapsed ? label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                  `relative flex items-center gap-3 rounded-lg text-sm font-medium transition-colors duration-150 ${
                     collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"
                   } ${
                     isActive

@@ -1,6 +1,6 @@
 {
   "name": "ccam-workflows",
-  "version": "2.0.12",
+  "version": "2.1.0",
   "description": "Analyze multi-agent orchestration and Workflow-tool fleet runs — DAGs, delegation, concurrency, error propagation, and effectiveness — via the Agent Monitor workflow intelligence API at http://localhost:4820. Maps parent→child subagent edges, scores model delegation and subagent success, surfaces concurrency lanes and serialization bottlenecks, and traces error cascades by agent depth.",
   "author": {
     "name": "Son Nguyen",

@@ -105,9 +105,14 @@ import { AgentCard } from "../components/AgentCard";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Tip } from "../components/Tip";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
 import { timeAgo, fmt, fmtCost, formatModelName } from "../lib/format";
 import { activityStatusFromEvent } from "../lib/event-grouping";
 import type { Stats, Agent, DashboardEvent, WSMessage, WorkflowData, Session } from "../lib/types";
+
+/** Tab keys in render order — also the order `1`/`2` and `[`/`]` address them. */
+const DASHBOARD_TABS = ["monitor", "health"] as const;
 
 interface SystemInfo {
   db: {
@@ -962,14 +967,12 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation("dashboard");
 
-  // Persistent Tab State
-  const [activeTab, setActiveTab] = useState<"monitor" | "health">(() => {
-    return (localStorage.getItem("dashboard_tab") as "monitor" | "health") || "monitor";
+  // Tab state lives in the URL so the command palette can address either view
+  // directly; `dashboard_tab` still mirrors the last choice, so an unqualified
+  // visit lands where the user left off.
+  const [activeTab, setActiveTab] = useUrlTab(DASHBOARD_TABS, "monitor", {
+    storageKey: "dashboard_tab",
   });
-
-  useEffect(() => {
-    localStorage.setItem("dashboard_tab", activeTab);
-  }, [activeTab]);
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [activeAgents, setActiveAgents] = useState<Agent[]>([]);
@@ -1052,6 +1055,10 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : t("failedLoad"));
     }
   }, [t, scope]);
+
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
 
   useEffect(() => {
     load();
@@ -1223,7 +1230,7 @@ export function Dashboard() {
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              <Activity className="w-3.5 h-3.5" /> Monitor
+              <Activity className="w-3.5 h-3.5" /> {t("tabs.monitor")}
             </button>
             <button
               onClick={() => setActiveTab("health")}
@@ -1233,7 +1240,7 @@ export function Dashboard() {
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              <Server className="w-3.5 h-3.5" /> Health
+              <Server className="w-3.5 h-3.5" /> {t("tabs.health")}
             </button>
           </div>
           <button onClick={load} className="btn-ghost flex-shrink-0">

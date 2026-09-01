@@ -88,6 +88,9 @@ import {
   Hourglass,
 } from "lucide-react";
 import { api } from "../lib/api";
+import { useUrlTab } from "../hooks/usePageShortcuts";
+import { usePaletteAction } from "../components/PaletteActionProvider";
+import { announceAction } from "../lib/appEvents";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
@@ -139,7 +142,9 @@ import type {
 } from "../lib/types";
 import { WorkflowRunsPanel } from "../components/workflows/WorkflowRunsPanel";
 
-type DetailTab = "agents" | "conversation" | "timeline";
+/** Tab keys in render order — also the order `1`…`3` and `[`/`]` address them. */
+const DETAIL_TABS = ["agents", "conversation", "timeline"] as const;
+type DetailTab = (typeof DETAIL_TABS)[number];
 
 const EVENTS_INITIAL_BATCH = 50;
 const EVENTS_MORE_BATCH = 500;
@@ -169,7 +174,9 @@ export function SessionDetail() {
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(() => {
     return new Set<string>();
   });
-  const [activeTab, setActiveTab] = useState<DetailTab>("agents");
+  // URL-backed so a link can point at a session's conversation or timeline
+  // directly, not just at the session.
+  const [activeTab, setActiveTab] = useUrlTab(DETAIL_TABS, "agents");
   // Keep tabs mounted once visited so switching between them doesn't unmount/
   // remount their subtrees (which causes a perceptible flash on click).
   const [visitedTabs, setVisitedTabs] = useState<Set<DetailTab>>(() => new Set(["agents"]));
@@ -266,6 +273,29 @@ export function SessionDetail() {
       setLoading(false);
     }
   }, [id, scope, t]);
+
+  usePaletteAction("page.refresh", () => {
+    void load();
+  });
+  // Contextual palette commands. Each declines (returns false) when the datum it
+  // would copy is not loaded, so the palette never offers an empty clipboard.
+  usePaletteAction("session.copyId", () => {
+    if (!session) return false;
+    void navigator.clipboard?.writeText(session.id);
+    announceAction(session.id);
+    return true;
+  });
+  usePaletteAction("session.copyPath", () => {
+    if (!session?.cwd) return false;
+    void navigator.clipboard?.writeText(session.cwd);
+    announceAction(session.cwd);
+    return true;
+  });
+  usePaletteAction("session.openInRun", () => {
+    if (!session) return false;
+    void navigate(`/run?session=${encodeURIComponent(session.id)}`);
+    return true;
+  });
 
   useEffect(() => {
     load();

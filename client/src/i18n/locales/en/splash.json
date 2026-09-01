@@ -12,8 +12,12 @@
   "provider": {
     "title": "What would you like to monitor?",
     "description": "Choose the data source shown across the dashboard. You can change this later in Settings.",
-    "claude": { "description": "Your Claude Code sessions, agents, and costs." },
-    "codex": { "description": "Codex sessions, GPT token usage, and costs." },
+    "claude": {
+      "description": "Your Claude Code sessions, agents, and costs."
+    },
+    "codex": {
+      "description": "Codex sessions, GPT token usage, and costs."
+    },
     "both": {
       "label": "Both",
       "description": "All Claude Code and Codex sessions, usage, and costs."
@@ -107,5 +111,6 @@
       "Your Claude Code config, fully mapped.",
       "Skills, agents, hooks, MCP, and memory at a glance."
     ]
-  ]
+  ],
+  "paletteHint": "Tip — press {{chord}} anytime to jump to any page, session, or setting."
 }

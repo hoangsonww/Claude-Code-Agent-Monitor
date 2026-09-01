@@ -468,6 +468,9 @@ graph TD
     APP["App.tsx<br/>Router + WebSocket"]
     LAYOUT["Layout.tsx<br/>Sidebar + Outlet"]
     SIDEBAR["Sidebar.tsx<br/>Nav (scroll-bounded with overflow<br/>chevrons) + Connection Status"]
+    PALETTE["CommandPalette.tsx<br/>Cmd/Ctrl+K launcher: recent, pages,<br/>sessions, views, settings, config, actions"]
+    SHORTCUTS["PaletteActionProvider.tsx<br/>Registry of the actions the<br/>mounted page offers the palette"]
+    TOAST["ActionToast.tsx<br/>Confirms actions that<br/>change state without navigating"]
     DASH["Dashboard.tsx"]
     KANBAN["KanbanBoard.tsx"]
     SESS["Sessions.tsx"]
@@ -480,7 +483,11 @@ graph TD
     NOTFOUND["NotFound.tsx"]
 
     APP --> LAYOUT
-    LAYOUT --> SIDEBAR
+    LAYOUT --> SHORTCUTS
+    SHORTCUTS --> SIDEBAR
+    SHORTCUTS --> PALETTE
+    SHORTCUTS --> TOAST
+    PAGES_ANY["Any routed page"] -.->|usePaletteAction| SHORTCUTS
     LAYOUT --> DASH & KANBAN & SESS & DETAIL & ACTIVITY & ANALYTICS_P & WORKFLOWS_P & SETTINGS_P & NOTFOUND
 
     DASH --> SC1["StatCard x6<br/>(sessions/agents/subagents/<br/>events today/total events/cost)<br/>3-column grid"]
@@ -636,6 +643,105 @@ graph TD
     style EB fill:#f59e0b,stroke:#fbbf24,color:#000
     style API fill:#10b981,stroke:#34d399,color:#fff
 ```
+
+### Command Palette
+
+`client/src/components/CommandPalette.tsx` is a global launcher mounted once by `Layout`, opened with `Cmd/Ctrl+K` from anywhere. It is deliberately keyboard-only: a sidebar button that opens a list so you can pick a page the sidebar is already showing costs a click and teaches nothing, so the chord is the trigger. Its catalog is built by `client/src/lib/paletteCommands.ts` — a pure function of one context object, which is what lets `paletteCommands.test.ts` assert coverage against the app's own route table, `SETTINGS_SECTIONS`, and `TABS` instead of trusting a hand-kept list.
+
+| Group | Source | Notes |
+| --- | --- | --- |
+| Recent | `client/src/lib/recentCommands.ts` | The last 5 command **ids** in `localStorage`; re-resolved against the live catalog on every open, so a stale id simply disappears |
+| Pages | The nine sidebar routes | Matched on the **translated** label, so it works in every locale |
+| Sessions | `GET /api/sessions?q=` | Debounced 180 ms, capped at 6 results, minimum 2 characters |
+| This page | `PAGE_ACTION_COMMANDS` ∩ `boundIds` | Actions the mounted page registered — pause the stream, sort, clear filters, copy this session's id. Listed **only** where they are bound |
+| Projects | `GET /api/sessions/facets` | Every known project directory, jumping to `/sessions?cwd=…` |
+| Views | Page sub-tabs and list filters | `/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=` — every tab and filter is addressable by URL |
+| Settings | The 13 `SETTINGS_SECTIONS` anchors | `/settings#<id>`; the Settings page resolves the hash on load |
+| Agent Config | The 12 `TABS` keys | `/cc-config?tab=<key>` |
+| Actions | Preferences, scope, language, links, page operations | Sound (on/off and volume), Tabby (enable/mute), provider scope, per-machine data scope, the five languages, notifications, sidebar toggle, reload, history back/forward, scroll, copy link, update check, API reference, issues, releases |
+
+Ranking is subsequence matching with positional scoring (`client/src/lib/fuzzy.ts`), and the matched characters are highlighted in the row. With a catalog this size a substring filter would make most commands unreachable without typing their exact wording; subsequence matching lets `mcp` reach "MCP servers" and `kbrd` reach "Kanban Board". A leading sigil narrows the search — `>` actions and views, `@` pages, `#` sessions — but is never required.
+
+**A command that appears is a command that works.** The three original quick actions were listed on every page and wired on none — "Show active sessions" navigated to `/sessions` and applied no filter. Page commands now come from the shortcut registry's `boundIds`, so an action whose handler is not mounted is not offered, and `paletteCommands.test.ts` asserts that a page action never appears unbound. Actions that change something without moving the user (a preference, the data scope, the clipboard) confirm themselves through `ActionToast` — navigation is its own feedback, nothing else is.
+
+Session search is deliberately **server-side**. The dashboard routinely holds thousands of sessions, so the palette keeps no client-side index; issuing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope (machine + provider) without duplicating any filter logic. A failed or slow session query never blocks the palette — every other group is computed locally and renders immediately, and the session group simply stays empty, in line with the app-wide rule that network delays must not make the UI unusable.
+
+The palette **navigates rather than mutates** for anything destructive: purging the database or deleting a session stays behind its confirmation modal, and the palette only offers the jump. `paletteCommands.test.ts` asserts no command id matches `/delete|purge|wipe/`.
+
+The sidebar trigger opens the palette by dispatching a `ccam:command-palette` window event (defined in `client/src/lib/appEvents.ts`) rather than through lifted state or a context provider, which keeps the trigger decoupled from the component and usable from anywhere in the tree. The same module carries `ccam:check-updates`, which the palette uses to ask the sidebar to run an update check — the check owns the spinner, the failure state, and the modal, so it stays in one place.
+
+Accessibility: the panel is a modal `dialog` whose input is a `combobox` driving an `aria-activedescendant` listbox. Arrow keys move the active option (with feature-detected `scrollIntoView`), `Home`/`End` and `PageUp`/`PageDown` jump, `Tab` moves between groups without leaking focus out of the dialog, `Enter` runs the highlighted row, `Escape` closes, and focus returns to the previously focused element on close. Pointer hover only takes the selection after a real `mousemove`, so arrowing through a scrolled list under a stationary cursor is not fought by `mouseenter`.
+
+### Keyboard
+
+The dashboard claims exactly **one** chord: `Cmd/Ctrl+K` opens the command palette. Everything else is reached by opening the palette and typing.
+
+That is a deliberate reversal. An earlier iteration shipped a full shortcut layer — a registry, `g`-prefixed navigation sequences, page keys, a `?` cheat sheet, and a hold-modifier hint overlay — and it was removed because it failed the only test that matters: a first-time user could not tell what was bound. A `g` sequence is a hidden mode with a timer; pressing `g` looked like nothing happening. Two navigation mechanisms also split muscle memory for no gain, because the palette already reaches every page with fuzzy search and does it discoverably.
+
+What remains:
+
+| Chord | Action | Owner |
+| --- | --- | --- |
+| `Cmd/Ctrl+K` | Toggle the command palette | `CommandPalette.tsx` |
+| `Cmd/Ctrl+B` | Toggle Tabby | `Tabby.tsx` (predates the palette) |
+| `↑` `↓` `Home` `End` `PgUp` `PgDn` `Tab` `Enter` `Esc` | Move within the open palette | `CommandPalette.tsx` |
+
+`Cmd/Ctrl+K` is claimed even while a field has focus — that is the point of a global launcher — but never when `Alt` is also held, so browser-native combos keep working. Firefox binds `Ctrl+K` to its search bar; the chord is taken anyway because it is what every developer tool already uses, and a launcher on a key nobody guesses is a launcher nobody opens.
+
+### Making a keyboard-only feature discoverable
+
+A launcher nobody knows about is a launcher nobody opens, and the palette has no
+permanent affordance by design — a button beside the sidebar duplicates
+navigation the sidebar already shows. The answer is not standing chrome for a
+fact you learn in one second, but a hint that appears where the need is felt and
+**deletes itself once it has done its job**.
+
+`client/src/lib/paletteDiscovery.ts` holds one bit in `localStorage`: has this
+browser ever opened the palette? Two surfaces read it:
+
+| Surface | Why there |
+| --- | --- |
+| The splash screen's closing line | First run is the one moment every user passes through, and the splash already shows exactly once per browser |
+| A `⌘K` chip inside the Sessions and Agent Config search fields (`PaletteHint`) | The user is already searching in a narrow field; the chip says a broader one exists. It decorates an input that exists rather than adding chrome |
+
+Opening the palette flips the bit and both disappear, permanently and without a
+reload — the store notifies through `useSyncExternalStore`. The chip is
+`aria-hidden` and `pointer-events-none`: it annotates a text field, so announcing
+it or catching a click aimed at the input would both be worse than saying
+nothing, and screen-reader users get the same fact as readable prose on the
+splash. Inside the Sessions field it hides below `lg`, where it would otherwise
+clip the placeholder to "Search ses" — a truncated label is a worse trade than a
+hint shown less often.
+
+### Palette action registry
+
+`client/src/components/PaletteActionProvider.tsx` is not a keyboard layer — it is how a mounted page tells the palette which commands exist right now.
+
+The problem it solves is concrete. The palette originally listed a fixed set of quick actions on every page and wired them on none: *Show active sessions* navigated to `/sessions` and applied no filter; *Configure alerts* pointed at a hash the Settings page never read. A launcher that offers commands it cannot run teaches you to stop trusting it.
+
+Registration inverts that. A page calls `usePaletteAction(id, handler)`; the palette reads `boundIds` and offers the command **only** while that handler is mounted. An action whose page is not on screen is not listed, so it is structurally impossible to ship a row that does nothing — and `paletteCommands.test.ts` asserts a page action never appears unbound.
+
+`register` pushes onto a per-id stack, so the most recently mounted handler wins and unmounting restores the one beneath it. That is how every page registers `page.refresh` under its own reload without any of them knowing about the others, and how a handler can decline (`return false`) so the stack falls through — `session.copyId` declines until the session has loaded, rather than copying an empty string.
+
+Actions that change something **without moving the user** — a preference, the data scope, the clipboard — confirm themselves through `ActionToast`. Navigation is its own feedback; everything else closed the palette and then visibly did nothing, which reads as broken even when it worked.
+
+### URL-addressable sub-views
+
+For the palette to reach "every page and every view", the views had to become addressable. `useUrlTab` (in `client/src/hooks/usePageShortcuts.ts`) moves each page's tab or filter selection into the URL:
+
+| Route | Parameter |
+| --- | --- |
+| `/` | `?tab=monitor\|health` |
+| `/kanban` | `?view=agents\|sessions` |
+| `/analytics` | `?tab=cost\|tokens\|productivity\|workflow` |
+| `/cc-config` | `?tab=<one of the 12 tabs>` |
+| `/sessions` | `?status=<lifecycle>` and `?cwd=<project>` |
+| `/sessions/:id` | `?tab=agents\|conversation\|timeline` |
+| `/settings` | `#<section id>` (resolved on load; React Router does not scroll to a hash) |
+
+The URL is the source of truth when it carries a valid value; otherwise the page's existing `localStorage` preference applies, then its default — so a remembered tab is never lost. Selections use `replace: true`, because flipping between two tabs should not make Back mean "the tab I was just on", and an empty value (the "all" pseudo-filter) is dropped from the query string rather than written as `?status=`.
+
+The benefit is not only the palette: every one of these is now a link a user can bookmark or paste to a colleague.
 
 ### Routing
 
@@ -2192,7 +2298,7 @@ Tabby's only contact with the rest of the app is four light, additive touchpoint
 
 | File | Touchpoint |
 | --- | --- |
-| `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, as a sibling of `<UpdateNotifier />`. |
+| `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, inside `<PaletteActionProvider>` alongside `<UpdateNotifier />`, `<CommandPalette />`, and `<ActionToast />`. |
 | `client/src/pages/Settings.tsx` | On/off toggle wired to `tabbyPrefs` (`localStorage`). |
 | `client/src/pages/Run.tsx` | Reads `?prompt=` to prefill the prompt box for Tabby's Ask handoff. |
 | `client/src/i18n/locales/{en,zh,vi,ko,es}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi / ko / es). |
