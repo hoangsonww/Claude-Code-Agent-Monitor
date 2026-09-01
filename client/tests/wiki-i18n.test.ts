@@ -160,6 +160,51 @@ describe("wiki i18n resources", () => {
     }
   });
 
+  it("keeps fixed-size wiki blocks inside their group's length budget", () => {
+    /* Carousel cards share one fixed-height box and captions sit under a fixed
+     * image column, so a block written at several times its neighbours' length
+     * breaks the layout rather than just reading long. Same budgets the
+     * .claude/skills/update-project-docs/scripts/wiki-block-lengths.sh helper
+     * reports, enforced here so `npm run verify` catches an outlier. */
+    const length = (element: Element | null): number => normalize(element?.textContent).length;
+
+    const groups: { label: string; sizes: number[]; names: string[]; tolerance: number }[] = [
+      {
+        label: "feature carousel card",
+        sizes: [],
+        names: [],
+        tolerance: 1.5,
+      },
+      {
+        label: "screenshot caption",
+        sizes: [],
+        names: [],
+        tolerance: 2,
+      },
+    ];
+
+    for (const card of document.querySelectorAll("#feature-carousel .feature-card")) {
+      const heading = card.querySelector("h3");
+      groups[0].names.push(heading?.id || normalize(heading?.textContent));
+      groups[0].sizes.push(length(card.querySelector("p")));
+    }
+    for (const caption of document.querySelectorAll(".screenshot-caption")) {
+      groups[1].names.push(normalize(caption.textContent).slice(0, 40));
+      groups[1].sizes.push(length(caption));
+    }
+
+    for (const { label, sizes, names, tolerance } of groups) {
+      expect(sizes.length, `${label}s found`).toBeGreaterThan(0);
+      const median = [...sizes].sort((a, b) => a - b)[Math.floor(sizes.length / 2)];
+      const budget = Math.round(median * tolerance);
+      const overlong = names
+        .map((name, index) => ({ name, size: sizes[index] }))
+        .filter((block) => block.size > budget)
+        .map((block) => `${block.name} (${block.size} > ${budget})`);
+      expect(overlong, `${label}s over budget (median ${median})`).toEqual([]);
+    }
+  });
+
   it("never scopes content styling on a class-free selector", () => {
     /* script.js's scroll-reveal pass adds `reveal-on-scroll` to every
      * below-the-fold direct child of a <section> at runtime, so a rule written
