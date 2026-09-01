@@ -59,13 +59,15 @@
     "zh": "Tiếng Trung",
     "vi": "Tiếng Việt",
     "ko": "Tiếng Hàn",
-    "es": "Tiếng Tây Ban Nha"
+    "es": "Tiếng Tây Ban Nha",
+    "it": "Tiếng Ý"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "it": "IT"
   }
 }

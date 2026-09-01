@@ -236,11 +236,11 @@ graph TB
 | **Database** | SQLite 3 (better-sqlite3 or node:sqlite) |
 | **Integration** | Claude Code Hooks, MCP Server |
 
-### Internationalization Support (en/zh/vi/ko/es)
+### Internationalization Support (en/zh/vi/ko/es/it)
 
 ```mermaid
 flowchart LR
-    A["User language preference<br/>en / zh / vi / ko / es"] --> B["i18next detector<br/>localStorage + navigator"]
+    A["User language preference<br/>en / zh / vi / ko / es / it"] --> B["i18next detector<br/>localStorage + navigator"]
     B --> C["Namespace JSON resources"]
     C --> D["React useTranslation hooks"]
     D --> E["Localized UI + a11y labels"]
@@ -248,7 +248,7 @@ flowchart LR
     F --> G["formatModelName() — human-friendly model display"]
 ```
 
-Supported language codes are explicitly `en`, `zh`, `vi`, `ko`, and `es`. The sidebar uses a custom language dropdown that scales as locales are added. Use [I18N.md](./I18N.md) for architecture details, naming conventions, language switching flow, localization behavior, and rollout guidance.
+Supported language codes are explicitly `en`, `zh`, `vi`, `ko`, `es`, and `it`. The sidebar uses a custom language dropdown that scales as locales are added. Use [I18N.md](./I18N.md) for architecture details, naming conventions, language switching flow, localization behavior, and rollout guidance.
 
 ---
 

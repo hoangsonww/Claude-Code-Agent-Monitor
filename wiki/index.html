@@ -551,6 +551,7 @@
             <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
             <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
             <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+            <button type="button" class="lang-option" data-lang="it" role="option" aria-selected="false">Italiano</button>
           </div>
         </div>
 
@@ -692,6 +693,7 @@
           <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
           <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
           <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+          <button type="button" class="lang-option" data-lang="it" role="option" aria-selected="false">Italiano</button>
         </div>
       </div>
 
@@ -6162,7 +6164,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <h2>Internationalization (i18n)</h2>
 
           <p>
-            The entire UI ships in <strong>five languages — English, 简体中文, Tiếng Việt, 한국어, and Español</strong>
+            The entire UI ships in <strong>six languages — English, 简体中文, Tiếng Việt, 한국어, Español, and Italiano</strong>
             — built on <code>i18next</code> + <code>react-i18next</code> with
             <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart
             tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts
@@ -7047,8 +7049,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=86" defer></script>
-    <script src="script.js?v=56" defer></script>
+    <script src="i18n-content.js?v=87" defer></script>
+    <script src="script.js?v=57" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

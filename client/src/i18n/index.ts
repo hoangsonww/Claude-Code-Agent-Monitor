@@ -1,9 +1,9 @@
 /**
  * @file index.ts
  * @description i18next bootstrap for the dashboard client. Registers bundled JSON
- * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), and
- * Korean (`ko`), wires browser language detection, and exports the configured
- * singleton consumed by `react-i18next`.
+ * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean
+ * (`ko`), Spanish (`es`), and Italian (`it`), wires browser language detection,
+ * and exports the configured singleton consumed by `react-i18next`.
  *
  * ## Namespaces
  * Translations are split by feature area (`dashboard`, `sessions`, `settings`,
@@ -149,6 +149,22 @@ import run_es from "./locales/es/run.json";
 import alerts_es from "./locales/es/alerts.json";
 import splash_es from "./locales/es/splash.json";
 
+import common_it from "./locales/it/common.json";
+import nav_it from "./locales/it/nav.json";
+import dashboard_it from "./locales/it/dashboard.json";
+import sessions_it from "./locales/it/sessions.json";
+import activity_it from "./locales/it/activity.json";
+import analytics_it from "./locales/it/analytics.json";
+import workflows_it from "./locales/it/workflows.json";
+import settings_it from "./locales/it/settings.json";
+import kanban_it from "./locales/it/kanban.json";
+import errors_it from "./locales/it/errors.json";
+import updates_it from "./locales/it/updates.json";
+import ccConfig_it from "./locales/it/ccConfig.json";
+import run_it from "./locales/it/run.json";
+import alerts_it from "./locales/it/alerts.json";
+import splash_it from "./locales/it/splash.json";
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -239,8 +255,25 @@ i18n
         alerts: alerts_es,
         splash: splash_es,
       },
+      it: {
+        common: common_it,
+        nav: nav_it,
+        dashboard: dashboard_it,
+        sessions: sessions_it,
+        activity: activity_it,
+        analytics: analytics_it,
+        workflows: workflows_it,
+        settings: settings_it,
+        kanban: kanban_it,
+        errors: errors_it,
+        updates: updates_it,
+        ccConfig: ccConfig_it,
+        run: run_it,
+        alerts: alerts_it,
+        splash: splash_it,
+      },
     },
-    supportedLngs: ["en", "zh", "vi", "ko", "es"],
+    supportedLngs: ["en", "zh", "vi", "ko", "es", "it"],
     nonExplicitSupportedLngs: true,
     fallbackLng: "en",
     ns: [

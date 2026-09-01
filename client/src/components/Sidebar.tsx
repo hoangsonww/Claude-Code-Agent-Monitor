@@ -108,7 +108,7 @@ const NAV_KEYS = [
 const STORAGE_KEY = "sidebar-collapsed";
 const STATS_STORAGE_KEY = "sidebar-connection-stats";
 const RECENT_EVENTS_CAP = 8;
-const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es", "it"] as const;
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 const COLLAPSED_LANGUAGE_MENU_WIDTH = 240;
@@ -174,7 +174,14 @@ function loadStats(): PersistedStats {
 
 function normalizeLanguage(language: string): SupportedLanguage {
   const base = language.toLowerCase().split("-")[0];
-  if (base === "zh" || base === "vi" || base === "en" || base === "ko" || base === "es") {
+  if (
+    base === "zh" ||
+    base === "vi" ||
+    base === "en" ||
+    base === "ko" ||
+    base === "es" ||
+    base === "it"
+  ) {
     return base;
   }
   return "en";

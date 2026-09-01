@@ -59,13 +59,15 @@
     "zh": "Chinese",
     "vi": "Vietnamese",
     "ko": "Korean",
-    "es": "Spanish"
+    "es": "Spanish",
+    "it": "Italian"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "it": "IT"
   }
 }

@@ -505,7 +505,7 @@ graph TD
 
 ### Splash & loading UX
 
-- **`SplashScreen.tsx`** — rendered by `App.tsx` as a fixed full-screen overlay alongside the router. Shows once per browser session (`sessionStorage` gate, read synchronously so a repeat mount never flashes). Time-aware greeting + localized tagline/subtexts (`splash` i18n namespace, en/zh/vi/ko/es) + an animated node-graph brand mark on a dark backdrop (radial glow, drifting constellation, grain). It collects the global provider scope and checks readiness only for the providers that scope requires: Claude-only needs Claude hooks, Codex-only needs Codex hooks, and Both needs both. Fully ready selections persist the scope and reveal the dashboard immediately. Otherwise the live-monitoring gate lists and installs only missing selected providers through `POST /api/settings/install-hooks`; status-check failures fail soft into manual setup for the complete selected scope. The backdrop is **opaque from the first paint** (no entrance fade on the root) so the app rendered behind it never flashes through; only the inner content cascades in. Honors `prefers-reduced-motion`. CSS-only keyframes, no added dependencies.
+- **`SplashScreen.tsx`** — rendered by `App.tsx` as a fixed full-screen overlay alongside the router. Shows once per browser session (`sessionStorage` gate, read synchronously so a repeat mount never flashes). Time-aware greeting + localized tagline/subtexts (`splash` i18n namespace, en/zh/vi/ko/es/it) + an animated node-graph brand mark on a dark backdrop (radial glow, drifting constellation, grain). It collects the global provider scope and checks readiness only for the providers that scope requires: Claude-only needs Claude hooks, Codex-only needs Codex hooks, and Both needs both. Fully ready selections persist the scope and reveal the dashboard immediately. Otherwise the live-monitoring gate lists and installs only missing selected providers through `POST /api/settings/install-hooks`; status-check failures fail soft into manual setup for the complete selected scope. The backdrop is **opaque from the first paint** (no entrance fade on the root) so the app rendered behind it never flashes through; only the inner content cascades in. Honors `prefers-reduced-motion`. CSS-only keyframes, no added dependencies.
 - **Loading skeletons** — the shared `Skeleton` primitive (`components/Skeleton.tsx`) uses Tailwind `animate-pulse`. `Analytics.tsx` now renders a pulsing `AnalyticsChartsSkeleton` for the whole chart region while `data` is null (previously it fell back to empty/zero charts).
 - **`PaginatedLegend.tsx`** — shared bounded legend primitive used by Analytics donuts and data-driven Workflows legends. It leaves lists at or below the configured page size untouched, and exposes longer lists through localized Previous / Next controls plus an accessible visible-range announcement. Every label remains reachable without allowing a legend to dominate the chart card.
 - **`workflows/CompactionImpact.tsx`** — redesigned from a one-bar-per-session chart into a "sessions by compaction count" histogram (D3) with axis titles, stat tiles (total / sessions affected / avg / peak), an explanatory help line, a plain-English summary, and rich React-managed hover tooltips (full-height per-bucket hit-area + bar highlight) matching the other charts.
@@ -776,7 +776,7 @@ Both popover classes use the same fixed-position + viewport-clamp algorithm: anc
 
 ## Internationalization Architecture
 
-The client localization stack is powered by `i18next` + `react-i18next` (`client/src/i18n/index.ts`) and currently supports five languages: English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). The sidebar uses the shared custom `Select` dropdown, so locale choices remain compact as languages grow. Language detection prefers `localStorage` (`i18nextLng`) and falls back to the browser locale (`navigator`) with `en` as final fallback.
+The client localization stack is powered by `i18next` + `react-i18next` (`client/src/i18n/index.ts`) and currently supports six languages: English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), and Italian (`it`). The sidebar uses the shared custom `Select` dropdown, so locale choices remain compact as languages grow. Language detection prefers `localStorage` (`i18nextLng`) and falls back to the browser locale (`navigator`) with `en` as final fallback.
 
 ```mermaid
 flowchart LR
@@ -784,7 +784,7 @@ flowchart LR
     B --> C["Resolved language<br/>en | zh | vi | ko | es (fallback en)"]
     C --> D["Namespace resources<br/>common/nav/dashboard/sessions/..."]
     D --> E["React pages/components<br/>useTranslation(ns)"]
-    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN | ko-KR | es-ES"]
+    E --> F["format.ts locale mapping<br/>en-US | zh-CN | vi-VN | ko-KR | es-ES | it-IT"]
     F --> G["Localized labels,<br/>dates, number formatting,<br/>and model name display"]
 ```
 
@@ -2195,7 +2195,7 @@ Tabby's only contact with the rest of the app is four light, additive touchpoint
 | `client/src/components/Layout.tsx` | Mounts `<Tabby />` once, as a sibling of `<UpdateNotifier />`. |
 | `client/src/pages/Settings.tsx` | On/off toggle wired to `tabbyPrefs` (`localStorage`). |
 | `client/src/pages/Run.tsx` | Reads `?prompt=` to prefill the prompt box for Tabby's Ask handoff. |
-| `client/src/i18n/locales/{en,zh,vi,ko,es}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi / ko / es). |
+| `client/src/i18n/locales/{en,zh,vi,ko,es,it}/settings.json` | `tabby.*` strings for the Settings toggle (en / zh / vi / ko / es / it). |
 
 ---
 

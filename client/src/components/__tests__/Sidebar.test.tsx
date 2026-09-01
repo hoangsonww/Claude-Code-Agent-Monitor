@@ -81,6 +81,20 @@ describe("Sidebar", () => {
     expect(screen.getByRole("option", { name: "Vietnamese VI" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Korean 한국어" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Spanish ES" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Italian IT" })).toBeInTheDocument();
+  });
+
+  it("should switch to Italian when Italian option is clicked", async () => {
+    const user = userEvent.setup();
+    renderSidebar(true);
+
+    await user.click(screen.getByRole("button", { name: "English" }));
+    await user.click(screen.getByRole("option", { name: "Italian IT" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Bacheca Kanban")).toBeInTheDocument();
+      expect(screen.getByText("Sessioni")).toBeInTheDocument();
+    });
   });
 
   it("should switch to Vietnamese when Vietnamese option is clicked", async () => {

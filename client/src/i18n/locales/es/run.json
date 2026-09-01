@@ -32,13 +32,15 @@
   "fields": {
     "prompt": "Instrucción",
     "promptPlaceholder": "Pregúntale cualquier cosa a Claude…",
+    "promptPlaceholderWithProvider": "Pregúntale cualquier cosa a {{agent}}…",
     "cwd": "Directorio de trabajo",
     "cwdHint": "Ruta absoluta. Por defecto el cwd del propio panel.",
     "cwdPlaceholder": "Escribe para buscar o pega una ruta absoluta…",
     "cwdGroups": {
       "dashboard": "Servidor del panel",
       "home": "Inicio",
-      "recent": "Recientes - usados por Claude Code"
+      "recent": "Recientes - usados por Claude Code",
+      "recentWithProvider": "Recientes - usados por {{agent}}"
     },
     "cwdNoMatches": "Sin coincidencias. Escribe una ruta absoluta para usarla directamente.",
     "model": "Modelo",
@@ -129,7 +131,7 @@
     "switcherEmpty": "Sin ejecuciones activas",
     "attached": "Adjuntado a ejecución existente",
     "started": "Iniciado {{when}}",
-    "viewActive": "Ejecuciones del panel",
+    "viewActive_one": "{{count}} ejecución del panel",
     "viewActive_other": "{{count}} ejecuciones del panel",
     "scopeNote": "Solo muestra ejecuciones que iniciaste desde este panel.",
     "allSessionsLink": "Ver todas las sesiones de Claude Code →",
@@ -139,6 +141,7 @@
     "label": "Sesión de origen",
     "freshOption": "Nueva sesión",
     "freshHint": "Inicia una sesión de Claude Code nueva.",
+    "freshHintWithProvider": "Inicia una sesión de {{agent}} nueva.",
     "resumeOption": "Reanudar sesión existente",
     "resumeHint": "Elige una sesión de tu historial y continúa la conversación. El cwd queda bloqueado al original.",
     "pickSession": "Elige una sesión…",

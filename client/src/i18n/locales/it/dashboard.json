@@ -1,0 +1,22 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Panoramica in tempo reale dell'attività degli agenti",
+  "totalSessions": "Sessioni totali",
+  "activeAgents": "Agenti attivi",
+  "activeSubagents": "Subagenti attivi",
+  "eventsToday": "Eventi oggi",
+  "totalEvents": "Eventi totali",
+  "totalCost": "Costo totale",
+  "viewBoard": "Vedi bacheca",
+  "viewAll": "Vedi tutto",
+  "activeAgentsSection": "Agenti attivi",
+  "recentActivity": "Attività recente",
+  "noAgents": "Nessun agente attivo",
+  "noAgentsDesc": "Gli agenti appariranno qui quando una sessione monitorata è in esecuzione.",
+  "noActivity": "Ancora nessuna attività",
+  "noActivityDesc": "Gli eventi delle sessioni monitorate verranno trasmessi qui in tempo reale.",
+  "failedConnect": "Connessione al server non riuscita",
+  "failedLoad": "Caricamento dei dati non riuscito",
+  "activeTrend": " attivi",
+  "totalTrend": " nelle sessioni attive"
+}

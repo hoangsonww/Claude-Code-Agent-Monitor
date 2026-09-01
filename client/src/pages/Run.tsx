@@ -2437,7 +2437,7 @@ function ActiveRunsSwitcher({
         {liveCount > 0 ? (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            {t("runs.viewActive_other", { count: liveCount })}
+            {t("runs.viewActive", { count: liveCount })}
           </>
         ) : (
           <>

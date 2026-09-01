@@ -41,7 +41,7 @@ describe("i18n resources", () => {
     for (const namespace of namespaces) {
       const english = flattenResource(i18n.getResourceBundle("en", namespace));
 
-      for (const language of ["zh", "vi", "ko", "es"]) {
+      for (const language of ["zh", "vi", "ko", "es", "it"]) {
         const locale = flattenResource(i18n.getResourceBundle(language, namespace));
 
         expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
@@ -69,7 +69,7 @@ describe("i18n resources", () => {
     expect(i18n.t("nav:languageShort.vi")).toBe("VI");
   });
 
-  it("should keep Agent terminology untranslated in zh, vi, ko, and es locales", async () => {
+  it("should keep each locale's canonical Agent/Subagent terminology (untranslated in zh, vi, ko; agente/subagente in es, it)", async () => {
     await i18n.changeLanguage("zh");
     expect(i18n.t("common:agent")).toBe("Agent");
     expect(i18n.t("common:subagent")).toBe("Subagent");
@@ -83,6 +83,10 @@ describe("i18n resources", () => {
     expect(i18n.t("common:subagent")).toBe("Subagent");
 
     await i18n.changeLanguage("es");
+    expect(i18n.t("common:agent")).toBe("agente");
+    expect(i18n.t("common:subagent")).toBe("subagente");
+
+    await i18n.changeLanguage("it");
     expect(i18n.t("common:agent")).toBe("agente");
     expect(i18n.t("common:subagent")).toBe("subagente");
   });
@@ -104,6 +108,35 @@ describe("i18n resources", () => {
     expect(i18n.t("run:fields.prompt")).toBe("Instrucción");
     expect(i18n.t("settings:hooks.title")).toBe("Configuración de ganchos");
     expect(i18n.t("workflows:runs.promptLabel")).toBe("Instrucción");
+  });
+
+  it("should provide Italian translations for navigation keys", async () => {
+    await i18n.changeLanguage("it");
+
+    expect(i18n.t("nav:dashboard")).toBe("Dashboard");
+    expect(i18n.t("nav:agentBoard")).toBe("Bacheca Kanban");
+    expect(i18n.t("nav:languageShort.it")).toBe("IT");
+  });
+
+  it("should provide Italian translations across every feature namespace", async () => {
+    await i18n.changeLanguage("it");
+
+    expect(i18n.t("common:awaitingReason.session_start.label")).toBe("Al prompt");
+    expect(i18n.t("analytics:total30d")).toBe("Totale (30 giorni)");
+    expect(i18n.t("ccConfig:tabs.skills")).toBe("Skill");
+    expect(i18n.t("run:fields.prompt")).toBe("Prompt");
+    expect(i18n.t("run:fields.promptPlaceholderWithProvider", { agent: "Codex" })).toBe(
+      "Chiedi qualsiasi cosa a Codex…"
+    );
+    expect(i18n.t("settings:hooks.title")).toBe("Configurazione degli hook");
+    expect(i18n.t("workflows:runs.promptLabel")).toBe("Prompt");
+  });
+
+  it("should support non-explicit Italian locale tags", async () => {
+    await i18n.changeLanguage("it-IT");
+
+    expect(i18n.resolvedLanguage?.startsWith("it")).toBe(true);
+    expect(i18n.t("nav:agentBoard")).toBe("Bacheca Kanban");
   });
 
   it("should support non-explicit Spanish locale tags", async () => {
@@ -146,6 +179,19 @@ describe("i18n resources", () => {
     // The main-agent card subtitle carries its own kanban plural key.
     expect(i18n.t("kanban:session.subagentSummary", { count: 1 })).toBe("1 subagent");
     expect(i18n.t("kanban:session.subagentSummary", { count: 3 })).toBe("3 subagents");
+  });
+
+  it("pluralizes the board, session, and run counters in English", async () => {
+    await i18n.changeLanguage("en");
+    // These keys previously used the legacy v3 `_plural` suffix, which
+    // i18next v21+ never selects — counts of 2+ rendered the singular text.
+    expect(i18n.t("kanban:agentCount", { count: 1 })).toBe("1 agent tracked");
+    expect(i18n.t("kanban:agentCount", { count: 2 })).toBe("2 agents tracked");
+    expect(i18n.t("kanban:sessionCount", { count: 2 })).toBe("2 sessions tracked");
+    expect(i18n.t("sessions:sessionCount", { count: 1 })).toBe("1 session recorded");
+    expect(i18n.t("sessions:sessionCount", { count: 2 })).toBe("2 sessions recorded");
+    expect(i18n.t("run:runs.viewActive", { count: 1 })).toBe("1 dashboard run");
+    expect(i18n.t("run:runs.viewActive", { count: 2 })).toBe("2 dashboard runs");
   });
 
   it("pluralizes task-progress counts in English and Spanish", async () => {
@@ -194,7 +240,7 @@ describe("i18n resources", () => {
       "hookGate.continue",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "it"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "splash", key)).toBeTruthy();
       }
@@ -220,7 +266,7 @@ describe("i18n resources", () => {
       "pricing.gpt.tooltip.apiPricingBody",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "it"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "settings", key)).toBeTruthy();
       }
