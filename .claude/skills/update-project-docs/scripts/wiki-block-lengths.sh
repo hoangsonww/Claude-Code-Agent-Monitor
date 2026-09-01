@@ -19,10 +19,11 @@ WHICH="${1:-all}"
 
 python3 - "$WHICH" <<'PY'
 import re, statistics, sys
+from html import unescape
 
 which = sys.argv[1]
 html = open("wiki/index.html", encoding="utf-8").read()
-strip = lambda s: " ".join(re.sub(r"<[^>]+>", "", s).split())
+strip = lambda s: unescape(" ".join(re.sub(r"<[^>]+>", "", s).split()))
 status = 0
 
 
@@ -49,11 +50,20 @@ def report(title, items, tolerance):
 
 
 if which in ("all", "cards"):
+    # The carousel runs to the end of its section; `.feature-card` is also used
+    # in grids elsewhere on the page, so bound the slice instead of scanning all.
     start = html.index('<div class="carousel" id="feature-carousel">')
-    seg = html[start : start + 60000]
+    seg = html[start : html.index("</section>", start)]
+    # Most cards carry an `id` on their <h3> (they are cross-referenced from the
+    # nav and from other docs), but plenty do not — match the card container and
+    # fall back to the heading text so no card escapes the budget.
+    card_re = re.compile(
+        r'<div class="feature-card">.*?<h3(?: id="([^"]+)")?>(.*?)</h3>\s*<p>(.*?)</p>',
+        re.S,
+    )
     cards = [
-        (m.group(1), len(strip(m.group(3))))
-        for m in re.finditer(r'<h3 id="([^"]+)">(.*?)</h3>\s*<p>(.*?)</p>', seg, re.S)
+        (m.group(1) or strip(m.group(2)), len(strip(m.group(3))))
+        for m in card_re.finditer(seg)
     ]
     report("Feature carousel cards", cards, 1.5)
 

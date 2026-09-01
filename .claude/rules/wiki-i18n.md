@@ -42,8 +42,9 @@ long. **Read the two blocks around yours and match their length, tone, markup,
 and heading depth — never invent a new pattern for one entry.**
 
 - **Feature carousel cards** (`#feature-carousel .feature-card`): one `<p>` of
-  ~400–550 characters (~60–80 words). No lists, no sub-headings, no exhaustive
-  keybinding/edge-case enumeration.
+  ~450–550 characters (~65–80 words; the 39-card group spans 209–628 with a
+  ~494 median). No lists, no sub-headings, no exhaustive keybinding/edge-case
+  enumeration.
 - **Screenshot captions** (`.screenshot-caption`): ~150–300 characters — emoji,
   bolded screen name, em dash, one dense sentence.
 - **Card order is editorial.** A newly shipped feature is inserted by

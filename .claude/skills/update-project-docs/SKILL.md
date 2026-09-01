@@ -57,9 +57,10 @@ fixed-size boxes. A block written at 2–3x the length of its neighbours breaks
 the layout, so **measure before you write, and copy the pattern you find**.
 
 - **Feature carousel cards** (`#feature-carousel .feature-card`) share one
-  fixed-height box. Each is a single `<p>` of roughly **400–550 characters
-  (~60–80 words)** — one paragraph, no lists, no sub-headings, no exhaustive
-  enumeration of every keybinding and edge case. Say what the feature is and
+  fixed-height box. All 39 of them are a single `<p>`; the group runs
+  **209–628 characters with a ~494 median**, so write to roughly **450–550
+  characters (~65–80 words)** — one paragraph, no lists, no sub-headings, no
+  exhaustive enumeration of every keybinding and edge case. Say what the feature is and
   the two or three things that make it distinctive; the depth belongs in the
   feature's own section further down the page.
 - **Screenshot captions** (`.screenshot-caption`) run **~150–300 characters**:
