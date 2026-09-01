@@ -985,6 +985,47 @@ code {
   opacity: 0;
 }
 
+/* ─── Prose lists ──────────────────────────────────────────────────────── */
+/* The global reset zeroes padding on every element, so an unclassed <ul> in
+ * body copy loses its indent and renders its markers flush against (or clipped
+ * by) the content edge. Restore the indent, marker, and item rhythm for plain
+ * prose lists only — classed lists keep their own bespoke layout. */
+.main-content ul:not([class]),
+.main-content ol:not([class]) {
+  margin: 12px 0 20px;
+  padding-left: 24px;
+}
+
+.main-content ul:not([class]) {
+  list-style: disc outside;
+}
+
+.main-content ol:not([class]) {
+  list-style: decimal outside;
+}
+
+.main-content ul:not([class]) > li,
+.main-content ol:not([class]) > li {
+  margin-bottom: 8px;
+  padding-left: 4px;
+  color: var(--text-muted);
+}
+
+.main-content ul:not([class]) > li::marker,
+.main-content ol:not([class]) > li::marker {
+  color: var(--accent);
+}
+
+.main-content ul:not([class]) > li:last-child,
+.main-content ol:not([class]) > li:last-child {
+  margin-bottom: 0;
+}
+
+.main-content ul:not([class]) > li strong,
+.main-content ol:not([class]) > li strong {
+  color: var(--text);
+}
+
 /* ─── Inline text links (prose) ────────────────────────────────────────── */
 /* Plain in-body links (no chip/badge/nav class) pick up the accent theme so
  * cross-references like the "Desktop App (macOS & Windows)" jump-link no longer

@@ -46,16 +46,44 @@ Update docs **in the same change-set (PR/commit) as the code**, before claiming 
 2. **Write the canonical English version first** — usually `README.md` and/or `ARCHITECTURE.md`. Get the wording right there; it anchors everything else.
 3. **Propagate to translations** `README-VN.md`, `README-CN.md`, and `README-KO.md`: mirror the SAME edits at the corresponding sections. Keep identifiers, env-var names, event names, and code in English; translate only prose. Render "Waiting" as **Đang chờ** (vi) / **等待中** (zh) / **대기 중** (ko). Match each file's existing terminology — read the neighboring lines first.
 4. **Landing page** `index.html`: one concise marketing sentence in the most relevant existing feature card — light touch, no new sections.
-5. **Wiki** `wiki/index.html`: add the detailed prose/table/diagram, then follow `.claude/rules/wiki-i18n.md` — add `zh` + `vi` entries for every new English string to `wiki/i18n-content.js`, then **bump the cache**: increment `CACHE_NAME` in `wiki/sw.js` and the `i18n-content.js?v=` query string in `wiki/index.html`. Skipping the cache bump means returning visitors never see the update.
+5. **Wiki** `wiki/index.html`: add the detailed prose/table/diagram **at the length and in the position its neighbours already use** (see *Match the wiki's existing shape* below), then follow `.claude/rules/wiki-i18n.md` — add `zh` + `vi` + `ko` + `es` entries for every new English string to `wiki/i18n-content.js`, then **bump the cache**: increment `CACHE_NAME` in `wiki/sw.js` and the `i18n-content.js?v=` query string in `wiki/index.html`. Skipping the cache bump means returning visitors never see the update.
 6. **Area READMEs / docs/**: update `server/README.md`, `client/README.md`, and the relevant `docs/*.md` per the mapping.
 7. **Diagrams**: when a state transition changes, edit every mermaid `stateDiagram-v2` block that models it (they are duplicated across README/VN/CN/KO, server/README, docs/DATABASE, wiki). Keep transition labels consistent.
+
+## Match the wiki's existing shape
+
+The wiki is a designed page, not a changelog: several of its blocks live in
+fixed-size boxes. A block written at 2–3x the length of its neighbours breaks
+the layout, so **measure before you write, and copy the pattern you find**.
+
+- **Feature carousel cards** (`#feature-carousel .feature-card`) share one
+  fixed-height box. Each is a single `<p>` of roughly **400–550 characters
+  (~60–80 words)** — one paragraph, no lists, no sub-headings, no exhaustive
+  enumeration of every keybinding and edge case. Say what the feature is and
+  the two or three things that make it distinctive; the depth belongs in the
+  feature's own section further down the page.
+- **Screenshot captions** (`.screenshot-caption`) run **~150–300 characters**:
+  the emoji, the bolded screen name, an em dash, one dense sentence.
+- **Card order is editorial, not chronological.** A new feature does NOT go
+  first. Insert it where it belongs by importance among the existing cards —
+  a newly shipped convenience feature belongs in the middle or later half of
+  the carousel, not ahead of the dashboard, board, and session cards.
+- Deep, unabridged prose (full keyboard maps, degradation behaviour, group-by-
+  group breakdowns) belongs in a normal `<section>` with `h3` + `<ul>`, never
+  crammed into a card or caption.
+- Run `.claude/skills/update-project-docs/scripts/wiki-block-lengths.sh` and
+  confirm your block sits inside the group's budget before finishing.
+- The same rule of thumb applies everywhere on the page: before adding a block
+  of any kind, read the two blocks around it and match their length, tone,
+  markup, and heading depth. Do not invent a new pattern for one entry.
 
 ## Verify (do not skip)
 
 - **Coverage**: run `scripts/doc-coverage.sh <new-term> [...]` (e.g. the new env var / event type / identifier) and confirm every doc the mapping flags shows a HIT. The matrix is advisory — not every term belongs in every file — but a flagged doc reading `0` is a miss to fix.
 - **Tables**: markdown tables stay pipe-balanced (header column count == every row).
 - **Mermaid**: each edited block still parses (valid `source --> target: label`).
-- **i18n**: every new wiki English string resolves to both `zh` and `vi`; cache versions bumped.
+- **i18n**: every new wiki English string resolves to `zh`, `vi`, `ko`, and `es`; cache versions bumped (`CACHE_NAME` in `wiki/sw.js` plus the matching `?v=` query strings).
+- **Wiki block sizing**: `.claude/skills/update-project-docs/scripts/wiki-block-lengths.sh` exits 0 — no carousel card or caption is an outlier, and any new card is placed by importance rather than dropped at the front.
 - **Format/tests**: run `npm run format` (or `prettier --check` on touched files); for any code touched, run the verification from `CLAUDE.md` (`npm run test:server` / `test:client` / `mcp:typecheck`).
 - State exactly which docs were updated and which were intentionally skipped (with reason), mirroring the repo's verification policy.
 
