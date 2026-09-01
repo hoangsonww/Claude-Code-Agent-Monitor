@@ -81,8 +81,15 @@ static HTML. Reliable local check:
 
 ```bash
 python3 -m http.server 8899   # from the repo root
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
-  --virtual-time-budget=6000 --dump-dom http://127.0.0.1:8899/wiki/index.html \
+
+# CHROME_BIN defaults per platform:
+#   macOS   /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+#   Linux   google-chrome  (or chromium / chromium-browser)
+#   Windows C:/Program Files/Google/Chrome/Application/chrome.exe
+CHROME_BIN="${CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
+
+"$CHROME_BIN" --headless=new --virtual-time-budget=6000 \
+  --dump-dom http://127.0.0.1:8899/wiki/index.html \
   | grep -o '<ul[^>]*>'      # shows the classes script.js actually applied
 ```
 
