@@ -56,12 +56,34 @@ and heading depth — never invent a new pattern for one entry.**
 ## Indentation and list markup
 
 Prose lists use plain `<ul>` / `<ol>` with `<li>` children; the stylesheet's
-`.main-content ul:not([class])` rules supply the indent, marker, and item
-rhythm (the global reset zeroes list padding, so an unclassed list without
-those rules renders flush against the content edge). Do not add ad-hoc inline
+`.main-content ul` / `.main-content ol` rules supply the indent, marker, and
+item rhythm (the global reset zeroes list padding, so without them a list
+renders its markers outside the content column). Do not add ad-hoc inline
 `padding-left` / `list-style` to fix indentation, and in new content keep a
-`<ul>` out of a `<p>` (close the paragraph first) — the browser closes the
-paragraph for you and the i18n key then no longer matches the DOM.
+`<ul>` out of a `<p>` — the browser closes the paragraph for you and the i18n
+key then no longer matches the DOM.
+
+**Never scope a rule for a block-level content element with `:not([class])`.**
+The scroll-reveal pass in `script.js` adds `reveal-on-scroll` to every
+below-the-fold direct child of a `<section>` at runtime, so such a rule matches
+in the static file (and in jsdom, which does not run that script) and then
+silently stops applying in the real browser. `a:not([class])` for inline links
+is fine — only a section's own children get classed. `client/tests/wiki-i18n.test.ts`
+enforces this.
+
+**Verify wiki CSS in a browser that ran the page's JavaScript**, not against the
+static HTML. Reliable local check:
+
+```bash
+python3 -m http.server 8899   # from the repo root
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --virtual-time-budget=6000 --dump-dom http://127.0.0.1:8899/wiki/index.html \
+  | grep -o '<ul[^>]*>'      # shows the classes script.js actually applied
+```
+
+Do not narrow the page (hiding other sections, isolating a fragment) before
+checking: moving a block above the fold changes whether it gets the reveal
+class, which is exactly the variable under test.
 
 ## What stays English (do NOT translate)
 

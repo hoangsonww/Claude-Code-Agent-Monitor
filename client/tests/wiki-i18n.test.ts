@@ -16,6 +16,7 @@ const INDEX_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "index.html"), "utf8");
 const SCRIPT_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "script.js"), "utf8");
 const CONTENT_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "i18n-content.js"), "utf8");
 const SERVICE_WORKER_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "sw.js"), "utf8");
+const STYLE_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "style.css"), "utf8");
 
 type TranslationMap = Record<string, string>;
 type LocaleMaps = Record<(typeof LANGUAGES)[number], TranslationMap>;
@@ -157,6 +158,43 @@ describe("wiki i18n resources", () => {
         );
       }
     }
+  });
+
+  it("never scopes content styling on a class-free selector", () => {
+    /* script.js's scroll-reveal pass adds `reveal-on-scroll` to every
+     * below-the-fold direct child of a <section> at runtime, so a rule written
+     * as `.main-content ul:not([class])` matches the static file, passes review,
+     * and then silently stops applying in the browser. Block-level content
+     * rules must not depend on an element having no class. (Inline rules like
+     * `a:not([class])` are safe — the reveal pass only classes a section's own
+     * children.) */
+    const REVEALABLE = "p|ul|ol|div|table|pre|blockquote|h2|h3|h4";
+    const classFree = new RegExp(`(?:^|[\\s>+~])(?:${REVEALABLE}):not\\(\\[class\\]\\)`);
+    const offenders = STYLE_SOURCE.split("}")
+      .map((block) =>
+        block
+          .slice(block.lastIndexOf("*/") + 1)
+          .split("{")[0]
+          .trim()
+      )
+      .filter((selector) => classFree.test(selector));
+    expect(offenders, "class-free selectors in wiki/style.css").toEqual([]);
+  });
+
+  it("indents wiki prose lists despite the runtime reveal class", () => {
+    const dom = new JSDOM(INDEX_SOURCE);
+    const lists = [...dom.window.document.querySelectorAll(".main-content ul, .main-content ol")];
+    expect(lists.length, "prose lists exist").toBeGreaterThan(0);
+    for (const list of lists) {
+      list.classList.add("reveal-on-scroll");
+      expect(
+        list.matches(".main-content ul, .main-content ol"),
+        `${list.closest("section")?.id} list still matches the indent rule`
+      ).toBe(true);
+    }
+    expect(STYLE_SOURCE).toMatch(
+      /\.main-content ul,\s*\n\.main-content ol \{[^}]*padding-left: 24px;/
+    );
   });
 
   it("keeps wiki asset versions synchronized with the service-worker precache", () => {

@@ -73,6 +73,10 @@ the layout, so **measure before you write, and copy the pattern you find**.
   crammed into a card or caption.
 - Run `.claude/skills/update-project-docs/scripts/wiki-block-lengths.sh` and
   confirm your block sits inside the group's budget before finishing.
+- Changing wiki **CSS**? Verify it in a browser that ran `script.js` (see
+  `.claude/rules/wiki-i18n.md`) — the scroll-reveal pass adds classes at
+  runtime, so a `:not([class])` selector that looks right in the file and in
+  jsdom can apply to nothing on the live page.
 - The same rule of thumb applies everywhere on the page: before adding a block
   of any kind, read the two blocks around it and match their length, tone,
   markup, and heading depth. Do not invent a new pattern for one entry.
