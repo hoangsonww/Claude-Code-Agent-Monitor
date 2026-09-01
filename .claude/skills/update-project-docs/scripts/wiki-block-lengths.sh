@@ -58,7 +58,8 @@ if which in ("all", "cards"):
     # nav and from other docs), but plenty do not — match the card container and
     # fall back to the heading text so no card escapes the budget.
     card_re = re.compile(
-        r'<div class="feature-card">.*?<h3(?: id="([^"]+)")?>(.*?)</h3>\s*<p>(.*?)</p>',
+        r'<div\b[^>]*\bclass="[^"]*\bfeature-card\b[^"]*"[^>]*>'
+        r'.*?<h3(?:[^>]*\bid="([^"]+)")?[^>]*>(.*?)</h3>\s*<p>(.*?)</p>',
         re.S,
     )
     cards = [
