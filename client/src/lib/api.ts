@@ -2031,6 +2031,57 @@ export const api = {
         results: Array<{ id: string; ok: boolean; error?: string }>;
       }>("/remote-sources/sync-all", { method: "POST" }),
   },
+
+  // ─────────────────────────────────── Query Explorer API ──────────────────────────────────
+  /** Advanced Query Explorer — unified safe-query surface over sessions, agents, and events. */
+  query: {
+    /**
+     * GET /api/query — execute a parameterised query over one entity type.
+     * @param params.entity   One of "sessions" | "agents" | "events".
+     * @param params.filters  Flat key→value filter map (status, event_type, tool_name, q, from, to, sort_by, sort_dir).
+     * @param params.limit    Page size (max 500).
+     * @param params.offset   Row offset.
+     * @param params.scope    Optional `?sources=…&providers=…` scope string.
+     */
+    run: (params: {
+      entity: string;
+      filters?: Record<string, string>;
+      limit?: number;
+      offset?: number;
+      scope?: string;
+    }) => {
+      const qs = new URLSearchParams({ entity: params.entity });
+      if (params.limit != null) qs.set("limit", String(params.limit));
+      if (params.offset != null) qs.set("offset", String(params.offset));
+      Object.entries(params.filters ?? {}).forEach(([k, v]) => {
+        if (v) qs.set(k, v);
+      });
+      if (params.scope) new URLSearchParams(params.scope).forEach((v, k) => qs.set(k, v));
+      return request<{
+        entity: string;
+        rows: Record<string, unknown>[];
+        columns: string[];
+        total: number;
+        limit: number;
+        offset: number;
+      }>(`/query?${qs.toString()}`);
+    },
+
+    /**
+     * GET /api/query/facets — distinct filterable values for the chosen entity.
+     * @param entity  One of "sessions" | "agents" | "events".
+     */
+    facets: (entity: string, scope?: string) => {
+      const qs = new URLSearchParams({ entity });
+      if (scope) new URLSearchParams(scope).forEach((v, k) => qs.set(k, v));
+      return request<{
+        entity: string;
+        statuses?: string[];
+        event_types?: string[];
+        tool_names?: string[];
+      }>(`/query/facets?${qs.toString()}`);
+    },
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

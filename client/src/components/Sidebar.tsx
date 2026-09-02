@@ -68,6 +68,7 @@ import {
   Boxes,
   Play,
   Settings,
+  Search,
   Wifi,
   WifiOff,
   Github,
@@ -103,6 +104,7 @@ const NAV_KEYS = [
   { to: "/workflows", icon: Workflow, key: "nav:workflows" },
   { to: "/cc-config", icon: Boxes, key: "nav:ccConfig" },
   { to: "/run", icon: Play, key: "nav:run" },
+  { to: "/query", icon: Search, key: "nav:queryExplorer" },
   { to: "/settings", icon: Settings, key: "nav:settings" },
 ] as const;
 
