@@ -71,6 +71,7 @@ const alertsRouter = require("./routes/alerts");
 const webhooksRouter = require("./routes/webhooks");
 const remoteSourcesRouter = require("./routes/remote-sources");
 const metricsRouter = require("./routes/metrics");
+const queryRouter = require("./routes/query");
 
 const APP_VERSION = (() => {
   try {
@@ -116,6 +117,7 @@ function createApp() {
   app.use("/api/webhooks", webhooksRouter);
   app.use("/api/remote-sources", remoteSourcesRouter);
   app.use("/api/metrics", metricsRouter);
+  app.use("/api/query", queryRouter);
   app.get("/favicon.svg", (_req, res) => {
     res.type("image/svg+xml").sendFile(DASHBOARD_FAVICON_PATH);
   });
