@@ -646,6 +646,8 @@ flowchart LR
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | 仅追加 Codex rollout 的安全兜底轮询间隔（毫秒）。Codex Hook 会立即触发同一个增量采集器；设为 `0` 仅禁用轮询，在可用时仍保留文件系统监听器。 |
 | `DASHBOARD_CODEX_HOOK_IDLE_SECONDS` | `60` | **仅靠 hook** 的 Codex 会话（运行时未将 rollout 写入磁盘，如 `codex exec --ephemeral`）在已报告结束的回合迟迟得不到响应时，可等待多久才判定其 `SessionEnd` hook 已丢失。只有 `awaiting_reason` 为 `stop` 的会话才符合条件：Codex 会在 `Stop` 之后几百毫秒内发送 `SessionEnd`，因此无人应答的 `Stop` 是真实证据。静默被刻意排除在触发条件之外——没有 rollout 的运行在整个工具调用期间完全不发出 hook，基于空闲时间的规则会误将正在运行的 CI 构建判定为已完成 |
 | `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，若无此下限，一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）会导致每个请求都完整重新解析数 MB 的活跃转录。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 恢复每次变更立即重新解析 |
+| `DASHBOARD_EVENT_STRING_CAP` | `2048` | Hook 负载在写入 `events.data` **之前会被裁剪**：原生工具的整文件副本（Edit/Write 的 `originalFile`，Read 的 `file.content` / `file.base64`）被移除，`tool_input` / `tool_response` 中的每个字符串被截断到此字符数，每处改动记录在 `data._trimmed`（事件详情中显示为 **存储时已裁剪**）。存储的是预览：终端视图和字段上限以内编辑的 diff 照常可用，"original file" 面板不再对已存储事件显示，摘要统计的是预览行数，文本搜索只能看到保留的内容——完整文本仍在磁盘上的转录中。设为 `0` 则原样存储负载 |
+| `DASHBOARD_EVENT_FIELD_CAP` | `16384` | 字符串裁剪后仍然很大的 `tool_input` / `tool_response`（例如覆盖整个文件的 `structuredPatch`）的字节预算：超出时只保留能放下的短标量值。`npm run trim-events` 对裁剪功能引入前保存、或从旧导出恢复的行应用同样的规则（默认只读模拟；停止仪表板后用 `--yes --backup` 重写并 VACUUM） |
 | `DASHBOARD_REMOTE_SYNC_MS` | `15000` | **远程数据源**后台同步的间隔（毫秒），会独立拉取每个已启用远程的 `~/.claude/projects` 和 `~/.codex/sessions`（另含 Codex 的轻量 `session_index.jsonl` 标题索引），再分别通过本地导入器重新导入。新增或重新启用数据源时也会立即同步一次。设为 `0` 可禁用远程源轮询 |
 | `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` | `600000`（10 分钟） | **远程数据源**会话实时状态的新鲜度窗口。每次同步时，若远程 Claude Code 或 Codex 会话对应镜像 transcript 的 **JSONL 最后事件**在此窗口内，仍视为运行中（`active`）；镜像停止推进超过该时长后，会话会被协调为 `completed`。远程会话不接收实时 Hook，因此按 provider 的镜像协调取代本地 liveness；失败、缺失或卡住的 provider 镜像会回退到常规 stale 扫描。链路较慢或空闲回合很长时可调大 |
 | `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 每个远程源 `scp` 的超时时间 |
@@ -736,6 +738,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | `npm run repair-tokens` | 为每个 Transcript 仍在磁盘上的 **Claude** 会话（在 `~/.claude/projects/` 中查找，或按会话已保存的 `transcript_path`）重新推导**非 workflow** 的 Token 总计，并将上下文压缩基线清零；workflow 与 Codex 行保持不变。这是针对因 v2.0.9 之前按记录累加用量而虚高的数据库的一次性修复。请先停止 Dashboard |
 | `DASHBOARD_TOKEN_REPAIR` | `1`（启用） | 一次性自动修复在用量按 `message.id` 对账之前被虚高的 Token 总计。`replaceTokenUsage` 是高水位标记，因此仅靠解析器修复永远无法下调历史总计 —— 若无此步骤，升级前的所有会话都会永久保留错误成本。每个数据库只运行一次（有标记文件、延后于启动路径、当另一个 Dashboard 共用数据目录时跳过），并会先将旧行快照到 `token_usage_pre_repair`。设为 `0` 可跳过，改用 `npm run repair-tokens` 手动修复 |
 | `npm run clear-data` | 删除所有会话、Agent、事件和 Token 用量 |
+| `npm run trim-events` | 收缩在引入负载裁剪之前保存的 `events.data` 行（默认仅模拟；停止仪表板后用 `--yes --backup` 重写并 VACUUM） |
 | `npm run mcp:install` | 安装本地 MCP 包（`mcp/`）的依赖 |
 | `npm run mcp:build` | 构建 MCP 服务器 TypeScript 到 `mcp/build/` |
 | `npm run mcp:start` | 启动 MCP 服务器（stdio 传输 — 用于 MCP 宿主） |

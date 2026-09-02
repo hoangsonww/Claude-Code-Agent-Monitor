@@ -171,6 +171,29 @@ describe("trimHookPayload", () => {
     assert.equal(trimHookPayload(settled, { stringCap: 10 }), settled);
   });
 
+  it("is idempotent: trimming an already-trimmed payload changes nothing", () => {
+    const first = trimHookPayload(
+      {
+        tool_name: "Edit",
+        tool_input: { new_string: "n".repeat(3000) },
+        tool_response: { originalFile: "o".repeat(3000), stdout: "s".repeat(3000) },
+      },
+      { stringCap: 2048 }
+    );
+    assert.equal(trimHookPayload(first, { stringCap: 2048 }), first);
+    assert.match(first.tool_response.stdout, /… \[trimmed 952 more chars\]$/);
+    assert.equal(first._trimmed.strings, 2);
+  });
+
+  it("counts the field budget exactly", () => {
+    const exact = trimHookPayload(
+      { tool_response: { a: "x", big: "y".repeat(500) } },
+      { stringCap: 2048, fieldCap: 9 }
+    );
+    assert.deepEqual(exact.tool_response, { a: "x" });
+    assert.equal(Buffer.byteLength(JSON.stringify(exact.tool_response)), 9);
+  });
+
   it("treats a blank env value as unset", () => {
     const data = { tool_response: { s: "q".repeat(5000) } };
     const prev = process.env.DASHBOARD_EVENT_STRING_CAP;

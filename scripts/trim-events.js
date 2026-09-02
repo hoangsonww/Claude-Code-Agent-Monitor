@@ -13,7 +13,8 @@
  * Stop the dashboard first: VACUUM needs the only connection, and a live
  * server would keep inserting while the sweep runs. Each batch commits on its
  * own, so an interrupted run leaves a consistent database and a re-run simply
- * continues (already-trimmed rows are unchanged by a second pass).
+ * continues: trimming is idempotent, so rows done before the interruption are
+ * left as they are.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -26,7 +27,9 @@ const { trimHookPayload } = require("../server/lib/event-payload");
 const args = new Set(process.argv.slice(2));
 const CONFIRMED = args.has("--yes") || args.has("-y");
 const BACKUP = args.has("--backup");
-const BATCH = 2000;
+// Rows this sweep targets can be near the 1 MB request limit, so keep the
+// in-memory batch small.
+const BATCH = 200;
 
 // Mirror server/db.js resolution so we rewrite the database the server uses.
 const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(getDataDir(), "dashboard.db");

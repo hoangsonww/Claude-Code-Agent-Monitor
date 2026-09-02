@@ -59,10 +59,14 @@ function setKey(target, key, value) {
   }
 }
 
-/** Copy `value` with every string longer than `cap` cut down and suffixed. */
+const TRIM_SUFFIX = /… \[trimmed \d+ more chars\]$/;
+
+/** Copy `value` with every string longer than `cap` cut down and suffixed.
+ *  A string that already carries the suffix was cut by an earlier pass and is
+ *  left alone, so trimming is idempotent and a re-run of the sweep is a no-op. */
 function capStrings(value, cap, stats) {
   if (typeof value === "string") {
-    if (value.length <= cap) return value;
+    if (value.length <= cap || TRIM_SUFFIX.test(value)) return value;
     // Never end on a high surrogate: that would split an astral character.
     const code = value.charCodeAt(cap - 1);
     const cut = cap > 0 && code >= 0xd800 && code <= 0xdbff ? cap - 1 : cap;
@@ -84,6 +88,7 @@ function scalarsWithin(value, budget) {
   const kept = {};
   if (!isPlainObject(value)) return kept;
   let used = 2; // the braces
+  let count = 0;
   for (const [key, item] of Object.entries(value)) {
     const scalar =
       item === null ||
@@ -91,8 +96,10 @@ function scalarsWithin(value, budget) {
       typeof item === "number" ||
       (typeof item === "string" && item.length <= 200);
     if (!scalar) continue;
-    const cost = jsonBytes(key) + 1 + jsonBytes(item) + 1;
+    // `"key":value`, plus the comma that separates it from the previous one.
+    const cost = jsonBytes(key) + 1 + jsonBytes(item) + (count > 0 ? 1 : 0);
     if (used + cost > budget) break;
+    count += 1;
     used += cost;
     setKey(kept, key, item);
   }
