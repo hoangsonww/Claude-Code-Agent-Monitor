@@ -1,0 +1,70 @@
+{
+  "title": "Phát lại phiên",
+  "subtitle": "Xem qua từng sự kiện để cõng cụ tác nhân",
+  "backToSession": "Quay lại phiên",
+  "loading": "Đang tải sự kiện:",
+  "loadError": "Lỗi khi tải sự kiện phiên",
+  "noEvents": "Không có sự kiện nào cho phiên này",
+  "noEventsDesc": "Phát lại yêu cầu ít nhất một sự kiện đã được ghi nhận. Vui lòng kiểm tra các hook đã cài đặt và phiên đã chạy.",
+  "controls": {
+    "play": "Phát",
+    "pause": "Tạm dừng",
+    "stepBack": "Lùi một bước",
+    "stepForward": "Tiến một bước",
+    "toStart": "Về đầu",
+    "toEnd": "Về cuối",
+    "speed": "Tốc độ",
+    "speeds": {
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
+    }
+  },
+  "scrubber": {
+    "label": "Dòng thời gian",
+    "ariaLabel": "Thanh trượt sự kiện - kéo hoặc dùng phím mũi tên để bước qua từng sự kiện",
+    "eventOf": "Sự kiện {{current}} / {{total}}"
+  },
+  "cursor": {
+    "timestamp": "Thời gian",
+    "eventIndex": "Sự kiện",
+    "eventType": "Loại",
+    "tool": "Công cụ",
+    "agent": "Tác nhân",
+    "summary": "Tóm tắt"
+  },
+  "minimap": {
+    "title": "Các lần chuyển vòng đời",
+    "ariaLabel": "Bản đồ các sự kiện chuyển vòng quan trọng - nhấp để nhảy",
+    "noTransitions": "Không có lần chuyển vòng đời"
+  },
+  "agents": {
+    "title": "Trạng thái tác nhân tại con trỏ",
+    "noAgents": "Chưa thấy tác nhân nào"
+  },
+  "keyboard": {
+    "hint": "Bàn phím: Space phát/tạm dừng, mũi tên để bước qua từng sự kiện, Home/End về đầu/cuối"
+  },
+  "status": {
+    "working": "Đang xử lý",
+    "waiting": "Đang chờ",
+    "completed": "Hoàn thành",
+    "error": "Lỗi",
+    "abandoned": "Bỏ dở",
+    "idle": "Chờ"
+  },
+  "eventTypes": {
+    "SessionStart": "Bắt đầu phiên",
+    "PreToolUse": "Gọi công cụ",
+    "PostToolUse": "Kết quả công cụ",
+    "Stop": "Dừng",
+    "SubagentStop": "Dừng tác nhân con",
+    "Notification": "Thông báo",
+    "TurnDuration": "Thời lượng lượt",
+    "Compaction": "Nén",
+    "APIError": "Lỗi API",
+    "error": "Lỗi"
+  },
+  "checkpoints": "Đã tạo {{count}} điểm checkpoint"
+}

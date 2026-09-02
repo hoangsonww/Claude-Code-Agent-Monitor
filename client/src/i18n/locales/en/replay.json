@@ -1,0 +1,79 @@
+{
+  "title": "Session Replay",
+  "subtitle": "Step through events and watch agent state evolve over time",
+  "backToSession": "Back to session",
+  "loading": "Loading events…",
+  "loadError": "Failed to load session events",
+  "noEvents": "No events recorded for this session",
+  "noEventsDesc": "Replay requires at least one ingested event. Check that hooks are installed and the session has run.",
+
+  "controls": {
+    "play": "Play",
+    "pause": "Pause",
+    "stepBack": "Step back",
+    "stepForward": "Step forward",
+    "toStart": "Jump to start",
+    "toEnd": "Jump to end",
+    "speed": "Speed",
+    "speeds": {
+      "0.5": "0.5×",
+      "1": "1×",
+      "2": "2×",
+      "5": "5×"
+    }
+  },
+
+  "scrubber": {
+    "label": "Timeline",
+    "ariaLabel": "Event timeline scrubber — drag or use arrow keys to step through events",
+    "eventOf": "Event {{current}} of {{total}}"
+  },
+
+  "cursor": {
+    "timestamp": "Timestamp",
+    "eventIndex": "Event",
+    "eventType": "Type",
+    "tool": "Tool",
+    "agent": "Agent",
+    "summary": "Summary"
+  },
+
+  "minimap": {
+    "title": "Lifecycle transitions",
+    "ariaLabel": "Mini-map of major lifecycle events — click to jump",
+    "noTransitions": "No lifecycle transitions"
+  },
+
+  "agents": {
+    "title": "Agent states at cursor",
+    "noAgents": "No agents seen up to this point"
+  },
+
+  "keyboard": {
+    "hint": "Keyboard: Space play/pause · ← → step · Home/End jump to start/end"
+  },
+
+  "status": {
+    "working": "Working",
+    "waiting": "Waiting",
+    "completed": "Completed",
+    "error": "Error",
+    "abandoned": "Abandoned",
+    "idle": "Idle"
+  },
+
+  "eventTypes": {
+    "SessionStart": "Session Start",
+    "PreToolUse": "Tool Call",
+    "PostToolUse": "Tool Result",
+    "Stop": "Stop",
+    "SubagentStop": "Subagent Stop",
+    "Notification": "Notification",
+    "TurnDuration": "Turn Duration",
+    "Compaction": "Compaction",
+    "APIError": "API Error",
+    "error": "Error"
+  },
+
+  "checkpoints": "Checkpoints built: {{count}}"
+}

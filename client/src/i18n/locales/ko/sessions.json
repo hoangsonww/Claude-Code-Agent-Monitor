@@ -61,7 +61,6 @@
       "unknown": "알 수 없음"
     }
   },
-  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
   "detail": {
     "waitingBanner": {
       "title": "입력을 기다리는 중",
@@ -71,6 +70,7 @@
     "loading": "세션을 불러오는 중...",
     "notFound": "세션을 찾을 수 없습니다",
     "backToSessions": "세션으로 돌아가기",
+    "replay": "다시 재생",
     "agents": "Agent",
     "noAgents": "기록된 Agent가 없습니다.",
     "unparented": "상위가 없는 Subagent",
@@ -84,5 +84,7 @@
     "transcript": {
       "loadOlder": "↑ 이전 메시지 불러오기"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "원격 머신에서 수집됨",
+  "replay": "다시 재생"
 }

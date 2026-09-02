@@ -70,6 +70,7 @@
     "loading": "Loading session...",
     "notFound": "Session not found",
     "backToSessions": "Back to Sessions",
+    "replay": "Replay",
     "agents": "Agents",
     "noAgents": "No agents recorded.",
     "unparented": "Unparented Subagents",

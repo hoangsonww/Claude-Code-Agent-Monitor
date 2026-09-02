@@ -61,7 +61,6 @@
       "unknown": "未知"
     }
   },
-  "remoteSourceBadgeTitle": "从远程机器收集",
   "detail": {
     "waitingBanner": {
       "title": "正在等待你的输入",
@@ -71,6 +70,7 @@
     "loading": "正在加载会话...",
     "notFound": "未找到会话",
     "backToSessions": "返回会话列表",
+    "replay": "回放",
     "agents": "Agent",
     "noAgents": "暂无Agent记录。",
     "unparented": "独立Subagent",
@@ -84,5 +84,7 @@
     "transcript": {
       "loadOlder": "↑ 加载更早的消息"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "从远程机器收集",
+  "replay": "回放"
 }

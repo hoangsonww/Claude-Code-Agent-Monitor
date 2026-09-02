@@ -705,6 +705,14 @@ export function SessionDetail() {
             </div>
           )}
         </div>
+        <Link
+          to={`/sessions/${session.id}/replay`}
+          className="btn-ghost flex items-center gap-1.5 text-xs"
+          title={t("detail.replay")}
+        >
+          <Play className="w-4 h-4" />
+          {t("detail.replay")}
+        </Link>
         <button onClick={load} className="btn-ghost">
           <RefreshCw className="w-4 h-4" />
         </button>

@@ -61,7 +61,6 @@
       "unknown": "Không rõ"
     }
   },
-  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
   "detail": {
     "waitingBanner": {
       "title": "Đang chờ phản hồi của bạn",
@@ -71,6 +70,7 @@
     "loading": "Đang tải phiên...",
     "notFound": "Không tìm thấy phiên",
     "backToSessions": "Quay lại danh sách phiên",
+    "replay": "Phát lại",
     "agents": "Agent",
     "noAgents": "Chưa có Agent được ghi nhận.",
     "unparented": "Subagent không có cha",
@@ -84,5 +84,7 @@
     "transcript": {
       "loadOlder": "↑ Tải các tin nhắn cũ hơn"
     }
-  }
+  },
+  "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
+  "replay": "Phát lại"
 }

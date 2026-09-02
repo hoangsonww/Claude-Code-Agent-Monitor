@@ -1,9 +1,9 @@
 /**
  * @file index.ts
  * @description i18next bootstrap for the dashboard client. Registers bundled JSON
- * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), and
- * Korean (`ko`), wires browser language detection, and exports the configured
- * singleton consumed by `react-i18next`.
+ * locale files for English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean
+ * (`ko`), and Spanish (`es`), wires browser language detection, and exports
+ * the configured singleton consumed by `react-i18next`.
  *
  * ## Namespaces
  * Translations are split by feature area (`dashboard`, `sessions`, `settings`,
@@ -115,7 +115,9 @@ import alerts_zh from "./locales/zh/alerts.json";
 import alerts_vi from "./locales/vi/alerts.json";
 import splash_en from "./locales/en/splash.json";
 import splash_zh from "./locales/zh/splash.json";
+import replay_zh from "./locales/zh/replay.json";
 import splash_vi from "./locales/vi/splash.json";
+import replay_vi from "./locales/vi/replay.json";
 
 import common_ko from "./locales/ko/common.json";
 import nav_ko from "./locales/ko/nav.json";
@@ -132,7 +134,9 @@ import ccConfig_ko from "./locales/ko/ccConfig.json";
 import run_ko from "./locales/ko/run.json";
 import alerts_ko from "./locales/ko/alerts.json";
 import splash_ko from "./locales/ko/splash.json";
+import replay_ko from "./locales/ko/replay.json";
 
+import replay_en from "./locales/en/replay.json";
 import common_es from "./locales/es/common.json";
 import nav_es from "./locales/es/nav.json";
 import dashboard_es from "./locales/es/dashboard.json";
@@ -148,6 +152,7 @@ import ccConfig_es from "./locales/es/ccConfig.json";
 import run_es from "./locales/es/run.json";
 import alerts_es from "./locales/es/alerts.json";
 import splash_es from "./locales/es/splash.json";
+import replay_es from "./locales/es/replay.json";
 
 i18n
   .use(LanguageDetector)
@@ -170,9 +175,11 @@ i18n
         run: run_en,
         alerts: alerts_en,
         splash: splash_en,
+        replay: replay_en,
       },
       zh: {
         common: common_zh,
+        replay: replay_zh,
         nav: nav_zh,
         dashboard: dashboard_zh,
         sessions: sessions_zh,
@@ -190,6 +197,7 @@ i18n
       },
       vi: {
         common: common_vi,
+        replay: replay_vi,
         nav: nav_vi,
         dashboard: dashboard_vi,
         sessions: sessions_vi,
@@ -207,6 +215,7 @@ i18n
       },
       ko: {
         common: common_ko,
+        replay: replay_ko,
         nav: nav_ko,
         dashboard: dashboard_ko,
         sessions: sessions_ko,
@@ -224,6 +233,7 @@ i18n
       },
       es: {
         common: common_es,
+        replay: replay_es,
         nav: nav_es,
         dashboard: dashboard_es,
         sessions: sessions_es,
@@ -259,6 +269,7 @@ i18n
       "run",
       "alerts",
       "splash",
+      "replay",
     ],
     defaultNS: "common",
     interpolation: { escapeValue: false },

@@ -1,0 +1,70 @@
+{
+  "title": "会话回放",
+  "subtitle": "逐步浏览事件，观察智能体状态的变化",
+  "backToSession": "返回会话",
+  "loading": "正在加载事件:",
+  "loadError": "加载会话事件失败",
+  "noEvents": "此会话未记录任何事件",
+  "noEventsDesc": "回放需要至少一个已记录的事件。请检查钩子是否已安装及会话是否已运行。",
+  "controls": {
+    "play": "播放",
+    "pause": "暂停",
+    "stepBack": "上一步",
+    "stepForward": "下一步",
+    "toStart": "跳到开始",
+    "toEnd": "跳到结束",
+    "speed": "速度",
+    "speeds": {
+      "1": "1x",
+      "2": "2x",
+      "5": "5x",
+      "0.5": "0.5x"
+    }
+  },
+  "scrubber": {
+    "label": "时间线",
+    "ariaLabel": "事件时间线滑块 - 拖动或使用方向键逐个事件浏览",
+    "eventOf": "第 {{current}} 个事件 / 共 {{total}} 个"
+  },
+  "cursor": {
+    "timestamp": "时间戳",
+    "eventIndex": "事件",
+    "eventType": "类型",
+    "tool": "工具",
+    "agent": "智能体",
+    "summary": "摘要"
+  },
+  "minimap": {
+    "title": "生命周期转换",
+    "ariaLabel": "主要生命周期事件缩略图 - 点击跳转",
+    "noTransitions": "无生命周期转换"
+  },
+  "agents": {
+    "title": "游标处的智能体状态",
+    "noAgents": "此位置之前未观察到智能体"
+  },
+  "keyboard": {
+    "hint": "键盘: 空格 播放/暂停, 左/右 步进, Home/End 跳到开始/结束"
+  },
+  "status": {
+    "working": "工作中",
+    "waiting": "等待中",
+    "completed": "已完成",
+    "error": "错误",
+    "abandoned": "已放弃",
+    "idle": "空闲"
+  },
+  "eventTypes": {
+    "SessionStart": "会话开始",
+    "PreToolUse": "工具调用",
+    "PostToolUse": "工具结果",
+    "Stop": "停止",
+    "SubagentStop": "子智能体停止",
+    "Notification": "通知",
+    "TurnDuration": "轮次时长",
+    "Compaction": "压缩",
+    "APIError": "API 错误",
+    "error": "错误"
+  },
+  "checkpoints": "已创建 {{count}} 个检查点"
+}

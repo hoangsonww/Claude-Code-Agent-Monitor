@@ -85,6 +85,7 @@ import { Settings } from "./pages/Settings";
 import { CcConfig } from "./pages/CcConfig";
 import { Run } from "./pages/Run";
 import { NotFound } from "./pages/NotFound";
+import { SessionReplay } from "./pages/SessionReplay";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useNotifications } from "./hooks/useNotifications";
 import { useSoundCues } from "./hooks/useSoundCues";
@@ -129,6 +130,7 @@ export default function App() {
           <Route path="kanban" element={<KanbanBoard />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:id" element={<SessionDetail />} />
+          <Route path="sessions/:id/replay" element={<SessionReplay />} />
           <Route path="activity" element={<ActivityFeed />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="workflows" element={<Workflows />} />
