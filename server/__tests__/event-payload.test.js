@@ -66,6 +66,20 @@ describe("trimHookPayload", () => {
     assert.equal(image._trimmed.dropped["tool_response.file.base64"], 9002);
   });
 
+  it("drops mirrors only for the native tools that produce them", () => {
+    const mcp = {
+      tool_name: "mcp__files__get",
+      tool_response: { file: { content: "short but precious", base64: "AAAA" }, originalFile: "x" },
+    };
+    assert.equal(trimHookPayload(mcp), mcp);
+    const write = trimHookPayload({
+      tool_name: "Write",
+      tool_response: { filePath: "/w", originalFile: "o".repeat(10), type: "create" },
+    });
+    assert.deepEqual(write.tool_response, { filePath: "/w", type: "create" });
+    assert.deepEqual(write._trimmed, { dropped: { "tool_response.originalFile": 12 } });
+  });
+
   it("cuts long strings anywhere inside tool_input / tool_response", () => {
     const stdout = "line\n".repeat(1000);
     const out = trimHookPayload(
@@ -101,8 +115,72 @@ describe("trimHookPayload", () => {
       userModified: false,
       type: "update",
     });
+    assert.ok(Buffer.byteLength(JSON.stringify(out.tool_response)) <= 4096);
     assert.equal(out._trimmed.replaced.tool_response > 4096, true);
     assert.deepEqual(out.tool_input, { file_path: "/big.js", content: "c".repeat(50) });
+  });
+
+  it("keeps a flat map of scalars within the field budget too", () => {
+    const flat = {};
+    for (let i = 0; i < 200; i++) flat[`key_${i}`] = `value number ${i}`;
+    const out = trimHookPayload({ tool_response: flat }, { stringCap: 2048, fieldCap: 400 });
+    const bytes = Buffer.byteLength(JSON.stringify(out.tool_response));
+    assert.ok(bytes <= 400, `kept ${bytes} bytes`);
+    assert.ok(Object.keys(out.tool_response).length > 0, "keeps what fits");
+    assert.equal(out.tool_response.key_0, "value number 0");
+    assert.equal(out._trimmed.replaced.tool_response > 400, true);
+  });
+
+  it("applies the field cap to tool_input as well, and only above the cap", () => {
+    const input = { file_path: "/x", lines: Array.from({ length: 300 }, (_, i) => `l${i}`) };
+    const over = trimHookPayload({ tool_input: input }, { stringCap: 2048, fieldCap: 1024 });
+    assert.deepEqual(over.tool_input, { file_path: "/x" });
+    assert.equal(over._trimmed.replaced.tool_input > 1024, true);
+    const exact = { tool_input: { a: "b" } };
+    const bytes = Buffer.byteLength(JSON.stringify(exact.tool_input));
+    assert.equal(trimHookPayload(exact, { stringCap: 2048, fieldCap: bytes }), exact);
+  });
+
+  it("never splits a surrogate pair when cutting a string", () => {
+    const out = trimHookPayload({ tool_response: { s: "a😀b" } }, { stringCap: 2 });
+    assert.equal(out.tool_response.s, "a… [trimmed 3 more chars]");
+    assert.doesNotThrow(() => JSON.parse(JSON.stringify(out)));
+    const fits = trimHookPayload({ tool_response: { s: "😀" } }, { stringCap: 2 });
+    assert.equal(fits.tool_response.s, "😀");
+  });
+
+  it("keeps a key literally named __proto__ as data", () => {
+    const parsed = JSON.parse(
+      '{"tool_response":{"__proto__":{"polluted":true},"stdout":"' + "x".repeat(50) + '"}}'
+    );
+    const out = trimHookPayload(parsed, { stringCap: 10 });
+    assert.equal(JSON.stringify(out).includes('"__proto__":{"polluted":true}'), true);
+    assert.equal({}.polluted, undefined);
+  });
+
+  it("merges with an existing _trimmed marker instead of replacing it", () => {
+    const stored = {
+      tool_name: "Bash",
+      tool_response: { stdout: "y".repeat(100) },
+      _trimmed: { dropped: { "tool_response.originalFile": 500 }, strings: 1 },
+    };
+    const out = trimHookPayload(stored, { stringCap: 10 });
+    assert.deepEqual(out._trimmed, { dropped: { "tool_response.originalFile": 500 }, strings: 2 });
+    // A row that needs nothing more is returned as-is, marker and all.
+    const settled = { tool_response: { stdout: "ok" }, _trimmed: { strings: 3 } };
+    assert.equal(trimHookPayload(settled, { stringCap: 10 }), settled);
+  });
+
+  it("treats a blank env value as unset", () => {
+    const data = { tool_response: { s: "q".repeat(5000) } };
+    const prev = process.env.DASHBOARD_EVENT_STRING_CAP;
+    process.env.DASHBOARD_EVENT_STRING_CAP = "   ";
+    try {
+      assert.match(trimHookPayload(data).tool_response.s, /trimmed 2952 more chars/);
+    } finally {
+      if (prev === undefined) delete process.env.DASHBOARD_EVENT_STRING_CAP;
+      else process.env.DASHBOARD_EVENT_STRING_CAP = prev;
+    }
   });
 
   it("stores payloads untouched when the string cap is 0", () => {

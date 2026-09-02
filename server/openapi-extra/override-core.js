@@ -395,7 +395,8 @@ const paths = {
         "`session_id`. The server upserts the session and its main agent on first sight, " +
         "applies the appropriate lifecycle state transition, extracts token usage and " +
         "compaction signals from the transcript when present, persists an `events` row " +
-        "(storing `data` as a JSON-encoded string), and broadcasts a `new_event` message " +
+        "(storing `data` as a JSON-encoded string, trimmed of whole-file mirrors and " +
+        "over-long strings — see `DASHBOARD_EVENT_STRING_CAP`), and broadcasts a `new_event` message " +
         "over the WebSocket.\n\n" +
         "On success the response is `{ ok: true, event: { ... } }`, where `event` echoes " +
         "the normalized row that was just inserted (`session_id`, `agent_id`, `event_type`, " +

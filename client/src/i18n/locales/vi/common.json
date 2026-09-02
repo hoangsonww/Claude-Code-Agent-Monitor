@@ -136,7 +136,8 @@
     "noPayload": "Không có dữ liệu cho sự kiện này.",
     "viewDetails": "Xem chi tiết",
     "expand": "Mở rộng sự kiện",
-    "collapse": "Thu gọn sự kiện"
+    "collapse": "Thu gọn sự kiện",
+    "trimmed": "Đã cắt bớt khi lưu"
   },
   "eventFilters": {
     "searchPlaceholder": "Tìm tóm tắt, công cụ, dữ liệu...",

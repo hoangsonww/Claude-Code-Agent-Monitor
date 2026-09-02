@@ -136,7 +136,8 @@
     "noPayload": "이 이벤트에 대해 수집된 페이로드가 없습니다.",
     "viewDetails": "상세 보기",
     "expand": "이벤트 펼치기",
-    "collapse": "이벤트 접기"
+    "collapse": "이벤트 접기",
+    "trimmed": "저장 시 축약됨"
   },
   "eventFilters": {
     "searchPlaceholder": "요약, 도구, 페이로드 검색...",
