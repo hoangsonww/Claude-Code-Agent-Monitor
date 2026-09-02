@@ -77,7 +77,7 @@
 
     <!-- Assets -->
     <link rel="stylesheet" href="../fonts/fonts.css" />
-    <link rel="stylesheet" href="style.css?v=13" />
+    <link rel="stylesheet" href="style.css?v=16" />
 
     <!-- Global page styles -->
     <style>
@@ -960,27 +960,6 @@
                   </p>
                 </div>
                 <div class="feature-card">
-                  <div class="feature-icon ic-indigo">⌘</div>
-                  <h3 id="feat-command-palette">Command Palette</h3>
-                  <p>
-                    Press <strong>Cmd/Ctrl+K</strong> anywhere to open a launcher over the whole
-                    dashboard. One query resolves nine groups: recently run commands; the current
-                    page's own actions; every known project directory; the nine sidebar routes matched on their
-                    translated labels, so it works in every locale; live session search backed by
-                    <code>/api/sessions?q=</code>, debounced and scoped to the active machine and
-                    provider rather than a stale client-side index of thousands of sessions; every
-                    page sub-view and list filter; all thirteen Settings sections; all twelve Agent
-                    Config tabs; and actions for preferences, data scope, language, and page
-                    operations. Ranking is subsequence matching with the matched characters
-                    highlighted, so <code>mcp</code> finds MCP servers and <code>kbrd</code> finds
-                    Kanban Board, and a leading <code>&gt;</code>, <code>@</code>, or <code>#</code>
-                    narrows to actions, pages, or sessions. Arrows, Home/End, PageUp/PageDown and Tab
-                    move; Enter opens; Escape closes; a failed session query degrades quietly instead
-                    of blocking the palette. Destructive operations are deliberately absent — the
-                    palette navigates to them, never performs them.
-                  </p>
-                </div>
-                <div class="feature-card">
                   <div class="feature-icon ic-emerald">📋</div>
                   <h3 id="feat-kanban">Kanban Board</h3>
                   <p>
@@ -1055,6 +1034,21 @@
                     show for that event — one shared mapping that understands both Claude and
                     Codex event types — and rows are grouped by session for quick scanning of
                     concurrent work.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-indigo">⌘</div>
+                  <h3 id="feat-command-palette">Command Palette</h3>
+                  <p>
+                    Press <strong>Cmd/Ctrl+K</strong> anywhere to open a launcher over the whole
+                    dashboard. One query resolves nine groups: recent commands, the nine pages,
+                    live server-side session search, the current page's own actions, known project
+                    directories, page sub-views and list filters, all 13 Settings sections, all 12
+                    Agent Config tabs, and preference, data-scope and language actions.
+                    Subsequence ranking highlights the matched characters, so <code>kbrd</code>
+                    finds Kanban Board, and a leading <code>&gt;</code>, <code>@</code>, or
+                    <code>#</code> narrows to actions, pages, or sessions. The palette only
+                    navigates — it never performs destructive operations.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1547,7 +1541,7 @@
             </div>
             <div class="screenshot-card" id="ss-palette">
               <img src="../images/palette.png" alt="Command Palette open over the Sessions page" width="100%" loading="lazy" decoding="async" />
-              <div class="screenshot-caption"><span class="caption-icon">⌘</span> <span><strong>Command Palette</strong> — <code>Cmd/Ctrl+K</code> from anywhere opens the dashboard's only launcher. One query resolves nine groups: recent commands, the nine pages, live server-side session search, the current page's own actions, every known project directory, page sub-views and list filters, all 13 Settings sections, all 12 Agent Config tabs, and preference, data-scope and language actions. Matching is subsequence-based with the matched characters highlighted</span></div>
+              <div class="screenshot-caption"><span class="caption-icon">⌘</span> <span><strong>Command Palette</strong> — <code>Cmd/Ctrl+K</code> from anywhere opens the dashboard's only launcher: recent commands, the nine pages, live server-side session search, the current page's actions, project directories, sub-views and filters, all 13 Settings sections, all 12 Agent Config tabs, and preference, data-scope and language actions</span></div>
             </div>
             <div class="screenshot-card" id="ss-swagger">
               <img src="../images/swagger.png" alt="Swagger UI API docs" width="100%" loading="lazy" decoding="async" />
@@ -4781,12 +4775,12 @@ ccam-export all --output backup.json</code></pre>
                         <div class="t-label" style="font-weight: 600; color: #fff; font-size: 16px; margin-bottom: 8px;">Interactive Analytics & Usage</div>
                         <p style="font-size: 14px; color: var(--text-muted); margin: 0; line-height: 1.6;">
                             Aggregates data from multiple API endpoints to display high-signal metrics directly in the sidebar:
-                            <ul style="margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;">
-                                <li><b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.</li>
-                                <li><b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.</li>
-                                <li><b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.</li>
-                            </ul>
                         </p>
+                        <ul style="margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;">
+                            <li><b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.</li>
+                            <li><b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.</li>
+                            <li><b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.</li>
+                        </ul>
                     </div>
                     <!-- Component 3 -->
                     <div class="t-step" style="margin-bottom: 32px; position: relative;">
@@ -7072,7 +7066,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=89" defer></script>
+    <script src="i18n-content.js?v=91" defer></script>
     <script src="script.js?v=57" defer></script>
     <script>
       (function () {
