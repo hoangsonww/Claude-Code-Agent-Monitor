@@ -11,7 +11,13 @@ const fs = require("fs");
 const path = require("path");
 const { updatePlanArgumentIndexes } = require("./codex-plan-call");
 
-const MAX_CACHE_ENTRIES = 200;
+// One entry per transcript file, main and subagent alike. A single session
+// can have several hundred subagent files, and a list request touches up to
+// 100 sessions, so a small cap evicts everything between requests and every
+// parse runs cold. An entry holds only the task observations and pending
+// task calls inside its 32 MiB window (measured: 285 real files in under
+// 1 MB), so 4000 entries are cheap for real transcripts.
+const MAX_CACHE_ENTRIES = 4000;
 const MAX_ITEMS = 200;
 const MAX_TEXT = 500;
 const MAX_LINE_BYTES = 16 * 1024 * 1024;

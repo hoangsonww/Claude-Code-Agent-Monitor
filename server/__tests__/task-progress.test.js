@@ -603,6 +603,43 @@ describe("incremental task-progress transcript parsing", () => {
     }
   });
 
+  it("keeps several hundred subagent transcripts cached between requests", () => {
+    const root = tempRoot();
+    const session = { id: "many-subagents", provider: "claude" };
+    const transcript = path.join(root, `${session.id}.jsonl`);
+    writeJsonl(transcript, [
+      claudeToolUse("2026-08-07T10:00:00.000Z", "main-todo", "TodoWrite", {
+        todos: [{ content: "Main work", status: "in_progress" }],
+      }),
+    ]);
+    const subagentDir = path.join(root, session.id, "subagents");
+    const fileCount = 300;
+    for (let index = 0; index < fileCount; index++) {
+      writeJsonl(path.join(subagentDir, `agent-${String(index).padStart(3, "0")}.jsonl`), [
+        claudeToolUse("2026-08-07T10:01:00.000Z", `todo-${index}`, "TodoWrite", {
+          todos: [{ content: `Subagent ${index}`, status: "completed" }],
+        }),
+      ]);
+    }
+    const first = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+    assert.ok(first.snapshot.total > 0);
+
+    const originalReadSync = fs.readSync;
+    let bytesRead = 0;
+    mock.method(fs, "readSync", (...args) => {
+      const count = Reflect.apply(originalReadSync, fs, args);
+      bytesRead += count;
+      return count;
+    });
+    const second = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+    assert.deepEqual(second.snapshot, first.snapshot);
+    assert.equal(
+      bytesRead,
+      0,
+      `expected every transcript to be served from cache, read ${bytesRead}`
+    );
+  });
+
   it("re-parses a same-inode rewrite that shrinks below the cached size but not the offset", () => {
     const root = tempRoot();
     const transcript = path.join(root, "shrink-above-offset.jsonl");
