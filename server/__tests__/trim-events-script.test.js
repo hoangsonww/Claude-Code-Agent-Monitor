@@ -15,7 +15,20 @@ const { spawnSync } = require("child_process");
 const Database = require("better-sqlite3");
 
 const SCRIPT = path.join(__dirname, "..", "..", "scripts", "trim-events.js");
-const DB_PATH = path.join(os.tmpdir(), `trim-events-test-${Date.now()}-${process.pid}.db`);
+// A private directory: the --backup run writes `backups/` next to the DB.
+const WORK_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "trim-events-test-"));
+const DB_PATH = path.join(WORK_DIR, "dashboard.db");
+
+/** Run the script with only the env file to steer it — the way an operator
+ *  who configured `.env` and typed `npm run trim-events` would. */
+function runWithEnvFile(envFilePath, ...flags) {
+  const env = { ...process.env, DASHBOARD_ENV_PATH: envFilePath };
+  delete env.DASHBOARD_DB_PATH;
+  delete env.DASHBOARD_EVENT_STRING_CAP;
+  delete env.DASHBOARD_EVENT_FIELD_CAP;
+  const res = spawnSync(process.execPath, [SCRIPT, ...flags], { env, encoding: "utf8" });
+  return { code: res.status, out: `${res.stdout}\n${res.stderr}` };
+}
 
 function run(...flags) {
   // Hermetic: the caps and env-file location of the developer's shell must
@@ -62,14 +75,7 @@ describe("scripts/trim-events.js", () => {
   });
 
   after(() => {
-    fs.rmSync(path.join(path.dirname(DB_PATH), "backups"), { recursive: true, force: true });
-    for (const suffix of ["", "-wal", "-shm"]) {
-      try {
-        fs.unlinkSync(DB_PATH + suffix);
-      } catch {
-        /* ignore */
-      }
-    }
+    fs.rmSync(WORK_DIR, { recursive: true, force: true });
   });
 
   it("dry run reports the rows that would change and writes nothing", () => {
@@ -80,6 +86,22 @@ describe("scripts/trim-events.js", () => {
     assert.match(out, /DRY RUN/);
     assert.equal(fs.existsSync(path.join(path.dirname(DB_PATH), "backups")), false);
     assert.deepEqual(rows(), before);
+  });
+
+  it("reads the database path and the caps from the same .env the server uses", () => {
+    const envFile = `${DB_PATH}.env`;
+    fs.writeFileSync(envFile, `DASHBOARD_DB_PATH=${DB_PATH}\nDASHBOARD_EVENT_STRING_CAP=100\n`);
+    try {
+      const { code, out } = runWithEnvFile(envFile);
+      assert.equal(code, 0, out);
+      assert.match(out, new RegExp(`Database: ${DB_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+      // With the 100-char cap from the file, the 4-char stdout row is still
+      // fine but the 3000-char rows report a larger cut than the default cap.
+      assert.match(out, /rows to rewrite: 252/);
+      assert.equal(fs.existsSync(path.join(path.dirname(DB_PATH), "backups")), false);
+    } finally {
+      fs.unlinkSync(envFile);
+    }
   });
 
   it("--yes rewrites only the rows that change, then a re-run is a no-op", () => {

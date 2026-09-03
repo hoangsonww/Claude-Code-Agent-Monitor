@@ -34,6 +34,9 @@ const {
 } = require("../server/lib/claude-home");
 const { extractFirstUserText, appendRecentUserMessage } = require("../server/lib/transcript-cache");
 const { trimHookPayload } = require("../server/lib/event-payload");
+// Standalone runs (npm run import-history) must apply the same caps as the
+// server; when required by the server this is a no-op (no-override loader).
+require("../server/lib/dotenv").loadDotEnv();
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
 

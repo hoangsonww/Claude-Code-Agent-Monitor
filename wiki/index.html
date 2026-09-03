@@ -2031,6 +2031,16 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>One-time automatic repair of token totals inflated before usage was reconciled per <code>message.id</code>. <code>replaceTokenUsage</code> is a high-water mark, so the parser fix alone can never lower a historical total. Marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory, and it snapshots the old rows to <code>token_usage_pre_repair</code> first. <code>0</code> skips it — repair manually with <code>npm run repair-tokens</code>.</td>
                 </tr>
                 <tr>
+                  <td><code>DASHBOARD_EVENT_STRING_CAP</code></td>
+                  <td><code>2048</code></td>
+                  <td>Hook payloads are trimmed before they are stored as <code>events.data</code>: the native tools' whole-file mirrors (<code>originalFile</code> on Edit/Write, <code>file.content</code> / <code>file.base64</code> on Read) are dropped and every string inside <code>tool_input</code> / <code>tool_response</code> is cut to this many characters, each change noted under <code>data._trimmed</code>. The stored payload is a preview; the transcript on disk keeps the full text. <code>0</code> stores payloads untouched.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_EVENT_FIELD_CAP</code></td>
+                  <td><code>16384</code></td>
+                  <td>Byte budget for a <code>tool_input</code> / <code>tool_response</code> still large after string trimming: over budget, only the short scalars that fit are kept. <code>npm run trim-events</code> applies the same rules to rows stored before trimming existed.</td>
+                </tr>
+                <tr>
                   <td><code>NODE_ENV</code></td>
                   <td><code>development</code></td>
                   <td>
@@ -7066,7 +7076,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=91" defer></script>
+    <script src="i18n-content.js?v=92" defer></script>
     <script src="script.js?v=57" defer></script>
     <script>
       (function () {

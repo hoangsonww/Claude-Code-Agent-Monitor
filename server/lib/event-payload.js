@@ -66,7 +66,10 @@ const TRIM_SUFFIX = /… \[trimmed (\d+) more chars\]$/;
  *  A string that already carries the suffix was cut by an earlier pass: if its
  *  body fits the cap it is left alone (so trimming is idempotent and a re-run
  *  of the sweep is a no-op); if not — a lower cap than last time — it is cut
- *  again and the suffix carries the total that has been cut so far. */
+ *  again and the suffix carries the total that has been cut so far. Known
+ *  limit: a user-authored string that happens to end with the exact suffix is
+ *  read the same way, so it may keep the suffix's length on top of the cap
+ *  and its number is folded into the count — bounded, never unbounded. */
 function capStrings(value, cap, stats) {
   if (typeof value === "string") {
     const prior = TRIM_SUFFIX.exec(value);
