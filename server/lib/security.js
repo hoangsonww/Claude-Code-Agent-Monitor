@@ -122,6 +122,10 @@ function extractToken(req) {
 //   /health, /openapi.json, /docs — harmless metadata / docs.
 //   /hooks  — local Claude Code hook ingestion (the hook handler posts to
 //             loopback and carries no token); loopback bind already protects it.
+//             EXCEPTION: /hooks/ingest-batch is a remote/cross-machine route —
+//             "posted from loopback" is never true for it, so it enforces its
+//             OWN unconditional token check inside the handler
+//             (server/routes/hooks.js) rather than relying on this exemption.
 const TOKEN_EXEMPT_PREFIXES = ["/health", "/openapi.json", "/docs", "/hooks"];
 
 /**

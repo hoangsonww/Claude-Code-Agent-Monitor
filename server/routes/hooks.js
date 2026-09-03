@@ -23,6 +23,7 @@ const liveness = require("../lib/session-liveness");
 // with server/lib/transcript-line-classifier.js so a bump there and the
 // version assert here can never drift apart.
 const { SCHEMA_VERSION } = require("../lib/transcript-line-classifier");
+const { getDashboardToken, extractToken, tokensMatch } = require("../lib/security");
 
 const router = Router();
 
@@ -1265,10 +1266,11 @@ const MAX_BATCH_ITEMS = 2000;
  * forwarder that has been collecting hook-derived facts (token totals, tool
  * events, turn durations, subagent completions) about a session whose JSONL
  * transcript lives on another machine's disk. Mounted under /api/hooks (not a
- * new top-level prefix) so it inherits the same Traefik/DASHBOARD_TOKEN
- * exemption as /api/hooks/event (server/lib/security.js TOKEN_EXEMPT_PREFIXES
- * includes "/hooks") — a new prefix would 401 once an operator sets
- * DASHBOARD_TOKEN.
+ * new top-level prefix) purely for Traefik path-routing convenience —
+ * despite the mount point, it does NOT inherit the rest of /hooks' exemption
+ * from DASHBOARD_TOKEN (server/lib/security.js TOKEN_EXEMPT_PREFIXES); see
+ * the auth gate at the top of the handler for why this one route opts back
+ * into requiring it.
  *
  * Contract, enforced in order:
  *   1. transcript_path must be a non-empty string, and must NOT be readable
@@ -1323,14 +1325,55 @@ const MAX_BATCH_ITEMS = 2000;
  *     re-posted batch is idempotent, and other metadata keys are preserved
  *     (merged into the existing parsed object, never clobbered wholesale).
  *
+ * Unlike every other route under /hooks, this one is NOT exempt from
+ * DASHBOARD_TOKEN (see the auth gate at the top of the handler): it exists
+ * specifically for a caller on another machine, so the loopback-bind
+ * protection the rest of /hooks relies on never applies to it. A bearer
+ * token is required unconditionally — including a 503 refusal when the
+ * server has no DASHBOARD_TOKEN configured at all, rather than accepting
+ * unauthenticated remote writes by default.
+ *
  * @name POST/api/hooks/ingest-batch
  * @param {import("express").Request} req - Body per the contract above.
+ *   Requires an `Authorization: Bearer <DASHBOARD_TOKEN>` header (or
+ *   `x-dashboard-token` / `?token=`, per server/lib/security.js).
  * @param {import("express").Response} res - 200 `{written, errors}` on
  *   success (partial per-item failures reported in `errors`, not thrown);
- *   400/404/409/500 with `{error:{code,message}}` on the hard-fail cases.
+ *   401 EUNAUTHORIZED on a missing/wrong token, 503 REMOTE_INGEST_DISABLED
+ *   when no token is configured; 400/404/409/500 with
+ *   `{error:{code,message}}` on the other hard-fail cases.
  * @returns {void}
  */
 router.post("/ingest-batch", (req, res) => {
+  // ── Auth gate (CWE-306) ────────────────────────────────────────────────
+  // Every OTHER route under /hooks is intentionally exempt from
+  // DASHBOARD_TOKEN (server/lib/security.js TOKEN_EXEMPT_PREFIXES) because
+  // they're posted by the LOCAL Claude Code hook script over loopback, which
+  // never carries a token — loopback bind is the actual protection there.
+  // ingest-batch breaks that assumption on purpose: it exists specifically
+  // for a caller on ANOTHER machine, so "posted from loopback" is never true
+  // for it. Carve this one route back OUT of the /hooks exemption and
+  // require DASHBOARD_TOKEN unconditionally — including refusing to run at
+  // all when no token is configured, rather than silently accepting
+  // unauthenticated remote writes just because the operator never set one.
+  // This also closes the info-leak below (fs.existsSync on a caller-supplied
+  // path): an unauthenticated caller now never reaches that line.
+  const expectedToken = getDashboardToken();
+  if (!expectedToken) {
+    return res.status(503).json({
+      error: {
+        code: "REMOTE_INGEST_DISABLED",
+        message:
+          "POST /api/hooks/ingest-batch requires DASHBOARD_TOKEN to be configured on this server",
+      },
+    });
+  }
+  if (!tokensMatch(extractToken(req), expectedToken)) {
+    return res
+      .status(401)
+      .json({ error: { code: "EUNAUTHORIZED", message: "missing or invalid dashboard token" } });
+  }
+
   const body = req.body || {};
   const sessionId = body.session_id;
   const transcriptPath = body.transcript_path;
@@ -1449,10 +1492,41 @@ router.post("/ingest-batch", (req, res) => {
 
   // ── Validate items before the transaction (per-item soft-fail) ──────────
   const errors = [];
+
+  // A negative count here isn't just nonsensical — replaceTokenUsage
+  // OVERWRITES a session's whole-file totals (not additive), so one bad item
+  // permanently corrupts a cost total no later valid batch can self-heal.
+  // Every field is optional (`t.field || 0` at the write site), so only
+  // reject a PRESENT value that's actually invalid — absence still means 0.
+  const TOKEN_NUMERIC_FIELDS = [
+    "input",
+    "output",
+    "cacheRead",
+    "cacheWrite",
+    "cacheWrite1h",
+    "webSearch",
+    "webFetch",
+    "codeExec",
+  ];
+  function invalidTokenField(t) {
+    for (const key of TOKEN_NUMERIC_FIELDS) {
+      const v = t[key];
+      if (v !== undefined && (typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
+        return key;
+      }
+    }
+    return null;
+  }
+
   const validTokens = [];
   for (const [index, t] of (Array.isArray(body.tokens) ? body.tokens : []).entries()) {
     if (!t || typeof t !== "object" || typeof t.model !== "string" || !t.model) {
       errors.push({ kind: "tokens", index, error: "missing model" });
+      continue;
+    }
+    const badField = invalidTokenField(t);
+    if (badField) {
+      errors.push({ kind: "tokens", index, error: `${badField} must be a non-negative number` });
       continue;
     }
     validTokens.push(t);

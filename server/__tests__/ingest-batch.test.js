@@ -24,6 +24,10 @@ const TMP = path.join(os.tmpdir(), STAMP);
 process.env.DASHBOARD_DB_PATH = path.join(TMP, "dashboard.db");
 process.env.CLAUDE_HOME = path.join(TMP, "home");
 process.env.DASHBOARD_DATA_DIR = path.join(TMP, "data");
+// ingest-batch requires DASHBOARD_TOKEN unconditionally (CWE-306 fix) — every
+// request below authenticates with it via req()'s default Authorization
+// header. Tests that exercise the auth gate itself override/unset it.
+process.env.DASHBOARD_TOKEN = "test-ingest-batch-token";
 fs.mkdirSync(TMP, { recursive: true });
 
 const { createApp, startServer } = require("../index");
@@ -33,10 +37,14 @@ const { db, stmts } = dbModule;
 let server;
 let BASE;
 
-function req(method, urlPath, body) {
+// `headers` lets the handful of auth-focused tests below override/omit the
+// Authorization header; every other call in this file gets it for free.
+function req(method, urlPath, body, headers) {
   return new Promise((resolve, reject) => {
     const url = new URL(urlPath, BASE);
     const payload = body !== undefined ? JSON.stringify(body) : null;
+    const authHeaders =
+      headers !== undefined ? headers : { Authorization: `Bearer ${process.env.DASHBOARD_TOKEN}` };
     const r = http.request(
       {
         hostname: url.hostname,
@@ -44,8 +52,12 @@ function req(method, urlPath, body) {
         path: url.pathname + url.search,
         method,
         headers: payload
-          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
-          : {},
+          ? {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(payload),
+              ...authHeaders,
+            }
+          : authHeaders,
       },
       (res) => {
         let b = "";
@@ -111,6 +123,144 @@ after(() => {
   } catch {
     /* ignore */
   }
+});
+
+describe("POST /api/hooks/ingest-batch — auth gate (CWE-306)", () => {
+  it("401s a request with no Authorization header, even for an unknown session (never leaks past auth)", async () => {
+    const res = await req(
+      "POST",
+      "/api/hooks/ingest-batch",
+      {
+        session_id: sid(),
+        transcript_path: UNREADABLE,
+        schema_version: SCHEMA_VERSION,
+        tokens: [],
+      },
+      {}
+    );
+    assert.equal(res.status, 401);
+    assert.equal(res.body.error.code, "EUNAUTHORIZED");
+  });
+
+  it("401s a request with the wrong token", async () => {
+    const res = await req(
+      "POST",
+      "/api/hooks/ingest-batch",
+      {
+        session_id: sid(),
+        transcript_path: UNREADABLE,
+        schema_version: SCHEMA_VERSION,
+        tokens: [],
+      },
+      { Authorization: "Bearer wrong-token" }
+    );
+    assert.equal(res.status, 401);
+    assert.equal(res.body.error.code, "EUNAUTHORIZED");
+  });
+
+  it("503s every request when DASHBOARD_TOKEN isn't configured at all — fails closed, not open", async () => {
+    const saved = process.env.DASHBOARD_TOKEN;
+    delete process.env.DASHBOARD_TOKEN;
+    try {
+      const res = await req(
+        "POST",
+        "/api/hooks/ingest-batch",
+        {
+          session_id: sid(),
+          transcript_path: UNREADABLE,
+          schema_version: SCHEMA_VERSION,
+          tokens: [],
+        },
+        {}
+      );
+      assert.equal(res.status, 503);
+      assert.equal(res.body.error.code, "REMOTE_INGEST_DISABLED");
+    } finally {
+      process.env.DASHBOARD_TOKEN = saved;
+    }
+  });
+
+  it("an unauthenticated request never reaches the fs.existsSync check (no info leak, CWE-200) — a request for a REAL, readable transcript_path still 401s, not 409", async () => {
+    // __filename is guaranteed to exist on this host. If auth ran after the
+    // existsSync check (or not at all), this would 409 LOCAL_TRANSCRIPT_OWNS_SESSION
+    // instead of 401 — proving auth gates it, not just "happens to run first
+    // in the cases already tested above".
+    const res = await req(
+      "POST",
+      "/api/hooks/ingest-batch",
+      {
+        session_id: sid(),
+        transcript_path: __filename,
+        schema_version: SCHEMA_VERSION,
+        tokens: [],
+      },
+      {}
+    );
+    assert.equal(res.status, 401);
+  });
+});
+
+describe("POST /api/hooks/ingest-batch — token numeric validation (DB-integrity)", () => {
+  it("rejects a negative token count per-item instead of persisting it (replaceTokenUsage overwrites, so one bad item corrupts the total)", async () => {
+    const id = sid();
+    await seedSession(id);
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-opus-4-8", input: -1, output: 10 }],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 0);
+    assert.equal(res.body.errors.length, 1);
+    assert.equal(res.body.errors[0].kind, "tokens");
+    assert.match(res.body.errors[0].error, /input must be a non-negative number/);
+
+    const row = db
+      .prepare(
+        "SELECT input_tokens FROM token_usage WHERE session_id = ? AND model = 'claude-opus-4-8'"
+      )
+      .get(id);
+    assert.equal(row, undefined, "the negative-input item must never reach the database");
+  });
+
+  it("rejects NaN/Infinity the same as negative — Number.isFinite guards both", async () => {
+    const id = sid();
+    await seedSession(id);
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [{ model: "claude-opus-4-8", cacheRead: Infinity }],
+    });
+    assert.equal(res.body.written, 0);
+    assert.equal(res.body.errors[0].error, "cacheRead must be a non-negative number");
+  });
+
+  it("still accepts a valid item with every numeric field present and non-negative, including zero", async () => {
+    const id = sid();
+    await seedSession(id);
+    const res = await req("POST", "/api/hooks/ingest-batch", {
+      session_id: id,
+      transcript_path: UNREADABLE,
+      schema_version: SCHEMA_VERSION,
+      tokens: [
+        {
+          model: "claude-opus-4-8",
+          input: 100,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          cacheWrite1h: 0,
+          webSearch: 0,
+          webFetch: 0,
+          codeExec: 0,
+        },
+      ],
+    });
+    assert.equal(res.body.written, 1);
+    assert.equal(res.body.errors.length, 0);
+  });
 });
 
 describe("POST /api/hooks/ingest-batch", () => {
