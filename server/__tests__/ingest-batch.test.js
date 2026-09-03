@@ -8,6 +8,7 @@
  * sessions seeded via the real SessionStart hook path (so the route is
  * exercised the way a real forwarder would hit it — session already known,
  * transcript unreadable on this host).
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

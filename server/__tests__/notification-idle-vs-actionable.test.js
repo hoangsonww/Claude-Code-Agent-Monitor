@@ -8,6 +8,7 @@
  *
  * home-network monitor fork (see ai-deck decisions/). Lives in the fork's suite
  * so an upstream merge that reverts the split fails loudly here.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

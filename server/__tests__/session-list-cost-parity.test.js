@@ -24,6 +24,7 @@
  * claude-sonnet-5/standard/global/standard bucket where cache_write_tokens
  * are ENTIRELY 1h-tier (cache_write_1h_tokens === cache_write_tokens), which
  * makes the two rates diverge enough to be unmissable.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

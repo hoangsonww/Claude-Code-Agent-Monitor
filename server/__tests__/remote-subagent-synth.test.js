@@ -8,6 +8,7 @@
  * transcript_path NOT being readable on this host (origin/host-agnostic, and a
  * strict no-op for local sessions whose JSONL is on disk), idempotent by
  * agent_id. Uses Node's built-in test runner with temp CLAUDE_HOME / DATA_DIR.
+ * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { describe, it, before, after } = require("node:test");

@@ -65,26 +65,35 @@ function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
   }
 }
 
-// Reason-aware guarded clear (2026-07-17, AI-Deck/deck-web fork patch — see
-// decisions/ in the home-network repo). PreToolUse/PostToolUse clear the
-// waiting flag on the assumption that a tool event means the human resumed.
-// That assumption breaks when the MAIN agent is blocked on the user
-// (AskUserQuestion / permission) while a BACKGROUND subagent keeps firing
-// PreToolUse/PostToolUse: the subagent's tool event is not the human
-// responding, yet it wiped the flag — so AI-Deck/deck-web lost the "waiting
-// for you" signal (it oscillated on/off in seconds).
-//
-// The existing subagent-actor heuristic (findDeepestWorkingAgent, used just
-// below in each case) already tells us when a subagent — not main — is the
-// actor. We reuse it here: when a subagent is the actor we clear ONLY passive
-// waits (stop/session_start/interrupted); a genuine 'notification' wait (main
-// blocked on the user) is preserved. When MAIN is the actor we clear
-// unconditionally, exactly as before — this keeps the documented
-// permission-mid-tool path (PostToolUse clearing an approved prompt) intact.
-//
-// Passive-clear-by-subagent is deliberate and desirable: it is what lets a
-// backgrounded subagent's activity flip a session that merely Stop-ed
-// (reason='stop') back to active — i.e. "done/idle only while no agent works".
+/**
+ * Reason-aware guarded clear (2026-07-17, AI-Deck/deck-web fork patch — see
+ * decisions/ in the home-network repo). PreToolUse/PostToolUse clear the
+ * waiting flag on the assumption that a tool event means the human resumed.
+ * That assumption breaks when the MAIN agent is blocked on the user
+ * (AskUserQuestion / permission) while a BACKGROUND subagent keeps firing
+ * PreToolUse/PostToolUse: the subagent's tool event is not the human
+ * responding, yet it wiped the flag — so AI-Deck/deck-web lost the "waiting
+ * for you" signal (it oscillated on/off in seconds).
+ *
+ * The existing subagent-actor heuristic (findDeepestWorkingAgent, used just
+ * below in each case) already tells us when a subagent — not main — is the
+ * actor. We reuse it here: when a subagent is the actor we clear ONLY passive
+ * waits (stop/session_start/interrupted); a genuine 'notification' wait (main
+ * blocked on the user) is preserved. When MAIN is the actor we clear
+ * unconditionally, exactly as before — this keeps the documented
+ * permission-mid-tool path (PostToolUse clearing an approved prompt) intact.
+ *
+ * Passive-clear-by-subagent is deliberate and desirable: it is what lets a
+ * backgrounded subagent's activity flip a session that merely Stop-ed
+ * (reason='stop') back to active — i.e. "done/idle only while no agent works".
+ *
+ * @param {string} sessionId - Session whose awaiting-input state may clear.
+ * @param {string} mainAgentId - Main agent id (clearAwaitingInput targets it).
+ * @param {boolean} subagentIsActor - True when a background subagent, not
+ *   main, is the agent that just fired the triggering tool event.
+ * @param {boolean} broadcastUpdates - Forwarded to clearAwaitingInput.
+ * @returns {void}
+ */
 function clearAwaitingInputRespectingActor(
   sessionId,
   mainAgentId,
@@ -101,10 +110,16 @@ function clearAwaitingInputRespectingActor(
   clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates);
 }
 
-// True when the deepest currently-working agent is a subagent while the main
-// agent is in 'waiting' — i.e. an incoming tool event is attributable to a
-// subagent, not to the main agent resuming. Mirrors the inline heuristic the
-// PreToolUse/PostToolUse cases already use for agent attribution.
+/**
+ * True when the deepest currently-working agent is a subagent while the main
+ * agent is in 'waiting' — i.e. an incoming tool event is attributable to a
+ * subagent, not to the main agent resuming. Mirrors the inline heuristic the
+ * PreToolUse/PostToolUse cases already use for agent attribution.
+ *
+ * @param {string} sessionId - Session to inspect.
+ * @param {object} mainAgent - The session's main agent row.
+ * @returns {boolean} True when a background subagent, not main, is the actor.
+ */
 function subagentIsActorNow(sessionId, mainAgent) {
   if (!mainAgent || mainAgent.status !== "waiting") return false;
   return !!stmts.findDeepestWorkingAgent.get(sessionId, sessionId);
@@ -1236,76 +1251,85 @@ router.post("/event", (req, res) => {
 });
 
 // ── Remote batch ingest ──────────────────────────────────────────────────
-// POST /api/hooks/ingest-batch — bulk ingestion for a future household/remote
-// forwarder that has been collecting hook-derived facts (token totals, tool
-// events, turn durations, subagent completions) about a session whose JSONL
-// transcript lives on another machine's disk. Mounted under /api/hooks (not a
-// new top-level prefix) so it inherits the same Traefik/DASHBOARD_TOKEN
-// exemption as /api/hooks/event (server/lib/security.js TOKEN_EXEMPT_PREFIXES
-// includes "/hooks") — a new prefix would 401 once an operator sets
-// DASHBOARD_TOKEN.
-//
-// Contract, enforced in order:
-//   1. transcript_path must be a non-empty string, and must NOT be readable
-//      on this host. If it IS readable, the local hook pipeline (the
-//      transcript-driven code above, and the regular SessionStart/Stop/etc.
-//      hook flow) already owns this session — accepting the batch too would
-//      double-write token_usage from two different scopes, which is exactly
-//      the 11x-baseline bug documented at db.js:1063-1082. Mirrors the
-//      SubagentStop remote synth gate (hooks.js "!fs.existsSync(...)").
-//   2. schema_version must match SCHEMA_VERSION (server/lib/
-//      transcript-line-classifier.js) — a mismatch is a breaking forwarder/
-//      server skew, not a per-item problem, so it 409s the whole batch.
-//   3. The session must already exist (created via a prior SessionStart hook
-//      forwarded through /event). This route never calls ensureSession —
-//      insertSession is not an upsert, so racing it here against a live
-//      SessionStart could create a duplicate/conflicting row.
-//   4. The session's main agent (`${sessionId}-main`) must exist too. A
-//      SessionStart-created session always has one (ensureSession inserts
-//      both rows together), but a session created via the bare
-//      POST /api/sessions route does not — that route only inserts the
-//      session. Resolving mainAgentId without verifying the row exists let
-//      tool_events/turns/subagents insertEvent() calls throw a FOREIGN KEY
-//      constraint failure INSIDE the transaction below, rolling back an
-//      otherwise-good batch with no structured error. 404s as
-//      UNKNOWN_MAIN_AGENT before anything is written.
-//   5. Items are validated BEFORE the transaction (per-item soft-fail):
-//      malformed entries are skipped and reported in `errors`, valid ones are
-//      written atomically in a single db.transaction (mirrors processEvent's
-//      shape above), so one bad item can never roll back the rest of an
-//      otherwise-good batch nor partially apply a batch that IS entirely
-//      good. Any OTHER exception out of that transaction (e.g. a
-//      caller-supplied tool_event.agent_id that doesn't exist) is caught
-//      around the runBatch() call and mapped to a structured JSON 500
-//      (INGEST_BATCH_FAILED) rather than falling through to Express'
-//      generic HTML error handler.
-//
-// Two further OPTIONAL top-level fields close the parity gap with the local
-// pipeline (verified against a live .213 session whose forwarder-derived copy
-// was missing both):
-//   - "model": string — applied via the same stmts.updateSessionModel used by
-//     the transcript-driven `latestModel` write above (last-write-wins, only
-//     changes the row — and broadcasts — when the value actually differs).
-//   - "usage_extras": { service_tiers[], speeds[], inference_geos[],
-//     thinking_blocks } — merged into sessions.metadata in EXACTLY the shape
-//     the local pipeline writes (see the `result.usageExtras`/
-//     `thinkingBlockCount` block above): `metadata.usage_extras` holds the
-//     three arrays, `metadata.thinking_blocks` sits as a sibling key. Unlike
-//     the local path's per-hook thinking_blocks ACCUMULATION (additive,
-//     because each hook only sees a transcript delta), this batch field is a
-//     whole-session-to-date total — consistent with `tokens` being whole-file
-//     totals elsewhere in this contract — so it is a straight replace: a
-//     re-posted batch is idempotent, and other metadata keys are preserved
-//     (merged into the existing parsed object, never clobbered wholesale).
 // Hard cap per array, per batch. A well-behaved forwarder posts once per
 // session lifecycle worth of accumulated facts (dozens to low hundreds of
 // tool events for a typical session) — an array in the thousands signals a
 // misbehaving/looping caller, not legitimate backlog, and every extra item
 // costs one more (now-indexed, but still real) dedup lookup inside the
 // transaction. Rejecting the whole batch (not silently truncating) matches
-// this route's existing "hard per-batch check" style above.
+// this route's existing "hard per-batch check" style below.
 const MAX_BATCH_ITEMS = 2000;
 
+/**
+ * POST /api/hooks/ingest-batch — bulk ingestion for a future household/remote
+ * forwarder that has been collecting hook-derived facts (token totals, tool
+ * events, turn durations, subagent completions) about a session whose JSONL
+ * transcript lives on another machine's disk. Mounted under /api/hooks (not a
+ * new top-level prefix) so it inherits the same Traefik/DASHBOARD_TOKEN
+ * exemption as /api/hooks/event (server/lib/security.js TOKEN_EXEMPT_PREFIXES
+ * includes "/hooks") — a new prefix would 401 once an operator sets
+ * DASHBOARD_TOKEN.
+ *
+ * Contract, enforced in order:
+ *   1. transcript_path must be a non-empty string, and must NOT be readable
+ *      on this host. If it IS readable, the local hook pipeline (the
+ *      transcript-driven code above, and the regular SessionStart/Stop/etc.
+ *      hook flow) already owns this session — accepting the batch too would
+ *      double-write token_usage from two different scopes, which is exactly
+ *      the 11x-baseline bug documented at db.js:1063-1082. Mirrors the
+ *      SubagentStop remote synth gate (hooks.js "!fs.existsSync(...)").
+ *   2. schema_version must match SCHEMA_VERSION (server/lib/
+ *      transcript-line-classifier.js) — a mismatch is a breaking forwarder/
+ *      server skew, not a per-item problem, so it 409s the whole batch.
+ *   3. The session must already exist (created via a prior SessionStart hook
+ *      forwarded through /event). This route never calls ensureSession —
+ *      insertSession is not an upsert, so racing it here against a live
+ *      SessionStart could create a duplicate/conflicting row.
+ *   4. The session's main agent (`${sessionId}-main`) must exist too. A
+ *      SessionStart-created session always has one (ensureSession inserts
+ *      both rows together), but a session created via the bare
+ *      POST /api/sessions route does not — that route only inserts the
+ *      session. Resolving mainAgentId without verifying the row exists let
+ *      tool_events/turns/subagents insertEvent() calls throw a FOREIGN KEY
+ *      constraint failure INSIDE the transaction below, rolling back an
+ *      otherwise-good batch with no structured error. 404s as
+ *      UNKNOWN_MAIN_AGENT before anything is written.
+ *   5. Items are validated BEFORE the transaction (per-item soft-fail):
+ *      malformed entries are skipped and reported in `errors`, valid ones are
+ *      written atomically in a single db.transaction (mirrors processEvent's
+ *      shape above), so one bad item can never roll back the rest of an
+ *      otherwise-good batch nor partially apply a batch that IS entirely
+ *      good. Any OTHER exception out of that transaction (e.g. a
+ *      caller-supplied tool_event.agent_id that doesn't exist) is caught
+ *      around the runBatch() call and mapped to a structured JSON 500
+ *      (INGEST_BATCH_FAILED) rather than falling through to Express'
+ *      generic HTML error handler.
+ *
+ * Two further OPTIONAL top-level fields close the parity gap with the local
+ * pipeline (verified against a live .213 session whose forwarder-derived copy
+ * was missing both):
+ *   - "model": string — applied via the same stmts.updateSessionModel used by
+ *     the transcript-driven `latestModel` write above (last-write-wins, only
+ *     changes the row — and broadcasts — when the value actually differs).
+ *   - "usage_extras": { service_tiers[], speeds[], inference_geos[],
+ *     thinking_blocks } — merged into sessions.metadata in EXACTLY the shape
+ *     the local pipeline writes (see the `result.usageExtras`/
+ *     `thinkingBlockCount` block above): `metadata.usage_extras` holds the
+ *     three arrays, `metadata.thinking_blocks` sits as a sibling key. Unlike
+ *     the local path's per-hook thinking_blocks ACCUMULATION (additive,
+ *     because each hook only sees a transcript delta), this batch field is a
+ *     whole-session-to-date total — consistent with `tokens` being whole-file
+ *     totals elsewhere in this contract — so it is a straight replace: a
+ *     re-posted batch is idempotent, and other metadata keys are preserved
+ *     (merged into the existing parsed object, never clobbered wholesale).
+ *
+ * @name POST/api/hooks/ingest-batch
+ * @param {import("express").Request} req - Body per the contract above.
+ * @param {import("express").Response} res - 200 `{written, errors}` on
+ *   success (partial per-item failures reported in `errors`, not thrown);
+ *   400/404/409/500 with `{error:{code,message}}` on the hard-fail cases.
+ * @returns {void}
+ */
 router.post("/ingest-batch", (req, res) => {
   const body = req.body || {};
   const sessionId = body.session_id;
