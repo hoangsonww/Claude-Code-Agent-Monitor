@@ -99,6 +99,38 @@ function capStrings(value, cap, stats) {
   return value;
 }
 
+const DROP_PATHS = new Set(DROP_RULES.map(({ path }) => path.join(".")));
+
+function finiteCounts(value, allowed) {
+  const out = {};
+  if (!isPlainObject(value)) return out;
+  for (const [key, count] of Object.entries(value)) {
+    if (allowed.has(key) && Number.isFinite(count) && count >= 0) out[key] = count;
+  }
+  return out;
+}
+
+/** The usable part of an existing `_trimmed` marker, and whether reading it
+ *  that way changed anything (so an invalid marker gets rewritten). */
+function priorMarker(prior) {
+  const source = isPlainObject(prior) ? prior : {};
+  const marker = {
+    dropped: finiteCounts(source.dropped, DROP_PATHS),
+    strings: Number.isFinite(source.strings) && source.strings > 0 ? source.strings : 0,
+    replaced: finiteCounts(source.replaced, new Set(FIELDS)),
+  };
+  const kept = {};
+  if (Object.keys(marker.dropped).length > 0) kept.dropped = marker.dropped;
+  if (marker.strings > 0) kept.strings = marker.strings;
+  if (Object.keys(marker.replaced).length > 0) kept.replaced = marker.replaced;
+  // A supplied marker that keeps nothing (including a literal `{}`) is a
+  // change too: the output drops it rather than storing an empty label.
+  marker.changed =
+    prior !== undefined &&
+    (Object.keys(kept).length === 0 || JSON.stringify(kept) !== JSON.stringify(prior));
+  return marker;
+}
+
 /** What survives when a whole field is over budget: its short scalars, in
  *  key order, until the budget is spent. */
 function scalarsWithin(value, budget) {
@@ -146,13 +178,12 @@ function trimHookPayload(data, opts = {}) {
     if (stringCap === 0 || !isPlainObject(data)) return data;
 
     const out = { ...data };
-    const prior = isPlainObject(data._trimmed) ? data._trimmed : {};
-    const trimmed = {
-      dropped: { ...(isPlainObject(prior.dropped) ? prior.dropped : {}) },
-      strings: typeof prior.strings === "number" ? prior.strings : 0,
-      replaced: { ...(isPlainObject(prior.replaced) ? prior.replaced : {}) },
-    };
-    let changes = 0;
+    // A prior marker (a re-swept row) is carried forward, but only its known
+    // shape: finite counts under the drop paths and tool fields this module
+    // writes. Anything else in `_trimmed` is caller-supplied and is not
+    // exempt from trimming just because of its name.
+    const trimmed = priorMarker(data._trimmed);
+    let changes = trimmed.changed ? 1 : 0;
 
     for (const { tools, path } of DROP_RULES) {
       if (tools && !tools.includes(data.tool_name)) continue;
@@ -196,7 +227,8 @@ function trimHookPayload(data, opts = {}) {
     if (Object.keys(trimmed.dropped).length > 0) marker.dropped = trimmed.dropped;
     if (trimmed.strings > 0) marker.strings = trimmed.strings;
     if (Object.keys(trimmed.replaced).length > 0) marker.replaced = trimmed.replaced;
-    out._trimmed = marker;
+    if (Object.keys(marker).length > 0) out._trimmed = marker;
+    else delete out._trimmed;
     return out;
   } catch {
     return data;

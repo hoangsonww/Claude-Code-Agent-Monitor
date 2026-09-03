@@ -294,6 +294,50 @@ describe("trimHookPayload", () => {
     assert.equal(trimHookPayload(data), data);
   });
 
+  it("does not let a caller-supplied _trimmed marker smuggle uncapped data", () => {
+    const data = {
+      hook_event_name: "Stop",
+      session_id: "s1",
+      _trimmed: {
+        dropped: {
+          "tool_response.originalFile": 10,
+          background_tasks: "x".repeat(100000),
+          "tool_response.file.content": -1,
+          bogus: 5,
+        },
+        strings: Infinity,
+        replaced: { tool_input: 99, tool_response: "y".repeat(100000), nested: { deep: 1 } },
+        extra: "z".repeat(100000),
+      },
+    };
+    const out = trimHookPayload(data);
+    assert.notEqual(out, data, "an invalid marker is a change");
+    assert.deepEqual(out._trimmed, {
+      dropped: { "tool_response.originalFile": 10 },
+      replaced: { tool_input: 99 },
+    });
+    assert.ok(JSON.stringify(out).length < 1000);
+    assert.equal(data._trimmed.extra.length, 100000, "caller's payload must stay intact");
+
+    for (const bad of ["not an object", {}, { strings: 0 }, { dropped: { nope: 1 } }]) {
+      const junk = { hook_event_name: "Stop", session_id: "s1", _trimmed: bad };
+      const cleaned = trimHookPayload(junk);
+      assert.notEqual(cleaned, junk, JSON.stringify(bad));
+      assert.equal(cleaned._trimmed, undefined, JSON.stringify(bad));
+      assert.equal(junk._trimmed, bad, "caller's payload must stay intact");
+    }
+  });
+
+  it("carries a valid prior marker forward unchanged", () => {
+    const data = {
+      hook_event_name: "PostToolUse",
+      tool_name: "Edit",
+      tool_input: { file_path: "/tmp/a" },
+      _trimmed: { dropped: { "tool_response.originalFile": 4096 }, strings: 2 },
+    };
+    assert.equal(trimHookPayload(data), data);
+  });
+
   it("stores payloads untouched when the string cap is 0", () => {
     const data = { tool_response: { originalFile: "q".repeat(5000) } };
     assert.equal(trimHookPayload(data, { stringCap: 0 }), data);
