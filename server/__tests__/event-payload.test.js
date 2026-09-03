@@ -205,6 +205,15 @@ describe("trimHookPayload", () => {
     const kept = trimHookPayload({ tool_response: { s: fits } }, { stringCap: 2048 });
     assert.equal(kept.tool_response.s, fits);
     assert.ok(fits.length <= 2048 + 40);
+    // A digit run longer than any real count is authored text: capped like
+    // anything else, and stable on a second pass.
+    const longCount = `${"d".repeat(2048)}… [trimmed ${"9".repeat(400)} more chars]`;
+    const capped = trimHookPayload({ tool_response: { s: longCount } }, { stringCap: 2048 });
+    assert.equal(
+      capped.tool_response.s,
+      `${"d".repeat(2048)}… [trimmed ${longCount.length - 2048} more chars]`
+    );
+    assert.equal(trimHookPayload(capped, { stringCap: 2048 }), capped);
   });
 
   it("never lets a positive field cap below 2 bytes overflow", () => {

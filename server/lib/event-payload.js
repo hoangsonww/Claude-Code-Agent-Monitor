@@ -60,16 +60,20 @@ function setKey(target, key, value) {
   }
 }
 
-const TRIM_SUFFIX = /… \[trimmed (\d+) more chars\]$/;
+// Only a count the trimmer itself could have written (payloads are capped at
+// 1 MB upstream, so a real count has well under nine digits); anything longer
+// is ordinary authored text.
+const TRIM_SUFFIX = /… \[trimmed (\d{1,9}) more chars\]$/;
 
 /** Copy `value` with every string longer than `cap` cut down and suffixed.
  *  A string that already carries the suffix was cut by an earlier pass: if its
  *  body fits the cap it is left alone (so trimming is idempotent and a re-run
  *  of the sweep is a no-op); if not — a lower cap than last time — it is cut
  *  again and the suffix carries the total that has been cut so far. Known
- *  limit: a user-authored string that happens to end with the exact suffix is
- *  read the same way, so it may keep the suffix's length on top of the cap
- *  and its number is folded into the count — bounded, never unbounded. */
+ *  limit: a user-authored string that happens to end with the exact suffix
+ *  (with a count of at most nine digits) is read the same way, so it may keep
+ *  the suffix's length on top of the cap and its number is folded into the
+ *  count — at most ~35 characters over the cap, never unbounded. */
 function capStrings(value, cap, stats) {
   if (typeof value === "string") {
     const prior = TRIM_SUFFIX.exec(value);

@@ -90,14 +90,14 @@ describe("scripts/trim-events.js", () => {
 
   it("reads the database path and the caps from the same .env the server uses", () => {
     const envFile = `${DB_PATH}.env`;
-    fs.writeFileSync(envFile, `DASHBOARD_DB_PATH=${DB_PATH}\nDASHBOARD_EVENT_STRING_CAP=100\n`);
+    // A 4000-char cap leaves the 3000-char rows alone, so the count below
+    // only holds if the cap really came from the file (the default gives 252).
+    fs.writeFileSync(envFile, `DASHBOARD_DB_PATH=${DB_PATH}\nDASHBOARD_EVENT_STRING_CAP=4000\n`);
     try {
       const { code, out } = runWithEnvFile(envFile);
       assert.equal(code, 0, out);
       assert.match(out, new RegExp(`Database: ${DB_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-      // With the 100-char cap from the file, the 4-char stdout row is still
-      // fine but the 3000-char rows report a larger cut than the default cap.
-      assert.match(out, /rows to rewrite: 252/);
+      assert.match(out, /rows to rewrite: 2\b/);
       assert.equal(fs.existsSync(path.join(path.dirname(DB_PATH), "backups")), false);
     } finally {
       fs.unlinkSync(envFile);
