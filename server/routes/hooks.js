@@ -18,6 +18,7 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { isCwdIgnored } = require("../lib/cwd-filter");
 
 const router = Router();
 
@@ -1197,6 +1198,12 @@ router.post("/event", (req, res) => {
     return res.status(400).json({
       error: { code: "INVALID_INPUT", message: "hook_type and data are required" },
     });
+  }
+
+  // Drop hooks from ignored working directories (MONITOR_IGNORE_CWD).
+  // Return 200 so Claude Code does not retry — we intentionally discard the event.
+  if (isCwdIgnored(data.cwd)) {
+    return res.json({ ok: true, ignored: true });
   }
 
   const result = processEvent(hook_type, data);
