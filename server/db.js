@@ -336,6 +336,11 @@ db.exec(`
   -- session with many subagents) becomes tens of seconds and blocks the event
   -- loop. This composite narrows each dedup to the agent's events of that type.
   CREATE INDEX IF NOT EXISTS idx_events_agent_type ON events(agent_id, event_type);
+  -- The agent and session lists compute "last activity" with a correlated
+  -- MAX(created_at) per row; without these the subquery walks every event of
+  -- each agent/session on every list request.
+  CREATE INDEX IF NOT EXISTS idx_events_agent_created ON events(agent_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_session_created ON events(session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
