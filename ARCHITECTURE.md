@@ -1083,6 +1083,8 @@ erDiagram
 | `idx_events_created`   | events   | `created_at DESC` | Activity feed ordering         |
 | `idx_events_session_type` | events | `session_id, event_type` | Per-session event-type filters |
 | `idx_events_agent_type` | events  | `agent_id, event_type` | Keeps `importSubagentFromJsonl`'s per-tool-event `data LIKE` dedup an index seek instead of a full events scan — a large re-import (startup sweep touching a subagent-heavy session) drops from tens of seconds to sub-second |
+| `idx_events_agent_created` | events | `agent_id, created_at` | Makes the agent list's per-agent `MAX(created_at)` last-activity subquery an index seek instead of a walk over every event of the agent |
+| `idx_events_session_created` | events | `session_id, created_at` | Same for the session list's per-session last-activity subquery |
 | `idx_sessions_status`  | sessions | `status`          | Status filter on Sessions page and Kanban Sessions view |
 | `idx_sessions_started` | sessions | `started_at DESC` | Default sort order             |
 | `idx_sessions_source`  | sessions | `source`          | Data-scope (`?sources=`) filtering by source            |

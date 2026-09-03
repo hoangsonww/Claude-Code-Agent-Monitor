@@ -583,6 +583,8 @@ CREATE INDEX idx_agents_status ON agents(status);
 -- before inserting; on a subagent-heavy re-import this drops a large sweep from
 -- tens of seconds to sub-second.
 CREATE INDEX idx_events_agent_type ON events(agent_id, event_type);
+CREATE INDEX idx_events_agent_created ON events(agent_id, created_at);
+CREATE INDEX idx_events_session_created ON events(session_id, created_at);
 ```
 
 ### tool_executions Indexes

@@ -751,4 +751,21 @@ describe("events dedup index", () => {
       .get();
     assert.ok(row, "idx_events_agent_type must exist to keep subagent dedup indexed");
   });
+
+  it("keeps the per-agent and per-session last-activity lookups on covering indexes", () => {
+    for (const [column, index] of [
+      ["agent_id", "idx_events_agent_created"],
+      ["session_id", "idx_events_session_created"],
+    ]) {
+      const plan = db
+        .prepare(`EXPLAIN QUERY PLAN SELECT MAX(created_at) FROM events WHERE ${column} = ?`)
+        .all("x")
+        .map((step) => step.detail)
+        .join(" | ");
+      assert.ok(
+        plan.includes(`COVERING INDEX ${index}`),
+        `MAX(created_at) by ${column} must use ${index}, got: ${plan}`
+      );
+    }
+  });
 });
