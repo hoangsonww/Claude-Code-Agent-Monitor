@@ -2026,6 +2026,8 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_TASK_SUMMARY_TTL_MS</code></td>
                   <td><code>2000</code></td>
                   <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A grown transcript is parsed incrementally from its last complete JSONL line; this floor still coalesces bursts of list reloads into one parse. <code>0</code> parses every append immediately.</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_TOKEN_REPAIR</code></td>
                   <td><code>1</code></td>
                   <td>One-time automatic repair of token totals inflated before usage was reconciled per <code>message.id</code>. <code>replaceTokenUsage</code> is a high-water mark, so the parser fix alone can never lower a historical total. Marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory, and it snapshots the old rows to <code>token_usage_pre_repair</code> first. <code>0</code> skips it — repair manually with <code>npm run repair-tokens</code>.</td>

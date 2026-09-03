@@ -574,8 +574,13 @@ function parseFileLines(
         pending = Buffer.from(pending);
       }
     }
-    // JSONL writers can be observed mid-write. Leave a trailing fragment for
-    // the next call instead of parsing it or advancing the cached offset.
+    // A trailing fragment is either a record still being written or a file
+    // whose last record has no newline (imports, copies). Parse it as
+    // provisional: the caller sees it now, but the returned offset stays at
+    // the last complete line so the next call re-reads it.
+    if (pending.length && !skipPartialLine && !discardLongLine) {
+      onLine(pending.toString("utf8").replace(/\r$/, ""), lineNumber + 1, lineByte, true);
+    }
     return completeOffset;
   } finally {
     fs.closeSync(descriptor);
@@ -626,11 +631,13 @@ function parseTranscript(filePath, owner) {
   // Invariant: retained incremental state is exactly the state a fresh parse
   // of the current byte window could produce. Calls or observations before
   // the window cannot affect lines that remain inside it.
-  const observations = canIncrement
-    ? cached.observations.filter((observation) => observation._byte >= windowStart)
-    : [];
+  // State at or past the cached offset came from a provisional trailing
+  // fragment; it is re-read below, so drop it here to avoid double counting.
+  const retained = (item) =>
+    item._byte >= windowStart && (!canIncrement || item._byte < cached.offset);
+  const observations = canIncrement ? cached.observations.filter(retained) : [];
   const pendingCalls = canIncrement
-    ? new Map([...cached.pendingCalls].filter(([, call]) => call._byte >= windowStart))
+    ? new Map([...cached.pendingCalls].filter(([, call]) => retained(call)))
     : new Map();
   const start = canIncrement ? cached.offset : 0;
   // sourceLine is relative to the scanned range. Incremental parses continue
@@ -640,8 +647,8 @@ function parseTranscript(filePath, owner) {
   try {
     offset = parseFileLines(
       filePath,
-      (line, currentLineNumber, lineByteOffset) => {
-        lineNumber = currentLineNumber;
+      (line, currentLineNumber, lineByteOffset, partial = false) => {
+        if (!partial) lineNumber = currentLineNumber;
         if (!line || lineByteOffset < windowStart) return;
         let entry;
         try {

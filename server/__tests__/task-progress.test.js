@@ -291,7 +291,7 @@ describe("incremental task-progress transcript parsing", () => {
     }
   });
 
-  it("waits for a partial trailing line and consumes it exactly once", () => {
+  it("parses a partial trailing line provisionally and consumes it exactly once", () => {
     const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
     process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = "0";
     try {
@@ -313,8 +313,11 @@ describe("incremental task-progress transcript parsing", () => {
         session: { id: "partial-line", provider: "claude" },
         mainTranscriptPath: transcript,
       });
-      assert.equal(beforeCompletion.snapshot.activeText, "First");
-      assert.equal(beforeCompletion.snapshot.sourceLine, 1);
+      // The fragment is a complete record without its newline yet: shown now,
+      // re-read (not double counted) once the newline lands.
+      assert.equal(beforeCompletion.snapshot.completed, 1);
+      assert.equal(beforeCompletion.snapshot.items[0].text, "Second");
+      assert.equal(beforeCompletion.snapshot.sourceLine, 2);
 
       fs.appendFileSync(transcript, "\n");
       const completed = extractSessionTaskProgress({
@@ -700,6 +703,108 @@ describe("incremental task-progress transcript parsing", () => {
 
     assert.equal(result.snapshot.total, 1);
     assert.equal(result.snapshot.items[0].text, "Starts at the cutoff");
+  });
+
+  it("parses a final record that has no trailing newline, without double counting later", () => {
+    const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = "0";
+    try {
+      const root = tempRoot();
+      const transcript = path.join(root, "unterminated-final-record.jsonl");
+      const session = { id: "unterminated-final-record", provider: "claude" };
+      const first = JSON.stringify(
+        claudeToolUse("2026-08-07T10:00:00.000Z", "todo-1", "TodoWrite", {
+          todos: [{ content: "Imported without newline", status: "completed" }],
+        })
+      );
+      fs.writeFileSync(transcript, first);
+
+      const unterminated = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      assert.equal(unterminated.snapshot.total, 1);
+      assert.equal(unterminated.snapshot.items[0].text, "Imported without newline");
+
+      // A half-written record is ignored until its newline arrives.
+      fs.appendFileSync(transcript, '\n{"type":"assistant","mess');
+      const midWrite = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      assert.equal(midWrite.snapshot.total, 1);
+
+      fs.appendFileSync(
+        transcript,
+        `age\":${JSON.stringify(
+          claudeToolUse("2026-08-07T10:01:00.000Z", "todo-2", "TodoWrite", {
+            todos: [
+              { content: "Imported without newline", status: "completed" },
+              { content: "Second", status: "pending" },
+            ],
+          }).message
+        )},\"timestamp\":\"2026-08-07T10:01:00.000Z\"}\n`
+      );
+      const warm = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      clearTaskProgressCache();
+      const cold = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      assert.deepEqual(withoutSourceLine(warm.snapshot), withoutSourceLine(cold.snapshot));
+      assert.equal(warm.snapshot.total, 2);
+      assert.equal(warm.snapshot.completed, 1);
+    } finally {
+      if (priorTtl === undefined) delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+      else process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = priorTtl;
+    }
+  });
+
+  it("matches a result to a call that was first seen as an unterminated fragment", () => {
+    const priorTtl = process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+    process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = "0";
+    try {
+      const root = tempRoot();
+      const transcript = path.join(root, "provisional-pending-call.jsonl");
+      const session = { id: "provisional-pending-call", provider: "claude" };
+      const prompt = JSON.stringify({
+        type: "user",
+        timestamp: "2026-08-07T09:59:00.000Z",
+        message: { role: "user", content: "List my tasks" },
+      });
+      const call = JSON.stringify(
+        claudeToolUse("2026-08-07T10:00:00.000Z", "list-1", "TaskList", {})
+      );
+      fs.writeFileSync(transcript, `${prompt}\n${call}`);
+      const provisional = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      assert.equal(provisional.snapshot, null, "a call without its result yields no task state");
+
+      fs.appendFileSync(
+        transcript,
+        `\n${JSON.stringify(
+          claudeToolResult("2026-08-07T10:00:01.000Z", "list-1", {
+            tasks: [{ id: "first", subject: "Matched once", status: "completed" }],
+          })
+        )}\n`
+      );
+      const warm = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      clearTaskProgressCache();
+      const cold = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      // Full equality, sourceLine included: the result is line 3 either way.
+      assert.deepEqual(warm.snapshot, cold.snapshot);
+      assert.equal(warm.snapshot.total, 1);
+      assert.equal(warm.snapshot.completed, 1);
+      assert.equal(warm.snapshot.sourceLine, 3);
+
+      fs.appendFileSync(
+        transcript,
+        `${JSON.stringify({
+          type: "assistant",
+          timestamp: "2026-08-07T10:00:02.000Z",
+          message: { role: "assistant", content: "All done." },
+        })}\n`
+      );
+      const later = extractSessionTaskProgress({ session, mainTranscriptPath: transcript });
+      assert.deepEqual(
+        later.snapshot,
+        cold.snapshot,
+        "an unrelated append leaves the match stable"
+      );
+    } finally {
+      if (priorTtl === undefined) delete process.env.DASHBOARD_TASK_SUMMARY_TTL_MS;
+      else process.env.DASHBOARD_TASK_SUMMARY_TTL_MS = priorTtl;
+    }
   });
 
   it("resets incremental state after truncation and inode rotation", () => {
