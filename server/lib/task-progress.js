@@ -2,7 +2,8 @@
  * @file Derives owner-attributed task progress from Claude and Codex JSONL
  * transcripts plus persisted task and session lifecycle events. Top-level
  * work boundaries expire older tracker state, turn-end markers discard
- * unfinished state, and bounded stat-based caching keeps session APIs safe.
+ * unfinished state, and bounded incremental transcript caching keeps session
+ * APIs safe.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -19,10 +20,10 @@ const READ_CHUNK_BYTES = 1024 * 1024;
 // How long a parse of a since-grown transcript may be served from cache. The
 // size+mtime cache key can never hit while a file is being appended to, so
 // without this floor a burst of list requests (e.g. the dashboard reloading on
-// every hook-driven WebSocket event) re-parses a multi-MB active transcript
-// once per request. Task summaries tolerate a couple seconds of staleness.
+// every hook-driven WebSocket event) can parse each closely spaced append.
+// Task summaries tolerate a couple seconds of staleness.
 // Tunable via DASHBOARD_TASK_SUMMARY_TTL_MS; 0 disables the floor (every
-// change re-parses immediately, the pre-TTL behavior). Read lazily so tests
+// append is parsed immediately). Read lazily so tests
 // and operators can adjust it without a restartable module-load dependency.
 const FRESH_PARSE_TTL_MS = 2_000;
 function freshParseTtlMs() {
@@ -395,6 +396,22 @@ function toolObservation(name, inputValue, outputValue, context) {
   return null;
 }
 
+const TASK_OBSERVATION_PROBE_OUTPUT = {
+  task: { id: "task-progress-probe", subject: "Task progress probe" },
+  tasks: [{ id: "task-progress-probe", subject: "Task progress probe" }],
+};
+
+function canProduceTaskObservation(name, inputValue) {
+  // Ask the parser itself so pending-call eligibility cannot drift from the
+  // tools and wrapped calls that can actually yield task observations.
+  return Boolean(
+    toolObservation(name, inputValue, TASK_OBSERVATION_PROBE_OUTPUT, {
+      ownerId: "main",
+      ownerType: "main",
+    })
+  );
+}
+
 function observationsFromEntry(entry, line, owner) {
   const observations = [];
   const timestamp = entry?.timestamp || null;
@@ -483,16 +500,30 @@ function observationsFromEntry(entry, line, owner) {
   return observations;
 }
 
-function parseFileLines(filePath, onLine, { maxBytes = MAX_SCAN_BYTES, tail = false } = {}) {
+function parseFileLines(
+  filePath,
+  onLine,
+  { maxBytes = MAX_SCAN_BYTES, tail = false, start = 0, lineNumber = 0, end } = {}
+) {
   const descriptor = fs.openSync(filePath, "r");
   const buffer = Buffer.allocUnsafe(READ_CHUNK_BYTES);
   let pending = Buffer.alloc(0);
-  const fileSize = fs.fstatSync(descriptor).size;
+  const fileSize = Math.min(fs.fstatSync(descriptor).size, end ?? Number.MAX_SAFE_INTEGER);
   const boundedBytes = Math.max(0, Math.min(fileSize, maxBytes));
-  let position = tail ? fileSize - boundedBytes : 0;
-  const endPosition = tail ? fileSize : boundedBytes;
-  let skipPartialLine = position > 0;
-  let lineNumber = 0;
+  let position = tail ? fileSize - boundedBytes : Math.max(0, Math.min(start, fileSize));
+  const endPosition = tail ? fileSize : Math.min(fileSize, position + boundedBytes);
+  let skipPartialLine = false;
+  if (tail && position > 0) {
+    const previousByte = Buffer.allocUnsafe(1);
+    skipPartialLine =
+      fs.readSync(descriptor, previousByte, 0, previousByte.length, position - 1) === 1 &&
+      previousByte[0] !== 0x0a;
+  }
+  // A tail scan may begin inside an incomplete line. Until its newline is
+  // found, zero is the only earlier byte position known to be a boundary.
+  let completeOffset = skipPartialLine ? 0 : position;
+  let lineByte = position;
+  let discardLongLine = false;
   try {
     while (position < endPosition) {
       const bytesToRead = Math.min(buffer.length, endPosition - position);
@@ -501,30 +532,45 @@ function parseFileLines(filePath, onLine, { maxBytes = MAX_SCAN_BYTES, tail = fa
       position += bytesRead;
       let chunk = buffer.subarray(0, bytesRead);
       if (pending.length) chunk = Buffer.concat([pending, chunk]);
+      const chunkPosition = position - chunk.length;
       let start = 0;
       for (let index = 0; index < chunk.length; index++) {
         if (chunk[index] !== 0x0a) continue;
+        const currentLineByte = lineByte;
+        completeOffset = chunkPosition + index + 1;
+        lineByte = completeOffset;
         if (skipPartialLine) {
           skipPartialLine = false;
+          discardLongLine = false;
           start = index + 1;
           continue;
         }
         lineNumber++;
+        if (discardLongLine || index - start > MAX_LINE_BYTES) {
+          discardLongLine = false;
+          onLine("", lineNumber, currentLineByte);
+          start = index + 1;
+          continue;
+        }
         const keepGoing = onLine(
           chunk.toString("utf8", start, index).replace(/\r$/, ""),
-          lineNumber
+          lineNumber,
+          currentLineByte
         );
         start = index + 1;
-        if (keepGoing === false) return;
+        if (keepGoing === false) return completeOffset;
       }
       pending = chunk.subarray(start);
-      if (pending.length > MAX_LINE_BYTES) pending = Buffer.alloc(0);
-      else pending = Buffer.from(pending);
+      if (pending.length > MAX_LINE_BYTES) {
+        pending = Buffer.alloc(0);
+        discardLongLine = true;
+      } else {
+        pending = Buffer.from(pending);
+      }
     }
-    if (pending.length && !skipPartialLine) {
-      lineNumber++;
-      onLine(pending.toString("utf8").replace(/\r$/, ""), lineNumber);
-    }
+    // JSONL writers can be observed mid-write. Leave a trailing fragment for
+    // the next call instead of parsing it or advancing the cached offset.
+    return completeOffset;
   } finally {
     fs.closeSync(descriptor);
   }
@@ -565,20 +611,39 @@ function parseTranscript(filePath, owner) {
     cache.set(key, cached);
     return cached.observations;
   }
-  const observations = [];
-  const pendingCalls = new Map();
+  // Compare against the cached size, not the cached line-boundary offset: a
+  // same-inode rewrite that lands between the two would otherwise reuse
+  // observations from content that no longer exists.
+  const canIncrement =
+    cached && sameFile && stat.size >= cached.size && stat.size - cached.offset <= MAX_SCAN_BYTES;
+  const windowStart = Math.max(0, stat.size - MAX_SCAN_BYTES);
+  // Invariant: retained incremental state is exactly the state a fresh parse
+  // of the current byte window could produce. Calls or observations before
+  // the window cannot affect lines that remain inside it.
+  const observations = canIncrement
+    ? cached.observations.filter((observation) => observation._byte >= windowStart)
+    : [];
+  const pendingCalls = canIncrement
+    ? new Map([...cached.pendingCalls].filter(([, call]) => call._byte >= windowStart))
+    : new Map();
+  const start = canIncrement ? cached.offset : 0;
+  // sourceLine is relative to the scanned range. Incremental parses continue
+  // cached line positions, while a cold tail parse restarts them at one.
+  let lineNumber = canIncrement ? cached.lineNumber : 0;
+  let offset;
   try {
-    parseFileLines(
+    offset = parseFileLines(
       filePath,
-      (line, lineNumber) => {
-        if (!line) return;
+      (line, currentLineNumber, lineByteOffset) => {
+        lineNumber = currentLineNumber;
+        if (!line || lineByteOffset < windowStart) return;
         let entry;
         try {
           entry = JSON.parse(line);
         } catch {
           return;
         }
-        const direct = observationsFromEntry(entry, lineNumber, owner);
+        const direct = observationsFromEntry(entry, currentLineNumber, owner);
         for (const observation of direct) {
           if (observation.kind === "result") {
             const call = pendingCalls.get(observation.task.callId);
@@ -589,29 +654,42 @@ function parseTranscript(filePath, owner) {
               ownerId: owner.id,
               ownerType: owner.type,
             });
-            if (enriched) observations.push(enriched);
+            if (enriched) observations.push({ ...enriched, _byte: call._byte });
             pendingCalls.delete(observation.task.callId);
             continue;
           }
-          observations.push(observation);
+          observations.push({ ...observation, _byte: lineByteOffset });
         }
 
         const blocks = entry?.message?.content;
         if (!Array.isArray(blocks)) return;
         for (const block of blocks) {
-          if (block?.type === "tool_use" && block.id) {
+          if (
+            block?.type === "tool_use" &&
+            block.id &&
+            canProduceTaskObservation(block.name, block.input)
+          ) {
             pendingCalls.set(block.id, {
               tool: block.name,
               input: block.input,
               timestamp: entry.timestamp || null,
+              _byte: lineByteOffset,
             });
           }
         }
       },
-      { tail: true }
+      canIncrement
+        ? { start, lineNumber, maxBytes: stat.size - start, end: stat.size }
+        : { tail: true, end: stat.size }
     );
   } catch {
     return [];
+  }
+  const retainedObservations = observations.filter(
+    (observation) => observation._byte >= windowStart
+  );
+  for (const [callId, call] of pendingCalls) {
+    if (call._byte < windowStart) pendingCalls.delete(callId);
   }
   cacheSet(key, {
     size: stat.size,
@@ -619,9 +697,12 @@ function parseTranscript(filePath, owner) {
     dev: stat.dev,
     ino: stat.ino,
     parsedAt: Date.now(),
-    observations,
+    offset,
+    lineNumber,
+    pendingCalls,
+    observations: retainedObservations,
   });
-  return observations;
+  return retainedObservations;
 }
 
 function observationFromEvent(event, agentsById) {
