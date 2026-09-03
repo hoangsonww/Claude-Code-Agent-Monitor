@@ -356,6 +356,8 @@ Triggered before a tool executes.
 
 Triggered after a tool completes execution.
 
+> **Stored lossily.** The server trims the payload before writing `events.data`: the native tools' whole-file mirrors (`tool_response.originalFile` on Edit/Write, `tool_response.file.content` / `.base64` on Read) are dropped, strings inside `tool_input` / `tool_response` are cut to `DASHBOARD_EVENT_STRING_CAP` characters, and a field still over `DASHBOARD_EVENT_FIELD_CAP` bytes keeps only its short scalars. Every change is noted under `data._trimmed`; the transcript on disk keeps the full text.
+
 **Payload Example:**
 
 ```json

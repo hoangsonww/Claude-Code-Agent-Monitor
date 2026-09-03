@@ -12,7 +12,8 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-/** Longest string kept inside `tool_input` / `tool_response` (UTF-16 units). */
+/** Longest string kept inside `tool_input` / `tool_response` (UTF-16 units),
+ *  before the short suffix that says how much was cut. */
 const DEFAULT_STRING_CAP = 2048;
 /** Largest `tool_input` / `tool_response` kept as-is, in JSON bytes. */
 const DEFAULT_FIELD_CAP = 16384;
@@ -59,19 +60,24 @@ function setKey(target, key, value) {
   }
 }
 
-const TRIM_SUFFIX = /… \[trimmed \d+ more chars\]$/;
+const TRIM_SUFFIX = /… \[trimmed (\d+) more chars\]$/;
 
 /** Copy `value` with every string longer than `cap` cut down and suffixed.
- *  A string that already carries the suffix was cut by an earlier pass and is
- *  left alone, so trimming is idempotent and a re-run of the sweep is a no-op. */
+ *  A string that already carries the suffix was cut by an earlier pass: if its
+ *  body fits the cap it is left alone (so trimming is idempotent and a re-run
+ *  of the sweep is a no-op); if not — a lower cap than last time — it is cut
+ *  again and the suffix carries the total that has been cut so far. */
 function capStrings(value, cap, stats) {
   if (typeof value === "string") {
-    if (value.length <= cap || TRIM_SUFFIX.test(value)) return value;
+    const prior = TRIM_SUFFIX.exec(value);
+    const body = prior ? value.slice(0, prior.index) : value;
+    if (body.length <= cap) return value;
     // Never end on a high surrogate: that would split an astral character.
-    const code = value.charCodeAt(cap - 1);
+    const code = body.charCodeAt(cap - 1);
     const cut = cap > 0 && code >= 0xd800 && code <= 0xdbff ? cap - 1 : cap;
+    const carried = prior ? Number(prior[1]) : 0;
     stats.strings += 1;
-    return `${value.slice(0, cut)}… [trimmed ${value.length - cut} more chars]`;
+    return `${body.slice(0, cut)}… [trimmed ${body.length - cut + carried} more chars]`;
   }
   if (Array.isArray(value)) return value.map((item) => capStrings(item, cap, stats));
   if (isPlainObject(value)) {
@@ -112,7 +118,7 @@ function scalarsWithin(value, budget) {
  *   1. drop the whole-file mirrors in DROP_RULES (native tools only);
  *   2. cut every string in tool_input / tool_response to the string cap;
  *   3. if a field is still over the field cap, keep only as many of its short
- *      scalars as fit.
+ *      scalars as fit (DASHBOARD_EVENT_FIELD_CAP=0 skips this pass).
  * Every change is recorded under `data._trimmed` (merged with an existing
  * marker, so re-trimming a stored row keeps its history). Set
  * DASHBOARD_EVENT_STRING_CAP=0 to store payloads untouched.
@@ -123,7 +129,9 @@ function scalarsWithin(value, budget) {
 function trimHookPayload(data, opts = {}) {
   try {
     const stringCap = opts.stringCap ?? readCap("DASHBOARD_EVENT_STRING_CAP", DEFAULT_STRING_CAP);
-    const fieldCap = opts.fieldCap ?? readCap("DASHBOARD_EVENT_FIELD_CAP", DEFAULT_FIELD_CAP);
+    const rawFieldCap = opts.fieldCap ?? readCap("DASHBOARD_EVENT_FIELD_CAP", DEFAULT_FIELD_CAP);
+    // `{}` is two bytes, the smallest thing the field pass can leave behind.
+    const fieldCap = rawFieldCap > 0 ? Math.max(2, rawFieldCap) : 0;
     if (stringCap === 0 || !isPlainObject(data)) return data;
 
     const out = { ...data };

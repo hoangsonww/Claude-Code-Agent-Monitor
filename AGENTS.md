@@ -36,4 +36,5 @@
 - Dev: `npm run dev`
 - Build/start: `npm run build` then `npm start`
 - MCP helpers: `npm run mcp:install`, `npm run mcp:build`, `npm run mcp:start`
+- Shrink `events.data` rows stored before payload trimming existed: `npm run trim-events` (dry run; `--yes --backup` with the dashboard stopped)
 - Token repair: `npm run repair-tokens` — one-time re-derivation of token totals inflated before usage was reconciled per `message.id` (the dashboard also runs this automatically once per database; `DASHBOARD_TOKEN_REPAIR=0` opts out)

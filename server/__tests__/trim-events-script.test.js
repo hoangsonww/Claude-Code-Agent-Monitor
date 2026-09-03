@@ -18,10 +18,12 @@ const SCRIPT = path.join(__dirname, "..", "..", "scripts", "trim-events.js");
 const DB_PATH = path.join(os.tmpdir(), `trim-events-test-${Date.now()}-${process.pid}.db`);
 
 function run(...flags) {
-  const res = spawnSync(process.execPath, [SCRIPT, ...flags], {
-    env: { ...process.env, DASHBOARD_DB_PATH: DB_PATH },
-    encoding: "utf8",
-  });
+  // Hermetic: the caps and env-file location of the developer's shell must
+  // not steer the asserts.
+  const env = { ...process.env, DASHBOARD_DB_PATH: DB_PATH, DASHBOARD_ENV_PATH: "/dev/null" };
+  delete env.DASHBOARD_EVENT_STRING_CAP;
+  delete env.DASHBOARD_EVENT_FIELD_CAP;
+  const res = spawnSync(process.execPath, [SCRIPT, ...flags], { env, encoding: "utf8" });
   return { code: res.status, out: `${res.stdout}\n${res.stderr}` };
 }
 
@@ -50,10 +52,17 @@ describe("scripts/trim-events.js", () => {
     insert.run(JSON.stringify({ tool_name: "Bash", tool_response: { stdout: "x".repeat(5000) } }));
     insert.run("not json");
     insert.run(null);
+    // More trimmable rows than one batch holds, so the sweep has to continue.
+    for (let i = 0; i < 250; i++) {
+      insert.run(
+        JSON.stringify({ tool_name: "Bash", tool_response: { stdout: "z".repeat(3000) } })
+      );
+    }
     db.close();
   });
 
   after(() => {
+    fs.rmSync(path.join(path.dirname(DB_PATH), "backups"), { recursive: true, force: true });
     for (const suffix of ["", "-wal", "-shm"]) {
       try {
         fs.unlinkSync(DB_PATH + suffix);
@@ -67,16 +76,22 @@ describe("scripts/trim-events.js", () => {
     const before = rows();
     const { code, out } = run();
     assert.equal(code, 0, out);
-    assert.match(out, /rows to rewrite: 2/);
+    assert.match(out, /rows to rewrite: 252/);
     assert.match(out, /DRY RUN/);
+    assert.equal(fs.existsSync(path.join(path.dirname(DB_PATH), "backups")), false);
     assert.deepEqual(rows(), before);
   });
 
   it("--yes rewrites only the rows that change, then a re-run is a no-op", () => {
-    const first = run("--yes");
+    const first = run("--yes", "--backup");
     assert.equal(first.code, 0, first.out);
-    assert.match(first.out, /Rewrote 2 row\(s\)/);
+    assert.match(first.out, /Rewrote 252 row\(s\)/);
+    const backupMatch = /Backup written: (.+)/.exec(first.out);
+    assert.ok(backupMatch, "backup path printed");
+    assert.ok(fs.existsSync(backupMatch[1].trim()), "backup file exists");
     const after = rows();
+    assert.equal(after.length, 255);
+    assert.match(JSON.parse(after[254].data).tool_response.stdout, /trimmed 952 more chars/);
     assert.equal(JSON.parse(after[0].data).tool_response.stdout, "fine");
     const edit = JSON.parse(after[1].data);
     assert.equal(edit.tool_response.originalFile, undefined);

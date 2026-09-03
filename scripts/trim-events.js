@@ -18,11 +18,24 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+// Same .env the server reads, so the sweep resolves the same database and
+// applies the same caps as live ingestion.
+require("../server/lib/dotenv").loadDotEnv();
+
 const fs = require("fs");
 const path = require("path");
-const Database = require("better-sqlite3");
 const { getDataDir } = require("../server/lib/claude-home");
 const { trimHookPayload } = require("../server/lib/event-payload");
+
+// Same driver choice as server/db.js: better-sqlite3 when its native addon
+// loads, else the node:sqlite shim (which ignores the readonly option).
+let Database;
+try {
+  Database = require("better-sqlite3");
+  new Database(":memory:").close();
+} catch {
+  Database = require("../server/compat-sqlite");
+}
 
 const args = new Set(process.argv.slice(2));
 const CONFIRMED = args.has("--yes") || args.has("-y");
@@ -42,6 +55,8 @@ if (!fs.existsSync(DB_PATH)) {
 const db = new Database(DB_PATH, { readonly: !CONFIRMED });
 db.pragma("busy_timeout = 5000");
 const sizeBefore = fs.statSync(DB_PATH).size;
+const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
+console.log(`Database: ${DB_PATH} (${mb(sizeBefore)})${CONFIRMED ? "" : " — dry run"}`);
 
 if (CONFIRMED && BACKUP) {
   const backupDir = path.join(path.dirname(DB_PATH), "backups");
@@ -68,7 +83,6 @@ let written = 0;
 let bytesBefore = 0;
 let bytesAfter = 0;
 let lastId = 0;
-const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
 
 try {
   for (;;) {
@@ -109,7 +123,6 @@ try {
 }
 
 console.log("");
-console.log(`Database: ${DB_PATH} (${mb(sizeBefore)})`);
 console.log(
   `Rows scanned: ${scanned.toLocaleString()}  rows to rewrite: ${changed.toLocaleString()}`
 );

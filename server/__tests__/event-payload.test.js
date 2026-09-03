@@ -15,6 +15,9 @@ const http = require("http");
 const TEST_DB = path.join(os.tmpdir(), `dashboard-trim-test-${Date.now()}-${process.pid}.db`);
 process.env.DASHBOARD_DB_PATH = TEST_DB;
 process.env.DASHBOARD_LIVENESS_PROBE = "0";
+// The caps are read per call; an operator's shell must not steer the asserts.
+delete process.env.DASHBOARD_EVENT_STRING_CAP;
+delete process.env.DASHBOARD_EVENT_FIELD_CAP;
 
 const { trimHookPayload } = require("../lib/event-payload");
 const { createApp, startServer } = require("../index");
@@ -183,6 +186,26 @@ describe("trimHookPayload", () => {
     assert.equal(trimHookPayload(first, { stringCap: 2048 }), first);
     assert.match(first.tool_response.stdout, /… \[trimmed 952 more chars\]$/);
     assert.equal(first._trimmed.strings, 2);
+  });
+
+  it("re-cuts an already-trimmed string only under a lower cap, carrying the count", () => {
+    const first = trimHookPayload({ tool_response: { s: "a".repeat(3000) } }, { stringCap: 2048 });
+    const lower = trimHookPayload(first, { stringCap: 1000 });
+    assert.equal(lower.tool_response.s, `${"a".repeat(1000)}… [trimmed 2000 more chars]`);
+    assert.equal(trimHookPayload(lower, { stringCap: 1000 }), lower);
+    // A user string that merely ends with the suffix pattern is still capped.
+    const authored = `${"b".repeat(5000)}… [trimmed 7 more chars]`;
+    const out = trimHookPayload({ tool_response: { s: authored } }, { stringCap: 2048 });
+    assert.equal(out.tool_response.s.length < 2100, true);
+    assert.equal(out._trimmed.strings, 1);
+  });
+
+  it("never lets a positive field cap below 2 bytes overflow", () => {
+    const out = trimHookPayload(
+      { tool_response: { big: "y".repeat(500) } },
+      { stringCap: 2048, fieldCap: 1 }
+    );
+    assert.deepEqual(out.tool_response, {});
   });
 
   it("counts the field budget exactly", () => {
