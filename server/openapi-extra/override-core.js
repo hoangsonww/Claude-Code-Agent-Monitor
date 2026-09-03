@@ -395,8 +395,12 @@ const paths = {
         "`session_id`. The server upserts the session and its main agent on first sight, " +
         "applies the appropriate lifecycle state transition, extracts token usage and " +
         "compaction signals from the transcript when present, persists an `events` row " +
-        "(storing `data` as a JSON-encoded string, trimmed of whole-file mirrors and " +
-        "over-long strings — see `DASHBOARD_EVENT_STRING_CAP`), and broadcasts a `new_event` message " +
+        "(storing `data` as a JSON-encoded string: native whole-file mirrors and top-level " +
+        "`background_tasks` are dropped, the latter's JSON byte size is recorded at " +
+        "`data._trimmed.dropped.background_tasks`, every payload string is capped by " +
+        "`DASHBOARD_EVENT_STRING_CAP`, and only whole `tool_input` / `tool_response` fields are " +
+        "capped by `DASHBOARD_EVENT_FIELD_CAP`; a zero string cap disables all trimming), and " +
+        "broadcasts a `new_event` message " +
         "over the WebSocket.\n\n" +
         "On success the response is `{ ok: true, event: { ... } }`, where `event` echoes " +
         "the normalized row that was just inserted (`session_id`, `agent_id`, `event_type`, " +

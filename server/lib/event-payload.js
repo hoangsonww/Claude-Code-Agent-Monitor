@@ -27,7 +27,11 @@ const DROP_RULES = [
   },
   { tools: ["Read"], path: ["tool_response", "file", "content"] },
   { tools: ["Read"], path: ["tool_response", "file", "base64"] },
+  // Stop / SubagentStop carry the session's whole background-task list (tens
+  // of KB per turn); nothing in the dashboard reads it. `tools: null` = any hook.
+  { tools: null, path: ["background_tasks"] },
 ];
+/** Fields that also get the whole-field byte cap. */
 const FIELDS = ["tool_input", "tool_response"];
 
 function readCap(name, fallback) {
@@ -151,34 +155,37 @@ function trimHookPayload(data, opts = {}) {
     let changes = 0;
 
     for (const { tools, path } of DROP_RULES) {
-      if (!tools.includes(data.tool_name)) continue;
-      const [field, ...rest] = path;
-      let parent = out[field];
-      for (let i = 0; i < rest.length - 1; i++)
-        parent = isPlainObject(parent) ? parent[rest[i]] : null;
-      const leaf = rest[rest.length - 1];
+      if (tools && !tools.includes(data.tool_name)) continue;
+      let parent = data;
+      for (let i = 0; i < path.length - 1; i++)
+        parent = isPlainObject(parent) ? parent[path[i]] : null;
+      const leaf = path[path.length - 1];
       if (!isPlainObject(parent) || parent[leaf] === undefined) continue;
-      // Copy the path before deleting so the caller's object stays intact.
-      out[field] = { ...out[field] };
-      let target = out[field];
-      for (let i = 0; i < rest.length - 1; i++) {
-        target[rest[i]] = { ...target[rest[i]] };
-        target = target[rest[i]];
+      // Copy the path before deleting so the caller's object stays intact
+      // (`out` is already a shallow copy of the top level).
+      let target = out;
+      for (let i = 0; i < path.length - 1; i++) {
+        target[path[i]] = { ...target[path[i]] };
+        target = target[path[i]];
       }
       trimmed.dropped[path.join(".")] = jsonBytes(target[leaf]);
       delete target[leaf];
       changes += 1;
     }
 
-    for (const field of FIELDS) {
-      if (out[field] === undefined) continue;
+    // Every string in the payload gets the cap: tool arguments and results,
+    // but also `prompt`, `last_assistant_message` and anything a future hook
+    // adds. Only the two tool fields get the whole-field byte cap.
+    for (const key of Object.keys(out)) {
+      if (key === "_trimmed") continue;
       const before = trimmed.strings;
-      out[field] = capStrings(out[field], stringCap, trimmed);
+      out[key] = capStrings(out[key], stringCap, trimmed);
       changes += trimmed.strings - before;
-      const bytes = jsonBytes(out[field]);
+      if (!FIELDS.includes(key)) continue;
+      const bytes = jsonBytes(out[key]);
       if (fieldCap > 0 && bytes > fieldCap) {
-        trimmed.replaced[field] = bytes;
-        out[field] = scalarsWithin(out[field], fieldCap);
+        trimmed.replaced[key] = bytes;
+        out[key] = scalarsWithin(out[key], fieldCap);
         changes += 1;
       }
     }

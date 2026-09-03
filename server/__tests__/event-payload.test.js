@@ -245,6 +245,48 @@ describe("trimHookPayload", () => {
     }
   });
 
+  it("drops background_tasks from any hook and records its size", () => {
+    const data = {
+      hook_event_name: "Stop",
+      session_id: "s1",
+      background_tasks: Array.from({ length: 200 }, (_, i) => ({ id: `t${i}`, status: "running" })),
+      last_assistant_message: "Done.",
+    };
+    const out = trimHookPayload(data);
+    assert.equal(out.background_tasks, undefined);
+    assert.equal(
+      out._trimmed.dropped.background_tasks,
+      JSON.stringify(data.background_tasks).length
+    );
+    assert.equal(out.last_assistant_message, "Done.");
+    assert.ok(Array.isArray(data.background_tasks), "caller's payload must stay intact");
+  });
+
+  it("caps strings outside tool_input / tool_response too", () => {
+    const data = {
+      hook_event_name: "SubagentStop",
+      session_id: "s1",
+      transcript_path: "/tmp/t.jsonl",
+      last_assistant_message: "m".repeat(5000),
+      prompt: "p".repeat(3000),
+      session_crons: [{ id: "c1", prompt: "x".repeat(4000) }],
+    };
+    const out = trimHookPayload(data);
+    assert.equal(out.session_id, "s1");
+    assert.equal(out.transcript_path, "/tmp/t.jsonl");
+    assert.equal(out.last_assistant_message, `${"m".repeat(2048)}… [trimmed 2952 more chars]`);
+    assert.equal(out.prompt, `${"p".repeat(2048)}… [trimmed 952 more chars]`);
+    assert.equal(out.session_crons[0].prompt, `${"x".repeat(2048)}… [trimmed 1952 more chars]`);
+    assert.equal(out._trimmed.strings, 3);
+    assert.equal(out._trimmed.replaced, undefined, "the field cap applies only to tool fields");
+    assert.equal(data.prompt.length, 3000, "caller's payload must stay intact");
+  });
+
+  it("leaves lifecycle payloads with only short strings untouched", () => {
+    const data = { hook_event_name: "Stop", session_id: "s1", last_assistant_message: "ok" };
+    assert.equal(trimHookPayload(data), data);
+  });
+
   it("stores payloads untouched when the string cap is 0", () => {
     const data = { tool_response: { originalFile: "q".repeat(5000) } };
     assert.equal(trimHookPayload(data, { stringCap: 0 }), data);
