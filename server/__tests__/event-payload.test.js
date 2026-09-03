@@ -246,20 +246,27 @@ describe("trimHookPayload", () => {
   });
 
   it("drops background_tasks from any hook and records its size", () => {
-    const data = {
-      hook_event_name: "Stop",
-      session_id: "s1",
-      background_tasks: Array.from({ length: 200 }, (_, i) => ({ id: `t${i}`, status: "running" })),
-      last_assistant_message: "Done.",
-    };
-    const out = trimHookPayload(data);
-    assert.equal(out.background_tasks, undefined);
-    assert.equal(
-      out._trimmed.dropped.background_tasks,
-      JSON.stringify(data.background_tasks).length
-    );
-    assert.equal(out.last_assistant_message, "Done.");
-    assert.ok(Array.isArray(data.background_tasks), "caller's payload must stay intact");
+    for (const hook of ["Stop", "SubagentStop", "PostToolUse"]) {
+      const data = {
+        hook_event_name: hook,
+        session_id: "s1",
+        tool_name: hook === "PostToolUse" ? "Bash" : undefined,
+        background_tasks: Array.from({ length: 200 }, (_, i) => ({
+          id: `t${i}`,
+          status: "running",
+        })),
+        last_assistant_message: "Done.",
+      };
+      const out = trimHookPayload(data);
+      assert.equal(out.background_tasks, undefined, hook);
+      assert.equal(
+        out._trimmed.dropped.background_tasks,
+        JSON.stringify(data.background_tasks).length,
+        hook
+      );
+      assert.equal(out.last_assistant_message, "Done.");
+      assert.ok(Array.isArray(data.background_tasks), "caller's payload must stay intact");
+    }
   });
 
   it("caps strings outside tool_input / tool_response too", () => {
