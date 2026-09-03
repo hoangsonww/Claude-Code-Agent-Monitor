@@ -26,7 +26,9 @@ function loadDotEnv() {
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
-    if (!process.env[key]) {
+    // Only fill variables that are genuinely absent: a value set to "" in the
+    // environment is a deliberate choice and must not be replaced by the file.
+    if (!Object.hasOwn(process.env, key)) {
       process.env[key] = val.replace(/^~(?=\/)/, os.homedir());
     }
   }

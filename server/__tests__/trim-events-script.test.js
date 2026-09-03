@@ -104,6 +104,23 @@ describe("scripts/trim-events.js", () => {
     }
   });
 
+  it("a variable explicitly set to an empty string is not replaced from .env", () => {
+    const envFile = `${DB_PATH}.env`;
+    fs.writeFileSync(envFile, `DASHBOARD_DB_PATH=${DB_PATH}\nDASHBOARD_EVENT_STRING_CAP=4000\n`);
+    try {
+      const env = { ...process.env, DASHBOARD_ENV_PATH: envFile, DASHBOARD_EVENT_STRING_CAP: "" };
+      delete env.DASHBOARD_DB_PATH;
+      delete env.DASHBOARD_EVENT_FIELD_CAP;
+      const res = spawnSync(process.execPath, [SCRIPT], { env, encoding: "utf8" });
+      assert.equal(res.status, 0, res.stderr);
+      // "" means "use the default cap" (2048), under which all 252 rows change;
+      // the file's 4000 would have left the 3000-char rows alone.
+      assert.match(`${res.stdout}`, /rows to rewrite: 252/);
+    } finally {
+      fs.unlinkSync(envFile);
+    }
+  });
+
   it("--yes rewrites only the rows that change, then a re-run is a no-op", () => {
     const first = run("--yes", "--backup");
     assert.equal(first.code, 0, first.out);
