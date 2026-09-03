@@ -411,6 +411,16 @@ try {
 }
 db.prepare("CREATE INDEX IF NOT EXISTS idx_agents_workflow ON agents(workflow_run_id)").run();
 
+// POST /api/hooks/ingest-batch dedups each tool_event/turn against events by
+// (session_id, event_type, json_extract(data,'$.uuid')) — without this, that
+// lookup falls back to a per-session scan re-evaluating json_extract() on
+// every row for every batch item. Expression index mirrors the query exactly,
+// so it's actually usable by SQLite's planner (a plain column index wouldn't
+// match a json_extract() predicate).
+db.prepare(
+  "CREATE INDEX IF NOT EXISTS idx_events_session_type_uuid ON events(session_id, event_type, json_extract(data, '$.uuid'))"
+).run();
+
 // Migrate: add the 1h-ephemeral cache-write rate column to model_pricing.
 // Older DBs predate the 5m/1h cache-write split. ADD COLUMN defaults every
 // existing row to 0, which is not a realistic rate — so immediately backfill a

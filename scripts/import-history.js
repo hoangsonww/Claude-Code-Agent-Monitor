@@ -876,6 +876,19 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
   const targetAgentId = liveSub ? liveSub.id : synthSub ? synthSub.id : jsonlSubId;
   const existingJsonl = stmts.getAgent.get(jsonlSubId);
 
+  // A synth row is stamped with its INGEST time (when the SubagentStop fallback
+  // ran), not the subagent's real run time — the transcript wasn't readable yet,
+  // so there was nothing truer to use. Now that it is, backfill the real
+  // started_at/ended_at from the transcript, or the row keeps showing a
+  // near-zero (ingest-to-ingest) duration forever.
+  if (!liveSub && synthSub && subData.startedAt && subData.endedAt) {
+    db.prepare("UPDATE agents SET started_at = ?, ended_at = ? WHERE id = ?").run(
+      subData.startedAt,
+      subData.endedAt,
+      synthSub.id
+    );
+  }
+
   const subName = subData.agentType ? subData.agentType : `Subagent ${subData.agentId.slice(0, 8)}`;
   // This subagent's OWN token usage, so the UI can price it independently of the
   // session total (which would otherwise be shown on every card, misleadingly).

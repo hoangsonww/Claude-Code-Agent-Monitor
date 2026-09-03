@@ -404,6 +404,63 @@ describe("importSubagentFromJsonl — event attribution", () => {
       }
     }
   });
+
+  it("merging into a synth row backfills the real started_at/ended_at from the transcript", async () => {
+    const tmpFile = path.join(os.tmpdir(), `agent-synth-ts-${Date.now()}-${process.pid}.jsonl`);
+    writeSubagentJsonl(tmpFile, buildSubagentLines("synth-timed"));
+    writeMetaJson(tmpFile.replace(/\.jsonl$/, ".meta.json"), "synth-timed");
+
+    try {
+      const data = await importHistory.parseSubagentFile(tmpFile);
+
+      // Pre-seed a synth row (SubagentStop fallback in routes/hooks.js) as it
+      // would exist BEFORE the transcript was readable: stamped at ingest time,
+      // not the subagent's real run time.
+      const synthId = `${sessionId}-sub-${data.agentId}`;
+      stmts.insertAgent.run(
+        synthId,
+        sessionId,
+        "synth-timed",
+        "subagent",
+        "synth-timed",
+        "completed",
+        null,
+        mainAgentId,
+        null
+      );
+      const before = stmts.getAgent.get(synthId);
+      assert.notEqual(
+        before.started_at,
+        data.startedAt,
+        "sanity: synth row starts with an ingest timestamp, not the transcript's"
+      );
+
+      importHistory.importSubagentFromJsonl(dbModule, sessionId, mainAgentId, data);
+
+      const after = stmts.getAgent.get(synthId);
+      assert.equal(
+        after.started_at,
+        data.startedAt,
+        "started_at should be backfilled from the transcript"
+      );
+      assert.equal(
+        after.ended_at,
+        data.endedAt,
+        "ended_at should be backfilled from the transcript"
+      );
+
+      // No parallel JSONL-keyed row should have been created — events merge
+      // into the synth row, same contract as the live-subagent merge case.
+      assert.equal(stmts.getAgent.get(`${sessionId}-jsonl-${data.agentId}`), undefined);
+    } finally {
+      fs.unlinkSync(tmpFile);
+      try {
+        fs.unlinkSync(tmpFile.replace(/\.jsonl$/, ".meta.json"));
+      } catch {
+        /* ignore */
+      }
+    }
+  });
 });
 
 // ── Per-subagent model token attribution (issue #185) ──────────────────

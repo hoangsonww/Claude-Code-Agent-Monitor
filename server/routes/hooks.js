@@ -1297,6 +1297,15 @@ router.post("/event", (req, res) => {
 //     totals elsewhere in this contract — so it is a straight replace: a
 //     re-posted batch is idempotent, and other metadata keys are preserved
 //     (merged into the existing parsed object, never clobbered wholesale).
+// Hard cap per array, per batch. A well-behaved forwarder posts once per
+// session lifecycle worth of accumulated facts (dozens to low hundreds of
+// tool events for a typical session) — an array in the thousands signals a
+// misbehaving/looping caller, not legitimate backlog, and every extra item
+// costs one more (now-indexed, but still real) dedup lookup inside the
+// transaction. Rejecting the whole batch (not silently truncating) matches
+// this route's existing "hard per-batch check" style above.
+const MAX_BATCH_ITEMS = 2000;
+
 router.post("/ingest-batch", (req, res) => {
   const body = req.body || {};
   const sessionId = body.session_id;
@@ -1398,6 +1407,22 @@ router.post("/ingest-batch", (req, res) => {
   }
   const mainAgentId = mainAgent.id;
 
+  for (const [kind, arr] of [
+    ["tokens", body.tokens],
+    ["tool_events", body.tool_events],
+    ["turns", body.turns],
+    ["subagents", body.subagents],
+  ]) {
+    if (Array.isArray(arr) && arr.length > MAX_BATCH_ITEMS) {
+      return res.status(400).json({
+        error: {
+          code: "BATCH_TOO_LARGE",
+          message: `${kind} has ${arr.length} items, exceeding the ${MAX_BATCH_ITEMS}-item limit per batch — split into multiple requests`,
+        },
+      });
+    }
+  }
+
   // ── Validate items before the transaction (per-item soft-fail) ──────────
   const errors = [];
   const validTokens = [];
@@ -1438,6 +1463,16 @@ router.post("/ingest-batch", (req, res) => {
 
   let written = 0;
 
+  // Broadcasts are collected here and flushed only AFTER runBatch() commits
+  // successfully. Calling the real broadcast() from inside the transaction
+  // would fire it before a later statement in the same batch can still throw
+  // and roll everything back — clients would then see data (via the socket
+  // push) that was never actually persisted. queueBroadcast has the same
+  // (type, payload) signature as broadcast(), so every call site below is an
+  // otherwise-unchanged drop-in swap.
+  const pendingBroadcasts = [];
+  const queueBroadcast = (type, payload) => pendingBroadcasts.push([type, payload]);
+
   const runBatch = db.transaction(() => {
     // Model sync — same prepared statement + last-write-wins semantics as the
     // transcript-driven `latestModel` write above; a no-op (no broadcast)
@@ -1445,7 +1480,7 @@ router.post("/ingest-batch", (req, res) => {
     if (typeof body.model === "string" && body.model) {
       const upd = stmts.updateSessionModel.run(body.model, sessionId, body.model);
       if (upd.changes > 0) {
-        broadcast("session_updated", stmts.getSession.get(sessionId));
+        queueBroadcast("session_updated", stmts.getSession.get(sessionId));
       }
     }
 
@@ -1518,7 +1553,7 @@ router.post("/ingest-batch", (req, res) => {
         `Tool ${status}: ${toolName || "unknown"}`,
         JSON.stringify({ uuid: e.uuid, status, timestamp: e.timestamp || null })
       );
-      broadcast("new_event", {
+      queueBroadcast("new_event", {
         session_id: sessionId,
         agent_id: agentId,
         event_type: "ToolEvent",
@@ -1546,7 +1581,7 @@ router.post("/ingest-batch", (req, res) => {
         summary,
         JSON.stringify({ durationMs, uuid: t.uuid })
       );
-      broadcast("new_event", {
+      queueBroadcast("new_event", {
         session_id: sessionId,
         agent_id: mainAgentId,
         event_type: "TurnDuration",
@@ -1598,7 +1633,7 @@ router.post("/ingest-batch", (req, res) => {
       // synthesized subagent shows as completed with a real (if approximate)
       // duration instead of an open-ended one.
       stmts.updateAgent.run(null, null, null, null, new Date().toISOString(), null, subId);
-      broadcast("agent_created", stmts.getAgent.get(subId));
+      queueBroadcast("agent_created", stmts.getAgent.get(subId));
       written++;
     }
 
@@ -1624,6 +1659,10 @@ router.post("/ingest-batch", (req, res) => {
       },
     });
   }
+
+  // Only reachable once runBatch() has actually committed — safe to tell
+  // clients about state that now genuinely exists in the database.
+  for (const [type, payload] of pendingBroadcasts) broadcast(type, payload);
 
   res.json({ ok: true, written, failed: errors.length, errors });
 });
