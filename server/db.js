@@ -1560,8 +1560,15 @@ const stmts = {
   listEventsBySession: db.prepare(
     "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC, id DESC"
   ),
+  // Task progress reads `data` only from TaskCreated / TaskCompleted rows;
+  // lifecycle rows act purely as owner boundaries (see observationFromEvent
+  // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
+  // (background_tasks, last_assistant_message), so return them as NULL
+  // instead of shipping and parsing them on every list call.
   listTaskEventsBySession: db.prepare(
-    `SELECT * FROM events
+    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+     FROM events
      WHERE session_id = ? AND event_type IN (
        'TaskCreated', 'TaskCompleted',
        'UserPromptSubmit', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'

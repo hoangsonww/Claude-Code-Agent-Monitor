@@ -645,7 +645,7 @@ flowchart LR
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 或 `~/.codex` | 可选的本地 Codex 状态目录。在设置中保存新位置会持久化此仪表盘专用覆盖、重新启用实时监视，并立即扫描新的 `sessions/` 树。 |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | 仅追加 Codex rollout 的安全兜底轮询间隔（毫秒）。Codex Hook 会立即触发同一个增量采集器；设为 `0` 仅禁用轮询，在可用时仍保留文件系统监听器。 |
 | `DASHBOARD_CODEX_HOOK_IDLE_SECONDS` | `60` | **仅靠 hook** 的 Codex 会话（运行时未将 rollout 写入磁盘，如 `codex exec --ephemeral`）在已报告结束的回合迟迟得不到响应时，可等待多久才判定其 `SessionEnd` hook 已丢失。只有 `awaiting_reason` 为 `stop` 的会话才符合条件：Codex 会在 `Stop` 之后几百毫秒内发送 `SessionEnd`，因此无人应答的 `Stop` 是真实证据。静默被刻意排除在触发条件之外——没有 rollout 的运行在整个工具调用期间完全不发出 hook，基于空闲时间的规则会误将正在运行的 CI 构建判定为已完成 |
-| `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，若无此下限，一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）会导致每个请求都完整重新解析数 MB 的活跃转录。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 恢复每次变更立即重新解析 |
+| `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，增长的转录会从其最后一条完整 JSONL 行开始增量解析，而此下限仍会把一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）合并为一次解析。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 则每次追加都立即解析 |
 | `DASHBOARD_REMOTE_SYNC_MS` | `15000` | **远程数据源**后台同步的间隔（毫秒），会独立拉取每个已启用远程的 `~/.claude/projects` 和 `~/.codex/sessions`（另含 Codex 的轻量 `session_index.jsonl` 标题索引），再分别通过本地导入器重新导入。新增或重新启用数据源时也会立即同步一次。设为 `0` 可禁用远程源轮询 |
 | `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` | `600000`（10 分钟） | **远程数据源**会话实时状态的新鲜度窗口。每次同步时，若远程 Claude Code 或 Codex 会话对应镜像 transcript 的 **JSONL 最后事件**在此窗口内，仍视为运行中（`active`）；镜像停止推进超过该时长后，会话会被协调为 `completed`。远程会话不接收实时 Hook，因此按 provider 的镜像协调取代本地 liveness；失败、缺失或卡住的 provider 镜像会回退到常规 stale 扫描。链路较慢或空闲回合很长时可调大 |
 | `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 每个远程源 `scp` 的超时时间 |

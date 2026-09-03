@@ -142,7 +142,7 @@ returns the same optional field.
 | `sources` | string | - | Comma-separated data-source ids to include (the built-in local history is `local`; remote SSH machines use their `remote_sources.id`). Omit for all sources. Also accepted on `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`, and `/api/pricing/cost`. See [Remote Data Sources](#remote-data-sources) |
 | `providers` | string | - | Comma-separated product providers: `claude`, `codex`, or both. It composes with `sources` and is accepted by the scoped list, aggregate, facet, per-session detail, cost, and workflow routes. Codex workflow responses include its recorded `response_item` tool calls, token/model totals, and `context_compacted` events; only Claude Code's Workflow-tool run journals are unavailable for Codex. |
 | `include_transient` | boolean | `false` | Opt in to local, in-memory Codex startup cards before Codex exposes a stable session ID. On `/api/sessions`, this is honored only on the first page when `status` is absent or `active`; on `/api/agents`, only on the first `status=waiting` page without `session_id`. These cards are prepended without changing durable `total`, pagination, analytics, pricing, workflows, alerts, or history. |
-| `include_task_progress` | boolean | `false` | Attach nullable `todo_summary` values for the latest top-level work item to at most the first 100 returned rows. A new Claude human turn or Codex task that emits no tracker clears older state; a turn/task ending without a final update drops unfinished state. Fully completed history remains available. Each transcript scan reads only the newest 32 MiB and each summary includes at most five preview tasks. Rows after the enrichment cap omit the field. |
+| `include_task_progress` | boolean | `false` | Attach nullable `todo_summary` values for the latest top-level work item to at most the first 100 returned rows. A new Claude human turn or Codex task that emits no tracker clears older state; a turn/task ending without a final update drops unfinished state. Fully completed history remains available. Each transcript is read 32 MiB deep on first contact and incrementally after that, starting over with a fresh 32 MiB scan if it grew by more than that since the last read (state covers its newest 32 MiB), and each summary includes at most five preview tasks. Rows after the enrichment cap omit the field. |
 
 **Example Request:**
 
@@ -256,7 +256,7 @@ not count as human turns. Claude turn-end records and Codex `task_complete` / `t
 discard owner snapshots that still contain unfinished work, while fully completed/cancelled snapshots
 remain as history. Persisted Claude prompt/stop/session lifecycle events apply those boundaries even
 when the corresponding transcript marker has not flushed yet, so an immediate live refetch returns
-the latest state. The parser scans only the newest 32 MiB of each transcript at a complete-line
+the latest state. The parser reads the newest 32 MiB of each transcript on first contact, then only what was appended since the last complete line, starting over if more than 32 MiB arrived since the last read (state covers the newest 32 MiB), at a complete-line
 boundary, and the full snapshot contains at most 200 task rows.
 `GET /api/sessions?include_task_progress=true` exposes the nullable `todo_summary` counterpart
 for list rows, including at most five preview tasks and enriching at most 100 returned rows.

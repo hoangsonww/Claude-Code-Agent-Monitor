@@ -387,7 +387,7 @@ Implemented in [`src/pages/Dashboard.tsx`](src/pages/Dashboard.tsx) and
 [`src/pages/Sessions.tsx`](src/pages/Sessions.tsx).
 
 `session_updated` fires on essentially every hook event of every active session, and the list requests it
-triggers are expensive server-side (`include_task_progress` re-parses live transcripts). Both pages therefore
+triggers are expensive server-side (`include_task_progress` reads live transcripts incrementally, coalesced by a serve-stale window). Both pages therefore
 collapse WebSocket-driven reloads through a **2 s trailing throttle** rather than reloading per frame —
 Sessions previously reloaded un-debounced and Dashboard on a 300 ms debounce, which together produced a
 continuous parse storm with a few chatty sessions and one open tab. The trailing call keeps the list current,
