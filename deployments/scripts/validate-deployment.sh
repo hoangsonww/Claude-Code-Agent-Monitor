@@ -82,10 +82,18 @@ record_finding() {
 }
 
 # Runs one validator in a subshell so a `fatal` inside it ends only that check.
+#
+# The subshell MUST NOT sit in an `if` condition: bash suspends errexit for the
+# whole condition context, and an explicit `set -e` inside the subshell does not
+# re-arm it there. A failing `docker build --check` or `helm lint --strict`
+# would then be masked by the next successful command and the check recorded as
+# passed. Running it as a plain command and reading `$?` keeps errexit live, so
+# the subshell aborts at the first failing command.
 run_check() {
   local name="$1" fn="$2" out status detail
   out="$(mktemp)"
-  if ( set -uo pipefail; "$fn" ) >"$out" 2>&1; then status=0; else status=$?; fi
+  ( set -euo pipefail; "$fn" ) >"$out" 2>&1
+  status=$?
   group_start "$name"
   cat "$out"
   group_end

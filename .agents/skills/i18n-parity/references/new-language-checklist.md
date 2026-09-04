@@ -189,6 +189,6 @@ Any English paragraph under a translated heading is a missing
 `wiki/i18n-content.js` entry; an English switcher label with a translated page
 is a missing `languageLabels` entry.
 
-Finally, run the the `update-project-docs` skill (`.claude/skills/update-project-docs/SKILL.md`)
+Finally, run the `update-project-docs` (`.claude/skills/update-project-docs/SKILL.md`)
 skill — a new language is a user-facing feature and belongs in the feature
 tables and the wiki's own feature list.

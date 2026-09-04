@@ -43,7 +43,7 @@ section() {
   echo "── $1"
 }
 
-I18N_INDEX="client/src/i18n/index.ts"
+export I18N_INDEX="client/src/i18n/index.ts"
 LOCALES_DIR="client/src/i18n/locales"
 
 # ── Supported languages (source of truth) ───────────────────────────────────
@@ -148,8 +148,24 @@ section "Surface 4 — language switchers and registration"
 
 for xx in $LOCALES; do
   has "$I18N_INDEX" "\"$xx\"" "$I18N_INDEX: '$xx' not in supportedLngs/ns registration"
-  if ! grep -qE "^      $xx: \{" "$I18N_INDEX"; then
+  # A locale can ship every JSON file and still omit a namespace from its
+  # `resources` block; i18next then serves the English fallback for it silently.
+  missing_ns=$(
+    XX="$xx" NS="$EN_NS" node -e '
+      const fs = require("fs");
+      const src = fs.readFileSync(process.env.I18N_INDEX || "client/src/i18n/index.ts", "utf8");
+      const xx = process.env.XX;
+      const block = src.match(new RegExp(`\\n {6}${xx}: \\{([\\s\\S]*?)\\n {6}\\}`));
+      if (!block) { console.log("__NOBLOCK__"); process.exit(0); }
+      const declared = new Set([...block[1].matchAll(/^\s*([A-Za-z0-9_]+):/gm)].map((m) => m[1]));
+      const wanted = process.env.NS.split("\n").filter(Boolean).map((f) => f.replace(/\.json$/, ""));
+      console.log(wanted.filter((n) => !declared.has(n)).join(" "));
+    ' 2>/dev/null
+  )
+  if [ "$missing_ns" = "__NOBLOCK__" ]; then
     fail "$I18N_INDEX: no resources.$xx bundle"
+  elif [ -n "${missing_ns// /}" ]; then
+    fail "$I18N_INDEX: resources.$xx does not register namespace(s): $missing_ns"
   else
     ok
   fi
@@ -282,13 +298,18 @@ for xx in $NON_EN; do
   ok
   READMES="$READMES $f"
 
-  # Structural mirror: same number of markdown headings as the English source.
+  # Structural mirror. A mirror with FEWER headings than English has dropped
+  # sections — the exact truncation this gate exists to catch — so that
+  # direction is rejected outright. A small surplus is legitimate (a locale may
+  # split a section for readability), but a large one means the files have
+  # diverged rather than mirrored.
   en_h=$(grep -c '^#\{1,6\} ' README.md)
   xx_h=$(grep -c '^#\{1,6\} ' "$f")
-  lo=$((en_h * 90 / 100))
   hi=$((en_h * 115 / 100))
-  if [ "$xx_h" -lt "$lo" ] || [ "$xx_h" -gt "$hi" ]; then
-    fail "$f has $xx_h headings vs $en_h in README.md — the mirror is incomplete or has drifted"
+  if [ "$xx_h" -lt "$en_h" ]; then
+    fail "$f has $xx_h headings vs $en_h in README.md — the mirror is missing $((en_h - xx_h)) section(s)"
+  elif [ "$xx_h" -gt "$hi" ]; then
+    fail "$f has $xx_h headings vs $en_h in README.md — the mirror has diverged from the English structure"
   else
     ok
   fi

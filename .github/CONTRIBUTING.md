@@ -181,7 +181,8 @@ metadata). Work through the step-by-step checklist:
 
 Never translate code, commands, paths, URLs, env-var names, CLI flags,
 identifiers, brand names, Claude Code hook event names, tool names, or the
-product terms `Agent` / `Subagent`. Translate only the prose around them.
+product terms `Agent` / `Subagent` (Spanish is the deliberate exception and uses
+`agente` / `subagente`). Translate only the prose around them.
 
 Before opening the PR:
 

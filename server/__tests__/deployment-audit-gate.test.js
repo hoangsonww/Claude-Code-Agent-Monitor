@@ -220,6 +220,29 @@ describe("deployment validator exit policy", () => {
     assert.match(result.stdout, /CCAM_DEPLOY_VALIDATE_STRICT=1 — failing on 1 finding\(s\)/);
   });
 
+  it("records a validator that fails mid-function, not just on its last command", () => {
+    // Regression: run_check used to place the subshell in an `if` condition,
+    // where bash suspends errexit for the whole context (an explicit `set -e`
+    // inside the subshell does not re-arm it). A failing `docker build --check`
+    // followed by any successful command was then recorded as passed.
+    const command = `
+      source ${JSON.stringify(VALIDATOR)}
+      probe() { false; echo "unreachable"; true; }
+      run_check "probe" probe
+      printf 'FINDINGS=%s\n' "$FINDINGS"
+    `;
+    const result = spawnSync("bash", ["-c", command], {
+      cwd: ROOT,
+      env: { ...process.env, GITHUB_ACTIONS: "", GITHUB_STEP_SUMMARY: "" },
+      encoding: "utf8",
+      timeout: 15_000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /FINDINGS=1/, "the mid-function failure must be recorded");
+    assert.doesNotMatch(result.stdout, /unreachable/, "the subshell must abort at the failure");
+    assert.doesNotMatch(result.stdout, /probe: passed/);
+  });
+
   it("writes an advisory markdown table to the GitHub step summary", () => {
     const summary = path.join(
       fs.mkdtempSync(path.join(os.tmpdir(), "ccam-summary-")),

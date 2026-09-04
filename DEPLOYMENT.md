@@ -45,7 +45,7 @@ npm run deploy:validate
 
 It checks Dockerfiles, Compose profiles, Nginx syntax, Helm lint and schema rejection, every Kustomize overlay and optional component, Terraform formatting/provider validation, production dependency audits, file headers, and the one-writer invariant.
 
-**Findings are advisory.** Every check runs even when an earlier one reports something, and the script always exits `0`, so it never halts a pipeline. In GitHub Actions each finding becomes a `::warning::` annotation with its detail in a collapsed group, and a result table is appended to the job summary. Dependency advisories from `npm audit --omit=dev` are reported the same way — listed with severity, package, title, and remedy — because many resolve only through a semver-major upgrade and blocking on them stalls unrelated work.
+**Findings are advisory.** Every check runs even when an earlier one reports something, and the default invocation always exits `0`, so it never halts a pipeline (strict mode, below, is the only way it exits non-zero). In GitHub Actions each finding becomes a `::warning::` annotation with its detail in a collapsed group, and a result table is appended to the job summary. Dependency advisories from `npm audit --omit=dev` are reported the same way — listed with severity, package, title, and remedy — because many resolve only through a semver-major upgrade and blocking on them stalls unrelated work.
 
 To turn the review into a hard gate for a deliberate release check:
 

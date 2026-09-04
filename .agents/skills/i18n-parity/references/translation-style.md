@@ -16,10 +16,21 @@ most common review comment on localization PRs. This file is the tie-breaker.
 | Brand and product names | Claude Code, Codex, MCP, SQLite, Express, React, Vite, Prometheus, Grafana, Tabby |
 | Numbers with units | `~50,000 inserts/sec`, `200 KB / 63 KB gzip`, `< 5ms` |
 
-**`Agent` and `Subagent` stay as-is in every locale.** They are product
-vocabulary, not English words — `client/src/i18n/__tests__/i18n.test.ts` asserts
-this. Localize the words *around* them (`运行 Agent`, `Chạy Agent`,
-`Agent 실행`, `Ejecutar agente`).
+**`Agent` and `Subagent` are product vocabulary, not English words** — but the
+repo does not treat them identically in every locale, and
+`client/src/i18n/__tests__/i18n.test.ts` pins the actual contract:
+
+| Locale | `common:agent` | `common:subagent` |
+|---|---|---|
+| `zh` / `vi` / `ko` | `Agent` (literal) | `Subagent` (literal) |
+| `es` | `agente` | `subagente` |
+
+Spanish localizing the pair is deliberate and asserted, not drift — Spanish has
+no comfortable way to carry the bare English noun through inflected prose. So
+keep `Agent` literal in `zh`, `vi`, and `ko` (`运行 Agent`, `Chạy Agent`,
+`Agent 실행`) and follow the Spanish convention in `es` (`Ejecutar agente`).
+**If you add a locale, decide this explicitly and add its row to the test** —
+do not leave it to whichever phrasing the first translated string happens to use.
 
 A wiki block whose content is *entirely* code, identifiers, or product names
 needs no `wiki/i18n-content.js` entry — it correctly falls back to English.

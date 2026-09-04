@@ -72,7 +72,7 @@ Find what you touched in the left column and ship everything in the right column
 | Added a new namespace (new `*.json`) | Create it for every locale, then register the imports, the `resources` entry per language, and the `ns` array in `client/src/i18n/index.ts`. |
 | Added user-visible wiki text in `wiki/index.html` | Follow `.claude/rules/wiki-i18n.md`: scannable layer (the `PLAIN` selector set — `.logo-sub`, `.section-label`, `.nav-section`, `.nav-empty`, `.stat-label`, `.t-label`, `h2`/`h3`/`h4`, `th`, `.hero-desc`, plus `.nav-link` / `.hero-badge` trailing text nodes) → `T` in `wiki/script.js`; body prose (the `HTML_SEL` set — `p`, `li`, `td`, `th`, captions, `.callout-body > strong`, `.route-desc`, footer) → `wiki/i18n-content.js` keyed by whitespace-normalized `innerHTML`; new `alt`/`aria-label`/`title`/`placeholder` → `ATTRIBUTE_TRANSLATIONS`. Then bump `CACHE_NAME` in `wiki/sw.js` and the matching `?v=` query strings. |
 | Edited a section of `README.md` | Mirror the **same** edit at the corresponding section of `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four, every time. |
-| Changed behavior that the README/wiki document (env var, event type, route, CLI command, feature) | Run the the `update-project-docs` skill (`.claude/skills/update-project-docs/SKILL.md`) skill — it owns the change→docs mapping — then come back here for the translation propagation it triggers. |
+| Changed behavior that the README/wiki document (env var, event type, route, CLI command, feature) | Run the `update-project-docs` (`.claude/skills/update-project-docs/SKILL.md`) skill — it owns the change→docs mapping — then come back here for the translation propagation it triggers. |
 | Changed a documented count (plugins, skills, namespaces, languages) | The count is repeated across all five READMEs, `ARCHITECTURE.md`, `docs/*.md`, `index.html`, `wiki/index.html`, `wiki/i18n-content.js`, and asserted in `server/__tests__/plugins-marketplace.test.js`. Grep the old number repo-wide; update every hit. |
 
 ## Workflow B — adding a new language
@@ -105,8 +105,10 @@ Never translate: code inside `<code>`/backticks, commands, file and directory
 paths, URLs, env-var names, HTTP methods and status codes, CLI flags, code
 identifiers, numbers with units, brand and product names, Claude Code hook event
 names (`PreToolUse`, `Stop`, …), tool names (`Bash`, `Agent`), and the product
-terms `Agent` / `Subagent` / `Claude Code` / `MCP`. Translate only the prose
-around them. A block that is *entirely* code or identifiers needs no wiki entry —
+terms `Claude Code` and `MCP`, plus `Agent` / `Subagent` — with one deliberate
+exception: `zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal, while Spanish
+renders them `agente` / `subagente`. `client/src/i18n/__tests__/i18n.test.ts`
+asserts both halves of that contract. Translate only the prose around them. A block that is *entirely* code or identifiers needs no wiki entry —
 it correctly falls back to English.
 
 Terminology, per-locale conventions, and the shared glossary live in

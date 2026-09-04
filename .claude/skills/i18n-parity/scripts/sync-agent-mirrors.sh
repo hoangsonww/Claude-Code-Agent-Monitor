@@ -24,6 +24,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$ROOT" || exit 1
 
 MODE="${1:-write}"
+case "$MODE" in
+  write | --check) ;;
+  *)
+    printf 'usage: %s [--check]\n' "$(basename "${BASH_SOURCE[0]}")" >&2
+    printf "unsupported mode: %s\n" "$MODE" >&2
+    exit 2
+    ;;
+esac
 
 MODE="$MODE" node -e '
 const fs = require("fs");
@@ -37,8 +45,11 @@ const LINK_FIXES = [
   ["[`client/src/i18n/index.ts`](../../../client/src/i18n/index.ts)", "`client/src/i18n/index.ts`"],
   ["[`.claude/rules/wiki-i18n.md`](../../rules/wiki-i18n.md)", "`.claude/rules/wiki-i18n.md`"],
   ["[`.claude/rules/wiki-i18n.md`](../../../rules/wiki-i18n.md)", "`.claude/rules/wiki-i18n.md`"],
-  ["[`update-project-docs`](../update-project-docs/SKILL.md)", "the `update-project-docs` skill (`.claude/skills/update-project-docs/SKILL.md`)"],
-  ["[`update-project-docs`](../../update-project-docs/SKILL.md)", "the `update-project-docs` skill (`.claude/skills/update-project-docs/SKILL.md`)"],
+  // Replacements must drop straight into the surrounding sentence: the source
+  // reads "Run the [`update-project-docs`](…) skill", so the replacement carries
+  // neither a leading article nor a trailing noun.
+  ["[`update-project-docs`](../update-project-docs/SKILL.md)", "`update-project-docs` (`.claude/skills/update-project-docs/SKILL.md`)"],
+  ["[`update-project-docs`](../../update-project-docs/SKILL.md)", "`update-project-docs` (`.claude/skills/update-project-docs/SKILL.md`)"],
 ];
 
 const BANNER =
@@ -50,9 +61,13 @@ const OPENAI_YAML =
   "interface:\n" +
   "  display_name: \"i18n Parity\"\n" +
   "  short_description: \"Keep every localization surface in parity across all supported languages.\"\n" +
-  "  default_prompt: \"Use i18n-parity to propagate a content change to every supported language, or to add a new language across the dashboard keys, the wiki, the mirrored READMEs, the switchers, and locale-aware formatting.\"\n" +
+  "  default_prompt: \"Use $i18n-parity to propagate a content change to every supported language, or to add a new language across the dashboard keys, the wiki, the mirrored READMEs, the switchers, and locale-aware formatting.\"\n" +
   "policy:\n" +
-  "  allow_implicit_invocation: false\n";
+  // Read/advise workflow skill. The repo reserves `false` for write-capable
+  // plugins (see WRITE_CAPABLE in scripts/validate-agent-extensions.js), and
+  // the SKILL.md description tells agents to apply this one automatically.
+  // NOTE: no apostrophes in this node block; it is bash single-quoted.
+  "  allow_implicit_invocation: true\n";
 
 const transform = (text, isSkill) => {
   for (const [from, to] of LINK_FIXES) text = text.split(from).join(to);

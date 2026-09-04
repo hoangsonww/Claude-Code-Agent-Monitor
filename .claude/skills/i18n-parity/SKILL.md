@@ -101,8 +101,10 @@ Never translate: code inside `<code>`/backticks, commands, file and directory
 paths, URLs, env-var names, HTTP methods and status codes, CLI flags, code
 identifiers, numbers with units, brand and product names, Claude Code hook event
 names (`PreToolUse`, `Stop`, …), tool names (`Bash`, `Agent`), and the product
-terms `Agent` / `Subagent` / `Claude Code` / `MCP`. Translate only the prose
-around them. A block that is *entirely* code or identifiers needs no wiki entry —
+terms `Claude Code` and `MCP`, plus `Agent` / `Subagent` — with one deliberate
+exception: `zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal, while Spanish
+renders them `agente` / `subagente`. `client/src/i18n/__tests__/i18n.test.ts`
+asserts both halves of that contract. Translate only the prose around them. A block that is *entirely* code or identifiers needs no wiki entry —
 it correctly falls back to English.
 
 Terminology, per-locale conventions, and the shared glossary live in

@@ -50,7 +50,9 @@ audit fails on a stale mirror.
 - **Never translate** code, commands, paths, URLs, env-var names, CLI flags,
   identifiers, HTTP verbs/status codes, brand names, hook event names
   (`PreToolUse`, `Stop`, …), tool names (`Bash`, `Agent`), or the product terms
-  `Agent` / `Subagent`. Translate only the prose around them.
+  `Agent` / `Subagent` — except that Spanish deliberately renders those two as
+  `agente` / `subagente`, which `client/src/i18n/__tests__/i18n.test.ts` asserts.
+  Translate only the prose around them.
 - The root landing page `index.html` is **English-only by design** — do not add
   an i18n layer to it.
 
