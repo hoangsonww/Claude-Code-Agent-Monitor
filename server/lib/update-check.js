@@ -17,13 +17,53 @@ const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 // repo, "origin" points at the user's fork. Prefer upstream when both exist.
 const REMOTE_PRIORITY = ["upstream", "origin"];
 
+// The repository under inspection is the one named by `cwd` — always. An
+// inherited GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE silently OVERRIDES `cwd`
+// and points every command at a different repository. That is not exotic: git
+// exports these to hooks, so anything started from inside a hook inherits them.
+//
+// Only the variables that redirect which repository (or whose identity) git
+// acts on are removed. The rest of the GIT_* namespace is deliberately kept —
+// this module runs `git fetch` over the network, and dropping GIT_SSH_COMMAND,
+// GIT_ASKPASS, GIT_PROXY_COMMAND or GIT_CONFIG_GLOBAL would break users whose
+// remote access depends on them.
+const GIT_LOCATION_VARS = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+  "GIT_CEILING_DIRECTORIES",
+  "GIT_DISCOVERY_ACROSS_FILESYSTEM",
+  "GIT_AUTHOR_NAME",
+  "GIT_AUTHOR_EMAIL",
+  "GIT_AUTHOR_DATE",
+  "GIT_COMMITTER_NAME",
+  "GIT_COMMITTER_EMAIL",
+  "GIT_COMMITTER_DATE",
+];
+
+const GIT_SAFE_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !GIT_LOCATION_VARS.includes(key))
+);
+
 function execGit(cwd, args, opts = {}) {
   const timeout = opts.timeout ?? 120_000;
   return new Promise((resolve, reject) => {
     execFile(
       "git",
       args,
-      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8", windowsHide: true },
+      {
+        cwd,
+        env: GIT_SAFE_ENV,
+        timeout,
+        maxBuffer: 2_000_000,
+        encoding: "utf8",
+        windowsHide: true,
+      },
       (err, stdout) => {
         if (err) reject(err);
         else resolve(String(stdout).trim());
@@ -251,4 +291,4 @@ async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
   };
 }
 
-module.exports = { getUpdatesStatus, DEFAULT_ROOT };
+module.exports = { getUpdatesStatus, DEFAULT_ROOT, GIT_LOCATION_VARS };
