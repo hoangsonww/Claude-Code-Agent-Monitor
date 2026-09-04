@@ -18,10 +18,13 @@ page is half-translated.
 
 ## When you add or edit content in `wiki/index.html`
 
-- The scannable layer — `.section-label`, `.nav-section`, `h2/h3/h4`,
-  `.hero-desc`, `.nav-link`, `.hero-badge` — is keyed by plain text in the `T`
-  dictionary inside `wiki/script.js`. Add the new English text as a key with its
-  `zh`, `vi`, `ko`, and `es` values there.
+- The scannable layer — the `PLAIN` selector set in `wiki/script.js`
+  (`.logo-sub`, `.section-label`, `.nav-section`, `.nav-empty`, `.stat-label`,
+  `.t-label`, `.main-content h2/h3/h4/th`, `.hero-desc`) plus the `TEXTNODE_SEL`
+  trailing text nodes (`.nav-link`, `.hero-badge`) — is keyed by plain text in
+  the `T` dictionary inside `wiki/script.js`. Add the new English text as a key
+  with its `zh`, `vi`, `ko`, and `es` values there. Note `th` is matched by both
+  passes: as a label in `PLAIN` and as body content in `HTML_SEL`.
 - Body content — `.main-content p:not(.hero-desc)`, `li`, `td`, `th`,
   `.screenshot-caption`, `.callout-body > strong`, `.route-desc`, and the footer
   (`.wiki-footer .footer-note / .footer-col-title / .footer-col-links a`) — is
@@ -34,7 +37,18 @@ page is half-translated.
   `ATTRIBUTE_TRANSLATIONS` in `wiki/script.js`, and keep `META` complete for
   every locale whenever page metadata changes.
 - If you introduce a **new content container/class**, add its selector to
-  `HTML_SEL` in `wiki/script.js` so the engine translates it.
+  `HTML_SEL` (body prose) or `PLAIN` (scannable labels) in `wiki/script.js` so
+  the engine translates it at all.
+- `client/tests/wiki-i18n.test.ts` extracts `T`, `ATTRIBUTE_TRANSLATIONS`, and
+  `META` by slicing `wiki/script.js` on literal source markers (`"  const T = "`
+  … `"\n\n  const PLAIN"`, and so on). Edit *inside* those objects; renaming,
+  reordering, or re-indenting the declaration lines breaks the test.
+- The active wiki language is persisted in `localStorage["wiki-lang"]`; there is
+  no `?lang=` URL parameter. First visit falls back to a `navigator.language`
+  prefix ladder. Adding a locale therefore also means adding it to
+  `languageLabels`, to the `document.documentElement.lang` ladder in `apply()`,
+  and to that detection ladder — see
+  [`.claude/skills/i18n-parity/`](../skills/i18n-parity/SKILL.md).
 
 ## Fit the block you are writing into (length + placement)
 

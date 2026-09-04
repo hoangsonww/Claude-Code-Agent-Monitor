@@ -813,12 +813,19 @@ graph TD
   - [`.claude/rules/frontend-react.md`](./.claude/rules/frontend-react.md)
   - [`.claude/rules/mcp-typescript.md`](./.claude/rules/mcp-typescript.md)
   - [`.claude/rules/docs-markdown.md`](./.claude/rules/docs-markdown.md)
+  - [`.claude/rules/file-headers.md`](./.claude/rules/file-headers.md)
+  - [`.claude/rules/wiki-i18n.md`](./.claude/rules/wiki-i18n.md)
+  - [`.claude/rules/i18n-parity.md`](./.claude/rules/i18n-parity.md)
 - 技能：
   - `repo-onboarding`
   - `ship-feature`
   - `version-release`
   - `mcp-operations`
   - `debug-live-issue`
+  - `update-project-docs`
+  - `file-headers`
+  - `push-to-forked-pr`
+  - `i18n-parity`
 - 子 Agent：
   - `backend-reviewer`
   - `frontend-reviewer`
@@ -1837,7 +1844,7 @@ erDiagram
 
 ## 插件市场
 
-CCAM 为 Claude Code 和 Codex 提供 14 个共享插件、66 个插件技能、18 个 Claude 子 Agent、34 个 Claude 命令、3 个 CLI 工具、3 个 Hook 配置和 2 个支持 MCP 的插件。skills.sh CLI 可发现 76 个仓库技能。
+CCAM 为 Claude Code 和 Codex 提供 14 个共享插件、66 个插件技能、18 个 Claude 子 Agent、34 个 Claude 命令、3 个 CLI 工具、3 个 Hook 配置和 2 个支持 MCP 的插件。skills.sh CLI 可发现 77 个仓库技能。
 
 ### 添加市场
 
@@ -1876,7 +1883,7 @@ npx skills update --global --yes
 npx skills remove --global mcp-server --yes
 ```
 
-项目级安装使用 `.agents/skills/` 及各 Agent 的链接。Claude Code 全局技能默认位于 `~/.claude/skills/`，设置 `CLAUDE_CONFIG_DIR` 后位于其 `skills/` 子目录。Codex 全局技能默认位于 `~/.codex/skills/`，设置 `CODEX_HOME` 后位于其 `skills/` 子目录。多 Agent 安装可能通过共享存储去重，并链接到这些目标目录。skills.sh CLI 可发现 76 个仓库技能，其中包括 66 个插件技能和仓库维护技能。
+项目级安装使用 `.agents/skills/` 及各 Agent 的链接。Claude Code 全局技能默认位于 `~/.claude/skills/`，设置 `CLAUDE_CONFIG_DIR` 后位于其 `skills/` 子目录。Codex 全局技能默认位于 `~/.codex/skills/`，设置 `CODEX_HOME` 后位于其 `skills/` 子目录。多 Agent 安装可能通过共享存储去重，并链接到这些目标目录。skills.sh CLI 可发现 77 个仓库技能，其中包括 66 个插件技能和仓库维护技能。
 
 ### 可用插件
 

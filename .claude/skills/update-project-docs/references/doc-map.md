@@ -12,10 +12,10 @@ The source of truth most other docs mirror. Key sections:
 - **Hook Events table** — `| Hook Type | Trigger | Dashboard Action |`. Lists `SessionStart`…`SessionEnd`, plus synthetic `Compaction`, `APIError`, `TurnDuration`, `ToolError`, `Interrupted`. Grep `## Hook Events`.
 - **Configuration / Environment Variables table** — `| Environment Variable | Default | Description |`. Grep `DASHBOARD_PORT` or `DASHBOARD_HOST`.
 
-### `README-VN.md` / `README-CN.md` / `README-KO.md` (full translations)
-Standalone full translations of `README.md`. **Every** README change must be mirrored here at the corresponding section. Conventions:
+### `README-CN.md` / `README-VN.md` / `README-KO.md` / `README-ES.md` (full translations)
+Standalone full translations of `README.md` — zh, vi, ko, es. **Every** README change must be mirrored into **all four** at the corresponding section. Terminology, glossary, and the never-translate list live in [`.claude/skills/i18n-parity/references/translation-style.md`](../../i18n-parity/references/translation-style.md); verify with `bash .claude/skills/i18n-parity/scripts/i18n-audit.sh`. Conventions:
 - Keep in English/code: identifiers, env-var names, event-type names, `awaiting_input_since`, `pendingInterrupt`, "watchdog", `fs.watch`, model IDs, mermaid transition labels.
-- Translate prose. "Waiting" → **Đang chờ** (vi) / **等待中** (zh) / **대기 중** (ko). "watchdog" often kept; in zh sometimes 看门狗.
+- Translate prose. "Waiting" → **等待中** (zh) / **Đang chờ** (vi) / **대기 중** (ko) / **En espera** (es). "watchdog" often kept; in zh sometimes 看门狗.
 - The second (update-checker) env table exists in EN but may be absent in VN/CN — don't invent rows that aren't there.
 
 ### `ARCHITECTURE.md`

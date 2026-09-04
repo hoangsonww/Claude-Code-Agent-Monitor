@@ -124,7 +124,7 @@ C4Context
 - Never block Claude Code -- hooks fail silently with timeouts
 - Instant feedback -- WebSocket push, no polling
 - Portable -- SQLite, no external services, runs on any OS with Node.js 22.22+
-- Extensible -- 14 dual-format Claude/Codex plugins with 66 bundled skills, plus 76 skills discoverable through the skills CLI
+- Extensible -- 14 dual-format Claude/Codex plugins with 66 bundled skills, plus 77 skills discoverable through the skills CLI
 
 ---
 
@@ -1793,7 +1793,7 @@ graph TD
     S --> SKILLS
 ```
 
-The verified distribution contains **14 plugins, 66 bundled plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, 3 hook configurations, and 2 MCP-enabled plugins**. `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list` discovers **76 total repository skills** because repository-maintenance skills are included alongside plugin skills.
+The verified distribution contains **14 plugins, 66 bundled plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, 3 hook configurations, and 2 MCP-enabled plugins**. `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list` discovers **77 total repository skills** because repository-maintenance skills are included alongside plugin skills.
 
 Three focused packs extend the original analytics and governance catalog:
 
