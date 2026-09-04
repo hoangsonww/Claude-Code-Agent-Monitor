@@ -85,7 +85,7 @@ ${BOLD}Options:${NC}
 
 ${BOLD}Examples:${NC}
   $(basename "$0") --env dev --method helm
-  $(basename "$0") --env production --method helm --tag 2.1.0
+  $(basename "$0") --env production --method helm --tag 2.1.1
   $(basename "$0") --env staging --method kustomize --dry-run
 
 EOF
@@ -299,7 +299,7 @@ deploy_kustomize() {
 
   local rendered
   rendered="$(mktemp)"
-  kubectl kustomize "${overlay_dir}" | sed "s|ccam-dashboard:2.1.0|${FULL_IMAGE}|g" > "${rendered}"
+  kubectl kustomize "${overlay_dir}" | sed "s|ccam-dashboard:2.1.1|${FULL_IMAGE}|g" > "${rendered}"
   if ! kubectl apply -f "${rendered}" --server-side --field-manager=ccam-deployer; then
     rm -f "${rendered}"
     err "Kustomize deployment failed!"

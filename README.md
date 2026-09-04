@@ -784,7 +784,7 @@ API-backed commands need the server running — when it isn't, **read-only comma
 | `npm run docker:down` | Stop the dashboard container |
 | `npm run docker:full:up` | Dashboard + authenticated MCP + rootless Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | Tear down the full Docker stack |
-| `npm run deploy:validate` | Validate Docker, Compose, Nginx, Helm, Kustomize, Terraform, dependency audits, and the one-writer invariant |
+| `npm run deploy:validate` | Review Docker, Compose, Nginx, Helm, Kustomize, Terraform, dependency audits, and the one-writer invariant. Findings are advisory (exit 0); `CCAM_DEPLOY_VALIDATE_STRICT=1` turns them into a hard gate |
 
 ---
 

@@ -779,7 +779,7 @@ API 기반 명령어는 서버가 실행 중이어야 합니다 — 서버가 �
 | `npm run docker:down` | Dashboard container 중지 |
 | `npm run docker:full:up` | Dashboard + 인증 MCP + Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | 전체 container stack 중지 |
-| `npm run deploy:validate` | Docker, Compose, Nginx, Helm, Kustomize, Terraform, single-writer invariant 검증 |
+| `npm run deploy:validate` | Docker, Compose, Nginx, Helm, Kustomize, Terraform, single-writer invariant 검토. 결과는 참고용이며(종료 코드 0), `CCAM_DEPLOY_VALIDATE_STRICT=1`을 설정하면 강제 게이트가 됩니다 |
 
 ---
 

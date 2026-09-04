@@ -766,7 +766,7 @@ Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, **c�
 | `npm run docker:down` | Dừng dashboard container |
 | `npm run docker:full:up` | Dashboard + MCP có auth + Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | Dừng full container stack |
-| `npm run deploy:validate` | Kiểm tra Docker, Compose, Nginx, Helm, Kustomize, Terraform và one-writer invariant |
+| `npm run deploy:validate` | Rà soát Docker, Compose, Nginx, Helm, Kustomize, Terraform và one-writer invariant. Kết quả chỉ mang tính tham khảo (thoát 0); đặt `CCAM_DEPLOY_VALIDATE_STRICT=1` để biến thành cổng chặn |
 
 ---
 

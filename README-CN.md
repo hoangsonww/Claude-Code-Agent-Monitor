@@ -768,7 +768,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | `npm run docker:down` | 停止 Dashboard 容器 |
 | `npm run docker:full:up` | Dashboard + 认证 MCP + Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | 停止完整容器栈 |
-| `npm run deploy:validate` | 验证 Docker、Compose、Nginx、Helm、Kustomize、Terraform 与单 writer 约束 |
+| `npm run deploy:validate` | 审查 Docker、Compose、Nginx、Helm、Kustomize、Terraform 与单 writer 约束。结果仅供参考（退出码 0）；设置 `CCAM_DEPLOY_VALIDATE_STRICT=1` 可将其变为硬性门禁 |
 
 ---
 
