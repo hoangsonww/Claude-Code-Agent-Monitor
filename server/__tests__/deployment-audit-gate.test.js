@@ -55,6 +55,13 @@ printf '%s\n' "$1" >>${JSON.stringify(delays)}
       ...process.env,
       PATH: `${tmp}:${process.env.PATH}`,
       CCAM_AUDIT_RETRY_BASE_SECONDS: retryBaseSeconds,
+      // Pin the reporting mode: these tests run *inside* CI, so inheriting the
+      // real GITHUB_ACTIONS would silently move findings from stderr onto
+      // stdout as annotations, and GITHUB_STEP_SUMMARY would append to the
+      // live job summary. Cases that want Actions mode opt in via extraEnv.
+      GITHUB_ACTIONS: "",
+      GITHUB_STEP_SUMMARY: "",
+      CCAM_DEPLOY_VALIDATE_STRICT: "",
       ...extraEnv,
     },
     encoding: "utf8",
@@ -187,7 +194,15 @@ describe("deployment validator exit policy", () => {
     `;
     return spawnSync("bash", ["-c", command], {
       cwd: ROOT,
-      env: { ...process.env, ...env },
+      // Same pinning as runAuditScenario: never inherit the ambient CI
+      // reporting mode, summary path, or strict flag.
+      env: {
+        ...process.env,
+        GITHUB_ACTIONS: "",
+        GITHUB_STEP_SUMMARY: "",
+        CCAM_DEPLOY_VALIDATE_STRICT: "",
+        ...env,
+      },
       encoding: "utf8",
       timeout: 15_000,
     });
