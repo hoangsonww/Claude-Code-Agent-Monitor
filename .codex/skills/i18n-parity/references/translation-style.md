@@ -12,12 +12,19 @@ most common review comment on localization PRs. This file is the tie-breaker.
 | Env vars and CLI flags | `DASHBOARD_TOKEN_REPAIR`, `--list`, `PORT` |
 | HTTP | `GET`, `POST`, `404`, `WebSocket`, `SSE` |
 | Identifiers | function, class, table, column, and namespace names |
-| Claude Code vocabulary | hook events (`PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `Notification`), tool names (`Bash`, `Agent`, `Read`, `Edit`) |
+| Claude Code vocabulary | hook events (`PreToolUse`, `PostToolUse`, `Stop`, `SessionStart`, `Notification`), tool names (`Bash`, `Agent`, `Read`, `Edit`) — the **tool** `Agent` is an identifier and is never translated in any locale |
 | Brand and product names | Claude Code, Codex, MCP, SQLite, Express, React, Vite, Prometheus, Grafana, Tabby |
 | Numbers with units | `~50,000 inserts/sec`, `200 KB / 63 KB gzip`, `< 5ms` |
 
-**`Agent` and `Subagent` are product vocabulary, not English words** — but the
-repo does not treat them identically in every locale, and
+**Two different things are spelled `Agent`.** The Claude Code **tool** named
+`Agent` (alongside `Bash`, `Read`, `Edit`) is an identifier and stays literal in
+**every** locale, everywhere it appears — hook-event tables, tool lists, event
+names. The **UI noun** for an agent (`common:agent` / `common:subagent`) is
+product vocabulary with a per-locale contract, and only that noun has the
+Spanish exception below. Never carry the exception into the tool name.
+
+**As product vocabulary, `Agent` and `Subagent` are not ordinary English
+words** — but the repo does not treat them identically in every locale, and
 `client/src/i18n/__tests__/i18n.test.ts` pins the actual contract:
 
 | Locale | `common:agent` | `common:subagent` |

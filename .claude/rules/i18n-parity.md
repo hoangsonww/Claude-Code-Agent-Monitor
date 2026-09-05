@@ -48,11 +48,14 @@ audit fails on a stale mirror.
   end to end. A complete README mirror, every app key, and a complete wiki
   translation are all required; partial locales are not merged.
 - **Never translate** code, commands, paths, URLs, env-var names, CLI flags,
-  identifiers, HTTP verbs/status codes, brand names, hook event names
-  (`PreToolUse`, `Stop`, …), tool names (`Bash`, `Agent`), or the product terms
-  `Agent` / `Subagent` — except that Spanish deliberately renders those two as
-  `agente` / `subagente`, which `client/src/i18n/__tests__/i18n.test.ts` asserts.
-  Translate only the prose around them.
+  identifiers, HTTP verbs/status codes, numbers with units, brand names, hook
+  event names (`PreToolUse`, `Stop`, …), or Claude Code tool names (`Bash`,
+  `Agent`, `Read`, `Edit`). Translate only the prose around them.
+- **The Claude Code tool `Agent` and the UI noun "agent" are different things.**
+  The tool name is an identifier and stays literal in every locale. The UI noun
+  (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
+  deliberately `agente` / `subagente` in `es` — `i18n.test.ts` asserts both
+  halves. The Spanish exception never applies to the tool name.
 - The root landing page `index.html` is **English-only by design** — do not add
   an i18n layer to it.
 

@@ -180,9 +180,16 @@ metadata). Work through the step-by-step checklist:
 - Glossary and style: [`.claude/skills/i18n-parity/references/translation-style.md`](../.claude/skills/i18n-parity/references/translation-style.md)
 
 Never translate code, commands, paths, URLs, env-var names, CLI flags,
-identifiers, brand names, Claude Code hook event names, tool names, or the
-product terms `Agent` / `Subagent` (Spanish is the deliberate exception and uses
-`agente` / `subagente`). Translate only the prose around them.
+identifiers, HTTP methods and status codes (`GET`, `POST`, `404`), numbers with
+units, brand names, Claude Code hook event names (`PreToolUse`, `Stop`), or
+Claude Code tool names (`Bash`, `Agent`, `Read`, `Edit`). Translate only the
+prose around them.
+
+Note that the Claude Code **tool** named `Agent` and the **UI noun** for an
+agent are different things. The tool name stays literal in every locale; the UI
+noun (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
+deliberately `agente` / `subagente` in `es`. The Spanish exception never applies
+to the tool name.
 
 Before opening the PR:
 

@@ -103,13 +103,23 @@ The three things contributors most often ship incomplete, stated up front:
 
 Never translate: code inside `<code>`/backticks, commands, file and directory
 paths, URLs, env-var names, HTTP methods and status codes, CLI flags, code
-identifiers, numbers with units, brand and product names, Claude Code hook event
-names (`PreToolUse`, `Stop`, …), tool names (`Bash`, `Agent`), and the product
-terms `Claude Code` and `MCP`, plus `Agent` / `Subagent` — with one deliberate
-exception: `zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal, while Spanish
-renders them `agente` / `subagente`. `client/src/i18n/__tests__/i18n.test.ts`
-asserts both halves of that contract. Translate only the prose around them. A block that is *entirely* code or identifiers needs no wiki entry —
-it correctly falls back to English.
+identifiers, numbers with units, brand and product names (`Claude Code`, `MCP`,
+`Codex`), Claude Code hook event names (`PreToolUse`, `Stop`, …), and Claude
+Code tool names (`Bash`, `Agent`, `Read`, `Edit`). Translate only the prose
+around them. A block that is *entirely* code or identifiers needs no wiki
+entry — it correctly falls back to English.
+
+**Two different things are spelled `Agent`.** The Claude Code **tool** named
+`Agent` (alongside `Bash`, `Read`, `Edit`) is an identifier and stays literal in
+**every** locale, everywhere it appears — hook-event tables, tool lists, event
+names. The **UI noun** for an agent (`common:agent` / `common:subagent`) is
+product vocabulary with a per-locale contract, and only that noun has the
+Spanish exception below. Never carry the exception into the tool name.
+
+The UI noun's contract, asserted by `client/src/i18n/__tests__/i18n.test.ts`:
+`zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal; `es` renders them
+`agente` / `subagente`. A new locale must decide this explicitly and add its
+row to that test.
 
 Terminology, per-locale conventions, and the shared glossary live in
 [`references/translation-style.md`](references/translation-style.md). Read it
