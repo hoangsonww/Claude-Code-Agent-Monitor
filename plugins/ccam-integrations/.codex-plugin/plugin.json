@@ -1,6 +1,6 @@
 {
   "name": "ccam-integrations",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Manage CCAM alert rules, universal webhook providers, browser push notifications, and SSH Remote Data Sources with explicit mutation and external-send confirmation.",
   "author": {
     "name": "Son Nguyen",

@@ -344,7 +344,7 @@ El panel de control ofrece un conjunto completo de funciones para monitorear y a
 | **Datos de semilla**                      | Script de semilla incorporado para demostraciones y desarrollo                                                                                                                                                                                                                               |
 | **Línea de estado**                     | Línea de estado CLI codificada por color que muestra el modelo, el uso del contexto, la rama de git, los tokens por dirección y el costo de la sesión (USD)                                                                                                                                                            |
 | **Formato de nombres de modelos** | Nombres de modelos fáciles de entender para el usuario en toda la interfaz de usuario: identificadores brutos como `claude-opus-4-7-20260101` o `claude-opus-4-7[1m]` se muestran como "Claude Opus 4.7" o "Claude Opus 4.7 (1M)". Maneja las familias Claude, GPT y Gemini con uniones automáticas de puntos de versión, eliminación de sufijos de fecha/último, eliminación de prefijos del proveedor y formato de etiquetas de ventana de contexto. La página de configuración conserva los nombres brutos para la configuración de reglas de precios |
-| **Mercado de plugins Claude + Codex** | Un árbol compartido de 14 plugins incluye manifests de Claude Code y Codex, dos catálogos, 66 habilidades empaquetadas, 18 subagentes de Claude, 34 comandos de Claude y metadatos OpenAI. La CLI de skills.sh descubre 76 habilidades del repositorio con `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list`. Se instala con `claude plugin marketplace add`, `codex plugin marketplace add` o `npx skills add` |
+| **Mercado de plugins Claude + Codex** | Un árbol compartido de 14 plugins incluye manifests de Claude Code y Codex, dos catálogos, 66 habilidades empaquetadas, 18 subagentes de Claude, 34 comandos de Claude y metadatos OpenAI. La CLI de skills.sh descubre 77 habilidades del repositorio con `npx skills add hoangsonww/Claude-Code-Agent-Monitor --list`. Se instala con `claude plugin marketplace add`, `codex plugin marketplace add` o `npx skills add` |
 | **Ejecutar Claude**                     | Crear subprocesos `claude` directamente desde el panel de control con una interfaz de usuario de streaming de estilo chat. Dos modos: **Conversación** (multi-turnos — la entrada estándar se mantiene abierta, los turnos de seguimiento se envían como paquetes stream-json) y **Una vez** (sin cabeza, solo un mensaje de inicio → solo una respuesta). El modo de conversación también admite **reanudar cualquier sesión existente** a través de `claude --resume <id>` - elige entre tu historial completo de sesiones con un selector de búsqueda. El modo de historial / ejecuciones activas unificado también ofrece dos botones de salto de configuración cero: **Resumen** en cualquier fila de conversación anterior genera `claude --resume <id>` inmediatamente y siembra el chat con la transcripción anterior para que llegues a la vista en vivo con el contexto completo (no es necesario volver a escribir un mensaje de inicio de sesión, el id de generación se queda en espera en stdin hasta que envíes un seguimiento); **Ver** en cualquier fila de una sola ejecución anterior carga la transcripción capturada directamente en el visualizador de ejecuciones como de solo lectura (sin generación, mismo panel, sin controles de Detener/seguimiento). El interruptor de carreras activas en el encabezado le permite dejar una carrera en segundo plano, iniciar otra y volver a adjuntarla más tarde. Re-attach es duradero: el cliente reconcilia el registro de sobrecargas en memoria del generador (`?envelopes=1`) con la transcripción JSONL en disco de la sesión y prefiere la que tenga más mensajes de usuario/asistente, por lo que navegar lejos de una ejecución suspendida y volver mantiene visible todo el historial anterior (el generador solo ve las vueltas posteriores a la generación; el archivo de transcripción tiene anterior + actual). Desplegable de modelos (Opus 4.7 / 1M / Sonnet 4.6 / Haiku 4.5 / personalizado), seleccionador de modo de permiso con advertencia explícita de `bypassPermissions`, campo de **efecto de pensamiento** (bajo / medio / alto - conectado a `--effort`), prelleno automático de cwd prellenado con el **directorio de inicio** del usuario - una ubicación de creación neutral que no hereda el propio contexto de proyecto `.claude` del repositorio del panel de control (agentes, habilidades, reglas, `CLAUDE.md`, `.mcp.json`); se vuelve a conectar al cwd del panel de control si no hay sugerencia de inicio disponible, con el inicio listado primero en los grupos de sugerencias (inicio → panel de control → recientes). Transmisión real de personajes por personaje a través de `--include-partial-messages`, además de una **capa de suavización de máquina de escribir** del lado del cliente que gotea cada `text_delta` / `thinking_delta` a través de `requestAnimationFrame`, por lo que incluso las respuestas cortas (donde claude empaqueta toda la respuesta en uno o dos trozos) parecen escribirse. El código de fusión mantiene intacto el indicador `_streaming` y la matriz `content` acumulada en delta cuando llega el sobre `assistant` canónico de claude a mitad del flujo, por lo que los bloques de pensamiento no se pierden al finalizar. La emisión de WebSocket envuelve cada sobre en `flushSync` para que el agrupamiento automático de React no colapse los picos de deltas en una sola renderización. **Paridad TUI (Nivel 1):** un **banner de limitaciones plegable** que se minimiza a una píldora delgada (nunca desaparece) explicando lo que el modo stream-json puede y no puede hacer frente al TUI terminal; un **editor de comandos con autocompletado de comandos con guiones** con puntuación por niveles (nombre exacto → comienza con → límite de palabra → contiene → subsecuencia → contiene descripción) que enumera los comandos de usuario / proyecto / plugin (ejecutados desde el lado del cliente a través de la expansión de plantillas antes del envío) y muestra comandos de CLI integrados como `/clear`, `/model`, `/config` con un distintivo "Solo CLI, no se ejecutará desde aquí"; **referencias de archivos `@`** con búsqueda borrosa amortiguada en todo el directorio de trabajo de la ejecución (omitiendo `node_modules`, `.git`, `dist`, `build`, etc.); una **ventana de contexto en vivo / medidor de tokens** que muestra tokens de entrada + salida + lectura de caché y costo de ejecución, calculados a partir de `stream_event` y `result.usage` sobres durante la transmisión en vivo y de los bloques de `uso` del asistente finalizados (entrada / salida / lectura de caché / creación de caché) cuando se inician desde una transcripción en reiniciar / ver / volver a adjuntar, para que el medidor se llene inmediatamente en lugar de quedarse en 0/200k. La barra de progreso pasa de índigo → ámbar → rojo al 80 % / 95 % del límite de contexto del modelo; un **encabezado de estado** con el modelo activo, el esfuerzo, el modo de permiso, el directorio actual, el ID de la sesión, el número de sobres y el tiempo transcurrido. Los menús desplegables de autocompletado se abren hacia arriba para que no colisionen con el selector cwd de abajo. Indicador de en vivo / sin conexión junto al título. La guardia de origen común en la ruta evita que el navegador genere ataques de tráfico cruzado. La concurrencia no está efectivamente limitada por defecto (techo de cordura de 10000 para evitar que las pistolas de pie fork-bomb causen problemas en el cliente; la TUI terminal no tiene límite y nosotros tampoco). Establezca `RUN_MAX_CONCURRENT` si desea un techo real. Las sesiones generadas disparan los mismos ganchos que cualquier proceso `claude`, por lo que aparecen automáticamente en Sesiones / Análisis / Kanban / Flujos de trabajo, y las superficies Sesiones / Detalle de sesión muestran un distintivo / banner verde **▶ Ejecutar** que vuelve a enlazar con la página Ejecutar para cualquier sesión que se esté ejecutando actualmente desde allí |
 | **Explorador de Configuración de Claude** | Un inspector de 12 pestañas en `/cc-config` para todo lo que Claude Code sabe sobre: habilidades, subagentes, comandos de guión, estilos de salida, complementos (con el conteo de contribuciones por complemento + autor/licencia/Página de inicio de `plugin.json`), mercados (con el conteo de complementos leído de cada `marketplace.json`), servidores MCP, ganchos (con la lista de scripts `~/.claude/hooks/`), configuraciones (un resumen de **Configuración actual** a un vistazo de las opciones que controlan los controles `/config` — modelo, verbose, tema, estilo de salida, esfuerzo, compactación automática, notificaciones, ... — resueltas en los ámbitos de usuario/proyecto/proyecto local con opciones no establecidas mostradas como predeterminadas, además de la vista estructurada de clave-valor por archivo + interruptor JSON bruto, redacción de clave secreta), memoria (los archivos `CLAUDE.md` del usuario + proyecto **más** el almacenamiento de memoria basado en archivos por proyecto — cada `*.md` inferior a `~/.claude/projects/<slug>/memory/`, es decir, un índice `MEMORY.md` más un archivo por hecho recordado, a menudo más de 100; agrupados por proyecto en secciones colapsables que dividen los archivos de índice de los archivos por hecho, con una caja de búsqueda y enlaces de índice `MEMORY.md` interactivos que saltan a — desplazar hacia arriba + resaltar — el archivo de hecho correspondiente), atajos de teclado (agrupados por contexto con chips `<kbd>`) y línea de estado (configuración + contenido del script). Para superficies de archivos de texto de bajo riesgo (habilidades / agentes / comandos / estilos de salida / memoria, incluidos los archivos de memoria automática por proyecto), la página admite **crear / editar / eliminar con copias de seguridad con hora y fecha obligatorias** escritas atómicamente fuera de los directorios que Claude Code escanea, además de una modalidad de Copias de seguridad con comandos de restauración `mv` construidos automáticamente. Los plugins, MCP, ganchos en la configuración y los archivos `settings.json` permanecen de solo lectura con banners explicativos + comandos CLI copiables para que el usuario sepa el comando exacto que debe ejecutar él mismo. **Actualizaciones en vivo**: un `cc-watcher` que se ejecuta en el servidor utiliza `fs.watch` en `~/.claude/` (recursivo donde la plataforma lo admite) además de `~/.claude.json`, retrasado a 500 ms, para transmitir un mensaje WebSocket `cc_config_changed` cada vez que cambian las configuraciones de Claude Code, ya sea a través de mutaciones del panel de control o herramientas externas (instalación de un complemento en la CLI, edición manual de `settings.json`, eliminación de una nueva habilidad). La página se suscribe y se vuelve a recuperar automáticamente; una píldora en vivo / sin conexión junto al título muestra el estado de WebSocket |
 | **Tabby**                          | Un compañero de gato flotante atado en la esquina inferior derecha de cada página. Construido enteramente sobre el existente WebSocket `eventBus` — **sin nuevo backend, sin clave API, sin nuevas dependencias**. Una mascota SVG reactiva con ojos que rastrean el cursor y **ocho estados de ánimo** derivados del flujo de la sesión en vivo (`idle`, `watching`, `happy`, `worried`, `stuck`, `thinking`, `sleeping`, `disconnected`), cada uno con su propia animación (golpe de cola, levantamiento de orejas, movimiento de cabeza, sacudida, brillo, zzz, alerta "!"). **Bolas de diálogo automáticas** publican chistes cortos, moderados y coalescidos sobre eventos notables (sesión iniciada/terminada, errores, ejecución completada) y se pueden silenciar. Haz clic en el gato o presiona **⌘B / Ctrl+B** (Esc cierra) para abrir un **panel** con una línea de estado en vivo (`N en vivo · M con errores · estado de conexión`), acciones rápidas (salta a Ejecutar Claude / Actividad / Sesiones / sesiones con errores, silenciar burbujas, eliminar alertas) y una casilla de **Pregunta**: las preguntas de estado simples ("¿qué está ejecutando?", "algunos errores", "estado") se responden localmente a partir de datos caché, mientras que cualquier otra pregunta se envía a la página de **Ejecutar Claude** (enlaces profundos a `/run?prompt=…`) para iniciar una sesión de Claude Code real. Accesible (operable con teclado, burbujas `aria-live`, respeta `prefers-reduced-motion`), degrada de forma segura a un estado tranquilo de `desconectado` si la conexión está rota, puede activarse o desactivarse en **Configuración** (localizado en en/zh/vi/ko/es). La implementación vive en `client/src/components/Tabby/` |
@@ -810,35 +810,42 @@ graph TD
 ### Capa de código Claude
 
 - Contexto persistente:
-- [`CLAUDE.md`](./CLAUDE.md)
+  - [`CLAUDE.md`](./CLAUDE.md)
 - Reglas de alcance de ruta:
-- [`.claude/rules/backend-node.md`](./.claude/rules/backend-node.md)
-- [`.claude/rules/frontend-react.md`](./.claude/rules/frontend-react.md)
-- [`.claude/rules/mcp-typescript.md`](./.claude/rules/mcp-typescript.md)
-- [`.claude/rules/docs-markdown.md`](./.claude/rules/docs-markdown.md)
+  - [`.claude/rules/backend-node.md`](./.claude/rules/backend-node.md)
+  - [`.claude/rules/frontend-react.md`](./.claude/rules/frontend-react.md)
+  - [`.claude/rules/mcp-typescript.md`](./.claude/rules/mcp-typescript.md)
+  - [`.claude/rules/docs-markdown.md`](./.claude/rules/docs-markdown.md)
+  - [`.claude/rules/file-headers.md`](./.claude/rules/file-headers.md)
+  - [`.claude/rules/wiki-i18n.md`](./.claude/rules/wiki-i18n.md)
+  - [`.claude/rules/i18n-parity.md`](./.claude/rules/i18n-parity.md)
 - Habilidades:
-- `repo-onboarding`
-- `característica de envío`
-- `version-release`
-- `mcp-operaciones`
-- `debug-live-issue`
+  - `repo-onboarding`
+  - `ship-feature`
+  - `version-release`
+  - `mcp-operations`
+  - `debug-live-issue`
+  - `update-project-docs`
+  - `file-headers`
+  - `push-to-forked-pr`
+  - `i18n-parity`
 - Subagentes:
-- `revisor de backend`
-- `revisor de frontend`
-- `mcp-revisor`
+  - `backend-reviewer`
+  - `frontend-reviewer`
+  - `mcp-reviewer`
 
 ### Capa del Codex
 
 - Contexto persistente:
-- [`AGENTES.md`](./AGENTES.md)
+  - [`AGENTS.md`](./AGENTS.md)
 - Política de ejecución:
-- [`.codex/rules/default.rules`](./.codex/rules/default.rules)
+  - [`.codex/rules/default.rules`](./.codex/rules/default.rules)
 - Plantillas de subagentes personalizadas:
-- [`.codex/agents/`](./.codex/agents)
+  - [`.codex/agents/`](./.codex/agents)
 - Habilidades:
-- [`.codex/skills/`](./.codex/skills)
+  - [`.codex/skills/`](./.codex/skills)
 - Configuración:
-- [`.codex/README.md`](./.codex/README.md)
+  - [`.codex/README.md`](./.codex/README.md)
 
 ---
 
@@ -1888,7 +1895,7 @@ erDiagram
 
 ## Mercado de complementos
 
-CCAM incluye 14 plugins compartidos por Claude Code y Codex, 66 habilidades empaquetadas, 18 subagentes de Claude, 34 comandos de Claude, 3 herramientas CLI, 3 configuraciones de hooks y 2 plugins con MCP. La CLI de skills.sh descubre 76 habilidades en todo el repositorio. Consulta `docs/PLUGINS.md` para el catálogo, la instalación y la validación.
+CCAM incluye 14 plugins compartidos por Claude Code y Codex, 66 habilidades empaquetadas, 18 subagentes de Claude, 34 comandos de Claude, 3 herramientas CLI, 3 configuraciones de hooks y 2 plugins con MCP. La CLI de skills.sh descubre 77 habilidades en todo el repositorio. Consulta `docs/PLUGINS.md` para el catálogo, la instalación y la validación.
 
 ### Agregar el mercado
 
@@ -1900,7 +1907,7 @@ codex plugin marketplace add hoangsonww/Claude-Code-Agent-Monitor
 ### Instalar habilidades con skills.sh
 
 ```bash
-# Enumerar las 76 habilidades sin instalarlas
+# Enumerar las 77 habilidades sin instalarlas
 npx skills add hoangsonww/Claude-Code-Agent-Monitor --list
 
 # Instalar una habilidad para Claude Code y Codex en el proyecto actual
@@ -1927,7 +1934,7 @@ npx skills update --global --yes
 npx skills remove --global mcp-server --yes
 ```
 
-Las instalaciones de proyecto usan `.agents/skills/` y enlaces específicos de cada agente. Las habilidades globales de Claude Code se instalan de forma predeterminada en `~/.claude/skills/`, o en el subdirectorio `skills/` de `CLAUDE_CONFIG_DIR` cuando se define. Las habilidades globales de Codex se instalan de forma predeterminada en `~/.codex/skills/`, o en el subdirectorio `skills/` de `CODEX_HOME` cuando se define. Las instalaciones para varios agentes pueden deduplicar archivos en un almacén compartido y enlazar esos destinos. La CLI de skills.sh descubre 76 habilidades del repositorio, incluidas 66 habilidades de plugins y las habilidades de mantenimiento del repositorio.
+Las instalaciones de proyecto usan `.agents/skills/` y enlaces específicos de cada agente. Las habilidades globales de Claude Code se instalan de forma predeterminada en `~/.claude/skills/`, o en el subdirectorio `skills/` de `CLAUDE_CONFIG_DIR` cuando se define. Las habilidades globales de Codex se instalan de forma predeterminada en `~/.codex/skills/`, o en el subdirectorio `skills/` de `CODEX_HOME` cuando se define. Las instalaciones para varios agentes pueden deduplicar archivos en un almacén compartido y enlazar esos destinos. La CLI de skills.sh descubre 77 habilidades del repositorio, incluidas 66 habilidades de plugins y las habilidades de mantenimiento del repositorio.
 
 ### Plugins disponibles
 

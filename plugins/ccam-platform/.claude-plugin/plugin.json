@@ -1,7 +1,7 @@
 {
   "name": "ccam-platform",
   "description": "Administer CCAM's Claude Code and Codex configuration explorers, provider-aware history import, backup restore, hook installation, home directories, updates, and MCP server.",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "author": { "name": "Son Nguyen", "url": "https://github.com/hoangsonww" },
   "homepage": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",
   "repository": "https://github.com/hoangsonww/Claude-Code-Agent-Monitor",

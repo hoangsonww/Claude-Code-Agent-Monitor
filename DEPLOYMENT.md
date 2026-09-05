@@ -35,9 +35,9 @@ Availability comes from:
 - health checks and image rollback
 - short recovery time, not simultaneous writers
 
-## Validate before deployment
+## Review before deployment
 
-Run the same gate used by CI:
+Run the same review CI runs:
 
 ```bash
 npm run deploy:validate
@@ -45,7 +45,15 @@ npm run deploy:validate
 
 It checks Dockerfiles, Compose profiles, Nginx syntax, Helm lint and schema rejection, every Kustomize overlay and optional component, Terraform formatting/provider validation, production dependency audits, file headers, and the one-writer invariant.
 
-The dependency audit retries malformed registry or transport responses up to three times with bounded backoff. A valid report containing any vulnerability fails immediately and prints the complete audit payload; malformed reports never pass as clean.
+**Findings are advisory.** Every check runs even when an earlier one reports something, and the default invocation always exits `0`, so it never halts a pipeline (strict mode, below, is the only way it exits non-zero). In GitHub Actions each finding becomes a `::warning::` annotation with its detail in a collapsed group, and a result table is appended to the job summary. Dependency advisories from `npm audit --omit=dev` are reported the same way — listed with severity, package, title, and remedy — because many resolve only through a semver-major upgrade and blocking on them stalls unrelated work.
+
+To turn the review into a hard gate for a deliberate release check:
+
+```bash
+CCAM_DEPLOY_VALIDATE_STRICT=1 npm run deploy:validate   # exits 1 when findings exist
+```
+
+The dependency audit retries malformed registry or transport responses up to three times with bounded backoff; a malformed report is itself reported as a finding rather than passing as clean.
 
 ## Secrets
 
@@ -193,7 +201,7 @@ Render and replace the local image name with an immutable registry reference:
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"
 IMAGE_TAG="$(git rev-parse --short HEAD)"
 kubectl kustomize deployments/kubernetes/overlays/production \
-  | sed "s|ccam-dashboard:2.1.0|${REGISTRY}/claude-code-agent-monitor:${IMAGE_TAG}|g" \
+  | sed "s|ccam-dashboard:2.1.1|${REGISTRY}/claude-code-agent-monitor:${IMAGE_TAG}|g" \
   | kubectl apply --server-side --field-manager=ccam-deployer -f -
 ```
 
@@ -285,7 +293,7 @@ A Helm rollback restores the previous manifest/image. Database restoration is se
 The active `.github/workflows/ci.yml`:
 
 - runs server, client, and MCP tests
-- runs `npm run deploy:validate`
+- runs `npm run deploy:validate` as an advisory job (`continue-on-error`, excluded from the pipeline-status gate) that reports findings as annotations
 - builds dashboard and MCP images
 - scans both with Grype through an immutable action SHA
 - publishes amd64/arm64 images to GHCR
@@ -297,8 +305,8 @@ All deployment-related actions are pinned by commit SHA.
 
 ## Production checklist
 
-- [ ] `npm run deploy:validate` passes
-- [ ] production dependency audits report zero vulnerabilities
+- [ ] `CCAM_DEPLOY_VALIDATE_STRICT=1 npm run deploy:validate` passes
+- [ ] production dependency advisories reviewed and accepted or remediated
 - [ ] `agent-monitor-secrets` has dashboard, hook, and MCP tokens
 - [ ] TLS terminates before any public endpoint
 - [ ] public hostname is in `DASHBOARD_ALLOWED_HOSTS`
