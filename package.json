@@ -60,7 +60,7 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "setup": "npm install && (cd client && npm install) && (cd vscode-extension && npm install) && npm run mcp:install && npm run mcp:build && npm run link-cli",
+    "setup": "npm install && npm --prefix client install && npm --prefix vscode-extension install && npm run mcp:install && npm run mcp:build && npm run link-cli",
     "update:pull-setup": "git pull --ff-only && npm run setup",
     "mcp:install": "npm --prefix mcp install",
     "mcp:build": "npm --prefix mcp run build",
