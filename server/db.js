@@ -563,7 +563,20 @@ const DEFAULT_PRICING = [
   // Next-gen flagship
   ["claude-fable-5%", "Claude Fable 5", 10, 50, 1, 12.5, 20, 0, 0],
   ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20, 0, 0],
-  // Opus family (fast mode available on 4.6 / 4.7 / 4.8)
+  // Opus family (fast mode available on 4.6 / 4.7 / 4.8, and now 5)
+  // claude-opus-5: verified via the claude-api skill (Anthropic's own pricing
+  // reference, not guessed) — $5/$25 input/output, fast mode $10/$50 (same
+  // fast-mode price as 4.8, confirmed explicitly in that reference). Cache
+  // read/write use Anthropic's standard multipliers (0.1x/1.25x/2x of input),
+  // documented in that same skill's caching section, and cross-checked
+  // against every other row here sharing this $5 input rate (4.8/4.7/4.6) —
+  // all three already derive their cache columns the identical way.
+  // `%` covers both "claude-opus-5" and "claude-opus-5[1m]" (observed model
+  // string with the 1M-context flag) under one rule — same convention already
+  // used for every other model here, not a new pricing tier (decisions/0034
+  // in the ai-deck repo measured this: opus-5 and opus-5[1m] are the same
+  // price, only the wildcard needs to catch both spellings).
+  ["claude-opus-5%", "Claude Opus 5", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25, 10, 30, 150],
   ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25, 10, 30, 150],
