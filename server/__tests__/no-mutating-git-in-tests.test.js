@@ -171,13 +171,30 @@ describe("production git calls scrub the inherited repository environment", () =
 
   it("the pre-commit hook unsets everything gitSafeEnv strips", () => {
     // Three layers guard this; they rot independently unless pinned together.
+    //
+    // Scoped to the `unset` commands themselves, NOT the whole file: the hook's
+    // comments name GIT_DIR and friends while explaining the bug, so a
+    // whole-file search still passed after GIT_DIR was deleted from both unset
+    // lists — the one variable that matters most.
     const { REPO_SCOPED_GIT_VARS } = require("../lib/git-env");
     const hook = fs.readFileSync(path.join(ROOT, ".husky", "pre-commit"), "utf8");
-    const missing = REPO_SCOPED_GIT_VARS.filter((name) => !new RegExp(`\\b${name}\\b`).test(hook));
-    assert.deepEqual(
-      missing,
-      [],
-      "the hook's unset list must cover every variable gitSafeEnv strips"
+
+    // Each `unset` spans continuation lines, so capture through them.
+    const blocks = [...hook.matchAll(/^[ \t]*unset[ \t]+((?:[^\n\\]*\\[ \t]*\n)*[^\n]*)/gm)].map(
+      (match) => match[1].replace(/\\/g, " ").split(/\s+/).filter(Boolean)
     );
+
+    // One before the first attempt, one before the retry — a retry that
+    // re-inherits the environment reopens the hole on the run that matters.
+    assert.equal(blocks.length, 2, "expected an unset before both the run and its retry");
+
+    blocks.forEach((names, index) => {
+      const missing = REPO_SCOPED_GIT_VARS.filter((name) => !names.includes(name));
+      assert.deepEqual(
+        missing,
+        [],
+        `unset block ${index + 1} must cover every variable gitSafeEnv strips`
+      );
+    });
   });
 });
