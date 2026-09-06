@@ -126,9 +126,58 @@ describe("production git calls scrub the inherited repository environment", () =
     const { REPO_SCOPED_GIT_VARS } = require("../lib/git-env");
     // GIT_DIR and GIT_INDEX_FILE are the two git sets on every hook invocation
     // and are the ones that caused the stray commits; the rest are the same
-    // class of redirection and are scrubbed alongside them.
-    for (const required of ["GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"]) {
+    // class of redirection and are scrubbed alongside them. The identity pair
+    // is what made fixture commits carry the outer commit's author (issue #323).
+    for (const required of [
+      "GIT_DIR",
+      "GIT_INDEX_FILE",
+      "GIT_WORK_TREE",
+      "GIT_AUTHOR_NAME",
+      "GIT_AUTHOR_EMAIL",
+      "GIT_AUTHOR_DATE",
+      "GIT_COMMITTER_NAME",
+      "GIT_COMMITTER_EMAIL",
+      "GIT_COMMITTER_DATE",
+    ]) {
       assert.ok(REPO_SCOPED_GIT_VARS.includes(required), `${required} must be scrubbed`);
     }
+  });
+
+  it("never strips the variables remote access depends on", () => {
+    // A blanket GIT_* wipe would break `git fetch` for anyone whose transport
+    // needs these — the exact regression issue #323 warned against. The list is
+    // a denylist for this reason, so assert the allowlist side explicitly.
+    const { gitSafeEnv } = require("../lib/git-env");
+    const clean = gitSafeEnv({
+      GIT_SSH_COMMAND: "ssh -i /key",
+      GIT_ASKPASS: "/bin/askpass",
+      GIT_PROXY_COMMAND: "/bin/proxy",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/etc/gitconfig",
+      GIT_DIR: "/leaked",
+    });
+
+    for (const kept of [
+      "GIT_SSH_COMMAND",
+      "GIT_ASKPASS",
+      "GIT_PROXY_COMMAND",
+      "GIT_TERMINAL_PROMPT",
+      "GIT_CONFIG_GLOBAL",
+    ]) {
+      assert.ok(kept in clean, `${kept} must survive — git fetch depends on it`);
+    }
+    assert.ok(!("GIT_DIR" in clean), "GIT_DIR must still be stripped");
+  });
+
+  it("the pre-commit hook unsets everything gitSafeEnv strips", () => {
+    // Three layers guard this; they rot independently unless pinned together.
+    const { REPO_SCOPED_GIT_VARS } = require("../lib/git-env");
+    const hook = fs.readFileSync(path.join(ROOT, ".husky", "pre-commit"), "utf8");
+    const missing = REPO_SCOPED_GIT_VARS.filter((name) => !new RegExp(`\\b${name}\\b`).test(hook));
+    assert.deepEqual(
+      missing,
+      [],
+      "the hook's unset list must cover every variable gitSafeEnv strips"
+    );
   });
 });
