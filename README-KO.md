@@ -733,7 +733,7 @@ API 기반 명령어는 서버가 실행 중이어야 합니다 — 서버가 �
 | `npm run setup`         | 루트, 클라이언트, 확장, MCP 의존성을 설치하고 MCP를 빌드한 뒤 `ccam`을 링크합니다 |
 | `npm run update:pull-setup` | `git pull --ff-only` 실행 후 `npm run setup` 실행 (수동 업그레이드) |
 | `npm run dev`           | 서버(watch 모드) + 클라이언트(Vite HMR)를 동시에 시작합니다 |
-| `npm run dev:server`    | `--watch`로 Express 서버만 시작합니다               |
+| `npm run dev:server`    | 디바운스 및 안전 재시작 소스 감시기로 Express 서버를 시작합니다 |
 | `npm run dev:client`    | Vite 개발 서버만 시작합니다                            |
 | `npm run build`         | React 클라이언트를 `client/dist/`로 빌드합니다                   |
 | `npm start`             | 프로덕션 서버를 시작합니다 (빌드된 클라이언트 제공)              |
@@ -2085,7 +2085,7 @@ flowchart TD
 ```mermaid
 graph LR
     subgraph dev["Development — 2 processes"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>디바운스 감시기"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["Browser"] --> D_VITE
         D_VITE -->|"proxy /api + /ws"| D_SRV

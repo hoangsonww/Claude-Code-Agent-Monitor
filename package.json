@@ -56,7 +56,7 @@
     "postinstall": "node scripts/postinstall.js",
     "dev": "node scripts/dev.js",
     "dev:raw": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "node --watch server/index.js",
+    "dev:server": "node scripts/dev-server.js",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",

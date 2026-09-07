@@ -723,7 +723,7 @@ Các lệnh dựa trên API cần server đang chạy — khi chưa chạy, **c�
 | ----------------------- | ---------------------------------------------------------- |
 | `npm run setup`         | Cài phụ thuộc root/client/extension/MCP, build MCP và link `ccam` |
 | `npm run dev`           | Khởi động đồng thời máy chủ (chế độ xem) + máy khách (Vite HMR) |
-| `npm run dev:server`    | Chỉ khởi động máy chủ Express với `--watch`               |
+| `npm run dev:server`    | Khởi động Express bằng trình theo dõi chống dội và khởi động lại an toàn |
 | `npm run dev:client`    | Chỉ khởi động máy chủ Vite dev                             |
 | `npm run build`         | Xây dựng ứng dụng khách React thành `client/dist/`                   |
 | `npm start`             | Bắt đầu máy chủ sản xuất (phục vụ máy khách được xây dựng)              |
@@ -2012,7 +2012,7 @@ Chúng tôi hỗ trợ cả hai chế độ triển khai phát triển và sản
 ```mermaid
 graph LR
     subgraph dev["Development — 2 processes"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>trình theo dõi chống dội"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["Browser"] --> D_VITE
         D_VITE -->|"proxy /api + /ws"| D_SRV
