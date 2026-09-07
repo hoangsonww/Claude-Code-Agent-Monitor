@@ -303,6 +303,60 @@ describe("Codex rollout ingestor", () => {
     );
   });
 
+  it("deduplicates legacy and modern prompt copies across incremental reads", () => {
+    const sessionId = "01b18b22-f819-7bc4-ca54-8e6f1e95d1ef";
+    const rollout = path.join(
+      process.env.DASHBOARD_CODEX_HOME,
+      "sessions",
+      "2026",
+      "09",
+      "07",
+      `rollout-2026-09-07T00-00-00-${sessionId}.jsonl`
+    );
+    const modernPrompt = (message, turnId) =>
+      record("response_item", {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: message }],
+        internal_chat_message_metadata_passthrough: {
+          turn_id: turnId,
+          content_item_kinds: ["user.text"],
+        },
+      });
+    const write = (entry) => fs.appendFileSync(rollout, `${JSON.stringify(entry)}\n`);
+    fs.mkdirSync(path.dirname(rollout), { recursive: true });
+
+    write(record("session_meta", { id: sessionId, cwd: "/workspace/incremental-prompts" }));
+    write(record("event_msg", { type: "user_message", message: "Legacy arrives first" }));
+    ingestCodexTranscript(rollout);
+    write(modernPrompt("Legacy arrives first", "turn-1"));
+    ingestCodexTranscript(rollout);
+
+    write(modernPrompt("Modern arrives first", "turn-2"));
+    ingestCodexTranscript(rollout);
+    write(record("event_msg", { type: "user_message", message: "Modern arrives first" }));
+    const result = ingestCodexTranscript(rollout);
+
+    const promptEvents = stmts.listEventsBySession
+      .all(sessionId)
+      .filter((event) => event.event_type === "codex_user_message");
+    assert.deepEqual(
+      promptEvents.map((event) => event.summary),
+      ["Modern arrives first", "Legacy arrives first"]
+    );
+    assert.equal(result.session.card_prompt_preview, "Legacy arrives first\nModern arrives first");
+    stmts.updateSession.run(null, "completed", new Date().toISOString(), null, sessionId);
+    stmts.updateAgent.run(
+      null,
+      "completed",
+      null,
+      null,
+      new Date().toISOString(),
+      null,
+      `codex:${sessionId}`
+    );
+  });
+
   it("maps task completion, resumed work, and interrupted work to Claude-equivalent card states", () => {
     append(record("event_msg", { type: "task_complete" }));
     ingestCodexTranscript(ROLLOUT);

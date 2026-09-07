@@ -236,6 +236,11 @@ function codexUserMessage(record) {
   return responseItemUserMessage(record);
 }
 
+function codexUserMessageKey(record, userMessage) {
+  if (!userMessage?.prompt || !Date.parse(record?.timestamp || "")) return null;
+  return `${new Date(record.timestamp).toISOString()}\u0000${userMessage.prompt}`;
+}
+
 function eventDetails(record) {
   const payload = record.payload || {};
   switch (payload.type) {
@@ -1020,10 +1025,14 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   };
   const events = [];
   let latestLifecycleRecord = null;
-  const legacyPromptKeys = new Set(
-    records
-      .filter((record) => record.type === "event_msg" && record.payload?.type === "user_message")
-      .map((record) => `${record.timestamp || ""}\u0000${userMessagePreview(record.payload)}`)
+  const seenPromptKeys = new Set(
+    db
+      .prepare(
+        `SELECT created_at, summary FROM events
+         WHERE session_id = ? AND event_type = 'codex_user_message'`
+      )
+      .all(session.id)
+      .map((row) => `${row.created_at}\u0000${row.summary}`)
   );
 
   for (const record of records) {
@@ -1047,6 +1056,7 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
       counters = applyTokenSnapshot(session.id, model, speed, record.payload.info || {}, counters);
     }
     const userMessage = codexUserMessage(record);
+    const promptKey = codexUserMessageKey(record, userMessage);
     if (userMessage) {
       const prompt = userMessage.prompt;
       if (prompt) {
@@ -1068,15 +1078,16 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
     // Tool invocations are owned by `ingestCodexToolEvents` below. The primary
     // cursor records lifecycle, message, and token events only, which keeps a
     // watcher/hook append from creating a duplicate tool row.
-    const duplicateModernPrompt =
-      record.type === "response_item" &&
-      userMessage &&
-      legacyPromptKeys.has(`${record.timestamp || ""}\u0000${userMessage.prompt}`);
+    const duplicatePrompt = promptKey && seenPromptKeys.has(promptKey);
     const event =
-      record.type === "event_msg" || (userMessage && !duplicateModernPrompt)
+      (record.type === "event_msg" && !(userMessage && duplicatePrompt)) ||
+      (userMessage && !duplicatePrompt)
         ? persistEvent(session.id, agentId, record)
         : null;
-    if (event) events.push(event);
+    if (event) {
+      events.push(event);
+      if (promptKey) seenPromptKeys.add(promptKey);
+    }
   }
 
   syncCodexCardContext(session.id, agentId);

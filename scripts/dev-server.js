@@ -68,12 +68,65 @@ function directoriesBelow(root) {
   return directories;
 }
 
+function createSourceWatcher(
+  roots,
+  onChange,
+  {
+    isSource = isRuntimeSource,
+    onWarning = (message) => console.warn(message),
+    recursive = true,
+  } = {}
+) {
+  const watchers = new Map();
+
+  const watchDirectory = (directory) => {
+    const resolved = path.resolve(directory);
+    if (watchers.has(resolved)) return;
+    try {
+      const watcher = fs.watch(resolved, (eventType, filename) => {
+        if (!filename) return;
+        const changedPath = path.join(resolved, filename.toString());
+        try {
+          if (fs.statSync(changedPath).isDirectory()) {
+            if (recursive) {
+              for (const nested of directoriesBelow(changedPath)) watchDirectory(nested);
+              onChange(changedPath);
+            }
+            return;
+          }
+        } catch {
+          // Deleted and atomically replaced files are still source changes when
+          // their last known pathname has a watched runtime extension.
+        }
+        if (isSource(changedPath)) onChange(changedPath);
+      });
+      watcher.on("error", (error) => {
+        onWarning(`[dev:server] watcher warning for ${resolved}: ${error.message}`);
+      });
+      watchers.set(resolved, watcher);
+    } catch (error) {
+      onWarning(`[dev:server] cannot watch ${resolved}: ${error.message}`);
+    }
+  };
+
+  for (const root of roots) {
+    const directories = recursive ? directoriesBelow(root) : [root];
+    for (const directory of directories) watchDirectory(directory);
+  }
+
+  return {
+    close() {
+      for (const watcher of watchers.values()) watcher.close();
+      watchers.clear();
+    },
+  };
+}
+
 function start() {
   let child = null;
   let restarting = false;
   let restartQueued = false;
   let stopping = false;
-  const watchers = [];
 
   const launch = () => {
     if (stopping) return;
@@ -137,33 +190,15 @@ function start() {
   };
   const scheduler = createRestartScheduler(restart);
 
-  const watchDirectory = (directory) => {
-    try {
-      const watcher = fs.watch(directory, (eventType, filename) => {
-        if (!filename) return;
-        const changedPath = path.join(directory, filename.toString());
-        if (!isRuntimeSource(changedPath)) return;
-        scheduler.schedule();
-      });
-      watcher.on("error", (error) => {
-        console.warn(`[dev:server] watcher warning for ${directory}: ${error.message}`);
-      });
-      watchers.push(watcher);
-    } catch (error) {
-      console.warn(`[dev:server] cannot watch ${directory}: ${error.message}`);
-    }
-  };
-
-  for (const root of WATCH_ROOTS) {
-    for (const directory of directoriesBelow(root)) watchDirectory(directory);
-  }
-  watchDirectory(ROOT);
+  const sourceWatcher = createSourceWatcher(WATCH_ROOTS, () => scheduler.schedule());
+  const rootWatcher = createSourceWatcher([ROOT], () => scheduler.schedule(), { recursive: false });
 
   const shutdown = async (signal) => {
     if (stopping) return;
     stopping = true;
     scheduler.cancel();
-    for (const watcher of watchers) watcher.close();
+    sourceWatcher.close();
+    rootWatcher.close();
     await stopChild(child);
     process.exit(signal ? 0 : 1);
   };
@@ -175,4 +210,9 @@ function start() {
 
 if (require.main === module) start();
 
-module.exports = { createRestartScheduler, directoriesBelow, isRuntimeSource };
+module.exports = {
+  createRestartScheduler,
+  createSourceWatcher,
+  directoriesBelow,
+  isRuntimeSource,
+};
