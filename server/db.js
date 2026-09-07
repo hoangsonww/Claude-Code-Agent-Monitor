@@ -336,6 +336,11 @@ db.exec(`
   -- session with many subagents) becomes tens of seconds and blocks the event
   -- loop. This composite narrows each dedup to the agent's events of that type.
   CREATE INDEX IF NOT EXISTS idx_events_agent_type ON events(agent_id, event_type);
+  -- The agent and session lists compute "last activity" with a correlated
+  -- MAX(created_at) per row; without these the subquery walks every event of
+  -- each agent/session on every list request.
+  CREATE INDEX IF NOT EXISTS idx_events_agent_created ON events(agent_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_session_created ON events(session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
@@ -1613,8 +1618,15 @@ const stmts = {
   listEventsBySession: db.prepare(
     "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC, id DESC"
   ),
+  // Task progress reads `data` only from TaskCreated / TaskCompleted rows;
+  // lifecycle rows act purely as owner boundaries (see observationFromEvent
+  // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
+  // (background_tasks, last_assistant_message), so return them as NULL
+  // instead of shipping and parsing them on every list call.
   listTaskEventsBySession: db.prepare(
-    `SELECT * FROM events
+    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+     FROM events
      WHERE session_id = ? AND event_type IN (
        'TaskCreated', 'TaskCompleted',
        'UserPromptSubmit', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
