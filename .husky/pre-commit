@@ -43,14 +43,39 @@ fi
 # produce a one-off timing failure unrelated to the commit. A real regression
 # is deterministic: it fails both runs and still blocks the commit. This keeps
 # the gate strict without making commits a dice roll on machine load.
+# Git exports GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE to every hook, and in a
+# worktree those are ABSOLUTE paths to the repo mid-commit. Hooks pass their
+# environment to whatever they spawn, and those variables OUTRANK a child's
+# `cwd` — so any test that shells out to git would operate on THIS repository
+# instead of its own fixture, silently committing into the branch being
+# committed to. That is exactly how stray "init" commits (one deleting 200k+
+# lines) have appeared on branches here before — and how `git init --bare` in a
+# fixture flipped core.bare on the real repository.
+#
+# Section 1 above must keep the git environment: `git diff --cached` needs
+# GIT_INDEX_FILE to see what is actually staged. From here down nothing should
+# inherit it, so every suite runs inside a subshell with those variables unset.
+# The tests are additionally written to never invoke a mutating git command
+# (enforced by server/__tests__/no-mutating-git-in-tests.test.js) — this is the
+# second, environmental layer of that guarantee.
 run_suite() {
   # $1 = human label, $2 = npm script
   echo "🧪 Running $1 tests..."
-  if npm run "$2"; then
+  if (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX \
+      GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE \
+      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION
+    npm run "$2"
+  ); then
     return 0
   fi
   echo "⚠️  $1 suite failed — retrying once to rule out machine-load flakiness..."
-  if npm run "$2"; then
+  if (
+    unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX \
+      GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE \
+      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION
+    npm run "$2"
+  ); then
     echo "✅ $1 suite passed on retry — treating the first failure as a load flake."
     echo "   If this keeps happening, the flaky test above deserves a real fix."
     return 0

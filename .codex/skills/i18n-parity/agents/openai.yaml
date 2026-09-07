@@ -1,0 +1,6 @@
+interface:
+  display_name: "i18n Parity"
+  short_description: "Keep every localization surface in parity across all supported languages."
+  default_prompt: "Use $i18n-parity to propagate a content change to every supported language, or to add a new language across the dashboard keys, the wiki, the mirrored READMEs, the switchers, and locale-aware formatting."
+policy:
+  allow_implicit_invocation: true

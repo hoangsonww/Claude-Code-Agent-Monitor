@@ -13,6 +13,7 @@ Thanks for taking the time to contribute. Please read this guide before opening 
 - [Branching and Commits](#branching-and-commits)
 - [Pull Requests](#pull-requests)
 - [Testing](#testing)
+- [Translations and Internationalization](#translations-and-internationalization)
 - [Reporting Bugs](#reporting-bugs)
 - [Requesting Features](#requesting-features)
 
@@ -139,6 +140,66 @@ npm run test:client         # client unit tests only
 - Server tests use a real SQLite database (temp file) — do not mock the DB.
 - Client tests use Vitest + jsdom.
 - All tests must pass before a PR can be merged.
+
+---
+
+## Translations and Internationalization
+
+The dashboard ships in **English (`en`), Simplified Chinese (`zh`), Vietnamese
+(`vi`), Korean (`ko`), and Spanish (`es`)** across five independent surfaces.
+English is the source of truth on all of them, and **a change is not merged
+until every supported language carries it in the same PR** — falling back to
+English is a safety net, not a completed translation.
+
+| Surface | English source | Translations live in |
+|---|---|---|
+| Dashboard UI | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` |
+| Wiki page | English text in the `wiki/index.html` DOM | `wiki/script.js` + `wiki/i18n-content.js` |
+| Mirrored READMEs | `README.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` |
+| Language switchers | — | `Sidebar.tsx`, `paletteCommands.ts`, `nav.json`, `wiki/index.html` |
+| Locale-aware formatting | — | `client/src/lib/format.ts` |
+
+**If you add or change a UI string**, add the key to `en` *and every other
+locale*, with the same key path, value type, and `{{interpolation}}` tokens.
+
+**If you edit `README.md`**, mirror the same edit into all four translated
+READMEs. They are full mirrors, not summaries.
+
+**If you edit user-visible text in `wiki/index.html`**, add `zh` + `vi` + `ko` +
+`es` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
+the matching `?v=` query strings).
+
+**If you are adding a new language**, three things must be complete: a full
+`README-<XX>.md` mirror of `README.md` (every section, in order — not a
+summary), every key in all 15 UI namespaces plus the language-switcher entry,
+and a complete wiki translation (body content, headings, attributes, and page
+metadata). Work through the step-by-step checklist:
+
+- Guide: [`docs/I18N.md` §9](../docs/I18N.md#9-contributing-translations-and-adding-a-language)
+- Checklist: [`.claude/skills/i18n-parity/references/new-language-checklist.md`](../.claude/skills/i18n-parity/references/new-language-checklist.md)
+- Glossary and style: [`.claude/skills/i18n-parity/references/translation-style.md`](../.claude/skills/i18n-parity/references/translation-style.md)
+
+Never translate code, commands, paths, URLs, env-var names, CLI flags,
+identifiers, HTTP methods and status codes (`GET`, `POST`, `404`), numbers with
+units, brand names, Claude Code hook event names (`PreToolUse`, `Stop`), or
+Claude Code tool names (`Bash`, `Agent`, `Read`, `Edit`). Translate only the
+prose around them.
+
+Note that the Claude Code **tool** named `Agent` and the **UI noun** for an
+agent are different things. The tool name stays literal in every locale; the UI
+noun (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
+deliberately `agente` / `subagente` in `es`. The Spanish exception never applies
+to the tool name.
+
+Before opening the PR:
+
+```bash
+bash .claude/skills/i18n-parity/scripts/i18n-audit.sh   # must exit 0 — names every gap
+npm run test:client
+```
+
+If you use an AI coding agent, point it at `.claude/skills/i18n-parity/` — the
+skill, its checklist, and the audit script are written to be followed directly.
 
 ---
 

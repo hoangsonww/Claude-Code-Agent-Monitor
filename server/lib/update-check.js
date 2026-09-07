@@ -10,6 +10,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
+const { gitSafeEnv } = require("./git-env");
 
 const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 
@@ -17,13 +18,24 @@ const DEFAULT_ROOT = path.join(__dirname, "..", "..");
 // repo, "origin" points at the user's fork. Prefer upstream when both exist.
 const REMOTE_PRIORITY = ["upstream", "origin"];
 
+// `env: gitSafeEnv()` is load-bearing, not hygiene. If this process was started
+// from a git hook (or anything else mid-git-operation), GIT_DIR / GIT_INDEX_FILE
+// arrive in our environment as absolute paths and OUTRANK `cwd` — every query
+// below would then read the wrong repository. See lib/git-env.js.
 function execGit(cwd, args, opts = {}) {
   const timeout = opts.timeout ?? 120_000;
   return new Promise((resolve, reject) => {
     execFile(
       "git",
       args,
-      { cwd, timeout, maxBuffer: 2_000_000, encoding: "utf8", windowsHide: true },
+      {
+        cwd,
+        timeout,
+        maxBuffer: 2_000_000,
+        encoding: "utf8",
+        windowsHide: true,
+        env: gitSafeEnv(),
+      },
       (err, stdout) => {
         if (err) reject(err);
         else resolve(String(stdout).trim());
@@ -32,9 +44,9 @@ function execGit(cwd, args, opts = {}) {
   });
 }
 
-async function listRemotes(gitRoot) {
+async function listRemotes(gitRoot, run) {
   try {
-    const out = await execGit(gitRoot, ["remote"], { timeout: 10_000 });
+    const out = await run(gitRoot, ["remote"], { timeout: 10_000 });
     return out
       .split(/\r?\n/)
       .map((l) => l.trim())
@@ -44,26 +56,26 @@ async function listRemotes(gitRoot) {
   }
 }
 
-async function pickCanonicalRemote(gitRoot) {
-  const remotes = await listRemotes(gitRoot);
+async function pickCanonicalRemote(gitRoot, run) {
+  const remotes = await listRemotes(gitRoot, run);
   for (const candidate of REMOTE_PRIORITY) {
     if (remotes.includes(candidate)) return candidate;
   }
   return remotes[0] || null;
 }
 
-async function resolveCompareRefForRemote(gitRoot, remote) {
+async function resolveCompareRefForRemote(gitRoot, remote, run) {
   const tryRefs = [`${remote}/master`, `${remote}/main`];
   for (const ref of tryRefs) {
     try {
-      await execGit(gitRoot, ["rev-parse", "--verify", ref], { timeout: 10_000 });
+      await run(gitRoot, ["rev-parse", "--verify", ref], { timeout: 10_000 });
       return ref;
     } catch {
       // continue
     }
   }
   try {
-    const sym = await execGit(gitRoot, ["symbolic-ref", `refs/remotes/${remote}/HEAD`], {
+    const sym = await run(gitRoot, ["symbolic-ref", `refs/remotes/${remote}/HEAD`], {
       timeout: 10_000,
     });
     const m = sym.match(/^refs\/remotes\/(.+)$/);
@@ -74,9 +86,9 @@ async function resolveCompareRefForRemote(gitRoot, remote) {
   return null;
 }
 
-async function getCurrentBranch(gitRoot) {
+async function getCurrentBranch(gitRoot, run) {
   try {
-    const branch = await execGit(gitRoot, ["symbolic-ref", "--short", "HEAD"], {
+    const branch = await run(gitRoot, ["symbolic-ref", "--short", "HEAD"], {
       timeout: 10_000,
     });
     return branch || null;
@@ -85,9 +97,9 @@ async function getCurrentBranch(gitRoot) {
   }
 }
 
-async function getBranchUpstream(gitRoot) {
+async function getBranchUpstream(gitRoot, run) {
   try {
-    return await execGit(gitRoot, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], {
+    return await run(gitRoot, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], {
       timeout: 10_000,
     });
   } catch {
@@ -103,10 +115,15 @@ function stripRemotePrefix(ref) {
 
 /**
  * @param {string} [gitRoot]
- * @param {{ skipFetch?: boolean }} [options]
+ * @param {{ skipFetch?: boolean, execGit?: (cwd: string, args: string[], opts?: object) => Promise<string> }} [options]
+ *   `execGit` overrides how git is invoked. Tests inject a pure function that
+ *   returns canned output, so the suite never spawns git and therefore can
+ *   never mutate a repository; production leaves it unset and uses the runner
+ *   above.
  * @returns {Promise<object>}
  */
 async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
+  const run = options.execGit ?? execGit;
   const root = path.resolve(gitRoot);
   const gitDir = path.join(root, ".git");
   if (!fs.existsSync(gitDir)) {
@@ -119,7 +136,7 @@ async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
     };
   }
 
-  const canonicalRemote = await pickCanonicalRemote(root);
+  const canonicalRemote = await pickCanonicalRemote(root, run);
   if (!canonicalRemote) {
     return {
       git_repo: true,
@@ -135,7 +152,7 @@ async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
 
   if (!options.skipFetch) {
     try {
-      await execGit(root, ["fetch", canonicalRemote, "--prune"], { timeout: 120_000 });
+      await run(root, ["fetch", canonicalRemote, "--prune"], { timeout: 120_000 });
     } catch (err) {
       return {
         git_repo: true,
@@ -148,7 +165,7 @@ async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
     }
   }
 
-  const remoteRef = await resolveCompareRefForRemote(root, canonicalRemote);
+  const remoteRef = await resolveCompareRefForRemote(root, canonicalRemote, run);
   if (!remoteRef) {
     return {
       git_repo: true,
@@ -159,17 +176,17 @@ async function getUpdatesStatus(gitRoot = DEFAULT_ROOT, options = {}) {
     };
   }
 
-  const currentBranch = await getCurrentBranch(root);
-  const branchUpstream = await getBranchUpstream(root);
+  const currentBranch = await getCurrentBranch(root, run);
+  const branchUpstream = await getBranchUpstream(root, run);
   const tracksCanonical = branchUpstream === remoteRef;
 
   let localSha;
   let remoteSha;
   let commitsBehind = 0;
   try {
-    localSha = await execGit(root, ["rev-parse", "HEAD"], { timeout: 10_000 });
-    remoteSha = await execGit(root, ["rev-parse", remoteRef], { timeout: 10_000 });
-    const countStr = await execGit(root, ["rev-list", "--count", `HEAD..${remoteRef}`], {
+    localSha = await run(root, ["rev-parse", "HEAD"], { timeout: 10_000 });
+    remoteSha = await run(root, ["rev-parse", remoteRef], { timeout: 10_000 });
+    const countStr = await run(root, ["rev-list", "--count", `HEAD..${remoteRef}`], {
       timeout: 30_000,
     });
     commitsBehind = Number.parseInt(countStr, 10);

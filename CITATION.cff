@@ -8,7 +8,7 @@ authors:
 abstract: "Real-time dashboard for tracking Claude Code agent activity."
 repository-code: "https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
 url: "https://github.com/hoangsonww/Claude-Code-Agent-Monitor"
-version: "2.1.0"
+version: "2.1.1"
 license: "MIT"
 keywords:
   - "claude"

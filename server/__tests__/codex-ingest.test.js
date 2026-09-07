@@ -404,6 +404,75 @@ describe("Codex rollout ingestor", () => {
     assert.equal(stmts.getAgent.get(`codex:${SESSION_ID}`).status, "working");
   });
 
+  it("zeroes the delta when cumulative token counters regress, then resumes from the lower baseline", () => {
+    const sessionId = "019fde70-aaaa-7b71-8c90-000000000001";
+    const rollout = path.join(
+      process.env.DASHBOARD_CODEX_HOME,
+      "sessions",
+      "2026",
+      "08",
+      "06",
+      `rollout-2026-08-06T09-00-00-${sessionId}.jsonl`
+    );
+    const appendLocal = (entry) => {
+      fs.mkdirSync(path.dirname(rollout), { recursive: true });
+      fs.appendFileSync(rollout, `${JSON.stringify(entry)}\n`);
+    };
+    const tokenCount = (usage) =>
+      record("event_msg", { type: "token_count", info: { total_token_usage: usage } });
+
+    appendLocal(record("session_meta", { id: sessionId, cwd: "/workspace/regression" }));
+    appendLocal(
+      tokenCount({
+        input_tokens: 300_000,
+        cached_input_tokens: 100_000,
+        cache_write_input_tokens: 20_000,
+        output_tokens: 1_000,
+        reasoning_output_tokens: 250,
+      })
+    );
+    assert.equal(ingestCodexTranscript(rollout).changed, true);
+    const rowsAfterFirst = stmts.getTokensBySession.all(sessionId);
+    assert.equal(rowsAfterFirst.length, 1);
+    assert.equal(rowsAfterFirst[0].input_tokens, 180_000);
+    assert.equal(rowsAfterFirst[0].output_tokens, 1_250);
+
+    // A rewritten or resumed rollout can re-open with lower cumulative counters.
+    // The regressed snapshot itself must contribute nothing…
+    appendLocal(
+      tokenCount({
+        input_tokens: 50_000,
+        cached_input_tokens: 10_000,
+        cache_write_input_tokens: 0,
+        output_tokens: 200,
+        reasoning_output_tokens: 50,
+      })
+    );
+    assert.equal(ingestCodexTranscript(rollout).changed, true);
+    assert.deepEqual(
+      stmts.getTokensBySession.all(sessionId),
+      rowsAfterFirst,
+      "a regressed cumulative snapshot must not emit a token delta"
+    );
+
+    // …and growth after the regression is measured against the lower baseline.
+    appendLocal(
+      tokenCount({
+        input_tokens: 50_100,
+        cached_input_tokens: 10_000,
+        cache_write_input_tokens: 0,
+        output_tokens: 205,
+        reasoning_output_tokens: 50,
+      })
+    );
+    assert.equal(ingestCodexTranscript(rollout).changed, true);
+    const resumed = stmts.getTokensBySession
+      .all(sessionId)
+      .find((row) => row.context_size === "short");
+    assert.equal(resumed.input_tokens, 100);
+    assert.equal(resumed.output_tokens, 5);
+  });
+
   it("imports an inactive historical rollout as completed without replaying task_started", () => {
     const sessionId = "019fd086-d75c-7a91-9743-2788d849c224";
     const rollout = path.join(

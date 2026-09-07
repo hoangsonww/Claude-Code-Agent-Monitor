@@ -1,13 +1,13 @@
 ---
 name: update-project-docs
-description: MANDATORY for every coding agent (Claude Code, Codex, or any other) — keep this repository's documentation in sync after any change to behavior, configuration, interfaces, events, schema, or features. Use automatically (without being asked) at the end of ANY change-set that adds or alters an env var, event type, hook behavior, session/agent state transition, API route or response shape, DB schema, WebSocket message, MCP tool, CLI command, or user-facing feature — and whenever the user asks to "update the docs / README / wiki / architecture". Knows the full doc surface (README + VN/CN/KO, ARCHITECTURE, root index.html, wiki + i18n, server/client READMEs, docs/*) and which docs each kind of change touches.
+description: MANDATORY for every coding agent (Claude Code, Codex, or any other) — keep this repository's documentation in sync after any change to behavior, configuration, interfaces, events, schema, or features. Use automatically (without being asked) at the end of ANY change-set that adds or alters an env var, event type, hook behavior, session/agent state transition, API route or response shape, DB schema, WebSocket message, MCP tool, CLI command, or user-facing feature — and whenever the user asks to "update the docs / README / wiki / architecture". Knows the full doc surface (README + CN/VN/KO/ES, ARCHITECTURE, root index.html, wiki + i18n, server/client READMEs, docs/*) and which docs each kind of change touches.
 ---
 
 # Update Project Docs
 
-This repository keeps an unusually large, multi-surface, multi-language doc set. Docs drift silently because a change often belongs in 6–10 files across 4 languages plus two HTML pages. This skill encodes **which docs exist, which change-types touch which docs, and how to propagate consistently** (including the wiki i18n + cache-bump dance).
+This repository keeps an unusually large, multi-surface, multi-language doc set. Docs drift silently because a change often belongs in 6–10 files across 5 languages plus two HTML pages. This skill encodes **which docs exist, which change-types touch which docs, and how to propagate consistently** (including the wiki i18n + cache-bump dance).
 
-Authoritative inventory with exact section anchors lives in [`references/doc-map.md`](references/doc-map.md) — read it when deciding where a specific change lands. The repo rule [`.claude/rules/docs-markdown.md`](../../rules/docs-markdown.md) ("update all affected docs together") and [`.claude/rules/wiki-i18n.md`](../../rules/wiki-i18n.md) are binding.
+Authoritative inventory with exact section anchors lives in [`references/doc-map.md`](references/doc-map.md) — read it when deciding where a specific change lands. The repo rules [`.claude/rules/docs-markdown.md`](../../rules/docs-markdown.md) ("update all affected docs together"), [`.claude/rules/wiki-i18n.md`](../../rules/wiki-i18n.md), and [`.claude/rules/i18n-parity.md`](../../rules/i18n-parity.md) are binding. Translation propagation — the mirrored READMEs, the wiki bundles, and the UI keys — is owned by the [`i18n-parity`](../i18n-parity/SKILL.md) skill; run it whenever this skill's mapping sends you into a localized file.
 
 ## When to update (including without being asked)
 
@@ -29,26 +29,26 @@ Update docs **in the same change-set (PR/commit) as the code**, before claiming 
 
 | Change type | Docs to update |
 |---|---|
-| **Env var** | `README.md`, `README-VN.md`, `README-CN.md`, `README-KO.md` (env tables), `ARCHITECTURE.md` (inline), `server/README.md`, `wiki/index.html` (env table) + wiki i18n, `.env.example` |
-| **Event type** | `README.md`+VN+CN (hook-event table), `ARCHITECTURE.md` (Event types line), `docs/PLUGINS.md`, `wiki/index.html` + i18n, `docs/DATABASE.md` (if it enumerates types) |
-| **Hook behavior / state transition** | `docs/HOOKS.md`, state-machine **mermaid** diagrams in `README.md`+VN+CN + `server/README.md` + `docs/DATABASE.md` + `wiki/index.html`, `ARCHITECTURE.md` (hooks.js row) |
+| **Env var** | `README.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` (env tables), `ARCHITECTURE.md` (inline), `server/README.md`, `wiki/index.html` (env table) + wiki i18n, `.env.example` |
+| **Event type** | `README.md`+CN+VN+KO+ES (hook-event table), `ARCHITECTURE.md` (Event types line), `docs/PLUGINS.md`, `wiki/index.html` + i18n, `docs/DATABASE.md` (if it enumerates types) |
+| **Hook behavior / state transition** | `docs/HOOKS.md`, state-machine **mermaid** diagrams in `README.md`+CN+VN+KO+ES + `server/README.md` + `docs/DATABASE.md` + `wiki/index.html`, `ARCHITECTURE.md` (hooks.js row) |
 | **API route / response** | `docs/API.md`, `server/README.md` (routes), `ARCHITECTURE.md` (routes row), `server/openapi*.js` (code) |
 | **DB schema** | `docs/DATABASE.md`, `ARCHITECTURE.md` (ERD/schema) |
 | **WebSocket message** | `client/README.md` (Event Types), `server/README.md`, `wiki/index.html` |
 | **MCP tool** | `mcp/README.md`, `docs/MCP.md` |
-| **Feature / page / background service** | `README.md`+VN+CN (feature table + data-flow list), `ARCHITECTURE.md` (module table), `index.html` (landing blurb), `wiki/index.html` + i18n, `server/README.md` or `client/README.md` |
+| **Feature / page / background service** | `README.md`+CN+VN+KO+ES (feature table + data-flow list), `ARCHITECTURE.md` (module table), `index.html` (landing blurb), `wiki/index.html` + i18n, `server/README.md` or `client/README.md` |
 | **CLI command / script** | `README.md` commands, `CLAUDE.md` / `AGENTS.md`, `INSTALL.md` / `SETUP.md` |
-| **New language** | `docs/I18N.md`, `client/src/i18n/locales/<xx>/*`, `client/src/i18n/index.ts`, `README-<XX>.md`, wiki i18n |
+| **New language** | Run the [`i18n-parity`](../i18n-parity/SKILL.md) skill and work through its [new-language checklist](../i18n-parity/references/new-language-checklist.md) — it covers `docs/I18N.md`, `client/src/i18n/**`, the switchers, `format.ts`, `README-<XX>.md`, and the full wiki bundle |
 
 ## Procedure
 
 1. **Classify** the change against the table above. A change can hit multiple rows (a new feature with a new env var hits both).
 2. **Write the canonical English version first** — usually `README.md` and/or `ARCHITECTURE.md`. Get the wording right there; it anchors everything else.
-3. **Propagate to translations** `README-VN.md`, `README-CN.md`, and `README-KO.md`: mirror the SAME edits at the corresponding sections. Keep identifiers, env-var names, event names, and code in English; translate only prose. Render "Waiting" as **Đang chờ** (vi) / **等待中** (zh) / **대기 중** (ko). Match each file's existing terminology — read the neighboring lines first.
+3. **Propagate to translations** `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`: mirror the SAME edits at the corresponding sections. Keep identifiers, env-var names, event names, and code in English; translate only prose. Render "Waiting" as **等待中** (zh) / **Đang chờ** (vi) / **대기 중** (ko) / **En espera** (es). Match each file's existing terminology — read the neighboring lines first. The [`i18n-parity`](../i18n-parity/SKILL.md) skill owns this propagation and its glossary.
 4. **Landing page** `index.html`: one concise marketing sentence in the most relevant existing feature card — light touch, no new sections.
 5. **Wiki** `wiki/index.html`: add the detailed prose/table/diagram **at the length and in the position its neighbours already use** (see *Match the wiki's existing shape* below), then follow `.claude/rules/wiki-i18n.md` — add `zh` + `vi` + `ko` + `es` entries for every new English string to `wiki/i18n-content.js`, then **bump the cache**: increment `CACHE_NAME` in `wiki/sw.js` and the `i18n-content.js?v=` query string in `wiki/index.html`. Skipping the cache bump means returning visitors never see the update.
 6. **Area READMEs / docs/**: update `server/README.md`, `client/README.md`, and the relevant `docs/*.md` per the mapping.
-7. **Diagrams**: when a state transition changes, edit every mermaid `stateDiagram-v2` block that models it (they are duplicated across README/VN/CN/KO, server/README, docs/DATABASE, wiki). Keep transition labels consistent.
+7. **Diagrams**: when a state transition changes, edit every mermaid `stateDiagram-v2` block that models it (they are duplicated across README/CN/VN/KO/ES, server/README, docs/DATABASE, wiki). Keep transition labels consistent.
 
 ## Match the wiki's existing shape
 

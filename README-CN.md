@@ -645,7 +645,7 @@ flowchart LR
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 或 `~/.codex` | 可选的本地 Codex 状态目录。在设置中保存新位置会持久化此仪表盘专用覆盖、重新启用实时监视，并立即扫描新的 `sessions/` 树。 |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | 仅追加 Codex rollout 的安全兜底轮询间隔（毫秒）。Codex Hook 会立即触发同一个增量采集器；设为 `0` 仅禁用轮询，在可用时仍保留文件系统监听器。 |
 | `DASHBOARD_CODEX_HOOK_IDLE_SECONDS` | `60` | **仅靠 hook** 的 Codex 会话（运行时未将 rollout 写入磁盘，如 `codex exec --ephemeral`）在已报告结束的回合迟迟得不到响应时，可等待多久才判定其 `SessionEnd` hook 已丢失。只有 `awaiting_reason` 为 `stop` 的会话才符合条件：Codex 会在 `Stop` 之后几百毫秒内发送 `SessionEnd`，因此无人应答的 `Stop` 是真实证据。静默被刻意排除在触发条件之外——没有 rollout 的运行在整个工具调用期间完全不发出 hook，基于空闲时间的规则会误将正在运行的 CI 构建判定为已完成 |
-| `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，若无此下限，一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）会导致每个请求都完整重新解析数 MB 的活跃转录。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 恢复每次变更立即重新解析 |
+| `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，增长的转录会从其最后一条完整 JSONL 行开始增量解析，而此下限仍会把一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）合并为一次解析。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 则每次追加都立即解析 |
 | `DASHBOARD_EVENT_STRING_CAP` | `2048` | Hook 负载在写入 `events.data` **之前会被裁剪**：原生工具的整文件副本（Edit/Write 的 `originalFile`，Read 的 `file.content` / `file.base64`）被移除；每个 hook 的顶层 `background_tasks` 字段都会被移除，其 JSON 字节数记录在 `data._trimmed.dropped.background_tasks`；负载中任意位置的每个字符串都会被截断到此字符数（外加一条简短的裁剪说明）。每处改动记录在 `data._trimmed`（事件详情中显示为 **存储时已裁剪**）。启用裁剪时，存储的是预览：终端视图和字段上限以内编辑的 diff 照常可用，"original file" 面板不再对已存储事件显示，摘要统计的是预览行数，文本搜索只能看到保留的内容——完整文本仍在磁盘上的转录中。设为 `0` 则禁用全部裁剪，包括字段移除 |
 | `DASHBOARD_EVENT_FIELD_CAP` | `16384` | 字符串裁剪后仍然很大的 `tool_input` / `tool_response`（例如覆盖整个文件的 `structuredPatch`）的字节预算：超出时只保留能放下的短标量值。`npm run trim-events` 对裁剪功能引入前保存、或从旧导出恢复的行应用同样的规则（默认只读模拟；停止仪表板后用 `--yes --backup` 重写并 VACUUM） |
 | `DASHBOARD_REMOTE_SYNC_MS` | `15000` | **远程数据源**后台同步的间隔（毫秒），会独立拉取每个已启用远程的 `~/.claude/projects` 和 `~/.codex/sessions`（另含 Codex 的轻量 `session_index.jsonl` 标题索引），再分别通过本地导入器重新导入。新增或重新启用数据源时也会立即同步一次。设为 `0` 可禁用远程源轮询 |
@@ -771,7 +771,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | `npm run docker:down` | 停止 Dashboard 容器 |
 | `npm run docker:full:up` | Dashboard + 认证 MCP + Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | 停止完整容器栈 |
-| `npm run deploy:validate` | 验证 Docker、Compose、Nginx、Helm、Kustomize、Terraform 与单 writer 约束 |
+| `npm run deploy:validate` | 审查 Docker、Compose、Nginx、Helm、Kustomize、Terraform 与单 writer 约束。结果仅供参考（退出码 0）；设置 `CCAM_DEPLOY_VALIDATE_STRICT=1` 可将其变为硬性门禁 |
 
 ---
 
@@ -816,12 +816,19 @@ graph TD
   - [`.claude/rules/frontend-react.md`](./.claude/rules/frontend-react.md)
   - [`.claude/rules/mcp-typescript.md`](./.claude/rules/mcp-typescript.md)
   - [`.claude/rules/docs-markdown.md`](./.claude/rules/docs-markdown.md)
+  - [`.claude/rules/file-headers.md`](./.claude/rules/file-headers.md)
+  - [`.claude/rules/wiki-i18n.md`](./.claude/rules/wiki-i18n.md)
+  - [`.claude/rules/i18n-parity.md`](./.claude/rules/i18n-parity.md)
 - 技能：
   - `repo-onboarding`
   - `ship-feature`
   - `version-release`
   - `mcp-operations`
   - `debug-live-issue`
+  - `update-project-docs`
+  - `file-headers`
+  - `push-to-forked-pr`
+  - `i18n-parity`
 - 子 Agent：
   - `backend-reviewer`
   - `frontend-reviewer`
@@ -1840,7 +1847,7 @@ erDiagram
 
 ## 插件市场
 
-CCAM 为 Claude Code 和 Codex 提供 14 个共享插件、66 个插件技能、18 个 Claude 子 Agent、34 个 Claude 命令、3 个 CLI 工具、3 个 Hook 配置和 2 个支持 MCP 的插件。skills.sh CLI 可发现 76 个仓库技能。
+CCAM 为 Claude Code 和 Codex 提供 14 个共享插件、66 个插件技能、18 个 Claude 子 Agent、34 个 Claude 命令、3 个 CLI 工具、3 个 Hook 配置和 2 个支持 MCP 的插件。skills.sh CLI 可发现 77 个仓库技能。
 
 ### 添加市场
 
@@ -1879,7 +1886,7 @@ npx skills update --global --yes
 npx skills remove --global mcp-server --yes
 ```
 
-项目级安装使用 `.agents/skills/` 及各 Agent 的链接。Claude Code 全局技能默认位于 `~/.claude/skills/`，设置 `CLAUDE_CONFIG_DIR` 后位于其 `skills/` 子目录。Codex 全局技能默认位于 `~/.codex/skills/`，设置 `CODEX_HOME` 后位于其 `skills/` 子目录。多 Agent 安装可能通过共享存储去重，并链接到这些目标目录。skills.sh CLI 可发现 76 个仓库技能，其中包括 66 个插件技能和仓库维护技能。
+项目级安装使用 `.agents/skills/` 及各 Agent 的链接。Claude Code 全局技能默认位于 `~/.claude/skills/`，设置 `CLAUDE_CONFIG_DIR` 后位于其 `skills/` 子目录。Codex 全局技能默认位于 `~/.codex/skills/`，设置 `CODEX_HOME` 后位于其 `skills/` 子目录。多 Agent 安装可能通过共享存储去重，并链接到这些目标目录。skills.sh CLI 可发现 77 个仓库技能，其中包括 66 个插件技能和仓库维护技能。
 
 ### 可用插件
 

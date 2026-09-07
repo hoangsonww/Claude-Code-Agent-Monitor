@@ -336,6 +336,11 @@ db.exec(`
   -- session with many subagents) becomes tens of seconds and blocks the event
   -- loop. This composite narrows each dedup to the agent's events of that type.
   CREATE INDEX IF NOT EXISTS idx_events_agent_type ON events(agent_id, event_type);
+  -- The agent and session lists compute "last activity" with a correlated
+  -- MAX(created_at) per row; without these the subquery walks every event of
+  -- each agent/session on every list request.
+  CREATE INDEX IF NOT EXISTS idx_events_agent_created ON events(agent_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_session_created ON events(session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
@@ -560,10 +565,25 @@ try {
 // Each model gets its own explicit row — no catch-all grouping.
 // Rate shape mirrors Anthropic's published table: 5m write = 1.25× input, 1h write = 2× input.
 const DEFAULT_PRICING = [
-  // Next-gen flagship
+  // Next-gen flagship.
+  // The 5.1 rows need their own patterns: `claude-fable-5%` also LIKE-matches
+  // "claude-fable-5-1", and 5.1 differs from 5 on cache reads ($0.25 vs $1).
+  // calculateCost() in routes/pricing.js sorts rules by pattern length
+  // descending, so the more specific 5-1 rule wins for 5.1 while plain
+  // "claude-fable-5" still lands on the 5 rule.
+  ["claude-fable-5-1%", "Claude Fable 5.1", 10, 50, 0.25, 12.5, 20, 0, 0],
+  ["claude-mythos-5-1%", "Claude Mythos 5.1", 10, 50, 0.25, 12.5, 20, 0, 0],
   ["claude-fable-5%", "Claude Fable 5", 10, 50, 1, 12.5, 20, 0, 0],
   ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20, 0, 0],
-  // Opus family (fast mode available on 4.6 / 4.7 / 4.8)
+  // Opus family (fast mode available on 4.6 / 4.7 / 4.8, and now 5)
+  // claude-opus-5: $5/$25 input/output, $0.50 cache read, $6.25 5m cache write,
+  // $10 1h cache write — matching Anthropic's published rate card and identical
+  // to the 4.8/4.7/4.6/4.5 rows that share the same $5 input tier. Fast mode is
+  // $10/$50 (fast mode is Opus 5 / Opus 4.8 only).
+  // `%` covers both "claude-opus-5" and "claude-opus-5[1m]" (observed model
+  // string with the 1M-context flag) under one rule — the same convention every
+  // other model here uses, not a separate pricing tier.
+  ["claude-opus-5%", "Claude Opus 5", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25, 10, 30, 150],
   ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25, 10, 30, 150],
@@ -571,7 +591,12 @@ const DEFAULT_PRICING = [
   ["claude-opus-4-1%", "Claude Opus 4.1", 15, 75, 1.5, 18.75, 30, 0, 0],
   ["claude-opus-4-2%", "Claude Opus 4", 15, 75, 1.5, 18.75, 30, 0, 0],
   // Sonnet family
-  ["claude-sonnet-5%", "Claude Sonnet 5", 3, 15, 0.3, 3.75, 6, 0, 0],
+  // Sonnet 5 is $2/$10 on the current rate card. The 2/3-off launch promo
+  // (DEFAULT_INTRO_PRICING below) ran through 2026-08-31 at these same
+  // numbers; once it lapsed, usage fell back to the old $3/$15 standard and
+  // over-reported by 50%. The promo row is now a no-op and is kept only so
+  // existing DBs that already stamped intro_until keep their history.
+  ["claude-sonnet-5%", "Claude Sonnet 5", 2, 10, 0.2, 2.5, 4, 0, 0],
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-2%", "Claude Sonnet 4", 3, 15, 0.3, 3.75, 6, 0, 0],
@@ -701,6 +726,39 @@ repairLegacyGptPricing();
   });
   addMissing(DEFAULT_PRICING);
 }
+
+// One-time correction of Sonnet 5's standard rate on EXISTING databases.
+// The top-up above only INSERTs patterns that are missing, so a row seeded
+// before this change keeps the old $3/$15 standard forever — the user would
+// have to notice and hit "Reset Defaults" in Settings. Sonnet 5's 2/3-off
+// launch promo carried the correct $2/$10 through 2026-08-31; once it lapsed,
+// every session priced at the stale standard and over-reported by 50%.
+//
+// Guarded on the exact old defaults in every column, so a user who edited their
+// own Sonnet 5 rates is never overwritten, and re-running is a no-op. Cost is
+// computed from token_usage at request time and never stored, so correcting the
+// rule reprices all historical usage automatically — no data migration needed.
+// Exported (like applyIntroPricing) so the reset-pricing endpoint and tests can
+// apply it against a specific handle.
+function correctSonnet5StandardRate(dbHandle = db) {
+  return dbHandle
+    .prepare(
+      `UPDATE model_pricing
+          SET input_per_mtok = 2,
+              output_per_mtok = 10,
+              cache_read_per_mtok = 0.2,
+              cache_write_per_mtok = 2.5,
+              cache_write_1h_per_mtok = 4
+        WHERE model_pattern = 'claude-sonnet-5%'
+          AND input_per_mtok = 3
+          AND output_per_mtok = 15
+          AND cache_read_per_mtok = 0.3
+          AND cache_write_per_mtok = 3.75
+          AND cache_write_1h_per_mtok = 6`
+    )
+    .run();
+}
+correctSonnet5StandardRate();
 
 // Known introductory promo rates: [pattern, in, out, cacheRead, cw5m, cw1h, until].
 // Standard rates live in the DEFAULT_PRICING row; these add the time-limited
@@ -1560,8 +1618,15 @@ const stmts = {
   listEventsBySession: db.prepare(
     "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC, id DESC"
   ),
+  // Task progress reads `data` only from TaskCreated / TaskCompleted rows;
+  // lifecycle rows act purely as owner boundaries (see observationFromEvent
+  // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
+  // (background_tasks, last_assistant_message), so return them as NULL
+  // instead of shipping and parsing them on every list call.
   listTaskEventsBySession: db.prepare(
-    `SELECT * FROM events
+    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+     FROM events
      WHERE session_id = ? AND event_type IN (
        'TaskCreated', 'TaskCompleted',
        'UserPromptSubmit', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
@@ -1792,8 +1857,16 @@ const stmts = {
     WHERE model_pattern = ?
   `),
   deletePricing: db.prepare("DELETE FROM model_pricing WHERE model_pattern = ?"),
+  // ORDER BY length DESC picks the MOST SPECIFIC matching pattern, mirroring
+  // calculateCost() in routes/pricing.js. Patterns overlap by design —
+  // "claude-fable-5-1" matches both `claude-fable-5-1%` and `claude-fable-5%`,
+  // and the two differ on cache reads ($0.25 vs $1) — so a bare LIMIT 1 with no
+  // ordering could return either row and silently bill 5.1 at the 5 rate.
   matchPricing: db.prepare(
-    "SELECT * FROM model_pricing WHERE ? LIKE REPLACE(model_pattern, '%', '%') LIMIT 1"
+    `SELECT * FROM model_pricing
+      WHERE ? LIKE REPLACE(model_pattern, '%', '%')
+      ORDER BY LENGTH(model_pattern) DESC
+      LIMIT 1`
   ),
   // GPT / Codex pricing
   listGptPricing: db.prepare("SELECT * FROM gpt_model_pricing ORDER BY display_name ASC"),
@@ -2067,6 +2140,7 @@ module.exports = {
   DEFAULT_PRICING,
   DEFAULT_GPT_PRICING,
   applyIntroPricing,
+  correctSonnet5StandardRate,
   seedGptPricing,
   repairLegacyGptPricing,
 };
