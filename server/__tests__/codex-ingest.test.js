@@ -220,6 +220,143 @@ describe("Codex rollout ingestor", () => {
     assert.equal(short.output_tokens, 20);
   });
 
+  it("reads modern response-item prompts without counting injected user-role context", () => {
+    const sessionId = "01a07a11-e708-7ab3-b943-7d5e0d84c0de";
+    const rollout = path.join(
+      process.env.DASHBOARD_CODEX_HOME,
+      "sessions",
+      "2026",
+      "09",
+      "06",
+      `rollout-2026-09-06T22-00-00-${sessionId}.jsonl`
+    );
+    const responseMessage = (text, turnId, kind = "user.text") =>
+      record("response_item", {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text }],
+        internal_chat_message_metadata_passthrough: {
+          turn_id: turnId,
+          content_item_kinds: [kind],
+        },
+      });
+    fs.mkdirSync(path.dirname(rollout), { recursive: true });
+    fs.writeFileSync(
+      rollout,
+      [
+        record("session_meta", { id: sessionId, cwd: "/workspace/modern-codex" }),
+        responseMessage("repository instructions", "turn-1", "agents_md.instructions"),
+        responseMessage("Review PR 321", "turn-1"),
+        responseMessage("Post detailed comments", "turn-1"),
+        record("event_msg", { type: "task_started" }),
+        responseMessage("Fix this current branch", "turn-2"),
+        record("event_msg", { type: "task_started" }),
+      ]
+        .map(JSON.stringify)
+        .join("\n") + "\n"
+    );
+
+    const first = ingestCodexTranscript(rollout);
+    assert.equal(first.changed, true);
+    assert.equal(first.agent.task, "Fix this current branch");
+    assert.equal(
+      first.session.card_prompt_preview,
+      "Post detailed comments\nFix this current branch"
+    );
+    assert.equal(JSON.parse(first.session.metadata).turn_count, 2);
+    assert.deepEqual(
+      stmts.listEventsBySession
+        .all(sessionId)
+        .filter((event) => event.event_type === "codex_user_message")
+        .map((event) => event.summary),
+      ["Fix this current branch", "Post detailed comments", "Review PR 321"]
+    );
+
+    // Simulate a pre-fix database whose byte cursor has already consumed the
+    // rollout. An unchanged-file pass repairs the card from prior bytes once.
+    db.prepare("DELETE FROM events WHERE session_id = ? AND event_type = 'codex_user_message'").run(
+      sessionId
+    );
+    db.prepare("UPDATE sessions SET card_prompt_preview = NULL, metadata = ? WHERE id = ?").run(
+      JSON.stringify({ provider: "codex" }),
+      sessionId
+    );
+    db.prepare("UPDATE agents SET task = NULL WHERE id = ?").run(`codex:${sessionId}`);
+    const repaired = ingestCodexTranscript(rollout);
+    assert.equal(repaired.changed, true);
+    assert.equal(repaired.agent.task, "Fix this current branch");
+    assert.equal(
+      repaired.session.card_prompt_preview,
+      "Post detailed comments\nFix this current branch"
+    );
+    assert.equal(JSON.parse(repaired.session.metadata).turn_count, 2);
+    assert.equal(ingestCodexTranscript(rollout).changed, false, "the repair is one-shot");
+    stmts.updateSession.run(null, "completed", new Date().toISOString(), null, sessionId);
+    stmts.updateAgent.run(
+      null,
+      "completed",
+      null,
+      null,
+      new Date().toISOString(),
+      null,
+      `codex:${sessionId}`
+    );
+  });
+
+  it("deduplicates legacy and modern prompt copies across incremental reads", () => {
+    const sessionId = "01b18b22-f819-7bc4-ca54-8e6f1e95d1ef";
+    const rollout = path.join(
+      process.env.DASHBOARD_CODEX_HOME,
+      "sessions",
+      "2026",
+      "09",
+      "07",
+      `rollout-2026-09-07T00-00-00-${sessionId}.jsonl`
+    );
+    const modernPrompt = (message, turnId) =>
+      record("response_item", {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: message }],
+        internal_chat_message_metadata_passthrough: {
+          turn_id: turnId,
+          content_item_kinds: ["user.text"],
+        },
+      });
+    const write = (entry) => fs.appendFileSync(rollout, `${JSON.stringify(entry)}\n`);
+    fs.mkdirSync(path.dirname(rollout), { recursive: true });
+
+    write(record("session_meta", { id: sessionId, cwd: "/workspace/incremental-prompts" }));
+    write(record("event_msg", { type: "user_message", message: "Legacy arrives first" }));
+    ingestCodexTranscript(rollout);
+    write(modernPrompt("Legacy arrives first", "turn-1"));
+    ingestCodexTranscript(rollout);
+
+    write(modernPrompt("Modern arrives first", "turn-2"));
+    ingestCodexTranscript(rollout);
+    write(record("event_msg", { type: "user_message", message: "Modern arrives first" }));
+    const result = ingestCodexTranscript(rollout);
+
+    const promptEvents = stmts.listEventsBySession
+      .all(sessionId)
+      .filter((event) => event.event_type === "codex_user_message");
+    assert.deepEqual(
+      promptEvents.map((event) => event.summary),
+      ["Modern arrives first", "Legacy arrives first"]
+    );
+    assert.equal(result.session.card_prompt_preview, "Legacy arrives first\nModern arrives first");
+    stmts.updateSession.run(null, "completed", new Date().toISOString(), null, sessionId);
+    stmts.updateAgent.run(
+      null,
+      "completed",
+      null,
+      null,
+      new Date().toISOString(),
+      null,
+      `codex:${sessionId}`
+    );
+  });
+
   it("maps task completion, resumed work, and interrupted work to Claude-equivalent card states", () => {
     append(record("event_msg", { type: "task_complete" }));
     ingestCodexTranscript(ROLLOUT);

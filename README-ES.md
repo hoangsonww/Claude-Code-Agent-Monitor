@@ -725,7 +725,7 @@ Los comandos respaldados por API necesitan que el servidor esté en ejecución, 
 | `npm run setup`         | Instalar dependencias de root, cliente, extensión y MCP, compilar MCP y enlazar `ccam` |
 | `npm run update:pull-setup` | `git pull --ff-only` luego `npm run setup` (actualización manual) |
 | `npm run dev`           | Iniciar el servidor (modo de observación) + el cliente (Vite HMR) de forma concurrente |
-| `npm run dev:server` | Inicia solo el servidor Express con `--watch` |
+| `npm run dev:server` | Inicia Express con un supervisor de código con antirrebote y reinicio ordenado |
 | `npm run dev:client` | Iniciar solo el servidor de desarrollo Vite                             |
 | `npm run build`         | Construir el cliente React en `client/dist/`                   |
 | `npm start`             | Iniciar el servidor de producción (sirve al cliente construido)              |
@@ -2094,7 +2094,7 @@ Apoyamos tanto los modos de despliegue de desarrollo como de producción con dif
 ```mermaid
 graph LR
     subgraph dev["Development — 2 processes"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>supervisor con antirrebote"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["Browser"] --> D_VITE
         D_VITE -->|"proxy /api + /ws"| D_SRV

@@ -2105,7 +2105,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>dev:server</code></td>
                   <td><code>npm run dev:server</code></td>
-                  <td>Start only the Express server with <code>--watch</code></td>
+                  <td>Start Express with a debounced, graceful-restart source watcher</td>
                 </tr>
                 <tr>
                   <td><code>dev:client</code></td>
@@ -6526,7 +6526,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
               graph LR
                 subgraph dev["Development — 2 processes"]
                   D_CMD["npm run dev\n(concurrently)"]
-                  D_SRV["node --watch server/index.js\nport 4820 — auto-restart"]
+                  D_SRV["scripts/dev-server.js\nport 4820 — debounced restart"]
                   D_VITE["vite dev server\nport 5173 — HMR"]
                   D_BROWSER["Browser"]
                   D_CMD --> D_SRV
@@ -6576,7 +6576,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 </tr>
                 <tr>
                   <td>File watching</td>
-                  <td><code>node --watch</code> + Vite HMR</td>
+                  <td>Debounced server watcher + Vite HMR</td>
                   <td>None</td>
                 </tr>
                 <tr>
@@ -7068,7 +7068,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=92" defer></script>
+    <script src="i18n-content.js?v=93" defer></script>
     <script src="script.js?v=57" defer></script>
     <script>
       (function () {

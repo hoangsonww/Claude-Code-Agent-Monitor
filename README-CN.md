@@ -725,7 +725,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | ----------------------- | ---------------------------------------------------------- |
 | `npm run setup` | 安装根目录、客户端、扩展与 MCP 依赖，构建 MCP 并链接 `ccam` |
 | `npm run dev` | 同时启动服务端（watch 模式）+ 客户端（Vite HMR） |
-| `npm run dev:server` | 仅启动 Express 服务器（`--watch`） |
+| `npm run dev:server` | 使用防抖、优雅重启的源码监视器启动 Express 服务器 |
 | `npm run dev:client` | 仅启动 Vite 开发服务器 |
 | `npm run build` | 构建 React 客户端到 `client/dist/` |
 | `npm start` | 启动生产服务器（提供构建后的客户端） |
@@ -2036,7 +2036,7 @@ flowchart TD
 ```mermaid
 graph LR
     subgraph dev["开发模式 — 2 个进程"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>防抖监视器"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["浏览器"] --> D_VITE
         D_VITE -->|"代理 /api + /ws"| D_SRV

@@ -12,6 +12,7 @@ Thanks for taking the time to contribute. Please read this guide before opening 
 - [Development Workflow](#development-workflow)
 - [Branching and Commits](#branching-and-commits)
 - [Pull Requests](#pull-requests)
+- [Labels](#labels)
 - [Testing](#testing)
 - [Translations and Internationalization](#translations-and-internationalization)
 - [Reporting Bugs](#reporting-bugs)
@@ -121,6 +122,44 @@ bash .claude/skills/file-headers/scripts/check-headers-pr.sh origin/master HEAD
 Applicable source files (`.js`, `.ts`, `.tsx`, `.py`, `.sh`, `.css`, etc.) must
 include the `@author Son Nguyen <hoangson091104@gmail.com>` header — CI enforces
 this on every PR via the **File Headers** workflow.
+
+---
+
+## Labels
+
+Labels are applied automatically by the **Auto-Triage** workflow
+(`.github/workflows/triage.yml`), from rules in `.github/scripts/label-rules.js`.
+You never need to add them by hand, and they are re-evaluated on every push to a
+PR — so a PR that grows loses `size/S` and gains `size/L`, and `needs-tests`
+disappears as soon as a test lands.
+
+| Namespace | Applied from |
+| --- | --- |
+| `size/XS` … `size/XL` | Lines changed, ignoring lockfiles, build output, snapshots and generated manifests — so a version bump reads as the small change it is |
+| `area/*` | The directories touched, ranked by how many meaningful lines each got (at most four). On issues, from the form's **Area** dropdown |
+| `type/*` | Your **Type of Change** checkbox first, then a conventional-commit title (`fix(server): …`), then the branch prefix (`feat/`, `docs/`), then what the files imply |
+| `priority/*` | The feature form's "How important is this to you?" answer |
+| `breaking-change` | A `!` in the title (`feat!:`), a `BREAKING CHANGE:` footer, or the template checkbox |
+| `release` | A version bump: the root `package.json` moves and the title names the release |
+| `dependencies` | Only manifests and lockfiles changed |
+| `needs-tests` | Product source changed with no test alongside it (docs, CI, dependency and release PRs are exempt) |
+| `i18n` / `needs-i18n-parity` | A localized surface changed — and, for `needs-i18n-parity`, its siblings did not (see [Translations](#translations-and-internationalization)) |
+
+Two consequences worth knowing:
+
+- **Your title, branch name and template checkbox are what drive `type/*`.** The
+  conventions in [Branching and Commits](#branching-and-commits) are not
+  decorative — filling in the template accurately is what makes the labels true.
+- **Labels a human applies are never removed.** The workflow only reconciles the
+  namespaces above; `good first issue`, `help wanted`, `question` and anything a
+  maintainer sets by hand survive every re-run.
+
+Changing a rule means changing `.github/scripts/label-rules.js` and its tests in
+`server/__tests__/label-rules.test.js`. Because the workflow runs from the base
+branch, those tests are what proves a rules change before it merges. Maintainers
+can re-label everything open by running the workflow manually with
+`backfill: true` (pair it with `dry_run: true` first to preview the diff in the
+job summary).
 
 ---
 

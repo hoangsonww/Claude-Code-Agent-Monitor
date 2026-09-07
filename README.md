@@ -732,7 +732,7 @@ API-backed commands need the server running — when it isn't, **read-only comma
 | `npm run setup`         | Install root/client/extension/MCP dependencies, build MCP, and link `ccam` |
 | `npm run update:pull-setup` | `git pull --ff-only` then `npm run setup` (manual upgrade) |
 | `npm run dev`           | Start server (watch mode) + client (Vite HMR) concurrently |
-| `npm run dev:server`    | Start only the Express server with `--watch`               |
+| `npm run dev:server`    | Start Express with a debounced, graceful-restart source watcher |
 | `npm run dev:client`    | Start only the Vite dev server                             |
 | `npm run build`         | Build the React client to `client/dist/`                   |
 | `npm start`             | Start production server (serves built client)              |
@@ -2090,7 +2090,7 @@ We support both development and production deployment modes with different proce
 ```mermaid
 graph LR
     subgraph dev["Development — 2 processes"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>debounced watcher"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["Browser"] --> D_VITE
         D_VITE -->|"proxy /api + /ws"| D_SRV

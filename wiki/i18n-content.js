@@ -510,8 +510,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "安装所有依赖项（服务器 + 客户端）",
     "Start server + client in development mode with hot reload":
       "以带热重载的开发模式启动服务器 + 客户端",
-    "Start only the Express server with <code>--watch</code>":
-      "仅启动带 <code>--watch</code> 的 Express 服务器",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "使用防抖、优雅重启的源码监视器启动 Express 服务器",
     "Start only the Vite dev server": "仅启动 Vite 开发服务器",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "TypeScript 检查 + Vite 生产构建到 <code>client/dist/</code>",
@@ -1210,7 +1210,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite 将 <code>/api</code> + <code>/ws</code> 代理到 :4820",
     "Same origin, no proxy": "同源，无代理",
     "File watching": "文件监听",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "防抖服务端监视器 + Vite HMR",
     None: "无",
     "Source maps": "源映射",
     Inline: "内联",
@@ -2004,8 +2004,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "Cài đặt tất cả phụ thuộc (máy chủ + client)",
     "Start server + client in development mode with hot reload":
       "Khởi động máy chủ + client ở chế độ phát triển với hot reload",
-    "Start only the Express server with <code>--watch</code>":
-      "Chỉ khởi động máy chủ Express với <code>--watch</code>",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "Khởi động Express bằng trình theo dõi mã nguồn chống dội và khởi động lại an toàn",
     "Start only the Vite dev server": "Chỉ khởi động máy chủ phát triển Vite",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "Kiểm tra TypeScript + build production bằng Vite vào <code>client/dist/</code>",
@@ -2716,7 +2716,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite chuyển tiếp <code>/api</code> + <code>/ws</code> tới :4820",
     "Same origin, no proxy": "Cùng nguồn gốc, không có proxy",
     "File watching": "Theo dõi tệp",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "Trình theo dõi máy chủ chống dội + Vite HMR",
     None: "Không có",
     "Source maps": "Source map",
     Inline: "Nội tuyến",
@@ -3491,8 +3491,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "모든 의존성 설치(서버 + 클라이언트)",
     "Start server + client in development mode with hot reload":
       "핫 리로드가 적용된 개발 모드로 서버와 클라이언트를 시작",
-    "Start only the Express server with <code>--watch</code>":
-      "<code>--watch</code> 옵션으로 Express 서버만 시작",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "디바운스 및 안전 재시작 소스 감시기로 Express 서버를 시작",
     "Start only the Vite dev server": "Vite 개발 서버만 시작합니다",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "TypeScript 검사 후 <code>client/dist/</code>로 Vite 프로덕션 빌드를 수행합니다",
@@ -4199,7 +4199,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite가 <code>/api</code> + <code>/ws</code>를 :4820으로 프록시",
     "Same origin, no proxy": "동일 출처, 프록시 없음",
     "File watching": "파일 감시",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "디바운스 서버 감시기 + Vite HMR",
     None: "없음",
     "Source maps": "소스 맵",
     Inline: "인라인",
@@ -4977,8 +4977,8 @@ window.__WIKI_CONTENT_I18N = {
       "Instalar todas las dependencias (servidor + cliente)",
     "Start server + client in development mode with hot reload":
       "Iniciar el servidor + cliente en modo de desarrollo con carga rápida",
-    "Start only the Express server with <code>--watch</code>":
-      "Inicie solo el servidor Express con <code>--watch</code>",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "Inicia Express con un supervisor de código con antirrebote y reinicio ordenado",
     "Start only the Vite dev server": "Inicie solo el servidor de desarrollo Vite",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "Verificación de TypeScript + construcción de producción de Vite para <code>client/dist/</code>",
@@ -5696,7 +5696,7 @@ window.__WIKI_CONTENT_I18N = {
       "Proxies Vite <code>/api</code> + <code>/ws</code> A: 4820",
     "Same origin, no proxy": "Misma origen, sin proxy",
     "File watching": "Seguimiento de archivos",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "Supervisor del servidor con antirrebote + Vite HMR",
     None: "nona",
     "Source maps": "Mapa de fuentes",
     Inline: "En línea",
