@@ -136,7 +136,8 @@
     "noPayload": "No payload captured for this event.",
     "viewDetails": "View details",
     "expand": "Expand event",
-    "collapse": "Collapse event"
+    "collapse": "Collapse event",
+    "trimmed": "Trimmed on storage"
   },
   "eventFilters": {
     "searchPlaceholder": "Search summary, tool, payload...",

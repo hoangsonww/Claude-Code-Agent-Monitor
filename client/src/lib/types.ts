@@ -949,9 +949,12 @@ export interface DashboardEvent {
    *  importer had nothing more useful than the raw payload. Maps to
    *  `events.summary`. Example: `"Edited src/lib/types.ts"`. */
   summary: string | null;
-  /** Opaque JSON string of the full hook payload (tool_input/tool_response,
-   *  cwd, etc.) - `JSON.parse` before reading; null if the payload was empty.
-   *  Maps to `events.data`. Can be large; only parsed on demand in detail views. */
+  /** Opaque JSON string of the hook payload (tool_input/tool_response, cwd,
+   *  etc.) as stored - `JSON.parse` before reading; null if the payload was
+   *  empty. Maps to `events.data`. Stored payloads are trimmed (whole-file
+   *  mirrors dropped, long strings cut, see `_trimmed` inside the JSON), so
+   *  treat tool_input/tool_response as previews. Only parsed on demand in
+   *  detail views. */
   data: string | null;
   /** ISO timestamp the event was recorded (ingest time, not hook-reported time).
    *  Maps to `events.created_at`. Drives all time-bucketed charts. */

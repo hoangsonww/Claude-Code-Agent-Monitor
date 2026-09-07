@@ -356,6 +356,8 @@ Triggered before a tool executes.
 
 Triggered after a tool completes execution.
 
+> **Stored lossily.** The server trims every hook payload before writing `events.data`: the native tools' whole-file mirrors (`tool_response.originalFile` on Edit/Write, `tool_response.file.content` / `.base64` on Read) are dropped; the top-level `background_tasks` field is dropped from every hook, with its JSON byte size recorded at `data._trimmed.dropped.background_tasks`; and every string anywhere in the payload is cut to `DASHBOARD_EVENT_STRING_CAP` characters. Only `tool_input` / `tool_response` get the whole-field `DASHBOARD_EVENT_FIELD_CAP` byte limit, over which only their short scalars are kept. Every change is noted under `data._trimmed`; the transcript on disk keeps the full text. Setting `DASHBOARD_EVENT_STRING_CAP=0` disables every drop and cap.
+
 **Payload Example:**
 
 ```json

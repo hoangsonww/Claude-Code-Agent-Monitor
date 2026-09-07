@@ -136,7 +136,8 @@
     "noPayload": "No se capturó payload para este evento.",
     "viewDetails": "Ver detalles",
     "expand": "Expandir evento",
-    "collapse": "Colapsar evento"
+    "collapse": "Colapsar evento",
+    "trimmed": "Recortado al guardar"
   },
   "eventFilters": {
     "searchPlaceholder": "Buscar resumen, herramienta, payload...",

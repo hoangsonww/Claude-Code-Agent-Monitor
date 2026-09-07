@@ -18,6 +18,7 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { trimHookPayload } = require("../lib/event-payload");
 
 const router = Router();
 
@@ -1103,13 +1104,16 @@ const processEvent = db.transaction((hookType, data) => {
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
+  // Store a trimmed copy: whole-file mirrors and unbounded tool output would
+  // otherwise dominate the database (see lib/event-payload.js). `data` itself
+  // stays intact for the readers above and below.
   stmts.insertEvent.run(
     sessionId,
     agentId,
     eventType,
     toolName,
     summary,
-    JSON.stringify(data)
+    JSON.stringify(trimHookPayload(data))
     // created_at uses default
   );
 
