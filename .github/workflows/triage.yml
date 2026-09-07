@@ -1,9 +1,20 @@
 # Auto-Triage for Claude Code Agent Monitor
 #
-# Runs whenever an issue or a pull request is OPENED and performs three things:
-#   1. Labels      — applies the full label set (bug, documentation, enhancement,
-#                    good first issue, help wanted, question) to every new
-#                    issue AND pull request.
+# Labels, assigns, and boards every issue and pull request.
+#
+#   1. Labels      — derived from the change itself by `.github/scripts/label-rules.js`:
+#                    `size/*` from the meaningful lines changed (lockfiles, build
+#                    output, snapshots and generated manifests excluded), `area/*`
+#                    from the paths touched (or the issue form's Area dropdown),
+#                    one `type/*` from the PR template checkbox / conventional-commit
+#                    title / branch prefix, `priority/*` from the feature form, plus
+#                    the review signals `breaking-change`, `release`, `dependencies`,
+#                    `needs-tests`, `i18n` and `needs-i18n-parity`.
+#                    Labels are RECONCILED, not just added: a pull request that grows
+#                    from S to L loses `size/S`, and a stale `needs-tests` disappears
+#                    once a test lands. Only labels inside the managed namespaces are
+#                    ever removed — `good first issue`, `help wanted`, `question` and
+#                    anything else applied by hand are left untouched.
 #   2. Assignees   — a new PR is assigned to its author; a new issue is assigned
 #                    to the repo owner (hoangsonww) AND its author.
 #   3. Project     — adds every new issue / PR to the repo's linked GitHub
@@ -11,31 +22,56 @@
 #
 # Notes:
 #   - Labeling + assigning use the built-in GITHUB_TOKEN (issues + pull-requests
-#     write), so they work out of the box.
+#     write), so they work out of the box. Missing labels are created on first use
+#     with the color and description from the rules module, so no manual label
+#     setup is required.
 #   - GitHub Projects (v2) CANNOT be written by GITHUB_TOKEN. The "add to project"
 #     step therefore needs a Personal Access Token (classic with `project` scope,
 #     or fine-grained with "Projects: Read and write" on the owner) stored as the
 #     repo secret `TRIAGE_PROJECT_TOKEN`. If that secret is absent the step is
 #     skipped — labeling/assigning still run.
 #   - `pull_request_target` (not `pull_request`) is used so PRs opened from forks
-#     still get a write-scoped token. No PR code is checked out or executed, so
-#     this is safe.
+#     still get a write-scoped token. This workflow and the rules module are read
+#     from the BASE branch and the PR's head is never checked out or executed, so
+#     a fork cannot influence what runs here. The tradeoff is that a PR editing
+#     the rules is labeled by the rules already on master; the unit tests in
+#     `server/__tests__/label-rules.test.js` are what prove a rules change before
+#     it merges.
 #   - Assigning the author is best-effort: GitHub silently ignores assignees who
 #     lack repo access (common for first-time external contributors).
+#   - Run manually with `backfill: true` to re-triage every open issue and pull
+#     request (useful after a rules change); pair it with `dry_run: true` first to
+#     see the diff in the job summary without touching anything.
 #
 # Author: Son Nguyen <hoangson091104@gmail.com>
 name: 🏷️ Auto-Triage Issues & PRs
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited, reopened]
   pull_request_target:
-    types: [opened]
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Re-triage every open issue and pull request"
+        type: boolean
+        default: false
+      dry_run:
+        description: "Report the label changes without applying them"
+        type: boolean
+        default: false
 
 permissions:
   issues: write
   pull-requests: write
   contents: read
+
+# One triage run per issue/PR: a burst of pushes should settle on the labels of
+# the final commit rather than racing older runs.
+concurrency:
+  group: triage-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   triage:
@@ -46,59 +82,207 @@ jobs:
       # when the PAT secret is not configured (secrets aren't usable directly in
       # a step-level `if`).
       PROJECT_TOKEN: ${{ secrets.TRIAGE_PROJECT_TOKEN }}
+      BACKFILL: ${{ inputs.backfill }}
+      DRY_RUN: ${{ inputs.dry_run }}
     steps:
-      - name: Apply labels and assignees
+      # Base-branch checkout only — never the pull request's head. This is what
+      # makes `pull_request_target` safe here: the rules module that runs below
+      # is the one already reviewed and merged.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Apply labels
         uses: actions/github-script@v7
         with:
           script: |
-            const LABELS = [
-              "bug",
-              "documentation",
-              "enhancement",
-              "good first issue",
-              "help wanted",
-              "question",
-            ];
+            const path = require("path");
+            const rules = require(
+              path.join(process.env.GITHUB_WORKSPACE, ".github", "scripts", "label-rules.js")
+            );
+            const { owner, repo } = context.repo;
+            const dryRun = process.env.DRY_RUN === "true";
+            const backfill = process.env.BACKFILL === "true";
+
+            // A very large pull request is bounded rather than paginated to the
+            // end: the first 1000 files are more than enough to place it.
+            const MAX_FILE_PAGES = 10;
+            async function changedFiles(number) {
+              const files = [];
+              for (let page = 1; page <= MAX_FILE_PAGES; page++) {
+                const { data } = await github.rest.pulls.listFiles({
+                  owner,
+                  repo,
+                  pull_number: number,
+                  per_page: 100,
+                  page,
+                });
+                files.push(...data);
+                if (data.length < 100) break;
+              }
+              return files.map((file) => ({
+                filename: file.filename,
+                additions: file.additions,
+                deletions: file.deletions,
+              }));
+            }
+
+            // What this run triages: the event's subject, or every open item.
+            async function collectTargets() {
+              if (backfill) {
+                const open = await github.paginate(github.rest.issues.listForRepo, {
+                  owner,
+                  repo,
+                  state: "open",
+                  per_page: 100,
+                });
+                return open.map((item) => ({
+                  number: item.number,
+                  kind: item.pull_request ? "pull_request" : "issue",
+                  title: item.title,
+                  body: item.body || "",
+                  labels: item.labels.map((label) => label.name || label),
+                  branch: "",
+                }));
+              }
+              const pr = context.payload.pull_request;
+              const target = pr || context.payload.issue;
+              if (!target) return [];
+              return [
+                {
+                  number: target.number,
+                  kind: pr ? "pull_request" : "issue",
+                  title: target.title,
+                  body: target.body || "",
+                  labels: (target.labels || []).map((label) => label.name || label),
+                  branch: pr ? pr.head.ref : "",
+                },
+              ];
+            }
+
+            // Labels are created on demand so the catalogue lives in one place
+            // (the rules module) instead of in repository settings.
+            const existing = new Set(
+              (
+                await github.paginate(github.rest.issues.listLabelsForRepo, {
+                  owner,
+                  repo,
+                  per_page: 100,
+                })
+              ).map((label) => label.name)
+            );
+            async function ensureLabels(names) {
+              for (const name of names) {
+                if (existing.has(name)) continue;
+                const definition = rules.LABELS[name];
+                if (!definition) continue;
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name,
+                    color: definition.color,
+                    description: definition.description,
+                  });
+                  existing.add(name);
+                } catch (err) {
+                  // 422 = created by a concurrent run; anything else is logged
+                  // and the label add below simply creates it implicitly.
+                  if (err.status !== 422) core.warning(`Could not create label ${name}: ${err.message}`);
+                  existing.add(name);
+                }
+              }
+            }
+
+            const targets = await collectTargets();
+            const rows = [];
+            for (const target of targets) {
+              const files =
+                target.kind === "pull_request" ? await changedFiles(target.number) : [];
+              const branch =
+                target.branch ||
+                (backfill && target.kind === "pull_request"
+                  ? (await github.rest.pulls.get({ owner, repo, pull_number: target.number })).data
+                      .head.ref
+                  : "");
+              const desired = rules.computeLabels({
+                kind: target.kind,
+                title: target.title,
+                body: target.body,
+                branch,
+                files,
+              });
+              const { add, remove } = rules.reconcile(target.labels, desired);
+              rows.push([`#${target.number}`, add.join(", ") || "—", remove.join(", ") || "—"]);
+              if (dryRun || (!add.length && !remove.length)) continue;
+
+              await ensureLabels(add);
+              if (add.length) {
+                try {
+                  await github.rest.issues.addLabels({
+                    owner,
+                    repo,
+                    issue_number: target.number,
+                    labels: add,
+                  });
+                } catch (err) {
+                  core.warning(`Failed to add labels on #${target.number}: ${err.message}`);
+                }
+              }
+              for (const name of remove) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: target.number,
+                    name,
+                  });
+                } catch (err) {
+                  // 404 = already gone (another run, or a human removed it).
+                  if (err.status !== 404) {
+                    core.warning(`Failed to remove ${name} from #${target.number}: ${err.message}`);
+                  }
+                }
+              }
+            }
+
+            await core.summary
+              .addHeading(dryRun ? "Triage labels (dry run)" : "Triage labels", 3)
+              .addTable([
+                [
+                  { data: "Item", header: true },
+                  { data: "Added", header: true },
+                  { data: "Removed", header: true },
+                ],
+                ...rows,
+              ])
+              .write();
+            core.info(`Triaged ${rows.length} item(s).`);
+
+      - name: Assign author and owner
+        if: ${{ github.event.action == 'opened' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
             const { owner, repo } = context.repo;
             const isPR = Boolean(context.payload.pull_request);
             const target = isPR ? context.payload.pull_request : context.payload.issue;
-            const number = target.number;
             const creator = target.user.login;
-
-            // 1. Labels — same set for issues and PRs.
-            try {
-              await github.rest.issues.addLabels({
-                owner,
-                repo,
-                issue_number: number,
-                labels: LABELS,
-              });
-            } catch (err) {
-              core.warning(`Failed to add labels: ${err.message}`);
-            }
-
-            // 2. Assignees — PR: author; issue: owner (hoangsonww) + author.
-            const assignees = isPR
-              ? [creator]
-              : [...new Set(["hoangsonww", creator])];
+            // PR: author; issue: owner (hoangsonww) + author.
+            const assignees = isPR ? [creator] : [...new Set(["hoangsonww", creator])];
             try {
               await github.rest.issues.addAssignees({
                 owner,
                 repo,
-                issue_number: number,
+                issue_number: target.number,
                 assignees,
               });
             } catch (err) {
               core.warning(`Failed to add assignees (${assignees.join(", ")}): ${err.message}`);
             }
 
-            core.info(
-              `Triaged ${isPR ? "PR" : "issue"} #${number} by @${creator}: ` +
-                `${LABELS.length} labels, assignees [${assignees.join(", ")}].`
-            );
-
       - name: Add to project board
-        if: ${{ env.PROJECT_TOKEN != '' }}
+        if: ${{ github.event.action == 'opened' && env.PROJECT_TOKEN != '' }}
         uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/users/hoangsonww/projects/44
