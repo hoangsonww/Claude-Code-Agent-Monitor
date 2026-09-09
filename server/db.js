@@ -341,6 +341,13 @@ db.exec(`
   -- each agent/session on every list request.
   CREATE INDEX IF NOT EXISTS idx_events_agent_created ON events(agent_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_events_session_created ON events(session_id, created_at);
+  -- The analytics tool-usage panel groups every event by tool_name. With no
+  -- index on that column it is a full events-table scan on every request, and
+  -- better-sqlite3 is synchronous, so the whole server stalls for its duration:
+  -- measured at 45.7s on a 3.9M-row events table. Only tool events carry a
+  -- tool_name, so a partial index stays small, and it makes the GROUP BY a
+  -- covering-index scan -- the same query then measured 0.25s.
+  CREATE INDEX IF NOT EXISTS idx_events_tool_name ON events(tool_name) WHERE tool_name IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
