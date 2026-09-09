@@ -1492,6 +1492,7 @@ DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
 DASHBOARD_CODEX_HOME=              # Optional Codex home; Settings saves this dashboard-only override and immediately re-arms live watching
 DASHBOARD_CODEX_SYNC_MS=4000       # Codex rollout safety-net poll (ms); 0 disables poll (watcher stays)
+DASHBOARD_CODEX_MAX_ATTEMPTS=5     # Consecutive ingest retries per unchanged rollout before the sweep gives up on it
 DASHBOARD_CODEX_HOOK_IDLE_SECONDS=60 # Wait for a lost SessionEnd on a hook-only (rollout-less) Codex session
 DASHBOARD_TASK_SUMMARY_TTL_MS=2000 # Serve-stale window (ms) for task-progress summaries of actively-growing transcripts; 0 re-parses on every change
 DASHBOARD_TOKEN_REPAIR=1           # One-time startup repair of pre-reconciliation token totals; 0 skips it

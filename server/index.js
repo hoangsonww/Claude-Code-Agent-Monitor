@@ -677,6 +677,54 @@ function codexHomeChangeTriggersSweep(filename) {
   return name === "session_index.jsonl" || /^state_\d+\.sqlite(?:-wal)?$/.test(name);
 }
 
+/**
+ * Bounded retry budget for the Codex discovery sweep.
+ *
+ * The sweep deliberately re-queues a rollout it could not ingest so a transient
+ * failure (SQLITE_BUSY, a half-written file) is retried on the next pass. That
+ * retry has no upper bound, so a PERMANENT failure — a constraint violation, a
+ * record the parser cannot represent — is retried for the life of the process:
+ * at the 4s `DASHBOARD_CODEX_SYNC_MS` default that is ~21,600 attempts per file
+ * per day, each writing a log line.
+ *
+ * This keeps the transient behaviour and bounds the permanent one: a file gets
+ * `maxAttempts` consecutive attempts at the SAME fingerprint, after which it is
+ * left alone. Any new byte changes the fingerprint and restores the full budget,
+ * so a rollout that was merely half-written recovers on its own.
+ *
+ * The fingerprint is the source file's size and mtime, so it only detects
+ * recovery that shows up in the FILE. A failure whose cause is outside the
+ * rollout — repaired database state, say — is not noticed until the file next
+ * grows or the process restarts, which clears the budget with the rest of the
+ * sweep's in-memory state.
+ *
+ * Pure and side-effect free — the caller owns logging.
+ *
+ * @param {number} [maxAttempts] Attempts per fingerprint; defaults to 5.
+ */
+function createIngestRetryBudget(maxAttempts) {
+  const limit = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 5;
+  const streaks = new Map();
+  return {
+    limit,
+    /** True once this key has spent its budget at this fingerprint. */
+    exhausted(key, fingerprint) {
+      const streak = streaks.get(key);
+      return !!streak && streak.fingerprint === fingerprint && streak.count >= limit;
+    },
+    /** Records one failure; `final` marks the attempt that spends the budget. */
+    fail(key, fingerprint) {
+      const streak = streaks.get(key);
+      const count = streak && streak.fingerprint === fingerprint ? streak.count + 1 : 1;
+      streaks.set(key, { fingerprint, count });
+      return { count, final: count === limit };
+    },
+    succeed(key) {
+      streaks.delete(key);
+    },
+  };
+}
+
 function startCodexSessionSync(broadcast) {
   const fs = require("fs");
   const { getCodexHome, getCodexSessionsDir, onCodexHomeChanged } = require("./lib/codex-home");
@@ -700,6 +748,7 @@ function startCodexSessionSync(broadcast) {
   // until the file happens to grow.
   let toolBackfillDone = false;
   const toolIngestFailed = new Set();
+  const retryBudget = createIngestRetryBudget(Number(process.env.DASHBOARD_CODEX_MAX_ATTEMPTS));
   let running = false;
   let queued = false;
   let watcher = null;
@@ -712,6 +761,19 @@ function startCodexSessionSync(broadcast) {
     broadcast(result.created ? "session_created" : "session_updated", result.session);
     if (result.agent) broadcast(result.created ? "agent_created" : "agent_updated", result.agent);
     for (const event of result.events || []) broadcast("new_event", event);
+  }
+
+  function noteIngestFailure(key, fingerprint, label, message) {
+    const { final } = retryBudget.fail(key, fingerprint);
+    if (final) {
+      console.warn(
+        `[CODEX SYNC] ${label}: ${message} — no further attempts after ` +
+          `${retryBudget.limit} identical failures; retrying only when the file changes. ` +
+          `Raise DASHBOARD_CODEX_MAX_ATTEMPTS if this file needs longer to settle.`
+      );
+    } else {
+      console.warn(`[CODEX SYNC] ${label}:`, message);
+    }
   }
 
   async function runSweep() {
@@ -748,7 +810,8 @@ function startCodexSessionSync(broadcast) {
         }
         const fingerprint = `${stat.size}:${stat.mtimeMs}`;
         const changed = fingerprints.get(transcriptPath) !== fingerprint;
-        if (changed) {
+        const ingestKey = `ingest:${transcriptPath}`;
+        if (changed && !retryBudget.exhausted(ingestKey, fingerprint)) {
           try {
             // Only retain a successful fingerprint. A temporarily unreadable or
             // malformed rollout must retry on the next sweep rather than being
@@ -759,15 +822,31 @@ function startCodexSessionSync(broadcast) {
             // so the flag is the only way to tell them apart).
             const ingestResult = ingestCodexTranscript(transcriptPath, { liveTranscripts });
             publish(ingestResult);
-            if (!ingestResult?.failed) fingerprints.set(transcriptPath, fingerprint);
+            if (ingestResult?.failed) {
+              noteIngestFailure(
+                ingestKey,
+                fingerprint,
+                `Failed to ingest ${path.basename(transcriptPath)}`,
+                "the ingestor reported a failure"
+              );
+            } else {
+              fingerprints.set(transcriptPath, fingerprint);
+              retryBudget.succeed(ingestKey);
+            }
           } catch (err) {
-            console.warn(
-              `[CODEX SYNC] Failed to ingest ${path.basename(transcriptPath)}:`,
+            noteIngestFailure(
+              ingestKey,
+              fingerprint,
+              `Failed to ingest ${path.basename(transcriptPath)}`,
               err.message
             );
           }
         }
-        if (changed || !toolBackfillDone || toolIngestFailed.has(transcriptPath)) {
+        const toolKey = `tools:${transcriptPath}`;
+        if (
+          (changed || !toolBackfillDone || toolIngestFailed.has(transcriptPath)) &&
+          !retryBudget.exhausted(toolKey, fingerprint)
+        ) {
           try {
             // This independent cursor backfills response-item tool calls from
             // rollouts imported before Workflows understood Codex. It is a
@@ -787,13 +866,22 @@ function startCodexSessionSync(broadcast) {
             publish(toolResult);
             if (toolResult?.failed) {
               toolIngestFailed.add(transcriptPath);
+              noteIngestFailure(
+                toolKey,
+                fingerprint,
+                `Failed to index tools for ${path.basename(transcriptPath)}`,
+                "the ingestor reported a failure"
+              );
             } else {
               toolIngestFailed.delete(transcriptPath);
+              retryBudget.succeed(toolKey);
             }
           } catch (err) {
             toolIngestFailed.add(transcriptPath);
-            console.warn(
-              `[CODEX SYNC] Failed to index tools for ${path.basename(transcriptPath)}:`,
+            noteIngestFailure(
+              toolKey,
+              fingerprint,
+              `Failed to index tools for ${path.basename(transcriptPath)}`,
               err.message
             );
           }
@@ -1407,5 +1495,6 @@ module.exports = {
   startServer,
   startBackgroundServices,
   codexHomeChangeTriggersSweep,
+  createIngestRetryBudget,
   repairInflatedTokenTotals,
 };
