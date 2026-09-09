@@ -75,6 +75,15 @@ function createSourceWatcher(
     isSource = isRuntimeSource,
     onWarning = (message) => console.warn(message),
     recursive = true,
+    // Seam for tests, defaulted to the real thing so every production caller is
+    // unchanged. OS change notification is lossy by construction: libuv keeps
+    // ONE FSEvents stream per event loop on macOS and restarts it whenever a
+    // watch handle is added, and a change landing during that restart is dropped
+    // and never redelivered. A test that waits on a single real notification is
+    // therefore flaky however long it waits. Injecting the watch factory lets
+    // the dispatch logic below be driven deterministically against a real
+    // on-disk tree.
+    watch = fs.watch,
   } = {}
 ) {
   const watchers = new Map();
@@ -83,7 +92,7 @@ function createSourceWatcher(
     const resolved = path.resolve(directory);
     if (watchers.has(resolved)) return;
     try {
-      const watcher = fs.watch(resolved, (eventType, filename) => {
+      const watcher = watch(resolved, (eventType, filename) => {
         if (!filename) return;
         const changedPath = path.join(resolved, filename.toString());
         try {
