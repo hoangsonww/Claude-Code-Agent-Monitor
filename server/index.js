@@ -688,8 +688,8 @@ function codexHomeChangeTriggersSweep(filename) {
  * per day, each writing a log line.
  *
  * This keeps the transient behaviour and bounds the permanent one: a file gets
- * `maxAttempts` consecutive attempts at the SAME fingerprint, after which it is
- * left alone. Any new byte changes the fingerprint and restores the full budget,
+ * `maxAttempts` consecutive FAILED attempts at the SAME fingerprint — the first
+ * attempt counts toward the limit — after which it is left alone. Any new byte changes the fingerprint and restores the full budget,
  * so a rollout that was merely half-written recovers on its own.
  *
  * The fingerprint is the source file's size and mtime, so it only detects
