@@ -647,7 +647,8 @@ flowchart LR
 | `DASHBOARD_HOST`        | `127.0.0.1`   | Interface the server binds to. Loopback by default (not network-reachable). Set to `0.0.0.0` to expose on a LAN (logs a startup warning) |
 | `DASHBOARD_TOKEN`       | _(unset)_     | When set, every `/api/*` request and the WebSocket must present the token (`Authorization: Bearer <token>`, `x-dashboard-token` header, or `?token=`). Off by default — loopback bind is the trust boundary |
 | `DASHBOARD_TOKEN_FILE` | _(unset)_ | File-backed dashboard token for Docker/Kubernetes secrets; direct `DASHBOARD_TOKEN` wins |
-| `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | _(unset)_ | Independent token for `/api/hooks/*`; required for authenticated remote hook ingestion |
+| `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | _(unset)_ | Independent token for the local hook routes (`/api/hooks/event`, `/api/hooks/codex`) when exposed beyond loopback |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | _(unset)_ | Separate token gating `POST /api/hooks/ingest-batch` (public-internet remote-push route, disabled by default). Deliberately independent of `DASHBOARD_HOOK_TOKEN` above — setting that one must not also open this internet-writable route |
 | `DASHBOARD_ALLOWED_HOSTS` | _(loopback)_ | Comma-separated extra `Host` values allowed on HTTP + WebSocket upgrades (DNS-rebinding guard). Add your LAN hostnames here when binding beyond loopback |
 | `DASHBOARD_ENV_PATH` | repo `.env` | Writable dotenv path used when Settings persists Claude/Codex home overrides; container default `/app/config/.env` |
 | `CCAM_DASHBOARD_URL` | _(localhost discovery)_ | Optional remote hook destination. Non-loopback URLs must use HTTPS and a hook token |
@@ -1138,6 +1139,7 @@ See [docs/API.md → Metrics](./docs/API.md#metrics) for the full metric list an
 | Method | Path               | Description                                  |
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | Receive and process a Claude Code hook event |
+| `POST` | `/api/hooks/ingest-batch` | Push a batch of session data from a roaming/NAT'd machine (disabled by default; see `REMOTE_PUSH_TOKEN` below and `server/README.md` for the full payload shape) |
 
 **Hook event payload:**
 

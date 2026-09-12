@@ -499,6 +499,7 @@ Claude turn-duration ingestion assigns each `TurnDuration` a stable transcript i
 | ------ | ------------------ | ---------------------------------------------- |
 | `POST` | `/api/hooks/event` | Ingest one Claude Code hook event envelope     |
 | `POST` | `/api/hooks/codex` | Acknowledge a Codex lifecycle notification and asynchronously ingest its rollout (or, for a rollout-less run, the payload itself) |
+| `POST` | `/api/hooks/ingest-batch` | Third session-data ingestion path (see [Remote Data Sources](#remote-data-sources) for the other two): a roaming/NAT'd machine the dashboard can never reach to pull FROM pushes a batch of its own session data instead |
 
 Request body shape:
 
@@ -510,6 +511,77 @@ Request body shape:
     "tool_name": "Bash"
   }
 }
+```
+
+#### `POST /api/hooks/ingest-batch`
+
+Unlike every other route in this file, this one is meant to be reachable from
+the public internet (via Traefik) rather than loopback, and is disabled by
+default. It is gated by its **own** token — deliberately **not**
+`DASHBOARD_HOOK_TOKEN` (that one protects the loopback-only routes above; an
+operator who sets it to harden those must not thereby also open this
+internet-writable endpoint as a side effect):
+
+```
+REMOTE_PUSH_TOKEN=              # or REMOTE_PUSH_TOKEN_FILE=/path/to/token
+```
+
+Unset (the default): every request gets `503 REMOTE_PUSH_NOT_CONFIGURED`. Set,
+but the request's token doesn't match: `401 EUNAUTHORIZED`. Send the token as
+`Authorization: Bearer <token>` or `X-Dashboard-Token: <token>` -- deliberately
+**not** `?token=` (unlike the dashboard/WebSocket token above): a query-string
+credential on a public-internet route ends up in access/proxy logs.
+
+Request body:
+
+```json
+{
+  "schema_version": 1,
+  "session_id": "abc-123",
+  "provider": "claude",
+  "session_name": "optional display name (defaults to Session <first 8 chars of id>)",
+  "cwd": "optional working directory",
+  "model": "optional model id",
+  "tokens": [
+    {
+      "model": "claude-opus-4",
+      "speed": "1x",
+      "inference_geo": "us",
+      "service_tier": "standard",
+      "input": 100,
+      "output": 50,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "cacheWrite1h": 0,
+      "webSearch": 0,
+      "webFetch": 0,
+      "codeExec": 0
+    }
+  ],
+  "tool_events": [
+    { "uuid": "evt-1", "agent_id": "optional, defaults to this session's main agent", "tool_name": "Bash", "status": "success", "timestamp": "optional ISO-8601, defaults to server now" }
+  ],
+  "turns": [
+    { "uuid": "turn-1", "agent_id": "optional", "duration_ms": 1500, "timestamp": "optional ISO-8601" }
+  ]
+}
+```
+
+`provider` must be one of `claude`/`codex`. `tokens[]` entries are each
+bucket's **full current total** (like a transcript re-parse), not a delta.
+`tool_events[]`/`turns[]` are deduped by `(session_id, event_type, uuid)`,
+both against previously-committed rows and within the same batch — safe to
+resend. `tokens.length + tool_events.length + turns.length` is capped at 1000
+per request (`413 BATCH_TOO_LARGE`). A `session_id` already owned by a local
+or SSH-pulled session is refused per-item (`SESSION_LOCALLY_OWNED`) rather
+than allowed to hijack it — a pushed session can only ever create a NEW
+session or append to one it created itself.
+
+Response (`200`, even when individual items were skipped/rejected — see
+`errors[]`/`skipped` for partial-failure detail):
+
+```json
+{ "ok": true, "written": 2, "skipped": 1, "errors": [{ "item": "tokens[0]", "code": "INVALID_NUMERIC", "message": "..." }] }
 ```
 
 ### Pricing
@@ -1479,8 +1551,10 @@ NODE_ENV=production                # Environment mode
 DASHBOARD_HOST=127.0.0.1           # Bind address; default loopback. Set 0.0.0.0 to widen (logs a warning)
 DASHBOARD_TOKEN=                   # Optional bearer token; when set, /api/* and the WebSocket require it (off by default)
 DASHBOARD_TOKEN_FILE=              # File-backed dashboard token for Docker/Kubernetes secrets
-DASHBOARD_HOOK_TOKEN=              # Independent token for /api/hooks/* remote ingestion
+DASHBOARD_HOOK_TOKEN=              # Independent token for the local hook routes (/api/hooks/event, /api/hooks/codex) when exposed beyond loopback
 DASHBOARD_HOOK_TOKEN_FILE=         # File-backed hook token
+REMOTE_PUSH_TOKEN=                 # Separate token gating POST /api/hooks/ingest-batch (public-internet remote-push route). Unset = route disabled (503). Deliberately independent of DASHBOARD_HOOK_TOKEN above
+REMOTE_PUSH_TOKEN_FILE=            # File-backed remote-push token
 DASHBOARD_ALLOWED_HOSTS=           # Extra Host-header names to allow (comma-separated), e.g. for LAN access
 POD_IP=                            # Kubernetes downward-API pod IP; automatically accepted by the Host guard
 DASHBOARD_ENV_PATH=                # Writable dotenv path for persisted Settings overrides

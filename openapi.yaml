@@ -5908,6 +5908,182 @@ paths:
                     type: boolean
                   reason:
                     type: string
+  /api/hooks/ingest-batch:
+    post:
+      tags:
+        - Hooks
+      summary: Push a batch of session data from a roaming/NAT'd machine
+      description: 'Third session-data ingestion path, alongside the local hook routes above and the SSH-pull remote-sync path (see /api/remote-sources). For a machine the dashboard can never reach to pull FROM, it pushes its own session data over HTTPS instead. Reachable from the public internet and disabled by default -- gated by its own REMOTE_PUSH_TOKEN, deliberately independent of DASHBOARD_HOOK_TOKEN (which protects the loopback-only routes above; setting that one must not also open this route as a side effect). Send the token as `Authorization: Bearer <token>` or `X-Dashboard-Token` -- deliberately not `?token=`, which would end up in access/proxy logs on a public-internet route.'
+      operationId: ingestRemotePushBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - provider
+              properties:
+                schema_version:
+                  type: integer
+                  description: Must equal this server's current wire-format version (1) when present. A mismatch is a whole-request 409, not a per-item soft-fail.
+                session_id:
+                  type: string
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+                session_name:
+                  type: string
+                  description: Defaults to 'Session <first 8 chars of session_id>' for a brand-new session.
+                cwd:
+                  type: string
+                model:
+                  type: string
+                tokens:
+                  type: array
+                  description: Each entry is a bucket's FULL current total (like a transcript re-parse), not a delta.
+                  items:
+                    type: object
+                    required:
+                      - model
+                    properties:
+                      model:
+                        type: string
+                      speed:
+                        type: string
+                      inference_geo:
+                        type: string
+                      service_tier:
+                        type: string
+                      input:
+                        type: integer
+                        minimum: 0
+                      output:
+                        type: integer
+                        minimum: 0
+                      cacheRead:
+                        type: integer
+                        minimum: 0
+                      cacheWrite:
+                        type: integer
+                        minimum: 0
+                      cacheWrite1h:
+                        type: integer
+                        minimum: 0
+                        description: Must be <= cacheWrite.
+                      webSearch:
+                        type: integer
+                        minimum: 0
+                      webFetch:
+                        type: integer
+                        minimum: 0
+                      codeExec:
+                        type: integer
+                        minimum: 0
+                tool_events:
+                  type: array
+                  description: Deduped by (session_id, event_type, uuid), across requests and within one batch.
+                  items:
+                    type: object
+                    required:
+                      - uuid
+                    properties:
+                      uuid:
+                        type: string
+                      agent_id:
+                        type: string
+                        description: Defaults to this session's main agent.
+                      tool_name:
+                        type: string
+                      status:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+                        description: Defaults to server 'now'.
+                turns:
+                  type: array
+                  description: Deduped the same way as tool_events.
+                  items:
+                    type: object
+                    required:
+                      - uuid
+                    properties:
+                      uuid:
+                        type: string
+                      agent_id:
+                        type: string
+                      duration_ms:
+                        type: integer
+                        minimum: 0
+                      timestamp:
+                        type: string
+                        format: date-time
+      responses:
+        '200':
+          description: Batch processed (even when individual items were skipped/rejected -- see errors[]/skipped for partial-failure detail; the request itself still succeeds).
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - ok
+                  - written
+                  - skipped
+                  - errors
+                properties:
+                  ok:
+                    type: boolean
+                  written:
+                    type: integer
+                  skipped:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        item:
+                          type: string
+                        code:
+                          type: string
+                        message:
+                          type: string
+        '400':
+          description: Missing session_id, invalid provider, or a per-item validation failure surfaced at the request level
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: REMOTE_PUSH_TOKEN is configured but the request's token is missing or wrong
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Host header not allowed (see hostGuard)
+        '409':
+          description: schema_version in the request doesn't match this server's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: tokens.length + tool_events.length + turns.length exceeds 1000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: REMOTE_PUSH_TOKEN is not configured at all -- the route is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/pricing:
     get:
       tags:
