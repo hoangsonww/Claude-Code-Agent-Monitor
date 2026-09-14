@@ -18,5 +18,9 @@
   "failedConnect": "Connessione al server non riuscita",
   "failedLoad": "Caricamento dei dati non riuscito",
   "activeTrend": " attivi",
-  "totalTrend": " nelle sessioni attive"
+  "totalTrend": " nelle sessioni attive",
+  "tabs": {
+    "monitor": "Monitor",
+    "health": "Stato"
+  }
 }

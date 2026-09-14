@@ -12,8 +12,12 @@
   "provider": {
     "title": "您想监控什么？",
     "description": "选择要在整个仪表板中显示的数据。您稍后可在设置中更改。",
-    "claude": { "description": "您的 Claude Code 会话、代理和成本。" },
-    "codex": { "description": "Codex 会话、GPT 令牌用量和成本。" },
+    "claude": {
+      "description": "您的 Claude Code 会话、代理和成本。"
+    },
+    "codex": {
+      "description": "Codex 会话、GPT 令牌用量和成本。"
+    },
     "both": {
       "label": "两者",
       "description": "所有 Claude Code 和 Codex 会话、用量及成本。"
@@ -74,5 +78,6 @@
     ["度量真实的生产力，而非凭感觉。", "速度、缓存效率与工具效能，皆有评分。"],
     ["在账单发现之前，先一步捕捉异常。", "成本离群点与 Token 激增，及早预警。"],
     ["完整映射你的 Claude Code 配置。", "技能、Agent、hooks、MCP 与记忆，一目了然。"]
-  ]
+  ],
+  "paletteHint": "提示 —— 随时按 {{chord}} 即可跳转到任意页面、会话或设置。"
 }

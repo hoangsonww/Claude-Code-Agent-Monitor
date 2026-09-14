@@ -58,6 +58,16 @@ describe("release version consistency", () => {
     assert.equal(desktopLockfile.packages[""].version, packageVersion);
   });
 
+  it("keeps the mcp lockfile's linked parent version aligned", () => {
+    // mcp/package.json depends on the repo root through `file:..`, so its
+    // lockfile records the parent version. When a release bumps package.json
+    // without regenerating this lockfile, every `npm install` rewrites it and
+    // the next `git pull --ff-only` aborts on the dirty file.
+    const mcpLockfile = readJson("mcp/package-lock.json");
+
+    assert.equal(mcpLockfile.packages[".."].version, packageVersion);
+  });
+
   it("keeps live and generated OpenAPI versions aligned", () => {
     const liveSpec = createOpenApiSpec();
     const generatedSpec = yaml.load(fs.readFileSync(path.join(ROOT, "openapi.yaml"), "utf8"));

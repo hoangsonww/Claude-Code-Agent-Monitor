@@ -77,7 +77,7 @@
 
     <!-- Assets -->
     <link rel="stylesheet" href="../fonts/fonts.css" />
-    <link rel="stylesheet" href="style.css?v=13" />
+    <link rel="stylesheet" href="style.css?v=16" />
 
     <!-- Global page styles -->
     <style>
@@ -1039,6 +1039,21 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-indigo">⌘</div>
+                  <h3 id="feat-command-palette">Command Palette</h3>
+                  <p>
+                    Press <strong>Cmd/Ctrl+K</strong> anywhere to open a launcher over the whole
+                    dashboard. One query resolves nine groups: recent commands, the nine pages,
+                    live server-side session search, the current page's own actions, known project
+                    directories, page sub-views and list filters, all 13 Settings sections, all 12
+                    Agent Config tabs, and preference, data-scope and language actions.
+                    Subsequence ranking highlights the matched characters, so <code>kbrd</code>
+                    finds Kanban Board, and a leading <code>&gt;</code>, <code>@</code>, or
+                    <code>#</code> narrows to actions, pages, or sessions. The palette only
+                    navigates — it never performs destructive operations.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-cyan">📊</div>
                   <h3 id="feat-analytics">Analytics</h3>
                   <p>
@@ -1110,6 +1125,13 @@
                     Codex mirrors <code>~/.codex/sessions</code> and its lightweight
                     <code>session_index.jsonl</code> title index; the connection test and sync result show
                     a separate state for each provider, so a missing provider never hides fresh data from the other.
+                  </p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon ic-blue">📤</div>
+                  <h3>Remote Push Ingestion</h3>
+                  <p>
+                    Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -1291,7 +1313,7 @@
                     One shared marketplace ships 14 plugins for Claude Code and Codex, with 66
                     packaged skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers, and
                     2 MCP-enabled plugins. Every skill includes canonical frontmatter and OpenAI
-                    metadata. The skills.sh CLI discovers 76 repository skills from the same
+                    metadata. The skills.sh CLI discovers 77 repository skills from the same
                     public source. Install with <code>claude plugin marketplace add</code>,
                     <code>codex plugin marketplace add</code>, or <code>npx skills add</code>.
                   </p>
@@ -1526,6 +1548,10 @@
               <img src="../images/remote.png" alt="Settings — Remote Data Sources" width="100%" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">🛰️</span> <span><strong>Settings · Remote Data Sources</strong> — pull Claude Code and Codex activity from other machines over SSH: optionally set independent Remote Claude home and Remote Codex home paths, test each provider, sync manually or on a background poller, and switch the global data scope between local, all sources, or a specific machine with per-session source badges</span></div>
             </div>
+            <div class="screenshot-card" id="ss-palette">
+              <img src="../images/palette.png" alt="Command Palette open over the Sessions page" width="100%" loading="lazy" decoding="async" />
+              <div class="screenshot-caption"><span class="caption-icon">⌘</span> <span><strong>Command Palette</strong> — <code>Cmd/Ctrl+K</code> from anywhere opens the dashboard's only launcher: recent commands, the nine pages, live server-side session search, the current page's actions, project directories, sub-views and filters, all 13 Settings sections, all 12 Agent Config tabs, and preference, data-scope and language actions</span></div>
+            </div>
             <div class="screenshot-card" id="ss-swagger">
               <img src="../images/swagger.png" alt="Swagger UI API docs" width="100%" loading="lazy" decoding="async" />
               <div class="screenshot-caption"><span class="caption-icon">📘</span> <span><strong>API Docs · Swagger UI</strong> — interactive OpenAPI 3.0 playground at <code>/api/docs</code>: collapsible endpoint groups, request/response schemas, auth headers, and try-it-out request execution against the live local server</span></div>
@@ -1633,6 +1659,20 @@
                     <span class="status-chip chip-completed"
                       ><span class="chip-dot"></span>Completed</span
                     >. Detected via <code>isCompactSummary</code> entries in the transcript. Token baselines preserve pre-compaction totals. Periodic scanner (cadence ~¼ of <code>DASHBOARD_STALE_MINUTES</code>) catches compactions when no hooks fire.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>RemoteToolEvent</code></td>
+                  <td>Tool call pushed by a remote machine</td>
+                  <td>
+                    Written by <code>POST /api/hooks/ingest-batch</code> for each tool call a roaming or NAT'd machine pushes. Deduped on <code>(session_id, event_type, uuid)</code> against committed rows and within the same batch, so resending a batch is safe.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>RemoteTurn</code></td>
+                  <td>Turn duration pushed by a remote machine</td>
+                  <td>
+                    Written by <code>POST /api/hooks/ingest-batch</code> for each pushed turn, carrying that turn's <code>duration_ms</code>. Same dedup as <code>RemoteToolEvent</code>.
                   </td>
                 </tr>
                 <tr>
@@ -1950,7 +1990,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_HOOK_TOKEN</code> / <code>_FILE</code></td>
                   <td><code>(unset)</code></td>
-                  <td>Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion</td>
+                  <td>Independent credential for the loopback hook routes (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) when they are exposed beyond loopback</td>
+                </tr>
+                <tr>
+                  <td><code>REMOTE_PUSH_TOKEN</code> / <code>_FILE</code></td>
+                  <td><code>(unset)</code></td>
+                  <td>Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_ENV_PATH</code></td>
@@ -2001,6 +2046,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Safety-net interval (ms) for incremental Codex rollout scanning. Default <code>4000</code>; <code>0</code> disables polling but keeps the watcher.</td>
                 </tr>
                 <tr>
+                  <td><code>DASHBOARD_CODEX_MAX_ATTEMPTS</code></td>
+                  <td><code>5</code></td>
+                  <td>Consecutive failed ingest attempts the Codex sweep spends on one unchanged rollout before leaving it alone. The sweep re-queues a rollout it could not read so a transient failure recovers on the next pass; unbounded, a permanent failure repeats for the life of the process. The count includes the first attempt, is per file, and is restored in full whenever the file's size or mtime changes</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_CODEX_HOOK_IDLE_SECONDS</code></td>
                   <td><code>60</code></td>
                   <td>How long a hook-only Codex session may leave a reported-finished turn unanswered before its <code>SessionEnd</code> is presumed lost. A run started with <code>codex exec --ephemeral</code> writes no rollout, so it has neither a transcript mtime nor an open file for the liveness probes — the fallback that matters most on Windows, where both probes are unavailable. Only a session already parked by a real <code>Stop</code> hook qualifies, because <code>SessionEnd</code> follows <code>Stop</code> within a few hundred milliseconds. Silence never qualifies: a rollout-less run emits no hooks at all while a tool runs, so an idle timer would complete a live CI build. A session still running self-heals on its next hook.</td>
@@ -2008,7 +2058,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_TASK_SUMMARY_TTL_MS</code></td>
                   <td><code>2000</code></td>
-                  <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A transcript being actively appended to rarely hits the size+mtime cache key, so without this floor every list reload fully re-parses each multi-MB live transcript. <code>0</code> restores immediate re-parse on every change.</td>
+                  <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A grown transcript is parsed incrementally from its last complete JSONL line; this floor still coalesces bursts of list reloads into one parse. <code>0</code> parses every append immediately.</td>
+                </tr>
+                <tr>
                   <td><code>DASHBOARD_TOKEN_REPAIR</code></td>
                   <td><code>1</code></td>
                   <td>One-time automatic repair of token totals inflated before usage was reconciled per <code>message.id</code>. <code>replaceTokenUsage</code> is a high-water mark, so the parser fix alone can never lower a historical total. Marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory, and it snapshots the old rows to <code>token_usage_pre_repair</code> first. <code>0</code> skips it — repair manually with <code>npm run repair-tokens</code>.</td>
@@ -2086,7 +2138,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>dev:server</code></td>
                   <td><code>npm run dev:server</code></td>
-                  <td>Start only the Express server with <code>--watch</code></td>
+                  <td>Start Express with a debounced, graceful-restart source watcher</td>
                 </tr>
                 <tr>
                   <td><code>dev:client</code></td>
@@ -3342,6 +3394,13 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 >Receive and process a Claude Code hook event (called by hook-handler.js)</span
               >
             </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/hooks/ingest-batch</span>
+              <span class="route-desc"
+                >Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session</span
+              >
+            </div>
           </div>
 
           <h3>Pricing</h3>
@@ -4357,7 +4416,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
           <p>
             The Agent Monitor ships one shared marketplace containing 14 plugins for Claude Code and
             Codex, 66 packaged plugin skills, 18 Claude subagents, 34 Claude commands, 3 CLI helpers,
-            3 hook configurations, and 2 MCP-enabled plugins. The skills.sh CLI discovers 76 total
+            3 hook configurations, and 2 MCP-enabled plugins. The skills.sh CLI discovers 77 total
             repository skills. Product-specific manifests stay separate while skill instructions and
             validation remain shared.
           </p>
@@ -4758,12 +4817,12 @@ ccam-export all --output backup.json</code></pre>
                         <div class="t-label" style="font-weight: 600; color: #fff; font-size: 16px; margin-bottom: 8px;">Interactive Analytics & Usage</div>
                         <p style="font-size: 14px; color: var(--text-muted); margin: 0; line-height: 1.6;">
                             Aggregates data from multiple API endpoints to display high-signal metrics directly in the sidebar:
-                            <ul style="margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;">
-                                <li><b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.</li>
-                                <li><b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.</li>
-                                <li><b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.</li>
-                            </ul>
                         </p>
+                        <ul style="margin-top: 8px; color: var(--text-muted); font-size: 13px; list-style-type: '→ '; padding-left: 15px;">
+                            <li><b>Token Consumption</b>: Scaled tracking from 1k to 1.0B+ tokens.</li>
+                            <li><b>Live Cost Estimates</b>: Automatic USD cost calculation based on model pricing rules.</li>
+                            <li><b>Event Frequency</b>: Total events, daily sessions, and subagent spawning rates.</li>
+                        </ul>
                     </div>
                     <!-- Component 3 -->
                     <div class="t-step" style="margin-bottom: 32px; position: relative;">
@@ -6507,7 +6566,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
               graph LR
                 subgraph dev["Development — 2 processes"]
                   D_CMD["npm run dev\n(concurrently)"]
-                  D_SRV["node --watch server/index.js\nport 4820 — auto-restart"]
+                  D_SRV["scripts/dev-server.js\nport 4820 — debounced restart"]
                   D_VITE["vite dev server\nport 5173 — HMR"]
                   D_BROWSER["Browser"]
                   D_CMD --> D_SRV
@@ -6557,7 +6616,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 </tr>
                 <tr>
                   <td>File watching</td>
-                  <td><code>node --watch</code> + Vite HMR</td>
+                  <td>Debounced server watcher + Vite HMR</td>
                   <td>None</td>
                 </tr>
                 <tr>
@@ -6635,7 +6694,7 @@ docker compose up -d --build
 npm run docker:full:up
 npm run monitoring:verify
 
-# Validate all deployment assets
+# Review all deployment assets (advisory; findings never fail the pipeline)
 npm run deploy:validate</code></pre>
           <div class="table-wrap">
             <table>
@@ -7049,8 +7108,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=87" defer></script>
-    <script src="script.js?v=57" defer></script>
+    <script src="i18n-content.js?v=95" defer></script>
+    <script src="script.js?v=58" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

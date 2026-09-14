@@ -583,7 +583,50 @@ CREATE INDEX idx_agents_status ON agents(status);
 -- before inserting; on a subagent-heavy re-import this drops a large sweep from
 -- tens of seconds to sub-second.
 CREATE INDEX idx_events_agent_type ON events(agent_id, event_type);
+CREATE INDEX idx_events_agent_created ON events(agent_id, created_at);
+CREATE INDEX idx_events_session_created ON events(session_id, created_at);
+
+-- The analytics tool-usage panel groups every event by tool_name. With no index
+-- on that column it is a full events-table scan on every request, and
+-- better-sqlite3 is synchronous, so the whole server stalls for its duration
+-- (45.7s on a 3.9M-row table; 0.25s with this index). Only tool events carry a
+-- tool_name, so the partial predicate keeps the index small.
+CREATE INDEX idx_events_tool_name ON events(tool_name) WHERE tool_name IS NOT NULL;
+
+-- Serves the POST /api/hooks/ingest-batch dedup, which looks each incoming item
+-- up by (session_id, event_type, json_extract(data,'$.uuid')).
+--
+-- Partial on two counts. json_valid(data) = 1 because CREATE INDEX evaluates the
+-- indexed expression against every existing row, and legacy rows predating the
+-- JSON-events convention would make json_extract() throw "malformed JSON" and
+-- abort startup. The event_type list because, unrestricted, every installation
+-- would build and maintain this index over its whole events table whether or not
+-- remote push is configured (~28MB per 500k events; ~224MB at 4M rows).
+--
+-- SQLite only uses a partial index when the query's own WHERE provably implies
+-- the index's, so the dedup query must repeat BOTH predicates literally. A bare
+-- `event_type = ?` parameter is not provably inside the IN list to the planner
+-- and falls back to a full scan. The json_valid guard is also required for
+-- correctness at query time, not just index-build time: json_extract() throws on
+-- a non-JSON row whenever it is evaluated.
+CREATE INDEX idx_events_session_type_uuid
+    ON events(session_id, event_type, json_extract(data, '$.uuid'))
+    WHERE json_valid(data) = 1
+      AND event_type IN ('RemoteToolEvent', 'RemoteTurn');
 ```
+
+**Query Patterns:**
+- `SELECT tool_name, COUNT(*) FROM events WHERE tool_name IS NOT NULL GROUP BY tool_name ORDER BY count DESC LIMIT 20` — analytics tool-usage panel (covering scan of `idx_events_tool_name`)
+- `SELECT 1 FROM events WHERE session_id = ? AND json_valid(data) = 1 AND event_type IN ('RemoteToolEvent', 'RemoteTurn') AND json_extract(data, '$.uuid') = ?` — `ingest-batch` dedup (covered by `idx_events_session_type_uuid`)
+
+> **Startup migration.** An installation that already carries an older, broader
+> copy of `idx_events_session_type_uuid` (created before the `event_type`
+> predicate was narrowed) would keep paying its full size forever, because
+> `CREATE INDEX IF NOT EXISTS` is a no-op against it. `server/db.js` therefore
+> reads the stored definition from `sqlite_master` on startup and drops the index
+> first when it does not already carry the narrowed predicate, so the `CREATE`
+> below it actually rebuilds it. Best-effort — a brand-new or already-correct
+> database is unaffected either way.
 
 ### tool_executions Indexes
 

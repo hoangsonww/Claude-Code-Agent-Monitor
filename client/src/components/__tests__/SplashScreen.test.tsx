@@ -66,7 +66,7 @@ describe("SplashScreen", () => {
     expect(info).toHaveBeenCalledTimes(1);
     expect(installHooks).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("provider-onboarding-shown-v1")).toBe("1");
+    expect(localStorage.getItem("provider-onboarding-shown-v2")).toBe("1");
   });
 
   it("skips setup when Codex is selected and its hooks are installed", async () => {
@@ -136,7 +136,7 @@ describe("SplashScreen", () => {
     await user.click(screen.getByRole("button", { name: "Continue to dashboard" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("provider-onboarding-shown-v1")).toBe("1");
+    expect(localStorage.getItem("provider-onboarding-shown-v2")).toBe("1");
   });
 
   it("offers Claude only when Both is selected and only Codex is installed", async () => {
@@ -176,7 +176,7 @@ describe("SplashScreen", () => {
 
     expect(installHooks).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("provider-onboarding-shown-v1")).toBe("1");
+    expect(localStorage.getItem("provider-onboarding-shown-v2")).toBe("1");
   });
 
   it("keeps setup available when hook status cannot be checked", async () => {
@@ -190,5 +190,16 @@ describe("SplashScreen", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "We could not check your current hook setup"
     );
+  });
+  it("stays dismissed in a new tab, where sessionStorage is empty", () => {
+    // ⌘/Ctrl-clicking a link opens a tab with fresh `sessionStorage` but the
+    // same `localStorage`. Onboarding is a per-browser event, so only the
+    // latter may gate it.
+    localStorage.setItem("provider-onboarding-shown-v2", "1");
+    sessionStorage.clear();
+
+    const { container } = render(<SplashScreen />);
+
+    expect(container).toBeEmptyDOMElement();
   });
 });

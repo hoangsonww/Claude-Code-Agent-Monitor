@@ -18,6 +18,9 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
+const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
+const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 
 const router = Router();
 
@@ -1713,6 +1716,552 @@ function livenessReap({ ignoreIdleGate = false, provider = "claude" } = {}) {
     );
   }
 }
+
+// ── POST /api/hooks/ingest-batch ────────────────────────────────────────────
+// Third ingestion path (see server/lib/remote-sync.js for the other two: the
+// local hook POSTs above, and the SSH-pull path in remote-sync.js). This one
+// is for a roaming/NAT'd machine the dashboard can never reach to pull FROM —
+// it pushes a batch of its own session data to us instead, over HTTPS.
+//
+// Two things make this route different from every other route in this file:
+//   1. It is reachable from the public internet via Traefik, not loopback —
+//      so unlike the local hook routes above (which rely on hookGuard being a
+//      no-op + loopback bind), this route refuses to run at all unless its
+//      OWN REMOTE_PUSH_TOKEN is configured (503, not a silent accept), and
+//      every request must present it as a bearer/x-dashboard-token/?token=
+//      match (401 otherwise). Deliberately NOT DASHBOARD_HOOK_TOKEN: that
+//      token exists to harden the LOOPBACK-only local hook above, and an
+//      operator who sets it for that reason alone must not thereby also open
+//      an internet-writable session endpoint they never opted into (roaming
+//      laptop threat model — losing it shouldn't compromise everything under
+//      /api/hooks). See getRemotePushToken() in lib/security.js.
+//   2. A pushed session_id is caller-supplied and could collide (by accident
+//      or by a malicious remote) with a session this dashboard's OWN local
+//      hook is actively managing. Ownership is decided from the session
+//      row's stored `source` column — set once, authoritatively, by whichever
+//      path created the row first — and NEVER from anything in the request.
+
+// Sentinel `sessions.source` for rows created by this route. remote_sources
+// ids (server/routes/remote-sources.js) are always `src_` + 12 lowercase hex
+// characters (`src_${crypto.randomBytes(6).toString("hex")}`) — this sentinel
+// carries no `src_` prefix, so it can never collide with a real configured
+// SSH source id, now or in the future (the id format is fixed at creation).
+const REMOTE_PUSH_SOURCE = "remote_push";
+
+// Bump only on a real wire-format break. A mismatch is a whole-request 409 —
+// per-item soft-fail doesn't make sense when the client and server disagree
+// on the payload shape itself.
+const INGEST_BATCH_SCHEMA_VERSION = 1;
+
+// This route is externally reachable (public internet via Traefik). Without
+// a combined item cap, a valid token holder could submit one huge batch and
+// force O(items) synchronous SQLite work plus O(items × connected clients)
+// WebSocket fan-out in a single request. Reject outright, before any other
+// validation/DB work, rather than accepting and later choking on it.
+const MAX_INGEST_BATCH_ITEMS = 1000;
+
+const REMOTE_TOOL_EVENT_TYPE = "RemoteToolEvent";
+const REMOTE_TURN_EVENT_TYPE = "RemoteTurn";
+
+// Numeric fields on a tokens[] entry — see coerceNonNegativeInt.
+const TOKEN_NUMERIC_FIELDS = [
+  "input",
+  "output",
+  "cacheRead",
+  "cacheWrite",
+  "cacheWrite1h",
+  "webSearch",
+  "webFetch",
+  "codeExec",
+];
+
+// Mirrors the partial index idx_events_session_type_uuid (server/db.js): the
+// WHERE clause must repeat json_valid(data) = 1 AND the event_type IN (...)
+// list literally for SQLite to use the (now-narrowed) partial index -- a bare
+// `event_type = ?` parameter is not provably within the IN-list to the query
+// planner, so it falls back to a full events scan otherwise (checked against
+// EXPLAIN QUERY PLAN). The json_valid guard is also required for correctness
+// (json_extract throws on a non-JSON row) independent of the index. Keep this
+// IN list identical to the index's own predicate in server/db.js.
+const dedupEventStmt = db.prepare(
+  `SELECT 1 FROM events
+   WHERE session_id = ? AND event_type = ? AND json_valid(data) = 1
+     AND event_type IN ('${REMOTE_TOOL_EVENT_TYPE}', '${REMOTE_TURN_EVENT_TYPE}')
+     AND json_extract(data, '$.uuid') = ? LIMIT 1`
+);
+
+function itemError(item, code, message) {
+  return { item, code, message };
+}
+
+// Any non-empty string was accepted as a uuid before this (CodeRabbit review
+// on PR #329) -- e.g. "not-a-uuid" was persisted and reported as written,
+// even though the dedup contract (dedupEventStmt) is documented as keying on
+// a real uuid. Deliberately permissive on version/variant nibbles (accepts
+// any RFC 4122-shaped value, not just v4) -- this is an identifier/dedup key
+// from a remote client, not a value this server generates itself.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+/**
+ * Non-negative safe-integer coercion for a present-but-optional numeric
+ * field. Absent/null => 0 (mirrors the local hook's tokens.field || 0
+ * convention); present-but-invalid (negative, fractional, non-finite, wrong
+ * type) => rejected so the caller can build a per-item error.
+ */
+function coerceNonNegativeInt(value) {
+  if (value === undefined || value === null) return { ok: true, value: 0 };
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    // isSafeInteger, not isInteger: a value beyond +/-2^53 can still pass
+    // isInteger after JSON parsing rounds it to the nearest representable
+    // double, silently corrupting the token/duration count it's supposed to
+    // validate.
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    return { ok: false };
+  }
+  return { ok: true, value };
+}
+
+/** Absent timestamp is fine (caller falls back to server "now"); present-but-
+ * unparseable is rejected. Returns a normalized (millisecond-precision) ISO
+ * string so the value written to created_at and the value broadcast over the
+ * WebSocket are byte-identical. */
+function coerceTimestamp(value) {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== "string") return { ok: false };
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return { ok: false };
+  return { ok: true, value: new Date(ms).toISOString() };
+}
+
+router.post("/ingest-batch", (req, res) => {
+  // Own gate, independent of hookGuard (server/index.js) and its
+  // DASHBOARD_HOOK_TOKEN: hookGuard no-ops when that token is unset (fine for
+  // the loopback-only local hook above, wrong for a route reachable from the
+  // public internet), and even when it IS set, reusing it here would silently
+  // widen what that token protects beyond what an operator configuring it for
+  // the local hook opted into. An unconfigured REMOTE_PUSH_TOKEN must refuse
+  // outright rather than silently accept unauthenticated writes.
+  const expectedToken = getRemotePushToken();
+  if (!expectedToken) {
+    return res.status(503).json({
+      error: {
+        code: "REMOTE_PUSH_NOT_CONFIGURED",
+        message: "remote push ingestion is not enabled",
+      },
+    });
+  }
+  // Header-only extraction (never req.query.token) -- this route is public-
+  // internet-reachable, and a query-string credential ends up in server/proxy
+  // access logs (CodeRabbit review).
+  if (!tokensMatch(extractHeaderOnlyToken(req), expectedToken)) {
+    return res.status(401).json({
+      error: { code: "EUNAUTHORIZED", message: "missing or invalid remote-push token" },
+    });
+  }
+
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+
+  if (body.schema_version !== undefined && body.schema_version !== INGEST_BATCH_SCHEMA_VERSION) {
+    return res.status(409).json({
+      error: {
+        code: "SCHEMA_VERSION_MISMATCH",
+        message: `this server speaks schema_version ${INGEST_BATCH_SCHEMA_VERSION}, request carried ${body.schema_version}`,
+      },
+    });
+  }
+
+  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  if (!sessionId) {
+    return res
+      .status(400)
+      .json({ error: { code: "INVALID_INPUT", message: "session_id is required" } });
+  }
+
+  try {
+    assertProvider(body.provider);
+  } catch {
+    return res.status(400).json({
+      error: {
+        code: "INVALID_PROVIDER",
+        message: `provider must be one of: ${REMOTE_PROVIDERS.join(", ")}`,
+      },
+    });
+  }
+  const provider = body.provider;
+
+  const tokens = Array.isArray(body.tokens) ? body.tokens : [];
+  const toolEvents = Array.isArray(body.tool_events) ? body.tool_events : [];
+  const turns = Array.isArray(body.turns) ? body.turns : [];
+
+  if (tokens.length + toolEvents.length + turns.length > MAX_INGEST_BATCH_ITEMS) {
+    return res.status(413).json({
+      error: { code: "BATCH_TOO_LARGE", message: `batch exceeds ${MAX_INGEST_BATCH_ITEMS} items` },
+    });
+  }
+
+  const mainAgentId = `${sessionId}-main`;
+  const existing = stmts.getSession.get(sessionId);
+
+  // ── Ownership gate ─────────────────────────────────────────────────────
+  // A session already owned by anything OTHER than this route's own sentinel
+  // (source='local', or a real remote_sources id from the SSH-pull path) can
+  // NEVER be written to from here — a remote caller must not be able to
+  // hijack a locally-managed session by guessing/reusing its id. Every item
+  // in the batch targets this one session_id (see payload shape), so the
+  // per-item-not-per-request soft-fail contract collapses to "reject every
+  // item" here, but is expressed per item so the response shape stays
+  // uniform with every other rejection reason.
+  if (existing && existing.source !== REMOTE_PUSH_SOURCE) {
+    const errors = [];
+    tokens.forEach((_t, i) =>
+      errors.push(
+        itemError(
+          `tokens[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    toolEvents.forEach((_e, i) =>
+      errors.push(
+        itemError(
+          `tool_events[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    turns.forEach((_t, i) =>
+      errors.push(
+        itemError(
+          `turns[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    return res.json({ ok: true, written: 0, skipped: 0, errors });
+  }
+
+  // ── Validation (no DB writes yet) ────────────────────────────────────────
+  const errors = [];
+  let skipped = 0;
+  const validTokens = [];
+  const validToolEvents = [];
+  const validTurns = [];
+  // In-request dedup: the DB-backed dedup check below only sees rows already
+  // committed from a PRIOR request. Two items with the same (event_type,
+  // uuid) inside THIS SAME batch would both pass that check and both insert,
+  // so track what this batch has already accepted for insertion too.
+  const seenInBatch = new Set();
+
+  /**
+   * Resolve agent_id (or the session's main agent when absent). The main
+   * agent is intentionally accepted without a DB lookup here: for a brand
+   * new session it doesn't exist yet (created inside the write transaction
+   * below), and for an existing session whose main-agent row was somehow
+   * lost, the write transaction ensures it exists before any event
+   * referencing it is inserted — either way agent_id === mainAgentId is
+   * always safe to accept at validation time.
+   */
+  function resolveAgentId(rawAgentId, label) {
+    if (rawAgentId === undefined || rawAgentId === null || rawAgentId === "") {
+      return { ok: true, agentId: mainAgentId };
+    }
+    if (typeof rawAgentId !== "string") {
+      errors.push(itemError(label, "INVALID_AGENT_ID", "agent_id must be a string"));
+      return { ok: false };
+    }
+    if (rawAgentId === mainAgentId) {
+      return { ok: true, agentId: mainAgentId };
+    }
+    const agent = stmts.getAgent.get(rawAgentId);
+    if (!agent || agent.session_id !== sessionId) {
+      errors.push(
+        itemError(label, "UNKNOWN_AGENT", `agent_id does not belong to session ${sessionId}`)
+      );
+      return { ok: false };
+    }
+    return { ok: true, agentId: rawAgentId };
+  }
+
+  tokens.forEach((t, i) => {
+    const label = `tokens[${i}]`;
+    if (!t || typeof t !== "object" || typeof t.model !== "string" || !t.model) {
+      errors.push(itemError(label, "INVALID_INPUT", "model is required"));
+      return;
+    }
+    const values = {};
+    let invalidField = null;
+    for (const key of TOKEN_NUMERIC_FIELDS) {
+      const r = coerceNonNegativeInt(t[key]);
+      if (!r.ok) {
+        invalidField = key;
+        break;
+      }
+      values[key] = r.value;
+    }
+    if (invalidField) {
+      errors.push(
+        itemError(label, "INVALID_NUMERIC", `${invalidField} must be a non-negative integer`)
+      );
+      return;
+    }
+    if (values.cacheWrite1h > values.cacheWrite) {
+      errors.push(
+        itemError(label, "CACHE_WRITE_1H_EXCEEDS_TOTAL", "cacheWrite1h must be <= cacheWrite")
+      );
+      return;
+    }
+    validTokens.push({
+      model: t.model,
+      // Bucket-pricing dimensions: pass through the same normalizers the
+      // local transcript-derived path uses (server/lib/token-usage.js) —
+      // never store a raw client-supplied value. Note this route mirrors the
+      // local hook's cumulative-per-bucket-totals contract: each tokens[]
+      // entry is the bucket's FULL current total (like a transcript re-parse),
+      // not a delta — replaceTokenUsage below is a high-water-mark REPLACE,
+      // not an additive upsert, so a client sending deltas would silently
+      // under-count.
+      speed: normalizeSpeed({ speed: t.speed }),
+      geo: normalizeGeo({ inference_geo: t.inference_geo }),
+      tier: normalizeTier({ service_tier: t.service_tier }),
+      ...values,
+    });
+  });
+
+  toolEvents.forEach((ev, i) => {
+    const label = `tool_events[${i}]`;
+    if (!ev || typeof ev !== "object" || typeof ev.uuid !== "string" || !ev.uuid) {
+      errors.push(itemError(label, "INVALID_INPUT", "uuid is required"));
+      return;
+    }
+    if (!isUuid(ev.uuid)) {
+      errors.push(itemError(label, "INVALID_UUID", "uuid must be a valid UUID"));
+      return;
+    }
+    const agentRes = resolveAgentId(ev.agent_id, label);
+    if (!agentRes.ok) return;
+    const tsRes = coerceTimestamp(ev.timestamp);
+    if (!tsRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_TIMESTAMP", "timestamp must be a valid ISO date string")
+      );
+      return;
+    }
+    const dedupKey = `${REMOTE_TOOL_EVENT_TYPE} ${ev.uuid}`;
+    if (
+      seenInBatch.has(dedupKey) ||
+      dedupEventStmt.get(sessionId, REMOTE_TOOL_EVENT_TYPE, ev.uuid)
+    ) {
+      skipped++;
+      return;
+    }
+    seenInBatch.add(dedupKey);
+    validToolEvents.push({
+      uuid: ev.uuid,
+      agentId: agentRes.agentId,
+      toolName: typeof ev.tool_name === "string" && ev.tool_name ? ev.tool_name : null,
+      status: typeof ev.status === "string" && ev.status ? ev.status : null,
+      timestamp: tsRes.value,
+    });
+  });
+
+  turns.forEach((t, i) => {
+    const label = `turns[${i}]`;
+    if (!t || typeof t !== "object" || typeof t.uuid !== "string" || !t.uuid) {
+      errors.push(itemError(label, "INVALID_INPUT", "uuid is required"));
+      return;
+    }
+    if (!isUuid(t.uuid)) {
+      errors.push(itemError(label, "INVALID_UUID", "uuid must be a valid UUID"));
+      return;
+    }
+    const agentRes = resolveAgentId(t.agent_id, label);
+    if (!agentRes.ok) return;
+    const durRes = coerceNonNegativeInt(t.duration_ms);
+    if (!durRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_NUMERIC", "duration_ms must be a non-negative integer")
+      );
+      return;
+    }
+    const tsRes = coerceTimestamp(t.timestamp);
+    if (!tsRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_TIMESTAMP", "timestamp must be a valid ISO date string")
+      );
+      return;
+    }
+    const dedupKey = `${REMOTE_TURN_EVENT_TYPE} ${t.uuid}`;
+    if (
+      seenInBatch.has(dedupKey) ||
+      dedupEventStmt.get(sessionId, REMOTE_TURN_EVENT_TYPE, t.uuid)
+    ) {
+      skipped++;
+      return;
+    }
+    seenInBatch.add(dedupKey);
+    validTurns.push({
+      uuid: t.uuid,
+      agentId: agentRes.agentId,
+      durationMs: durRes.value,
+      timestamp: tsRes.value,
+    });
+  });
+
+  // ── Write phase: valid items only, one transaction for atomicity ────────
+  // Broadcasts are collected here and flushed only AFTER writeBatch() returns
+  // successfully (see the file's own "do all DB writes BEFORE any broadcast"
+  // rule above) -- emitting them from inside the transaction would let a
+  // later statement's throw roll back every insert while clients had already
+  // been told about a session/event that turns out not to exist (e.g. a
+  // concurrent delete of a resolved agent_id row between validation and the
+  // write causes insertEventAt to fail its FOREIGN KEY and abort the batch).
+  const pendingBroadcasts = [];
+  const writeBatch = db.transaction(() => {
+    let session = existing;
+    if (!session) {
+      const sessionName =
+        typeof body.session_name === "string" && body.session_name
+          ? body.session_name
+          : `Session ${sessionId.slice(0, 8)}`;
+      db.prepare(
+        `INSERT INTO sessions (id, name, status, cwd, model, provider, source, started_at, updated_at)
+         VALUES (?, ?, 'active', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+      ).run(
+        sessionId,
+        sessionName,
+        typeof body.cwd === "string" && body.cwd ? body.cwd : null,
+        typeof body.model === "string" && body.model ? body.model : null,
+        provider,
+        REMOTE_PUSH_SOURCE
+      );
+      session = stmts.getSession.get(sessionId);
+      pendingBroadcasts.push(["session_created", session]);
+    }
+
+    // Ensure the main agent row exists before any event below references it —
+    // covers both "brand new session" and the rarer "existing remote_push
+    // session whose main-agent row was lost" case. events.agent_id is a
+    // FOREIGN KEY; inserting against a missing agent throws and would roll
+    // back every valid item in this batch (see codex-ingest.js's identical
+    // guard + server/__tests__/codex-ingest.test.js "still records the turn
+    // when the main agent row is missing").
+    if (!stmts.getAgent.get(mainAgentId)) {
+      stmts.insertAgent.run(
+        mainAgentId,
+        sessionId,
+        `Main Agent - ${session.name || `Session ${sessionId.slice(0, 8)}`}`,
+        "main",
+        null,
+        "working",
+        null,
+        null,
+        null
+      );
+      const mainAgent = stmts.getAgent.get(mainAgentId);
+      if (mainAgent) pendingBroadcasts.push(["agent_created", mainAgent]);
+    }
+
+    for (const tk of validTokens) {
+      stmts.replaceTokenUsage.run(
+        sessionId,
+        tk.model,
+        tk.speed,
+        tk.geo,
+        tk.tier,
+        tk.input,
+        tk.output,
+        tk.cacheRead,
+        tk.cacheWrite,
+        tk.cacheWrite1h,
+        tk.webSearch,
+        tk.webFetch,
+        tk.codeExec
+      );
+    }
+
+    for (const ev of validToolEvents) {
+      const ts = ev.timestamp || new Date().toISOString();
+      const summary = ev.toolName ? `Called ${ev.toolName}` : "Remote tool event";
+      stmts.insertEventAt.run(
+        sessionId,
+        ev.agentId,
+        REMOTE_TOOL_EVENT_TYPE,
+        ev.toolName,
+        summary,
+        JSON.stringify({ uuid: ev.uuid, status: ev.status }),
+        ts
+      );
+      pendingBroadcasts.push([
+        "new_event",
+        {
+          session_id: sessionId,
+          agent_id: ev.agentId,
+          event_type: REMOTE_TOOL_EVENT_TYPE,
+          tool_name: ev.toolName,
+          summary,
+          created_at: ts,
+        },
+      ]);
+    }
+
+    for (const t of validTurns) {
+      const ts = t.timestamp || new Date().toISOString();
+      const summary = "Remote turn";
+      stmts.insertEventAt.run(
+        sessionId,
+        t.agentId,
+        REMOTE_TURN_EVENT_TYPE,
+        null,
+        summary,
+        JSON.stringify({ uuid: t.uuid, duration_ms: t.durationMs }),
+        ts
+      );
+      pendingBroadcasts.push([
+        "new_event",
+        {
+          session_id: sessionId,
+          agent_id: t.agentId,
+          event_type: REMOTE_TURN_EVENT_TYPE,
+          tool_name: null,
+          summary,
+          created_at: ts,
+        },
+      ]);
+    }
+  });
+
+  try {
+    writeBatch();
+  } catch (err) {
+    console.error(`[HOOKS] ingest-batch write failed for session ${sessionId}:`, err);
+    return res.status(500).json({
+      error: {
+        code: "WRITE_FAILED",
+        message: "batch write failed and was rolled back",
+      },
+    });
+  }
+
+  for (const [type, payload] of pendingBroadcasts) broadcast(type, payload);
+
+  res.json({
+    ok: true,
+    written: validTokens.length + validToolEvents.length + validTurns.length,
+    skipped,
+    errors,
+  });
+});
 
 const watchdogTimer = setInterval(watchdogCheck, WATCHDOG_INTERVAL_MS);
 // Don't keep the process alive just for the watchdog

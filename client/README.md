@@ -193,6 +193,9 @@ client/
 │   │   ├── EmptyState.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── Layout.tsx
+│   │   ├── CommandPalette.tsx # Cmd/Ctrl+K launcher over the whole dashboard
+│   │   ├── PaletteActionProvider.tsx # Registry of the actions the mounted page offers the palette
+│   │   ├── ActionToast.tsx           # Confirms actions that change state without navigating
 │   │   ├── SplashScreen.tsx   # First-run provider choice and live-hook setup gate
 │   │   ├── PaginatedLegend.tsx # Bounded responsive legends for Analytics and Workflows
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
@@ -311,7 +314,7 @@ The Remote Data Sources form names its independent optional overrides **Remote C
 
 **Pricing controls:** the Claude and OpenAI GPT pricing sections use the same title, info-tooltip, **Reset Defaults**, and **Add Model** layout. Each Settings reset button resets only its own provider, while the GPT tooltip holds the USD-per-million-token units, 272K Short/Long threshold, Fast-mode behavior, pattern matching, manual-update guidance, and unpublished-rate handling that would otherwise crowd the table.
 
-**Provider-aware card context:** Dashboard agent cards and Kanban session cards show compact task context beneath a meaningful provider-native title. Claude Code and Codex both expose up to two recent distinct human prompts as a bounded two-row history: Claude refreshes its small persisted summary from the shared local JSONL cache during live hooks, imports, and watchdog sweeps; Codex refreshes from rollout records, with `codex_user_message` events covering older imports. Every real-time `session_updated` refresh flows through the ordinary scoped data path. Conversation rows render safe persisted raster attachments and quietly hide missing/expired files.
+**Provider-aware card context:** Dashboard agent cards and Kanban session cards show compact task context beneath a meaningful provider-native title. Claude Code and Codex both expose up to two recent distinct human prompts as a bounded two-row history: Claude refreshes its small persisted summary from the shared local JSONL cache during live hooks, imports, and watchdog sweeps; Codex accepts legacy user-message events plus modern response-item messages explicitly tagged as human text, excludes injected user-role context, and persists both the preview and distinct turn count. Active Codex sessions consumed by an older cursor are repaired once from their rollout. Every real-time `session_updated` refresh flows through the ordinary scoped data path. Conversation rows render safe persisted raster attachments and quietly hide missing/expired files.
 
 ### State Strategy
 
@@ -384,7 +387,7 @@ Implemented in [`src/pages/Dashboard.tsx`](src/pages/Dashboard.tsx) and
 [`src/pages/Sessions.tsx`](src/pages/Sessions.tsx).
 
 `session_updated` fires on essentially every hook event of every active session, and the list requests it
-triggers are expensive server-side (`include_task_progress` re-parses live transcripts). Both pages therefore
+triggers are expensive server-side (`include_task_progress` reads live transcripts incrementally, coalesced by a serve-stale window). Both pages therefore
 collapse WebSocket-driven reloads through a **2 s trailing throttle** rather than reloading per frame —
 Sessions previously reloaded un-debounced and Dashboard on a 300 ms debounce, which together produced a
 continuous parse storm with a few chatty sessions and one open tab. The trailing call keeps the list current,
@@ -655,6 +658,86 @@ graph TB
 ## UI Components
 
 ### Component Catalog
+
+#### CommandPalette
+
+Global launcher mounted once by `Layout`. Opens with `Cmd/Ctrl+K` anywhere in the app. Keyboard-only by design: a sidebar button that opens a list so you can pick a page the sidebar already shows costs a click and teaches nothing. Takes no props.
+
+The catalog is built by `lib/paletteCommands.ts` as a pure function of one context object, so `lib/__tests__/paletteCommands.test.ts` can assert coverage directly against the app's route table, `SETTINGS_SECTIONS`, and `TABS` rather than trusting a hand-kept list. One query resolves nine groups:
+
+| Group | Source |
+| --- | --- |
+| Recent | The last 5 command ids, from `lib/recentCommands.ts` (`localStorage`) |
+| Pages | The nine sidebar routes, matched on their **translated** labels so it works in every locale |
+| Sessions | `GET /api/sessions?q=` — debounced 180 ms, minimum 2 characters, capped at 6 results |
+| This page | Whatever the mounted page registered via `usePaletteAction` — listed only where it is bound |
+| Projects | `GET /api/sessions/facets` — jumps to `/sessions?cwd=…` |
+| Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
+| Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
+| Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
+| Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |
+
+Ranking uses `lib/fuzzy.ts` — subsequence matching with positional scoring — and the matched characters are highlighted in each row. Session search is server-side on purpose: the dashboard routinely holds thousands of sessions, so no client-side index is kept, and reusing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope. A failed or slow query degrades quietly — every other group is local and renders immediately, so the palette is never blocked by the network.
+
+Only non-session picks are remembered: a session id stops resolving as soon as the session is pruned, so remembering one would fill the MRU list with dead rows.
+
+```text
+┌────────────────────────────────────────────────────────┐
+│ 🔍  Search pages, sessions, and actions…    12 results │
+├────────────────────────────────────────────────────────┤
+│ RECENT                                                 │
+│    Cost Analytics                        Analytics     │
+│ PAGES                                                  │
+│  ▸ Analytics                  /analytics    G then N   │
+│ SESSIONS                                               │
+│    Refactor the token parser      /work/api · active   │
+│ SETTINGS                                               │
+│    Alerts and webhooks                    Settings     │
+│ ACTIONS                                                │
+│    Sound cues                                  On      │
+├────────────────────────────────────────────────────────┤
+│ ↑↓ navigate      ↵ open              esc close         │
+└────────────────────────────────────────────────────────┘
+```
+
+Other chrome can open it without lifted state or a context provider by calling `openCommandPalette()` from `lib/appEvents.ts` (re-exported here), which dispatches a `ccam:command-palette` window event.
+
+Accessibility: modal `dialog`, `combobox` input driving an `aria-activedescendant` listbox, arrow-key navigation with feature-detected `scrollIntoView`, `Home`/`End` and `PageUp`/`PageDown` jumps, `Tab` between groups without leaking focus, `Enter` to run, `Escape` to close, and focus restored on close. Hover only takes the selection after a real `mousemove`, so keyboard navigation is never fought by `mouseenter` under a stationary cursor.
+
+#### PaletteHint
+
+The `⌘K` / `Ctrl K` chip shown inside the Sessions and Agent Config search fields, teaching the palette at the moment the user is already searching.
+
+```typescript
+<PaletteHint variant="absolute" />  // pinned inside a `relative` field wrapper
+<PaletteHint />                     // inline, in a flex row beside the input
+```
+
+Renders `null` forever once the palette has been opened — `lib/paletteDiscovery.ts` keeps that one bit in `localStorage` and notifies through `useSyncExternalStore`, so the chip vanishes the instant the palette opens rather than on the next reload. The same bit gates the closing line on the splash screen.
+
+`aria-hidden` and `pointer-events-none`: it annotates a text field, so announcing it or catching a click meant for the input would both be worse than saying nothing. Screen-reader users get the same fact as readable prose on the splash. The `absolute` variant hides below `lg`, where it would clip the Sessions placeholder.
+
+#### PaletteActionProvider
+
+The registry of commands the mounted page offers the palette. Not a keyboard layer — the dashboard binds one chord (⌘/Ctrl+K), and Tabby's pre-existing ⌘/Ctrl+B.
+
+```typescript
+const { register, run, boundIds } = usePaletteActions();
+
+usePaletteAction("page.refresh", load);          // offered while this page is mounted
+usePaletteAction("session.copyId", () => {
+  if (!session) return false;                    // decline; the stack falls through
+  navigator.clipboard?.writeText(session.id);
+});
+```
+
+`register(id, handler)` pushes onto a per-id stack, so the most recently mounted handler wins and unmounting restores the one beneath it — that is how every page registers `page.refresh` under its own reload. A handler returning `false` declines, which is how a contextual command stays out of the way until its data exists.
+
+The palette reads `boundIds` and lists a page command **only** where its handler is mounted, so it cannot offer an action that would do nothing. `PAGE_ACTION_COMMANDS` in `lib/paletteCommands.ts` supplies each id's label and icon.
+
+#### ActionToast
+
+A one-line confirmation for commands that change something without moving the user. A toggle or a clipboard copy closes the palette and then visibly does nothing, which reads as broken even when it worked — navigation confirms itself, everything else needs this. `role="status"` with `aria-live="polite"`, one message at a time, no queue.
 
 #### SessionCard
 

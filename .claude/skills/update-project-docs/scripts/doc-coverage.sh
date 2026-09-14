@@ -21,6 +21,7 @@ DOCS=(
   "README-VN.md"
   "README-CN.md"
   "README-KO.md"
+  "README-ES.md"
   "ARCHITECTURE.md"
   "index.html"
   "wiki/index.html"

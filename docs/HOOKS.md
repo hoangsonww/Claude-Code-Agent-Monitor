@@ -113,6 +113,11 @@ sequenceDiagram
 > The `/api/hooks` ingestion path is **exempt** from the optional `DASHBOARD_TOKEN`
 > gate — it is a local-only write — so hooks keep working without a token even when
 > one is configured for the rest of the API (GHSA-gr74-4xfh-6jw9).
+>
+> The one route in that namespace this does **not** describe is
+> [`POST /api/hooks/ingest-batch`](#remote-push-ingestion-postapihooksingest-batch),
+> which is meant to be reachable from the public internet and carries its own
+> mandatory token instead of being exempt.
 
 ### Hook System Characteristics
 
@@ -185,6 +190,43 @@ The supplied Nginx edge returns `404` for `/api/hooks/*` by default. Remote hook
 ingestion is enabled explicitly by mounting
 `deployments/nginx/snippets/hooks-proxy.conf` and terminating TLS before Nginx.
 Use a hook token separate from the browser/dashboard token.
+
+### Remote push ingestion (`POST /api/hooks/ingest-batch`)
+
+Hook forwarding above still requires the dashboard to be *reachable* from the
+machine running Claude Code or Codex. Remote push covers the opposite case: a
+roaming laptop behind NAT or a CGNAT'd home connection that the dashboard can
+never reach to pull from, and which therefore pushes its own session data.
+
+This is the only route in the server intended to be reachable from the public
+internet, and it is **disabled until you configure it**:
+
+```bash
+REMOTE_PUSH_TOKEN=change-me-to-a-long-random-string
+# or
+REMOTE_PUSH_TOKEN_FILE=/run/ccam-secrets/remote-push-token
+```
+
+Unset, every request answers `503 REMOTE_PUSH_NOT_CONFIGURED`. The token is
+deliberately **separate** from `DASHBOARD_HOOK_TOKEN`: hardening the loopback
+hook routes must not open an internet-writable endpoint as a side effect. Send it
+as `Authorization: Bearer <token>` or `X-Dashboard-Token: <token>` — `?token=` is
+rejected, because a query-string credential on a public route ends up in access
+and proxy logs.
+
+One batch carries token buckets (each entry the bucket's **full current total**,
+like a transcript re-parse, not a delta), tool events, and turn durations,
+persisted as `RemoteToolEvent` and `RemoteTurn` events. Items dedup on
+`(session_id, event_type, uuid)` against committed rows and within the batch, so
+a resend is safe; the batch is capped at 1000 items (`413 BATCH_TOO_LARGE`); and
+a `session_id` already owned by a local or SSH-pulled session is refused per item
+(`SESSION_LOCALLY_OWNED`) so a push can never hijack it. Like every other hook
+path, partial failures stay non-fatal — the response is `200` with per-item
+`errors[]`.
+
+See [API.md → Remote Push Ingestion](API.md#remote-push-ingestion) for the full
+payload shape and [`server/README.md`](../server/README.md) for the route's
+implementation notes.
 > Run `npm run install-hooks` on the host — never inside a container. When run
 > inside Docker/Podman, the installer **refuses** and exits non-zero (issue
 > #193): a container-internal path written into a bind-mounted `~/.claude` would

@@ -18,5 +18,9 @@
   "failedConnect": "无法连接到服务器",
   "failedLoad": "数据加载失败",
   "activeTrend": " 活跃",
-  "totalTrend": "（活跃会话中）"
+  "totalTrend": "（活跃会话中）",
+  "tabs": {
+    "monitor": "监控",
+    "health": "健康状态"
+  }
 }

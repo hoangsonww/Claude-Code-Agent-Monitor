@@ -367,10 +367,15 @@ jobs:
           path: desktop/release/*.exe
           retention-days: 14
 
+  # Advisory only. The validator reports findings (including npm audit
+  # advisories) as ::warning:: annotations plus a step summary and always exits
+  # 0, and continue-on-error keeps runner/setup problems from turning this into
+  # a merge blocker. pipeline-status deliberately does not gate on its result.
   deployment:
-    name: "☁️ Validate Deployment Stack"
+    name: "☁️ Validate Deployment Stack (advisory)"
     runs-on: ubuntu-latest
     needs: test
+    continue-on-error: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -385,7 +390,7 @@ jobs:
           version: v1.36.1
       - name: Install root and MCP dependencies
         run: npm ci && npm run mcp:install
-      - name: Validate Docker, Compose, Nginx, Helm, Kustomize, Terraform, and dependencies
+      - name: Review Docker, Compose, Nginx, Helm, Kustomize, Terraform, and dependencies
         run: npm run deploy:validate
 
   # ────────────────────────────────────────────────────────────────
@@ -633,10 +638,11 @@ jobs:
           # Overall: fail if any required job failed. Desktop jobs and release
           # are treated as non-blocking when skipped (the desktop jobs are
           # path-filtered out for non-desktop PRs; release runs only on the
-          # default branch).
-          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DEPLOYMENT" == "failure" || "$DESKTOP" == "failure" || "$DESKTOP_WIN" == "failure" || "$DOCKER" == "failure" || "$RELEASE" == "failure" ]]; then
+          # default branch). `deployment` is advisory and never gates: its
+          # findings are reported as annotations and in the step summary.
+          if [[ "$FORMAT" == "failure" || "$TEST" == "failure" || "$BUILD" == "failure" || "$DESKTOP" == "failure" || "$DESKTOP_WIN" == "failure" || "$DOCKER" == "failure" || "$RELEASE" == "failure" ]]; then
             echo "overall=failure" >> "$GITHUB_OUTPUT"
-          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DEPLOYMENT" == "cancelled" || "$DESKTOP" == "cancelled" || "$DESKTOP_WIN" == "cancelled" || "$DOCKER" == "cancelled" || "$RELEASE" == "cancelled" ]]; then
+          elif [[ "$FORMAT" == "cancelled" || "$TEST" == "cancelled" || "$BUILD" == "cancelled" || "$DESKTOP" == "cancelled" || "$DESKTOP_WIN" == "cancelled" || "$DOCKER" == "cancelled" || "$RELEASE" == "cancelled" ]]; then
             echo "overall=cancelled" >> "$GITHUB_OUTPUT"
           else
             echo "overall=success" >> "$GITHUB_OUTPUT"
@@ -681,7 +687,7 @@ jobs:
           | Formatting | ${{ steps.icons.outputs.format }} \`${{ steps.result.outputs.format }}\` | \`format\` |
           | Tests | ${{ steps.icons.outputs.test }} \`${{ steps.result.outputs.test }}\` | \`test\` |
           | Client Build | ${{ steps.icons.outputs.build }} \`${{ steps.result.outputs.build }}\` | \`build\` |
-          | Deployment Stack | ${{ steps.icons.outputs.deployment }} \`${{ steps.result.outputs.deployment }}\` | \`deployment\` |
+          | Deployment Stack _(advisory)_ | ${{ steps.icons.outputs.deployment }} \`${{ steps.result.outputs.deployment }}\` | \`deployment\` |
           | macOS Desktop | ${{ steps.icons.outputs.desktop }} \`${{ steps.result.outputs.desktop }}\` | \`desktop\` |
           | Windows Desktop | ${{ steps.icons.outputs.desktop_win }} \`${{ steps.result.outputs.desktop_win }}\` | \`desktop-win\` |
           | Docker | ${{ steps.icons.outputs.docker }} \`${{ steps.result.outputs.docker }}\` | \`docker\` |

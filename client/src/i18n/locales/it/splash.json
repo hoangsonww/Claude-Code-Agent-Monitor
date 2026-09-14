@@ -12,8 +12,12 @@
   "provider": {
     "title": "Cosa vuoi monitorare?",
     "description": "Scegli la fonte dati mostrata in tutta la dashboard. Potrai cambiarla in seguito nelle Impostazioni.",
-    "claude": { "description": "Le tue sessioni Claude Code, gli agenti e i costi." },
-    "codex": { "description": "Sessioni Codex, uso di token GPT e costi." },
+    "claude": {
+      "description": "Le tue sessioni Claude Code, gli agenti e i costi."
+    },
+    "codex": {
+      "description": "Sessioni Codex, uso di token GPT e costi."
+    },
     "both": {
       "label": "Entrambi",
       "description": "Tutte le sessioni Claude Code e Codex, uso e costi."
@@ -116,5 +120,6 @@
       "La tua configurazione di Claude Code, mappata per intero.",
       "Skill, agenti, hook, MCP e memoria a colpo d'occhio."
     ]
-  ]
+  ],
+  "paletteHint": "Suggerimento — premi {{chord}} in qualsiasi momento per saltare a una qualsiasi pagina, sessione o impostazione."
 }

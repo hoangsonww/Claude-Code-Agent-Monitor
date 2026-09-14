@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code API
-  version: 2.0.12
+  version: 2.2.0
   description: HTTP API for real-time Claude Code session monitoring, agent lifecycle tracking, analytics, pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -573,7 +573,7 @@ components:
         version:
           type: string
           description: Dashboard release version from package.json
-          example: 2.0.12
+          example: 2.2.0
         timestamp:
           type: string
           format: date-time
@@ -4672,7 +4672,7 @@ paths:
       tags:
         - Sessions
       summary: List sessions
-      description: Returns a paginated list of durable sessions, newest real activity first, each enriched with agent count, durable last activity, prompt preview, and calculated cost. Set `include_task_progress=true` to attach a nullable owner-aware `todo_summary` derived from Claude Task*/TodoWrite or Codex update_plan state for the latest top-level work item, with up to five preview items. A new Claude human turn or Codex task with no tracker clears older state; a completed or aborted turn drops unfinished tracker state while retaining fully completed history. Task progress is computed for at most the first 100 returned rows, and each transcript read scans only its newest 32 MiB. The opt-in keeps high-volume Dashboard/Kanban calls from parsing transcripts. The persisted `status`, `q`, and repeatable `cwd` filters compose. `total` remains independent of `limit`/`offset`.
+      description: Returns a paginated list of durable sessions, newest real activity first, each enriched with agent count, durable last activity, prompt preview, and calculated cost. Set `include_task_progress=true` to attach a nullable owner-aware `todo_summary` derived from Claude Task*/TodoWrite or Codex update_plan state for the latest top-level work item, with up to five preview items. A new Claude human turn or Codex task with no tracker clears older state; a completed or aborted turn drops unfinished tracker state while retaining fully completed history. Task progress is computed for at most the first 100 returned rows, and each transcript is read incrementally after a first 32 MiB scan, retaining state from its newest 32 MiB. The opt-in keeps high-volume Dashboard/Kanban calls from parsing transcripts. The persisted `status`, `q`, and repeatable `cwd` filters compose. `total` remains independent of `limit`/`offset`.
       operationId: listSessions
       parameters:
         - $ref: '#/components/parameters/SessionStatusQuery'
@@ -4727,7 +4727,7 @@ paths:
           schema:
             type: boolean
             default: false
-          description: Attach owner-aware `todo_summary` objects for the latest top-level work item to at most the first 100 returned rows. A newer work item with no tracker, or a finished/aborted turn with unfinished tracker state, returns null; fully completed history remains available. Each transcript scan reads only the newest 32 MiB. Intended for the Sessions table; omitted by high-volume Dashboard/Kanban calls.
+          description: Attach owner-aware `todo_summary` objects for the latest top-level work item to at most the first 100 returned rows. A newer work item with no tracker, or a finished/aborted turn with unfinished tracker state, returns null; fully completed history remains available. Each transcript is read incrementally after a first 32 MiB scan, retaining state from its newest 32 MiB. Intended for the Sessions table; omitted by high-volume Dashboard/Kanban calls.
           example: true
         - $ref: '#/components/parameters/LimitQuery'
           example: 50
@@ -4886,7 +4886,7 @@ paths:
       tags:
         - Sessions
       summary: Get session details
-      description: Returns a single session together with its agents, persisted events, workflow runs, and a nullable full `todo_snapshot`. Task state is reduced from Claude TaskCreate/TaskGet/TaskUpdate/TaskList and lifecycle events, legacy TodoWrite snapshots, or Codex update_plan snapshots; subagent ownership remains visible on items and owner summaries. Real top-level Claude human turns and Codex task_started records clear every older owner snapshot, while a subagent's next turn clears only that owner. Claude turn-end records and Codex task_complete/turn_aborted drop owner snapshots with unfinished work but retain fully completed/cancelled history, so stale in-progress state returns null. Persisted Claude prompt/terminal events apply the same boundary before a matching transcript marker flushes. Transcript parsing scans only the newest 32 MiB and the snapshot contains at most 200 tasks. Read-only, no side effects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.
+      description: Returns a single session together with its agents, persisted events, workflow runs, and a nullable full `todo_snapshot`. Task state is reduced from Claude TaskCreate/TaskGet/TaskUpdate/TaskList and lifecycle events, legacy TodoWrite snapshots, or Codex update_plan snapshots; subagent ownership remains visible on items and owner summaries. Real top-level Claude human turns and Codex task_started records clear every older owner snapshot, while a subagent's next turn clears only that owner. Claude turn-end records and Codex task_complete/turn_aborted drop owner snapshots with unfinished work but retain fully completed/cancelled history, so stale in-progress state returns null. Persisted Claude prompt/terminal events apply the same boundary before a matching transcript marker flushes. Transcript parsing is incremental after a first 32 MiB scan and reduces state from the newest 32 MiB; the snapshot contains at most 200 tasks. Read-only, no side effects. Returns 404 with code `NOT_FOUND` when no session matches the path `id`.
       operationId: getSession
       parameters:
         - $ref: '#/components/parameters/SessionIdPath'
@@ -5908,6 +5908,182 @@ paths:
                     type: boolean
                   reason:
                     type: string
+  /api/hooks/ingest-batch:
+    post:
+      tags:
+        - Hooks
+      summary: Push a batch of session data from a roaming/NAT'd machine
+      description: 'Third session-data ingestion path, alongside the local hook routes above and the SSH-pull remote-sync path (see /api/remote-sources). For a machine the dashboard can never reach to pull FROM, it pushes its own session data over HTTPS instead. Reachable from the public internet and disabled by default -- gated by its own REMOTE_PUSH_TOKEN, deliberately independent of DASHBOARD_HOOK_TOKEN (which protects the loopback-only routes above; setting that one must not also open this route as a side effect). Send the token as `Authorization: Bearer <token>` or `X-Dashboard-Token` -- deliberately not `?token=`, which would end up in access/proxy logs on a public-internet route.'
+      operationId: ingestRemotePushBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - provider
+              properties:
+                schema_version:
+                  type: integer
+                  description: Must equal this server's current wire-format version (1) when present. A mismatch is a whole-request 409, not a per-item soft-fail.
+                session_id:
+                  type: string
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                    - codex
+                session_name:
+                  type: string
+                  description: Defaults to 'Session <first 8 chars of session_id>' for a brand-new session.
+                cwd:
+                  type: string
+                model:
+                  type: string
+                tokens:
+                  type: array
+                  description: Each entry is a bucket's FULL current total (like a transcript re-parse), not a delta.
+                  items:
+                    type: object
+                    required:
+                      - model
+                    properties:
+                      model:
+                        type: string
+                      speed:
+                        type: string
+                      inference_geo:
+                        type: string
+                      service_tier:
+                        type: string
+                      input:
+                        type: integer
+                        minimum: 0
+                      output:
+                        type: integer
+                        minimum: 0
+                      cacheRead:
+                        type: integer
+                        minimum: 0
+                      cacheWrite:
+                        type: integer
+                        minimum: 0
+                      cacheWrite1h:
+                        type: integer
+                        minimum: 0
+                        description: Must be <= cacheWrite.
+                      webSearch:
+                        type: integer
+                        minimum: 0
+                      webFetch:
+                        type: integer
+                        minimum: 0
+                      codeExec:
+                        type: integer
+                        minimum: 0
+                tool_events:
+                  type: array
+                  description: Deduped by (session_id, event_type, uuid), across requests and within one batch.
+                  items:
+                    type: object
+                    required:
+                      - uuid
+                    properties:
+                      uuid:
+                        type: string
+                      agent_id:
+                        type: string
+                        description: Defaults to this session's main agent.
+                      tool_name:
+                        type: string
+                      status:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+                        description: Defaults to server 'now'.
+                turns:
+                  type: array
+                  description: Deduped the same way as tool_events.
+                  items:
+                    type: object
+                    required:
+                      - uuid
+                    properties:
+                      uuid:
+                        type: string
+                      agent_id:
+                        type: string
+                      duration_ms:
+                        type: integer
+                        minimum: 0
+                      timestamp:
+                        type: string
+                        format: date-time
+      responses:
+        '200':
+          description: Batch processed (even when individual items were skipped/rejected -- see errors[]/skipped for partial-failure detail; the request itself still succeeds).
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - ok
+                  - written
+                  - skipped
+                  - errors
+                properties:
+                  ok:
+                    type: boolean
+                  written:
+                    type: integer
+                  skipped:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        item:
+                          type: string
+                        code:
+                          type: string
+                        message:
+                          type: string
+        '400':
+          description: Missing session_id, invalid provider, or a per-item validation failure surfaced at the request level
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: REMOTE_PUSH_TOKEN is configured but the request's token is missing or wrong
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Host header not allowed (see hostGuard)
+        '409':
+          description: schema_version in the request doesn't match this server's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: tokens.length + tool_events.length + turns.length exceeds 1000
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: REMOTE_PUSH_TOKEN is not configured at all -- the route is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/pricing:
     get:
       tags:

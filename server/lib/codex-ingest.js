@@ -41,6 +41,7 @@ const LIFECYCLE_EVENT_TYPES = new Set([
 ]);
 const DEFAULT_WORKING_IDLE_MS = 90_000;
 const LIVE_THREAD_MAX_AGE_MS = 15 * 60 * 1_000;
+const CARD_CONTEXT_VERSION = 1;
 // Tags every event reconstructed from a lifecycle hook rather than read from a
 // rollout. A rollout that appears later is authoritative, so these rows are
 // removed the moment one is linked to the session (see `dropHookOnlyHistory`).
@@ -198,6 +199,48 @@ function userMessagePreview(payload) {
   return truncate(extractText(payload?.message));
 }
 
+/**
+ * Codex 0.153+ writes human prompts as response-item messages instead of the
+ * older event_msg/user_message pair. The content-kind marker is essential:
+ * Codex also serializes AGENTS.md and environment context with role=user, but
+ * those records are injected instructions rather than dashboard turns.
+ */
+function responseItemUserMessage(record) {
+  const item = record?.type === "response_item" ? record.payload : null;
+  if (item?.type !== "message" || item.role !== "user") return null;
+  const metadata = item.internal_chat_message_metadata_passthrough;
+  if (
+    !Array.isArray(metadata?.content_item_kinds) ||
+    !metadata.content_item_kinds.includes("user.text")
+  ) {
+    return null;
+  }
+  const prompt = truncate(extractText(item.content));
+  if (!prompt) return null;
+  return {
+    prompt,
+    turnId: typeof metadata.turn_id === "string" ? metadata.turn_id : null,
+  };
+}
+
+function codexUserMessage(record) {
+  if (record?.type === "event_msg" && record.payload?.type === "user_message") {
+    const prompt = userMessagePreview(record.payload);
+    return prompt
+      ? {
+          prompt,
+          turnId: typeof record.payload.turn_id === "string" ? record.payload.turn_id : null,
+        }
+      : null;
+  }
+  return responseItemUserMessage(record);
+}
+
+function codexUserMessageKey(record, userMessage) {
+  if (!userMessage?.prompt || !Date.parse(record?.timestamp || "")) return null;
+  return `${new Date(record.timestamp).toISOString()}\u0000${userMessage.prompt}`;
+}
+
 function eventDetails(record) {
   const payload = record.payload || {};
   switch (payload.type) {
@@ -291,6 +334,7 @@ function persistEvent(sessionId, agentId, record) {
   let tool;
   let summary;
   let data;
+  const userMessage = codexUserMessage(record);
   if (record.type === "event_msg" && EVENT_TYPES.has(record.payload?.type)) {
     ({ summary, tool } = eventDetails(record));
     eventType = `codex_${record.payload.type}`;
@@ -301,6 +345,16 @@ function persistEvent(sessionId, agentId, record) {
       tool = null;
     }
     data = { provider: "codex", event: record.payload.type, timestamp: record.timestamp };
+  } else if (userMessage) {
+    eventType = "codex_user_message";
+    tool = null;
+    summary = userMessage.prompt;
+    data = {
+      provider: "codex",
+      event: "user_message",
+      turn_id: userMessage.turnId,
+      timestamp: record.timestamp,
+    };
   } else {
     const details = responseToolDetails(record);
     if (!details) return null;
@@ -329,6 +383,103 @@ function persistEvent(sessionId, agentId, record) {
     timestamp
   );
   return db.prepare("SELECT * FROM events WHERE id = ?").get(info.lastInsertRowid);
+}
+
+/** Keep the Codex main card's prompt preview and turn total durable. */
+function syncCodexCardContext(sessionId, agentId) {
+  const prompts = db
+    .prepare(
+      `SELECT summary
+       FROM events
+       WHERE session_id = ? AND event_type = 'codex_user_message'
+         AND summary IS NOT NULL AND trim(summary) != ''
+       ORDER BY created_at DESC, id DESC
+       LIMIT 2`
+    )
+    .all(sessionId);
+  let changed = false;
+  if (prompts.length) {
+    const latestPrompt = prompts[0].summary;
+    const preview = prompts
+      .map((row) => row.summary)
+      .reverse()
+      .join("\n");
+    changed = stmts.updateSessionCardPromptPreview.run(preview, sessionId, preview).changes > 0;
+    const agent = stmts.getAgent.get(agentId);
+    if (agent && agent.task !== latestPrompt) {
+      stmts.updateAgent.run(null, null, latestPrompt, agent.current_tool, null, null, agentId);
+      changed = true;
+    }
+  }
+
+  const totals = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN event_type = 'codex_task_started' THEN 1 ELSE 0 END) AS started,
+         COUNT(DISTINCT CASE WHEN event_type = 'codex_user_message'
+           THEN COALESCE(json_extract(data, '$.turn_id'), 'event:' || id) END) AS prompts
+       FROM events WHERE session_id = ?`
+    )
+    .get(sessionId);
+  const turnCount = Math.max(asNumber(totals?.started), asNumber(totals?.prompts));
+  if (turnCount > 0)
+    changed = setSessionMetadataFlag(sessionId, "turn_count", turnCount) || changed;
+  return changed;
+}
+
+/**
+ * One-time repair for rollouts whose old byte cursor already passed modern
+ * response-item prompts before this dashboard version learned their shape.
+ */
+function backfillCodexCardContext(transcriptPath, session, consumedBytes) {
+  if (!session || consumedBytes <= 0) return false;
+  let metadata = {};
+  try {
+    metadata = JSON.parse(session.metadata || "{}") || {};
+  } catch {
+    /* malformed metadata is repaired by setSessionMetadataFlag below */
+  }
+  if (metadata.card_context_version === CARD_CONTEXT_VERSION) return false;
+
+  const body = readRangeUtf8(transcriptPath, 0, consumedBytes);
+  const agentId = `codex:${session.id}`;
+  const existing = new Set(
+    db
+      .prepare(
+        `SELECT created_at, summary FROM events
+         WHERE session_id = ? AND event_type = 'codex_user_message'`
+      )
+      .all(session.id)
+      .map((row) => `${row.created_at}\u0000${row.summary}`)
+  );
+  let changed = false;
+  db.transaction(() => {
+    for (const line of body.split("\n")) {
+      if (!line) continue;
+      let record;
+      try {
+        record = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const message = responseItemUserMessage(record);
+      if (!message) continue;
+      const timestamp = Date.parse(record.timestamp || "")
+        ? new Date(record.timestamp).toISOString()
+        : "";
+      const key = `${timestamp}\u0000${message.prompt}`;
+      if (existing.has(key)) continue;
+      const event = persistEvent(session.id, agentId, record);
+      if (event) {
+        existing.add(`${event.created_at}\u0000${event.summary}`);
+        changed = true;
+      }
+    }
+  })();
+  changed = syncCodexCardContext(session.id, agentId) || changed;
+  changed =
+    setSessionMetadataFlag(session.id, "card_context_version", CARD_CONTEXT_VERSION) || changed;
+  return changed;
 }
 
 /** Keep dashboard cards aligned with the title chosen in Codex's `/rename` UI. */
@@ -698,7 +849,7 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
     } catch {
       continue;
     }
-    if (record.type === "response_item") records.push(record);
+    if (record.type === "response_item" && responseToolDetails(record)) records.push(record);
   }
   const agentId = `codex:${session.id}`;
   // A historical rollout can contain thousands of calls. Commit the whole
@@ -723,9 +874,9 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
 }
 
 /**
- * Ingest one append-only rollout file. Calling it repeatedly without appended
- * bytes produces no writes and no broadcasts, even when hooks and fs.watch
- * report the same change.
+ * Ingest one append-only rollout file. Apart from the versioned card-context
+ * repair, calling it repeatedly without appended bytes produces no writes or
+ * broadcasts, even when hooks and fs.watch report the same change.
  */
 function ingestCodexTranscript(transcriptPath, options = {}) {
   if (!isCodexTranscript(transcriptPath, options)) return { changed: false, events: [] };
@@ -739,10 +890,30 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   }
   const state = stmts.getCodexIngestState.get(transcriptPath);
   const offset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
+  const repairSession = state?.session_id ? stmts.getSession.get(state.session_id) : null;
+  let repairedCardContext = false;
+  try {
+    repairedCardContext =
+      repairSession?.status === "active"
+        ? backfillCodexCardContext(transcriptPath, repairSession, Math.min(offset, stat.size))
+        : false;
+  } catch {
+    return { changed: false, events: [], failed: true };
+  }
+  const cardRepairResult = () =>
+    repairedCardContext
+      ? {
+          changed: true,
+          created: false,
+          session: stmts.getSession.get(repairSession.id),
+          agent: stmts.getAgent.get(`codex:${repairSession.id}`),
+          events: [],
+        }
+      : { changed: false, events: [] };
   let body;
   try {
     const length = stat.size - offset;
-    if (length <= 0) return { changed: false, events: [] };
+    if (length <= 0) return cardRepairResult();
     body = readRangeUtf8(transcriptPath, offset, length);
   } catch {
     // An I/O failure is NOT a completed no-op. The sweep records this file's
@@ -754,7 +925,7 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   }
 
   const lastNewline = body.lastIndexOf("\n");
-  if (lastNewline < 0) return { changed: false, events: [] };
+  if (lastNewline < 0) return cardRepairResult();
   const complete = body.slice(0, lastNewline + 1);
   const remainder = body.slice(lastNewline + 1);
   const nextOffset = offset + Buffer.byteLength(complete);
@@ -768,7 +939,7 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
         return [];
       }
     });
-  if (!records.length) return { changed: false, events: [] };
+  if (!records.length) return cardRepairResult();
 
   let meta = records.find((record) => record.type === "session_meta")?.payload;
   const resolvedSessionId = state?.session_id || meta?.id || sessionIdFromPath(transcriptPath);
@@ -854,6 +1025,15 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
   };
   const events = [];
   let latestLifecycleRecord = null;
+  const seenPromptKeys = new Set(
+    db
+      .prepare(
+        `SELECT created_at, summary FROM events
+         WHERE session_id = ? AND event_type = 'codex_user_message'`
+      )
+      .all(session.id)
+      .map((row) => `${row.created_at}\u0000${row.summary}`)
+  );
 
   for (const record of records) {
     if (record.type === "session_meta") {
@@ -875,8 +1055,10 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
     if (record.type === "event_msg" && record.payload?.type === "token_count") {
       counters = applyTokenSnapshot(session.id, model, speed, record.payload.info || {}, counters);
     }
-    if (record.type === "event_msg" && record.payload?.type === "user_message") {
-      const prompt = userMessagePreview(record.payload);
+    const userMessage = codexUserMessage(record);
+    const promptKey = codexUserMessageKey(record, userMessage);
+    if (userMessage) {
+      const prompt = userMessage.prompt;
       if (prompt) {
         if (!session.name || session.name === "Codex session") {
           stmts.updateSessionName.run(prompt, session.id, prompt);
@@ -896,9 +1078,20 @@ function ingestCodexTranscript(transcriptPath, options = {}) {
     // Tool invocations are owned by `ingestCodexToolEvents` below. The primary
     // cursor records lifecycle, message, and token events only, which keeps a
     // watcher/hook append from creating a duplicate tool row.
-    const event = record.type === "event_msg" ? persistEvent(session.id, agentId, record) : null;
-    if (event) events.push(event);
+    const duplicatePrompt = promptKey && seenPromptKeys.has(promptKey);
+    const event =
+      (record.type === "event_msg" && !(userMessage && duplicatePrompt)) ||
+      (userMessage && !duplicatePrompt)
+        ? persistEvent(session.id, agentId, record)
+        : null;
+    if (event) {
+      events.push(event);
+      if (promptKey) seenPromptKeys.add(promptKey);
+    }
   }
+
+  syncCodexCardContext(session.id, agentId);
+  setSessionMetadataFlag(session.id, "card_context_version", CARD_CONTEXT_VERSION);
 
   stmts.upsertCodexIngestState.run(
     transcriptPath,
@@ -1141,6 +1334,7 @@ function applyCodexHookLifecycle(result, hookType, hookData = null) {
     if (synthesized.length) {
       events.push(...synthesized);
       changed = true;
+      changed = syncCodexCardContext(sessionId, agentId) || changed;
     }
     changed = setSessionMetadataFlag(sessionId, "hook_only", true) || changed;
     // The reconciler measures a hook-only session's idle window from

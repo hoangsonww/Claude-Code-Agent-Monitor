@@ -16,6 +16,7 @@ const INDEX_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "index.html"), "utf8");
 const SCRIPT_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "script.js"), "utf8");
 const CONTENT_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "i18n-content.js"), "utf8");
 const SERVICE_WORKER_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "sw.js"), "utf8");
+const STYLE_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "style.css"), "utf8");
 
 type TranslationMap = Record<string, string>;
 type LocaleMaps = Record<(typeof LANGUAGES)[number], TranslationMap>;
@@ -159,8 +160,113 @@ describe("wiki i18n resources", () => {
     }
   });
 
+  it("keeps fixed-size wiki blocks inside their group's length budget", () => {
+    /* Carousel cards share one fixed-height box and captions sit under a fixed
+     * image column, so a block written at several times its neighbours' length
+     * breaks the layout rather than just reading long. Same budgets the
+     * .claude/skills/update-project-docs/scripts/wiki-block-lengths.sh helper
+     * reports, enforced here so `npm run verify` catches an outlier. */
+    /* Count code points, not UTF-16 units: every caption opens with a non-BMP
+     * emoji, which would otherwise read one character longer here than in the
+     * helper script and drift the two budgets apart. */
+    const length = (element: Element | null): number => [...normalize(element?.textContent)].length;
+
+    const groups: { label: string; sizes: number[]; names: string[]; tolerance: number }[] = [
+      {
+        label: "feature carousel card",
+        sizes: [],
+        names: [],
+        tolerance: 1.5,
+      },
+      {
+        label: "screenshot caption",
+        sizes: [],
+        names: [],
+        tolerance: 2,
+      },
+    ];
+
+    for (const card of document.querySelectorAll("#feature-carousel .feature-card")) {
+      const heading = card.querySelector("h3");
+      groups[0].names.push(heading?.id || normalize(heading?.textContent));
+      groups[0].sizes.push(length(card.querySelector("p")));
+    }
+    for (const caption of document.querySelectorAll(".screenshot-caption")) {
+      groups[1].names.push(normalize(caption.textContent).slice(0, 40));
+      groups[1].sizes.push(length(caption));
+    }
+
+    for (const { label, sizes, names, tolerance } of groups) {
+      expect(sizes.length, `${label}s found`).toBeGreaterThan(0);
+      /* Same arithmetic as the helper script: statistics median (mean of the two
+       * middles on an even group), truncated, then a truncated budget — so the
+       * two never disagree about whether a block passes. */
+      const ordered = [...sizes].sort((a, b) => a - b);
+      const middle = Math.floor(ordered.length / 2);
+      const median = Math.trunc(
+        ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2
+      );
+      const budget = Math.trunc(median * tolerance);
+      const overlong = names
+        .map((name, index) => ({ name, size: sizes[index] }))
+        .filter((block) => block.size > budget)
+        .map((block) => `${block.name} (${block.size} > ${budget})`);
+      expect(overlong, `${label}s over budget (median ${median})`).toEqual([]);
+    }
+  });
+
+  it("never scopes content styling on a class-free selector", () => {
+    /* script.js's scroll-reveal pass adds `reveal-on-scroll` to every
+     * below-the-fold direct child of a <section> at runtime, so a rule written
+     * as `.main-content ul:not([class])` matches the static file, passes review,
+     * and then silently stops applying in the browser. Block-level content
+     * rules must not depend on an element having no class. (Inline rules like
+     * `a:not([class])` are safe — the reveal pass only classes a section's own
+     * children.) */
+    const REVEALABLE = "p|ul|ol|div|table|pre|blockquote|h2|h3|h4";
+    const classFree = new RegExp(`(?:^|[\\s>+~])(?:${REVEALABLE}):not\\(\\[class\\]\\)`);
+    const offenders = STYLE_SOURCE.split("}")
+      .map((block) =>
+        block
+          .slice(block.lastIndexOf("*/") + 1)
+          .split("{")[0]
+          .trim()
+      )
+      .filter((selector) => classFree.test(selector));
+    expect(offenders, "class-free selectors in wiki/style.css").toEqual([]);
+  });
+
+  it("indents wiki prose lists despite the runtime reveal class", () => {
+    const PROSE_LISTS = ".main-content section > ul, .main-content section > ol";
+    const dom = new JSDOM(INDEX_SOURCE);
+    const lists = [...dom.window.document.querySelectorAll(PROSE_LISTS)];
+    expect(lists.length, "prose lists exist").toBeGreaterThan(0);
+    for (const list of lists) {
+      /* The reveal pass classes exactly this set, so the indent rules have to
+       * keep matching afterwards. */
+      list.classList.add("reveal-on-scroll");
+      expect(
+        list.matches(PROSE_LISTS),
+        `${list.closest("section")?.id} list still matches the indent rule`
+      ).toBe(true);
+    }
+    expect(STYLE_SOURCE).toMatch(
+      /\.main-content section > ul,\s*\n\.main-content section > ol \{[^}]*padding-left: 24px;/
+    );
+
+    /* Bespoke lists nested inside a component keep their own layout — the
+     * prose rules must not reach them. */
+    const nested = [...dom.window.document.querySelectorAll(".main-content ul, .main-content ol")]
+      .filter((list) => !list.matches(PROSE_LISTS))
+      .map((list) => list.closest("section")?.id);
+    expect(nested, "component lists excluded from the prose rules").toContain("vscode-ext");
+  });
+
   it("keeps wiki asset versions synchronized with the service-worker precache", () => {
-    for (const asset of ["script.js", "i18n-content.js"]) {
+    /* The service worker is cache-first and matches on the full URL, query
+     * string included, so a precache entry without the `?v=` the page requests
+     * is never served — first load and offline would miss that asset. */
+    for (const asset of ["style.css", "script.js", "i18n-content.js"]) {
       const indexVersion = INDEX_SOURCE.match(
         new RegExp(`${asset.replace(".", "\\.")}\\?v=(\\d+)`)
       )?.[1];

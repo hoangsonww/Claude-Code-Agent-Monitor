@@ -135,6 +135,30 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 db.pragma("busy_timeout = 5000");
 
+// Migrate: idx_events_session_type_uuid's WHERE predicate was narrowed to
+// event_type IN ('RemoteToolEvent', 'RemoteTurn') (PR #329 review feedback).
+// The CREATE INDEX IF NOT EXISTS below is a no-op against an OLDER copy of
+// this index from before that narrowing -- an install that already has the
+// broad version would silently keep paying its full per-installation cost
+// forever, never picking up the fix. Drop it first if its stored definition
+// doesn't already match, so the CREATE below actually rebuilds it narrowed.
+try {
+  const existingIndex = db
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_events_session_type_uuid'"
+    )
+    .get();
+  if (
+    existingIndex &&
+    !existingIndex.sql.includes("event_type IN ('RemoteToolEvent', 'RemoteTurn')")
+  ) {
+    db.exec("DROP INDEX idx_events_session_type_uuid");
+  }
+} catch {
+  // Best-effort -- the CREATE INDEX IF NOT EXISTS below still runs and is
+  // safe against a brand-new (or already-correct) database either way.
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
@@ -329,6 +353,45 @@ db.exec(`
 
   -- Composite indexes for frequent query patterns (columns that exist at table creation time)
   CREATE INDEX IF NOT EXISTS idx_events_session_type ON events(session_id, event_type);
+  -- Batch ingest (routes/hooks.js POST /api/hooks/ingest-batch) dedups incoming
+  -- RemoteToolEvent/RemoteTurn items against events by
+  -- (session_id, event_type, json_extract(data,'$.uuid')). Without this index
+  -- that's a per-session scan re-evaluating json_extract() on every row for
+  -- every batch item.
+  --
+  -- PARTIAL, same reason and same guard as the transcript_path backfill above
+  -- ("json_valid guard"): CREATE INDEX evaluates the indexed expression against
+  -- every existing row up front, and this table has older rows whose data is
+  -- not valid JSON (legacy data predating the JSON-events convention).
+  -- json_extract() throws "malformed JSON" on those, which would abort startup
+  -- on any installation carrying such rows. The WHERE json_valid(data) = 1
+  -- clause limits both index-build-time and future write-time evaluation of
+  -- json_extract() to rows that are actually JSON.
+  --
+  -- ALSO restricted to event_type IN ('RemoteToolEvent', 'RemoteTurn')
+  -- (maintainer feedback on PR #329): this index exists only to serve the
+  -- ingest-batch dedup query, which only ever looks up those two event types.
+  -- Without this predicate the index is built and maintained for EVERY
+  -- installation's entire events table regardless of whether remote push is
+  -- even configured -- measured at ~28MB per 500k events, ~224MB on a 4M-row
+  -- database. Narrowing the predicate makes it essentially free for anyone
+  -- who never uses the feature.
+  --
+  -- Non-obvious for whoever writes the dedup query: SQLite only uses a partial
+  -- index for a query whose own WHERE clause provably implies the index's WHERE
+  -- clause -- so the dedup query must repeat BOTH json_valid(data) = 1 and the
+  -- event_type IN (...) list literally, not just semantically (a bare
+  -- event_type = ? parameter is NOT provably within the IN-list to the query
+  -- planner, so it falls back to a full events scan instead of using this
+  -- index -- verified against EXPLAIN QUERY PLAN, not assumed). Separately
+  -- (and regardless of the index), that same json_extract(data, '$.uuid')
+  -- throws at *query* time too on a non-JSON row, not only at index-build
+  -- time -- so the json_valid guard is required for correctness on any query
+  -- touching events.data, index or no index.
+  CREATE INDEX IF NOT EXISTS idx_events_session_type_uuid
+  ON events(session_id, event_type, json_extract(data, '$.uuid'))
+  WHERE json_valid(data) = 1
+    AND event_type IN ('RemoteToolEvent', 'RemoteTurn');
   -- Subagent JSONL import dedups each tool event with
   -- "WHERE agent_id = ? AND event_type = ? AND data LIKE '%tool_use_id%'".
   -- Without an agent_id index that is a full events-table scan per tool event;
@@ -336,6 +399,18 @@ db.exec(`
   -- session with many subagents) becomes tens of seconds and blocks the event
   -- loop. This composite narrows each dedup to the agent's events of that type.
   CREATE INDEX IF NOT EXISTS idx_events_agent_type ON events(agent_id, event_type);
+  -- The agent and session lists compute "last activity" with a correlated
+  -- MAX(created_at) per row; without these the subquery walks every event of
+  -- each agent/session on every list request.
+  CREATE INDEX IF NOT EXISTS idx_events_agent_created ON events(agent_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_events_session_created ON events(session_id, created_at);
+  -- The analytics tool-usage panel groups every event by tool_name. With no
+  -- index on that column it is a full events-table scan on every request, and
+  -- better-sqlite3 is synchronous, so the whole server stalls for its duration:
+  -- measured at 45.7s on a 3.9M-row events table. Only tool events carry a
+  -- tool_name, so a partial index stays small, and it makes the GROUP BY a
+  -- covering-index scan -- the same query then measured 0.25s.
+  CREATE INDEX IF NOT EXISTS idx_events_tool_name ON events(tool_name) WHERE tool_name IS NOT NULL;
   CREATE INDEX IF NOT EXISTS idx_agents_session_type ON agents(session_id, type);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_started ON dashboard_runs(started_at DESC);
   CREATE INDEX IF NOT EXISTS idx_dashboard_runs_session ON dashboard_runs(session_id);
@@ -560,10 +635,25 @@ try {
 // Each model gets its own explicit row — no catch-all grouping.
 // Rate shape mirrors Anthropic's published table: 5m write = 1.25× input, 1h write = 2× input.
 const DEFAULT_PRICING = [
-  // Next-gen flagship
+  // Next-gen flagship.
+  // The 5.1 rows need their own patterns: `claude-fable-5%` also LIKE-matches
+  // "claude-fable-5-1", and 5.1 differs from 5 on cache reads ($0.25 vs $1).
+  // calculateCost() in routes/pricing.js sorts rules by pattern length
+  // descending, so the more specific 5-1 rule wins for 5.1 while plain
+  // "claude-fable-5" still lands on the 5 rule.
+  ["claude-fable-5-1%", "Claude Fable 5.1", 10, 50, 0.25, 12.5, 20, 0, 0],
+  ["claude-mythos-5-1%", "Claude Mythos 5.1", 10, 50, 0.25, 12.5, 20, 0, 0],
   ["claude-fable-5%", "Claude Fable 5", 10, 50, 1, 12.5, 20, 0, 0],
   ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20, 0, 0],
-  // Opus family (fast mode available on 4.6 / 4.7 / 4.8)
+  // Opus family (fast mode available on 4.6 / 4.7 / 4.8, and now 5)
+  // claude-opus-5: $5/$25 input/output, $0.50 cache read, $6.25 5m cache write,
+  // $10 1h cache write — matching Anthropic's published rate card and identical
+  // to the 4.8/4.7/4.6/4.5 rows that share the same $5 input tier. Fast mode is
+  // $10/$50 (fast mode is Opus 5 / Opus 4.8 only).
+  // `%` covers both "claude-opus-5" and "claude-opus-5[1m]" (observed model
+  // string with the 1M-context flag) under one rule — the same convention every
+  // other model here uses, not a separate pricing tier.
+  ["claude-opus-5%", "Claude Opus 5", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25, 10, 10, 50],
   ["claude-opus-4-7%", "Claude Opus 4.7", 5, 25, 0.5, 6.25, 10, 30, 150],
   ["claude-opus-4-6%", "Claude Opus 4.6", 5, 25, 0.5, 6.25, 10, 30, 150],
@@ -571,7 +661,12 @@ const DEFAULT_PRICING = [
   ["claude-opus-4-1%", "Claude Opus 4.1", 15, 75, 1.5, 18.75, 30, 0, 0],
   ["claude-opus-4-2%", "Claude Opus 4", 15, 75, 1.5, 18.75, 30, 0, 0],
   // Sonnet family
-  ["claude-sonnet-5%", "Claude Sonnet 5", 3, 15, 0.3, 3.75, 6, 0, 0],
+  // Sonnet 5 is $2/$10 on the current rate card. The 2/3-off launch promo
+  // (DEFAULT_INTRO_PRICING below) ran through 2026-08-31 at these same
+  // numbers; once it lapsed, usage fell back to the old $3/$15 standard and
+  // over-reported by 50%. The promo row is now a no-op and is kept only so
+  // existing DBs that already stamped intro_until keep their history.
+  ["claude-sonnet-5%", "Claude Sonnet 5", 2, 10, 0.2, 2.5, 4, 0, 0],
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-2%", "Claude Sonnet 4", 3, 15, 0.3, 3.75, 6, 0, 0],
@@ -701,6 +796,39 @@ repairLegacyGptPricing();
   });
   addMissing(DEFAULT_PRICING);
 }
+
+// One-time correction of Sonnet 5's standard rate on EXISTING databases.
+// The top-up above only INSERTs patterns that are missing, so a row seeded
+// before this change keeps the old $3/$15 standard forever — the user would
+// have to notice and hit "Reset Defaults" in Settings. Sonnet 5's 2/3-off
+// launch promo carried the correct $2/$10 through 2026-08-31; once it lapsed,
+// every session priced at the stale standard and over-reported by 50%.
+//
+// Guarded on the exact old defaults in every column, so a user who edited their
+// own Sonnet 5 rates is never overwritten, and re-running is a no-op. Cost is
+// computed from token_usage at request time and never stored, so correcting the
+// rule reprices all historical usage automatically — no data migration needed.
+// Exported (like applyIntroPricing) so the reset-pricing endpoint and tests can
+// apply it against a specific handle.
+function correctSonnet5StandardRate(dbHandle = db) {
+  return dbHandle
+    .prepare(
+      `UPDATE model_pricing
+          SET input_per_mtok = 2,
+              output_per_mtok = 10,
+              cache_read_per_mtok = 0.2,
+              cache_write_per_mtok = 2.5,
+              cache_write_1h_per_mtok = 4
+        WHERE model_pattern = 'claude-sonnet-5%'
+          AND input_per_mtok = 3
+          AND output_per_mtok = 15
+          AND cache_read_per_mtok = 0.3
+          AND cache_write_per_mtok = 3.75
+          AND cache_write_1h_per_mtok = 6`
+    )
+    .run();
+}
+correctSonnet5StandardRate();
 
 // Known introductory promo rates: [pattern, in, out, cacheRead, cw5m, cw1h, until].
 // Standard rates live in the DEFAULT_PRICING row; these add the time-limited
@@ -1560,8 +1688,15 @@ const stmts = {
   listEventsBySession: db.prepare(
     "SELECT * FROM events WHERE session_id = ? ORDER BY created_at DESC, id DESC"
   ),
+  // Task progress reads `data` only from TaskCreated / TaskCompleted rows;
+  // lifecycle rows act purely as owner boundaries (see observationFromEvent
+  // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
+  // (background_tasks, last_assistant_message), so return them as NULL
+  // instead of shipping and parsing them on every list call.
   listTaskEventsBySession: db.prepare(
-    `SELECT * FROM events
+    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+     FROM events
      WHERE session_id = ? AND event_type IN (
        'TaskCreated', 'TaskCompleted',
        'UserPromptSubmit', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
@@ -1792,8 +1927,16 @@ const stmts = {
     WHERE model_pattern = ?
   `),
   deletePricing: db.prepare("DELETE FROM model_pricing WHERE model_pattern = ?"),
+  // ORDER BY length DESC picks the MOST SPECIFIC matching pattern, mirroring
+  // calculateCost() in routes/pricing.js. Patterns overlap by design —
+  // "claude-fable-5-1" matches both `claude-fable-5-1%` and `claude-fable-5%`,
+  // and the two differ on cache reads ($0.25 vs $1) — so a bare LIMIT 1 with no
+  // ordering could return either row and silently bill 5.1 at the 5 rate.
   matchPricing: db.prepare(
-    "SELECT * FROM model_pricing WHERE ? LIKE REPLACE(model_pattern, '%', '%') LIMIT 1"
+    `SELECT * FROM model_pricing
+      WHERE ? LIKE REPLACE(model_pattern, '%', '%')
+      ORDER BY LENGTH(model_pattern) DESC
+      LIMIT 1`
   ),
   // GPT / Codex pricing
   listGptPricing: db.prepare("SELECT * FROM gpt_model_pricing ORDER BY display_name ASC"),
@@ -2067,6 +2210,7 @@ module.exports = {
   DEFAULT_PRICING,
   DEFAULT_GPT_PRICING,
   applyIntroPricing,
+  correctSonnet5StandardRate,
   seedGptPricing,
   repairLegacyGptPricing,
 };

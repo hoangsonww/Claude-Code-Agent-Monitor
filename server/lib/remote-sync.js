@@ -1445,4 +1445,11 @@ module.exports = {
   isLegacyScpProtocolError,
   HOST_RE,
   REMOTE_PATH_RE,
+  // Provider vocabulary — reused by routes/hooks.js's remote-push ingest route
+  // (POST /api/hooks/ingest-batch) so a third ingestion path (roaming/NAT'd
+  // machines that push over HTTPS instead of being SSH-pulled) validates its
+  // `provider` field against the same "claude" | "codex" vocabulary as the
+  // pull path instead of inventing new provider terms.
+  REMOTE_PROVIDERS,
+  assertProvider,
 };

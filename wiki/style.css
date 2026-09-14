@@ -985,6 +985,55 @@ code {
   opacity: 0;
 }
 
+/* ─── Prose lists ──────────────────────────────────────────────────────── */
+/* The global reset zeroes padding on every element, so a body-copy list loses
+ * its indent and renders its markers outside the content column. Restore the
+ * indent, marker, and item rhythm here.
+ *
+ * Scoped to a section's own children for two reasons. It excludes bespoke
+ * lists nested inside components (the arrow-marker list in the VS Code
+ * timeline brings its own inline list-style and spacing). And it must not be
+ * scoped with :not([class]) — the scroll-reveal pass in script.js adds
+ * `reveal-on-scroll` to exactly these elements at runtime, so a class-free
+ * selector matches in the static file and then silently stops matching in the
+ * browser. `section > ul` is the same set the reveal pass targets, by
+ * construction. */
+.main-content section > ul,
+.main-content section > ol {
+  margin: 12px 0 20px;
+  padding-left: 24px;
+}
+
+.main-content section > ul {
+  list-style: disc outside;
+}
+
+.main-content section > ol {
+  list-style: decimal outside;
+}
+
+.main-content section > ul > li,
+.main-content section > ol > li {
+  margin-bottom: 8px;
+  padding-left: 4px;
+  color: var(--text-muted);
+}
+
+.main-content section > ul > li::marker,
+.main-content section > ol > li::marker {
+  color: var(--accent);
+}
+
+.main-content section > ul > li:last-child,
+.main-content section > ol > li:last-child {
+  margin-bottom: 0;
+}
+
+.main-content section > ul > li strong,
+.main-content section > ol > li strong {
+  color: var(--text);
+}
+
 /* ─── Inline text links (prose) ────────────────────────────────────────── */
 /* Plain in-body links (no chip/badge/nav class) pick up the accent theme so
  * cross-references like the "Desktop App (macOS & Windows)" jump-link no longer

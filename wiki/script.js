@@ -1972,10 +1972,18 @@ document.querySelectorAll(".diagram-toggle").forEach((toggle) => {
     vi: CONTENT.vi || {},
     ko: CONTENT.ko || {},
     es: CONTENT.es || {},
+    it: CONTENT.it || {},
   };
   // Attribute values do not participate in the body-content pass above. Keep
   // image descriptions and assistive labels localized in every wiki language.
   const ATTRIBUTE_TRANSLATIONS = {
+    "Command Palette open over the Sessions page": {
+      zh: "在会话页面上打开的命令面板",
+      vi: "Bảng lệnh đang mở trên trang Phiên",
+      ko: "세션 페이지 위에 열린 명령 팔레트",
+      es: "La paleta de comandos abierta sobre la página de Sesiones",
+      it: "Palette dei comandi aperta sopra la pagina Sessioni",
+    },
     "Wiki navigation": {
       zh: "维基导航",
       vi: "Điều hướng wiki",

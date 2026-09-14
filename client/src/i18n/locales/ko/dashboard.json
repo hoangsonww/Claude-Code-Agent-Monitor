@@ -18,5 +18,9 @@
   "failedConnect": "서버에 연결하지 못했습니다",
   "failedLoad": "데이터를 불러오지 못했습니다",
   "activeTrend": " 활성",
-  "totalTrend": " 활성 세션 기준"
+  "totalTrend": " 활성 세션 기준",
+  "tabs": {
+    "monitor": "모니터",
+    "health": "상태"
+  }
 }

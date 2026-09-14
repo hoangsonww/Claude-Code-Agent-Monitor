@@ -121,6 +121,19 @@ function getHookToken() {
   return readSecret("DASHBOARD_HOOK_TOKEN", "DASHBOARD_HOOK_TOKEN_FILE");
 }
 
+/**
+ * Optional, INDEPENDENT token for the remote-push ingest-batch route
+ * (server/routes/hooks.js POST /api/hooks/ingest-batch). Deliberately a
+ * separate secret from DASHBOARD_HOOK_TOKEN: that token's job is hardening
+ * the LOOPBACK-only local hook, and someone who sets it for that reason alone
+ * should not thereby also open an internet-writable session endpoint they
+ * never opted into (maintainer feedback on PR #329). Unset by default, same
+ * "presence of the secret = feature enabled" idiom as every other token here.
+ */
+function getRemotePushToken() {
+  return readSecret("REMOTE_PUSH_TOKEN", "REMOTE_PUSH_TOKEN_FILE");
+}
+
 function tokensMatch(provided, expected) {
   if (typeof provided !== "string" || provided.length === 0) return false;
   const a = Buffer.from(provided);
@@ -135,6 +148,23 @@ function extractToken(req) {
   const header = req.headers["x-dashboard-token"];
   if (typeof header === "string" && header) return header;
   if (req.query && typeof req.query.token === "string") return req.query.token;
+  return null;
+}
+
+/**
+ * Header-only variant of extractToken (no `?token=` query-string fallback):
+ * for the remote-push ingest-batch route (server/routes/hooks.js), which is
+ * reachable from the public internet. A query-string credential ends up in
+ * server access logs, any intermediate proxy's logs, and (for a browser
+ * client) history/Referer headers -- acceptable for the dashboard/WebSocket
+ * auth extractToken() already serves, not for an internet-facing token
+ * (CodeRabbit review on PR #329).
+ */
+function extractHeaderOnlyToken(req) {
+  const auth = req.headers.authorization;
+  if (typeof auth === "string" && auth.startsWith("Bearer ")) return auth.slice(7);
+  const header = req.headers["x-dashboard-token"];
+  if (typeof header === "string" && header) return header;
   return null;
 }
 
@@ -211,11 +241,13 @@ module.exports = {
   corsOptions,
   getDashboardToken,
   getHookToken,
+  getRemotePushToken,
   tokenGuard,
   hookGuard,
   isWebSocketAuthorized,
   // exported for tests
   tokensMatch,
   extractToken,
+  extractHeaderOnlyToken,
   extractHookToken,
 };
