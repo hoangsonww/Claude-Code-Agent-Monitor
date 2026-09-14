@@ -1,0 +1,571 @@
+{
+  "title": "Impostazioni",
+  "subtitle": "Gestisci prezzi, notifiche, dati e hook",
+  "exportData": "Esporta dati",
+  "acrossSessions": "Su tutte le sessioni tracciate",
+  "basedOnUsage": "Basato sull'uso di token per modello",
+  "tabby": {
+    "title": "Compagno Tabby",
+    "description": "Un gatto fluttuante che reagisce alle tue sessioni live.",
+    "enable": "Mostra Tabby",
+    "enableDesc": "Mostra il compagno nell'angolo in tutta la dashboard (⌘B per aprire)"
+  },
+  "sound": {
+    "title": "Suoni",
+    "description": "Brevi e discreti segnali acustici per l'attività delle sessioni live. Generati nel browser - nessun download, nessun tracciamento.",
+    "enable": "Abilita segnali sonori",
+    "enableDesc": "Riproduci un tono discreto quando le sessioni iniziano, finiscono o vanno in errore",
+    "volume": "Volume",
+    "playWhen": "Riproduci un segnale quando...",
+    "newSession": "Una sessione inizia",
+    "sessionComplete": "Una sessione finisce di rispondere",
+    "sessionError": "Una sessione va in errore",
+    "subagentSpawned": "Un subagente viene generato",
+    "notification": "Claude Code invia una notifica",
+    "connection": "La connessione live cade o ritorna",
+    "interaction": "Clic su pulsanti e link",
+    "interactionDesc": "Un tick appena udibile a ogni pressione",
+    "preview": "Anteprima suono",
+    "throttleInfo": "I segnali hanno un rate limit, così una raffica di attività non diventa mai una raffica di suoni.",
+    "disabledInfo": "I segnali sonori sono spenti - la dashboard resta completamente silenziosa"
+  },
+  "pricing": {
+    "title": "Prezzi dei modelli Anthropic Claude",
+    "navClaude": "Prezzi Claude",
+    "navGpt": "Prezzi Codex",
+    "description": "Tariffe dell'API Anthropic per milione di token (USD). Usa % come jolly nei pattern. Alcuni modelli hanno una tariffa introduttiva a tempo (mostrata in viola); l'uso entro la sua data di scadenza è fatturato a quella tariffa, l'uso successivo alla tariffa standard.",
+    "introNote": "Intro ${{input}}/${{output}} fino al {{until}}",
+    "introRatesTitle": "Tariffe introduttive",
+    "introRatesHint": "Lascia la data vuota per nessuna promo",
+    "introUntil": "Fino al (data)",
+    "introUntilInvalid": "La scadenza introduttiva deve essere una data YYYY-MM-DD",
+    "resetConfirm": "Conferma ripristino",
+    "resetDefaults": "Ripristina predefiniti",
+    "resetResult": "Ripristinate {{count}} regole predefinite",
+    "addModel": "Aggiungi modello",
+    "pattern": "Pattern",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "Pattern e nome visualizzato sono obbligatori",
+    "lastUpdated": "Ultimo aggiornamento: ",
+    "tooltip": {
+      "title": "Come funzionano i prezzi dei modelli",
+      "howItWorks": "Come funziona",
+      "howItWorksBody": "Quando una sessione riporta l'uso, la dashboard trova la prima regola di prezzo il cui pattern corrisponde all'id del modello e moltiplica (token di input / 1M) e (token di output / 1M) per le tariffe qui sotto per calcolare il costo. Le regole sono valutate dall'alto verso il basso - vince la prima corrispondenza.",
+      "patternsTitle": "Sintassi dei pattern",
+      "patternsBody": "I pattern sono glob in stile SQL. % è un jolly che corrisponde a qualsiasi carattere. Ad esempio: claude-opus-4-7% corrisponde a ogni id modello che inizia con claude-opus-4-7 (es. claude-opus-4-7, claude-opus-4-7-20260101). claude-%-haiku corrisponde a qualsiasi variante haiku. Un id esatto come claude-sonnet-4-6 corrisponde solo a sé stesso.",
+      "manualUpdates": "I prezzi vanno aggiornati manualmente",
+      "manualUpdatesBody": "Anthropic pubblica i cambi di prezzo sul suo sito web - non c'è un feed live. Quando esce un nuovo modello o le tariffe cambiano, modifica la regola corrispondente (o aggiungine una nuova sopra quella catch-all) così le nuove sessioni registrate sono costificate correttamente. Le sessioni già memorizzate mantengono il prezzo applicato al momento dell'ingestione.",
+      "apiPricing": "Solo come riferimento - tariffe API",
+      "apiPricingBody": "Queste sono tariffe API pay-as-you-go. Se usi Claude Code con un piano in abbonamento (Pro, Max, Team o Enterprise), il tuo costo reale è un canone mensile fisso, non per token - quindi queste cifre saranno di solito più alte di quanto paghi davvero. Considera i costi qui come una stima d'uso di riferimento, non una fattura."
+    },
+    "cacheWrite5m": "Scrittura cache (5m)",
+    "cacheWrite1h": "Scrittura cache (1h)",
+    "fastInput": "Input Fast",
+    "fastOutput": "Output Fast",
+    "gpt": {
+      "title": "Prezzi dei modelli OpenAI GPT",
+      "description": "Tariffe API OpenAI pubblicate per l'uso di Codex. Le richieste standard usano le tariffe Short fino a 272K token di input e le tariffe Long oltre 272K; la modalità Fast usa il proprio listino. USD per 1M di token.",
+      "tooltip": {
+        "title": "Come funzionano i prezzi GPT",
+        "howItWorks": "Come funziona",
+        "howItWorksBody": "Ogni importo è in USD per 1M di token. Le richieste Codex standard usano le tariffe Short fino a 272K token di input e le tariffe Long oltre 272K. La modalità Fast usa il proprio listino. Input nuovo, input in cache, scritture in cache e output sono prezzati separatamente.",
+        "patternsTitle": "Sintassi dei pattern",
+        "patternsBody": "I pattern usano i jolly % in stile SQL. La dashboard valuta prima i pattern di modello più specifici e usa la prima regola che corrisponde all'id del modello riportato.",
+        "manualUpdates": "I prezzi vanno aggiornati manualmente",
+        "manualUpdatesBody": "OpenAI pubblica i cambi di prezzo dell'API sul suo sito; non c'è un feed live. Aggiorna o aggiungi una regola corrispondente quando i modelli o le tariffe cambiano, così il nuovo uso registrato è prezzato correttamente.",
+        "apiPricing": "Le tariffe non pubblicate restano senza prezzo",
+        "apiPricingBody": "Un trattino lungo significa che OpenAI non pubblica quella tariffa di contesto o della modalità Fast. L'uso corrispondente è marcato come senza prezzo invece di essere stimato. Queste sono tariffe API pay-as-you-go di riferimento, non fatturazione da piano in abbonamento."
+      },
+      "name": "Nome",
+      "short": "Standard · Short ≤272K",
+      "long": "Standard · Long >272K",
+      "fast": "Modalità Fast",
+      "input": "Input",
+      "cached": "In cache",
+      "write": "Scrittura cache",
+      "output": "Output",
+      "deleteConfirm": "Eliminare questa regola di prezzo GPT?"
+    }
+  },
+  "claudeHome": {
+    "title": "Home di Claude Code",
+    "description": "La cartella radice per trascrizioni, import e configurazione di Claude Code. Cambiarla aggiorna immediatamente le letture di file successive.",
+    "save": "Salva",
+    "saving": "Salvataggio...",
+    "current": "Attuale:",
+    "placeholder": "/path/to/claude-home",
+    "saveFailed": "Aggiornamento di CLAUDE_HOME non riuscito"
+  },
+  "codexHome": {
+    "title": "Home di Codex",
+    "description": "La cartella radice per le sessioni rollout e gli hook di Codex. Salvare una nuova posizione riattiva il monitoraggio live e ne scansiona subito le sessioni.",
+    "save": "Salva",
+    "saving": "Salvataggio...",
+    "current": "Attuale:",
+    "placeholder": "/path/to/codex-home",
+    "saveFailed": "Aggiornamento della home di Codex non riuscito"
+  },
+  "homes": {
+    "title": "Posizioni dei dati di sessione",
+    "description": "Configura le cartelle locali di Claude Code e Codex lette dalla dashboard. Ogni posizione salvata viene applicata senza riavviare l'app."
+  },
+  "display": {
+    "title": "Dati della dashboard",
+    "description": "Scegli di quale prodotto mostrare sessioni, token, costi e attività in tutta l'app. Il cambio ha effetto immediato e resta indipendente dal filtro per macchina della fonte dati.",
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "both": "Entrambi",
+    "claudeDescription": "Mostra solo i dati di Claude Code.",
+    "codexDescription": "Mostra solo i dati di Codex.",
+    "bothDescription": "Combina i dati di Claude Code e Codex.",
+    "beta": "Beta"
+  },
+  "hooks": {
+    "title": "Configurazione degli hook",
+    "description": "Gli hook di Claude Code e Codex inoltrano gli eventi alla dashboard in tempo reale.",
+    "allInstalled": "Tutti gli hook installati",
+    "someInstalled": "Hook configurati",
+    "incomplete": "Hook incompleti",
+    "reinstall": "Reinstalla hook",
+    "configure": "Configura hook",
+    "success": "Hook installati con successo",
+    "failed": "Installazione degli hook non riuscita",
+    "display": {
+      "title": "Dati della dashboard",
+      "description": "Filtra immediatamente ogni vista della dashboard su un prodotto. Il filtro per macchina della fonte dati resta indipendente.",
+      "both": "Entrambi"
+    },
+    "modal": {
+      "title": "Installa gli hook della dashboard",
+      "description": "Seleziona uno o entrambi i prodotti. Le voci hook esistenti della dashboard vengono aggiornate; i tuoi comandi hook non correlati restano intatti.",
+      "claude": "Hook del ciclo di vita da ~/.claude/settings.json.",
+      "codex": "Hook del ciclo di vita da ~/.codex/hooks.json, con il JSONL di rollout come fallback in tempo reale.",
+      "installed": "Già installato",
+      "overrideWarning": "È stata trovata una configurazione hook esistente per uno o più prodotti selezionati. Continuando si sostituiscono solo le voci corrispondenti di questa dashboard e si preservano gli hook non correlati.",
+      "preserveNote": "Almeno un prodotto deve essere selezionato.",
+      "install": "Installa gli hook selezionati",
+      "failed": "Impossibile installare gli hook selezionati."
+    }
+  },
+  "notifications": {
+    "title": "Notifiche",
+    "description": "Notifiche del browser per eventi importanti. Richiede il permesso.",
+    "enable": "Abilita notifiche del browser",
+    "granted": "Permesso concesso",
+    "blocked": "Permesso bloccato",
+    "required": "Permesso richiesto",
+    "notifyWhen": "Avvisami quando...",
+    "newSession": "Inizia una nuova sessione",
+    "sessionComplete": "Una sessione si completa",
+    "sessionError": "Una sessione va in errore",
+    "subagentSpawned": "Viene generato un subagente",
+    "testTitle": "Agent Monitor",
+    "testBody": "Le notifiche funzionano!",
+    "sendTest": "Invia notifica di prova",
+    "disabledInfo": "Le notifiche sono disabilitate - abilitale per ricevere avvisi sugli eventi di sessione"
+  },
+  "import": {
+    "title": "Importa cronologia",
+    "providerLabel": "Provider di importazione",
+    "providerHint": "Scegli la cronologia dell'agente locale che vuoi portare in questa dashboard.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "Gli export della dashboard possono contenere dati di Claude Code e Codex. Il ripristino unisce ogni provider incluso nell'export.",
+    "description": "Porta le sessioni Claude Code esistenti nella dashboard. Conteggi di token, costo per modello, compattazioni, subagenti, usi di strumenti e durate dei turni sono ricostruiti dalle trascrizioni JSONL originali - in modo identico a come vengono acquisite le sessioni live.",
+    "scopeNote": "Questa importazione elabora solo le trascrizioni di Claude Code. Non modifica mai la tua cronologia Codex né la configurazione di alcuna CLI.",
+    "accuracyNote": "Rieseguirla è sicuro. Le sessioni sono deduplicate per ID sessione, e le baseline di compattazione assicurano che i totali di token non vengano mai conteggiati due volte.",
+    "supportedFiles": "Input supportati: .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "instructions": "Come raccogliere la tua cronologia",
+    "stepLocate": "1. Trova la tua cronologia di Claude Code",
+    "stepLocateBody": "Ogni sessione Claude Code è memorizzata come trascrizione JSONL sotto la cartella projects. Ogni sottocartella prende il nome della cartella di lavoro in cui la sessione è iniziata (con le barre sostituite da trattini).",
+    "stepArchive": "2. Impacchettala per il trasferimento (opzionale)",
+    "stepArchiveBody": "Per spostare la cronologia da un'altra macchina, archivia prima l'intera cartella, poi copiala (AirDrop, scp, USB, cloud):",
+    "stepChoose": "3. Scegli una modalità di importazione qui sotto",
+    "stepChooseBody": "Riscansiona la posizione predefinita, punta a una cartella in cui hai estratto la cronologia, o carica file/archivi direttamente.",
+    "stepVerify": "4. Verifica token e costo",
+    "stepVerifyBody": "Dopo l'importazione, apri Analitiche → Costo per confermare il dettaglio. Reimportare la stessa sessione è sempre sicuro.",
+    "defaultLocation": "Posizione predefinita su questa macchina",
+    "locationFound": "Cartella trovata",
+    "locationMissing": "Cartella non trovata",
+    "projectsLabel": "progetti",
+    "jsonlLabel": "file JSONL",
+    "modeRescan": "Riscansiona la cartella predefinita",
+    "modeRescanDesc": "Rileggi ~/.claude/projects e importa tutto ciò che è nuovo.",
+    "modeFolder": "Scansiona una cartella",
+    "modeFolderDesc": "Scansiona qualsiasi cartella su questa macchina alla ricerca di trascrizioni JSONL (attraversa le sottocartelle).",
+    "modeUpload": "Carica file",
+    "modeUploadDesc": "Trascina file JSONL o un archivio (.zip / .tar.gz) direttamente nel browser.",
+    "modeBackup": "Ripristina backup",
+    "modeBackupDesc": "Importa un export della dashboard (.json) da Esporta dati — unisci la cronologia di un'altra macchina.",
+    "backupHint": "Trascina qui un export .json o clicca per selezionarlo",
+    "backupSub": "Il file prodotto dal pulsante Esporta dati (in cima alle Impostazioni)",
+    "runRestore": "Ripristina",
+    "backupResult": {
+      "title": "Ripristino completato",
+      "sessionsImported": "Sessioni aggiunte: {{count}}",
+      "sessionsSkipped": "Già presenti: {{count}}",
+      "events": "Eventi: {{count}}",
+      "pricing": "Regole di prezzo: {{count}}",
+      "detail": "{{agents}} agenti · {{workflows}} workflow · {{runs}} esecuzioni · {{rules}} regole di avviso"
+    },
+    "folderPlaceholder": "/absolute/path/to/claude-history",
+    "folderHelper": "Percorso assoluto. La tilde (~) viene espansa. Le sottocartelle sono scansionate ricorsivamente.",
+    "runRescan": "Riscansiona ora",
+    "runScan": "Scansiona cartella",
+    "runUpload": "Carica e importa",
+    "dropzoneHint": "Trascina i file qui o clicca per selezionarli",
+    "dropzoneSub": "Accetta .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "filesSelected": "{{count}} file selezionati",
+    "clearSelection": "Pulisci",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "progress": {
+      "scan": "Scansione della cartella...",
+      "extract": "Estrazione degli archivi ({{processed}}/{{total}})...",
+      "parse": "Analisi delle trascrizioni ({{processed}}/{{total}})...",
+      "complete": "Importazione completata",
+      "error": "Importazione non riuscita"
+    },
+    "result": {
+      "imported": "Importate: {{count}}",
+      "backfilled": "Esistenti arricchite: {{count}}",
+      "skipped": "Già aggiornate: {{count}}",
+      "errors": "Errori: {{count}}",
+      "filesScanned": "File scansionati: {{count}}",
+      "title": "Risultato dell'ultima importazione"
+    },
+    "errors": {
+      "noFiles": "Nessun file selezionato",
+      "noJsonl": "Nessun file .jsonl trovato nel contenuto caricato",
+      "pathRequired": "Il percorso è obbligatorio",
+      "pathInvalid": "Il percorso deve essere assoluto",
+      "pathNotFound": "Il percorso non esiste",
+      "pathNotDir": "Il percorso non è una cartella",
+      "generic": "Importazione non riuscita: {{message}}"
+    },
+    "codex": {
+      "description": "Porta le sessioni Codex esistenti nella dashboard. Messaggi utente, output dell'assistente, snapshot dei token, chiamate agli strumenti e stato del ciclo di vita attesa/attivo sono ricostruiti dai file JSONL di rollout originali usando la stessa pipeline del monitoraggio in tempo reale.",
+      "scopeNote": "Questa importazione elabora solo le trascrizioni di {{provider}}. Non modifica mai la tua cronologia Claude Code né la configurazione della CLI Codex.",
+      "accuracyNote": "Rieseguirla è sicuro. I cursori di rollout importati sono conservati, quindi i delta di token e le chiamate agli strumenti già contabilizzati non vengono mai aggiunti due volte.",
+      "stepLocate": "1. Trova la tua cronologia di rollout di Codex",
+      "stepLocateBody": "Codex memorizza ogni sessione come file JSONL di rollout append-only sotto la cartella sessions. Le sue cartelle per data annidate sono scansionate automaticamente.",
+      "stepArchive": "2. Impacchettala per il trasferimento (opzionale)",
+      "stepArchiveBody": "Per spostare la cronologia da un'altra macchina, archivia prima la cartella sessions, poi copiala (AirDrop, scp, USB, cloud). Includi anche session_index.jsonl se vuoi i titoli nativi da /rename di quella macchina.",
+      "stepChoose": "3. Scegli una modalità di importazione qui sotto",
+      "stepChooseBody": "Riscansiona le sessioni Codex di questa macchina, punta a una cartella copiata o estratta, o carica file di rollout e archivi direttamente.",
+      "stepVerify": "4. Verifica token e costo",
+      "stepVerifyBody": "Dopo l'importazione, apri Analitiche → Costo per confermare il dettaglio. Lo stesso rollout può sempre essere importato di nuovo in sicurezza.",
+      "defaultLocation": "Posizione predefinita delle sessioni Codex su questa macchina",
+      "locationFound": "Cartella delle sessioni trovata",
+      "locationMissing": "Cartella delle sessioni non trovata",
+      "projectsLabel": "cartelle di sessione",
+      "jsonlLabel": "file di rollout",
+      "modeRescan": "Riscansiona le sessioni Codex",
+      "modeRescanDesc": "Rileggi ~/.codex/sessions e importa la cronologia di rollout non ancora nella dashboard.",
+      "modeFolder": "Scansiona una cartella Codex",
+      "modeFolderDesc": "Scansiona una cartella Codex copiata o estratta alla ricerca di file JSONL di rollout, incluse le cartelle per data annidate.",
+      "modeUpload": "Carica cronologia Codex",
+      "modeUploadDesc": "Trascina file JSONL di rollout o un archivio (.zip / .tar.gz) direttamente nel browser.",
+      "folderPlaceholder": "/absolute/path/to/codex-history",
+      "folderHelper": "Percorso assoluto. La tilde (~) viene espansa. La cartella e tutte le cartelle per data annidate sono scansionate ricorsivamente alla ricerca di file di rollout Codex.",
+      "runRescan": "Riscansiona Codex ora",
+      "runScan": "Scansiona cartella Codex",
+      "runUpload": "Carica e importa Codex",
+      "dropzoneHint": "Trascina qui i file di rollout Codex o clicca per selezionarli",
+      "dropzoneSub": "Accetta file di rollout .jsonl, session_index.jsonl e archivi .zip, .tar, .tar.gz, .tgz, .gz"
+    }
+  },
+  "data": {
+    "title": "Gestione dati",
+    "description": "Informazioni sul database, import/export e pulizia.",
+    "dbOverview": "Panoramica del database",
+    "dbSize": "Dimensione DB",
+    "loadingDb": "Caricamento informazioni del database...",
+    "sessionCleanup": "Pulizia sessioni",
+    "cleanupDesc": "Abbandona le sessioni stagnanti ed elimina i dati vecchi",
+    "abandonAfter": "Abbandona le sessioni attive stagnanti più vecchie di",
+    "purgeAfter": "Elimina le sessioni completate/in errore più vecchie di",
+    "confirmCleanup": "Conferma pulizia",
+    "runCleanup": "Esegui pulizia",
+    "nothingToClean": "Niente da pulire",
+    "abandonedResult": " sessioni abbandonate",
+    "purgedResult": " sessioni eliminate ({{events}} eventi, {{agents}} agenti)"
+  },
+  "danger": {
+    "title": "Zona pericolosa",
+    "description": "Azioni irreversibili che eliminano dati in modo permanente",
+    "warning": "Questo eliminerà tutte le sessioni, gli agenti, gli eventi e i dati sui token. Sei sicuro?",
+    "yesClearAll": "Sì, elimina tutto",
+    "clearAllData": "Elimina tutti i dati",
+    "clearedResult": "Eliminate {{count}} righe"
+  },
+  "about": {
+    "title": "Informazioni",
+    "description": "Informazioni sul runtime del server.",
+    "release": "Release",
+    "uiBuild": "Build UI v{{version}} (ricompila il client per allinearla)",
+    "uptime": "Uptime",
+    "nodejs": "Node.js",
+    "platform": "Piattaforma",
+    "wsClients": "Client WS",
+    "loadingInfo": "Caricamento informazioni del server..."
+  },
+  "tables": {
+    "sessions": "sessioni",
+    "agents": "agenti",
+    "events": "eventi",
+    "sessionsWithCost": "sessioni con costo",
+    "pricingRules": "regole di prezzo"
+  },
+  "messages": {
+    "failedLoad": "Caricamento non riuscito",
+    "failedSave": "Salvataggio non riuscito",
+    "failedDelete": "Eliminazione non riuscita",
+    "unknownError": "Sconosciuto",
+    "actionFailed": "Errore: {{message}}"
+  },
+  "webhooks": {
+    "title": "Notifiche webhook",
+    "description": "Inoltra gli avvisi scattati a Slack, Discord, Microsoft Teams o qualsiasi endpoint HTTP. La consegna è automatica, ritentata in caso di errore, e non blocca mai il monitoraggio.",
+    "count_one": "{{count}} destinazione",
+    "count_other": "{{count}} destinazioni",
+    "add": "Aggiungi webhook",
+    "loading": "Caricamento webhook…",
+    "empty": "Nessun webhook configurato. Aggiungine uno per inoltrare gli avvisi a Slack, Discord, Teams o un endpoint personalizzato.",
+    "scopedTo_one": "{{count}} regola",
+    "scopedTo_other": "{{count}} regole",
+    "enabled": "Abilitato",
+    "test": "Prova",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "confirmDelete": "Conferma",
+    "testOk": "Consegnato (HTTP {{status}})",
+    "testFail": "Fallito: {{error}}",
+    "addTitle": "Nuovo webhook",
+    "editTitle": "Modifica webhook",
+    "fieldName": "Nome",
+    "fieldNamePlaceholder": "es. Slack del team #alerts",
+    "fieldType": "Tipo",
+    "type": {
+      "slack": "Slack",
+      "discord": "Discord",
+      "teams": "Microsoft Teams",
+      "generic": "Generico (JSON personalizzato)"
+    },
+    "fieldUrl": "URL del webhook",
+    "urlKeepHint": "lascia vuoto per mantenere l'attuale",
+    "urlKeepPlaceholder": "•••••••• (invariato)",
+    "urlPlaceholder": {
+      "slack": "https://hooks.slack.com/services/…",
+      "discord": "https://discord.com/api/webhooks/…",
+      "teams": "https://outlook.office.com/webhook/…",
+      "generic": "https://example.com/webhook"
+    },
+    "fieldSecret": "Segreto di firma (opzionale)",
+    "secretPlaceholder": "Segreto HMAC-SHA256",
+    "secretKeepPlaceholder": "•••••••• (lascia vuoto per mantenerlo)",
+    "secretHint": "Quando impostato, le richieste sono firmate con un header X-Webhook-Signature.",
+    "fieldHeaders": "Header personalizzati (opzionale)",
+    "replaceHeaders": "Sostituisci header",
+    "headerKey": "Header",
+    "headerValue": "Valore",
+    "addHeader": "Aggiungi header",
+    "scopeAll": "Ricevi avvisi da tutte le regole",
+    "enabledOnSave": "Abilitato",
+    "save": "Salva",
+    "create": "Crea",
+    "cancel": "Annulla",
+    "urlOptional": "override opzionale",
+    "urlAuto": "L'URL è impostato automaticamente dalle credenziali qui sotto.",
+    "deleteTitle": "Eliminare il webhook?",
+    "deleteMessage": "Eliminare \"{{name}}\"? Gli avvisi scattati smetteranno di essere consegnati a questa destinazione. Non è reversibile.",
+    "guideToggle": "Come configurare {{provider}}",
+    "guideDocs": "Documentazione ufficiale di {{provider}}",
+    "guideStaleNote": "Le schermate di configurazione dei provider cambiano spesso, quindi questi passaggi potrebbero non essere aggiornati - verifica sempre sulla documentazione ufficiale."
+  },
+  "alertsHub": {
+    "title": "Avvisi",
+    "description": "Definisci regole di avviso, instradale verso canali webhook e rivedi cosa è scattato - tutto in un unico posto.",
+    "tabRules": "Regole",
+    "tabChannels": "Canali",
+    "tabActivity": "Attività",
+    "rulesHint": "Condizioni che attivano un avviso. Valutate lato server sul flusso di eventi live.",
+    "rulesEmptyHint": "Aggiungi una regola per iniziare a ricevere avvisi su errori, inattività, agenti bloccati o soglie di token."
+  },
+  "jumpTo": "Vai a",
+  "webhookGuides": {
+    "slack": {
+      "steps": [
+        "Crea o apri un'app Slack su api.slack.com/apps.",
+        "Attiva 'Incoming Webhooks', poi clicca 'Add New Webhook to Workspace'.",
+        "Scegli il canale su cui pubblicare e autorizza.",
+        "Copia l'URL generato (https://hooks.slack.com/services/…) e incollalo sopra."
+      ]
+    },
+    "discord": {
+      "steps": [
+        "Apri il tuo server → Impostazioni server → Integrazioni → Webhook.",
+        "Clicca 'Nuovo webhook', scegli un canale, eventualmente rinominalo.",
+        "Clicca 'Copia URL webhook' e incollalo sopra."
+      ]
+    },
+    "teams": {
+      "steps": [
+        "Nel canale Teams di destinazione, clicca ⋯ → 'Workflow'.",
+        "Scegli il template 'Post to a channel when a webhook request is received'.",
+        "Completa il flusso e copia l'URL HTTP POST generato.",
+        "Incollalo sopra. (I connettori classici di Office 365 sono stati ritirati nel 2025 - usa Workflows.)"
+      ]
+    },
+    "google_chat": {
+      "steps": [
+        "Apri lo spazio Google Chat → titolo dello spazio → 'App e integrazioni'.",
+        "Clicca 'Webhook' → 'Aggiungi webhook' e dagli un nome.",
+        "Copia l'URL del webhook e incollalo sopra."
+      ]
+    },
+    "mattermost": {
+      "steps": [
+        "Menu principale → Integrazioni → Incoming Webhooks (un amministratore deve prima abilitare i webhook).",
+        "Clicca 'Add Incoming Webhook' e scegli un canale.",
+        "Salva, poi copia l'URL del webhook e incollalo sopra."
+      ]
+    },
+    "rocketchat": {
+      "steps": [
+        "Amministrazione → Integrazioni → Nuova → In entrata.",
+        "Abilitala, scegli un canale e salva.",
+        "Copia il 'Webhook URL' e incollalo sopra."
+      ]
+    },
+    "telegram": {
+      "steps": [
+        "Scrivi a @BotFather, esegui /newbot e copia il token del bot.",
+        "Aggiungi il bot al tuo gruppo/canale (o scrivigli in privato).",
+        "Trova l'ID della chat: invia un messaggio, apri https://api.telegram.org/bot<token>/getUpdates, leggi result[].message.chat.id.",
+        "Inserisci il token del bot e l'ID chat sopra - non serve alcun URL."
+      ]
+    },
+    "pagerduty": {
+      "steps": [
+        "Apri il servizio di destinazione → Integrazioni → 'Add integration'.",
+        "Scegli 'Events API v2'.",
+        "Copia la Integration Key (la routing key).",
+        "Inseriscila come routing key sopra - l'URL della Events API è precompilato."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Impostazioni → Integrazioni → aggiungi un'integrazione 'API'.",
+        "Copia la chiave API generata.",
+        "Annota la regione del tuo account (US o EU).",
+        "Inserisci la chiave API e la regione sopra - l'URL degli avvisi è derivato dalla regione."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrazioni → REST Endpoint, e abilitalo.",
+        "Copia l'URL REST - contiene già la tua chiave API.",
+        "Sostituisci il '$routing_key' finale con una delle tue routing key.",
+        "Incolla l'URL completo sopra."
+      ]
+    },
+    "zapier": {
+      "steps": [
+        "Crea uno Zap con il trigger 'Webhooks by Zapier' → 'Catch Hook'.",
+        "Copia l'URL webhook personalizzato che ti fornisce.",
+        "Incollalo sopra. L'avviso arriva come JSON: { event, alert }."
+      ]
+    },
+    "make": {
+      "steps": [
+        "Aggiungi un modulo 'Webhooks' → 'Custom webhook' come primo passo di uno scenario.",
+        "Clicca 'Add', crea l'hook e copia il suo URL.",
+        "Incollalo sopra, poi esegui una volta così Make impara la forma del payload."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "Aggiungi un nodo 'Webhook' al tuo workflow; imposta il metodo su POST.",
+        "Copia l'URL di produzione.",
+        "Attiva il workflow e incolla l'URL sopra (http è permesso per i self-hosted)."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "Crea un workflow con un trigger 'HTTP / Webhook'.",
+        "Copia l'URL univoco dell'endpoint.",
+        "Incollalo sopra; ispeziona le consegne nell'event inspector di Pipedream."
+      ]
+    },
+    "generic": {
+      "steps": [
+        "Punta questo a qualsiasi endpoint che accetti un POST JSON (https, o http per test locali).",
+        "Forma del body: { event: 'alert.triggered', source, sent_at, alert: { … } }.",
+        "Opzionale: imposta un segreto di firma (HMAC-SHA256 sul body → header X-Webhook-Signature) e header personalizzati.",
+        "Suggerimento: usa un inspector gratuito come webhook.site per vedere il payload esatto."
+      ]
+    }
+  },
+  "remoteSources": {
+    "title": "Fonti dati remote",
+    "description": "Raccogli l'uso di Claude Code e Codex da altre macchine via SSH - es. una dev box o una VM cloud che usi via SSH mentre esegui questa dashboard in locale. L'autenticazione usa la tua configurazione SSH (~/.ssh/config, chiavi, agent); nessuna password viene memorizzata qui.",
+    "scopeTitle": "Ambito dei dati",
+    "scopeDesc": "Scegli i dati di quali macchine mostra l'intera dashboard. I cambiamenti si applicano immediatamente a ogni pagina — sessioni, analitiche e costi.",
+    "scopeAll": "Tutte le fonti",
+    "scopeAllDesc": "Questa macchina più ogni fonte remota configurata, combinate.",
+    "scopeLocal": "Solo questa macchina",
+    "scopeLocalDesc": "Solo le sessioni raccolte localmente — nasconde tutti i dati delle fonti remote.",
+    "scopeSelected": "Fonti selezionate",
+    "scopeSelectedDesc": "Scegli esattamente quali macchine includere, qui sotto.",
+    "scopeSelectedCount": "{{n}} di {{total}} selezionate",
+    "scopePickMachines": "Macchine da includere",
+    "thisMachine": "Questa macchina",
+    "listTitle": "Fonti configurate",
+    "add": "Aggiungi fonte",
+    "addTitle": "Aggiungi una fonte remota",
+    "editTitle": "Modifica fonte",
+    "fieldLabel": "Etichetta",
+    "fieldHost": "Host SSH",
+    "fieldPort": "Porta (opzionale)",
+    "fieldIdentity": "File di identità (opzionale)",
+    "fieldRemoteHome": "Home Claude remota (opzionale)",
+    "fieldRemoteHomeHint": "Linux/macOS: predefinita ~/.claude (o un percorso assoluto come /home/you/.claude). SSH Windows + Claude in WSL: lascia vuoto (rilevamento automatico) o usa wsl:~/.claude. Windows nativo: C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "Home Codex remota (opzionale)",
+    "fieldRemoteCodexHomeHint": "Predefinita ~/.codex; importa le sue sessioni più i titoli rinominati nativi. Per SSH Windows con Codex in WSL, lascia vuoto (rilevamento automatico) o usa wsl:~/.codex.",
+    "fieldEnabled": "Sincronizza automaticamente in background",
+    "empty": "Ancora nessuna fonte remota.",
+    "emptyHint": "Aggiungi una macchina raggiungibile via SSH per importarne l'uso di Claude Code e Codex.",
+    "paused": "Sincronizzazione automatica spenta",
+    "sessionCount": "{{n}} sessioni",
+    "sessionCountLinked": "{{n}} collegate",
+    "sessionCountHint": "Sessioni collegate a questa fonte (non tutte le sessioni visibili quando l'ambito dei dati è Tutte)",
+    "lastSync": "Ultima sincronizzazione: {{when}}",
+    "neverSynced": "Mai sincronizzata",
+    "imported": "{{n}} importate",
+    "syncNew": "{{n}} nuove",
+    "syncOnRemote": "{{n}} sulla remota",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} sessioni",
+    "providerStatus": {
+      "idle": "Non verificato",
+      "syncing": "Verifica in corso",
+      "ok": "Pronto",
+      "unavailable": "Non trovato",
+      "error": "Non disponibile"
+    },
+    "test": "Prova",
+    "syncNow": "Sincronizza",
+    "syncAll": "Sincronizza tutte",
+    "enable": "Abilita",
+    "disable": "Disabilita",
+    "confirmDelete": "Rimuovere questa fonte?",
+    "purgeData": "Elimina anche le sessioni importate da questa fonte (non reversibile)",
+    "deleteAndPurge": "Rimuovi + elimina dati",
+    "removeKeep": "Rimuovi (mantieni i dati)",
+    "remoteSourceBadgeTitle": "Raccolta da una macchina remota"
+  },
+  "cursorPathsNote": "A titolo informativo: anche le sessioni di Cursor contano qui — Cursor usa gli stessi percorsi ~/.claude di Claude Code (in locale e sulle remote sincronizzate)."
+}

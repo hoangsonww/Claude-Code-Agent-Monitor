@@ -401,7 +401,7 @@ const SESSION_FILTER_COMMANDS: { status: string; labelKey: string }[] = [
   { status: "abandoned", labelKey: "sessions:filterAbandoned" },
 ];
 
-const LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const LANGUAGES = ["en", "zh", "vi", "ko", "es", "it"] as const;
 
 const PROVIDER_SCOPES: ProviderScope[] = ["both", "claude", "codex"];
 

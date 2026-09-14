@@ -229,7 +229,7 @@ client/
 │   │   ├── useNotifications.ts  # Browser push notification triggers
 │   │   └── useSoundCues.ts      # Event-bus → synthesized audio cues
 │   │
-│   ├── i18n/               # Internationalization (en / zh / vi / ko / es)
+│   ├── i18n/               # Internationalization (en / zh / vi / ko / es / it)
 │   ├── App.tsx             # Root component + router setup
 │   ├── main.tsx            # Entry point
 │   └── index.css           # Tailwind + custom utilities

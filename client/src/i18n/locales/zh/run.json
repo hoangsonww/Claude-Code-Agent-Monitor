@@ -32,13 +32,15 @@
   "fields": {
     "prompt": "提示词",
     "promptPlaceholder": "向 Claude 问任何问题…",
+    "promptPlaceholderWithProvider": "向 {{agent}} 问任何问题…",
     "cwd": "工作目录",
     "cwdHint": "绝对路径。默认使用仪表盘自己的 cwd。",
     "cwdPlaceholder": "输入以搜索或粘贴绝对路径…",
     "cwdGroups": {
       "dashboard": "仪表盘服务器",
       "home": "Home",
-      "recent": "最近 - Claude Code 使用过"
+      "recent": "最近 - Claude Code 使用过",
+      "recentWithProvider": "最近 - {{agent}} 使用过"
     },
     "cwdNoMatches": "无匹配。输入绝对路径直接使用。",
     "model": "模型",
@@ -129,7 +131,7 @@
     "switcherEmpty": "暂无进行中的运行",
     "attached": "已附加到现有运行",
     "started": "已开始 {{when}}",
-    "viewActive": "仪表盘运行",
+    "viewActive_one": "{{count}} 个仪表盘运行",
     "viewActive_other": "{{count}} 个仪表盘运行",
     "scopeNote": "仅显示通过此仪表盘启动的运行。",
     "allSessionsLink": "查看所有 Claude Code 会话 →",
@@ -139,6 +141,7 @@
     "label": "源会话",
     "freshOption": "新会话",
     "freshHint": "开始一个全新的 Claude Code 会话。",
+    "freshHintWithProvider": "开始一个全新的 {{agent}} 会话。",
     "resumeOption": "恢复已有会话",
     "resumeHint": "从历史中选择一个会话继续对话。cwd 锁定为原会话的 cwd。",
     "pickSession": "选择会话…",

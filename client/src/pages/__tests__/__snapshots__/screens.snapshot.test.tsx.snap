@@ -5484,7 +5484,7 @@ exports[`screen snapshots > Kanban board 1`] = `
           <p
             class="text-xs text-gray-500 truncate"
           >
-            0 agent tracked
+            0 agents tracked
           </p>
         </div>
       </div>
@@ -6874,7 +6874,7 @@ exports[`screen snapshots > Sessions 1`] = `
             aria-live="polite"
             class="text-xs text-gray-500"
           >
-            0 session recorded
+            0 sessions recorded
           </p>
         </div>
       </div>

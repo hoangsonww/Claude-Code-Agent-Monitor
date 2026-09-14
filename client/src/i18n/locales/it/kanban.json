@@ -1,0 +1,45 @@
+{
+  "title": "Bacheca Kanban",
+  "subtitle": "Vista Kanban di tutti gli agenti per stato",
+  "subtitleSessions": "Vista Kanban di tutte le sessioni per stato",
+  "viewToggle": {
+    "agents": "Agenti",
+    "sessions": "Sessioni"
+  },
+  "noAgents": "Ancora nessun agente tracciato",
+  "noAgentsDesc": "Avvia una sessione monitorata con gli hook installati per vedere gli agenti apparire qui.",
+  "agentCount_one": "{{count}} agente tracciato",
+  "agentCount_other": "{{count}} agenti tracciati",
+  "noAgentsInColumn": "Nessun agente",
+  "noSessions": "Ancora nessuna sessione tracciata",
+  "noSessionsDesc": "Avvia una sessione monitorata con gli hook installati per vedere le sessioni apparire qui.",
+  "sessionCount_one": "{{count}} sessione tracciata",
+  "sessionCount_other": "{{count}} sessioni tracciate",
+  "noSessionsInColumn": "Nessuna sessione",
+  "ran": "ha eseguito ",
+  "running": "in esecuzione ",
+  "session": {
+    "anonymous": "Sessione senza titolo",
+    "agentSummary_one": "{{count}} agente",
+    "agentSummary_other": "{{count}} agenti",
+    "subagentSummary_one": "{{count}} subagente",
+    "subagentSummary_other": "{{count}} subagenti",
+    "turnSummary_one": "{{count}} turno",
+    "turnSummary_other": "{{count}} turni"
+  },
+  "tooltip": {
+    "agent": {
+      "working": "L'agente sta elaborando attivamente del lavoro in questo momento.\n\nTornerà in In attesa quando questo turno terminerà.",
+      "waiting": "L'agente ha terminato il suo turno o ha bisogno di una risposta umana, come l'approvazione di un permesso.\n\nTornerà al lavoro quando la sessione continuerà.",
+      "completed": "L'agente ha terminato completamente per questa sessione.\n\nNon verrà registrata altra attività per questo agente.",
+      "error": "L'agente ha registrato un errore e non continuerà finché la sessione non verrà ripresa o ritentata."
+    },
+    "session": {
+      "active": "La sessione è a metà turno: un agente sta lavorando e l'utente non sta bloccando nulla. Questo stato è breve: la sessione torna in In attesa quando il turno termina.",
+      "waiting": "La sessione sta aspettando te. Un turno potrebbe essere terminato, oppure l'agente potrebbe aver bisogno di un permesso o di un input.\n\nCerca qui le sessioni a cui devi una risposta.",
+      "completed": "La sessione si è chiusa completamente perché la sua CLI è uscita in modo pulito o è stata chiusa esplicitamente.\n\nAnche tutti gli agenti di questa sessione sono completati.",
+      "error": "La sessione è terminata con un errore: un guasto irrecuperabile o un errore dell'API upstream ha interrotto l'esecuzione.",
+      "abandoned": "La sessione è rimasta inattiva senza un segnale di uscita pulito. Viene marcata come abbandonata dopo più di 5 minuti senza attività (ad esempio dopo /resume, una caduta di rete o una CLI terminata). Diversa da Completata: non è stata osservata una vera uscita."
+    }
+  }
+}
