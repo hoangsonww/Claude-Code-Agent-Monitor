@@ -47,6 +47,34 @@ function isWaitingForUserMessage(msg) {
   return WAITING_INPUT_PATTERN.test(msg);
 }
 
+/**
+ * Removes credentials, query values, and fragments from a collector-provided
+ * Git remote before it reaches durable storage or an API response. Both URL
+ * and SCP-like Git remotes are accepted; repository matching needs only the
+ * credential-free repository identity.
+ *
+ * @param {unknown} value Collector-provided remote URL.
+ * @returns {string|null} Sanitized non-empty remote, or null when unavailable.
+ */
+function sanitizeRepoRemoteUrl(value) {
+  if (typeof value !== "string") return null;
+  const remote = value.trim();
+  if (!remote) return null;
+  try {
+    const parsed = new URL(remote);
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+      parsed.username = "";
+      parsed.password = "";
+      parsed.search = "";
+      parsed.hash = "";
+      return parsed.toString();
+    }
+  } catch {
+    // SCP-like Git syntax (for example git@host:org/repo.git) is not a URL.
+  }
+  return remote.replace(/^[^@/\s:]+@(?=[^@/\s:]+:)/, "").replace(/[?#].*$/, "");
+}
+
 function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
   // Clear waiting flag on the main agent and any other agents on this session
   // (subagents don't normally enter waiting state, but keep them in sync just
@@ -138,8 +166,18 @@ function recoverInterruptedSession(sessionId, fullSess, mainAgentId, reasonSuffi
   });
 }
 
+/**
+ * Finds or creates the session/main-agent pair for a validated hook envelope,
+ * then applies one-shot collector metadata such as transcript and repository
+ * identity fields.
+ *
+ * @param {string} sessionId Session identifier from the hook payload.
+ * @param {Record<string, unknown>} data Sanitized hook payload.
+ * @returns {object|null} Current session row, or null after a failed insert.
+ */
 function ensureSession(sessionId, data) {
   let session = stmts.getSession.get(sessionId);
+  const repoRemoteUrl = sanitizeRepoRemoteUrl(data.repo_remote_url);
   if (!session) {
     stmts.insertSession.run(
       sessionId,
@@ -153,6 +191,13 @@ function ensureSession(sessionId, data) {
     if (!session) {
       console.error(`[HOOKS] Failed to create session ${sessionId} — insert returned no row`);
       return null;
+    }
+    // Persist collector identity before publishing the newly created row. A
+    // live subscriber must receive the same session shape a subsequent REST
+    // read gets, rather than a partial pre-enrichment snapshot.
+    if (repoRemoteUrl) {
+      stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
+      session = stmts.getSession.get(sessionId);
     }
     broadcast("session_created", session);
 
@@ -181,6 +226,12 @@ function ensureSession(sessionId, data) {
   // make better-sqlite3 throw inside the surrounding processEvent transaction.
   if (typeof data.transcript_path === "string" && data.transcript_path) {
     stmts.setSessionTranscriptPath.run(data.transcript_path, sessionId);
+  }
+  // The local hook is authenticated before it reaches this route. Persist the
+  // first collector-observed Git remote as opaque metadata; presentation
+  // clients own URL canonicalization and matching policy.
+  if (repoRemoteUrl && session.repo_remote_url !== repoRemoteUrl) {
+    stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
   }
   return session;
 }
@@ -332,7 +383,25 @@ function syncCardPromptPreview(sessionId, result) {
   }
 }
 
+/**
+ * Processes and durably records one hook event in a SQLite transaction.
+ * Collector-provided repository identity is normalized before any writer sees
+ * the payload, including the full envelope retained in `events.data`.
+ *
+ * @param {string} hookType Canonical hook event type.
+ * @param {Record<string, unknown>} data Hook payload.
+ * @returns {object|null} Broadcast-ready event, or null without a session id.
+ */
 const processEvent = db.transaction((hookType, data) => {
+  // `events.data` stores the entire hook envelope. Normalize the field before
+  // ANY downstream work so its original userinfo cannot bypass the sanitized
+  // session column through this separate durable persistence path.
+  if (Object.prototype.hasOwnProperty.call(data, "repo_remote_url")) {
+    const repoRemoteUrl = sanitizeRepoRemoteUrl(data.repo_remote_url);
+    data = { ...data };
+    if (repoRemoteUrl) data.repo_remote_url = repoRemoteUrl;
+    else delete data.repo_remote_url;
+  }
   const sessionId = data.session_id;
   if (!sessionId) return null;
 
@@ -2129,6 +2198,7 @@ router.post("/ingest-batch", (req, res) => {
   const pendingBroadcasts = [];
   const writeBatch = db.transaction(() => {
     let session = existing;
+    const repoRemoteUrl = sanitizeRepoRemoteUrl(body.repo_remote_url);
     if (!session) {
       const sessionName =
         typeof body.session_name === "string" && body.session_name
@@ -2146,6 +2216,18 @@ router.post("/ingest-batch", (req, res) => {
         REMOTE_PUSH_SOURCE
       );
       session = stmts.getSession.get(sessionId);
+    }
+
+    // Remote-push authentication establishes the collector identity. Preserve
+    // only its first non-empty repository URL so retries and later batches
+    // cannot rewrite a session's cross-machine mapping.
+    if (repoRemoteUrl) {
+      stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
+      session = stmts.getSession.get(sessionId);
+    }
+    if (!existing) {
+      // Queue only the fully persisted row: flushing happens after this
+      // transaction commits, so WebSocket and REST clients see one contract.
       pendingBroadcasts.push(["session_created", session]);
     }
 

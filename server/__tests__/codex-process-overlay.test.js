@@ -235,6 +235,7 @@ describe("Codex process overlay lifecycle", () => {
     );
     assert.ok(transientSession);
     assert.equal(transientSession.todo_summary, null);
+    assert.equal(transientSession.has_token_usage, false);
 
     const agents = await requestJson(
       "/api/agents?status=waiting&providers=codex&include_transient=1"

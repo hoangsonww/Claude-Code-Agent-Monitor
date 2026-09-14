@@ -541,6 +541,7 @@ Request body:
   "provider": "claude",
   "session_name": "optional display name (defaults to Session <first 8 chars of id>)",
   "cwd": "optional working directory",
+  "repo_remote_url": "optional opaque Git remote URL",
   "model": "optional model id",
   "tokens": [
     {
@@ -569,6 +570,9 @@ Request body:
 
 `provider` must be one of `claude`/`codex`. `tokens[]` entries are each
 bucket's **full current total** (like a transcript re-parse), not a delta.
+`repo_remote_url`, when supplied, has URL userinfo removed before the authenticated
+collector's first non-empty value is retained and returned on Session rows as a
+credential-free cross-machine repository identity.
 `tool_events[]`/`turns[]` are deduped by `(session_id, event_type, uuid)`,
 both against previously-committed rows and within the same batch — safe to
 resend. `tokens.length + tool_events.length + turns.length` is capped at 1000
@@ -599,7 +603,7 @@ Response (`200`, even when individual items were skipped/rejected — see
 
 `PUT /api/pricing` also accepts optional **time-limited introductory rates** (`intro_*_per_mtok` + an `intro_until` `YYYY-MM-DD` cutoff): usage on/before the cutoff is priced at the intro rate, after it at the standard rate. Intro columns are written only when the caller sends them, so a standard-rate edit never disturbs a promo. Every rate field present must be a non-negative finite number — `NaN`/negative values are rejected with `400 INVALID_INPUT` before anything is written. The agent-list endpoints (`GET /api/agents`, `GET /api/sessions/:id/agents`) attach a per-agent `cost` — each subagent's OWN cost, computed from its `metadata.tokens` at current rates (0 for main agents, whose cost is the session total).
 
-Codex accounting keeps fresh input, cached input, cache writes, output, and reasoning output separate from rollout cumulative counters. Standard requests at or below 272K input tokens use the short GPT columns; larger standard requests use the long columns; Fast requests use the explicit Fast columns. A model/tier without a configured rate is returned in `unpriced_models` instead of being silently priced as zero.
+Codex accounting keeps fresh input, cached input, cache writes, output, and reasoning output separate from rollout cumulative counters. Standard requests at or below 272K input tokens use the short GPT columns; larger standard requests use the long columns; Fast requests use the explicit Fast columns. The default GPT rate card includes GPT-6 Astra and the GPT-5.6 family. A model/tier without a configured rate is returned in `unpriced_models` instead of being silently priced as zero. Session-list rows expose `has_token_usage` separately from `cost`, so consumers can distinguish no durable token data from a valid zero or unpriced cost; their optional `repo_remote_url` is an opaque collector-observed Git identity for cross-machine project matching.
 
 ### Workflows
 

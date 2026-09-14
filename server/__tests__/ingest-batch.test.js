@@ -196,6 +196,7 @@ describe("POST /api/hooks/ingest-batch", () => {
       provider: "codex",
       session_name: "My roaming laptop session",
       cwd: "/home/bap/work",
+      repo_remote_url: "ssh://collector@example.internal:2222/team/project.git?ref=fixture#readme",
       model: "gpt-5.6",
     });
     assert.equal(res.status, 200);
@@ -207,12 +208,34 @@ describe("POST /api/hooks/ingest-batch", () => {
     assert.equal(session.provider, "codex");
     assert.equal(session.name, "My roaming laptop session");
     assert.equal(session.cwd, "/home/bap/work");
+    assert.equal(session.repo_remote_url, "ssh://example.internal:2222/team/project.git");
     assert.equal(session.model, "gpt-5.6");
     assert.equal(session.status, "active");
 
     const mainAgent = stmts.getAgent.get(`${sessionId}-main`);
     assert.ok(mainAgent, "main agent was created alongside the session");
     assert.equal(mainAgent.session_id, sessionId);
+  });
+
+  it("keeps the first remote-push repository identity across later batches", async () => {
+    const sessionId = newSessionId("repo-identity");
+    const first = await post({
+      session_id: sessionId,
+      provider: "codex",
+      repo_remote_url: "ssh://git@example.internal:2222/team/original.git",
+    });
+    assert.equal(first.status, 200);
+
+    const second = await post({
+      session_id: sessionId,
+      provider: "codex",
+      repo_remote_url: "ssh://git@example.internal:2222/team/retry.git",
+    });
+    assert.equal(second.status, 200);
+    assert.equal(
+      stmts.getSession.get(sessionId).repo_remote_url,
+      "ssh://example.internal:2222/team/original.git"
+    );
   });
 
   it("rejects an oversized batch with 413, before creating a session or doing any DB work", async () => {
@@ -493,6 +516,33 @@ describe("POST /api/hooks/ingest-batch", () => {
       "the broadcast created_at must match the persisted row exactly"
     );
     assert.equal(frame.data.created_at, explicitTs, "and both must match the supplied timestamp");
+  });
+
+  it("broadcasts remote-push repo identity only after it is persisted", async () => {
+    const ws = new WebSocket(WS_BASE);
+    await new Promise((resolve, reject) => {
+      ws.once("open", resolve);
+      ws.once("error", reject);
+    });
+    const frames = [];
+    ws.on("message", (raw) => frames.push(JSON.parse(raw.toString())));
+
+    const sessionId = newSessionId("ws-repo-identity");
+    const res = await post({
+      session_id: sessionId,
+      provider: "codex",
+      repo_remote_url: "ssh://collector@example.internal:2222/team/live-project.git",
+    });
+    assert.equal(res.status, 200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    ws.close();
+
+    const created = frames.find(
+      (frame) => frame.type === "session_created" && frame.data?.id === sessionId
+    );
+    assert.ok(created, "the real WebSocket receives session_created");
+    assert.equal(created.data.repo_remote_url, "ssh://example.internal:2222/team/live-project.git");
+    assert.equal(stmts.getSession.get(sessionId).repo_remote_url, created.data.repo_remote_url);
   });
 
   it("rejects a malformed timestamp per-item (missing timestamp is fine, invalid one is not)", async () => {

@@ -692,6 +692,10 @@ const gptRate = (pattern, name, short, fast = [0, 0, 0, 0], long = [0, 0, 0, 0])
   ...fast,
 ];
 const DEFAULT_GPT_PRICING = [
+  // GPT-6 Astra has a distinct API rate card. Keep it ahead of the broader
+  // gpt-5 patterns so Codex rollout records are priced rather than reported
+  // as unpriced usage.
+  gptRate("gpt-6-astra%", "GPT-6 Astra", [10, 1, 12.5, 50], [20, 2, 25, 100]),
   gptRate("gpt-5.6-sol%", "GPT-5.6 Sol", [5, 0.5, 6.25, 30], [10, 1, 12.5, 60], [10, 1, 12.5, 45]),
   gptRate("gpt-5.6-terra%", "GPT-5.6 Terra", [2, 0.2, 2.5, 12], [4, 0.4, 5, 24], [4, 0.4, 5, 18]),
   gptRate(
@@ -1004,6 +1008,15 @@ try {
   db.prepare("SELECT card_prompt_preview FROM sessions LIMIT 1").get();
 } catch {
   db.prepare("ALTER TABLE sessions ADD COLUMN card_prompt_preview TEXT").run();
+}
+
+// A session's origin remote is an optional, opaque Git URL supplied by the
+// authenticated collector. Consumers can canonicalize it in their own trust
+// domain to map the same repository across different machine-local cwd paths.
+try {
+  db.prepare("SELECT repo_remote_url FROM sessions LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE sessions ADD COLUMN repo_remote_url TEXT").run();
 }
 
 // Dashboard run records predate provider-aware launching. Keep existing rows
@@ -1503,6 +1516,11 @@ const stmts = {
   // of scanning events.
   setSessionTranscriptPath: db.prepare(
     "UPDATE sessions SET transcript_path = ? WHERE id = ? AND (transcript_path IS NULL OR transcript_path = '')"
+  ),
+  // First observed remote wins. A later hook must not silently rewrite the
+  // repository identity that a client already used for cross-machine mapping.
+  setSessionRepoRemoteUrl: db.prepare(
+    "UPDATE sessions SET repo_remote_url = ? WHERE id = ? AND (repo_remote_url IS NULL OR repo_remote_url = '')"
   ),
   // Used only when an imported Codex snapshot is promoted to its matching live
   // rollout. The byte cursors move with it in codex-ingest before this pointer

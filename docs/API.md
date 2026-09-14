@@ -122,7 +122,11 @@ https://dashboard.example.com
 GET /api/sessions
 ```
 
-Returns all sessions, ordered by most recent activity. Each row may include an optional
+Returns all sessions, ordered by most recent activity. Each row exposes `has_token_usage` when
+the cost calculation ran: it is the authoritative durable-token existence flag and must not be
+inferred from `cost` (zero can be valid). `repo_remote_url`, when present, is the opaque Git
+remote (with URL userinfo removed) first observed by an authenticated collector; clients may canonicalize it to match the
+same repository across machine-local `cwd` paths. Each row may include an optional
 `prompt_preview` for compact cards: the two newest distinct real human prompts, oldest to
 newest and newline-separated. Claude Code persists this bounded summary from the local JSONL
 cache during hooks, imports, and watchdog sweeps; Codex derives it from durable
@@ -164,6 +168,8 @@ curl "http://localhost:4820/api/sessions?limit=10&status=active&include_task_pro
       "model": "claude-sonnet-4",
       "status": "active",
       "cost": 1.23,
+      "has_token_usage": true,
+      "repo_remote_url": "ssh://git@example.internal:2222/team/project.git",
       "agent_count": 3,
       "started_at": "2024-03-18T12:00:00Z",
       "updated_at": "2024-03-18T14:30:00Z",
@@ -224,7 +230,9 @@ classDiagram
         +string name
         +string status "active|completed|error|abandoned"
         +string cwd
+        +string repo_remote_url "nullable opaque repository identity"
         +string model
+        +boolean has_token_usage "durable token buckets exist"
         +string prompt_preview "nullable card context"
         +string started_at
         +string ended_at
@@ -1185,6 +1193,7 @@ logs.
   "provider": "claude",
   "session_name": "optional display name (defaults to Session <first 8 chars of id>)",
   "cwd": "optional working directory",
+  "repo_remote_url": "optional opaque Git remote URL",
   "model": "optional model id",
   "tokens": [
     {
@@ -1218,6 +1227,7 @@ logs.
 | `provider` | string | Yes | `claude` or `codex` |
 | `session_name` | string | No | Display name; defaults to `Session <id8>` |
 | `cwd` | string | No | Working directory on the pushing machine |
+| `repo_remote_url` | string | No | Git remote URL; URL userinfo is removed, then the authenticated collector's first non-empty value is retained for cross-machine repository matching |
 | `model` | string | No | Model id for the session |
 | `tokens` | array | No | Each entry is that bucket's **full current total** (like a transcript re-parse), **not** a delta |
 | `tool_events` | array | No | Tool calls, stored as `RemoteToolEvent` events |

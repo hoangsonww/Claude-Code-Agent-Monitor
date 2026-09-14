@@ -353,6 +353,12 @@ function createOpenApiSpec() {
               enum: ["active", "completed", "error", "abandoned"],
             },
             cwd: { type: "string", nullable: true },
+            repo_remote_url: {
+              type: "string",
+              nullable: true,
+              description:
+                "Credential-free Git remote URL first observed by an authenticated collector. Consumers may canonicalize it to match a repository across machine-local working-directory paths.",
+            },
             model: { type: "string", nullable: true },
             started_at: { type: "string", format: "date-time" },
             ended_at: { type: "string", format: "date-time", nullable: true },
@@ -377,6 +383,12 @@ function createOpenApiSpec() {
                 "Timestamp of the latest durable session event, falling back to lifecycle timestamps only for eventless historical rows. Unlike updated_at, metadata bookkeeping does not change this value.",
             },
             cost: { type: "number", nullable: true },
+            has_token_usage: {
+              type: "boolean",
+              nullable: true,
+              description:
+                "True when durable token-usage buckets exist for this session. It is independent of cost, which may be zero for genuinely empty or unpriced usage.",
+            },
             awaiting_input_since: {
               type: "string",
               format: "date-time",
@@ -2282,6 +2294,11 @@ function createOpenApiSpec() {
                         "Defaults to 'Session <first 8 chars of session_id>' for a brand-new session.",
                     },
                     cwd: { type: "string" },
+                    repo_remote_url: {
+                      type: "string",
+                      description:
+                        "Optional Git remote URL. Userinfo is removed, then the authenticated collector's first non-empty value is retained for cross-machine repository matching.",
+                    },
                     model: { type: "string" },
                     tokens: {
                       type: "array",
