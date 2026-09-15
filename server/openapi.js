@@ -2275,7 +2275,7 @@ function createOpenApiSpec() {
                         "Must equal this server's current wire-format version (1) when present. A mismatch is a whole-request 409, not a per-item soft-fail.",
                     },
                     session_id: { type: "string" },
-                    provider: { type: "string", enum: ["claude", "codex"] },
+                    provider: { type: "string", enum: ["claude", "codex", "grok"] },
                     session_name: {
                       type: "string",
                       description:

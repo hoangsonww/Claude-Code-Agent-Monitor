@@ -310,18 +310,43 @@ function calculateGptCost(tokenRows, pricingRules) {
   };
 }
 
-/** Combine Claude and Codex accounting without ever applying one provider's rate card to the other. */
+/** Combine Claude, Codex and Grok accounting without ever applying one provider's rate card to another. */
 function calculateProviderCost(tokenRows, claudePricingRules, gptPricingRules, asOf) {
-  const claudeRows = tokenRows.filter((row) => row.provider !== "codex");
+  const claudeRows = tokenRows.filter((row) => row.provider !== "codex" && row.provider !== "grok");
   const codexRows = tokenRows.filter((row) => row.provider === "codex");
+  const grokRows = tokenRows.filter((row) => row.provider === "grok");
   const claude = calculateCost(claudeRows, claudePricingRules, asOf);
   const codex = calculateGptCost(codexRows, gptPricingRules);
+  // Grok has no pricing-rules table yet (PR #335 added the provider, not a
+  // rate card). Deliberately priced against an EMPTY rule set here rather
+  // than left inside claudeRows: an empty set makes every Grok bucket
+  // uniformly $0/unpriced by construction (same graceful "unpriced_models"
+  // surfacing as an unmatched Claude/Codex model gets), with no risk of a
+  // Grok model name accidentally pattern-matching a REAL Claude rate and
+  // getting billed at the wrong provider's price, and no risk of Grok's
+  // token counts inflating Claude's own breakdown/unpriced totals.
+  //
+  // CodeRabbit catch on this PR: an empty rule set zeroes calculateCost's
+  // TOKEN pricing (no `rule` ever matches), but web-search/code-execution
+  // surcharges are billed by REQUEST COUNT independent of any pricing rule
+  // (see the wsCost/ceHours computation above -- neither is gated on
+  // `rule`). AI-Deck's own Grok forwarder always sends 0 for those fields
+  // today, so this is latent rather than active, but strip them here too
+  // so "Grok is always $0" holds even if a future sender ever populates
+  // them, instead of silently depending on the client staying well-behaved.
+  const grokTokenRowsOnly = grokRows.map((row) => ({
+    ...row,
+    web_search_requests: 0,
+    web_fetch_requests: 0,
+    code_execution_requests: 0,
+  }));
+  const grok = calculateCost(grokTokenRowsOnly, [], asOf);
 
   return {
-    total_cost: round4(claude.total_cost + codex.total_cost),
-    breakdown: [...claude.breakdown, ...codex.breakdown],
+    total_cost: round4(claude.total_cost + codex.total_cost + grok.total_cost),
+    breakdown: [...claude.breakdown, ...codex.breakdown, ...grok.breakdown],
     feature_costs: claude.feature_costs,
-    unpriced_models: [...claude.unpriced_models, ...codex.unpriced_models],
+    unpriced_models: [...claude.unpriced_models, ...codex.unpriced_models, ...grok.unpriced_models],
   };
 }
 

@@ -19,7 +19,17 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
 const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
-const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
+const { REMOTE_PROVIDERS } = require("../lib/remote-sync");
+
+// Deliberately NOT the same list as REMOTE_PROVIDERS (remote-sync.js): that
+// array drives the SSH-mirror feature's own per-provider sync loop, whose
+// path helpers (providerHomeField/providerDefaultHome/providerHistorySegment,
+// remote-sync.js) only know "codex" vs. a default that silently means
+// "claude" -- a third value there would get mirrored from the WRONG remote
+// home dir under a right-looking provider name. This route pushes a
+// self-contained batch instead of pulling a directory tree, so it has no such
+// coupling. Grok is accepted HERE only.
+const INGEST_BATCH_PROVIDERS = [...REMOTE_PROVIDERS, "grok"];
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 
 const router = Router();
@@ -1885,13 +1895,11 @@ router.post("/ingest-batch", (req, res) => {
       .json({ error: { code: "INVALID_INPUT", message: "session_id is required" } });
   }
 
-  try {
-    assertProvider(body.provider);
-  } catch {
+  if (!INGEST_BATCH_PROVIDERS.includes(body.provider)) {
     return res.status(400).json({
       error: {
         code: "INVALID_PROVIDER",
-        message: `provider must be one of: ${REMOTE_PROVIDERS.join(", ")}`,
+        message: `provider must be one of: ${INGEST_BATCH_PROVIDERS.join(", ")}`,
       },
     });
   }

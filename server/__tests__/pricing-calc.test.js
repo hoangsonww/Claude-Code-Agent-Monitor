@@ -338,6 +338,82 @@ describe("calculateGptCost — Codex pricing dimensions", () => {
     assert.equal(r.total_cost, 17); // Claude input 5 + Codex output 12
     assert.equal(r.breakdown.length, 2);
   });
+
+  it("Grok rows are priced against an EMPTY rule set, never folded into Claude's total/breakdown (regression, PR #335)", () => {
+    // Before this fix, calculateProviderCost's Claude/Codex split was
+    // `row.provider !== "codex"` -- a two-way split where any third
+    // provider value (Grok) silently landed in the Claude bucket and got
+    // priced with claudePricingRules. Worst case: a Grok model name happens
+    // to pattern-match a REAL Claude rate and gets billed as Claude.
+    const r = calculateProviderCost(
+      [
+        { ...bucket({ input_tokens: M }), provider: "claude" },
+        // Deliberately uses the SAME model name as the Claude rule above --
+        // if Grok rows ever leaked into claudeRows, this would price at
+        // Claude's real $5/Mtok instead of coming back unpriced.
+        { ...bucket({ input_tokens: M }), provider: "grok" },
+      ],
+      RULES,
+      GPT_RULES
+    );
+    assert.equal(r.total_cost, 5, "only the real Claude row should contribute cost");
+    assert.equal(r.breakdown.length, 2, "Claude row + Grok row, each their own breakdown entry");
+    assert.equal(
+      r.breakdown.find((b) => b.cost > 0).cost,
+      5,
+      "the priced entry must be the Claude row"
+    );
+    assert.ok(
+      r.breakdown.every((b) => b.cost === 0 || b.cost === 5),
+      "no entry should show a partial/blended rate"
+    );
+    assert.deepEqual(
+      r.unpriced_models,
+      [
+        {
+          model: "claude-opus-4-8",
+          input_tokens: M,
+          output_tokens: 0,
+          cache_read_tokens: 0,
+          cache_write_tokens: 0,
+        },
+      ],
+      "the Grok row must show up as its OWN unpriced entry, not silently absorbed into Claude's numbers"
+    );
+  });
+
+  it("Grok rows carrying web-search/code-exec usage still cost $0 (CodeRabbit catch, PR #335)", () => {
+    // calculateCost's web-search/code-execution surcharges are billed by
+    // REQUEST COUNT, independent of whether a pricing `rule` matched -- an
+    // empty rule set alone zeroes TOKEN cost but NOT these two surcharges.
+    // AI-Deck's own Grok forwarder always sends 0 for these fields today, so
+    // this was latent rather than reachable through the current client, but
+    // calculateProviderCost must not silently depend on that staying true.
+    // Two SEPARATE rows: estimateCodeExecHours (lib/pricing-constants.js)
+    // treats code-exec as FREE whenever the same row also used web search,
+    // so a single combined row would let the code-exec half of this test
+    // pass even with the bug still present.
+    const r = calculateProviderCost(
+      [
+        {
+          ...bucket({ model: "grok-4-fast", web_search_requests: 2500 }), // $25 at RULES' rate if not stripped
+          provider: "grok",
+        },
+        {
+          ...bucket({ model: "grok-4-fast", code_execution_requests: 5_000_000 }), // far beyond the free allowance if not stripped
+          provider: "grok",
+        },
+      ],
+      RULES,
+      GPT_RULES
+    );
+    // total_cost sums claude+codex+grok (calculateProviderCost), so this
+    // only reads $0 if grok's OWN calculateCost() call actually saw zeroed
+    // surcharge fields -- the earlier "empty rule set" fix alone does not
+    // guarantee that (see comment above).
+    assert.equal(r.total_cost, 0, "token rate is zero AND the surcharges must be zeroed too");
+    assert.ok(r.breakdown.every((b) => b.cost === 0));
+  });
 });
 
 describe("calculateCost — date-effective (intro) pricing", () => {

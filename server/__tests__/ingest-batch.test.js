@@ -241,6 +241,28 @@ describe("POST /api/hooks/ingest-batch", () => {
     assert.equal(stmts.getSession.get(sessionId), undefined);
   });
 
+  it("accepts provider 'grok' and persists a session + token_usage row tagged with it", async () => {
+    // Grok is accepted on THIS route only (INGEST_BATCH_PROVIDERS, routes/hooks.js)
+    // -- deliberately not added to remote-sync.js's REMOTE_PROVIDERS, which
+    // drives the unrelated SSH-mirror feature and has no Grok path helpers.
+    const sessionId = newSessionId("grok");
+    const res = await post({
+      session_id: sessionId,
+      provider: "grok",
+      tokens: [{ model: "grok-4-fast", input: 500, output: 100 }],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.written, 1);
+
+    const session = stmts.getSession.get(sessionId);
+    assert.equal(session.provider, "grok");
+
+    const rows = rawTokenRows(sessionId);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].input_tokens, 500);
+    assert.equal(rows[0].output_tokens, 100);
+  });
+
   it("SCHEMA_VERSION_MISMATCH is a whole-request 409, before any other processing", async () => {
     const sessionId = newSessionId("schema-mismatch");
     const res = await post({
