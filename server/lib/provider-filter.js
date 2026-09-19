@@ -5,7 +5,11 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const VALID_PROVIDERS = new Set(["claude", "codex"]);
+// Kept in sync with INGEST_BATCH_PROVIDERS (routes/hooks.js) -- a provider
+// this route can't recognize doesn't error, it silently falls through to
+// "no filter" (parseProviders below), so an unlisted value like "grok" would
+// make a Grok-only filter return every session instead of scoping to Grok.
+const VALID_PROVIDERS = new Set(["claude", "codex", "grok"]);
 
 /** Parse `?providers=claude,codex`; absent means every provider. */
 function parseProviders(req) {
