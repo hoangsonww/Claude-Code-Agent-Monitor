@@ -408,7 +408,8 @@ const paths = {
         "non-blocking for the hook caller.\n\n" +
         "Validation failures return HTTP 400 with an `ErrorResponse` body " +
         "(`{ error: { code, message } }`): `INVALID_INPUT` when `hook_type` or `data` is " +
-        "missing, and `MISSING_SESSION` when `data.session_id` is absent.",
+        "missing, and `MISSING_SESSION` when `data.session_id` is absent.\n\n" +
+        "Optional remote-origin proof: a hook forwarded from another machine may send REMOTE_PUSH_TOKEN as `Authorization: Bearer` or `X-Dashboard-Token` (header only). When it matches, a session this event CREATES is owned by `remote_push` (optionally tagged with a supported `data.provider`), so the same collector's POST /api/hooks/ingest-batch can add tokens and tool events to it. A missing or non-matching token keeps the default local behaviour; existing sessions are never relabelled. When DASHBOARD_HOOK_TOKEN is also configured, `hookGuard` still authenticates this route first: send the hook credential as `X-CCAM-Hook-Token` and the remote-push token as `Authorization: Bearer` (the two tokens travel in separate headers).",
       requestBody: {
         required: true,
         content: {

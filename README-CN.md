@@ -326,11 +326,11 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **子 Agent 层级** | Dashboard 和会话详情页可折叠的父子 Agent 树。有子 Agent 的 Agent 显示展开/折叠箭头；叶子 Agent 显示圆点指示器。子 Agent 活跃时自动展开 |
 | **后台 Agent** | 正确追踪后台子 Agent，不会提前标记为完成 |
 | **子 Agent 工具归属** | 子 Agent 内部的工具调用(Read、Bash、Edit、Grep 等)只存在于每个子 Agent 自己的 JSONL 文件中 — Claude Code 不会为其触发任何 Hook。每次 `SubagentStop` 后,dashboard 触发 fire-and-forget 的 `scanAndImportSubagents`:解析每个 `subagents/agent-*.jsonl`,根据 `tool_use_id` 配对 `tool_use` 与 `tool_result` 块,并在子 Agent 自己的 `agent_id` 下发出 `PreToolUse` + `PostToolUse` 事件。具备幂等性(通过 `data LIKE '%"tool_use_id":"X"%'` 去重),并在按类型 + 启动时间在 30 秒内匹配到 hook 创建的 live 行时合并进去,因此不会创建并行的 `<sid>-jsonl-*` 行。同一路径在 `npm run setup` 启动导入时也会运行,实现完整的历史回填 — 早于 dashboard 安装的会话也能获得完整的每子 Agent 工具时间线。Activity Feed 和会话详情页将父链以 `main › coder › explorer` 形式渲染嵌套子 Agent。该父链由 `reconcileSubagentParents` 权威重建:子 Agent 行最初被平铺插入到 main agent 之下(单个 hook 事件或 JSONL 文件不携带 spawn 方身份),随后从每个子 Agent transcript 的 Task 工具结果(`toolUseResult.agentId`,以 `spawnedChildren` 形式采集)恢复其 spawn 方,因此自己再 spawn 子 Agent 的子 Agent 会嵌套到其**真正的** spawn 方之下,而不会塌陷为 main 之下的单一层级。该过程幂等且仅追加 — 只重新指向 `parent_agent_id`,不插入或删除行 — 并在同一次 `SubagentStop` 扫描中运行,该扫描返回 `reparented` 计数,因此即使仅是 reparent 改变了树形结构,dashboard 也会重新拉取 |
-| **成本追踪** | 按模型估算成本，支持可配置定价规则和按会话明细。压缩感知的 Token 核算在上下文压缩过程中保留总量。Transcript 读取通过增量字节偏移更新缓存，实现高效 Token 提取。介绍性价格可在 Settings 中完全编辑——Model Pricing 编辑器提供一个促销截止日期以及按类别的介绍性价格（input / output / cache-read / cache-write 5m & 1h），因此未来模型发布的促销无需改动代码，只需编辑即可。子代理卡片显示每个子代理各自的成本（依据该子代理 transcript 的 Token 用量推算，并按当前价格计价），而非整个会话的总额——主代理卡片代表整个会话并显示会话总成本，而子代理卡片仅显示该子代理花费的部分，因此子代理卡片不再误导性地显示为好像它花费了整个会话的成本 |
+| **成本追踪** | 按模型估算成本，支持可配置定价规则和按会话明细。支持**限时介绍性价格**（定价规则中的 `intro_*` + `intro_until`）：截止日期当天及之前的用量采用介绍性价格，之后的用量采用标准价格，因此限时优惠对历史**和**未来用量都能准确计价——成本端点按每天生效的费率计算当天用量。Claude Sonnet 5 的标准费率仍为每百万输入 Token $2、每百万输出 Token $10。压缩感知的 Token 核算在上下文压缩过程中保留总量。Transcript 读取通过增量字节偏移更新缓存，实现高效 Token 提取。介绍性价格可在 Settings 中完全编辑——Model Pricing 编辑器提供一个促销截止日期以及按类别的介绍性价格（input / output / cache-read / cache-write 5m & 1h），因此未来模型发布的促销无需改动代码，只需编辑即可。子代理卡片显示每个子代理各自的成本（依据该子代理 transcript 的 Token 用量推算，并按当前价格计价），而非整个会话的总额——主代理卡片代表整个会话并显示会话总成本，而子代理卡片仅显示该子代理花费的部分，因此子代理卡片不再误导性地显示为好像它花费了整个会话的成本 |
 | **Transcript 缓存** | 从 JSONL Transcript 实时提取：Token、压缩、API 错误（`isApiErrorMessage` 条目存储为 `APIError` 事件）、回合耗时（存储为 `TurnDuration` 事件）、思考块计数和用量附加信息（service_tier、speed、inference_geo）。每条回合耗时都有稳定的 Transcript 标识；完整解析会修复旧版本产生的重复行和膨胀 metadata 总计，受限的尾部解析则保持仅追加。会话元数据实时丰富这些字段 |
 | **通知** | 基于 Web Push (VAPID) 的持久化浏览器通知。即使 Dashboard 标签页未聚焦或浏览器已关闭也能送达。特别针对 macOS 音效支持进行了配置。支持按事件配置开关及订阅管理 |
 | **更新提醒** | 服务端定期以非阻塞方式执行 `git fetch`，将本地检出与所选规范远程的默认分支对比。**支持分支与 fork：** 若同时存在 `upstream` 和 `origin`，优先使用 `upstream`（fork 的常规约定）；命令也会根据用户处境调整——只有在本地分支真正跟踪规范引用时才建议 `git pull --ff-only`，否则给出 `git fetch`（fork 场景下加上 fast-forward 合并），让命令永不撒谎。侧边栏还有常驻的"检查更新"按钮及状态徽标。Dashboard **不会**自行拉取或重启——用户在终端中手动执行命令——因此该机制不会破坏开发会话、pm2/systemd/Docker 进程管理，也不会留下孤立进程 |
-| **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出**与恢复**（Import History 面板的 **Restore backup** 模式接受一个不超过 25 MiB 的导出 `.json`，并以幂等、非覆盖方式重新导入，因此可将多台机器的历史合并到一个仪表盘）、会话清理。Model Pricing 将 **Anthropic Claude Model Pricing** 与 **OpenAI GPT Model Pricing** 分开显示，两者使用相同的标题布局，并在 **Add Model** 左侧提供按提供方生效的 **Reset Defaults**。标题旁的信息浮层说明首条匹配规则、SQL 风格 `%` 通配符、手动价格更新与 API 费率注意事项；GPT 浮层还说明每百万 Token 的美元单位、272K Short/Long 分界、Fast mode，以及未公布的费率为何保持未定价而不是被估算。Claude Code、Codex 数据位置与 Import History 均完整支持 i18n。 |
+| **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出**与恢复**（Import History 面板的 **Restore backup** 模式接受一个不超过 25 MiB 的导出 `.json`，并以幂等、非覆盖方式重新导入，因此可将多台机器的历史合并到一个仪表盘）、会话清理。Model Pricing 将 **Anthropic Claude Model Pricing** 与 **OpenAI GPT Model Pricing** 分开显示，两者使用相同的标题布局，提供按提供方生效的 **Reset Defaults** 和 **Add Model** 控件。标题旁的信息浮层说明首条匹配规则、SQL 风格 `%` 通配符、手动价格更新与 API 费率注意事项；GPT 浮层还说明每百万 Token 的美元单位、标准和 Fast 费率共同采用的 272K Short/Long 分界，以及未公布的费率为何保持未定价而不是被估算。**Dashboard Data** 控件会立即重新获取 Claude Code、Codex 或两者的会话、Agent、事件、Token、工作流、分析和成本。独立的 Claude Code 和 Codex 主目录输入框完整支持 i18n，并可在运行时保存；保存 Codex 主目录后会重新启用实时 rollout 监控并扫描新目录树。 |
 | **Codex Agent 配置** | Agent Config 的 Codex 一侧会读取完整的本地账户模型目录，不受通用预览限制影响，因此 Models 标签不会错误显示为 0，并始终包含基础/配置文件覆盖。可直接在应用中创建标准 Codex `<name>.config.toml` 覆盖层；每张卡均可一键复制其准确的 `codex --profile <name>` 命令并打开受保护的编辑器。预览路径会先规范化再做包含检查。编辑器拒绝受信任根目录下的符号链接路径组件，验证规范化父目录仍位于允许范围内，并拒绝保存含 `[redacted]` 的预览内容。配置文件、Hook、规则、技能和指令共用 Claude 风格的 **View source / Copy path / Edit / Delete** 操作。每次允许的删除都需确认并先创建备份（技能保留完整目录）；`config.toml` 永远只能编辑。 |
 | **MCP 服务器（本地）** | 位于 `mcp/` 的完整本地 MCP 服务器，支持三种传输模式，16 个领域模块共 97 个类型化工具。覆盖应用支持的全部操作：带作用域的数据读取、Transcript 与图片、Claude/GPT 定价、工作流、告警、Webhook、导入与恢复、Claude/Codex 配置、Run Agent、远程数据源、Hook/Home/更新、推送与维护。所有传输共享同一套已验证目录，并支持分层变更/破坏性门控。直接回环 HTTP 可携带 Bearer Token，带 Token 的容器主机别名必须使用 HTTPS。请求拒绝重定向；历史上传限制为单文件 50 MiB、每次调用合计 100 MiB，二进制响应限制为 10 MiB，备份恢复限制为 25 MiB |
 | **工作流** | 基于 D3.js 的可视化页面，包含 11 个交互式模块：Agent 编排 DAG、工具执行 Sankey 图、协作网络、子 Agent 有效性（按周 sparkline 通过 portal 渲染——可越过卡片的 `overflow:hidden`，并自动夹在视口内不再被裁切）、检测到的流程模式、模型委派流、错误传播图（带比率徽章的水平条形图、Agent 类型分解、API/会话错误卡片）、并发时间线、会话复杂度散点图、压缩影响分析和按会话下钻。**全方位、多语言的丰富 tooltip：** 每个图表标题旁都有一个 `i` 图标，可弹出结构化的「此图展示了什么 / 如何阅读 / 为何重要」浮层；悬停节点、边、条、气泡都会显示带有确定性、值相关解读的多段 tooltip（例如占源/占目标比例、成功率健康分级、Opus / Sonnet / Haiku 模型系列说明，以及前段/中段/后段等时间模式）。六张总览统计卡片各自在右下角带一个信息浮层，用自然语言解释指标的计算方式与当前数值含义。Tooltip 通过每张图唯一的 DOM ref 直接更新，并附带容器级 `mouseleave` 兜底，绝不会落后于光标或在重新渲染后残留。点击 **检测到的工作流模式** 中的任意一行会就地展开详情面板，包含完整步骤序列、统计网格、确定性叙述（循环检测、频率分级）和一条务实的建议。状态筛选标签（仅活跃 / 已完成 / 全部）可筛选全部 11 个模块。支持交叉筛选、JSON 导出和 3 秒防抖的实时 WebSocket 自动刷新。**工作流运行**面板呈现「动态工作流」——由 `Workflow` 工具（及自定节奏的 `/loop`）派生的 sub-agent 群组——它们不触发任何 hook，因此改为依据磁盘上的运行日志（`workflows/wf_<runId>.json`）重建：每次运行展示其阶段以及按 Agent 的 token / 工具调用 / 时长分解，并在日志写入前实时检测 `running` 状态，同时在每个会话详情页提供一个关联子区块 |
@@ -339,6 +339,7 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **预存会话检测** | 服务器启动时已在运行的会话以"活跃"状态导入（基于近期 JSONL 文件修改时间）。Stop 事件也会重新激活已导入的完成/废弃会话，因此进行中的会话的第一个 Hook 始终会显示在 Dashboard 上 |
 | **持续项目同步** | 启动时对 `~/.claude/projects` 的自动导入是一次性的（由标记位把关），因此在首次启动**之后**才创建的项目文件夹——其会话从不经过 Hook 流入（例如 host-only Hook 被禁用）——在手动重新扫描之前都将不可见。后台同步（`startSessionSync`）通过三个共享同一个 mtime 缓存 + 单次合并扫描的触发器弥补了这个空隙：启动时的**立即**扫描、一个去抖的 **`fs.watch`**（新会话文件 / 项目文件夹一出现就触发；在 macOS/Windows 上递归监听，在 Linux 上监听根目录 + 直接子文件夹，以规避用户态递归监听器的隐患），以及一个**周期性轮询**（`DASHBOARD_SESSION_SYNC_MS`，默认 30 秒）。每次扫描只重新解析 mtime 前进过的文件，并广播 `session_created`/`session_updated`（外加主 Agent），让 UI 实时刷新；DB 中已有且未变更的会话会被跳过、不再重新解析，因此重启成本保持为 O(新增/变更文件) |
 | **远程数据源** | 通过 SSH 实时从其他机器收集 Claude Code 和 Codex 数据。每个来源独立镜像 `~/.claude/projects` 与 `~/.codex/sessions`（另含 Codex 的轻量 `session_index.jsonl`，保留原生重命名标题），使用 **scp**；WSL 内 CLI 则使用 `wsl.exe` + `tar`。隔离暂存区使用各 provider 的本地导入器，并以 `sessions.source` 标记会话；一个来源可以仅有 Claude、仅有 Codex 或两者兼具。`DASHBOARD_REMOTE_SYNC_MS`（默认 15 秒）轮询会发布按 provider 划分的状态和计数。某个 provider 缺失、报错或卡住时，只有它的旧会话进入 stale 扫描，健康的兄弟 provider 仍由镜像管理。在 **Settings → Remote Data Sources** 或通过 `ccam remote-sources` 可选地配置独立的远程 Claude 主目录和远程 Codex 主目录；SSH 认证仍完全由主机负责，不保存任何秘密。 |
+| **远程推送采集** | 第三条会话数据采集路径，面向 SSH 无法触达的机器：处于 NAT 后的漫游笔记本、被 CGNAT 的家庭宽带，改为由它**推送**自己的会话数据，而不是由仪表盘去拉取。`POST /api/hooks/ingest-batch` 每次接收一个批次 —— Token 分桶（每一项都是该分桶当前的完整总计，如同重新解析 Transcript，而非增量）、工具事件和回合时长 —— 并且是整个 Server 中唯一有意可从公网访问的路由。因此它**在设置 `REMOTE_PUSH_TOKEN` 之前处于禁用状态**（否则返回 `503 REMOTE_PUSH_NOT_CONFIGURED`），由自己的 token 而非 `DASHBOARD_HOOK_TOKEN` 把守，使加固回环 Hook 路由绝不会顺带开放这一条；并拒绝 `?token=`，以免凭据落入代理访问日志。条目按 `(session_id, event_type, uuid)` 针对已提交行以及同一批次内部去重，因此重发是安全的；单批次上限 1000 项（`413 BATCH_TOO_LARGE`）；已被本地或 SSH 拉取会话占用的 `session_id` 会被逐项拒绝（`SESSION_LOCALLY_OWNED`），而不是允许其劫持 —— 被推送的会话只能创建新会话，或追加到它自己创建的会话。部分失败仍返回 `200` 并带逐项 `errors[]`，广播则在事务提交之后才触发。 |
 | **响应式设计** | 适配移动端的布局，堆叠网格、可滚动表格和可折叠侧边栏 |
 | **界面本地化** | 内置语言切换，UI 文案与无障碍标签已覆盖英文（`en`）、中文（`zh`）、越南语（`vi`）和韩语（`ko`）及西班牙语（`es`）。覆盖范围现已贯穿 Workflows 页面的所有 tooltip：统计卡片的计算说明与按值分桶的解读、每个图表的「此图展示什么 / 如何阅读 / 为何重要」浮层、所有图形悬停 tooltip（编排 DAG、工具流、Pipeline、模型委派、并发时间线）、Workflow Patterns 详情面板的叙述与建议、设置页 → 模型定价的信息浮层、CLAUDE_HOME 面板，以及完整的 Import History 流程 |
 | **种子数据** | 内置种子脚本，用于演示和开发 |
@@ -633,7 +634,8 @@ flowchart LR
 | `DASHBOARD_PORT` | `4820` | Express 服务器端口 |
 | `CLAUDE_DASHBOARD_PORT` | `4820` | Hook Handler 连接服务器使用的端口 |
 | `DASHBOARD_TOKEN_FILE` | _(未设置)_ | Docker/Kubernetes Secret 使用的文件型 Dashboard token |
-| `DASHBOARD_HOOK_TOKEN` / `_FILE` | _(未设置)_ | 远程 `/api/hooks/*` 采集的独立 token |
+| `DASHBOARD_HOOK_TOKEN` / `_FILE` | _(未设置)_ | 回环 Hook 路由（`/api/hooks/event`、`/api/hooks/codex`）暴露到回环之外时使用的独立 token |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | _(未设置)_ | 单独把守 `POST /api/hooks/ingest-batch`（面向公网的远程推送路由，默认禁用）的 token。刻意与上面的 `DASHBOARD_HOOK_TOKEN` 相互独立 —— 设置后者绝不应顺带开放这条可从互联网写入的路由 |
 | `DASHBOARD_ENV_PATH` | 仓库 `.env` | Settings 持久化配置所用的可写 dotenv 路径 |
 | `CCAM_DASHBOARD_URL` | 本地发现 | 远程 Hook 目标；非 loopback 必须使用 HTTPS |
 | `CCAM_HOOK_TOKEN` / `_FILE` | _(未设置)_ | Hook handler 发送的凭据 |
@@ -644,6 +646,7 @@ flowchart LR
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | 持续 `~/.claude/projects` 后台同步的轮询间隔（毫秒），用于显示启动后才加入、其会话从不经过 Hook 流入的项目。无论如何 `fs.watch` 监听器都会近乎即时触发；该轮询是安全兜底（监听器可能错过事件 / 在网络文件系统上不触发）。设为 `0` 可禁用轮询，同时让监听器保持运行 |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 或 `~/.codex` | 可选的本地 Codex 状态目录。在设置中保存新位置会持久化此仪表盘专用覆盖、重新启用实时监视，并立即扫描新的 `sessions/` 树。 |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | 仅追加 Codex rollout 的安全兜底轮询间隔（毫秒）。Codex Hook 会立即触发同一个增量采集器；设为 `0` 仅禁用轮询，在可用时仍保留文件系统监听器。 |
+| `DASHBOARD_CODEX_MAX_ATTEMPTS` | `5` | Codex 扫描针对同一个**未发生变化**的 rollout 连续尝试采集的失败次数上限，超出后便不再重试。扫描会刻意重新排队一个读取失败的 rollout，使瞬时故障（`SQLITE_BUSY`、写了一半的记录）在下一轮恢复；若不设上限，*永久性*故障会在整个进程生命周期内不断重复 —— 按 `DASHBOARD_CODEX_SYNC_MS` 默认的 4 秒计算，每个文件每天约 21,600 次尝试，每次都在单一 Node 线程上写一行日志。该计数包含第一次尝试、按文件独立统计，并在文件的大小或 mtime 发生变化时完全恢复，因此仅仅是写了一半的 rollout 仍能自行恢复。耗尽预算的那一次尝试会记录一条日志并注明上限。若慢速或不稳定的卷需要超过几轮扫描才能稳定，可调高此值 |
 | `DASHBOARD_CODEX_HOOK_IDLE_SECONDS` | `60` | **仅靠 hook** 的 Codex 会话（运行时未将 rollout 写入磁盘，如 `codex exec --ephemeral`）在已报告结束的回合迟迟得不到响应时，可等待多久才判定其 `SessionEnd` hook 已丢失。只有 `awaiting_reason` 为 `stop` 的会话才符合条件：Codex 会在 `Stop` 之后几百毫秒内发送 `SessionEnd`，因此无人应答的 `Stop` 是真实证据。静默被刻意排除在触发条件之外——没有 rollout 的运行在整个工具调用期间完全不发出 hook，基于空闲时间的规则会误将正在运行的 CI 构建判定为已完成 |
 | `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，增长的转录会从其最后一条完整 JSONL 行开始增量解析，而此下限仍会把一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）合并为一次解析。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 则每次追加都立即解析 |
 | `DASHBOARD_EVENT_STRING_CAP` | `2048` | Hook 负载在写入 `events.data` **之前会被裁剪**：原生工具的整文件副本（Edit/Write 的 `originalFile`，Read 的 `file.content` / `file.base64`）被移除；每个 hook 的顶层 `background_tasks` 字段都会被移除，其 JSON 字节数记录在 `data._trimmed.dropped.background_tasks`；负载中任意位置的每个字符串都会被截断到此字符数（外加一条简短的裁剪说明）。每处改动记录在 `data._trimmed`（事件详情中显示为 **存储时已裁剪**）。启用裁剪时，存储的是预览：终端视图和字段上限以内编辑的 diff 照常可用，"original file" 面板不再对已存储事件显示，摘要统计的是预览行数，文本搜索只能看到保留的内容——完整文本仍在磁盘上的转录中。设为 `0` 则禁用全部裁剪，包括字段移除 |
@@ -727,7 +730,7 @@ ccam version                      # 打印 CLI 版本（也可用 --version / -v
 | ----------------------- | ---------------------------------------------------------- |
 | `npm run setup` | 安装根目录、客户端、扩展与 MCP 依赖，构建 MCP 并链接 `ccam` |
 | `npm run dev` | 同时启动服务端（watch 模式）+ 客户端（Vite HMR） |
-| `npm run dev:server` | 仅启动 Express 服务器（`--watch`） |
+| `npm run dev:server` | 使用防抖、优雅重启的源码监视器启动 Express 服务器 |
 | `npm run dev:client` | 仅启动 Vite 开发服务器 |
 | `npm run build` | 构建 React 客户端到 `client/dist/` |
 | `npm start` | 启动生产服务器（提供构建后的客户端） |
@@ -1181,6 +1184,7 @@ npm run monitoring:docker:up
 | 方法 | 路径 | 描述 |
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | 接收并处理 Claude Code Hook 事件 |
+| `POST` | `/api/hooks/ingest-batch` | 由处于漫游/NAT 后方的机器推送一批会话数据（默认禁用；参见下文的 `REMOTE_PUSH_TOKEN` 以及 `server/README.md` 中完整的载荷结构） |
 
 **Hook 事件载荷：**
 
@@ -1362,6 +1366,8 @@ Dashboard 处理以下 Claude Code Hook 类型：
 | `SessionEnd` | Claude Code CLI 进程退出 | 清除等待标志。如果会话已处于 `error` 状态，则保留错误状态；否则将所有 Agent 和会话标记为 `completed` |
 | `Compaction` | JSONL 中检测到 `/compact` | 创建压缩子 Agent（类型 `compaction`）和 Compaction 事件。通过 Transcript JSONL 中的 `isCompactSummary` 条目检测。也可由周期性扫描器对活跃会话检测 |
 | `APIError` | JSONL Transcript 中的 API 错误 | 从 `isApiErrorMessage` 条目（配额、速率限制、invalid_request）和原始 `type: "error"` 响应中提取。**立即将会话和 Agent 标记为 `error`** — 之前仅记录事件而不更改状态。存储为包含错误详情的事件 |
+| `RemoteToolEvent` | 由远程机器推送的工具调用 | 由 `POST /api/hooks/ingest-batch` 为推送的每一项 `tool_events[]` 写入。按 `(session_id, event_type, uuid)` 针对已提交行以及同一批次内部去重，因此重发批次是安全的 |
+| `RemoteTurn` | 由远程机器推送的回合时长 | 由 `POST /api/hooks/ingest-batch` 为每一项 `turns[]` 写入，携带该回合的 `duration_ms`。去重方式与 `RemoteToolEvent` 相同 |
 | `Interrupted` | 用户取消的回合（Esc） | 由看门狗合成 —— `Esc` 不触发任何 Hook，因此从 Transcript 的 `[Request interrupted by user]` 标记，或当 Esc 发生在任何输出之前时从空闲工作超时（`DASHBOARD_WORKING_IDLE_SECONDS`）检测出卡住的 `working` 会话。会话转入**等待中**（与正常 `Stop` 相同） |
 | `TurnDuration` | JSONL Transcript 中的回合计时 | 从 `system` 子类型 `turn_duration` 消息中提取，含 `durationMs`。存储为回合级计时分析事件 |
 | `ToolError` | JSONL 中的工具结果错误 | 从 `toolUseResult.is_error` 条目中提取。追踪工具级失败用于错误传播分析 |
@@ -2039,7 +2045,7 @@ flowchart TD
 ```mermaid
 graph LR
     subgraph dev["开发模式 — 2 个进程"]
-        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>node --watch"]
+        D_CMD["npm run dev"] --> D_SRV["Express :4820<br/>防抖监视器"]
         D_CMD --> D_VITE["Vite :5173<br/>HMR"]
         D_BROWSER["浏览器"] --> D_VITE
         D_VITE -->|"代理 /api + /ws"| D_SRV

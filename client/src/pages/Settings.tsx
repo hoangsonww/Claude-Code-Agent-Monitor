@@ -499,6 +499,10 @@ const GPT_RATE_FIELDS = [
   "fast_cached_input_per_mtok",
   "fast_cache_write_per_mtok",
   "fast_output_per_mtok",
+  "fast_long_input_per_mtok",
+  "fast_long_cached_input_per_mtok",
+  "fast_long_cache_write_per_mtok",
+  "fast_long_output_per_mtok",
 ] as const;
 type GptRateField = (typeof GPT_RATE_FIELDS)[number];
 type GptDraft = Record<"model_pattern" | "display_name" | GptRateField, string>;
@@ -559,7 +563,7 @@ function GptPricingTable({
     const next = emptyGptDraft();
     next.model_pattern = rule.model_pattern;
     next.display_name = rule.display_name;
-    for (const field of GPT_RATE_FIELDS) next[field] = String(rule[field]);
+    for (const field of GPT_RATE_FIELDS) next[field] = String(rule[field] ?? 0);
     setDraft(next);
     setEditing(rule.model_pattern);
     setAdding(false);
@@ -666,7 +670,7 @@ function GptPricingTable({
       </div>
       {error && <p className="mb-3 rounded bg-red-500/10 p-2 text-xs text-red-300">{error}</p>}
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[1260px] text-left text-xs">
+        <table className="w-full min-w-[1560px] text-left text-xs">
           <thead className="bg-surface-3 text-[10px] uppercase tracking-wide text-gray-500">
             <tr>
               <th rowSpan={2} className="px-3 py-2">
@@ -684,12 +688,15 @@ function GptPricingTable({
               <th colSpan={4} className="border-l border-border px-2 py-2 text-center">
                 {t("pricing.gpt.fast")}
               </th>
+              <th colSpan={4} className="border-l border-border px-2 py-2 text-center">
+                {t("pricing.gpt.fastLong")}
+              </th>
               <th rowSpan={2} className="px-3 py-2">
                 {t("common:actions")}
               </th>
             </tr>
             <tr>
-              {Array.from({ length: 3 }).flatMap((_, group) =>
+              {Array.from({ length: 4 }).flatMap((_, group) =>
                 ["input", "cached", "write", "output"].map((label) => (
                   <th
                     key={`${group}-${label}`}

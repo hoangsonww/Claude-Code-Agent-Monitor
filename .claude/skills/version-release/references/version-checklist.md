@@ -4,6 +4,7 @@
 - [ ] Preserve an explicit user-specified version and record it as an override.
 - [ ] Root package and lockfile agree.
 - [ ] Desktop package and lockfile agree.
+- [ ] The mcp lockfile's linked parent version (`packages[".."].version`) agrees.
 - [ ] OpenAPI version/example and generated YAML agree.
 - [ ] Compose image tags, Helm `version` + `appVersion`, every Kubernetes version label / image tag / kustomize `newTag`, and `deploy.sh` agree.
 - [ ] `DEPLOYMENT.md`, `docs/DEPLOYMENT.md`, and `CITATION.cff` agree.

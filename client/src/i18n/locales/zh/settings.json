@@ -65,11 +65,11 @@
     "fastOutput": "快速输出",
     "gpt": {
       "title": "OpenAI GPT 模型定价",
-      "description": "用于 Codex 的公开 OpenAI API 费率。标准请求在输入令牌不超过 272K 时使用短上下文费率，超过 272K 时使用长上下文费率；快速模式使用单独的费率表。每 100 万 Token（美元）。",
+      "description": "用于 Codex 的公开 OpenAI API 费率。标准请求在输入令牌不超过 272K 时使用短上下文费率，超过 272K 时使用长上下文费率；快速模式分别提供短上下文和长上下文费率。每 100 万 Token（美元）。",
       "tooltip": {
         "title": "GPT 定价的工作原理",
         "howItWorks": "工作原理",
-        "howItWorksBody": "所有金额均为每 100 万 Token 的美元。Codex 标准请求在输入 Token 不超过 272K 时使用短上下文费率，超过 272K 时使用长上下文费率。快速模式使用独立费率表。新输入、缓存输入、缓存写入和输出分别计价。",
+        "howItWorksBody": "所有金额均为每 100 万 Token 的美元。Codex 标准请求在输入 Token 不超过 272K 时使用短上下文费率，超过 272K 时使用长上下文费率。快速模式分别提供短上下文和长上下文费率。新输入、缓存输入、缓存写入和输出分别计价。",
         "patternsTitle": "模式语法",
         "patternsBody": "模式使用 SQL 风格的 % 通配符。仪表盘会先评估最具体的模型模式，并使用第一个与上报 model id 匹配的规则。",
         "manualUpdates": "价格必须手动更新",
@@ -80,7 +80,8 @@
       "name": "名称",
       "short": "标准 · 短上下文 ≤272K",
       "long": "标准 · 长上下文 >272K",
-      "fast": "快速模式",
+      "fast": "快速 · 短上下文 ≤272K",
+      "fastLong": "快速 · 长上下文 >272K",
       "input": "输入",
       "cached": "缓存输入",
       "write": "缓存写入",

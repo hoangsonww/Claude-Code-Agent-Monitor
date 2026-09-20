@@ -41,8 +41,8 @@ window.__WIKI_CONTENT_I18N = {
       "打开任意会话即可查看概览计数、Top 工具与子 Agent 分布、可折叠 Agent 树和按时间排序的事件线。存在任务状态时，带归属信息的面板会显示分段环形图、当前任务、完成进度条和分页任务行。对话视图可渲染 Markdown、高亮代码、工具区块、斜杠命令输出、重命名，以及正确归属的排队消息。等待中的会话会说明原因和时长；你也可以导出 JSON 记录或共享永久链接。",
     "Background sync keeps new Claude project folders and session files visible after the one-time startup import. An immediate sweep, debounced filesystem watcher, and optional 30-second safety poll share one mtime cache and coalesce overlapping work; set <code>DASHBOARD_SESSION_SYNC_MS</code> to tune or disable only the poll. Each sweep parses only changed transcripts, skips unchanged imports, and broadcasts session and main-agent updates so the UI refreshes live across macOS, Windows, and Linux.":
       "后台同步会在一次性启动导入后继续发现新的 Claude 项目目录和会话文件。即时扫描、带防抖的文件系统 watcher 与可选的 30 秒安全轮询共享一个 mtime 缓存，并合并重叠工作；可通过 <code>DASHBOARD_SESSION_SYNC_MS</code> 调整或仅禁用轮询。每次扫描只解析已变化的 Transcript、跳过未变化的导入，并广播会话和主 Agent 更新，让 UI 在 macOS、Windows 和 Linux 上实时刷新。",
-    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes standard, long-context, and Fast modes, leaving unpublished tiers explicitly unpriced.":
-      "在 Settings 中配置各模型的输入、输出、缓存和 Codex 推理费率，即可在 Sessions、Session Detail、Analytics、Kanban 和 Agent 卡片中查看一致的成本总计。支持压缩感知的核算会跨上下文压缩保留用量，导入复用同一价格表，费率修改后会重新计算已存储会话。子 Agent 卡片只显示自身 Transcript 成本，主 Agent 则保留会话总成本。GPT 定价区分标准、长上下文和 Fast 模式，未公布的档位会明确保持未定价。",
+    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes short and long context for both Standard and Fast modes, leaving unpublished tiers explicitly unpriced.":
+      "在 Settings 中配置各模型的输入、输出、缓存和 Codex 推理费率，即可在 Sessions、Session Detail、Analytics、Kanban 和 Agent 卡片中查看一致的成本总计。支持压缩感知的核算会跨上下文压缩保留用量，导入复用同一价格表，费率修改后会重新计算已存储会话。子 Agent 卡片只显示自身 Transcript 成本，主 Agent 则保留会话总成本。GPT 定价在标准和 Fast 模式下都区分短上下文与长上下文，未公布的档位会明确保持未定价。",
     "Explore Claude Code configuration in 12 tabs covering skills, subagents, commands, styles, plugins, MCP, hooks, settings, memory, keybindings, and statusline scripts. The page resolves <code>/config</code> values across scopes, searches project memory, links <code>MEMORY.md</code> entries to their source facts, and shows plugin authorship. Low-risk text, memory, and keybinding files support create, edit, and delete with timestamped backups; plugins, MCP, hooks, and live settings remain read-only with copyable CLI guidance.":
       "通过 12 个标签页浏览 Claude Code 配置，涵盖技能、子 Agent、命令、样式、插件、MCP、Hook、设置、内存、快捷键和状态栏脚本。页面会跨作用域解析 <code>/config</code> 值、搜索项目内存、将 <code>MEMORY.md</code> 条目链接到来源事实，并显示插件作者。低风险的文本、内存和快捷键文件支持创建、编辑和删除，且操作前会生成带时间戳的备份；插件、MCP、Hook 和实时设置保持只读，并提供可复制的 CLI 指引。",
     "Browse every recorded session in a <strong>server-paginated</strong> table with fast search, project and status filters, sorting, cost, model, duration, and agent counts. The first page can show a temporary local Codex startup row until its durable session arrives. Rows with task state add a compact progress donut and owner-aware preview; stale trackers disappear when newer work no longer uses them or a turn ends unfinished, while completed progress remains available. Open any durable row for its conversation, events, and agent hierarchy.":
@@ -90,8 +90,8 @@ window.__WIKI_CONTENT_I18N = {
       "保护 MCP <code>/mcp</code>、<code>/sse</code> 和 <code>/messages</code>；<code>/health</code> 仍可供探针访问",
     "File-backed dashboard REST and WebSocket token for Docker or Kubernetes secrets":
       "供 Docker 或 Kubernetes Secret 使用的文件型 Dashboard REST 与 WebSocket Token",
-    "Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion":
-      "用于认证远程 <code>/api/hooks/*</code> 采集的独立凭据",
+    "Independent credential for the loopback hook routes (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) when they are exposed beyond loopback":
+      "用于回环 hook 路由（<code>/api/hooks/event</code>、<code>/api/hooks/codex</code>）在暴露到回环之外时的独立凭据",
     "Writable dotenv path used when Settings persists Claude or Codex home overrides":
       "Settings 持久化 Claude 或 Codex home 覆盖值时使用的可写 dotenv 路径",
     "Optional remote hook destination; non-loopback URLs require HTTPS and a hook token":
@@ -514,8 +514,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "安装所有依赖项（服务器 + 客户端）",
     "Start server + client in development mode with hot reload":
       "以带热重载的开发模式启动服务器 + 客户端",
-    "Start only the Express server with <code>--watch</code>":
-      "仅启动带 <code>--watch</code> 的 Express 服务器",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "使用防抖、优雅重启的源码监视器启动 Express 服务器",
     "Start only the Vite dev server": "仅启动 Vite 开发服务器",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "TypeScript 检查 + Vite 生产构建到 <code>client/dist/</code>",
@@ -1214,7 +1214,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite 将 <code>/api</code> + <code>/ws</code> 代理到 :4820",
     "Same origin, no proxy": "同源，无代理",
     "File watching": "文件监听",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "防抖服务端监视器 + Vite HMR",
     None: "无",
     "Source maps": "源映射",
     Inline: "内联",
@@ -1546,8 +1546,8 @@ window.__WIKI_CONTENT_I18N = {
       "Mở bất kỳ phiên nào để xem các bộ đếm tổng quan, phân bổ công cụ hàng đầu và subagent, cây Agent có thể thu gọn cùng dòng thời gian sự kiện theo thứ tự. Khi có trạng thái tác vụ, bảng theo chủ sở hữu hiển thị biểu đồ vòng phân đoạn, tác vụ đang chạy, thanh hoàn thành và các hàng phân trang. Chế độ hội thoại hiển thị Markdown, mã được tô sáng, khối công cụ, đầu ra lệnh slash, đổi tên và tin nhắn xếp hàng được gán đúng nguồn. Phiên đang chờ nêu rõ lý do và thời gian; bạn cũng có thể xuất JSON hoặc chia sẻ liên kết cố định.",
     "Background sync keeps new Claude project folders and session files visible after the one-time startup import. An immediate sweep, debounced filesystem watcher, and optional 30-second safety poll share one mtime cache and coalesce overlapping work; set <code>DASHBOARD_SESSION_SYNC_MS</code> to tune or disable only the poll. Each sweep parses only changed transcripts, skips unchanged imports, and broadcasts session and main-agent updates so the UI refreshes live across macOS, Windows, and Linux.":
       "Đồng bộ nền giúp các thư mục dự án và tệp phiên Claude mới tiếp tục xuất hiện sau lần nhập khởi động duy nhất. Một lượt quét tức thì, trình theo dõi hệ thống tệp có debounce và lượt thăm dò an toàn 30 giây tùy chọn dùng chung một bộ nhớ đệm mtime và gộp công việc trùng lặp; đặt <code>DASHBOARD_SESSION_SYNC_MS</code> để điều chỉnh hoặc chỉ tắt lượt thăm dò. Mỗi lượt chỉ phân tích transcript đã đổi, bỏ qua bản nhập không đổi và phát cập nhật phiên cùng Agent chính để UI làm mới trực tiếp trên macOS, Windows và Linux.",
-    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes standard, long-context, and Fast modes, leaving unpublished tiers explicitly unpriced.":
-      "Cấu hình giá đầu vào, đầu ra, bộ nhớ đệm và suy luận Codex theo từng mô hình trong Settings, rồi xem tổng chi phí nhất quán trên Sessions, Session Detail, Analytics, Kanban và thẻ Agent. Hạch toán có nhận biết compaction giữ nguyên mức sử dụng qua nén ngữ cảnh, dữ liệu nhập dùng cùng bảng giá và thay đổi giá sẽ tính lại các phiên đã lưu. Thẻ subagent chỉ hiển thị chi phí transcript của chính nó, còn Agent chính giữ tổng của phiên. Giá GPT phân biệt chế độ chuẩn, ngữ cảnh dài và Fast; các bậc chưa công bố vẫn được ghi rõ là chưa định giá.",
+    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes short and long context for both Standard and Fast modes, leaving unpublished tiers explicitly unpriced.":
+      "Cấu hình giá đầu vào, đầu ra, bộ nhớ đệm và suy luận Codex theo từng mô hình trong Settings, rồi xem tổng chi phí nhất quán trên Sessions, Session Detail, Analytics, Kanban và thẻ Agent. Hạch toán có nhận biết compaction giữ nguyên mức sử dụng qua nén ngữ cảnh, dữ liệu nhập dùng cùng bảng giá và thay đổi giá sẽ tính lại các phiên đã lưu. Thẻ subagent chỉ hiển thị chi phí transcript của chính nó, còn Agent chính giữ tổng của phiên. Giá GPT phân biệt ngữ cảnh ngắn và dài cho cả chế độ chuẩn và Fast; các bậc chưa công bố vẫn được ghi rõ là chưa định giá.",
     "Explore Claude Code configuration in 12 tabs covering skills, subagents, commands, styles, plugins, MCP, hooks, settings, memory, keybindings, and statusline scripts. The page resolves <code>/config</code> values across scopes, searches project memory, links <code>MEMORY.md</code> entries to their source facts, and shows plugin authorship. Low-risk text, memory, and keybinding files support create, edit, and delete with timestamped backups; plugins, MCP, hooks, and live settings remain read-only with copyable CLI guidance.":
       "Khám phá cấu hình Claude Code qua 12 tab gồm skill, subagent, lệnh, kiểu đầu ra, plugin, MCP, hook, cài đặt, bộ nhớ, phím tắt và script statusline. Trang này phân giải giá trị <code>/config</code> giữa các phạm vi, tìm kiếm bộ nhớ dự án, liên kết mục <code>MEMORY.md</code> tới dữ kiện nguồn và hiển thị tác giả plugin. Các tệp văn bản, bộ nhớ và phím tắt ít rủi ro hỗ trợ tạo, sửa và xóa với bản sao lưu có dấu thời gian; plugin, MCP, hook và cài đặt trực tiếp vẫn chỉ đọc kèm hướng dẫn CLI có thể sao chép.",
     "Browse every recorded session in a <strong>server-paginated</strong> table with fast search, project and status filters, sorting, cost, model, duration, and agent counts. The first page can show a temporary local Codex startup row until its durable session arrives. Rows with task state add a compact progress donut and owner-aware preview; stale trackers disappear when newer work no longer uses them or a turn ends unfinished, while completed progress remains available. Open any durable row for its conversation, events, and agent hierarchy.":
@@ -1601,8 +1601,8 @@ window.__WIKI_CONTENT_I18N = {
       "Bảo vệ MCP <code>/mcp</code>, <code>/sse</code> và <code>/messages</code>; <code>/health</code> vẫn mở cho probe",
     "File-backed dashboard REST and WebSocket token for Docker or Kubernetes secrets":
       "Token REST và WebSocket của dashboard đọc từ tệp cho Secret Docker hoặc Kubernetes",
-    "Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion":
-      "Credential độc lập cho remote <code>/api/hooks/*</code> ingestion có xác thực",
+    "Independent credential for the loopback hook routes (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) when they are exposed beyond loopback":
+      "Credential độc lập cho các route hook loopback (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) khi chúng được expose ra ngoài loopback",
     "Writable dotenv path used when Settings persists Claude or Codex home overrides":
       "Đường dẫn dotenv có quyền ghi khi Settings lưu override Claude hoặc Codex home",
     "Optional remote hook destination; non-loopback URLs require HTTPS and a hook token":
@@ -2012,8 +2012,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "Cài đặt tất cả phụ thuộc (máy chủ + client)",
     "Start server + client in development mode with hot reload":
       "Khởi động máy chủ + client ở chế độ phát triển với hot reload",
-    "Start only the Express server with <code>--watch</code>":
-      "Chỉ khởi động máy chủ Express với <code>--watch</code>",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "Khởi động Express bằng trình theo dõi mã nguồn chống dội và khởi động lại an toàn",
     "Start only the Vite dev server": "Chỉ khởi động máy chủ phát triển Vite",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "Kiểm tra TypeScript + build production bằng Vite vào <code>client/dist/</code>",
@@ -2724,7 +2724,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite chuyển tiếp <code>/api</code> + <code>/ws</code> tới :4820",
     "Same origin, no proxy": "Cùng nguồn gốc, không có proxy",
     "File watching": "Theo dõi tệp",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "Trình theo dõi máy chủ chống dội + Vite HMR",
     None: "Không có",
     "Source maps": "Source map",
     Inline: "Nội tuyến",
@@ -3075,8 +3075,8 @@ window.__WIKI_CONTENT_I18N = {
       "세션을 열면 개요 카운터, 주요 도구 및 서브에이전트 분포, 접을 수 있는 에이전트 트리, 시간순 이벤트 타임라인을 볼 수 있습니다. 작업 상태가 있으면 소유자 인식 패널에 분할 도넛, 활성 작업, 완료 막대와 페이지가 나뉜 행이 표시됩니다. 대화 보기는 Markdown, 강조된 코드, 도구 블록, 슬래시 명령 출력, 이름 변경과 올바르게 분류된 대기 메시지를 렌더링합니다. 대기 중인 세션은 이유와 시간을 설명하며, 기록을 JSON으로 내보내거나 고정 링크를 공유할 수 있습니다.",
     "Background sync keeps new Claude project folders and session files visible after the one-time startup import. An immediate sweep, debounced filesystem watcher, and optional 30-second safety poll share one mtime cache and coalesce overlapping work; set <code>DASHBOARD_SESSION_SYNC_MS</code> to tune or disable only the poll. Each sweep parses only changed transcripts, skips unchanged imports, and broadcasts session and main-agent updates so the UI refreshes live across macOS, Windows, and Linux.":
       "백그라운드 동기화는 일회성 시작 가져오기 이후에도 새 Claude 프로젝트 폴더와 세션 파일을 표시합니다. 즉시 스윕, 디바운스된 파일 시스템 감시기, 선택적 30초 안전 폴링이 하나의 mtime 캐시를 공유하고 겹치는 작업을 합칩니다. <code>DASHBOARD_SESSION_SYNC_MS</code>로 폴링만 조정하거나 끌 수 있습니다. 각 스윕은 변경된 트랜스크립트만 파싱하고 변경 없는 가져오기를 건너뛰며 세션과 메인 에이전트 업데이트를 브로드캐스트해 macOS, Windows, Linux에서 UI를 실시간 갱신합니다.",
-    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes standard, long-context, and Fast modes, leaving unpublished tiers explicitly unpriced.":
-      "Settings에서 모델별 입력, 출력, 캐시 및 Codex 추론 요금을 구성하고 Sessions, Session Detail, Analytics, Kanban과 에이전트 카드에서 일관된 합계를 확인할 수 있습니다. 압축 인식 계산은 컨텍스트 압축 후에도 사용량을 보존하고, 가져오기는 같은 요금표를 사용하며, 요금 변경 시 저장된 세션을 다시 계산합니다. 서브에이전트 카드는 자체 트랜스크립트 비용만 표시하고 메인 에이전트는 세션 합계를 유지합니다. GPT 요금은 표준, 긴 컨텍스트, Fast 모드를 구분하며 공개되지 않은 구간은 명시적으로 미책정 상태로 둡니다.",
+    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes short and long context for both Standard and Fast modes, leaving unpublished tiers explicitly unpriced.":
+      "Settings에서 모델별 입력, 출력, 캐시 및 Codex 추론 요금을 구성하고 Sessions, Session Detail, Analytics, Kanban과 에이전트 카드에서 일관된 합계를 확인할 수 있습니다. 압축 인식 계산은 컨텍스트 압축 후에도 사용량을 보존하고, 가져오기는 같은 요금표를 사용하며, 요금 변경 시 저장된 세션을 다시 계산합니다. 서브에이전트 카드는 자체 트랜스크립트 비용만 표시하고 메인 에이전트는 세션 합계를 유지합니다. GPT 요금은 표준과 Fast 모드 모두 짧은 컨텍스트와 긴 컨텍스트를 구분하며 공개되지 않은 구간은 명시적으로 미책정 상태로 둡니다.",
     "Explore Claude Code configuration in 12 tabs covering skills, subagents, commands, styles, plugins, MCP, hooks, settings, memory, keybindings, and statusline scripts. The page resolves <code>/config</code> values across scopes, searches project memory, links <code>MEMORY.md</code> entries to their source facts, and shows plugin authorship. Low-risk text, memory, and keybinding files support create, edit, and delete with timestamped backups; plugins, MCP, hooks, and live settings remain read-only with copyable CLI guidance.":
       "스킬, 서브에이전트, 명령, 스타일, 플러그인, MCP, 훅, 설정, 메모리, 키 바인딩 및 상태 표시줄 스크립트를 다루는 12개 탭에서 Claude Code 구성을 살펴볼 수 있습니다. 페이지는 범위별 <code>/config</code> 값을 해석하고 프로젝트 메모리를 검색하며 <code>MEMORY.md</code> 항목을 원본 사실에 연결하고 플러그인 작성자를 표시합니다. 위험도가 낮은 텍스트, 메모리, 키 바인딩 파일은 타임스탬프 백업과 함께 생성, 편집, 삭제할 수 있으며 플러그인, MCP, 훅과 실시간 설정은 복사 가능한 CLI 안내와 함께 읽기 전용으로 유지됩니다.",
     "Browse every recorded session in a <strong>server-paginated</strong> table with fast search, project and status filters, sorting, cost, model, duration, and agent counts. The first page can show a temporary local Codex startup row until its durable session arrives. Rows with task state add a compact progress donut and owner-aware preview; stale trackers disappear when newer work no longer uses them or a turn ends unfinished, while completed progress remains available. Open any durable row for its conversation, events, and agent hierarchy.":
@@ -3503,8 +3503,8 @@ window.__WIKI_CONTENT_I18N = {
     "Install all dependencies (server + client)": "모든 의존성 설치(서버 + 클라이언트)",
     "Start server + client in development mode with hot reload":
       "핫 리로드가 적용된 개발 모드로 서버와 클라이언트를 시작",
-    "Start only the Express server with <code>--watch</code>":
-      "<code>--watch</code> 옵션으로 Express 서버만 시작",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "디바운스 및 안전 재시작 소스 감시기로 Express 서버를 시작",
     "Start only the Vite dev server": "Vite 개발 서버만 시작합니다",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "TypeScript 검사 후 <code>client/dist/</code>로 Vite 프로덕션 빌드를 수행합니다",
@@ -4211,7 +4211,7 @@ window.__WIKI_CONTENT_I18N = {
       "Vite가 <code>/api</code> + <code>/ws</code>를 :4820으로 프록시",
     "Same origin, no proxy": "동일 출처, 프록시 없음",
     "File watching": "파일 감시",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "디바운스 서버 감시기 + Vite HMR",
     None: "없음",
     "Source maps": "소스 맵",
     Inline: "인라인",
@@ -4554,8 +4554,8 @@ window.__WIKI_CONTENT_I18N = {
       "Abre cualquier sesión para ver contadores generales, distribuciones de herramientas y subagentes, un árbol de Agent plegable y una cronología de eventos. Cuando existe estado de tareas, un panel por propietario añade un donut segmentado, la tarea activa, una barra de finalización y filas paginadas. La conversación renderiza Markdown, código resaltado, bloques de herramientas, salida de comandos slash, cambios de nombre y mensajes en cola correctamente atribuidos. Las sesiones en espera explican el motivo y la duración; exporta el registro como JSON o comparte su enlace permanente.",
     "Background sync keeps new Claude project folders and session files visible after the one-time startup import. An immediate sweep, debounced filesystem watcher, and optional 30-second safety poll share one mtime cache and coalesce overlapping work; set <code>DASHBOARD_SESSION_SYNC_MS</code> to tune or disable only the poll. Each sweep parses only changed transcripts, skips unchanged imports, and broadcasts session and main-agent updates so the UI refreshes live across macOS, Windows, and Linux.":
       "La sincronización en segundo plano mantiene visibles las carpetas de proyecto y los archivos de sesión Claude nuevos tras la importación inicial única. Un barrido inmediato, un observador del sistema de archivos con debounce y una comprobación de seguridad opcional cada 30 segundos comparten una caché mtime y agrupan el trabajo solapado; usa <code>DASHBOARD_SESSION_SYNC_MS</code> para ajustar o desactivar solo la comprobación. Cada barrido analiza únicamente transcripts modificados, omite importaciones sin cambios y transmite actualizaciones de sesión y del Agent principal para refrescar la UI en vivo en macOS, Windows y Linux.",
-    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes standard, long-context, and Fast modes, leaving unpublished tiers explicitly unpriced.":
-      "Configura en Settings las tarifas de entrada, salida, caché y razonamiento de Codex por modelo y consulta totales coherentes en Sessions, Session Detail, Analytics, Kanban y tarjetas de Agent. La contabilidad compatible con compactación conserva el uso tras comprimir el contexto, las importaciones reutilizan la misma tabla de precios y los cambios de tarifa recalculan las sesiones guardadas. Las tarjetas de subagentes muestran solo el coste de su propio transcript, mientras que los Agent principales conservan el total de la sesión. Los precios GPT distinguen los modos estándar, contexto largo y Fast; los niveles no publicados quedan explícitamente sin precio.",
+    "Configure per-model input, output, cache, and Codex reasoning rates in Settings, then see consistent totals across Sessions, Session Detail, Analytics, Kanban, and agent cards. Compaction-aware accounting preserves usage across context compression, imports reuse the same pricing table, and rate edits recalculate stored sessions. Subagent cards show only their own transcript cost while main agents retain session totals. GPT pricing distinguishes short and long context for both Standard and Fast modes, leaving unpublished tiers explicitly unpriced.":
+      "Configura en Settings las tarifas de entrada, salida, caché y razonamiento de Codex por modelo y consulta totales coherentes en Sessions, Session Detail, Analytics, Kanban y tarjetas de Agent. La contabilidad compatible con compactación conserva el uso tras comprimir el contexto, las importaciones reutilizan la misma tabla de precios y los cambios de tarifa recalculan las sesiones guardadas. Las tarjetas de subagentes muestran solo el coste de su propio transcript, mientras que los Agent principales conservan el total de la sesión. Los precios GPT distinguen el contexto corto y largo tanto en modo estándar como en Fast; los niveles no publicados quedan explícitamente sin precio.",
     "Explore Claude Code configuration in 12 tabs covering skills, subagents, commands, styles, plugins, MCP, hooks, settings, memory, keybindings, and statusline scripts. The page resolves <code>/config</code> values across scopes, searches project memory, links <code>MEMORY.md</code> entries to their source facts, and shows plugin authorship. Low-risk text, memory, and keybinding files support create, edit, and delete with timestamped backups; plugins, MCP, hooks, and live settings remain read-only with copyable CLI guidance.":
       "Explora la configuración de Claude Code en 12 pestañas que cubren skills, subagentes, comandos, estilos, plugins, MCP, hooks, ajustes, memoria, atajos y scripts de statusline. La página resuelve valores de <code>/config</code> entre ámbitos, busca en la memoria del proyecto, enlaza entradas de <code>MEMORY.md</code> con sus datos de origen y muestra la autoría de los plugins. Los archivos de texto, memoria y atajos de bajo riesgo permiten crear, editar y eliminar con copias de seguridad fechadas; plugins, MCP, hooks y ajustes activos siguen siendo de solo lectura con instrucciones CLI copiables.",
     "Browse every recorded session in a <strong>server-paginated</strong> table with fast search, project and status filters, sorting, cost, model, duration, and agent counts. The first page can show a temporary local Codex startup row until its durable session arrives. Rows with task state add a compact progress donut and owner-aware preview; stale trackers disappear when newer work no longer uses them or a turn ends unfinished, while completed progress remains available. Open any durable row for its conversation, events, and agent hierarchy.":
@@ -4993,8 +4993,8 @@ window.__WIKI_CONTENT_I18N = {
       "Instalar todas las dependencias (servidor + cliente)",
     "Start server + client in development mode with hot reload":
       "Iniciar el servidor + cliente en modo de desarrollo con carga rápida",
-    "Start only the Express server with <code>--watch</code>":
-      "Inicie solo el servidor Express con <code>--watch</code>",
+    "Start Express with a debounced, graceful-restart source watcher":
+      "Inicia Express con un supervisor de código con antirrebote y reinicio ordenado",
     "Start only the Vite dev server": "Inicie solo el servidor de desarrollo Vite",
     "TypeScript check + Vite production build to <code>client/dist/</code>":
       "Verificación de TypeScript + construcción de producción de Vite para <code>client/dist/</code>",
@@ -5712,7 +5712,7 @@ window.__WIKI_CONTENT_I18N = {
       "Proxies Vite <code>/api</code> + <code>/ws</code> A: 4820",
     "Same origin, no proxy": "Misma origen, sin proxy",
     "File watching": "Seguimiento de archivos",
-    "<code>node --watch</code> + Vite HMR": "<code>node --watch</code> + Vite HMR",
+    "Debounced server watcher + Vite HMR": "Supervisor del servidor con antirrebote + Vite HMR",
     None: "nona",
     "Source maps": "Mapa de fuentes",
     Inline: "En línea",
@@ -7317,8 +7317,8 @@ Object.assign(window.__WIKI_CONTENT_I18N.ko, {
     "MCP <code>/mcp</code>, <code>/sse</code>, <code>/messages</code>를 보호하며 <code>/health</code>는 상태 검사에 계속 제공됩니다",
   "File-backed dashboard REST and WebSocket token for Docker or Kubernetes secrets":
     "Docker 또는 Kubernetes Secret용 파일 기반 대시보드 REST 및 WebSocket Token",
-  "Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion":
-    "인증된 원격 <code>/api/hooks/*</code> 수집을 위한 독립 자격 증명",
+  "Independent credential for the loopback hook routes (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) when they are exposed beyond loopback":
+    "loopback hook 라우트(<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>)를 loopback 밖으로 노출할 때 사용하는 독립 자격 증명",
   "Writable dotenv path used when Settings persists Claude or Codex home overrides":
     "설정에서 Claude 또는 Codex 홈 재정의를 저장할 때 사용하는 쓰기 가능한 dotenv 경로",
   "Optional remote hook destination; non-loopback URLs require HTTPS and a hook token":
@@ -7387,8 +7387,8 @@ Object.assign(window.__WIKI_CONTENT_I18N.es, {
     "Protege los endpoints MCP <code>/mcp</code>, <code>/sse</code> y <code>/messages</code>; <code>/health</code> permanece disponible para las sondas",
   "File-backed dashboard REST and WebSocket token for Docker or Kubernetes secrets":
     "Token REST y WebSocket del panel respaldado por archivo para secretos de Docker o Kubernetes",
-  "Independent credential for authenticated remote <code>/api/hooks/*</code> ingestion":
-    "Credencial independiente para la recepción remota autenticada en <code>/api/hooks/*</code>",
+  "Independent credential for the loopback hook routes (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) when they are exposed beyond loopback":
+    "Credencial independiente para las rutas de hook de loopback (<code>/api/hooks/event</code>, <code>/api/hooks/codex</code>) cuando se exponen más allá del loopback",
   "Writable dotenv path used when Settings persists Claude or Codex home overrides":
     "Ruta dotenv escribible que usa Configuración al guardar reemplazos de los directorios de Claude o Codex",
   "Optional remote hook destination; non-loopback URLs require HTTPS and a hook token":
@@ -7635,4 +7635,100 @@ Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
   Cue: "Señal",
   "When it fires": "Cuándo suena",
   "What it sounds like": "Cómo suena",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect":
+    "用于把守 <code>POST /api/hooks/ingest-batch</code>（面向公网的远程推送路由）的独立 token。未设置时该路由返回 <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>。它刻意与 <code>DASHBOARD_HOOK_TOKEN</code> 相互独立，因此加固回环路由绝不会顺带开放一个可从互联网写入的端点",
+  "Consecutive failed ingest attempts the Codex sweep spends on one unchanged rollout before leaving it alone. The sweep re-queues a rollout it could not read so a transient failure recovers on the next pass; unbounded, a permanent failure repeats for the life of the process. The count includes the first attempt, is per file, and is restored in full whenever the file's size or mtime changes":
+    "Codex 扫描针对同一个未发生变化的 rollout 连续尝试采集的失败次数上限，超出后便不再重试。扫描会重新排队一个读取失败的 rollout，以便瞬时故障在下一轮恢复；若不设上限，永久性故障会在整个进程生命周期内不断重复。该计数包含第一次尝试、按文件独立统计，并在文件的大小或 mtime 发生变化时完全恢复",
+  "Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session":
+    "远程推送：第三条会话数据采集路径，面向仪表盘永远无法主动拉取的漫游或 NAT 后方机器。一个批次携带 token 分桶（每一项都是该分桶当前的完整总计，而非增量）、工具事件和回合时长，分别存储为 <code>RemoteToolEvent</code> / <code>RemoteTurn</code>。这是唯一一条有意可从公网访问的路由，因此在设置 <code>REMOTE_PUSH_TOKEN</code> 之前处于禁用状态，拒绝 <code>?token=</code> 以免凭据进入代理日志，单批次上限 1000 项，按 <code>(session_id, event_type, uuid)</code> 去重使重发安全，并拒绝已被本地或 SSH 拉取会话占用的 <code>session_id</code>",
+  "Tool call pushed by a remote machine": "由远程机器推送的工具调用",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each tool call a roaming or NAT'd machine pushes. Deduped on <code>(session_id, event_type, uuid)</code> against committed rows and within the same batch, so resending a batch is safe.":
+    "由 <code>POST /api/hooks/ingest-batch</code> 为漫游或 NAT 后方机器推送的每一次工具调用写入。会按 <code>(session_id, event_type, uuid)</code> 针对已提交行以及同一批次内部去重，因此重发批次是安全的。",
+  "Turn duration pushed by a remote machine": "由远程机器推送的回合时长",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each pushed turn, carrying that turn's <code>duration_ms</code>. Same dedup as <code>RemoteToolEvent</code>.":
+    "由 <code>POST /api/hooks/ingest-batch</code> 为每个推送的回合写入，携带该回合的 <code>duration_ms</code>。去重方式与 <code>RemoteToolEvent</code> 相同。",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect":
+    "Token riêng bảo vệ <code>POST /api/hooks/ingest-batch</code> — route remote-push hướng ra internet công cộng. Khi chưa đặt, route đó trả về <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Nó độc lập một cách có chủ đích với <code>DASHBOARD_HOOK_TOKEN</code>, nên việc siết chặt các route loopback không bao giờ vô tình mở một endpoint ghi được từ internet",
+  "Consecutive failed ingest attempts the Codex sweep spends on one unchanged rollout before leaving it alone. The sweep re-queues a rollout it could not read so a transient failure recovers on the next pass; unbounded, a permanent failure repeats for the life of the process. The count includes the first attempt, is per file, and is restored in full whenever the file's size or mtime changes":
+    "Số lần ingest thất bại liên tiếp mà vòng quét Codex dành cho một rollout không thay đổi trước khi bỏ qua nó. Vòng quét xếp lại hàng đợi một rollout nó không đọc được để lỗi tạm thời phục hồi ở lượt sau; nếu không giới hạn, một lỗi vĩnh viễn sẽ lặp lại suốt vòng đời tiến trình. Bộ đếm bao gồm cả lần thử đầu tiên, tính riêng theo từng file, và được khôi phục đầy đủ mỗi khi size hoặc mtime của file thay đổi",
+  "Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session":
+    "Remote push: đường ingest dữ liệu phiên thứ ba, dành cho máy roaming hoặc nằm sau NAT mà dashboard không bao giờ với tới để kéo về. Mỗi batch mang theo các bucket token (mỗi mục là tổng hiện tại đầy đủ của bucket đó, không phải delta), tool event và thời lượng lượt, lưu thành <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. Đây là route duy nhất được thiết kế để tiếp cận được từ internet công cộng, nên nó bị tắt cho tới khi đặt <code>REMOTE_PUSH_TOKEN</code>, từ chối <code>?token=</code> để credential không bao giờ lọt vào log proxy, giới hạn mỗi batch 1000 mục, khử trùng lặp theo <code>(session_id, event_type, uuid)</code> nên gửi lại là an toàn, và từ chối một <code>session_id</code> đã thuộc về phiên local hoặc phiên kéo qua SSH",
+  "Tool call pushed by a remote machine": "Tool call do một máy từ xa đẩy lên",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each tool call a roaming or NAT'd machine pushes. Deduped on <code>(session_id, event_type, uuid)</code> against committed rows and within the same batch, so resending a batch is safe.":
+    "Được <code>POST /api/hooks/ingest-batch</code> ghi cho từng tool call mà một máy roaming hoặc sau NAT đẩy lên. Khử trùng lặp theo <code>(session_id, event_type, uuid)</code> với cả các hàng đã commit lẫn trong cùng một batch, nên gửi lại batch là an toàn.",
+  "Turn duration pushed by a remote machine": "Thời lượng lượt do một máy từ xa đẩy lên",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each pushed turn, carrying that turn's <code>duration_ms</code>. Same dedup as <code>RemoteToolEvent</code>.":
+    "Được <code>POST /api/hooks/ingest-batch</code> ghi cho mỗi lượt được đẩy lên, mang theo <code>duration_ms</code> của lượt đó. Khử trùng lặp giống <code>RemoteToolEvent</code>.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect":
+    "공개 인터넷용 remote-push 라우트인 <code>POST /api/hooks/ingest-batch</code>를 보호하는 별도 token입니다. 설정하지 않으면 해당 라우트는 <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>를 반환합니다. <code>DASHBOARD_HOOK_TOKEN</code>과 의도적으로 분리되어 있어, loopback 라우트를 강화한다고 해서 인터넷에서 쓰기 가능한 엔드포인트가 함께 열리는 일은 없습니다",
+  "Consecutive failed ingest attempts the Codex sweep spends on one unchanged rollout before leaving it alone. The sweep re-queues a rollout it could not read so a transient failure recovers on the next pass; unbounded, a permanent failure repeats for the life of the process. The count includes the first attempt, is per file, and is restored in full whenever the file's size or mtime changes":
+    "Codex 스윕이 변경되지 않은 하나의 rollout에 대해 포기하기 전까지 소모하는 연속 ingest 실패 횟수입니다. 스윕은 읽지 못한 rollout을 다시 큐에 넣어 일시적 실패가 다음 패스에서 복구되도록 하지만, 제한이 없으면 영구적 실패가 프로세스 수명 내내 반복됩니다. 이 횟수는 첫 시도를 포함하고 파일마다 따로 계산되며, 파일의 size 또는 mtime이 바뀔 때마다 전부 복원됩니다",
+  "Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session":
+    "Remote push: 대시보드가 결코 가져올(pull) 수 없는 로밍 중이거나 NAT 뒤에 있는 머신을 위한 세 번째 세션 데이터 수집 경로입니다. 한 배치에는 token 버킷(각 항목은 델타가 아니라 해당 버킷의 현재 전체 합계), 도구 이벤트, 턴 소요 시간이 담기며 각각 <code>RemoteToolEvent</code> / <code>RemoteTurn</code>으로 저장됩니다. 공개 인터넷에서 접근 가능하도록 의도된 유일한 라우트이므로 <code>REMOTE_PUSH_TOKEN</code>을 설정하기 전까지 비활성화되고, 자격 증명이 프록시 로그에 남지 않도록 <code>?token=</code>을 거부하며, 배치당 1000개 항목으로 제한하고, <code>(session_id, event_type, uuid)</code>로 중복을 제거해 재전송이 안전하며, 로컬 또는 SSH로 가져온 세션이 이미 소유한 <code>session_id</code>는 거부합니다",
+  "Tool call pushed by a remote machine": "원격 머신이 푸시한 도구 호출",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each tool call a roaming or NAT'd machine pushes. Deduped on <code>(session_id, event_type, uuid)</code> against committed rows and within the same batch, so resending a batch is safe.":
+    "로밍 중이거나 NAT 뒤의 머신이 푸시한 각 도구 호출마다 <code>POST /api/hooks/ingest-batch</code>가 기록합니다. 커밋된 행과 같은 배치 내부 모두에 대해 <code>(session_id, event_type, uuid)</code>로 중복을 제거하므로 배치를 다시 보내도 안전합니다.",
+  "Turn duration pushed by a remote machine": "원격 머신이 푸시한 턴 소요 시간",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each pushed turn, carrying that turn's <code>duration_ms</code>. Same dedup as <code>RemoteToolEvent</code>.":
+    "푸시된 각 턴마다 <code>POST /api/hooks/ingest-batch</code>가 해당 턴의 <code>duration_ms</code>와 함께 기록합니다. 중복 제거 방식은 <code>RemoteToolEvent</code>와 동일합니다.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect":
+    "Token independiente que protege <code>POST /api/hooks/ingest-batch</code>, la ruta de remote-push expuesta a la internet pública. Sin configurar, esa ruta responde <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Es deliberadamente independiente de <code>DASHBOARD_HOOK_TOKEN</code>, de modo que endurecer las rutas de loopback nunca abre de paso un endpoint escribible desde internet",
+  "Consecutive failed ingest attempts the Codex sweep spends on one unchanged rollout before leaving it alone. The sweep re-queues a rollout it could not read so a transient failure recovers on the next pass; unbounded, a permanent failure repeats for the life of the process. The count includes the first attempt, is per file, and is restored in full whenever the file's size or mtime changes":
+    "Intentos de ingesta fallidos consecutivos que el barrido de Codex dedica a un mismo rollout sin cambios antes de dejarlo en paz. El barrido vuelve a encolar un rollout que no pudo leer para que un fallo transitorio se recupere en la siguiente pasada; sin límite, un fallo permanente se repite durante toda la vida del proceso. La cuenta incluye el primer intento, es por archivo y se restaura por completo cada vez que cambian el tamaño o el mtime del archivo",
+  "Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session":
+    "Remote push: la tercera vía de ingesta de datos de sesión, para una máquina itinerante o tras NAT a la que el panel nunca puede llegar para extraer datos. Cada lote lleva buckets de tokens (cada entrada es el total actual completo del bucket, no un delta), eventos de herramienta y duraciones de turno, almacenados como <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. Es la única ruta pensada para ser accesible desde la internet pública, así que está deshabilitada hasta configurar <code>REMOTE_PUSH_TOKEN</code>, rechaza <code>?token=</code> para que la credencial nunca llegue a un registro del proxy, limita el lote a 1000 elementos, deduplica por <code>(session_id, event_type, uuid)</code> de modo que reenviar es seguro, y rechaza un <code>session_id</code> que ya pertenezca a una sesión local o extraída por SSH",
+  "Tool call pushed by a remote machine": "Llamada a herramienta enviada por una máquina remota",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each tool call a roaming or NAT'd machine pushes. Deduped on <code>(session_id, event_type, uuid)</code> against committed rows and within the same batch, so resending a batch is safe.":
+    "Lo escribe <code>POST /api/hooks/ingest-batch</code> por cada llamada a herramienta que envía una máquina itinerante o tras NAT. Se deduplica por <code>(session_id, event_type, uuid)</code> tanto frente a las filas ya confirmadas como dentro del mismo lote, así que reenviar un lote es seguro.",
+  "Turn duration pushed by a remote machine": "Duración de turno enviada por una máquina remota",
+  "Written by <code>POST /api/hooks/ingest-batch</code> for each pushed turn, carrying that turn's <code>duration_ms</code>. Same dedup as <code>RemoteToolEvent</code>.":
+    "Lo escribe <code>POST /api/hooks/ingest-batch</code> por cada turno enviado, con el <code>duration_ms</code> de ese turno. Misma deduplicación que <code>RemoteToolEvent</code>.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.":
+    "有些机器 SSH 永远无法触达 —— 处于 NAT 后的漫游笔记本、被 CGNAT 的家庭宽带。这些机器改为推送：<code>POST /api/hooks/ingest-batch</code> 每次接收一个批次的 Token 分桶（每一项都是当前的完整总计，而非增量）、工具事件和回合时长。这是唯一有意面向公网的路由，因此在设置 <code>REMOTE_PUSH_TOKEN</code> 之前保持禁用，拒绝 <code>?token=</code> 而不是让凭据泄漏到代理日志中，单批次上限 1000 项，并拒绝已被本地或 SSH 拉取的运行占用的会话。",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.plain.zh, {
+  "Remote Push Ingestion": "远程推送采集",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.":
+    "Có những máy SSH không bao giờ với tới — laptop roaming sau NAT, đường truyền gia đình bị CGNAT. Những máy đó đẩy dữ liệu lên thay thế: <code>POST /api/hooks/ingest-batch</code> nhận mỗi lần một batch gồm các bucket token (mỗi mục là tổng hiện tại đầy đủ, không phải delta), tool event và thời lượng lượt. Đây là route duy nhất được thiết kế hướng ra internet công cộng, nên nó vẫn bị tắt cho tới khi đặt <code>REMOTE_PUSH_TOKEN</code>, từ chối <code>?token=</code> thay vì để credential rò rỉ vào log proxy, giới hạn mỗi batch 1000 mục, và từ chối một phiên đã thuộc về một lần chạy local hoặc kéo qua SSH.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.plain.vi, {
+  "Remote Push Ingestion": "Thu thập bằng remote push",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.":
+    "SSH가 결코 닿을 수 없는 머신이 있습니다 — NAT 뒤의 로밍 노트북, CGNAT 가정용 회선. 그런 머신은 대신 푸시합니다. <code>POST /api/hooks/ingest-batch</code>는 token 버킷(각각 델타가 아니라 현재 전체 합계), 도구 이벤트, 턴 소요 시간으로 이루어진 배치를 한 번에 받습니다. 공개 인터넷을 향하도록 의도된 유일한 라우트이므로 <code>REMOTE_PUSH_TOKEN</code>을 설정하기 전까지 비활성 상태를 유지하고, 자격 증명이 프록시 로그로 새어 나가지 않도록 <code>?token=</code>을 거부하며, 배치를 1000개 항목으로 제한하고, 로컬 또는 SSH로 가져온 실행이 이미 소유한 세션은 거부합니다.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.plain.ko, {
+  "Remote Push Ingestion": "원격 푸시 수집",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.":
+    "Hay máquinas a las que SSH nunca llega: un portátil itinerante tras NAT, una línea doméstica con CGNAT. Esas envían en su lugar: <code>POST /api/hooks/ingest-batch</code> acepta un lote de buckets de tokens (cada uno un total actual completo, no un delta), eventos de herramienta y duraciones de turno. Es la única ruta pensada para mirar a la internet pública, así que permanece deshabilitada hasta configurar <code>REMOTE_PUSH_TOKEN</code>, rechaza <code>?token=</code> en vez de filtrar una credencial a un registro del proxy, limita el lote a 1000 elementos y rechaza una sesión que ya pertenezca a una ejecución local o extraída por SSH.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
+  "Remote Push Ingestion": "Ingesta por remote push",
 });

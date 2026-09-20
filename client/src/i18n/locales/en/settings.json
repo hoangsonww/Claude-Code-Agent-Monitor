@@ -65,11 +65,11 @@
     "fastOutput": "Fast Output",
     "gpt": {
       "title": "OpenAI GPT Model Pricing",
-      "description": "Published OpenAI API rates for Codex usage. Standard requests use Short rates at or below 272K input tokens and Long rates above 272K; Fast mode uses its own rate card. USD per 1M tokens.",
+      "description": "Published OpenAI API rates for Codex usage. Standard requests use Short rates at or below 272K input tokens and Long rates above 272K; Fast mode has separate Short and Long rates. USD per 1M tokens.",
       "tooltip": {
         "title": "How GPT pricing works",
         "howItWorks": "How it works",
-        "howItWorksBody": "Every amount is USD per 1M tokens. Standard Codex requests use Short rates at or below 272K input tokens and Long rates above 272K. Fast mode uses its own rate card. Fresh input, cached input, cache writes, and output are priced separately.",
+        "howItWorksBody": "Every amount is USD per 1M tokens. Standard Codex requests use Short rates at or below 272K input tokens and Long rates above 272K. Fast mode has separate Short and Long rates. Fresh input, cached input, cache writes, and output are priced separately.",
         "patternsTitle": "Pattern syntax",
         "patternsBody": "Patterns use SQL-style % wildcards. The dashboard evaluates the most specific model patterns first and uses the first rule that matches the reported model id.",
         "manualUpdates": "You must update prices manually",
@@ -80,7 +80,8 @@
       "name": "Name",
       "short": "Standard · Short ≤272K",
       "long": "Standard · Long >272K",
-      "fast": "Fast mode",
+      "fast": "Fast · Short ≤272K",
+      "fastLong": "Fast · Long >272K",
       "input": "Input",
       "cached": "Cached",
       "write": "Cache write",

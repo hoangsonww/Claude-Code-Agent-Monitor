@@ -201,7 +201,7 @@ Render and replace the local image name with an immutable registry reference:
 REGISTRY="ghcr.io/$(gh repo view --json owner -q .owner.login)"
 IMAGE_TAG="$(git rev-parse --short HEAD)"
 kubectl kustomize deployments/kubernetes/overlays/production \
-  | sed "s|ccam-dashboard:2.1.1|${REGISTRY}/claude-code-agent-monitor:${IMAGE_TAG}|g" \
+  | sed "s|ccam-dashboard:2.2.1|${REGISTRY}/claude-code-agent-monitor:${IMAGE_TAG}|g" \
   | kubectl apply --server-side --field-manager=ccam-deployer -f -
 ```
 
@@ -300,6 +300,8 @@ The active `.github/workflows/ci.yml`:
 - attaches BuildKit SBOM and SLSA provenance
 - keyless-signs image digests with Cosign and GitHub OIDC
 - publishes releases only after the signed image job succeeds
+- uploads desktop assets individually into a draft, attempts each upload up to three times (one initial attempt and two retries), and verifies asset sizes before publication
+- resumes unfinished drafts only for the same commit; already published versions remain unchanged
 
 All deployment-related actions are pinned by commit SHA.
 

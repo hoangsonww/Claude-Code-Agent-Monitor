@@ -9,6 +9,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const http = require("http");
+const WebSocket = require("ws");
 const pkg = require("../../package.json");
 
 // Set up test database BEFORE requiring any server modules
@@ -150,6 +151,10 @@ function post(urlPath, body) {
   return fetch(urlPath, { method: "POST", body });
 }
 
+function put(urlPath, body) {
+  return fetch(urlPath, { method: "PUT", body });
+}
+
 function patch(urlPath, body) {
   return fetch(urlPath, { method: "PATCH", body });
 }
@@ -289,6 +294,53 @@ describe("Sessions API", () => {
     const res = await fetch("/api/sessions");
     assert.equal(res.status, 200);
     assert.ok(res.body.sessions.length >= 2);
+  });
+
+  it("reports repository identity and durable-token coverage independently of cost in both list orderings", async () => {
+    // Keep this regression independently runnable under --test-name-pattern;
+    // the ordinary CRUD setup tests may be skipped in that mode.
+    if (!stmts.getSession.get("sess-1")) {
+      stmts.insertSession.run(
+        "sess-1",
+        "Test Session",
+        "active",
+        "/home/test",
+        "gpt-6-astra",
+        null
+      );
+    }
+    if (!stmts.getSession.get("sess-2")) {
+      stmts.insertSession.run("sess-2", "Session Two", "active", null, null, null);
+    }
+    db.prepare("UPDATE sessions SET repo_remote_url = ? WHERE id = ?").run(
+      "ssh://git@example.internal:2222/team/project.git",
+      "sess-1"
+    );
+    stmts.replaceTokenUsage.run(
+      "sess-1",
+      "gpt-6-astra",
+      "standard",
+      "global",
+      "standard",
+      100,
+      10,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    );
+
+    for (const query of ["", "?sort_by=price"]) {
+      const res = await fetch(`/api/sessions${query}`);
+      assert.equal(res.status, 200);
+      const withUsage = res.body.sessions.find((session) => session.id === "sess-1");
+      const withoutUsage = res.body.sessions.find((session) => session.id === "sess-2");
+      assert.equal(withUsage.repo_remote_url, "ssh://git@example.internal:2222/team/project.git");
+      assert.equal(withUsage.has_token_usage, true);
+      assert.equal(withoutUsage.has_token_usage, false);
+    }
   });
 
   it("should filter sessions by status", async () => {
@@ -664,6 +716,25 @@ describe("Settings and GPT pricing API", () => {
     }
   });
 
+  it("round-trips Fast long prices, preserves omitted fields, and rejects invalid rates atomically", async () => {
+    const rule = stmts.getGptPricing.get("gpt-6-astra%");
+    const response = await put("/api/pricing/gpt", { ...rule, fast_long_input_per_mtok: 41 });
+    assert.equal(response.status, 200);
+    assert.equal(response.body.pricing.fast_long_input_per_mtok, 41);
+    const legacy = { ...rule };
+    for (const key of Object.keys(legacy)) if (key.startsWith("fast_long_")) delete legacy[key];
+    assert.equal((await put("/api/pricing/gpt", legacy)).status, 200);
+    assert.equal(stmts.getGptPricing.get(rule.model_pattern).fast_long_input_per_mtok, 41);
+    const invalid = await put("/api/pricing/gpt", {
+      ...rule,
+      fast_long_input_per_mtok: -1,
+      short_input_per_mtok: 999,
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(stmts.getGptPricing.get(rule.model_pattern).short_input_per_mtok, 10);
+    await put("/api/pricing/gpt", rule);
+  });
+
   it("resets one provider without overwriting the other provider's custom rules", async () => {
     const claudePattern = "test-claude-custom%";
     const gptPattern = "test-gpt-custom%";
@@ -750,6 +821,7 @@ describe("Hook Event Processing", () => {
       hook_type: "PreToolUse",
       data: {
         session_id: "hook-sess-1",
+        repo_remote_url: "collector@example.internal:team/hook-project.git?ref=fixture#readme",
         tool_name: "Read",
         tool_input: { file_path: "/test.ts" },
       },
@@ -763,6 +835,15 @@ describe("Hook Event Processing", () => {
     const sessRes = await fetch("/api/sessions/hook-sess-1");
     assert.equal(sessRes.status, 200);
     assert.equal(sessRes.body.session.status, "active");
+    assert.equal(sessRes.body.session.repo_remote_url, "example.internal:team/hook-project.git");
+    const storedEvent = db
+      .prepare("SELECT data FROM events WHERE session_id = ? ORDER BY id DESC LIMIT 1")
+      .get("hook-sess-1");
+    assert.equal(
+      JSON.parse(storedEvent.data).repo_remote_url,
+      "example.internal:team/hook-project.git",
+      "the persisted event envelope must not retain collector userinfo"
+    );
 
     // Verify main agent was created
     const agentRes = await fetch("/api/agents/hook-sess-1-main");
@@ -770,6 +851,71 @@ describe("Hook Event Processing", () => {
     assert.equal(agentRes.body.agent.type, "main");
     assert.equal(agentRes.body.agent.status, "working");
     assert.equal(agentRes.body.agent.current_tool, "Read");
+  });
+
+  it("discards malformed credential-bearing remotes before persisting sessions or events", async () => {
+    const sessionId = "malformed-remote";
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sessionId,
+        tool_name: "Read",
+        repo_remote_url: "https://fixture-user:fixture-secret@example.internal:invalid/repo.git",
+      },
+    });
+    assert.equal(stmts.getSession.get(sessionId).repo_remote_url, null);
+    const event = db.prepare("SELECT data FROM events WHERE session_id = ?").get(sessionId);
+    assert.equal(JSON.parse(event.data).repo_remote_url, undefined);
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sessionId,
+        tool_name: "Read",
+        repo_remote_url: "https://example.internal/original.git",
+      },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sessionId,
+        tool_name: "Read",
+        repo_remote_url: "https://example.internal/changed.git",
+      },
+    });
+    assert.equal(
+      stmts.getSession.get(sessionId).repo_remote_url,
+      "https://example.internal/original.git"
+    );
+  });
+
+  it("broadcasts local-hook repo identity only after it is persisted", async () => {
+    const ws = new WebSocket(BASE.replace("http", "ws") + "/ws");
+    await new Promise((resolve, reject) => {
+      ws.once("open", resolve);
+      ws.once("error", reject);
+    });
+    const frames = [];
+    ws.on("message", (raw) => frames.push(JSON.parse(raw.toString())));
+
+    const sessionId = `hook-ws-${Date.now()}`;
+    const response = await post("/api/hooks/event", {
+      hook_type: "PreToolUse",
+      data: {
+        session_id: sessionId,
+        repo_remote_url: "ssh://collector@example.internal:2222/team/live-project.git",
+        tool_name: "Read",
+      },
+    });
+    assert.equal(response.status, 200);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    ws.close();
+
+    const created = frames.find(
+      (frame) => frame.type === "session_created" && frame.data?.id === sessionId
+    );
+    assert.ok(created, "the real WebSocket receives session_created");
+    assert.equal(created.data.repo_remote_url, "ssh://example.internal:2222/team/live-project.git");
+    assert.equal(stmts.getSession.get(sessionId).repo_remote_url, created.data.repo_remote_url);
   });
 
   it("should keep main agent working on PostToolUse and clear current_tool", async () => {
@@ -971,6 +1117,98 @@ describe("Hook Event Processing", () => {
     const main = agentsRes.body.agents.find((a) => a.type === "main");
     assert.ok(main.awaiting_input_since, "main agent should be flagged as awaiting input");
     assert.equal(main.awaiting_reason, "notification");
+  });
+
+  it("should NOT flag waiting for an idle_prompt notification, even though its text says 'waiting for your input'", async () => {
+    // No SessionStart first: it stamps its own awaiting reason ('session_start').
+    await post("/api/hooks/event", {
+      hook_type: "Notification",
+      data: {
+        session_id: "hook-sess-idle-prompt",
+        notification_type: "idle_prompt",
+        message: "Claude is waiting for your input",
+      },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-idle-prompt");
+    assert.notEqual(sessRes.body.session.awaiting_reason, "notification");
+    assert.equal(sessRes.body.session.awaiting_input_since, null);
+  });
+
+  it("should flag waiting for a permission_prompt notification regardless of its text", async () => {
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: "hook-sess-perm-prompt" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Notification",
+      data: {
+        session_id: "hook-sess-perm-prompt",
+        notification_type: "permission_prompt",
+        message: "Bash",
+      },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-perm-prompt");
+    assert.ok(sessRes.body.session.awaiting_input_since);
+    assert.equal(sessRes.body.session.awaiting_reason, "notification");
+  });
+
+  it("should flag waiting for a permission_prompt even when its text looks like compaction", async () => {
+    await post("/api/hooks/event", {
+      hook_type: "Notification",
+      data: {
+        session_id: "hook-sess-perm-compress",
+        notification_type: "permission_prompt",
+        message: "Claude needs your permission to use compress_logs",
+      },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-perm-compress");
+    assert.ok(sessRes.body.session.awaiting_input_since);
+    assert.equal(sessRes.body.session.awaiting_reason, "notification");
+  });
+
+  it("should flag waiting for quota_auto_resume_stale (it waits for Enter)", async () => {
+    await post("/api/hooks/event", {
+      hook_type: "Notification",
+      data: {
+        session_id: "hook-sess-quota-stale",
+        notification_type: "quota_auto_resume_stale",
+        message: "Claude is waiting for your input. Press Enter to resume.",
+      },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-quota-stale");
+    assert.ok(sessRes.body.session.awaiting_input_since);
+    assert.equal(sessRes.body.session.awaiting_reason, "notification");
+  });
+
+  it("should keep the compaction exclusion for an unknown or empty notification_type", async () => {
+    for (const [sid, type] of [
+      ["hook-sess-compact-future", "future_type"],
+      ["hook-sess-compact-empty", ""],
+      ["hook-sess-compact-none", undefined],
+    ]) {
+      const data = { session_id: sid, message: "Context compression is waiting for your input" };
+      if (type !== undefined) data.notification_type = type;
+      await post("/api/hooks/event", { hook_type: "Notification", data });
+      const sessRes = await fetch(`/api/sessions/${sid}`);
+      assert.notEqual(sessRes.body.session.awaiting_reason, "notification", `type=${type}`);
+    }
+  });
+
+  it("should fall back to the message text for an unknown notification_type", async () => {
+    await post("/api/hooks/event", {
+      hook_type: "SessionStart",
+      data: { session_id: "hook-sess-unknown-type" },
+    });
+    await post("/api/hooks/event", {
+      hook_type: "Notification",
+      data: {
+        session_id: "hook-sess-unknown-type",
+        notification_type: "some_future_type",
+        message: "Claude needs your permission to use Bash",
+      },
+    });
+    const sessRes = await fetch("/api/sessions/hook-sess-unknown-type");
+    assert.ok(sessRes.body.session.awaiting_input_since);
   });
 
   it("should clear awaiting_input_since when the user resumes (next PreToolUse)", async () => {

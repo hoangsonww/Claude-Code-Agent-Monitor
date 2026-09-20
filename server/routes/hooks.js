@@ -18,6 +18,9 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
+const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
+const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
+const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 const { trimHookPayload } = require("../lib/event-payload");
 
 const router = Router();
@@ -43,6 +46,69 @@ const WAITING_INPUT_PATTERN =
 function isWaitingForUserMessage(msg) {
   if (!msg || typeof msg !== "string") return false;
   return WAITING_INPUT_PATTERN.test(msg);
+}
+
+// Claude Code's structured Notification `notification_type` (hooks reference).
+// When present it is authoritative: the idle reminder ("Claude is waiting for
+// your input", type `idle_prompt`) matches WAITING_INPUT_PATTERN textually but
+// only means the turn ended and the user has not typed yet -- it does not block
+// anything, so it must not raise a Waiting badge. Unknown future types and
+// older Claude Code versions without the field fall back to the text pattern.
+const BLOCKING_NOTIFICATION_TYPES = new Set([
+  "permission_prompt",
+  "elicitation_dialog",
+  "elicitation_url_dialog",
+  "agent_needs_input",
+  // Auto-resume found the usage limit still in effect and waits for Enter
+  // instead of continuing (hooks reference) -- the user must act.
+  "quota_auto_resume_stale",
+]);
+const NON_BLOCKING_NOTIFICATION_TYPES = new Set([
+  "idle_prompt",
+  "auth_success",
+  "elicitation_complete",
+  "elicitation_response",
+  "agent_completed",
+  "quota_auto_resume_fired",
+  "quota_auto_resume_disabled",
+]);
+
+function isBlockingNotification(data, msg) {
+  const type = data && typeof data.notification_type === "string" ? data.notification_type : null;
+  if (type && BLOCKING_NOTIFICATION_TYPES.has(type)) return true;
+  if (type && NON_BLOCKING_NOTIFICATION_TYPES.has(type)) return false;
+  return isWaitingForUserMessage(msg);
+}
+
+/**
+ * Removes credentials, query values, and fragments from a collector-provided
+ * Git remote before it reaches durable storage or an API response. Both URL
+ * and SCP-like Git remotes are accepted; repository matching needs only the
+ * credential-free repository identity.
+ *
+ * @param {unknown} value Collector-provided remote URL.
+ * @returns {string|null} Sanitized non-empty remote, or null when unavailable.
+ */
+function sanitizeRepoRemoteUrl(value) {
+  if (typeof value !== "string") return null;
+  const remote = value.trim();
+  if (!remote) return null;
+  try {
+    const parsed = new URL(remote);
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) {
+      parsed.username = "";
+      parsed.password = "";
+      parsed.search = "";
+      parsed.hash = "";
+      return parsed.toString();
+    }
+  } catch {
+    // Fail closed on malformed URLs: falling through would persist userinfo
+    // (for example a credential-bearing HTTPS URL with an invalid port).
+    if (remote.includes("://")) return null;
+    // SCP-like Git syntax (for example git@host:org/repo.git) is not a URL.
+  }
+  return remote.replace(/^[^@/\s:]+@(?=[^@/\s:]+:)/, "").replace(/[?#].*$/, "");
 }
 
 function clearAwaitingInput(sessionId, mainAgentId, broadcastUpdates) {
@@ -136,8 +202,18 @@ function recoverInterruptedSession(sessionId, fullSess, mainAgentId, reasonSuffi
   });
 }
 
-function ensureSession(sessionId, data) {
+/**
+ * Finds or creates the session/main-agent pair for a validated hook envelope,
+ * then applies one-shot collector metadata such as transcript and repository
+ * identity fields.
+ *
+ * @param {string} sessionId Session identifier from the hook payload.
+ * @param {Record<string, unknown>} data Sanitized hook payload.
+ * @returns {object|null} Current session row, or null after a failed insert.
+ */
+function ensureSession(sessionId, data, origin = null) {
   let session = stmts.getSession.get(sessionId);
+  const repoRemoteUrl = sanitizeRepoRemoteUrl(data.repo_remote_url);
   if (!session) {
     stmts.insertSession.run(
       sessionId,
@@ -147,10 +223,28 @@ function ensureSession(sessionId, data) {
       data.model || null,
       null
     );
+    // A hook that proved REMOTE_PUSH_TOKEN (see POST /event) comes from
+    // another machine: birth the row as remote-push owned so the same
+    // collector's POST /ingest-batch can enrich it with tokens/tool events.
+    // Decided once, at creation only -- an existing row is never relabelled,
+    // so a remote caller still cannot take over a locally-managed session.
+    if (origin && origin.remotePush) {
+      stmts.setSessionSource.run(REMOTE_PUSH_SOURCE, sessionId);
+      if (REMOTE_PROVIDERS.includes(data.provider) && data.provider !== "claude") {
+        setSessionProviderStmt.run(data.provider, sessionId);
+      }
+    }
     session = stmts.getSession.get(sessionId);
     if (!session) {
       console.error(`[HOOKS] Failed to create session ${sessionId} — insert returned no row`);
       return null;
+    }
+    // Persist collector identity before publishing the newly created row. A
+    // live subscriber must receive the same session shape a subsequent REST
+    // read gets, rather than a partial pre-enrichment snapshot.
+    if (repoRemoteUrl) {
+      stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
+      session = stmts.getSession.get(sessionId);
     }
     broadcast("session_created", session);
 
@@ -179,6 +273,12 @@ function ensureSession(sessionId, data) {
   // make better-sqlite3 throw inside the surrounding processEvent transaction.
   if (typeof data.transcript_path === "string" && data.transcript_path) {
     stmts.setSessionTranscriptPath.run(data.transcript_path, sessionId);
+  }
+  // The local hook is authenticated before it reaches this route. Persist the
+  // first collector-observed Git remote as opaque metadata; presentation
+  // clients own URL canonicalization and matching policy.
+  if (repoRemoteUrl && session.repo_remote_url !== repoRemoteUrl) {
+    stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
   }
   return session;
 }
@@ -330,11 +430,29 @@ function syncCardPromptPreview(sessionId, result) {
   }
 }
 
-const processEvent = db.transaction((hookType, data) => {
+/**
+ * Processes and durably records one hook event in a SQLite transaction.
+ * Collector-provided repository identity is normalized before any writer sees
+ * the payload, including the full envelope retained in `events.data`.
+ *
+ * @param {string} hookType Canonical hook event type.
+ * @param {Record<string, unknown>} data Hook payload.
+ * @returns {object|null} Broadcast-ready event, or null without a session id.
+ */
+const processEvent = db.transaction((hookType, data, origin = null) => {
+  // `events.data` stores the entire hook envelope. Normalize the field before
+  // ANY downstream work so its original userinfo cannot bypass the sanitized
+  // session column through this separate durable persistence path.
+  if (Object.prototype.hasOwnProperty.call(data, "repo_remote_url")) {
+    const repoRemoteUrl = sanitizeRepoRemoteUrl(data.repo_remote_url);
+    data = { ...data };
+    if (repoRemoteUrl) data.repo_remote_url = repoRemoteUrl;
+    else delete data.repo_remote_url;
+  }
   const sessionId = data.session_id;
   if (!sessionId) return null;
 
-  const session = ensureSession(sessionId, data);
+  const session = ensureSession(sessionId, data, origin);
 
   // Remote household hooks (aideck-hook.js on other machines) cannot rely on
   // the transcript being readable on THIS host (the JSONL lives on the remote
@@ -740,11 +858,21 @@ const processEvent = db.transaction((hookType, data) => {
 
     case "Notification": {
       const msg = data.message || "Notification received";
-      // Tag compaction-related notifications so they show as Compaction events
-      if (/compact|compress|context.*(reduc|truncat|summar)/i.test(msg)) {
+      // Tag compaction-related notifications so they show as Compaction events.
+      // The label is independent of blocking state: a RECOGNIZED blocking type
+      // (e.g. a permission_prompt whose tool name happens to contain
+      // "compress") must still raise Waiting. Everything else -- no type, an
+      // unknown future type, an empty string -- keeps the legacy precedence:
+      // a compaction-looking message is never blocking.
+      const isCompaction = /compact|compress|context.*(reduc|truncat|summar)/i.test(msg);
+      const recognizedBlockingType =
+        typeof data.notification_type === "string" &&
+        BLOCKING_NOTIFICATION_TYPES.has(data.notification_type);
+      if (isCompaction) {
         eventType = "Compaction";
-        summary = msg;
-      } else if (isWaitingForUserMessage(msg)) {
+      }
+      summary = msg;
+      if ((!isCompaction || recognizedBlockingType) && isBlockingNotification(data, msg)) {
         // Claude Code is blocked waiting for the user (permission prompt or
         // explicit "waiting for input" notice). Stamp session + main agent
         // so the dashboard can surface a yellow "Waiting" badge until the
@@ -757,9 +885,6 @@ const processEvent = db.transaction((hookType, data) => {
           stmts.setAgentAwaitingInput.run(ts, "notification", mainAgentId);
           broadcast("agent_updated", stmts.getAgent.get(mainAgentId));
         }
-        summary = msg;
-      } else {
-        summary = msg;
       }
       break;
     }
@@ -1203,7 +1328,16 @@ router.post("/event", (req, res) => {
     });
   }
 
-  const result = processEvent(hook_type, data);
+  // Optional remote-origin proof. A hook forwarded from another machine may
+  // present REMOTE_PUSH_TOKEN (Bearer / X-Dashboard-Token, header only); a
+  // matching token only changes who OWNS a newly created session (see
+  // ensureSession). Anything else -- no token, a wrong token, or a
+  // DASHBOARD_HOOK_TOKEN in the same header -- keeps today's local behaviour,
+  // so this never rejects a hook that is accepted now.
+  const expectedRemoteToken = getRemotePushToken();
+  const remotePush =
+    !!expectedRemoteToken && tokensMatch(extractHeaderOnlyToken(req), expectedRemoteToken);
+  const result = processEvent(hook_type, data, remotePush ? { remotePush: true } : null);
   if (!result) {
     return res.status(400).json({
       error: { code: "MISSING_SESSION", message: "session_id is required in data" },
@@ -1717,6 +1851,566 @@ function livenessReap({ ignoreIdleGate = false, provider = "claude" } = {}) {
     );
   }
 }
+
+// ── POST /api/hooks/ingest-batch ────────────────────────────────────────────
+// Third ingestion path (see server/lib/remote-sync.js for the other two: the
+// local hook POSTs above, and the SSH-pull path in remote-sync.js). This one
+// is for a roaming/NAT'd machine the dashboard can never reach to pull FROM —
+// it pushes a batch of its own session data to us instead, over HTTPS.
+//
+// Two things make this route different from every other route in this file:
+//   1. It is reachable from the public internet via Traefik, not loopback —
+//      so unlike the local hook routes above (which rely on hookGuard being a
+//      no-op + loopback bind), this route refuses to run at all unless its
+//      OWN REMOTE_PUSH_TOKEN is configured (503, not a silent accept), and
+//      every request must present it as a bearer/x-dashboard-token/?token=
+//      match (401 otherwise). Deliberately NOT DASHBOARD_HOOK_TOKEN: that
+//      token exists to harden the LOOPBACK-only local hook above, and an
+//      operator who sets it for that reason alone must not thereby also open
+//      an internet-writable session endpoint they never opted into (roaming
+//      laptop threat model — losing it shouldn't compromise everything under
+//      /api/hooks). See getRemotePushToken() in lib/security.js.
+//   2. A pushed session_id is caller-supplied and could collide (by accident
+//      or by a malicious remote) with a session this dashboard's OWN local
+//      hook is actively managing. Ownership is decided from the session
+//      row's stored `source` column — set once, authoritatively, by whichever
+//      path created the row first — and NEVER from anything in the request.
+
+// Sentinel `sessions.source` for rows created by this route. remote_sources
+// ids (server/routes/remote-sources.js) are always `src_` + 12 lowercase hex
+// characters (`src_${crypto.randomBytes(6).toString("hex")}`) — this sentinel
+// carries no `src_` prefix, so it can never collide with a real configured
+// SSH source id, now or in the future (the id format is fixed at creation).
+const REMOTE_PUSH_SOURCE = "remote_push";
+const setSessionProviderStmt = db.prepare("UPDATE sessions SET provider = ? WHERE id = ?");
+
+// Bump only on a real wire-format break. A mismatch is a whole-request 409 —
+// per-item soft-fail doesn't make sense when the client and server disagree
+// on the payload shape itself.
+const INGEST_BATCH_SCHEMA_VERSION = 1;
+
+// This route is externally reachable (public internet via Traefik). Without
+// a combined item cap, a valid token holder could submit one huge batch and
+// force O(items) synchronous SQLite work plus O(items × connected clients)
+// WebSocket fan-out in a single request. Reject outright, before any other
+// validation/DB work, rather than accepting and later choking on it.
+const MAX_INGEST_BATCH_ITEMS = 1000;
+
+const REMOTE_TOOL_EVENT_TYPE = "RemoteToolEvent";
+const REMOTE_TURN_EVENT_TYPE = "RemoteTurn";
+
+// Numeric fields on a tokens[] entry — see coerceNonNegativeInt.
+const TOKEN_NUMERIC_FIELDS = [
+  "input",
+  "output",
+  "cacheRead",
+  "cacheWrite",
+  "cacheWrite1h",
+  "webSearch",
+  "webFetch",
+  "codeExec",
+];
+
+// Mirrors the partial index idx_events_session_type_uuid (server/db.js): the
+// WHERE clause must repeat json_valid(data) = 1 AND the event_type IN (...)
+// list literally for SQLite to use the (now-narrowed) partial index -- a bare
+// `event_type = ?` parameter is not provably within the IN-list to the query
+// planner, so it falls back to a full events scan otherwise (checked against
+// EXPLAIN QUERY PLAN). The json_valid guard is also required for correctness
+// (json_extract throws on a non-JSON row) independent of the index. Keep this
+// IN list identical to the index's own predicate in server/db.js.
+const dedupEventStmt = db.prepare(
+  `SELECT 1 FROM events
+   WHERE session_id = ? AND event_type = ? AND json_valid(data) = 1
+     AND event_type IN ('${REMOTE_TOOL_EVENT_TYPE}', '${REMOTE_TURN_EVENT_TYPE}')
+     AND json_extract(data, '$.uuid') = ? LIMIT 1`
+);
+
+function itemError(item, code, message) {
+  return { item, code, message };
+}
+
+// Any non-empty string was accepted as a uuid before this (CodeRabbit review
+// on PR #329) -- e.g. "not-a-uuid" was persisted and reported as written,
+// even though the dedup contract (dedupEventStmt) is documented as keying on
+// a real uuid. Deliberately permissive on version/variant nibbles (accepts
+// any RFC 4122-shaped value, not just v4) -- this is an identifier/dedup key
+// from a remote client, not a value this server generates itself.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+/**
+ * Non-negative safe-integer coercion for a present-but-optional numeric
+ * field. Absent/null => 0 (mirrors the local hook's tokens.field || 0
+ * convention); present-but-invalid (negative, fractional, non-finite, wrong
+ * type) => rejected so the caller can build a per-item error.
+ */
+function coerceNonNegativeInt(value) {
+  if (value === undefined || value === null) return { ok: true, value: 0 };
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    // isSafeInteger, not isInteger: a value beyond +/-2^53 can still pass
+    // isInteger after JSON parsing rounds it to the nearest representable
+    // double, silently corrupting the token/duration count it's supposed to
+    // validate.
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    return { ok: false };
+  }
+  return { ok: true, value };
+}
+
+/** Absent timestamp is fine (caller falls back to server "now"); present-but-
+ * unparseable is rejected. Returns a normalized (millisecond-precision) ISO
+ * string so the value written to created_at and the value broadcast over the
+ * WebSocket are byte-identical. */
+function coerceTimestamp(value) {
+  if (value === undefined || value === null) return { ok: true, value: null };
+  if (typeof value !== "string") return { ok: false };
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) return { ok: false };
+  return { ok: true, value: new Date(ms).toISOString() };
+}
+
+router.post("/ingest-batch", (req, res) => {
+  // Own gate, independent of hookGuard (server/index.js) and its
+  // DASHBOARD_HOOK_TOKEN: hookGuard no-ops when that token is unset (fine for
+  // the loopback-only local hook above, wrong for a route reachable from the
+  // public internet), and even when it IS set, reusing it here would silently
+  // widen what that token protects beyond what an operator configuring it for
+  // the local hook opted into. An unconfigured REMOTE_PUSH_TOKEN must refuse
+  // outright rather than silently accept unauthenticated writes.
+  const expectedToken = getRemotePushToken();
+  if (!expectedToken) {
+    return res.status(503).json({
+      error: {
+        code: "REMOTE_PUSH_NOT_CONFIGURED",
+        message: "remote push ingestion is not enabled",
+      },
+    });
+  }
+  // Header-only extraction (never req.query.token) -- this route is public-
+  // internet-reachable, and a query-string credential ends up in server/proxy
+  // access logs (CodeRabbit review).
+  if (!tokensMatch(extractHeaderOnlyToken(req), expectedToken)) {
+    return res.status(401).json({
+      error: { code: "EUNAUTHORIZED", message: "missing or invalid remote-push token" },
+    });
+  }
+
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+
+  if (body.schema_version !== undefined && body.schema_version !== INGEST_BATCH_SCHEMA_VERSION) {
+    return res.status(409).json({
+      error: {
+        code: "SCHEMA_VERSION_MISMATCH",
+        message: `this server speaks schema_version ${INGEST_BATCH_SCHEMA_VERSION}, request carried ${body.schema_version}`,
+      },
+    });
+  }
+
+  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  if (!sessionId) {
+    return res
+      .status(400)
+      .json({ error: { code: "INVALID_INPUT", message: "session_id is required" } });
+  }
+
+  try {
+    assertProvider(body.provider);
+  } catch {
+    return res.status(400).json({
+      error: {
+        code: "INVALID_PROVIDER",
+        message: `provider must be one of: ${REMOTE_PROVIDERS.join(", ")}`,
+      },
+    });
+  }
+  const provider = body.provider;
+
+  const tokens = Array.isArray(body.tokens) ? body.tokens : [];
+  const toolEvents = Array.isArray(body.tool_events) ? body.tool_events : [];
+  const turns = Array.isArray(body.turns) ? body.turns : [];
+
+  if (tokens.length + toolEvents.length + turns.length > MAX_INGEST_BATCH_ITEMS) {
+    return res.status(413).json({
+      error: { code: "BATCH_TOO_LARGE", message: `batch exceeds ${MAX_INGEST_BATCH_ITEMS} items` },
+    });
+  }
+
+  const mainAgentId = `${sessionId}-main`;
+  const existing = stmts.getSession.get(sessionId);
+
+  // ── Ownership gate ─────────────────────────────────────────────────────
+  // A session already owned by anything OTHER than this route's own sentinel
+  // (source='local', or a real remote_sources id from the SSH-pull path) can
+  // NEVER be written to from here — a remote caller must not be able to
+  // hijack a locally-managed session by guessing/reusing its id. Every item
+  // in the batch targets this one session_id (see payload shape), so the
+  // per-item-not-per-request soft-fail contract collapses to "reject every
+  // item" here, but is expressed per item so the response shape stays
+  // uniform with every other rejection reason.
+  if (existing && existing.source !== REMOTE_PUSH_SOURCE) {
+    const errors = [];
+    tokens.forEach((_t, i) =>
+      errors.push(
+        itemError(
+          `tokens[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    toolEvents.forEach((_e, i) =>
+      errors.push(
+        itemError(
+          `tool_events[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    turns.forEach((_t, i) =>
+      errors.push(
+        itemError(
+          `turns[${i}]`,
+          "SESSION_LOCALLY_OWNED",
+          `session ${sessionId} is not remote-push owned`
+        )
+      )
+    );
+    return res.json({ ok: true, written: 0, skipped: 0, errors });
+  }
+
+  // ── Validation (no DB writes yet) ────────────────────────────────────────
+  const errors = [];
+  let skipped = 0;
+  const validTokens = [];
+  const validToolEvents = [];
+  const validTurns = [];
+  // In-request dedup: the DB-backed dedup check below only sees rows already
+  // committed from a PRIOR request. Two items with the same (event_type,
+  // uuid) inside THIS SAME batch would both pass that check and both insert,
+  // so track what this batch has already accepted for insertion too.
+  const seenInBatch = new Set();
+
+  /**
+   * Resolve agent_id (or the session's main agent when absent). The main
+   * agent is intentionally accepted without a DB lookup here: for a brand
+   * new session it doesn't exist yet (created inside the write transaction
+   * below), and for an existing session whose main-agent row was somehow
+   * lost, the write transaction ensures it exists before any event
+   * referencing it is inserted — either way agent_id === mainAgentId is
+   * always safe to accept at validation time.
+   */
+  function resolveAgentId(rawAgentId, label) {
+    if (rawAgentId === undefined || rawAgentId === null || rawAgentId === "") {
+      return { ok: true, agentId: mainAgentId };
+    }
+    if (typeof rawAgentId !== "string") {
+      errors.push(itemError(label, "INVALID_AGENT_ID", "agent_id must be a string"));
+      return { ok: false };
+    }
+    if (rawAgentId === mainAgentId) {
+      return { ok: true, agentId: mainAgentId };
+    }
+    const agent = stmts.getAgent.get(rawAgentId);
+    if (!agent || agent.session_id !== sessionId) {
+      errors.push(
+        itemError(label, "UNKNOWN_AGENT", `agent_id does not belong to session ${sessionId}`)
+      );
+      return { ok: false };
+    }
+    return { ok: true, agentId: rawAgentId };
+  }
+
+  tokens.forEach((t, i) => {
+    const label = `tokens[${i}]`;
+    if (!t || typeof t !== "object" || typeof t.model !== "string" || !t.model) {
+      errors.push(itemError(label, "INVALID_INPUT", "model is required"));
+      return;
+    }
+    const values = {};
+    let invalidField = null;
+    for (const key of TOKEN_NUMERIC_FIELDS) {
+      const r = coerceNonNegativeInt(t[key]);
+      if (!r.ok) {
+        invalidField = key;
+        break;
+      }
+      values[key] = r.value;
+    }
+    if (invalidField) {
+      errors.push(
+        itemError(label, "INVALID_NUMERIC", `${invalidField} must be a non-negative integer`)
+      );
+      return;
+    }
+    if (values.cacheWrite1h > values.cacheWrite) {
+      errors.push(
+        itemError(label, "CACHE_WRITE_1H_EXCEEDS_TOTAL", "cacheWrite1h must be <= cacheWrite")
+      );
+      return;
+    }
+    validTokens.push({
+      model: t.model,
+      // Bucket-pricing dimensions: pass through the same normalizers the
+      // local transcript-derived path uses (server/lib/token-usage.js) —
+      // never store a raw client-supplied value. Note this route mirrors the
+      // local hook's cumulative-per-bucket-totals contract: each tokens[]
+      // entry is the bucket's FULL current total (like a transcript re-parse),
+      // not a delta — replaceTokenUsage below is a high-water-mark REPLACE,
+      // not an additive upsert, so a client sending deltas would silently
+      // under-count.
+      speed: normalizeSpeed({ speed: t.speed }),
+      geo: normalizeGeo({ inference_geo: t.inference_geo }),
+      tier: normalizeTier({ service_tier: t.service_tier }),
+      ...values,
+    });
+  });
+
+  toolEvents.forEach((ev, i) => {
+    const label = `tool_events[${i}]`;
+    if (!ev || typeof ev !== "object" || typeof ev.uuid !== "string" || !ev.uuid) {
+      errors.push(itemError(label, "INVALID_INPUT", "uuid is required"));
+      return;
+    }
+    if (!isUuid(ev.uuid)) {
+      errors.push(itemError(label, "INVALID_UUID", "uuid must be a valid UUID"));
+      return;
+    }
+    const agentRes = resolveAgentId(ev.agent_id, label);
+    if (!agentRes.ok) return;
+    const tsRes = coerceTimestamp(ev.timestamp);
+    if (!tsRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_TIMESTAMP", "timestamp must be a valid ISO date string")
+      );
+      return;
+    }
+    const dedupKey = `${REMOTE_TOOL_EVENT_TYPE} ${ev.uuid}`;
+    if (
+      seenInBatch.has(dedupKey) ||
+      dedupEventStmt.get(sessionId, REMOTE_TOOL_EVENT_TYPE, ev.uuid)
+    ) {
+      skipped++;
+      return;
+    }
+    seenInBatch.add(dedupKey);
+    validToolEvents.push({
+      uuid: ev.uuid,
+      agentId: agentRes.agentId,
+      toolName: typeof ev.tool_name === "string" && ev.tool_name ? ev.tool_name : null,
+      status: typeof ev.status === "string" && ev.status ? ev.status : null,
+      timestamp: tsRes.value,
+    });
+  });
+
+  turns.forEach((t, i) => {
+    const label = `turns[${i}]`;
+    if (!t || typeof t !== "object" || typeof t.uuid !== "string" || !t.uuid) {
+      errors.push(itemError(label, "INVALID_INPUT", "uuid is required"));
+      return;
+    }
+    if (!isUuid(t.uuid)) {
+      errors.push(itemError(label, "INVALID_UUID", "uuid must be a valid UUID"));
+      return;
+    }
+    const agentRes = resolveAgentId(t.agent_id, label);
+    if (!agentRes.ok) return;
+    const durRes = coerceNonNegativeInt(t.duration_ms);
+    if (!durRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_NUMERIC", "duration_ms must be a non-negative integer")
+      );
+      return;
+    }
+    const tsRes = coerceTimestamp(t.timestamp);
+    if (!tsRes.ok) {
+      errors.push(
+        itemError(label, "INVALID_TIMESTAMP", "timestamp must be a valid ISO date string")
+      );
+      return;
+    }
+    const dedupKey = `${REMOTE_TURN_EVENT_TYPE} ${t.uuid}`;
+    if (
+      seenInBatch.has(dedupKey) ||
+      dedupEventStmt.get(sessionId, REMOTE_TURN_EVENT_TYPE, t.uuid)
+    ) {
+      skipped++;
+      return;
+    }
+    seenInBatch.add(dedupKey);
+    validTurns.push({
+      uuid: t.uuid,
+      agentId: agentRes.agentId,
+      durationMs: durRes.value,
+      timestamp: tsRes.value,
+    });
+  });
+
+  // ── Write phase: valid items only, one transaction for atomicity ────────
+  // Broadcasts are collected here and flushed only AFTER writeBatch() returns
+  // successfully (see the file's own "do all DB writes BEFORE any broadcast"
+  // rule above) -- emitting them from inside the transaction would let a
+  // later statement's throw roll back every insert while clients had already
+  // been told about a session/event that turns out not to exist (e.g. a
+  // concurrent delete of a resolved agent_id row between validation and the
+  // write causes insertEventAt to fail its FOREIGN KEY and abort the batch).
+  const pendingBroadcasts = [];
+  const writeBatch = db.transaction(() => {
+    let session = existing;
+    const repoRemoteUrl = sanitizeRepoRemoteUrl(body.repo_remote_url);
+    if (!session) {
+      const sessionName =
+        typeof body.session_name === "string" && body.session_name
+          ? body.session_name
+          : `Session ${sessionId.slice(0, 8)}`;
+      db.prepare(
+        `INSERT INTO sessions (id, name, status, cwd, model, provider, source, started_at, updated_at)
+         VALUES (?, ?, 'active', ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+      ).run(
+        sessionId,
+        sessionName,
+        typeof body.cwd === "string" && body.cwd ? body.cwd : null,
+        typeof body.model === "string" && body.model ? body.model : null,
+        provider,
+        REMOTE_PUSH_SOURCE
+      );
+      session = stmts.getSession.get(sessionId);
+    }
+
+    // Remote-push authentication establishes the collector identity. Preserve
+    // only its first non-empty repository URL so retries and later batches
+    // cannot rewrite a session's cross-machine mapping.
+    if (repoRemoteUrl) {
+      stmts.setSessionRepoRemoteUrl.run(repoRemoteUrl, sessionId);
+      session = stmts.getSession.get(sessionId);
+    }
+    if (!existing) {
+      // Queue only the fully persisted row: flushing happens after this
+      // transaction commits, so WebSocket and REST clients see one contract.
+      pendingBroadcasts.push(["session_created", session]);
+    }
+
+    // Ensure the main agent row exists before any event below references it —
+    // covers both "brand new session" and the rarer "existing remote_push
+    // session whose main-agent row was lost" case. events.agent_id is a
+    // FOREIGN KEY; inserting against a missing agent throws and would roll
+    // back every valid item in this batch (see codex-ingest.js's identical
+    // guard + server/__tests__/codex-ingest.test.js "still records the turn
+    // when the main agent row is missing").
+    if (!stmts.getAgent.get(mainAgentId)) {
+      stmts.insertAgent.run(
+        mainAgentId,
+        sessionId,
+        `Main Agent - ${session.name || `Session ${sessionId.slice(0, 8)}`}`,
+        "main",
+        null,
+        "working",
+        null,
+        null,
+        null
+      );
+      const mainAgent = stmts.getAgent.get(mainAgentId);
+      if (mainAgent) pendingBroadcasts.push(["agent_created", mainAgent]);
+    }
+
+    for (const tk of validTokens) {
+      stmts.replaceTokenUsage.run(
+        sessionId,
+        tk.model,
+        tk.speed,
+        tk.geo,
+        tk.tier,
+        tk.input,
+        tk.output,
+        tk.cacheRead,
+        tk.cacheWrite,
+        tk.cacheWrite1h,
+        tk.webSearch,
+        tk.webFetch,
+        tk.codeExec
+      );
+    }
+
+    for (const ev of validToolEvents) {
+      const ts = ev.timestamp || new Date().toISOString();
+      const summary = ev.toolName ? `Called ${ev.toolName}` : "Remote tool event";
+      stmts.insertEventAt.run(
+        sessionId,
+        ev.agentId,
+        REMOTE_TOOL_EVENT_TYPE,
+        ev.toolName,
+        summary,
+        JSON.stringify({ uuid: ev.uuid, status: ev.status }),
+        ts
+      );
+      pendingBroadcasts.push([
+        "new_event",
+        {
+          session_id: sessionId,
+          agent_id: ev.agentId,
+          event_type: REMOTE_TOOL_EVENT_TYPE,
+          tool_name: ev.toolName,
+          summary,
+          created_at: ts,
+        },
+      ]);
+    }
+
+    for (const t of validTurns) {
+      const ts = t.timestamp || new Date().toISOString();
+      const summary = "Remote turn";
+      stmts.insertEventAt.run(
+        sessionId,
+        t.agentId,
+        REMOTE_TURN_EVENT_TYPE,
+        null,
+        summary,
+        JSON.stringify({ uuid: t.uuid, duration_ms: t.durationMs }),
+        ts
+      );
+      pendingBroadcasts.push([
+        "new_event",
+        {
+          session_id: sessionId,
+          agent_id: t.agentId,
+          event_type: REMOTE_TURN_EVENT_TYPE,
+          tool_name: null,
+          summary,
+          created_at: ts,
+        },
+      ]);
+    }
+  });
+
+  try {
+    writeBatch();
+  } catch (err) {
+    console.error(`[HOOKS] ingest-batch write failed for session ${sessionId}:`, err);
+    return res.status(500).json({
+      error: {
+        code: "WRITE_FAILED",
+        message: "batch write failed and was rolled back",
+      },
+    });
+  }
+
+  for (const [type, payload] of pendingBroadcasts) broadcast(type, payload);
+
+  res.json({
+    ok: true,
+    written: validTokens.length + validToolEvents.length + validTurns.length,
+    skipped,
+    errors,
+  });
+});
 
 const watchdogTimer = setInterval(watchdogCheck, WATCHDOG_INTERVAL_MS);
 // Don't keep the process alive just for the watchdog

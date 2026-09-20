@@ -8,6 +8,10 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
+// Loading the pricing router initializes SQLite; keep calculator tests isolated
+// from the operator's persisted rates and startup migrations.
+process.env.DASHBOARD_DB_PATH = ":memory:";
+
 const { calculateCost, calculateGptCost, calculateProviderCost } = require("../routes/pricing");
 const {
   normalizeSpeed,
@@ -280,6 +284,10 @@ describe("calculateGptCost — Codex pricing dimensions", () => {
       fast_cached_input_per_mtok: 0.4,
       fast_cache_write_per_mtok: 5,
       fast_output_per_mtok: 24,
+      fast_long_input_per_mtok: 8,
+      fast_long_cached_input_per_mtok: 0.8,
+      fast_long_cache_write_per_mtok: 10,
+      fast_long_output_per_mtok: 36,
     },
   ];
 
@@ -323,7 +331,7 @@ describe("calculateGptCost — Codex pricing dimensions", () => {
       [gptBucket({ speed: "fast", context_size: "long", input_tokens: M, output_tokens: M })],
       GPT_RULES
     );
-    assert.equal(r.total_cost, 28); // 4 + 24; Fast has its own published card
+    assert.equal(r.total_cost, 44); // 8 + 36; Fast long has its own published card
   });
 
   it("keeps Codex and Claude rate cards isolated in a combined total", () => {

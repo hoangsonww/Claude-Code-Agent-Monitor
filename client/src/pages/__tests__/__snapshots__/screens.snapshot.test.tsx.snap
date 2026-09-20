@@ -8162,7 +8162,7 @@ exports[`screen snapshots > Settings 1`] = `
             <p
               class="text-xs text-gray-500 mt-0.5"
             >
-              Published OpenAI API rates for Codex usage. Standard requests use Short rates at or below 272K input tokens and Long rates above 272K; Fast mode uses its own rate card. USD per 1M tokens.
+              Published OpenAI API rates for Codex usage. Standard requests use Short rates at or below 272K input tokens and Long rates above 272K; Fast mode has separate Short and Long rates. USD per 1M tokens.
             </p>
           </div>
           <div
@@ -8224,7 +8224,7 @@ exports[`screen snapshots > Settings 1`] = `
           class="card overflow-x-auto"
         >
           <table
-            class="w-full min-w-[1260px] text-left text-xs"
+            class="w-full min-w-[1560px] text-left text-xs"
           >
             <thead
               class="bg-surface-3 text-[10px] uppercase tracking-wide text-gray-500"
@@ -8258,7 +8258,13 @@ exports[`screen snapshots > Settings 1`] = `
                   class="border-l border-border px-2 py-2 text-center"
                   colspan="4"
                 >
-                  Fast mode
+                  Fast · Short ≤272K
+                </th>
+                <th
+                  class="border-l border-border px-2 py-2 text-center"
+                  colspan="4"
+                >
+                  Fast · Long &gt;272K
                 </th>
                 <th
                   class="px-3 py-2"
@@ -8268,6 +8274,26 @@ exports[`screen snapshots > Settings 1`] = `
                 </th>
               </tr>
               <tr>
+                <th
+                  class="border-l border-border px-2 py-1.5 text-right"
+                >
+                  Input
+                </th>
+                <th
+                  class="border-l border-border px-2 py-1.5 text-right"
+                >
+                  Cached
+                </th>
+                <th
+                  class="border-l border-border px-2 py-1.5 text-right"
+                >
+                  Cache write
+                </th>
+                <th
+                  class="border-l border-border px-2 py-1.5 text-right"
+                >
+                  Output
+                </th>
                 <th
                   class="border-l border-border px-2 py-1.5 text-right"
                 >
@@ -11120,7 +11146,7 @@ exports[`screen snapshots > Settings 1`] = `
             <p
               class="text-[10px] text-amber-400/90 mt-1"
             >
-              UI build v2.1.1 (rebuild client to match)
+              UI build v2.2.1 (rebuild client to match)
             </p>
           </div>
           <div

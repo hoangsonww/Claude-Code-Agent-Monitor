@@ -65,11 +65,11 @@
     "fastOutput": "Fast 출력",
     "gpt": {
       "title": "OpenAI GPT 모델 가격 정책",
-      "description": "Codex 사용을 위한 공개 OpenAI API 요금입니다. 표준 요청은 입력 토큰이 272K 이하일 때 Short, 초과일 때 Long 요율을 사용하며 Fast 모드는 별도 요금표를 사용합니다. 토큰 100만 개당 USD입니다.",
+      "description": "Codex 사용을 위한 공개 OpenAI API 요금입니다. 표준 요청은 입력 토큰이 272K 이하일 때 Short, 초과일 때 Long 요율을 사용하며 Fast 모드는 Short와 Long 요율을 각각 제공합니다. 토큰 100만 개당 USD입니다.",
       "tooltip": {
         "title": "GPT 가격 산정 방식",
         "howItWorks": "작동 방식",
-        "howItWorksBody": "모든 금액은 토큰 100만 개당 USD입니다. 표준 Codex 요청은 입력 토큰이 272K 이하이면 Short, 초과하면 Long 요율을 사용합니다. Fast 모드는 별도 요금표를 사용합니다. 신규 입력, 캐시 입력, 캐시 쓰기, 출력은 각각 따로 계산됩니다.",
+        "howItWorksBody": "모든 금액은 토큰 100만 개당 USD입니다. 표준 Codex 요청은 입력 토큰이 272K 이하이면 Short, 초과하면 Long 요율을 사용합니다. Fast 모드는 Short와 Long 요율을 각각 제공합니다. 신규 입력, 캐시 입력, 캐시 쓰기, 출력은 각각 따로 계산됩니다.",
         "patternsTitle": "패턴 문법",
         "patternsBody": "패턴은 SQL 스타일의 % 와일드카드를 사용합니다. 대시보드는 가장 구체적인 모델 패턴부터 평가하고 보고된 model id와 처음 일치하는 규칙을 사용합니다.",
         "manualUpdates": "가격은 수동으로 업데이트해야 합니다",
@@ -80,7 +80,8 @@
       "name": "이름",
       "short": "표준 · Short ≤272K",
       "long": "표준 · Long >272K",
-      "fast": "Fast 모드",
+      "fast": "Fast · Short ≤272K",
+      "fastLong": "Fast · Long >272K",
       "input": "입력",
       "cached": "캐시됨",
       "write": "캐시 쓰기",

@@ -24,7 +24,7 @@ process.env.DASHBOARD_DATA_DIR = path.join(TMP, "data");
 fs.mkdirSync(TMP, { recursive: true });
 
 const { db, stmts, correctSonnet5StandardRate } = require("../db");
-const { calculateCost } = require("../routes/pricing");
+const { calculateCost, calculateGptCost } = require("../routes/pricing");
 
 after(() => {
   if (db) db.close();
@@ -165,6 +165,40 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
         !sorted.some((p) => new RegExp("^" + p.model_pattern.replace(/%/g, ".*") + "$").test(model))
     );
     assert.deepEqual(unpriced, [], "every current model must match a pricing rule");
+  });
+});
+
+describe("gpt_model_pricing seed — GPT-6 Astra", () => {
+  it("is present on a fresh DB with OpenAI's published standard and fast rates", () => {
+    const row = db
+      .prepare("SELECT * FROM gpt_model_pricing WHERE model_pattern = 'gpt-6-astra%'")
+      .get();
+    assert.ok(row, "gpt-6-astra% must have a pricing rule — otherwise recorded usage is unpriced");
+    assert.equal(row.short_input_per_mtok, 10);
+    assert.equal(row.short_cached_input_per_mtok, 1);
+    assert.equal(row.short_cache_write_per_mtok, 12.5);
+    assert.equal(row.short_output_per_mtok, 50);
+    assert.equal(row.fast_input_per_mtok, 20);
+    assert.equal(row.fast_cached_input_per_mtok, 2);
+    assert.equal(row.fast_cache_write_per_mtok, 25);
+    assert.equal(row.fast_output_per_mtok, 100);
+
+    const priced = calculateGptCost(
+      [
+        {
+          model: "gpt-6-astra",
+          speed: "standard",
+          context_size: "short",
+          input_tokens: 1_000_000,
+          output_tokens: 1_000_000,
+          cache_read_tokens: 1_000_000,
+          cache_write_tokens: 1_000_000,
+        },
+      ],
+      [row]
+    );
+    assert.equal(priced.total_cost, 73.5, "10 + 50 + 1 + 12.5 per million tokens");
+    assert.deepEqual(priced.unpriced_models ?? [], []);
   });
 });
 

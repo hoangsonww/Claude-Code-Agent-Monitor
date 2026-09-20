@@ -336,6 +336,7 @@ router.get("/", (req, res) => {
           row.cost = sessionTokens
             ? calculateProviderCost(sessionTokens, rules, gptRules, row.started_at).total_cost
             : 0;
+          row.has_token_usage = Boolean(sessionTokens);
         }
       }
 
@@ -397,6 +398,7 @@ router.get("/", (req, res) => {
         row.cost = sessionTokens
           ? calculateProviderCost(sessionTokens, rules, gptRules, row.started_at).total_cost
           : 0;
+        row.has_token_usage = Boolean(sessionTokens);
       }
     }
   }
@@ -429,7 +431,10 @@ router.get("/", (req, res) => {
           .filter((session) => cwds.length === 0 || cwds.includes(session.cwd))
       : [];
   if (transient.length > 0) {
-    rows = [...transient, ...rows];
+    // Durable rows are enriched with this explicit boolean above. Preserve
+    // the response contract for in-memory process-overlay rows as well: they
+    // cannot have durable token_usage records by construction.
+    rows = [...transient.map((session) => ({ ...session, has_token_usage: false })), ...rows];
   }
 
   if (includeTaskProgress) attachTaskSummaries(rows);

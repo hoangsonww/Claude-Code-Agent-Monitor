@@ -524,10 +524,9 @@ jobs:
   #   On a successful push to the default branch, publish a Release #
   #   for the current package.json version (tagged vX.Y.Z, matching #
   #   the existing v1.0.0 / v1.1.0 convention) and attach the macOS  #
-  #   DMG built by the desktop job. The release is created only when #
-  #   no release exists for that version yet — so bumping `version`  #
-  #   in package.json is what cuts a new release, and re-running     #
-  #   master with an unchanged version is a safe no-op.              #
+  #   DMG and EXE artifacts. Upload into a resumable draft first;    #
+  #   publish only after all assets are verified. Published versions #
+  #   are left unchanged when the workflow runs again.              #
   # ────────────────────────────────────────────────────────────────
   release:
     name: "🚢 Publish Release"
@@ -558,48 +557,22 @@ jobs:
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Resolved release tag: v${VERSION}"
 
-      - name: Check whether the release already exists
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release ${{ steps.ver.outputs.tag }} already exists — nothing to publish."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Release ${{ steps.ver.outputs.tag }} does not exist — it will be published."
-          fi
-
       - name: Download macOS DMG artifact
-        if: steps.check.outputs.exists == 'false'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ClaudeCodeMonitor-dmg
           path: dmg
 
       - name: Download Windows EXE artifact
-        if: steps.check.outputs.exists == 'false'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ClaudeCodeMonitor-win
           path: win
 
       - name: Publish release
-        if: steps.check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ steps.ver.outputs.tag }}"
-          echo "Publishing ${TAG} with assets:"
-          ls -la dmg win
-          gh release create "${TAG}" \
-            --target "${{ github.sha }}" \
-            --title "${TAG}" \
-            --generate-notes \
-            --latest \
-            dmg/*.dmg win/*.exe
-          echo "Published ${TAG} → ${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+        run: node scripts/publish-release.js
 
   # ────────────────────────────────────────────────────────────────
   #  🎉 Pipeline Summary                                            #

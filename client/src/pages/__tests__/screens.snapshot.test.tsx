@@ -652,6 +652,14 @@ describe("screen snapshots", () => {
     const gptAdd = gpt.getByRole("button", { name: "Add Model" });
     const subtitle = gpt.getByText(/Published OpenAI API rates.*USD per 1M tokens\./);
 
+    expect(gpt.getByRole("columnheader", { name: "Fast · Short ≤272K" })).toHaveAttribute(
+      "colspan",
+      "4"
+    );
+    expect(gpt.getByRole("columnheader", { name: "Fast · Long >272K" })).toHaveAttribute(
+      "colspan",
+      "4"
+    );
     expect(gptReset.className).toBe(claudeReset.className);
     expect(gptAdd.className).toBe(claudeAdd.className);
     expect(

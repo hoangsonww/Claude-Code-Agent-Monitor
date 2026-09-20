@@ -47,7 +47,9 @@ fi
 # worktree those are ABSOLUTE paths to the repo mid-commit. Hooks pass their
 # environment to whatever they spawn, and those variables OUTRANK a child's
 # `cwd` — so any test that shells out to git would operate on THIS repository
-# instead of its own fixture, silently committing into the branch being
+# instead of its own fixture. GIT_AUTHOR_* / GIT_COMMITTER_* leak the same way,
+# which is why such fixture commits came out with a committer from the test and
+# an author from the outer commit, silently committing into the branch being
 # committed to. That is exactly how stray "init" commits (one deleting 200k+
 # lines) have appeared on branches here before — and how `git init --bare` in a
 # fixture flipped core.bare on the real repository.
@@ -64,7 +66,9 @@ run_suite() {
   if (
     unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX \
       GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE \
-      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION
+      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION \
+      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
+      GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
     npm run "$2"
   ); then
     return 0
@@ -73,7 +77,9 @@ run_suite() {
   if (
     unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX \
       GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE \
-      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION
+      GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_VERSION \
+      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
+      GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
     npm run "$2"
   ); then
     echo "✅ $1 suite passed on retry — treating the first failure as a load flake."

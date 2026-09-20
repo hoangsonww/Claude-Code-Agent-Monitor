@@ -65,11 +65,11 @@
     "fastOutput": "Salida Rápida",
     "gpt": {
       "title": "Precios de modelos GPT de OpenAI",
-      "description": "Tarifas de API de OpenAI publicadas para el uso de Codex. Las solicitudes estándar usan tarifas cortas con 272K tokens de entrada o menos y largas por encima de 272K; el modo rápido tiene su propia tabla de tarifas. USD por 1M de tokens.",
+      "description": "Tarifas de API de OpenAI publicadas para el uso de Codex. Las solicitudes estándar usan tarifas cortas con 272K tokens de entrada o menos y largas por encima de 272K; el modo rápido tiene tarifas separadas para contexto corto y largo. USD por 1M de tokens.",
       "tooltip": {
         "title": "Cómo funcionan los precios de GPT",
         "howItWorks": "Cómo funciona",
-        "howItWorksBody": "Cada importe está en USD por 1M de tokens. Las solicitudes estándar de Codex usan tarifas cortas con 272K tokens de entrada o menos y tarifas largas por encima de 272K. El modo rápido usa su propia tabla. La entrada nueva, la entrada en caché, la escritura de caché y la salida se calculan por separado.",
+        "howItWorksBody": "Cada importe está en USD por 1M de tokens. Las solicitudes estándar de Codex usan tarifas cortas con 272K tokens de entrada o menos y tarifas largas por encima de 272K. El modo rápido tiene tarifas separadas para contexto corto y largo. La entrada nueva, la entrada en caché, la escritura de caché y la salida se calculan por separado.",
         "patternsTitle": "Sintaxis de patrones",
         "patternsBody": "Los patrones usan comodines % de estilo SQL. El panel evalúa primero los patrones de modelo más específicos y utiliza la primera regla que coincide con el model id informado.",
         "manualUpdates": "Debes actualizar los precios manualmente",
@@ -80,7 +80,8 @@
       "name": "Nombre",
       "short": "Estándar · Corto ≤272K",
       "long": "Estándar · Largo >272K",
-      "fast": "Modo rápido",
+      "fast": "Rápido · Corto ≤272K",
+      "fastLong": "Rápido · Largo >272K",
       "input": "Entrada",
       "cached": "En caché",
       "write": "Escritura de caché",

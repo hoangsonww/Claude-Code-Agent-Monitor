@@ -173,6 +173,8 @@ graph LR
 
 Tracks Claude Code and Codex sessions (one per CLI invocation or background task). Schema mirrors `server/db.js`.
 
+Session rows also retain optional `repo_remote_url` metadata: the first sanitized remote supplied by a collector wins. URL userinfo, query strings, and fragments are removed; malformed URLs are discarded before session or event persistence.
+
 > **Cursor (informational):** Rows imported from `~/.claude` JSONL transcripts may also represent **Cursor** agent sessions — Cursor happens to use the same on-disk layout as Claude Code. The schema does not record which app created a session.
 
 ```sql
@@ -182,6 +184,7 @@ CREATE TABLE sessions (
     status TEXT NOT NULL DEFAULT 'active'
         CHECK (status IN ('active','completed','error','abandoned')),
     cwd TEXT,
+    repo_remote_url TEXT,                                            -- first sanitized collector remote
     model TEXT,
     provider TEXT NOT NULL DEFAULT 'claude',                          -- claude | codex
     started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -204,6 +207,7 @@ CREATE TABLE sessions (
 | `name` | TEXT | YES | Human-readable label. Synced from the transcript title by `routes/hooks.js` (and the 15 s watchdog) on every event: the `custom-title` line (`/rename`, `claude -n`, picker `Ctrl+R`) always wins, otherwise the auto-generated `ai-title` fills a placeholder/auto name, otherwise the session's first user prompt (60-char label) fills it. Falls back to `Session <id8>` |
 | `status` | TEXT | NO | `active`, `completed`, `error`, or `abandoned` (CHECK-constrained). Besides the `SessionEnd` hook, the 15 s watchdog's **liveness reap** also lands `active` → `completed` when no running matching local `claude` or `codex` process has the session's `cwd` (a `SessionEnd` lost while the dashboard was down); gated by `DASHBOARD_LIVENESS_IDLE_SECONDS`, disabled via `DASHBOARD_LIVENESS_PROBE=0`. Sessions with a non-`local` `source` (Remote Data Sources) are always exempt from the local process reap and transcript watchdog. Each remote provider has independent health: sessions stay out of stale sweeps only while their own Claude or Codex mirror is healthy. If that provider reports `error`/`unavailable`, or remains `syncing` longer than `DASHBOARD_STALE_MINUTES`, an active session older than that same window falls back to the ordinary stale sweep (`abandoned`, agents completed) until a fresh mirror can reactivate it |
 | `cwd` | TEXT | YES | Working directory the CLI was launched from |
+| `repo_remote_url` | TEXT | YES | First non-empty sanitized collector remote; later hooks/batches cannot overwrite it. Not discovered automatically from `cwd`. |
 | `model` | TEXT | YES | Claude model ID (e.g. `claude-opus-4-7`) |
 | `provider` | TEXT | NO | Product that produced the session: `claude` (default) or `codex`. Powers the composable `providers` API scope and lets shared token buckets use the correct rate card. |
 | `started_at` | TEXT | NO | ISO 8601 timestamp |
@@ -440,17 +444,17 @@ CREATE TABLE model_pricing (
 
 Standard rates and intro rates are edited independently: the pricing update path writes intro columns only when the caller sends intro fields, so a standard-rate edit never disturbs a promo (and vice versa). Clearing `intro_until` also zeroes the intro rates.
 
-**Example default rule (Claude Sonnet 5, with its launch promo):**
+**Example default rule (Claude Sonnet 5, retaining its historical promo cutoff; $2/$10 is now also the standard rate):**
 
 | Pattern | Input | Output | Intro Input | Intro Output | Intro Until |
 |---------|-------|--------|-------------|--------------|-------------|
-| `claude-sonnet-5%` | $3.00 | $15.00 | $2.00 | $10.00 | `2026-08-31` |
+| `claude-sonnet-5%` | $2.00 | $10.00 | $2.00 | $10.00 | `2026-08-31` |
 
 ---
 
 ### gpt_model_pricing
 
-Separate OpenAI/Codex rate card. It deliberately does not reuse `model_pricing`: Codex tracks explicit cached-input and cache-write token classes, and OpenAI's published card has short, long, and Fast groups.
+Separate OpenAI/Codex rate card. It deliberately does not reuse `model_pricing`: Codex tracks explicit cached-input and cache-write token classes, and OpenAI's published card has Standard short/long and Fast short/long groups.
 
 ```sql
 CREATE TABLE gpt_model_pricing (
@@ -468,11 +472,17 @@ CREATE TABLE gpt_model_pricing (
     fast_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
     fast_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
     fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_long_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_long_cached_input_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_long_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
+    fast_long_output_per_mtok REAL NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
 ```
 
-Standard Codex usage whose request input is `<= 272000` tokens uses the `short_*` group; requests above that boundary use `long_*`; `speed = fast` uses `fast_*`. A zero/missing group is reported as unpriced rather than treated as a free model. Users manage these rows through `/api/pricing/gpt` and the dedicated Settings table.
+Standard Codex usage whose request input is `<= 272000` tokens uses the `short_*` group; requests above that boundary use `long_*`; `speed = fast` uses `fast_*` at or below the same boundary and `fast_long_*` above it. A zero/missing group is reported as unpriced rather than treated as a free model. Users manage these rows through `/api/pricing/gpt` and the dedicated Settings table.
+
+Startup corrects exact obsolete Astra/Sol seed values and adds the Fast long-context columns to existing databases. Published Fast long rates are filled only for untouched default rows; custom rules inherit their previous Fast rates in the new long band to preserve existing calculations. Pricing is calculated on read, so corrected defaults also update historical cost estimates.
 
 ### codex_ingest_state
 
@@ -585,7 +595,48 @@ CREATE INDEX idx_agents_status ON agents(status);
 CREATE INDEX idx_events_agent_type ON events(agent_id, event_type);
 CREATE INDEX idx_events_agent_created ON events(agent_id, created_at);
 CREATE INDEX idx_events_session_created ON events(session_id, created_at);
+
+-- The analytics tool-usage panel groups every event by tool_name. With no index
+-- on that column it is a full events-table scan on every request, and
+-- better-sqlite3 is synchronous, so the whole server stalls for its duration
+-- (45.7s on a 3.9M-row table; 0.25s with this index). Only tool events carry a
+-- tool_name, so the partial predicate keeps the index small.
+CREATE INDEX idx_events_tool_name ON events(tool_name) WHERE tool_name IS NOT NULL;
+
+-- Serves the POST /api/hooks/ingest-batch dedup, which looks each incoming item
+-- up by (session_id, event_type, json_extract(data,'$.uuid')).
+--
+-- Partial on two counts. json_valid(data) = 1 because CREATE INDEX evaluates the
+-- indexed expression against every existing row, and legacy rows predating the
+-- JSON-events convention would make json_extract() throw "malformed JSON" and
+-- abort startup. The event_type list because, unrestricted, every installation
+-- would build and maintain this index over its whole events table whether or not
+-- remote push is configured (~28MB per 500k events; ~224MB at 4M rows).
+--
+-- SQLite only uses a partial index when the query's own WHERE provably implies
+-- the index's, so the dedup query must repeat BOTH predicates literally. A bare
+-- `event_type = ?` parameter is not provably inside the IN list to the planner
+-- and falls back to a full scan. The json_valid guard is also required for
+-- correctness at query time, not just index-build time: json_extract() throws on
+-- a non-JSON row whenever it is evaluated.
+CREATE INDEX idx_events_session_type_uuid
+    ON events(session_id, event_type, json_extract(data, '$.uuid'))
+    WHERE json_valid(data) = 1
+      AND event_type IN ('RemoteToolEvent', 'RemoteTurn');
 ```
+
+**Query Patterns:**
+- `SELECT tool_name, COUNT(*) FROM events WHERE tool_name IS NOT NULL GROUP BY tool_name ORDER BY count DESC LIMIT 20` — analytics tool-usage panel (covering scan of `idx_events_tool_name`)
+- `SELECT 1 FROM events WHERE session_id = ? AND json_valid(data) = 1 AND event_type IN ('RemoteToolEvent', 'RemoteTurn') AND json_extract(data, '$.uuid') = ?` — `ingest-batch` dedup (covered by `idx_events_session_type_uuid`)
+
+> **Startup migration.** An installation that already carries an older, broader
+> copy of `idx_events_session_type_uuid` (created before the `event_type`
+> predicate was narrowed) would keep paying its full size forever, because
+> `CREATE INDEX IF NOT EXISTS` is a no-op against it. `server/db.js` therefore
+> reads the stored definition from `sqlite_master` on startup and drops the index
+> first when it does not already carry the narrowed predicate, so the `CREATE`
+> below it actually rebuilds it. Best-effort — a brand-new or already-correct
+> database is unaffected either way.
 
 ### tool_executions Indexes
 

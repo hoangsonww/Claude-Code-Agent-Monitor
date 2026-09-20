@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard",
-  "version": "2.1.1",
+  "version": "2.2.1",
   "bin": {
     "ccam": "bin/ccam.js"
   },
@@ -56,13 +56,13 @@
     "postinstall": "node scripts/postinstall.js",
     "dev": "node scripts/dev.js",
     "dev:raw": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "node --watch server/index.js",
+    "dev:server": "node scripts/dev-server.js",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "setup": "npm install && npm --prefix client install && npm --prefix vscode-extension install && npm run mcp:install && npm run mcp:build && npm run link-cli",
+    "setup": "npm ci && npm --prefix client ci && npm --prefix vscode-extension ci && npm run mcp:install && npm run mcp:build && npm run link-cli",
     "update:pull-setup": "git pull --ff-only && npm run setup",
-    "mcp:install": "npm --prefix mcp install",
+    "mcp:install": "npm --prefix mcp ci",
     "mcp:build": "npm --prefix mcp run build",
     "mcp:start": "npm --prefix mcp run start",
     "mcp:start:http": "npm --prefix mcp run start:http",

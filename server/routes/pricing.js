@@ -4,7 +4,7 @@
  */
 
 const { Router } = require("express");
-const { stmts, db } = require("../db");
+const { stmts, db, GPT_FAST_LONG_FIELDS } = require("../db");
 const { parseSources, sourceColumnClause } = require("../lib/source-filter");
 const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
 const {
@@ -108,10 +108,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
   const unpriced = new Map();
 
   for (const row of tokenRows) {
-    const rule = sortedRules.find((p) => {
-      const pattern = p.model_pattern.replace(/%/g, ".*");
-      return new RegExp("^" + pattern + "$").test(row.model);
-    });
+    const rule = sortedRules.find((p) => matchesModelPattern(p.model_pattern, row.model));
 
     if (!rule) {
       const u = unpriced.get(row.model) || {
@@ -224,7 +221,7 @@ function calculateGptCost(tokenRows, pricingRules) {
     );
     const contextSize = row.context_size === "long" ? "long" : "short";
     const isFast = row.speed === "fast";
-    const prefix = isFast ? "fast" : contextSize;
+    const prefix = isFast ? (contextSize === "long" ? "fast_long" : "fast") : contextSize;
     const rates = rule
       ? {
           input: Number(rule[`${prefix}_input_per_mtok`]) || 0,
@@ -248,7 +245,7 @@ function calculateGptCost(tokenRows, pricingRules) {
     total += bucketCost;
 
     if (!isPriced) {
-      const key = `${row.model}|${isFast ? "fast" : contextSize}`;
+      const key = `${row.model}|${isFast ? "fast" : "standard"}|${contextSize}`;
       const entry = unpriced.get(key) || {
         model: row.model,
         speed: row.speed || "standard",
@@ -512,7 +509,7 @@ router.put("/gpt", (req, res) => {
     "fast_cache_write_per_mtok",
     "fast_output_per_mtok",
   ];
-  for (const field of rateFields) {
+  for (const field of [...rateFields, ...GPT_FAST_LONG_FIELDS]) {
     const raw = req.body[field];
     if (raw === undefined || raw === null || raw === "") continue;
     const value = Number(raw);
@@ -527,7 +524,16 @@ router.put("/gpt", (req, res) => {
     return raw === undefined || raw === null || raw === "" ? 0 : Number(raw);
   };
 
-  stmts.upsertGptPricing.run(model_pattern, display_name, ...rateFields.map(valueOf));
+  db.transaction(() => {
+    const previous = stmts.getGptPricing.get(model_pattern);
+    stmts.upsertGptPricing.run(model_pattern, display_name, ...rateFields.map(valueOf));
+    stmts.setGptFastLongPricing.run(
+      ...GPT_FAST_LONG_FIELDS.map((field) =>
+        req.body[field] === undefined ? previous?.[field] || 0 : valueOf(field)
+      ),
+      model_pattern
+    );
+  })();
   res.json({ pricing: stmts.getGptPricing.get(model_pattern) });
 });
 

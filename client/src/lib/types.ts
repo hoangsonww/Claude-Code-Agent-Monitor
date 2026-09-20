@@ -1120,7 +1120,7 @@ export interface ModelPricing {
 /**
  * An editable OpenAI/Codex rate rule. The distinct price bands represent the
  * public GPT card: standard short context (<=272K input tokens), standard long
- * context (>272K), and Fast mode. All values are USD per million tokens.
+ * context (>272K), and short/long Fast mode. All values are USD per million tokens.
  */
 export interface GptModelPricing {
   model_pattern: string;
@@ -1134,6 +1134,10 @@ export interface GptModelPricing {
   long_cache_write_per_mtok: number;
   long_output_per_mtok: number;
   fast_input_per_mtok: number;
+  fast_long_input_per_mtok: number;
+  fast_long_cached_input_per_mtok: number;
+  fast_long_cache_write_per_mtok: number;
+  fast_long_output_per_mtok: number;
   fast_cached_input_per_mtok: number;
   fast_cache_write_per_mtok: number;
   fast_output_per_mtok: number;
