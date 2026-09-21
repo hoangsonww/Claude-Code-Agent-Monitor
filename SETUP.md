@@ -457,6 +457,7 @@ Scope, precisely:
 | `build` | `npm run build` | Build the React client to `client/dist/` |
 | `install-hooks` | `npm run install-hooks` | Write Claude Code hooks to `~/.claude/settings.json` |
 | `clear-data` | `npm run clear-data` | Delete all data from the database |
+| `trim-events` | `npm run trim-events` | Shrink `events.data` rows stored before payload trimming existed (dry run by default; `--yes --backup` rewrites and VACUUMs with the dashboard stopped) |
 | `seed` | `npm run seed` | Insert demo sessions/agents/events |
 | `import-history` | `npm run import-history` | Import legacy sessions from `~/.claude/` (also runs on startup) |
 | `reconcile-tokens` | `npm run reconcile-tokens` | Refresh token totals for imported sessions (never lowers a total) |

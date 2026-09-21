@@ -33,6 +33,10 @@ const {
   getTranscriptSnapshotDir,
 } = require("../server/lib/claude-home");
 const { extractFirstUserText, appendRecentUserMessage } = require("../server/lib/transcript-cache");
+const { trimHookPayload } = require("../server/lib/event-payload");
+// Standalone runs (npm run import-history) must apply the same caps as the
+// server; when required by the server this is a no-op (no-override loader).
+require("../server/lib/dotenv").loadDotEnv();
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
 
@@ -738,31 +742,6 @@ function importApiErrors(dbModule, sessionId, mainAgentId, apiErrors) {
 }
 
 /**
- * Truncate a JSON-serializable value so individual events stay reasonably sized.
- * Subagent tool_response payloads (file contents, command stdout) can run into
- * hundreds of KB — store a capped version with a `_truncated` marker.
- */
-const SUBAGENT_EVENT_VALUE_CAP = 50_000; // chars in serialized form
-function truncateForEvent(value) {
-  if (value == null) return value;
-  let serialized;
-  try {
-    serialized = typeof value === "string" ? value : JSON.stringify(value);
-  } catch {
-    return null;
-  }
-  if (serialized.length <= SUBAGENT_EVENT_VALUE_CAP) return value;
-  if (typeof value === "string") {
-    return value.slice(0, SUBAGENT_EVENT_VALUE_CAP) + "\n…[truncated]";
-  }
-  return {
-    _truncated: true,
-    _original_length: serialized.length,
-    preview: serialized.slice(0, SUBAGENT_EVENT_VALUE_CAP),
-  };
-}
-
-/**
  * Find an existing live subagent (created via PreToolUse "Agent" hook) that
  * matches a JSONL transcript. Used to merge JSONL-extracted tool events into
  * the live subagent row instead of creating a duplicate row.
@@ -1075,7 +1054,6 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
       if (!tev.tool_use_id) continue;
       const useIdMarker = `%"tool_use_id":${JSON.stringify(tev.tool_use_id)}%`;
       const ts = tev.pre_timestamp || subData.startedAt;
-      const truncatedInput = truncateForEvent(tev.tool_input);
 
       if (!eventExists.get(targetAgentId, "PreToolUse", useIdMarker)) {
         insertEvent.run(
@@ -1084,13 +1062,15 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
           "PreToolUse",
           tev.tool_name,
           `Using tool: ${tev.tool_name}`,
-          JSON.stringify({
-            imported: true,
-            source: "subagent_jsonl",
-            tool_use_id: tev.tool_use_id,
-            tool_name: tev.tool_name,
-            tool_input: truncatedInput,
-          }),
+          JSON.stringify(
+            trimHookPayload({
+              imported: true,
+              source: "subagent_jsonl",
+              tool_use_id: tev.tool_use_id,
+              tool_name: tev.tool_name,
+              tool_input: tev.tool_input,
+            })
+          ),
           ts
         );
         created++;
@@ -1103,15 +1083,17 @@ function importSubagentFromJsonl(dbModule, sessionId, mainAgentId, subData) {
           "PostToolUse",
           tev.tool_name,
           `Tool completed: ${tev.tool_name}`,
-          JSON.stringify({
-            imported: true,
-            source: "subagent_jsonl",
-            tool_use_id: tev.tool_use_id,
-            tool_name: tev.tool_name,
-            tool_input: truncatedInput,
-            tool_response: truncateForEvent(tev.tool_response),
-            is_error: tev.is_error,
-          }),
+          JSON.stringify(
+            trimHookPayload({
+              imported: true,
+              source: "subagent_jsonl",
+              tool_use_id: tev.tool_use_id,
+              tool_name: tev.tool_name,
+              tool_input: tev.tool_input,
+              tool_response: tev.tool_response,
+              is_error: tev.is_error,
+            })
+          ),
           tev.post_timestamp
         );
         created++;

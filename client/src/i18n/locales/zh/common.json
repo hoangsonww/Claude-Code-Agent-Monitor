@@ -136,7 +136,8 @@
     "noPayload": "此事件未捕获负载。",
     "viewDetails": "查看详情",
     "expand": "展开事件",
-    "collapse": "折叠事件"
+    "collapse": "折叠事件",
+    "trimmed": "存储时已裁剪"
   },
   "eventFilters": {
     "searchPlaceholder": "搜索摘要、工具、数据...",

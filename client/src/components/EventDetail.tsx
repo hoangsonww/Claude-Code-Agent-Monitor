@@ -113,6 +113,7 @@ const PAYLOAD_LABEL_KEYS: Record<string, string> = {
   tool_use_id: "eventDetail.toolUseId",
   tool_input: "eventDetail.toolInput",
   tool_response: "eventDetail.toolResponse",
+  _trimmed: "eventDetail.trimmed",
   is_error: "eventDetail.isError",
   cwd: "eventDetail.cwd",
   permission_mode: "eventDetail.permissionMode",
