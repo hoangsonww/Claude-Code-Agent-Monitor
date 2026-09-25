@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: agent-monitor
     app.kubernetes.io/instance: agent-monitor
-    app.kubernetes.io/version: "2.2.3"
+    app.kubernetes.io/version: "2.2.4"
     app.kubernetes.io/component: server
     app.kubernetes.io/managed-by: kustomize
 spec:
