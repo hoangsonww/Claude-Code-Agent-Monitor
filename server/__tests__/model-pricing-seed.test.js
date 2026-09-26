@@ -73,6 +73,7 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
     ["claude-mythos-5-1%", 10, 50, 0.25, 12.5, 20],
     ["claude-fable-5%", 10, 50, 1, 12.5, 20],
     ["claude-mythos-5%", 10, 50, 1, 12.5, 20],
+    ["claude-opus-5-5%", 4, 20, 0.2, 5, 8],
     ["claude-opus-5%", 5, 25, 0.5, 6.25, 10],
     ["claude-opus-4-5%", 5, 25, 0.5, 6.25, 10],
     ["claude-sonnet-5%", 2, 10, 0.2, 2.5, 4],
@@ -137,6 +138,8 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
       ["claude-mythos-5", "claude-mythos-5%", 1],
       ["claude-opus-5", "claude-opus-5%", 0.5],
       ["claude-opus-5[1m]", "claude-opus-5%", 0.5],
+      ["claude-opus-5-5", "claude-opus-5-5%", 0.2],
+      ["claude-opus-5-5[1m]", "claude-opus-5-5%", 0.2],
     ]) {
       const row = stmts.matchPricing.get(model);
       assert.ok(row, `${model} must match a pricing rule`);
@@ -153,6 +156,7 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
       "claude-mythos-5-1",
       "claude-fable-5",
       "claude-mythos-5",
+      "claude-opus-5-5",
       "claude-opus-5",
       "claude-opus-4-8",
       "claude-opus-4-7",
@@ -234,6 +238,32 @@ describe("historical usage reprices from the corrected rules", () => {
     assert.equal(costOf("claude-fable-5-1"), 60.25);
     // sonnet-5:  2 + 10 + 0.20 = 12.20  (was 18.30 at the stale $3/$15)
     assert.equal(costOf("claude-sonnet-5"), 12.2);
+  });
+
+  it("prices Opus 5.5 by its own rule, not the Opus 5 rule it also LIKE-matches", () => {
+    const rules = db.prepare("SELECT * FROM model_pricing").all();
+    const result = calculateCost([bucket("claude-opus-5-5")], rules, null);
+
+    assert.deepEqual(result.unpriced_models ?? [], []);
+    // opus-5.5: 4 + 20 + 0.20 = 24.20  (30.50 at the Opus 5 rule it would otherwise inherit)
+    assert.equal(result.breakdown.find((b) => b.model === "claude-opus-5-5").cost, 24.2);
+  });
+
+  it("prices Opus 5.5 Fast mode at the seeded $8/$40, with cache rates scaled from the 0.05x read", () => {
+    const rules = db.prepare("SELECT * FROM model_pricing").all();
+    const fast = {
+      ...bucket("claude-opus-5-5"),
+      speed: "fast",
+      cache_write_tokens: 2 * MTOK, // total writes; 1M of them are 1h writes
+      cache_write_1h_tokens: MTOK,
+    };
+    const result = calculateCost([fast], rules, null);
+
+    assert.deepEqual(result.unpriced_models ?? [], []);
+    // Fast scales every rate by 8/4 = 2x: 8 in + 40 out + 0.40 read (0.05 x 8)
+    // + 10 5m write (1.25 x 8) + 16 1h write (2 x 8) = 74.40
+    const cost = result.breakdown.find((b) => b.model === "claude-opus-5-5").cost;
+    assert.ok(Math.abs(cost - 74.4) < 1e-9, `expected 74.40, got ${cost}`);
   });
 });
 

@@ -657,11 +657,17 @@ const DEFAULT_PRICING = [
   ["claude-mythos-5-1%", "Claude Mythos 5.1", 10, 50, 0.25, 12.5, 20, 0, 0],
   ["claude-fable-5%", "Claude Fable 5", 10, 50, 1, 12.5, 20, 0, 0],
   ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20, 0, 0],
-  // Opus family (Fast mode is available only on Opus 5 and 4.8).
+  // Opus family (Fast mode is available only on Opus 5.5, 5 and 4.8).
+  // claude-opus-5-5: $4/$20 input/output, $0.20 cache read (0.05x input, not the
+  // standard 0.1x), $5 5m cache write, $8 1h cache write; Fast mode $8/$40. It
+  // needs its own pattern: `claude-opus-5%` also LIKE-matches "claude-opus-5-5",
+  // and the longest-pattern-first ordering (see the Fable/Mythos 5.1 note above)
+  // lets this rule win.
+  ["claude-opus-5-5%", "Claude Opus 5.5", 4, 20, 0.2, 5, 8, 8, 40],
   // claude-opus-5: $5/$25 input/output, $0.50 cache read, $6.25 5m cache write,
   // $10 1h cache write — matching Anthropic's published rate card and identical
   // to the 4.8/4.7/4.6/4.5 rows that share the same $5 input tier. Fast mode is
-  // $10/$50 (fast mode is Opus 5 / Opus 4.8 only).
+  // $10/$50.
   // `%` covers both "claude-opus-5" and "claude-opus-5[1m]" (observed model
   // string with the 1M-context flag) under one rule — the same convention every
   // other model here uses, not a separate pricing tier.
