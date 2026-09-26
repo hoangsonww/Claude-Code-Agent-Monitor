@@ -3,13 +3,13 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const CACHE_NAME = "wiki-v124";
+const CACHE_NAME = "wiki-v125";
 const PRECACHE = [
   "./",
   "./index.html",
   "./style.css?v=16",
   "./script.js?v=59",
-  "./i18n-content.js?v=102",
+  "./i18n-content.js?v=103",
   "./manifest.json",
   "../favicon.svg",
 ];
@@ -24,7 +24,9 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+        Promise.all(
+          keys.filter((k) => k.startsWith("wiki-") && k !== CACHE_NAME).map((k) => caches.delete(k))
+        )
       )
   );
   self.clients.claim();
