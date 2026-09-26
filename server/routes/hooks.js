@@ -19,6 +19,7 @@ const {
 } = require("../../scripts/import-history");
 const { evaluateEvent } = require("../lib/alerts");
 const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
+const { applyPrivacyPolicy } = require("../lib/privacy");
 // Required as a module object (not destructured) so tests can swap
 // `liveness.probeLiveCwds` and the watchdog picks the stub up at call time.
 const liveness = require("../lib/session-liveness");
@@ -1289,13 +1290,33 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   // Bump session updated_at on every event
   stmts.touchSession.run(sessionId);
 
+  // Apply privacy policy to the payload before persistence. Fail-safe: errors
+  // degrade to storing the original data so ingestion is never blocked.
+  const { data: redactedData, privacy_meta } = applyPrivacyPolicy(data);
+
+  // transcript_path is operational metadata the watchdog reads back out of
+  // persisted events (see watchdogCheck) to locate the session's transcript
+  // file. It can incidentally match the "Home directory paths" detector, so
+  // restore the original value after redaction — masking it would silently
+  // break transcript recovery for every redacted session.
+  let finalData = redactedData;
+  if (
+    finalData &&
+    typeof finalData === "object" &&
+    data &&
+    typeof data === "object" &&
+    "transcript_path" in finalData
+  ) {
+    finalData = { ...finalData, transcript_path: data.transcript_path };
+  }
+
   stmts.insertEvent.run(
     sessionId,
     agentId,
     eventType,
     toolName,
     summary,
-    JSON.stringify(data)
+    finalData !== null ? JSON.stringify(finalData) : null
     // created_at uses default
   );
 
@@ -1306,6 +1327,16 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
     tool_name: toolName,
     summary,
     created_at: new Date().toISOString(),
+    // Expose that redaction happened and what it touched, without ever
+    // including the original (unredacted) values in the broadcast payload.
+    privacy_redacted: !!(
+      privacy_meta &&
+      (privacy_meta.dropped ||
+        privacy_meta.preserve_metadata_only ||
+        privacy_meta.redacted_fields.length ||
+        privacy_meta.matched_patterns.length)
+    ),
+    privacy_meta: privacy_meta || undefined,
   };
   broadcast("new_event", event);
   return event;
