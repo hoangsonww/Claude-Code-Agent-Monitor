@@ -1,0 +1,192 @@
+{
+  "title": "Esegui agente",
+  "subtitle": "Avvia un agente di coding locale direttamente nella dashboard.",
+  "provider": {
+    "aria": "Provider di esecuzione",
+    "kicker": "Esegui agente",
+    "chooseTitle": "Quale agente vuoi eseguire?",
+    "chooseDescription": "Scegli un agente locale interattivo. Puoi cambiarlo prima di avviare una nuova esecuzione.",
+    "choose": "Scegli",
+    "cancel": "Annulla",
+    "beta": "BETA",
+    "claude": {
+      "label": "Claude Code",
+      "subtitle": "Avvia sessioni Claude Code con streaming in diretta, conversazione e le stesse analisi basate sugli hook del tuo terminale.",
+      "description": "Esegui Claude Code in modalità conversazione o come attività singola."
+    },
+    "codex": {
+      "label": "Codex",
+      "subtitle": "Avvia un thread Codex interattivo nativo con risposte in diretta, attività degli strumenti e turni successivi.",
+      "description": "Esegui un thread app-server Codex persistente dalla tua CLI locale autenticata.",
+      "interactiveLabel": "Thread Codex interattivo",
+      "interactiveHint": "Avvia un thread locale persistente con risposte in diretta, attività degli strumenti, annullamento e turni successivi."
+    }
+  },
+  "mode": {
+    "label": "Modalità",
+    "conversation": "Conversazione",
+    "conversationHint": "Più turni: continua a scrivere messaggi mentre l'agente lavora.",
+    "headless": "Singola",
+    "headlessHint": "Un prompt, una risposta. Stdin si chiude dopo l'avvio."
+  },
+  "fields": {
+    "prompt": "Prompt",
+    "promptPlaceholder": "Chiedi qualsiasi cosa a Claude…",
+    "cwd": "Directory di lavoro",
+    "cwdHint": "Percorso assoluto. Predefinito: il cwd della dashboard stessa.",
+    "cwdPlaceholder": "Digita per cercare o incolla un percorso assoluto…",
+    "cwdGroups": {
+      "dashboard": "Server della dashboard",
+      "home": "Home",
+      "recent": "Recenti - usati da Claude Code"
+    },
+    "cwdNoMatches": "Nessun risultato. Digita un percorso assoluto per usarlo direttamente.",
+    "model": "Modello",
+    "modelInheritLabel": "Predefinito (consigliato)",
+    "modelCustom": "Personalizzato…",
+    "modelCustomPlaceholder": "id del modello (es. claude-opus-4-7-20260101)",
+    "permissionMode": "Modalità permessi",
+    "permissionAcceptEdits": "acceptEdits (consigliato)",
+    "permissionDefault": "default (richieste interattive - le sessioni headless possono bloccarsi)",
+    "permissionPlan": "plan (pianificazione in sola lettura)",
+    "permissionBypass": "bypassPermissions (PERICOLO - consente tutto senza chiedere)",
+    "approvalUntrusted": "Untrusted (chiedi prima dei comandi non attendibili)",
+    "approvalOnRequest": "On request (Codex decide quando chiedere)",
+    "approvalNever": "Never (restituisci direttamente gli errori di esecuzione)",
+    "sandbox": "Sandbox",
+    "sandboxReadOnly": "Sola lettura",
+    "sandboxWorkspaceWrite": "Scrittura nel workspace",
+    "sandboxDanger": "Accesso completo pericoloso",
+    "modelLiveCatalog": "Catalogo in diretta dalla tua CLI Codex autenticata",
+    "modelCuratedCatalog": "Claude Code non pubblica un elenco di modelli per account; scegli i suoi alias stabili o inserisci un altro ID modello.",
+    "modelCustomClaudeHint": "Per un modello Claude precedente o specifico dell'account, inserisci il valore --model esatto.",
+    "effort": "Impegno di ragionamento",
+    "effortHint": "Determina quanto ragiona il modello prima di rispondere. Più alto = più token di ragionamento, più lento, più approfondito. Vuoto eredita il valore predefinito del modello."
+  },
+  "actions": {
+    "start": "Esegui",
+    "starting": "Avvio…",
+    "send": "Invia",
+    "sending": "Invio…",
+    "stop": "Ferma",
+    "stopping": "Arresto…",
+    "newRun": "Nuova esecuzione",
+    "viewSession": "Vedi sessione"
+  },
+  "status": {
+    "idle": "Inattivo",
+    "spawning": "Avvio…",
+    "running": "In esecuzione",
+    "completed": "Completato",
+    "error": "Errore",
+    "killed": "Terminato",
+    "abandoned": "Abbandonato"
+  },
+  "binary": {
+    "missing": "La CLI `claude` non è nel tuo PATH. Installa Claude Code o imposta PATH perché la dashboard possa avviarla.",
+    "found": "In uso: {{path}}"
+  },
+  "concurrency": {
+    "active_one": "{{count}} esecuzione già in corso",
+    "active_other": "{{count}} esecuzioni già in corso",
+    "viewActive": "Esecuzioni della dashboard",
+    "atCap": "Limite di concorrenza raggiunto ({{max}}). Ferma una delle esecuzioni in corso per avviarne una nuova."
+  },
+  "hint": {
+    "shortcut": "Cmd+Invio / Ctrl+Invio per inviare",
+    "permissionWarning": "bypassPermissions consente TUTTE le invocazioni degli strumenti senza conferma. Usalo solo con prompt attendibili.",
+    "headlessExplain": "La modalità headless è ideale per attività scriptate in cui sai esattamente cosa vuoi. La sessione non può porre domande di chiarimento e si bloccherà sulle richieste di permesso, a meno che tu non resti in acceptEdits."
+  },
+  "empty": {
+    "title": "Ancora niente",
+    "body": "Scrivi un prompt e fai clic su Esegui. L'output appare qui mentre il modello ragiona, chiama strumenti e risponde."
+  },
+  "events": {
+    "you": "Tu",
+    "claude": "Claude",
+    "tool": "Strumento",
+    "toolResult": "Risultato dello strumento",
+    "system": "Sistema",
+    "thinking": "Ragionamento",
+    "expand": "Espandi",
+    "collapse": "Comprimi"
+  },
+  "footer": {
+    "duration": "Durata",
+    "cost": "Costo",
+    "turns": "Turni",
+    "exitCode": "Codice di uscita",
+    "sessionId": "ID sessione"
+  },
+  "errors": {
+    "startFailed": "Impossibile avviare l'esecuzione: {{message}}",
+    "sendFailed": "Impossibile inviare: {{message}}",
+    "killFailed": "Impossibile fermare: {{message}}",
+    "attachFailed": "Impossibile collegarsi all'esecuzione: {{message}}"
+  },
+  "runs": {
+    "switcher": "Esecuzioni della dashboard",
+    "switcherEmpty": "Nessuna esecuzione attiva",
+    "attached": "Collegato a un'esecuzione esistente",
+    "started": "Avviata {{when}}",
+    "viewActive": "Esecuzioni della dashboard",
+    "viewActive_other": "{{count}} esecuzioni della dashboard",
+    "scopeNote": "Mostra solo le esecuzioni avviate da questa dashboard.",
+    "allSessionsLink": "Vedi tutte le sessioni Claude Code →",
+    "viewLabel": "Vedi"
+  },
+  "resume": {
+    "label": "Sessione di origine",
+    "freshOption": "Nuova sessione",
+    "freshHint": "Avvia una nuova sessione Claude Code.",
+    "resumeOption": "Riprendi una sessione esistente",
+    "resumeHint": "Scegli una sessione dalla cronologia e continua la conversazione. Il cwd è bloccato su quello originale.",
+    "pickSession": "Scegli una sessione…",
+    "search": "Cerca per ID, cwd o stato…",
+    "noSessions": "Nessuna sessione trovata.",
+    "originalCwd": "Cwd originale",
+    "preview": "Ultima attività",
+    "selectedBadge": "Ripresa",
+    "clear": "Cancella selezione"
+  },
+  "limitations": {
+    "title": "Eseguire Claude nel browser",
+    "subtitle": "stesso binario, interfaccia diversa",
+    "peek": "La maggior parte delle funzioni della TUI è disponibile. Alcune funzioni interattive no.",
+    "why": "Perché",
+    "intro": "Dietro le quinte avviamo lo stesso binario `claude` usato dal tuo terminale, ma stream-json (l'unica interfaccia programmatica esposta da Claude) è un flusso a senso unico, non la TUI interattiva. Tutto ciò che dipende da una sessione di terminale attiva (richieste di permesso sul posto, overlay delle scorciatoie da tastiera, modifiche di configurazione a sessione avviata) va impostato all'avvio anziché a metà conversazione.",
+    "supported": "Funziona qui",
+    "limited": "Solo CLI",
+    "tldr": "Se una funzione non è presente qui, apri la stessa sessione nel terminale con `claude --resume <session-id>`: entrambi i lati condividono la stessa trascrizione JSONL su disco, quindi non perdi mai il contesto cambiando interfaccia.",
+    "dismiss": "Ho capito",
+    "minimize": "Riduci",
+    "restore": "Mostra le note sull'esecuzione nel browser",
+    "expand": "Leggi di più",
+    "collapse": "Comprimi"
+  },
+  "tokens": {
+    "label": "Contesto",
+    "input": "Input",
+    "output": "Output",
+    "cacheRead": "Hit della cache",
+    "cost": "Costo"
+  },
+  "autocomplete": {
+    "slashHint": "Digita / per i comandi slash",
+    "fileHint": "Digita @ per fare riferimento a un file",
+    "noMatches": "Nessun risultato",
+    "groupBuiltin": "Integrati (solo CLI - non vengono eseguiti da qui)",
+    "groupUser": "Comandi utente",
+    "groupProject": "Comandi del progetto",
+    "groupFiles": "File nel cwd"
+  },
+  "statusHeader": {
+    "model": "Modello",
+    "effort": "Impegno",
+    "permissionMode": "Modalità",
+    "cwd": "Cwd",
+    "session": "Sessione",
+    "envelopes": "Eventi",
+    "duration": "Trascorso"
+  }
+}

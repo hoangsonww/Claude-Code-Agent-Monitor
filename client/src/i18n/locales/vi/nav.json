@@ -59,14 +59,22 @@
     "zh": "Tiếng Trung",
     "vi": "Tiếng Việt",
     "ko": "Tiếng Hàn",
-    "es": "Tiếng Tây Ban Nha"
+    "es": "Tiếng Tây Ban Nha",
+    "fr": "Tiếng Pháp",
+    "de": "Tiếng Đức",
+    "pt": "Tiếng Bồ Đào Nha",
+    "it": "Tiếng Ý"
   },
   "languageShort": {
     "en": "EN",
     "zh": "中文",
     "vi": "VI",
     "ko": "한국어",
-    "es": "ES"
+    "es": "ES",
+    "fr": "FR",
+    "de": "DE",
+    "pt": "PT",
+    "it": "IT"
   },
   "palette": {
     "title": "Bảng lệnh",

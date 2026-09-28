@@ -10,10 +10,11 @@ paths:
 # Wiki Internationalization Rules
 
 The static wiki (`wiki/index.html`) is fully localized to English, Simplified
-Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). English is
+Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), French (`fr`),
+German (`de`), Portuguese (`pt`), and Italian (`it`). English is
 the DOM source of truth; `wiki/script.js` swaps text at runtime. **Any new or
-changed user-visible wiki text MUST ship with `zh` + `vi` + `ko` + `es`
-translations in the same change** — otherwise it falls back to English and the
+changed user-visible wiki text MUST ship with `zh` + `vi` + `ko` + `es` +
+`fr` + `de` + `pt` + `it` translations in the same change** — otherwise it falls back to English and the
 page is half-translated.
 
 ## When you add or edit content in `wiki/index.html`

@@ -29,7 +29,7 @@ Update docs **in the same change-set (PR/commit) as the code**, before claiming 
 
 | Change type | Docs to update |
 |---|---|
-| **Env var** | `README.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` (env tables), `ARCHITECTURE.md` (inline), `server/README.md`, `wiki/index.html` (env table) + wiki i18n, `.env.example` |
+| **Env var** | `README.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`, `README-IT.md` (env tables), `ARCHITECTURE.md` (inline), `server/README.md`, `wiki/index.html` (env table) + wiki i18n, `.env.example` |
 | **Event type** | `README.md`+CN+VN+KO+ES (hook-event table), `ARCHITECTURE.md` (Event types line), `docs/PLUGINS.md`, `wiki/index.html` + i18n, `docs/DATABASE.md` (if it enumerates types) |
 | **Hook behavior / state transition** | `docs/HOOKS.md`, state-machine **mermaid** diagrams in `README.md`+CN+VN+KO+ES + `server/README.md` + `docs/DATABASE.md` + `wiki/index.html`, `ARCHITECTURE.md` (hooks.js row) |
 | **API route / response** | `docs/API.md`, `server/README.md` (routes), `ARCHITECTURE.md` (routes row), `server/openapi*.js` (code) |
@@ -44,7 +44,7 @@ Update docs **in the same change-set (PR/commit) as the code**, before claiming 
 
 1. **Classify** the change against the table above. A change can hit multiple rows (a new feature with a new env var hits both).
 2. **Write the canonical English version first** — usually `README.md` and/or `ARCHITECTURE.md`. Get the wording right there; it anchors everything else.
-3. **Propagate to translations** `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`: mirror the SAME edits at the corresponding sections. Keep identifiers, env-var names, event names, and code in English; translate only prose. Render "Waiting" as **等待中** (zh) / **Đang chờ** (vi) / **대기 중** (ko) / **En espera** (es). Match each file's existing terminology — read the neighboring lines first. The [`i18n-parity`](../i18n-parity/SKILL.md) skill owns this propagation and its glossary.
+3. **Propagate to translations** `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`, and `README-IT.md`: mirror the SAME edits at the corresponding sections. Keep identifiers, env-var names, event names, and code in English; translate only prose. Render "Waiting" as **等待中** (zh) / **Đang chờ** (vi) / **대기 중** (ko) / **En espera** (es). Match each file's existing terminology — read the neighboring lines first. The [`i18n-parity`](../i18n-parity/SKILL.md) skill owns this propagation and its glossary.
 4. **Landing page** `index.html`: one concise marketing sentence in the most relevant existing feature card — light touch, no new sections.
 5. **Wiki** `wiki/index.html`: add the detailed prose/table/diagram **at the length and in the position its neighbours already use** (see *Match the wiki's existing shape* below), then follow `.claude/rules/wiki-i18n.md` — add `zh` + `vi` + `ko` + `es` entries for every new English string to `wiki/i18n-content.js`, then **bump the cache**: increment `CACHE_NAME` in `wiki/sw.js` and the `i18n-content.js?v=` query string in `wiki/index.html`. Skipping the cache bump means returning visitors never see the update.
 6. **Area READMEs / docs/**: update `server/README.md`, `client/README.md`, and the relevant `docs/*.md` per the mapping.
@@ -87,7 +87,7 @@ the layout, so **measure before you write, and copy the pattern you find**.
 - **Coverage**: run `scripts/doc-coverage.sh <new-term> [...]` (e.g. the new env var / event type / identifier) and confirm every doc the mapping flags shows a HIT. The matrix is advisory — not every term belongs in every file — but a flagged doc reading `0` is a miss to fix.
 - **Tables**: markdown tables stay pipe-balanced (header column count == every row).
 - **Mermaid**: each edited block still parses (valid `source --> target: label`).
-- **i18n**: every new wiki English string resolves to `zh`, `vi`, `ko`, and `es`; cache versions bumped — `CACHE_NAME` in `wiki/sw.js` plus the `?v=` query strings, which must match between `wiki/index.html` and the service-worker `PRECACHE` list (it matches on the full URL, query included, so a stale entry is simply never served).
+- **i18n**: every new wiki English string resolves to `zh`, `vi`, `ko`, `es`, `fr`, `de`, `pt`, and `it`; cache versions bumped — `CACHE_NAME` in `wiki/sw.js` plus the `?v=` query strings, which must match between `wiki/index.html` and the service-worker `PRECACHE` list (it matches on the full URL, query included, so a stale entry is simply never served).
 - **Wiki block sizing**: `.claude/skills/update-project-docs/scripts/wiki-block-lengths.sh` exits 0 — no carousel card or caption is an outlier, and any new card is placed by importance rather than dropped at the front.
 - **Format/tests**: run `npm run format` (or `prettier --check` on touched files); for any code touched, run the verification from `CLAUDE.md` (`npm run test:server` / `test:client` / `mcp:typecheck`).
 - State exactly which docs were updated and which were intentionally skipped (with reason), mirroring the repo's verification policy.

@@ -95,7 +95,7 @@
             "name": "Claude Code Agent Monitor Wiki",
             "headline": "Claude Code Agent Monitor Wiki — Setup, API, Hooks and MCP",
             "description": "Complete technical wiki for Claude Code Agent Monitor: install, hooks, REST API, SQLite schema, MCP tools, plugins, deployment, Cursor and Codex support.",
-            "inLanguage": ["en", "zh", "vi", "ko", "es"],
+            "inLanguage": ["en", "zh", "vi", "ko", "es", "fr", "de", "pt", "it"],
             "image": "https://hoangsonww.github.io/Claude-Code-Agent-Monitor/og-image.png",
             "proficiencyLevel": "Beginner to Expert",
             "dependencies": "Node.js 18+, npm, Claude Code CLI",
@@ -642,6 +642,10 @@
             <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
             <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
             <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+            <button type="button" class="lang-option" data-lang="fr" role="option" aria-selected="false">Français</button>
+            <button type="button" class="lang-option" data-lang="de" role="option" aria-selected="false">Deutsch</button>
+            <button type="button" class="lang-option" data-lang="pt" role="option" aria-selected="false">Português</button>
+            <button type="button" class="lang-option" data-lang="it" role="option" aria-selected="false">Italiano</button>
           </div>
         </div>
 
@@ -783,6 +787,10 @@
           <button type="button" class="lang-option" data-lang="vi" role="option" aria-selected="false">Tiếng Việt</button>
           <button type="button" class="lang-option" data-lang="ko" role="option" aria-selected="false">한국어</button>
           <button type="button" class="lang-option" data-lang="es" role="option" aria-selected="false">Español</button>
+          <button type="button" class="lang-option" data-lang="fr" role="option" aria-selected="false">Français</button>
+          <button type="button" class="lang-option" data-lang="de" role="option" aria-selected="false">Deutsch</button>
+          <button type="button" class="lang-option" data-lang="pt" role="option" aria-selected="false">Português</button>
+          <button type="button" class="lang-option" data-lang="it" role="option" aria-selected="false">Italiano</button>
         </div>
       </div>
 
@@ -5960,7 +5968,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
                 names. Each webhook provider ships a collapsible step-by-step setup guide linking to
                 the official docs. A one-click <strong>"Send test"</strong> probe fires a synthetic
                 alert and reports the delivery result inline, and targets can be scoped to specific
-                rules. Fully localized (en / zh / vi / ko / es).
+                rules. Fully localized (en / zh / vi / ko / es / fr / de / pt / it).
               </p>
             </div>
           </div>
@@ -6340,7 +6348,7 @@ xattr -cr "/Applications/Claude Code Monitor.app"</code></pre>
           <h2>Internationalization (i18n)</h2>
 
           <p>
-            The entire UI ships in <strong>five languages — English, 简体中文, Tiếng Việt, 한국어, and Español</strong>
+            The entire UI ships in <strong>nine languages — English, 简体中文, Tiếng Việt, 한국어, Español, Français, Deutsch, Português, and Italiano</strong>
             — built on <code>i18next</code> + <code>react-i18next</code> with
             <code>i18next-browser-languagedetector</code>. Coverage is end-to-end: every page, chart
             tooltip, Settings flow, Workflow narrative, Config Explorer tab, Run page, and the Alerts
@@ -7225,8 +7233,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=104" defer></script>
-    <script src="script.js?v=59" defer></script>
+    <script src="i18n-content.js?v=105" defer></script>
+    <script src="script.js?v=60" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

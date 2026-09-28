@@ -55,7 +55,7 @@ shell (`<html lang="en">`, `og:locale`) and the app does not reassign
       and `sessions.json` are legacy and no longer resolved; mirror them for
       parity, but do not create new ones.)
 - [ ] Add `"<xx>"` to **`languageNames` and `languageShort` in every locale's
-      `nav.json`** — `en`, `zh`, `vi`, `ko`, `es`, and the new one. This is the
+      `nav.json`** — every locale in `supportedLngs`, and the new one. This is the
       switcher label; a missing entry renders the raw key in that language.
 - [ ] Read the diff for strings you copied but never translated. The parity test
       passes on English left in a `<xx>` file — only review catches it.
@@ -106,7 +106,7 @@ for the mechanism and the length/markup constraints.
 - [ ] `wiki/index.html`
   - [ ] Add `<button type="button" class="lang-option" data-lang="<xx>" role="option" aria-selected="false">Native name</button>`
         to **both** `.lang-select-menu` blocks (desktop header and mobile drawer).
-  - [ ] Update the prose that names the shipped languages ("five languages — …").
+  - [ ] Update the prose that names the shipped languages ("nine languages — …").
 - [ ] **Bust the cache** (mandatory — the service worker is cache-first):
       bump `i18n-content.js?v=N` and `script.js?v=N` in `wiki/index.html`, bump
       the **same** values in `PRECACHE` in `wiki/sw.js`, and bump `CACHE_NAME`.
@@ -124,7 +124,8 @@ for the mechanism and the length/markup constraints.
       Translate mermaid **labels**, not node IDs.
 - [ ] Update the localized-docs cross-link line (around line 73–74) in **all**
       of `README.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`,
-      `README-ES.md`, and the new file, so every README links to every other.
+      `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`,
+      `README-IT.md`, and the new file, so every README links to every other.
 - [ ] `server/__tests__/plugins-marketplace.test.js` — add a `COUNTED_DOCS`
       entry for `README-<XX>.md` with regexes matching how the plugin / skill
       counts are phrased in the new language.
@@ -134,7 +135,7 @@ for the mechanism and the length/markup constraints.
 Grep first — this list is the current state, not a guarantee:
 
 ```bash
-grep -rn 'en/zh/vi/ko/es\|five languages\|"en", "zh", "vi", "ko", "es"' \
+grep -rn 'en/zh/vi/ko/es/fr/de/pt/it\|nine languages\|"en", "zh", "vi", "ko", "es", "fr", "de", "pt", "it"' \
   --include='*.md' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.html' \
   . --exclude-dir=node_modules --exclude-dir=dist
 ```
@@ -148,7 +149,7 @@ grep -rn 'en/zh/vi/ko/es\|five languages\|"en", "zh", "vi", "ko", "es"' \
 - [ ] `ARCHITECTURE.md` — the localization-stack paragraph, the command-palette
       actions row, and the `splash` namespace note.
 - [ ] `client/README.md` — the palette actions row.
-- [ ] `index.html` — the `Languages (en/zh/vi/ko/es)` stat label. The landing
+- [ ] `index.html` — the `Languages (en/zh/vi/ko/es/fr/de/pt/it)` stat label. The landing
       page itself stays English-only.
 - [ ] `.claude/rules/wiki-i18n.md` and `.claude/rules/i18n-parity.md` — the
       locale lists.
@@ -159,13 +160,13 @@ grep -rn 'en/zh/vi/ko/es\|five languages\|"en", "zh", "vi", "ko", "es"' \
 ## Phase 6 — Extend the tests
 
 - [ ] `client/src/i18n/__tests__/i18n.test.ts` — add `"<xx>"` to the parity loop
-      and to the two `["en", "zh", "vi", "ko", "es"]` coverage loops; add a
+      and to the two coverage loops over every supported locale; add a
       nav-keys test and a non-explicit-tag test (`<xx>-YY` resolves to `<xx>`)
       mirroring the existing per-language cases.
 - [ ] `client/src/lib/__tests__/format.test.ts` — add the `<xx>` → `<xx-YY>`
       formatting case.
 - [ ] `client/src/components/__tests__/Sidebar.test.tsx` — update the
-      "all five languages" expectation to the new count.
+      "all nine languages" expectation to the new count.
 - [ ] `client/tests/wiki-i18n.test.ts` — add `"<xx>"` to `LANGUAGES` so the wiki
       coverage assertions run against the new bundle.
 

@@ -1,0 +1,10 @@
+{
+  "title": "Feed de atividade",
+  "subtitle": "Fluxo em tempo real de todos os eventos dos agentes",
+  "paused": "(pausado - {{count}} em buffer)",
+  "resume": "Retomar",
+  "pause": "Pausar",
+  "noActivity": "Nenhuma atividade ainda",
+  "noActivityDesc": "Os eventos aparecerão aqui em tempo real enquanto as sessões de agentes trabalham.",
+  "viewSession": "Sessão"
+}

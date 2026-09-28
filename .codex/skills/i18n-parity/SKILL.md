@@ -21,7 +21,7 @@ to English is a safety net, never a completed translation.
 
 Supported languages are declared in one place — `supportedLngs` in
 `client/src/i18n/index.ts`. Today:
-**`en`, `zh`, `vi`, `ko`, `es`**. Everything below derives from that list; the
+**`en`, `zh`, `vi`, `ko`, `es`, `fr`, `de`, `pt`, `it`**. Everything below derives from that list; the
 audit script reads it rather than hard-coding.
 
 ## The five surfaces
@@ -30,7 +30,7 @@ audit script reads it rather than hard-coding.
 |---|---|---|---|---|
 | 1 | **Dashboard UI** | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` (same 15 namespaces) | `client/src/i18n/__tests__/i18n.test.ts` — key, type, and interpolation-token parity |
 | 2 | **Wiki page** | English text in the `wiki/index.html` DOM | `wiki/script.js` (`T`, `ATTRIBUTE_TRANSLATIONS`, `META`, `languageLabels`, the two language ladders) + `wiki/i18n-content.js` (`window.__WIKI_CONTENT_I18N`, both the body bundles and `plain`) | `client/tests/wiki-i18n.test.ts` — live-DOM prose coverage, inline-tag preservation, block-length budgets, asset-version sync |
-| 3 | **Mirrored READMEs** | `README.md` | `README-CN.md` (zh), `README-VN.md` (vi), `README-KO.md` (ko), `README-ES.md` (es) | partial — `scripts/i18n-audit.sh` (existence, heading count, cross-links) and `server/__tests__/plugins-marketplace.test.js` (documented counts); prose parity is review-only |
+| 3 | **Mirrored READMEs** | `README.md` | `README-CN.md` (zh), `README-VN.md` (vi), `README-KO.md` (ko), `README-ES.md` (es), `README-FR.md` (fr), `README-DE.md` (de), `README-PT.md` (pt), `README-IT.md` (it) | partial — `scripts/i18n-audit.sh` (existence, heading count, cross-links) and `server/__tests__/plugins-marketplace.test.js` (documented counts); prose parity is review-only |
 | 4 | **Language switchers** | — | `client/src/components/Sidebar.tsx`, `client/src/lib/paletteCommands.ts`, the two `.lang-select-menu` blocks in `wiki/index.html`, `nav.json` `languageNames` / `languageShort` | `scripts/i18n-audit.sh` |
 | 5 | **Locale-aware formatting** | — | `client/src/lib/format.ts` (`SupportedLanguage` union, `getCurrentLanguage()` whitelist, `getCurrentLocale()` BCP-47 map) | `client/src/lib/__tests__/format.test.ts` |
 
@@ -71,7 +71,7 @@ Find what you touched in the left column and ship everything in the right column
 | Added/renamed a UI string or i18n key | Add the key to `en` **and every other locale** in the same namespace file. Same key path, same value type, same `{{interpolation}}` tokens. |
 | Added a new namespace (new `*.json`) | Create it for every locale, then register the imports, the `resources` entry per language, and the `ns` array in `client/src/i18n/index.ts`. |
 | Added user-visible wiki text in `wiki/index.html` | Follow `.claude/rules/wiki-i18n.md`: scannable layer (the `PLAIN` selector set — `.logo-sub`, `.section-label`, `.nav-section`, `.nav-empty`, `.stat-label`, `.t-label`, `h2`/`h3`/`h4`, `th`, `.hero-desc`, plus `.nav-link` / `.hero-badge` trailing text nodes) → `T` in `wiki/script.js`; body prose (the `HTML_SEL` set — `p`, `li`, `td`, `th`, captions, `.callout-body > strong`, `.route-desc`, footer) → `wiki/i18n-content.js` keyed by whitespace-normalized `innerHTML`; new `alt`/`aria-label`/`title`/`placeholder` → `ATTRIBUTE_TRANSLATIONS`. Then bump `CACHE_NAME` in `wiki/sw.js` and the matching `?v=` query strings. |
-| Edited a section of `README.md` | Mirror the **same** edit at the corresponding section of `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four, every time. |
+| Edited a section of `README.md` | Mirror the **same** edit at the corresponding section of `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`, and `README-IT.md`. All eight, every time. |
 | Changed behavior that the README/wiki document (env var, event type, route, CLI command, feature) | Run the `update-project-docs` (`.claude/skills/update-project-docs/SKILL.md`) skill — it owns the change→docs mapping — then come back here for the translation propagation it triggers. |
 | Changed a documented count (plugins, skills, namespaces, languages) | The count is repeated across all five READMEs, `ARCHITECTURE.md`, `docs/*.md`, `index.html`, `wiki/index.html`, `wiki/i18n-content.js`, and asserted in `server/__tests__/plugins-marketplace.test.js`. Grep the old number repo-wide; update every hit. |
 
@@ -114,11 +114,12 @@ entry — it correctly falls back to English.
 **every** locale, everywhere it appears — hook-event tables, tool lists, event
 names. The **UI noun** for an agent (`common:agent` / `common:subagent`) is
 product vocabulary with a per-locale contract, and only that noun has the
-Spanish exception below. Never carry the exception into the tool name.
+per-locale translations below. Never carry the exception into the tool name.
 
 The UI noun's contract, asserted by `client/src/i18n/__tests__/i18n.test.ts`:
-`zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal; `es` renders them
-`agente` / `subagente`. A new locale must decide this explicitly and add its
+`zh`, `vi`, and `ko` keep `Agent` / `Subagent` literal; `de` keeps them
+capitalized (`Agent` / `Subagent`); `fr` renders them `agent` / `sous-agent`;
+`es`, `pt`, and `it` render them `agente` / `subagente`. A new locale must decide this explicitly and add its
 row to that test.
 
 Terminology, per-locale conventions, and the shared glossary live in

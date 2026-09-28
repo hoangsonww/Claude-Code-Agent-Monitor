@@ -1,0 +1,15 @@
+{
+  "title": "Atualização do painel disponível",
+  "lead": "Uma nova versão do painel está disponível. Para atualizar, execute o seguinte comando no seu terminal:",
+  "commitsBehind": "{{count}} commit(s) atrás de {{ref}}",
+  "copy": "Copiar comando",
+  "commandLabel": "Comando de terminal para atualizar o painel",
+  "copied": "Copiado",
+  "dismiss": "Dispensar",
+  "fetchError": "Não foi possível acessar o remoto git. Tente novamente quando estiver online.",
+  "notGit": "Esta instalação não é um clone git; use um procedimento de atualização manual.",
+  "restartNote": "Quando o comando terminar, feche e reinicie o painel da mesma forma que o iniciou: se usou npm start, execute npm start novamente.",
+  "checkNow": "Verificar agora",
+  "checking": "Verificando...",
+  "checkError": "Não foi possível verificar atualizações"
+}

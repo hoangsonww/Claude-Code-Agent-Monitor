@@ -185,7 +185,8 @@ npm run test:client         # client unit tests only
 ## Translations and Internationalization
 
 The dashboard ships in **English (`en`), Simplified Chinese (`zh`), Vietnamese
-(`vi`), Korean (`ko`), and Spanish (`es`)** across five independent surfaces.
+(`vi`), Korean (`ko`), Spanish (`es`), French (`fr`), German (`de`), Portuguese
+(`pt`), and Italian (`it`)** across five independent surfaces.
 English is the source of truth on all of them, and **a change is not merged
 until every supported language carries it in the same PR** — falling back to
 English is a safety net, not a completed translation.
@@ -194,18 +195,18 @@ English is a safety net, not a completed translation.
 |---|---|---|
 | Dashboard UI | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` |
 | Wiki page | English text in the `wiki/index.html` DOM | `wiki/script.js` + `wiki/i18n-content.js` |
-| Mirrored READMEs | `README.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` |
+| Mirrored READMEs | `README.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`, `README-IT.md` |
 | Language switchers | — | `Sidebar.tsx`, `paletteCommands.ts`, `nav.json`, `wiki/index.html` |
 | Locale-aware formatting | — | `client/src/lib/format.ts` |
 
 **If you add or change a UI string**, add the key to `en` *and every other
 locale*, with the same key path, value type, and `{{interpolation}}` tokens.
 
-**If you edit `README.md`**, mirror the same edit into all four translated
+**If you edit `README.md`**, mirror the same edit into all eight translated
 READMEs. They are full mirrors, not summaries.
 
 **If you edit user-visible text in `wiki/index.html`**, add `zh` + `vi` + `ko` +
-`es` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
+`es` + `fr` + `de` + `pt` + `it` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
 the matching `?v=` query strings).
 
 **If you are adding a new language**, three things must be complete: a full
@@ -226,9 +227,10 @@ prose around them.
 
 Note that the Claude Code **tool** named `Agent` and the **UI noun** for an
 agent are different things. The tool name stays literal in every locale; the UI
-noun (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
-deliberately `agente` / `subagente` in `es`. The Spanish exception never applies
-to the tool name.
+noun (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko`,
+`Agent` / `Subagent` in `de`, `agent` / `sous-agent` in `fr`, and deliberately
+`agente` / `subagente` in `es`, `pt`, and `it`. These translated nouns never
+apply to the tool name.
 
 Before opening the PR:
 

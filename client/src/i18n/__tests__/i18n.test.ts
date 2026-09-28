@@ -41,7 +41,7 @@ describe("i18n resources", () => {
     for (const namespace of namespaces) {
       const english = flattenResource(i18n.getResourceBundle("en", namespace));
 
-      for (const language of ["zh", "vi", "ko", "es"]) {
+      for (const language of ["zh", "vi", "ko", "es", "fr", "de", "pt", "it"]) {
         const locale = flattenResource(i18n.getResourceBundle(language, namespace));
 
         expect(Object.keys(locale).sort(), `${language}/${namespace} keys`).toEqual(
@@ -69,7 +69,7 @@ describe("i18n resources", () => {
     expect(i18n.t("nav:languageShort.vi")).toBe("VI");
   });
 
-  it("should keep Agent terminology untranslated in zh, vi, ko, and es locales", async () => {
+  it("should apply each locale's Agent terminology contract", async () => {
     await i18n.changeLanguage("zh");
     expect(i18n.t("common:agent")).toBe("Agent");
     expect(i18n.t("common:subagent")).toBe("Subagent");
@@ -85,7 +85,42 @@ describe("i18n resources", () => {
     await i18n.changeLanguage("es");
     expect(i18n.t("common:agent")).toBe("agente");
     expect(i18n.t("common:subagent")).toBe("subagente");
+
+    await i18n.changeLanguage("fr");
+    expect(i18n.t("common:agent")).toBe("agent");
+    expect(i18n.t("common:subagent")).toBe("sous-agent");
+
+    await i18n.changeLanguage("de");
+    expect(i18n.t("common:agent")).toBe("Agent");
+    expect(i18n.t("common:subagent")).toBe("Subagent");
+
+    await i18n.changeLanguage("pt");
+    expect(i18n.t("common:agent")).toBe("agente");
+    expect(i18n.t("common:subagent")).toBe("subagente");
+
+    await i18n.changeLanguage("it");
+    expect(i18n.t("common:agent")).toBe("agente");
+    expect(i18n.t("common:subagent")).toBe("subagente");
   });
+
+  it.each([
+    ["fr", "fr-FR", "Tableau de bord", "Tableau Kanban", "FR"],
+    ["de", "de-DE", "Dashboard", "Kanban-Board", "DE"],
+    ["pt", "pt-BR", "Painel", "Quadro Kanban", "PT"],
+    ["it", "it-IT", "Dashboard", "Bacheca Kanban", "IT"],
+  ])(
+    "should provide %s navigation translations and resolve the %s regional tag",
+    async (language, regional, dashboard, board, short) => {
+      await i18n.changeLanguage(language);
+      expect(i18n.t("nav:dashboard")).toBe(dashboard);
+      expect(i18n.t("nav:agentBoard")).toBe(board);
+      expect(i18n.t(`nav:languageShort.${language}`)).toBe(short);
+
+      await i18n.changeLanguage(regional);
+      expect(i18n.resolvedLanguage?.startsWith(language)).toBe(true);
+      expect(i18n.t("nav:agentBoard")).toBe(board);
+    }
+  );
 
   it("should provide Spanish translations for navigation keys", async () => {
     await i18n.changeLanguage("es");
@@ -194,7 +229,7 @@ describe("i18n resources", () => {
       "hookGate.continue",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "fr", "de", "pt", "it"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "splash", key)).toBeTruthy();
       }
@@ -220,7 +255,7 @@ describe("i18n resources", () => {
       "pricing.gpt.tooltip.apiPricingBody",
     ];
 
-    for (const language of ["en", "zh", "vi", "ko", "es"]) {
+    for (const language of ["en", "zh", "vi", "ko", "es", "fr", "de", "pt", "it"]) {
       for (const key of keys) {
         expect(i18n.getResource(language, "settings", key)).toBeTruthy();
       }

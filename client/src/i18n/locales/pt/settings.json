@@ -1,0 +1,597 @@
+{
+  "title": "Configurações",
+  "subtitle": "Gerencie preços, notificações, dados e hooks",
+  "exportData": "Exportar dados",
+  "acrossSessions": "Em todas as sessões rastreadas",
+  "basedOnUsage": "Com base no uso de tokens por modelo",
+  "tabby": {
+    "title": "Companheiro Tabby",
+    "description": "Um gato flutuante que reage às suas sessões ao vivo.",
+    "enable": "Mostrar Tabby",
+    "enableDesc": "Exibir o companheiro no canto em todo o painel (⌘B para abrir)"
+  },
+  "sound": {
+    "title": "Som",
+    "description": "Sinais curtos e discretos para a atividade das sessões ao vivo. Gerados no navegador: sem downloads, sem rastreamento.",
+    "enable": "Ativar sinais sonoros",
+    "enableDesc": "Tocar um som sutil quando sessões começam, terminam ou dão erro",
+    "volume": "Volume",
+    "playWhen": "Tocar um sinal quando...",
+    "newSession": "Uma sessão começa",
+    "sessionComplete": "Uma sessão termina de responder",
+    "sessionError": "Uma sessão dá erro",
+    "subagentSpawned": "Um subagente é iniciado",
+    "notification": "O Claude Code envia uma notificação",
+    "connection": "A conexão ao vivo cai ou volta",
+    "interaction": "Cliques em botões e links",
+    "interactionDesc": "Um clique quase inaudível a cada toque",
+    "preview": "Ouvir prévia",
+    "throttleInfo": "Os sinais têm limite de frequência, então uma rajada de atividade nunca vira uma rajada de sons.",
+    "disabledInfo": "Os sinais sonoros estão desligados: o painel fica completamente silencioso"
+  },
+  "pricing": {
+    "title": "Preços dos modelos Anthropic Claude",
+    "navClaude": "Preços do Claude",
+    "navCursor": "Preços do Cursor",
+    "navGpt": "Preços do Codex",
+    "description": "Preços da API da Anthropic por milhão de tokens (USD). Use % como curinga nos padrões. Alguns modelos têm um preço promocional de lançamento por tempo limitado (mostrado em violeta); o uso até a data-limite, inclusive, é cobrado por esse preço, e depois dela pelo preço padrão.",
+    "introNote": "Lançamento ${{input}}/${{output}} até {{until}}",
+    "introRatesTitle": "Preços de lançamento",
+    "introRatesHint": "Deixe a data vazia se não houver promoção",
+    "introUntil": "Até (data)",
+    "introUntilInvalid": "A data-limite do preço de lançamento deve estar no formato AAAA-MM-DD",
+    "resetConfirm": "Confirmar redefinição",
+    "resetDefaults": "Restaurar padrões",
+    "resetResult": "Redefinido para {{count}} regras padrão",
+    "addModel": "Adicionar modelo",
+    "pattern": "Padrão",
+    "patternPlaceholder": "claude-opus-4%",
+    "namePlaceholder": "Claude Opus 4",
+    "validationRequired": "O padrão e o nome de exibição são obrigatórios",
+    "lastUpdated": "Última atualização: ",
+    "tooltip": {
+      "title": "Como funcionam os preços dos modelos",
+      "howItWorks": "Como funciona",
+      "howItWorksBody": "Quando uma sessão informa seu uso, o painel encontra a primeira regra de preço cujo padrão corresponde ao id do modelo e multiplica (tokens de entrada / 1M) e (tokens de saída / 1M) pelos preços abaixo para calcular o custo. As regras são avaliadas de cima para baixo: a primeira correspondência vence.",
+      "patternsTitle": "Sintaxe dos padrões",
+      "patternsBody": "Os padrões são globs no estilo SQL. % é um curinga que corresponde a quaisquer caracteres. Por exemplo: claude-opus-4-7% corresponde a todo id de modelo que começa com claude-opus-4-7 (ex.: claude-opus-4-7, claude-opus-4-7-20260101). claude-%-haiku corresponde a qualquer variante haiku. Um id exato como claude-sonnet-4-6 corresponde apenas a si mesmo.",
+      "manualUpdates": "Você precisa atualizar os preços manualmente",
+      "manualUpdatesBody": "A Anthropic publica mudanças de preço no seu site; não há um feed ao vivo. Quando um novo modelo é lançado ou os preços mudam, edite a regra correspondente (ou adicione uma nova acima da regra genérica) para que as sessões novas sejam calculadas corretamente. As sessões já armazenadas mantêm o preço aplicado no momento da ingestão.",
+      "apiPricing": "Apenas referência - preços da API",
+      "apiPricingBody": "Estes são preços da API pagos por uso. Se você usa o Claude Code com uma assinatura (Pro, Max, Team ou Enterprise), seu custo real é uma mensalidade fixa, não por token; portanto, estes valores geralmente serão maiores do que você realmente paga. Trate os custos aqui como uma estimativa de uso para referência, não como uma fatura."
+    },
+    "cacheWrite5m": "Escrita de cache (5 min)",
+    "cacheWrite1h": "Escrita de cache (1 h)",
+    "fastInput": "Entrada rápida",
+    "fastOutput": "Saída rápida",
+    "cursor": {
+      "title": "Preços dos modelos do Cursor",
+      "description": "Preços publicados pelo Cursor para modelos nativos do Cursor e modelos de terceiros roteados. USD por 1M de tokens; o padrão correspondente mais específico vence.",
+      "source": "Ver modelos e preços do Cursor ↗",
+      "planNote": "As estimativas usam a tabela de preços por token do Cursor. Cotas incluídas, franquias do plano, roteamento Auto e cobrança por token de equipes podem fazer a cobrança real da sua assinatura ser diferente.",
+      "name": "Nome",
+      "input": "Entrada",
+      "write": "Escrita de cache",
+      "cached": "Leitura de cache",
+      "output": "Saída",
+      "deleteConfirm": "Excluir esta regra de preço do Cursor?",
+      "tooltip": {
+        "title": "Como funcionam os preços do Cursor",
+        "howItWorks": "Como funciona",
+        "howItWorksBody": "O uso das sessões do Cursor é precificado apenas por esta tabela do Cursor. Os tokens de entrada, escrita de cache, leitura de cache e saída são calculados de forma independente em USD por 1M de tokens.",
+        "patternsTitle": "Sintaxe dos padrões",
+        "patternsBody": "Os padrões usam curingas % no estilo SQL. Padrões mais específicos vencem, então um modelo Fast ou versionado pode substituir com segurança uma regra de família mais ampla.",
+        "manualUpdates": "Você precisa atualizar os preços manualmente",
+        "manualUpdatesBody": "O Cursor publica mudanças de preço dos modelos no seu site; não há um feed ao vivo. Adicione ou edite uma regra quando o Cursor mudar o nome ou o preço de um modelo.",
+        "apiPricing": "A cobrança do plano pode ser diferente",
+        "apiPricingBody": "A tabela estima o valor dos tokens. Cotas mensais incluídas, uso adicional, roteamento Auto e regras de cobrança de Teams ou Enterprise não são reconstruídos pelo painel."
+      }
+    },
+    "gpt": {
+      "title": "Preços dos modelos OpenAI GPT",
+      "description": "Preços publicados da API da OpenAI para o uso do Codex. Requisições padrão usam o preço Short até 272K tokens de entrada e o preço Long acima de 272K; o modo Fast tem preços Short e Long próprios. USD por 1M de tokens.",
+      "tooltip": {
+        "title": "Como funcionam os preços do GPT",
+        "howItWorks": "Como funciona",
+        "howItWorksBody": "Todos os valores são em USD por 1M de tokens. Requisições padrão do Codex usam o preço Short até 272K tokens de entrada e o preço Long acima disso. O modo Fast tem preços Short e Long próprios. Entrada nova, entrada em cache, escritas de cache e saída são precificadas separadamente.",
+        "patternsTitle": "Sintaxe dos padrões",
+        "patternsBody": "Os padrões usam curingas % no estilo SQL. O painel avalia primeiro os padrões de modelo mais específicos e usa a primeira regra que corresponde ao id de modelo informado.",
+        "manualUpdates": "Você precisa atualizar os preços manualmente",
+        "manualUpdatesBody": "A OpenAI publica mudanças de preço da API no seu site; não há um feed ao vivo. Atualize ou adicione uma regra correspondente quando modelos ou preços mudarem, para que o uso recém-registrado seja precificado corretamente.",
+        "apiPricing": "Preços não publicados ficam sem preço",
+        "apiPricingBody": "Um travessão significa que a OpenAI não publica aquele preço de contexto ou de modo Fast. O uso correspondente é marcado como sem preço em vez de ser estimado. Estes são preços de API pagos por uso para referência, não a cobrança de uma assinatura."
+      },
+      "name": "Nome",
+      "short": "Standard · Short ≤272K",
+      "long": "Standard · Long >272K",
+      "fast": "Fast · Short ≤272K",
+      "fastLong": "Fast · Long >272K",
+      "input": "Entrada",
+      "cached": "Em cache",
+      "write": "Escrita de cache",
+      "output": "Saída",
+      "deleteConfirm": "Excluir esta regra de preço do GPT?"
+    }
+  },
+  "claudeHome": {
+    "title": "Pasta do Claude Code",
+    "description": "O diretório raiz das transcrições, importações e configuração do Claude Code. Alterá-lo afeta imediatamente as leituras de arquivos seguintes.",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "current": "Atual:",
+    "placeholder": "/path/to/claude-home",
+    "saveFailed": "Falha ao atualizar CLAUDE_HOME"
+  },
+  "codexHome": {
+    "title": "Pasta do Codex",
+    "description": "O diretório raiz das sessões de rollout e dos hooks do Codex. Salvar um novo local reativa o monitoramento ao vivo e examina suas sessões imediatamente.",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "current": "Atual:",
+    "placeholder": "/path/to/codex-home",
+    "saveFailed": "Falha ao atualizar a pasta do Codex"
+  },
+  "homes": {
+    "title": "Locais dos dados de sessão",
+    "description": "Configure os diretórios locais do Claude Code e do Codex que o painel lê. Cada local salvo é aplicado sem reiniciar o app."
+  },
+  "display": {
+    "title": "Dados do painel",
+    "description": "Escolha de qual produto as sessões, tokens, custos e atividades aparecem no app. A mudança vale imediatamente e é independente do filtro de fonte de dados por máquina.",
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "both": "Ambos",
+    "claudeDescription": "Mostrar dados do Claude Code e do Cursor.",
+    "codexDescription": "Mostrar apenas dados do Codex.",
+    "bothDescription": "Combinar dados do Claude Code, Cursor e Codex.",
+    "beta": "Beta"
+  },
+  "hooks": {
+    "title": "Configuração de hooks",
+    "description": "Os hooks do Claude Code e do Codex encaminham eventos ao painel em tempo real.",
+    "allInstalled": "Todos os hooks instalados",
+    "someInstalled": "Hooks configurados",
+    "incomplete": "Hooks incompletos",
+    "reinstall": "Reinstalar hooks",
+    "configure": "Configurar hooks",
+    "success": "Hooks instalados com sucesso",
+    "failed": "Falha na instalação dos hooks",
+    "display": {
+      "title": "Dados do painel",
+      "description": "Filtre imediatamente todas as visualizações do painel por um produto. A filtragem por fonte de dados da máquina continua independente.",
+      "both": "Ambos"
+    },
+    "modal": {
+      "title": "Instalar hooks do painel",
+      "description": "Selecione um ou ambos os produtos. As entradas de hook existentes do painel são atualizadas; seus outros comandos de hook permanecem intactos.",
+      "claude": "Hooks de ciclo de vida de ~/.claude/settings.json.",
+      "codex": "Hooks de ciclo de vida de ~/.codex/hooks.json, com o JSONL de rollout como alternativa em tempo real.",
+      "installed": "Já instalado",
+      "overrideWarning": "Foi encontrada uma configuração de hooks existente para um ou mais produtos selecionados. Continuar substitui apenas as entradas correspondentes deste painel e preserva os demais hooks.",
+      "preserveNote": "Pelo menos um produto deve ser selecionado.",
+      "install": "Instalar hooks selecionados",
+      "failed": "Não foi possível instalar os hooks selecionados."
+    }
+  },
+  "notifications": {
+    "title": "Notificações",
+    "description": "Notificações do navegador para eventos importantes. Requer permissão.",
+    "enable": "Ativar notificações do navegador",
+    "granted": "Permissão concedida",
+    "blocked": "Permissão bloqueada",
+    "required": "Permissão necessária",
+    "notifyWhen": "Notificar-me quando...",
+    "newSession": "Uma nova sessão começar",
+    "sessionComplete": "Uma sessão for concluída",
+    "sessionError": "Uma sessão der erro",
+    "subagentSpawned": "Um subagente for iniciado",
+    "testTitle": "Agent Monitor",
+    "testBody": "As notificações estão funcionando!",
+    "sendTest": "Enviar notificação de teste",
+    "disabledInfo": "As notificações estão desativadas: ative-as para receber alertas sobre eventos de sessão"
+  },
+  "import": {
+    "title": "Importar histórico",
+    "providerLabel": "Provedor a importar",
+    "providerHint": "Escolha o histórico de agente local que você quer trazer para este painel.",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "backupProviderNote": "As exportações do painel podem conter dados do Claude Code e do Codex. A restauração mescla todos os provedores incluídos na exportação.",
+    "description": "Traga sessões existentes do Claude Code para o painel. Contagem de tokens, custo por modelo, compactações, subagentes, usos de ferramentas e durações de turno são reconstruídos a partir das transcrições JSONL originais, exatamente como nas sessões ao vivo.",
+    "scopeNote": "Esta importação processa apenas transcrições do Claude Code. Ela nunca altera seu histórico do Codex nem a configuração de nenhuma das CLIs.",
+    "accuracyNote": "Executar novamente é seguro. As sessões são deduplicadas pelo ID da sessão, e as bases de compactação garantem que os totais de tokens nunca sejam contados em dobro.",
+    "supportedFiles": "Entradas suportadas: .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "instructions": "Como reunir seu histórico",
+    "stepLocate": "1. Localize seu histórico do Claude Code",
+    "stepLocateBody": "Cada sessão do Claude Code é armazenada como uma transcrição JSONL na pasta projects. Cada subpasta tem o nome do diretório de trabalho em que a sessão começou (barras substituídas por hifens).",
+    "stepArchive": "2. Empacote para transferência (opcional)",
+    "stepArchiveBody": "Para trazer o histórico de outra máquina, primeiro compacte a pasta inteira e depois copie-a (AirDrop, scp, USB, armazenamento em nuvem):",
+    "stepChoose": "3. Escolha um modo de importação abaixo",
+    "stepChooseBody": "Examine novamente o local padrão, aponte para qualquer pasta em que você extraiu o histórico ou envie arquivos/pacotes diretamente.",
+    "stepVerify": "4. Verifique tokens e custo",
+    "stepVerifyBody": "Após a importação, abra Análises → Custo para conferir o detalhamento. Importar a mesma sessão de novo é sempre seguro.",
+    "defaultLocation": "Local padrão nesta máquina",
+    "locationFound": "Pasta encontrada",
+    "locationMissing": "Pasta não encontrada",
+    "projectsLabel": "projetos",
+    "jsonlLabel": "arquivos JSONL",
+    "modeRescan": "Examinar novamente a pasta padrão",
+    "modeRescanDesc": "Reler ~/.claude/projects e importar tudo o que for novo.",
+    "modeFolder": "Examinar uma pasta",
+    "modeFolderDesc": "Examinar qualquer diretório desta máquina em busca de transcrições JSONL (percorre subpastas).",
+    "modeUpload": "Enviar arquivos",
+    "modeUploadDesc": "Solte arquivos JSONL ou um pacote (.zip / .tar.gz) diretamente no navegador.",
+    "modeBackup": "Restaurar backup",
+    "modeBackupDesc": "Importe uma exportação do painel (.json) gerada por Exportar dados para mesclar o histórico de outra máquina.",
+    "backupHint": "Solte aqui um .json exportado ou clique para selecionar",
+    "backupSub": "O arquivo gerado pelo botão Exportar dados (no topo das Configurações)",
+    "runRestore": "Restaurar",
+    "backupResult": {
+      "title": "Restauração concluída",
+      "sessionsImported": "Sessões adicionadas: {{count}}",
+      "sessionsSkipped": "Já existentes: {{count}}",
+      "events": "Eventos: {{count}}",
+      "pricing": "Regras de preço: {{count}}",
+      "detail": "{{agents}} agentes · {{workflows}} fluxos · {{runs}} execuções · {{rules}} regras de alerta"
+    },
+    "folderPlaceholder": "/absolute/path/to/claude-history",
+    "folderHelper": "Caminho absoluto. O til (~) é expandido. As subpastas são examinadas recursivamente.",
+    "runRescan": "Examinar agora",
+    "runScan": "Examinar pasta",
+    "runUpload": "Enviar e importar",
+    "dropzoneHint": "Arraste arquivos para cá ou clique para selecionar",
+    "dropzoneSub": "Aceita .jsonl, .meta.json, .zip, .tar, .tar.gz, .tgz, .gz",
+    "filesSelected": "{{count}} arquivo(s) selecionado(s)",
+    "clearSelection": "Limpar",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "progress": {
+      "scan": "Examinando diretório...",
+      "extract": "Extraindo pacotes ({{processed}}/{{total}})...",
+      "parse": "Analisando transcrições ({{processed}}/{{total}})...",
+      "complete": "Importação concluída",
+      "error": "Falha na importação"
+    },
+    "result": {
+      "imported": "Importadas: {{count}}",
+      "backfilled": "Existentes enriquecidas: {{count}}",
+      "skipped": "Já atualizadas: {{count}}",
+      "errors": "Erros: {{count}}",
+      "filesScanned": "Arquivos examinados: {{count}}",
+      "title": "Resultado da última importação"
+    },
+    "errors": {
+      "noFiles": "Nenhum arquivo selecionado",
+      "noJsonl": "Nenhum arquivo .jsonl foi encontrado no conteúdo enviado",
+      "pathRequired": "O caminho é obrigatório",
+      "pathInvalid": "O caminho deve ser absoluto",
+      "pathNotFound": "O caminho não existe",
+      "pathNotDir": "O caminho não é um diretório",
+      "generic": "Falha na importação: {{message}}"
+    },
+    "codex": {
+      "description": "Traga sessões existentes do Codex para o painel. Mensagens do usuário, respostas do assistente, instantâneos de tokens, chamadas de ferramentas e o estado de ciclo de vida em espera/ativo são reconstruídos a partir dos arquivos JSONL de rollout originais, com o mesmo pipeline do monitoramento em tempo real.",
+      "scopeNote": "Esta importação processa apenas transcrições do {{provider}}. Ela nunca altera seu histórico do Claude Code nem a configuração da CLI do Codex.",
+      "accuracyNote": "Executar novamente é seguro. Os cursores de rollout importados são mantidos, então deltas de tokens e chamadas de ferramentas já contabilizados nunca são somados duas vezes.",
+      "stepLocate": "1. Localize seu histórico de rollout do Codex",
+      "stepLocateBody": "O Codex armazena cada sessão como um arquivo JSONL de rollout somente de acréscimo na pasta sessions. Suas subpastas por data são examinadas automaticamente.",
+      "stepArchive": "2. Empacote para transferência (opcional)",
+      "stepArchiveBody": "Para trazer o histórico de outra máquina, primeiro compacte a pasta sessions e depois copie-a (AirDrop, scp, USB, armazenamento em nuvem). Inclua também session_index.jsonl se quiser os títulos nativos de /rename dessa máquina.",
+      "stepChoose": "3. Escolha um modo de importação abaixo",
+      "stepChooseBody": "Examine novamente as sessões do Codex desta máquina, aponte para uma pasta copiada ou extraída, ou envie arquivos de rollout e pacotes diretamente.",
+      "stepVerify": "4. Verifique tokens e custo",
+      "stepVerifyBody": "Após a importação, abra Análises → Custo para conferir o detalhamento. O mesmo rollout sempre pode ser importado de novo com segurança.",
+      "defaultLocation": "Local padrão das sessões do Codex nesta máquina",
+      "locationFound": "Pasta de sessões encontrada",
+      "locationMissing": "Pasta de sessões não encontrada",
+      "projectsLabel": "pastas de sessões",
+      "jsonlLabel": "arquivos de rollout",
+      "modeRescan": "Examinar novamente as sessões do Codex",
+      "modeRescanDesc": "Reler ~/.codex/sessions e importar o histórico de rollout que ainda não está no painel.",
+      "modeFolder": "Examinar uma pasta do Codex",
+      "modeFolderDesc": "Examinar um diretório do Codex copiado ou extraído em busca de arquivos JSONL de rollout, incluindo subpastas por data.",
+      "modeUpload": "Enviar histórico do Codex",
+      "modeUploadDesc": "Solte arquivos JSONL de rollout ou um pacote (.zip / .tar.gz) diretamente no navegador.",
+      "folderPlaceholder": "/absolute/path/to/codex-history",
+      "folderHelper": "Caminho absoluto. O til (~) é expandido. A pasta e todas as subpastas por data são examinadas recursivamente em busca de arquivos de rollout do Codex.",
+      "runRescan": "Examinar o Codex agora",
+      "runScan": "Examinar pasta do Codex",
+      "runUpload": "Enviar e importar Codex",
+      "dropzoneHint": "Arraste arquivos de rollout do Codex para cá ou clique para selecionar",
+      "dropzoneSub": "Aceita arquivos de rollout .jsonl, session_index.jsonl e pacotes .zip, .tar, .tar.gz, .tgz e .gz"
+    }
+  },
+  "data": {
+    "title": "Gerenciamento de dados",
+    "description": "Informações do banco, importação/exportação e limpeza.",
+    "dbOverview": "Visão geral do banco",
+    "dbSize": "Tamanho do banco",
+    "loadingDb": "Carregando informações do banco...",
+    "sessionCleanup": "Limpeza de sessões",
+    "cleanupDesc": "Abandonar sessões inativas e remover dados antigos",
+    "abandonAfter": "Abandonar sessões ativas inativas mais antigas que",
+    "purgeAfter": "Remover sessões concluídas/com erro mais antigas que",
+    "confirmCleanup": "Confirmar limpeza",
+    "runCleanup": "Executar limpeza",
+    "nothingToClean": "Nada para limpar",
+    "abandonedResult": " sessões abandonadas",
+    "purgedResult": " sessões removidas ({{events}} eventos, {{agents}} agentes)"
+  },
+  "danger": {
+    "title": "Zona de perigo",
+    "description": "Ações irreversíveis que excluem dados permanentemente",
+    "warning": "Isso excluirá todas as sessões, agentes, eventos e dados de tokens. Tem certeza?",
+    "yesClearAll": "Sim, limpar tudo",
+    "clearAllData": "Limpar todos os dados",
+    "clearedResult": "{{count}} linhas removidas"
+  },
+  "about": {
+    "title": "Sobre",
+    "description": "Informações de execução do servidor.",
+    "release": "Versão",
+    "uiBuild": "Build da interface v{{version}} (recompile o cliente para corresponder)",
+    "uptime": "Tempo ativo",
+    "nodejs": "Node.js",
+    "platform": "Plataforma",
+    "wsClients": "Clientes WS",
+    "loadingInfo": "Carregando informações do servidor..."
+  },
+  "tables": {
+    "sessions": "sessões",
+    "agents": "agentes",
+    "events": "eventos",
+    "sessionsWithCost": "sessões com custo",
+    "pricingRules": "regras de preço",
+    "cursorPricingRules": "regras de preço do Cursor"
+  },
+  "messages": {
+    "failedLoad": "Falha ao carregar",
+    "failedSave": "Falha ao salvar",
+    "failedDelete": "Falha ao excluir",
+    "unknownError": "Desconhecido",
+    "actionFailed": "Erro: {{message}}"
+  },
+  "webhooks": {
+    "title": "Notificações por webhook",
+    "description": "Encaminhe alertas disparados para Slack, Discord, Microsoft Teams ou qualquer endpoint HTTP. A entrega é automática, repetida em caso de falha, e nunca bloqueia o monitoramento.",
+    "count_one": "{{count}} destino",
+    "count_other": "{{count}} destinos",
+    "add": "Adicionar webhook",
+    "loading": "Carregando webhooks…",
+    "empty": "Nenhum webhook configurado. Adicione um para encaminhar alertas ao Slack, Discord, Teams ou um endpoint personalizado.",
+    "scopedTo_one": "{{count}} regra",
+    "scopedTo_other": "{{count}} regras",
+    "enabled": "Ativado",
+    "test": "Testar",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "confirmDelete": "Confirmar",
+    "testOk": "Entregue (HTTP {{status}})",
+    "testFail": "Falhou: {{error}}",
+    "addTitle": "Novo webhook",
+    "editTitle": "Editar webhook",
+    "fieldName": "Nome",
+    "fieldNamePlaceholder": "ex.: Slack da equipe #alertas",
+    "fieldType": "Tipo",
+    "type": {
+      "slack": "Slack",
+      "discord": "Discord",
+      "teams": "Microsoft Teams",
+      "generic": "Genérico (JSON personalizado)"
+    },
+    "fieldUrl": "URL do webhook",
+    "urlKeepHint": "deixe em branco para manter a atual",
+    "urlKeepPlaceholder": "•••••••• (inalterada)",
+    "urlPlaceholder": {
+      "slack": "https://hooks.slack.com/services/…",
+      "discord": "https://discord.com/api/webhooks/…",
+      "teams": "https://outlook.office.com/webhook/…",
+      "generic": "https://example.com/webhook"
+    },
+    "fieldSecret": "Segredo de assinatura (opcional)",
+    "secretPlaceholder": "Segredo HMAC-SHA256",
+    "secretKeepPlaceholder": "•••••••• (deixe em branco para manter)",
+    "secretHint": "Quando definido, as requisições são assinadas com um cabeçalho X-Webhook-Signature.",
+    "fieldHeaders": "Cabeçalhos personalizados (opcional)",
+    "replaceHeaders": "Substituir cabeçalhos",
+    "headerKey": "Cabeçalho",
+    "headerValue": "Valor",
+    "addHeader": "Adicionar cabeçalho",
+    "scopeAll": "Receber alertas de todas as regras",
+    "enabledOnSave": "Ativado",
+    "save": "Salvar",
+    "create": "Criar",
+    "cancel": "Cancelar",
+    "urlOptional": "substituição opcional",
+    "urlAuto": "A URL é definida automaticamente a partir das credenciais abaixo.",
+    "deleteTitle": "Excluir webhook?",
+    "deleteMessage": "Excluir \"{{name}}\"? Os alertas disparados deixarão de ser entregues a este destino. Esta ação não pode ser desfeita.",
+    "guideToggle": "Como configurar {{provider}}",
+    "guideDocs": "Documentação oficial do {{provider}}",
+    "guideStaleNote": "As telas de configuração dos provedores mudam com frequência, então estes passos podem estar desatualizados: confirme sempre na documentação oficial."
+  },
+  "alertsHub": {
+    "title": "Alertas",
+    "description": "Defina regras de alerta, encaminhe-as para canais de webhook e revise o que foi disparado, tudo em um só lugar.",
+    "tabRules": "Regras",
+    "tabChannels": "Canais",
+    "tabActivity": "Atividade",
+    "rulesHint": "Condições que disparam um alerta. Avaliadas no servidor contra o fluxo de eventos ao vivo.",
+    "rulesEmptyHint": "Adicione uma regra para receber alertas sobre erros, inatividade, agentes travados ou limites de tokens."
+  },
+  "jumpTo": "Ir para",
+  "webhookGuides": {
+    "slack": {
+      "steps": [
+        "Crie ou abra um app do Slack em api.slack.com/apps.",
+        "Ative 'Incoming Webhooks' e clique em 'Add New Webhook to Workspace'.",
+        "Escolha o canal onde publicar e autorize.",
+        "Copie a URL gerada (https://hooks.slack.com/services/…) e cole-a acima."
+      ]
+    },
+    "discord": {
+      "steps": [
+        "Abra seu servidor → Configurações do servidor → Integrações → Webhooks.",
+        "Clique em 'Novo webhook', escolha um canal e, se quiser, renomeie-o.",
+        "Clique em 'Copiar URL do webhook' e cole-a acima."
+      ]
+    },
+    "teams": {
+      "steps": [
+        "No canal de destino do Teams, clique em ⋯ → 'Workflows'.",
+        "Escolha o modelo 'Postar em um canal quando uma solicitação de webhook for recebida'.",
+        "Conclua o fluxo e copie a URL HTTP POST gerada.",
+        "Cole-a acima. (Os conectores clássicos do Office 365 foram descontinuados em 2025; use Workflows.)"
+      ]
+    },
+    "google_chat": {
+      "steps": [
+        "Abra o espaço do Google Chat → título do espaço → 'Apps e integrações'.",
+        "Clique em 'Webhooks' → 'Adicionar webhook' e dê um nome a ele.",
+        "Copie a URL do webhook e cole-a acima."
+      ]
+    },
+    "mattermost": {
+      "steps": [
+        "Menu principal → Integrações → Webhooks de entrada (um administrador precisa ativar os webhooks antes).",
+        "Clique em 'Adicionar webhook de entrada' e escolha um canal.",
+        "Salve, depois copie a URL do webhook e cole-a acima."
+      ]
+    },
+    "rocketchat": {
+      "steps": [
+        "Administração → Integrações → Nova → Entrada.",
+        "Ative-a, escolha um canal e salve.",
+        "Copie a 'Webhook URL' e cole-a acima."
+      ]
+    },
+    "telegram": {
+      "steps": [
+        "Envie uma mensagem ao @BotFather, execute /newbot e copie o token do bot.",
+        "Adicione o bot ao seu grupo/canal (ou apenas converse com ele em privado).",
+        "Encontre o ID do chat: envie uma mensagem, abra https://api.telegram.org/bot<token>/getUpdates e leia result[].message.chat.id.",
+        "Informe o token do bot e o ID do chat acima: nenhuma URL é necessária."
+      ]
+    },
+    "pagerduty": {
+      "steps": [
+        "Abra o serviço de destino → Integrations → 'Add integration'.",
+        "Escolha 'Events API v2'.",
+        "Copie a Integration Key (a chave de roteamento).",
+        "Informe-a acima como chave de roteamento: a URL da Events API já vem preenchida."
+      ]
+    },
+    "opsgenie": {
+      "steps": [
+        "Settings → Integrations → adicione uma integração 'API'.",
+        "Copie a chave de API gerada.",
+        "Anote a região da sua conta (US ou EU).",
+        "Informe a chave de API e a região acima: a URL de alertas é derivada da região."
+      ]
+    },
+    "splunk_oncall": {
+      "steps": [
+        "Integrations → REST Endpoint, e ative-o.",
+        "Copie a URL REST: ela já contém sua chave de API.",
+        "Substitua o '$routing_key' final por uma das suas chaves de roteamento.",
+        "Cole a URL completa acima."
+      ]
+    },
+    "zapier": {
+      "steps": [
+        "Crie um Zap com o gatilho 'Webhooks by Zapier' → 'Catch Hook'.",
+        "Copie a URL de webhook personalizada que ele fornece.",
+        "Cole-a acima. O alerta chega como JSON: { event, alert }."
+      ]
+    },
+    "make": {
+      "steps": [
+        "Adicione um módulo 'Webhooks' → 'Custom webhook' como primeira etapa de um cenário.",
+        "Clique em 'Add', crie o hook e copie sua URL.",
+        "Cole-a acima e execute uma vez para que o Make aprenda o formato do payload."
+      ]
+    },
+    "n8n": {
+      "steps": [
+        "Adicione um nó 'Webhook' ao seu workflow; defina o método como POST.",
+        "Copie a Production URL.",
+        "Ative o workflow e cole a URL acima (http é permitido em instalações próprias)."
+      ]
+    },
+    "pipedream": {
+      "steps": [
+        "Crie um workflow com um gatilho 'HTTP / Webhook'.",
+        "Copie a URL exclusiva do endpoint.",
+        "Cole-a acima; inspecione as entregas no inspetor de eventos do Pipedream."
+      ]
+    },
+    "generic": {
+      "steps": [
+        "Aponte para qualquer endpoint que aceite um POST JSON (https, ou http para testes locais).",
+        "Formato do corpo: { event: 'alert.triggered', source, sent_at, alert: { … } }.",
+        "Opcional: defina um segredo de assinatura (HMAC-SHA256 do corpo → cabeçalho X-Webhook-Signature) e cabeçalhos personalizados.",
+        "Dica: use um inspetor gratuito como webhook.site para ver o payload exato."
+      ]
+    }
+  },
+  "remoteSources": {
+    "title": "Fontes de dados remotas",
+    "description": "Colete o uso do Claude Code e do Codex de outras máquinas via SSH, por exemplo uma máquina de desenvolvimento ou VM na nuvem que você usa por SSH enquanto este painel roda localmente. A autenticação usa sua própria configuração SSH (~/.ssh/config, chaves, agente); nenhuma senha é armazenada aqui.",
+    "scopeTitle": "Escopo dos dados",
+    "scopeDesc": "Escolha de quais máquinas o painel inteiro mostra dados. As mudanças valem imediatamente em todas as páginas: sessões, análises e custo.",
+    "scopeAll": "Todas as fontes",
+    "scopeAllDesc": "Esta máquina mais todas as fontes remotas configuradas, combinadas.",
+    "scopeLocal": "Somente esta máquina",
+    "scopeLocalDesc": "Apenas sessões coletadas localmente: oculta todos os dados de fontes remotas.",
+    "scopeSelected": "Fontes selecionadas",
+    "scopeSelectedDesc": "Escolha exatamente quais máquinas incluir, abaixo.",
+    "scopeSelectedCount": "{{n}} de {{total}} selecionadas",
+    "scopePickMachines": "Máquinas a incluir",
+    "thisMachine": "Esta máquina",
+    "listTitle": "Fontes configuradas",
+    "add": "Adicionar fonte",
+    "addTitle": "Adicionar uma fonte remota",
+    "editTitle": "Editar fonte",
+    "fieldLabel": "Rótulo",
+    "fieldHost": "Host SSH",
+    "fieldPort": "Porta (opcional)",
+    "fieldIdentity": "Arquivo de identidade (opcional)",
+    "fieldRemoteHome": "Pasta remota do Claude (opcional)",
+    "fieldRemoteHomeHint": "Linux/macOS: padrão ~/.claude (ou um caminho absoluto como /home/you/.claude). SSH no Windows + Claude no WSL: deixe em branco (detecção automática) ou use wsl:~/.claude. Windows nativo: C:/Users/you/.claude.",
+    "fieldRemoteCodexHome": "Pasta remota do Codex (opcional)",
+    "fieldRemoteCodexHomeHint": "O padrão é ~/.codex; importa suas sessões e os títulos renomeados nativos. Para SSH no Windows com o Codex no WSL, deixe em branco (detecção automática) ou use wsl:~/.codex.",
+    "fieldEnabled": "Sincronizar automaticamente em segundo plano",
+    "empty": "Nenhuma fonte remota ainda.",
+    "emptyHint": "Adicione uma máquina acessível por SSH para trazer o uso do Claude Code e do Codex dela.",
+    "paused": "Sincronização automática desligada",
+    "sessionCount": "{{n}} sessões",
+    "sessionCountLinked": "{{n}} vinculadas",
+    "sessionCountHint": "Sessões vinculadas a esta fonte (nem toda sessão fica visível quando o escopo de dados é Todas)",
+    "lastSync": "Última sincronização: {{when}}",
+    "neverSynced": "Nunca sincronizada",
+    "imported": "{{n}} importadas",
+    "syncNew": "{{n}} novas",
+    "syncOnRemote": "{{n}} na máquina remota",
+    "providerClaude": "Claude Code",
+    "providerCodex": "Codex",
+    "providerSessions": "{{n}} sessões",
+    "providerStatus": {
+      "idle": "Não verificado",
+      "syncing": "Verificando",
+      "ok": "Pronto",
+      "unavailable": "Não encontrado",
+      "error": "Indisponível"
+    },
+    "test": "Testar",
+    "syncNow": "Sincronizar",
+    "syncAll": "Sincronizar tudo",
+    "enable": "Ativar",
+    "disable": "Desativar",
+    "confirmDelete": "Remover esta fonte?",
+    "purgeData": "Excluir também as sessões importadas desta fonte (não pode ser desfeito)",
+    "deleteAndPurge": "Remover + excluir dados",
+    "removeKeep": "Remover (manter dados)",
+    "remoteSourceBadgeTitle": "Coletado de uma máquina remota"
+  },
+  "cursorPathsNote": "O Cursor está incluído no escopo do Claude Code do painel. O histórico local é descoberto e capturado automaticamente a partir de ~/.cursor; pastas remotas do Cursor não são sincronizadas pelas importações SSH exclusivas do Claude."
+}

@@ -46,7 +46,7 @@
 - Hooks: keep fail-safe and non-blocking behavior.
 - WebSocket: keep message types stable and backward-compatible.
 - Documentation: include exact commands and paths; keep markdown examples runnable.
-- Localization: adding an i18n key means adding it to every locale; editing `README.md` means mirroring the edit into `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. See `.claude/rules/i18n-parity.md`.
+- Localization: adding an i18n key means adding it to every locale; editing `README.md` means mirroring the edit into `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`, `README-DE.md`, `README-PT.md`, and `README-IT.md`. See `.claude/rules/i18n-parity.md`.
 
 ## Agent behavior
 - Explore first, then implement.

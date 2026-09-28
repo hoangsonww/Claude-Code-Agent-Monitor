@@ -9,13 +9,18 @@ paths:
   - "README-VN.md"
   - "README-KO.md"
   - "README-ES.md"
+  - "README-FR.md"
+  - "README-DE.md"
+  - "README-PT.md"
+  - "README-IT.md"
   - "docs/I18N.md"
 ---
 
 # i18n Parity Rules (binding for every coding agent)
 
 The dashboard is localized to **English (`en`), Simplified Chinese (`zh`),
-Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`)** across five independent
+Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), French (`fr`), German (`de`),
+Portuguese (`pt`), and Italian (`it`)** across five independent
 surfaces. English is the source of truth on all of them, and **a change is not
 done until every supported language carries it in the same PR** — a fallback to
 English is a safety net, never a completed translation.
@@ -38,11 +43,11 @@ audit fails on a stale mirror.
   imports, the per-language `resources` entry, and the `ns` array in
   `client/src/i18n/index.ts`.
 - **Editing `README.md`** → mirror the same edit at the corresponding section of
-  `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four,
-  every time. They are full mirrors, not summaries.
+  `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md`, `README-FR.md`,
+  `README-DE.md`, `README-PT.md`, and `README-IT.md`. All eight, every time. They are full mirrors, not summaries.
 - **Editing user-visible text in `wiki/index.html`** → follow
   [`.claude/rules/wiki-i18n.md`](./wiki-i18n.md) and ship `zh` + `vi` + `ko` +
-  `es` entries in the same change, then bump the wiki cache versions.
+  `es` + `fr` + `de` + `pt` + `it` entries in the same change, then bump the wiki cache versions.
 - **Adding a language** → work through
   [`.claude/skills/i18n-parity/references/new-language-checklist.md`](../skills/i18n-parity/references/new-language-checklist.md)
   end to end. A complete README mirror, every app key, and a complete wiki
@@ -53,9 +58,10 @@ audit fails on a stale mirror.
   `Agent`, `Read`, `Edit`). Translate only the prose around them.
 - **The Claude Code tool `Agent` and the UI noun "agent" are different things.**
   The tool name is an identifier and stays literal in every locale. The UI noun
-  (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
-  deliberately `agente` / `subagente` in `es` — `i18n.test.ts` asserts both
-  halves. The Spanish exception never applies to the tool name.
+  (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko`,
+  `Agent` / `Subagent` in `de`, `agent` / `sous-agent` in `fr`, and deliberately
+  `agente` / `subagente` in `es`, `pt`, and `it` — `i18n.test.ts` asserts every
+  row. These translated nouns never apply to the tool name.
 - The root landing page `index.html` is **English-only by design** — do not add
   an i18n layer to it.
 

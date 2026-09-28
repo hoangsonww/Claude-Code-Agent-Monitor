@@ -1,0 +1,45 @@
+{
+  "title": "Kanban-Board",
+  "subtitle": "Kanban-Ansicht aller Agents nach Status",
+  "subtitleSessions": "Kanban-Ansicht aller Sitzungen nach Status",
+  "viewToggle": {
+    "agents": "Agents",
+    "sessions": "Sitzungen"
+  },
+  "noAgents": "Noch keine Agents erfasst",
+  "noAgentsDesc": "Starten Sie eine überwachte Agent-Sitzung mit installierten Hooks, damit hier Agents erscheinen.",
+  "agentCount": "{{count}} Agent erfasst",
+  "agentCount_plural": "{{count}} Agents erfasst",
+  "noAgentsInColumn": "Keine Agents",
+  "noSessions": "Noch keine Sitzungen erfasst",
+  "noSessionsDesc": "Starten Sie eine überwachte Agent-Sitzung mit installierten Hooks, damit hier Sitzungen erscheinen.",
+  "sessionCount": "{{count}} Sitzung erfasst",
+  "sessionCount_plural": "{{count}} Sitzungen erfasst",
+  "noSessionsInColumn": "Keine Sitzungen",
+  "ran": "lief ",
+  "running": "läuft seit ",
+  "session": {
+    "anonymous": "Unbenannte Sitzung",
+    "agentSummary_one": "{{count}} Agent",
+    "agentSummary_other": "{{count}} Agents",
+    "subagentSummary_one": "{{count}} Subagent",
+    "subagentSummary_other": "{{count}} Subagents",
+    "turnSummary_one": "{{count}} Runde",
+    "turnSummary_other": "{{count}} Runden"
+  },
+  "tooltip": {
+    "agent": {
+      "working": "Der Agent bearbeitet gerade aktiv eine Aufgabe.\n\nEr wechselt zurück zu Wartend, wenn diese Runde endet.",
+      "waiting": "Der Agent hat seine Runde beendet oder benötigt eine menschliche Antwort, etwa eine Berechtigungsfreigabe.\n\nEr arbeitet weiter, sobald die Sitzung fortgesetzt wird.",
+      "completed": "Der Agent ist für diese Sitzung vollständig beendet.\n\nFür diesen Agent wird keine weitere Aktivität aufgezeichnet.",
+      "error": "Der Agent hat einen Fehler gemeldet und macht erst weiter, wenn die Sitzung fortgesetzt oder wiederholt wird."
+    },
+    "session": {
+      "active": "Die Sitzung ist mitten in einer Runde – ein Agent arbeitet gerade und der Benutzer blockiert nichts. Dieser Zustand ist kurz: Die Sitzung wechselt zu Wartend, wenn die Runde endet.",
+      "waiting": "Die Sitzung wartet auf Sie. Eine Runde ist eventuell abgeschlossen, oder der Agent benötigt eine Berechtigung oder Eingabe.\n\nHier finden Sie die Sitzungen, denen Sie eine Antwort schulden.",
+      "completed": "Die Sitzung ist vollständig geschlossen, weil ihre CLI sauber beendet oder sie explizit geschlossen wurde.\n\nAlle Agents dieser Sitzung sind ebenfalls abgeschlossen.",
+      "error": "Die Sitzung endete mit einem Fehler – ein nicht behebbarer Ausfall oder ein Fehler der Upstream-API hat den Lauf beendet.",
+      "abandoned": "Die Sitzung ist ohne sauberes Beendigungssignal veraltet. Nach mehr als 5 Minuten ohne Aktivität als abgebrochen markiert (z. B. nach /resume, einem Netzwerkabbruch oder einer beendeten CLI). Anders als Abgeschlossen: Es wurde kein echtes Beenden beobachtet."
+    }
+  }
+}
