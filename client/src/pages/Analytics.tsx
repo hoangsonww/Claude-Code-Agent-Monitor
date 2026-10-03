@@ -60,6 +60,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
+import { getCurrentLocale } from "../lib/format";
 import {
   RefreshCw,
   Download,
@@ -943,7 +944,7 @@ export function Analytics() {
                 {t("subtitle")}
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 bg-surface-2 border border-border px-2 py-0.5 rounded-md font-mono ml-2">
                   <Clock className="w-3 h-3" />
-                  {lastUpdate.toLocaleTimeString()}
+                  {lastUpdate.toLocaleTimeString(getCurrentLocale())}
                 </span>
               </p>
             </div>
