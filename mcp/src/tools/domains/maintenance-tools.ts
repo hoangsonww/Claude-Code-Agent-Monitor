@@ -1,6 +1,6 @@
 /**
  * @file maintenance-tools.ts
- * @description Defines a set of maintenance tools for the MCP dashboard, including functions to clean up stale sessions, re-import legacy data, reinstall hooks, and clear all data. These tools are registered with the MCP server and include appropriate guards to ensure that mutating and destructive actions are only performed when explicitly allowed in the configuration. The tools interact with the MCP server's API to perform the necessary maintenance tasks, providing a way for administrators to manage the dashboard's data and settings effectively.
+ * @description Defines a set of maintenance tools for the MCP dashboard, including functions to clean up stale sessions, re-import legacy data, reinstall hooks, inspect/compress/prune durable transcript snapshots, and clear all data. These tools are registered with the MCP server and include appropriate guards to ensure that mutating and destructive actions are only performed when explicitly allowed in the configuration. The tools interact with the MCP server's API to perform the necessary maintenance tasks, providing a way for administrators to manage the dashboard's data and settings effectively.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -60,11 +60,12 @@ import { assertDestructiveEnabled, assertMutationsEnabled } from "../../policy/t
 import type { ToolContext } from "../../types/tool-context.js";
 
 /**
- * Registers four administrative tools against `/api/settings/*`. All four
- * require mutations; `dashboard_clear_all_data` additionally requires the
- * destructive tier plus an exact confirmation token, since it's the only
- * irreversible one (cleanup only touches stale/old rows; reimport and
- * reinstall-hooks are idempotent, repeatable operations).
+ * Registers the administrative tools against `/api/settings/*`. Writes
+ * require mutations; the irreversible ones — `dashboard_clear_all_data` and an
+ * applied `dashboard_prune_snapshots` — additionally require the destructive
+ * tier plus an exact confirmation token (cleanup only touches stale/old rows;
+ * reimport, reinstall-hooks and snapshot compression are lossless, repeatable
+ * operations). Snapshot storage reads and prune dry runs are read-only.
  */
 export function registerMaintenanceTools(context: ToolContext): void {
   const { api, config } = context;
@@ -132,6 +133,82 @@ export function registerMaintenanceTools(context: ToolContext): void {
     async () => {
       assertMutationsEnabled(config);
       return api.post("/api/settings/reinstall-hooks");
+    }
+  );
+
+  // Read-only. Calls GET /api/settings/snapshots. Output: per-provider
+  // transcript snapshot storage ({ total_bytes, total_files, roots: {claude,
+  // codex, cursor}: { path, files, bytes, compressed_files, compressed_bytes,
+  // sessions }, policy: { compress, max_age_days, max_bytes } }).
+  register(
+    "dashboard_get_snapshot_storage",
+    "Transcript snapshot storage per provider (bytes, files, compressed share) and retention policy.",
+    {},
+    async () => api.get("/api/settings/snapshots")
+  );
+
+  // Policy: MUTATIONS required. Calls POST /api/settings/snapshots/compress —
+  // lossless: gzips snapshots whose original transcript is gone, verified
+  // (decompress + SHA-256) before the plain copy is removed. Output: counts
+  // { compressed, bytes_before, bytes_after, failed, skipped_roots, storage }.
+  register(
+    "dashboard_compress_snapshots",
+    "Losslessly compress transcript snapshots whose original transcript was deleted by its provider.",
+    {},
+    async () => {
+      assertMutationsEnabled(config);
+      return api.post("/api/settings/snapshots/compress");
+    }
+  );
+
+  // Policy: dry run (default) is READ-ONLY; dry_run=false is DESTRUCTIVE and
+  // needs confirmation_token "PRUNE_SNAPSHOTS" — a pruned snapshot may be the
+  // only remaining copy of a conversation once Claude Code/Codex/Cursor
+  // deleted the original. Calls POST /api/settings/snapshots/prune with at
+  // least one of max_age_days / max_bytes / orphans. max_bytes takes a byte
+  // count or a size with a binary unit ("500MB", "5GB"), matching the API and
+  // `ccam snapshots prune --max-size`; the server validates it. Output: the plan
+  // (candidates, candidate_bytes, remaining_bytes, over_cap_bytes) and, when
+  // applied, removed_files / removed_bytes.
+  register(
+    "dashboard_prune_snapshots",
+    "Plan (dry run, default) or apply a prune of old transcript snapshots. Applying is destructive.",
+    {
+      max_age_days: z.number().positive().max(36500).optional(),
+      max_bytes: z
+        .union([
+          z.number().int().positive(),
+          z.string().regex(/^\s*\d+(\.\d+)?\s*[kmgt]?i?b?\s*$/i, 'Use bytes or a size like "5GB"'),
+        ])
+        .optional(),
+      orphans: z.boolean().optional(),
+      dry_run: z.boolean().optional(),
+      confirmation_token: z.string().optional(),
+    },
+    async (args) => {
+      const maxAgeDays = args.max_age_days as number | undefined;
+      const maxBytes = args.max_bytes as number | string | undefined;
+      const orphans = args.orphans as boolean | undefined;
+      if (maxAgeDays === undefined && maxBytes === undefined && orphans !== true) {
+        throw new Error("At least one of max_age_days, max_bytes, or orphans:true is required.");
+      }
+      const dryRun = args.dry_run !== false;
+      if (!dryRun) {
+        assertDestructiveEnabled(
+          config,
+          (args.confirmation_token as string | undefined) ?? "",
+          "PRUNE_SNAPSHOTS"
+        );
+      }
+      return api.post("/api/settings/snapshots/prune", {
+        body: {
+          max_age_days: maxAgeDays,
+          max_bytes: maxBytes,
+          orphans,
+          dry_run: dryRun,
+          ...(dryRun ? {} : { confirm: "PRUNE_SNAPSHOTS" }),
+        },
+      });
     }
   );
 

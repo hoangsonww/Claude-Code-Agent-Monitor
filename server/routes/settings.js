@@ -1,7 +1,8 @@
 /**
  * @file Express router for dashboard settings: system information, pricing and
- * hook operations, data maintenance, and live-safe Claude Code/Cursor/Codex session
- * home configuration for the frontend Settings experience.
+ * hook operations, data maintenance (including transcript snapshot storage and
+ * retention), and live-safe Claude Code/Cursor/Codex session home
+ * configuration for the frontend Settings experience.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -28,6 +29,13 @@ const {
   importExportBundle,
   ImportFormatError,
 } = require("../lib/data-transfer");
+const {
+  compressOrphanedOriginals,
+  deleteSnapshotsForSessions,
+  getSnapshotStorage,
+  parseByteSize,
+  pruneSnapshots,
+} = require("../lib/snapshot-retention");
 
 const router = Router();
 const MAX_BACKUP_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -140,6 +148,7 @@ router.get("/info", (req, res) => {
       cpus: os.cpus().length,
     },
     transcript_cache: transcriptCache.stats(),
+    snapshots: getSnapshotStorage(),
   });
 });
 
@@ -434,7 +443,14 @@ router.put("/codex-home", (req, res) => {
 // POST /api/settings/cleanup — abandon stale sessions, purge old data
 router.post("/cleanup", (req, res) => {
   const { abandon_hours, purge_days } = req.body;
-  const result = { abandoned: 0, purged_sessions: 0, purged_events: 0, purged_agents: 0 };
+  const result = {
+    abandoned: 0,
+    purged_sessions: 0,
+    purged_events: 0,
+    purged_agents: 0,
+    purged_snapshot_files: 0,
+    purged_snapshot_bytes: 0,
+  };
 
   if (abandon_hours && typeof abandon_hours === "number" && abandon_hours > 0) {
     // Mark active sessions with no recent events as abandoned
@@ -484,10 +500,73 @@ router.post("/cleanup", (req, res) => {
       db.prepare(`DELETE FROM token_usage WHERE session_id IN (${placeholders})`).run(...ids);
       db.prepare(`DELETE FROM sessions WHERE id IN (${placeholders})`).run(...ids);
       result.purged_sessions = toDelete.length;
+      // Their transcript snapshots are unreachable without the session row —
+      // reclaim them too (all three provider snapshot dirs).
+      const snapshots = deleteSnapshotsForSessions(ids);
+      result.purged_snapshot_files = snapshots.files;
+      result.purged_snapshot_bytes = snapshots.bytes;
     }
   }
 
   res.json({ ok: true, ...result });
+});
+
+// GET /api/settings/snapshots — transcript snapshot storage per provider dir
+// (bytes, files, compressed share) and the active retention policy.
+router.get("/snapshots", (_req, res) => {
+  res.json(getSnapshotStorage({ fresh: true }));
+});
+
+// POST /api/settings/snapshots/compress — compress, now, every snapshot whose
+// original transcript is gone (the same lossless pass the background
+// maintenance runs every few hours). Verified before any plain file is removed.
+router.post("/snapshots/compress", async (_req, res) => {
+  try {
+    const result = await compressOrphanedOriginals();
+    res.json({ ok: true, ...result, storage: getSnapshotStorage({ fresh: true }) });
+  } catch (err) {
+    res.status(500).json({ error: { code: "COMPRESS_FAILED", message: err.message } });
+  }
+});
+
+const PRUNE_CONFIRM = "PRUNE_SNAPSHOTS";
+
+// POST /api/settings/snapshots/prune — remove transcript snapshots of old
+// finished sessions (max_age_days), oldest-first down to a size (max_bytes),
+// and/or snapshots with no session row (orphans). DRY RUN BY DEFAULT: the
+// response lists exactly what would go. Applying requires dry_run:false AND
+// confirm:"PRUNE_SNAPSHOTS" — pruned snapshots are the only copy once the
+// provider's own retention deleted the original.
+router.post("/snapshots/prune", (req, res) => {
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const invalid = (message) =>
+    res.status(400).json({ error: { code: "INVALID_PRUNE_REQUEST", message } });
+
+  let maxAgeDays = null;
+  if (body.max_age_days !== undefined && body.max_age_days !== null) {
+    maxAgeDays = Number(body.max_age_days);
+    if (!Number.isFinite(maxAgeDays) || maxAgeDays <= 0 || maxAgeDays > 36500) {
+      return invalid("max_age_days must be a number between 0 and 36500 (exclusive of 0)");
+    }
+  }
+  let maxBytes = null;
+  if (body.max_bytes !== undefined && body.max_bytes !== null) {
+    maxBytes = parseByteSize(body.max_bytes);
+    if (!maxBytes) return invalid('max_bytes must be a positive byte count or size like "5GB"');
+  }
+  const orphans = body.orphans === true;
+  if (!maxAgeDays && !maxBytes && !orphans) {
+    return invalid("Provide at least one of max_age_days, max_bytes, or orphans:true");
+  }
+  const dryRun = body.dry_run !== false;
+  if (!dryRun && body.confirm !== PRUNE_CONFIRM) {
+    return invalid(`Applying a prune requires confirm: "${PRUNE_CONFIRM}"`);
+  }
+  try {
+    res.json({ ok: true, ...pruneSnapshots(db, { dryRun, maxAgeDays, maxBytes, orphans }) });
+  } catch (err) {
+    res.status(500).json({ error: { code: "PRUNE_FAILED", message: err.message } });
+  }
 });
 
 module.exports = router;

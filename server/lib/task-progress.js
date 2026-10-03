@@ -10,6 +10,12 @@
 const fs = require("fs");
 const path = require("path");
 const { updatePlanArgumentIndexes } = require("./codex-plan-call");
+const {
+  isCompressedPath,
+  logicalPath,
+  readCompressedSync,
+  transcriptLength,
+} = require("./snapshot-store");
 
 // One entry per transcript file, main and subagent alike. A single session
 // can have several hundred subagent files, and a list request touches up to
@@ -23,6 +29,12 @@ const MAX_TEXT = 500;
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 const MAX_SCAN_BYTES = 32 * 1024 * 1024;
 const READ_CHUNK_BYTES = 1024 * 1024;
+// A compressed snapshot (`.jsonl.gz`, written once the original transcript was
+// pruned — see snapshot-store.js) has no random access, so it is inflated in
+// memory to scan its tail. Larger archives are skipped (events still feed the
+// task summary) rather than risk a huge allocation. Parses are cached by
+// size+mtime and archives never change, so each is inflated at most once.
+const MAX_COMPRESSED_PARSE_BYTES = 256 * 1024 * 1024;
 // How long a parse of a since-grown transcript may be served from cache. The
 // size+mtime cache key can never hit while a file is being appended to, so
 // without this floor a burst of list requests (e.g. the dashboard reloading on
@@ -506,15 +518,39 @@ function observationsFromEntry(entry, line, owner) {
   return observations;
 }
 
+/**
+ * Positional reader over a transcript: a file descriptor for plain JSONL, or
+ * the inflated bytes of a compressed snapshot. Throws when unreadable.
+ */
+function openLineSource(filePath) {
+  if (isCompressedPath(filePath)) {
+    const data = readCompressedSync(filePath, MAX_COMPRESSED_PARSE_BYTES);
+    if (!data) throw new Error("compressed transcript unreadable or too large");
+    return {
+      size: data.length,
+      read: (target, offset, length, position) =>
+        data.copy(target, offset, position, Math.min(data.length, position + length)),
+      close() {},
+    };
+  }
+  const descriptor = fs.openSync(filePath, "r");
+  return {
+    size: fs.fstatSync(descriptor).size,
+    read: (target, offset, length, position) =>
+      fs.readSync(descriptor, target, offset, length, position),
+    close: () => fs.closeSync(descriptor),
+  };
+}
+
 function parseFileLines(
   filePath,
   onLine,
   { maxBytes = MAX_SCAN_BYTES, tail = false, start = 0, lineNumber = 0, end } = {}
 ) {
-  const descriptor = fs.openSync(filePath, "r");
+  const source = openLineSource(filePath);
   const buffer = Buffer.allocUnsafe(READ_CHUNK_BYTES);
   let pending = Buffer.alloc(0);
-  const fileSize = Math.min(fs.fstatSync(descriptor).size, end ?? Number.MAX_SAFE_INTEGER);
+  const fileSize = Math.min(source.size, end ?? Number.MAX_SAFE_INTEGER);
   const boundedBytes = Math.max(0, Math.min(fileSize, maxBytes));
   let position = tail ? fileSize - boundedBytes : Math.max(0, Math.min(start, fileSize));
   const endPosition = tail ? fileSize : Math.min(fileSize, position + boundedBytes);
@@ -522,7 +558,7 @@ function parseFileLines(
   if (tail && position > 0) {
     const previousByte = Buffer.allocUnsafe(1);
     skipPartialLine =
-      fs.readSync(descriptor, previousByte, 0, previousByte.length, position - 1) === 1 &&
+      source.read(previousByte, 0, previousByte.length, position - 1) === 1 &&
       previousByte[0] !== 0x0a;
   }
   // A tail scan may begin inside an incomplete line. Until its newline is
@@ -533,7 +569,7 @@ function parseFileLines(
   try {
     while (position < endPosition) {
       const bytesToRead = Math.min(buffer.length, endPosition - position);
-      const bytesRead = fs.readSync(descriptor, buffer, 0, bytesToRead, position);
+      const bytesRead = source.read(buffer, 0, bytesToRead, position);
       if (bytesRead <= 0) break;
       position += bytesRead;
       let chunk = buffer.subarray(0, bytesRead);
@@ -583,7 +619,7 @@ function parseFileLines(
     }
     return completeOffset;
   } finally {
-    fs.closeSync(descriptor);
+    source.close();
   }
 }
 
@@ -601,6 +637,13 @@ function parseTranscript(filePath, owner) {
     stat = fs.statSync(filePath);
   } catch {
     return [];
+  }
+  if (isCompressedPath(filePath)) {
+    // Window math below is in uncompressed bytes; the archive's header records
+    // that length exactly. Archives are immutable, so the size+mtime key holds.
+    const length = transcriptLength(filePath);
+    if (length === null) return [];
+    stat = { size: length, mtimeMs: stat.mtimeMs, dev: stat.dev, ino: stat.ino };
   }
   const key = `${filePath}:${owner.id}:${owner.type}`;
   const cached = cache.get(key);
@@ -813,7 +856,7 @@ function transcriptTimestamp(filePath) {
 }
 
 function readMeta(filePath) {
-  const metaPath = filePath.replace(/\.jsonl$/, ".meta.json");
+  const metaPath = logicalPath(filePath).replace(/\.jsonl$/, ".meta.json");
   try {
     return JSON.parse(fs.readFileSync(metaPath, "utf8"));
   } catch {
@@ -832,7 +875,8 @@ function discoverSubagentFiles(mainTranscriptPath, sessionId) {
   for (const candidate of candidates) {
     try {
       for (const entry of fs.readdirSync(candidate, { withFileTypes: true })) {
-        if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
+        // Snapshot subagent dirs may hold compressed `.jsonl.gz` files.
+        if (!entry.isFile() || !logicalPath(entry.name).endsWith(".jsonl")) continue;
         if (entry.name.startsWith("agent-acompact-")) continue;
         files.push(path.join(candidate, entry.name));
       }
@@ -840,7 +884,10 @@ function discoverSubagentFiles(mainTranscriptPath, sessionId) {
       /* ignore */
     }
   }
-  return files;
+  // An interrupted compression can briefly leave both `x.jsonl` and
+  // `x.jsonl.gz`; they are identical, so keep only the plain one.
+  const plain = new Set(files.filter((file) => !isCompressedPath(file)));
+  return files.filter((file) => !isCompressedPath(file) || !plain.has(logicalPath(file)));
 }
 
 function mapSubagentOwners(files, agents) {
@@ -853,7 +900,7 @@ function mapSubagentOwners(files, agents) {
   return files
     .map((filePath) => {
       const shortId = path
-        .basename(filePath)
+        .basename(logicalPath(filePath))
         .replace(/^agent-/, "")
         .replace(/\.jsonl$/, "");
       const meta = readMeta(filePath);

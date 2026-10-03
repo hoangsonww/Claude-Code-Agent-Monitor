@@ -94,6 +94,7 @@
     "clear-data": "node scripts/clear-data.js",
     "test": "node --test server/__tests__/*.test.js && cd client && npm test",
     "test:server": "node --test server/__tests__/*.test.js",
+    "test:snapshots": "node --test server/__tests__/snapshot-store.test.js server/__tests__/snapshot-retention.test.js",
     "test:client": "cd client && npm test",
     "test:mcp": "npm --prefix mcp run test",
     "check:headers": "bash .claude/skills/file-headers/scripts/check-headers.sh",

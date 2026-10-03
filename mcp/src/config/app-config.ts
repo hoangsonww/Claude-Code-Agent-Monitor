@@ -106,8 +106,9 @@ export interface AppConfig {
    * (see `policy/tool-guards.ts`). From `MCP_DASHBOARD_ALLOW_MUTATIONS`,
    * default `false`. */
   allowMutations: boolean;
-  /** Gate for `dashboard_clear_all_data` only; requires `allowMutations`
-   * too. From `MCP_DASHBOARD_ALLOW_DESTRUCTIVE`, default `false`. */
+  /** Gate for the irreversible tools (`dashboard_clear_all_data` and an
+   * applied `dashboard_prune_snapshots`); requires `allowMutations` too.
+   * From `MCP_DASHBOARD_ALLOW_DESTRUCTIVE`, default `false`. */
   allowDestructive: boolean;
   /** From `MCP_LOG_LEVEL`, default `"info"`. */
   logLevel: LogLevel;

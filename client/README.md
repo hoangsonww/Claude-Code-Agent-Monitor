@@ -201,6 +201,7 @@ client/
 │   │   ├── SplashScreen.tsx   # First-run provider choice and live-hook setup gate
 │   │   ├── PaginatedLegend.tsx # Bounded responsive legends for Analytics and Workflows
 │   │   ├── RemoteSources.tsx  # Remote Data Sources settings panel (SSH multi-machine collection)
+│   │   ├── SnapshotStorage.tsx # Transcript snapshot storage card: per-provider size, compress now, preview-gated prune
 │   │   ├── TodoProgressIndicator.tsx # Micro donut + portal tooltip beside Sessions status
 │   │   ├── TodoProgressPanel.tsx # Full owner-aware tracker on Session Detail
 │   │   ├── todoProgress.ts       # Shared task status colors/formatters
@@ -313,6 +314,8 @@ The Remote Data Sources form names its independent optional overrides **Remote C
 **Cursor sessions:** Settings explains that the Claude Code dashboard scope also includes native Cursor sessions discovered and snapshotted from `~/.cursor`. Remote Claude-only SSH imports do not mirror remote Cursor homes, so the note calls out that boundary rather than implying those paths are shared.
 
 **Settings data and homes:** the **Dashboard Data** cards select Claude-compatible (Claude Code + Cursor), Codex, or both through the same global `dataScope` store used by Remote Data Sources. Every scoped sessions, agents, events, workflow, analytics, token, and cost request re-fetches as soon as the selection changes. The Session Data Locations section independently saves the Claude Code root and the dashboard-specific Codex root; local Cursor discovery follows `~/.cursor` (or `DASHBOARD_CURSOR_HOME`) automatically. Saving the Codex root asks the server to re-arm its live rollout watcher and scan the new `sessions/` tree immediately. **Import History** uses matching Claude Code / Codex tabs: switching tabs reloads source-specific instructions and paths, then sends the selected provider with rescan, folder, and upload actions while provider-tagged WebSocket progress keeps concurrent work isolated; Cursor history is backfilled by its background ingestor without a manual import tab.
+
+**Transcript snapshots:** the `SnapshotStorage` card (`components/SnapshotStorage.tsx`) reads `snapshots` from `GET /api/settings/info` and shows total and per-provider (Claude Code / Codex / Cursor) snapshot size, the compressed share, and the env-configured retention policy. **Compress now** calls the lossless `POST /api/settings/snapshots/compress`. The prune controls (older than N days, keep total under N GB, include orphans) first run a dry run (`POST /api/settings/snapshots/prune`); **Prune** stays disabled until a preview exists for exactly the criteria on screen, editing any field invalidates it, and applying takes a second confirming click that sends `confirm: "PRUNE_SNAPSHOTS"`. Its strings ship in all five locales.
 
 **Pricing controls:** the Claude, Cursor, and OpenAI GPT pricing sections use the same title, info-tooltip, **Reset Defaults**, and **Add Model** layout. Each Settings reset button resets only its own provider. Cursor keeps input, cache-write, cache-read, and output rates in its own table, while the GPT tooltip holds the USD-per-million-token units, 272K Short/Long threshold, Fast-mode behavior, pattern matching, manual-update guidance, and unpublished-rate handling that would otherwise crowd the table.
 

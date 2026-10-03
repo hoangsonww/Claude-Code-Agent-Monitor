@@ -934,6 +934,8 @@ export const api = {
      *     load averages, and host memory/cpu counts.
      *   - `transcript_cache`: LRU cache occupancy, capacity, hit/miss counts,
      *     and the currently-cached keys.
+     *   - `snapshots`: durable transcript snapshot storage per provider dir
+     *     (bytes, files, compressed share) and the active retention policy.
      *
      * @returns The combined diagnostics object described above.
      */
@@ -988,6 +990,7 @@ export const api = {
           misses: number;
           keys: string[];
         };
+        snapshots?: SnapshotStorage;
       }>("/settings/info"),
     /** Get/set the `~/.claude` root the server reads config from. Lets an
      *  operator point the dashboard at a non-default Claude Code home (e.g. a
@@ -1153,8 +1156,10 @@ export const api = {
      * @param params Retention thresholds.
      * @param params.abandon_hours Idle-hours cutoff after which a session is abandoned.
      * @param params.purge_days    Age-in-days cutoff after which rows are purged.
-     * @returns `{ ok, abandoned, purged_sessions, purged_events, purged_agents }`
-     *   — how many records each part of the sweep affected.
+     * @returns `{ ok, abandoned, purged_sessions, purged_events, purged_agents,
+     *   purged_snapshot_files, purged_snapshot_bytes }` — how many records each
+     *   part of the sweep affected, including the purged sessions' transcript
+     *   snapshot files.
      */
     cleanup: (params: { abandon_hours?: number; purge_days?: number }) =>
       request<{
@@ -1163,7 +1168,56 @@ export const api = {
         purged_sessions: number;
         purged_events: number;
         purged_agents: number;
+        purged_snapshot_files?: number;
+        purged_snapshot_bytes?: number;
       }>("/settings/cleanup", { method: "POST", body: JSON.stringify(params) }),
+    /** Durable transcript snapshots — the copies that keep the Conversation
+     *  tab working after Claude Code, Codex, or Cursor delete their own
+     *  transcripts (issue #358). */
+    snapshots: {
+      /**
+       * GET /api/settings/snapshots - per-provider snapshot storage and policy.
+       * @returns Fresh (uncached) {@link SnapshotStorage}.
+       */
+      get: () => request<SnapshotStorage>("/settings/snapshots"),
+      /**
+       * POST /api/settings/snapshots/compress - lossless: gzip every snapshot
+       * whose original transcript is gone, verified before the plain copy is
+       * removed. Safe to run any time.
+       * @returns Counts plus the refreshed storage report.
+       */
+      compress: () =>
+        request<{
+          ok: boolean;
+          compressed: number;
+          bytes_before: number;
+          bytes_after: number;
+          failed: number;
+          skipped_roots: string[];
+          storage: SnapshotStorage;
+        }>("/settings/snapshots/compress", { method: "POST" }),
+      /**
+       * POST /api/settings/snapshots/prune - remove snapshots of old finished
+       * sessions. DRY RUN unless `dry_run: false` AND `confirm:
+       * "PRUNE_SNAPSHOTS"` are both sent; pruned snapshots may be the only
+       * remaining copy of a conversation.
+       * @param params.max_age_days Prune finished sessions idle longer than this.
+       * @param params.max_bytes    Then prune oldest-first until under this size.
+       * @param params.orphans      Also prune snapshots with no session row.
+       * @returns The plan (and, when applied, what was removed).
+       */
+      prune: (params: {
+        max_age_days?: number;
+        max_bytes?: number | string;
+        orphans?: boolean;
+        dry_run?: boolean;
+        confirm?: "PRUNE_SNAPSHOTS";
+      }) =>
+        request<SnapshotPruneResult>("/settings/snapshots/prune", {
+          method: "POST",
+          body: JSON.stringify(params),
+        }),
+    },
   },
 
   // ─────────────────────────────── Workflows API ──────────────────────────────
@@ -2066,6 +2120,58 @@ function requestBackupsHelper(params?: { scope?: "user" | "project"; type?: CcAr
   if (params?.type) qs.set("type", params.type);
   const q = qs.toString();
   return request<{ items: CcBackup[] }>(`/cc-config/backups${q ? `?${q}` : ""}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transcript snapshot types — /api/settings/snapshots* (issue #358).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Storage of one snapshot directory (`transcripts`, `codex-transcripts`,
+ *  `cursor-transcripts` under the dashboard data dir). */
+export interface SnapshotRootSummary {
+  path: string;
+  files: number;
+  bytes: number;
+  compressed_files: number;
+  compressed_bytes: number;
+  sessions: number;
+}
+
+/** Snapshot storage report plus the env-configured retention policy
+ *  (`DASHBOARD_SNAPSHOT_COMPRESS`, `_MAX_AGE_DAYS`, `_MAX_BYTES`). */
+export interface SnapshotStorage {
+  total_bytes: number;
+  total_files: number;
+  roots: Record<"claude" | "codex" | "cursor", SnapshotRootSummary>;
+  policy: { compress: boolean; max_age_days: number | null; max_bytes: number | null };
+}
+
+/** One session whose snapshots a prune selects. */
+export interface SnapshotPruneCandidate {
+  kind: "claude" | "codex" | "cursor";
+  session_id: string;
+  reason: "max_age" | "max_bytes" | "orphan";
+  files: number;
+  bytes: number;
+  last_activity: string | null;
+}
+
+/** Prune plan (dry run) or result (applied). */
+export interface SnapshotPruneResult {
+  ok: boolean;
+  dry_run: boolean;
+  criteria: { max_age_days: number | null; max_bytes: number | null; orphans: boolean };
+  total_bytes: number;
+  candidate_sessions: number;
+  candidate_files: number;
+  candidate_bytes: number;
+  remaining_bytes: number;
+  over_cap_bytes: number;
+  candidates: SnapshotPruneCandidate[];
+  truncated: boolean;
+  removed_files: number;
+  removed_bytes: number;
+  failed_files: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

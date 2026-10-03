@@ -1314,12 +1314,65 @@ persisted.
 | `GET` | `/api/settings/export` | Download a versioned full-dashboard JSON bundle |
 | `POST` | `/api/settings/import` | Restore an export by multipart `file` or JSON `{ "path": "/absolute/file" }`; idempotent and non-destructive |
 | `POST` | `/api/settings/install-hooks` | Install the selected `claude` and/or `codex` hook sets |
-| `POST` | `/api/settings/cleanup` | Abandon stale sessions and/or purge old terminal sessions |
+| `POST` | `/api/settings/cleanup` | Abandon stale sessions and/or purge old terminal sessions; purged sessions' transcript snapshots are deleted too |
+| `GET` | `/api/settings/snapshots` | Transcript snapshot storage per provider and the retention policy |
+| `POST` | `/api/settings/snapshots/compress` | Losslessly compress snapshots whose original transcript is gone |
+| `POST` | `/api/settings/snapshots/prune` | Plan (dry run, default) or apply a snapshot prune |
 | `POST` | `/api/settings/clear-data` | Delete captured sessions, agents, events, token usage, fired alerts, and webhook delivery history |
 | `GET` / `PUT` | `/api/settings/claude-home` | Read or update the Claude Code transcript/configuration root |
 | `GET` / `PUT` | `/api/settings/codex-home` | Read or update the Codex rollout/hooks root; saving re-arms the live watcher and schedules an immediate session scan |
 
 Both home updates accept `{ "path": "/absolute/path" }` (a leading `~/` is expanded). The resolved path must exist and be a directory; invalid input returns `400 INVALID_PATH`. Codex changes are persisted as `DASHBOARD_CODEX_HOME` and notify the background synchronizer after the response so a large history cannot delay the Settings action.
+
+#### Transcript snapshots
+
+Claude Code, Codex, and Cursor delete their own transcripts after a TTL, so the
+dashboard keeps durable copies under its data directory (`transcripts/`,
+`codex-transcripts/`, `cursor-transcripts/`) and the Conversation endpoints serve
+whichever of the live file and the snapshot is more complete.
+
+`GET /api/settings/snapshots` (also embedded in `/api/settings/info` as
+`snapshots`, cached for 5 min):
+
+```json
+{
+  "total_bytes": 734003200,
+  "total_files": 1840,
+  "roots": {
+    "claude": { "path": "/Users/me/.claude/agent-dashboard/transcripts", "files": 1702, "bytes": 692060160, "compressed_files": 1210, "compressed_bytes": 211812352, "sessions": 512 },
+    "codex": { "path": "/Users/me/.claude/agent-dashboard/codex-transcripts", "files": 96, "bytes": 31457280, "compressed_files": 0, "compressed_bytes": 0, "sessions": 96 },
+    "cursor": { "path": "/Users/me/.claude/agent-dashboard/cursor-transcripts", "files": 42, "bytes": 10485760, "compressed_files": 18, "compressed_bytes": 2097152, "sessions": 21 }
+  },
+  "policy": { "compress": true, "max_age_days": null, "max_bytes": null }
+}
+```
+
+`POST /api/settings/snapshots/compress` gzips every Claude/Cursor snapshot whose
+original is gone and that has been idle for 24 h — the same lossless pass the
+server runs every 6 h. Each archive is decompressed and matched (SHA-256 +
+length) before the plain file is removed; a provider whose source tree is
+missing or unreadable is reported in `skipped_roots` and left untouched.
+
+`POST /api/settings/snapshots/prune` takes at least one of `max_age_days`,
+`max_bytes` (bytes or a size such as `"5GB"`), and `orphans: true`. It selects
+whole finished sessions (never `active` ones; the size cap also spares sessions active in the last 24 h), oldest first, and is a **dry
+run** unless the body also has `"dry_run": false` and
+`"confirm": "PRUNE_SNAPSHOTS"`; anything else returns `400
+INVALID_PRUNE_REQUEST`. The response lists up to 500 `candidates` (`kind`,
+`session_id`, `reason`: `max_age` / `max_bytes` / `orphan`, `files`, `bytes`,
+`last_activity`) with `candidate_bytes`, `remaining_bytes`, `over_cap_bytes`, and
+— when applied — `removed_files`, `removed_bytes`, and `failed_files` (locked
+files left for a later pass). Cap removals are tombstoned so a re-import does
+not recreate them.
+
+```bash
+# Preview, then apply, a 5 GB cap
+curl -s -X POST localhost:4820/api/settings/snapshots/prune \
+  -H 'Content-Type: application/json' -d '{"max_bytes":"5GB"}'
+curl -s -X POST localhost:4820/api/settings/snapshots/prune \
+  -H 'Content-Type: application/json' \
+  -d '{"max_bytes":"5GB","dry_run":false,"confirm":"PRUNE_SNAPSHOTS"}'
+```
 
 `POST /api/settings/import` accepts one export file up to 25 MiB. Multipart
 callers use field `file`; CLI/MCP callers may send an absolute server-side

@@ -33,6 +33,8 @@ const {
   getTranscriptSnapshotDir,
 } = require("../server/lib/claude-home");
 const { extractFirstUserText, appendRecentUserMessage } = require("../server/lib/transcript-cache");
+const { writeSnapshot } = require("../server/lib/snapshot-store");
+const { getSnapshotPolicy } = require("../server/lib/snapshot-retention");
 const CLAUDE_DIR = getClaudeHome();
 const PROJECTS_DIR = getProjectsDir();
 
@@ -59,25 +61,29 @@ const SWEEP_YIELD_EVERY_FILES = 100;
  * (often leaving only a `.jsonl.wakatime` sidecar). When that happens the
  * session row survives but its transcript is gone → an empty Conversation tab.
  * Keeping a durable copy under <dataDir>/transcripts/ fixes that; the read
- * route prefers the live file and falls back to this snapshot.
+ * route serves whichever of the live file and this snapshot is more complete.
  *
  * Re-snapshots when the source has grown (a live session that gained turns
- * since the last import). Best-effort and non-fatal.
+ * since the last import) and never shrinks an existing snapshot, so a
+ * truncated original cannot overwrite the fuller copy. Writes go through
+ * server/lib/snapshot-store.js (atomic, copy-on-write where the filesystem
+ * supports it). Best-effort and non-fatal.
  */
 function snapshotTranscript(sourceJsonlPath, sessionId) {
   try {
-    const srcMain = path.resolve(sourceJsonlPath);
     const snapDir = getTranscriptSnapshotDir();
-    const destMain = path.join(snapDir, `${sessionId}.jsonl`);
-    if (path.resolve(destMain) !== srcMain) {
-      copyIfNewer(srcMain, destMain);
-    }
+    // Opt-in retention cap (snapshot-retention.js): a source idle past
+    // DASHBOARD_SNAPSHOT_MAX_AGE_DAYS is not snapshotted, so a re-import of old
+    // history doesn't regrow what the cap prunes. Unset by default.
+    const { max_age_days: maxAgeDays } = getSnapshotPolicy();
+    const write = (source, relPath) =>
+      writeSnapshot({ root: snapDir, sessionId, source, relPath, maxAgeDays });
+
+    write(path.resolve(sourceJsonlPath), `${sessionId}.jsonl`);
 
     // Subagent transcripts live under `<sessionId>/subagents/agent-*.jsonl`.
     for (const subPath of findSessionSubagents(sourceJsonlPath)) {
-      const destSub = path.join(snapDir, sessionId, "subagents", path.basename(subPath));
-      if (path.resolve(destSub) === path.resolve(subPath)) continue;
-      copyIfNewer(subPath, destSub);
+      write(subPath, path.join(sessionId, "subagents", path.basename(subPath)));
     }
 
     // Workflow-tool inner-agent transcripts live nested at
@@ -85,35 +91,11 @@ function snapshotTranscript(sourceJsonlPath, sessionId) {
     // `workflows/<runId>/` subpath so the read route resolves the snapshot the
     // same way it resolves the live nested file (see getSnapshotSubagentTranscriptPath).
     for (const sub of findSessionWorkflowSubagents(sourceJsonlPath)) {
-      const destSub = path.join(snapDir, sessionId, "subagents", sub.rel);
-      if (path.resolve(destSub) === path.resolve(sub.abs)) continue;
-      copyIfNewer(sub.abs, destSub);
+      write(sub.abs, path.join(sessionId, "subagents", sub.rel));
     }
   } catch {
     /* non-fatal: metadata import already succeeded */
   }
-}
-
-/**
- * Copy `src` to `dest` only when `dest` is missing or smaller than `src`
- * (i.e. the source grew). Creates parent dirs as needed.
- */
-function copyIfNewer(src, dest) {
-  let srcSize;
-  try {
-    srcSize = fs.statSync(src).size;
-  } catch {
-    return; // source vanished mid-import — nothing to copy
-  }
-  let destSize = -1;
-  try {
-    destSize = fs.statSync(dest).size;
-  } catch {
-    /* dest missing */
-  }
-  if (destSize >= srcSize) return; // snapshot already at least as complete
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
 }
 
 /**

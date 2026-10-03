@@ -10,6 +10,7 @@
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
+const { resolveSnapshotFile, GZ_SUFFIX } = require("./snapshot-store");
 
 function getClaudeHome() {
   return process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
@@ -92,17 +93,21 @@ function getTranscriptPath(sessionId, cwd) {
  * @param {string|null} [runId] the workflow run id, when known
  * @returns {string|null} absolute transcript path, or null. Never throws.
  */
-function resolveAgentTranscriptInDir(subagentsDir, agentId, runId = null) {
+function resolveAgentTranscriptInDir(subagentsDir, agentId, runId = null, options = {}) {
   if (!subagentsDir) return null;
-  const flat = path.join(subagentsDir, `agent-${agentId}.jsonl`);
-  if (fs.existsSync(flat)) return flat;
+  // Snapshot dirs may hold the compressed `.jsonl.gz` form (see
+  // snapshot-store.js); live dirs only ever hold plain `.jsonl`.
+  const existing = options.allowCompressed
+    ? resolveSnapshotFile
+    : (p) => (fs.existsSync(p) ? p : null);
+  const flat = existing(path.join(subagentsDir, `agent-${agentId}.jsonl`));
+  if (flat) return flat;
 
   const workflowsDir = path.join(subagentsDir, "workflows");
   if (!fs.existsSync(workflowsDir)) return null;
 
   if (runId) {
-    const nested = path.join(workflowsDir, runId, `agent-${agentId}.jsonl`);
-    return fs.existsSync(nested) ? nested : null;
+    return existing(path.join(workflowsDir, runId, `agent-${agentId}.jsonl`));
   }
 
   // Unknown run: accept only an unambiguous single match across all runs.
@@ -110,8 +115,8 @@ function resolveAgentTranscriptInDir(subagentsDir, agentId, runId = null) {
     const matches = [];
     for (const d of fs.readdirSync(workflowsDir, { withFileTypes: true })) {
       if (!d.isDirectory()) continue;
-      const cand = path.join(workflowsDir, d.name, `agent-${agentId}.jsonl`);
-      if (fs.existsSync(cand)) matches.push(cand);
+      const cand = existing(path.join(workflowsDir, d.name, `agent-${agentId}.jsonl`));
+      if (cand) matches.push(cand);
       if (matches.length > 1) break;
     }
     return matches.length === 1 ? matches[0] : null;
@@ -161,11 +166,12 @@ function findTranscriptPath(sessionId) {
  * exists. Snapshots are written at import time (see snapshotTranscript in
  * scripts/import-history.js) so the Conversation tab keeps working after Claude
  * Code deletes the original under its `cleanupPeriodDays` retention (default
- * 30d). Returns the path or null.
+ * 30d). Once the original is gone the snapshot may be stored compressed, so
+ * the returned path can end in `.jsonl.gz` — read it through snapshot-store's
+ * createTranscriptLineReader. Returns the path or null.
  */
 function getSnapshotTranscriptPath(sessionId) {
-  const candidate = path.join(getTranscriptSnapshotDir(), `${sessionId}.jsonl`);
-  return fs.existsSync(candidate) ? candidate : null;
+  return resolveSnapshotFile(path.join(getTranscriptSnapshotDir(), `${sessionId}.jsonl`));
 }
 
 /**
@@ -179,13 +185,17 @@ function getSnapshotTranscriptPath(sessionId) {
 function getSnapshotSubagentTranscriptPath(sessionId, agentId, runId = null) {
   const subDir = path.join(getTranscriptSnapshotDir(), sessionId, "subagents");
   if (!fs.existsSync(subDir)) return null;
-  const hit = resolveAgentTranscriptInDir(subDir, agentId, runId);
+  const hit = resolveAgentTranscriptInDir(subDir, agentId, runId, { allowCompressed: true });
   if (hit) return hit;
   if (agentId.startsWith("acompact-")) {
     try {
       const match = fs
         .readdirSync(subDir)
-        .find((f) => f.startsWith("agent-acompact-") && f.endsWith(".jsonl"));
+        .find(
+          (f) =>
+            f.startsWith("agent-acompact-") &&
+            (f.endsWith(".jsonl") || f.endsWith(`.jsonl${GZ_SUFFIX}`))
+        );
       if (match) return path.join(subDir, match);
     } catch {
       /* ignore */

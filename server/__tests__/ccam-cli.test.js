@@ -583,6 +583,36 @@ describe("ccam CLI — import & administration", () => {
     assert.match(out, /Cleanup done/);
   });
 
+  it("snapshots status reports per-provider storage and policy", async () => {
+    const { code, out } = await ccam("snapshots");
+    assert.equal(code, 0);
+    assert.match(out, /Transcript snapshots/);
+    assert.match(out, /Claude Code/);
+    assert.match(out, /Compress\s+on/);
+    assert.match(out, /Age cap\s+none/);
+
+    const json = await ccam("snapshots", "status", "--json");
+    assert.equal(json.code, 0);
+    const report = JSON.parse(json.out);
+    assert.deepEqual(Object.keys(report.roots).sort(), ["claude", "codex", "cursor"]);
+    assert.equal(report.policy.compress, true);
+  });
+
+  it("snapshots prune without criteria exits 1 with usage", async () => {
+    const { code, err } = await ccam("snapshots", "prune");
+    assert.equal(code, 1);
+    assert.match(err, /Usage: ccam snapshots prune/);
+  });
+
+  it("snapshots prune is a dry run unless confirmed", async () => {
+    const dry = await ccam("snapshots", "prune", "--days", "3650");
+    assert.equal(dry.code, 0);
+    assert.match(dry.out, /Dry run/);
+    const unconfirmed = await ccam("snapshots", "prune", "--days", "3650", "--apply");
+    assert.equal(unconfirmed.code, 1);
+    assert.match(unconfirmed.err, /--confirm PRUNE_SNAPSHOTS/);
+  });
+
   it("clear-data REFUSES without --yes", async () => {
     const { code, err } = await ccam("clear-data");
     assert.equal(code, 1);

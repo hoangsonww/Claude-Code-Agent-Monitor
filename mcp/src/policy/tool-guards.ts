@@ -88,25 +88,31 @@ export function assertMutationsEnabled(config: AppConfig): void {
 }
 
 /**
- * Guards the single most dangerous tool in the server —
- * `dashboard_clear_all_data`, which deletes every session/agent/event/
- * token-usage row. A three-part gate checked in order: mutations, then the
- * destructive flag, then the confirmation token, so the common
- * misconfiguration (mutations off) always surfaces the more general error
- * first.
- * @param confirmationToken Must exactly equal `"CLEAR_ALL_DATA"` — a
+ * Guards the irreversible tools — `dashboard_clear_all_data` (deletes every
+ * session/agent/event/token-usage row) and an applied
+ * `dashboard_prune_snapshots` (deletes transcript snapshots that may be the
+ * only remaining copy of a conversation). A three-part gate checked in order:
+ * mutations, then the destructive flag, then the confirmation token, so the
+ * common misconfiguration (mutations off) always surfaces the more general
+ * error first.
+ * @param confirmationToken Must exactly equal `expectedToken` — a
  *   deliberate, unguessable-by-accident confirmation, not a secret.
+ * @param expectedToken Per-tool token; defaults to `"CLEAR_ALL_DATA"`.
  * @throws {Error} if mutations are disabled, `config.allowDestructive` is
  *   `false`, or the token doesn't match exactly.
  */
-export function assertDestructiveEnabled(config: AppConfig, confirmationToken: string): void {
+export function assertDestructiveEnabled(
+  config: AppConfig,
+  confirmationToken: string,
+  expectedToken = "CLEAR_ALL_DATA"
+): void {
   assertMutationsEnabled(config);
   if (!config.allowDestructive) {
     throw new Error(
       "Destructive tools are disabled. Set MCP_DASHBOARD_ALLOW_DESTRUCTIVE=true to enable them."
     );
   }
-  if (confirmationToken !== "CLEAR_ALL_DATA") {
-    throw new Error('Invalid confirmation_token. Expected exact value: "CLEAR_ALL_DATA".');
+  if (confirmationToken !== expectedToken) {
+    throw new Error(`Invalid confirmation_token. Expected exact value: "${expectedToken}".`);
   }
 }

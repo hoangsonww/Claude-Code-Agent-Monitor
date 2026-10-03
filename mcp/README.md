@@ -1,6 +1,6 @@
 # CCAM MCP Server Reference
 
-The Claude Code Agent Monitor (CCAM) MCP server exposes the local dashboard's complete supported action surface as **97 typed tools**. The same canonical catalog is used by stdio, Streamable HTTP, legacy SSE, and the interactive REPL, so tool names, schemas, and policy guards cannot drift between transports.
+The Claude Code Agent Monitor (CCAM) MCP server exposes the local dashboard's complete supported action surface as **103 typed tools**. The same canonical catalog is used by stdio, Streamable HTTP, legacy SSE, and the interactive REPL, so tool names, schemas, and policy guards cannot drift between transports.
 
 ## Architecture
 
@@ -170,6 +170,7 @@ Deleting a source retains imported data by default. Purging requires `confirmati
 
 - `dashboard_cleanup_data`, `dashboard_reimport_history`
 - `dashboard_reinstall_hooks`, `dashboard_clear_all_data`
+- `dashboard_get_snapshot_storage` (read), `dashboard_compress_snapshots` (mutation, lossless), `dashboard_prune_snapshots` (dry run by default; applying is destructive; `max_bytes` takes bytes or a size like `"5GB"`)
 
 ## Safety Model
 
@@ -177,7 +178,7 @@ Deleting a source retains imported data by default. Purging requires `confirmati
 | --- | --- | --- |
 | Read | enabled | all GET-like tools |
 | Mutation | disabled | writes, process control, imports, syncs, notifications, external tests |
-| Destructive | disabled | full data clearing |
+| Destructive | disabled | full data clearing, applying a transcript snapshot prune |
 
 Enable controlled writes with:
 
@@ -193,7 +194,7 @@ MCP_DASHBOARD_ALLOW_DESTRUCTIVE=true \
 ccam mcp stdio
 ```
 
-The call must also pass `confirmation_token = "CLEAR_ALL_DATA"`.
+The call must also pass `confirmation_token = "CLEAR_ALL_DATA"`. Applying a snapshot prune (`dashboard_prune_snapshots` with `dry_run: false`) needs the same two flags plus `confirmation_token = "PRUNE_SNAPSHOTS"`; its default dry run is read-only and reports exactly which sessions' snapshots would be removed. A pruned snapshot may be the only remaining copy of a conversation once Claude Code, Codex, or Cursor deleted the original.
 
 All dashboard fetches reject HTTP redirects. Binary transcript-image responses are streamed with a 10 MiB cap, including responses without a trustworthy `Content-Length`, so a local endpoint cannot make the MCP process buffer an unbounded payload.
 
@@ -208,7 +209,7 @@ All dashboard fetches reject HTTP redirects. Binary transcript-image responses a
 | `MCP_DASHBOARD_RETRY_COUNT` | `2` | Extra attempts for GET requests only |
 | `MCP_DASHBOARD_RETRY_BACKOFF_MS` | `250` | Exponential backoff base |
 | `MCP_DASHBOARD_ALLOW_MUTATIONS` | `false` | Enable write-capable tools |
-| `MCP_DASHBOARD_ALLOW_DESTRUCTIVE` | `false` | Enable full data clearing, with mutation gate and confirmation token |
+| `MCP_DASHBOARD_ALLOW_DESTRUCTIVE` | `false` | Enable full data clearing and applied snapshot prunes, with mutation gate and confirmation token |
 | `MCP_TRANSPORT` | `stdio` | `stdio`, `http`, or `repl` |
 | `MCP_HTTP_HOST` | `127.0.0.1` | HTTP transport bind host |
 | `MCP_HTTP_PORT` | `8819` | HTTP transport port |
@@ -245,7 +246,7 @@ npm run mcp:build
 npm run extensions:validate
 ```
 
-`test:mcp` asserts the 97-tool catalog, unique names, policy gates, destructive confirmations, and schema validation in direct REPL invocation.
+`test:mcp` asserts the 103-tool catalog, unique names, policy gates, destructive confirmations, and schema validation in direct REPL invocation.
 
 ## Troubleshooting
 

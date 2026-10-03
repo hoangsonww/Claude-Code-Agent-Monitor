@@ -11052,6 +11052,262 @@ exports[`screen snapshots > Settings 1`] = `
             class="flex items-center gap-3"
           >
             <div
+              class="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center"
+            >
+              <svg
+                class="lucide lucide-archive w-4 h-4 text-sky-400"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  height="5"
+                  rx="1"
+                  width="20"
+                  x="2"
+                  y="3"
+                />
+                <path
+                  d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"
+                />
+                <path
+                  d="M10 12h4"
+                />
+              </svg>
+            </div>
+            <div>
+              <p
+                class="text-sm font-medium text-gray-300"
+              >
+                Transcript Snapshots
+              </p>
+              <p
+                class="text-xs text-gray-500"
+              >
+                Durable copies that keep conversations readable after Claude Code, Codex, and Cursor delete their own transcripts.
+              </p>
+            </div>
+          </div>
+          <p
+            class="text-xs text-gray-500"
+          >
+            Loading snapshot storage...
+          </p>
+          <div
+            class="flex flex-wrap items-center gap-2"
+          >
+            <button
+              class="text-xs px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 text-gray-400 hover:text-gray-300 hover:bg-surface-4 border border-border"
+            >
+              <svg
+                class="lucide lucide-package-open w-3 h-3 inline mr-1"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 22v-9"
+                />
+                <path
+                  d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z"
+                />
+                <path
+                  d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13"
+                />
+                <path
+                  d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z"
+                />
+              </svg>
+              Compress now
+            </button>
+            <span
+              class="text-[11px] text-gray-500"
+            >
+              Lossless: only snapshots whose original is gone, verified before the plain copy is removed.
+            </span>
+          </div>
+          <div
+            class="border-t border-border pt-4 space-y-3"
+          >
+            <div>
+              <p
+                class="text-xs font-medium text-gray-300"
+              >
+                Prune old snapshots
+              </p>
+              <p
+                class="text-[11px] text-gray-500"
+              >
+                Removes the snapshots of whole finished sessions, oldest first. Preview first: a pruned snapshot may be the only remaining copy of a conversation.
+              </p>
+            </div>
+            <div
+              class="grid grid-cols-1 sm:grid-cols-3 gap-3"
+            >
+              <div
+                class="bg-surface-2 rounded-lg px-4 py-3"
+              >
+                <label
+                  class="text-xs text-gray-400 block mb-2"
+                >
+                  Older than
+                </label>
+                <div
+                  class="flex items-center gap-2"
+                >
+                  <input
+                    class="input w-20 text-sm text-right font-mono"
+                    min="1"
+                    placeholder="—"
+                    type="number"
+                    value=""
+                  />
+                  <span
+                    class="text-xs text-gray-500"
+                  >
+                    days
+                  </span>
+                </div>
+              </div>
+              <div
+                class="bg-surface-2 rounded-lg px-4 py-3"
+              >
+                <label
+                  class="text-xs text-gray-400 block mb-2"
+                >
+                  Keep total under
+                </label>
+                <div
+                  class="flex items-center gap-2"
+                >
+                  <input
+                    class="input w-20 text-sm text-right font-mono"
+                    min="0.1"
+                    placeholder="—"
+                    step="0.1"
+                    type="number"
+                    value=""
+                  />
+                  <span
+                    class="text-xs text-gray-500"
+                  >
+                    GB
+                  </span>
+                </div>
+              </div>
+              <div
+                class="bg-surface-2 rounded-lg px-4 py-3 flex items-center"
+              >
+                <button
+                  aria-checked="false"
+                  class="group inline-flex items-center gap-2 text-left "
+                  role="checkbox"
+                  type="button"
+                >
+                  <span
+                    class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[5px] border transition-colors bg-surface-2 border-border group-hover:border-border-light"
+                  />
+                  <span
+                    class="text-xs text-gray-400"
+                  >
+                    Also remove snapshots of sessions no longer in the database
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div
+              class="flex flex-wrap items-center gap-2"
+            >
+              <button
+                class="text-xs px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 text-gray-400 hover:text-gray-300 hover:bg-surface-4 border border-border"
+                disabled=""
+              >
+                <svg
+                  class="lucide lucide-eye w-3 h-3 inline mr-1"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+                  />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="3"
+                  />
+                </svg>
+                Preview
+              </button>
+              <button
+                class="text-xs px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 text-gray-400 hover:text-gray-300 hover:bg-surface-4 border border-border"
+                disabled=""
+                title="Preview these settings first"
+              >
+                <svg
+                  class="lucide lucide-trash2 w-3 h-3 inline mr-1"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M3 6h18"
+                  />
+                  <path
+                    d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"
+                  />
+                  <path
+                    d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"
+                  />
+                  <line
+                    x1="10"
+                    x2="10"
+                    y1="11"
+                    y2="17"
+                  />
+                  <line
+                    x1="14"
+                    x2="14"
+                    y1="11"
+                    y2="17"
+                  />
+                </svg>
+                Prune
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          class="card p-5 space-y-4"
+        >
+          <div
+            class="flex items-center gap-3"
+          >
+            <div
               class="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center"
             >
               <svg

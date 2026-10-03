@@ -154,6 +154,37 @@ const SETTINGS_INFO_EXAMPLE = {
       "/Users/son/.claude/projects/-Users-son-code-bar/def456.jsonl",
     ],
   },
+  snapshots: {
+    total_bytes: 734003200,
+    total_files: 1840,
+    roots: {
+      claude: {
+        path: "/Users/son/.claude/agent-dashboard/transcripts",
+        files: 1702,
+        bytes: 692060160,
+        compressed_files: 1210,
+        compressed_bytes: 211812352,
+        sessions: 512,
+      },
+      codex: {
+        path: "/Users/son/.claude/agent-dashboard/codex-transcripts",
+        files: 96,
+        bytes: 31457280,
+        compressed_files: 0,
+        compressed_bytes: 0,
+        sessions: 96,
+      },
+      cursor: {
+        path: "/Users/son/.claude/agent-dashboard/cursor-transcripts",
+        files: 42,
+        bytes: 10485760,
+        compressed_files: 18,
+        compressed_bytes: 2097152,
+        sessions: 21,
+      },
+    },
+    policy: { compress: true, max_age_days: null, max_bytes: null },
+  },
 };
 
 const CLEAR_DATA_EXAMPLE = {
@@ -295,6 +326,8 @@ const CLEANUP_EXAMPLE = {
   purged_sessions: 57,
   purged_events: 14820,
   purged_agents: 241,
+  purged_snapshot_files: 212,
+  purged_snapshot_bytes: 48234496,
 };
 
 const IMPORT_GUIDE_EXAMPLE = {
@@ -991,7 +1024,7 @@ const paths = {
       tags: ["Settings"],
       summary: "Get system/database/hook diagnostics",
       description:
-        "Returns a diagnostics snapshot used by the Settings page: `db` (database file path, on-disk size in bytes, per-table row counts, SQLite pragmas, and recent event load over the last 5/15/60 minutes), `hooks` (whether the Claude Code hook-handler is installed in `settings.json`, the settings path, and a per-hook-type installed map), `server` (process uptime, Node version, platform, live WebSocket connection count, memory/CPU/host stats), and `transcript_cache` (number of cached transcript entries and the cached paths). Read-only and cheap to poll.",
+        "Returns a diagnostics snapshot used by the Settings page: `db` (database file path, on-disk size in bytes, per-table row counts, SQLite pragmas, and recent event load over the last 5/15/60 minutes), `hooks` (whether the Claude Code hook-handler is installed in `settings.json`, the settings path, and a per-hook-type installed map), `server` (process uptime, Node version, platform, live WebSocket connection count, memory/CPU/host stats), `transcript_cache` (number of cached transcript entries and the cached paths), and `snapshots` (durable transcript snapshot storage per provider plus the retention policy; cached for 5 min). Read-only and cheap to poll.",
       operationId: "getSettingsInfo",
       responses: {
         200: {
@@ -1238,7 +1271,7 @@ const paths = {
       tags: ["Settings"],
       summary: "Abandon stale sessions and optionally purge old history",
       description:
-        "Two-phase maintenance. Phase 1 (`abandon_hours`, non-destructive): marks any still-`active` session with no events newer than that many hours as `abandoned`, and completes its lingering agents — a tidy-up of crashed/orphaned sessions. Phase 2 (`purge_days`) is ⚠ DESTRUCTIVE and IRREVERSIBLE: it permanently DELETES completed/error/abandoned sessions (and their events, agents, and token_usage) whose `started_at` is older than that many days. Active sessions are NEVER purged. Both fields are optional and independent — send only `abandon_hours` for a safe tidy-up, or include `purge_days` to also reclaim disk. Export first if the purged history matters. The response reports counts for each phase.",
+        "Two-phase maintenance. Phase 1 (`abandon_hours`, non-destructive): marks any still-`active` session with no events newer than that many hours as `abandoned`, and completes its lingering agents — a tidy-up of crashed/orphaned sessions. Phase 2 (`purge_days`) is ⚠ DESTRUCTIVE and IRREVERSIBLE: it permanently DELETES completed/error/abandoned sessions (and their events, agents, and token_usage) whose `started_at` is older than that many days. Active sessions are NEVER purged. Purged sessions' transcript snapshots (all three provider snapshot dirs) are deleted with them and reported as `purged_snapshot_files` / `purged_snapshot_bytes`. Both fields are optional and independent — send only `abandon_hours` for a safe tidy-up, or include `purge_days` to also reclaim disk. Export first if the purged history matters. The response reports counts for each phase.",
       operationId: "cleanupData",
       requestBody: {
         required: true,

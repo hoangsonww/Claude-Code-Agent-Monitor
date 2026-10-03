@@ -1453,6 +1453,7 @@ function createOpenApiSpec() {
                 paths: { type: "array", items: { type: "string" } },
               },
             },
+            snapshots: { $ref: "#/components/schemas/SettingsSnapshotStorage" },
           },
         },
         ClearDataResponse: {
@@ -1680,6 +1681,14 @@ function createOpenApiSpec() {
             purged_sessions: { type: "integer" },
             purged_events: { type: "integer" },
             purged_agents: { type: "integer" },
+            purged_snapshot_files: {
+              type: "integer",
+              description: "Transcript snapshot files deleted with the purged sessions.",
+            },
+            purged_snapshot_bytes: {
+              type: "integer",
+              description: "Bytes reclaimed from the purged sessions' transcript snapshots.",
+            },
           },
         },
       },

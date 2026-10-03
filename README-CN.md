@@ -337,11 +337,12 @@ Dashboard 提供全面的功能来监控和分析你的 Claude Code 会话和 Ag
 | **子 Agent 工具归属** | 子 Agent 内部的工具调用(Read、Bash、Edit、Grep 等)只存在于每个子 Agent 自己的 JSONL 文件中 — Claude Code 不会为其触发任何 Hook。每次 `SubagentStop` 后,dashboard 触发 fire-and-forget 的 `scanAndImportSubagents`:解析每个 `subagents/agent-*.jsonl`,根据 `tool_use_id` 配对 `tool_use` 与 `tool_result` 块,并在子 Agent 自己的 `agent_id` 下发出 `PreToolUse` + `PostToolUse` 事件。具备幂等性(通过 `data LIKE '%"tool_use_id":"X"%'` 去重),并在按类型 + 启动时间在 30 秒内匹配到 hook 创建的 live 行时合并进去,因此不会创建并行的 `<sid>-jsonl-*` 行。同一路径在 `npm run setup` 启动导入时也会运行,实现完整的历史回填 — 早于 dashboard 安装的会话也能获得完整的每子 Agent 工具时间线。Activity Feed 和会话详情页将父链以 `main › coder › explorer` 形式渲染嵌套子 Agent。该父链由 `reconcileSubagentParents` 权威重建:子 Agent 行最初被平铺插入到 main agent 之下(单个 hook 事件或 JSONL 文件不携带 spawn 方身份),随后从每个子 Agent transcript 的 Task 工具结果(`toolUseResult.agentId`,以 `spawnedChildren` 形式采集)恢复其 spawn 方,因此自己再 spawn 子 Agent 的子 Agent 会嵌套到其**真正的** spawn 方之下,而不会塌陷为 main 之下的单一层级。该过程幂等且仅追加 — 只重新指向 `parent_agent_id`,不插入或删除行 — 并在同一次 `SubagentStop` 扫描中运行,该扫描返回 `reparented` 计数,因此即使仅是 reparent 改变了树形结构,dashboard 也会重新拉取 |
 | **成本追踪** | 按模型估算成本，支持可配置定价规则和按会话明细。支持**限时介绍性价格**（定价规则中的 `intro_*` + `intro_until`）：截止日期当天及之前的用量采用介绍性价格，之后的用量采用标准价格，因此限时优惠对历史**和**未来用量都能准确计价——成本端点按每天生效的费率计算当天用量。Claude Sonnet 5 的标准费率仍为每百万输入 Token $2、每百万输出 Token $10。压缩感知的 Token 核算在上下文压缩过程中保留总量。Transcript 读取通过增量字节偏移更新缓存，实现高效 Token 提取。介绍性价格可在 Settings 中完全编辑——Model Pricing 编辑器提供一个促销截止日期以及按类别的介绍性价格（input / output / cache-read / cache-write 5m & 1h），因此未来模型发布的促销无需改动代码，只需编辑即可。子代理卡片显示每个子代理各自的成本（依据该子代理 transcript 的 Token 用量推算，并按当前价格计价），而非整个会话的总额——主代理卡片代表整个会话并显示会话总成本，而子代理卡片仅显示该子代理花费的部分，因此子代理卡片不再误导性地显示为好像它花费了整个会话的成本 |
 | **Transcript 缓存** | 从 JSONL Transcript 实时提取：Token、压缩、API 错误（`isApiErrorMessage` 条目存储为 `APIError` 事件）、回合耗时（存储为 `TurnDuration` 事件）、思考块计数和用量附加信息（service_tier、speed、inference_geo）。每条回合耗时都有稳定的 Transcript 标识；完整解析会修复旧版本产生的重复行和膨胀 metadata 总计，受限的尾部解析则保持仅追加。会话元数据实时丰富这些字段 |
+| **对话记录快照保留** | Claude Code、Codex 和 Cursor 会在 TTL 到期后删除自身的对话记录，因此仪表板在其数据目录中保留持久快照，Conversation 标签页始终提供更完整的那份副本。在不削弱这一保障的前提下限制增长：原始文件已不存在的快照在校验往返后进行 gzip 压缩（默认开启，`DASHBOARD_SNAPSHOT_COMPRESS=0` 可关闭）；清理会话时一并删除其快照；可选上限（`DASHBOARD_SNAPSHOT_MAX_AGE_DAYS` / `DASHBOARD_SNAPSHOT_MAX_BYTES`，默认不设置）按会话整体清理旧的已结束会话。**设置 → 对话记录快照** 显示各提供方的占用空间，并且只有在试运行预览之后才会执行清理。 上限是"绝不丢失对话记录"的唯一可选例外：它们可能删除旧对话仅存的副本。 |
 | **通知** | 基于 Web Push (VAPID) 的持久化浏览器通知。即使 Dashboard 标签页未聚焦或浏览器已关闭也能送达。特别针对 macOS 音效支持进行了配置。支持按事件配置开关及订阅管理 |
 | **更新提醒** | 服务端定期以非阻塞方式执行 `git fetch`，将本地检出与所选规范远程的默认分支对比。**支持分支与 fork：** 若同时存在 `upstream` 和 `origin`，优先使用 `upstream`（fork 的常规约定）；命令也会根据用户处境调整——只有在本地分支真正跟踪规范引用时才建议 `git pull --ff-only`，否则给出 `git fetch`（fork 场景下加上 fast-forward 合并），让命令永不撒谎。侧边栏还有常驻的"检查更新"按钮及状态徽标。Dashboard **不会**自行拉取或重启——用户在终端中手动执行命令——因此该机制不会破坏开发会话、pm2/systemd/Docker 进程管理，也不会留下孤立进程 |
 | **设置** | 系统信息、Hook 状态、模型定价管理、通知偏好、数据导出**与恢复**（Import History 面板的 **Restore backup** 模式接受一个不超过 25 MiB 的导出 `.json`，并以幂等、非覆盖方式重新导入，因此可将多台机器的历史合并到一个仪表盘）、会话清理。Model Pricing 将 **Anthropic Claude Model Pricing** 与 **OpenAI GPT Model Pricing** 分开显示，两者使用相同的标题布局，提供按提供方生效的 **Reset Defaults** 和 **Add Model** 控件。标题旁的信息浮层说明首条匹配规则、SQL 风格 `%` 通配符、手动价格更新与 API 费率注意事项；GPT 浮层还说明每百万 Token 的美元单位、标准和 Fast 费率共同采用的 272K Short/Long 分界，以及未公布的费率为何保持未定价而不是被估算。**Dashboard Data** 控件会立即重新获取 Claude Code、Codex 或两者的会话、Agent、事件、Token、工作流、分析和成本。独立的 Claude Code 和 Codex 主目录输入框完整支持 i18n，并可在运行时保存；保存 Codex 主目录后会重新启用实时 rollout 监控并扫描新目录树。 |
 | **Codex Agent 配置** | Agent Config 的 Codex 一侧会读取完整的本地账户模型目录，不受通用预览限制影响，因此 Models 标签不会错误显示为 0，并始终包含基础/配置文件覆盖。可直接在应用中创建标准 Codex `<name>.config.toml` 覆盖层；每张卡均可一键复制其准确的 `codex --profile <name>` 命令并打开受保护的编辑器。预览路径会先规范化再做包含检查。编辑器拒绝受信任根目录下的符号链接路径组件，验证规范化父目录仍位于允许范围内，并拒绝保存含 `[redacted]` 的预览内容。配置文件、Hook、规则、技能和指令共用 Claude 风格的 **View source / Copy path / Edit / Delete** 操作。每次允许的删除都需确认并先创建备份（技能保留完整目录）；`config.toml` 永远只能编辑。 |
-| **MCP 服务器（本地）** | 位于 `mcp/` 的完整本地 MCP 服务器，支持三种传输模式，16 个领域模块共 97 个类型化工具。覆盖应用支持的全部操作：带作用域的数据读取、Transcript 与图片、Claude/Cursor/GPT 定价、工作流、告警、Webhook、导入与恢复、Claude/Codex 配置、Run Agent、远程数据源、Hook/Home/更新、推送与维护。所有传输共享同一套已验证目录，并支持分层变更/破坏性门控。直接回环 HTTP 可携带 Bearer Token，带 Token 的容器主机别名必须使用 HTTPS。请求拒绝重定向；历史上传限制为单文件 50 MiB、每次调用合计 100 MiB，二进制响应限制为 10 MiB，备份恢复限制为 25 MiB |
+| **MCP 服务器（本地）** | 位于 `mcp/` 的完整本地 MCP 服务器，支持三种传输模式，16 个领域模块共 103 个类型化工具。覆盖应用支持的全部操作：带作用域的数据读取、Transcript 与图片、Claude/Cursor/GPT 定价、工作流、告警、Webhook、导入与恢复、Claude/Codex 配置、Run Agent、远程数据源、Hook/Home/更新、推送与维护。所有传输共享同一套已验证目录，并支持分层变更/破坏性门控。直接回环 HTTP 可携带 Bearer Token，带 Token 的容器主机别名必须使用 HTTPS。请求拒绝重定向；历史上传限制为单文件 50 MiB、每次调用合计 100 MiB，二进制响应限制为 10 MiB，备份恢复限制为 25 MiB |
 | **工作流** | 基于 D3.js 的可视化页面，包含 11 个交互式模块：Agent 编排 DAG、工具执行 Sankey 图、协作网络、子 Agent 有效性（按周 sparkline 通过 portal 渲染——可越过卡片的 `overflow:hidden`，并自动夹在视口内不再被裁切）、检测到的流程模式、模型委派流、错误传播图（带比率徽章的水平条形图、Agent 类型分解、API/会话错误卡片）、并发时间线、会话复杂度散点图、压缩影响分析和按会话下钻。**全方位、多语言的丰富 tooltip：** 每个图表标题旁都有一个 `i` 图标，可弹出结构化的「此图展示了什么 / 如何阅读 / 为何重要」浮层；悬停节点、边、条、气泡都会显示带有确定性、值相关解读的多段 tooltip（例如占源/占目标比例、成功率健康分级、Opus / Sonnet / Haiku 模型系列说明，以及前段/中段/后段等时间模式）。六张总览统计卡片各自在右下角带一个信息浮层，用自然语言解释指标的计算方式与当前数值含义。Tooltip 通过每张图唯一的 DOM ref 直接更新，并附带容器级 `mouseleave` 兜底，绝不会落后于光标或在重新渲染后残留。点击 **检测到的工作流模式** 中的任意一行会就地展开详情面板，包含完整步骤序列、统计网格、确定性叙述（循环检测、频率分级）和一条务实的建议。状态筛选标签（仅活跃 / 已完成 / 全部）可筛选全部 11 个模块。支持交叉筛选、JSON 导出和 3 秒防抖的实时 WebSocket 自动刷新。**工作流运行**面板呈现「动态工作流」——由 `Workflow` 工具（及自定节奏的 `/loop`）派生的 sub-agent 群组——它们不触发任何 hook，因此改为依据磁盘上的运行日志（`workflows/wf_<runId>.json`）重建：每次运行展示其阶段以及按 Agent 的 token / 工具调用 / 时长分解，并在日志写入前实时检测 `running` 状态，同时在每个会话详情页提供一个关联子区块 |
 | **压缩追踪** | 从 JSONL Transcript 检测 `/compact` 事件,创建压缩 Agent 和事件。启动时回填历史压缩。周期性扫描器(频率从 `DASHBOARD_STALE_MINUTES` 派生)在无 Hook 触发时也能捕获压缩。共享 Transcript 缓存,避免重复文件读取 |
 | **子会话/恢复会话** | 新事件到达时自动重新激活会话,正确处理 `/resume` 和孤立会话。周期性清理(每 ¼ 个 `DASHBOARD_STALE_MINUTES`,夹在 60 秒–5 分钟之间)标记遗漏事件检测的废弃会话 |
@@ -660,6 +661,9 @@ flowchart LR
 | `DASHBOARD_CODEX_MAX_ATTEMPTS` | `5` | Codex 扫描针对同一个**未发生变化**的 rollout 连续尝试采集的失败次数上限，超出后便不再重试。扫描会刻意重新排队一个读取失败的 rollout，使瞬时故障（`SQLITE_BUSY`、写了一半的记录）在下一轮恢复；若不设上限，*永久性*故障会在整个进程生命周期内不断重复 —— 按 `DASHBOARD_CODEX_SYNC_MS` 默认的 4 秒计算，每个文件每天约 21,600 次尝试，每次都在单一 Node 线程上写一行日志。该计数包含第一次尝试、按文件独立统计，并在文件的大小或 mtime 发生变化时完全恢复，因此仅仅是写了一半的 rollout 仍能自行恢复。耗尽预算的那一次尝试会记录一条日志并注明上限。若慢速或不稳定的卷需要超过几轮扫描才能稳定，可调高此值 |
 | `DASHBOARD_CODEX_HOOK_IDLE_SECONDS` | `60` | **仅靠 hook** 的 Codex 会话（运行时未将 rollout 写入磁盘，如 `codex exec --ephemeral`）在已报告结束的回合迟迟得不到响应时，可等待多久才判定其 `SessionEnd` hook 已丢失。只有 `awaiting_reason` 为 `stop` 的会话才符合条件：Codex 会在 `Stop` 之后几百毫秒内发送 `SessionEnd`，因此无人应答的 `Stop` 是真实证据。静默被刻意排除在触发条件之外——没有 rollout 的运行在整个工具调用期间完全不发出 hook，基于空闲时间的规则会误将正在运行的 CI 构建判定为已完成 |
 | `DASHBOARD_TASK_SUMMARY_TTL_MS` | `2000` | 任务进度缓存的宽限窗口（毫秒），作用于 `include_task_progress` 列表请求**以及**会话详情的 `todo_snapshot`。正在持续追加的转录文件几乎无法命中 size+mtime 缓存键，增长的转录会从其最后一条完整 JSONL 行开始增量解析，而此下限仍会把一连串列表刷新（例如仪表盘随 Hook 驱动的 WebSocket 事件刷新）合并为一次解析。窗口内改为返回刚解析的（略有滞后、仅用于展示的）结果；设为 `0` 则每次追加都立即解析 |
+| `DASHBOARD_SNAPSHOT_COMPRESS` | `1`（开启） | 设为 `0` / `false` / `off` 可停止后台无损压缩——对象是原始文件已被 Claude Code 或 Cursor 删除（且闲置 24 小时）的对话记录快照。每个 `.jsonl.gz` 都会先解压并比对（SHA-256 + 长度）后才删除未压缩文件；源目录缺失或不可读的提供方会被整体跳过。Codex 快照从不压缩 |
+| `DASHBOARD_SNAPSHOT_MAX_AGE_DAYS` | _（未设置——不限）_ | 可选保留上限：每 6 小时删除闲置超过该天数的已结束（completed/error/abandoned）会话的快照，并且不再为这么旧的源文件创建快照。被清理的会话会留下墓碑标记，重新导入不会让它们重新出现；之后恢复的会话会重新受到保护。请先用 `ccam snapshots prune --days N` 预览——被清理的快照可能是某段对话仅存的副本 |
+| `DASHBOARD_SNAPSHOT_MAX_BYTES` | _（未设置——不限）_ | 三个快照目录的可选总容量上限（字节数，或如 `5GB` 的大小）。每 6 小时从最旧的已结束会话开始删除快照，直到总量低于上限；活跃会话和最近 24 小时内有活动的会话永远不会被清理，因此总量可能仍高于上限 |
 | `DASHBOARD_REMOTE_SYNC_MS` | `15000` | **远程数据源**后台同步的间隔（毫秒），会独立拉取每个已启用远程的 `~/.claude/projects` 和 `~/.codex/sessions`（另含 Codex 的轻量 `session_index.jsonl` 标题索引），再分别通过本地导入器重新导入。新增或重新启用数据源时也会立即同步一次。设为 `0` 可禁用远程源轮询 |
 | `DASHBOARD_REMOTE_ACTIVE_WINDOW_MS` | `600000`（10 分钟） | **远程数据源**会话实时状态的新鲜度窗口。每次同步时，若远程 Claude Code 或 Codex 会话对应镜像 transcript 的 **JSONL 最后事件**在此窗口内，仍视为运行中（`active`）；镜像停止推进超过该时长后，会话会被协调为 `completed`。远程会话不接收实时 Hook，因此按 provider 的镜像协调取代本地 liveness；失败、缺失或卡住的 provider 镜像会回退到常规 stale 扫描。链路较慢或空闲回合很长时可调大 |
 | `DASHBOARD_REMOTE_SYNC_TIMEOUT_MS` | `600000` | 每个远程源 `scp` 的超时时间 |
@@ -718,6 +722,7 @@ ccam remote-sources list|get|add|update|enable|disable|test|sync|rm
 
 # 管理
 ccam doctor | info | export [file|-] | cleanup --hours N --days M
+ccam snapshots [status|compress] | snapshots prune --days N   # 对话记录快照；prune 默认试运行，需 --apply --confirm PRUNE_SNAPSHOTS 才删除
 ccam hooks [status|install] | reinstall-hooks | config claude|codex …
 ccam updates [status|check] | update-check | metrics [--grep re]
 ccam home [set claude|codex <path>] | push key|send|subscribe|unsubscribe
@@ -1233,7 +1238,10 @@ npm run monitoring:docker:up
 | `POST` | `/api/settings/reset-pricing` | 将 Claude、Codex 或两者的定价重置为默认值 |
 | `GET` | `/api/settings/export` | 以 JSON 下载方式导出所有数据 |
 | `POST` | `/api/settings/import` | 从 `/export` 恢复一个不超过 25 MiB 的导出包（multipart `file` 或 JSON `{ path }`）。幂等且非破坏性——已存在的会话会被整体跳过 |
-| `POST` | `/api/settings/cleanup` | 废弃过期会话、清除旧数据 |
+| `POST` | `/api/settings/cleanup` | 废弃过期会话、清除旧数据（及被清除会话的快照） |
+| `GET`  | `/api/settings/snapshots`      | 各提供方的对话记录快照占用 + 保留策略 |
+| `POST` | `/api/settings/snapshots/compress` | 无损压缩原始对话记录已不存在的快照 |
+| `POST` | `/api/settings/snapshots/prune` | 规划（默认试运行）或执行快照清理；执行需要 `confirm: "PRUNE_SNAPSHOTS"` |
 
 ### 远程数据源
 
@@ -2236,7 +2244,7 @@ agent-dashboard/
 |   |   |-- config/              # 环境/CLI 配置解析
 |   |   |-- core/                # 日志器、工具注册、结果辅助
 |   |   |-- policy/              # 变更/破坏性守卫
-|   |   |-- tools/               # 16 个领域模块注册 97 个工具
+|   |   |-- tools/               # 16 个领域模块注册 103 个工具
 |   |   |-- transports/          # HTTP+SSE 服务器、REPL、工具收集器
 |   |   |-- ui/                  # ANSI 横幅、颜色、格式化器、表格
 |   |   +-- types/               # 共享 MCP 类型定义

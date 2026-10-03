@@ -39,3 +39,4 @@
 - Build/start: `npm run build` then `npm start`
 - MCP helpers: `npm run mcp:install`, `npm run mcp:build`, `npm run mcp:start`
 - Token repair: `npm run repair-tokens` — one-time re-derivation of token totals inflated before usage was reconciled per `message.id` (the dashboard also runs this automatically once per database; `DASHBOARD_TOKEN_REPAIR=0` opts out)
+- Transcript snapshot retention: `ccam snapshots` (storage + policy), `ccam snapshots prune --days N` (dry run unless `--apply --confirm PRUNE_SNAPSHOTS`); `npm run test:snapshots` runs the cross-OS snapshot store tests (CI runs them on Linux, macOS, and Windows)

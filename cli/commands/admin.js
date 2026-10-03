@@ -1,13 +1,15 @@
 /**
  * @file ccam administration commands: doctor (structured health checks),
- * info, export, cleanup, clear-data, reinstall-hooks, hooks, config (Claude
+ * info, export, cleanup, snapshots (transcript snapshot storage, compression,
+ * and dry-run-first prune), clear-data, reinstall-hooks, hooks, config (Claude
  * Code + Codex Config Explorer), api (any JSON endpoint), mcp (launch the
  * bundled MCP server), updates / update-check, metrics (Prometheus), home
  * (CLAUDE_HOME / CODEX_HOME), and push (web-push notifications).
  *
  * Safety model: reads are always safe; writes are confirmed (--yes, or y/N on
  * a TTY); the destructive clear-data needs a literal --yes and the generic
- * `api` route to it additionally needs --confirm CLEAR_ALL_DATA.
+ * `api` route to it additionally needs --confirm CLEAR_ALL_DATA; `snapshots
+ * prune` is a dry run unless given --apply --confirm PRUNE_SNAPSHOTS.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -301,6 +303,120 @@ async function cmdCleanup({ opts }) {
   console.log(`${c.green("✔")} Cleanup done: ${JSON.stringify(r)}`);
 }
 
+// ── snapshots (issue #358) ──────────────────────────────────────────────────
+
+const SNAPSHOT_ROOTS = [
+  ["claude", "Claude Code"],
+  ["codex", "Codex"],
+  ["cursor", "Cursor"],
+];
+
+async function cmdSnapshotStatus() {
+  const s = await get("/api/settings/snapshots");
+  if (isJson()) return printJson(s);
+  heading("Transcript snapshots");
+  table(
+    ["Provider", "Size", "Files", "Compressed", "Path"],
+    SNAPSHOT_ROOTS.map(([kind, label]) => {
+      const r = s.roots?.[kind] || {};
+      return [label, fmtBytes(r.bytes || 0), r.files ?? 0, r.compressed_files ?? 0, r.path || ""];
+    })
+  );
+  const p = s.policy || {};
+  kvCard([
+    ["Total", `${fmtBytes(s.total_bytes || 0)} · ${s.total_files ?? 0} files`],
+    ["Compress", onOff(p.compress)],
+    ["Age cap", p.max_age_days ? `${p.max_age_days} days` : "none"],
+    ["Size cap", p.max_bytes ? fmtBytes(p.max_bytes) : "none"],
+  ]);
+}
+
+async function cmdSnapshotCompress() {
+  const r = await post("/api/settings/snapshots/compress", undefined, { timeoutMs: 600_000 });
+  if (isJson()) return printJson(r);
+  console.log(
+    `${c.green("✔")} Compressed ${r.compressed} snapshot(s) ` +
+      `(${fmtBytes(r.bytes_before)} → ${fmtBytes(r.bytes_after)})` +
+      (r.failed ? c.yellow(` · ${r.failed} failed`) : "") +
+      (r.skipped_roots?.length
+        ? c.dim(` · skipped (source tree unreadable): ${r.skipped_roots.join(", ")}`)
+        : "")
+  );
+}
+
+async function cmdSnapshotPrune({ opts }) {
+  const body = {};
+  if (opts.days != null) body.max_age_days = opts.days;
+  if (opts.maxSize != null) body.max_bytes = String(opts.maxSize);
+  if (opts.orphans) body.orphans = true;
+  if (body.max_age_days == null && body.max_bytes == null && !body.orphans) {
+    throw new CliError(
+      "Usage: ccam snapshots prune [--days N] [--max-size 5GB] [--orphans] [--apply]",
+      {
+        code: "USAGE",
+        hints: [
+          "--days N        snapshots of finished sessions idle > N days",
+          "--max-size S    then oldest-first until the total is under S",
+          "--orphans       snapshots whose session is no longer in the DB",
+          "Dry run by default. Apply with --apply --confirm PRUNE_SNAPSHOTS.",
+        ],
+      }
+    );
+  }
+  if (opts.apply) {
+    if (opts.confirm !== "PRUNE_SNAPSHOTS") {
+      throw new CliError("--apply requires --confirm PRUNE_SNAPSHOTS.", {
+        code: "CONFIRMATION_REQUIRED",
+        hints: [
+          "A pruned snapshot may be the only copy left once the provider deleted the original.",
+        ],
+      });
+    }
+    body.dry_run = false;
+    body.confirm = "PRUNE_SNAPSHOTS";
+  }
+  const r = await post("/api/settings/snapshots/prune", body);
+  if (isJson()) return printJson(r);
+  const shown = (r.candidates || []).slice(0, 20);
+  if (shown.length) {
+    table(
+      ["Provider", "Session", "Size", "Reason", "Last activity"],
+      shown.map((row) => [
+        row.kind,
+        row.session_id,
+        fmtBytes(row.bytes),
+        row.reason,
+        row.last_activity || "no session row",
+      ])
+    );
+    if (r.candidate_sessions > shown.length) {
+      console.log(c.dim(`  … and ${r.candidate_sessions - shown.length} more`));
+    }
+  }
+  if (r.dry_run) {
+    console.log(
+      `${c.cyan("ℹ")} Dry run: ${r.candidate_sessions} session(s), ${r.candidate_files} file(s), ` +
+        `${fmtBytes(r.candidate_bytes)} would be removed; ${fmtBytes(r.remaining_bytes)} would remain.`
+    );
+    if (r.candidate_sessions > 0)
+      console.log(c.dim("  Apply with: --apply --confirm PRUNE_SNAPSHOTS"));
+  } else {
+    console.log(
+      `${c.green("✔")} Pruned ${r.candidate_sessions} session(s): ${r.removed_files} file(s), ` +
+        fmtBytes(r.removed_bytes) +
+        (r.failed_files ? c.yellow(` · ${r.failed_files} locked file(s) left for later`) : "")
+    );
+  }
+  if (r.over_cap_bytes > 0) {
+    console.log(
+      c.yellow(
+        `  Still ${fmtBytes(r.over_cap_bytes)} over the size cap ` +
+          "(active sessions and those active in the last 24 h are never pruned)."
+      )
+    );
+  }
+}
+
 async function cmdClearData({ opts }) {
   if (opts.yes !== true) {
     throw new CliError("clear-data deletes ALL sessions, agents, events, and token usage.", {
@@ -487,6 +603,39 @@ function register(program) {
     .option("--hours <n>", "abandon active sessions idle for N hours", posIntArg)
     .option("--days <n>", "purge completed/error/abandoned sessions older than N days", posIntArg)
     .action(run(cmdCleanup, { serverOnly: "cleanup is a server-side mutation" }));
+
+  const SNAPSHOTS_ONLY = "snapshot storage and retention are managed by the running server";
+  const snapshots = program
+    .command("snapshots")
+    .helpGroup(GROUP)
+    .description("Transcript snapshot storage per provider + retention policy (default: status)")
+    .allowExcessArguments();
+  snapshots.action(
+    run(
+      async ({ cmd }) => {
+        if (cmd.args.length) cmd.unknownCommand();
+        await cmdSnapshotStatus();
+      },
+      { serverOnly: SNAPSHOTS_ONLY }
+    )
+  );
+  snapshots
+    .command("status")
+    .description("Snapshot size, file counts, compressed share, and the retention policy")
+    .action(run(cmdSnapshotStatus, { serverOnly: SNAPSHOTS_ONLY }));
+  snapshots
+    .command("compress")
+    .description("Losslessly compress snapshots whose original transcript is gone")
+    .action(run(cmdSnapshotCompress, { serverOnly: SNAPSHOTS_ONLY }));
+  snapshots
+    .command("prune")
+    .description("Dry-run a prune of old snapshots (apply: --apply --confirm PRUNE_SNAPSHOTS)")
+    .option("--days <n>", "snapshots of finished sessions idle longer than N days", posIntArg)
+    .option("--max-size <size>", "then oldest-first until the total is under this (e.g. 5GB)")
+    .option("--orphans", "also snapshots whose session row no longer exists")
+    .option("--apply", "actually delete (requires --confirm PRUNE_SNAPSHOTS)")
+    .option("--confirm <token>", "must be PRUNE_SNAPSHOTS to apply")
+    .action(run(cmdSnapshotPrune, { serverOnly: SNAPSHOTS_ONLY }));
 
   program
     .command("clear-data")

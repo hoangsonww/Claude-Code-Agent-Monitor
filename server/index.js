@@ -501,6 +501,16 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("session sync failed to start:", err.message);
   }
+  // Transcript snapshot retention (issue #358): compresses snapshots whose
+  // original was pruned by Claude Code/Cursor and applies the opt-in
+  // DASHBOARD_SNAPSHOT_MAX_AGE_DAYS / _MAX_BYTES caps. First pass ~2 min after
+  // boot, then every 6 h; unref'd, single-flight, never fatal.
+  try {
+    const { startSnapshotMaintenance } = require("./lib/snapshot-retention");
+    startSnapshotMaintenance(require("./db").db);
+  } catch (err) {
+    console.warn("snapshot maintenance failed to start:", err.message);
+  }
   // Cursor emits Claude-compatible live hooks, but its durable session history
   // lives under ~/.cursor. A dedicated importer fills metadata that those hooks
   // omit and snapshots transcripts before Cursor's own cleanup removes them.

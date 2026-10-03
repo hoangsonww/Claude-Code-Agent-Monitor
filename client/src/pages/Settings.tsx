@@ -113,7 +113,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { useLocation } from "react-router";
-import { api } from "../lib/api";
+import { api, type SnapshotStorage as SnapshotStorageInfo } from "../lib/api";
 import { usePaletteAction } from "../components/PaletteActionProvider";
 
 import { eventBus } from "../lib/eventBus";
@@ -133,6 +133,7 @@ import { ImportHistory } from "../components/ImportHistory";
 import { RemoteSources } from "../components/RemoteSources";
 import { Skeleton } from "../components/Skeleton";
 import { AlertsNotifications } from "../components/AlertsNotifications";
+import { SnapshotStorage, formatStorageBytes } from "../components/SnapshotStorage";
 import type { CursorModelPricing, GptModelPricing, ModelPricing, WSMessage } from "../lib/types";
 import { useDataScope, type ProviderScope } from "../lib/dataScope";
 
@@ -275,6 +276,7 @@ interface SystemInfo {
     platform: string;
     ws_connections: number;
   };
+  snapshots?: SnapshotStorageInfo;
 }
 
 function formatTimestamp(iso: string): string {
@@ -290,11 +292,7 @@ function formatTimestamp(iso: string): string {
   });
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+const formatBytes = formatStorageBytes;
 
 function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -1598,6 +1596,10 @@ export function Settings() {
         parts.push(
           `${res.purged_sessions}${t("data.purgedResult", { events: res.purged_events, agents: res.purged_agents })}`
         );
+      if ((res.purged_snapshot_bytes ?? 0) > 0)
+        parts.push(
+          t("data.purgedSnapshots", { size: formatStorageBytes(res.purged_snapshot_bytes ?? 0) })
+        );
       return parts.length > 0 ? parts.join(". ") : t("data.nothingToClean");
     });
 
@@ -2863,6 +2865,17 @@ export function Settings() {
               <p className="text-xs text-gray-500">{t("data.loadingDb")}</p>
             )}
           </div>
+
+          {/* Transcript snapshot storage + retention (issue #358) */}
+          <SnapshotStorage
+            storage={sysInfo?.snapshots}
+            onChanged={() =>
+              api.settings
+                .info()
+                .then(setSysInfo)
+                .catch(() => {})
+            }
+          />
 
           {/* Session Cleanup */}
           <div className="card p-5 space-y-4">

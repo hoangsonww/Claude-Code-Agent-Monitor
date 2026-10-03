@@ -18,6 +18,8 @@ const {
   indexCursorChatDirs,
   readCursorChatMetadata,
 } = require("./cursor-home");
+const { writeSnapshot } = require("./snapshot-store");
+const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
 
 const RECENT_SESSION_MS = 10 * 60 * 1000;
@@ -216,42 +218,20 @@ function parseMetadata(value) {
   }
 }
 
-function copyIfNewer(source, destination) {
-  let sourceStat;
-  try {
-    sourceStat = fs.statSync(source);
-  } catch {
-    return false;
-  }
-  let destinationStat = null;
-  try {
-    destinationStat = fs.statSync(destination);
-  } catch {
-    // Missing snapshot is the normal first-import case.
-  }
-  if (
-    destinationStat &&
-    destinationStat.size === sourceStat.size &&
-    destinationStat.mtimeMs >= sourceStat.mtimeMs
-  ) {
-    return false;
-  }
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.copyFileSync(source, destination);
-  try {
-    fs.utimesSync(destination, sourceStat.atime, sourceStat.mtime);
-  } catch {
-    // Snapshot content is already durable; timestamp preservation is optional.
-  }
-  return true;
-}
-
+/**
+ * Snapshot a Cursor transcript (and its subagent transcripts) into the
+ * dashboard's data dir before Cursor's own cleanup removes them. Goes through
+ * the shared snapshot store: atomic, copy-on-write where supported, and it
+ * never shrinks an existing snapshot — a truncated original cannot overwrite
+ * the fuller copy. Returns whether anything was written.
+ */
 function snapshotCursorTranscript(transcriptPath, sessionId) {
   if (!transcriptPath) return false;
-  let changed = copyIfNewer(
-    transcriptPath,
-    path.join(getCursorSnapshotDir(), `${sessionId}.jsonl`)
-  );
+  const root = getCursorSnapshotDir();
+  const { max_age_days: maxAgeDays } = getSnapshotPolicy();
+  const write = (source, relPath) =>
+    writeSnapshot({ root, sessionId, source, relPath, maxAgeDays }).written;
+  let changed = write(transcriptPath, `${sessionId}.jsonl`);
   const subagentsDir = path.join(path.dirname(transcriptPath), "subagents");
   let entries = [];
   try {
@@ -262,10 +242,8 @@ function snapshotCursorTranscript(transcriptPath, sessionId) {
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".jsonl")) continue;
     changed =
-      copyIfNewer(
-        path.join(subagentsDir, entry.name),
-        path.join(getCursorSnapshotDir(), sessionId, "subagents", entry.name)
-      ) || changed;
+      write(path.join(subagentsDir, entry.name), path.join(sessionId, "subagents", entry.name)) ||
+      changed;
   }
   return changed;
 }

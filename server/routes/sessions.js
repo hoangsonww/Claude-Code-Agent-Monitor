@@ -10,7 +10,6 @@
 const { Router } = require("express");
 const fs = require("fs");
 const path = require("path");
-const readline = require("readline");
 const { stmts, db } = require("../db");
 const { broadcast } = require("../websocket");
 const { calculateProviderCost, attachAgentCosts } = require("./pricing");
@@ -19,12 +18,18 @@ const { parseProviders, providerColumnClause } = require("../lib/provider-filter
 const { getCodexProcessSessions } = require("../lib/codex-process-overlay");
 const { extractSessionTaskProgress } = require("../lib/task-progress");
 const {
+  createTranscriptLineReader,
+  pickMoreComplete,
+  logicalPath,
+} = require("../lib/snapshot-store");
+const {
   getClaudeHome,
   getProjectsDir,
   getTranscriptPath,
   getSubagentTranscriptPath,
   getSnapshotTranscriptPath,
   getSnapshotSubagentTranscriptPath,
+  getTranscriptSnapshotDir,
   findTranscriptPath,
   findSubagentTranscriptPath,
 } = require("../lib/claude-home");
@@ -111,10 +116,11 @@ function taskEventsForSession(sessionId) {
 }
 
 function taskProgressForSession(session, agents, events) {
+  const resolved = resolveSessionTranscriptPath(session, session.id, null, null);
   const mainTranscriptPath =
     session.transcript_path && fs.existsSync(session.transcript_path)
-      ? session.transcript_path
-      : resolveSessionTranscriptPath(session, session.id, null, null);
+      ? pickMoreComplete(session.transcript_path, resolved)
+      : resolved;
   return extractSessionTaskProgress({
     session,
     agents,
@@ -231,10 +237,7 @@ function classifyTranscriptSender(entry, isSubagentFile) {
  * Avoids loading the entire file into memory.
  */
 async function readFirstLine(filePath) {
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filePath, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const rl = createTranscriptLineReader(filePath);
   for await (const line of rl) {
     rl.close();
     rl.removeAllListeners();
@@ -662,18 +665,23 @@ router.get("/:id/transcripts", async (req, res) => {
         session.transcript_path && fs.existsSync(session.transcript_path)
           ? session.transcript_path
           : null;
-      const subagentDir = liveMain
-        ? path.join(path.dirname(liveMain), "subagents")
-        : path.join(getCursorSnapshotDir(), session.id, "subagents");
-      let files = [];
-      try {
-        files = fs.readdirSync(subagentDir).filter((file) => file.endsWith(".jsonl"));
-      } catch {
-        // Cursor sessions do not always spawn subagents.
+      // Union of the live subagents dir and the durable snapshot (which may
+      // hold compressed `.jsonl.gz` files once Cursor pruned the originals).
+      const subagentDirs = [path.join(getCursorSnapshotDir(), session.id, "subagents")];
+      if (liveMain) subagentDirs.unshift(path.join(path.dirname(liveMain), "subagents"));
+      const ids = new Set();
+      for (const subagentDir of subagentDirs) {
+        try {
+          for (const file of fs.readdirSync(subagentDir)) {
+            const logical = logicalPath(file);
+            if (logical.endsWith(".jsonl")) ids.add(path.basename(logical, ".jsonl"));
+          }
+        } catch {
+          // Cursor sessions do not always spawn subagents.
+        }
       }
       const agents = stmts.listAgentsBySession.all(session.id);
-      for (const file of files) {
-        const id = path.basename(file, ".jsonl");
+      for (const id of ids) {
         transcripts.push({
           id,
           name: `Cursor subagent ${id.slice(0, 8)}`,
@@ -737,16 +745,25 @@ router.get("/:id/transcripts", async (req, res) => {
     }
   }
 
+  // The durable snapshot keeps subagent transcripts after Claude Code prunes
+  // the session folder (possibly compressed as `.jsonl.gz`). List it after the
+  // live dirs; a transcript already found live is not listed twice.
+  subagentDirs.push(path.join(getTranscriptSnapshotDir(), req.params.id, "subagents"));
+  const listedShortIds = new Set();
+
   for (const dir of subagentDirs) {
     try {
       const files = fs.readdirSync(dir);
       for (const file of files) {
-        if (!file.endsWith(".jsonl")) continue;
+        const logicalFile = logicalPath(file);
+        if (!logicalFile.endsWith(".jsonl")) continue;
         // File name format: agent-<shortId>.jsonl
-        const shortId = file.replace(/^agent-/, "").replace(/\.jsonl$/, "");
+        const shortId = logicalFile.replace(/^agent-/, "").replace(/\.jsonl$/, "");
+        if (listedShortIds.has(shortId)) continue;
+        listedShortIds.add(shortId);
         // Try reading meta.json for agent type info
         let meta = null;
-        const metaPath = path.join(dir, file.replace(".jsonl", ".meta.json"));
+        const metaPath = path.join(dir, logicalFile.replace(".jsonl", ".meta.json"));
         if (fs.existsSync(metaPath)) {
           try {
             meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
@@ -951,35 +968,33 @@ function resolveSessionTranscriptPath(session, sessionId, agentId, runId) {
       session.transcript_path && fs.existsSync(session.transcript_path)
         ? session.transcript_path
         : null;
+    // Live first, durable snapshot second — but a snapshot that is longer
+    // than a truncated live file is the more complete record and wins.
     if (agentId && agentId !== "main") {
       if (!isSafeCursorId(agentId)) return null;
-      return (
-        getCursorSubagentPath(liveMain, agentId) ||
+      return pickMoreComplete(
+        getCursorSubagentPath(liveMain, agentId),
         getCursorSnapshotSubagentPath(sessionId, agentId)
       );
     }
-    return liveMain || getCursorSnapshotPath(sessionId);
+    return pickMoreComplete(liveMain, getCursorSnapshotPath(sessionId));
   }
   if (agentId && agentId !== "main") {
-    return (
+    return pickMoreComplete(
       getSubagentTranscriptPath(sessionId, session.cwd, agentId, runId) ||
-      findSubagentTranscriptPath(sessionId, agentId, runId) ||
+        findSubagentTranscriptPath(sessionId, agentId, runId),
       getSnapshotSubagentTranscriptPath(sessionId, agentId, runId)
     );
   }
-  return (
-    getTranscriptPath(sessionId, session.cwd) ||
-    findTranscriptPath(sessionId) ||
+  return pickMoreComplete(
+    getTranscriptPath(sessionId, session.cwd) || findTranscriptPath(sessionId),
     getSnapshotTranscriptPath(sessionId)
   );
 }
 
 async function jsonlEntryAtLine(jsonlPath, targetLine) {
   let lineNumber = 0;
-  const rl = readline.createInterface({
-    input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const rl = createTranscriptLineReader(jsonlPath);
   for await (const line of rl) {
     lineNumber++;
     if (lineNumber !== targetLine) continue;
@@ -1137,10 +1152,7 @@ async function readCodexTranscript(jsonlPath, { limit, afterLine, beforeLine, of
   let total = 0;
   let hasMore = false;
   let previousCodexUserResponse = null;
-  const rl = readline.createInterface({
-    input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const rl = createTranscriptLineReader(jsonlPath);
 
   for await (const line of rl) {
     lineNum++;
@@ -1256,10 +1268,7 @@ async function readCursorTranscript(
   let lineNum = 0;
   let total = 0;
   let hasMore = false;
-  const rl = readline.createInterface({
-    input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
-    crlfDelay: Infinity,
-  });
+  const rl = createTranscriptLineReader(jsonlPath);
   for await (const line of rl) {
     lineNum++;
     if (!line.trim()) continue;
@@ -1326,10 +1335,7 @@ async function readCursorConversation(
   const messages = [];
   if (jsonlPath) {
     let rawLine = 0;
-    const rl = readline.createInterface({
-      input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
-      crlfDelay: Infinity,
-    });
+    const rl = createTranscriptLineReader(jsonlPath);
     for await (const line of rl) {
       rawLine++;
       if (!line.trim()) continue;
@@ -1481,10 +1487,7 @@ router.get("/:id/transcript", async (req, res) => {
     let total = 0; // total valid messages seen (exact for early-terminated streams, indicates >= actual)
     let hasMore = false;
 
-    const rl = readline.createInterface({
-      input: fs.createReadStream(jsonlPath, { encoding: "utf8" }),
-      crlfDelay: Infinity,
-    });
+    const rl = createTranscriptLineReader(jsonlPath);
 
     // Dedupe state for synthetic rename markers: custom-title lines can repeat
     // with the same value across a transcript, so only emit when the title

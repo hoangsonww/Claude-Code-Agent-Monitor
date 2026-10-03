@@ -165,9 +165,21 @@ function findCursorTranscriptPath(sessionId) {
   return null;
 }
 
+/**
+ * Resolve a snapshot file, preferring the plain `.jsonl` and falling back to
+ * the compressed `.jsonl.gz` the retention pass writes once Cursor's original
+ * is gone (see snapshot-retention.js).
+ */
+function existingContainedSnapshotFile(root, filename) {
+  return (
+    existingContainedCursorFile(root, filename) ||
+    existingContainedCursorFile(root, `${filename}.gz`)
+  );
+}
+
 function getCursorSnapshotPath(sessionId) {
   if (!isSafeCursorId(sessionId)) return null;
-  return existingContainedCursorFile(getCursorSnapshotDir(), `${sessionId}.jsonl`);
+  return existingContainedSnapshotFile(getCursorSnapshotDir(), `${sessionId}.jsonl`);
 }
 
 function getCursorSubagentPath(transcriptPath, agentId) {
@@ -179,7 +191,7 @@ function getCursorSubagentPath(transcriptPath, agentId) {
 function getCursorSnapshotSubagentPath(sessionId, agentId) {
   if (!isSafeCursorId(sessionId) || !isSafeCursorId(agentId)) return null;
   const subagentsDir = path.join(getCursorSnapshotDir(), sessionId, "subagents");
-  return existingContainedCursorFile(subagentsDir, `${agentId}.jsonl`);
+  return existingContainedSnapshotFile(subagentsDir, `${agentId}.jsonl`);
 }
 
 module.exports = {

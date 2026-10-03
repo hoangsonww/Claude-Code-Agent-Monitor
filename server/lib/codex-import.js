@@ -11,6 +11,7 @@ const { stmts } = require("../db");
 const { getDataDir } = require("./claude-home");
 const { getCodexSessionsDir } = require("./codex-home");
 const { findCodexTranscripts, ingestCodexTranscript } = require("./codex-ingest");
+const { writeSnapshot } = require("./snapshot-store");
 
 const SNAPSHOT_DIR = () => path.join(getDataDir(), "codex-transcripts");
 
@@ -39,22 +40,26 @@ function getCodexTranscriptSessionId(transcriptPath) {
   return null;
 }
 
-function copyIfNewer(sourcePath, destinationPath) {
-  const sourceSize = fs.statSync(sourcePath).size;
-  let destinationSize = -1;
-  try {
-    destinationSize = fs.statSync(destinationPath).size;
-  } catch {
-    /* destination does not exist yet */
-  }
-  if (destinationSize >= sourceSize) return destinationPath;
-  fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
-  fs.copyFileSync(sourcePath, destinationPath);
-  return destinationPath;
-}
-
+/**
+ * Copy an imported rollout into the dashboard-owned snapshot dir and return
+ * the snapshot path (the session's `transcript_path`). Goes through the shared
+ * snapshot store: atomic, never shrinks an existing copy. Returns null when
+ * the session's snapshot was pruned by the retention cap and the rollout has
+ * not changed since (snapshot-retention.js tombstone) — the caller skips it so
+ * a periodic remote re-sync does not regrow it. Throws on a write failure.
+ */
 function snapshotCodexTranscript(sourcePath, sessionId) {
-  return copyIfNewer(sourcePath, path.join(SNAPSHOT_DIR(), `${sessionId}.jsonl`));
+  const result = writeSnapshot({
+    root: SNAPSHOT_DIR(),
+    sessionId,
+    source: sourcePath,
+    relPath: `${sessionId}.jsonl`,
+  });
+  if (result.reason && result.reason.startsWith("error:")) {
+    throw new Error(`Codex snapshot failed (${result.reason.slice(6)})`);
+  }
+  if (result.reason === "source-missing") throw new Error("Codex rollout disappeared");
+  return result.path;
 }
 
 function readNativeTitles(root) {
@@ -130,6 +135,10 @@ async function importCodexFromDirectory(root, options = {}) {
       const transcriptPath = retainLivePath
         ? sourcePath
         : snapshotCodexTranscript(sourcePath, sessionId);
+      if (!transcriptPath) {
+        counters.skipped++;
+        continue;
+      }
       const existing = stmts.getSession.get(sessionId);
       // Different file paths for one Codex session have independent byte
       // cursors. Import an existing *canonical* path for new bytes, but never

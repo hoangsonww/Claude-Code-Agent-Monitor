@@ -12,6 +12,9 @@
  *   - DELETE /api/remote-sources/{id}          (Remote Sources)
  *   - POST   /api/remote-sources/{id}/test     (Remote Sources)
  *   - POST   /api/remote-sources/{id}/sync     (Remote Sources)
+ *   - GET    /api/settings/snapshots           (Settings)
+ *   - POST   /api/settings/snapshots/compress  (Settings)
+ *   - POST   /api/settings/snapshots/prune     (Settings) ⚠ DESTRUCTIVE when applied
  *
  * Exports `{ tags, schemas, paths }` and is combined into the base spec by
  * server/openapi-extra.js. Schema names are prefixed (Sessions / Settings /
@@ -28,7 +31,162 @@
 
 const tags = [];
 
+const SNAPSHOT_ROOT_SUMMARY = {
+  type: "object",
+  required: ["path", "files", "bytes", "compressed_files", "compressed_bytes", "sessions"],
+  properties: {
+    path: { type: "string", description: "Absolute snapshot directory." },
+    files: { type: "integer" },
+    bytes: { type: "integer" },
+    compressed_files: {
+      type: "integer",
+      description: "Files stored as verified `.jsonl.gz` (original transcript gone).",
+    },
+    compressed_bytes: { type: "integer" },
+    sessions: { type: "integer" },
+  },
+};
+
 const schemas = {
+  SettingsSnapshotStorage: {
+    type: "object",
+    description:
+      "Durable transcript snapshot storage (issue #358): the copies under the dashboard data dir that keep the Conversation tab working after Claude Code, Codex, and Cursor delete their own transcripts.",
+    required: ["total_bytes", "total_files", "roots", "policy"],
+    properties: {
+      total_bytes: { type: "integer" },
+      total_files: { type: "integer" },
+      roots: {
+        type: "object",
+        required: ["claude", "codex", "cursor"],
+        properties: {
+          claude: SNAPSHOT_ROOT_SUMMARY,
+          codex: SNAPSHOT_ROOT_SUMMARY,
+          cursor: SNAPSHOT_ROOT_SUMMARY,
+        },
+      },
+      policy: {
+        type: "object",
+        description:
+          "Effective policy from DASHBOARD_SNAPSHOT_COMPRESS / DASHBOARD_SNAPSHOT_MAX_AGE_DAYS / DASHBOARD_SNAPSHOT_MAX_BYTES. Caps are null (unlimited) by default.",
+        required: ["compress", "max_age_days", "max_bytes"],
+        properties: {
+          compress: { type: "boolean" },
+          max_age_days: { type: "number", nullable: true },
+          max_bytes: { type: "integer", nullable: true },
+        },
+      },
+    },
+  },
+  SettingsSnapshotCompressResponse: {
+    type: "object",
+    required: ["ok", "compressed", "bytes_before", "bytes_after", "failed", "skipped_roots"],
+    properties: {
+      ok: { type: "boolean", enum: [true] },
+      compressed: { type: "integer" },
+      bytes_before: { type: "integer" },
+      bytes_after: { type: "integer" },
+      failed: { type: "integer" },
+      skipped_roots: {
+        type: "array",
+        items: { type: "string", enum: ["claude", "cursor"] },
+        description:
+          "Providers skipped because their source tree was missing or unreadable — nothing is treated as deleted in that case.",
+      },
+      storage: { $ref: "#/components/schemas/SettingsSnapshotStorage" },
+    },
+  },
+  SettingsSnapshotPruneRequest: {
+    type: "object",
+    description:
+      'At least one of max_age_days, max_bytes, or orphans:true. Dry run unless dry_run:false AND confirm:"PRUNE_SNAPSHOTS".',
+    properties: {
+      max_age_days: {
+        type: "number",
+        minimum: 0,
+        exclusiveMinimum: true,
+        maximum: 36500,
+        description: "Prune finished sessions whose last activity is older than this.",
+      },
+      max_bytes: {
+        oneOf: [
+          { type: "integer", minimum: 1 },
+          { type: "string", example: "5GB" },
+        ],
+        description:
+          "Then prune finished sessions oldest-first until the total is under this size (bytes, or a size with a binary unit).",
+      },
+      orphans: {
+        type: "boolean",
+        description: "Also prune snapshots whose session row no longer exists.",
+      },
+      dry_run: { type: "boolean", default: true },
+      confirm: { type: "string", enum: ["PRUNE_SNAPSHOTS"] },
+    },
+  },
+  SettingsSnapshotPruneResponse: {
+    type: "object",
+    required: [
+      "ok",
+      "dry_run",
+      "criteria",
+      "total_bytes",
+      "candidate_sessions",
+      "candidate_files",
+      "candidate_bytes",
+      "remaining_bytes",
+      "over_cap_bytes",
+      "candidates",
+      "truncated",
+      "removed_files",
+      "removed_bytes",
+      "failed_files",
+    ],
+    properties: {
+      ok: { type: "boolean", enum: [true] },
+      dry_run: { type: "boolean" },
+      criteria: {
+        type: "object",
+        properties: {
+          max_age_days: { type: "number", nullable: true },
+          max_bytes: { type: "integer", nullable: true },
+          orphans: { type: "boolean" },
+        },
+      },
+      total_bytes: { type: "integer" },
+      candidate_sessions: { type: "integer" },
+      candidate_files: { type: "integer" },
+      candidate_bytes: { type: "integer" },
+      remaining_bytes: { type: "integer" },
+      over_cap_bytes: {
+        type: "integer",
+        description: "Bytes still over max_bytes after pruning every eligible session.",
+      },
+      candidates: {
+        type: "array",
+        description: "Up to 500 selected sessions, oldest first.",
+        items: {
+          type: "object",
+          required: ["kind", "session_id", "reason", "files", "bytes", "last_activity"],
+          properties: {
+            kind: { type: "string", enum: ["claude", "codex", "cursor"] },
+            session_id: { type: "string" },
+            reason: { type: "string", enum: ["max_age", "max_bytes", "orphan"] },
+            files: { type: "integer" },
+            bytes: { type: "integer" },
+            last_activity: { type: "string", format: "date-time", nullable: true },
+          },
+        },
+      },
+      truncated: { type: "boolean" },
+      removed_files: { type: "integer" },
+      removed_bytes: { type: "integer" },
+      failed_files: {
+        type: "integer",
+        description: "Files left in place because they were locked; retried by a later pass.",
+      },
+    },
+  },
   SessionsFacetsResponse: {
     type: "object",
     description:
@@ -611,6 +769,88 @@ const schemas = {
 };
 
 const paths = {
+  "/api/settings/snapshots": {
+    get: {
+      tags: ["Settings"],
+      summary: "Transcript snapshot storage and retention policy",
+      description:
+        "Per-provider size of the durable transcript snapshot directories (`transcripts`, `codex-transcripts`, `cursor-transcripts` under the dashboard data dir), how much is already compressed, and the env-configured retention policy. Uncached; `/api/settings/info.snapshots` carries the same report cached for 5 min.",
+      operationId: "getSnapshotStorage",
+      responses: {
+        200: {
+          description: "Snapshot storage report",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsSnapshotStorage" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/settings/snapshots/compress": {
+    post: {
+      tags: ["Settings"],
+      summary: "Compress snapshots whose original transcript is gone (lossless)",
+      description:
+        "Gzips every Claude Code / Cursor snapshot whose original transcript no longer exists and that has been idle for 24 h — the same pass background maintenance runs every 6 h. Each archive is decompressed and matched (SHA-256 + length) before the plain file is removed. A provider whose source tree is missing or unreadable is skipped entirely. Codex snapshots are never compressed (they are the byte-offset ingest source of imported Codex sessions).",
+      operationId: "compressSnapshots",
+      responses: {
+        200: {
+          description: "Compression result",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsSnapshotCompressResponse" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/settings/snapshots/prune": {
+    post: {
+      tags: ["Settings"],
+      summary: "Plan or apply a transcript snapshot prune",
+      description:
+        'Selects whole finished sessions (completed/error/abandoned; never active, and the size cap also spares sessions active in the last 24 h) whose snapshots to remove: those idle longer than `max_age_days`, then oldest-first until the total is under `max_bytes`, plus — only with `orphans: true` — snapshots whose session row no longer exists. DRY RUN BY DEFAULT: nothing is deleted unless `dry_run: false` and `confirm: "PRUNE_SNAPSHOTS"` are both sent. ⚠ Applying is IRREVERSIBLE — once Claude Code/Codex/Cursor deleted the original, the snapshot is the only copy of that conversation. Cap-driven removals are tombstoned so a re-import does not recreate them (a session that later resumes is protected again).',
+      operationId: "pruneSnapshots",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/SettingsSnapshotPruneRequest" },
+            examples: {
+              preview: {
+                summary: "Dry run: what would a 90-day cap remove?",
+                value: { max_age_days: 90 },
+              },
+              apply: {
+                summary: "Apply: keep the snapshot dirs under 5 GB",
+                value: { max_bytes: "5GB", dry_run: false, confirm: "PRUNE_SNAPSHOTS" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Prune plan (dry run) or result",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SettingsSnapshotPruneResponse" },
+            },
+          },
+        },
+        400: {
+          description:
+            "INVALID_PRUNE_REQUEST — no criteria, invalid values, or applying without the confirm token",
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
+          },
+        },
+      },
+    },
+  },
   "/api/sessions/facets": {
     get: {
       tags: ["Sessions"],
@@ -879,7 +1119,7 @@ const paths = {
       tags: ["Remote Sources"],
       summary: "Delete a remote data source",
       description:
-        "Deletes a remote source. By default its imported sessions are DETACHED — reassigned to the built-in `local` source — so history is preserved. Pass `?purge=true` to instead permanently DELETE that source's imported sessions along with the source. The response reports whether a purge occurred.",
+        "Deletes a remote source. By default its imported sessions are DETACHED — reassigned to the built-in `local` source — so history is preserved. Pass `?purge=true` to instead permanently DELETE that source's imported sessions (and their transcript snapshots) along with the source. The response reports whether a purge occurred.",
       operationId: "deleteRemoteSource",
       parameters: [
         {

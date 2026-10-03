@@ -1315,7 +1315,7 @@
                   <div class="feature-icon ic-blue">🔌</div>
                   <h3>Local MCP Server</h3>
                   <p>
-                    Local MCP sidecar with three transport modes and 97 typed tools across 16
+                    Local MCP sidecar with three transport modes and 103 typed tools across 16
                     domain modules. It covers the complete supported app surface, including
                     scoped data, transcripts and images, Claude/Cursor/GPT pricing, workflows, alerts,
                     webhooks, imports and restore, Claude/Codex config, Run Agent, remote sources,
@@ -2174,6 +2174,21 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td><code>DASHBOARD_TASK_SUMMARY_TTL_MS</code></td>
                   <td><code>2000</code></td>
                   <td>Serve-stale window (ms) for per-transcript task-progress summaries behind <code>include_task_progress</code> list requests and the session-detail <code>todo_snapshot</code>. A grown transcript is parsed incrementally from its last complete JSONL line; this floor still coalesces bursts of list reloads into one parse. <code>0</code> parses every append immediately.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_SNAPSHOT_COMPRESS</code></td>
+                  <td><code>1</code></td>
+                  <td>Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_SNAPSHOT_MAX_AGE_DAYS</code></td>
+                  <td><code>unset</code></td>
+                  <td>Opt-in retention cap: every 6 h, delete the snapshots of finished sessions idle longer than this many days and stop snapshotting sources that old. Pruned sessions are tombstoned so a re-import does not regrow them. Preview with <code>ccam snapshots prune --days N</code> first, because a pruned snapshot may be the only remaining copy of a conversation.</td>
+                </tr>
+                <tr>
+                  <td><code>DASHBOARD_SNAPSHOT_MAX_BYTES</code></td>
+                  <td><code>unset</code></td>
+                  <td>Opt-in size cap for all three snapshot directories, in bytes or a size such as <code>5GB</code>. Every 6 h the snapshots of the oldest finished sessions are deleted until the total is under the cap; active sessions and those active in the last 24 h are never pruned, so the total can stay above it.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_TOKEN_REPAIR</code></td>
@@ -7233,7 +7248,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=108" defer></script>
+    <script src="i18n-content.js?v=109" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {
