@@ -151,7 +151,7 @@ flowchart LR
 
 ### 用户界面
 
-响应式暗色界面覆盖完整工作流，同时避免让仓库页面堆满截图。点击任一预览图可查看原始分辨率。
+响应式暗色界面覆盖完整工作流。每张预览图都使用适合移动端的缩略图，并链接到清晰的原图。
 
 <p align="center">
   <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="Dashboard 概览" width="100%"></a>
@@ -160,15 +160,63 @@ flowchart LR
 </p>
 
 <p align="center">
+  <a href="images/tasks-overview.png"><img src="images/readme/tasks-overview.png" alt="任务进度概览" width="100%"></a>
+  <br>
+  <em>📋 <strong>任务进度</strong> · 紧凑显示完成度和带归属信息的工作预览</em>
+</p>
+
+<p align="center">
+  <a href="images/dashboard-health.png"><img src="images/readme/dashboard-health.png" alt="Dashboard 健康视图" width="100%"></a>
+  <br>
+  <em>🩺 <strong>系统健康</strong> · 存储、缓存、错误、工具、模型、Subagent 和压缩指标</em>
+</p>
+
+<p align="center">
   <a href="images/board.png"><img src="images/readme/board.png" alt="Kanban 看板 Agent 视图" width="100%"></a>
   <br>
-  <em>📋 <strong>Kanban 看板</strong> · 清晰展示工作中、等待中、已完成和失败的 Agent 及等待原因</em>
+  <em>📋 <strong>Kanban 看板 · Agent</strong> · 清晰展示工作中、等待中、已完成和失败的 Agent 及等待原因</em>
+</p>
+
+<p align="center">
+  <a href="images/board-sessions.png"><img src="images/readme/board-sessions.png" alt="Kanban 看板会话视图" width="100%"></a>
+  <br>
+  <em>🗂️ <strong>Kanban 看板 · 会话</strong> · 展示活跃、等待中、已完成、错误和已废弃会话</em>
+</p>
+
+<p align="center">
+  <a href="images/sessions.png"><img src="images/readme/sessions.png" alt="会话概览" width="100%"></a>
+  <br>
+  <em>📂 <strong>会话</strong> · 可搜索、可筛选、服务端分页的历史记录，包含成本和活动</em>
+</p>
+
+<p align="center">
+  <a href="images/session-agents.png"><img src="images/readme/session-agents.png" alt="会话 Agent 概览" width="100%"></a>
+  <br>
+  <em>🤖 <strong>会话 Agent</strong> · 实时总量、工具用量、Token 流和 Agent 层级</em>
+</p>
+
+<p align="center">
+  <a href="images/tasks-details.png"><img src="images/readme/tasks-details.png" alt="会话任务进度详情" width="100%"></a>
+  <br>
+  <em>✅ <strong>任务详情</strong> · 完成度分段、当前工作、归属信息和分页任务</em>
 </p>
 
 <p align="center">
   <a href="images/session-conversation.png"><img src="images/readme/session-conversation.png" alt="会话对话视图" width="100%"></a>
   <br>
   <em>💬 <strong>对话</strong> · 渲染 Transcript、代码、工具调用、命令输出和会话标记</em>
+</p>
+
+<p align="center">
+  <a href="images/session-timeline.png"><img src="images/readme/session-timeline.png" alt="会话事件时间线" width="100%"></a>
+  <br>
+  <em>🔬 <strong>时间线</strong> · 按时间排列的事件、多维筛选和配对工具活动</em>
+</p>
+
+<p align="center">
+  <a href="images/feed.png"><img src="images/readme/feed.png" alt="活动流概览" width="100%"></a>
+  <br>
+  <em>📰 <strong>活动流</strong> · 可暂停的实时事件、分组、筛选和会话跳转</em>
 </p>
 
 <p align="center">
@@ -180,7 +228,25 @@ flowchart LR
 <p align="center">
   <a href="images/workflows.png"><img src="images/readme/workflows.png" alt="工作流分析概览" width="100%"></a>
   <br>
-  <em>🔀 <strong>工作流</strong> · 编排图、工具流、协作、委派和动态运行</em>
+  <em>🔀 <strong>工作流</strong> · 编排图、工具流、协作、委派和模式</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows.png"><img src="images/readme/dynamicworkflows-workflows.png" alt="动态工作流运行" width="100%"></a>
+  <br>
+  <em>🧬 <strong>工作流运行</strong> · 基于日志的状态、Agent、Token、工具和时长</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows2.png"><img src="images/readme/dynamicworkflows-workflows2.png" alt="展开的动态工作流运行" width="100%"></a>
+  <br>
+  <em>🧬 <strong>展开的运行</strong> · 阶段筛选、逐 Agent 指标、提示和完整结果</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-session.png"><img src="images/readme/dynamicworkflows-session.png" alt="会话详情中的工作流运行" width="100%"></a>
+  <br>
+  <em>🧬 <strong>会话工作流</strong> · 关联动态运行和合并计算的 Token 成本</em>
 </p>
 
 <p align="center">
@@ -190,19 +256,54 @@ flowchart LR
 </p>
 
 <p align="center">
-  <a href="images/run.png"><img src="images/readme/run.png" alt="Run Agent 提供方选择" width="100%"></a>
+  <a href="images/config-codex.png"><img src="images/readme/config-codex.png" alt="Codex 配置浏览器" width="100%"></a>
   <br>
-  <em>▶️ <strong>Run Agent</strong> · 启动、流式查看、恢复和重新连接 Claude Code 或 Codex 会话</em>
+  <em>🧰 <strong>Codex 配置</strong> · 模型、Profile、MCP、项目、技能、Hook、规则、插件和指令</em>
+</p>
+
+<p align="center">
+  <a href="images/config-skills.png"><img src="images/readme/config-skills.png" alt="Claude Code 技能浏览器" width="100%"></a>
+  <br>
+  <em>🧩 <strong>技能</strong> · 可搜索的用户、项目和插件技能，支持带备份编辑</em>
+</p>
+
+<p align="center">
+  <a href="images/run.png"><img src="images/readme/run.png" alt="Run Agent Provider 选择" width="100%"></a>
+  <br>
+  <em>▶️ <strong>Run Agent</strong> · 使用 Provider 原生控制启动 Claude Code 或 Codex</em>
+</p>
+
+<p align="center">
+  <a href="images/run-results.png"><img src="images/readme/run-results.png" alt="Run Agent 实时输出" width="100%"></a>
+  <br>
+  <em>💬 <strong>实时运行</strong> · 流式聊天、推理、命令、文件变更、工具和重新连接</em>
 </p>
 
 <p align="center">
   <a href="images/settings.png"><img src="images/readme/settings.png" alt="设置概览" width="100%"></a>
   <br>
-  <em>⚙️ <strong>设置</strong> · 定价、Hook、通知、数据、远程数据源、告警和系统状态</em>
+  <em>⚙️ <strong>设置</strong> · 定价、Hook、通知、数据、远程数据源和系统状态</em>
 </p>
 
-侧边栏链接 Dashboard、Kanban 看板、会话、活动流、分析、工作流、Agent 配置、Run Agent 和设置。以下章节说明这八个代表性视图背后的完整行为。
+<p align="center">
+  <a href="images/alerts.png"><img src="images/readme/alerts.png" alt="告警与 Webhook 设置" width="100%"></a>
+  <br>
+  <em>🔔 <strong>告警</strong> · 规则、冷却时间、活动，以及内置或签名通用 Webhook</em>
+</p>
 
+<p align="center">
+  <a href="images/remote.png"><img src="images/readme/remote.png" alt="远程数据源设置" width="100%"></a>
+  <br>
+  <em>🛰️ <strong>远程数据源</strong> · Provider 感知的 SSH 同步和按来源监控</em>
+</p>
+
+<p align="center">
+  <a href="images/palette.png"><img src="images/readme/palette.png" alt="命令面板" width="100%"></a>
+  <br>
+  <em>⌘ <strong>命令面板</strong> · 用一个键盘启动器访问页面、会话、项目、筛选器和操作</em>
+</p>
+
+侧边栏链接 Dashboard、Kanban 看板、会话、活动流、分析、工作流、Agent 配置、Run Agent 和设置。以下章节说明这些视图背后的完整行为。
 ---
 
 ## 功能特性
@@ -1123,6 +1224,12 @@ npm run monitoring:verify
   <em>🔥 <strong>Prometheus · CCAM 控制台</strong> · 抓取健康度、会话、事件、Token 和 Graph 下钻链接</em>
 </p>
 
+<p align="center">
+  <a href="images/prometheus-query.png"><img src="images/readme/prometheus-query.png" alt="带 CCAM PromQL 查询的 Prometheus Graph" width="100%"></a>
+  <br>
+  <em>📈 <strong>Prometheus · Graph</strong> · 对已抓取的 CCAM 指标运行 PromQL 查询</em>
+</p>
+
 指标名称、认证和抓取配置见 [docs/API.md → Metrics](./docs/API.md#metrics)。
 
 ### Run Claude（`/api/run`）
@@ -1597,6 +1704,18 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 **Windows：**
 
 运行 `ClaudeCodeMonitor-Setup-<ver>-x64.exe`，以无需管理员权限的当前用户方式安装到 `%LOCALAPPDATA%\Programs\Claude Code Monitor`，并可选择目标目录；也可直接使用 `*-portable.exe`，无需安装。默认构建未签名，首次启动可能触发 SmartScreen；请选择 **More info → Run anyway**。从 Start 或桌面快捷方式启动后，Dashboard 和托盘图标会打开。
+
+<p align="center">
+  <a href="images/setup_win_wizard.png"><img src="images/readme/setup_win_wizard.png" alt="Windows 安装选项" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Windows 安装 · 选项</strong> · 选择仅为当前用户或所有用户安装</em>
+</p>
+
+<p align="center">
+  <a href="images/setup_win_wizard2.png"><img src="images/readme/setup_win_wizard2.png" alt="Windows 安装目标目录" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Windows 安装 · 位置</strong> · 选择安装目录，默认为 <code>%LOCALAPPDATA%\Programs</code></em>
+</p>
 
 <p align="center">
   <a href="images/setup_win_wizard3.png"><img src="images/readme/setup_win_wizard3.png" alt="Windows 安装完成画面" width="100%"></a>

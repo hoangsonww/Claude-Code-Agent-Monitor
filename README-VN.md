@@ -149,7 +149,7 @@ flowchart LR
 
 ### Giao diện người dùng
 
-Giao diện tối có khả năng thích ứng bao quát toàn bộ quy trình mà không biến trang kho mã thành một bức tường ảnh chụp màn hình. Bấm vào bản xem trước để mở ảnh ở độ phân giải gốc.
+Giao diện tối thích ứng bao quát toàn bộ quy trình. Mỗi bản xem trước dùng thumbnail thân thiện với thiết bị di động và liên kết tới ảnh gốc rõ nét.
 
 <p align="center">
   <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="Tổng quan Dashboard" width="100%"></a>
@@ -158,9 +158,45 @@ Giao diện tối có khả năng thích ứng bao quát toàn bộ quy trình m
 </p>
 
 <p align="center">
+  <a href="images/tasks-overview.png"><img src="images/readme/tasks-overview.png" alt="Tổng quan tiến độ công việc" width="100%"></a>
+  <br>
+  <em>📋 <strong>Tiến độ công việc</strong> · mức hoàn tất gọn và bản xem trước công việc theo chủ sở hữu</em>
+</p>
+
+<p align="center">
+  <a href="images/dashboard-health.png"><img src="images/readme/dashboard-health.png" alt="Chế độ xem sức khỏe Dashboard" width="100%"></a>
+  <br>
+  <em>🩺 <strong>Sức khỏe hệ thống</strong> · lưu trữ, cache, lỗi, công cụ, model, Subagent và compaction</em>
+</p>
+
+<p align="center">
   <a href="images/board.png"><img src="images/readme/board.png" alt="Chế độ Agent trên Bảng Kanban" width="100%"></a>
   <br>
-  <em>📋 <strong>Bảng Kanban</strong> · Agent đang làm việc, đang chờ, đã hoàn tất và gặp lỗi, kèm lý do chờ rõ ràng</em>
+  <em>📋 <strong>Bảng Kanban · Agent</strong> · Agent đang làm việc, đang chờ, hoàn tất và lỗi, kèm lý do chờ rõ ràng</em>
+</p>
+
+<p align="center">
+  <a href="images/board-sessions.png"><img src="images/readme/board-sessions.png" alt="Chế độ phiên trên Bảng Kanban" width="100%"></a>
+  <br>
+  <em>🗂️ <strong>Bảng Kanban · Phiên</strong> · phiên đang hoạt động, đang chờ, hoàn tất, lỗi và bị bỏ dở</em>
+</p>
+
+<p align="center">
+  <a href="images/sessions.png"><img src="images/readme/sessions.png" alt="Tổng quan Phiên" width="100%"></a>
+  <br>
+  <em>📂 <strong>Phiên</strong> · lịch sử có tìm kiếm, bộ lọc và phân trang phía máy chủ, kèm chi phí và hoạt động</em>
+</p>
+
+<p align="center">
+  <a href="images/session-agents.png"><img src="images/readme/session-agents.png" alt="Tổng quan Agent trong phiên" width="100%"></a>
+  <br>
+  <em>🤖 <strong>Agent trong phiên</strong> · tổng số trực tiếp, mức dùng công cụ, luồng token và hệ thống phân cấp Agent</em>
+</p>
+
+<p align="center">
+  <a href="images/tasks-details.png"><img src="images/readme/tasks-details.png" alt="Chi tiết tiến độ công việc của phiên" width="100%"></a>
+  <br>
+  <em>✅ <strong>Chi tiết công việc</strong> · các đoạn hoàn tất, công việc hiện tại, chủ sở hữu và tác vụ được phân trang</em>
 </p>
 
 <p align="center">
@@ -170,7 +206,19 @@ Giao diện tối có khả năng thích ứng bao quát toàn bộ quy trình m
 </p>
 
 <p align="center">
-  <a href="images/analytics.png"><img src="images/readme/analytics.png" alt="Tổng quan Analytics" width="100%"></a>
+  <a href="images/session-timeline.png"><img src="images/readme/session-timeline.png" alt="Dòng thời gian sự kiện của phiên" width="100%"></a>
+  <br>
+  <em>🔬 <strong>Dòng thời gian</strong> · sự kiện theo thời gian, bộ lọc đa chiều và hoạt động công cụ được ghép cặp</em>
+</p>
+
+<p align="center">
+  <a href="images/feed.png"><img src="images/readme/feed.png" alt="Tổng quan Luồng hoạt động" width="100%"></a>
+  <br>
+  <em>📰 <strong>Luồng hoạt động</strong> · sự kiện trực tiếp có thể tạm dừng, nhóm, lọc và chuyển tới phiên</em>
+</p>
+
+<p align="center">
+  <a href="images/analytics.png"><img src="images/readme/analytics.png" alt="Tổng quan Phân tích" width="100%"></a>
   <br>
   <em>📊 <strong>Phân tích</strong> · token theo model, tần suất công cụ, heatmap hoạt động và xu hướng phiên</em>
 </p>
@@ -178,7 +226,25 @@ Giao diện tối có khả năng thích ứng bao quát toàn bộ quy trình m
 <p align="center">
   <a href="images/workflows.png"><img src="images/readme/workflows.png" alt="Tổng quan phân tích quy trình" width="100%"></a>
   <br>
-  <em>🔀 <strong>Quy trình</strong> · đồ thị điều phối, luồng công cụ, cộng tác, ủy quyền và các lần chạy động</em>
+  <em>🔀 <strong>Quy trình</strong> · đồ thị điều phối, luồng công cụ, cộng tác, ủy quyền và mẫu</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows.png"><img src="images/readme/dynamicworkflows-workflows.png" alt="Các lần chạy quy trình động" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Lần chạy quy trình</strong> · trạng thái dựa trên journal, Agent, token, công cụ và thời lượng</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows2.png"><img src="images/readme/dynamicworkflows-workflows2.png" alt="Lần chạy quy trình động được mở rộng" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Lần chạy mở rộng</strong> · bộ lọc giai đoạn, chỉ số theo Agent, lời nhắc và kết quả đầy đủ</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-session.png"><img src="images/readme/dynamicworkflows-session.png" alt="Lần chạy quy trình trong chi tiết phiên" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Quy trình của phiên</strong> · lần chạy động được liên kết và chi phí token được gộp vào</em>
 </p>
 
 <p align="center">
@@ -188,18 +254,54 @@ Giao diện tối có khả năng thích ứng bao quát toàn bộ quy trình m
 </p>
 
 <p align="center">
+  <a href="images/config-codex.png"><img src="images/readme/config-codex.png" alt="Trình khám phá cấu hình Codex" width="100%"></a>
+  <br>
+  <em>🧰 <strong>Cấu hình Codex</strong> · model, profile, MCP, dự án, skill, hook, quy tắc, plugin và chỉ dẫn</em>
+</p>
+
+<p align="center">
+  <a href="images/config-skills.png"><img src="images/readme/config-skills.png" alt="Trình khám phá skill Claude Code" width="100%"></a>
+  <br>
+  <em>🧩 <strong>Skill</strong> · skill user, dự án và plugin có tìm kiếm cùng chỉnh sửa có sao lưu</em>
+</p>
+
+<p align="center">
   <a href="images/run.png"><img src="images/readme/run.png" alt="Chọn nhà cung cấp trong Chạy Agent" width="100%"></a>
   <br>
-  <em>▶️ <strong>Chạy Agent</strong> · khởi chạy, phát trực tiếp, tiếp tục và gắn lại phiên Claude Code hoặc Codex</em>
+  <em>▶️ <strong>Chạy Agent</strong> · khởi chạy Claude Code hoặc Codex với điều khiển gốc theo nhà cung cấp</em>
+</p>
+
+<p align="center">
+  <a href="images/run-results.png"><img src="images/readme/run-results.png" alt="Đầu ra trực tiếp của Chạy Agent" width="100%"></a>
+  <br>
+  <em>💬 <strong>Lần chạy trực tiếp</strong> · chat phát trực tiếp, suy luận, lệnh, thay đổi tệp, công cụ và gắn lại</em>
 </p>
 
 <p align="center">
   <a href="images/settings.png"><img src="images/readme/settings.png" alt="Tổng quan Cài đặt" width="100%"></a>
   <br>
-  <em>⚙️ <strong>Cài đặt</strong> · định giá, hook, thông báo, dữ liệu, nguồn từ xa, cảnh báo và trạng thái hệ thống</em>
+  <em>⚙️ <strong>Cài đặt</strong> · định giá, hook, thông báo, dữ liệu, nguồn từ xa và trạng thái hệ thống</em>
 </p>
 
-Thanh bên liên kết Dashboard, Bảng Kanban, Phiên, Luồng hoạt động, Phân tích, Quy trình, Cấu hình Agent, Chạy Agent và Cài đặt. Các phần dưới đây mô tả đầy đủ hành vi đằng sau tám chế độ xem đại diện này.
+<p align="center">
+  <a href="images/alerts.png"><img src="images/readme/alerts.png" alt="Cài đặt cảnh báo và webhook" width="100%"></a>
+  <br>
+  <em>🔔 <strong>Cảnh báo</strong> · quy tắc, cooldown, hoạt động và webhook tích hợp hoặc generic có chữ ký</em>
+</p>
+
+<p align="center">
+  <a href="images/remote.png"><img src="images/readme/remote.png" alt="Cài đặt Nguồn dữ liệu từ xa" width="100%"></a>
+  <br>
+  <em>🛰️ <strong>Nguồn dữ liệu từ xa</strong> · đồng bộ SSH theo nhà cung cấp và theo dõi theo phạm vi nguồn</em>
+</p>
+
+<p align="center">
+  <a href="images/palette.png"><img src="images/readme/palette.png" alt="Bảng lệnh" width="100%"></a>
+  <br>
+  <em>⌘ <strong>Bảng lệnh</strong> · một trình khởi chạy bằng bàn phím cho trang, phiên, dự án, bộ lọc và hành động</em>
+</p>
+
+Thanh bên liên kết Dashboard, Bảng Kanban, Phiên, Luồng hoạt động, Phân tích, Quy trình, Cấu hình Agent, Chạy Agent và Cài đặt. Các phần dưới đây mô tả đầy đủ hành vi đằng sau những chế độ xem này.
 
 ---
 
@@ -1103,6 +1205,12 @@ npm run monitoring:verify
   <em>🔥 <strong>Prometheus · CCAM console</strong> · sức khỏe scrape, phiên, sự kiện, token và liên kết drill-down Graph</em>
 </p>
 
+<p align="center">
+  <a href="images/prometheus-query.png"><img src="images/readme/prometheus-query.png" alt="Prometheus Graph với truy vấn CCAM PromQL" width="100%"></a>
+  <br>
+  <em>📈 <strong>Prometheus · Graph</strong> · chạy PromQL trên metric CCAM đã scrape từ các liên kết khởi đầu trong console</em>
+</p>
+
 Xem [docs/API.md → Metrics](./docs/API.md#metrics) để biết tên metric, xác thực và cấu hình scrape.
 
 ### Run Claude (`/api/run`)
@@ -1580,6 +1688,18 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 **Windows:**
 
 Chạy `ClaudeCodeMonitor-Setup-<ver>-x64.exe` để cài theo người dùng, không cần admin, trong `%LOCALAPPDATA%\Programs\Claude Code Monitor`, với thư mục đích có thể chọn, hoặc dùng `*-portable.exe` mà không cài. Build chưa ký mặc định có thể kích hoạt SmartScreen trong lần chạy đầu; chọn **More info → Run anyway**. Khởi chạy từ Start hoặc lối tắt trên desktop để mở dashboard và biểu tượng tray.
+
+<p align="center">
+  <a href="images/setup_win_wizard.png"><img src="images/readme/setup_win_wizard.png" alt="Tùy chọn trình cài đặt Windows" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Tùy chọn cài đặt</strong> · chọn cài theo người dùng hoặc cho mọi người dùng</em>
+</p>
+
+<p align="center">
+  <a href="images/setup_win_wizard2.png"><img src="images/readme/setup_win_wizard2.png" alt="Thư mục đích của trình cài đặt Windows" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Vị trí cài đặt</strong> · xác nhận hoặc thay đổi thư mục đích</em>
+</p>
 
 <p align="center">
   <a href="images/setup_win_wizard3.png"><img src="images/readme/setup_win_wizard3.png" alt="Màn hình hoàn tất trình cài đặt Windows" width="100%"></a>

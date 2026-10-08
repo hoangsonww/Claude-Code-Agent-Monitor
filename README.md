@@ -149,7 +149,7 @@ For full architecture and operational guidance, see [docs/I18N.md](./docs/I18N.m
 
 ### User Interface
 
-The responsive dark interface covers the full workflow without turning the repository page into a screenshot wall. Click any preview for the original resolution.
+The responsive dark interface covers the full workflow. Every preview uses a mobile-friendly thumbnail and links to the crisp original.
 
 <p align="center">
   <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="Dashboard overview" width="100%"></a>
@@ -158,15 +158,63 @@ The responsive dark interface covers the full workflow without turning the repos
 </p>
 
 <p align="center">
+  <a href="images/tasks-overview.png"><img src="images/readme/tasks-overview.png" alt="Task progress overview" width="100%"></a>
+  <br>
+  <em>📋 <strong>Task Progress</strong> · compact completion and owner-aware work previews</em>
+</p>
+
+<p align="center">
+  <a href="images/dashboard-health.png"><img src="images/readme/dashboard-health.png" alt="Dashboard health view" width="100%"></a>
+  <br>
+  <em>🩺 <strong>System Health</strong> · storage, cache, errors, tools, models, subagents, and compactions</em>
+</p>
+
+<p align="center">
   <a href="images/board.png"><img src="images/readme/board.png" alt="Kanban Board agent view" width="100%"></a>
   <br>
-  <em>📋 <strong>Kanban Board</strong> · working, waiting, completed, and failed agents with clear waiting reasons</em>
+  <em>📋 <strong>Kanban Board · Agents</strong> · working, waiting, completed, and failed agents with clear waiting reasons</em>
+</p>
+
+<p align="center">
+  <a href="images/board-sessions.png"><img src="images/readme/board-sessions.png" alt="Kanban Board session view" width="100%"></a>
+  <br>
+  <em>🗂️ <strong>Kanban Board · Sessions</strong> · active, waiting, completed, error, and abandoned sessions</em>
+</p>
+
+<p align="center">
+  <a href="images/sessions.png"><img src="images/readme/sessions.png" alt="Sessions overview" width="100%"></a>
+  <br>
+  <em>📂 <strong>Sessions</strong> · searchable, filterable, server-paginated history with costs and activity</em>
+</p>
+
+<p align="center">
+  <a href="images/session-agents.png"><img src="images/readme/session-agents.png" alt="Session agent overview" width="100%"></a>
+  <br>
+  <em>🤖 <strong>Session Agents</strong> · live totals, tool usage, token flow, and agent hierarchy</em>
+</p>
+
+<p align="center">
+  <a href="images/tasks-details.png"><img src="images/readme/tasks-details.png" alt="Session task progress details" width="100%"></a>
+  <br>
+  <em>✅ <strong>Task Details</strong> · completion segments, active work, owners, and paginated tasks</em>
 </p>
 
 <p align="center">
   <a href="images/session-conversation.png"><img src="images/readme/session-conversation.png" alt="Session conversation view" width="100%"></a>
   <br>
   <em>💬 <strong>Conversation</strong> · rendered transcripts, code, tool calls, command output, and session markers</em>
+</p>
+
+<p align="center">
+  <a href="images/session-timeline.png"><img src="images/readme/session-timeline.png" alt="Session event timeline" width="100%"></a>
+  <br>
+  <em>🔬 <strong>Timeline</strong> · chronological events, multidimensional filters, and paired tool activity</em>
+</p>
+
+<p align="center">
+  <a href="images/feed.png"><img src="images/readme/feed.png" alt="Activity Feed overview" width="100%"></a>
+  <br>
+  <em>📰 <strong>Activity Feed</strong> · pausable live events, grouping, filters, and session jumps</em>
 </p>
 
 <p align="center">
@@ -178,7 +226,25 @@ The responsive dark interface covers the full workflow without turning the repos
 <p align="center">
   <a href="images/workflows.png"><img src="images/readme/workflows.png" alt="Workflow analytics overview" width="100%"></a>
   <br>
-  <em>🔀 <strong>Workflows</strong> · orchestration graphs, tool flow, collaboration, delegation, and dynamic runs</em>
+  <em>🔀 <strong>Workflows</strong> · orchestration graphs, tool flow, collaboration, delegation, and patterns</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows.png"><img src="images/readme/dynamicworkflows-workflows.png" alt="Dynamic workflow runs" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Workflow Runs</strong> · journal-backed status, agents, tokens, tools, and duration</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows2.png"><img src="images/readme/dynamicworkflows-workflows2.png" alt="Expanded dynamic workflow run" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Expanded Run</strong> · phase filters, per-agent metrics, prompts, and complete results</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-session.png"><img src="images/readme/dynamicworkflows-session.png" alt="Workflow runs in session detail" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Session Workflows</strong> · linked dynamic runs and folded-in token costs</em>
 </p>
 
 <p align="center">
@@ -188,18 +254,54 @@ The responsive dark interface covers the full workflow without turning the repos
 </p>
 
 <p align="center">
+  <a href="images/config-codex.png"><img src="images/readme/config-codex.png" alt="Codex configuration explorer" width="100%"></a>
+  <br>
+  <em>🧰 <strong>Codex Config</strong> · models, profiles, MCP, projects, skills, hooks, rules, plugins, and instructions</em>
+</p>
+
+<p align="center">
+  <a href="images/config-skills.png"><img src="images/readme/config-skills.png" alt="Claude Code skills explorer" width="100%"></a>
+  <br>
+  <em>🧩 <strong>Skills</strong> · searchable user, project, and plugin skills with backed-up editing</em>
+</p>
+
+<p align="center">
   <a href="images/run.png"><img src="images/readme/run.png" alt="Run Agent provider selection" width="100%"></a>
   <br>
-  <em>▶️ <strong>Run Agent</strong> · launch, stream, resume, and reattach Claude Code or Codex sessions</em>
+  <em>▶️ <strong>Run Agent</strong> · launch Claude Code or Codex with provider-native controls</em>
+</p>
+
+<p align="center">
+  <a href="images/run-results.png"><img src="images/readme/run-results.png" alt="Run Agent live output" width="100%"></a>
+  <br>
+  <em>💬 <strong>Live Run</strong> · streaming chat, reasoning, commands, file changes, tools, and reattachment</em>
 </p>
 
 <p align="center">
   <a href="images/settings.png"><img src="images/readme/settings.png" alt="Settings overview" width="100%"></a>
   <br>
-  <em>⚙️ <strong>Settings</strong> · pricing, hooks, notifications, data, remote sources, alerts, and system status</em>
+  <em>⚙️ <strong>Settings</strong> · pricing, hooks, notifications, data, remote sources, and system status</em>
 </p>
 
-The sidebar links Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, and Settings. The sections below describe the complete behavior behind these eight representative views.
+<p align="center">
+  <a href="images/alerts.png"><img src="images/readme/alerts.png" alt="Alert and webhook settings" width="100%"></a>
+  <br>
+  <em>🔔 <strong>Alerts</strong> · rules, cooldowns, activity, and built-in or signed generic webhooks</em>
+</p>
+
+<p align="center">
+  <a href="images/remote.png"><img src="images/readme/remote.png" alt="Remote Data Sources settings" width="100%"></a>
+  <br>
+  <em>🛰️ <strong>Remote Data Sources</strong> · provider-aware SSH sync and source-scoped monitoring</em>
+</p>
+
+<p align="center">
+  <a href="images/palette.png"><img src="images/readme/palette.png" alt="Command Palette" width="100%"></a>
+  <br>
+  <em>⌘ <strong>Command Palette</strong> · one keyboard launcher for pages, sessions, projects, filters, and actions</em>
+</p>
+
+The sidebar links Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, and Settings. The sections below describe the complete behavior behind these views.
 
 ---
 
@@ -1122,6 +1224,12 @@ npm run monitoring:verify
   <em>🔥 <strong>Prometheus · CCAM console</strong> · scrape health, sessions, events, tokens, and Graph drill-down links</em>
 </p>
 
+<p align="center">
+  <a href="images/prometheus-query.png"><img src="images/readme/prometheus-query.png" alt="Prometheus Graph with a CCAM PromQL query" width="100%"></a>
+  <br>
+  <em>📈 <strong>Prometheus · Graph</strong> · run PromQL against scraped CCAM metrics with starter links from the console</em>
+</p>
+
 See [docs/API.md → Metrics](./docs/API.md#metrics) for metric names, authentication, and scrape configuration.
 
 ### Run Claude (`/api/run`)
@@ -1597,6 +1705,18 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 **Windows:**
 
 Run `ClaudeCodeMonitor-Setup-<ver>-x64.exe` for a no-admin, per-user install under `%LOCALAPPDATA%\Programs\Claude Code Monitor`, with a selectable destination, or use `*-portable.exe` without installing. The unsigned default build may trigger SmartScreen on first launch; choose **More info → Run anyway**. Launch from Start or the desktop shortcut to open the dashboard and tray icon.
+
+<p align="center">
+  <a href="images/setup_win_wizard.png"><img src="images/readme/setup_win_wizard.png" alt="Windows installer options" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Install options</strong> · choose a per-user or all-users installation</em>
+</p>
+
+<p align="center">
+  <a href="images/setup_win_wizard2.png"><img src="images/readme/setup_win_wizard2.png" alt="Windows installer destination" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Install location</strong> · confirm or change the destination folder</em>
+</p>
 
 <p align="center">
   <a href="images/setup_win_wizard3.png"><img src="images/readme/setup_win_wizard3.png" alt="Windows installer completion screen" width="100%"></a>

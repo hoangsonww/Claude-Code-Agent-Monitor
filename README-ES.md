@@ -149,7 +149,7 @@ Para obtener una guía completa de arquitectura y funcionamiento, consulte [docs
 
 ### Interfaz de usuario
 
-La interfaz oscura y adaptable cubre todo el flujo de trabajo sin convertir la página del repositorio en un muro de capturas. Haz clic en cualquier vista previa para abrir la imagen en su resolución original.
+La interfaz oscura y adaptable cubre todo el flujo de trabajo. Cada vista previa usa una miniatura apta para móviles y enlaza la imagen original nítida.
 
 <p align="center">
   <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="Vista general del panel" width="100%"></a>
@@ -158,15 +158,63 @@ La interfaz oscura y adaptable cubre todo el flujo de trabajo sin convertir la p
 </p>
 
 <p align="center">
+  <a href="images/tasks-overview.png"><img src="images/readme/tasks-overview.png" alt="Vista general del progreso de tareas" width="100%"></a>
+  <br>
+  <em>📋 <strong>Progreso de tareas</strong> · finalización compacta y vistas del trabajo por propietario</em>
+</p>
+
+<p align="center">
+  <a href="images/dashboard-health.png"><img src="images/readme/dashboard-health.png" alt="Vista de estado del sistema" width="100%"></a>
+  <br>
+  <em>🩺 <strong>Estado del sistema</strong> · almacenamiento, caché, errores, herramientas, modelos, subagentes y compactaciones</em>
+</p>
+
+<p align="center">
   <a href="images/board.png"><img src="images/readme/board.png" alt="Vista de agentes del Tablero Kanban" width="100%"></a>
   <br>
-  <em>📋 <strong>Tablero Kanban</strong> · agentes trabajando, en espera, completados y con errores, con motivos de espera claros</em>
+  <em>📋 <strong>Tablero Kanban · Agentes</strong> · agentes trabajando, en espera, completados y con errores, con motivos de espera claros</em>
+</p>
+
+<p align="center">
+  <a href="images/board-sessions.png"><img src="images/readme/board-sessions.png" alt="Vista de sesiones del Tablero Kanban" width="100%"></a>
+  <br>
+  <em>🗂️ <strong>Tablero Kanban · Sesiones</strong> · sesiones activas, en espera, completadas, con errores y abandonadas</em>
+</p>
+
+<p align="center">
+  <a href="images/sessions.png"><img src="images/readme/sessions.png" alt="Vista general de Sesiones" width="100%"></a>
+  <br>
+  <em>📂 <strong>Sesiones</strong> · historial con búsqueda, filtros y paginación del servidor, con costos y actividad</em>
+</p>
+
+<p align="center">
+  <a href="images/session-agents.png"><img src="images/readme/session-agents.png" alt="Vista general de agentes de sesión" width="100%"></a>
+  <br>
+  <em>🤖 <strong>Agentes de sesión</strong> · totales en vivo, uso de herramientas, flujo de tokens y jerarquía de agentes</em>
+</p>
+
+<p align="center">
+  <a href="images/tasks-details.png"><img src="images/readme/tasks-details.png" alt="Detalles del progreso de tareas de la sesión" width="100%"></a>
+  <br>
+  <em>✅ <strong>Detalles de tareas</strong> · segmentos de finalización, trabajo activo, propietarios y tareas paginadas</em>
 </p>
 
 <p align="center">
   <a href="images/session-conversation.png"><img src="images/readme/session-conversation.png" alt="Vista de conversación de la sesión" width="100%"></a>
   <br>
   <em>💬 <strong>Conversación</strong> · transcripciones renderizadas, código, llamadas a herramientas, salida de comandos y marcadores de sesión</em>
+</p>
+
+<p align="center">
+  <a href="images/session-timeline.png"><img src="images/readme/session-timeline.png" alt="Cronología de eventos de la sesión" width="100%"></a>
+  <br>
+  <em>🔬 <strong>Cronología</strong> · eventos cronológicos, filtros multidimensionales y actividad emparejada de herramientas</em>
+</p>
+
+<p align="center">
+  <a href="images/feed.png"><img src="images/readme/feed.png" alt="Vista general del Feed de Actividad" width="100%"></a>
+  <br>
+  <em>📰 <strong>Feed de Actividad</strong> · eventos en vivo que se pueden pausar, agrupación, filtros y saltos a sesiones</em>
 </p>
 
 <p align="center">
@@ -178,7 +226,25 @@ La interfaz oscura y adaptable cubre todo el flujo de trabajo sin convertir la p
 <p align="center">
   <a href="images/workflows.png"><img src="images/readme/workflows.png" alt="Vista general de analíticas de flujos" width="100%"></a>
   <br>
-  <em>🔀 <strong>Flujos</strong> · gráficos de orquestación, flujo de herramientas, colaboración, delegación y ejecuciones dinámicas</em>
+  <em>🔀 <strong>Flujos</strong> · gráficos de orquestación, flujo de herramientas, colaboración, delegación y patrones</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows.png"><img src="images/readme/dynamicworkflows-workflows.png" alt="Ejecuciones dinámicas de flujos" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Ejecuciones de flujos</strong> · estado respaldado por diarios, agentes, tokens, herramientas y duración</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows2.png"><img src="images/readme/dynamicworkflows-workflows2.png" alt="Ejecución dinámica de flujo ampliada" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Ejecución ampliada</strong> · filtros de fase, métricas por agente, prompts y resultados completos</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-session.png"><img src="images/readme/dynamicworkflows-session.png" alt="Ejecuciones de flujos en los detalles de la sesión" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Flujos de sesión</strong> · ejecuciones dinámicas vinculadas y costos de tokens incorporados</em>
 </p>
 
 <p align="center">
@@ -188,21 +254,56 @@ La interfaz oscura y adaptable cubre todo el flujo de trabajo sin convertir la p
 </p>
 
 <p align="center">
+  <a href="images/config-codex.png"><img src="images/readme/config-codex.png" alt="Explorador de configuración de Codex" width="100%"></a>
+  <br>
+  <em>🧰 <strong>Configuración de Codex</strong> · modelos, perfiles, MCP, proyectos, skills, hooks, reglas, plugins e instrucciones</em>
+</p>
+
+<p align="center">
+  <a href="images/config-skills.png"><img src="images/readme/config-skills.png" alt="Explorador de skills de Claude Code" width="100%"></a>
+  <br>
+  <em>🧩 <strong>Skills</strong> · skills de usuario, proyecto y plugins con búsqueda y edición respaldada</em>
+</p>
+
+<p align="center">
   <a href="images/run.png"><img src="images/readme/run.png" alt="Selección de proveedor para Ejecutar agente" width="100%"></a>
   <br>
-  <em>▶️ <strong>Ejecutar agente</strong> · inicia, transmite, reanuda y vuelve a adjuntar sesiones de Claude Code o Codex</em>
+  <em>▶️ <strong>Ejecutar agente</strong> · inicia Claude Code o Codex con controles nativos del proveedor</em>
+</p>
+
+<p align="center">
+  <a href="images/run-results.png"><img src="images/readme/run-results.png" alt="Salida en vivo de Ejecutar agente" width="100%"></a>
+  <br>
+  <em>💬 <strong>Ejecución en vivo</strong> · chat en streaming, razonamiento, comandos, cambios de archivos, herramientas y reconexión</em>
 </p>
 
 <p align="center">
   <a href="images/settings.png"><img src="images/readme/settings.png" alt="Vista general de Configuración" width="100%"></a>
   <br>
-  <em>⚙️ <strong>Configuración</strong> · precios, hooks, notificaciones, datos, fuentes remotas, alertas y estado del sistema</em>
+  <em>⚙️ <strong>Configuración</strong> · precios, hooks, notificaciones, datos, fuentes remotas y estado del sistema</em>
 </p>
 
-La barra lateral enlaza Panel, Tablero Kanban, Sesiones, Feed de Actividad, Analíticas, Flujos, Configuración del agente, Ejecutar agente y Configuración. Las secciones siguientes describen el comportamiento completo detrás de estas ocho vistas representativas.
+<p align="center">
+  <a href="images/alerts.png"><img src="images/readme/alerts.png" alt="Configuración de alertas y webhooks" width="100%"></a>
+  <br>
+  <em>🔔 <strong>Alertas</strong> · reglas, cooldowns, actividad y webhooks integrados o genéricos firmados</em>
+</p>
+
+<p align="center">
+  <a href="images/remote.png"><img src="images/readme/remote.png" alt="Configuración de Fuentes de datos remotas" width="100%"></a>
+  <br>
+  <em>🛰️ <strong>Fuentes de datos remotas</strong> · sincronización SSH por proveedor y supervisión limitada por fuente</em>
+</p>
+
+<p align="center">
+  <a href="images/palette.png"><img src="images/readme/palette.png" alt="Paleta de comandos" width="100%"></a>
+  <br>
+  <em>⌘ <strong>Paleta de comandos</strong> · un iniciador de teclado para páginas, sesiones, proyectos, filtros y acciones</em>
+</p>
+
+La barra lateral enlaza Panel, Tablero Kanban, Sesiones, Feed de Actividad, Analíticas, Flujos, Configuración del agente, Ejecutar agente y Configuración. Las secciones siguientes describen el comportamiento completo detrás de estas vistas.
 
 ---
-
 ## Características
 
 El panel cubre todo el ciclo de vida de los agentes locales. Los contratos operativos detallados se mantienen en las secciones enlazadas y en las referencias de `docs/`.
@@ -1111,6 +1212,12 @@ npm run monitoring:verify
   <em>🔥 <strong>Prometheus · CCAM Console</strong> · estado del scraping, sesiones, eventos, tokens y enlaces de consulta</em>
 </p>
 
+<p align="center">
+  <a href="images/prometheus-query.png"><img src="images/readme/prometheus-query.png" alt="Prometheus Graph con una consulta PromQL de CCAM" width="100%"></a>
+  <br>
+  <em>📈 <strong>Prometheus · Graph</strong> · ejecuta PromQL sobre las métricas recopiladas de CCAM con enlaces iniciales desde la consola</em>
+</p>
+
 Consulta [docs/API.md → Metrics](./docs/API.md#metrics) para conocer todas las métricas y los detalles de scraping y autenticación.
 
 ### Ejecutar Claude (`/api/run`)
@@ -1584,6 +1691,18 @@ npm run desktop:win          # Windows: NSIS installer → desktop/release/Claud
 **Windows:**
 
 Ejecuta `ClaudeCodeMonitor-Setup-<ver>-x64.exe` para una instalación por usuario sin privilegios de administrador en `%LOCALAPPDATA%\Programs\Claude Code Monitor`, con destino seleccionable, o usa `*-portable.exe` sin instalar. La compilación sin firmar predeterminada puede activar SmartScreen en el primer inicio. Elige **Más información → Ejecutar de todos modos**. Iníciala desde Inicio o el acceso directo del escritorio para abrir el panel y el icono del tray.
+
+<p align="center">
+  <a href="images/setup_win_wizard.png"><img src="images/readme/setup_win_wizard.png" alt="Opciones del instalador de Windows" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Opciones de instalación</strong> · elige una instalación por usuario o para todos los usuarios</em>
+</p>
+
+<p align="center">
+  <a href="images/setup_win_wizard2.png"><img src="images/readme/setup_win_wizard2.png" alt="Destino del instalador de Windows" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Ubicación de instalación</strong> · confirma o cambia la carpeta de destino</em>
+</p>
 
 <p align="center">
   <a href="images/setup_win_wizard3.png"><img src="images/readme/setup_win_wizard3.png" alt="Pantalla de finalización del instalador de Windows" width="100%"></a>

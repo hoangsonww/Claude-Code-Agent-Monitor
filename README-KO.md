@@ -148,7 +148,7 @@ flowchart LR
 
 ### 사용자 인터페이스
 
-반응형 다크 인터페이스는 저장소 페이지를 스크린샷으로 가득 채우지 않으면서 전체 작업 흐름을 보여줍니다. 미리보기를 클릭하면 원본 해상도로 볼 수 있습니다.
+반응형 다크 인터페이스에서 전체 작업 흐름을 확인할 수 있습니다. 모든 미리보기는 모바일에 적합한 thumbnail을 사용하며 선명한 원본으로 연결됩니다.
 
 <p align="center">
   <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="Dashboard 개요" width="100%"></a>
@@ -157,15 +157,63 @@ flowchart LR
 </p>
 
 <p align="center">
+  <a href="images/tasks-overview.png"><img src="images/readme/tasks-overview.png" alt="작업 진행률 개요" width="100%"></a>
+  <br>
+  <em>📋 <strong>Task Progress</strong> · 간결한 완료 현황과 소유자별 작업 미리보기</em>
+</p>
+
+<p align="center">
+  <a href="images/dashboard-health.png"><img src="images/readme/dashboard-health.png" alt="Dashboard 상태 보기" width="100%"></a>
+  <br>
+  <em>🩺 <strong>System Health</strong> · 스토리지, 캐시, 오류, 도구, 모델, Subagent, 컴팩션</em>
+</p>
+
+<p align="center">
   <a href="images/board.png"><img src="images/readme/board.png" alt="Kanban Board Agent 보기" width="100%"></a>
   <br>
-  <em>📋 <strong>Kanban Board</strong> · 명확한 대기 사유와 함께 작업 중, 대기 중, 완료, 실패 Agent 표시</em>
+  <em>📋 <strong>Kanban Board · Agents</strong> · 명확한 대기 사유와 작업 중, 대기 중, 완료, 실패 Agent</em>
+</p>
+
+<p align="center">
+  <a href="images/board-sessions.png"><img src="images/readme/board-sessions.png" alt="Kanban Board 세션 보기" width="100%"></a>
+  <br>
+  <em>🗂️ <strong>Kanban Board · Sessions</strong> · 활성, 대기, 완료, 오류, 중단 세션</em>
+</p>
+
+<p align="center">
+  <a href="images/sessions.png"><img src="images/readme/sessions.png" alt="Sessions 개요" width="100%"></a>
+  <br>
+  <em>📂 <strong>Sessions</strong> · 비용과 활동을 포함한 검색, 필터, 서버 페이지네이션 히스토리</em>
+</p>
+
+<p align="center">
+  <a href="images/session-agents.png"><img src="images/readme/session-agents.png" alt="세션 Agent 개요" width="100%"></a>
+  <br>
+  <em>🤖 <strong>Session Agents</strong> · 실시간 합계, 도구 사용량, 토큰 흐름, Agent 계층</em>
+</p>
+
+<p align="center">
+  <a href="images/tasks-details.png"><img src="images/readme/tasks-details.png" alt="세션 작업 진행률 상세" width="100%"></a>
+  <br>
+  <em>✅ <strong>Task Details</strong> · 완료 구간, 활성 작업, 소유자, 페이지별 작업 목록</em>
 </p>
 
 <p align="center">
   <a href="images/session-conversation.png"><img src="images/readme/session-conversation.png" alt="세션 대화 보기" width="100%"></a>
   <br>
   <em>💬 <strong>Conversation</strong> · 렌더링된 트랜스크립트, 코드, 도구 호출, 명령 출력, 세션 마커</em>
+</p>
+
+<p align="center">
+  <a href="images/session-timeline.png"><img src="images/readme/session-timeline.png" alt="세션 이벤트 타임라인" width="100%"></a>
+  <br>
+  <em>🔬 <strong>Timeline</strong> · 시간순 이벤트, 다차원 필터, 연결된 도구 활동</em>
+</p>
+
+<p align="center">
+  <a href="images/feed.png"><img src="images/readme/feed.png" alt="Activity Feed 개요" width="100%"></a>
+  <br>
+  <em>📰 <strong>Activity Feed</strong> · 일시 정지 가능한 실시간 이벤트, 그룹화, 필터, 세션 이동</em>
 </p>
 
 <p align="center">
@@ -177,7 +225,25 @@ flowchart LR
 <p align="center">
   <a href="images/workflows.png"><img src="images/readme/workflows.png" alt="Workflow analytics 개요" width="100%"></a>
   <br>
-  <em>🔀 <strong>Workflows</strong> · 오케스트레이션 그래프, 도구 흐름, 협업, 위임, 동적 실행</em>
+  <em>🔀 <strong>Workflows</strong> · 오케스트레이션 그래프, 도구 흐름, 협업, 위임, 패턴</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows.png"><img src="images/readme/dynamicworkflows-workflows.png" alt="동적 workflow 실행" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Workflow Runs</strong> · journal 기반 상태, Agent, 토큰, 도구, 소요 시간</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-workflows2.png"><img src="images/readme/dynamicworkflows-workflows2.png" alt="펼쳐진 동적 workflow 실행" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Expanded Run</strong> · phase 필터, Agent별 지표, 프롬프트, 전체 결과</em>
+</p>
+
+<p align="center">
+  <a href="images/dynamicworkflows-session.png"><img src="images/readme/dynamicworkflows-session.png" alt="세션 상세의 workflow 실행" width="100%"></a>
+  <br>
+  <em>🧬 <strong>Session Workflows</strong> · 연결된 동적 실행과 합산된 토큰 비용</em>
 </p>
 
 <p align="center">
@@ -187,18 +253,54 @@ flowchart LR
 </p>
 
 <p align="center">
+  <a href="images/config-codex.png"><img src="images/readme/config-codex.png" alt="Codex 구성 탐색기" width="100%"></a>
+  <br>
+  <em>🧰 <strong>Codex Config</strong> · 모델, profile, MCP, 프로젝트, 스킬, Hook, 규칙, plugin, 지침</em>
+</p>
+
+<p align="center">
+  <a href="images/config-skills.png"><img src="images/readme/config-skills.png" alt="Claude Code 스킬 탐색기" width="100%"></a>
+  <br>
+  <em>🧩 <strong>Skills</strong> · 검색 가능한 사용자, 프로젝트, plugin 스킬과 백업 기반 편집</em>
+</p>
+
+<p align="center">
   <a href="images/run.png"><img src="images/readme/run.png" alt="Run Agent provider 선택" width="100%"></a>
   <br>
-  <em>▶️ <strong>Run Agent</strong> · Claude Code 또는 Codex 세션을 시작하고 스트리밍, 재개, 재연결</em>
+  <em>▶️ <strong>Run Agent</strong> · provider native 제어로 Claude Code 또는 Codex 실행</em>
+</p>
+
+<p align="center">
+  <a href="images/run-results.png"><img src="images/readme/run-results.png" alt="Run Agent 실시간 출력" width="100%"></a>
+  <br>
+  <em>💬 <strong>Live Run</strong> · 스트리밍 대화, reasoning, 명령, 파일 변경, 도구, 재연결</em>
 </p>
 
 <p align="center">
   <a href="images/settings.png"><img src="images/readme/settings.png" alt="Settings 개요" width="100%"></a>
   <br>
-  <em>⚙️ <strong>Settings</strong> · 가격, Hook, 알림, 데이터, 원격 소스, 알림 규칙, 시스템 상태</em>
+  <em>⚙️ <strong>Settings</strong> · 가격, Hook, 알림, 데이터, 원격 소스, 시스템 상태</em>
 </p>
 
-사이드바는 Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, Settings로 이동합니다. 아래 섹션에서 이 대표 보기 8개의 전체 동작을 설명합니다.
+<p align="center">
+  <a href="images/alerts.png"><img src="images/readme/alerts.png" alt="알림 및 Webhook 설정" width="100%"></a>
+  <br>
+  <em>🔔 <strong>Alerts</strong> · 규칙, 쿨다운, 활동, 내장 Webhook 또는 서명된 범용 Webhook</em>
+</p>
+
+<p align="center">
+  <a href="images/remote.png"><img src="images/readme/remote.png" alt="Remote Data Sources 설정" width="100%"></a>
+  <br>
+  <em>🛰️ <strong>Remote Data Sources</strong> · provider별 SSH 동기화와 소스 범위 모니터링</em>
+</p>
+
+<p align="center">
+  <a href="images/palette.png"><img src="images/readme/palette.png" alt="Command Palette" width="100%"></a>
+  <br>
+  <em>⌘ <strong>Command Palette</strong> · 페이지, 세션, 프로젝트, 필터, 작업을 위한 단일 키보드 실행기</em>
+</p>
+
+사이드바는 Dashboard, Kanban Board, Sessions, Activity Feed, Analytics, Workflows, Agent Config, Run Agent, Settings로 이동합니다. 아래 섹션에서 이 보기의 전체 동작을 설명합니다.
 
 ---
 
@@ -1116,6 +1218,12 @@ npm run monitoring:verify
   <em>🔥 <strong>Prometheus · CCAM console</strong> · scrape 상태, 세션, 이벤트, 토큰, Graph drill-down 링크</em>
 </p>
 
+<p align="center">
+  <a href="images/prometheus-query.png"><img src="images/readme/prometheus-query.png" alt="CCAM PromQL query가 있는 Prometheus Graph" width="100%"></a>
+  <br>
+  <em>📈 <strong>Prometheus · Graph</strong> · console의 starter link로 scrape된 CCAM metric에 PromQL 실행</em>
+</p>
+
 메트릭 이름, 인증, scrape 구성은 [docs/API.md → Metrics](./docs/API.md#metrics)에서 확인하세요.
 
 ### Claude 실행 (`/api/run`)
@@ -1592,6 +1700,18 @@ npm run desktop:win          # Windows: NSIS 설치 프로그램 → desktop/rel
 **Windows:**
 
 관리자 권한 없이 사용자별 `%LOCALAPPDATA%\Programs\Claude Code Monitor`에 설치하고 destination을 선택하려면 `ClaudeCodeMonitor-Setup-<ver>-x64.exe`를 실행하세요. 설치 없이 사용하려면 `*-portable.exe`를 실행하세요. 기본 unsigned build는 첫 실행 때 SmartScreen을 표시할 수 있습니다. **More info → Run anyway**를 선택하세요. Start 또는 desktop shortcut에서 실행하면 dashboard와 tray icon이 열립니다.
+
+<p align="center">
+  <a href="images/setup_win_wizard.png"><img src="images/readme/setup_win_wizard.png" alt="Windows installer options" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Install options</strong> · 사용자별 또는 모든 사용자용 설치 선택</em>
+</p>
+
+<p align="center">
+  <a href="images/setup_win_wizard2.png"><img src="images/readme/setup_win_wizard2.png" alt="Windows installer destination" width="100%"></a>
+  <br>
+  <em>🪟 <strong>Install location</strong> · destination folder를 확인하거나 변경</em>
+</p>
 
 <p align="center">
   <a href="images/setup_win_wizard3.png"><img src="images/readme/setup_win_wizard3.png" alt="Windows installer completion screen" width="100%"></a>
