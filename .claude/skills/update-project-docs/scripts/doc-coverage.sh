@@ -18,6 +18,7 @@ set -u
 # The canonical doc set kept in sync. Translations + HTML + per-area READMEs.
 DOCS=(
   "README.md"
+  "README-EN.md"
   "README-VN.md"
   "README-CN.md"
   "README-KO.md"

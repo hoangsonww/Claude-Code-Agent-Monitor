@@ -5,6 +5,7 @@ paths:
   - "client/src/lib/format.ts"
   - "client/src/lib/paletteCommands.ts"
   - "README.md"
+  - "README-EN.md"
   - "README-CN.md"
   - "README-VN.md"
   - "README-KO.md"
@@ -37,7 +38,9 @@ audit fails on a stale mirror.
 - **Adding a namespace** → create the JSON for every locale, then register the
   imports, the per-language `resources` entry, and the `ns` array in
   `client/src/i18n/index.ts`.
-- **Editing `README.md`** → mirror the same edit at the corresponding section of
+- **Editing `README.md`** → keep the English-only landing concise and preserve
+  links to `README-EN.md` plus every localized full guide.
+- **Editing `README-EN.md`** → mirror the same edit at the corresponding section of
   `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four,
   every time. They are full mirrors, not summaries.
 - **Editing user-visible text in `wiki/index.html`** → follow
@@ -56,8 +59,9 @@ audit fails on a stale mirror.
   (`common:agent` / `common:subagent`) is literal in `zh`, `vi`, and `ko` but
   deliberately `agente` / `subagente` in `es` — `i18n.test.ts` asserts both
   halves. The Spanish exception never applies to the tool name.
-- The root landing page `index.html` is **English-only by design** — do not add
-  an i18n layer to it.
+- The root landing page `index.html` and repository landing `README.md` are
+  **English-only by design**. The complete localized guide set begins with
+  `README-EN.md`.
 
 ## Verify
 

@@ -4,8 +4,11 @@ Authoritative inventory of this repository's documentation surface: every doc th
 
 ## Tier 1 — primary, always consider
 
-### `README.md` (English, canonical)
-The source of truth most other docs mirror. Key sections:
+### `README.md` (English-only repository landing)
+A concise product overview, Quick Start, selected screenshots, and links to the complete guides. Keep it mobile-safe; do not place exhaustive contracts, large tables, or Mermaid diagrams here.
+
+### `README-EN.md` (complete English guide, canonical)
+The source of truth the four complete localized guides mirror. Key sections:
 - **Feature table** — rows like `**Kanban Board**`, `**Transcript Cache**`, `**Pre-Existing Session Detection**`, `**Continuous Project Sync**`. Grep a neighboring row label.
 - **Data-flow numbered list** — bullets describing hook ingestion, the watchdog, periodic sweep, continuous sync. Grep `Error detection watchdog` / `periodic server sweep`.
 - **Agent State Machine** + **Session State Machine** — two `mermaid stateDiagram-v2` blocks. Grep `stateDiagram-v2`.
@@ -13,7 +16,7 @@ The source of truth most other docs mirror. Key sections:
 - **Configuration / Environment Variables table** — `| Environment Variable | Default | Description |`. Grep `DASHBOARD_PORT` or `DASHBOARD_HOST`.
 
 ### `README-CN.md` / `README-VN.md` / `README-KO.md` / `README-ES.md` (full translations)
-Standalone full translations of `README.md` — zh, vi, ko, es. **Every** README change must be mirrored into **all four** at the corresponding section. Terminology, glossary, and the never-translate list live in [`.claude/skills/i18n-parity/references/translation-style.md`](../../i18n-parity/references/translation-style.md); verify with `bash .claude/skills/i18n-parity/scripts/i18n-audit.sh`. Conventions:
+Standalone full translations of `README-EN.md` — zh, vi, ko, es. **Every** full-guide change must be mirrored into **all four** at the corresponding section. Terminology, glossary, and the never-translate list live in [`.claude/skills/i18n-parity/references/translation-style.md`](../../i18n-parity/references/translation-style.md); verify with `bash .claude/skills/i18n-parity/scripts/i18n-audit.sh`. Conventions:
 - Keep in English/code: identifiers, env-var names, event-type names, `awaiting_input_since`, `pendingInterrupt`, "watchdog", `fs.watch`, model IDs, mermaid transition labels.
 - Translate prose. "Waiting" → **等待中** (zh) / **Đang chờ** (vi) / **대기 중** (ko) / **En espera** (es). "watchdog" often kept; in zh sometimes 看门狗.
 - The second (update-checker) env table exists in EN but may be absent in VN/CN — don't invent rows that aren't there.
@@ -69,7 +72,7 @@ i18n architecture: **Supported languages** list, `supportedLngs`, the 15 namespa
 
 ## Consistency invariants
 
-- The **event-type set** must match across: `README` hook table (+CN/VN/KO/ES), `ARCHITECTURE` Event types line, `docs/PLUGINS.md`, `wiki`. When adding one, grep the existing set (e.g. `TurnDuration`) across all and add everywhere it appears.
-- **Env-var set** must match across: README (+CN/VN/KO/ES) tables, `server/README.md`, `wiki`, `.env.example`, and any inline `ARCHITECTURE` mention.
-- **State-machine diagrams** are duplicated across README (+CN/VN/KO/ES), `server/README.md`, `docs/DATABASE.md`, `wiki`. A transition change touches all of them.
+- The **event-type set** must match across: `README-EN.md` hook table (+CN/VN/KO/ES), `ARCHITECTURE` Event types line, `docs/PLUGINS.md`, `wiki`. When adding one, grep the existing set (e.g. `TurnDuration`) across all and add everywhere it appears.
+- **Env-var set** must match across: `README-EN.md` (+CN/VN/KO/ES) tables, `server/README.md`, `wiki`, `.env.example`, and any inline `ARCHITECTURE` mention.
+- **State-machine diagrams** are duplicated across `README-EN.md` (+CN/VN/KO/ES), `server/README.md`, `docs/DATABASE.md`, `wiki`. A transition change touches all of them.
 - Run `scripts/doc-coverage.sh <term>` to confirm a new identifier/var/event reached every doc that should mention it.

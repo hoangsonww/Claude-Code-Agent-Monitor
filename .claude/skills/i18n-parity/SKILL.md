@@ -1,6 +1,6 @@
 ---
 name: i18n-parity
-description: MANDATORY for every coding agent and contributor touching localized content — keep all five localization surfaces (dashboard UI keys, wiki page, mirrored READMEs, locale-aware formatting, language switchers) in parity across every supported language. Use automatically (without being asked) whenever you add or change user-visible UI copy, add an i18n key, edit README.md, edit wiki/index.html, or change docs that the READMEs and wiki mirror — and use the full new-language checklist whenever adding a language (a new README-XX.md, a new client/src/i18n/locales/<xx>/ directory, or a new lang-option in the wiki).
+description: MANDATORY for every coding agent and contributor touching localized content — keep all five localization surfaces (dashboard UI keys, wiki page, full mirrored guides, locale-aware formatting, language switchers) in parity across every supported language. Use automatically (without being asked) whenever you add or change user-visible UI copy, add an i18n key, edit README-EN.md or a localized guide, edit wiki/index.html, or add a language surface.
 ---
 
 # i18n Parity
@@ -26,7 +26,7 @@ audit script reads it rather than hard-coding.
 |---|---|---|---|---|
 | 1 | **Dashboard UI** | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` (same 15 namespaces) | `client/src/i18n/__tests__/i18n.test.ts` — key, type, and interpolation-token parity |
 | 2 | **Wiki page** | English text in the `wiki/index.html` DOM | `wiki/script.js` (`T`, `ATTRIBUTE_TRANSLATIONS`, `META`, `languageLabels`, the two language ladders) + `wiki/i18n-content.js` (`window.__WIKI_CONTENT_I18N`, both the body bundles and `plain`) | `client/tests/wiki-i18n.test.ts` — live-DOM prose coverage, inline-tag preservation, block-length budgets, asset-version sync |
-| 3 | **Mirrored READMEs** | `README.md` | `README-CN.md` (zh), `README-VN.md` (vi), `README-KO.md` (ko), `README-ES.md` (es) | partial — `scripts/i18n-audit.sh` (existence, heading count, cross-links) and `server/__tests__/plugins-marketplace.test.js` (documented counts); prose parity is review-only |
+| 3 | **Full mirrored guides** | `README-EN.md` | `README-CN.md` (zh), `README-VN.md` (vi), `README-KO.md` (ko), `README-ES.md` (es) | partial — `scripts/i18n-audit.sh` (existence, heading count, cross-links) and `server/__tests__/plugins-marketplace.test.js` (documented counts); prose parity is review-only |
 | 4 | **Language switchers** | — | `client/src/components/Sidebar.tsx`, `client/src/lib/paletteCommands.ts`, the two `.lang-select-menu` blocks in `wiki/index.html`, `nav.json` `languageNames` / `languageShort` | `scripts/i18n-audit.sh` |
 | 5 | **Locale-aware formatting** | — | `client/src/lib/format.ts` (`SupportedLanguage` union, `getCurrentLanguage()` whitelist, `getCurrentLocale()` BCP-47 map) | `client/src/lib/__tests__/format.test.ts` |
 
@@ -39,6 +39,9 @@ and do not add them without being asked:
   `data-lang` markup; put localized long-form content in the wiki instead. Its
   one language-aware element is the `Languages (en/zh/…)` stat label, which just
   enumerates the codes.
+- **The repository landing page `README.md`** is a concise English-only entry
+  point. It links every complete language guide but is not itself mirrored.
+  Full technical content belongs in `README-EN.md` and its four translations.
 - **`client/index.html`** is an English shell: `<html lang="en">`,
   `og:locale=en_US`, and English `<title>`/meta. The React app never reassigns
   `document.documentElement.lang` when the user switches language — a known gap,
@@ -67,9 +70,10 @@ Find what you touched in the left column and ship everything in the right column
 | Added/renamed a UI string or i18n key | Add the key to `en` **and every other locale** in the same namespace file. Same key path, same value type, same `{{interpolation}}` tokens. |
 | Added a new namespace (new `*.json`) | Create it for every locale, then register the imports, the `resources` entry per language, and the `ns` array in `client/src/i18n/index.ts`. |
 | Added user-visible wiki text in `wiki/index.html` | Follow [`.claude/rules/wiki-i18n.md`](../../rules/wiki-i18n.md): scannable layer (the `PLAIN` selector set — `.logo-sub`, `.section-label`, `.nav-section`, `.nav-empty`, `.stat-label`, `.t-label`, `h2`/`h3`/`h4`, `th`, `.hero-desc`, plus `.nav-link` / `.hero-badge` trailing text nodes) → `T` in `wiki/script.js`; body prose (the `HTML_SEL` set — `p`, `li`, `td`, `th`, captions, `.callout-body > strong`, `.route-desc`, footer) → `wiki/i18n-content.js` keyed by whitespace-normalized `innerHTML`; new `alt`/`aria-label`/`title`/`placeholder` → `ATTRIBUTE_TRANSLATIONS`. Then bump `CACHE_NAME` in `wiki/sw.js` and the matching `?v=` query strings. |
-| Edited a section of `README.md` | Mirror the **same** edit at the corresponding section of `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four, every time. |
+| Edited the English-only landing `README.md` | Keep it concise and ensure it still links `README-EN.md` and every localized full guide. Do not copy landing-page prose into the full guides. |
+| Edited a section of `README-EN.md` | Mirror the **same** edit at the corresponding section of `README-CN.md`, `README-VN.md`, `README-KO.md`, and `README-ES.md`. All four, every time. |
 | Changed behavior that the README/wiki document (env var, event type, route, CLI command, feature) | Run the [`update-project-docs`](../update-project-docs/SKILL.md) skill — it owns the change→docs mapping — then come back here for the translation propagation it triggers. |
-| Changed a documented count (plugins, skills, namespaces, languages) | The count is repeated across all five READMEs, `ARCHITECTURE.md`, `docs/*.md`, `index.html`, `wiki/index.html`, `wiki/i18n-content.js`, and asserted in `server/__tests__/plugins-marketplace.test.js`. Grep the old number repo-wide; update every hit. |
+| Changed a documented count (plugins, skills, namespaces, languages) | The count can appear in the landing README, all five full guides, `ARCHITECTURE.md`, `docs/*.md`, `index.html`, `wiki/index.html`, `wiki/i18n-content.js`, and `server/__tests__/plugins-marketplace.test.js`. Grep the old number repo-wide; update every hit. |
 
 ## Workflow B — adding a new language
 
@@ -80,10 +84,10 @@ with the exact edit for each.
 
 The three things contributors most often ship incomplete, stated up front:
 
-1. **The README mirror must be complete.** `README-<XX>.md` is a full mirror of
-   `README.md` — every section, every table row, every code block, every mermaid
+1. **The full-guide mirror must be complete.** `README-<XX>.md` is a full mirror of
+   `README-EN.md` — every section, every table row, every code block, every mermaid
    diagram, in the same order. Do not summarize, do not drop "less important"
-   sections, do not stop halfway. Diff the heading list against `README.md`
+   sections, do not stop halfway. Diff the heading list against `README-EN.md`
    before you open the PR — the audit script compares heading counts, which
    catches a truncated mirror but not a reordered or silently condensed one.
 2. **Every app key must be translated.** All 15 namespaces × every key. The
@@ -161,7 +165,7 @@ back at the canonical ones by repo-root path.
 
 ```bash
 # 1. Cross-surface parity: locale sets, namespace files, key parity, switcher
-#    entries, wiki bundles, README mirrors and cross-links, agent-skill mirrors.
+#    entries, wiki bundles, full-guide mirrors and cross-links, agent-skill mirrors.
 bash .claude/skills/i18n-parity/scripts/i18n-audit.sh
 
 # 2. UI key/type/interpolation parity + locale formatting
@@ -189,13 +193,13 @@ State explicitly which surfaces you updated and which you intentionally skipped
 
 ## Tips
 
-- **Write the English first and get it right**, on all surfaces, before
+- **Write the full English guide first and get it right**, on all surfaces, before
   translating anything. Every other locale is derived from it; re-translating
   because the English moved is the biggest waste in this workflow.
 - To find where a string already lives: `grep -rn "<neighbouring English text>"
   client/src/i18n/locales/en wiki/i18n-content.js wiki/script.js`.
 - When adding a language, one locale per subagent is fine for the *wiki body*
-  bundle (it is large), but keep the README mirror with a single author so the
+  bundle (it is large), but keep the full-guide mirror with a single author so the
   section order and terminology stay coherent.
 - Wiki edits are cache-first: forgetting the `CACHE_NAME` / `?v=` bump means
   returning visitors never see the translation you just shipped.

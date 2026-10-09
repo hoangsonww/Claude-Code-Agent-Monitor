@@ -194,22 +194,23 @@ English is a safety net, not a completed translation.
 |---|---|---|
 | Dashboard UI | `client/src/i18n/locales/en/*.json` | `client/src/i18n/locales/<xx>/*.json` |
 | Wiki page | English text in the `wiki/index.html` DOM | `wiki/script.js` + `wiki/i18n-content.js` |
-| Mirrored READMEs | `README.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` |
+| Full mirrored guides | `README-EN.md` | `README-CN.md`, `README-VN.md`, `README-KO.md`, `README-ES.md` |
 | Language switchers | — | `Sidebar.tsx`, `paletteCommands.ts`, `nav.json`, `wiki/index.html` |
 | Locale-aware formatting | — | `client/src/lib/format.ts` |
 
 **If you add or change a UI string**, add the key to `en` *and every other
 locale*, with the same key path, value type, and `{{interpolation}}` tokens.
 
-**If you edit `README.md`**, mirror the same edit into all four translated
-READMEs. They are full mirrors, not summaries.
+**If you edit the concise `README.md` landing page**, preserve its links to all
+five complete guides. **If you edit `README-EN.md`**, mirror the same edit into
+all four translated guides. They are full mirrors, not summaries.
 
 **If you edit user-visible text in `wiki/index.html`**, add `zh` + `vi` + `ko` +
 `es` entries and bump the wiki cache versions (`CACHE_NAME` in `wiki/sw.js` plus
 the matching `?v=` query strings).
 
 **If you are adding a new language**, three things must be complete: a full
-`README-<XX>.md` mirror of `README.md` (every section, in order — not a
+`README-<XX>.md` mirror of `README-EN.md` (every section, in order — not a
 summary), every key in all 15 UI namespaces plus the language-switcher entry,
 and a complete wiki translation (body content, headings, attributes, and page
 metadata). Work through the step-by-step checklist:

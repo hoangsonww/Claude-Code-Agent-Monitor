@@ -112,18 +112,19 @@ for the mechanism and the length/markup constraints.
       A `?v=` mismatch between the two files means the precached asset is never
       served.
 
-## Phase 4 — Mirror the README
+## Phase 4 — Mirror the full English guide
 
-- [ ] Create `README-<XX>.md` as a **complete mirror of `README.md`**: every
+- [ ] Create `README-<XX>.md` as a **complete mirror of `README-EN.md`**: every
       section, every table (same rows, same column count), every code block,
       every mermaid diagram, every badge, in the same order. Nothing summarized,
       nothing dropped.
 - [ ] Keep untranslated: code, commands, paths, URLs, env-var names, CLI flags,
       identifiers, mermaid node IDs, brand and product names, hook event names.
       Translate mermaid **labels**, not node IDs.
-- [ ] Update the localized-docs cross-link line (around line 73–74) in **all**
-      of `README.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`,
+- [ ] Update the full-guide cross-link line in **all**
+      of `README-EN.md`, `README-CN.md`, `README-VN.md`, `README-KO.md`,
       `README-ES.md`, and the new file, so every README links to every other.
+- [ ] Add the new full-guide link to the English-only landing `README.md`.
 - [ ] `server/__tests__/plugins-marketplace.test.js` — add a `COUNTED_DOCS`
       entry for `README-<XX>.md` with regexes matching how the plugin / skill
       counts are phrased in the new language.

@@ -434,18 +434,20 @@ describe("needs-tests", () => {
 
 describe("i18n", () => {
   it("flags any localized surface", () => {
+    assert.ok(rules.touchesI18n([file("README-EN.md")]));
     assert.ok(rules.touchesI18n([file("README-CN.md")]));
     assert.ok(rules.touchesI18n([file("client/src/i18n/locales/es/common.json")]));
     assert.ok(rules.touchesI18n([file("wiki/i18n-content.js")]));
     assert.equal(rules.touchesI18n([file("README.md")]), false);
   });
 
-  it("asks for parity when the English README moves without its mirrors", () => {
-    assert.ok(rules.needsI18nParity([file("README.md")]));
-    assert.ok(rules.needsI18nParity([file("README.md"), file("README-CN.md")]));
+  it("asks for parity when the full English guide moves without its mirrors", () => {
+    assert.equal(rules.needsI18nParity([file("README.md")]), false);
+    assert.ok(rules.needsI18nParity([file("README-EN.md")]));
+    assert.ok(rules.needsI18nParity([file("README-EN.md"), file("README-CN.md")]));
     assert.equal(
       rules.needsI18nParity([
-        file("README.md"),
+        file("README-EN.md"),
         file("README-CN.md"),
         file("README-VN.md"),
         file("README-KO.md"),
@@ -617,7 +619,7 @@ describe("end to end", () => {
           title: "docs: document the new env var",
           branch: "docs/env",
           files: [
-            file("README.md", 2, 1),
+            file("README-EN.md", 2, 1),
             file("README-CN.md", 2, 1),
             file("README-VN.md", 2, 1),
             file("README-KO.md", 2, 1),
@@ -629,11 +631,18 @@ describe("end to end", () => {
     );
   });
 
-  it("flags an English-only README edit for parity", () => {
+  it("flags an English-only full-guide edit for parity", () => {
     const labels = rules.computeLabels(
-      pr({ title: "docs: tweak", branch: "docs/tweak", files: [file("README.md", 2, 1)] })
+      pr({ title: "docs: tweak", branch: "docs/tweak", files: [file("README-EN.md", 2, 1)] })
     );
     assert.ok(labels.includes("needs-i18n-parity"));
+  });
+
+  it("does not require translation parity for the English-only landing README", () => {
+    const labels = rules.computeLabels(
+      pr({ title: "docs: landing", branch: "docs/landing", files: [file("README.md", 2, 1)] })
+    );
+    assert.equal(labels.includes("needs-i18n-parity"), false);
   });
 
   it("labels a large untested refactor", () => {

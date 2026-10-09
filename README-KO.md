@@ -72,7 +72,7 @@ Claude Code, Cursor, Codex 에이전트 세션, 도구 사용, 대화 기록, �
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > [!TIP]
-> 참고: 영어 원문은 [README.md](./README.md), 중국어 버전은 [README-CN.md](./README-CN.md) (中文版本), 베트남어 버전은 [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), 스페인어 버전은 [README-ES.md](./README-ES.md) (Español)를 확인하세요. 이 문서는 한국어 버전입니다.
+> 참고: 영어 원문은 [README-EN.md](./README-EN.md), 중국어 버전은 [README-CN.md](./README-CN.md) (中文版本), 베트남어 버전은 [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), 스페인어 버전은 [README-ES.md](./README-ES.md) (Español)를 확인하세요. 이 문서는 한국어 버전입니다.
 
 > [!NOTE]
 > 작업 중심의 도움이 필요하신가요? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki)는 일상적인 사용, 팀 운영, 문제 해결, CLI/MCP 자동화 및 배포 절차를 위한 실용 핸드북입니다. [현지화된 정적 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/)는 영어, 베트남어, 중국어, 한국어 및 스페인어 제품·아키텍처 둘러보기를 계속 제공하며, 정확한 기술 계약은 [`docs/`](./docs/README.md)에 유지됩니다.

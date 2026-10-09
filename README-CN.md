@@ -73,7 +73,7 @@
 
 **语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`) · 韩语 (`ko`) · Español (`es`)
 
-切换文档：[`README.md`](./README.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md)
+切换文档：[`README-EN.md`](./README-EN.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md)
 
 > [!NOTE]
 > 需要按任务查阅的帮助？[GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) 是面向日常使用、团队运维、故障排查、CLI/MCP 自动化和部署操作的实用手册。[本地化静态 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) 继续提供英语、越南语、中文、韩语和西班牙语的产品与架构导览；精确的技术契约仍以 [`docs/`](./docs/README.md) 为准。
