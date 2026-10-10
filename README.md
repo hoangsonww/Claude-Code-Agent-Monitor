@@ -4,11 +4,8 @@
 
 Monitor Claude Code, Cursor, and Codex sessions in real time. Follow conversations and tools, inspect agent hierarchies, understand token usage and cost, analyze orchestration, and operate local agents from one responsive dashboard.
 
+> [!TIP]
 > **Complete guides:** [English](./README-EN.md) · [中文](./README-CN.md) · [Tiếng Việt](./README-VN.md) · [한국어](./README-KO.md) · [Español](./README-ES.md)
-
-<details>
-<summary><strong>Technology, platform, and release badges</strong></summary>
-<br>
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
 ![Cursor](https://img.shields.io/badge/Cursor-111827?style=flat-square&logo=cursor&logoColor=white)
@@ -78,12 +75,10 @@ Monitor Claude Code, Cursor, and Codex sessions in real time. Follow conversatio
 ![Auto Release](https://img.shields.io/badge/CI-auto--release_to_GitHub-22c55e?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-</details>
-
 <p align="center">
-  <a href="images/dashboard.png"><img src="images/readme/dashboard.png" alt="CCAM dashboard with live agent and session activity" width="100%"></a>
+  <a href="images/analytics.png"><img src="images/readme/analytics.png" alt="CCAM dashboard with live agent and session activity" width="100%"></a>
   <br>
-  <em>Live fleet state, active work, recent events, cost, and system health. Click for the full-resolution view.</em>
+  <em>Live fleet state, active work, recent events, cost, and system health.</em>
 </p>
 
 ## See what your agents are doing
