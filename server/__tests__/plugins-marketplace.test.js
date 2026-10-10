@@ -27,12 +27,6 @@ const COUNTED_DOCS = [
     repositorySkills: /\b77 total repository skills\b/,
   },
   {
-    file: path.join(REPO_ROOT, "README-EN.md"),
-    plugin: /\b14 plugins\b/,
-    pluginSkills: /\b66 plugin skills\b/,
-    repositorySkills: /\b77 total repository skills\b/,
-  },
-  {
     file: path.join(REPO_ROOT, "README-CN.md"),
     plugin: /14 个共享插件/,
     pluginSkills: /66 个插件技能/,
