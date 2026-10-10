@@ -55,4 +55,4 @@ Adding a plugin means creating `plugins/<name>/.claude-plugin/plugin.json` (its 
 
 - Update the catalog table in [`docs/PLUGINS.md`](../docs/PLUGINS.md).
 - Bump the pinned counts in `server/__tests__/plugins-marketplace.test.js` — the `ships the complete N-plugin catalog` assertions and the plugin/skill counts in `COUNTED_DOCS`.
-- Update the matching plugin and skill counts in the docs that `COUNTED_DOCS` checks: `README.md` and its CN/VN/KO/ES mirrors, `docs/PLUGINS.md`, and `.codex/README.md` — plus the plugin count and table in this file.
+- Update the matching plugin and skill counts in every guide that `COUNTED_DOCS` checks: the concise `README.md`, canonical `README-EN.md`, full `README-CN.md` / `README-VN.md` / `README-KO.md` / `README-ES.md` mirrors, `docs/PLUGINS.md`, and `.codex/README.md` — plus the plugin count and table in this file.

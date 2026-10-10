@@ -65,6 +65,8 @@ NON_EN=$(echo "$LOCALES" | tr ' ' '\n' | grep -v '^en$' | grep -v '^$' | tr '\n'
 echo "Supported languages: $LOCALES"
 
 # README mirror per locale. A new locale MUST get a row here (and a real file).
+FULL_README="README-EN.md"
+
 readme_for() {
   case "$1" in
     zh) echo "README-CN.md" ;;
@@ -284,7 +286,10 @@ fi
 # ── 4. Mirrored READMEs ─────────────────────────────────────────────────────
 section "Surface 3 — mirrored READMEs"
 
-READMES="README.md"
+if [ ! -f "$FULL_README" ]; then
+  fail "$FULL_README is missing (complete English guide source)"
+fi
+READMES="$FULL_README"
 for xx in $NON_EN; do
   f=$(readme_for "$xx")
   if [ -z "$f" ]; then
@@ -303,19 +308,30 @@ for xx in $NON_EN; do
   # direction is rejected outright. A small surplus is legitimate (a locale may
   # split a section for readability), but a large one means the files have
   # diverged rather than mirrored.
-  en_h=$(grep -c '^#\{1,6\} ' README.md)
+  en_h=$(grep -c '^#\{1,6\} ' "$FULL_README")
   xx_h=$(grep -c '^#\{1,6\} ' "$f")
   hi=$((en_h * 115 / 100))
   if [ "$xx_h" -lt "$en_h" ]; then
-    fail "$f has $xx_h headings vs $en_h in README.md — the mirror is missing $((en_h - xx_h)) section(s)"
+    fail "$f has $xx_h headings vs $en_h in $FULL_README — the mirror is missing $((en_h - xx_h)) section(s)"
   elif [ "$xx_h" -gt "$hi" ]; then
-    fail "$f has $xx_h headings vs $en_h in README.md — the mirror has diverged from the English structure"
+    fail "$f has $xx_h headings vs $en_h in $FULL_README — the mirror has diverged from the English structure"
   else
     ok
   fi
 
   has "server/__tests__/plugins-marketplace.test.js" "$f" "server/__tests__/plugins-marketplace.test.js: $f has no COUNTED_DOCS entry (its documented counts are never verified)"
 done
+
+# The lightweight repository landing page is English-only, but it must route
+# readers to every complete language guide.
+if [ ! -f "README.md" ]; then
+  fail "README.md is missing (repository landing page)"
+else
+  ok
+  for guide in $READMES; do
+    has "README.md" "$guide" "README.md does not link to complete guide $guide"
+  done
+fi
 
 # Every README links to every other README.
 for src in $READMES; do

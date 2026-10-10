@@ -203,7 +203,8 @@ const ISSUE_PRIORITY_OPTIONS = [
   ["nice to have", "priority/low"],
 ];
 
-// The English README is the source of truth; each of these must move with it.
+// The complete English guide is the source of truth; each mirror must move with it.
+const README_SOURCE = "README-EN.md";
 const README_MIRRORS = ["README-CN.md", "README-VN.md", "README-KO.md", "README-ES.md"];
 const LOCALE_DIRECTORIES = ["en", "es", "ko", "vi", "zh"];
 
@@ -395,6 +396,7 @@ function needsTests({ files, type, release }) {
 function touchesI18n(files) {
   return files.some(
     (file) =>
+      file.filename === README_SOURCE ||
       README_MIRRORS.includes(file.filename) ||
       file.filename.startsWith("client/src/i18n/") ||
       file.filename === "wiki/i18n-content.js"
@@ -402,13 +404,13 @@ function touchesI18n(files) {
 }
 
 /**
- * A localized surface moved without its siblings: the English README without
+ * A localized surface moved without its siblings: the full English guide without
  * all four mirrors, or one locale bundle without the rest. Both are literal
  * file-set comparisons, never a guess about the content of the change.
  */
 function needsI18nParity(files) {
   const names = new Set(files.map((file) => file.filename));
-  if (names.has("README.md") && !README_MIRRORS.every((mirror) => names.has(mirror))) return true;
+  if (names.has(README_SOURCE) && !README_MIRRORS.every((mirror) => names.has(mirror))) return true;
   const touchedLocales = LOCALE_DIRECTORIES.filter((locale) =>
     [...names].some((name) => name.startsWith(`client/src/i18n/locales/${locale}/`))
   );

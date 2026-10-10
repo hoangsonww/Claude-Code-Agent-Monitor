@@ -108,7 +108,7 @@ namespaces and a 7,000-line wiki bundle coherent.
   the same rows and column counts, same code blocks, same mermaid diagrams.
 - In mermaid, translate **labels only** — node IDs, arrows, and directives stay
   as written, or the diagram stops parsing.
-- Keep badges, links, and anchors pointing at the same targets as `README.md`.
+- Keep badges, links, and anchors pointing at the same targets as `README-EN.md`.
 - Numbers quoted in prose (plugin counts, skill counts, namespace counts) must
   match the English exactly; they are asserted in
   `server/__tests__/plugins-marketplace.test.js`.

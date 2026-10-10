@@ -6,6 +6,8 @@ Comprehensive documentation for the Agent Dashboard project.
 
 ## Quick Links
 
+- [Complete English Guide](../README-EN.md) - Full product, configuration, API, lifecycle, desktop, and deployment reference
+- Full localized guides: [中文](../README-CN.md) · [Tiếng Việt](../README-VN.md) · [한국어](../README-KO.md) · [Español](../README-ES.md)
 - [Operator Handbook](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) - Task-oriented usage, operations, automation, and troubleshooting
 - [Localized Product Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) - English, Vietnamese, Chinese, Korean, and Spanish product and architecture tour
 - [Architecture Overview](../ARCHITECTURE.md) - System design and technical reference
