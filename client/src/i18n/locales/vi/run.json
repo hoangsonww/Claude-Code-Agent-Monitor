@@ -32,13 +32,15 @@
   "fields": {
     "prompt": "Prompt",
     "promptPlaceholder": "Hỏi Claude bất cứ điều gì…",
+    "promptPlaceholderWithProvider": "Hỏi {{agent}} bất cứ điều gì…",
     "cwd": "Thư mục làm việc",
     "cwdHint": "Đường dẫn tuyệt đối. Mặc định là cwd của dashboard.",
     "cwdPlaceholder": "Gõ để tìm hoặc dán đường dẫn tuyệt đối…",
     "cwdGroups": {
       "dashboard": "Máy chủ dashboard",
       "home": "Home",
-      "recent": "Gần đây - Claude Code đã dùng"
+      "recent": "Gần đây - Claude Code đã dùng",
+      "recentWithProvider": "Gần đây - {{agent}} đã dùng"
     },
     "cwdNoMatches": "Không khớp. Gõ đường dẫn tuyệt đối để dùng trực tiếp.",
     "model": "Model",
@@ -129,7 +131,7 @@
     "switcherEmpty": "Không có run đang chạy",
     "attached": "Đã gắn vào run đang chạy",
     "started": "Bắt đầu lúc {{when}}",
-    "viewActive": "Lượt chạy dashboard",
+    "viewActive_one": "{{count}} lượt chạy dashboard",
     "viewActive_other": "{{count}} lượt chạy dashboard",
     "scopeNote": "Chỉ hiển thị các run bạn khởi chạy từ dashboard này.",
     "allSessionsLink": "Xem tất cả phiên Claude Code →",
@@ -139,6 +141,7 @@
     "label": "Phiên nguồn",
     "freshOption": "Phiên mới",
     "freshHint": "Bắt đầu phiên Claude Code mới.",
+    "freshHintWithProvider": "Bắt đầu phiên {{agent}} mới.",
     "resumeOption": "Tiếp tục phiên đã có",
     "resumeHint": "Chọn một phiên từ lịch sử để tiếp tục. cwd được khoá theo phiên gốc.",
     "pickSession": "Chọn phiên…",
