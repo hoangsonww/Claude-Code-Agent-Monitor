@@ -14,6 +14,22 @@ Use Semantic Versioning as the repository-wide release rule:
 When a change fits more than one category, use the highest applicable bump. When uncertain between adjacent categories, prefer the higher bump or ask the user before releasing. Never infer the bump from commit count, diff size, or elapsed time alone.
 When the user explicitly requests a concrete version, that instruction overrides automatic classification. State the override and synchronize the requested version exactly.
 
+## Automated release preparation
+
+Use the manual **Prepare Release Bump** workflow for routine releases. Its repository-specific input names are intentionally different from standard SemVer labels:
+
+- `major` increments the first component: `X.Y.Z` to `X+1.0.0`.
+- `intermediate` increments the standard SemVer minor component: `X.Y.Z` to `X.Y+1.0`.
+- `minor` increments the standard SemVer patch component: `X.Y.Z` to `X.Y.Z+1`.
+
+Preview the exact plan locally without writes:
+
+```bash
+node scripts/bump-release.js intermediate --dry-run --json
+```
+
+The workflow creates one branch, one coordinated commit, the exact open milestone, and one pull request. Every automation-created commit ends with `Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>`. It requires the repository setting **Allow GitHub Actions to create and approve pull requests**, checks that prerequisite before remote writes, and keeps default workflow permissions read-only. It explicitly dispatches CI, file-header, and CLA checks because repository-token PR creation does not emit secondary workflow events. It never merges, force-pushes, tags, or publishes. Existing default-branch CI publishes only after a maintainer merges the PR.
+
 ## CCAM release workflow
 
 1. Read the current root `package.json` version and summarize why the change is patch, minor, or major.
@@ -111,6 +127,7 @@ existing="$(
 - Do not call a breaking change “minor” merely because compatibility can be restored later.
 - Do not leave root, desktop, OpenAPI, snapshots, deployment manifests, or generated plugin versions out of sync.
 - Do not blanket find-and-replace the version across the repo: it would pull the independently versioned subprojects along and rewrite deliberate historical references.
+- Do not hand-edit version surfaces when the automated workflow is available. Use `npm run release:bump -- <component>` only for a controlled local fallback.
 
 ## References
 

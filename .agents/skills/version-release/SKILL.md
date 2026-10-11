@@ -14,6 +14,22 @@ Apply Semantic Versioning across CCAM:
 Choose the highest applicable category. If the boundary is ambiguous, prefer the higher bump or ask before release. Do not classify from diff size or commit count alone.
 An explicit user-requested version takes precedence over automatic classification. Record the override, synchronize that exact version, and do not silently substitute a different patch, minor, or major number.
 
+## Automated release preparation
+
+Use the manual **Prepare Release Bump** workflow for routine releases. Its repository-specific input names are intentionally different from standard SemVer labels:
+
+- `major` increments the first component: `X.Y.Z` to `X+1.0.0`.
+- `intermediate` increments the standard SemVer minor component: `X.Y.Z` to `X.Y+1.0`.
+- `minor` increments the standard SemVer patch component: `X.Y.Z` to `X.Y.Z+1`.
+
+Preview the exact plan locally without writes:
+
+```bash
+node scripts/bump-release.js intermediate --dry-run --json
+```
+
+The workflow creates one branch, one coordinated commit, the exact open milestone, and one pull request. Every automation-created commit ends with `Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>`. It requires the repository setting **Allow GitHub Actions to create and approve pull requests**, checks that prerequisite before remote writes, and keeps default workflow permissions read-only. It explicitly dispatches CI, file-header, and CLA checks because repository-token PR creation does not emit secondary workflow events. It never merges, force-pushes, tags, or publishes. Existing default-branch CI publishes only after a maintainer merges the PR.
+
 ## Workflow
 
 - Explain the chosen bump from the current root version.
@@ -58,6 +74,8 @@ mid-bump, before the change is committed.
 Do not bump: `sw.js` / `client/public/sw.js` cache generations (not release-tied; `wiki/sw.js` belongs to the docs skill), the Helm `values.yaml` `tag: ""` which falls back to `appVersion`, or the independently versioned `client`, `mcp`, `monitoring`, and `vscode-extension` packages.
 
 Never blanket find-and-replace the version across the repo: it pulls in the independent subprojects and rewrites historical references.
+
+Do not hand-edit version surfaces when the automated workflow is available. Use `npm run release:bump -- <component>` only for a controlled local fallback.
 
 ## GitHub milestone workflow
 

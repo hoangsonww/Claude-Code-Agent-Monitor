@@ -12,6 +12,7 @@ Thanks for taking the time to contribute. Please read this guide before opening 
 - [Development Workflow](#development-workflow)
 - [Branching and Commits](#branching-and-commits)
 - [Pull Requests](#pull-requests)
+- [Automated Releases](#automated-releases)
 - [Labels](#labels)
 - [Testing](#testing)
 - [Translations and Internationalization](#translations-and-internationalization)
@@ -122,6 +123,32 @@ bash .claude/skills/file-headers/scripts/check-headers-pr.sh origin/master HEAD
 Applicable source files (`.js`, `.ts`, `.tsx`, `.py`, `.sh`, `.css`, etc.) must
 include the `@author Son Nguyen <hoangson091104@gmail.com>` header — CI enforces
 this on every PR via the **File Headers** workflow.
+
+---
+
+## Automated Releases
+
+Maintainers prepare root releases from **Actions → Prepare Release Bump**. Choose one repository-specific component:
+
+- `major` increments the first component and resets the rest.
+- `intermediate` increments the middle component and resets the last.
+- `minor` increments the last component.
+
+The equivalent local preview is:
+
+```bash
+node scripts/bump-release.js intermediate --dry-run --json
+```
+
+A normal workflow run updates every guarded root-release surface, regenerates OpenAPI and extension artifacts, validates the complete diff, creates one `chore/release-v<version>` commit, creates or reuses the matching milestone, opens the PR, verifies linked-issue milestones, and dispatches required checks. The automation commit includes:
+
+```text
+Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>
+```
+
+The repository must allow GitHub Actions to create pull requests under **Settings → Actions → General → Workflow permissions**. The workflow verifies this prerequisite before any GitHub write. Default workflow permissions remain read-only.
+
+The workflow never merges, force-pushes, tags, or publishes. After a maintainer reviews and merges the PR, existing `master` CI creates the tag and GitHub Release.
 
 ---
 

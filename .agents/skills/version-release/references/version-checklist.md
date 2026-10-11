@@ -1,5 +1,7 @@
 # Version Checklist
 
+- [ ] The automation input uses the repository mapping: `major` for first, `intermediate` for middle, and `minor` for last.
+- [ ] Dry-run output was reviewed before a write run.
 - [ ] State why the change is patch, minor, or major.
 - [ ] Any explicit user-specified version was preserved and recorded as an override.
 - [ ] Root and desktop package/lockfile versions agree.
@@ -17,3 +19,6 @@
 - [ ] A sweep for the previous version returns only lockfile history and deliberate historical references.
 - [ ] Extension validation, relevant tests/builds, and CLI version check passed.
 - [ ] No tag or release was created without explicit approval.
+- [ ] Every automation-created commit carries the exact `hoangsonww` coordinator trailer.
+- [ ] CI, file-header, and CLA checks were explicitly dispatched for a token-created PR.
+- [ ] The workflow stopped at an open PR without merging or force-pushing.

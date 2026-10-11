@@ -50,9 +50,22 @@ npm run clear-data -- --yes --backup  # irrevocable, with backup
 
 ## Release
 
-| Script               | Used by                      | Purpose |
-| -------------------- | ---------------------------- | ------- |
-| `publish-release.js` | `.github/workflows/ci.yml`   | Creates or resumes a same-commit draft GitHub release, uploads desktop artifacts with retries, verifies all four, then publishes. Published releases are never modified. |
+| Script                   | Used by                                 | Purpose |
+| ------------------------ | --------------------------------------- | ------- |
+| `bump-release.js`        | `npm run release:bump`, `release-bump.yml` | Plans or applies `major`, `intermediate`, and `minor` root releases across every guarded shipping surface, regenerates OpenAPI and agent extensions, and rejects stale old-version references. `--dry-run --json` is read-only. |
+| `lib/release-version.js` | `bump-release.js`                       | Pure strict-version calculation, allowlisted mutation planning, fixture-safe application, and previous-version sweep helpers. |
+| `publish-release.js`     | `.github/workflows/ci.yml`              | Creates or resumes a same-commit draft GitHub release, uploads desktop artifacts with retries, verifies all four, then publishes. Published releases are never modified. |
+
+Repository automation uses these component names:
+
+```bash
+npm run release:bump -- major                   # X.Y.Z -> X+1.0.0
+npm run release:bump -- intermediate            # X.Y.Z -> X.Y+1.0
+npm run release:bump -- minor                   # X.Y.Z -> X.Y.Z+1
+node scripts/bump-release.js intermediate --dry-run --json
+```
+
+The JSON form is invoked directly with `node` so stdout contains only the JSON document. The manual **Prepare Release Bump** workflow creates the coordinated commit, milestone, branch, and pull request. It does not merge, tag, or publish.
 
 ## Tests
 
