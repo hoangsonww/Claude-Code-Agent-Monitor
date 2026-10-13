@@ -6,7 +6,7 @@
   "activeSubagents": "활성 Subagent",
   "eventsToday": "오늘의 이벤트",
   "totalEvents": "전체 이벤트",
-  "totalCost": "총 비용",
+  "totalCost": "API 예상 비용",
   "viewBoard": "보드 보기",
   "viewAll": "전체 보기",
   "activeAgentsSection": "활성 Agent",
@@ -22,5 +22,9 @@
   "tabs": {
     "monitor": "모니터",
     "health": "상태"
-  }
+  },
+  "costEstimate": "API 기준 예상 비용이며 구독 요금이 아닙니다.",
+  "costScope": "출처: {{sources}} · 제품: {{providers}}",
+  "costIncomplete": "일부 사용량에 적용할 요금이 없어 예상 비용이 불완전합니다({{models}}).",
+  "reviewRates": "요금 확인"
 }

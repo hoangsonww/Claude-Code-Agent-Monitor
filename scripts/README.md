@@ -29,6 +29,7 @@ Hook behavior is documented in [`docs/HOOKS.md`](../docs/HOOKS.md). Any change h
 | ------------------- | ---------------------------- | ------- |
 | `import-history.js` | `npm run import-history`     | Imports existing Claude Code sessions from `~/.claude/` JSONL files. Flags: `--dry-run`, `--project <name>`. Also used for auto-import on server startup. |
 |                     | `npm run reconcile-tokens`   | Same script with `--reconcile-tokens` (add `--all`, `--reset-baselines` as needed) to re-derive token totals. |
+| `cost-snapshot.js`  | —                            | `snapshot --out f.tsv` writes a per-session source/token/cost TSV from the database opened read-only; `compare before.tsv after.tsv` splits local vs remote changes. `--fail-on-local-change` exits 1 when local tokens/cost change, a local session is removed, or ownership (source or provider) changes for a local session; an incomplete or non-numeric row is refused. Take one before an upgrade that recounts tokens at startup. |
 | `seed.js`           | `npm run seed`               | Additive, idempotent fixtures for development. `--full` adds random demo sessions; `--reset` refreshes only fixture rows. Never deletes user data. |
 | `clear-data.js`     | `npm run clear-data`         | **Destructive.** Dry run by default (prints counts). `--yes` wipes sessions/agents/events/token usage; `--backup` snapshots the DB to `data/backups/` first; `--demo-only --yes` removes only seed fixtures. |
 
@@ -67,3 +68,17 @@ npm run test:server
 - Every script starts with the project file header (`@author Son Nguyen <hoangson091104@gmail.com>`); check with `npm run check:headers`.
 - Executables keep their `#!/usr/bin/env node` shebang above the header.
 - Destructive scripts default to a dry run and require an explicit flag to write.
+
+### Codex output repair
+
+Stop the dashboard before upgrading ingestion and applying historical repair. Preview with `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out /private/backup/plan.json`; apply with `--apply --journal /private/backup/new-before-after.json` instead of `--out`. Files must be new: neither plans nor journals overwrite existing files. Keep these private journals out of Git. Only output totals whose complete legacy buckets match retained evidence are changed. Plain, gzip and Zstd prefixes are streamed; foreign identities, changed files/cursors/ownership and unverifiable histories are skipped. The journal file and directory are flushed before updates; repair refuses unsupported durability. Re-running the preview identifies already-correct rows.
+
+Use `--session <id>` to recheck one live transcript whose fingerprint changed during a full pass. It applies the same journal and identity/cursor/token/file fences and never widens the repair scope.
+
+Cost snapshots close their owned scratch database before removing the temporary directory. An embedding caller retains its existing database connection and environment; failed pricing initialization also releases owned handles.
+
+The comparison includes one-hour cache writes and web search, web fetch and code execution usage, including baselines, even if a model has no price and its estimated cost stays zero. Partial snapshots with the earlier eight-column header are rejected, as is a snapshot that lists one session twice; regenerate both snapshots with the same script. Newly added sessions are reported separately and do not fail the existing-session local-change guard.
+
+Rate cards, session ownership and usage are captured in one read transaction. The transaction ends before pricing calculations and TSV output, so those steps do not keep the WAL snapshot open.
+
+Each snapshot output must be a new file. Existing snapshots and paths that alias the input database are refused; choose distinct before and after filenames.

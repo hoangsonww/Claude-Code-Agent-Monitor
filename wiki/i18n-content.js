@@ -7827,3 +7827,41 @@ Object.assign(window.__WIKI_CONTENT_I18N.es, {
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Intervalo de seguridad para chats/transcripciones de Cursor (ms). El observador incorpora de inmediato el inicio del CLI y los cambios de prompt; <code>0</code> solo desactiva el descubrimiento periódico.",
 });
+
+// Guarded Codex historical output repair.
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "预览 Codex 输出用量修复，不更改数据。应用 <code>--apply --journal new-backup.json</code> 前先停止仪表板。不会覆盖已有文件；有歧义的历史记录保持不变。以流方式读取普通、gzip 和 Zstd 前缀。",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "Xem trước việc sửa lượng đầu ra Codex mà không đổi dữ liệu. Dừng dashboard trước khi áp dụng <code>--apply --journal new-backup.json</code>. Không ghi đè tệp có sẵn; giữ nguyên lịch sử mơ hồ. Đọc phần đầu bản ghi thường, gzip và Zstd theo luồng.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "데이터를 변경하지 않고 Codex 출력 사용량 복구를 미리 확인합니다. <code>--apply --journal new-backup.json</code> 적용 전에 대시보드를 중지하세요. 기존 파일을 덮어쓰지 않고 모호한 기록은 보존합니다. 일반, gzip 및 Zstd 기록의 접두부를 스트리밍으로 읽습니다.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "Vista previa de la reparación de salida Codex sin modificar datos. Detenga el dashboard antes de aplicar <code>--apply --journal new-backup.json</code>. No se sobrescriben archivos existentes y se conserva el historial ambiguo. Lee prefijos normales, gzip y Zstd en streaming.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "远程重试会在再次检查时显示上次错误。同步成功后清除；失败时保留先前导入的历史。",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Khi kiểm tra lại nguồn từ xa, lỗi gần nhất vẫn hiển thị. Đồng bộ thành công sẽ xóa lỗi; nếu thất bại, lịch sử đã nhập vẫn được giữ nguyên.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "원격 재시도 중에는 마지막 오류가 계속 표시됩니다. 동기화 성공 시 오류를 지우며, 실패해도 이전에 가져온 기록은 보존됩니다.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Los reintentos remotos muestran el último error mientras vuelven a comprobar. Una sincronización exitosa lo borra; un fallo conserva el historial ya importado.",
+});

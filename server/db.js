@@ -555,10 +555,12 @@ db.exec(`
 // Before response-item ingestion existed, Codex terminal event messages were
 // the only available approximation of a tool invocation. Those rows remain
 // useful activity events, but response items now provide the exact call, so
-// clear the old analytical tool marker once to avoid double-counting history.
+// clear remaining old analytical tool markers to avoid double-counting history.
+// Do not rewrite already-cleared events (and their indexes/triggers) on restart.
 db.prepare(
   `UPDATE events SET tool_name = NULL
-   WHERE event_type IN ('codex_exec_command_end', 'codex_mcp_tool_call_end', 'codex_web_search_end')`
+   WHERE tool_name IS NOT NULL
+     AND event_type IN ('codex_exec_command_end', 'codex_mcp_tool_call_end', 'codex_web_search_end')`
 ).run();
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
@@ -723,6 +725,8 @@ const DEFAULT_GPT_PRICING = [
   // gpt-5 patterns so Codex rollout records are priced rather than reported
   // as unpriced usage.
   gptRate("gpt-6-astra%", "GPT-6 Astra", [10, 1, 12.5, 50], [20, 2, 25, 100], [20, 2, 25, 75]),
+  // Rates checked 2026-10-10: https://developers.openai.com/api/docs/pricing
+  gptRate("gpt-6.1-sol%", "GPT-6.1 Sol", [2, 0.1, 2.5, 10], [4, 0.2, 5, 20], [4, 0.2, 5, 15]),
   gptRate("gpt-6-sol%", "GPT-6 Sol", [2, 0.2, 2.5, 10], [4, 0.4, 5, 20], [4, 0.4, 5, 15]),
   gptRate(
     "gpt-6-luna%",
@@ -856,6 +860,7 @@ seedCursorPricing();
 // values avoid applying a guessed multiplier to unsupported model/tier pairs.
 const GPT_FAST_LONG_RATES = {
   "gpt-6-astra%": [40, 4, 50, 150],
+  "gpt-6.1-sol%": [8, 0.4, 10, 30],
   "gpt-6-sol%": [8, 0.8, 10, 30],
   "gpt-6-luna%": [0.4, 0.04, 0.5, 1.5],
   "gpt-5.6-sol%": [16, 1.6, 20, 60],
@@ -894,6 +899,21 @@ function seedGptPricing(dbHandle = db) {
     const setLong = dbHandle.prepare(`UPDATE gpt_model_pricing SET
       ${GPT_FAST_LONG_FIELDS.map((field) => `${field} = ?`).join(", ")} WHERE model_pattern = ?`);
     for (const row of rows) {
+      // A previously configured broad rule is a user pricing choice, too.
+      // Do not shadow it when introducing this newly published model default.
+      if (
+        row[0] === "gpt-6.1-sol%" &&
+        dbHandle
+          .prepare("SELECT model_pattern FROM gpt_model_pricing")
+          .all()
+          .some((rule) => {
+            const expression = String(rule.model_pattern)
+              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+              .replace(/%/g, ".*");
+            return new RegExp(`^${expression}$`, "i").test("gpt-6.1-sol");
+          })
+      )
+        continue;
       if (insert.run(...row).changes) {
         setLong.run(...(GPT_FAST_LONG_RATES[row[0]] || [0, 0, 0, 0]), row[0]);
       }
@@ -1658,6 +1678,52 @@ const CARD_PROMPT_PREVIEW_SQL = `COALESCE(
   )
 )`;
 
+/** Bounded SQLite 3.46+ statistics maintenance; never fall back to a full ANALYZE. */
+function optimizeQueryPlanner(connection = db) {
+  try {
+    const version = connection.prepare("SELECT sqlite_version() AS version").get().version;
+    const [major, minor] = String(version).split(".").map(Number);
+    if (
+      !Number.isInteger(major) ||
+      !Number.isInteger(minor) ||
+      major < 3 ||
+      (major === 3 && minor < 46)
+    )
+      return false;
+    const started = performance.now();
+    console.error(`[db] Optimizing query planner statistics (SQLite ${version})`);
+    connection.pragma("optimize(0x10002)");
+    console.error(
+      `[db] Query planner statistics ready in ${Math.round(performance.now() - started)}ms`
+    );
+    return true;
+  } catch (error) {
+    console.warn("[db] query planner optimization skipped:", error?.message || error);
+    return false;
+  }
+}
+
+// All migrations/index creation have finished. Prepared statements below should
+// be planned using the actual distribution of a populated history database.
+optimizeQueryPlanner();
+
+const TASK_EVENTS_SQL = `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
+  CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
+  FROM events WHERE session_id = ? AND event_type IN (
+    'TaskCreated', 'TaskCompleted', 'UserPromptSubmit', 'cursor_user_message',
+    'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
+  ) ORDER BY created_at ASC, id ASC`;
+
+// Publish the derived counter only after all event-table migrations. Failed
+// initialization leaves the exact legacy COUNT available to every reader.
+try {
+  const started = Date.now();
+  if (require("./lib/global-event-count").ensureGlobalEventCount(db))
+    console.error(`[db] Global event count initialized in ${Date.now() - started}ms`);
+} catch (error) {
+  console.warn("[db] Global event counter unavailable; using COUNT:", error.message);
+}
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -1908,16 +1974,7 @@ const stmts = {
   // in lib/task-progress.js). Lifecycle payloads can carry tens of KB each
   // (background_tasks, last_assistant_message), so return them as NULL
   // instead of shipping and parsing them on every list call.
-  listTaskEventsBySession: db.prepare(
-    `SELECT id, session_id, agent_id, event_type, tool_name, summary, created_at,
-       CASE WHEN event_type IN ('TaskCreated', 'TaskCompleted') THEN data END AS data
-     FROM events
-     WHERE session_id = ? AND event_type IN (
-       'TaskCreated', 'TaskCompleted',
-       'UserPromptSubmit', 'cursor_user_message', 'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
-     )
-     ORDER BY created_at ASC, id ASC`
-  ),
+  listTaskEventsBySession: db.prepare(TASK_EVENTS_SQL),
   // Codex rollout lifecycle reconciliation reads only the terminal/current
   // turn markers, never the high-volume tool/result records.
   getLatestCodexLifecycleEvent: db.prepare(
@@ -1934,14 +1991,7 @@ const stmts = {
     "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
   ),
 
-  stats: db.prepare(`
-    SELECT
-      (SELECT COUNT(*) FROM sessions) as total_sessions,
-      (SELECT COUNT(*) FROM sessions WHERE status = 'active') as active_sessions,
-      (SELECT COUNT(*) FROM agents WHERE status IN ('working', 'waiting')) as active_agents,
-      (SELECT COUNT(*) FROM agents) as total_agents,
-      (SELECT COUNT(*) FROM events) as total_events
-  `),
+  stats: db.prepare(require("./lib/scoped-stats").GLOBAL_STATS_SQL),
   agentStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status"),
   sessionStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM sessions GROUP BY status"),
 
@@ -2437,7 +2487,218 @@ const stmts = {
   ),
 };
 
+// Heavy HTTP counts use a lazy read-only worker. In-memory databases retain
+// their existing synchronous connection; a different worker cannot share them.
+const { ReadonlyQuery, databaseGeneration } = require("./lib/readonly-query");
+const queryReader = DB_PATH === ":memory:" ? null : new ReadonlyQuery(DB_PATH);
+const closeDatabase = db.close.bind(db);
+db.close = () => {
+  if (queryReader) queryReader.close();
+  return closeDatabase();
+};
+
+// Cache only compact counts whose committed generation is verified on both
+// sides of the worker read. Payload reads and rolling time windows bypass it.
+const readCache = { generation: "", results: new Map(), hits: 0, misses: 0 };
+const readCacheFile = (() => {
+  try {
+    const stat = fs.statSync(DB_PATH, { bigint: true });
+    return `${stat.dev}:${stat.ino}`;
+  } catch {
+    return null;
+  }
+})();
+function sameReadCacheFile() {
+  if (readCacheFile === null) return false;
+  try {
+    fs.accessSync(DB_PATH, fs.constants.R_OK);
+    const stat = fs.statSync(DB_PATH, { bigint: true });
+    return `${stat.dev}:${stat.ino}` === readCacheFile;
+  } catch {
+    return false;
+  }
+}
+
+const STATIC_COUNT_SQL = new Set(
+  ["events", "sessions", "agents"].map((table) => `select count(*) as count from ${table}`)
+);
+function statsCalendarDay(toLocal, toUTC, now = Date.now()) {
+  const local = /^([+-]?\d+) minutes$/.exec(toLocal || "");
+  const utc = /^([+-]?\d+) minutes$/.exec(toUTC || "");
+  if (!local || !utc || Number(local[1]) + Number(utc[1]) !== 0) return null;
+  return Math.floor((now + Number(local[1]) * 60000) / 86400000);
+}
+function compactRead(query, cacheKey, stillCurrent = () => true) {
+  const generation = databaseGeneration(db);
+  const eligible =
+    db.inTransaction === false &&
+    sameReadCacheFile() &&
+    typeof cacheKey === "string" &&
+    cacheKey.length <= 4096;
+  if (eligible) {
+    if (readCache.generation !== generation) {
+      readCache.generation = generation;
+      readCache.results.clear();
+    }
+    if (stillCurrent() && readCache.results.has(cacheKey)) {
+      readCache.hits++;
+      return Promise.resolve(structuredClone(readCache.results.get(cacheKey)));
+    }
+    readCache.misses++;
+  }
+  return queryReader.read(query, generation).then((result) => {
+    // A flight from an older generation must never replace a newer cache.
+    if (
+      eligible &&
+      db.inTransaction === false &&
+      sameReadCacheFile() &&
+      stillCurrent() &&
+      readCache.generation === generation &&
+      databaseGeneration(db) === generation
+    ) {
+      try {
+        if (Buffer.byteLength(JSON.stringify(result)) <= 64 * 1024) {
+          const copy = structuredClone(result);
+          if (readCache.results.size >= 32 && !readCache.results.has(cacheKey))
+            readCache.results.delete(readCache.results.keys().next().value);
+          readCache.results.set(cacheKey, copy);
+          return structuredClone(copy);
+        }
+      } catch {
+        /* Non-compact/non-cloneable results remain uncached. */
+      }
+    }
+    return result;
+  });
+}
+function readCountQuery(sql, params = [], counterSql = null) {
+  sql = sql.trim();
+  if (!queryReader) {
+    const resolved = require("./lib/global-event-count").resolveEventCountSql(db, sql, counterSql);
+    return Promise.resolve(db.prepare(resolved).get(...params));
+  }
+  const query = { op: "get", sql, params, ...(counterSql ? { counterSql } : {}) };
+  const normalized = sql.replace(/\s+/g, " ").toLowerCase();
+  const cacheKey =
+    STATIC_COUNT_SQL.has(normalized) && params.length === 0 ? JSON.stringify(query) : null;
+  return compactRead(query, cacheKey);
+}
+
+function readRowsQuery(sql, params = [], probe = null) {
+  sql = sql.trim();
+  if (!queryReader) {
+    if (probe) {
+      const rows = db.prepare(probe.sql).all(...probe.params);
+      if (rows.length === probe.limit) return Promise.resolve(rows);
+    }
+    return Promise.resolve(db.prepare(sql).all(...params));
+  }
+  return queryReader.read(
+    { op: probe ? "page" : "all", sql, params, ...(probe ? { probe } : {}) },
+    databaseGeneration(db)
+  );
+}
+
+function readEventPageSync(page, count) {
+  return db.transaction(() => {
+    let events;
+    if (page.probe) {
+      const rows = db.prepare(page.probe.sql).all(...page.probe.params);
+      if (rows.length === page.probe.limit) events = rows;
+    }
+    if (!events) events = db.prepare(page.sql).all(...(page.params || []));
+    const resolved = require("./lib/global-event-count").resolveEventCountSql(
+      db,
+      count.sql,
+      count.counterSql ?? null
+    );
+    const { count: total } = db.prepare(resolved).get(...(count.params || []));
+    return { events, total };
+  })();
+}
+
+// Page payloads and their exact total must describe one SQLite snapshot, even
+// when a hook commits between the page query and count/counter resolution.
+// The worker measures payload bytes first; a page too large for its heap is
+// read here on the main thread, exactly as it was before the worker existed.
+function readEventPageQuery(page, count) {
+  page = { ...page, sql: page.sql.trim() };
+  count = { ...count, sql: count.sql.trim() };
+  if (!queryReader) return Promise.resolve(readEventPageSync(page, count));
+  const sizeSql = (sql) =>
+    `SELECT id, IFNULL(length(CAST(summary AS BLOB)), 0) + IFNULL(length(CAST(data AS BLOB)), 0) AS bytes FROM (${sql})`;
+  const measured = {
+    ...page,
+    sizeSql: sizeSql(page.sql),
+    fetchSql: "SELECT * FROM events WHERE id IN (SELECT value FROM json_each(?))",
+    ...(page.probe ? { probe: { ...page.probe, sizeSql: sizeSql(page.probe.sql) } } : {}),
+  };
+  return queryReader.read({ op: "eventPage", page: measured, count }, databaseGeneration(db)).then(
+    (result) => (result.overflow ? readEventPageSync(page, count) : result),
+    (error) => {
+      if (error?.cause?.code === "ERR_WORKER_OUT_OF_MEMORY") return readEventPageSync(page, count);
+      throw error;
+    }
+  );
+}
+
+// Keep usage and all provider rate cards on one worker snapshot. Otherwise a
+// pricing edit during the await could price old usage using a newer rate card.
+function readCostQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader)
+    return Promise.resolve({
+      dailyTokens: db.prepare(sql).all(...params),
+      rules: stmts.listPricing.all(),
+      gptRules: stmts.listGptPricing.all(),
+      cursorRules: stmts.listCursorPricing.all(),
+    });
+  return queryReader.read({ op: "cost", sql, params }, databaseGeneration(db));
+}
+
+function readDashboardStats(sources, providers, toLocal, toUTC) {
+  if (!queryReader) {
+    const scoped = require("./lib/scoped-stats");
+    const isScoped = !!sources || !!providers;
+    return Promise.resolve({
+      ...(isScoped
+        ? scoped.statsOverview(db, sources, providers)
+        : db.prepare(scoped.globalStatsSql(db)).get()),
+      events_today: (isScoped
+        ? scoped.countEventsToday(db, sources, providers, toLocal, toUTC)
+        : stmts.countEventsToday.get(toLocal, toUTC)
+      ).count,
+      agents_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.agentStatusCounts(db, sources, providers)
+          : stmts.agentStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+      sessions_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.sessionStatusCounts(db, sources, providers)
+          : stmts.sessionStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+    });
+  }
+  const calendarDay = statsCalendarDay(toLocal, toUTC);
+  const query = { op: "stats", sources, providers, toLocal, toUTC, calendarDay };
+  return compactRead(
+    query,
+    calendarDay === null ? null : JSON.stringify(query),
+    () => calendarDay === statsCalendarDay(toLocal, toUTC)
+  );
+}
+
 module.exports = {
+  optimizeQueryPlanner,
+  readCountQuery,
+  readRowsQuery,
+  readEventPageQuery,
+  readCostQuery,
+  readDashboardStats,
+  TASK_EVENTS_SQL,
   db,
   stmts,
   DB_PATH,

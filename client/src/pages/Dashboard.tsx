@@ -102,13 +102,14 @@ import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { mergeFreshestById } from "../lib/merge-by-id";
 import { useDataScope } from "../lib/dataScope";
 import { StatCard } from "../components/StatCard";
+import { CostCoverage } from "../components/CostCoverage";
 import { AgentCard } from "../components/AgentCard";
 import { AgentStatusBadge } from "../components/StatusBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Tip } from "../components/Tip";
 import { useUrlTab } from "../hooks/usePageShortcuts";
 import { usePaletteAction } from "../components/PaletteActionProvider";
-import { timeAgo, fmt, fmtCost, formatModelName } from "../lib/format";
+import { timeAgo, fmt, fmtCostFull, formatModelName } from "../lib/format";
 import { activityStatusFromEvent } from "../lib/event-grouping";
 import type { Stats, Agent, DashboardEvent, WSMessage, WorkflowData, Session } from "../lib/types";
 
@@ -1029,6 +1030,13 @@ export function Dashboard() {
   const [activeAgents, setActiveAgents] = useState<Agent[]>([]);
   const [recentEvents, setRecentEvents] = useState<DashboardEvent[]>([]);
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [unpriced, setUnpriced] = useState<import("../lib/types").UnpricedModel[]>([]);
+  const loadGeneration = useRef(0);
+  const loadRequest = useRef<{
+    generation: number;
+    promise: Promise<void>;
+    refresh: boolean;
+  } | null>(null);
   const [allSubagents, setAllSubagents] = useState<Agent[]>([]);
   const [sessionsById, setSessionsById] = useState<Map<string, Session>>(new Map());
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
@@ -1072,55 +1080,98 @@ export function Dashboard() {
    * Load everything the Monitor tab shows in parallel: stats, working agents, waiting agents
    * (including transient rows), recent events, costs, and sessions.
    */
-  const load = useCallback(async () => {
-    try {
-      const [statsRes, workingRes, waitingRes, eventsRes, costRes, sessionsRes] = await Promise.all(
-        [
-          api.stats.get(),
-          api.agents.list({ status: "working", limit: 20 }),
-          api.agents.list({ status: "waiting", limit: 20, include_transient: true }),
-          api.events.list({ limit: 30 }),
-          api.pricing.totalCost(),
-          api.sessions.list({
-            status: "active",
-            limit: 100,
-            include_transient: true,
-            include_task_progress: true,
-          }),
-        ]
-      );
-      setStats(statsRes);
-      // The two lanes are fetched in parallel, so an agent that flips status
-      // between the responses lands in both. Merge to one card per agent id.
-      const active = mergeFreshestById(workingRes.agents, waitingRes.agents);
-      setActiveAgents(active);
-      setRecentEvents(eventsRes.events);
-      setTotalCost(costRes.total_cost);
-      setSessionsById(new Map(sessionsRes.sessions.map((s) => [s.id, s])));
-      setError(null);
+  const load = useCallback(
+    (force = false) => {
+      const generation = loadGeneration.current;
+      if (loadRequest.current?.generation === generation) {
+        if (force) loadRequest.current.refresh = true;
+        return loadRequest.current.promise;
+      }
+      const promise = (async () => {
+        try {
+          const requests = [
+            api.stats.get(),
+            api.agents.list({ status: "working", limit: 20 }),
+            api.agents.list({ status: "waiting", limit: 20, include_transient: true }),
+            api.events.list({ limit: 30 }),
+            api.pricing.totalCost().then((costRes) => {
+              if (loadGeneration.current === generation) {
+                setTotalCost(costRes.total_cost);
+                setUnpriced(costRes.unpriced_models || []);
+              }
+              return costRes;
+            }),
+            api.sessions.list({
+              status: "active",
+              limit: 100,
+              include_transient: true,
+              include_task_progress: true,
+            }),
+          ] as const;
+          // Keep one flight until every request settles, while cost can publish
+          // independently of a slow or failed activity/count reader.
+          await Promise.allSettled(requests);
+          const [statsRes, workingRes, waitingRes, eventsRes, , sessionsRes] =
+            await Promise.all(requests);
+          if (loadGeneration.current !== generation) return;
+          setStats(statsRes);
+          // The two lanes are fetched in parallel, so an agent that flips status
+          // between the responses lands in both. Merge to one card per agent id.
+          const active = mergeFreshestById(workingRes.agents, waitingRes.agents);
+          setActiveAgents(active);
+          setRecentEvents(eventsRes.events);
+          setSessionsById(new Map(sessionsRes.sessions.map((s) => [s.id, s])));
+          setError(null);
 
-      // Fetch all subagents for each active main agent's session
-      const activeSessionIds = [
-        ...new Set(active.filter((a) => a.type === "main").map((a) => a.session_id)),
-      ];
-      const subagentResults = await Promise.all(
-        activeSessionIds.map((sid) => api.agents.list({ session_id: sid, limit: 100 }))
-      );
-      const subs = subagentResults.flatMap((r) => r.agents).filter((a) => a.type === "subagent");
-      setAllSubagents(subs);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("failedLoad"));
-    }
-  }, [t, scope]);
+          // Fetch all subagents for each active main agent's session
+          const activeSessionIds = [
+            ...new Set(active.filter((a) => a.type === "main").map((a) => a.session_id)),
+          ];
+          const subagentResults = await Promise.all(
+            activeSessionIds.map((sid) => api.agents.list({ session_id: sid, limit: 100 }))
+          );
+          const subs = subagentResults
+            .flatMap((r) => r.agents)
+            .filter((a) => a.type === "subagent");
+          if (loadGeneration.current === generation) setAllSubagents(subs);
+        } catch (err) {
+          if (loadGeneration.current === generation)
+            setError(err instanceof Error ? err.message : t("failedLoad"));
+        }
+      })();
+      const entry = { generation, promise, refresh: false };
+      loadRequest.current = entry;
+      const finish = () => {
+        if (loadRequest.current?.promise !== promise) return;
+        loadRequest.current = null;
+        if (entry.refresh && loadGeneration.current === generation) void load();
+      };
+      void promise.then(finish, finish);
+      return promise;
+    },
+    [t, scope]
+  );
 
   usePaletteAction("page.refresh", () => {
     void load();
   });
 
   useEffect(() => {
+    loadGeneration.current++;
+    setStats(null);
+    setTotalCost(null);
+    setUnpriced([]);
+    setActiveAgents([]);
+    setRecentEvents([]);
+    setAllSubagents([]);
+    setSessionsById(new Map());
+    setError(null);
     load();
     const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      loadGeneration.current++;
+      clearInterval(interval);
+    };
   }, [load]);
 
   // Auto-expand agents with active subagents (walk up the full parent chain)
@@ -1159,18 +1210,25 @@ export function Dashboard() {
     // collapse bursts to at most one load per window; the trailing call keeps
     // the view eventually consistent and the 10s poll remains the backstop.
     const THROTTLE_MS = 2_000;
-    const throttleRef = { timer: null as ReturnType<typeof setTimeout> | null, lastRun: 0 };
+    const throttleRef = {
+      timer: null as ReturnType<typeof setTimeout> | null,
+      lastRun: 0,
+      force: false,
+    };
     /**
      * Schedule a throttled reload: at most one load per 2-second window, with a trailing call so
      * the view still catches up after a burst of WebSocket messages.
      */
-    const scheduleLoad = () => {
+    const scheduleLoad = (force = false) => {
+      throttleRef.force ||= force;
       if (throttleRef.timer) return; // trailing run already scheduled
       const wait = Math.max(0, THROTTLE_MS - (Date.now() - throttleRef.lastRun));
       throttleRef.timer = setTimeout(() => {
         throttleRef.timer = null;
         throttleRef.lastRun = Date.now();
-        load();
+        const refresh = throttleRef.force;
+        throttleRef.force = false;
+        load(refresh);
       }, wait);
     };
     const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
@@ -1181,7 +1239,7 @@ export function Dashboard() {
         msg.type === "session_updated" ||
         isRemoteDataRefreshMessage(msg)
       ) {
-        scheduleLoad();
+        scheduleLoad(isRemoteDataRefreshMessage(msg));
       }
       if (msg.type === "new_event") {
         const newEvent = msg.data as DashboardEvent;
@@ -1243,12 +1301,12 @@ export function Dashboard() {
     return { childrenByParent, getDescendants };
   }, [allSubagents]);
 
-  if (error) {
+  if (error && totalCost === null && stats === null) {
     return (
       <div className="text-center py-20">
         <p className="text-red-400 mb-2">{t("failedConnect")}</p>
         <p className="text-sm text-gray-500">{error}</p>
-        <button onClick={load} className="btn-primary mt-4">
+        <button onClick={() => void load(true)} className="btn-primary mt-4">
           {t("common:retry")}
         </button>
       </div>
@@ -1304,7 +1362,7 @@ export function Dashboard() {
               <Server className="w-3.5 h-3.5" /> {t("tabs.health")}
             </button>
           </div>
-          <button onClick={load} className="btn-ghost flex-shrink-0">
+          <button onClick={() => void load(true)} className="btn-ghost flex-shrink-0">
             <RefreshCw className="w-4 h-4" /> {t("common:refresh")}
           </button>
         </div>
@@ -1355,7 +1413,7 @@ export function Dashboard() {
             />
             <StatCard
               label={t("totalCost")}
-              value={totalCost !== null ? fmtCost(totalCost) : ""}
+              value={totalCost !== null ? fmtCostFull(totalCost) : ""}
               raw={
                 totalCost !== null
                   ? `$${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -1367,6 +1425,18 @@ export function Dashboard() {
             />
           </div>
 
+          <CostCoverage scope={scope} unpriced={unpriced} />
+          {error && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"
+            >
+              <p>{error}</p>
+              <button onClick={() => void load(true)} className="btn-primary mt-2">
+                {t("common:retry")}
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 min-w-0 flex-1 min-h-0">
             {/* Active agents */}
             <div ref={agentsContainerRef} className="min-w-0 overflow-y-auto pr-6">
