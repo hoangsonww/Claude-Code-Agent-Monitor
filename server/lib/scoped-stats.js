@@ -30,6 +30,13 @@ function sessionSubquery(sources, providers) {
   return { sql: `SELECT id FROM sessions ${scope.where}`, params: scope.params };
 }
 
+const GLOBAL_STATS_SQL = `SELECT
+  (SELECT COUNT(*) FROM sessions) as total_sessions,
+  (SELECT COUNT(*) FROM sessions WHERE status = 'active') as active_sessions,
+  (SELECT COUNT(*) FROM agents WHERE status IN ('working', 'waiting')) as active_agents,
+  (SELECT COUNT(*) FROM agents) as total_agents,
+  (SELECT COUNT(*) FROM events) as total_events`;
+
 function statsOverview(db, sources, providers) {
   const scope = sessionScope(sources, providers);
   const sessions = `SELECT id FROM sessions ${scope.where}`;
@@ -182,6 +189,7 @@ function scopedTokenUsageWithDate(db, sources, providers) {
 }
 
 module.exports = {
+  GLOBAL_STATS_SQL,
   statsOverview,
   agentStatusCounts,
   sessionStatusCounts,
