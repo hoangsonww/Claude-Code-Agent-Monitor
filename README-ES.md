@@ -779,6 +779,8 @@ Si `ccam` no está en `PATH`, ejecuta `npm link` una vez desde la raíz del repo
 
 ---
 
+Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
+
 ## Extensión de agentes
 
 Este repositorio incluye una capa de extensión integral tanto para Claude Code como para Codex:

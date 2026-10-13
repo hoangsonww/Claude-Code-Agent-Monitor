@@ -7827,3 +7827,23 @@ Object.assign(window.__WIKI_CONTENT_I18N.es, {
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Intervalo de seguridad para chats/transcripciones de Cursor (ms). El observador incorpora de inmediato el inicio del CLI y los cambios de prompt; <code>0</code> solo desactiva el descubrimiento periódico.",
 });
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "远程重试会在再次检查时显示上次错误。同步成功后清除；失败时保留先前导入的历史。",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Khi kiểm tra lại nguồn từ xa, lỗi gần nhất vẫn hiển thị. Đồng bộ thành công sẽ xóa lỗi; nếu thất bại, lịch sử đã nhập vẫn được giữ nguyên.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "원격 재시도 중에는 마지막 오류가 계속 표시됩니다. 동기화 성공 시 오류를 지우며, 실패해도 이전에 가져온 기록은 보존됩니다.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Los reintentos remotos muestran el último error mientras vuelven a comprobar. Una sincronización exitosa lo borra; un fallo conserva el historial ya importado.",
+});
