@@ -461,6 +461,7 @@ Scope, precisely:
 | `import-history` | `npm run import-history` | Import legacy sessions from `~/.claude/` (also runs on startup) |
 | `reconcile-tokens` | `npm run reconcile-tokens` | Refresh token totals for imported sessions (never lowers a total) |
 | `repair-tokens` | `npm run repair-tokens` | Re-derive non-workflow token totals for every Claude session with a transcript on disk and zero the compaction baselines, preserving workflow and Codex rows (one-time fix for pre-v2.0.9 inflation; stop the dashboard first) |
+| `repair-codex-output` | `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out new-plan.json` | Preview correction of double-counted Codex reasoning output. Stop the monitor before `--apply --journal new-backup.json`; explicit database and new, durable journal required. Ambiguous histories remain untouched. |
 | `mcp:install` | `npm run mcp:install` | Install MCP package dependencies |
 | `mcp:build` | `npm run mcp:build` | Build MCP server into `mcp/build/` |
 | `mcp:start` | `npm run mcp:start` | Start MCP server (stdio, for MCP hosts) |

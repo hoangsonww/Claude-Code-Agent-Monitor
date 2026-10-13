@@ -1571,7 +1571,16 @@ function isErrorAtTail(result) {
   return lastErrorTs >= result.lastTurnTs; // error is the latest activity ⇒ unrecovered
 }
 
+let pendingWatchdog = null;
 function watchdogCheck() {
+  if (pendingWatchdog) return pendingWatchdog;
+  const pending = watchdogTick().finally(() => {
+    pendingWatchdog = null;
+  });
+  pendingWatchdog = pending;
+  return pending;
+}
+async function watchdogTick() {
   try {
     const os = require("os");
     const path = require("path");
@@ -1591,6 +1600,7 @@ function watchdogCheck() {
                  ORDER BY e.created_at DESC LIMIT 1) as last_data
          FROM sessions s
          WHERE s.status IN ('active', 'error') AND s.updated_at < ?
+           AND (s.provider IN ('claude', 'cursor') OR s.provider IS NULL)
            AND (s.source = 'local' OR s.source IS NULL)`
       )
       .all(cutoff);
@@ -1787,8 +1797,8 @@ function watchdogCheck() {
     //     sessions never flicker out on a transient mismatch. A false
     //     completion self-heals anyway: the next hook event reactivates the
     //     session via the existing needsReactivation path.
-    livenessReap();
-    livenessReap({ provider: "codex" });
+    await livenessReapAsync();
+    await livenessReapAsync({ provider: "codex" });
   } catch (err) {
     // Watchdog is best-effort — log but never crash the server
     console.warn("[WATCHDOG] Error during check:", err?.message || err);
@@ -1811,7 +1821,70 @@ function watchdogCheck() {
  * existing reactivation path. Watchdog ticks keep the gate, where it still
  * guards long-running steady-state work against transient probe misses.
  */
-function livenessReap({ ignoreIdleGate = false, provider = "claude" } = {}) {
+function livenessCandidates(provider) {
+  return db
+    .prepare(
+      `SELECT id, name, cwd, transcript_path, updated_at,
+    source, provider, awaiting_input_since, awaiting_reason FROM sessions
+    WHERE status = 'active' AND (source = 'local' OR source IS NULL)
+      AND COALESCE(provider, 'claude') = ?
+      AND ((cwd IS NOT NULL AND cwd <> '') OR (? = 'codex' AND transcript_path IS NOT NULL))`
+    )
+    .all(provider, provider);
+}
+function livenessEpoch(session) {
+  let transcript = null;
+  if (session.transcript_path) {
+    try {
+      const stat = require("node:fs").statSync(session.transcript_path);
+      transcript = [stat.dev, stat.ino, stat.size, stat.mtimeMs];
+    } catch (err) {
+      if (err.code !== "ENOENT" && err.code !== "ENOTDIR") return null;
+      /* Confirmed absence is rechecked before applying the decision. */
+    }
+  }
+  const event = db.prepare("SELECT MAX(id) AS id FROM events WHERE session_id = ?").get(session.id);
+  const agents = db
+    .prepare(
+      `SELECT id, name, type, subagent_type, status, current_tool,
+    task, started_at, ended_at, parent_agent_id, updated_at,
+    awaiting_input_since, awaiting_reason FROM agents WHERE session_id = ? ORDER BY id`
+    )
+    .all(session.id);
+  return JSON.stringify([session, transcript, event.id, agents]);
+}
+const pendingReaps = new Map();
+function livenessReapAsync(options = {}) {
+  const provider = options.provider || "claude";
+  // A boot pass bypasses the idle gate; it must not be served by a gated run.
+  const key = `${provider}:${options.ignoreIdleGate ? "boot" : "gated"}`;
+  if (pendingReaps.has(key)) return pendingReaps.get(key);
+  const pending = (async () => {
+    const candidates = livenessCandidates(provider);
+    if (!candidates.length) return;
+    const before = new Map();
+    for (const session of candidates) {
+      const epoch = livenessEpoch(session);
+      if (epoch !== null) before.set(session.id, epoch);
+    }
+    const [probe, rollouts] = await Promise.all([
+      liveness.probeLiveCwdsAsync(provider === "codex" ? "codex" : "claude"),
+      provider === "codex" ? liveness.probeLiveCodexRolloutsAsync() : null,
+    ]);
+    if (!probe.available && !rollouts?.available) return;
+    livenessReap({ ...options, provider, _probe: probe, _rollouts: rollouts, _before: before });
+  })().finally(() => pendingReaps.delete(key));
+  pendingReaps.set(key, pending);
+  return pending;
+}
+
+function livenessReap({
+  ignoreIdleGate = false,
+  provider = "claude",
+  _probe,
+  _rollouts,
+  _before,
+} = {}) {
   const fs = require("fs");
   const path = require("path");
   const cli = provider === "codex" ? "codex" : "claude";
@@ -1823,22 +1896,20 @@ function livenessReap({ ignoreIdleGate = false, provider = "claude" } = {}) {
   // catch them. Their liveness is owned entirely by the sync/import path
   // (server/lib/remote-sync.js reconciles their status from the mirrored
   // transcript), so the local process probe must leave them alone.
-  const activeSessions = db
-    .prepare(
-      `SELECT id, name, cwd, transcript_path, updated_at FROM sessions
-       WHERE status = 'active'
-         AND (source = 'local' OR source IS NULL)
-         AND COALESCE(provider, 'claude') = ?
-         AND ((cwd IS NOT NULL AND cwd <> '') OR (? = 'codex' AND transcript_path IS NOT NULL))`
-    )
-    .all(provider, provider);
+  const activeSessions = livenessCandidates(provider);
   if (activeSessions.length === 0) return; // nothing to check — skip the ps/lsof cost
 
-  const probe = liveness.probeLiveCwds(cli);
-  const rolloutProbe = provider === "codex" ? liveness.probeLiveCodexRollouts() : null;
+  const probe = _probe || liveness.probeLiveCwds(cli);
+  const rolloutProbe = _probe
+    ? _rollouts
+    : provider === "codex"
+      ? liveness.probeLiveCodexRollouts()
+      : null;
   if (!probe.available && !rolloutProbe?.available) return;
   const now = Date.now();
   for (const sess of activeSessions) {
+    if (_before && (!_before.has(sess.id) || _before.get(sess.id) !== livenessEpoch(sess)))
+      continue;
     if (rolloutProbe?.available && sess.transcript_path) {
       if (rolloutProbe.paths.has(path.resolve(sess.transcript_path))) continue;
     } else {
@@ -2504,6 +2575,7 @@ if (watchdogTimer.unref) watchdogTimer.unref();
 router.transcriptCache = transcriptCache;
 router.watchdogCheck = watchdogCheck;
 router.livenessReap = livenessReap;
+router.livenessReapAsync = livenessReapAsync;
 // Exposed as a narrow test seam for version-variant Codex hook payloads.
 router.codexTranscriptPath = codexTranscriptPath;
 module.exports = router;

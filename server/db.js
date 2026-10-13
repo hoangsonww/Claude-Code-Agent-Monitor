@@ -723,6 +723,8 @@ const DEFAULT_GPT_PRICING = [
   // gpt-5 patterns so Codex rollout records are priced rather than reported
   // as unpriced usage.
   gptRate("gpt-6-astra%", "GPT-6 Astra", [10, 1, 12.5, 50], [20, 2, 25, 100], [20, 2, 25, 75]),
+  // Rates checked 2026-10-10: https://developers.openai.com/api/docs/pricing
+  gptRate("gpt-6.1-sol%", "GPT-6.1 Sol", [2, 0.1, 2.5, 10], [4, 0.2, 5, 20], [4, 0.2, 5, 15]),
   gptRate("gpt-6-sol%", "GPT-6 Sol", [2, 0.2, 2.5, 10], [4, 0.4, 5, 20], [4, 0.4, 5, 15]),
   gptRate(
     "gpt-6-luna%",
@@ -856,6 +858,7 @@ seedCursorPricing();
 // values avoid applying a guessed multiplier to unsupported model/tier pairs.
 const GPT_FAST_LONG_RATES = {
   "gpt-6-astra%": [40, 4, 50, 150],
+  "gpt-6.1-sol%": [8, 0.4, 10, 30],
   "gpt-6-sol%": [8, 0.8, 10, 30],
   "gpt-6-luna%": [0.4, 0.04, 0.5, 1.5],
   "gpt-5.6-sol%": [16, 1.6, 20, 60],
@@ -894,6 +897,21 @@ function seedGptPricing(dbHandle = db) {
     const setLong = dbHandle.prepare(`UPDATE gpt_model_pricing SET
       ${GPT_FAST_LONG_FIELDS.map((field) => `${field} = ?`).join(", ")} WHERE model_pattern = ?`);
     for (const row of rows) {
+      // A previously configured broad rule is a user pricing choice, too.
+      // Do not shadow it when introducing this newly published model default.
+      if (
+        row[0] === "gpt-6.1-sol%" &&
+        dbHandle
+          .prepare("SELECT model_pattern FROM gpt_model_pricing")
+          .all()
+          .some((rule) => {
+            const expression = String(rule.model_pattern)
+              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+              .replace(/%/g, ".*");
+            return new RegExp(`^${expression}$`, "i").test("gpt-6.1-sol");
+          })
+      )
+        continue;
       if (insert.run(...row).changes) {
         setLong.run(...(GPT_FAST_LONG_RATES[row[0]] || [0, 0, 0, 0]), row[0]);
       }
@@ -1658,6 +1676,35 @@ const CARD_PROMPT_PREVIEW_SQL = `COALESCE(
   )
 )`;
 
+/** Bounded SQLite 3.46+ statistics maintenance; never fall back to a full ANALYZE. */
+function optimizeQueryPlanner(connection = db) {
+  try {
+    const version = connection.prepare("SELECT sqlite_version() AS version").get().version;
+    const [major, minor] = String(version).split(".").map(Number);
+    if (
+      !Number.isInteger(major) ||
+      !Number.isInteger(minor) ||
+      major < 3 ||
+      (major === 3 && minor < 46)
+    )
+      return false;
+    const started = performance.now();
+    console.error(`[db] Optimizing query planner statistics (SQLite ${version})`);
+    connection.pragma("optimize(0x10002)");
+    console.error(
+      `[db] Query planner statistics ready in ${Math.round(performance.now() - started)}ms`
+    );
+    return true;
+  } catch (error) {
+    console.warn("[db] query planner optimization skipped:", error?.message || error);
+    return false;
+  }
+}
+
+// All migrations/index creation have finished. Prepared statements below should
+// be planned using the actual distribution of a populated history database.
+optimizeQueryPlanner();
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -1934,14 +1981,7 @@ const stmts = {
     "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
   ),
 
-  stats: db.prepare(`
-    SELECT
-      (SELECT COUNT(*) FROM sessions) as total_sessions,
-      (SELECT COUNT(*) FROM sessions WHERE status = 'active') as active_sessions,
-      (SELECT COUNT(*) FROM agents WHERE status IN ('working', 'waiting')) as active_agents,
-      (SELECT COUNT(*) FROM agents) as total_agents,
-      (SELECT COUNT(*) FROM events) as total_events
-  `),
+  stats: db.prepare(require("./lib/scoped-stats").GLOBAL_STATS_SQL),
   agentStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status"),
   sessionStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM sessions GROUP BY status"),
 
@@ -2437,7 +2477,94 @@ const stmts = {
   ),
 };
 
+// Heavy HTTP counts use a lazy read-only worker. In-memory databases retain
+// their existing synchronous connection; a different worker cannot share them.
+const { ReadonlyQuery, databaseGeneration } = require("./lib/readonly-query");
+const queryReader = DB_PATH === ":memory:" ? null : new ReadonlyQuery(DB_PATH);
+const closeDatabase = db.close.bind(db);
+db.close = () => {
+  if (queryReader) queryReader.close();
+  return closeDatabase();
+};
+
+function readCountQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader) return Promise.resolve(db.prepare(sql).get(...params));
+  return queryReader.read({ op: "get", sql, params }, databaseGeneration(db));
+}
+
+function readRowsQuery(sql, params = []) {
+  sql = sql.trim();
+  if (!queryReader) return Promise.resolve(db.prepare(sql).all(...params));
+  return queryReader.read({ op: "all", sql, params }, databaseGeneration(db));
+}
+
+function readEventPageSync(page, count) {
+  return db.transaction(() => {
+    const events = db.prepare(page.sql).all(...(page.params || []));
+    const { count: total } = db.prepare(count.sql).get(...(count.params || []));
+    return { events, total };
+  })();
+}
+
+// Page payloads and their exact total must describe one SQLite snapshot, even
+// when a hook commits between the page query and count/counter resolution.
+// The worker measures payload bytes first; a page too large for its heap is
+// read here on the main thread, exactly as it was before the worker existed.
+function readEventPageQuery(page, count) {
+  page = { ...page, sql: page.sql.trim() };
+  count = { ...count, sql: count.sql.trim() };
+  if (!queryReader) return Promise.resolve(readEventPageSync(page, count));
+  const measured = {
+    ...page,
+    sizeSql: `SELECT id, IFNULL(length(CAST(summary AS BLOB)), 0) + IFNULL(length(CAST(data AS BLOB)), 0) AS bytes FROM (${page.sql})`,
+    fetchSql: "SELECT * FROM events WHERE id IN (SELECT value FROM json_each(?))",
+  };
+  return queryReader.read({ op: "eventPage", page: measured, count }, databaseGeneration(db)).then(
+    (result) => (result.overflow ? readEventPageSync(page, count) : result),
+    (error) => {
+      if (error?.cause?.code === "ERR_WORKER_OUT_OF_MEMORY") return readEventPageSync(page, count);
+      throw error;
+    }
+  );
+}
+
+function readDashboardStats(sources, providers, toLocal, toUTC) {
+  if (!queryReader) {
+    const scoped = require("./lib/scoped-stats");
+    const isScoped = !!sources || !!providers;
+    return Promise.resolve({
+      ...(isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get()),
+      events_today: (isScoped
+        ? scoped.countEventsToday(db, sources, providers, toLocal, toUTC)
+        : stmts.countEventsToday.get(toLocal, toUTC)
+      ).count,
+      agents_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.agentStatusCounts(db, sources, providers)
+          : stmts.agentStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+      sessions_by_status: Object.fromEntries(
+        (isScoped
+          ? scoped.sessionStatusCounts(db, sources, providers)
+          : stmts.sessionStatusCounts.all()
+        ).map((row) => [row.status, row.count])
+      ),
+    });
+  }
+  return queryReader.read(
+    { op: "stats", sources, providers, toLocal, toUTC },
+    databaseGeneration(db)
+  );
+}
+
 module.exports = {
+  optimizeQueryPlanner,
+  readCountQuery,
+  readRowsQuery,
+  readEventPageQuery,
+  readDashboardStats,
   db,
   stmts,
   DB_PATH,
