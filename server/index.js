@@ -7,30 +7,7 @@
 if (!process.env.NODE_ENV) process.env.NODE_ENV = "production";
 
 // Load .env file (simple key=value, no external dependency needed)
-(function loadDotEnv() {
-  const fs = require("fs");
-  const os = require("os");
-  const path = require("path");
-  const envPath = path.resolve(
-    process.env.DASHBOARD_ENV_PATH || path.resolve(__dirname, "..", ".env")
-  );
-  if (!fs.existsSync(envPath)) return;
-  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    let val = trimmed.slice(eqIdx + 1).trim();
-    // Strip surrounding quotes (single or double)
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    if (!process.env[key]) {
-      process.env[key] = val.replace(/^~(?=\/)/, os.homedir());
-    }
-  }
-})();
+require("./lib/dotenv").loadDotEnv();
 
 const express = require("express");
 const cors = require("cors");
@@ -700,6 +677,7 @@ function startCursorSessionSync(broadcast, options = {}) {
  * shutdown; overlapping ticks queue one follow-up sweep (same as local sync).
  */
 function startRemoteSourceSync(broadcast) {
+  require("./lib/remote-sync").recoverInterruptedSyncs(require("./db"));
   const POLL_MS = process.env.DASHBOARD_REMOTE_SYNC_MS
     ? Number(process.env.DASHBOARD_REMOTE_SYNC_MS)
     : 15_000;
@@ -874,6 +852,15 @@ function createIngestRetryBudget(maxAttempts) {
   };
 }
 
+/**
+ * A rollout whose session another source or provider owns cannot become
+ * importable by retrying the same bytes, so the live sweep records it as done
+ * for this fingerprint instead of spending the transient-failure retry budget.
+ */
+function isCodexForeignSessionError(err) {
+  return err?.code === require("./lib/codex-ingest").CODEX_FOREIGN_SESSION;
+}
+
 function startCodexSessionSync(broadcast) {
   const fs = require("fs");
   const { getCodexHome, getCodexSessionsDir, onCodexHomeChanged } = require("./lib/codex-home");
@@ -983,12 +970,17 @@ function startCodexSessionSync(broadcast) {
               retryBudget.succeed(ingestKey);
             }
           } catch (err) {
-            noteIngestFailure(
-              ingestKey,
-              fingerprint,
-              `Failed to ingest ${path.basename(transcriptPath)}`,
-              err.message
-            );
+            if (isCodexForeignSessionError(err)) {
+              fingerprints.set(transcriptPath, fingerprint);
+              retryBudget.succeed(ingestKey);
+            } else {
+              noteIngestFailure(
+                ingestKey,
+                fingerprint,
+                `Failed to ingest ${path.basename(transcriptPath)}`,
+                err.message
+              );
+            }
           }
         }
         const toolKey = `tools:${transcriptPath}`;
@@ -1026,13 +1018,18 @@ function startCodexSessionSync(broadcast) {
               retryBudget.succeed(toolKey);
             }
           } catch (err) {
-            toolIngestFailed.add(transcriptPath);
-            noteIngestFailure(
-              toolKey,
-              fingerprint,
-              `Failed to index tools for ${path.basename(transcriptPath)}`,
-              err.message
-            );
+            if (isCodexForeignSessionError(err)) {
+              toolIngestFailed.delete(transcriptPath);
+              retryBudget.succeed(toolKey);
+            } else {
+              toolIngestFailed.add(transcriptPath);
+              noteIngestFailure(
+                toolKey,
+                fingerprint,
+                `Failed to index tools for ${path.basename(transcriptPath)}`,
+                err.message
+              );
+            }
           }
         }
         // Cold history can contain hundreds of large JSONL files. Yielding in
@@ -1646,5 +1643,7 @@ module.exports = {
   startCursorSessionSync,
   codexHomeChangeTriggersSweep,
   createIngestRetryBudget,
+  isCodexForeignSessionError,
+  startCodexSessionSync,
   repairInflatedTokenTotals,
 };
