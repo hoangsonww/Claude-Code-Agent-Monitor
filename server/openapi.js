@@ -2353,6 +2353,63 @@ function createOpenApiSpec() {
           },
         },
       },
+      "/api/hooks/ingest-transcript": {
+        post: {
+          tags: ["Hooks"],
+          summary: "Upload a Claude Code transcript file from a roaming/NAT'd machine",
+          description:
+            "Companion to /api/hooks/ingest-batch. Appends raw JSONL (main transcript or subagent file) to the server's Claude projects directory in Claude Code's own layout, so tokens, compactions, titles, the transcript viewer and the subagent import work as for local sessions. Uploads are offset-based: a chunk is accepted only when `offset` equals the stored file size (otherwise 409 OFFSET_MISMATCH with the current `size`), so retries are idempotent. The session must already be registered via /api/hooks/ingest-batch (409 SESSION_NOT_REGISTERED) and must be remote-push owned (409 SESSION_LOCALLY_OWNED). Same REMOTE_PUSH_TOKEN auth as ingest-batch; disabled (503) until it is set.",
+          operationId: "ingestRemotePushTranscript",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["session_id", "rel_path", "offset", "content_b64"],
+                  properties: {
+                    provider: { type: "string", enum: ["claude"] },
+                    session_id: { type: "string" },
+                    rel_path: {
+                      type: "string",
+                      description:
+                        "Posix path under the projects dir: <project>/<session_id>.jsonl, or <project>/<session_id>/subagents/[workflows/<runId>/]<file>.jsonl.",
+                    },
+                    offset: {
+                      type: "integer",
+                      description: "Byte offset this chunk starts at; must equal the stored size.",
+                    },
+                    content_b64: {
+                      type: "string",
+                      description: "Strict base64 of at most 4 MiB of raw bytes.",
+                    },
+                    sync: {
+                      type: "boolean",
+                      description:
+                        "Set on the last chunk of a pass to re-derive tokens, titles and subagents once.",
+                    },
+                    cwd: { type: "string" },
+                    session_name: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: "Chunk appended; body is { ok, size }." },
+            400: { description: "Invalid input (session_id, rel_path, offset or base64)." },
+            401: { description: "Missing or invalid remote-push token." },
+            409: {
+              description: "OFFSET_MISMATCH, SESSION_NOT_REGISTERED or SESSION_LOCALLY_OWNED.",
+            },
+            413: {
+              description:
+                "CHUNK_TOO_LARGE or FILE_TOO_LARGE (REMOTE_TRANSCRIPT_MAX_FILE_MB, default 256).",
+            },
+            503: { description: "REMOTE_PUSH_TOKEN is not configured." },
+          },
+        },
+      },
       "/api/hooks/ingest-batch": {
         post: {
           tags: ["Hooks"],

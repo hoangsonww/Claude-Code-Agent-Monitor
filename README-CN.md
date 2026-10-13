@@ -343,7 +343,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **既有会话检测** | 启动导入会将最近修改的 Transcript 标记为活跃；之后到达的 Stop 事件会先重新激活已导入的 completed 或 abandoned 会话，再更新状态。 |
 | **连续项目同步** | 立即启动扫描、防抖文件系统监听器与 `DASHBOARD_SESSION_SYNC_MS` 轮询共用 mtime 缓存和合并扫描，默认 30 秒。只重新解析新增或有进展的文件，监听范围适配 Linux，并实时广播会话。 |
 | **远程数据源** | SSH 数据源通过 `scp` 或 WSL `tar` 分别镜像 Claude 和 Codex 主目录，标记 `sessions.source`，协调生命周期，并在任一 Provider 正常时保持健康。默认每 15 秒轮询；陈旧回退仅影响失败的 Provider。凭据保留在宿主 SSH 中。 |
-| **远程推送摄取** | `POST /api/hooks/ingest-batch` 支持 NAT 后方的机器。配置 `REMOTE_PUSH_TOKEN` 前保持禁用，拒绝查询字符串 Token 和本机拥有的会话，每批最多 1000 项，按 `(session_id, event_type, uuid)` 去重，返回逐项部分错误，并且只在提交后广播。 |
+| **远程推送摄取** | `POST /api/hooks/ingest-batch` 从 NAT 后方机器发送会话总计和事件，`POST /api/hooks/ingest-transcript` 则补充经过偏移量校验的主 Agent 与 Subagent JSONL，用于标题、历史记录、Token 和 Subagent 导入。两者在配置 `REMOTE_PUSH_TOKEN` 或 `REMOTE_PUSH_TOKEN_FILE` 前均保持禁用，并拒绝查询字符串凭据和本机拥有的会话；`ingest-transcript` 会在其较大的解析器运行前完成认证。 |
 | **响应式设计** | 移动端布局会堆叠网格、滚动宽表格并收起导航。 |
 | **UI 本地化** | 英语、中文、越南语、韩语和西班牙语覆盖 UI 文案、无障碍标签、工作流说明与 Tooltip、模型定价指引、Provider 主目录和 Import History。 |
 | **示例数据** | 内置脚本提供贴近实际的演示和开发数据。 |
@@ -644,7 +644,8 @@ flowchart LR
 | `DASHBOARD_TOKEN` | 未设置 | 通过 Bearer Header、`x-dashboard-token` 或 `?token=` 保护 `/api/*` 和 WebSocket。默认信任边界为 loopback。 |
 | `DASHBOARD_TOKEN_FILE` | 未设置 | 用于 Docker/Kubernetes Secret 的文件型 Dashboard Token；`DASHBOARD_TOKEN` 优先。 |
 | `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | 未设置 | 对 `/api/hooks/event` 和 `/api/hooks/codex` 提供超出 loopback 的独立保护。 |
-| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | 未设置 | 单独把守公网 `POST /api/hooks/ingest-batch`。该路由默认禁用，且绝不继承本地 Hook Token。 |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | 未设置 | 单独把守公网 `POST /api/hooks/ingest-batch` 和 `/api/hooks/ingest-transcript`。两条路由默认禁用，且绝不继承本地 Hook Token。 |
+| `REMOTE_TRANSCRIPT_MAX_FILE_MB` | `256` | `ingest-transcript` 接受的每个文件的最大存储大小（MiB）；每个请求分块另行限制为 4 MiB。 |
 | `DASHBOARD_ALLOWED_HOSTS` | loopback | DNS 重绑定防护允许的额外逗号分隔 HTTP 和 WebSocket `Host` 值。 |
 | `DASHBOARD_ENV_PATH` | 仓库 `.env` | 用于持久化 Provider 主目录覆盖值的可写 dotenv 文件；容器默认使用 `/app/config/.env`。 |
 | `CCAM_DASHBOARD_URL` | localhost 发现 | 远程 Hook 目标。非 loopback URL 需要 HTTPS 和 Hook Token。 |
@@ -1093,6 +1094,7 @@ API 文档现已**全面覆盖**：每个后端路由都有文档说明（共 82
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | 接收并处理 Claude Code Hook 事件 |
 | `POST` | `/api/hooks/ingest-batch` | 由处于漫游/NAT 后方的机器推送一批会话数据（默认禁用；参见下文的 `REMOTE_PUSH_TOKEN` 以及 `server/README.md` 中完整的载荷结构） |
+| `POST` | `/api/hooks/ingest-transcript` | 以基于偏移量的分块方式上传远程机器的 transcript JSONL（使用同一个 `REMOTE_PUSH_TOKEN`；会话须先通过 `ingest-batch` 注册） |
 
 **Hook 事件载荷：**
 
