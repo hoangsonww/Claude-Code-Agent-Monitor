@@ -3048,3 +3048,5 @@ make docker-down    Stop docker-compose stack
 ```
 
 See `Makefile` for the complete set of 30 targets covering setup, dev, testing, formatting, MCP, data management, Codex extensions, and Docker/Podman workflows.
+
+Settings coalesces bursts of remote completion notifications into a shared full reload. If another completion arrives during that reload, it performs one follow-up; changing scope or leaving the page cancels queued work. System-info polling continues independently.
