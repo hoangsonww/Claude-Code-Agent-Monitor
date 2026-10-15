@@ -118,6 +118,18 @@ describe("locale-aware date formatting", () => {
     await i18n.changeLanguage("es");
     expect(getCurrentLocale()).toBe("es-ES");
 
+    await i18n.changeLanguage("fr");
+    expect(getCurrentLocale()).toBe("fr-FR");
+
+    await i18n.changeLanguage("de");
+    expect(getCurrentLocale()).toBe("de-DE");
+
+    await i18n.changeLanguage("pt");
+    expect(getCurrentLocale()).toBe("pt-BR");
+
+    await i18n.changeLanguage("it");
+    expect(getCurrentLocale()).toBe("it-IT");
+
     await i18n.changeLanguage("en");
     expect(getCurrentLocale()).toBe("en-US");
   });

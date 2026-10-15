@@ -1,0 +1,80 @@
+{
+  "title": "Warnungen",
+  "subtitle": "Regelbasierte Warnungen für Sitzungen, Agents, Ereignisse und Token-Verbrauch",
+  "refresh": "Aktualisieren",
+  "ackAll": "Alle bestätigen ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Ereignismuster",
+    "inactivity": "Inaktivität",
+    "status_duration": "Hängender Agent",
+    "token_threshold": "Token-Schwelle"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Wird ausgelöst, wenn ein eingehendes Ereignis dem Muster entspricht. Setzen Sie die Anzahl über 1, um N passende Ereignisse innerhalb eines Zeitfensters zu verlangen (z. B. mehr als 5 Fehler in 2 Minuten).",
+    "inactivity": "Wird ausgelöst, wenn eine aktive Sitzung während der konfigurierten Minutenzahl keine Ereignisse erhalten hat.",
+    "status_duration": "Wird ausgelöst, wenn ein Agent während der konfigurierten Minutenzahl ohne Aktivität im gewählten Status verblieben ist.",
+    "token_threshold": "Wird ausgelöst, wenn der gesamte Token-Verbrauch einer Sitzung (Eingabe + Ausgabe + Cache) die Schwelle überschreitet."
+  },
+  "ruleDesc": {
+    "eventPattern": "Entspricht {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} innerhalb von {{window}} min",
+    "inactivity": "Keine Sitzungsaktivität seit {{minutes}} min",
+    "statusDuration": "Agent hängt seit {{minutes}} min in {{status}}",
+    "tokenThreshold": "Sitzungs-Tokens übersteigen {{tokens}}"
+  },
+  "rules": {
+    "title": "Warnregeln",
+    "add": "Regel hinzufügen",
+    "cancel": "Abbrechen",
+    "create": "Regel erstellen",
+    "saving": "Wird gespeichert…",
+    "empty": "Noch keine Warnregeln. Fügen Sie eine hinzu, um hängende Agents, Fehlerhäufungen, untätige Sitzungen oder Token-Spitzen zu überwachen.",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "enable": "Regel aktivieren",
+    "disable": "Regel deaktivieren",
+    "delete": "Regel löschen",
+    "confirmDelete": "Regel „{{name}}“ und ihren Warnverlauf löschen?",
+    "cooldown": "{{seconds}} s Abklingzeit",
+    "form": {
+      "name": "Regelname",
+      "namePlaceholder": "z. B. Fehlerhäufung",
+      "type": "Regeltyp",
+      "eventType": "Ereignistyp (exakt)",
+      "toolName": "Tool-Name (exakt)",
+      "summaryContains": "Zusammenfassung enthält",
+      "count": "Auslöseanzahl",
+      "windowMinutes": "Zeitfenster (Minuten)",
+      "agentStatus": "Agent-Status",
+      "minutes": "Minuten",
+      "totalTokens": "Tokens gesamt",
+      "cooldown": "Abklingzeit (Sekunden)"
+    },
+    "deleteTitle": "Warnregel löschen?",
+    "help": {
+      "name": "Eine Bezeichnung für diese Regel. Sie erscheint im Warn-Feed und in Webhook-Payloads (rule_name). z. B. „Wiederholte Bash-Fehler“.",
+      "type": "Was diese Regel überwacht. event_pattern prüft den Live-Ereignisstrom; inactivity = eine aktive Sitzung verstummt; status_duration = ein Agent hängt in einem Zustand fest; token_threshold = der Token-Verbrauch einer Sitzung überschreitet ein Limit.",
+      "eventType": "Das Claude-Code-Hook-Ereignis, das erkannt werden soll. Leer lassen, um jeden Ereignistyp zu erfassen. Exakter Abgleich (Groß-/Kleinschreibung beachten).",
+      "toolName": "Das vom Agent aufgerufene Tool (bei PreToolUse-/PostToolUse-Ereignissen). Leer lassen, um jedes Tool zu erfassen. Exakter Abgleich.",
+      "summaryContains": "Teilstring-Abgleich ohne Beachtung der Groß-/Kleinschreibung im Zusammenfassungstext des Ereignisses. Nützlich, um Fehler oder bestimmte Formulierungen zu erfassen. Leer lassen, um zu überspringen.",
+      "count": "Wie viele passende Ereignisse auftreten müssen, bevor die Warnung ausgelöst wird. 1 = beim ersten Treffer auslösen. Über 1 setzen, um Häufungen zu erkennen (z. B. wiederholte Fehler).",
+      "window": "Das gleitende Rückblickfenster für die Anzahl. z. B. Anzahl 5 + Fenster 2 bedeutet „5 passende Ereignisse innerhalb beliebiger 2 Minuten“.",
+      "status": "Welcher Agent-Zustand überwacht wird. „working“ erfasst Agents, die mitten in einer Aufgabe hängen; „waiting“ erfasst Agents, die auf Eingabe/Berechtigung warten.",
+      "minutesInactivity": "Auslösen, wenn eine aktive Sitzung so viele Minuten lang keine Ereignisse hatte (eine hängende oder vergessene Sitzung).",
+      "minutesStatus": "Auslösen, wenn ein Agent so viele Minuten ohne Aktivität im gewählten Status bleibt (ein hängender Agent).",
+      "totalTokens": "Auslösen, wenn die kumulierten Tokens einer Sitzung (Eingabe + Ausgabe + Cache-Lesen + Cache-Schreiben) diese Zahl überschreiten. z. B. 1000000 = 1 Mio. Tokens.",
+      "cooldown": "Mindestanzahl Sekunden zwischen wiederholten Warnungen für dieselbe Regel + Sitzung + Agent. Verhindert störende Duplikate. Standard 300 (5 min); 0 = keine Abklingzeit."
+    }
+  },
+  "feed": {
+    "title": "Warn-Feed",
+    "unackedCount": "{{count}} unbestätigt",
+    "unackedOnly": "Nur unbestätigte",
+    "ack": "Bestätigen",
+    "viewSession": "Sitzung anzeigen",
+    "loadMore": "Mehr laden ({{shown}} von {{total}})",
+    "emptyTitle": "Keine Warnungen",
+    "emptyDescription": "Von Ihren Regeln ausgelöste Warnungen erscheinen hier in Echtzeit.",
+    "emptyUnacked": "Alles ist bestätigt. Neue Warnungen erscheinen hier, sobald sie ausgelöst werden."
+  }
+}

@@ -20,8 +20,9 @@ most common review comment on localization PRs. This file is the tie-breaker.
 `Agent` (alongside `Bash`, `Read`, `Edit`) is an identifier and stays literal in
 **every** locale, everywhere it appears — hook-event tables, tool lists, event
 names. The **UI noun** for an agent (`common:agent` / `common:subagent`) is
-product vocabulary with a per-locale contract, and only that noun has the
-Spanish exception below. Never carry the exception into the tool name.
+product vocabulary with a per-locale contract (literal or localized, per the
+table below), and only that noun follows it. Never carry a localized form into
+the tool name.
 
 **As product vocabulary, `Agent` and `Subagent` are not ordinary English
 words** — but the repo does not treat them identically in every locale, and
@@ -31,11 +32,17 @@ words** — but the repo does not treat them identically in every locale, and
 |---|---|---|
 | `zh` / `vi` / `ko` | `Agent` (literal) | `Subagent` (literal) |
 | `es` | `agente` | `subagente` |
+| `fr` | `agent` | `sous-agent` |
+| `de` | `Agent` (literal) | `Subagent` (literal) |
+| `pt` / `it` | `agente` | `subagente` |
 
-Spanish localizing the pair is deliberate and asserted, not drift — Spanish has
-no comfortable way to carry the bare English noun through inflected prose. So
-keep `Agent` literal in `zh`, `vi`, and `ko` (`运行 Agent`, `Chạy Agent`,
-`Agent 실행`) and follow the Spanish convention in `es` (`Ejecutar agente`).
+Each row is deliberate and asserted, not drift. The **literal** locales (`zh`,
+`vi`, `ko`, `de`) keep the English noun — German capitalizes nouns anyway, so
+`Agent` reads as native (`运行 Agent`, `Chạy Agent`, `Agent 실행`). The
+**localized** locales (`es`, `fr`, `pt`, `it`) use their own noun, because
+these languages have no comfortable way to carry the bare English noun through
+inflected prose (`Ejecutar agente` in `es`). Follow the row of the locale you
+are editing.
 **If you add a locale, decide this explicitly and add its row to the test** —
 do not leave it to whichever phrasing the first translated string happens to use.
 
@@ -46,33 +53,33 @@ needs no `wiki/i18n-content.js` entry — it correctly falls back to English.
 
 Established renderings. Match these; do not introduce a synonym.
 
-| English | `zh` | `vi` | `ko` | `es` |
-|---|---|---|---|---|
-| Dashboard | 仪表盘 | Tổng quan | 대시보드 | Panel |
-| Kanban Board | Kanban 看板 | Bảng Kanban | 칸반 보드 | Tablero Kanban |
-| Sessions | 会话 | Phiên | 세션 | Sesiones |
-| Activity Feed | 活动流 | Luồng hoạt động | 활동 피드 | Feed de Actividad |
-| Analytics | 分析 | Phân tích | 분석 | Analíticas |
-| Workflows | 工作流 | Quy trình | 워크플로 | Flujos |
-| Alerts | 警报 | Cảnh báo | 알림 | Alertas |
-| Agent Config | Agent 配置 | Cấu hình Agent | Agent 설정 | Configuración del agente |
-| Run Agent | 运行 Agent | Chạy Agent | Agent 실행 | Ejecutar agente |
-| Settings | 设置 | Cài đặt | 설정 | Configuración |
-| Live | 在线 | Trực tiếp | 실시간 | En vivo |
-| Disconnected | 已断开 | Mất kết nối | 연결 끊김 | Desconectado |
+| English | `zh` | `vi` | `ko` | `es` | `fr` | `de` | `pt` | `it` |
+|---|---|---|---|---|---|---|---|---|
+| Dashboard | 仪表盘 | Tổng quan | 대시보드 | Panel | Tableau de bord | Dashboard | Painel | Dashboard |
+| Kanban Board | Kanban 看板 | Bảng Kanban | 칸반 보드 | Tablero Kanban | Tableau Kanban | Kanban-Board | Quadro Kanban | Bacheca Kanban |
+| Sessions | 会话 | Phiên | 세션 | Sesiones | Sessions | Sitzungen | Sessões | Sessioni |
+| Activity Feed | 活动流 | Luồng hoạt động | 활동 피드 | Feed de Actividad | Flux d'activité | Aktivitäts-Feed | Feed de atividade | Feed attività |
+| Analytics | 分析 | Phân tích | 분석 | Analíticas | Analytique | Analysen | Análises | Analisi |
+| Workflows | 工作流 | Quy trình | 워크플로 | Flujos | Workflows | Workflows | Fluxos | Flussi |
+| Alerts | 警报 | Cảnh báo | 알림 | Alertas | Alertes | Warnungen | Alertas | Avvisi |
+| Agent Config | Agent 配置 | Cấu hình Agent | Agent 설정 | Configuración del agente | Configuration de l'agent | Agent-Konfiguration | Configuração do agente | Configurazione agente |
+| Run Agent | 运行 Agent | Chạy Agent | Agent 실행 | Ejecutar agente | Lancer un agent | Agent ausführen | Executar agente | Esegui agente |
+| Settings | 设置 | Cài đặt | 설정 | Configuración | Paramètres | Einstellungen | Configurações | Impostazioni |
+| Live | 在线 | Trực tiếp | 실시간 | En vivo | En direct | Live | Ao vivo | In diretta |
+| Disconnected | 已断开 | Mất kết nối | 연결 끊김 | Desconectado | Déconnecté | Getrennt | Desconectado | Disconnesso |
 
 ### Session status vocabulary
 
 These five values appear in filters, badges, charts, the Kanban columns, and
 every state-machine diagram in the docs. Keep them identical everywhere.
 
-| English | `zh` | `vi` | `ko` | `es` |
-|---|---|---|---|---|
-| Active | 活跃 | Đang hoạt động | 활성 | Activas |
-| Waiting | 等待中 | Đang chờ | 대기 중 | En espera |
-| Completed | 已完成 | Hoàn tất | 완료됨 | Completadas |
-| Error | 错误 | Lỗi | 오류 | Error |
-| Abandoned | 已废弃 | Bị bỏ dở | 중단됨 | Abandonadas |
+| English | `zh` | `vi` | `ko` | `es` | `fr` | `de` | `pt` | `it` |
+|---|---|---|---|---|---|---|---|---|
+| Active | 活跃 | Đang hoạt động | 활성 | Activas | Actives | Aktiv | Ativas | Attive |
+| Waiting | 等待中 | Đang chờ | 대기 중 | En espera | En attente | Wartend | Em espera | In attesa |
+| Completed | 已完成 | Hoàn tất | 완료됨 | Completadas | Terminées | Abgeschlossen | Concluídas | Completate |
+| Error | 错误 | Lỗi | 오류 | Error | Erreur | Fehler | Erro | Errore |
+| Abandoned | 已废弃 | Bị bỏ dở | 중단됨 | Abandonadas | Abandonnées | Abgebrochen | Abandonadas | Abbandonate |
 
 When adding a new locale, extend both tables in this file with its column before
 you start translating — deciding the vocabulary once up front is what keeps 15

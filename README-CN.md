@@ -71,12 +71,12 @@
 ![Auto Release](https://img.shields.io/badge/CI-auto--release_to_GitHub-22c55e?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-**语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`) · 韩语 (`ko`) · Español (`es`)
+**语言支持 / Language Support**: English (`en`) · 中文 (`zh`) · 越南语 (`vi`) · 韩语 (`ko`) · Español (`es`) · Français (`fr`) · Deutsch (`de`) · Português (`pt`) · Italiano (`it`)
 
-切换文档：[`README-EN.md`](./README-EN.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md)
+切换文档：[`README-EN.md`](./README-EN.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md) · [`README-FR.md`](./README-FR.md) · [`README-DE.md`](./README-DE.md) · [`README-PT.md`](./README-PT.md) · [`README-IT.md`](./README-IT.md)
 
 > [!NOTE]
-> 需要按任务查阅的帮助？[GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) 是面向日常使用、团队运维、故障排查、CLI/MCP 自动化和部署操作的实用手册。[本地化静态 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) 继续提供英语、越南语、中文、韩语和西班牙语的产品与架构导览；精确的技术契约仍以 [`docs/`](./docs/README.md) 为准。
+> 需要按任务查阅的帮助？[GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) 是面向日常使用、团队运维、故障排查、CLI/MCP 自动化和部署操作的实用手册。[本地化静态 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) 继续提供英语、越南语、中文、韩语、西班牙语、法语、德语、葡萄牙语和意大利语的产品与架构导览；精确的技术契约仍以 [`docs/`](./docs/README.md) 为准。
 
 ---
 
@@ -132,11 +132,11 @@ graph LR
 
 ### 多语言支持（i18n）
 
-Dashboard 内置多语言界面，支持 `en`、`zh`、`vi`、`ko`、`es` 五种语言，适用于跨语言协作和团队共享。语言选择使用自定义下拉菜单，便于未来继续扩展。
+Dashboard 内置多语言界面，支持 `en`、`zh`、`vi`、`ko`、`es`、`fr`、`de`、`pt`、`it` 九种语言，适用于跨语言协作和团队共享。语言选择使用自定义下拉菜单，便于未来继续扩展。
 
 ```mermaid
 flowchart LR
-    A["用户选择语言<br/>en / zh / vi / ko / es"] --> B["前端 i18n 路由"]
+    A["用户选择语言<br/>en / zh / vi / ko / es<br/>fr / de / pt / it"] --> B["前端 i18n 路由"]
     B --> C["翻译字典加载"]
     C --> D["UI 文案与可访问性标签渲染"]
     D --> E["实时仪表盘 / API 文档 / 设置页"]
@@ -345,7 +345,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **远程数据源** | SSH 数据源通过 `scp` 或 WSL `tar` 分别镜像 Claude 和 Codex 主目录，标记 `sessions.source`，协调生命周期，并在任一 Provider 正常时保持健康。默认每 15 秒轮询；陈旧回退仅影响失败的 Provider。凭据保留在宿主 SSH 中。 |
 | **远程推送摄取** | `POST /api/hooks/ingest-batch` 支持 NAT 后方的机器。配置 `REMOTE_PUSH_TOKEN` 前保持禁用，拒绝查询字符串 Token 和本机拥有的会话，每批最多 1000 项，按 `(session_id, event_type, uuid)` 去重，返回逐项部分错误，并且只在提交后广播。 |
 | **响应式设计** | 移动端布局会堆叠网格、滚动宽表格并收起导航。 |
-| **UI 本地化** | 英语、中文、越南语、韩语和西班牙语覆盖 UI 文案、无障碍标签、工作流说明与 Tooltip、模型定价指引、Provider 主目录和 Import History。 |
+| **UI 本地化** | 英语、中文、越南语、韩语、西班牙语、法语、德语、葡萄牙语和意大利语覆盖 UI 文案、无障碍标签、工作流说明与 Tooltip、模型定价指引、Provider 主目录和 Import History。 |
 | **示例数据** | 内置脚本提供贴近实际的演示和开发数据。 |
 | **状态栏** | 彩色 CLI 条显示模型、上下文、Git 分支、方向性 Token 和美元会话成本。 |
 | **模型名称格式化** | Claude、GPT 和 Gemini 标识符会移除 Provider、日期和 `latest` 后缀，合并数字版本并格式化上下文标签，转换为可读名称；Settings 保留原始定价模式。 |
@@ -1513,7 +1513,7 @@ Tabby 会在重要事件发生时自动显示简短台词，包括会话开始/�
 
 ### 无障碍与安全降级
 
-Tabby 支持键盘操作，气泡使用 `aria-live`，并遵循 `prefers-reduced-motion`。WebSocket 断开时，它会安全降级为平静的 `disconnected` 状态，而不会报错。可在 **Settings** 中启用或禁用 Tabby，该设置已本地化为英语、中文、越南语、韩语和西班牙语。实现位于 `client/src/components/Tabby/`。
+Tabby 支持键盘操作，气泡使用 `aria-live`，并遵循 `prefers-reduced-motion`。WebSocket 断开时，它会安全降级为平静的 `disconnected` 状态，而不会报错。可在 **Settings** 中启用或禁用 Tabby，该设置已本地化为英语、中文、越南语、韩语、西班牙语、法语、德语、葡萄牙语和意大利语。实现位于 `client/src/components/Tabby/`。
 
 ---
 
@@ -1551,7 +1551,7 @@ Dashboard 为实时会话活动提供**轻柔的音频反馈**，即使放在副
 
 ### 设置
 
-**Settings → Sound** 提供总开关、音量滑块和每种提示音的独立开关。开启某项时会立即播放对应提示音；**Preview Sound** 按钮可按需播放完成提示音。偏好保存在 `localStorage` 的 `agent-monitor-sound` 键中，并在整个应用内立即生效，无需重新加载。面板支持英语、中文、越南语、韩语和西班牙语。
+**Settings → Sound** 提供总开关、音量滑块和每种提示音的独立开关。开启某项时会立即播放对应提示音；**Preview Sound** 按钮可按需播放完成提示音。偏好保存在 `localStorage` 的 `agent-monitor-sound` 键中，并在整个应用内立即生效，无需重新加载。面板支持英语、中文、越南语、韩语、西班牙语、法语、德语、葡萄牙语和意大利语。
 
 默认开启会话开始、会话完成、会话错误、Claude Code 通知和交互滴答声；Subagent 启动与连接变化默认关闭，因为它们最频繁。实现位于 `client/src/lib/sound.ts` 和 `client/src/hooks/useSoundCues.ts`，并在 `client/src/App.tsx` 中挂载一次。
 

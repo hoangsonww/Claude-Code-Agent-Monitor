@@ -1,0 +1,80 @@
+{
+  "title": "Alertas",
+  "subtitle": "Alertas baseados em regras para sessões, agentes, eventos e uso de tokens",
+  "refresh": "Atualizar",
+  "ackAll": "Reconhecer todos ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Padrão de evento",
+    "inactivity": "Inatividade",
+    "status_duration": "Agente travado",
+    "token_threshold": "Limite de tokens"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Dispara quando um evento ingerido corresponde ao padrão. Defina uma contagem acima de 1 para exigir N eventos correspondentes em uma janela de tempo (por exemplo, mais de 5 erros em 2 minutos).",
+    "inactivity": "Dispara quando uma sessão ativa não recebeu eventos pelo número de minutos configurado.",
+    "status_duration": "Dispara quando um agente permaneceu no status selecionado, sem atividade, pelo número de minutos configurado.",
+    "token_threshold": "Dispara quando o uso total de tokens de uma sessão (entrada + saída + cache) ultrapassa o limite."
+  },
+  "ruleDesc": {
+    "eventPattern": "Corresponde a {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} em {{window}} min",
+    "inactivity": "Sem atividade na sessão há {{minutes}} min",
+    "statusDuration": "Agente travado em {{status}} há {{minutes}} min",
+    "tokenThreshold": "Os tokens da sessão ultrapassam {{tokens}}"
+  },
+  "rules": {
+    "title": "Regras de alerta",
+    "add": "Adicionar regra",
+    "cancel": "Cancelar",
+    "create": "Criar regra",
+    "saving": "Salvando…",
+    "empty": "Nenhuma regra de alerta ainda. Adicione uma para monitorar agentes travados, rajadas de erros, sessões ociosas ou picos de tokens.",
+    "enabled": "Ativada",
+    "disabled": "Desativada",
+    "enable": "Ativar regra",
+    "disable": "Desativar regra",
+    "delete": "Excluir regra",
+    "confirmDelete": "Excluir a regra \"{{name}}\" e seu histórico de alertas?",
+    "cooldown": "Intervalo de {{seconds}} s",
+    "form": {
+      "name": "Nome da regra",
+      "namePlaceholder": "ex.: Rajada de erros",
+      "type": "Tipo de regra",
+      "eventType": "Tipo de evento (exato)",
+      "toolName": "Nome da ferramenta (exato)",
+      "summaryContains": "O resumo contém",
+      "count": "Contagem de disparo",
+      "windowMinutes": "Janela (minutos)",
+      "agentStatus": "Status do agente",
+      "minutes": "Minutos",
+      "totalTokens": "Total de tokens",
+      "cooldown": "Intervalo (segundos)"
+    },
+    "deleteTitle": "Excluir regra de alerta?",
+    "help": {
+      "name": "Um rótulo para esta regra. Aparece no feed de alertas e é incluído nos payloads de webhook (rule_name). Ex.: 'Erros repetidos no Bash'.",
+      "type": "O que esta regra observa. event_pattern compara o fluxo de eventos ao vivo; inactivity = uma sessão ativa fica em silêncio; status_duration = um agente fica travado em um estado; token_threshold = o uso de tokens de uma sessão ultrapassa um limite.",
+      "eventType": "O evento de hook do Claude Code a corresponder. Deixe em branco para aceitar qualquer tipo de evento. Correspondência exata (diferencia maiúsculas e minúsculas).",
+      "toolName": "A ferramenta que o agente invocou (em eventos PreToolUse / PostToolUse). Deixe em branco para aceitar qualquer ferramenta. Correspondência exata.",
+      "summaryContains": "Busca por substring, sem diferenciar maiúsculas e minúsculas, no texto do resumo do evento. Útil para capturar erros ou frases específicas. Deixe em branco para ignorar.",
+      "count": "Quantos eventos correspondentes devem ocorrer antes de o alerta disparar. 1 = dispara na primeira correspondência. Acima de 1 detecta rajadas (por exemplo, erros repetidos).",
+      "window": "A janela móvel de retrospectiva para a contagem. Ex.: contagem 5 + janela 2 significa '5 eventos correspondentes em qualquer intervalo de 2 minutos'.",
+      "status": "Qual estado do agente observar. 'working' captura agentes travados no meio de uma tarefa; 'waiting' captura agentes bloqueados aguardando entrada/permissão.",
+      "minutesInactivity": "Dispara quando uma sessão ativa ficou sem eventos por esse número de minutos (uma sessão travada ou esquecida).",
+      "minutesStatus": "Dispara quando um agente permanece no status selecionado, sem atividade, por esse número de minutos (um agente travado).",
+      "totalTokens": "Dispara quando os tokens acumulados de uma sessão (entrada + saída + leitura de cache + escrita de cache) ultrapassam este número. Ex.: 1000000 = 1 M de tokens.",
+      "cooldown": "Mínimo de segundos entre alertas repetidos para a mesma regra + sessão + agente. Evita duplicatas ruidosas. Padrão 300 (5 min); 0 = sem intervalo."
+    }
+  },
+  "feed": {
+    "title": "Feed de alertas",
+    "unackedCount": "{{count}} não reconhecidos",
+    "unackedOnly": "Somente não reconhecidos",
+    "ack": "Reconhecer",
+    "viewSession": "Ver sessão",
+    "loadMore": "Carregar mais ({{shown}} de {{total}})",
+    "emptyTitle": "Nenhum alerta",
+    "emptyDescription": "Os alertas disparados pelas suas regras aparecerão aqui em tempo real.",
+    "emptyUnacked": "Tudo foi reconhecido. Novos alertas aparecerão aqui assim que dispararem."
+  }
+}
