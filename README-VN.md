@@ -778,6 +778,8 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 
 ---
 
+Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
+
 ## Tiện ích mở rộng Agent
 
 Kho lưu trữ này bao gồm lớp mở rộng toàn diện cho cả Claude Code và Codex:

@@ -779,6 +779,8 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
+重启后，中断的远程同步显示为错误，之前的导入记录仍然保留。 远程重试会在再次检查时保留最近的错误提示；同步成功后清除。
+
 ## Agent 扩展
 
 本仓库包含 Claude Code 和 Codex 的完整扩展层：
