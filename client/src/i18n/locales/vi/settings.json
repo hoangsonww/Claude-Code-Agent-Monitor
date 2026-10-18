@@ -631,7 +631,8 @@
     "purgeData": "Đồng thời xóa các phiên đã nhập từ nguồn này (không thể hoàn tác)",
     "deleteAndPurge": "Xóa + xóa dữ liệu",
     "removeKeep": "Xóa (giữ dữ liệu)",
-    "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa"
+    "remoteSourceBadgeTitle": "Được thu thập từ một máy từ xa",
+    "retryLastError": "Đang thử lại. Lỗi gần nhất:"
   },
   "cursorPathsNote": "Cursor được bao gồm trong phạm vi dashboard Claude Code. Lịch sử cục bộ được tự động phát hiện và lưu snapshot từ ~/.cursor; import SSH chỉ đồng bộ Claude không đồng bộ thư mục Cursor từ xa."
 }

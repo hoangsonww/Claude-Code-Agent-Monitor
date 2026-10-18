@@ -784,6 +784,8 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
+중단된 원격 동기화는 재시작 후 오류로 표시되고 이전 가져오기 결과는 보존됩니다. 원격 재시도 중에는 마지막 오류가 계속 표시되며, 동기화가 성공하면 지워집니다.
+
 ## 에이전트 확장
 
 이 저장소는 Claude Code와 Codex 모두를 위한 포괄적인 확장 레이어를 포함합니다:

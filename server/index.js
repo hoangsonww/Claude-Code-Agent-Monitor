@@ -7,30 +7,7 @@
 if (!process.env.NODE_ENV) process.env.NODE_ENV = "production";
 
 // Load .env file (simple key=value, no external dependency needed)
-(function loadDotEnv() {
-  const fs = require("fs");
-  const os = require("os");
-  const path = require("path");
-  const envPath = path.resolve(
-    process.env.DASHBOARD_ENV_PATH || path.resolve(__dirname, "..", ".env")
-  );
-  if (!fs.existsSync(envPath)) return;
-  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx === -1) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    let val = trimmed.slice(eqIdx + 1).trim();
-    // Strip surrounding quotes (single or double)
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    if (!process.env[key]) {
-      process.env[key] = val.replace(/^~(?=\/)/, os.homedir());
-    }
-  }
-})();
+require("./lib/dotenv").loadDotEnv();
 
 const express = require("express");
 const cors = require("cors");
@@ -154,6 +131,23 @@ function createApp() {
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", version: APP_VERSION, timestamp: new Date().toISOString() });
+  });
+
+  // Keep async API failures machine-readable without exposing SQL or stacks.
+  app.use("/api", (error, _req, res, next) => {
+    if (res.headersSent) return next(error);
+    const requested = error?.status ?? error?.statusCode;
+    const status =
+      Number.isInteger(requested) && requested >= 400 && requested < 600 ? requested : 500;
+    const code =
+      status === 503 ? "SERVICE_UNAVAILABLE" : status >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED";
+    const message =
+      status === 503
+        ? "Data temporarily unavailable"
+        : status >= 500
+          ? "Internal server error"
+          : "Request failed";
+    res.status(status).json({ error: { code, message } });
   });
 
   return app;
@@ -432,11 +426,11 @@ function startBackgroundServices() {
   // exists to protect long-running steady-state work on watchdog ticks, and
   // there is no in-flight work at boot).
   {
-    const bootReap = (label) => {
+    const bootReap = async (label) => {
       try {
-        const { livenessReap } = require("./routes/hooks");
-        livenessReap({ ignoreIdleGate: true });
-        livenessReap({ ignoreIdleGate: true, provider: "codex" });
+        const { livenessReapAsync } = require("./routes/hooks");
+        await livenessReapAsync({ ignoreIdleGate: true });
+        await livenessReapAsync({ ignoreIdleGate: true, provider: "codex" });
       } catch (err) {
         console.warn(`${label} liveness reap failed:`, err?.message || err);
       }
@@ -700,6 +694,7 @@ function startCursorSessionSync(broadcast, options = {}) {
  * shutdown; overlapping ticks queue one follow-up sweep (same as local sync).
  */
 function startRemoteSourceSync(broadcast) {
+  require("./lib/remote-sync").recoverInterruptedSyncs(require("./db"));
   const POLL_MS = process.env.DASHBOARD_REMOTE_SYNC_MS
     ? Number(process.env.DASHBOARD_REMOTE_SYNC_MS)
     : 15_000;
@@ -874,6 +869,67 @@ function createIngestRetryBudget(maxAttempts) {
   };
 }
 
+// Negative process evidence is valid only for files observed before the census
+// and while nothing but the sweep itself has changed the DB. Positive evidence
+// remains conservative. A busy collector may defer absence decisions to the
+// next watchdog census.
+function createCodexProbeFence(transcripts, db) {
+  const fs = require("node:fs");
+  const { databaseGeneration } = require("./lib/readonly-query");
+  const signature = (stat) => `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}`;
+  const before = new Map();
+  for (const file of transcripts) {
+    try {
+      before.set(file, signature(fs.statSync(file)));
+    } catch {}
+  }
+  // The generation is this connection's total_changes() followed by parts the
+  // sweep's own writes never move (data_version, which only other connections
+  // advance; schema_version where present, which only DDL advances).
+  const split = () => {
+    const generation = databaseGeneration(db);
+    const at = generation.indexOf(":");
+    return { local: generation.slice(0, at), external: generation.slice(at + 1) };
+  };
+  const baseline = split();
+  let expectedLocal = baseline.local;
+  let changedElsewhere = false;
+  // Any change not made inside ownWrites (a hook, a new session) or made by
+  // another process at any time voids the remaining census.
+  const settle = () => {
+    const now = split();
+    if (now.local !== expectedLocal || now.external !== baseline.external) changedElsewhere = true;
+  };
+  const select = (probe, file, stat) => {
+    if (!probe.available) return null;
+    if (probe.paths.has(path.resolve(file))) return probe.paths;
+    settle();
+    if (changedElsewhere || before.get(file) !== signature(stat)) return null;
+    return probe.paths;
+  };
+  // The sweep's own synchronous writes cannot interleave with hooks or other
+  // callbacks, so this connection's changes during them are absorbed; a commit
+  // by another process during them is still seen through data_version.
+  select.ownWrites = (write) => {
+    settle();
+    try {
+      return write();
+    } finally {
+      expectedLocal = split().local;
+    }
+  };
+  return select;
+}
+
+/**
+ * A rollout whose session another source or provider owns cannot become
+ * importable by retrying the same bytes, so the live sweep records it as done
+ * for this fingerprint instead of spending the transient-failure retry budget.
+ */
+function isCodexForeignSessionError(err) {
+  return err?.code === require("./lib/codex-ingest").CODEX_FOREIGN_SESSION;
+}
+
 function startCodexSessionSync(broadcast) {
   const fs = require("fs");
   const { getCodexHome, getCodexSessionsDir, onCodexHomeChanged } = require("./lib/codex-home");
@@ -938,17 +994,18 @@ function startCodexSessionSync(broadcast) {
       // as soon as Codex creates the directory instead of polling forever.
       watchSessionsDir();
       watchCodexHome();
-      const rolloutProbe = liveness.probeLiveCodexRollouts();
-      const liveTranscripts = rolloutProbe.available ? rolloutProbe.paths : null;
+      const transcripts = findCodexTranscripts(sessionsDir);
+      const selectLiveTranscripts = createCodexProbeFence(transcripts, require("./db").db);
+      const rolloutProbe = await liveness.probeLiveCodexRolloutsAsync();
       // Hooks are the lowest-latency signal, but Codex may delay a new hook
       // until the user approves it. Its local thread row is written at CLI
       // launch, so use it to create the same Waiting card immediately.
-      for (const result of syncCodexStateSessions()) publish(result);
+      for (const result of selectLiveTranscripts.ownWrites(syncCodexStateSessions)) publish(result);
       // `/rename` updates Codex's root-level session index instead of adding a
       // rollout line. Refresh those titles before evaluating transcript bytes
       // so cards change in real time even for an otherwise idle session.
-      for (const result of refreshCodexSessionTitles()) publish(result);
-      const transcripts = findCodexTranscripts(sessionsDir);
+      for (const result of selectLiveTranscripts.ownWrites(refreshCodexSessionTitles))
+        publish(result);
       for (let index = 0; index < transcripts.length; index++) {
         const transcriptPath = transcripts[index];
         let stat;
@@ -969,7 +1026,11 @@ function startCodexSessionSync(broadcast) {
             // error, and an I/O error the ingestor swallows and reports as
             // `failed` (it returns `{changed:false}` for legitimate no-ops too,
             // so the flag is the only way to tell them apart).
-            const ingestResult = ingestCodexTranscript(transcriptPath, { liveTranscripts });
+            const ingestResult = selectLiveTranscripts.ownWrites(() =>
+              ingestCodexTranscript(transcriptPath, {
+                liveTranscripts: selectLiveTranscripts(rolloutProbe, transcriptPath, stat),
+              })
+            );
             publish(ingestResult);
             if (ingestResult?.failed) {
               noteIngestFailure(
@@ -983,12 +1044,17 @@ function startCodexSessionSync(broadcast) {
               retryBudget.succeed(ingestKey);
             }
           } catch (err) {
-            noteIngestFailure(
-              ingestKey,
-              fingerprint,
-              `Failed to ingest ${path.basename(transcriptPath)}`,
-              err.message
-            );
+            if (isCodexForeignSessionError(err)) {
+              fingerprints.set(transcriptPath, fingerprint);
+              retryBudget.succeed(ingestKey);
+            } else {
+              noteIngestFailure(
+                ingestKey,
+                fingerprint,
+                `Failed to ingest ${path.basename(transcriptPath)}`,
+                err.message
+              );
+            }
           }
         }
         const toolKey = `tools:${transcriptPath}`;
@@ -1011,7 +1077,9 @@ function startCodexSessionSync(broadcast) {
             // too, so the flag is the only way to tell them apart — without it
             // a transient read error would clear the marker and the file's
             // tool calls would stay unindexed until it next grew).
-            const toolResult = ingestCodexToolEvents(transcriptPath);
+            const toolResult = selectLiveTranscripts.ownWrites(() =>
+              ingestCodexToolEvents(transcriptPath)
+            );
             publish(toolResult);
             if (toolResult?.failed) {
               toolIngestFailed.add(transcriptPath);
@@ -1026,13 +1094,18 @@ function startCodexSessionSync(broadcast) {
               retryBudget.succeed(toolKey);
             }
           } catch (err) {
-            toolIngestFailed.add(transcriptPath);
-            noteIngestFailure(
-              toolKey,
-              fingerprint,
-              `Failed to index tools for ${path.basename(transcriptPath)}`,
-              err.message
-            );
+            if (isCodexForeignSessionError(err)) {
+              toolIngestFailed.delete(transcriptPath);
+              retryBudget.succeed(toolKey);
+            } else {
+              toolIngestFailed.add(transcriptPath);
+              noteIngestFailure(
+                toolKey,
+                fingerprint,
+                `Failed to index tools for ${path.basename(transcriptPath)}`,
+                err.message
+              );
+            }
           }
         }
         // Cold history can contain hundreds of large JSONL files. Yielding in
@@ -1646,5 +1719,8 @@ module.exports = {
   startCursorSessionSync,
   codexHomeChangeTriggersSweep,
   createIngestRetryBudget,
+  createCodexProbeFence,
+  isCodexForeignSessionError,
+  startCodexSessionSync,
   repairInflatedTokenTotals,
 };

@@ -788,6 +788,8 @@ If `ccam` is not on `PATH`, run `npm link` once from the repository root. See [d
 
 ---
 
+An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
+
 ## Agent Extensions
 
 This repository includes a comprehensive extension layer for both Claude Code and Codex:
