@@ -740,6 +740,7 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 | `npm run import-history`| Nhập các phiên kế thừa từ `~/.claude/` (cũng chạy khi khởi động) |
 | `npm run reconcile-tokens`| Làm mới tổng token cho các phiên đã nhập (không bao giờ hạ thấp một tổng đã có) |
 | `npm run repair-tokens` | Tính lại tổng token **không thuộc workflow** cho mọi phiên **Claude** còn transcript trên đĩa (tìm trong `~/.claude/projects/` hoặc theo `transcript_path` đã lưu của phiên) và đưa các baseline nén ngữ cảnh về 0; các hàng workflow và Codex được giữ nguyên. Bản sửa một lần cho cơ sở dữ liệu bị ảnh hưởng bởi cách cộng usage theo từng bản ghi trước v2.0.9 hoặc bị thiếu usage của subagent phẳng cùng model. Hãy dừng dashboard trước |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Xem trước việc sửa lượng đầu ra Codex: token suy luận đã nằm trong đầu ra. Dừng dashboard trước khi áp dụng `--apply --journal new-backup.json`. Không ghi đè tệp có sẵn; giữ nguyên lịch sử mơ hồ. Đọc bản ghi thường, gzip và Zstd theo luồng. |
 | `DASHBOARD_TOKEN_REPAIR` | Được bật theo mặc định (`1`). Tự động sửa một lần các tổng Token lịch sử bị ảnh hưởng bởi việc cộng phồng theo từng bản ghi hoặc bỏ sót subagent phẳng cùng model. Bản sửa trực tiếp không thể xử lý lại mọi phiên đã hoàn tất, và `replaceTokenUsage` không thể hạ mốc cao cũ. Chạy một lần cho mỗi cơ sở dữ liệu (có marker, hoãn khỏi đường khởi động, bỏ qua khi có dashboard khác dùng chung thư mục dữ liệu) và sao lưu các hàng cũ sang `token_usage_pre_repair_v2` trước. Đặt `0` để bỏ qua và tự chạy `npm run repair-tokens` |
 | `npm run clear-data`    | Xóa tất cả các phiên, tác nhân, sự kiện và việc sử dụng mã thông báo            |
 | `npm run mcp:install`   | Cài đặt các phần phụ thuộc cho gói MCP cục bộ (`mcp/`)       |
@@ -777,6 +778,8 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 | `npm run deploy:validate` | Rà soát Docker, Compose, Nginx, Helm, Kustomize, Terraform và one-writer invariant. Kết quả chỉ mang tính tham khảo (thoát 0); đặt `CCAM_DEPLOY_VALIDATE_STRICT=1` để biến thành cổng chặn |
 
 ---
+
+Ước tính chi phí dùng giá API đã cấu hình, không phải phí thuê bao. Dashboard và Settings hiển thị số tiền đến cent, phạm vi máy/sản phẩm đã chọn và cảnh báo cho mức sử dụng chưa có giá phù hợp. Giá mặc định Standard/Fast Short/Long của GPT-6.1 Sol theo bảng OpenAI công bố và không thay thế quy tắc tùy chỉnh đã khớp. Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
 
 ## Tiện ích mở rộng Agent
 

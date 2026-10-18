@@ -1,0 +1,60 @@
+# Read-only worker and transactional event-count regression coverage.
+# Author: Son Nguyen <hoangson091104@gmail.com>
+name: Reader and Event Counts
+
+on:
+  pull_request:
+    paths:
+      - "server/**"
+      - "scripts/import-history.js"
+      - ".github/workflows/reader-counters.yml"
+  push:
+    branches: [master]
+    paths:
+      - "server/**"
+      - "scripts/import-history.js"
+      - ".github/workflows/reader-counters.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  reader-counters:
+    name: "Reader/Counts (${{ matrix.os }}, Node ${{ matrix.node }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["22.22.0", "24.14.0"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+          cache: "npm"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test reader lifecycle, snapshots, scopes and event totals
+        run: >-
+          node --test --test-concurrency=1
+          server/__tests__/readonly-query.test.js
+          server/__tests__/readonly-query-scheduling.test.js
+          server/__tests__/global-event-count.test.js
+          server/__tests__/codex-tool-marker-migration.test.js
+          server/__tests__/count-cache.test.js
+          server/__tests__/events-responsive.test.js
+          server/__tests__/pricing-responsive.test.js
+          server/__tests__/sessions-responsive.test.js
+          server/__tests__/stats-responsive.test.js
+          server/__tests__/query-scope.test.js
+          server/__tests__/query-planner.test.js
+      - name: Test nested transaction parity
+        run: node --test --test-concurrency=1 server/__tests__/compat-sqlite-transactions.test.js
+      - name: Test imports with the builtin SQLite backend
+        run: >-
+          node --require ./server/__tests__/helpers/force-builtin.cjs
+          --test --test-concurrency=1
+          server/__tests__/import-origin.test.js
+          server/__tests__/import-safety.test.js
+          server/__tests__/import.test.js
