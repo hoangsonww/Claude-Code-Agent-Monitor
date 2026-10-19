@@ -76,6 +76,7 @@ import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
 import { useDataScope } from "../lib/dataScope";
 import { fmt, fmtCost, fmtCostFull, formatModelName } from "../lib/format";
+import { mergeCostByModel } from "../lib/cost-breakdown";
 import { Tip } from "../components/Tip";
 import { PaginatedLegend } from "../components/PaginatedLegend";
 import { Skeleton, StatValueSkeleton, TextSkeleton } from "../components/Skeleton";
@@ -889,9 +890,8 @@ export function Analytics() {
     dailyCostLast30[0] ?? { date: "", cost: 0 }
   );
   const totalCost30d = dailyCostLast30.reduce((sum, day) => sum + day.cost, 0);
-  const costBreakdown = [...(costData?.breakdown ?? [])]
-    .filter((b) => b.cost > 0)
-    .sort((a, b) => b.cost - a.cost);
+  const costBreakdown = mergeCostByModel(costData?.breakdown ?? []);
+  const costModelCount = new Set((costData?.breakdown ?? []).map((b) => b.model)).size;
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
   const weekdayCosts = weekdayOrder.map((dow) => {
@@ -1067,7 +1067,7 @@ export function Analytics() {
           raw={costData ? fmtCostFull(costData.total_cost) : undefined}
           sub={
             costData
-              ? `${costData.breakdown.length} ${t("common:cost.model", { count: costData.breakdown.length })}`
+              ? `${costModelCount} ${t("common:cost.model", { count: costModelCount })}`
               : undefined
           }
           icon={DollarSign}
