@@ -469,7 +469,9 @@ async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, script
     const done = doneResults.has(agentId);
     const state = done ? "done" : "running";
     const aTok = parsed ? bucketTotal(parsed.tokensByModel) : 0;
-    const tools = parsed && parsed.toolNames ? parsed.toolNames : [];
+    // parsed.toolNames is a de-duplicated name list (distinct tools); the real
+    // call count is one toolEvent per tool_use block.
+    const tools = parsed && parsed.toolEvents ? parsed.toolEvents : [];
     const startedAt = parsed && parsed.startedAt ? parsed.startedAt : null;
     const endedAt = parsed && parsed.endedAt ? parsed.endedAt : null;
     const durationMs = startedAt && endedAt ? Date.parse(endedAt) - Date.parse(startedAt) : null;
@@ -496,7 +498,7 @@ async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, script
       tokens: aTok,
       toolCalls: tools.length,
       durationMs,
-      lastToolName: tools.length ? tools[tools.length - 1] : null,
+      lastToolName: tools.length ? tools[tools.length - 1].tool_name : null,
       promptPreview: parsed ? parsed.task : null,
       resultPreview: done ? safeStringify(doneResults.get(agentId)) : null,
     });

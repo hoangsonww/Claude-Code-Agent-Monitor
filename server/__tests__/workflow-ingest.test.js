@@ -60,6 +60,26 @@ function agentJsonl(model, input, output) {
     .join("\n");
 }
 
+// A subagent transcript that makes one tool call per entry in `toolNames`
+// (repeats allowed), each with its own tool_use id.
+function agentJsonlWithTools(model, toolNames) {
+  const lines = [
+    { type: "user", timestamp: "2026-02-01T00:00:00.000Z", message: { content: "go" } },
+  ];
+  toolNames.forEach((name, i) => {
+    lines.push({
+      type: "assistant",
+      timestamp: `2026-02-01T00:00:${String(i + 1).padStart(2, "0")}.000Z`,
+      message: {
+        model,
+        content: [{ type: "tool_use", id: `tu${i}`, name, input: {} }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+    });
+  });
+  return lines.map((l) => JSON.stringify(l)).join("\n");
+}
+
 function subagentDir() {
   return path.join(ROOT, SESSION_ID, "subagents");
 }
@@ -400,7 +420,11 @@ describe("live running workflow (no terminal journal)", () => {
     const runDir = path.join(ROOT, SESSION_ID, "subagents", "workflows", runId);
     fs.mkdirSync(runDir, { recursive: true });
     // a1 finished (has a result event), a2 still running (started only)
-    fs.writeFileSync(path.join(runDir, "agent-a1.jsonl"), agentJsonl("claude-opus-4-8", 3000, 800));
+    // a1 repeats tools (4 calls, 2 distinct names) — the live count must be calls, not names
+    fs.writeFileSync(
+      path.join(runDir, "agent-a1.jsonl"),
+      agentJsonlWithTools("claude-opus-4-8", ["WebSearch", "Read", "WebSearch", "WebSearch"])
+    );
     fs.writeFileSync(path.join(runDir, "agent-a2.jsonl"), agentJsonl("claude-opus-4-8", 1500, 200));
     fs.writeFileSync(
       path.join(runDir, "journal.jsonl"),
@@ -425,7 +449,7 @@ describe("live running workflow (no terminal journal)", () => {
     assert.equal(wf.name, "ds-pipeline");
     assert.equal(wf.agent_count, 3, "two transcripts + one queued agent");
     assert.ok(wf.total_tokens > 0, "live tokens accumulated");
-    assert.ok(wf.total_tool_calls >= 2, "live tool calls counted");
+    assert.equal(wf.total_tool_calls, 5, "4 calls (a1, repeated tools) + 1 call (a2)");
 
     const prog = JSON.parse(wf.progress);
     assert.equal(prog.length, 3);
@@ -436,7 +460,9 @@ describe("live running workflow (no terminal journal)", () => {
     assert.equal(a2.state, "running", "a2 only started → running");
     assert.equal(a3.state, "running", "a3 queued (started, no transcript) → running");
     assert.equal(a3.tokens, 0, "queued agent has no tokens yet");
-    assert.ok(a1.tokens > 0 && a1.toolCalls >= 1);
+    assert.ok(a1.tokens > 0);
+    assert.equal(a1.toolCalls, 4, "counts every tool_use, not distinct tool names");
+    assert.equal(a1.lastToolName, "WebSearch", "last tool actually called");
     assert.ok(a1.resultPreview, "finished agent carries its result");
 
     // inner agents linked + live workflow tokens folded under the workflow tier
