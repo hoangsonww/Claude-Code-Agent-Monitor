@@ -1,0 +1,15 @@
+{
+  "title": "Aggiornamento della dashboard disponibile",
+  "lead": "È disponibile una nuova versione della dashboard. Per aggiornare, esegui il seguente comando nel terminale:",
+  "commitsBehind": "{{count}} commit indietro rispetto a {{ref}}",
+  "copy": "Copia comando",
+  "commandLabel": "Comando da terminale per aggiornare la dashboard",
+  "copied": "Copiato",
+  "dismiss": "Ignora",
+  "fetchError": "Impossibile raggiungere il remote git. Riprova quando sei online.",
+  "notGit": "Questa installazione non è un clone git; usa un percorso di aggiornamento manuale.",
+  "restartNote": "Al termine del comando, chiudi e riavvia la dashboard nello stesso modo in cui l'avevi avviata: se hai usato npm start, esegui di nuovo npm start.",
+  "checkNow": "Controlla ora",
+  "checking": "Controllo in corso...",
+  "checkError": "Impossibile verificare la presenza di aggiornamenti"
+}

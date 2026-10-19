@@ -32,13 +32,15 @@
   "fields": {
     "prompt": "프롬프트",
     "promptPlaceholder": "Claude에게 무엇이든 물어보세요…",
+    "promptPlaceholderWithProvider": "{{agent}}에게 무엇이든 물어보세요…",
     "cwd": "작업 디렉터리",
     "cwdHint": "절대 경로. 기본값은 대시보드 자체의 작업 디렉터리입니다.",
     "cwdPlaceholder": "검색하려면 입력하거나 절대 경로를 붙여넣으세요…",
     "cwdGroups": {
       "dashboard": "대시보드 서버",
       "home": "Home",
-      "recent": "최근 - Claude Code가 사용함"
+      "recent": "최근 - Claude Code가 사용함",
+      "recentWithProvider": "최근 - {{agent}}가 사용함"
     },
     "cwdNoMatches": "일치하는 항목이 없습니다. 절대 경로를 입력해 직접 사용하세요.",
     "model": "모델",
@@ -129,7 +131,7 @@
     "switcherEmpty": "진행 중인 실행 없음",
     "attached": "기존 실행에 연결됨",
     "started": "{{when}} 시작됨",
-    "viewActive": "대시보드 실행",
+    "viewActive_one": "대시보드 실행 {{count}}개",
     "viewActive_other": "대시보드 실행 {{count}}개",
     "scopeNote": "이 대시보드에서 시작한 실행만 표시됩니다.",
     "allSessionsLink": "모든 Claude Code 세션 보기 →",
@@ -139,6 +141,7 @@
     "label": "원본 세션",
     "freshOption": "새 세션",
     "freshHint": "새로운 Claude Code 세션을 시작합니다.",
+    "freshHintWithProvider": "새로운 {{agent}} 세션을 시작합니다.",
     "resumeOption": "기존 세션 재개",
     "resumeHint": "기록에서 세션을 선택해 대화를 이어갑니다. 작업 디렉터리는 원본으로 고정됩니다.",
     "pickSession": "세션 선택…",

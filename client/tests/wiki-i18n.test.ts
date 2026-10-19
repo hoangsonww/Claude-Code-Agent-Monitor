@@ -10,7 +10,7 @@ import vm from "node:vm";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
-const LANGUAGES = ["zh", "vi", "ko", "es"] as const;
+const LANGUAGES = ["zh", "vi", "ko", "es", "it"] as const;
 const WIKI_DIR = path.resolve(process.cwd(), "../wiki");
 const INDEX_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "index.html"), "utf8");
 const SCRIPT_SOURCE = fs.readFileSync(path.join(WIKI_DIR, "script.js"), "utf8");

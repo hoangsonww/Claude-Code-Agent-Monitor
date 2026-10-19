@@ -532,7 +532,7 @@ const SESSION_FILTER_COMMANDS: { status: string; labelKey: string }[] = [
  * UI languages the palette offers switch commands for. Must match `supportedLngs` in the i18n
  * setup.
  */
-const LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const LANGUAGES = ["en", "zh", "vi", "ko", "es", "it"] as const;
 
 /** Product scopes the palette offers, in display order. */
 const PROVIDER_SCOPES: ProviderScope[] = ["both", "claude", "codex"];

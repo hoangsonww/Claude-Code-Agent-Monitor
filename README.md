@@ -5,7 +5,7 @@
 Monitor Claude Code, Cursor, and Codex sessions in real time. Follow conversations and tools, inspect agent hierarchies, understand token usage and cost, analyze orchestration, and operate local agents from one responsive dashboard.
 
 > [!TIP]
-> **Complete guides:** [English](./README-EN.md) · [中文](./README-CN.md) · [Tiếng Việt](./README-VN.md) · [한국어](./README-KO.md) · [Español](./README-ES.md)
+> **Complete guides:** [English](./README-EN.md) · [中文](./README-CN.md) · [Tiếng Việt](./README-VN.md) · [한국어](./README-KO.md) · [Español](./README-ES.md) · [Italiano](./README-IT.md)
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-orange?style=flat-square&logo=claude&logoColor=white)
 ![Cursor](https://img.shields.io/badge/Cursor-111827?style=flat-square&logo=cursor&logoColor=white)

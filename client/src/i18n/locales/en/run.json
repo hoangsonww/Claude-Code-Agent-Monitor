@@ -32,13 +32,15 @@
   "fields": {
     "prompt": "Prompt",
     "promptPlaceholder": "Ask Claude anything…",
+    "promptPlaceholderWithProvider": "Ask {{agent}} anything…",
     "cwd": "Working directory",
     "cwdHint": "Absolute path. Defaults to the dashboard's own cwd.",
     "cwdPlaceholder": "Type to search or paste an absolute path…",
     "cwdGroups": {
       "dashboard": "Dashboard server",
       "home": "Home",
-      "recent": "Recent - used by Claude Code"
+      "recent": "Recent - used by Claude Code",
+      "recentWithProvider": "Recent - used by {{agent}}"
     },
     "cwdNoMatches": "No matches. Type an absolute path to use it directly.",
     "model": "Model",
@@ -129,7 +131,7 @@
     "switcherEmpty": "No active runs",
     "attached": "Attached to existing run",
     "started": "Started {{when}}",
-    "viewActive": "Dashboard runs",
+    "viewActive_one": "{{count}} dashboard run",
     "viewActive_other": "{{count}} dashboard runs",
     "scopeNote": "Only shows runs you started from this dashboard.",
     "allSessionsLink": "See all Claude Code sessions →",
@@ -139,6 +141,7 @@
     "label": "Source session",
     "freshOption": "New session",
     "freshHint": "Start a fresh Claude Code session.",
+    "freshHintWithProvider": "Start a fresh {{agent}} session.",
     "resumeOption": "Resume existing session",
     "resumeHint": "Pick a session from your history and continue the conversation. Cwd is locked to the original.",
     "pickSession": "Pick a session…",
