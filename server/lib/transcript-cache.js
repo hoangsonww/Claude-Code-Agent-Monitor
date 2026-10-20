@@ -18,6 +18,7 @@ const {
   accumulateBucket,
   subtractBucket,
   rememberUsageContribution,
+  isInheritedForkRecord,
 } = require("./token-usage");
 const {
   parseCostStateEntry,
@@ -605,6 +606,8 @@ class TranscriptCache {
 
     const model = msg.model;
     if (!model || model === "<synthetic>" || !msg.usage) return;
+    // A fork's copy of its parent's spawning message — counted in the parent.
+    if (isInheritedForkRecord(entry)) return;
     state.latestModel = model;
     // Bucket tokens by the pricing dimensions (speed / geo / tier) so cost can
     // apply fast-mode, data-residency, and Batch modifiers per bucket. The value

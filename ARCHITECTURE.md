@@ -1594,6 +1594,16 @@ summaries at long rates. `applyCostState` now splits it by Claude's own cost
 for the model (`splitByPromptSize` in `server/lib/cost-state.js`). The
 pre-repair rows are kept in `token_usage_pre_long_tier_cost_v1`.
 
+A seventh pass (`repairForkCopiedUsage`, marker
+`.token-repair-fork-copy-v1.done`, same guards, waits for the long-tier cost
+marker) re-reads, with baselines reset, sessions that spawned forked subagents.
+A fork's transcript starts with a `fork-context-ref` line and repeats the
+parent's spawning message (the one holding the Agent tool call) as the root of
+its sidechain: same `message.id` and usage, `parentUuid: null`. Earlier builds
+counted that copy once per fork on top of the parent's own record; the parsers
+now skip it (`isInheritedForkRecord` in `server/lib/token-usage.js`). The
+pre-repair rows are kept in `token_usage_pre_fork_copy_v1`.
+
 A hook landing mid-repair can lose a single write, since the sweep parses
 outside its transaction. That self-heals: with baselines zeroed, the next event
 for that session re-parses the whole transcript and `replaceTokenUsage` writes

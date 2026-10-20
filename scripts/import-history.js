@@ -28,6 +28,7 @@ const {
   normalizeCcVersion,
   accumulateBucket,
   writeTokenBuckets,
+  isInheritedForkRecord,
 } = require("../server/lib/token-usage");
 const {
   parseCostStateEntry,
@@ -303,7 +304,8 @@ async function parseSessionFile(filePath) {
       const msg = entry.message || {};
       const msgModel = msg.model || null;
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
-      if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
+      // A fork's copy of its parent's spawning message is counted in the parent.
+      if (msgModel && msgModel !== "<synthetic>" && msg.usage && !isInheritedForkRecord(entry)) {
         const usage = msg.usage;
         const usageMsgId = typeof msg.id === "string" && msg.id ? msg.id : null;
         if (usageMsgId) {
@@ -512,8 +514,9 @@ async function parseSubagentFile(filePath) {
       if (!model && msgModel && msgModel !== "<synthetic>") model = msgModel;
       // Same reconciliation as parseSessionFile: one API response spans
       // several records (same message.id) whose usage evolves — the last
-      // record is authoritative.
-      if (msgModel && msgModel !== "<synthetic>" && msg.usage) {
+      // record is authoritative. A fork's copy of its parent's spawning
+      // message is skipped: the parent transcript already counts it.
+      if (msgModel && msgModel !== "<synthetic>" && msg.usage && !isInheritedForkRecord(entry)) {
         const usage = msg.usage;
         const usageMsgId = typeof msg.id === "string" && msg.id ? msg.id : null;
         if (usageMsgId) {

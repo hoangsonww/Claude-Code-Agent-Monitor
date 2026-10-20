@@ -118,6 +118,21 @@ function emptyBucket(model, speed, geo, tier, ctx = "short", ccVersion = "") {
 }
 
 /**
+ * True for the assistant record a forked subagent's transcript copies from its
+ * parent session. A fork starts with a `fork-context-ref` line and then repeats
+ * the parent's spawning message (the one holding the Agent tool call) as the
+ * root of its own sidechain: same message.id and usage, `parentUuid: null`. That
+ * request is already counted in the parent transcript; counting the copy too
+ * bills it once more per fork. A genuine conversation is rooted at a user
+ * prompt, so an assistant record with an explicit null parent is a copy.
+ */
+function isInheritedForkRecord(entry) {
+  return (
+    !!entry && entry.type === "assistant" && entry.isSidechain === true && entry.parentUuid === null
+  );
+}
+
+/**
  * Pull the numeric token / request fields out of a single `usage` record.
  * Tolerant of the older shape: when `cache_creation` breakdown is absent the
  * whole cache-write amount is treated as 5m (cacheWrite1h = 0), and a missing
@@ -352,6 +367,7 @@ module.exports = {
   emptyBucket,
   writeTokenBuckets,
   extractUsageFields,
+  isInheritedForkRecord,
   accumulateBucket,
   subtractBucket,
   rememberUsageContribution,

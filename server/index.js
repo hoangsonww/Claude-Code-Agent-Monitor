@@ -868,6 +868,112 @@ function repairLongTierCostSplit() {
   }
 }
 
+/** True when a subagent transcript starts as a fork of its parent session. */
+function isForkTranscript(filePath) {
+  const fs = require("fs");
+  let fd;
+  try {
+    fd = fs.openSync(filePath, "r");
+    const buf = Buffer.alloc(512);
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    return buf.toString("utf8", 0, n).includes('"type":"fork-context-ref"');
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
+/**
+ * One-time re-derivation of sessions that spawned forked subagents. A fork's
+ * transcript repeats the parent's spawning message, and earlier builds counted
+ * that copy once per fork on top of the parent's own record (see
+ * isInheritedForkRecord in lib/token-usage.js). The parsers now skip the copy;
+ * because token totals are a high-water mark, the stored over-count only drops
+ * when the session is re-read with its baselines reset (cost-state re-applied).
+ *
+ * Same guards as repairLongTierCostSplit: a `.token-repair-fork-copy-v1.done`
+ * marker written only after a completed pass, `DASHBOARD_TOKEN_REPAIR=0`
+ * opt-out, deferral while another dashboard shares the data directory, a
+ * snapshot (`token_usage_pre_fork_copy_v1`), and it waits for the long-tier
+ * cost marker so two re-derivations never race.
+ */
+function repairForkCopiedUsage() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-fork-copy-v1.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-long-tier-cost-v1.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log("Forked-subagent token repair deferred: another dashboard shares this database.");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const { db } = dbModule;
+          const ids = db
+            .prepare(
+              `SELECT id, transcript_path FROM sessions
+                WHERE transcript_path IS NOT NULL AND COALESCE(provider, 'claude') = 'claude'`
+            )
+            .all()
+            .filter((s) => {
+              const dir = path.join(s.transcript_path.replace(/\.jsonl$/, ""), "subagents");
+              try {
+                return fs
+                  .readdirSync(dir)
+                  .some((f) => f.endsWith(".jsonl") && isForkTranscript(path.join(dir, f)));
+              } catch {
+                return false;
+              }
+            })
+            .map((s) => s.id);
+          if (ids.length > 0) {
+            db.exec(
+              "CREATE TABLE IF NOT EXISTS token_usage_pre_fork_copy_v1 AS SELECT * FROM token_usage"
+            );
+            const { reconcileTokens } = require("../scripts/import-history");
+            const { sessionsTouched } = await reconcileTokens(dbModule, {
+              all: true,
+              resetBaselines: true,
+              sessionIds: ids,
+            });
+            if (sessionsTouched > 0) {
+              console.log(
+                `Removed forked-subagent copies of parent messages for ${sessionsTouched} session(s). ` +
+                  `Pre-repair values kept in token_usage_pre_fork_copy_v1.`
+              );
+            }
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — the re-derivation simply re-runs next start */
+          }
+        } catch (err) {
+          console.warn("Forked-subagent token repair failed:", err.message);
+        }
+      })();
+    }, 32_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("Forked-subagent token repair could not start:", err.message);
+  }
+}
+
 /**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
@@ -908,6 +1014,10 @@ function startBackgroundServices() {
   // One-time re-split of long-prompt-tier models' cost-state top-ups by
   // Claude's own cost; marker-gated and deferred like the above.
   repairLongTierCostSplit();
+
+  // One-time removal of forked subagents' copies of their parent's spawning
+  // message from token totals; marker-gated and deferred like the above.
+  repairForkCopiedUsage();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can
@@ -2167,4 +2277,5 @@ module.exports = {
   repairCostStateTokenTotals,
   repairCcVersionTokenSplit,
   repairLongTierCostSplit,
+  repairForkCopiedUsage,
 };
