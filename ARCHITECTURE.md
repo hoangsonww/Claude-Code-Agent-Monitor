@@ -512,7 +512,7 @@ graph TD
     COL --> AC2["AgentCard[]"]
 
     SESS --> TABLE["Session Table<br/>with filters"]
-    DETAIL --> OVERVIEW["SessionOverview<br/>(stat tiles, top tools,<br/>subagent breakdown,<br/>token flow, event mix)"]
+    DETAIL --> OVERVIEW["SessionOverview<br/>(stat tiles, top tools,<br/>subagent breakdown,<br/>token flow + token cost, event mix)"]
     DETAIL --> AC3["AgentCard hierarchy<br/>parent → children tree"]
     DETAIL --> CONV["ConversationView<br/>(MarkdownContent + CodeBlock<br/>+ ToolCallBlock per-tool styling)"]
     DETAIL --> TL["Event Timeline"]

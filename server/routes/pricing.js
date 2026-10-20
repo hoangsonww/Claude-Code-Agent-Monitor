@@ -22,6 +22,17 @@ const router = Router();
 
 const round4 = (n) => Math.round(n * 10000) / 10000;
 
+/** Zeroed per-token-type cost accumulator (USD), shared by every provider calculator. */
+const emptyTypeCosts = () => ({ input: 0, output: 0, cache_read: 0, cache_write: 0 });
+
+/** Round each token-type cost for the response. */
+const roundTypeCosts = (c) => ({
+  input: round4(c.input),
+  output: round4(c.output),
+  cache_read: round4(c.cache_read),
+  cache_write: round4(c.cache_write),
+});
+
 function matchesModelPattern(pattern, model) {
   const expression = String(pattern || "")
     .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -113,6 +124,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
   let tokenCost = 0;
   let webSearchCost = 0;
   let codeExecHours = 0;
+  const typeCosts = emptyTypeCosts();
   // Breakdown is aggregated per (model, speed, geo, tier) tuple, not per input
   // row. This lets callers feed date-split rows (e.g. the daily-usage query,
   // one row per date × model) so each row is priced at its own date's rate,
@@ -145,12 +157,15 @@ function calculateCost(tokenRows, pricingRules, asOf) {
     const { rIn, rOut, rRead, r5m, r1h } = ratesForBucket(rule, row, asOf);
     const cw1h = row.cache_write_1h_tokens || 0;
     const cw5m = Math.max(0, (row.cache_write_tokens || 0) - cw1h);
-    const tCost =
-      (row.input_tokens / 1e6) * rIn +
-      (row.output_tokens / 1e6) * rOut +
-      (row.cache_read_tokens / 1e6) * rRead +
-      (cw5m / 1e6) * r5m +
-      (cw1h / 1e6) * r1h;
+    const inputCost = (row.input_tokens / 1e6) * rIn;
+    const outputCost = (row.output_tokens / 1e6) * rOut;
+    const cacheReadCost = (row.cache_read_tokens / 1e6) * rRead;
+    const cacheWriteCost = (cw5m / 1e6) * r5m + (cw1h / 1e6) * r1h;
+    const tCost = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+    typeCosts.input += inputCost;
+    typeCosts.output += outputCost;
+    typeCosts.cache_read += cacheReadCost;
+    typeCosts.cache_write += cacheWriteCost;
 
     const wsCost = ((row.web_search_requests || 0) / 1000) * WEB_SEARCH_PER_1K_SEARCHES;
     const ceHours = estimateCodeExecHours(
@@ -206,6 +221,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
   return {
     total_cost: round4(total),
     breakdown,
+    cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
       web_search_cost: round4(webSearchCost),
       web_fetch_cost: 0,
@@ -230,6 +246,7 @@ function calculateGptCost(tokenRows, pricingRules) {
   );
   const breakdownMap = new Map();
   const unpriced = new Map();
+  const typeCosts = emptyTypeCosts();
   let total = 0;
 
   for (const row of tokenRows) {
@@ -253,12 +270,15 @@ function calculateGptCost(tokenRows, pricingRules) {
     const cached = Number(row.cache_read_tokens) || 0;
     const writes = Number(row.cache_write_tokens) || 0;
     const outputs = Number(row.output_tokens) || 0;
-    const bucketCost = isPriced
-      ? (inputs / 1e6) * rates.input +
-        (cached / 1e6) * rates.cached +
-        (writes / 1e6) * rates.write +
-        (outputs / 1e6) * rates.output
-      : 0;
+    const inputCost = isPriced ? (inputs / 1e6) * rates.input : 0;
+    const cachedCost = isPriced ? (cached / 1e6) * rates.cached : 0;
+    const writeCost = isPriced ? (writes / 1e6) * rates.write : 0;
+    const outputCost = isPriced ? (outputs / 1e6) * rates.output : 0;
+    const bucketCost = inputCost + cachedCost + writeCost + outputCost;
+    typeCosts.input += inputCost;
+    typeCosts.output += outputCost;
+    typeCosts.cache_read += cachedCost;
+    typeCosts.cache_write += writeCost;
     total += bucketCost;
 
     if (!isPriced) {
@@ -313,6 +333,7 @@ function calculateGptCost(tokenRows, pricingRules) {
       ...entry,
       cost: round4(_cost),
     })),
+    cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
       web_search_cost: 0,
       web_fetch_cost: 0,
@@ -331,6 +352,7 @@ function calculateCursorCost(tokenRows, pricingRules) {
   );
   const breakdown = [];
   const unpriced = [];
+  const typeCosts = emptyTypeCosts();
   let total = 0;
   for (const row of tokenRows) {
     const model = String(row.model || "unknown");
@@ -342,12 +364,15 @@ function calculateCursorCost(tokenRows, pricingRules) {
     const output = Number(row.output_tokens) || 0;
     const cacheRead = Number(row.cache_read_tokens) || 0;
     const cacheWrite = Number(row.cache_write_tokens) || 0;
-    const cost = rule
-      ? (input / 1e6) * rule.input_per_mtok +
-        (cacheWrite / 1e6) * rule.cache_write_per_mtok +
-        (cacheRead / 1e6) * rule.cache_read_per_mtok +
-        (output / 1e6) * rule.output_per_mtok
-      : 0;
+    const inputCost = rule ? (input / 1e6) * rule.input_per_mtok : 0;
+    const cacheWriteCost = rule ? (cacheWrite / 1e6) * rule.cache_write_per_mtok : 0;
+    const cacheReadCost = rule ? (cacheRead / 1e6) * rule.cache_read_per_mtok : 0;
+    const outputCost = rule ? (output / 1e6) * rule.output_per_mtok : 0;
+    const cost = inputCost + cacheWriteCost + cacheReadCost + outputCost;
+    typeCosts.input += inputCost;
+    typeCosts.output += outputCost;
+    typeCosts.cache_read += cacheReadCost;
+    typeCosts.cache_write += cacheWriteCost;
     total += cost;
     const item = {
       provider: "cursor",
@@ -380,6 +405,7 @@ function calculateCursorCost(tokenRows, pricingRules) {
   return {
     total_cost: round4(total),
     breakdown,
+    cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
       web_search_cost: 0,
       web_fetch_cost: 0,
@@ -411,6 +437,18 @@ function calculateProviderCost(
   return {
     total_cost: round4(claude.total_cost + cursor.total_cost + codex.total_cost),
     breakdown: [...claude.breakdown, ...cursor.breakdown, ...codex.breakdown],
+    cost_by_type: roundTypeCosts({
+      input: claude.cost_by_type.input + cursor.cost_by_type.input + codex.cost_by_type.input,
+      output: claude.cost_by_type.output + cursor.cost_by_type.output + codex.cost_by_type.output,
+      cache_read:
+        claude.cost_by_type.cache_read +
+        cursor.cost_by_type.cache_read +
+        codex.cost_by_type.cache_read,
+      cache_write:
+        claude.cost_by_type.cache_write +
+        cursor.cost_by_type.cache_write +
+        codex.cost_by_type.cache_write,
+    }),
     feature_costs: claude.feature_costs,
     unpriced_models: [
       ...claude.unpriced_models,

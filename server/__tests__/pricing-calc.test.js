@@ -146,6 +146,55 @@ describe("calculateCost — token rates", () => {
   });
 });
 
+describe("calculateCost — cost_by_type", () => {
+  it("splits token cost by type, folding 5m and 1h cache writes together", () => {
+    const r = calculateCost(
+      [
+        bucket({
+          input_tokens: M,
+          output_tokens: M,
+          cache_read_tokens: M,
+          cache_write_tokens: M,
+          cache_write_1h_tokens: 0.4 * M,
+        }),
+      ],
+      RULES
+    );
+    // cache write: 0.6M @ 6.25 + 0.4M @ 10 = 7.75
+    assert.deepEqual(r.cost_by_type, { input: 5, output: 25, cache_read: 0.5, cache_write: 7.75 });
+  });
+
+  it("excludes server-tool surcharges and prices unmatched models at zero", () => {
+    const priced = calculateCost([bucket({ input_tokens: M, web_search_requests: 1000 })], RULES);
+    assert.equal(priced.total_cost, 15);
+    assert.equal(priced.cost_by_type.input, 5);
+    const unpriced = calculateCost([bucket({ model: "gpt-4o", input_tokens: M })], RULES);
+    assert.deepEqual(unpriced.cost_by_type, { input: 0, output: 0, cache_read: 0, cache_write: 0 });
+  });
+
+  it("sums across providers without mixing rate cards", () => {
+    const cursorRules = [
+      {
+        model_pattern: "grok-4.6%",
+        input_per_mtok: 2,
+        cache_write_per_mtok: 0,
+        cache_read_per_mtok: 0.5,
+        output_per_mtok: 6,
+      },
+    ];
+    const r = calculateProviderCost(
+      [
+        { ...bucket({ input_tokens: M, output_tokens: M }), provider: "claude" },
+        { ...bucket({ model: "grok-4.6", input_tokens: M, output_tokens: M }), provider: "cursor" },
+      ],
+      RULES,
+      [],
+      cursorRules
+    );
+    assert.deepEqual(r.cost_by_type, { input: 7, output: 31, cache_read: 0, cache_write: 0 });
+  });
+});
+
 describe("calculateCursorCost — Cursor rate-card isolation", () => {
   const cursorRules = [
     {

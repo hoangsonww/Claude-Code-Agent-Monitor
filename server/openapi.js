@@ -1264,6 +1264,17 @@ function createOpenApiSpec() {
             total_cost: { type: "number" },
             breakdown: { type: "array", items: { $ref: "#/components/schemas/CostBreakdownItem" } },
             daily_costs: { type: "array", items: { $ref: "#/components/schemas/DailyCostItem" } },
+            cost_by_type: {
+              type: "object",
+              description:
+                "Token cost in USD split by token type (server-tool surcharges excluded, so the sum can be below total_cost). 5-minute and 1-hour cache writes are combined under cache_write.",
+              properties: {
+                input: { type: "number" },
+                output: { type: "number" },
+                cache_read: { type: "number" },
+                cache_write: { type: "number" },
+              },
+            },
             feature_costs: {
               type: "object",
               description: "Server-tool surcharges separate from token cost",

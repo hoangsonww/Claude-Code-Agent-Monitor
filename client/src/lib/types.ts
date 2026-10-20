@@ -1386,6 +1386,18 @@ export interface CostResult {
   /** Total cost per local calendar day, oldest first. Each `date` is a
    *  `YYYY-MM-DD` bucket; backs the spend-over-time line chart. */
   daily_costs: Array<{ date: string; cost: number }>;
+  /** Token cost in USD split by token type (surcharges excluded), so it can sum
+   *  to less than `total_cost`. Backs the "Token cost" bar on Session detail. */
+  cost_by_type?: {
+    /** USD spent on fresh input tokens. */
+    input: number;
+    /** USD spent on output tokens. */
+    output: number;
+    /** USD spent on prompt-cache reads. */
+    cache_read: number;
+    /** USD spent on prompt-cache writes (5-minute and 1-hour combined). */
+    cache_write: number;
+  };
   /** Web-search/web-fetch/code-execution surcharges; absent when none applied. */
   feature_costs?: CostFeatureCosts;
   /** Present only when at least one model had usage but no pricing rule. */

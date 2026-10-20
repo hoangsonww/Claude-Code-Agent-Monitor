@@ -2,9 +2,10 @@
  * @file SessionOverview.tsx
  * @description Real-time stats panel rendered at the top of the Agents tab on the
  * Session detail page. Shows tile counters (events, tool calls, subagents, errors,
- * compactions, duration), top-tool usage bars, subagent-type breakdown, and a token
- * flow strip. Live-refreshes on `new_event` (debounced) so counters track the running
- * session without spamming the backend.
+ * compactions, duration), top-tool usage bars, subagent-type breakdown, a token flow
+ * strip, and a token cost strip (same bar, sized by USD cost per token type).
+ * Live-refreshes on `new_event` (debounced) so counters track the running session
+ * without spamming the backend.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 /* =============================================================================
@@ -69,14 +70,15 @@ import {
   Layers,
   Clock,
   Coins,
+  DollarSign,
   Bot,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import { isRemoteDataRefreshMessage } from "../lib/remoteDataEvents";
-import { fmt, formatDuration } from "../lib/format";
+import { fmt, fmtCost, fmtCostFull, formatDuration } from "../lib/format";
 import { styleForTool } from "./conversation/toolStyle";
-import type { Agent, Session, SessionStats } from "../lib/types";
+import type { Agent, CostResult, Session, SessionStats } from "../lib/types";
 
 /** Props for {@link SessionOverview}. */
 interface SessionOverviewProps {
@@ -184,6 +186,7 @@ function ToolUsageRow({ toolName, count, max }: { toolName: string; count: numbe
  */
 export function SessionOverview({ session, agents }: SessionOverviewProps) {
   const [stats, setStats] = useState<SessionStats | null>(null);
+  const [costByType, setCostByType] = useState<CostResult["cost_by_type"] | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchingRef = useRef(false);
 
@@ -196,15 +199,20 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
   }, [session.status]);
 
   /**
-   * Fetch session stats, skipping the call when one is already in flight. Failures leave the
-   * previous figures in place.
+   * Fetch session stats and the per-token-type cost, skipping the call when one is already in
+   * flight. Failures leave the previous figures in place; a failed cost request only hides the
+   * Token cost bar.
    */
   const fetchStats = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
     try {
-      const result = await api.sessions.stats(session.id);
+      const [result, cost] = await Promise.all([
+        api.sessions.stats(session.id),
+        api.pricing.sessionCost(session.id).catch(() => null),
+      ]);
       setStats(result);
+      if (cost?.cost_by_type) setCostByType(cost.cost_by_type);
     } catch {
       // Non-fatal - overview just won't update this round.
     } finally {
@@ -305,6 +313,9 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
     tokens.output_tokens +
     tokens.cache_read_tokens +
     tokens.cache_write_tokens;
+  const totalTokenCost = costByType
+    ? costByType.input + costByType.output + costByType.cache_read + costByType.cache_write
+    : 0;
 
   return (
     <div className="space-y-5 mb-6">
@@ -499,7 +510,38 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
             </h3>
             <span className="text-[10px] text-gray-500 font-mono">{fmt(totalTokens)} total</span>
           </div>
-          <TokenFlowBar tokens={tokens} total={totalTokens} />
+          <TokenSplitBar
+            values={{
+              cache_read: tokens.cache_read_tokens,
+              cache_write: tokens.cache_write_tokens,
+              input: tokens.input_tokens,
+              output: tokens.output_tokens,
+            }}
+            total={totalTokens}
+            formatTitle={(n) => n.toLocaleString()}
+            formatLegend={fmt}
+          />
+        </div>
+      )}
+
+      {/* Token cost strip - same bar as Token flow, but each segment is sized by its USD cost */}
+      {costByType && totalTokenCost > 0 && (
+        <div className="rounded-lg border border-surface-3 bg-surface-2/60 p-3.5">
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+              <DollarSign className="w-3.5 h-3.5 text-amber-400" />
+              Token cost
+            </h3>
+            <span className="text-[10px] text-gray-500 font-mono">
+              {fmtTokenCost(totalTokenCost)} total
+            </span>
+          </div>
+          <TokenSplitBar
+            values={costByType}
+            total={totalTokenCost}
+            formatTitle={(n) => fmtCostFull(n, 4)}
+            formatLegend={fmtTokenCost}
+          />
         </div>
       )}
 
@@ -528,41 +570,40 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
   );
 }
 
+/** Token types shared by the Token flow and Token cost bars, so both use the same colors. */
+const TOKEN_TYPE_SEGMENTS = [
+  { key: "cache_read", label: "Cache read", cls: "bg-sky-500", text: "text-sky-300" },
+  { key: "cache_write", label: "Cache write", cls: "bg-violet-500", text: "text-violet-300" },
+  { key: "input", label: "Input", cls: "bg-emerald-500", text: "text-emerald-300" },
+  { key: "output", label: "Output", cls: "bg-orange-500", text: "text-orange-300" },
+] as const;
+
+/** Cost label for a bar segment; amounts under a cent show as "<$0.01" instead of "$0.00". */
+function fmtTokenCost(n: number): string {
+  return n > 0 && n < 0.01 ? "<$0.01" : fmtCost(n);
+}
+
 /**
- * Stacked bar splitting the session's tokens into cache read, cache write, input, and output, with
- * a legend.
+ * Stacked bar splitting a session total into cache read, cache write, input, and output, with a
+ * legend. Each segment's length is its share of `total`, so the same bar shows tokens or cost
+ * depending on the `values` passed in.
  */
-function TokenFlowBar({ tokens, total }: { tokens: SessionStats["tokens"]; total: number }) {
-  const segments = [
-    {
-      key: "cache_read",
-      label: "Cache read",
-      value: tokens.cache_read_tokens,
-      cls: "bg-sky-500",
-      text: "text-sky-300",
-    },
-    {
-      key: "cache_write",
-      label: "Cache write",
-      value: tokens.cache_write_tokens,
-      cls: "bg-violet-500",
-      text: "text-violet-300",
-    },
-    {
-      key: "input",
-      label: "Input",
-      value: tokens.input_tokens,
-      cls: "bg-emerald-500",
-      text: "text-emerald-300",
-    },
-    {
-      key: "output",
-      label: "Output",
-      value: tokens.output_tokens,
-      cls: "bg-orange-500",
-      text: "text-orange-300",
-    },
-  ];
+function TokenSplitBar({
+  values,
+  total,
+  formatTitle,
+  formatLegend,
+}: {
+  /** Amount per token type, in the unit `total` is measured in. */
+  values: Record<(typeof TOKEN_TYPE_SEGMENTS)[number]["key"], number>;
+  /** Sum of `values`; the denominator of each segment's share. */
+  total: number;
+  /** Formats a segment amount for its hover title. */
+  formatTitle: (n: number) => string;
+  /** Formats a segment amount for the legend. */
+  formatLegend: (n: number) => string;
+}) {
+  const segments = TOKEN_TYPE_SEGMENTS.map((s) => ({ ...s, value: values[s.key] }));
 
   return (
     <>
@@ -575,7 +616,7 @@ function TokenFlowBar({ tokens, total }: { tokens: SessionStats["tokens"]; total
               key={s.key}
               className={`${s.cls} opacity-80 hover:opacity-100 transition-opacity`}
               style={{ width: `${pct}%` }}
-              title={`${s.label}: ${s.value.toLocaleString()} (${pct.toFixed(1)}%)`}
+              title={`${s.label}: ${formatTitle(s.value)} (${pct.toFixed(1)}%)`}
             />
           );
         })}
@@ -588,7 +629,7 @@ function TokenFlowBar({ tokens, total }: { tokens: SessionStats["tokens"]; total
               <span className={`block w-2 h-2 rounded-full ${s.cls}`} />
               <span className="text-gray-500 text-[11px]">{s.label}</span>
               <span className={`font-mono ml-auto ${s.text}`}>
-                {fmt(s.value)}
+                {formatLegend(s.value)}
                 {pct > 0 && (
                   <span className="text-gray-600 text-[10px] ml-1">
                     {pct >= 1 ? Math.round(pct) : pct.toFixed(1)}%

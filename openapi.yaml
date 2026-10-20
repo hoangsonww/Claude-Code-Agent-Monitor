@@ -1311,6 +1311,12 @@ components:
         fast_output_per_mtok:
           type: number
           description: Fast-mode output rate (0 = none)
+        long_input_per_mtok:
+          type: number
+          description: Input rate for requests whose prompt exceeds the model's long-prompt limit (0 = no long tier). Cache rates scale with it. Omit to keep the stored value.
+        long_output_per_mtok:
+          type: number
+          description: Output rate for long-prompt requests (0 = no long tier).
         updated_at:
           type: string
           format: date-time
@@ -1342,6 +1348,12 @@ components:
         fast_output_per_mtok:
           type: number
           description: Fast-mode output rate (0 = none)
+        long_input_per_mtok:
+          type: number
+          description: Input rate for requests whose prompt exceeds the model's long-prompt limit (0 = no long tier). Cache rates scale with it. Omit to keep the stored value.
+        long_output_per_mtok:
+          type: number
+          description: Output rate for long-prompt requests (0 = no long tier).
     PricingListResponse:
       type: object
       required:
@@ -1599,6 +1611,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DailyCostItem'
+        cost_by_type:
+          type: object
+          description: Token cost in USD split by token type (server-tool surcharges excluded, so the sum can be below total_cost). 5-minute and 1-hour cache writes are combined under cache_write.
+          properties:
+            input:
+              type: number
+            output:
+              type: number
+            cache_read:
+              type: number
+            cache_write:
+              type: number
         feature_costs:
           type: object
           description: Server-tool surcharges separate from token cost
@@ -6402,6 +6426,12 @@ paths:
                         type: string
                       service_tier:
                         type: string
+                      context_size:
+                        type: string
+                        enum:
+                          - short
+                          - long
+                        description: Prompt-size class for models with a long-prompt rate tier; omitted = short.
                       input:
                         type: integer
                         minimum: 0
@@ -6569,7 +6599,7 @@ paths:
         - Pricing
       summary: Create/update pricing rule
       operationId: upsertPricingRule
-      description: 'Creates a pricing rule or updates the existing one with the same `model_pattern` (upsert keyed on `model_pattern`). `model_pattern` and `display_name` are required; every `*_per_mtok` rate is optional and defaults to 0 when omitted. Use the SQL `%` wildcard in `model_pattern` to match a model family (e.g. `claude-opus-4%`). Set `fast_input_per_mtok` / `fast_output_per_mtok` only if the model bills fast-mode usage at a premium; leave them 0 otherwise. Note the asymmetry with the list endpoint: the response wraps a SINGLE stored rule as `{ pricing: <rule> }` (not an array). A missing `model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so does any `*_per_mtok` rate that is not a non-negative finite number (numeric strings are coerced; NaN and negative rates are rejected before anything is written).'
+      description: 'Creates a pricing rule or updates the existing one with the same `model_pattern` (upsert keyed on `model_pattern`). `model_pattern` and `display_name` are required; every `*_per_mtok` rate is optional and defaults to 0 when omitted. Use the SQL `%` wildcard in `model_pattern` to match a model family (e.g. `claude-opus-4%`). Set `fast_input_per_mtok` / `fast_output_per_mtok` only if the model bills fast-mode usage at a premium; leave them 0 otherwise. `long_input_per_mtok` / `long_output_per_mtok` set the long-prompt tier (requests whose prompt exceeds the model''s limit, e.g. Claude Haiku 5.5 over 100K tokens; cache rates scale with the long input base) and, unlike the other rates, are kept when omitted. Note the asymmetry with the list endpoint: the response wraps a SINGLE stored rule as `{ pricing: <rule> }` (not an array). A missing `model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so does any `*_per_mtok` rate that is not a non-negative finite number (numeric strings are coerced; NaN and negative rates are rejected before anything is written).'
       requestBody:
         required: true
         content:
@@ -6771,7 +6801,7 @@ paths:
         - Pricing
       summary: Get total token cost across all sessions
       operationId: getTotalCost
-      description: Computes the aggregate token cost across EVERY session by matching each (model, speed, inference_geo, service_tier) usage bucket against the most specific pricing rule. Returns `total_cost`, a per-bucket `breakdown`, `feature_costs` (web-search surcharge, code-execution container time with the org free-hours allowance applied), `unpriced_models` (usage with no matching rule, contributing $0 so the total stays honest), and `daily_costs` bucketed by local calendar day. Pass `tz_offset` (minutes; the JS `Date.getTimezoneOffset()` value, e.g. 300 for US Eastern, -120 for CEST) so day boundaries align with the viewer's timezone; omitted/invalid offsets fall back to UTC. Honors the `sources` data-scope filter, like the sessions / stats / analytics endpoints, so the reported cost matches the active scope.
+      description: Computes the aggregate token cost across EVERY session by matching each (model, speed, inference_geo, service_tier, context_size) usage bucket against the most specific pricing rule. Returns `total_cost`, a per-bucket `breakdown`, `feature_costs` (web-search surcharge, code-execution container time with the org free-hours allowance applied), `unpriced_models` (usage with no matching rule, contributing $0 so the total stays honest), and `daily_costs` bucketed by local calendar day. Pass `tz_offset` (minutes; the JS `Date.getTimezoneOffset()` value, e.g. 300 for US Eastern, -120 for CEST) so day boundaries align with the viewer's timezone; omitted/invalid offsets fall back to UTC. Honors the `sources` data-scope filter, like the sessions / stats / analytics endpoints, so the reported cost matches the active scope.
       parameters:
         - name: tz_offset
           in: query
