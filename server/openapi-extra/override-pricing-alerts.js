@@ -191,6 +191,10 @@ module.exports = {
           "to match a model family (e.g. `claude-opus-4%`). Set " +
           "`fast_input_per_mtok` / `fast_output_per_mtok` only if the model bills " +
           "fast-mode usage at a premium; leave them 0 otherwise. " +
+          "`long_input_per_mtok` / `long_output_per_mtok` set the long-prompt " +
+          "tier (requests whose prompt exceeds the model's limit, e.g. Claude " +
+          "Haiku 5.5 over 100K tokens; cache rates scale with the long input " +
+          "base) and, unlike the other rates, are kept when omitted. " +
           "Note the asymmetry with the list endpoint: the response wraps a SINGLE " +
           "stored rule as `{ pricing: <rule> }` (not an array). A missing " +
           "`model_pattern` or `display_name` returns 400 `INVALID_INPUT`, and so " +
@@ -300,7 +304,7 @@ module.exports = {
         operationId: "getTotalCost",
         description:
           "Computes the aggregate token cost across EVERY session by matching " +
-          "each (model, speed, inference_geo, service_tier) usage bucket against " +
+          "each (model, speed, inference_geo, service_tier, context_size) usage bucket against " +
           "the most specific pricing rule. Returns `total_cost`, a per-bucket " +
           "`breakdown`, `feature_costs` (web-search surcharge, code-execution " +
           "container time with the org free-hours allowance applied), " +

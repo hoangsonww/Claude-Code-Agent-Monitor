@@ -153,8 +153,9 @@ export function registerPricingTools(context: ToolContext): void {
   // an existing rule is fully overwritten. CAUTION: cache_write_1h_per_mtok/
   // fast_input_per_mtok/fast_output_per_mtok aren't exposed here, so
   // upserting an existing rule silently zeroes those columns. Time-limited
-  // intro_* rates are untouched (server only rewrites them when an intro_*
-  // field is sent). Output: the upserted rule.
+  // intro_* rates and the long-prompt tier (long_input/output_per_mtok) are
+  // untouched (server only rewrites them when such a field is sent). Output:
+  // the upserted rule.
   register(
     "dashboard_upsert_pricing_rule",
     "Create or update a pricing rule.",
@@ -168,6 +169,8 @@ export function registerPricingTools(context: ToolContext): void {
       cache_write_1h_per_mtok: z.number().min(0).max(1_000_000).optional(),
       fast_input_per_mtok: z.number().min(0).max(1_000_000).optional(),
       fast_output_per_mtok: z.number().min(0).max(1_000_000).optional(),
+      long_input_per_mtok: z.number().min(0).max(1_000_000).optional(),
+      long_output_per_mtok: z.number().min(0).max(1_000_000).optional(),
       intro_input_per_mtok: z.number().min(0).max(1_000_000).optional(),
       intro_output_per_mtok: z.number().min(0).max(1_000_000).optional(),
       intro_cache_read_per_mtok: z.number().min(0).max(1_000_000).optional(),
@@ -192,6 +195,8 @@ export function registerPricingTools(context: ToolContext): void {
           cache_write_1h_per_mtok: args.cache_write_1h_per_mtok ?? 0,
           fast_input_per_mtok: args.fast_input_per_mtok ?? 0,
           fast_output_per_mtok: args.fast_output_per_mtok ?? 0,
+          long_input_per_mtok: args.long_input_per_mtok,
+          long_output_per_mtok: args.long_output_per_mtok,
           intro_input_per_mtok: args.intro_input_per_mtok,
           intro_output_per_mtok: args.intro_output_per_mtok,
           intro_cache_read_per_mtok: args.intro_cache_read_per_mtok,

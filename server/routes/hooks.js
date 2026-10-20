@@ -1304,6 +1304,7 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
           tokens.speed,
           tokens.geo,
           tokens.tier,
+          tokens.ctx === "long" ? "long" : "short",
           tokens.input,
           tokens.output,
           tokens.cacheRead,
@@ -2312,6 +2313,9 @@ router.post("/ingest-batch", (req, res) => {
       speed: normalizeSpeed({ speed: t.speed }),
       geo: normalizeGeo({ inference_geo: t.inference_geo }),
       tier: normalizeTier({ service_tier: t.service_tier }),
+      // Optional prompt-size class for models with a long-prompt rate tier.
+      // Pushers that predate it omit the field and stay "short".
+      ctx: t.context_size === "long" ? "long" : "short",
       ...values,
     });
   });
@@ -2470,6 +2474,7 @@ router.post("/ingest-batch", (req, res) => {
         tk.speed,
         tk.geo,
         tk.tier,
+        tk.ctx,
         tk.input,
         tk.output,
         tk.cacheRead,

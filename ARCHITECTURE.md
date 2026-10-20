@@ -1520,6 +1520,17 @@ rewrites rows, it first copies the table to `token_usage_pre_repair_v2` — one
 snapshot kept so the pre-repair numbers stay recoverable with plain SQL; it is
 safe to drop.
 
+A second, narrower one-time pass (`repairLongContextTokenTotals`, marker
+`.token-repair-long-context-v1.done`, same guards and `DASHBOARD_TOKEN_REPAIR=0`
+opt-out, waits for the v2 marker) handles the long-prompt rate tier. Models with
+a tier in `CLAUDE_LONG_CONTEXT_TIERS` (today Claude Haiku 5.5, over 100K prompt
+tokens) now keep short and long requests in separate `token_usage` rows
+(`context_size`), but rows stored earlier mix both and cannot be split after the
+fact. Re-deriving only the sessions that already hold such a model's usage, with
+baselines reset, avoids the high-water mark folding the old total into
+`baseline_*` and counting the long tokens twice; the old rows are kept in
+`token_usage_pre_long_context_v1`.
+
 A hook landing mid-repair can lose a single write, since the sweep parses
 outside its transaction. That self-heals: with baselines zeroed, the next event
 for that session re-parses the whole transcript and `replaceTokenUsage` writes

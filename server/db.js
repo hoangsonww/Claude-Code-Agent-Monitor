@@ -253,6 +253,12 @@ db.exec(`
     -- caching multipliers (see server/lib/pricing-constants.js).
     fast_input_per_mtok REAL NOT NULL DEFAULT 0,
     fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    -- Long-prompt tier input/output rates, applied to token_usage rows stamped
+    -- context_size = 'long' (see CLAUDE_LONG_CONTEXT_TIERS in
+    -- server/lib/pricing-constants.js); 0 = no long tier (standard rates apply).
+    -- Cache rates scale with the long input base, as in fast mode.
+    long_input_per_mtok REAL NOT NULL DEFAULT 0,
+    long_output_per_mtok REAL NOT NULL DEFAULT 0,
     -- Time-limited introductory rates. When intro_until is set, usage on/before
     -- that date (YYYY-MM-DD) is priced at the intro_* rates and usage after it at
     -- the standard rates — so promo pricing (e.g. Claude Sonnet 5's launch
@@ -637,6 +643,20 @@ try {
     db.prepare(`ALTER TABLE model_pricing ADD COLUMN ${col} REAL NOT NULL DEFAULT 0`).run();
   }
   db.prepare("ALTER TABLE model_pricing ADD COLUMN intro_until TEXT").run();
+}
+
+// Migrate: add long-prompt tier rate columns to model_pricing. Additive and
+// default 0 (= no long tier), so existing rows price exactly as before until a
+// long rate is set (applyLongPricing below backfills the known defaults).
+try {
+  db.prepare("SELECT long_input_per_mtok FROM model_pricing LIMIT 1").get();
+} catch {
+  db.prepare(
+    "ALTER TABLE model_pricing ADD COLUMN long_input_per_mtok REAL NOT NULL DEFAULT 0"
+  ).run();
+  db.prepare(
+    "ALTER TABLE model_pricing ADD COLUMN long_output_per_mtok REAL NOT NULL DEFAULT 0"
+  ).run();
 }
 
 // Standard rates verified against https://platform.claude.com/docs/en/about-claude/pricing
@@ -1060,6 +1080,27 @@ function applyIntroPricing(dbHandle = db) {
   }
 }
 applyIntroPricing();
+
+// Known long-prompt tier rates: [pattern, longInput, longOutput]. Cache rates
+// are derived from the long input base at pricing time. Claude Haiku 5.5:
+// $0.50/$2.50 for prompts over 100K tokens (standard row is $0.10/$0.50).
+const DEFAULT_LONG_PRICING = [["claude-haiku-5-5%", 0.5, 2.5]];
+
+// Backfill the known long-tier rates. Only fills rows whose long rates are both
+// still 0, so a rate the user edited in Settings is never overwritten. Shared
+// by startup and the reset-pricing endpoint (which re-seeds standard rates and
+// must re-apply the long tier too, else long prompts would silently price at
+// the standard rate until the next restart).
+function applyLongPricing(dbHandle = db) {
+  const setLong = dbHandle.prepare(
+    `UPDATE model_pricing SET long_input_per_mtok = ?, long_output_per_mtok = ?
+     WHERE model_pattern = ? AND long_input_per_mtok = 0 AND long_output_per_mtok = 0`
+  );
+  for (const [pattern, longIn, longOut] of DEFAULT_LONG_PRICING) {
+    setLong.run(longIn, longOut, pattern);
+  }
+}
+applyLongPricing();
 
 // Migrate: if token_usage has rows without model column (old schema), add it
 try {
@@ -1990,7 +2031,7 @@ const stmts = {
   // full re-parse always sees the complete total; the high-water mark preserves
   // the true max across writer-scope noise and re-imports without ever
   // double-counting. Args, in order:
-  //   session_id, model, speed, inference_geo, service_tier,
+  //   session_id, model, speed, inference_geo, service_tier, context_size,
   //   input, output, cache_read, cache_write, cache_write_1h,
   //   web_search, web_fetch, code_execution
   replaceTokenUsage: db.prepare(`
@@ -1999,7 +2040,7 @@ const stmts = {
                              web_search_requests, web_fetch_requests, code_execution_requests,
                              baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
-    VALUES (?, ?, ?, ?, ?, 'short', ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
     ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
       baseline_input = MAX(input_tokens + baseline_input - excluded.input_tokens, 0),
       baseline_output = MAX(output_tokens + baseline_output - excluded.output_tokens, 0),
@@ -2032,7 +2073,7 @@ const stmts = {
                              web_search_requests, web_fetch_requests, code_execution_requests,
                              baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
-    VALUES (?, ?, ?, ?, ?, 'short', ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
     ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
@@ -2151,6 +2192,17 @@ const stmts = {
       intro_cache_write_per_mtok = ?,
       intro_cache_write_1h_per_mtok = ?,
       intro_until = ?,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE model_pattern = ?
+  `),
+  // Update ONLY the long-prompt tier rates for an existing row. Separate from
+  // upsertPricing for the same reason as setIntroPricing: the PUT route calls it
+  // only when the caller sends long_* fields, so clients that omit them keep the
+  // stored long tier.
+  setLongPricing: db.prepare(`
+    UPDATE model_pricing SET
+      long_input_per_mtok = ?,
+      long_output_per_mtok = ?,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE model_pattern = ?
   `),
@@ -2458,6 +2510,7 @@ module.exports = {
   DEFAULT_GPT_PRICING,
   DEFAULT_CURSOR_PRICING,
   applyIntroPricing,
+  applyLongPricing,
   correctSonnet5StandardRate,
   seedGptPricing,
   seedCursorPricing,

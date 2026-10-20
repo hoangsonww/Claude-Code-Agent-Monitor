@@ -84,6 +84,12 @@ async function setPricing({ args, opts }) {
     fast_input_per_mtok: pick("fastInput", "fast_input_per_mtok"),
     fast_output_per_mtok: pick("fastOutput", "fast_output_per_mtok"),
   };
+  // Same contract for the long-prompt tier: only sent with a --long-* flag, so
+  // a plain rate edit keeps the stored tier.
+  if (opts.longInput !== undefined || opts.longOutput !== undefined) {
+    body.long_input_per_mtok = pick("longInput", "long_input_per_mtok");
+    body.long_output_per_mtok = pick("longOutput", "long_output_per_mtok");
+  }
   // The intro block is only sent when at least one --intro-* flag is present:
   // per the API contract, a PUT that omits every intro field preserves an
   // existing promo, so a plain rate edit can never clobber one.
@@ -245,6 +251,8 @@ function register(program) {
     .option("--cache-write-1h <usd>", "1-hour cache-write rate", numArg)
     .option("--fast-input <usd>", "fast-mode input rate", numArg)
     .option("--fast-output <usd>", "fast-mode output rate", numArg)
+    .option("--long-input <usd>", "long-prompt (over the model's limit) input rate", numArg)
+    .option("--long-output <usd>", "long-prompt output rate", numArg)
     .option("--intro-input <usd>", "intro-promo input rate", numArg)
     .option("--intro-output <usd>", "intro-promo output rate", numArg)
     .option("--intro-cache-read <usd>", "intro-promo cache-read rate", numArg)

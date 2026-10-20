@@ -327,6 +327,7 @@ describe("Sessions API", () => {
       "standard",
       "global",
       "standard",
+      "short",
       100,
       10,
       0,

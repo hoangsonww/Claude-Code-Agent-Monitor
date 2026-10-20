@@ -132,6 +132,12 @@ function mergeWorkflowTokens(dst, src) {
         speed: b.speed,
         geo: b.geo,
         tier: "workflow",
+        // Always the short bucket: workflow rows are rebuilt from run journals
+        // and written with the high-water-mark REPLACE, so re-splitting rows
+        // that already exist by prompt size would fold the old short total
+        // into baseline_* and double-count it. Long-prompt workflow usage
+        // therefore prices at the short card (a documented under-count).
+        ctx: "short",
       };
       for (const f of TOKEN_FIELDS) dst[key][f] = 0;
     }

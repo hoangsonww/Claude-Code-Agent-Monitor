@@ -1193,6 +1193,12 @@ export interface ModelPricing {
   fast_input_per_mtok: number;
   /** Premium output rate applied when a token bucket's `speed` is "fast". */
   fast_output_per_mtok: number;
+  /** Input/output rates for requests whose prompt exceeds the model's long-prompt
+   *  limit (e.g. Claude Haiku 5.5 over 100K tokens); 0 / absent = no long tier.
+   *  Cache rates scale with the long input base. The Settings editor does not
+   *  expose these yet; a PUT that omits them keeps the stored values. */
+  long_input_per_mtok?: number;
+  long_output_per_mtok?: number;
   // Time-limited introductory rates: usage on/before intro_until (YYYY-MM-DD)
   // prices at these rates, after it at the standard rates. null/0 = no intro.
   /** Intro input rate (USD/MTok) while the promo is active; null/0 = no promo. */

@@ -588,7 +588,7 @@ describe("POST /api/hooks/ingest-batch", () => {
     assert.equal(
       row.context_size,
       "short",
-      "must match the hardcoded literal in replaceTokenUsage"
+      "a remote token entry without context_size must stay in the short bucket"
     );
     assert.equal(row.speed, normalizeSpeed({ speed: rawEntry.speed }));
     assert.equal(row.inference_geo, normalizeGeo({ inference_geo: rawEntry.inference_geo }));

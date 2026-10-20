@@ -7,6 +7,7 @@
 
 const fs = require("fs");
 const {
+  contextSizeFor,
   bucketKey,
   emptyBucket,
   extractUsageFields,
@@ -579,7 +580,12 @@ class TranscriptCache {
     const speed = normalizeSpeed(msg.usage);
     const geo = normalizeGeo(msg.usage);
     const tier = normalizeTier(msg.usage);
-    const key = bucketKey(model, speed, geo, tier);
+    const fields = extractUsageFields(msg.usage);
+    // Prompt-size class (long-prompt rate tier). Derived per record, so a
+    // message whose partial usage was "short" and whose final usage is "long"
+    // is retracted from the old bucket and counted in the new one below.
+    const ctx = contextSizeFor(model, fields);
+    const key = bucketKey(model, speed, geo, tier, ctx);
     if (usageMsgId) {
       const prev = state.usageByMessageId.get(usageMsgId);
       if (prev) {
@@ -587,15 +593,20 @@ class TranscriptCache {
         // exists in the cached result of a previous incremental parse; a
         // transiently negative local bucket nets out at merge time.
         if (!state.tokensByModel[prev.key]) {
-          state.tokensByModel[prev.key] = emptyBucket(prev.model, prev.speed, prev.geo, prev.tier);
+          state.tokensByModel[prev.key] = emptyBucket(
+            prev.model,
+            prev.speed,
+            prev.geo,
+            prev.tier,
+            prev.ctx
+          );
         }
         subtractBucket(state.tokensByModel[prev.key], prev.fields);
       }
     }
     if (!state.tokensByModel[key]) {
-      state.tokensByModel[key] = emptyBucket(model, speed, geo, tier);
+      state.tokensByModel[key] = emptyBucket(model, speed, geo, tier, ctx);
     }
-    const fields = extractUsageFields(msg.usage);
     accumulateBucket(state.tokensByModel[key], fields);
     if (usageMsgId) {
       // Bounded tail window (see rememberUsageContribution) — a message's
@@ -604,7 +615,7 @@ class TranscriptCache {
       rememberUsageContribution(
         state.usageByMessageId,
         usageMsgId,
-        { key, model, speed, geo, tier, fields },
+        { key, model, speed, geo, tier, ctx, fields },
         MAX_ARRAY_LEN
       );
     }
@@ -719,7 +730,13 @@ class TranscriptCache {
     if (incremental && incremental.tokensByModel) {
       for (const [key, tokens] of Object.entries(incremental.tokensByModel)) {
         if (!tokensByModel[key]) {
-          tokensByModel[key] = emptyBucket(tokens.model, tokens.speed, tokens.geo, tokens.tier);
+          tokensByModel[key] = emptyBucket(
+            tokens.model,
+            tokens.speed,
+            tokens.geo,
+            tokens.tier,
+            tokens.ctx
+          );
         }
         accumulateBucket(tokensByModel[key], tokens);
       }

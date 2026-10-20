@@ -44,6 +44,7 @@ function writeCacheRead(sessionId, cacheRead) {
     "standard",
     "global",
     "standard",
+    "short",
     0, // input
     0, // output
     cacheRead,

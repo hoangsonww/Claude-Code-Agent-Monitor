@@ -57,6 +57,21 @@ function ratesForBucket(rule, row, asOf) {
   let r5m = pick(r.intro_cache_write_per_mtok, r.cache_write_per_mtok);
   let r1h = pick(r.intro_cache_write_1h_per_mtok, r.cache_write_1h_per_mtok);
 
+  // Long-prompt tier: a request stamped context_size "long" (prompt over the
+  // model's limit, see CLAUDE_LONG_CONTEXT_TIERS) bills at the rule's long
+  // input/output rates, with cache rates scaled by the same factor as the input
+  // base — the derivation fast mode uses below. A rule with no long rates
+  // (0) bills standard. Not combined with fast mode: there is no published card
+  // for that pairing, and the fast branch replaces the base rates when it applies.
+  if (row.context_size === "long" && (r.long_input_per_mtok || 0) > 0) {
+    const baseIn = r.input_per_mtok || 0;
+    const factor = baseIn > 0 ? r.long_input_per_mtok / baseIn : 1;
+    rIn = r.long_input_per_mtok;
+    rOut = (r.long_output_per_mtok || 0) > 0 ? r.long_output_per_mtok : rOut * factor;
+    rRead *= factor;
+    r5m *= factor;
+    r1h *= factor;
+  }
   if (row.speed === "fast" && (r.fast_input_per_mtok || 0) > 0) {
     const baseIn = r.input_per_mtok || 0;
     const factor = baseIn > 0 ? r.fast_input_per_mtok / baseIn : 1;
@@ -501,6 +516,10 @@ router.put("/", (req, res) => {
     cache_write_1h_per_mtok,
     fast_input_per_mtok,
     fast_output_per_mtok,
+    // Long-prompt tier rates (optional). A caller that omits both leaves any
+    // stored long tier untouched (see longProvided below).
+    long_input_per_mtok,
+    long_output_per_mtok,
     // Time-limited introductory rates (all optional). A caller that omits every
     // intro field leaves any existing promo untouched (see introProvided below).
     intro_input_per_mtok,
@@ -528,6 +547,8 @@ router.put("/", (req, res) => {
     "cache_write_1h_per_mtok",
     "fast_input_per_mtok",
     "fast_output_per_mtok",
+    "long_input_per_mtok",
+    "long_output_per_mtok",
     "intro_input_per_mtok",
     "intro_output_per_mtok",
     "intro_cache_read_per_mtok",
@@ -562,6 +583,11 @@ router.put("/", (req, res) => {
   ];
   const introProvided = introKeys.some((k) => req.body[k] !== undefined);
 
+  // Same backward-compat rule for the long-prompt tier: only touch it when the
+  // caller sent a long_* field, so existing clients never wipe the stored tier.
+  const longProvided =
+    req.body.long_input_per_mtok !== undefined || req.body.long_output_per_mtok !== undefined;
+
   // Normalize / validate intro_until: an empty value clears the promo (NULL);
   // a present value must be a YYYY-MM-DD date so the date-string comparisons in
   // ratesForBucket stay correct.
@@ -590,6 +616,9 @@ router.put("/", (req, res) => {
       num(fast_input_per_mtok),
       num(fast_output_per_mtok)
     );
+    if (longProvided) {
+      stmts.setLongPricing.run(num(long_input_per_mtok), num(long_output_per_mtok), model_pattern);
+    }
     if (introProvided) {
       // A cleared promo (no date) zeroes the intro rates too so a stale value
       // can't resurface if a date is re-added later without re-entering rates.

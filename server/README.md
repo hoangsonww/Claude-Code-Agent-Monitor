@@ -573,6 +573,9 @@ Request body:
 
 `provider` must be one of `claude`/`codex`. `tokens[]` entries are each
 bucket's **full current total** (like a transcript re-parse), not a delta.
+An entry may add `context_size` (`"short"` default, or `"long"` for a
+long-prompt-tier model's over-limit requests); pushers that omit it land in the
+short bucket.
 `repo_remote_url` is optional collector-supplied metadata. URL/SCP userinfo, query
 strings, and fragments are removed; malformed URL-style values are discarded.
 The first non-empty sanitized value is retained, even when it arrives after
@@ -1154,10 +1157,19 @@ const DEFAULT_PRICING = [
   ["claude-mythos-5%", "Claude Mythos 5", 10, 50, 1, 12.5, 20],
   ["claude-opus-4-8%", "Claude Opus 4.8", 5, 25, 0.5, 6.25, 10],
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6],
+  ["claude-haiku-5-5%", "Claude Haiku 5.5", 0.1, 0.5, 0.01, 0.125, 0.2],
   ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25, 2],
   // ... one explicit row per model (see server/db.js for the full list)
 ];
 ```
+
+Long-prompt tiers are seeded separately (`DEFAULT_LONG_PRICING` in `db.js`, applied
+at startup and by reset-pricing): Haiku 5.5 bills prompts over 100K tokens at
+$0.50/$2.50 (`long_input_per_mtok` / `long_output_per_mtok`, cache rates scaled
+with the input base). The parsers stamp each request `context_size = 'long'`
+when its prompt (input + cache reads + cache writes) exceeds the limit in
+`CLAUDE_LONG_CONTEXT_TIERS` (`server/lib/pricing-constants.js`); only models
+listed there are ever split.
 
 ---
 

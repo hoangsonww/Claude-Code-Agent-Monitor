@@ -16,6 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 const {
+  contextSizeFor,
   bucketKey,
   emptyBucket,
   extractUsageFields,
@@ -288,21 +289,26 @@ async function parseSessionFile(filePath) {
           const prev = usageByMessageId.get(usageMsgId);
           if (prev) subtractBucket(tokensByModel[prev.key], prev.fields);
         }
+        const fields = extractUsageFields(usage);
+        // Long-prompt rate tier (see CLAUDE_LONG_CONTEXT_TIERS): "short" for
+        // every model without one.
+        const ctx = contextSizeFor(msgModel, fields);
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
           normalizeGeo(usage),
-          normalizeTier(usage)
+          normalizeTier(usage),
+          ctx
         );
         if (tokensByModel[key] === undefined) {
           tokensByModel[key] = emptyBucket(
             msgModel,
             normalizeSpeed(usage),
             normalizeGeo(usage),
-            normalizeTier(usage)
+            normalizeTier(usage),
+            ctx
           );
         }
-        const fields = extractUsageFields(usage);
         accumulateBucket(tokensByModel[key], fields);
         if (usageMsgId) rememberUsageContribution(usageByMessageId, usageMsgId, { key, fields });
       }
@@ -487,21 +493,24 @@ async function parseSubagentFile(filePath) {
           const prev = usageByMessageId.get(usageMsgId);
           if (prev) subtractBucket(tokensByModel[prev.key], prev.fields);
         }
+        const fields = extractUsageFields(usage);
+        const ctx = contextSizeFor(msgModel, fields);
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
           normalizeGeo(usage),
-          normalizeTier(usage)
+          normalizeTier(usage),
+          ctx
         );
         if (!tokensByModel[key]) {
           tokensByModel[key] = emptyBucket(
             msgModel,
             normalizeSpeed(usage),
             normalizeGeo(usage),
-            normalizeTier(usage)
+            normalizeTier(usage),
+            ctx
           );
         }
-        const fields = extractUsageFields(usage);
         accumulateBucket(tokensByModel[key], fields);
         if (usageMsgId) rememberUsageContribution(usageByMessageId, usageMsgId, { key, fields });
       }
@@ -793,7 +802,7 @@ function combineSessionTokens(session) {
     if (!src) return;
     for (const [key, tok] of Object.entries(src)) {
       if (!combined[key]) {
-        combined[key] = emptyBucket(tok.model, tok.speed, tok.geo, tok.tier);
+        combined[key] = emptyBucket(tok.model, tok.speed, tok.geo, tok.tier, tok.ctx);
       }
       accumulateBucket(combined[key], tok);
     }
@@ -833,6 +842,7 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel, options = {}) {
         tokens.speed,
         tokens.geo,
         tokens.tier,
+        tokens.ctx === "long" ? "long" : "short",
         tokens.input || 0,
         tokens.output || 0,
         tokens.cacheRead || 0,
@@ -864,6 +874,7 @@ function subagentTokenRows(tokensByModel) {
       speed: b.speed,
       inference_geo: b.geo,
       service_tier: b.tier,
+      context_size: b.ctx === "long" ? "long" : "short",
       input_tokens: b.input || 0,
       output_tokens: b.output || 0,
       cache_read_tokens: b.cacheRead || 0,
@@ -2081,7 +2092,7 @@ async function reconcileTokens(dbModule, options = {}) {
   // They were previously excluded only by accident (their transcripts live
   // outside PROJECTS_DIR, so the directory scan never matched them); resolving
   // `transcript_path` below removes that accident, hence the explicit filter.
-  const known = options.all
+  const candidates = options.all
     ? dbModule.db
         .prepare("SELECT id, transcript_path FROM sessions WHERE provider = 'claude'")
         .all()
@@ -2090,6 +2101,11 @@ async function reconcileTokens(dbModule, options = {}) {
           "SELECT id, transcript_path FROM sessions WHERE provider = 'claude' AND metadata LIKE '%\"imported\":true%'"
         )
         .all();
+  // options.sessionIds narrows the sweep to specific sessions (the provider
+  // guard above still applies) — used by targeted repairs such as the
+  // long-prompt re-split, which only needs the sessions that used one model.
+  const sessionFilter = Array.isArray(options.sessionIds) ? new Set(options.sessionIds) : null;
+  const known = sessionFilter ? candidates.filter((row) => sessionFilter.has(row.id)) : candidates;
 
   const total = known.length;
   let processed = 0;

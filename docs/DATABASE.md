@@ -416,6 +416,8 @@ CREATE TABLE model_pricing (
     cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,   -- 1h-ephemeral cache-write tier
     fast_input_per_mtok REAL NOT NULL DEFAULT 0,       -- fast-mode premium rates
     fast_output_per_mtok REAL NOT NULL DEFAULT 0,
+    long_input_per_mtok REAL NOT NULL DEFAULT 0,       -- long-prompt tier rates (0 = none)
+    long_output_per_mtok REAL NOT NULL DEFAULT 0,
     -- Time-limited introductory (promo) rates. When intro_until is set, usage on
     -- or before that date (YYYY-MM-DD) is priced at the intro_* rates and usage
     -- after it at the standard rates. All 0 / NULL = no promo.
@@ -438,6 +440,7 @@ CREATE TABLE model_pricing (
 | `input_per_mtok` / `output_per_mtok` | REAL | NO | Standard input / output rate per 1M tokens |
 | `cache_read_per_mtok` / `cache_write_per_mtok` / `cache_write_1h_per_mtok` | REAL | NO | Cache read + 5m/1h cache-write rates |
 | `fast_input_per_mtok` / `fast_output_per_mtok` | REAL | NO | Fast-mode premium rates (0 = no premium) |
+| `long_input_per_mtok` / `long_output_per_mtok` | REAL | NO | Rates for `token_usage` rows with `context_size = 'long'` (requests whose prompt exceeds the model's long-prompt limit); 0 = no long tier. Cache rates scale with the long input base |
 | `intro_*_per_mtok` | REAL | NO | Introductory (promo) rates, mirroring the standard fields |
 | `intro_until` | TEXT | YES | Promo cutoff `YYYY-MM-DD`. Usage on/before it uses the intro rates; NULL = no promo. Editable per-rule in Settings |
 | `updated_at` | TEXT | NO | ISO8601 timestamp of the last edit |

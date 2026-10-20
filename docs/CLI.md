@@ -255,8 +255,8 @@ All rule and webhook writes are [confirmed](#safety-model).
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam pricing [list]` | Claude rules incl. **Fast In/Out** and **Intro In/Out** columns |
-| `ccam pricing set <pattern> --input N --output N [--cache-read] [--cache-write] [--cache-write-1h] [--fast-input] [--fast-output] [--intro-* …] [--intro-until [date]] [--name]` | Create/update a rule. **Omitted flags keep the rule's current values** (a new rule defaults them to 0). Intro fields are only sent when an `--intro-*` flag is present (a plain edit never clobbers a promo); bare `--intro-until` clears it |
+| `ccam pricing [list]` | Claude rules incl. **Fast In/Out** and **Intro In/Out** columns (the long-prompt tier appears in `--json` output as `long_input_per_mtok` / `long_output_per_mtok`) |
+| `ccam pricing set <pattern> --input N --output N [--cache-read] [--cache-write] [--cache-write-1h] [--fast-input] [--fast-output] [--long-input] [--long-output] [--intro-* …] [--intro-until [date]] [--name]` | Create/update a rule. **Omitted flags keep the rule's current values** (a new rule defaults them to 0). Intro fields are only sent when an `--intro-*` flag is present (a plain edit never clobbers a promo); bare `--intro-until` clears it. `--long-input`/`--long-output` set the long-prompt tier and are likewise only sent when given |
 | `ccam pricing delete <pattern>` | Delete a rule |
 | `ccam pricing reset --yes` | Restore the shipped defaults (confirmed — replaces custom rules) |
 | `ccam pricing gpt [list]` · `pricing gpt set <pattern> [--input] [--cached-input] [--cache-write] [--output] [--long-*] [--fast-*] [--data JSON]` · `pricing gpt delete <pattern>` | OpenAI/Codex rate card. `set` **merges flags onto the existing row**, so a partial edit never zeroes other rates |

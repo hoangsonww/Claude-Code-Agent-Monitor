@@ -1056,6 +1056,15 @@ function createOpenApiSpec() {
               type: "number",
               description: "Fast-mode output rate (0 = none)",
             },
+            long_input_per_mtok: {
+              type: "number",
+              description:
+                "Input rate for requests whose prompt exceeds the model's long-prompt limit (0 = no long tier). Cache rates scale with it. Omit to keep the stored value.",
+            },
+            long_output_per_mtok: {
+              type: "number",
+              description: "Output rate for long-prompt requests (0 = no long tier).",
+            },
             updated_at: { type: "string", format: "date-time" },
           },
         },
@@ -1077,6 +1086,15 @@ function createOpenApiSpec() {
             fast_output_per_mtok: {
               type: "number",
               description: "Fast-mode output rate (0 = none)",
+            },
+            long_input_per_mtok: {
+              type: "number",
+              description:
+                "Input rate for requests whose prompt exceeds the model's long-prompt limit (0 = no long tier). Cache rates scale with it. Omit to keep the stored value.",
+            },
+            long_output_per_mtok: {
+              type: "number",
+              description: "Output rate for long-prompt requests (0 = no long tier).",
             },
           },
         },
@@ -2456,6 +2474,12 @@ function createOpenApiSpec() {
                           speed: { type: "string" },
                           inference_geo: { type: "string" },
                           service_tier: { type: "string" },
+                          context_size: {
+                            type: "string",
+                            enum: ["short", "long"],
+                            description:
+                              "Prompt-size class for models with a long-prompt rate tier; omitted = short.",
+                          },
                           input: { type: "integer", minimum: 0 },
                           output: { type: "integer", minimum: 0 },
                           cacheRead: { type: "integer", minimum: 0 },

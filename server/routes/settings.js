@@ -19,6 +19,7 @@ const {
   DEFAULT_GPT_PRICING,
   DEFAULT_CURSOR_PRICING,
   applyIntroPricing,
+  applyLongPricing,
   seedGptPricing,
   seedCursorPricing,
 } = require("../db");
@@ -272,6 +273,8 @@ router.post("/reset-pricing", (req, res) => {
     // Re-apply time-limited intro rates (e.g. Sonnet 5) — the seed above only
     // carries standard rates, so without this a reset silently drops the promo.
     applyIntroPricing(db);
+    // Likewise the long-prompt tier rates (e.g. Haiku 5.5's >100K card).
+    applyLongPricing(db);
   }
   if (resetCodex) {
     db.prepare("DELETE FROM gpt_model_pricing").run();

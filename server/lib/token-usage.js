@@ -11,8 +11,15 @@
  * price; anything unknown collapses to the standard/global default so old
  * transcripts (which lack `speed` / `inference_geo` / `cache_creation`
  * breakdown / `server_tool_use`) price exactly as they did before.
+ *
+ * A fifth dimension, `ctx` ("short" | "long"), splits a model's usage by
+ * per-request prompt size, but only for models whose rate card has a long-prompt
+ * tier (CLAUDE_LONG_CONTEXT_TIERS). Every other model is always "short", so its
+ * bucket keys and stored rows are identical to before.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+
+const { CLAUDE_LONG_CONTEXT_TIERS } = require("./pricing-constants");
 
 // Separator for composite bucket keys — U+0001 (SOH) cannot occur in a model id.
 const BUCKET_SEP = String.fromCharCode(1);
@@ -36,18 +43,36 @@ function normalizeTier(usage) {
   return usage && usage.service_tier === "batch" ? "batch" : "standard";
 }
 
-/** Composite bucket key — stable string usable as an object property. */
-function bucketKey(model, speed, geo, tier) {
-  return [model, speed, geo, tier].join(BUCKET_SEP);
+/**
+ * Prompt-size class of a single request: "long" when the model has a long-prompt
+ * rate tier and this request's prompt (fresh input + cache reads + cache writes)
+ * exceeds its limit, otherwise "short". `fields` is extractUsageFields() output.
+ */
+function contextSizeFor(model, fields) {
+  const tier = CLAUDE_LONG_CONTEXT_TIERS.find((t) => t.pattern.test(String(model || "")));
+  if (!tier || !fields) return "short";
+  const prompt = (fields.input || 0) + (fields.cacheRead || 0) + (fields.cacheWrite || 0);
+  return prompt > tier.limit ? "long" : "short";
 }
 
-/** A zeroed bucket carrying its four pricing dimensions. */
-function emptyBucket(model, speed, geo, tier) {
+/**
+ * Composite bucket key — stable string usable as an object property. The
+ * default "short" context adds no segment, keeping pre-existing keys unchanged.
+ */
+function bucketKey(model, speed, geo, tier, ctx = "short") {
+  const parts = [model, speed, geo, tier];
+  if (ctx === "long") parts.push("long");
+  return parts.join(BUCKET_SEP);
+}
+
+/** A zeroed bucket carrying its pricing dimensions. */
+function emptyBucket(model, speed, geo, tier, ctx = "short") {
   return {
     model,
     speed,
     geo,
     tier,
+    ctx: ctx === "long" ? "long" : "short",
     input: 0,
     output: 0,
     cacheRead: 0,
@@ -178,6 +203,7 @@ module.exports = {
   normalizeSpeed,
   normalizeGeo,
   normalizeTier,
+  contextSizeFor,
   bucketKey,
   emptyBucket,
   extractUsageFields,

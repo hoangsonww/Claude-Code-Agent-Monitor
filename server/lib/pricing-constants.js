@@ -19,6 +19,16 @@ const CACHE_WRITE_1H_MULTIPLIER = 2.0; // 1-hour ephemeral write
 const DATA_RESIDENCY_US_MULTIPLIER = 1.1; // inference_geo === "us"
 const BATCH_DISCOUNT_MULTIPLIER = 0.5; // service_tier === "batch" (50% off)
 
+// ── Long-prompt rate tiers ──────────────────────────────────────────────────
+// Models whose published rate card depends on prompt length. A request whose
+// prompt (input + cache reads + cache writes) exceeds `limit` tokens is stamped
+// context_size = "long" at ingestion and priced at the rule's long_* rates
+// (cache rates scale with the long input base, like fast mode). Only models
+// listed here are ever stamped "long", so every other model's buckets — and the
+// token_usage rows already stored for them — are unaffected.
+// claude-haiku-5-5: $0.10/$0.50 up to 100K prompt tokens, $0.50/$2.50 above.
+const CLAUDE_LONG_CONTEXT_TIERS = [{ pattern: /^claude-haiku-5-5/i, limit: 100000 }];
+
 // ── Server-tool surcharges (billed in addition to tokens) ───────────────────
 const WEB_SEARCH_PER_1K_SEARCHES = 10.0; // $10 per 1,000 web_search_requests
 const WEB_FETCH_PER_REQUEST = 0.0; // web fetch has no surcharge — tokens only
@@ -48,6 +58,7 @@ module.exports = {
   CACHE_WRITE_1H_MULTIPLIER,
   DATA_RESIDENCY_US_MULTIPLIER,
   BATCH_DISCOUNT_MULTIPLIER,
+  CLAUDE_LONG_CONTEXT_TIERS,
   WEB_SEARCH_PER_1K_SEARCHES,
   WEB_FETCH_PER_REQUEST,
   CODE_EXEC_PER_HOUR,

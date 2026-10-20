@@ -398,6 +398,102 @@ function repairInflatedTokenTotals() {
 }
 
 /**
+ * One-time re-split of existing sessions' token buckets by prompt size, for
+ * models with a long-prompt rate tier (CLAUDE_LONG_CONTEXT_TIERS — currently
+ * Claude Haiku 5.5).
+ *
+ * Before the context dimension existed, every request of such a model landed in
+ * the single "short" bucket, so a stored row mixes short and long prompts and
+ * cannot be split after the fact. It also cannot be left to the live writers:
+ * `replaceTokenUsage` is a high-water mark, so the first re-parse after the
+ * upgrade (short bucket now smaller, long bucket new) would fold the old short
+ * total into `baseline_*` and count the long tokens twice. Re-reading each
+ * affected transcript with baselines reset heals both.
+ *
+ * Only sessions that already have a row for a long-tier model are re-derived, so
+ * every other model's history is untouched. Same guards as
+ * repairInflatedTokenTotals: a `.token-repair-long-context-v1.done` marker
+ * written only after a completed pass, `DASHBOARD_TOKEN_REPAIR=0` opt-out,
+ * skipped (no marker) while another dashboard shares the data directory, and a
+ * one-table snapshot (`token_usage_pre_long_context_v1`) kept for recovery. It
+ * also waits for the v2 repair marker: that pass already re-derives every
+ * session with this parser, and running both at once would race.
+ */
+function repairLongContextTokenTotals() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-long-context-v1.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-v2.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log("Long-context token repair deferred: another dashboard shares this database.");
+      return;
+    }
+
+    const { CLAUDE_LONG_CONTEXT_TIERS } = require("./lib/pricing-constants");
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const models = dbModule.db
+            .prepare("SELECT DISTINCT model FROM token_usage WHERE service_tier != 'workflow'")
+            .all()
+            .map((r) => r.model)
+            .filter((m) => CLAUDE_LONG_CONTEXT_TIERS.some((t) => t.pattern.test(m)));
+          const sessionIds = models.length
+            ? dbModule.db
+                .prepare(
+                  `SELECT DISTINCT session_id FROM token_usage
+                    WHERE service_tier != 'workflow'
+                      AND model IN (${models.map(() => "?").join(",")})`
+                )
+                .all(...models)
+                .map((r) => r.session_id)
+            : [];
+          if (sessionIds.length > 0) {
+            dbModule.db.exec(
+              "CREATE TABLE IF NOT EXISTS token_usage_pre_long_context_v1 AS SELECT * FROM token_usage"
+            );
+            const { reconcileTokens } = require("../scripts/import-history");
+            const result = await reconcileTokens(dbModule, {
+              all: true,
+              resetBaselines: true,
+              sessionIds,
+            });
+            if (result.sessionsTouched > 0) {
+              console.log(
+                `Re-split token totals by prompt size for ${result.sessionsTouched} session(s). ` +
+                  `Pre-repair values kept in token_usage_pre_long_context_v1.`
+              );
+            }
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — the (idempotent) repair simply re-runs next start */
+          }
+        } catch (err) {
+          console.warn("long-context token repair failed:", err.message);
+        }
+      })();
+    }, 12_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("long-context token repair could not start:", err.message);
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -416,6 +512,10 @@ function startBackgroundServices() {
   // omitted same-model subagents (issues #293 and #345). Marker-gated and
   // deferred; see the function for why live fixes cannot heal every old row.
   repairInflatedTokenTotals();
+
+  // One-time re-split of long-prompt-tier models' buckets by prompt size
+  // (Claude Haiku 5.5); marker-gated and deferred like the repair above.
+  repairLongContextTokenTotals();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can
@@ -1652,4 +1752,5 @@ module.exports = {
   codexHomeChangeTriggersSweep,
   createIngestRetryBudget,
   repairInflatedTokenTotals,
+  repairLongContextTokenTotals,
 };
