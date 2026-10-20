@@ -137,6 +137,61 @@ describe("POST /api/hooks/ingest-transcript", () => {
     );
   });
 
+  it("keeps one token total for a session that is both pushed and synced", async () => {
+    // A pusher may send ingest-batch token totals (no Claude Code version) for
+    // a session whose transcript it also syncs (split by version). Both must
+    // land on one high-water mark per bucket, never a copy per writer.
+    const sessionId = crypto.randomUUID();
+    await registerRemoteSession(sessionId);
+    const relPath = `push-sync/${sessionId}.jsonl`;
+    let offset = 0;
+    const assistant = (id, version, cacheRead) =>
+      JSON.stringify({
+        type: "assistant",
+        version,
+        timestamp: "2026-10-11T00:00:00.000Z",
+        message: {
+          id,
+          model: "claude-sonnet-5-5",
+          usage: { input_tokens: 0, output_tokens: 1, cache_read_input_tokens: cacheRead },
+          content: [{ type: "text", text: "x" }],
+        },
+      }) + "\n";
+    const totals = () =>
+      db
+        .prepare(
+          `SELECT SUM(output_tokens + baseline_output) AS output,
+                  SUM(cache_read_tokens + baseline_cache_read) AS cacheRead
+             FROM token_usage WHERE session_id = ?`
+        )
+        .get(sessionId);
+    const sync = async (lines, outputs) => {
+      const chunk = lines.join("");
+      const result = await postJson("/api/hooks/ingest-transcript", {
+        session_id: sessionId,
+        rel_path: relPath,
+        offset,
+        content_b64: Buffer.from(chunk).toString("base64"),
+        sync: true,
+      });
+      assert.equal(result.response.status, 200);
+      offset += Buffer.byteLength(chunk);
+      return waitFor(totals, (t) => t.output === outputs);
+    };
+
+    await sync([assistant("m1", "2.1.286", 1_000_000), assistant("m2", "2.1.296", 1_000_000)], 2);
+    for (let cycle = 3; cycle <= 5; cycle++) {
+      const pushed = await postJson("/api/hooks/ingest-batch", {
+        session_id: sessionId,
+        provider: "claude",
+        tokens: [{ model: "claude-sonnet-5-5", output: cycle - 1, cacheRead: 2_000_000 }],
+      });
+      assert.equal(pushed.response.status, 200);
+      const after = await sync([assistant(`m${cycle}`, "2.1.296", 0)], cycle);
+      assert.equal(after.cacheRead, 2_000_000, `cycle ${cycle}: no copy per writer`);
+    }
+  });
+
   it("keeps a remote custom title matching the cwd folder over the first prompt", async () => {
     const sessionId = crypto.randomUUID();
     const created = await postJson("/api/hooks/ingest-batch", {

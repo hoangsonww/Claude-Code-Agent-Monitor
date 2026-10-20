@@ -31,6 +31,14 @@ const { db, stmts } = dbModule;
 const TranscriptCache = require("../lib/transcript-cache");
 const { writeTokenBuckets, emptyBucket, compareCcVersions } = require("../lib/token-usage");
 const { agentOwnCost } = require("../routes/pricing");
+const {
+  parseCostStateEntry,
+  applyCostState,
+  newCostStateTracker,
+  trackEntryVersion,
+  trackCostState,
+} = require("../lib/cost-state");
+const { importExportBundle } = require("../lib/data-transfer");
 const { parseSessionFile, reconcileTokens } = require("../../scripts/import-history");
 
 const SONNET = "claude-sonnet-5-5";
@@ -105,6 +113,32 @@ function cacheReadRows(sessionId) {
     out[r.cc_version] = [r.cache_read_tokens, r.baseline_cache_read];
   }
   return out;
+}
+
+/** The session's effective cache reads (live + baseline) per Claude Code version. */
+function effectiveCacheReads(sessionId) {
+  return Object.fromEntries(
+    Object.entries(cacheReadRows(sessionId)).map(([v, [live, base]]) => [v, live + base])
+  );
+}
+
+/** A cost-state top-up of `n` cache reads on the session's `version` row. */
+function topUpRow(sessionId, version, n) {
+  stmts.addTokenUsageBaseline.run(
+    sessionId,
+    SONNET,
+    "standard",
+    "global",
+    "standard",
+    "short",
+    version,
+    0,
+    0,
+    n,
+    0,
+    0,
+    0
+  );
 }
 
 const cacheReads = (version, n) => ({
@@ -187,77 +221,51 @@ describe("writeTokenBuckets", () => {
     seedSession("wtb-fold");
     // Before the split: 2M transcript cache reads plus a 1M cost-state top-up.
     legacyRow("wtb-fold", 2 * MTOK);
-    stmts.addTokenUsageBaseline.run(
-      "wtb-fold",
-      SONNET,
-      "standard",
-      "global",
-      "standard",
-      "short",
-      "",
-      0,
-      0,
-      MTOK,
-      0,
-      0,
-      0
-    );
+    topUpRow("wtb-fold", "", MTOK);
 
     writeTokenBuckets(stmts, "wtb-fold", [
       cacheReads("2.1.296", MTOK),
       cacheReads("2.1.286", MTOK),
     ]);
     assert.deepEqual(
-      cacheReadRows("wtb-fold"),
-      { "2.1.286": [MTOK, MTOK / 2], "2.1.296": [MTOK, MTOK / 2] },
-      "the transcript's split is stored as is; the extra is shared by each version's usage"
+      effectiveCacheReads("wtb-fold"),
+      { "2.1.286": MTOK, "2.1.296": MTOK, "": MTOK },
+      "the transcript's split is stored as is; what no version accounts for stays unversioned"
     );
+  });
 
-    // A narrower writer (fewer tokens than stored) keeps the bucket total.
-    writeTokenBuckets(stmts, "wtb-fold", [
-      cacheReads("2.1.286", MTOK / 2),
+  it("keeps the rows of versions a narrower write does not see", () => {
+    seedSession("wtb-narrow");
+    writeTokenBuckets(stmts, "wtb-narrow", [
+      cacheReads("2.1.286", MTOK),
       cacheReads("2.1.296", MTOK),
     ]);
-    assert.deepEqual(cacheReadRows("wtb-fold"), {
-      "2.1.286": [MTOK / 2, MTOK / 2],
-      "2.1.296": [MTOK, MTOK],
+    writeTokenBuckets(stmts, "wtb-narrow", [cacheReads("2.1.296", MTOK / 2)]);
+    assert.deepEqual(effectiveCacheReads("wtb-narrow"), { "2.1.286": MTOK, "2.1.296": MTOK });
+  });
+
+  it("an unversioned write of the same usage adds no copy; its growth is held until versioned", () => {
+    seedSession("wtb-push");
+    const versioned = (newer) => [cacheReads("2.1.286", MTOK), cacheReads("2.1.296", newer)];
+    writeTokenBuckets(stmts, "wtb-push", versioned(MTOK));
+    for (let i = 0; i < 3; i++) {
+      writeTokenBuckets(stmts, "wtb-push", [cacheReads("", 2 * MTOK)]);
+      writeTokenBuckets(stmts, "wtb-push", versioned(MTOK));
+    }
+    assert.deepEqual(effectiveCacheReads("wtb-push"), { "2.1.286": MTOK, "2.1.296": MTOK });
+
+    writeTokenBuckets(stmts, "wtb-push", [cacheReads("", 2.5 * MTOK)]);
+    assert.deepEqual(effectiveCacheReads("wtb-push"), {
+      "2.1.286": MTOK,
+      "2.1.296": MTOK,
+      "": MTOK / 2,
     });
-  });
-
-  it("shares the extra out in whole tokens that sum exactly", () => {
-    seedSession("wtb-round");
-    legacyRow("wtb-round", 10);
-    writeTokenBuckets(stmts, "wtb-round", [cacheReads("2.1.286", 1), cacheReads("2.1.296", 2)]);
-    assert.deepEqual(cacheReadRows("wtb-round"), { "2.1.286": [1, 2], "2.1.296": [2, 5] });
-  });
-
-  it("puts extra of a field no version recorded on the latest version", () => {
-    seedSession("wtb-latest");
-    stmts.addTokenUsageBaseline.run(
-      "wtb-latest",
-      SONNET,
-      "standard",
-      "global",
-      "standard",
-      "short",
-      "",
-      0,
-      0,
-      0,
-      0,
-      0,
-      3
+    writeTokenBuckets(stmts, "wtb-push", versioned(1.5 * MTOK));
+    assert.deepEqual(
+      effectiveCacheReads("wtb-push"),
+      { "2.1.286": MTOK, "2.1.296": 1.5 * MTOK },
+      "the versioned write accounts for the growth, so the unversioned row goes"
     );
-    writeTokenBuckets(stmts, "wtb-latest", [cacheReads("2.1.286", 1), cacheReads("2.1.296", 1)]);
-    const searches = db
-      .prepare(
-        "SELECT cc_version, baseline_web_search FROM token_usage WHERE session_id = 'wtb-latest'"
-      )
-      .all();
-    assert.deepEqual(searches, [
-      { cc_version: "2.1.286", baseline_web_search: 0 },
-      { cc_version: "2.1.296", baseline_web_search: 3 },
-    ]);
   });
 
   it("reset writes the live counts as the whole truth", () => {
@@ -346,6 +354,109 @@ describe("cost endpoints price each row by its own version", () => {
     });
     assert.equal(agentOwnCost(agent("2.1.296"), rules, "2.1.286"), 0.1);
     assert.equal(agentOwnCost(agent(""), rules, "2.1.286"), 0.2);
+  });
+});
+
+describe("cost-state top-ups by Claude Code version", () => {
+  const record = (sessionId, cacheRead) => ({
+    type: "cost-state",
+    sessionId,
+    modelUsage: { [SONNET]: { cacheReadInputTokens: cacheRead } },
+  });
+
+  it("splits Claude's running totals by the version that saved each increase", () => {
+    const tracker = newCostStateTracker();
+    const seen = (entry) => {
+      trackEntryVersion(tracker, entry);
+      return entry.type === "cost-state"
+        ? trackCostState(tracker, parseCostStateEntry(entry))
+        : null;
+    };
+    seen({ type: "user", version: "2.1.286" });
+    seen(record("s", 100));
+    seen(record("s", 100));
+    seen({ type: "assistant", version: "2.1.296" });
+    const last = seen(record("s", 300));
+    assert.deepEqual(last.byVersion, {
+      "2.1.286": { [SONNET]: { cacheRead: 100 } },
+      "2.1.296": { [SONNET]: { cacheRead: 200 } },
+    });
+    assert.equal(seen(record("s", 250)).byVersion, undefined, "not a running total any more");
+  });
+
+  it("raises each version to its own figure, taking what it covers from the unversioned row", () => {
+    seedSession("cs-version");
+    writeTokenBuckets(stmts, "cs-version", [
+      cacheReads("2.1.286", MTOK),
+      cacheReads("2.1.296", MTOK),
+    ]);
+    topUpRow("cs-version", "", MTOK); // a top-up from before versions were recorded
+    const costState = {
+      sessionId: "cs-version",
+      models: {
+        [SONNET]: { input: 0, output: 0, cacheRead: 3 * MTOK, cacheWrite: 0, webSearch: 0 },
+      },
+      byVersion: {
+        "2.1.286": { [SONNET]: { cacheRead: 1.2 * MTOK } },
+        "2.1.296": { [SONNET]: { cacheRead: 1.8 * MTOK } },
+      },
+    };
+    assert.ok(applyCostState(stmts, "cs-version", costState) > 0);
+    assert.deepEqual(effectiveCacheReads("cs-version"), {
+      "2.1.286": 1.2 * MTOK,
+      "2.1.296": 1.8 * MTOK,
+    });
+    assert.equal(
+      applyCostState(stmts, "cs-version", costState),
+      0,
+      "second application is a no-op"
+    );
+  });
+
+  it("prices a resumed session exactly as Claude did, including its unrecorded calls", async () => {
+    // Process 1 (2.1.286) recorded 1M cache reads and Claude saved 1.1M;
+    // process 2 (2.1.296) recorded 1M more and Claude saved 2.5M in all. The
+    // session predates versioned rows: one '' row holding the transcript's 2M
+    // plus a 0.5M top-up.
+    const SID = "40000000-0000-0000-0000-000000000002";
+    seedSession(SID, { version: "2.1.286" });
+    db.prepare("UPDATE sessions SET transcript_path = ? WHERE id = ?").run(
+      writeTranscript(SID, [
+        assistantLine("e1", "2.1.286"),
+        JSON.stringify(record(SID, 1.1 * MTOK)),
+        assistantLine("e2", "2.1.296"),
+        JSON.stringify(record(SID, 2.5 * MTOK)),
+      ]),
+      SID
+    );
+    legacyRow(SID, 2 * MTOK);
+    topUpRow(SID, "", MTOK / 2);
+
+    await reconcileTokens(dbModule, { all: true, sessionIds: [SID] });
+    assert.deepEqual(effectiveCacheReads(SID), { "2.1.286": 1.1 * MTOK, "2.1.296": 1.4 * MTOK });
+    assert.equal(
+      (await get(`/api/pricing/cost/${SID}`)).body.total_cost,
+      0.36,
+      "1.1M at $0.20 + 1.4M at $0.10"
+    );
+  });
+});
+
+describe("restoring a backup from before cc_version", () => {
+  it("keeps its token rows, with the column's default", () => {
+    const result = importExportBundle(db, {
+      sessions: [
+        {
+          id: "bundle-old",
+          name: "t",
+          status: "completed",
+          started_at: "2026-10-01T00:00:00.000Z",
+        },
+      ],
+      token_usage: [{ session_id: "bundle-old", model: SONNET, cache_read_tokens: 5 }],
+    });
+    assert.equal(result.token_usage, 1);
+    assert.deepEqual(cacheReadRows("bundle-old"), { "": [5, 0] });
   });
 });
 

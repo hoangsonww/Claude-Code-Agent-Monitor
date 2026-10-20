@@ -29,9 +29,10 @@ const {
   normalizeSpeed,
   normalizeGeo,
   normalizeTier,
+  normalizeCcVersion,
   writeTokenBuckets,
 } = require("../lib/token-usage");
-const { applyCostState, readLatestCostState } = require("../lib/cost-state");
+const { applyCostState } = require("../lib/cost-state");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
@@ -90,17 +91,19 @@ function combineLiveSessionTokens(transcriptPath, mainTokensByModel) {
 const LATE_COST_STATE_DELAYS_MS = [2_000, 15_000];
 
 /**
- * Re-read a just-ended session's transcript tail for its cost-state record and
- * top the token totals up to it. Fail-safe and unref'd: a missing file or DB
- * error is ignored, and the timers never keep the process alive. Broadcasts
+ * Re-read a just-ended session's transcript (incrementally, through the shared
+ * cache, so the record keeps its per-version split) for its cost-state record
+ * and top the token totals up to it. Fail-safe and unref'd: a missing file or
+ * DB error is ignored, and the timers never keep the process alive. Broadcasts
  * the session when a top-up changed its totals so open dashboards reprice it.
  */
 function scheduleLateCostStateCheck(sessionId, transcriptPath) {
+  const apply = db.transaction((costState) => applyCostState(stmts, sessionId, costState));
   for (const delay of LATE_COST_STATE_DELAYS_MS) {
     const timer = setTimeout(() => {
       try {
-        const costState = readLatestCostState(transcriptPath, sessionId);
-        if (costState && applyCostState(stmts, sessionId, costState) > 0) {
+        const costState = transcriptCache.extract(transcriptPath)?.costState;
+        if (costState && apply(costState) > 0) {
           const session = stmts.getSession.get(sessionId);
           if (session) broadcast("session_updated", session);
         }
@@ -2355,7 +2358,7 @@ router.post("/ingest-batch", (req, res) => {
       // never store a raw client-supplied value. Note this route mirrors the
       // local hook's cumulative-per-bucket-totals contract: each tokens[]
       // entry is the bucket's FULL current total (like a transcript re-parse),
-      // not a delta — replaceTokenUsage below is a high-water-mark REPLACE,
+      // not a delta — writeTokenBuckets below is a high-water-mark REPLACE,
       // not an additive upsert, so a client sending deltas would silently
       // under-count.
       speed: normalizeSpeed({ speed: t.speed }),
@@ -2364,6 +2367,9 @@ router.post("/ingest-batch", (req, res) => {
       // Optional prompt-size class for models with a long-prompt rate tier.
       // Pushers that predate it omit the field and stay "short".
       ctx: t.context_size === "long" ? "long" : "short",
+      // Optional Claude Code version that made the requests; absent or not a
+      // dotted number, the bucket prices by the session's version.
+      ccVersion: normalizeCcVersion(t.cc_version),
       ...values,
     });
   });
@@ -2515,24 +2521,10 @@ router.post("/ingest-batch", (req, res) => {
       if (mainAgent) pendingBroadcasts.push(["agent_created", mainAgent]);
     }
 
-    for (const tk of validTokens) {
-      stmts.replaceTokenUsage.run(
-        sessionId,
-        tk.model,
-        tk.speed,
-        tk.geo,
-        tk.tier,
-        tk.ctx,
-        tk.input,
-        tk.output,
-        tk.cacheRead,
-        tk.cacheWrite,
-        tk.cacheWrite1h,
-        tk.webSearch,
-        tk.webFetch,
-        tk.codeExec
-      );
-    }
+    // Same writer as the transcript paths, so a session that is both pushed
+    // here and synced through ingest-transcript keeps one high-water mark per
+    // bucket across its Claude Code version rows.
+    if (validTokens.length > 0) writeTokenBuckets(stmts, sessionId, validTokens);
 
     for (const ev of validToolEvents) {
       const ts = ev.timestamp || new Date().toISOString();

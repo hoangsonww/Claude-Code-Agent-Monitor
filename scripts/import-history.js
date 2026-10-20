@@ -29,7 +29,13 @@ const {
   accumulateBucket,
   writeTokenBuckets,
 } = require("../server/lib/token-usage");
-const { parseCostStateEntry, applyCostState } = require("../server/lib/cost-state");
+const {
+  parseCostStateEntry,
+  applyCostState,
+  newCostStateTracker,
+  trackEntryVersion,
+  trackCostState,
+} = require("../server/lib/cost-state");
 
 const {
   getClaudeHome,
@@ -174,6 +180,8 @@ async function parseSessionFile(filePath) {
   // last wins). Covers API calls that leave no assistant message — see
   // server/lib/cost-state.js.
   let costState = null;
+  // Splits cost-state increases by the Claude Code version that wrote them.
+  const costStateTracker = newCostStateTracker();
   // First real user prompt (tool-result / meta / command entries skipped) —
   // fallback descriptor for sessions that never got a title. First wins.
   let firstUserMessage = null;
@@ -191,6 +199,7 @@ async function parseSessionFile(filePath) {
       continue;
     }
 
+    trackEntryVersion(costStateTracker, entry);
     if (entry.type === "custom-title" && typeof entry.customTitle === "string") {
       if (entry.customTitle.trim()) customTitle = entry.customTitle.trim();
       continue;
@@ -201,7 +210,7 @@ async function parseSessionFile(filePath) {
     }
     if (entry.type === "cost-state") {
       const parsed = parseCostStateEntry(entry);
-      if (parsed) costState = parsed;
+      if (parsed) costState = trackCostState(costStateTracker, parsed);
       continue;
     }
 

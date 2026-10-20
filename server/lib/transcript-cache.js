@@ -19,7 +19,12 @@ const {
   subtractBucket,
   rememberUsageContribution,
 } = require("./token-usage");
-const { parseCostStateEntry } = require("./cost-state");
+const {
+  parseCostStateEntry,
+  newCostStateTracker,
+  trackEntryVersion,
+  trackCostState,
+} = require("./cost-state");
 
 const MAX_CACHE_ENTRIES = 200;
 
@@ -179,7 +184,8 @@ class TranscriptCache {
           transcriptPath,
           cached.bytesRead,
           stat.size,
-          cached.result?.usageByMessageId
+          cached.result?.usageByMessageId,
+          cached.result?.costStateTracker
         );
         if (incremental) {
           const merged = this._merge(cached, incremental);
@@ -202,6 +208,7 @@ class TranscriptCache {
             usageByMessageId: merged.usageByMessageId || null,
             latestModel: merged.latestModel || null,
             costState: merged.costState || null,
+            costStateTracker: merged.costStateTracker || null,
             customTitle: merged.customTitle || null,
             aiTitle: merged.aiTitle || null,
             firstUserMessage: merged.firstUserMessage || null,
@@ -294,8 +301,8 @@ class TranscriptCache {
    * straddling a chunk boundary are not corrupted. Never builds a string
    * larger than a single line, so V8 string-length limits cannot be hit.
    */
-  _streamRange(filePath, startOffset, endOffset, usageByMessageId) {
-    const state = this._initParseState(usageByMessageId);
+  _streamRange(filePath, startOffset, endOffset, usageByMessageId, costStateTracker) {
+    const state = this._initParseState(usageByMessageId, costStateTracker);
     if (endOffset <= startOffset) return this._finalizeState(state);
 
     const CHUNK = 4 * 1024 * 1024; // 4 MiB
@@ -395,7 +402,7 @@ class TranscriptCache {
     return this._finalizeState(state);
   }
 
-  _initParseState(usageByMessageId) {
+  _initParseState(usageByMessageId, costStateTracker) {
     return {
       tokensByModel: {},
       // Claude Code writes one JSONL record per content block, so a single
@@ -430,6 +437,12 @@ class TranscriptCache {
       // the only record of API calls that leave no assistant message — see
       // server/lib/cost-state.js.
       costState: null,
+      // Which Claude Code version wrote each cost-state increase (see
+      // trackCostState). Seeded from the cached result on incremental reads,
+      // since the split depends on every earlier record and version.
+      costStateTracker: costStateTracker
+        ? JSON.parse(JSON.stringify(costStateTracker))
+        : newCostStateTracker(),
       // The Claude Code version of the first entry that carries one (`version`
       // on user/assistant/system lines). First wins; prices version-gated
       // intro rates (see ratesForBucket in server/routes/pricing.js).
@@ -476,6 +489,7 @@ class TranscriptCache {
     if (!state.ccVersion && typeof entry.version === "string" && entry.version) {
       state.ccVersion = entry.version;
     }
+    trackEntryVersion(state.costStateTracker, entry);
 
     // Session title metadata lines — sparse, no usage payload. Capture the
     // latest value of each kind (append-only → last wins) and bail early.
@@ -487,7 +501,7 @@ class TranscriptCache {
     }
     if (entry.type === "cost-state") {
       const costState = parseCostStateEntry(entry);
-      if (costState) state.costState = costState;
+      if (costState) state.costState = trackCostState(state.costStateTracker, costState);
       return;
     }
     if (entry.type === "ai-title") {
@@ -721,6 +735,7 @@ class TranscriptCache {
         : null,
       latestModel: state.latestModel,
       costState: state.costState,
+      costStateTracker: state.costStateTracker,
       customTitle: state.customTitle,
       aiTitle: state.aiTitle,
       firstUserMessage: state.firstUserMessage,
@@ -845,6 +860,10 @@ class TranscriptCache {
     // Append-only, last wins: a newer cost-state record is cumulative and
     // supersedes the cached one.
     const costState = (incremental && incremental.costState) || cached.result?.costState || null;
+    // The incremental read was seeded with the cached tracker, so its copy is
+    // the newest; a chunk that parsed to nothing keeps the cached one.
+    const costStateTracker =
+      (incremental && incremental.costStateTracker) || cached.result?.costStateTracker || null;
 
     // Same append-only logic for the session titles: the newest title line in
     // the incremental chunk wins, else keep what was cached.
@@ -898,6 +917,7 @@ class TranscriptCache {
       usageByMessageId,
       latestModel,
       costState,
+      costStateTracker,
       customTitle,
       aiTitle,
       firstUserMessage,

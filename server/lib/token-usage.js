@@ -241,56 +241,26 @@ const COUNT_FIELDS = [
   "codeExec",
 ];
 
-/**
- * Split each field of `excess` over the version rows (ascending `ordered`) in
- * proportion to their live counts, so the parts sum exactly: Claude Code's
- * unrecorded calls (/compact, WebFetch) happen alongside each process's
- * recorded ones. A field with no live count to go by goes to the latest
- * version. Returns one baseline per version.
- */
-function spreadExcess(excess, ordered, versions) {
-  const out = new Map(ordered.map((v) => [v, Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]))]));
-  for (const f of COUNT_FIELDS) {
-    const total = excess[f];
-    if (total <= 0) continue;
-    const weights = ordered.map((v) => Math.max(versions.get(v)[f], 0));
-    const sum = weights.reduce((a, w) => a + w, 0);
-    if (sum <= 0) {
-      out.get(ordered[ordered.length - 1])[f] = total;
-      continue;
-    }
-    let given = 0;
-    let largest = 0;
-    ordered.forEach((v, i) => {
-      const part = Math.floor((total * weights[i]) / sum);
-      out.get(v)[f] = part;
-      given += part;
-      if (weights[i] >= weights[largest]) largest = i;
-    });
-    out.get(ordered[largest])[f] += total - given;
-  }
-  return out;
-}
+const zeroCounts = () => Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]));
 
 /**
- * Write a session's transcript-derived buckets (emptyBucket shape) to
- * token_usage, one stored row per Claude Code version.
+ * Write a session's buckets (emptyBucket shape) to token_usage, one stored row
+ * per Claude Code version. Each bucket — (model, speed, geo, tier, ctx) — is
+ * read and rewritten as a unit, per field:
  *
- * The high-water mark that replaceTokenUsage keeps per row is kept here per
- * bucket — (model, speed, geo, tier, ctx) summed over its version rows:
+ *   row_v   := max(stored row_v, new live_v)   per version, as replaceTokenUsage
+ *   total   := max(stored total, new total, Σ row_v)
+ *   row ''  := total - Σ row_v                 what no version accounts for
  *
- *   excess := max(old bucket total - new live total, 0)   (per field)
- *   rows   := one per version with its new live counts, plus its share of
- *             `excess` (spreadExcess) as its baseline
- *   ⇒ bucket total = max(old total, new live total)
- *
- * So splitting a bucket by version never counts a token twice: a row written
- * before versions existed (cc_version '') is folded into the versioned rows on
- * the next rewrite, and usage the stored total holds beyond this transcript
- * (cost-state top-ups, a wider-scope writer) is shared out by each version's
- * usage. With one version it is exactly replaceTokenUsage. `options.reset`
- * writes the live counts as the whole truth (no excess), like resetTokenUsage.
- * Callers own the transaction. Returns the number of rows written.
+ * A message's version is fixed in its transcript line, so a per-version mark
+ * never counts a token twice, and a writer that sees fewer versions keeps the
+ * others' rows. The '' row holds usage no version accounts for — a row written
+ * before versions existed, an unversioned remote push, version-less entries —
+ * and prices by the session's version; applyCostState moves it onto versions
+ * when Claude's own records say which version used it. Whatever its source,
+ * the bucket total is the same high-water mark as before. `options.reset`
+ * takes the new live counts as the whole truth (no stored rows), like
+ * resetTokenUsage. Callers own the transaction. Returns the rows written.
  */
 function writeTokenBuckets(stmts, sessionId, buckets, options = {}) {
   const groups = new Map();
@@ -300,40 +270,70 @@ function writeTokenBuckets(stmts, sessionId, buckets, options = {}) {
     const key = bucketKey(b.model, b.speed, b.geo, b.tier, ctx);
     let group = groups.get(key);
     if (!group) {
-      group = { args: [sessionId, b.model, b.speed, b.geo, b.tier, ctx], versions: new Map() };
+      group = { args: [sessionId, b.model, b.speed, b.geo, b.tier, ctx], live: new Map() };
       groups.set(key, group);
     }
     const version = normalizeCcVersion(b.ccVersion);
-    const live = group.versions.get(version) || Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]));
+    const live = group.live.get(version) || zeroCounts();
     for (const f of COUNT_FIELDS) live[f] += b[f] || 0;
-    group.versions.set(version, live);
+    group.live.set(version, live);
   }
 
   let written = 0;
-  for (const { args, versions } of groups.values()) {
-    const excess = Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]));
-    if (!options.reset) {
-      const stored = stmts.getTokenBucketVersions.all(...args);
+  for (const { args, live } of groups.values()) {
+    const stored = options.reset ? [] : stmts.getTokenBucketVersions.all(...args);
+    // version → { live, effective } for every non-empty version seen.
+    const rows = new Map();
+    const rowFor = (version) => {
+      if (!rows.has(version)) rows.set(version, { live: zeroCounts(), effective: zeroCounts() });
+      return rows.get(version);
+    };
+    for (const [version, counts] of live) {
+      if (!version) continue;
+      const row = rowFor(version);
       for (const f of COUNT_FIELDS) {
-        const before = stored.reduce((sum, row) => sum + (row[f] || 0), 0);
-        let after = 0;
-        for (const live of versions.values()) after += live[f];
-        excess[f] = Math.max(before - after, 0);
+        row.live[f] = counts[f];
+        row.effective[f] = Math.max(row.effective[f], counts[f]);
       }
     }
+    for (const r of stored) {
+      if (!r.cc_version) continue;
+      const row = rowFor(r.cc_version);
+      for (const f of COUNT_FIELDS) {
+        row.effective[f] = Math.max(row.effective[f], (r[f] || 0) + (r[`b_${f}`] || 0));
+      }
+    }
+
+    const unversioned = live.get("") || zeroCounts();
+    const rest = zeroCounts();
+    for (const f of COUNT_FIELDS) {
+      let before = 0;
+      for (const r of stored) before += (r[f] || 0) + (r[`b_${f}`] || 0);
+      let after = 0;
+      for (const counts of live.values()) after += counts[f];
+      let versioned = 0;
+      for (const row of rows.values()) versioned += row.effective[f];
+      rest[f] = Math.max(before, after, versioned) - versioned;
+    }
+
     stmts.deleteTokenBucketVersions.run(...args);
-    const ordered = [...versions.keys()].sort(compareCcVersions);
-    const baselines = spreadExcess(excess, ordered, versions);
-    for (const version of ordered) {
-      const live = versions.get(version);
-      const baseline = baselines.get(version);
+    const insert = (version, rowLive, effective) => {
       stmts.insertTokenUsageRow.run(
         ...args,
         version,
-        ...COUNT_FIELDS.map((f) => live[f]),
-        ...COUNT_FIELDS.map((f) => baseline[f])
+        ...COUNT_FIELDS.map((f) => rowLive[f]),
+        ...COUNT_FIELDS.map((f) => effective[f] - rowLive[f])
       );
       written++;
+    };
+    for (const version of [...rows.keys()].sort(compareCcVersions)) {
+      const row = rows.get(version);
+      insert(version, row.live, row.effective);
+    }
+    if (rows.size === 0 || COUNT_FIELDS.some((f) => rest[f] > 0)) {
+      const restLive = zeroCounts();
+      for (const f of COUNT_FIELDS) restLive[f] = Math.min(Math.max(unversioned[f], 0), rest[f]);
+      insert("", restLive, rest);
     }
   }
   return written;

@@ -2255,14 +2255,14 @@ const stmts = {
   // writeTokenBuckets (server/lib/token-usage.js).
   getTokenBucketVersions: db.prepare(`
     SELECT cc_version,
-      input_tokens + baseline_input as input,
-      output_tokens + baseline_output as output,
-      cache_read_tokens + baseline_cache_read as cacheRead,
-      cache_write_tokens + baseline_cache_write as cacheWrite,
-      cache_write_1h_tokens + baseline_cache_write_1h as cacheWrite1h,
-      web_search_requests + baseline_web_search as webSearch,
-      web_fetch_requests + baseline_web_fetch as webFetch,
-      code_execution_requests + baseline_code_execution as codeExec
+      input_tokens as input, output_tokens as output, cache_read_tokens as cacheRead,
+      cache_write_tokens as cacheWrite, cache_write_1h_tokens as cacheWrite1h,
+      web_search_requests as webSearch, web_fetch_requests as webFetch,
+      code_execution_requests as codeExec,
+      baseline_input as b_input, baseline_output as b_output,
+      baseline_cache_read as b_cacheRead, baseline_cache_write as b_cacheWrite,
+      baseline_cache_write_1h as b_cacheWrite1h, baseline_web_search as b_webSearch,
+      baseline_web_fetch as b_webFetch, baseline_code_execution as b_codeExec
     FROM token_usage
     WHERE session_id = ? AND model = ? AND speed = ? AND inference_geo = ?
       AND service_tier = ? AND context_size = ?
@@ -2271,6 +2271,12 @@ const stmts = {
     DELETE FROM token_usage
     WHERE session_id = ? AND model = ? AND speed = ? AND inference_geo = ?
       AND service_tier = ? AND context_size = ?
+  `),
+  // One row by its full key (the six bucket columns and cc_version).
+  deleteTokenUsageRow: db.prepare(`
+    DELETE FROM token_usage
+    WHERE session_id = ? AND model = ? AND speed = ? AND inference_geo = ?
+      AND service_tier = ? AND context_size = ? AND cc_version = ?
   `),
   // Args: the seven key columns, the eight live counts, then the eight baselines.
   insertTokenUsageRow: db.prepare(`

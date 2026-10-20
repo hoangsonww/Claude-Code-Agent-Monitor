@@ -78,8 +78,8 @@ function tableColumns(db, table) {
 
 // better-sqlite3 only binds numbers/strings/bigints/buffers/null. A row parsed
 // from JSON never contains booleans/objects for these tables (SQLite stores
-// them as INTEGER/TEXT), but a missing key yields `undefined`, which throws —
-// normalize it to null so partial/legacy rows still bind.
+// them as INTEGER/TEXT); missing keys are left out by makeInserter, and an
+// `undefined` that still reaches here is normalized to null so it binds.
 function bindable(v) {
   if (v === undefined) return null;
   if (typeof v === "boolean") return v ? 1 : 0;
@@ -89,14 +89,29 @@ function bindable(v) {
 /**
  * Make a prepared INSERT OR IGNORE that only writes the columns a table
  * actually has AND the row actually provides. `omit` drops columns even if
- * present (used to strip the non-portable events.id).
+ * present (used to strip the non-portable events.id). A column the row lacks
+ * (a bundle exported before the column existed) is left out of the INSERT so
+ * its DEFAULT applies — binding NULL would fail a NOT NULL column and OR
+ * IGNORE would silently drop the row. One statement per column set, cached.
  */
 function makeInserter(db, table, { omit = [] } = {}) {
   const cols = tableColumns(db, table).filter((c) => !omit.includes(c));
-  const quoted = cols.map((c) => `"${c}"`).join(", ");
-  const placeholders = cols.map(() => "?").join(", ");
-  const stmt = db.prepare(`INSERT OR IGNORE INTO ${table} (${quoted}) VALUES (${placeholders})`);
-  return (row) => stmt.run(cols.map((c) => bindable(row[c])));
+  const stmts = new Map();
+  return (row) => {
+    const present = cols.filter((c) => row[c] !== undefined);
+    const key = present.join(",");
+    let stmt = stmts.get(key);
+    if (!stmt) {
+      stmt = present.length
+        ? db.prepare(
+            `INSERT OR IGNORE INTO ${table} (${present.map((c) => `"${c}"`).join(", ")}) ` +
+              `VALUES (${present.map(() => "?").join(", ")})`
+          )
+        : db.prepare(`INSERT OR IGNORE INTO ${table} DEFAULT VALUES`);
+      stmts.set(key, stmt);
+    }
+    return stmt.run(present.map((c) => bindable(row[c])));
+  };
 }
 
 /** Group an array of rows by a key field into a Map. */

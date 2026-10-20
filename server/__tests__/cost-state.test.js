@@ -40,7 +40,6 @@ const {
   modelMatchKey,
   computeCostStateTopUps,
   applyCostState,
-  readLatestCostState,
 } = require("../lib/cost-state");
 const { parseSessionFile, reconcileTokens } = require("../../scripts/import-history");
 
@@ -560,32 +559,6 @@ describe("TranscriptCache — cost-state capture", () => {
   it("is null when the transcript has no cost-state", () => {
     const p = writeTranscript("cache-none", [assistantLine("m1")]);
     assert.equal(new TranscriptCache().extract(p).costState, null);
-  });
-});
-
-describe("readLatestCostState", () => {
-  it("returns the newest record for the session, skipping another session's", () => {
-    const SID = "tail-1";
-    const p = writeTranscript(SID, [
-      assistantLine("m1"),
-      costStateLine(SID, { [SONNET]: { ...COST_STATE_USAGE[SONNET], outputTokens: 5 } }),
-      costStateLine(SID),
-      costStateLine("someone-else", { [SONNET]: { ...COST_STATE_USAGE[SONNET], outputTokens: 9 } }),
-    ]);
-    assert.equal(readLatestCostState(p, SID).models[SONNET].output, 130);
-  });
-
-  it("ignores a partially written last line", () => {
-    const SID = "tail-2";
-    const p = writeTranscript(SID, [costStateLine(SID)]);
-    fs.appendFileSync(p, costStateLine(SID).slice(0, 40));
-    assert.equal(readLatestCostState(p, SID).models[SONNET].output, 130);
-  });
-
-  it("is null for a missing file or a transcript without a record", () => {
-    assert.equal(readLatestCostState(path.join(PROJECT_DIR, "nope.jsonl"), "x"), null);
-    const p = writeTranscript("tail-3", [assistantLine("m1")]);
-    assert.equal(readLatestCostState(p, "tail-3"), null);
   });
 });
 

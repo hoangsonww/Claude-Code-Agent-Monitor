@@ -672,14 +672,21 @@ function repairCostStateTokenTotalsV2() {
  * usage under '' and price by the session's first recorded version, so a
  * session resumed across a release that repriced a rate (Sonnet 5.5's cache
  * read at 2.1.296) priced its later messages at the earlier rate. Re-reading
- * each such session's transcripts through writeTokenBuckets splits the rows by
- * the version that made each request while keeping every bucket's total (the
- * high-water mark spans its version rows), so it is safe to re-run.
+ * each such session's transcripts splits the rows by the version that made each
+ * request (writeTokenBuckets keeps every bucket's total), and the cost-state
+ * pass then moves the '' remainder — earlier top-ups — onto the versions
+ * Claude's own records name (see trackCostState). Total-preserving, so safe to
+ * re-run.
  *
- * Same guards as repairCostStateTokenTotalsV2: a `.token-repair-cc-version-v1.done`
+ * A database that ran the first release of this pass (marker
+ * `.token-repair-cc-version-v1.done`), which shared those top-ups out by usage
+ * instead, re-derives its sessions that span versions from their transcripts
+ * (baselines reset, cost-state re-applied).
+ *
+ * Same guards as repairCostStateTokenTotalsV2: a `.token-repair-cc-version-v2.done`
  * marker written only after a completed pass, `DASHBOARD_TOKEN_REPAIR=0`
  * opt-out, deferral while another dashboard shares the data directory, a
- * snapshot (`token_usage_pre_cc_version_v1`), and it waits for the
+ * snapshot (`token_usage_pre_cc_version_v2`), and it waits for the
  * cost-state v2 marker so two re-derivations never race.
  */
 function repairCcVersionTokenSplit() {
@@ -689,9 +696,10 @@ function repairCcVersionTokenSplit() {
 
     const dbModule = require("./db");
     const dataDir = path.dirname(dbModule.DB_PATH);
-    const markerPath = path.join(dataDir, ".token-repair-cc-version-v1.done");
+    const markerPath = path.join(dataDir, ".token-repair-cc-version-v2.done");
     if (fs.existsSync(markerPath)) return;
     if (!fs.existsSync(path.join(dataDir, ".token-repair-cost-state-v2.done"))) return;
+    const ranFirstSplit = fs.existsSync(path.join(dataDir, ".token-repair-cc-version-v1.done"));
 
     let peers = [];
     try {
@@ -710,25 +718,44 @@ function repairCcVersionTokenSplit() {
       (async () => {
         try {
           const { db } = dbModule;
-          const sessionIds = db
-            .prepare(
-              `SELECT DISTINCT tu.session_id AS id FROM token_usage tu
-                 JOIN sessions s ON s.id = tu.session_id
-                WHERE tu.cc_version = '' AND tu.service_tier != 'workflow'
-                  AND COALESCE(s.provider, 'claude') = 'claude'`
-            )
+          const claudeRows = `FROM token_usage tu JOIN sessions s ON s.id = tu.session_id
+                WHERE tu.service_tier != 'workflow' AND COALESCE(s.provider, 'claude') = 'claude'`;
+          const unsplit = db
+            .prepare(`SELECT DISTINCT tu.session_id AS id ${claudeRows} AND tu.cc_version = ''`)
             .all()
             .map((r) => r.id);
-          if (sessionIds.length > 0) {
+          const spanning = ranFirstSplit
+            ? db
+                .prepare(
+                  `SELECT tu.session_id AS id ${claudeRows} AND tu.cc_version != ''
+                    GROUP BY tu.session_id HAVING COUNT(DISTINCT tu.cc_version) > 1`
+                )
+                .all()
+                .map((r) => r.id)
+            : [];
+          if (unsplit.length > 0 || spanning.length > 0) {
             db.exec(
-              "CREATE TABLE IF NOT EXISTS token_usage_pre_cc_version_v1 AS SELECT * FROM token_usage"
+              "CREATE TABLE IF NOT EXISTS token_usage_pre_cc_version_v2 AS SELECT * FROM token_usage"
             );
             const { reconcileTokens } = require("../scripts/import-history");
-            const result = await reconcileTokens(dbModule, { all: true, sessionIds });
-            if (result.sessionsTouched > 0) {
+            let touched = 0;
+            if (unsplit.length > 0) {
+              touched += (await reconcileTokens(dbModule, { all: true, sessionIds: unsplit }))
+                .sessionsTouched;
+            }
+            if (spanning.length > 0) {
+              touched += (
+                await reconcileTokens(dbModule, {
+                  all: true,
+                  resetBaselines: true,
+                  sessionIds: spanning,
+                })
+              ).sessionsTouched;
+            }
+            if (touched > 0) {
               console.log(
-                `Split token totals by Claude Code version for ${result.sessionsTouched} session(s). ` +
-                  `Pre-split values kept in token_usage_pre_cc_version_v1.`
+                `Split token totals by Claude Code version for ${touched} session(s). ` +
+                  `Pre-split values kept in token_usage_pre_cc_version_v2.`
               );
             }
           }
