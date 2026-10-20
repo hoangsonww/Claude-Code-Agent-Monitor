@@ -75,6 +75,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
+  RotateCw,
   X,
   Plug,
   Clock,
@@ -88,6 +89,7 @@ import { api } from "../lib/api";
 import { eventBus } from "../lib/eventBus";
 import type { UpdateStatusPayload, WSMessage } from "../lib/types";
 import { Select } from "./Select";
+import { usePaletteActions } from "./PaletteActionProvider";
 import { UPDATE_CHECK_EVENT } from "../lib/appEvents";
 
 /**
@@ -417,6 +419,23 @@ function CollapsedLanguagePicker({
 export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
   const { t, i18n } = useTranslation();
   const websiteLabel = "sonnguyenhoang.com";
+  const { boundIds, run } = usePaletteActions();
+  const canRefreshPage = boundIds.has("page.refresh");
+  const [refreshSpinning, setRefreshSpinning] = useState(false);
+  const refreshSpinTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (refreshSpinTimer.current) clearTimeout(refreshSpinTimer.current);
+    },
+    []
+  );
+  /** Reload the mounted page via its `page.refresh` handler, spinning the icon briefly. */
+  const refreshPage = () => {
+    if (!run("page.refresh")) return;
+    setRefreshSpinning(true);
+    if (refreshSpinTimer.current) clearTimeout(refreshSpinTimer.current);
+    refreshSpinTimer.current = setTimeout(() => setRefreshSpinning(false), 800);
+  };
   // Track whether nav items are clipped by overflow so we can render
   // chevron affordances pointing toward the hidden items. Recomputed on
   // scroll, resize, and any structural change (e.g. collapse toggle).
@@ -781,6 +800,24 @@ export function Sidebar({ wsConnected, collapsed, onToggle }: SidebarProps) {
       <div
         className={`px-3 pt-3 pb-4 border-t border-border space-y-2.5 flex-shrink-0 ${collapsed ? "px-2" : ""}`}
       >
+        <button
+          type="button"
+          onClick={refreshPage}
+          disabled={!canRefreshPage}
+          aria-label={t("common:refresh")}
+          title={t("common:refresh")}
+          className={`rounded-lg border border-border bg-surface-2 text-gray-300 hover:text-gray-100 hover:bg-surface-3 transition-colors disabled:opacity-40 disabled:hover:bg-surface-2 disabled:hover:text-gray-300 ${
+            collapsed
+              ? "w-8 h-8 mx-auto flex items-center justify-center p-0"
+              : "w-full px-2.5 py-2 text-xs flex items-center gap-2"
+          }`}
+        >
+          <RotateCw
+            className={`w-3.5 h-3.5 flex-shrink-0 ${refreshSpinning ? "animate-spin" : ""}`}
+            aria-hidden
+          />
+          {!collapsed && <span className="font-medium truncate">{t("common:refresh")}</span>}
+        </button>
         <button
           type="button"
           onClick={() => setStatusModalOpen(true)}

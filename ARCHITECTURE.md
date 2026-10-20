@@ -481,7 +481,7 @@ flowchart LR
 graph TD
     APP["App.tsx<br/>Router + WebSocket"]
     LAYOUT["Layout.tsx<br/>Sidebar + Outlet"]
-    SIDEBAR["Sidebar.tsx<br/>Nav (scroll-bounded with overflow<br/>chevrons) + Connection Status"]
+    SIDEBAR["Sidebar.tsx<br/>Nav (scroll-bounded with overflow<br/>chevrons) + Refresh page +<br/>Connection Status"]
     PALETTE["CommandPalette.tsx<br/>Cmd/Ctrl+K launcher: recent, pages,<br/>sessions, views, settings, config, actions"]
     SHORTCUTS["PaletteActionProvider.tsx<br/>Registry of the actions the<br/>mounted page offers the palette"]
     TOAST["ActionToast.tsx<br/>Confirms actions that<br/>change state without navigating"]

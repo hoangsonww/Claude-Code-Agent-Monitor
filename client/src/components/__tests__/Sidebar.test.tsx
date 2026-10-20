@@ -66,11 +66,12 @@
  *   tests.
  * ============================================================================= */
 
-import { beforeEach, describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { Sidebar } from "../Sidebar";
+import { PaletteActionProvider, usePaletteAction } from "../PaletteActionProvider";
 import i18n from "../../i18n";
 
 function renderSidebar(wsConnected: boolean, collapsed = false) {
@@ -187,6 +188,44 @@ describe("Sidebar", () => {
     await waitFor(() => {
       expect(screen.getByTitle("Panel")).toBeInTheDocument();
       expect(screen.getByTitle("Tablero Kanban")).toBeInTheDocument();
+    });
+  });
+
+  describe("refresh page button", () => {
+    /** Stand-in for a routed page that registers its reload under `page.refresh`. */
+    function Page({ onRefresh }: { onRefresh: () => void }) {
+      usePaletteAction("page.refresh", onRefresh);
+      return null;
+    }
+
+    it("is always shown, disabled while the page registers no refresh handler", () => {
+      renderSidebar(true);
+      expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
+    });
+
+    it("runs the mounted page's refresh handler", async () => {
+      const user = userEvent.setup();
+      const onRefresh = vi.fn();
+      render(
+        <MemoryRouter>
+          <PaletteActionProvider>
+            <Page onRefresh={onRefresh} />
+            <Sidebar wsConnected collapsed={false} onToggle={() => {}} />
+          </PaletteActionProvider>
+        </MemoryRouter>
+      );
+
+      const button = screen.getByRole("button", { name: "Refresh" });
+      expect(button).toBeEnabled();
+      await user.click(button);
+
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays available as an icon-only button when collapsed", () => {
+      renderSidebar(true, true);
+      expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+      expect(screen.queryByText("Refresh")).toBeNull();
     });
   });
 });
