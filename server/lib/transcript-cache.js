@@ -18,6 +18,7 @@ const {
   subtractBucket,
   rememberUsageContribution,
 } = require("./token-usage");
+const { parseCostStateEntry } = require("./cost-state");
 
 const MAX_CACHE_ENTRIES = 200;
 
@@ -199,6 +200,7 @@ class TranscriptCache {
             usageExtras: hasUsageExtras ? merged.usageExtras : null,
             usageByMessageId: merged.usageByMessageId || null,
             latestModel: merged.latestModel || null,
+            costState: merged.costState || null,
             customTitle: merged.customTitle || null,
             aiTitle: merged.aiTitle || null,
             firstUserMessage: merged.firstUserMessage || null,
@@ -215,6 +217,7 @@ class TranscriptCache {
             !result.thinkingBlockCount &&
             !result.usageExtras &&
             !result.latestModel &&
+            !result.costState &&
             !result.customTitle &&
             !result.aiTitle &&
             !result.firstUserMessage &&
@@ -419,6 +422,11 @@ class TranscriptCache {
       // the user's *current* model — used downstream to keep session.model in
       // sync when the user invokes /model mid-session.
       latestModel: null,
+      // Claude's own running per-model token totals (the `cost-state` entry it
+      // appends when it saves the session cost). Append-only, last wins. It is
+      // the only record of API calls that leave no assistant message — see
+      // server/lib/cost-state.js.
+      costState: null,
       // Track the latest human-readable session title. Two sources, both
       // append-only metadata lines: `custom-title` (explicit /rename, claude
       // -n, picker Ctrl+R) and `ai-title` (auto-generated / plan-accept).
@@ -464,6 +472,11 @@ class TranscriptCache {
       if (typeof entry.customTitle === "string" && entry.customTitle.trim()) {
         state.customTitle = entry.customTitle;
       }
+      return;
+    }
+    if (entry.type === "cost-state") {
+      const costState = parseCostStateEntry(entry);
+      if (costState) state.costState = costState;
       return;
     }
     if (entry.type === "ai-title") {
@@ -650,6 +663,7 @@ class TranscriptCache {
       !state.thinkingBlockCount &&
       !hasUsageExtras &&
       !state.latestModel &&
+      !state.costState &&
       !state.customTitle &&
       !state.aiTitle &&
       !state.firstUserMessage &&
@@ -690,6 +704,7 @@ class TranscriptCache {
         ? this._capArrayFromSet(state.usageByMessageId.entries())
         : null,
       latestModel: state.latestModel,
+      costState: state.costState,
       customTitle: state.customTitle,
       aiTitle: state.aiTitle,
       firstUserMessage: state.firstUserMessage,
@@ -809,6 +824,10 @@ class TranscriptCache {
     const latestModel =
       (incremental && incremental.latestModel) || cached.result?.latestModel || null;
 
+    // Append-only, last wins: a newer cost-state record is cumulative and
+    // supersedes the cached one.
+    const costState = (incremental && incremental.costState) || cached.result?.costState || null;
+
     // Same append-only logic for the session titles: the newest title line in
     // the incremental chunk wins, else keep what was cached.
     const customTitle =
@@ -856,6 +875,7 @@ class TranscriptCache {
       usageExtras,
       usageByMessageId,
       latestModel,
+      costState,
       customTitle,
       aiTitle,
       firstUserMessage,

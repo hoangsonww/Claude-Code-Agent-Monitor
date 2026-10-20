@@ -1296,7 +1296,7 @@ flowchart LR
 | `POST` | `/api/import/upload` | Upload supported files or archives with `provider`. |
 
 - **Inputs:** loose `.jsonl`, `.meta.json`, `.zip`, `.tar`, `.tar.gz`/`.tgz`, and `.gz` files in nested layouts. Claude supports both canonical subagent layouts; Codex recognizes recursive `rollout-*.jsonl` or JSONL with `session_meta` plus optional `session_index.jsonl` titles.
-- **Accuracy:** UUID and event high-water dedup prevent double counting. Compaction baselines preserve earlier tokens; later activity advances `ended_at` and refreshes message metadata.
+- **Accuracy:** UUID and event high-water dedup prevent double counting. Compaction baselines preserve earlier tokens; later activity advances `ended_at` and refreshes message metadata. Token totals are topped up to Claude Code's own saved `cost-state` usage, which includes `/compact` and WebFetch model calls that never appear as transcript messages.
 - **Large files:** shared 4 MiB chunked, line-at-a-time parsing handles transcripts beyond V8's roughly 512 MiB string limit. Growable arrays cap at `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`, default `1000`, with trimming at twice the cap during parsing.
 - **Safety:** extraction rejects absolute and `..` paths. Defaults cap extracted data at 4 GB, each upload at 1 GB, and requests at 2000 files; per-request staging is always reclaimed.
 - **Progress:** throttled `import.progress` WebSocket phases cover `start`, `scan`, `extract`, `parse`, `complete`, and `error`. The UI provides drag-and-drop guidance and imported, enriched, skipped, and error totals.

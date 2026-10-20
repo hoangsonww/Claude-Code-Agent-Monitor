@@ -2116,6 +2116,26 @@ const stmts = {
       baseline_web_fetch = 0,
       baseline_code_execution = 0
   `),
+  // Credit tokens that Claude Code billed but never wrote to the transcript
+  // (the /compact summary request, WebFetch's secondary-model calls) — see
+  // server/lib/cost-state.js. The amounts go into the baseline_* columns, which
+  // every reader already sums with the live columns, and are ADDED to whatever
+  // baseline the bucket holds. Args, in order:
+  //   session_id, model, speed, inference_geo, service_tier, context_size,
+  //   input, output, cache_read, cache_write, cache_write_1h, web_search
+  addTokenUsageBaseline: db.prepare(`
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
+                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
+                             baseline_cache_write_1h, baseline_web_search)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+      baseline_input = baseline_input + excluded.baseline_input,
+      baseline_output = baseline_output + excluded.baseline_output,
+      baseline_cache_read = baseline_cache_read + excluded.baseline_cache_read,
+      baseline_cache_write = baseline_cache_write + excluded.baseline_cache_write,
+      baseline_cache_write_1h = baseline_cache_write_1h + excluded.baseline_cache_write_1h,
+      baseline_web_search = baseline_web_search + excluded.baseline_web_search
+  `),
   // Incremental Codex counter deltas. Unlike the full Claude re-parser, Codex
   // rollouts expose an authoritative per-request delta, so we only ever add a
   // newly observed request to its model/tier/context-size bucket.

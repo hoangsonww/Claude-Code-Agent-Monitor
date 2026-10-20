@@ -27,6 +27,7 @@ const {
   normalizeTier,
   accumulateBucket,
 } = require("../server/lib/token-usage");
+const { parseCostStateEntry, applyCostState } = require("../server/lib/cost-state");
 
 const {
   getClaudeHome,
@@ -167,6 +168,10 @@ async function parseSessionFile(filePath) {
   // metadata lines, so the last value seen wins.
   let customTitle = null;
   let aiTitle = null;
+  // Claude's own saved per-model token totals (`cost-state`, appended on save;
+  // last wins). Covers API calls that leave no assistant message — see
+  // server/lib/cost-state.js.
+  let costState = null;
   // First real user prompt (tool-result / meta / command entries skipped) —
   // fallback descriptor for sessions that never got a title. First wins.
   let firstUserMessage = null;
@@ -190,6 +195,11 @@ async function parseSessionFile(filePath) {
     }
     if (entry.type === "ai-title" && typeof entry.aiTitle === "string") {
       if (entry.aiTitle.trim()) aiTitle = entry.aiTitle.trim();
+      continue;
+    }
+    if (entry.type === "cost-state") {
+      const parsed = parseCostStateEntry(entry);
+      if (parsed) costState = parsed;
       continue;
     }
 
@@ -379,6 +389,7 @@ async function parseSessionFile(filePath) {
     userMessages: userMessageCount,
     assistantMessages: assistantMessageCount,
     tokensByModel,
+    costState,
     messageTimestamps,
     toolUses,
     compactions,
@@ -1524,6 +1535,12 @@ function importSession(dbModule, session) {
       if (written > 0) backfilled = true;
     }
 
+    // Top up to Claude's own saved totals (calls that leave no transcript
+    // message). Idempotent: a session already at those figures is untouched.
+    if (applyCostState(dbModule.stmts, session.sessionId, session.costState) > 0) {
+      backfilled = true;
+    }
+
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
   }
 
@@ -1733,6 +1750,7 @@ function importSession(dbModule, session) {
   }
 
   writeSessionTokens(dbModule, session.sessionId, combineSessionTokens(session));
+  applyCostState(dbModule.stmts, session.sessionId, session.costState);
 
   return { skipped: false };
 }
@@ -2041,6 +2059,11 @@ async function syncDefaultProjects(dbModule, options = {}) {
  * writes the re-derivation as the whole truth with zeroed baselines — the
  * repair for databases inflated before usage was reconciled per message.id.
  * `options.all` widens the sweep beyond `imported`-marked sessions.
+ * Every mode finishes each session by topping its totals up to Claude's own
+ * saved `cost-state` figures (calls that leave no transcript message — see
+ * server/lib/cost-state.js); `options.costStateOnly` does ONLY that, leaving
+ * the transcript-derived rows exactly as stored and skipping the subagent
+ * parse, for the one-time backfill of sessions recorded before it existed.
  *
  * Returns { reconciled, sessionsTouched, modelsWritten, missingFiles }.
  */
@@ -2122,13 +2145,20 @@ async function reconcileTokens(dbModule, options = {}) {
         "DELETE FROM token_usage WHERE session_id = ? AND service_tier != 'workflow'"
       )
     : null;
+  const costStateOnly = !!options.costStateOnly;
   const tx = dbModule.db.transaction((batch) => {
-    for (const { sessionId, tokens } of batch) {
-      if (clearSessionTokens) clearSessionTokens.run(sessionId);
-      const written = writeSessionTokens(dbModule, sessionId, tokens, writeOptions);
-      if (written > 0) {
+    for (const { sessionId, tokens, costState } of batch) {
+      let written = 0;
+      if (!costStateOnly) {
+        if (clearSessionTokens) clearSessionTokens.run(sessionId);
+        written = writeSessionTokens(dbModule, sessionId, tokens, writeOptions);
+      }
+      // After the transcript-derived rows, so the top-up sees the final totals
+      // (and survives a reset, which zeroes the baselines it writes into).
+      const toppedUp = applyCostState(dbModule.stmts, sessionId, costState);
+      if (written > 0 || toppedUp > 0) {
         counters.sessionsTouched++;
-        counters.modelsWritten += written;
+        counters.modelsWritten += Math.max(written, toppedUp);
       }
       counters.reconciled++;
     }
@@ -2166,6 +2196,20 @@ async function reconcileTokens(dbModule, options = {}) {
         continue;
       }
 
+      if (costStateOnly) {
+        if (session.costState) {
+          batch.push({ sessionId, tokens: {}, costState: session.costState });
+          if (batch.length >= FLUSH) {
+            tx(batch);
+            batch = [];
+          }
+        } else {
+          counters.reconciled++;
+        }
+        if (processed % 25 === 0) onProgress({ processed, total, counters });
+        continue;
+      }
+
       // Attach subagents discovered next to this session.
       const subPaths = findSessionSubagents(jsonlPath);
       if (subPaths.length > 0) {
@@ -2184,8 +2228,8 @@ async function reconcileTokens(dbModule, options = {}) {
       // In reset mode an EMPTY corrected derivation still has to reach the
       // transaction: the session's stale rows must be cleared even when
       // nothing replaces them.
-      if (Object.keys(tokens).length > 0 || writeOptions.resetBaselines) {
-        batch.push({ sessionId, tokens });
+      if (Object.keys(tokens).length > 0 || writeOptions.resetBaselines || session.costState) {
+        batch.push({ sessionId, tokens, costState: session.costState });
         if (batch.length >= FLUSH) {
           tx(batch);
           batch = [];

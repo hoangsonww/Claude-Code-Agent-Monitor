@@ -1277,7 +1277,7 @@ flowchart LR
 | `POST` | `/api/import/upload` | Tải tệp hoặc archive được hỗ trợ cùng `provider`. |
 
 - **Đầu vào:** Tệp `.jsonl`, `.meta.json`, `.zip`, `.tar`, `.tar.gz`/`.tgz` và `.gz` rời trong bố cục lồng nhau. Claude hỗ trợ cả hai bố cục Subagent chuẩn; Codex nhận rollout `rollout-*.jsonl` đệ quy hoặc JSONL có `session_meta` cùng tiêu đề `session_index.jsonl` tùy chọn.
-- **Độ chính xác:** Khử trùng lặp theo UUID và mức cao nhất của sự kiện ngăn đếm hai lần. Baseline compaction giữ token trước đó; hoạt động mới hơn cập nhật `ended_at` và metadata tin nhắn.
+- **Độ chính xác:** Khử trùng lặp theo UUID và mức cao nhất của sự kiện ngăn đếm hai lần. Baseline compaction giữ token trước đó; hoạt động mới hơn cập nhật `ended_at` và metadata tin nhắn. Tổng token được bổ sung cho khớp với mức dùng `cost-state` mà chính Claude Code đã lưu, bao gồm các lệnh gọi mô hình của `/compact` và WebFetch vốn không xuất hiện dưới dạng tin nhắn trong transcript.
 - **Tệp lớn:** Phân tích từng dòng theo chunk 4 MiB dùng chung xử lý transcript vượt giới hạn chuỗi khoảng 512 MiB của V8. Mảng có thể tăng bị giới hạn ở `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`, mặc định `1000`, và được cắt khi đạt hai lần giới hạn trong lúc phân tích.
 - **An toàn:** Giải nén từ chối đường dẫn tuyệt đối và `..`. Mặc định giới hạn dữ liệu giải nén ở 4 GB, mỗi lần tải lên ở 1 GB và yêu cầu ở 2000 tệp; staging theo yêu cầu luôn được dọn.
 - **Tiến độ:** Các pha WebSocket `import.progress` có throttle gồm `start`, `scan`, `extract`, `parse`, `complete` và `error`. UI cung cấp hướng dẫn kéo-thả cùng tổng số imported, enriched, skipped và error.

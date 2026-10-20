@@ -494,6 +494,77 @@ function repairLongContextTokenTotals() {
 }
 
 /**
+ * One-time backfill of tokens that Claude Code billed but never wrote to a
+ * transcript message: the `/compact` summarisation request and the
+ * secondary-model (Haiku) call WebFetch runs over each fetched page. The only
+ * record of them is the `cost-state` entry Claude appends when it saves a
+ * session's cost, which the live hook path now applies as sessions end — this
+ * sweep covers sessions recorded before that existed (see
+ * server/lib/cost-state.js).
+ *
+ * Purely additive: the sweep leaves the transcript-derived rows alone
+ * (`costStateOnly`) and only raises a model's totals when Claude's figure is
+ * higher, so it is safe to re-run. Same guards as repairLongContextTokenTotals:
+ * a `.token-repair-cost-state-v1.done` marker written only after a completed
+ * pass, `DASHBOARD_TOKEN_REPAIR=0` opt-out, deferred while another dashboard
+ * shares the data directory, a one-table snapshot
+ * (`token_usage_pre_cost_state_v1`) kept for recovery, and it waits for the
+ * earlier repairs' markers so two re-derivations never race.
+ */
+function repairCostStateTokenTotals() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-cost-state-v1.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-v2.done"))) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-long-context-v1.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log("Cost-state token backfill deferred: another dashboard shares this database.");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          dbModule.db.exec(
+            "CREATE TABLE IF NOT EXISTS token_usage_pre_cost_state_v1 AS SELECT * FROM token_usage"
+          );
+          const { reconcileTokens } = require("../scripts/import-history");
+          const result = await reconcileTokens(dbModule, { all: true, costStateOnly: true });
+          if (result.sessionsTouched > 0) {
+            console.log(
+              `Topped up token totals for ${result.sessionsTouched} session(s) to Claude's own ` +
+                `saved usage. Pre-backfill values kept in token_usage_pre_cost_state_v1.`
+            );
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — the (idempotent) backfill simply re-runs next start */
+          }
+        } catch (err) {
+          console.warn("cost-state token backfill failed:", err.message);
+        }
+      })();
+    }, 16_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("cost-state token backfill could not start:", err.message);
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -516,6 +587,11 @@ function startBackgroundServices() {
   // One-time re-split of long-prompt-tier models' buckets by prompt size
   // (Claude Haiku 5.5); marker-gated and deferred like the repair above.
   repairLongContextTokenTotals();
+
+  // One-time top-up of sessions to Claude's own saved usage (/compact and
+  // WebFetch calls that leave no transcript message); marker-gated and
+  // deferred like the repairs above.
+  repairCostStateTokenTotals();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can
@@ -1753,4 +1829,5 @@ module.exports = {
   createIngestRetryBudget,
   repairInflatedTokenTotals,
   repairLongContextTokenTotals,
+  repairCostStateTokenTotals,
 };

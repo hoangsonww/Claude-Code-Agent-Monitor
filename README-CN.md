@@ -1296,7 +1296,7 @@ flowchart LR
 | `POST` | `/api/import/upload` | 使用 `provider` 上传支持的文件或归档。 |
 
 - **输入：** 支持嵌套布局中的独立 `.jsonl`、`.meta.json`、`.zip`、`.tar`、`.tar.gz`/`.tgz` 和 `.gz` 文件。Claude 支持两种规范 Subagent 布局；Codex 识别递归的 `rollout-*.jsonl` 或包含 `session_meta` 的 JSONL，并可选读取 `session_index.jsonl` 标题。
-- **准确性：** UUID 和事件高水位去重可防止重复计数。压缩基线保留早期 Token；之后的活动会推进 `ended_at` 并刷新消息元数据。
+- **准确性：** UUID 和事件高水位去重可防止重复计数。压缩基线保留早期 Token；之后的活动会推进 `ended_at` 并刷新消息元数据。Token 总计会补齐到 Claude Code 自己保存的 `cost-state` 用量，其中包含不会作为 Transcript 消息出现的 `/compact` 与 WebFetch 模型调用。
 - **大文件：** 共享的 4 MiB 分块逐行解析可处理超过 V8 约 512 MiB 字符串上限的 Transcript。可增长数组上限为 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`，默认 `1000`，解析期间在两倍上限时裁剪。
 - **安全：** 解压拒绝绝对路径和 `..` 路径。默认限制解压后数据为 4 GB、每次上传为 1 GB、每个请求为 2000 个文件；每个请求的暂存内容总会被回收。
 - **进度：** 节流的 `import.progress` WebSocket 阶段包括 `start`、`scan`、`extract`、`parse`、`complete` 和 `error`。UI 提供拖放指引，以及 imported、enriched、skipped 和 error 总计。

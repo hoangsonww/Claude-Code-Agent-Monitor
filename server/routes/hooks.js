@@ -26,6 +26,7 @@ const liveness = require("../lib/session-liveness");
 const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
+const { applyCostState } = require("../lib/cost-state");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
@@ -1316,6 +1317,13 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
         );
       }
     }
+
+    // Claude's own saved totals (cost-state) include API calls that leave no
+    // assistant message in any transcript — the /compact request and WebFetch's
+    // secondary-model calls. Top the buckets up to those figures; this runs
+    // after the writes above so it sees the freshly replaced totals. Only
+    // raises, never lowers (see server/lib/cost-state.js).
+    if (result?.costState) applyCostState(stmts, sessionId, result.costState);
   }
 
   // Evict transcript from cache on SessionEnd — session is done, no more reads expected.

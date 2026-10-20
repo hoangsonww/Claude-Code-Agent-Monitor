@@ -1291,7 +1291,7 @@ flowchart LR
 | `POST` | `/api/import/upload` | 지원되는 file 또는 archive를 `provider`와 함께 upload합니다. |
 
 - **입력:** 중첩된 layout의 loose `.jsonl`, `.meta.json`, `.zip`, `.tar`, `.tar.gz`/`.tgz`, `.gz` file입니다. Claude는 두 canonical Subagent layout을 모두 지원하고, Codex는 재귀적인 `rollout-*.jsonl` 또는 `session_meta`가 있는 JSONL과 선택적 `session_index.jsonl` title을 인식합니다.
-- **정확성:** UUID와 event high-water 중복 제거가 이중 계산을 방지합니다. Compaction baseline은 이전 token을 보존하고, 이후 활동은 `ended_at`을 진행시키며 message metadata를 새로 고칩니다.
+- **정확성:** UUID와 event high-water 중복 제거가 이중 계산을 방지합니다. Compaction baseline은 이전 token을 보존하고, 이후 활동은 `ended_at`을 진행시키며 message metadata를 새로 고칩니다. Token 합계는 Claude Code가 직접 저장한 `cost-state` 사용량에 맞춰 보정되며, 여기에는 transcript 메시지로 나타나지 않는 `/compact` 및 WebFetch 모델 호출이 포함됩니다.
 - **대용량 file:** 공유 4 MiB chunk 기반 line-at-a-time parsing이 V8의 약 512 MiB string limit보다 큰 transcript를 처리합니다. Growable array는 `TRANSCRIPT_CACHE_MAX_ARRAY_LEN`, 기본값 `1000`으로 제한되고 parsing 중에는 제한의 2배에서 잘립니다.
 - **안전성:** 추출은 absolute path와 `..` path를 거부합니다. 기본값은 추출 data 4 GB, upload 하나 1 GB, request당 2000 files로 제한하며, request별 staging은 항상 회수됩니다.
 - **진행 상황:** 제한된 `import.progress` WebSocket phase가 `start`, `scan`, `extract`, `parse`, `complete`, `error`를 다룹니다. UI는 drag-and-drop 안내와 imported, enriched, skipped, error 합계를 제공합니다.
