@@ -115,6 +115,33 @@ function scheduleLateCostStateCheck(sessionId, transcriptPath) {
   }
 }
 
+// Last cost-state record each session was topped up to by the hookless
+// transcript reads below. The transcript cache returns the same record object
+// while the file is unchanged, so a repeat watchdog tick skips the DB work.
+const sweptCostState = new Map();
+
+/**
+ * Top a session up to the cost-state record of a transcript read with no hook
+ * behind it (watchdog tick, liveness reap). Claude Code can append the record
+ * after the session's last hook — on exit, or when a conversation continues
+ * in a new session — and a session with no further hooks would otherwise keep
+ * its pre-top-up totals. Broadcasts the session when its totals changed.
+ * Fail-safe: a DB error is ignored, so it never aborts the caller's sweep.
+ */
+function applySweptCostState(sessionId, costState) {
+  if (!costState || sweptCostState.get(sessionId) === costState) return;
+  try {
+    const changed = db.transaction(() => applyCostState(stmts, sessionId, costState))();
+    sweptCostState.set(sessionId, costState);
+    if (changed > 0) {
+      const session = stmts.getSession.get(sessionId);
+      if (session) broadcast("session_updated", session);
+    }
+  } catch {
+    /* best effort — the next tick or hook retries */
+  }
+}
+
 // Stale-session threshold for the SessionStart cleanup pass. Mirrors the
 // periodic sweep in server/index.js so both code paths agree on what counts
 // as "abandoned". Configurable via DASHBOARD_STALE_MINUTES; default 180 (3h).
@@ -1370,6 +1397,7 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   // Must happen after token extraction above to avoid re-populating the cache.
   if (hookType === "SessionEnd" && data.transcript_path) {
     transcriptCache.invalidate(data.transcript_path);
+    sweptCostState.delete(sessionId);
     if (!isCursorTranscriptPath(data.transcript_path)) {
       scheduleLateCostStateCheck(sessionId, data.transcript_path);
     }
@@ -1726,6 +1754,11 @@ function watchdogCheck() {
       const result = transcriptCache.extract(tPath);
       if (!result) continue;
 
+      // A cost-state record written after the last hook (see
+      // applySweptCostState) — the watchdog is the only reader of an idle
+      // session's transcript.
+      applySweptCostState(sess.id, result.costState);
+
       // Pick up a /rename or fresh ai-title even when no hook fired for it —
       // a session left idle right after /rename has no further events, so the
       // watchdog is the path that surfaces the new name within ~15s. The
@@ -2001,6 +2034,13 @@ function livenessReap({ ignoreIdleGate = false, provider = "claude" } = {}) {
       }
       if (!lastActivityMs) lastActivityMs = Date.parse(sess.updated_at) || 0;
       if (now - lastActivityMs < LIVENESS_IDLE_MS) continue;
+    }
+
+    // Claude Code saves the session's cost-state as it exits, after its last
+    // hook; with no SessionEnd there is no late check, so read it here.
+    if (provider === "claude" && sess.transcript_path) {
+      applySweptCostState(sess.id, transcriptCache.extract(sess.transcript_path)?.costState);
+      sweptCostState.delete(sess.id);
     }
 
     // Mirror the SessionEnd case: all DB writes first, then broadcasts.

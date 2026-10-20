@@ -7,7 +7,9 @@
  *   - the reap itself: dead session → completed (agents completed, awaiting
  *     cleared, synthetic SessionEnd event), live session → untouched,
  *   - all fail-safe guards (probe unavailable, fresh activity, no cwd),
- *   - hook reactivation after a (hypothetical) false completion.
+ *   - hook reactivation after a (hypothetical) false completion,
+ *   - a cost-state record written after the last hook, which the watchdog
+ *     tick and the reap top the session's tokens up to.
  * The probe is stubbed by swapping `liveness.probeLiveCwds` on the shared
  * module object — routes/hooks.js looks the function up at call time.
  * @author Son Nguyen <hoangson091104@gmail.com>
@@ -485,5 +487,77 @@ describe("watchdog liveness reap", () => {
     hooksRouter.watchdogCheck();
 
     assert.equal(stmts.getSession.get(sid).status, "completed");
+  });
+
+  /** A session whose transcript has one Sonnet reply, ingested by a Stop hook. */
+  async function seedWithUsage(sid, cwd) {
+    const tpath = writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "hello" } },
+      {
+        type: "assistant",
+        message: {
+          id: `msg-${sid}`,
+          model: "claude-sonnet-5-5",
+          usage: { input_tokens: 10, output_tokens: 5 },
+          content: [{ type: "text", text: "hi" }],
+        },
+      },
+    ]);
+    const res = await req("POST", "/api/hooks/event", {
+      hook_type: "Stop",
+      data: { session_id: sid, cwd, transcript_path: tpath },
+    });
+    assert.equal(res.status, 200);
+    return tpath;
+  }
+
+  /** Claude Code's exit-time cost record, appended after the last hook. */
+  function appendCostState(tpath, sid) {
+    const record = {
+      type: "cost-state",
+      sessionId: sid,
+      totalCostUSD: 0.000615,
+      modelUsage: {
+        "claude-sonnet-5-5": { inputTokens: 80, outputTokens: 25, costUSD: 0.000615 },
+      },
+    };
+    fs.appendFileSync(tpath, JSON.stringify(record) + "\n");
+  }
+
+  const sonnetRow = (sid) =>
+    stmts.getTokensBySession.all(sid).find((r) => r.model === "claude-sonnet-5-5");
+
+  it("reap tops a dead session up to a cost-state written after its last hook", async () => {
+    const sid = "cost0000-0000-0000-0000-000000000001";
+    const cwd = "/tmp/liveness-cost-reap";
+    const tpath = await seedWithUsage(sid, cwd);
+    assert.equal(sonnetRow(sid).input_tokens, 10);
+    appendCostState(tpath, sid);
+    backdate(sid, tpath);
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set() });
+    hooksRouter.livenessReap();
+
+    assert.equal(stmts.getSession.get(sid).status, "completed");
+    assert.equal(sonnetRow(sid).input_tokens, 80);
+    assert.equal(sonnetRow(sid).output_tokens, 25);
+  });
+
+  it("watchdog tops an idle live session up to a cost-state with no hook after it", async () => {
+    // A conversation that continues in a new session leaves its old session
+    // idle with the record as the transcript's last write; the CLI in its cwd
+    // is still alive, so nothing reaps it.
+    const sid = "cost0000-0000-0000-0000-000000000002";
+    const cwd = "/tmp/liveness-cost-watchdog";
+    const tpath = await seedWithUsage(sid, cwd);
+    appendCostState(tpath, sid);
+    backdate(sid, tpath);
+
+    liveness.probeLiveCwds = () => ({ available: true, cwds: new Set([path.resolve(cwd)]) });
+    hooksRouter.watchdogCheck();
+
+    assert.equal(stmts.getSession.get(sid).status, "active");
+    assert.equal(sonnetRow(sid).input_tokens, 80);
+    assert.equal(sonnetRow(sid).output_tokens, 25);
   });
 });
