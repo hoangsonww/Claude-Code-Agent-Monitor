@@ -169,7 +169,7 @@ function TokenCostCell({ tokens, cost }: { tokens: number; cost: number | undefi
     <td className="px-5 py-2.5 text-sm text-gray-400 text-right font-mono">
       {tokens.toLocaleString()}
       {cost !== undefined && tokens > 0 && (
-        <div className="text-[11px] text-emerald-400/80">{fmtCostFull(cost, 4)}</div>
+        <div className="text-[11px] text-emerald-400/80">{fmtCostFull(cost)}</div>
       )}
     </td>
   );
@@ -1154,7 +1154,7 @@ export function SessionDetail() {
                           cost={row.cost_by_type?.cache_write}
                         />
                         <td className="px-5 py-2.5 text-sm text-emerald-400 text-right font-mono font-medium">
-                          {fmtCostFull(row.cost, 4)}
+                          {fmtCostFull(row.cost)}
                         </td>
                       </tr>
                     ))}
@@ -1163,7 +1163,7 @@ export function SessionDetail() {
                         {t("common:total")}
                       </td>
                       <td className="px-5 py-2.5 text-sm text-emerald-400 text-right font-mono font-semibold">
-                        {fmtCostFull(cost.total_cost, 4)}
+                        {fmtCostFull(cost.total_cost)}
                       </td>
                     </tr>
                   </tbody>
