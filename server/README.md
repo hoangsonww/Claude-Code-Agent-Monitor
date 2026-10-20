@@ -1170,6 +1170,17 @@ Patterns match the whole model string, so a provider-prefixed id (Bedrock's
 `anthropic.…`) needs its own row; without one its usage prices at $0 and is
 listed in `unpriced_models`.
 
+Intro rates are seeded separately (`DEFAULT_INTRO_PRICING` in `db.js`, applied at
+startup and by reset-pricing, only onto rows whose `intro_until` is still NULL):
+usage on or before `intro_until` bills the `intro_*` rates, and an intro rate of 0
+keeps the standard rate for that field. A rule may also carry
+`intro_until_version`: when the session's recorded Claude Code version
+(`sessions.metadata.version`, the first `version` in its transcript) is known,
+usage from that version or older bills the intro rates instead of deciding by
+date, and the date stays the fallback. Sonnet 5.5 uses this to match Claude
+Code's own cost figure: cache reads at $0.20 through Claude Code 2.1.295, $0.10
+from 2.1.296 (date fallback: through 2026-10-06).
+
 Long-prompt tiers are seeded separately (`DEFAULT_LONG_PRICING` in `db.js`, applied
 at startup and by reset-pricing): Haiku 5.5 bills prompts over 100K tokens at
 $0.50/$2.50 (`long_input_per_mtok` / `long_output_per_mtok`, cache rates scaled

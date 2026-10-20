@@ -2934,6 +2934,77 @@ async function backfillSubagentTokenMetadata(dbModule) {
   return { sessions: scanned, stamped };
 }
 
+/**
+ * The `version` of the first transcript entry that carries one (the Claude Code
+ * version the session started under), or null. Stops reading at the first hit.
+ */
+async function readFirstCcVersion(transcriptPath) {
+  const stream = fs.createReadStream(transcriptPath, { encoding: "utf8" });
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of rl) {
+      if (!line.includes('"version"')) continue;
+      try {
+        const entry = JSON.parse(line);
+        if (typeof entry.version === "string" && entry.version) return entry.version;
+      } catch {
+        /* partial or non-JSON line */
+      }
+    }
+    return null;
+  } finally {
+    rl.close();
+    stream.destroy();
+  }
+}
+
+/**
+ * Backfill metadata.version onto Claude sessions recorded by the live hook path
+ * before it stored one. The version prices version-gated intro rates (rules
+ * with `intro_until_version`, e.g. Sonnet 5.5 cache reads at $0.20 for Claude
+ * Code up to 2.1.295); without it those sessions fall back to the date.
+ *
+ * METADATA ONLY and idempotent: a session whose transcript yields no version is
+ * stamped `version: null`, so every session drops out of the driving query
+ * after one look and steady-state startups do no work. updated_at is left alone.
+ */
+async function backfillSessionVersions(dbModule) {
+  const { db } = dbModule;
+  let sessions;
+  try {
+    sessions = db
+      .prepare(
+        `SELECT id, transcript_path AS tp FROM sessions
+         WHERE transcript_path IS NOT NULL
+           AND COALESCE(provider, 'claude') = 'claude'
+           AND (metadata IS NULL OR (json_valid(metadata) AND json_type(metadata, '$.version') IS NULL))`
+      )
+      .all();
+  } catch {
+    return { sessions: 0, stamped: 0 };
+  }
+  const stamp = db.prepare(
+    `UPDATE sessions SET metadata = json_set(COALESCE(metadata, '{}'), '$.version', ?)
+     WHERE id = ? AND (metadata IS NULL OR json_valid(metadata))`
+  );
+  let stamped = 0;
+  for (const s of sessions) {
+    let version = null;
+    try {
+      if (fs.existsSync(s.tp)) version = await readFirstCcVersion(s.tp);
+    } catch {
+      version = null;
+    }
+    try {
+      stamp.run(version, s.id);
+      if (version) stamped++;
+    } catch {
+      /* non-fatal — the session simply prices by date */
+    }
+  }
+  return { sessions: sessions.length, stamped };
+}
+
 module.exports = {
   importAllSessions,
   syncDefaultProjects,
@@ -2944,6 +3015,7 @@ module.exports = {
   importApiErrors,
   importSubagentFromJsonl,
   backfillSubagentTokenMetadata,
+  backfillSessionVersions,
   reconcileSubagentParents,
   parseSessionFile,
   parseSubagentFile,

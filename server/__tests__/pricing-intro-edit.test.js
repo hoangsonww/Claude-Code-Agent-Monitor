@@ -13,6 +13,9 @@
  *      rates so a stale value can't resurface later.
  *   4. A malformed intro_until is rejected with 400 and writes nothing.
  *   5. Editing standard rates never disturbs the intro block.
+ *   6. The optional intro_until_version cutoff is stored when sent, kept when a
+ *      client resends the intro block without it, validated, and cleared along
+ *      with a cleared promo.
  *
  * It also covers the route's numeric-rate validation: any present rate field
  * must be a non-negative finite number, else the PUT is rejected with 400 and
@@ -243,5 +246,57 @@ describe("PUT /api/pricing — numeric rate validation", () => {
     const row = stmts.getPricing.get(PATTERN);
     assert.equal(row.input_per_mtok, 4.5);
     assert.equal(row.output_per_mtok, 18);
+  });
+});
+
+describe("PUT /api/pricing — intro rate Claude Code version cutoff", () => {
+  const VPATTERN = "test-version-promo%";
+  const put = (extra) =>
+    fetch("/api/pricing", {
+      method: "PUT",
+      body: {
+        model_pattern: VPATTERN,
+        display_name: "Test Version Promo",
+        input_per_mtok: 2,
+        output_per_mtok: 10,
+        ...extra,
+      },
+    });
+  const promo = {
+    intro_until: "2026-10-06",
+    intro_input_per_mtok: 0,
+    intro_output_per_mtok: 0,
+    intro_cache_read_per_mtok: 0.2,
+    intro_cache_write_per_mtok: 0,
+    intro_cache_write_1h_per_mtok: 0,
+  };
+
+  it("persists a dotted intro_until_version", async () => {
+    const res = await put({ ...promo, intro_until_version: "2.1.295" });
+    assert.equal(res.status, 200);
+    assert.equal(stmts.getPricing.get(VPATTERN).intro_until_version, "2.1.295");
+  });
+
+  it("keeps the cutoff when the intro block is resent without it (the Settings UI shape)", async () => {
+    const res = await put({ ...promo, intro_cache_read_per_mtok: 0.25 });
+    assert.equal(res.status, 200);
+    const row = stmts.getPricing.get(VPATTERN);
+    assert.equal(row.intro_cache_read_per_mtok, 0.25);
+    assert.equal(row.intro_until_version, "2.1.295");
+  });
+
+  it("rejects a malformed version and writes nothing", async () => {
+    const res = await put({ ...promo, intro_until_version: "2.1.x" });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, "INVALID_INPUT");
+    assert.equal(stmts.getPricing.get(VPATTERN).intro_until_version, "2.1.295");
+  });
+
+  it("clears the cutoff along with a cleared promo", async () => {
+    const res = await put({ ...promo, intro_until: "" });
+    assert.equal(res.status, 200);
+    const row = stmts.getPricing.get(VPATTERN);
+    assert.equal(row.intro_until, null);
+    assert.equal(row.intro_until_version, null);
   });
 });

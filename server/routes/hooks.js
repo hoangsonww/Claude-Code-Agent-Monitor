@@ -1255,18 +1255,36 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
         }
       }
 
+      // Only a session that has not stored its Claude Code version yet needs a
+      // write for it, so a stored version never adds a metadata (and
+      // updated_at) write on its own.
+      let versionMissing = false;
+      if (result.ccVersion) {
+        try {
+          versionMissing = !JSON.parse(session?.metadata || "{}").version;
+        } catch {
+          versionMissing = false;
+        }
+      }
+
       // Update session metadata with enriched data (thinking blocks, usage extras)
       if (
         result.usageExtras ||
         result.thinkingBlockCount > 0 ||
         reconciledTurnTotals ||
-        insertedTurns > 0
+        insertedTurns > 0 ||
+        versionMissing
       ) {
         const session = stmts.getSession.get(sessionId);
         if (session) {
           const meta = session.metadata ? JSON.parse(session.metadata) : {};
           if (result.usageExtras) {
             meta.usage_extras = result.usageExtras;
+          }
+          // The Claude Code version the session started under (first wins, as
+          // in the importer), used to price version-gated intro rates.
+          if (result.ccVersion && !meta.version) {
+            meta.version = result.ccVersion;
           }
           if (result.thinkingBlockCount > 0) {
             // The cache reports the transcript-wide total, not a per-hook delta.

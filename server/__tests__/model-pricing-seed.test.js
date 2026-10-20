@@ -4,10 +4,11 @@
  * pricing rule at all (every such session priced at $0 and listed under
  * "unpriced" in the API response), and Sonnet 5 fell back to a stale $3/$15
  * standard once its launch promo lapsed. These pin the rows, the specificity
- * rule the 5.1 patterns depend on, the in-place correction that reaches
- * databases created before the fix, and the Bedrock Haiku 4.5 row. Rates are
- * transcribed from Anthropic's published rate card, not derived from the code
- * under test.
+ * rule the 5.1 patterns depend on, the in-place corrections that reach
+ * databases created before the fix, Sonnet 5.5's cache read gated by Claude Code
+ * version (date as fallback), and the Bedrock Haiku 4.5 row. Rates are
+ * transcribed from Anthropic's published rate card and Claude Code's changelog,
+ * not derived from the code under test.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -24,7 +25,13 @@ process.env.CLAUDE_HOME = path.join(TMP, "home");
 process.env.DASHBOARD_DATA_DIR = path.join(TMP, "data");
 fs.mkdirSync(TMP, { recursive: true });
 
-const { db, stmts, correctSonnet5StandardRate, correctSonnet55CacheReadRate } = require("../db");
+const {
+  db,
+  stmts,
+  correctSonnet5StandardRate,
+  correctSonnet55CacheReadRate,
+  applyIntroPricing,
+} = require("../db");
 const { calculateCost, calculateGptCost } = require("../routes/pricing");
 
 after(() => {
@@ -381,19 +388,27 @@ describe("Sonnet 5 rate correction on pre-existing databases", () => {
     assert.equal(correctSonnet5StandardRate(db).changes, 0, "second run is a no-op");
   });
 
-  it("keeps Sonnet 5.5 on its own row: no intro stamp, and Sonnet 5 edits do not reach it", () => {
+  it("keeps Sonnet 5.5 on its own row: no Sonnet 5 promo, and Sonnet 5 edits do not reach it", () => {
     // claude-sonnet-5-5 also LIKE-matches claude-sonnet-5%. The dedicated row
-    // must win, carry no Sonnet 5 launch promo, and stay at the published
-    // $2/$10 while the Sonnet 5 row is changed underneath it.
+    // must win, carry only its own dated cache-read rate (not the Sonnet 5
+    // launch promo), and stay at the published $2/$10 while the Sonnet 5 row is
+    // changed underneath it.
     const sonnet55 = db
       .prepare("SELECT * FROM model_pricing WHERE model_pattern = 'claude-sonnet-5-5%'")
       .get();
     assert.ok(sonnet55, "claude-sonnet-5-5% must have its own pricing rule");
     assert.equal(sonnet55.display_name, "Claude Sonnet 5.5");
-    assert.equal(
-      sonnet55.intro_until,
-      null,
-      "the Sonnet 5 launch promo must not be stamped on 5.5"
+    assert.deepEqual(
+      [
+        sonnet55.intro_until,
+        sonnet55.intro_input_per_mtok,
+        sonnet55.intro_output_per_mtok,
+        sonnet55.intro_cache_read_per_mtok,
+        sonnet55.intro_cache_write_per_mtok,
+        sonnet55.intro_cache_write_1h_per_mtok,
+      ],
+      ["2026-10-06", 0, 0, 0.2, 0, 0],
+      "5.5 dates only its pre-cut $0.20 cache read, never the Sonnet 5 launch promo"
     );
     assert.equal(sonnet55.fast_input_per_mtok, 0, "Sonnet 5.5 has no Fast mode pricing");
     assert.equal(sonnet55.fast_output_per_mtok, 0, "Sonnet 5.5 has no Fast mode pricing");
@@ -468,6 +483,108 @@ describe("Sonnet 5.5 cache-read correction on pre-existing databases", () => {
     setSonnet55([2, 10, 0.2, 2.5, 4]);
     assert.equal(correctSonnet55CacheReadRate(db).changes, 1, "first run corrects the row");
     assert.equal(correctSonnet55CacheReadRate(db).changes, 0, "second run is a no-op");
+  });
+});
+
+describe("Sonnet 5.5 cache reads by Claude Code version", () => {
+  const MTOK = 1_000_000;
+  const costOf = ({ date, ccVersion, field = "cache_read_tokens" }) => {
+    const row = {
+      model: "claude-sonnet-5-5",
+      date,
+      cc_version: ccVersion,
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      cache_write_1h_tokens: 0,
+      [field]: MTOK,
+    };
+    if (field === "cache_write_1h_tokens") row.cache_write_tokens = MTOK;
+    return calculateCost([row], db.prepare("SELECT * FROM model_pricing").all(), null).total_cost;
+  };
+
+  it("bills $0.20 for Claude Code up to 2.1.295 and $0.10 from 2.1.296, whatever the date", () => {
+    // Claude Code's changelog: 2.1.296 repriced Sonnet 5.5 cache reads to $0.10.
+    assert.equal(costOf({ date: "2026-10-15", ccVersion: "2.1.286" }), 0.2);
+    assert.equal(costOf({ date: "2026-10-15", ccVersion: "2.1.295" }), 0.2);
+    assert.equal(costOf({ date: "2026-10-01", ccVersion: "2.1.296" }), 0.1);
+    assert.equal(
+      costOf({ date: "2026-10-01", ccVersion: "2.1.1000" }),
+      0.1,
+      "numeric, not text, order"
+    );
+  });
+
+  it("falls back to the 2026-10-07 cut date when the version is unknown or malformed", () => {
+    assert.equal(costOf({ date: "2026-10-06" }), 0.2);
+    assert.equal(costOf({ date: "2026-10-07" }), 0.1);
+    assert.equal(costOf({ date: "2026-10-06", ccVersion: "nightly" }), 0.2);
+  });
+
+  it("leaves every other rate unchanged for old and new versions", () => {
+    for (const ccVersion of ["2.1.286", "2.1.296"]) {
+      const at = (field) => costOf({ date: "2026-10-10", ccVersion, field });
+      assert.equal(at("input_tokens"), 2, `${ccVersion} input`);
+      assert.equal(at("output_tokens"), 10, `${ccVersion} output`);
+      assert.equal(at("cache_write_tokens"), 2.5, `${ccVersion} 5m cache write`);
+      assert.equal(at("cache_write_1h_tokens"), 4, `${ccVersion} 1h cache write`);
+    }
+  });
+
+  it("does not gate rules without a version cutoff by version", () => {
+    // Sonnet 5's launch promo has no cutoff: a recorded version must not change it.
+    const rules = db.prepare("SELECT * FROM model_pricing").all();
+    const sonnet5 = rules.find((r) => r.model_pattern === "claude-sonnet-5%");
+    assert.equal(sonnet5.intro_until_version, null);
+  });
+
+  it("is stamped on existing databases, but never over an intro rate the user set", () => {
+    const read = () =>
+      db
+        .prepare(
+          `SELECT intro_until, intro_until_version, intro_cache_read_per_mtok
+             FROM model_pricing WHERE model_pattern = 'claude-sonnet-5-5%'`
+        )
+        .get();
+    const clear = db.prepare(
+      `UPDATE model_pricing SET intro_until = NULL, intro_until_version = NULL,
+         intro_input_per_mtok = 0, intro_output_per_mtok = 0, intro_cache_read_per_mtok = 0,
+         intro_cache_write_per_mtok = 0, intro_cache_write_1h_per_mtok = 0
+       WHERE model_pattern = 'claude-sonnet-5-5%'`
+    );
+    const expected = {
+      intro_until: "2026-10-06",
+      intro_until_version: "2.1.295",
+      intro_cache_read_per_mtok: 0.2,
+    };
+    try {
+      clear.run();
+      applyIntroPricing(db);
+      assert.deepEqual(read(), expected);
+
+      // A row stamped with the default date before the version cutoff existed.
+      db.prepare(
+        "UPDATE model_pricing SET intro_until_version = NULL WHERE model_pattern = 'claude-sonnet-5-5%'"
+      ).run();
+      applyIntroPricing(db);
+      assert.deepEqual(read(), expected, "the cutoff is added to the default dated rate");
+
+      db.prepare(
+        `UPDATE model_pricing SET intro_until = '2026-09-30', intro_until_version = NULL,
+           intro_cache_read_per_mtok = 0.3
+         WHERE model_pattern = 'claude-sonnet-5-5%'`
+      ).run();
+      applyIntroPricing(db);
+      assert.deepEqual(
+        read(),
+        { intro_until: "2026-09-30", intro_until_version: null, intro_cache_read_per_mtok: 0.3 },
+        "a user-edited intro rate must survive"
+      );
+    } finally {
+      clear.run();
+      applyIntroPricing(db);
+    }
   });
 });
 

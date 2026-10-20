@@ -648,6 +648,25 @@ function startBackgroundServices() {
     if (t.unref) t.unref();
   }
 
+  // Backfill each live-recorded Claude session's Claude Code version into its
+  // metadata, so version-gated intro rates (Sonnet 5.5's $0.20 cache read for
+  // Claude Code up to 2.1.295) price by version instead of by date. Deferred,
+  // metadata-only, and self-limiting (each session is looked at once).
+  {
+    const dbModule = require("./db");
+    const { backfillSessionVersions } = require("../scripts/import-history");
+    const t = setTimeout(() => {
+      Promise.resolve()
+        .then(() => backfillSessionVersions(dbModule))
+        .then((r) => {
+          if (r && r.stamped > 0)
+            console.log(`Recorded the Claude Code version for ${r.stamped} session(s)`);
+        })
+        .catch((err) => console.warn("session version backfill failed:", err?.message || err));
+    }, 1_000);
+    if (t.unref) t.unref();
+  }
+
   const { startUpdateScheduler } = require("./update-scheduler");
   const { broadcast } = require("./websocket");
   startUpdateScheduler({ broadcast });

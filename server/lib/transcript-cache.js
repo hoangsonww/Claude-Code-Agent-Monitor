@@ -204,6 +204,7 @@ class TranscriptCache {
             customTitle: merged.customTitle || null,
             aiTitle: merged.aiTitle || null,
             firstUserMessage: merged.firstUserMessage || null,
+            ccVersion: merged.ccVersion || null,
             recentUserMessages: merged.recentUserMessages || [],
             lastInterruptTs: merged.lastInterruptTs || null,
             lastTurnTs: merged.lastTurnTs || null,
@@ -221,6 +222,7 @@ class TranscriptCache {
             !result.customTitle &&
             !result.aiTitle &&
             !result.firstUserMessage &&
+            !result.ccVersion &&
             result.recentUserMessages.length === 0 &&
             !result.lastInterruptTs &&
             !result.lastTurnTs
@@ -427,6 +429,10 @@ class TranscriptCache {
       // the only record of API calls that leave no assistant message — see
       // server/lib/cost-state.js.
       costState: null,
+      // The Claude Code version of the first entry that carries one (`version`
+      // on user/assistant/system lines). First wins; prices version-gated
+      // intro rates (see ratesForBucket in server/routes/pricing.js).
+      ccVersion: null,
       // Track the latest human-readable session title. Two sources, both
       // append-only metadata lines: `custom-title` (explicit /rename, claude
       // -n, picker Ctrl+R) and `ai-title` (auto-generated / plan-accept).
@@ -464,6 +470,10 @@ class TranscriptCache {
       entry = JSON.parse(line);
     } catch {
       return;
+    }
+
+    if (!state.ccVersion && typeof entry.version === "string" && entry.version) {
+      state.ccVersion = entry.version;
     }
 
     // Session title metadata lines — sparse, no usage payload. Capture the
@@ -667,6 +677,7 @@ class TranscriptCache {
       !state.customTitle &&
       !state.aiTitle &&
       !state.firstUserMessage &&
+      !state.ccVersion &&
       state.recentUserMessages.length === 0 &&
       !state.lastInterruptTs &&
       !state.lastTurnTs
@@ -708,6 +719,7 @@ class TranscriptCache {
       customTitle: state.customTitle,
       aiTitle: state.aiTitle,
       firstUserMessage: state.firstUserMessage,
+      ccVersion: state.ccVersion,
       recentUserMessages: state.recentUserMessages,
       lastInterruptTs: state.lastInterruptTs,
       lastTurnTs: state.lastTurnTs,
@@ -840,6 +852,10 @@ class TranscriptCache {
     const firstUserMessage =
       cached.result?.firstUserMessage || (incremental && incremental.firstUserMessage) || null;
 
+    // The Claude Code version is first-wins too: it records the version the
+    // session started under, mirroring how its start date prices dated rates.
+    const ccVersion = cached.result?.ccVersion || (incremental && incremental.ccVersion) || null;
+
     // Both arrays are chronological and already bounded to two entries. Fold
     // them through the same distinctness rule so an appended duplicate does
     // not evict the earlier, useful request from the compact card context.
@@ -879,6 +895,7 @@ class TranscriptCache {
       customTitle,
       aiTitle,
       firstUserMessage,
+      ccVersion,
       recentUserMessages,
       lastInterruptTs,
       lastTurnTs,

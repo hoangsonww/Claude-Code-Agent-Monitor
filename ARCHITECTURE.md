@@ -1544,6 +1544,11 @@ every transcript-derived row untouched and only raises a model's totals,
 through `baseline_*`, to Claude's figure. It is additive and safe to re-run;
 the pre-backfill rows are kept in `token_usage_pre_cost_state_v1`.
 
+At startup, `backfillSessionVersions` (`scripts/import-history.js`) also stamps
+`metadata.version` onto live-recorded Claude sessions that predate version
+capture, so pricing rules with an `intro_until_version` cutoff can price them by
+Claude Code version. It is metadata-only and looks at each session once.
+
 A hook landing mid-repair can lose a single write, since the sweep parses
 outside its transaction. That self-heals: with baselines zeroed, the next event
 for that session re-parses the whole transcript and `replaceTokenUsage` writes

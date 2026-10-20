@@ -111,6 +111,20 @@ function sessionIsInScope(session, req) {
   );
 }
 
+/**
+ * The Claude Code version a session recorded (`metadata.version`), which prices
+ * version-gated intro rates; null when absent or the metadata is not JSON.
+ */
+function sessionCcVersion(session) {
+  if (!session || !session.metadata) return null;
+  try {
+    const version = JSON.parse(session.metadata).version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+}
+
 function taskEventsForSession(sessionId) {
   return stmts.listTaskEventsBySession.all(sessionId);
 }
@@ -335,12 +349,16 @@ router.get("/", (req, res) => {
           .all(...ids);
 
         const providerBySession = new Map(chunk.map((session) => [session.id, session.provider]));
+        const versionBySession = new Map(
+          chunk.map((session) => [session.id, sessionCcVersion(session)])
+        );
         const tokensBySession = {};
         for (const t of chunkTokens) {
           if (!tokensBySession[t.session_id]) tokensBySession[t.session_id] = [];
           tokensBySession[t.session_id].push({
             ...t,
             provider: providerBySession.get(t.session_id) || "claude",
+            cc_version: versionBySession.get(t.session_id),
           });
         }
 
@@ -399,12 +417,16 @@ router.get("/", (req, res) => {
       const gptRules = stmts.listGptPricing.all();
       const cursorRules = stmts.listCursorPricing.all();
       const providerBySession = new Map(rows.map((session) => [session.id, session.provider]));
+      const versionBySession = new Map(
+        rows.map((session) => [session.id, sessionCcVersion(session)])
+      );
       const tokensBySession = {};
       for (const t of allTokens) {
         if (!tokensBySession[t.session_id]) tokensBySession[t.session_id] = [];
         tokensBySession[t.session_id].push({
           ...t,
           provider: providerBySession.get(t.session_id) || "claude",
+          cc_version: versionBySession.get(t.session_id),
         });
       }
 

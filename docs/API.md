@@ -818,12 +818,13 @@ Upsert a pricing rule, keyed by `model_pattern`. The same call creates a new rul
 | `long_input_per_mtok` / `long_output_per_mtok` | number | Long-prompt tier rates (0 = no long tier). Applied to usage stamped `context_size: "long"`; the cache rates scale with the long input base (so Haiku 5.5's $0.50 long input prices cache reads at $0.05, 5m writes at $0.625, 1h writes at $1). **Optional:** omitted fields keep the stored values |
 | `intro_until` | string \| null | Optional promo cutoff `YYYY-MM-DD`. Usage **on or before** this date is priced at the `intro_*` rates, after it at the standard rates. Empty/`null` clears the promo (and zeroes the intro rates) |
 | `intro_*_per_mtok` | number | Optional introductory (promo) rates, mirroring the standard fields |
+| `intro_until_version` | string \| null | Optional Claude Code version cutoff (dotted numbers, e.g. `2.1.295`). When set and a session's recorded Claude Code version is known, usage from that version or older is priced at the `intro_*` rates instead of deciding by `intro_until`; sessions with no recorded version still use the date. Omit to keep the stored value; empty/`null` clears it, and clearing the promo clears it too |
 
 The intro block is **optional and backward-compatible**: a request that omits every `intro_*`/`intro_until` field leaves any existing promo untouched, so older clients that send only the standard rates never clobber a promo. The long-prompt tier follows the same rule: a request that omits both `long_*` fields leaves the stored tier untouched.
 
 **Long-prompt tier.** Some models bill a higher rate once a single request's prompt (fresh input + cache reads + cache writes) exceeds a limit. Ingestion stamps each such request `context_size: "long"` and every other request `"short"`; the limits live in `CLAUDE_LONG_CONTEXT_TIERS` in `server/lib/pricing-constants.js` (today only `claude-haiku-5-5`: $0.10/$0.50 up to 100K prompt tokens, $0.50/$2.50 above). A rule with no long rates bills long requests at its standard rates. Workflow-fleet usage (`service_tier: "workflow"`) is never split, so it prices at the short card.
 
-**Validation:** every `*_per_mtok` rate present in the body must be a **non-negative finite number** (numeric strings are coerced); a `NaN`, non-numeric, or negative value is rejected with `400 INVALID_INPUT` naming the offending field, and nothing is written. `intro_until` must be a `YYYY-MM-DD` date (or empty/`null` to clear the promo).
+**Validation:** every `*_per_mtok` rate present in the body must be a **non-negative finite number** (numeric strings are coerced); a `NaN`, non-numeric, or negative value is rejected with `400 INVALID_INPUT` naming the offending field, and nothing is written. `intro_until` must be a `YYYY-MM-DD` date (or empty/`null` to clear the promo); `intro_until_version` must be dotted numbers (or empty/`null` to clear it).
 
 **Example Request:**
 
@@ -857,7 +858,7 @@ curl -X PUT http://localhost:4820/api/pricing \
 
 | Code | Description |
 |------|-------------|
-| 400 | Missing `model_pattern`/`display_name`, or `intro_until` not a `YYYY-MM-DD` date |
+| 400 | Missing `model_pattern`/`display_name`, `intro_until` not a `YYYY-MM-DD` date, or `intro_until_version` not a dotted version |
 | 500 | Database error |
 
 ---

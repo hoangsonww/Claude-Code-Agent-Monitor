@@ -270,6 +270,11 @@ db.exec(`
     intro_cache_write_per_mtok REAL NOT NULL DEFAULT 0,
     intro_cache_write_1h_per_mtok REAL NOT NULL DEFAULT 0,
     intro_until TEXT,
+    -- Optional Claude Code version cutoff for the intro_* rates. When set and a
+    -- session's recorded Claude Code version is known, usage from versions up to
+    -- and including this one is priced at the intro_* rates instead of deciding
+    -- by date; sessions with no recorded version still use intro_until.
+    intro_until_version TEXT,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
@@ -645,6 +650,14 @@ try {
   db.prepare("ALTER TABLE model_pricing ADD COLUMN intro_until TEXT").run();
 }
 
+// Migrate: add the Claude Code version cutoff for intro rates. Additive and
+// NULL by default, so every existing rule keeps deciding by intro_until alone.
+try {
+  db.prepare("SELECT intro_until_version FROM model_pricing LIMIT 1").get();
+} catch {
+  db.prepare("ALTER TABLE model_pricing ADD COLUMN intro_until_version TEXT").run();
+}
+
 // Migrate: add long-prompt tier rate columns to model_pricing. Additive and
 // default 0 (= no long tier), so existing rows price exactly as before until a
 // long rate is set (applyLongPricing below backfills the known defaults).
@@ -707,7 +720,10 @@ const DEFAULT_PRICING = [
   // claude-sonnet-5-5: $2/$10 input/output, $0.10 cache read (0.05x input, not
   // the standard 0.1x — same as Opus 5.5; confirmed against Anthropic's rate card
   // and Bedrock global pricing), $2.50 5m cache write, $4 1h cache write; no Fast
-  // mode. It differs from Sonnet 5 on cache reads and so gets its own row:
+  // mode. The cache read was $0.20 before its 50% cut, and Claude Code priced it
+  // at $0.20 through 2.1.295; DEFAULT_INTRO_PRICING below keeps that rate for
+  // those versions so session cost matches Claude's own figure.
+  // It differs from Sonnet 5 on cache reads and so gets its own row:
   // `claude-sonnet-5%` also LIKE-matches "claude-sonnet-5-5", so without one
   // Sonnet 5.5 usage is labelled as Sonnet 5 and silently follows every Sonnet 5
   // edit, intro stamp and rate correction.
@@ -1066,11 +1082,13 @@ function correctSonnet5StandardRate(dbHandle = db) {
 correctSonnet5StandardRate();
 
 // One-time correction of Sonnet 5.5's cache-read rate on EXISTING databases.
-// The row was seeded at $0.20 (Sonnet 5's value) but Sonnet 5.5 bills cache
-// hits at 0.05x input = $0.10, so cache reads — usually the largest share of a
-// session's cost — were over-reported 2x. Same guard as above: only a row still
-// holding the exact old defaults is rewritten, so user edits survive and
-// re-running is a no-op. Cost is computed at request time, so history reprices.
+// The row was seeded at $0.20, but Sonnet 5.5 now bills cache hits at 0.05x
+// input = $0.10, so newer cache reads — usually the largest share of a
+// session's cost — were over-reported 2x. The prior $0.20 lives on as an intro
+// rate (DEFAULT_INTRO_PRICING below) for Claude Code versions that still priced
+// it. Same guard as above: only a row still holding the exact old defaults is
+// rewritten, so user edits survive and re-running is a no-op. Cost is computed
+// at request time, so history reprices.
 function correctSonnet55CacheReadRate(dbHandle = db) {
   return dbHandle
     .prepare(
@@ -1087,25 +1105,45 @@ function correctSonnet55CacheReadRate(dbHandle = db) {
 }
 correctSonnet55CacheReadRate();
 
-// Known introductory promo rates: [pattern, in, out, cacheRead, cw5m, cw1h, until].
-// Standard rates live in the DEFAULT_PRICING row; these add the time-limited
-// discount on top. Claude Sonnet 5: 2/3-off launch pricing through 2026-08-31.
-const DEFAULT_INTRO_PRICING = [["claude-sonnet-5%", 2, 10, 0.2, 2.5, 4, "2026-08-31"]];
+// Known intro rates: [pattern, in, out, cacheRead, cw5m, cw1h, until, untilVersion].
+// Standard rates live in the DEFAULT_PRICING row; these replace them for usage
+// on or before `until` — or, when `untilVersion` is set and the session's Claude
+// Code version is known, for usage recorded by that version or older. A 0 keeps
+// the standard rate for that field (see ratesForBucket in routes/pricing.js).
+// Claude Sonnet 5: 2/3-off launch pricing through 2026-08-31.
+// Claude Sonnet 5.5: cache reads at the prior $0.20. Claude Code priced them at
+// $0.20 through 2.1.295 and $0.10 from 2.1.296 (its changelog); the date is the
+// fallback for sessions with no recorded version — the day before the 50% cut
+// took effect on 2026-10-07 (Amazon Bedrock pricing note).
+const DEFAULT_INTRO_PRICING = [
+  ["claude-sonnet-5%", 2, 10, 0.2, 2.5, 4, "2026-08-31", null],
+  ["claude-sonnet-5-5%", 0, 0, 0.2, 0, 0, "2026-10-06", "2.1.295"],
+];
 
 // Backfill the known intro rates. Only fills rows whose intro_until is still
 // NULL, so a user who edits or clears an intro rate in Settings is never
 // overwritten. Shared by startup and the reset-pricing endpoint (which
 // re-seeds standard rates and must re-apply the intro discount too, else Sonnet
-// 5 would silently price at standard until the next restart).
+// 5 would silently price at standard until the next restart). A row that already
+// holds a default's exact date and rates but no version cutoff gets the cutoff
+// added — the same default, stamped before the cutoff existed.
 function applyIntroPricing(dbHandle = db) {
   const setIntro = dbHandle.prepare(
     `UPDATE model_pricing SET
        intro_input_per_mtok = ?, intro_output_per_mtok = ?, intro_cache_read_per_mtok = ?,
-       intro_cache_write_per_mtok = ?, intro_cache_write_1h_per_mtok = ?, intro_until = ?
+       intro_cache_write_per_mtok = ?, intro_cache_write_1h_per_mtok = ?, intro_until = ?,
+       intro_until_version = ?
      WHERE model_pattern = ? AND intro_until IS NULL`
   );
-  for (const [pattern, inp, out, cr, cw5m, cw1h, until] of DEFAULT_INTRO_PRICING) {
-    setIntro.run(inp, out, cr, cw5m, cw1h, until, pattern);
+  const addVersion = dbHandle.prepare(
+    `UPDATE model_pricing SET intro_until_version = ?
+     WHERE model_pattern = ? AND intro_until = ? AND intro_until_version IS NULL
+       AND intro_input_per_mtok = ? AND intro_output_per_mtok = ? AND intro_cache_read_per_mtok = ?
+       AND intro_cache_write_per_mtok = ? AND intro_cache_write_1h_per_mtok = ?`
+  );
+  for (const [pattern, inp, out, cr, cw5m, cw1h, until, untilVersion] of DEFAULT_INTRO_PRICING) {
+    setIntro.run(inp, out, cr, cw5m, cw1h, until, untilVersion, pattern);
+    if (untilVersion) addVersion.run(untilVersion, pattern, until, inp, out, cr, cw5m, cw1h);
   }
 }
 applyIntroPricing();
@@ -2241,6 +2279,15 @@ const stmts = {
       intro_cache_write_per_mtok = ?,
       intro_cache_write_1h_per_mtok = ?,
       intro_until = ?,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE model_pattern = ?
+  `),
+  // Update ONLY the intro rates' Claude Code version cutoff. Separate from
+  // setIntroPricing so a client that sends the intro block without this field
+  // (the Settings UI) keeps the stored cutoff.
+  setIntroVersion: db.prepare(`
+    UPDATE model_pricing SET
+      intro_until_version = ?,
       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
     WHERE model_pattern = ?
   `),

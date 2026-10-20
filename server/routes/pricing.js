@@ -16,6 +16,7 @@ const {
   estimateCodeExecHours,
   DATA_RESIDENCY_US_MULTIPLIER,
   BATCH_DISCOUNT_MULTIPLIER,
+  sessionCcVersionSql,
 } = require("../lib/pricing-constants");
 
 const router = Router();
@@ -41,6 +42,27 @@ function matchesModelPattern(pattern, model) {
 }
 
 /**
+ * Whether dotted `version` is at most `cutoff` ("2.1.295" < "2.1.296" <
+ * "2.1.1000"), or null when either is missing or not dotted numbers — the
+ * caller then falls back to deciding by date.
+ */
+function versionAtMost(version, cutoff) {
+  const parse = (v) =>
+    typeof v === "string" && /^\d+(\.\d+)*$/.test(v.trim())
+      ? v.trim().split(".").map(Number)
+      : null;
+  const a = parse(version);
+  const b = parse(cutoff);
+  if (!a || !b) return null;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x !== y) return x < y;
+  }
+  return true;
+}
+
+/**
  * Resolve the effective per-MTok rates for a token bucket, applying the pricing
  * modifiers carried on the bucket (fast mode, US data residency, Batch API).
  *   - Fast mode: premium input/output rates; cache rates scale with the fast
@@ -57,9 +79,13 @@ function ratesForBucket(rule, row, asOf) {
   // historical usage keeps the rate it was billed at and future usage picks up
   // the standard rate), else the caller-provided asOf, else today. Dates are
   // compared as YYYY-MM-DD strings (both intro_until and the daily date use that
-  // shape), so slice any full ISO timestamp to its day.
+  // shape), so slice any full ISO timestamp to its day. A rule with a Claude Code
+  // version cutoff decides by the session's recorded version instead whenever
+  // that is known (`row.cc_version`); the date stays the fallback.
   const day = String(row.date || asOf || new Date().toISOString()).slice(0, 10);
-  const useIntro = !!r.intro_until && day <= r.intro_until;
+  const byVersion = versionAtMost(row.cc_version, r.intro_until_version);
+  const useIntro =
+    byVersion !== null ? !!r.intro_until && byVersion : !!r.intro_until && day <= r.intro_until;
   const pick = (introVal, stdVal) => (useIntro && (introVal || 0) > 0 ? introVal : stdVal || 0);
 
   let rIn = pick(r.intro_input_per_mtok, r.input_per_mtok);
@@ -483,6 +509,7 @@ function calculateDailyCosts(dailyTokenRows, pricingRules, gptPricingRules, curs
     rows.push({
       model: row.model,
       provider: row.provider,
+      cc_version: row.cc_version,
       speed: row.speed,
       inference_geo: row.inference_geo,
       service_tier: row.service_tier,
@@ -584,6 +611,9 @@ router.put("/", (req, res) => {
     intro_cache_write_per_mtok,
     intro_cache_write_1h_per_mtok,
     intro_until,
+    // Optional Claude Code version cutoff for the intro rates (e.g. "2.1.295").
+    // Omit to keep the stored value; empty/null clears it.
+    intro_until_version,
   } = req.body;
   if (!model_pattern || !display_name) {
     return res.status(400).json({
@@ -660,6 +690,26 @@ router.put("/", (req, res) => {
     }
   }
 
+  // Same rule for the version cutoff: only touch it when sent. A present value
+  // must be dotted numbers so versionAtMost() can compare it.
+  const versionProvided = intro_until_version !== undefined;
+  let normalizedIntroVersion = null;
+  if (versionProvided) {
+    const raw =
+      typeof intro_until_version === "string" ? intro_until_version.trim() : intro_until_version;
+    if (raw) {
+      if (typeof raw !== "string" || !/^\d+(\.\d+)*$/.test(raw)) {
+        return res.status(400).json({
+          error: {
+            code: "INVALID_INPUT",
+            message: "intro_until_version must be a dotted version like 2.1.295",
+          },
+        });
+      }
+      normalizedIntroVersion = raw;
+    }
+  }
+
   const writeRule = db.transaction(() => {
     stmts.upsertPricing.run(
       model_pattern,
@@ -688,6 +738,12 @@ router.put("/", (req, res) => {
         normalizedIntroUntil,
         model_pattern
       );
+    }
+    // A cleared promo clears its version cutoff too, so it cannot outlive the
+    // rates it gates.
+    const promoCleared = introProvided && !normalizedIntroUntil;
+    if (versionProvided || promoCleared) {
+      stmts.setIntroVersion.run(promoCleared ? null : normalizedIntroVersion, model_pattern);
     }
   });
   writeRule();
@@ -804,6 +860,7 @@ router.get("/cost", (req, res) => {
       `SELECT
         DATE(s.started_at, ?) as date,
         s.provider as provider,
+        ${sessionCcVersionSql("s")} as cc_version,
         tu.model as model,
         tu.speed as speed,
         tu.inference_geo as inference_geo,
@@ -820,7 +877,7 @@ router.get("/cost", (req, res) => {
       FROM token_usage tu
       JOIN sessions s ON s.id = tu.session_id
       ${whereClause}
-      GROUP BY 1, s.provider, tu.model, tu.speed, tu.inference_geo, tu.service_tier, tu.context_size`
+      GROUP BY 1, s.provider, cc_version, tu.model, tu.speed, tu.inference_geo, tu.service_tier, tu.context_size`
     )
     .all(tzModifier, ...params);
   const rules = stmts.listPricing.all();
@@ -841,7 +898,11 @@ router.get("/cost/:sessionId", (req, res) => {
   const tzModifier = Number.isFinite(rawOffset) ? `${-rawOffset} minutes` : "+0 minutes";
 
   const session = db
-    .prepare("SELECT provider, source, DATE(started_at, ?) as date FROM sessions WHERE id = ?")
+    .prepare(
+      `SELECT provider, source, DATE(started_at, ?) as date,
+        ${sessionCcVersionSql()} as cc_version
+       FROM sessions WHERE id = ?`
+    )
     .get(tzModifier, req.params.sessionId);
   if (!session) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
@@ -854,9 +915,11 @@ router.get("/cost/:sessionId", (req, res) => {
   ) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
-  const tokenRows = stmts.getTokensBySession
-    .all(req.params.sessionId)
-    .map((row) => ({ ...row, provider: session.provider || "claude" }));
+  const tokenRows = stmts.getTokensBySession.all(req.params.sessionId).map((row) => ({
+    ...row,
+    provider: session.provider || "claude",
+    cc_version: session.cc_version,
+  }));
   const rules = stmts.listPricing.all();
   const gptRules = stmts.listGptPricing.all();
   const cursorRules = stmts.listCursorPricing.all();
@@ -875,7 +938,7 @@ router.get("/cost/:sessionId", (req, res) => {
  * their transcript). Priced with the agent's start date so a promo/standard
  * cutover is respected, exactly like session cost.
  */
-function agentOwnCost(agent, pricingRules) {
+function agentOwnCost(agent, pricingRules, ccVersion) {
   if (!agent || !agent.metadata) return 0;
   let meta;
   try {
@@ -886,7 +949,10 @@ function agentOwnCost(agent, pricingRules) {
   const rows = Array.isArray(meta.tokens) ? meta.tokens : null;
   if (!rows || rows.length === 0) return 0;
   const asOf = agent.started_at ? String(agent.started_at).slice(0, 10) : undefined;
-  return calculateCost(rows, pricingRules, asOf).total_cost;
+  // The subagent ran inside its session's Claude Code process, so it shares the
+  // session's version for version-gated intro rates.
+  const priced = ccVersion ? rows.map((row) => ({ ...row, cc_version: ccVersion })) : rows;
+  return calculateCost(priced, pricingRules, asOf).total_cost;
 }
 
 /**
@@ -898,7 +964,19 @@ function agentOwnCost(agent, pricingRules) {
 function attachAgentCosts(agents) {
   if (!Array.isArray(agents) || agents.length === 0) return agents;
   const rules = stmts.listPricing.all();
-  return agents.map((a) => ({ ...a, cost: agentOwnCost(a, rules) }));
+  const sessionIds = [...new Set(agents.map((a) => a.session_id).filter(Boolean))];
+  const versions = new Map();
+  for (let i = 0; i < sessionIds.length; i += 900) {
+    const chunk = sessionIds.slice(i, i + 900);
+    const rows = db
+      .prepare(
+        `SELECT id, ${sessionCcVersionSql()} as cc_version FROM sessions
+          WHERE id IN (${chunk.map(() => "?").join(",")})`
+      )
+      .all(...chunk);
+    for (const row of rows) versions.set(row.id, row.cc_version);
+  }
+  return agents.map((a) => ({ ...a, cost: agentOwnCost(a, rules, versions.get(a.session_id)) }));
 }
 
 module.exports = router;

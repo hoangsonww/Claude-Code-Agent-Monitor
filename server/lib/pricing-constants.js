@@ -3,7 +3,8 @@
  * cost calculator stays readable and every rate has one source of truth. These
  * mirror Anthropic's published pricing page. Per-model token rates live in the
  * editable `model_pricing` table; the values here are feature/modifier rates
- * that are uniform across models and therefore kept as code constants.
+ * that are uniform across models and therefore kept as code constants, plus the
+ * SQL that reads a session's Claude Code version for version-gated intro rates.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -42,6 +43,17 @@ const CODE_EXEC_MIN_MINUTES = 5; // 5-minute minimum billed per request
 const CODE_EXEC_FREE_HOURS = 1550; // free hours per org per month
 
 /**
+ * SQL expression for the Claude Code version a session recorded
+ * (`sessions.metadata.version`: the first `version` in its transcript), which
+ * prices rules that carry an `intro_until_version` cutoff. NULL when absent or
+ * when metadata is not valid JSON. `alias` is the sessions table alias, if any.
+ */
+function sessionCcVersionSql(alias) {
+  const col = alias ? `${alias}.metadata` : "metadata";
+  return `CASE WHEN json_valid(${col}) THEN json_extract(${col}, '$.version') END`;
+}
+
+/**
  * Estimated billable code-execution hours for a bucket.
  * Returns 0 when the bucket also used web search or web fetch (code execution is
  * free in that case) or when there were no code-execution requests.
@@ -65,4 +77,5 @@ module.exports = {
   CODE_EXEC_MIN_MINUTES,
   CODE_EXEC_FREE_HOURS,
   estimateCodeExecHours,
+  sessionCcVersionSql,
 };

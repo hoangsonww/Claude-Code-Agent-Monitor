@@ -113,7 +113,9 @@ describe("published standard prices", () => {
             }),
           ],
           rules,
-          "2026-09-15"
+          // After every dated rate change (Sonnet 5.5 cache reads were cut on
+          // 2026-10-07), so this pins the current published card.
+          "2026-10-07"
         );
         assert.equal(result.total_cost, rates[i], `${model} ${field}`);
         assert.deepEqual(result.unpriced_models || [], []);
