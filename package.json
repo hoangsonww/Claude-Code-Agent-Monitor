@@ -92,6 +92,7 @@
     "import-history": "node scripts/import-history.js",
     "reconcile-tokens": "node scripts/import-history.js --reconcile-tokens",
     "clear-data": "node scripts/clear-data.js",
+    "compare-cost": "node scripts/compare-claude-cost.js",
     "test": "node --test server/__tests__/*.test.js && cd client && npm test",
     "test:server": "node --test server/__tests__/*.test.js",
     "test:snapshots": "node --test server/__tests__/snapshot-store.test.js server/__tests__/snapshot-retention.test.js",
