@@ -444,7 +444,7 @@ CREATE TABLE model_pricing (
 | `long_input_per_mtok` / `long_output_per_mtok` | REAL | NO | Rates for `token_usage` rows with `context_size = 'long'` (requests whose prompt exceeds the model's long-prompt limit); 0 = no long tier. Cache rates scale with the long input base |
 | `intro_*_per_mtok` | REAL | NO | Introductory (promo) rates, mirroring the standard fields |
 | `intro_until` | TEXT | YES | Promo cutoff `YYYY-MM-DD`. Usage on/before it uses the intro rates; NULL = no promo. Editable per-rule in Settings |
-| `intro_until_version` | TEXT | YES | Claude Code version cutoff for the intro rates (e.g. `2.1.295`). When the session's `metadata.version` is known it decides instead of `intro_until`; NULL = decide by date only. Seeded for Sonnet 5.5 (cache reads at $0.20 through Claude Code 2.1.295); set via `PUT /api/pricing` |
+| `intro_until_version` | TEXT | YES | Claude Code version cutoff for the intro rates (e.g. `2.1.295`). When the version that made the usage is known (`token_usage.cc_version`, else the session's `metadata.version`) it decides instead of `intro_until`; NULL = decide by date only. Seeded for Sonnet 5.5 (cache reads at $0.20 through Claude Code 2.1.295); set via `PUT /api/pricing` |
 | `updated_at` | TEXT | NO | ISO8601 timestamp of the last edit |
 
 Standard rates and intro rates are edited independently: the pricing update path writes intro columns only when the caller sends intro fields, so a standard-rate edit never disturbs a promo (and vice versa). Clearing `intro_until` also zeroes the intro rates.

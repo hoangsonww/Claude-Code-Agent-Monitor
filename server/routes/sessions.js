@@ -113,7 +113,8 @@ function sessionIsInScope(session, req) {
 
 /**
  * The Claude Code version a session recorded (`metadata.version`), which prices
- * version-gated intro rates; null when absent or the metadata is not JSON.
+ * version-gated intro rates for token rows not split by version; null when
+ * absent or the metadata is not JSON.
  */
 function sessionCcVersion(session) {
   if (!session || !session.metadata) return null;
@@ -335,7 +336,7 @@ router.get("/", (req, res) => {
         const placeholders = ids.map(() => "?").join(",");
         const chunkTokens = db
           .prepare(
-            `SELECT session_id, model, speed, inference_geo, service_tier, context_size,
+            `SELECT session_id, model, speed, inference_geo, service_tier, context_size, cc_version,
               input_tokens + baseline_input as input_tokens,
               output_tokens + baseline_output as output_tokens,
               cache_read_tokens + baseline_cache_read as cache_read_tokens,
@@ -358,7 +359,7 @@ router.get("/", (req, res) => {
           tokensBySession[t.session_id].push({
             ...t,
             provider: providerBySession.get(t.session_id) || "claude",
-            cc_version: versionBySession.get(t.session_id),
+            cc_version: t.cc_version || versionBySession.get(t.session_id),
           });
         }
 
@@ -400,7 +401,7 @@ router.get("/", (req, res) => {
       const placeholders = ids.map(() => "?").join(",");
       const allTokens = db
         .prepare(
-          `SELECT session_id, model, speed, inference_geo, service_tier, context_size,
+          `SELECT session_id, model, speed, inference_geo, service_tier, context_size, cc_version,
             input_tokens + baseline_input as input_tokens,
             output_tokens + baseline_output as output_tokens,
             cache_read_tokens + baseline_cache_read as cache_read_tokens,
@@ -426,7 +427,7 @@ router.get("/", (req, res) => {
         tokensBySession[t.session_id].push({
           ...t,
           provider: providerBySession.get(t.session_id) || "claude",
-          cc_version: versionBySession.get(t.session_id),
+          cc_version: t.cc_version || versionBySession.get(t.session_id),
         });
       }
 

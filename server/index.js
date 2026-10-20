@@ -666,6 +666,89 @@ function repairCostStateTokenTotalsV2() {
 }
 
 /**
+ * One-time split of existing sessions' token buckets by Claude Code version.
+ *
+ * Rows written before `token_usage.cc_version` existed hold every version's
+ * usage under '' and price by the session's first recorded version, so a
+ * session resumed across a release that repriced a rate (Sonnet 5.5's cache
+ * read at 2.1.296) priced its later messages at the earlier rate. Re-reading
+ * each such session's transcripts through writeTokenBuckets splits the rows by
+ * the version that made each request while keeping every bucket's total (the
+ * high-water mark spans its version rows), so it is safe to re-run.
+ *
+ * Same guards as repairCostStateTokenTotalsV2: a `.token-repair-cc-version-v1.done`
+ * marker written only after a completed pass, `DASHBOARD_TOKEN_REPAIR=0`
+ * opt-out, deferral while another dashboard shares the data directory, a
+ * snapshot (`token_usage_pre_cc_version_v1`), and it waits for the
+ * cost-state v2 marker so two re-derivations never race.
+ */
+function repairCcVersionTokenSplit() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-cc-version-v1.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-cost-state-v2.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log(
+        "Claude Code version token split deferred: another dashboard shares this database."
+      );
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const { db } = dbModule;
+          const sessionIds = db
+            .prepare(
+              `SELECT DISTINCT tu.session_id AS id FROM token_usage tu
+                 JOIN sessions s ON s.id = tu.session_id
+                WHERE tu.cc_version = '' AND tu.service_tier != 'workflow'
+                  AND COALESCE(s.provider, 'claude') = 'claude'`
+            )
+            .all()
+            .map((r) => r.id);
+          if (sessionIds.length > 0) {
+            db.exec(
+              "CREATE TABLE IF NOT EXISTS token_usage_pre_cc_version_v1 AS SELECT * FROM token_usage"
+            );
+            const { reconcileTokens } = require("../scripts/import-history");
+            const result = await reconcileTokens(dbModule, { all: true, sessionIds });
+            if (result.sessionsTouched > 0) {
+              console.log(
+                `Split token totals by Claude Code version for ${result.sessionsTouched} session(s). ` +
+                  `Pre-split values kept in token_usage_pre_cc_version_v1.`
+              );
+            }
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — the (total-preserving) split simply re-runs next start */
+          }
+        } catch (err) {
+          console.warn("Claude Code version token split failed:", err.message);
+        }
+      })();
+    }, 24_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("Claude Code version token split could not start:", err.message);
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -697,6 +780,10 @@ function startBackgroundServices() {
   // Second cost-state pass: 1h share for top-up-only cache writes, and records
   // appended after SessionEnd; marker-gated and deferred like the repairs above.
   repairCostStateTokenTotalsV2();
+
+  // One-time split of token rows by the Claude Code version that made each
+  // request (version-gated rates); marker-gated and deferred like the above.
+  repairCcVersionTokenSplit();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can
@@ -1954,4 +2041,5 @@ module.exports = {
   repairInflatedTokenTotals,
   repairLongContextTokenTotals,
   repairCostStateTokenTotals,
+  repairCcVersionTokenSplit,
 };

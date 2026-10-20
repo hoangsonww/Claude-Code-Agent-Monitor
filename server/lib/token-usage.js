@@ -16,6 +16,11 @@
  * per-request prompt size, but only for models whose rate card has a long-prompt
  * tier (CLAUDE_LONG_CONTEXT_TIERS). Every other model is always "short", so its
  * bucket keys and stored rows are identical to before.
+ *
+ * A sixth, `ccVersion`, records the Claude Code version of the process that
+ * made the request (the transcript entry's `version`), so a rate that Claude
+ * Code changed between releases prices each message by the version that billed
+ * it. `writeTokenBuckets` writes one bucket's version rows as a unit.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -56,23 +61,51 @@ function contextSizeFor(model, fields) {
 }
 
 /**
- * Composite bucket key — stable string usable as an object property. The
- * default "short" context adds no segment, keeping pre-existing keys unchanged.
+ * The Claude Code version a transcript entry was written by ("2.1.296"), or ""
+ * when it carries none or something that is not a dotted number — "" rows price
+ * by the session's recorded version instead.
  */
-function bucketKey(model, speed, geo, tier, ctx = "short") {
+function normalizeCcVersion(version) {
+  if (typeof version !== "string") return "";
+  const v = version.trim();
+  return /^\d+(\.\d+){0,3}$/.test(v) ? v : "";
+}
+
+/** Orders Claude Code versions numerically ("2.1.99" < "2.1.100"); "" sorts first. */
+function compareCcVersions(a, b) {
+  if (a === b) return 0;
+  if (!a) return -1;
+  if (!b) return 1;
+  const x = a.split(".").map(Number);
+  const y = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+  }
+  return a < b ? -1 : 1;
+}
+
+/**
+ * Composite bucket key — stable string usable as an object property. The
+ * default "short" context and an unknown version add no segment, keeping
+ * pre-existing keys unchanged.
+ */
+function bucketKey(model, speed, geo, tier, ctx = "short", ccVersion = "") {
   const parts = [model, speed, geo, tier];
   if (ctx === "long") parts.push("long");
+  const version = normalizeCcVersion(ccVersion);
+  if (version) parts.push(`v${version}`);
   return parts.join(BUCKET_SEP);
 }
 
 /** A zeroed bucket carrying its pricing dimensions. */
-function emptyBucket(model, speed, geo, tier, ctx = "short") {
+function emptyBucket(model, speed, geo, tier, ctx = "short", ccVersion = "") {
   return {
     model,
     speed,
     geo,
     tier,
     ctx: ctx === "long" ? "long" : "short",
+    ccVersion: normalizeCcVersion(ccVersion),
     input: 0,
     output: 0,
     cacheRead: 0,
@@ -197,15 +230,127 @@ function rememberUsageContribution(
   return map;
 }
 
+const COUNT_FIELDS = [
+  "input",
+  "output",
+  "cacheRead",
+  "cacheWrite",
+  "cacheWrite1h",
+  "webSearch",
+  "webFetch",
+  "codeExec",
+];
+
+/**
+ * Split each field of `excess` over the version rows (ascending `ordered`) in
+ * proportion to their live counts, so the parts sum exactly: Claude Code's
+ * unrecorded calls (/compact, WebFetch) happen alongside each process's
+ * recorded ones. A field with no live count to go by goes to the latest
+ * version. Returns one baseline per version.
+ */
+function spreadExcess(excess, ordered, versions) {
+  const out = new Map(ordered.map((v) => [v, Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]))]));
+  for (const f of COUNT_FIELDS) {
+    const total = excess[f];
+    if (total <= 0) continue;
+    const weights = ordered.map((v) => Math.max(versions.get(v)[f], 0));
+    const sum = weights.reduce((a, w) => a + w, 0);
+    if (sum <= 0) {
+      out.get(ordered[ordered.length - 1])[f] = total;
+      continue;
+    }
+    let given = 0;
+    let largest = 0;
+    ordered.forEach((v, i) => {
+      const part = Math.floor((total * weights[i]) / sum);
+      out.get(v)[f] = part;
+      given += part;
+      if (weights[i] >= weights[largest]) largest = i;
+    });
+    out.get(ordered[largest])[f] += total - given;
+  }
+  return out;
+}
+
+/**
+ * Write a session's transcript-derived buckets (emptyBucket shape) to
+ * token_usage, one stored row per Claude Code version.
+ *
+ * The high-water mark that replaceTokenUsage keeps per row is kept here per
+ * bucket — (model, speed, geo, tier, ctx) summed over its version rows:
+ *
+ *   excess := max(old bucket total - new live total, 0)   (per field)
+ *   rows   := one per version with its new live counts, plus its share of
+ *             `excess` (spreadExcess) as its baseline
+ *   ⇒ bucket total = max(old total, new live total)
+ *
+ * So splitting a bucket by version never counts a token twice: a row written
+ * before versions existed (cc_version '') is folded into the versioned rows on
+ * the next rewrite, and usage the stored total holds beyond this transcript
+ * (cost-state top-ups, a wider-scope writer) is shared out by each version's
+ * usage. With one version it is exactly replaceTokenUsage. `options.reset`
+ * writes the live counts as the whole truth (no excess), like resetTokenUsage.
+ * Callers own the transaction. Returns the number of rows written.
+ */
+function writeTokenBuckets(stmts, sessionId, buckets, options = {}) {
+  const groups = new Map();
+  for (const b of buckets || []) {
+    if (!b || !b.model) continue;
+    const ctx = b.ctx === "long" ? "long" : "short";
+    const key = bucketKey(b.model, b.speed, b.geo, b.tier, ctx);
+    let group = groups.get(key);
+    if (!group) {
+      group = { args: [sessionId, b.model, b.speed, b.geo, b.tier, ctx], versions: new Map() };
+      groups.set(key, group);
+    }
+    const version = normalizeCcVersion(b.ccVersion);
+    const live = group.versions.get(version) || Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]));
+    for (const f of COUNT_FIELDS) live[f] += b[f] || 0;
+    group.versions.set(version, live);
+  }
+
+  let written = 0;
+  for (const { args, versions } of groups.values()) {
+    const excess = Object.fromEntries(COUNT_FIELDS.map((f) => [f, 0]));
+    if (!options.reset) {
+      const stored = stmts.getTokenBucketVersions.all(...args);
+      for (const f of COUNT_FIELDS) {
+        const before = stored.reduce((sum, row) => sum + (row[f] || 0), 0);
+        let after = 0;
+        for (const live of versions.values()) after += live[f];
+        excess[f] = Math.max(before - after, 0);
+      }
+    }
+    stmts.deleteTokenBucketVersions.run(...args);
+    const ordered = [...versions.keys()].sort(compareCcVersions);
+    const baselines = spreadExcess(excess, ordered, versions);
+    for (const version of ordered) {
+      const live = versions.get(version);
+      const baseline = baselines.get(version);
+      stmts.insertTokenUsageRow.run(
+        ...args,
+        version,
+        ...COUNT_FIELDS.map((f) => live[f]),
+        ...COUNT_FIELDS.map((f) => baseline[f])
+      );
+      written++;
+    }
+  }
+  return written;
+}
+
 module.exports = {
   BUCKET_SEP,
   USAGE_RECONCILE_WINDOW,
   normalizeSpeed,
   normalizeGeo,
   normalizeTier,
+  normalizeCcVersion,
+  compareCcVersions,
   contextSizeFor,
   bucketKey,
   emptyBucket,
+  writeTokenBuckets,
   extractUsageFields,
   accumulateBucket,
   subtractBucket,

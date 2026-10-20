@@ -6,7 +6,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
-const { sessionCcVersionSql } = require("./pricing-constants");
+const { sessionCcVersionSql, withTokenCcVersion } = require("./pricing-constants");
 
 function placeholders(values) {
   return values.map(() => "?").join(",");
@@ -177,10 +177,12 @@ function scopedTokenUsageWithDate(db, sources, providers) {
   const scope = sessionScope(sources, providers, "s");
   return db
     .prepare(
-      `SELECT tu.*, s.provider, DATE(s.started_at) as date, ${sessionCcVersionSql("s")} as cc_version
+      `SELECT tu.*, s.provider, DATE(s.started_at) as date,
+              ${sessionCcVersionSql("s")} as session_cc_version
        FROM token_usage tu JOIN sessions s ON s.id = tu.session_id ${scope.where}`
     )
-    .all(...scope.params);
+    .all(...scope.params)
+    .map(withTokenCcVersion);
 }
 
 module.exports = {

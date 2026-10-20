@@ -975,6 +975,8 @@ erDiagram
         TEXT speed PK "standard or fast (fast mode) — pricing dimension"
         TEXT inference_geo PK "global or us (data residency) — pricing dimension"
         TEXT service_tier PK "standard or batch (Batch API) — pricing dimension"
+        TEXT context_size PK "short or long (long-prompt tier) — pricing dimension"
+        TEXT cc_version PK "Claude Code version that made the requests; '' = not split — pricing dimension"
         INTEGER input_tokens "Current JSONL total"
         INTEGER output_tokens "Current JSONL total"
         INTEGER cache_read_tokens "Current JSONL total"
@@ -1557,6 +1559,22 @@ At startup, `backfillSessionVersions` (`scripts/import-history.js`) also stamps
 `metadata.version` onto live-recorded Claude sessions that predate version
 capture, so pricing rules with an `intro_until_version` cutoff can price them by
 Claude Code version. It is metadata-only and looks at each session once.
+
+A fifth pass (`repairCcVersionTokenSplit`, marker
+`.token-repair-cc-version-v1.done`, same guards, waits for the cost-state v2
+marker) splits token rows by Claude Code version. `token_usage.cc_version`
+records the version of the process that made each request (the transcript
+entry's own `version`), so a session resumed across a release that repriced a
+rate bills each message by the version that made it (Sonnet 5.5's cache read
+dropped from $0.20 to $0.10 at 2.1.296). Rows stored before the column existed
+hold every version under `''` and price by the session's `metadata.version`.
+The pass re-reads those sessions through `writeTokenBuckets`
+(`server/lib/token-usage.js`), which keeps the high-water mark per bucket across
+its version rows: a bucket's total never changes, and usage it holds beyond the
+transcript (`cost-state` top-ups) is shared out by each version's usage. The
+pre-split rows are kept in `token_usage_pre_cc_version_v1`. Live writers fold an
+unsplit row into versioned rows the same way, so nothing is counted twice even
+before the pass runs.
 
 A hook landing mid-repair can lose a single write, since the sweep parses
 outside its transaction. That self-heals: with baselines zeroed, the next event

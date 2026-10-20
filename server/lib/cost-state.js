@@ -110,8 +110,9 @@ function rowSize(row) {
  * Work out what to add to the stored buckets so each model's effective total
  * reaches the cost-state figure. `rows` are the session's effective bucket rows
  * (`stmts.getTokensBySession`). Returns one entry per model that needs a top-up:
- * `{ model, speed, geo, tier, ctx, input, output, cacheRead, cacheWrite,
- * cacheWrite1h, webSearch }` — the bucket to credit plus the amounts to add.
+ * `{ model, speed, geo, tier, ctx, ccVersion, input, output, cacheRead,
+ * cacheWrite, cacheWrite1h, webSearch }` — the bucket to credit plus the
+ * amounts to add.
  */
 function computeCostStateTopUps(rows, costState) {
   const byKey = new Map();
@@ -179,6 +180,7 @@ function computeCostStateTopUps(rows, costState) {
       geo: target ? target.inference_geo : "global",
       tier: target ? target.service_tier : "standard",
       ctx: target && target.context_size === "long" ? "long" : "short",
+      ccVersion: (target && target.cc_version) || "",
       input: delta.input,
       output: delta.output,
       cacheRead: delta.cacheRead,
@@ -211,6 +213,7 @@ function applyCostState(stmts, sessionId, costState) {
       t.geo,
       t.tier,
       t.ctx,
+      t.ccVersion,
       t.input,
       t.output,
       t.cacheRead,

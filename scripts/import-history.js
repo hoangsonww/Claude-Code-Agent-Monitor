@@ -25,7 +25,9 @@ const {
   normalizeSpeed,
   normalizeGeo,
   normalizeTier,
+  normalizeCcVersion,
   accumulateBucket,
+  writeTokenBuckets,
 } = require("../server/lib/token-usage");
 const { parseCostStateEntry, applyCostState } = require("../server/lib/cost-state");
 
@@ -303,12 +305,16 @@ async function parseSessionFile(filePath) {
         // Long-prompt rate tier (see CLAUDE_LONG_CONTEXT_TIERS): "short" for
         // every model without one.
         const ctx = contextSizeFor(msgModel, fields);
+        // The Claude Code version that made this request (a resumed session
+        // can span releases); version-gated rates price each message by it.
+        const ccVersion = normalizeCcVersion(entry.version);
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
           normalizeGeo(usage),
           normalizeTier(usage),
-          ctx
+          ctx,
+          ccVersion
         );
         if (tokensByModel[key] === undefined) {
           tokensByModel[key] = emptyBucket(
@@ -316,7 +322,8 @@ async function parseSessionFile(filePath) {
             normalizeSpeed(usage),
             normalizeGeo(usage),
             normalizeTier(usage),
-            ctx
+            ctx,
+            ccVersion
           );
         }
         accumulateBucket(tokensByModel[key], fields);
@@ -506,12 +513,14 @@ async function parseSubagentFile(filePath) {
         }
         const fields = extractUsageFields(usage);
         const ctx = contextSizeFor(msgModel, fields);
+        const ccVersion = normalizeCcVersion(entry.version);
         const key = bucketKey(
           msgModel,
           normalizeSpeed(usage),
           normalizeGeo(usage),
           normalizeTier(usage),
-          ctx
+          ctx,
+          ccVersion
         );
         if (!tokensByModel[key]) {
           tokensByModel[key] = emptyBucket(
@@ -519,7 +528,8 @@ async function parseSubagentFile(filePath) {
             normalizeSpeed(usage),
             normalizeGeo(usage),
             normalizeTier(usage),
-            ctx
+            ctx,
+            ccVersion
           );
         }
         accumulateBucket(tokensByModel[key], fields);
@@ -813,7 +823,14 @@ function combineSessionTokens(session) {
     if (!src) return;
     for (const [key, tok] of Object.entries(src)) {
       if (!combined[key]) {
-        combined[key] = emptyBucket(tok.model, tok.speed, tok.geo, tok.tier, tok.ctx);
+        combined[key] = emptyBucket(
+          tok.model,
+          tok.speed,
+          tok.geo,
+          tok.tier,
+          tok.ctx,
+          tok.ccVersion
+        );
       }
       accumulateBucket(combined[key], tok);
     }
@@ -826,19 +843,14 @@ function combineSessionTokens(session) {
 }
 
 /**
- * Write a session's per-model token totals via replaceTokenUsage. Safe to call
- * repeatedly: the underlying SQL preserves the highest-seen value via the
- * baseline_* columns, so a re-run never reduces totals.
+ * Write a session's per-model token totals via writeTokenBuckets (one row per
+ * Claude Code version). Safe to call repeatedly: it keeps each bucket's
+ * highest-seen total via the baseline_* columns, so a re-run never reduces
+ * totals.
  */
 function writeSessionTokens(dbModule, sessionId, tokensByModel, options = {}) {
-  const { stmts } = dbModule;
-  // resetBaselines: the totals come from a full transcript re-parse and are
-  // the whole truth — zero the compaction baselines instead of letting the
-  // high-water-mark fold preserve a historical over-count.
-  const stmt = options.resetBaselines ? stmts.resetTokenUsage : stmts.replaceTokenUsage;
-  let written = 0;
-  for (const tokens of Object.values(tokensByModel || {})) {
-    if (
+  const buckets = Object.values(tokensByModel || {}).filter(
+    (tokens) =>
       (tokens.input || 0) > 0 ||
       (tokens.output || 0) > 0 ||
       (tokens.cacheRead || 0) > 0 ||
@@ -846,27 +858,26 @@ function writeSessionTokens(dbModule, sessionId, tokensByModel, options = {}) {
       (tokens.webSearch || 0) > 0 ||
       (tokens.webFetch || 0) > 0 ||
       (tokens.codeExec || 0) > 0
-    ) {
-      stmt.run(
-        sessionId,
-        tokens.model,
-        tokens.speed,
-        tokens.geo,
-        tokens.tier,
-        tokens.ctx === "long" ? "long" : "short",
-        tokens.input || 0,
-        tokens.output || 0,
-        tokens.cacheRead || 0,
-        tokens.cacheWrite || 0,
-        tokens.cacheWrite1h || 0,
-        tokens.webSearch || 0,
-        tokens.webFetch || 0,
-        tokens.codeExec || 0
-      );
-      written++;
-    }
+  );
+  // writeTokenBuckets clears and rewrites each bucket's rows; a savepoint keeps
+  // that atomic for callers outside a transaction (live SubagentStop,
+  // workflow ingest) and nests inside one for the batch importers.
+  const { db } = dbModule;
+  db.exec("SAVEPOINT write_session_tokens");
+  try {
+    // resetBaselines: the totals come from a full transcript re-parse and are
+    // the whole truth — zero the compaction baselines instead of letting the
+    // high-water-mark fold preserve a historical over-count.
+    const written = writeTokenBuckets(dbModule.stmts, sessionId, buckets, {
+      reset: !!options.resetBaselines,
+    });
+    db.exec("RELEASE write_session_tokens");
+    return written;
+  } catch (err) {
+    db.exec("ROLLBACK TO write_session_tokens");
+    db.exec("RELEASE write_session_tokens");
+    throw err;
   }
-  return written;
 }
 
 /**
@@ -886,6 +897,7 @@ function subagentTokenRows(tokensByModel) {
       inference_geo: b.geo,
       service_tier: b.tier,
       context_size: b.ctx === "long" ? "long" : "short",
+      cc_version: b.ccVersion || "",
       input_tokens: b.input || 0,
       output_tokens: b.output || 0,
       cache_read_tokens: b.cacheRead || 0,

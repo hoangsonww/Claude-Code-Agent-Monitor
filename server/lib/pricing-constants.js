@@ -4,7 +4,8 @@
  * mirror Anthropic's published pricing page. Per-model token rates live in the
  * editable `model_pricing` table; the values here are feature/modifier rates
  * that are uniform across models and therefore kept as code constants, plus the
- * SQL that reads a session's Claude Code version for version-gated intro rates.
+ * SQL that reads the Claude Code version (per token row, else the session's)
+ * for version-gated intro rates.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -54,6 +55,26 @@ function sessionCcVersionSql(alias) {
 }
 
 /**
+ * SQL expression for the Claude Code version a token_usage row is priced by:
+ * the row's own `cc_version` (the version that made those requests), else the
+ * session's recorded version for rows not split by version (''). `tokenAlias`
+ * and `sessionAlias` are the token_usage and sessions table aliases.
+ */
+function tokenCcVersionSql(tokenAlias, sessionAlias) {
+  return `COALESCE(NULLIF(${tokenAlias}.cc_version, ''), ${sessionCcVersionSql(sessionAlias)})`;
+}
+
+/**
+ * The same choice in JS, for a `SELECT tu.*` row that also selected the
+ * session's version as `session_cc_version`: sets `cc_version` to the version
+ * the row is priced by.
+ */
+function withTokenCcVersion(row) {
+  const { session_cc_version: sessionVersion, ...rest } = row;
+  return { ...rest, cc_version: row.cc_version || sessionVersion || null };
+}
+
+/**
  * Estimated billable code-execution hours for a bucket.
  * Returns 0 when the bucket also used web search or web fetch (code execution is
  * free in that case) or when there were no code-execution requests.
@@ -78,4 +99,6 @@ module.exports = {
   CODE_EXEC_FREE_HOURS,
   estimateCodeExecHours,
   sessionCcVersionSql,
+  tokenCcVersionSql,
+  withTokenCcVersion,
 };

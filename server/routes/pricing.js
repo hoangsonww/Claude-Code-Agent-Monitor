@@ -17,6 +17,7 @@ const {
   DATA_RESIDENCY_US_MULTIPLIER,
   BATCH_DISCOUNT_MULTIPLIER,
   sessionCcVersionSql,
+  tokenCcVersionSql,
 } = require("../lib/pricing-constants");
 
 const router = Router();
@@ -80,8 +81,9 @@ function ratesForBucket(rule, row, asOf) {
   // the standard rate), else the caller-provided asOf, else today. Dates are
   // compared as YYYY-MM-DD strings (both intro_until and the daily date use that
   // shape), so slice any full ISO timestamp to its day. A rule with a Claude Code
-  // version cutoff decides by the session's recorded version instead whenever
-  // that is known (`row.cc_version`); the date stays the fallback.
+  // version cutoff decides by the version that made the requests instead
+  // whenever that is known (`row.cc_version`: the token row's own version, else
+  // the session's recorded one); the date stays the fallback.
   const day = String(row.date || asOf || new Date().toISOString()).slice(0, 10);
   const byVersion = versionAtMost(row.cc_version, r.intro_until_version);
   const useIntro =
@@ -860,7 +862,7 @@ router.get("/cost", (req, res) => {
       `SELECT
         DATE(s.started_at, ?) as date,
         s.provider as provider,
-        ${sessionCcVersionSql("s")} as cc_version,
+        ${tokenCcVersionSql("tu", "s")} as cc_version,
         tu.model as model,
         tu.speed as speed,
         tu.inference_geo as inference_geo,
@@ -877,7 +879,8 @@ router.get("/cost", (req, res) => {
       FROM token_usage tu
       JOIN sessions s ON s.id = tu.session_id
       ${whereClause}
-      GROUP BY 1, s.provider, cc_version, tu.model, tu.speed, tu.inference_geo, tu.service_tier, tu.context_size`
+      GROUP BY 1, s.provider, ${tokenCcVersionSql("tu", "s")}, tu.model, tu.speed, tu.inference_geo,
+        tu.service_tier, tu.context_size`
     )
     .all(tzModifier, ...params);
   const rules = stmts.listPricing.all();
@@ -918,7 +921,7 @@ router.get("/cost/:sessionId", (req, res) => {
   const tokenRows = stmts.getTokensBySession.all(req.params.sessionId).map((row) => ({
     ...row,
     provider: session.provider || "claude",
-    cc_version: session.cc_version,
+    cc_version: row.cc_version || session.cc_version,
   }));
   const rules = stmts.listPricing.all();
   const gptRules = stmts.listGptPricing.all();
@@ -949,9 +952,9 @@ function agentOwnCost(agent, pricingRules, ccVersion) {
   const rows = Array.isArray(meta.tokens) ? meta.tokens : null;
   if (!rows || rows.length === 0) return 0;
   const asOf = agent.started_at ? String(agent.started_at).slice(0, 10) : undefined;
-  // The subagent ran inside its session's Claude Code process, so it shares the
-  // session's version for version-gated intro rates.
-  const priced = ccVersion ? rows.map((row) => ({ ...row, cc_version: ccVersion })) : rows;
+  // Rows carry the Claude Code version that made the requests; older rows
+  // without one take the session's version (the subagent ran in its process).
+  const priced = rows.map((row) => ({ ...row, cc_version: row.cc_version || ccVersion }));
   return calculateCost(priced, pricingRules, asOf).total_cost;
 }
 

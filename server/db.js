@@ -217,6 +217,12 @@ db.exec(`
     -- short/long is meaningful for GPT pricing (the per-request 272K
     -- boundary). Claude rows retain the harmless default short value.
     context_size TEXT NOT NULL DEFAULT 'short' CHECK(context_size IN ('short','long')),
+    -- Claude Code version of the process that made the requests (the
+    -- transcript entry's own "version"), so version-gated intro rates price
+    -- each message by the version that billed it. '' = not split by version
+    -- (rows written before this column, and non-Claude usage); those price by
+    -- the session's recorded version.
+    cc_version TEXT NOT NULL DEFAULT '',
     input_tokens INTEGER NOT NULL DEFAULT 0,
     output_tokens INTEGER NOT NULL DEFAULT 0,
     cache_read_tokens INTEGER NOT NULL DEFAULT 0,
@@ -236,7 +242,7 @@ db.exec(`
     baseline_web_search INTEGER NOT NULL DEFAULT 0,
     baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
     baseline_code_execution INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (session_id, model, speed, inference_geo, service_tier, context_size),
+    PRIMARY KEY (session_id, model, speed, inference_geo, service_tier, context_size, cc_version),
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
   );
 
@@ -1627,6 +1633,68 @@ try {
   db.pragma("foreign_keys = ON");
 }
 
+// Migrate: add the Claude Code version bucket. SQLite cannot extend the
+// composite primary key in place, so the table is rebuilt (atomically). Every
+// existing row maps to '' (not split by version), which prices by the session's
+// recorded version exactly as before; writers fold such a row into versioned
+// rows the next time they rewrite its bucket (see writeTokenBuckets in
+// server/lib/token-usage.js), so totals carry over without double counting.
+try {
+  db.prepare("SELECT cc_version FROM token_usage LIMIT 1").get();
+} catch {
+  db.pragma("foreign_keys = OFF");
+  db.transaction(() => {
+    db.prepare("ALTER TABLE token_usage RENAME TO token_usage_pre_cc_version").run();
+    db.exec(`
+      CREATE TABLE token_usage (
+        session_id TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT 'unknown',
+        speed TEXT NOT NULL DEFAULT 'standard',
+        inference_geo TEXT NOT NULL DEFAULT 'global',
+        service_tier TEXT NOT NULL DEFAULT 'standard',
+        context_size TEXT NOT NULL DEFAULT 'short' CHECK(context_size IN ('short','long')),
+        cc_version TEXT NOT NULL DEFAULT '',
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+        cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0,
+        web_search_requests INTEGER NOT NULL DEFAULT 0,
+        web_fetch_requests INTEGER NOT NULL DEFAULT 0,
+        code_execution_requests INTEGER NOT NULL DEFAULT 0,
+        baseline_input INTEGER NOT NULL DEFAULT 0,
+        baseline_output INTEGER NOT NULL DEFAULT 0,
+        baseline_cache_read INTEGER NOT NULL DEFAULT 0,
+        baseline_cache_write INTEGER NOT NULL DEFAULT 0,
+        baseline_cache_write_1h INTEGER NOT NULL DEFAULT 0,
+        baseline_web_search INTEGER NOT NULL DEFAULT 0,
+        baseline_web_fetch INTEGER NOT NULL DEFAULT 0,
+        baseline_code_execution INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (session_id, model, speed, inference_geo, service_tier, context_size, cc_version),
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec(`
+      INSERT INTO token_usage (
+        session_id, model, speed, inference_geo, service_tier, context_size, cc_version,
+        input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+        web_search_requests, web_fetch_requests, code_execution_requests,
+        baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
+        baseline_cache_write_1h, baseline_web_search, baseline_web_fetch, baseline_code_execution
+      )
+      SELECT
+        session_id, model, speed, inference_geo, service_tier, context_size, '',
+        input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+        web_search_requests, web_fetch_requests, code_execution_requests,
+        baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
+        baseline_cache_write_1h, baseline_web_search, baseline_web_fetch, baseline_code_execution
+      FROM token_usage_pre_cc_version
+    `);
+    db.prepare("DROP TABLE token_usage_pre_cc_version").run();
+  })();
+  db.pragma("foreign_keys = ON");
+}
+
 // Startup cleanup: mark stale active sessions as completed.
 // Legacy sessions (created before SessionEnd hook) will never receive a SessionEnd event,
 // so they stay "active" forever. Complete any active session whose last event is older than
@@ -2072,7 +2140,7 @@ const stmts = {
     INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
                              input_tokens, output_tokens, cache_read_tokens, cache_write_tokens)
     VALUES (?, ?, 'standard', 'global', 'standard', 'short', ?, ?, ?, ?)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size, cc_version) DO UPDATE SET
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
       cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
@@ -2097,7 +2165,10 @@ const stmts = {
   // cache-read while baseline claimed 8.5B). Transcripts are append-only, so a
   // full re-parse always sees the complete total; the high-water mark preserves
   // the true max across writer-scope noise and re-imports without ever
-  // double-counting. Args, in order:
+  // double-counting. This statement writes the unversioned (cc_version '')
+  // row; transcript-derived writes go through writeTokenBuckets
+  // (server/lib/token-usage.js), which applies the same mark across a bucket's
+  // version rows. Args, in order:
   //   session_id, model, speed, inference_geo, service_tier, context_size,
   //   input, output, cache_read, cache_write, cache_write_1h,
   //   web_search, web_fetch, code_execution
@@ -2108,7 +2179,7 @@ const stmts = {
                              baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size, cc_version) DO UPDATE SET
       baseline_input = MAX(input_tokens + baseline_input - excluded.input_tokens, 0),
       baseline_output = MAX(output_tokens + baseline_output - excluded.output_tokens, 0),
       baseline_cache_read = MAX(cache_read_tokens + baseline_cache_read - excluded.cache_read_tokens, 0),
@@ -2141,7 +2212,7 @@ const stmts = {
                              baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
                              baseline_web_search, baseline_web_fetch, baseline_code_execution)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 0)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size, cc_version) DO UPDATE SET
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       cache_read_tokens = excluded.cache_read_tokens,
@@ -2165,19 +2236,51 @@ const stmts = {
   // every reader already sums with the live columns, and are ADDED to whatever
   // baseline the bucket holds. Args, in order:
   //   session_id, model, speed, inference_geo, service_tier, context_size,
-  //   input, output, cache_read, cache_write, cache_write_1h, web_search
+  //   cc_version, input, output, cache_read, cache_write, cache_write_1h, web_search
   addTokenUsageBaseline: db.prepare(`
     INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
-                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write,
-                             baseline_cache_write_1h, baseline_web_search)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+                             cc_version, baseline_input, baseline_output, baseline_cache_read,
+                             baseline_cache_write, baseline_cache_write_1h, baseline_web_search)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size, cc_version) DO UPDATE SET
       baseline_input = baseline_input + excluded.baseline_input,
       baseline_output = baseline_output + excluded.baseline_output,
       baseline_cache_read = baseline_cache_read + excluded.baseline_cache_read,
       baseline_cache_write = baseline_cache_write + excluded.baseline_cache_write,
       baseline_cache_write_1h = baseline_cache_write_1h + excluded.baseline_cache_write_1h,
       baseline_web_search = baseline_web_search + excluded.baseline_web_search
+  `),
+  // Every Claude Code version row of one bucket (session, model, speed, geo,
+  // tier, context size) — read, cleared, and rewritten as a unit by
+  // writeTokenBuckets (server/lib/token-usage.js).
+  getTokenBucketVersions: db.prepare(`
+    SELECT cc_version,
+      input_tokens + baseline_input as input,
+      output_tokens + baseline_output as output,
+      cache_read_tokens + baseline_cache_read as cacheRead,
+      cache_write_tokens + baseline_cache_write as cacheWrite,
+      cache_write_1h_tokens + baseline_cache_write_1h as cacheWrite1h,
+      web_search_requests + baseline_web_search as webSearch,
+      web_fetch_requests + baseline_web_fetch as webFetch,
+      code_execution_requests + baseline_code_execution as codeExec
+    FROM token_usage
+    WHERE session_id = ? AND model = ? AND speed = ? AND inference_geo = ?
+      AND service_tier = ? AND context_size = ?
+  `),
+  deleteTokenBucketVersions: db.prepare(`
+    DELETE FROM token_usage
+    WHERE session_id = ? AND model = ? AND speed = ? AND inference_geo = ?
+      AND service_tier = ? AND context_size = ?
+  `),
+  // Args: the seven key columns, the eight live counts, then the eight baselines.
+  insertTokenUsageRow: db.prepare(`
+    INSERT INTO token_usage (session_id, model, speed, inference_geo, service_tier, context_size,
+                             cc_version,
+                             input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cache_write_1h_tokens,
+                             web_search_requests, web_fetch_requests, code_execution_requests,
+                             baseline_input, baseline_output, baseline_cache_read, baseline_cache_write, baseline_cache_write_1h,
+                             baseline_web_search, baseline_web_fetch, baseline_code_execution)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   // Incremental Codex counter deltas. Unlike the full Claude re-parser, Codex
   // rollouts expose an authoritative per-request delta, so we only ever add a
@@ -2187,7 +2290,7 @@ const stmts = {
       session_id, model, speed, inference_geo, service_tier, context_size,
       input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
     ) VALUES (?, ?, ?, 'global', 'standard', ?, ?, ?, ?, ?)
-    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size) DO UPDATE SET
+    ON CONFLICT(session_id, model, speed, inference_geo, service_tier, context_size, cc_version) DO UPDATE SET
       input_tokens = input_tokens + excluded.input_tokens,
       output_tokens = output_tokens + excluded.output_tokens,
       cache_read_tokens = cache_read_tokens + excluded.cache_read_tokens,
@@ -2235,7 +2338,7 @@ const stmts = {
     FROM token_usage
   `),
   getTokensBySession: db.prepare(
-    `SELECT model, speed, inference_geo, service_tier, context_size,
+    `SELECT model, speed, inference_geo, service_tier, context_size, cc_version,
       input_tokens + baseline_input as input_tokens,
       output_tokens + baseline_output as output_tokens,
       cache_read_tokens + baseline_cache_read as cache_read_tokens,

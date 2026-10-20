@@ -25,7 +25,12 @@ const { ingestWorkflowsForSession } = require("../lib/workflow-ingest");
 const liveness = require("../lib/session-liveness");
 const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
-const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
+const {
+  normalizeSpeed,
+  normalizeGeo,
+  normalizeTier,
+  writeTokenBuckets,
+} = require("../lib/token-usage");
 const { applyCostState, readLatestCostState } = require("../lib/cost-state");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
 const { getProjectsDir } = require("../lib/claude-home");
@@ -1011,7 +1016,8 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   // Extract token usage from transcript on every event that provides transcript_path.
   // Claude Code hooks don't include usage/model in stdin — the main and flat
   // subagent transcript JSONLs are the only reliable source. Uses
-  // replaceTokenUsage with compaction-aware logic:
+  // writeTokenBuckets (replaceTokenUsage's mark, per bucket across its Claude
+  // Code version rows) with compaction-aware logic:
   // when the JSONL total drops (compaction rewrote it), the old value rolls into
   // a baseline column so effective_total = current_jsonl + baseline. This ensures
   // tokens from before compaction are never lost.
@@ -1343,26 +1349,10 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
       result?.tokensByModel || null
     );
     if (liveTokensByModel) {
-      // Each bucket carries its pricing dimensions (model/speed/geo/tier) plus
-      // the 1h cache-write split and server-tool request counts.
-      for (const tokens of Object.values(liveTokensByModel)) {
-        stmts.replaceTokenUsage.run(
-          sessionId,
-          tokens.model,
-          tokens.speed,
-          tokens.geo,
-          tokens.tier,
-          tokens.ctx === "long" ? "long" : "short",
-          tokens.input,
-          tokens.output,
-          tokens.cacheRead,
-          tokens.cacheWrite,
-          tokens.cacheWrite1h,
-          tokens.webSearch,
-          tokens.webFetch,
-          tokens.codeExec
-        );
-      }
+      // Each bucket carries its pricing dimensions (model/speed/geo/tier/ctx
+      // and Claude Code version) plus the 1h cache-write split and server-tool
+      // request counts.
+      writeTokenBuckets(stmts, sessionId, Object.values(liveTokensByModel));
     }
 
     // Claude's own saved totals (cost-state) include API calls that leave no

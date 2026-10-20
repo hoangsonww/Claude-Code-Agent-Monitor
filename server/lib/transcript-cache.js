@@ -8,6 +8,7 @@
 const fs = require("fs");
 const {
   contextSizeFor,
+  normalizeCcVersion,
   bucketKey,
   emptyBucket,
   extractUsageFields,
@@ -608,7 +609,10 @@ class TranscriptCache {
     // message whose partial usage was "short" and whose final usage is "long"
     // is retracted from the old bucket and counted in the new one below.
     const ctx = contextSizeFor(model, fields);
-    const key = bucketKey(model, speed, geo, tier, ctx);
+    // The Claude Code version that made this request — a resumed session can
+    // span releases, and version-gated rates price each message by its own.
+    const ccVersion = normalizeCcVersion(entry.version);
+    const key = bucketKey(model, speed, geo, tier, ctx, ccVersion);
     if (usageMsgId) {
       const prev = state.usageByMessageId.get(usageMsgId);
       if (prev) {
@@ -621,14 +625,15 @@ class TranscriptCache {
             prev.speed,
             prev.geo,
             prev.tier,
-            prev.ctx
+            prev.ctx,
+            prev.ccVersion
           );
         }
         subtractBucket(state.tokensByModel[prev.key], prev.fields);
       }
     }
     if (!state.tokensByModel[key]) {
-      state.tokensByModel[key] = emptyBucket(model, speed, geo, tier, ctx);
+      state.tokensByModel[key] = emptyBucket(model, speed, geo, tier, ctx, ccVersion);
     }
     accumulateBucket(state.tokensByModel[key], fields);
     if (usageMsgId) {
@@ -638,7 +643,7 @@ class TranscriptCache {
       rememberUsageContribution(
         state.usageByMessageId,
         usageMsgId,
-        { key, model, speed, geo, tier, ctx, fields },
+        { key, model, speed, geo, tier, ctx, ccVersion, fields },
         MAX_ARRAY_LEN
       );
     }
@@ -762,7 +767,8 @@ class TranscriptCache {
             tokens.speed,
             tokens.geo,
             tokens.tier,
-            tokens.ctx
+            tokens.ctx,
+            tokens.ccVersion
           );
         }
         accumulateBucket(tokensByModel[key], tokens);
