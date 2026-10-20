@@ -1160,9 +1160,15 @@ const DEFAULT_PRICING = [
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6],
   ["claude-haiku-5-5%", "Claude Haiku 5.5", 0.1, 0.5, 0.01, 0.125, 0.2],
   ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25, 2],
+  // Bedrock id (anthropic.claude-haiku-4-5-20251001-v1:0), billed at the first-party card
+  ["anthropic.claude-haiku-4-5%", "Claude Haiku 4.5 (Bedrock)", 1, 5, 0.1, 1.25, 2],
   // ... one explicit row per model (see server/db.js for the full list)
 ];
 ```
+
+Patterns match the whole model string, so a provider-prefixed id (Bedrock's
+`anthropic.…`) needs its own row; without one its usage prices at $0 and is
+listed in `unpriced_models`.
 
 Long-prompt tiers are seeded separately (`DEFAULT_LONG_PRICING` in `db.js`, applied
 at startup and by reset-pricing): Haiku 5.5 bills prompts over 100K tokens at

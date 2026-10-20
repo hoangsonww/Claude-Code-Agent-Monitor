@@ -4,9 +4,10 @@
  * pricing rule at all (every such session priced at $0 and listed under
  * "unpriced" in the API response), and Sonnet 5 fell back to a stale $3/$15
  * standard once its launch promo lapsed. These pin the rows, the specificity
- * rule the 5.1 patterns depend on, and the in-place correction that reaches
- * databases created before the fix. Rates are transcribed from Anthropic's
- * published rate card, not derived from the code under test.
+ * rule the 5.1 patterns depend on, the in-place correction that reaches
+ * databases created before the fix, and the Bedrock Haiku 4.5 row. Rates are
+ * transcribed from Anthropic's published rate card, not derived from the code
+ * under test.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -467,5 +468,40 @@ describe("Sonnet 5.5 cache-read correction on pre-existing databases", () => {
     setSonnet55([2, 10, 0.2, 2.5, 4]);
     assert.equal(correctSonnet55CacheReadRate(db).changes, 1, "first run corrects the row");
     assert.equal(correctSonnet55CacheReadRate(db).changes, 0, "second run is a no-op");
+  });
+});
+
+describe("model_pricing seed — Bedrock Claude Haiku 4.5", () => {
+  const MODEL = "anthropic.claude-haiku-4-5-20251001-v1:0";
+
+  it("matches its own rule, not the first-party claude-haiku-4-5% one", () => {
+    const row = stmts.matchPricing.get(MODEL);
+    assert.ok(row, `${MODEL} must match a pricing rule — without one it prices at $0`);
+    assert.equal(row.model_pattern, "anthropic.claude-haiku-4-5%");
+  });
+
+  it("bills the first-party Haiku 4.5 card, as Claude Code does", () => {
+    const rules = db.prepare("SELECT * FROM model_pricing").all();
+    for (const [field, rate] of [
+      ["input_tokens", 1],
+      ["output_tokens", 5],
+      ["cache_read_tokens", 0.1],
+      ["cache_write_tokens", 1.25],
+      ["cache_write_1h_tokens", 2],
+    ]) {
+      const row = {
+        model: MODEL,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        cache_write_1h_tokens: 0,
+        [field]: 1_000_000,
+      };
+      if (field === "cache_write_1h_tokens") row.cache_write_tokens = 1_000_000;
+      const result = calculateCost([row], rules, null);
+      assert.deepEqual(result.unpriced_models ?? [], [], `${field} must be priced`);
+      assert.equal(result.total_cost, rate, field);
+    }
   });
 });

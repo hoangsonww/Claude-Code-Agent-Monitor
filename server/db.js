@@ -727,6 +727,11 @@ const DEFAULT_PRICING = [
   // request at the <=100K card and under-reports any longer prompt.
   ["claude-haiku-5-5%", "Claude Haiku 5.5", 0.1, 0.5, 0.01, 0.125, 0.2, 0, 0],
   ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25, 2, 0, 0],
+  // Amazon Bedrock model id (`anthropic.claude-haiku-4-5-20251001-v1:0`).
+  // Patterns match the whole model string, so `claude-haiku-4-5%` never reaches
+  // it and its usage priced at $0. Billed at the first-party card, which is how
+  // Claude Code prices it (Bedrock's in-region rate is 1.1x this).
+  ["anthropic.claude-haiku-4-5%", "Claude Haiku 4.5 (Bedrock)", 1, 5, 0.1, 1.25, 2, 0, 0],
   ["claude-3-5-haiku%", "Claude Haiku 3.5", 0.8, 4, 0.08, 1, 1.6, 0, 0],
   ["claude-3-haiku%", "Claude Haiku 3", 0.25, 1.25, 0.03, 0.3, 0.5, 0, 0],
   // Legacy
