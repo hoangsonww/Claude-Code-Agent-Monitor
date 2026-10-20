@@ -776,6 +776,99 @@ function repairCcVersionTokenSplit() {
 }
 
 /**
+ * One-time re-derivation of sessions whose long-prompt-tier model (Claude Haiku
+ * 5.5) has usage beyond its transcript. Those top-ups come only from Claude's
+ * `cost-state` totals, which carry no prompt size, so earlier builds put them
+ * all on the model's largest bucket — usually the long one — and billed small
+ * calls (WebFetch, titles) at long rates. applyCostState now splits them by
+ * Claude's own cost for the model; this pass re-reads the affected sessions
+ * from their transcripts (baselines reset, cost-state re-applied) so stored
+ * top-ups are split the same way.
+ *
+ * Same guards as repairCcVersionTokenSplit: a
+ * `.token-repair-long-tier-cost-v1.done` marker written only after a completed
+ * pass, `DASHBOARD_TOKEN_REPAIR=0` opt-out, deferral while another dashboard
+ * shares the data directory, a snapshot (`token_usage_pre_long_tier_cost_v1`),
+ * and it waits for the cc-version v2 marker so two re-derivations never race.
+ */
+function repairLongTierCostSplit() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-long-tier-cost-v1.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-cc-version-v2.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log(
+        "Long-prompt tier top-up split deferred: another dashboard shares this database."
+      );
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const { db } = dbModule;
+          const { CLAUDE_LONG_CONTEXT_TIERS } = require("./lib/pricing-constants");
+          const ids = [
+            ...new Set(
+              db
+                .prepare(
+                  `SELECT tu.session_id AS id, tu.model FROM token_usage tu
+                     JOIN sessions s ON s.id = tu.session_id
+                    WHERE tu.service_tier != 'workflow' AND COALESCE(s.provider, 'claude') = 'claude'
+                      AND (tu.baseline_input + tu.baseline_output + tu.baseline_cache_read
+                           + tu.baseline_cache_write) > 0`
+                )
+                .all()
+                .filter((r) => CLAUDE_LONG_CONTEXT_TIERS.some((t) => t.pattern.test(r.model)))
+                .map((r) => r.id)
+            ),
+          ];
+          if (ids.length > 0) {
+            db.exec(
+              "CREATE TABLE IF NOT EXISTS token_usage_pre_long_tier_cost_v1 AS SELECT * FROM token_usage"
+            );
+            const { reconcileTokens } = require("../scripts/import-history");
+            const { sessionsTouched } = await reconcileTokens(dbModule, {
+              all: true,
+              resetBaselines: true,
+              sessionIds: ids,
+            });
+            if (sessionsTouched > 0) {
+              console.log(
+                `Split long-prompt tier top-ups by Claude's cost for ${sessionsTouched} session(s). ` +
+                  `Pre-repair values kept in token_usage_pre_long_tier_cost_v1.`
+              );
+            }
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — the re-derivation simply re-runs next start */
+          }
+        } catch (err) {
+          console.warn("Long-prompt tier top-up split failed:", err.message);
+        }
+      })();
+    }, 28_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("Long-prompt tier top-up split could not start:", err.message);
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -811,6 +904,10 @@ function startBackgroundServices() {
   // One-time split of token rows by the Claude Code version that made each
   // request (version-gated rates); marker-gated and deferred like the above.
   repairCcVersionTokenSplit();
+
+  // One-time re-split of long-prompt-tier models' cost-state top-ups by
+  // Claude's own cost; marker-gated and deferred like the above.
+  repairLongTierCostSplit();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can
@@ -2069,4 +2166,5 @@ module.exports = {
   repairLongContextTokenTotals,
   repairCostStateTokenTotals,
   repairCcVersionTokenSplit,
+  repairLongTierCostSplit,
 };

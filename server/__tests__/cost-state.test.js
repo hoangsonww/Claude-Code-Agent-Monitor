@@ -189,6 +189,7 @@ describe("parseCostStateEntry", () => {
       cacheRead: 1150,
       cacheWrite: 205,
       webSearch: 0,
+      costUSD: 0.01,
     });
     assert.equal(parsed.models[HAIKU].input, 500);
   });
@@ -212,6 +213,7 @@ describe("parseCostStateEntry", () => {
       cacheRead: 0,
       cacheWrite: 0,
       webSearch: 0,
+      costUSD: null,
     });
   });
 });
@@ -406,6 +408,93 @@ describe("computeCostStateTopUps", () => {
     const [t] = computeCostStateTopUps([tagged], claim());
     assert.equal(t.model, "claude-sonnet-5-5[1m]", "the existing bucket is topped up");
     assert.equal(t.input, 20, "not the full 30 as if the model were new");
+  });
+});
+
+describe("top-ups of a model with a long-prompt rate tier", () => {
+  const { calculateCost } = require("../routes/pricing");
+  const sessionCost = (sid) =>
+    calculateCost(stmts.getTokensBySession.all(sid), stmts.listPricing.all()).total_cost_exact;
+  const haikuRow = (sid, ctx, input, output, cacheRead, cacheWrite) =>
+    stmts.replaceTokenUsage.run(
+      sid,
+      HAIKU,
+      "standard",
+      "global",
+      "standard",
+      ctx,
+      input,
+      output,
+      cacheRead,
+      cacheWrite,
+      cacheWrite,
+      0,
+      0,
+      0
+    );
+  const byCtx = (sid) =>
+    Object.fromEntries(
+      stmts.getTokensBySession
+        .all(sid)
+        .map((r) => [r.context_size, [r.input_tokens, r.output_tokens, r.cache_read_tokens]])
+    );
+  const haikuClaim = (sid, input, output, cacheRead, cacheWrite, costUSD) => ({
+    sessionId: sid,
+    models: { [HAIKU]: { input, output, cacheRead, cacheWrite, webSearch: 0, costUSD } },
+  });
+
+  it("credits short-prompt calls to the short bucket when Claude's cost says so", () => {
+    // Session 80c7ba5b: the turns' usage by prompt size, then Claude's record.
+    // The extra 44,400 input tokens could only have been small calls (WebFetch,
+    // titles), and Claude's $0.61089014 is exactly that extra at short rates.
+    const SID = "long-tier-short";
+    insertSession(SID);
+    haikuRow(SID, "short", 16, 9656, 258241, 92086);
+    haikuRow(SID, "long", 44, 66291, 4491736, 176735);
+    const claim = haikuClaim(SID, 44460, 102536, 4772530, 268969, 0.61089014);
+    assert.ok(applyCostState(stmts, SID, claim) > 0);
+    assert.deepEqual(byCtx(SID), {
+      short: [44416, 36245, 280794],
+      long: [44, 66291, 4491736],
+    });
+    assert.ok(Math.abs(sessionCost(SID) - 0.61089014) < 1e-9, `cost ${sessionCost(SID)}`);
+  });
+
+  it("settles whole-token rounding so the cost matches Claude's to the cent fraction", () => {
+    // Session 254b6dd3: 89% of the extra usage was long; rounding each field to
+    // whole tokens alone leaves the cost $1.2e-7 short of Claude's.
+    const SID = "long-tier-rounding";
+    insertSession(SID);
+    haikuRow(SID, "short", 106, 19908, 2400612, 370081);
+    haikuRow(SID, "long", 312, 17314, 32727036, 851391);
+    applyCostState(stmts, SID, haikuClaim(SID, 288990, 715027, 53459601, 1573032, 5.46205699));
+    assert.ok(Math.abs(sessionCost(SID) - 5.46205699) < 1e-9, `cost ${sessionCost(SID)}`);
+  });
+
+  it("splits the extra usage between short and long by Claude's cost", () => {
+    const SID = "long-tier-mixed";
+    insertSession(SID);
+    haikuRow(SID, "short", 10, 100, 1000, 0);
+    haikuRow(SID, "long", 10, 100, 1000, 0);
+    // Extra 1M input + 100K output; at $0.10/$0.50 short and $0.50/$2.50 long,
+    // a quarter of it long costs 0.15 * 0.75 + 0.75 * 0.25 = $0.30.
+    const stored = sessionCost(SID);
+    const claim = haikuClaim(SID, 1_000_020, 100_200, 2000, 0, stored + 0.3);
+    applyCostState(stmts, SID, claim);
+    assert.deepEqual(byCtx(SID), {
+      short: [750_010, 75_100, 1000],
+      long: [250_010, 25_100, 1000],
+    });
+    assert.ok(Math.abs(sessionCost(SID) - (stored + 0.3)) < 1e-9);
+  });
+
+  it("keeps the largest-bucket top-up when the record has no cost", () => {
+    const SID = "long-tier-nocost";
+    insertSession(SID);
+    haikuRow(SID, "short", 10, 100, 1000, 0);
+    haikuRow(SID, "long", 10, 100, 1_000_000, 0);
+    applyCostState(stmts, SID, haikuClaim(SID, 1020, 200, 1_001_000, 0, null));
+    assert.deepEqual(byCtx(SID), { short: [10, 100, 1000], long: [1010, 100, 1_000_000] });
   });
 });
 

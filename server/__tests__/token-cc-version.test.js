@@ -358,10 +358,10 @@ describe("cost endpoints price each row by its own version", () => {
 });
 
 describe("cost-state top-ups by Claude Code version", () => {
-  const record = (sessionId, cacheRead) => ({
+  const record = (sessionId, cacheRead, costUSD = cacheRead / 100) => ({
     type: "cost-state",
     sessionId,
-    modelUsage: { [SONNET]: { cacheReadInputTokens: cacheRead } },
+    modelUsage: { [SONNET]: { cacheReadInputTokens: cacheRead, costUSD } },
   });
 
   it("splits Claude's running totals by the version that saved each increase", () => {
@@ -378,10 +378,20 @@ describe("cost-state top-ups by Claude Code version", () => {
     seen({ type: "assistant", version: "2.1.296" });
     const last = seen(record("s", 300));
     assert.deepEqual(last.byVersion, {
-      "2.1.286": { [SONNET]: { cacheRead: 100 } },
-      "2.1.296": { [SONNET]: { cacheRead: 200 } },
+      "2.1.286": { [SONNET]: { cacheRead: 100, costUSD: 1 } },
+      "2.1.296": { [SONNET]: { cacheRead: 200, costUSD: 2 } },
     });
     assert.equal(seen(record("s", 250)).byVersion, undefined, "not a running total any more");
+  });
+
+  it("drops Claude's per-version cost once a record lacks it", () => {
+    const tracker = newCostStateTracker();
+    trackEntryVersion(tracker, { type: "user", version: "2.1.296" });
+    trackCostState(tracker, parseCostStateEntry(record("s", 100)));
+    const last = trackCostState(tracker, parseCostStateEntry(record("s", 300, null)));
+    assert.deepEqual(last.byVersion, {
+      "2.1.296": { [SONNET]: { cacheRead: 300, costUSD: null } },
+    });
   });
 
   it("raises each version to its own figure, taking what it covers from the unversioned row", () => {

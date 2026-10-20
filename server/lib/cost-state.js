@@ -14,7 +14,9 @@
  * Contract: a model's total only ever moves UP to match `cost-state`. For each
  * model, any field where Claude's figure exceeds the dashboard's effective
  * figure (`current + baseline`, summed over every bucket of that model) is
- * topped up in the `baseline_*` columns of one bucket. A stale, partial, or
+ * topped up in the `baseline_*` columns of one bucket (or, for a model with a
+ * long-prompt rate tier, split between its short and long buckets by Claude's
+ * own cost for the model). A stale, partial, or
  * foreign record cannot shrink a total. The records are running totals, so
  * `trackCostState` also splits Claude's figure by the Claude Code version that
  * ran when each increase was saved; the top-up then credits each version's own
@@ -28,11 +30,19 @@
  */
 
 const { normalizeCcVersion } = require("./token-usage");
+const { CLAUDE_LONG_CONTEXT_TIERS } = require("./pricing-constants");
 
 /** Non-negative integer from an untrusted JSON value; anything else is 0. */
 function toCount(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/** Non-negative USD amount from an untrusted JSON value, or null when absent/invalid. */
+function toCost(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 /**
@@ -53,6 +63,8 @@ function parseCostStateEntry(entry) {
       cacheRead: toCount(u.cacheReadInputTokens),
       cacheWrite: toCount(u.cacheCreationInputTokens),
       webSearch: toCount(u.webSearchRequests),
+      // Claude's own cost for the model; null when the record has none.
+      costUSD: toCost(u.costUSD),
     };
   }
   if (Object.keys(models).length === 0) return null;
@@ -133,13 +145,105 @@ function claimsByModelKey(models) {
         cacheRead: 0,
         cacheWrite: 0,
         webSearch: 0,
+        costUSD: 0,
       };
       claims.set(key, claim);
     }
     for (const [field] of FIELDS) claim[field] += (c && c[field]) || 0;
+    // Unknown for the model as soon as one spelling lacks it.
+    const cost = c ? toCost(c.costUSD) : null;
+    claim.costUSD = claim.costUSD === null || cost === null ? null : claim.costUSD + cost;
   }
   return claims;
 }
+
+const hasLongTier = (model) => CLAUDE_LONG_CONTEXT_TIERS.some((t) => t.pattern.test(model));
+
+/** A top-up as a token row priceRows can price, in context size `ctx`. */
+const topUpRow = (t, ctx) => ({
+  model: t.model,
+  speed: t.speed,
+  inference_geo: t.geo,
+  service_tier: t.tier,
+  context_size: ctx,
+  cc_version: t.ccVersion,
+  input_tokens: t.input,
+  output_tokens: t.output,
+  cache_read_tokens: t.cacheRead,
+  cache_write_tokens: t.cacheWrite,
+  cache_write_1h_tokens: t.cacheWrite1h,
+  web_search_requests: t.webSearch,
+  web_fetch_requests: 0,
+  code_execution_requests: 0,
+});
+
+const SPLIT_FIELDS = ["input", "output", "cacheRead", "cacheWrite", "webSearch"];
+
+/**
+ * Split one top-up of a model with a long-prompt rate tier between its short
+ * and long buckets. cost-state gives totals only, so the prompt size of the
+ * calls behind a top-up is unknown, but Claude's cost for the model is known:
+ * whatever it charged beyond `scopeRows` (the stored rows the claim covers)
+ * pays for the top-up. Every long rate is the short rate times one factor, so
+ * the share of the top-up that is long follows from where that amount falls
+ * between the all-short and all-long prices. Returns the parts to credit; the
+ * top-up unchanged when the cost or prices are unknown.
+ */
+function splitByPromptSize(topUp, scopeRows, claimedCost, priceRows) {
+  if (!priceRows || claimedCost === null || claimedCost === undefined) return [topUp];
+  if (!hasLongTier(topUp.model)) return [topUp];
+  const short = priceRows([topUpRow(topUp, "short")]);
+  const long = priceRows([topUpRow(topUp, "long")]);
+  if (!Number.isFinite(short) || !Number.isFinite(long) || !(long > short)) return [topUp];
+  const paid = claimedCost - priceRows(scopeRows);
+  if (!Number.isFinite(paid)) return [topUp];
+  const share = Math.min(Math.max((paid - short) / (long - short), 0), 1);
+
+  const longPart = { ...topUp, ctx: "long" };
+  const shortPart = { ...topUp, ctx: "short" };
+  for (const field of SPLIT_FIELDS) {
+    longPart[field] = Math.round(topUp[field] * share);
+    shortPart[field] = topUp[field] - longPart[field];
+  }
+  shortPart.cacheWrite1h = Math.min(
+    topUp.cacheWrite1h - Math.min(Math.round(topUp.cacheWrite1h * share), longPart.cacheWrite),
+    shortPart.cacheWrite
+  );
+  longPart.cacheWrite1h = topUp.cacheWrite1h - shortPart.cacheWrite1h;
+
+  // Whole tokens leave a remainder of a few token-prices; settle it with cache
+  // reads, the field whose move between tiers changes the cost the least.
+  const step =
+    priceRows([topUpRow({ ...ONE_CACHE_READ, ...pick(topUp) }, "long")]) -
+    priceRows([topUpRow({ ...ONE_CACHE_READ, ...pick(topUp) }, "short")]);
+  if (step > 0) {
+    const priced =
+      priceRows([topUpRow(shortPart, "short")]) + priceRows([topUpRow(longPart, "long")]);
+    const move = Math.max(
+      -longPart.cacheRead,
+      Math.min(Math.round((paid - priced) / step), shortPart.cacheRead)
+    );
+    longPart.cacheRead += move;
+    shortPart.cacheRead -= move;
+  }
+  return [shortPart, longPart].filter((part) => SPLIT_FIELDS.some((field) => part[field] > 0));
+}
+
+const ONE_CACHE_READ = {
+  input: 0,
+  output: 0,
+  cacheRead: 1,
+  cacheWrite: 0,
+  cacheWrite1h: 0,
+  webSearch: 0,
+};
+const pick = (t) => ({
+  model: t.model,
+  speed: t.speed,
+  geo: t.geo,
+  tier: t.tier,
+  ccVersion: t.ccVersion,
+});
 
 const largestRow = (rows) =>
   rows.reduce((best, row) => (!best || rowSize(row) > rowSize(best) ? row : best), null);
@@ -173,7 +277,7 @@ const bucketOf = (row, fallbackModel, ccVersion) => ({
  * with workflow rows (owned by workflow-ingest and never split by version),
  * the model's total is raised as a whole on its largest bucket.
  */
-function planCostState(rows, costState) {
+function planCostState(rows, costState, { priceRows } = {}) {
   const byKey = new Map();
   for (const row of rows || []) {
     const key = modelMatchKey(row.model);
@@ -233,7 +337,7 @@ function planCostState(rows, costState) {
         const own1h = share1hOf(mine) ?? share1h;
         delta.cacheWrite1h = Math.round(delta.cacheWrite * own1h);
         for (const field of Object.keys(needed)) needed[field] += delta[field];
-        topUps.push({
+        const topUp = {
           ...bucketOf(largestRow(mine) || largestRow(owned), model, version),
           input: delta.input,
           output: delta.output,
@@ -241,7 +345,8 @@ function planCostState(rows, costState) {
           cacheWrite: delta.cacheWrite,
           cacheWrite1h: delta.cacheWrite1h,
           webSearch: delta.webSearch,
-        });
+        };
+        topUps.push(...splitByPromptSize(topUp, mine, claim.costUSD, priceRows));
       }
       // The '' rows give up what the versioned top-ups now cover, largest first.
       const left = {
@@ -286,7 +391,7 @@ function planCostState(rows, costState) {
     // owned by workflow-ingest, so they count toward the total above but never
     // receive the top-up; a model seen only there gets a fresh standard bucket.
     const target = largestRow(owned);
-    topUps.push({
+    const topUp = {
       ...bucketOf(target, model, (target && target.cc_version) || ""),
       input: delta.input,
       output: delta.output,
@@ -294,9 +399,41 @@ function planCostState(rows, costState) {
       cacheWrite: delta.cacheWrite,
       cacheWrite1h: Math.round(delta.cacheWrite * share1h),
       webSearch: delta.webSearch,
-    });
+    };
+    topUps.push(...splitByPromptSize(topUp, group, claimed.costUSD, priceRows));
   }
   return { topUps, drains };
+}
+
+/**
+ * Price token rows the way the session's cost is shown (`/api/pricing/cost/:id`):
+ * current pricing rules, the session's start date, and the session's Claude
+ * Code version for rows not split by version. Null when pricing is unavailable
+ * (then top-ups are not split by prompt size).
+ */
+function sessionPricer(stmts, sessionId) {
+  try {
+    if (!stmts.listPricing || !stmts.getSession) return null;
+    const { calculateCost } = require("../routes/pricing");
+    const rules = stmts.listPricing.all();
+    const session = stmts.getSession.get(sessionId);
+    let version = null;
+    try {
+      version = normalizeCcVersion(JSON.parse(session.metadata).version) || null;
+    } catch {
+      /* no recorded version — rows keep their own */
+    }
+    const asOf =
+      session && session.started_at ? String(session.started_at).slice(0, 10) : undefined;
+    return (rows) =>
+      calculateCost(
+        rows.map((row) => ({ ...row, cc_version: row.cc_version || version })),
+        rules,
+        asOf
+      ).total_cost_exact;
+  } catch {
+    return null;
+  }
 }
 
 /** The top-ups of planCostState — what to add to which bucket row. */
@@ -316,7 +453,9 @@ function applyCostState(stmts, sessionId, costState) {
   // only the record stamped with this session's id describes this session.
   if (costState.sessionId && costState.sessionId !== sessionId) return 0;
 
-  const { topUps, drains } = planCostState(stmts.getTokensBySession.all(sessionId), costState);
+  const { topUps, drains } = planCostState(stmts.getTokensBySession.all(sessionId), costState, {
+    priceRows: sessionPricer(stmts, sessionId),
+  });
   for (const d of drains) {
     const key = [sessionId, d.model, d.speed, d.geo, d.tier, d.ctx, ""];
     stmts.deleteTokenUsageRow.run(...key);
@@ -372,23 +511,40 @@ function trackEntryVersion(tracker, entry) {
  */
 function trackCostState(tracker, costState) {
   const sid = costState.sessionId || "";
-  const run = tracker.runs[sid] || (tracker.runs[sid] = { prev: {}, byVersion: {}, ok: true });
+  const run =
+    tracker.runs[sid] || (tracker.runs[sid] = { prev: {}, byVersion: {}, ok: true, costOk: true });
   const version = tracker.version;
   for (const model of new Set([...Object.keys(run.prev), ...Object.keys(costState.models)])) {
+    const now = costState.models[model];
+    const before = run.prev[model];
     for (const [field] of FIELDS) {
-      const delta =
-        ((costState.models[model] || {})[field] || 0) - ((run.prev[model] || {})[field] || 0);
+      const delta = ((now || {})[field] || 0) - ((before || {})[field] || 0);
       if (delta < 0 || (delta > 0 && !version)) run.ok = false;
       if (delta <= 0 || !version) continue;
       const models = run.byVersion[version] || (run.byVersion[version] = {});
-      const claim = models[model] || (models[model] = {});
+      const claim = models[model] || (models[model] = { costUSD: 0 });
       claim[field] = (claim[field] || 0) + delta;
+    }
+    // Claude's cost is a running total too; split it the same way, or drop it
+    // from every version when a record lacks it or it went down.
+    const costNow = now ? now.costUSD : 0;
+    const costBefore = before ? before.costUSD : 0;
+    const costDelta = costNow - costBefore;
+    if (costNow === null || costBefore === null || costNow === undefined || costDelta < -1e-9) {
+      run.costOk = false;
+    } else if (costDelta > 0 && version) {
+      const models = run.byVersion[version] || (run.byVersion[version] = {});
+      const claim = models[model] || (models[model] = { costUSD: 0 });
+      claim.costUSD += costDelta;
     }
   }
   run.prev = JSON.parse(JSON.stringify(costState.models));
-  return run.ok
-    ? { ...costState, byVersion: JSON.parse(JSON.stringify(run.byVersion)) }
-    : costState;
+  if (!run.ok) return costState;
+  const byVersion = JSON.parse(JSON.stringify(run.byVersion));
+  for (const models of Object.values(byVersion)) {
+    for (const claim of Object.values(models)) if (!run.costOk) claim.costUSD = null;
+  }
+  return { ...costState, byVersion };
 }
 
 module.exports = {

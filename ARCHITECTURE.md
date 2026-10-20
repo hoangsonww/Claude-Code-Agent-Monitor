@@ -1584,6 +1584,16 @@ counted twice even before the pass runs. After this migration the database
 needs a build that knows the `cc_version` key; an older build cannot write
 token rows to it.
 
+A sixth pass (`repairLongTierCostSplit`, marker
+`.token-repair-long-tier-cost-v1.done`, same guards, waits for the cc-version
+v2 marker) re-reads sessions whose long-prompt-tier model (Claude Haiku 5.5)
+has usage beyond its transcript, with baselines reset. Claude's `cost-state`
+totals carry no prompt sizes, so earlier builds put that usage on the model's
+largest bucket (usually long) and billed small calls such as WebFetch page
+summaries at long rates. `applyCostState` now splits it by Claude's own cost
+for the model (`splitByPromptSize` in `server/lib/cost-state.js`). The
+pre-repair rows are kept in `token_usage_pre_long_tier_cost_v1`.
+
 A hook landing mid-repair can lose a single write, since the sweep parses
 outside its transaction. That self-heals: with baselines zeroed, the next event
 for that session re-parses the whole transcript and `replaceTokenUsage` writes
