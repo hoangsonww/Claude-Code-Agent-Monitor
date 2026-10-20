@@ -40,6 +40,7 @@ const {
   modelMatchKey,
   computeCostStateTopUps,
   applyCostState,
+  readLatestCostState,
 } = require("../lib/cost-state");
 const { parseSessionFile, reconcileTokens } = require("../../scripts/import-history");
 
@@ -562,6 +563,32 @@ describe("TranscriptCache — cost-state capture", () => {
   });
 });
 
+describe("readLatestCostState", () => {
+  it("returns the newest record for the session, skipping another session's", () => {
+    const SID = "tail-1";
+    const p = writeTranscript(SID, [
+      assistantLine("m1"),
+      costStateLine(SID, { [SONNET]: { ...COST_STATE_USAGE[SONNET], outputTokens: 5 } }),
+      costStateLine(SID),
+      costStateLine("someone-else", { [SONNET]: { ...COST_STATE_USAGE[SONNET], outputTokens: 9 } }),
+    ]);
+    assert.equal(readLatestCostState(p, SID).models[SONNET].output, 130);
+  });
+
+  it("ignores a partially written last line", () => {
+    const SID = "tail-2";
+    const p = writeTranscript(SID, [costStateLine(SID)]);
+    fs.appendFileSync(p, costStateLine(SID).slice(0, 40));
+    assert.equal(readLatestCostState(p, SID).models[SONNET].output, 130);
+  });
+
+  it("is null for a missing file or a transcript without a record", () => {
+    assert.equal(readLatestCostState(path.join(PROJECT_DIR, "nope.jsonl"), "x"), null);
+    const p = writeTranscript("tail-3", [assistantLine("m1")]);
+    assert.equal(readLatestCostState(p, "tail-3"), null);
+  });
+});
+
 describe("live hook path", () => {
   it("tops a session up to Claude's totals when its transcript carries a cost-state", async () => {
     const SID = "20000000-0000-0000-0000-000000000001";
@@ -585,6 +612,24 @@ describe("live hook path", () => {
       500,
       "Haiku calls with no assistant message are recorded"
     );
+  });
+
+  it("applies a cost-state appended just after SessionEnd", async () => {
+    // Claude Code writes the record as it exits, after the hook read the file.
+    const SID = "20000000-0000-0000-0000-000000000003";
+    const p = writeTranscript(SID, [assistantLine("m1")]);
+    const res = await post("/api/hooks/event", {
+      hook_type: "SessionEnd",
+      data: { session_id: SID, cwd: "/tmp/cost-state", transcript_path: p },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(effective(SID, HAIKU).input, 0, "nothing to apply yet");
+
+    fs.appendFileSync(p, costStateLine(SID) + "\n");
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+
+    assert.equal(effective(SID, SONNET).input, 30, "the late record tops the session up");
+    assert.equal(effective(SID, HAIKU).input, 500);
   });
 
   it("does not move totals for a transcript without a cost-state", async () => {

@@ -19,9 +19,13 @@
  *
  * Used by BOTH ingestion paths — the live hook writer (via
  * `server/lib/transcript-cache.js`) and the history importer
- * (`scripts/import-history.js`) — so they agree.
+ * (`scripts/import-history.js`) — so they agree. `readLatestCostState` lets the
+ * hook route re-check a transcript shortly after SessionEnd, because Claude
+ * writes the record as it exits, after the hook's own read.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+
+const fs = require("fs");
 
 /** Non-negative integer from an untrusted JSON value; anything else is 0. */
 function toCount(value) {
@@ -218,9 +222,53 @@ function applyCostState(stmts, sessionId, costState) {
   return topUps.length;
 }
 
+/**
+ * The newest `cost-state` record in the last `tailBytes` of a transcript that
+ * describes `sessionId` (or carries no session id), parsed — or null. Claude
+ * Code appends the record as the process exits, which can land after the
+ * SessionEnd hook already read the file; only the tail is read because the
+ * record is small and always written last.
+ */
+function readLatestCostState(filePath, sessionId, tailBytes = 256 * 1024) {
+  let fd;
+  try {
+    fd = fs.openSync(filePath, "r");
+    const size = fs.fstatSync(fd).size;
+    const start = Math.max(0, size - tailBytes);
+    const buf = Buffer.alloc(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    const lines = buf.toString("utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].includes('"cost-state"')) continue;
+      let entry;
+      try {
+        entry = JSON.parse(lines[i]);
+      } catch {
+        continue; // a line cut by the tail window, or a partial write
+      }
+      const costState = parseCostStateEntry(entry);
+      if (costState && (!costState.sessionId || costState.sessionId === sessionId)) {
+        return costState;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* already closed */
+      }
+    }
+  }
+}
+
 module.exports = {
   parseCostStateEntry,
   modelMatchKey,
   computeCostStateTopUps,
   applyCostState,
+  readLatestCostState,
 };

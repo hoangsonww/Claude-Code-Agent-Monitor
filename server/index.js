@@ -565,6 +565,107 @@ function repairCostStateTokenTotals() {
 }
 
 /**
+ * Second one-time cost-state pass, healing two gaps the first left behind:
+ *
+ * 1. Cache-write TTL of top-up-only buckets. A model seen only through
+ *    cost-state (WebFetch's Haiku, a model whose calls never became messages)
+ *    had its unrecorded cache writes priced as 5m writes, while Claude Code
+ *    requests the same TTL for every model in a process — 1h in practice. Such
+ *    a bucket (no recorded writes, every baseline write 5m) now takes the 1h
+ *    share of the session's recorded writes, matching computeCostStateTopUps.
+ * 2. Records the live path never saw. Claude Code appends cost-state as it
+ *    exits, which can land after the SessionEnd hook read the transcript; the
+ *    hook route now re-checks shortly after SessionEnd, and this re-runs the
+ *    raise-only backfill once for sessions that ended before that existed.
+ *
+ * Same guards as repairCostStateTokenTotals: a `.token-repair-cost-state-v2.done`
+ * marker written only after a completed pass, `DASHBOARD_TOKEN_REPAIR=0`
+ * opt-out, deferral while another dashboard shares the data directory, a
+ * snapshot (`token_usage_pre_cost_state_v2`), and it waits for the v1 marker.
+ */
+function repairCostStateTokenTotalsV2() {
+  try {
+    const fs = require("fs");
+    if (process.env.DASHBOARD_TOKEN_REPAIR === "0") return;
+
+    const dbModule = require("./db");
+    const dataDir = path.dirname(dbModule.DB_PATH);
+    const markerPath = path.join(dataDir, ".token-repair-cost-state-v2.done");
+    if (fs.existsSync(markerPath)) return;
+    if (!fs.existsSync(path.join(dataDir, ".token-repair-cost-state-v1.done"))) return;
+
+    let peers = [];
+    try {
+      peers = peersSharingDataDir() || [];
+    } catch {
+      /* discovery is best-effort; treat an unreadable peer list as "alone" */
+    }
+    if (peers.length > 0) {
+      console.log("Cost-state token repair v2 deferred: another dashboard shares this database.");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const { db } = dbModule;
+          db.exec(
+            "CREATE TABLE IF NOT EXISTS token_usage_pre_cost_state_v2 AS SELECT * FROM token_usage"
+          );
+          const candidates = db
+            .prepare(
+              `WITH recorded AS (
+                 SELECT session_id, SUM(cache_write_tokens) AS writes,
+                        SUM(cache_write_1h_tokens) AS writes_1h
+                   FROM token_usage WHERE service_tier != 'workflow'
+                  GROUP BY session_id)
+               SELECT t.rowid AS rid, t.baseline_cache_write AS b_cw,
+                      1.0 * r.writes_1h / r.writes AS share
+                 FROM token_usage t
+                 JOIN recorded r ON r.session_id = t.session_id
+                 JOIN sessions s ON s.id = t.session_id
+                WHERE t.service_tier != 'workflow'
+                  AND COALESCE(s.provider, 'claude') = 'claude'
+                  AND t.cache_write_tokens = 0
+                  AND t.baseline_cache_write > 0
+                  AND t.baseline_cache_write_1h = 0
+                  AND r.writes > 0 AND r.writes_1h > 0`
+            )
+            .all();
+          const setShare = db.prepare(
+            "UPDATE token_usage SET baseline_cache_write_1h = ? WHERE rowid = ?"
+          );
+          db.transaction(() => {
+            for (const c of candidates) {
+              setShare.run(Math.round(c.b_cw * Math.min(c.share, 1)), c.rid);
+            }
+          })();
+
+          const { reconcileTokens } = require("../scripts/import-history");
+          const result = await reconcileTokens(dbModule, { all: true, costStateOnly: true });
+          if (candidates.length > 0 || result.sessionsTouched > 0) {
+            console.log(
+              `Cost-state repair v2: re-split ${candidates.length} cache-write bucket(s), topped up ` +
+                `${result.sessionsTouched} session(s). Prior values kept in token_usage_pre_cost_state_v2.`
+            );
+          }
+          try {
+            fs.writeFileSync(markerPath, `${new Date().toISOString()}\n`);
+          } catch {
+            /* non-fatal — both steps are idempotent, so the pass simply re-runs */
+          }
+        } catch (err) {
+          console.warn("cost-state token repair v2 failed:", err.message);
+        }
+      })();
+    }, 20_000);
+    if (timer.unref) timer.unref();
+  } catch (err) {
+    console.warn("cost-state token repair v2 could not start:", err.message);
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -592,6 +693,10 @@ function startBackgroundServices() {
   // WebFetch calls that leave no transcript message); marker-gated and
   // deferred like the repairs above.
   repairCostStateTokenTotals();
+
+  // Second cost-state pass: 1h share for top-up-only cache writes, and records
+  // appended after SessionEnd; marker-gated and deferred like the repairs above.
+  repairCostStateTokenTotalsV2();
 
   // Boot liveness reap. When the user quit Claude Code while the dashboard
   // was DOWN, the SessionEnd hook was lost and only the process probe can

@@ -26,7 +26,7 @@ const liveness = require("../lib/session-liveness");
 const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../lib/security");
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
-const { applyCostState } = require("../lib/cost-state");
+const { applyCostState, readLatestCostState } = require("../lib/cost-state");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
@@ -76,6 +76,35 @@ function combineLiveSessionTokens(transcriptPath, mainTokensByModel) {
 
   if (parsedSubagents.length === 0) return mainTokensByModel;
   return combineSessionTokens({ tokensByModel: mainTokensByModel, parsedSubagents });
+}
+
+// Delays (ms) after SessionEnd at which the transcript is re-checked for a
+// cost-state record. Claude Code appends it as the process exits, often after
+// the SessionEnd hook has already read the file, so without a later look the
+// session would keep its pre-top-up totals until the next import.
+const LATE_COST_STATE_DELAYS_MS = [2_000, 15_000];
+
+/**
+ * Re-read a just-ended session's transcript tail for its cost-state record and
+ * top the token totals up to it. Fail-safe and unref'd: a missing file or DB
+ * error is ignored, and the timers never keep the process alive. Broadcasts
+ * the session when a top-up changed its totals so open dashboards reprice it.
+ */
+function scheduleLateCostStateCheck(sessionId, transcriptPath) {
+  for (const delay of LATE_COST_STATE_DELAYS_MS) {
+    const timer = setTimeout(() => {
+      try {
+        const costState = readLatestCostState(transcriptPath, sessionId);
+        if (costState && applyCostState(stmts, sessionId, costState) > 0) {
+          const session = stmts.getSession.get(sessionId);
+          if (session) broadcast("session_updated", session);
+        }
+      } catch {
+        /* best effort — the importer heals any record still missed */
+      }
+    }, delay);
+    if (timer.unref) timer.unref();
+  }
 }
 
 // Stale-session threshold for the SessionStart cleanup pass. Mirrors the
@@ -1348,6 +1377,9 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   // Must happen after token extraction above to avoid re-populating the cache.
   if (hookType === "SessionEnd" && data.transcript_path) {
     transcriptCache.invalidate(data.transcript_path);
+    if (!isCursorTranscriptPath(data.transcript_path)) {
+      scheduleLateCostStateCheck(sessionId, data.transcript_path);
+    }
   }
 
   // A transcript-sync pass exists for the derived data written above (tokens, compactions, turn
