@@ -221,6 +221,16 @@ describe("calculateCost — cost_by_type", () => {
     );
     assert.deepEqual(r.cost_by_type, { input: 7, output: 31, cache_read: 0, cache_write: 0 });
   });
+
+  it("reports the unrounded total and per-bucket cost alongside the rounded ones", () => {
+    // 11 input tokens at $5/MTok = $0.000055, which rounds to $0.0001.
+    const claude = { ...bucket({ input_tokens: 11 }), provider: "claude" };
+    const r = calculateProviderCost([claude, { ...claude }], RULES, [], []);
+    assert.equal(r.total_cost, 0.0001);
+    assert.ok(Math.abs(r.total_cost_exact - 0.00011) < 1e-15);
+    assert.equal(r.breakdown[0].cost, 0.0001);
+    assert.ok(Math.abs(r.breakdown[0].cost_exact - 0.00011) < 1e-15);
+  });
 });
 
 describe("calculateCursorCost — Cursor rate-card isolation", () => {

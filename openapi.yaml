@@ -1580,6 +1580,10 @@ components:
           type: integer
         cost:
           type: number
+          description: Cost in USD, rounded to 4 decimals
+        cost_exact:
+          type: number
+          description: The same cost, unrounded
         cost_by_type:
           $ref: '#/components/schemas/CostByType'
         matched_rule:
@@ -1617,6 +1621,10 @@ components:
       properties:
         total_cost:
           type: number
+          description: Total cost in USD, rounded to 4 decimals
+        total_cost_exact:
+          type: number
+          description: The same total, unrounded, for exact comparison with Claude Code's own cost record
         breakdown:
           type: array
           items:
@@ -6436,6 +6444,9 @@ paths:
                           - short
                           - long
                         description: Prompt-size class for models with a long-prompt rate tier; omitted = short.
+                      cc_version:
+                        type: string
+                        description: Claude Code version that made these requests (e.g. 2.1.296), for version-gated rates. Omitted or malformed = unsplit; priced by the session's version.
                       input:
                         type: integer
                         minimum: 0
@@ -6805,7 +6816,7 @@ paths:
         - Pricing
       summary: Get total token cost across all sessions
       operationId: getTotalCost
-      description: Computes the aggregate token cost across EVERY session by matching each (model, speed, inference_geo, service_tier, context_size) usage bucket against the most specific pricing rule. Returns `total_cost`, a per-bucket `breakdown`, `feature_costs` (web-search surcharge, code-execution container time with the org free-hours allowance applied), `unpriced_models` (usage with no matching rule, contributing $0 so the total stays honest), and `daily_costs` bucketed by local calendar day. Pass `tz_offset` (minutes; the JS `Date.getTimezoneOffset()` value, e.g. 300 for US Eastern, -120 for CEST) so day boundaries align with the viewer's timezone; omitted/invalid offsets fall back to UTC. Honors the `sources` data-scope filter, like the sessions / stats / analytics endpoints, so the reported cost matches the active scope.
+      description: Computes the aggregate token cost across EVERY session by matching each (model, speed, inference_geo, service_tier, context_size) usage bucket against the most specific pricing rule. Returns `total_cost` (rounded to 4 decimals; `total_cost_exact` is the unrounded figure), a per-bucket `breakdown`, `feature_costs` (web-search surcharge, code-execution container time with the org free-hours allowance applied), `unpriced_models` (usage with no matching rule, contributing $0 so the total stays honest), and `daily_costs` bucketed by local calendar day. Pass `tz_offset` (minutes; the JS `Date.getTimezoneOffset()` value, e.g. 300 for US Eastern, -120 for CEST) so day boundaries align with the viewer's timezone; omitted/invalid offsets fall back to UTC. Honors the `sources` data-scope filter, like the sessions / stats / analytics endpoints, so the reported cost matches the active scope.
       parameters:
         - name: tz_offset
           in: query
@@ -6830,6 +6841,7 @@ paths:
                 $ref: '#/components/schemas/CostResult'
               example:
                 total_cost: 12.8431
+                total_cost_exact: 12.84306875
                 breakdown:
                   - model: claude-opus-4-8
                     speed: standard
@@ -6844,6 +6856,7 @@ paths:
                     web_fetch_requests: 3
                     code_execution_requests: 2
                     cost: 8.4127
+                    cost_exact: 8.41266
                     matched_rule: claude-opus-4%
                   - model: claude-haiku-4-5
                     speed: fast
@@ -6858,6 +6871,7 @@ paths:
                     web_fetch_requests: 0
                     code_execution_requests: 0
                     cost: 1.5904
+                    cost_exact: 1.59040875
                     matched_rule: claude-haiku%
                 feature_costs:
                   web_search_cost: 0.08
@@ -6884,7 +6898,7 @@ paths:
         - Pricing
       summary: Get token cost for one session
       operationId: getSessionCost
-      description: Same cost computation as `/api/pricing/cost`, but scoped to a single session's token usage. Returns the identical `CostResult` shape (`total_cost`, `breakdown`, `feature_costs`, `unpriced_models`, `daily_costs`); `daily_costs` holds at most one entry — the session's start date in the viewer's local day, or an empty array if the session id is unknown. Pass `tz_offset` (minutes, `Date.getTimezoneOffset()`) to place that start date in the viewer's timezone; defaults to UTC.
+      description: Same cost computation as `/api/pricing/cost`, but scoped to a single session's token usage. Returns the identical `CostResult` shape (`total_cost`, `total_cost_exact`, `breakdown`, `feature_costs`, `unpriced_models`, `daily_costs`); `daily_costs` holds at most one entry — the session's start date in the viewer's local day, or an empty array if the session id is unknown. Pass `tz_offset` (minutes, `Date.getTimezoneOffset()`) to place that start date in the viewer's timezone; defaults to UTC.
       parameters:
         - name: sessionId
           in: path
@@ -6909,6 +6923,7 @@ paths:
                 $ref: '#/components/schemas/CostResult'
               example:
                 total_cost: 8.4127
+                total_cost_exact: 8.41266
                 breakdown:
                   - model: claude-opus-4-8
                     speed: standard
@@ -6923,6 +6938,7 @@ paths:
                     web_fetch_requests: 3
                     code_execution_requests: 2
                     cost: 8.4127
+                    cost_exact: 8.41266
                     matched_rule: claude-opus-4%
                   - model: claude-haiku-4-5
                     speed: fast
@@ -6937,6 +6953,7 @@ paths:
                     web_fetch_requests: 0
                     code_execution_requests: 0
                     cost: 1.5904
+                    cost_exact: 1.59040875
                     matched_rule: claude-haiku%
                 feature_costs:
                   web_search_cost: 0.08

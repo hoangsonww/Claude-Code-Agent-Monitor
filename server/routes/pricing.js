@@ -242,6 +242,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
   const breakdown = [...breakdownMap.values()].map(({ _cost, _types, ...b }) => ({
     ...b,
     cost: round4(_cost),
+    cost_exact: _cost,
     cost_by_type: roundTypeCosts(_types),
   }));
 
@@ -254,6 +255,8 @@ function calculateCost(tokenRows, pricingRules, asOf) {
 
   return {
     total_cost: round4(total),
+    // Unrounded total, for comparing against Claude Code's own figure exactly.
+    total_cost_exact: total,
     breakdown,
     cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
@@ -368,9 +371,11 @@ function calculateGptCost(tokenRows, pricingRules) {
 
   return {
     total_cost: round4(total),
+    total_cost_exact: total,
     breakdown: [...breakdownMap.values()].map(({ _cost, _types, ...entry }) => ({
       ...entry,
       cost: round4(_cost),
+      cost_exact: _cost,
       cost_by_type: roundTypeCosts(_types),
     })),
     cost_by_type: roundTypeCosts(typeCosts),
@@ -428,6 +433,7 @@ function calculateCursorCost(tokenRows, pricingRules) {
       code_execution_requests: 0,
       matched_rule: rule?.model_pattern || null,
       cost: round4(cost),
+      cost_exact: cost,
       cost_by_type: roundTypeCosts({
         input: inputCost,
         output: outputCost,
@@ -450,6 +456,7 @@ function calculateCursorCost(tokenRows, pricingRules) {
   }
   return {
     total_cost: round4(total),
+    total_cost_exact: total,
     breakdown,
     cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
@@ -482,6 +489,7 @@ function calculateProviderCost(
 
   return {
     total_cost: round4(claude.total_cost + cursor.total_cost + codex.total_cost),
+    total_cost_exact: claude.total_cost_exact + cursor.total_cost_exact + codex.total_cost_exact,
     breakdown: [...claude.breakdown, ...cursor.breakdown, ...codex.breakdown],
     cost_by_type: roundTypeCosts({
       input: claude.cost_by_type.input + cursor.cost_by_type.input + codex.cost_by_type.input,

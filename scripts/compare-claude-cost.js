@@ -6,9 +6,12 @@
  * dashboard's API and Claude's figure from each transcript's last `cost-state`
  * entry (`totalCostUSD`, per-model `costUSD`), falling back to the
  * `lastCost` that `~/.claude.json` keeps for a project's most recent session.
+ * Both sides are compared unrounded: the dashboard's figure is the
+ * `total_cost_exact` of `/api/pricing/cost/:sessionId`, and differences below
+ * $1e-9 (floating-point summation noise) count as equal.
  *
  * Usage:
- *   node scripts/compare-claude-cost.js                  Sessions off by >= $0.01
+ *   node scripts/compare-claude-cost.js                  Every session that differs
  *   node scripts/compare-claude-cost.js --threshold 0.5  Only differences >= $0.50
  *   node scripts/compare-claude-cost.js --models         Add a per-model breakdown
  *   node scripts/compare-claude-cost.js --json           Machine-readable output
@@ -27,9 +30,12 @@ const { modelMatchKey } = require("../server/lib/cost-state");
 
 const USAGE = `Usage: node scripts/compare-claude-cost.js [--threshold USD] [--models] [--json] [--server URL]`;
 
+// Two float sums of the same charges can differ in the last few bits.
+const FLOAT_TOLERANCE = 1e-9;
+
 function parseArgs(argv) {
   const opts = {
-    threshold: 0.01,
+    threshold: 0,
     models: false,
     json: false,
     server: process.env.CCAM_URL || "http://127.0.0.1:4820",
@@ -145,22 +151,31 @@ async function claudeCost(session, lastCosts) {
   return null;
 }
 
+/** The dashboard's unrounded cost detail for one session. */
+function sessionCost(server, sessionId) {
+  return getJson(server, `/api/pricing/cost/${encodeURIComponent(sessionId)}`);
+}
+
+/** Unrounded figure, or the rounded one from a dashboard that predates it. */
+const exact = (value, rounded) => Number(value ?? rounded) || 0;
+
 /** Per-model dashboard vs Claude cost, keyed so provider spellings line up. */
-async function modelDiffs(server, sessionId, claudeModels) {
+function modelDiffs(detail, claudeModels, tolerance) {
   const byKey = new Map();
   const slot = (model) => {
     const key = modelMatchKey(model);
     if (!byKey.has(key)) byKey.set(key, { model: key, dashboard: 0, claude: 0 });
     return byKey.get(key);
   };
-  const detail = await getJson(server, `/api/pricing/cost/${encodeURIComponent(sessionId)}`);
-  for (const row of detail.breakdown || []) slot(row.model).dashboard += Number(row.cost) || 0;
+  for (const row of detail.breakdown || []) {
+    slot(row.model).dashboard += exact(row.cost_exact, row.cost);
+  }
   for (const [model, usage] of Object.entries(claudeModels)) {
     slot(model).claude += Number(usage?.costUSD) || 0;
   }
   return [...byKey.values()]
     .map((m) => ({ ...m, diff: m.dashboard - m.claude }))
-    .filter((m) => Math.abs(m.diff) >= 0.005)
+    .filter((m) => Math.abs(m.diff) >= tolerance)
     .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 }
 
@@ -178,8 +193,12 @@ async function mapLimit(items, limit, fn) {
   return out;
 }
 
-const usd = (n) => `$${n.toFixed(2)}`;
-const signed = (n) => `${n >= 0 ? "+" : "-"}$${Math.abs(n).toFixed(2)}`;
+const usd = (n) => `$${n.toFixed(6)}`;
+// A difference too small for 6 decimals still shows its size.
+const signed = (n) => {
+  const abs = Math.abs(n);
+  return `${n >= 0 ? "+" : "-"}$${abs > 0 && abs < 5e-7 ? abs.toExponential(2) : abs.toFixed(6)}`;
+};
 
 function printTable(rows) {
   const header = ["SESSION", "STARTED", "STATUS", "DASHBOARD", "CLAUDE", "DIFF", "SOURCE", "NAME"];
@@ -205,9 +224,9 @@ function printTable(rows) {
     console.log(fmt(lines[i]));
     for (const m of r.models || []) {
       console.log(
-        `    ${m.model.padEnd(28)} dashboard ${usd(m.dashboard).padStart(9)}  claude ${usd(
+        `    ${m.model.padEnd(28)} dashboard ${usd(m.dashboard).padStart(13)}  claude ${usd(
           m.claude
-        ).padStart(9)}  ${signed(m.diff).padStart(9)}`
+        ).padStart(13)}  ${signed(m.diff).padStart(13)}`
       );
     }
   });
@@ -220,35 +239,32 @@ async function main() {
   );
   const lastCosts = claudeJsonLastCosts();
 
+  const tolerance = Math.max(opts.threshold, FLOAT_TOLERANCE);
+
   const compared = await mapLimit(sessions, 8, async (session) => {
     const claude = await claudeCost(session, lastCosts);
     if (!claude) return { session, claude: null };
-    return { session, claude, diff: (Number(session.cost) || 0) - claude.total };
+    const detail = await sessionCost(opts.server, session.id);
+    const dashboard = exact(detail.total_cost_exact, detail.total_cost);
+    return { session, claude, detail, dashboard, diff: dashboard - claude.total };
   });
 
   const differing = [];
-  for (const { session, claude, diff } of compared) {
-    if (!claude || Math.abs(diff) < opts.threshold) continue;
+  for (const { session, claude, detail, dashboard, diff } of compared) {
+    if (!claude || Math.abs(diff) < tolerance) continue;
     differing.push({
       id: session.id,
       name: session.name,
       status: session.status,
       started_at: session.started_at,
-      dashboard: Number(session.cost) || 0,
+      dashboard,
       claude: claude.total,
       diff,
       source: claude.source,
-      claudeModels: claude.models,
+      ...(opts.models ? { models: modelDiffs(detail, claude.models, tolerance) } : {}),
     });
   }
   differing.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
-
-  if (opts.models) {
-    await mapLimit(differing, 8, async (row) => {
-      row.models = await modelDiffs(opts.server, row.id, row.claudeModels);
-    });
-  }
-  for (const row of differing) delete row.claudeModels;
 
   const withFigure = compared.filter((c) => c.claude);
   const summary = {
@@ -257,7 +273,7 @@ async function main() {
     without_claude_figure: sessions.length - withFigure.length,
     differing: differing.length,
     threshold: opts.threshold,
-    dashboard_total: withFigure.reduce((sum, c) => sum + (Number(c.session.cost) || 0), 0),
+    dashboard_total: withFigure.reduce((sum, c) => sum + c.dashboard, 0),
     claude_total: withFigure.reduce((sum, c) => sum + c.claude.total, 0),
     net_diff: differing.reduce((sum, r) => sum + r.diff, 0),
   };
@@ -266,9 +282,10 @@ async function main() {
     console.log(JSON.stringify({ summary, sessions: differing }, null, 2));
   } else {
     if (differing.length > 0) printTable(differing);
-    else console.log(`No session differs by ${usd(opts.threshold)} or more.`);
+    const limit = opts.threshold > 0 ? `by >= ${usd(opts.threshold)}` : "at all";
+    if (differing.length === 0) console.log(`No session differs ${limit}.`);
     console.log(
-      `\n${summary.differing} of ${summary.compared} sessions differ by >= ${usd(opts.threshold)} ` +
+      `\n${summary.differing} of ${summary.compared} sessions differ ${limit} ` +
         `(net ${signed(summary.net_diff)}). Compared totals: dashboard ${usd(
           summary.dashboard_total
         )}, Claude ${usd(summary.claude_total)}. ` +

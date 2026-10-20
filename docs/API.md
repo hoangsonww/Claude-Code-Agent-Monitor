@@ -973,6 +973,30 @@ curl -X DELETE http://localhost:4820/api/pricing/gpt-5.1-codex
 
 ---
 
+#### Get Cost
+
+```http
+GET /api/pricing/cost
+GET /api/pricing/cost/:sessionId
+```
+
+Prices token usage against the pricing rules: every session, or one session. Both return `total_cost`, a per-bucket `breakdown` (each with `cost`), `cost_by_type`, `feature_costs`, `unpriced_models`, and `daily_costs`. Costs are rounded to 4 decimals. `total_cost_exact` and each breakdown entry's `cost_exact` carry the same figures unrounded, for exact comparison with Claude Code's own `cost-state` total (`scripts/compare-claude-cost.js` uses them).
+
+```bash
+curl http://localhost:4820/api/pricing/cost/<session-id>
+```
+
+```json
+{
+  "total_cost": 0.3579,
+  "total_cost_exact": 0.35788125,
+  "breakdown": [{ "model": "claude-sonnet-5-5", "cost": 0.3579, "cost_exact": 0.35788125 }],
+  "daily_costs": [{ "date": "2026-10-20", "cost": 0.3579 }]
+}
+```
+
+---
+
 ### Workflows
 
 #### Aggregate Workflow Intelligence
@@ -1289,7 +1313,7 @@ and proxy logs. `ingest-transcript` verifies this header before reading its larg
 | `cwd` | string | No | Working directory on the pushing machine |
 | `repo_remote_url` | string | No | Optional collector Git remote; URL/SCP userinfo, query strings, and fragments are removed, malformed URL-style values are discarded, and the first non-empty sanitized value wins |
 | `model` | string | No | Model id for the session |
-| `tokens` | array | No | Each entry is that bucket's **full current total** (like a transcript re-parse), **not** a delta. An entry may carry `context_size` (`"short"` default, or `"long"` for a long-prompt-tier model's over-limit requests); pushers that omit it land in the short bucket |
+| `tokens` | array | No | Each entry is that bucket's **full current total** (like a transcript re-parse), **not** a delta. An entry may carry `context_size` (`"short"` default, or `"long"` for a long-prompt-tier model's over-limit requests); pushers that omit it land in the short bucket. An entry may also carry `cc_version` (the Claude Code version that made those requests, e.g. `"2.1.296"`) so version-gated rates price it by that version; without one it is unsplit and priced by the session's version. A push never lowers what a version row already holds |
 | `tool_events` | array | No | Tool calls, stored as `RemoteToolEvent` events |
 | `turns` | array | No | Turn durations, stored as `RemoteTurn` events |
 

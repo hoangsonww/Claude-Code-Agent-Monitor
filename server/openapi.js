@@ -1245,7 +1245,8 @@ function createOpenApiSpec() {
             web_search_requests: { type: "integer" },
             web_fetch_requests: { type: "integer" },
             code_execution_requests: { type: "integer" },
-            cost: { type: "number" },
+            cost: { type: "number", description: "Cost in USD, rounded to 4 decimals" },
+            cost_exact: { type: "number", description: "The same cost, unrounded" },
             cost_by_type: { $ref: "#/components/schemas/CostByType" },
             matched_rule: { type: "string", nullable: true },
           },
@@ -1273,7 +1274,12 @@ function createOpenApiSpec() {
           type: "object",
           required: ["total_cost", "breakdown", "daily_costs"],
           properties: {
-            total_cost: { type: "number" },
+            total_cost: { type: "number", description: "Total cost in USD, rounded to 4 decimals" },
+            total_cost_exact: {
+              type: "number",
+              description:
+                "The same total, unrounded, for exact comparison with Claude Code's own cost record",
+            },
             breakdown: { type: "array", items: { $ref: "#/components/schemas/CostBreakdownItem" } },
             daily_costs: { type: "array", items: { $ref: "#/components/schemas/DailyCostItem" } },
             cost_by_type: { $ref: "#/components/schemas/CostByType" },
@@ -2492,6 +2498,11 @@ function createOpenApiSpec() {
                             enum: ["short", "long"],
                             description:
                               "Prompt-size class for models with a long-prompt rate tier; omitted = short.",
+                          },
+                          cc_version: {
+                            type: "string",
+                            description:
+                              "Claude Code version that made these requests (e.g. 2.1.296), for version-gated rates. Omitted or malformed = unsplit; priced by the session's version.",
                           },
                           input: { type: "integer", minimum: 0 },
                           output: { type: "integer", minimum: 0 },
