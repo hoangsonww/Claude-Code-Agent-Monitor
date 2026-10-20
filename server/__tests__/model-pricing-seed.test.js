@@ -168,6 +168,7 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
       "claude-opus-4-5",
       "claude-sonnet-5-5",
       "claude-sonnet-5",
+      "claude-haiku-5-5",
       "claude-haiku-4-5",
     ].filter(
       (model) =>

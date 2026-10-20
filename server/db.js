@@ -697,6 +697,13 @@ const DEFAULT_PRICING = [
   ["claude-3-7-sonnet%", "Claude Sonnet 3.7", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-3-5-sonnet%", "Claude Sonnet 3.5", 3, 15, 0.3, 3.75, 6, 0, 0],
   // Haiku family
+  // claude-haiku-5-5: $0.10/$0.50 input/output, $0.01 cache read, $0.125 5m cache
+  // write, $0.20 1h cache write (standard 0.1x / 1.25x / 2x multipliers); no Fast
+  // mode. Anthropic charges $0.50/$2.50 (cache rates scale with it) for prompts
+  // over 100K tokens, but the Claude cost path has no per-request context tier
+  // (only Codex usage is stamped with context_size), so this row prices every
+  // request at the <=100K card and under-reports any longer prompt.
+  ["claude-haiku-5-5%", "Claude Haiku 5.5", 0.1, 0.5, 0.01, 0.125, 0.2, 0, 0],
   ["claude-haiku-4-5%", "Claude Haiku 4.5", 1, 5, 0.1, 1.25, 2, 0, 0],
   ["claude-3-5-haiku%", "Claude Haiku 3.5", 0.8, 4, 0.08, 1, 1.6, 0, 0],
   ["claude-3-haiku%", "Claude Haiku 3", 0.25, 1.25, 0.03, 0.3, 0.5, 0, 0],
