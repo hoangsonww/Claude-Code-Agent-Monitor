@@ -318,7 +318,34 @@ describe("computeCostStateTopUps", () => {
     });
     assert.equal(t.model, HAIKU);
     assert.deepEqual([t.speed, t.geo, t.tier, t.ctx], ["standard", "global", "standard", "short"]);
-    assert.equal(t.cacheWrite1h, 0, "no history to infer a 1h share from → price at the 5m rate");
+    assert.equal(
+      t.cacheWrite1h,
+      30,
+      "no writes of its own → takes the session's 1h share (Sonnet's writes are all 1h)"
+    );
+  });
+
+  it("takes the session's 1h share for a model with no recorded writes", () => {
+    const sonnetHalf1h = row({ cache_write_tokens: 400, cache_write_1h_tokens: 100 });
+    const haikuNoWrites = row({ model: HAIKU, cache_write_tokens: 0, cache_write_1h_tokens: 0 });
+    const topUps = computeCostStateTopUps([sonnetHalf1h, haikuNoWrites], {
+      sessionId: null,
+      models: {
+        [HAIKU]: { input: 10, output: 100, cacheRead: 1000, cacheWrite: 40, webSearch: 0 },
+      },
+    });
+    assert.equal(topUps.length, 1);
+    assert.equal(topUps[0].cacheWrite, 40);
+    assert.equal(topUps[0].cacheWrite1h, 10, "the session's 25% 1h share");
+  });
+
+  it("prices unrecorded writes as 5m only when the session has no cache writes at all", () => {
+    const [t] = computeCostStateTopUps(
+      [row({ cache_write_tokens: 0, cache_write_1h_tokens: 0 })],
+      claim({ cacheWrite: 50 })
+    );
+    assert.equal(t.cacheWrite, 50);
+    assert.equal(t.cacheWrite1h, 0, "no history anywhere to infer a 1h share from");
   });
 
   it("splits unrecorded cache writes by the model's existing 1h share", () => {
@@ -397,13 +424,17 @@ describe("applyCostState", () => {
       cacheWrite: 205,
       cacheWrite1h: 205,
     });
-    assert.deepEqual(effective(SID, HAIKU), {
-      input: 500,
-      output: 40,
-      cacheRead: 700,
-      cacheWrite: 30,
-      cacheWrite1h: 0,
-    });
+    assert.deepEqual(
+      effective(SID, HAIKU),
+      {
+        input: 500,
+        output: 40,
+        cacheRead: 700,
+        cacheWrite: 30,
+        cacheWrite1h: 30,
+      },
+      "Haiku has no writes of its own, so it takes the session's all-1h share"
+    );
 
     assert.equal(applyCostState(stmts, SID, cs), 0, "second application changes nothing");
     assert.equal(effective(SID, SONNET).input, 30);

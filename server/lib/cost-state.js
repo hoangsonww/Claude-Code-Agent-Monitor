@@ -86,6 +86,13 @@ const FIELDS = [
   ["webSearch", "web_search_requests"],
 ];
 
+/** Share of `rows`' cache writes that are 1h writes, or null when they have none. */
+function share1hOf(rows) {
+  const writes = rows.reduce((sum, row) => sum + (row.cache_write_tokens || 0), 0);
+  const writes1h = rows.reduce((sum, row) => sum + (row.cache_write_1h_tokens || 0), 0);
+  return writes > 0 ? Math.min(writes1h / writes, 1) : null;
+}
+
 function rowSize(row) {
   return (
     (row.input_tokens || 0) +
@@ -109,6 +116,7 @@ function computeCostStateTopUps(rows, costState) {
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(row);
   }
+  const sessionShare1h = share1hOf(rows || []);
 
   // cost-state can list one model under several spellings (with and without a
   // `[1m]` tag); they all map onto the same stored buckets, so Claude's figure
@@ -154,11 +162,12 @@ function computeCostStateTopUps(rows, costState) {
     );
 
     // cost-state carries one cache-creation figure with no TTL split. Apply the
-    // 1h share this model already shows in the session; with no history, treat
-    // the unrecorded writes as 5m (the lower rate) rather than over-price them.
-    const writes = group.reduce((sum, row) => sum + (row.cache_write_tokens || 0), 0);
-    const writes1h = group.reduce((sum, row) => sum + (row.cache_write_1h_tokens || 0), 0);
-    const share1h = writes > 0 ? Math.min(writes1h / writes, 1) : 0;
+    // 1h share this model already shows in the session; a model with no writes
+    // of its own (one seen only through cost-state, e.g. WebFetch's Haiku) takes
+    // the session's share, since one Claude Code process requests the same TTL
+    // for every model. With no writes anywhere, treat the unrecorded writes as
+    // 5m (the lower rate) rather than over-price them.
+    const share1h = share1hOf(group) ?? sessionShare1h ?? 0;
 
     topUps.push({
       model: target ? target.model : model,
