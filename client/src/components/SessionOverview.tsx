@@ -572,10 +572,10 @@ export function SessionOverview({ session, agents }: SessionOverviewProps) {
 
 /** Token types shared by the Token flow and Token cost bars, so both use the same colors. */
 const TOKEN_TYPE_SEGMENTS = [
-  { key: "cache_read", label: "Cache read", cls: "bg-sky-500", text: "text-sky-300" },
-  { key: "cache_write", label: "Cache write", cls: "bg-violet-500", text: "text-violet-300" },
-  { key: "input", label: "Input", cls: "bg-emerald-500", text: "text-emerald-300" },
-  { key: "output", label: "Output", cls: "bg-orange-500", text: "text-orange-300" },
+  { key: "cache_read", label: "Cache read", cls: "bg-sky-500", text: "text-sky-200" },
+  { key: "cache_write", label: "Cache write", cls: "bg-violet-500", text: "text-violet-200" },
+  { key: "input", label: "Input", cls: "bg-emerald-500", text: "text-emerald-200" },
+  { key: "output", label: "Output", cls: "bg-orange-500", text: "text-orange-200" },
 ] as const;
 
 /** Cost label for a bar segment; amounts under a cent show as "<$0.01" instead of "$0.00". */
@@ -628,10 +628,10 @@ function TokenSplitBar({
             <div key={s.key} className="flex items-center gap-2">
               <span className={`block w-2 h-2 rounded-full ${s.cls}`} />
               <span className="text-gray-500 text-[11px]">{s.label}</span>
-              <span className={`font-mono ml-auto ${s.text}`}>
+              <span className={`font-mono ${s.text}`}>
                 {formatLegend(s.value)}
                 {pct > 0 && (
-                  <span className="text-gray-600 text-[10px] ml-1">
+                  <span className="text-gray-400 text-[10px] ml-1">
                     {pct >= 1 ? Math.round(pct) : pct.toFixed(1)}%
                   </span>
                 )}
