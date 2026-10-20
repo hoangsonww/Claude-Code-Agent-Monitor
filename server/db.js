@@ -704,12 +704,14 @@ const DEFAULT_PRICING = [
   // numbers; once it lapsed, usage fell back to the old $3/$15 standard and
   // over-reported by 50%. The promo row is now a no-op and is kept only so
   // existing DBs that already stamped intro_until keep their history.
-  // claude-sonnet-5-5: $2/$10 input/output, $0.20 cache read, $2.50 5m cache
-  // write, $4 1h cache write; no Fast mode. Same numbers as Sonnet 5 today, but
-  // it gets its own row: `claude-sonnet-5%` also LIKE-matches
-  // "claude-sonnet-5-5", so without one Sonnet 5.5 usage is labelled as Sonnet 5
-  // and silently follows every Sonnet 5 edit, intro stamp and rate correction.
-  ["claude-sonnet-5-5%", "Claude Sonnet 5.5", 2, 10, 0.2, 2.5, 4, 0, 0],
+  // claude-sonnet-5-5: $2/$10 input/output, $0.10 cache read (0.05x input, not
+  // the standard 0.1x — same as Opus 5.5; confirmed against Anthropic's rate card
+  // and Bedrock global pricing), $2.50 5m cache write, $4 1h cache write; no Fast
+  // mode. It differs from Sonnet 5 on cache reads and so gets its own row:
+  // `claude-sonnet-5%` also LIKE-matches "claude-sonnet-5-5", so without one
+  // Sonnet 5.5 usage is labelled as Sonnet 5 and silently follows every Sonnet 5
+  // edit, intro stamp and rate correction.
+  ["claude-sonnet-5-5%", "Claude Sonnet 5.5", 2, 10, 0.1, 2.5, 4, 0, 0],
   ["claude-sonnet-5%", "Claude Sonnet 5", 2, 10, 0.2, 2.5, 4, 0, 0],
   ["claude-sonnet-4-6%", "Claude Sonnet 4.6", 3, 15, 0.3, 3.75, 6, 0, 0],
   ["claude-sonnet-4-5%", "Claude Sonnet 4.5", 3, 15, 0.3, 3.75, 6, 0, 0],
@@ -1057,6 +1059,28 @@ function correctSonnet5StandardRate(dbHandle = db) {
     .run();
 }
 correctSonnet5StandardRate();
+
+// One-time correction of Sonnet 5.5's cache-read rate on EXISTING databases.
+// The row was seeded at $0.20 (Sonnet 5's value) but Sonnet 5.5 bills cache
+// hits at 0.05x input = $0.10, so cache reads — usually the largest share of a
+// session's cost — were over-reported 2x. Same guard as above: only a row still
+// holding the exact old defaults is rewritten, so user edits survive and
+// re-running is a no-op. Cost is computed at request time, so history reprices.
+function correctSonnet55CacheReadRate(dbHandle = db) {
+  return dbHandle
+    .prepare(
+      `UPDATE model_pricing
+          SET cache_read_per_mtok = 0.1
+        WHERE model_pattern = 'claude-sonnet-5-5%'
+          AND input_per_mtok = 2
+          AND output_per_mtok = 10
+          AND cache_read_per_mtok = 0.2
+          AND cache_write_per_mtok = 2.5
+          AND cache_write_1h_per_mtok = 4`
+    )
+    .run();
+}
+correctSonnet55CacheReadRate();
 
 // Known introductory promo rates: [pattern, in, out, cacheRead, cw5m, cw1h, until].
 // Standard rates live in the DEFAULT_PRICING row; these add the time-limited
@@ -2512,6 +2536,7 @@ module.exports = {
   applyIntroPricing,
   applyLongPricing,
   correctSonnet5StandardRate,
+  correctSonnet55CacheReadRate,
   seedGptPricing,
   seedCursorPricing,
   repairLegacyGptPricing,

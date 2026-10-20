@@ -23,7 +23,7 @@ process.env.CLAUDE_HOME = path.join(TMP, "home");
 process.env.DASHBOARD_DATA_DIR = path.join(TMP, "data");
 fs.mkdirSync(TMP, { recursive: true });
 
-const { db, stmts, correctSonnet5StandardRate } = require("../db");
+const { db, stmts, correctSonnet5StandardRate, correctSonnet55CacheReadRate } = require("../db");
 const { calculateCost, calculateGptCost } = require("../routes/pricing");
 
 after(() => {
@@ -76,7 +76,7 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
     ["claude-opus-5-5%", 4, 20, 0.2, 5, 8],
     ["claude-opus-5%", 5, 25, 0.5, 6.25, 10],
     ["claude-opus-4-5%", 5, 25, 0.5, 6.25, 10],
-    ["claude-sonnet-5-5%", 2, 10, 0.2, 2.5, 4],
+    ["claude-sonnet-5-5%", 2, 10, 0.1, 2.5, 4],
     ["claude-sonnet-5%", 2, 10, 0.2, 2.5, 4],
   ];
 
@@ -141,8 +141,8 @@ describe("model_pricing seed — models that had no rule or a stale rate", () =>
       ["claude-opus-5[1m]", "claude-opus-5%", 0.5],
       ["claude-opus-5-5", "claude-opus-5-5%", 0.2],
       ["claude-opus-5-5[1m]", "claude-opus-5-5%", 0.2],
-      ["claude-sonnet-5-5", "claude-sonnet-5-5%", 0.2],
-      ["claude-sonnet-5-5[1m]", "claude-sonnet-5-5%", 0.2],
+      ["claude-sonnet-5-5", "claude-sonnet-5-5%", 0.1],
+      ["claude-sonnet-5-5[1m]", "claude-sonnet-5-5%", 0.1],
       ["claude-sonnet-5", "claude-sonnet-5%", 0.2],
     ]) {
       const row = stmts.matchPricing.get(model);
@@ -422,10 +422,50 @@ describe("Sonnet 5 rate correction on pre-existing databases", () => {
       assert.deepEqual(result.unpriced_models ?? [], []);
       const row = result.breakdown.find((b) => b.model === "claude-sonnet-5-5");
       assert.equal(row.matched_rule, "claude-sonnet-5-5%");
-      // sonnet-5.5: 2 + 10 + 0.20 = 12.20 (would be 28.70 via the edited Sonnet 5 rule)
-      assert.equal(row.cost, 12.2);
+      // sonnet-5.5: 2 + 10 + 0.10 = 12.10 (would be 28.70 via the edited Sonnet 5 rule)
+      assert.equal(row.cost, 12.1);
     } finally {
       setSonnet5([2, 10, 0.2, 2.5, 4]);
     }
+  });
+});
+
+describe("Sonnet 5.5 cache-read correction on pre-existing databases", () => {
+  const setSonnet55 = (values) =>
+    db
+      .prepare(
+        `UPDATE model_pricing SET input_per_mtok = ?, output_per_mtok = ?,
+           cache_read_per_mtok = ?, cache_write_per_mtok = ?, cache_write_1h_per_mtok = ?
+         WHERE model_pattern = 'claude-sonnet-5-5%'`
+      )
+      .run(...values);
+  const cacheRead = () =>
+    db
+      .prepare("SELECT cache_read_per_mtok AS v FROM model_pricing WHERE model_pattern = ?")
+      .get("claude-sonnet-5-5%").v;
+
+  it("rewrites a row still holding the stale $0.20 cache read", () => {
+    // The row was seeded with Sonnet 5's $0.20; Sonnet 5.5 bills cache hits at
+    // 0.05x input = $0.10, so cache reads over-reported 2x until corrected.
+    setSonnet55([2, 10, 0.2, 2.5, 4]);
+
+    assert.equal(correctSonnet55CacheReadRate(db).changes, 1);
+
+    assert.equal(cacheRead(), 0.1);
+  });
+
+  it("never overwrites rates the user edited themselves", () => {
+    setSonnet55([2, 10, 0.5, 2.5, 4]);
+
+    assert.equal(correctSonnet55CacheReadRate(db).changes, 0);
+
+    assert.equal(cacheRead(), 0.5, "a user-customized cache-read rate must survive");
+    setSonnet55([2, 10, 0.1, 2.5, 4]);
+  });
+
+  it("is idempotent — re-running changes nothing", () => {
+    setSonnet55([2, 10, 0.2, 2.5, 4]);
+    assert.equal(correctSonnet55CacheReadRate(db).changes, 1, "first run corrects the row");
+    assert.equal(correctSonnet55CacheReadRate(db).changes, 0, "second run is a no-op");
   });
 });
