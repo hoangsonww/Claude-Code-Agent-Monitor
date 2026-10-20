@@ -15,25 +15,6 @@
       "Bash(git remote -v)",
       "Bash(bash .claude/skills/file-headers/scripts/check-headers.sh)"
     ],
-    "ask": [
-      "Bash(git add *)",
-      "Bash(git commit*)",
-      "Bash(git push*)",
-      "Bash(git pull*)",
-      "Bash(git merge*)",
-      "Bash(git rebase*)",
-      "Bash(git cherry-pick*)",
-      "Bash(git revert*)",
-      "Bash(git restore*)",
-      "Bash(npm install*)",
-      "Bash(npm ci*)",
-      "Bash(npm update*)",
-      "Bash(npm uninstall*)",
-      "Bash(npm run clear-data*)",
-      "Bash(curl *)",
-      "Bash(wget *)",
-      "Bash(gh *)"
-    ],
     "deny": [
       "Bash(git reset --hard*)",
       "Bash(git clean -f*)",
