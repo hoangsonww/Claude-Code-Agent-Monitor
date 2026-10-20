@@ -1288,6 +1288,18 @@ export interface CursorModelPricing {
   updated_at: string;
 }
 
+/** USD token cost split by token type. Server-tool surcharges are not included. */
+export interface CostByType {
+  /** USD spent on fresh input tokens. */
+  input: number;
+  /** USD spent on output tokens. */
+  output: number;
+  /** USD spent on prompt-cache reads. */
+  cache_read: number;
+  /** USD spent on prompt-cache writes (5-minute and 1-hour combined). */
+  cache_write: number;
+}
+
 /**
  * One row of a {@link CostResult.breakdown} - token usage and cost aggregated
  * per (model, speed, inference_geo, service_tier) tuple. Emitted by
@@ -1335,6 +1347,9 @@ export interface CostBreakdown {
   /** USD cost for this bucket (token cost + web-search surcharge). Sum of all
    *  buckets' `cost` (plus feature costs) equals {@link CostResult.total_cost}. */
   cost: number;
+  /** USD token cost of this bucket split by token type; excludes the web-search
+   *  surcharge, so the four values can sum to less than `cost`. */
+  cost_by_type?: CostByType;
   /** The `ModelPricing.model_pattern` that matched, or null if no rule matched
    *  (in which case `cost` is 0 and the usage also appears in `unpriced_models`). */
   matched_rule: string | null;
@@ -1388,16 +1403,7 @@ export interface CostResult {
   daily_costs: Array<{ date: string; cost: number }>;
   /** Token cost in USD split by token type (surcharges excluded), so it can sum
    *  to less than `total_cost`. Backs the "Token cost" bar on Session detail. */
-  cost_by_type?: {
-    /** USD spent on fresh input tokens. */
-    input: number;
-    /** USD spent on output tokens. */
-    output: number;
-    /** USD spent on prompt-cache reads. */
-    cache_read: number;
-    /** USD spent on prompt-cache writes (5-minute and 1-hour combined). */
-    cache_write: number;
-  };
+  cost_by_type?: CostByType;
   /** Web-search/web-fetch/code-execution surcharges; absent when none applied. */
   feature_costs?: CostFeatureCosts;
   /** Present only when at least one model had usage but no pricing rule. */

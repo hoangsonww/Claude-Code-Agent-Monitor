@@ -193,6 +193,7 @@ function calculateCost(tokenRows, pricingRules, asOf) {
       web_fetch_requests: 0,
       code_execution_requests: 0,
       _cost: 0,
+      _types: emptyTypeCosts(),
       matched_rule: rule?.model_pattern || null,
     };
     agg.input_tokens += row.input_tokens || 0;
@@ -204,11 +205,16 @@ function calculateCost(tokenRows, pricingRules, asOf) {
     agg.web_fetch_requests += row.web_fetch_requests || 0;
     agg.code_execution_requests += row.code_execution_requests || 0;
     agg._cost += tCost + wsCost;
+    agg._types.input += inputCost;
+    agg._types.output += outputCost;
+    agg._types.cache_read += cacheReadCost;
+    agg._types.cache_write += cacheWriteCost;
     breakdownMap.set(key, agg);
   }
-  const breakdown = [...breakdownMap.values()].map(({ _cost, ...b }) => ({
+  const breakdown = [...breakdownMap.values()].map(({ _cost, _types, ...b }) => ({
     ...b,
     cost: round4(_cost),
+    cost_by_type: roundTypeCosts(_types),
   }));
 
   // Code execution is billed by container-time, estimated at the 5-minute
@@ -318,20 +324,26 @@ function calculateGptCost(tokenRows, pricingRules) {
       code_execution_requests: 0,
       matched_rule: rule?.model_pattern || null,
       _cost: 0,
+      _types: emptyTypeCosts(),
     };
     entry.input_tokens += inputs;
     entry.output_tokens += outputs;
     entry.cache_read_tokens += cached;
     entry.cache_write_tokens += writes;
     entry._cost += bucketCost;
+    entry._types.input += inputCost;
+    entry._types.output += outputCost;
+    entry._types.cache_read += cachedCost;
+    entry._types.cache_write += writeCost;
     breakdownMap.set(key, entry);
   }
 
   return {
     total_cost: round4(total),
-    breakdown: [...breakdownMap.values()].map(({ _cost, ...entry }) => ({
+    breakdown: [...breakdownMap.values()].map(({ _cost, _types, ...entry }) => ({
       ...entry,
       cost: round4(_cost),
+      cost_by_type: roundTypeCosts(_types),
     })),
     cost_by_type: roundTypeCosts(typeCosts),
     feature_costs: {
@@ -388,6 +400,12 @@ function calculateCursorCost(tokenRows, pricingRules) {
       code_execution_requests: 0,
       matched_rule: rule?.model_pattern || null,
       cost: round4(cost),
+      cost_by_type: roundTypeCosts({
+        input: inputCost,
+        output: outputCost,
+        cache_read: cacheReadCost,
+        cache_write: cacheWriteCost,
+      }),
     };
     breakdown.push(item);
     if (!rule) {

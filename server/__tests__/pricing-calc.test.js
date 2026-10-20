@@ -164,6 +164,34 @@ describe("calculateCost — cost_by_type", () => {
     assert.deepEqual(r.cost_by_type, { input: 5, output: 25, cache_read: 0.5, cache_write: 7.75 });
   });
 
+  it("attaches the same split to each breakdown row, per model", () => {
+    const rules = [
+      ...RULES,
+      {
+        model_pattern: "claude-sonnet-5%",
+        input_per_mtok: 3,
+        output_per_mtok: 15,
+        cache_read_per_mtok: 0.3,
+        cache_write_per_mtok: 3.75,
+        cache_write_1h_per_mtok: 6,
+      },
+    ];
+    const r = calculateCost(
+      [
+        bucket({ input_tokens: M, output_tokens: M }),
+        bucket({ model: "claude-sonnet-5", input_tokens: 2 * M, cache_read_tokens: M }),
+        bucket({ input_tokens: M, web_search_requests: 1000 }),
+      ],
+      rules
+    );
+    const opus = r.breakdown.find((b) => b.model === "claude-opus-4-8");
+    const sonnet = r.breakdown.find((b) => b.model === "claude-sonnet-5");
+    assert.deepEqual(opus.cost_by_type, { input: 10, output: 25, cache_read: 0, cache_write: 0 });
+    // The row cost keeps the $10 web-search surcharge that the per-type split leaves out.
+    assert.equal(opus.cost, 45);
+    assert.deepEqual(sonnet.cost_by_type, { input: 6, output: 0, cache_read: 0.3, cache_write: 0 });
+  });
+
   it("excludes server-tool surcharges and prices unmatched models at zero", () => {
     const priced = calculateCost([bucket({ input_tokens: M, web_search_requests: 1000 })], RULES);
     assert.equal(priced.total_cost, 15);
