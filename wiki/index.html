@@ -2318,6 +2318,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Re-derive non-workflow token totals for Claude sessions whose transcripts are still on disk and reset the compaction baselines, preserving workflow and Codex rows. One-time repair for databases inflated by the old per-record usage sum; stop the dashboard before running it</td>
                 </tr>
                 <tr>
+                  <td><code>repair-codex-output</code></td>
+                  <td><code>node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json</code></td>
+                  <td>Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.</td>
+                </tr>
+                <tr>
                   <td><code>clear-data</code></td>
                   <td><code>npm run clear-data</code></td>
                   <td>Delete all data from the database (keeps schema)</td>
@@ -4179,6 +4184,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
         <section id="remote-sources">
           <div class="section-label">◈ Integrations</div>
           <h2>Remote Data Sources</h2>
+          <p>Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.</p>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
