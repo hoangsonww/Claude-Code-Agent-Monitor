@@ -386,6 +386,62 @@ export function truncate(str: string, max: number): string {
   return str.slice(0, max - 1) + "\u2026"; // reserve one slot for the ellipsis
 }
 
+/** Matches a home directory prefix (`/Users/<name>`, `/home/<name>`, `C:/Users/<name>`). */
+const HOME_PREFIX = /^(?:\/(?:Users|home)\/[^/]+|[A-Za-z]:\/Users\/[^/]+)(?=\/|$)/;
+
+/** Options mirroring fish's `fish_prompt_pwd_dir_length` and `fish_prompt_pwd_full_dirs`. */
+export interface PromptPwdOptions {
+  /** Characters kept per shortened directory; `0` disables shortening. Default `1`. */
+  dirLength?: number;
+  /** Trailing directories kept at full length; `0` shortens even the last one. Default `1`. */
+  fullDirs?: number;
+}
+
+/**
+ * Port of fish-shell's `prompt_pwd` (share/functions/prompt_pwd.fish): replaces the home
+ * directory with `~` and shortens every directory except the trailing `fullDirs` ones to
+ * `dirLength` characters, keeping a leading dot (`.config` becomes `.c`).
+ * @param path Absolute directory path (POSIX, or Windows with `\` or `/` separators).
+ * @param options See {@link PromptPwdOptions}.
+ * @returns The shortened path, always `/`-separated, e.g. `~/D/data-lcbdb-inca-cold`.
+ * @remarks Differs from fish in two ways: the home directory is inferred from the
+ *   `/Users/<name>`, `/home/<name>` and `C:\Users\<name>` conventions because the browser has no
+ *   `$HOME`, and a Windows drive prefix (`D:`) is kept intact rather than shortened.
+ * @example promptPwd("/Users/me/DataGripProjects/data-lcbdb") // "~/D/data-lcbdb"
+ * @example promptPwd("/opt/services/api", { dirLength: 2 })    // "/op/se/api"
+ */
+export function promptPwd(path: string, options: PromptPwdOptions = {}): string {
+  const { dirLength = 1, fullDirs = 1 } = options;
+  // Strip control characters so a hostile path can't inject terminal/escape sequences.
+  // eslint-disable-next-line no-control-regex
+  let tmp = path.replace(/[\u0000-\u001f\u007f]/g, "");
+  if (/^[A-Za-z]:[\\/]/.test(tmp) || !tmp.includes("/")) tmp = tmp.replace(/\\/g, "/");
+
+  let drive = "";
+  const driveMatch = /^[A-Za-z]:(?=\/)/.exec(tmp);
+  const home = HOME_PREFIX.exec(tmp);
+  if (home) tmp = "~" + tmp.slice(home[0].length);
+  else if (driveMatch) {
+    drive = driveMatch[0];
+    tmp = tmp.slice(drive.length);
+  }
+  if (dirLength === 0) return drive + tmp;
+
+  // Shorten every component that is followed by a slash: `(\.?[^/]{N})[^/]*/` -> `$1/`.
+  const shorten = (s: string) =>
+    s.replace(new RegExp(`(\\.?[^/]{${dirLength}})[^/]*/`, "gu"), "$1/");
+
+  if (fullDirs === 0) {
+    return drive + tmp.replace(new RegExp(`(\\.?[^/]{${dirLength}})[^/]*`, "gu"), "$1");
+  }
+  // `string split -m (fullDirs - 1) -r / $tmp`: split off the last `fullDirs - 1` components.
+  const parts = tmp.split("/");
+  const keep = Math.min(Math.max(fullDirs - 1, 0), parts.length - 1);
+  if (keep === 0) return drive + shorten(tmp);
+  const head = parts.slice(0, parts.length - keep).join("/");
+  return drive + [shorten(head), ...parts.slice(parts.length - keep)].join("/");
+}
+
 /**
  * Format large numbers with B/M/K suffixes.
  * @param n The number to abbreviate (typically a token count or event tally).

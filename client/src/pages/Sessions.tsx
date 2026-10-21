@@ -89,7 +89,7 @@ import { Select } from "../components/Select";
 import { useUrlTab } from "../hooks/usePageShortcuts";
 import { usePaletteAction } from "../components/PaletteActionProvider";
 import { PaletteHint } from "../components/PaletteHint";
-import { formatDateTime, formatDuration, truncate, fmtCost } from "../lib/format";
+import { formatDateTime, formatDuration, promptPwd, fmtCost } from "../lib/format";
 import {
   effectiveSessionStatus,
   isSessionAwaitingInput,
@@ -617,10 +617,10 @@ export function Sessions() {
                       {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
                     </td>
                     <td
-                      className="px-5 py-4 text-[11px] text-gray-500 font-mono"
+                      className="px-5 py-4 text-[11px] text-gray-500 font-mono w-[22%] max-w-0"
                       title={session.cwd || undefined}
                     >
-                      {session.cwd ? truncate(session.cwd, 30) : "-"}
+                      <div className="truncate">{session.cwd ? promptPwd(session.cwd) : "-"}</div>
                     </td>
                     <td className="px-3 py-4">
                       {!isTransientProcessSession(session) && (

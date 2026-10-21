@@ -94,6 +94,7 @@ import {
   formatDuration,
   timeAgo,
   truncate,
+  promptPwd,
   fmt,
   fmtCost,
   formatDateTime,
@@ -342,5 +343,58 @@ describe("formatModelName", () => {
   it("title-cases unknown models", () => {
     expect(formatModelName("o1-mini")).toBe("O1 Mini");
     expect(formatModelName("o1-preview")).toBe("O1 Preview");
+  });
+});
+
+describe("promptPwd", () => {
+  it("collapses the home directory to ~ and abbreviates intermediate dirs", () => {
+    expect(promptPwd("/Users/stavnamir/DataGripProjects/data-lcbdb-inca-cold")).toBe(
+      "~/D/data-lcbdb-inca-cold"
+    );
+    expect(promptPwd("/home/me/src/work/app")).toBe("~/s/w/app");
+  });
+
+  it("keeps a direct child of home in full", () => {
+    expect(promptPwd("/Users/me/project")).toBe("~/project");
+  });
+
+  it("returns ~ for the home directory itself", () => {
+    expect(promptPwd("/Users/me")).toBe("~");
+  });
+
+  it("keeps the leading dot of hidden intermediate dirs", () => {
+    expect(promptPwd("/Users/me/.config/app/sub")).toBe("~/.c/a/sub");
+  });
+
+  it("abbreviates paths outside home from the root", () => {
+    expect(promptPwd("/opt/services/api")).toBe("/o/s/api");
+    expect(promptPwd("/tmp")).toBe("/tmp");
+    expect(promptPwd("/")).toBe("/");
+  });
+
+  it("handles Windows paths", () => {
+    expect(promptPwd("C:\\Users\\me\\Projects\\app")).toBe("~/P/app");
+    expect(promptPwd("D:\\work\\repos\\app")).toBe("D:/w/r/app");
+  });
+
+  it("does not treat a home-like prefix as a home directory boundary", () => {
+    expect(promptPwd("/Users")).toBe("/Users");
+  });
+
+  it("honours dirLength like fish_prompt_pwd_dir_length", () => {
+    expect(promptPwd("/Users/me/Projects/.config/app", { dirLength: 2 })).toBe("~/Pr/.co/app");
+    expect(promptPwd("/opt/a/services/api", { dirLength: 2 })).toBe("/op/a/se/api");
+    expect(promptPwd("/Users/me/Projects/app", { dirLength: 0 })).toBe("~/Projects/app");
+  });
+
+  it("honours fullDirs like fish_prompt_pwd_full_dirs", () => {
+    expect(promptPwd("/Users/me/Projects/web/app", { fullDirs: 2 })).toBe("~/P/web/app");
+    expect(promptPwd("/Users/me/Projects/web/app", { fullDirs: 3 })).toBe("~/Projects/web/app");
+    expect(promptPwd("/Users/me/Projects/web/app", { fullDirs: 9 })).toBe("~/Projects/web/app");
+    expect(promptPwd("/Users/me/Projects/web/app", { fullDirs: 0 })).toBe("~/P/w/a");
+  });
+
+  it("strips control characters", () => {
+    expect(promptPwd("/opt/\u001b[31mred/\u0007app")).toBe("/o/[/app");
   });
 });
