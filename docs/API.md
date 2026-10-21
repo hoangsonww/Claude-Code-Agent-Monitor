@@ -1083,6 +1083,8 @@ The `/api/remote-sources/*` namespace configures **remote SSH machines** the das
 
 `ssh_port`, `identity_file`, `remote_home`, `remote_codex_home`, `claude_status`, `codex_status`, `last_error`, `last_sync_at`, and `last_sync_counts` are nullable. `remote_home` and `remote_codex_home` are the optional **Remote Claude home** and **Remote Codex home** overrides; send `null` on `PATCH` to return either provider to its default remote home. `status` is one of `idle`, `syncing`, `ok`, `error`; provider statuses additionally use `unavailable` when that CLI's history directory is absent.
 
+During `syncing`, `last_error` (and the WebSocket `error` field) retains the most recent failure, so automatic retries do not hide the diagnostic. A completed failure replaces it; a successful sync clears it. Last successful import counts and timestamp remain unchanged on failure.
+
 #### List Remote Sources
 
 ```http
@@ -1999,6 +2001,10 @@ await fetch('http://localhost:4820/api/pricing/my-custom-model', {
 ```
 
 ---
+
+## Remote Source Import Ownership
+
+`POST /api/remote-sources/:id/sync` and each entry in `POST /api/remote-sources/sync-all` include `sessions_excluded` (unique conflicting native IDs), `subagent_files_excluded`, and `excluded_ids` (at most 50 IDs), alongside the existing import counters. Provider-specific results carry the same counters. Sessions belonging to another source or provider are excluded from snapshots, events, tokens, and source tagging; a copied local session remains local and cannot be purged through the remote source. Ownership is checked again when writing after asynchronous transcript or workflow parsing. Failed Claude session transactions do not publish snapshots or workflow journals. Codex imports reject conflicting filename, metadata or cursor identities before ingesting; metadata-free legacy transcripts retain their filename identity fallback. Local Claude directory imports also exclude other providers before publishing snapshots or workflows. New remote rows record source and `metadata.origin_host` atomically. The `collector-v2` origin mark hashes the configured SSH destination, port, identity-file path and both provider history roots. After source deletion without purge, only an exact mark permits re-adoption. Legacy host-only marks are retained but do not authorize re-adoption; an existing registered owner can refresh its mark during a normal import. Cached rows with missing or empty metadata receive an object containing the mark during tagging. Nonempty malformed or nonobject metadata is preserved and cannot authorize local history imports. The sessions metadata PATCH replaces metadata; explicit replacement can remove a provenance mark, so this guarantee applies to normal import and source deletion flows. Destination case and an unspecified port are preserved because SSH usernames are case-sensitive and SSH configuration can supply a port. This identifies the configured collector, not key contents, resolved SSH configuration or the machine where a copied session originally ran. Existing timer and SSH transport behavior are unchanged.
 
 ## Summary
 

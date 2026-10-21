@@ -8,6 +8,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+const { isLocalHistoryOwner } = require("./session-origin");
 const fs = require("fs");
 const path = require("path");
 const { constants: bufferConstants } = require("buffer");
@@ -22,7 +23,7 @@ const { getDataDir } = require("./claude-home");
 const { updatePlanArgumentIndexes } = require("./codex-plan-call");
 
 const MAX_EVENT_SUMMARY = 500;
-const CONTEXT_SHORT_LIMIT = 272000;
+const { codexTokenDelta, CONTEXT_SHORT_LIMIT } = require("./codex-token-accounting");
 const EVENT_TYPES = new Set([
   "user_message",
   "task_started",
@@ -224,6 +225,62 @@ function findCodexTranscripts(root = getCodexSessionsDir(), options = {}) {
   // New/active rollouts must win over a large historical backlog. The syncer
   // yields between files, but this ordering ensures a just-created session is
   // visible on the first cooperative slice rather than after every old file.
+  return files.sort((a, b) => b.mtimeMs - a.mtimeMs).map((file) => file.path);
+}
+
+/** Discover history without blocking HTTP delivery on filesystem metadata. */
+async function findCodexTranscriptsAsync(root = getCodexSessionsDir(), options = {}) {
+  const files = [];
+  const pending = [root];
+  while (pending.length) {
+    let entries;
+    const current = pending.pop();
+    try {
+      entries = await fs.promises.readdir(current, { withFileTypes: true });
+      if (options.isCurrent && !options.isCurrent()) return [];
+    } catch {
+      if (options.isCurrent && !options.isCurrent()) return [];
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) pending.push(fullPath);
+      else if (
+        entry.isFile() &&
+        entry.name.endsWith(".jsonl") &&
+        (entry.name.startsWith("rollout-") || options.includeAllJsonl)
+      ) {
+        files.push({ path: fullPath, mtimeMs: 0 });
+      }
+    }
+    // Limit pending metadata operations and preserve discovery order for ties.
+    await new Promise((resolve) => setImmediate(resolve));
+    if (options.isCurrent && !options.isCurrent()) return [];
+  }
+  for (let index = 0; index < files.length; index += 16) {
+    await Promise.all(
+      files.slice(index, index + 16).map(async (file) => {
+        try {
+          const stat = await fs.promises.stat(file.path);
+          file.mtimeMs = stat.mtimeMs;
+          options.observations?.set(file.path, stat);
+        } catch {
+          /* Unstattable files keep the same last-place ordering. */
+        }
+      })
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    if (options.isCurrent && !options.isCurrent()) return [];
+  }
+  // A late scan of an old home must not replace the current hook-path cache.
+  if (
+    path.resolve(root) === path.resolve(getCodexSessionsDir()) &&
+    (!options.isCurrent || options.isCurrent())
+  ) {
+    // Match the synchronous cache contract for duplicate session IDs: the
+    // last discovered path wins, independently of the returned mtime order.
+    for (const file of files) rememberTranscriptPath(file.path);
+  }
   return files.sort((a, b) => b.mtimeMs - a.mtimeMs).map((file) => file.path);
 }
 
@@ -489,7 +546,8 @@ function syncCodexCardContext(sessionId, agentId) {
          SUM(CASE WHEN event_type = 'codex_task_started' THEN 1 ELSE 0 END) AS started,
          COUNT(DISTINCT CASE WHEN event_type = 'codex_user_message'
            THEN COALESCE(json_extract(data, '$.turn_id'), 'event:' || id) END) AS prompts
-       FROM events WHERE session_id = ?`
+       FROM events WHERE session_id = ?
+         AND event_type IN ('codex_task_started', 'codex_user_message')`
     )
     .get(sessionId);
   const turnCount = Math.max(asNumber(totals?.started), asNumber(totals?.prompts));
@@ -564,6 +622,8 @@ function backfillCodexCardContext(transcriptPath, session, consumedBytes) {
 /** Keep dashboard cards aligned with the title chosen in Codex's `/rename` UI. */
 function syncCodexSessionTitle(session) {
   if (!session?.id) return { changed: false, session };
+  if (!isLocalHistoryOwner(stmts.getSession.get(session.id), "codex"))
+    return { changed: false, session };
   const title = getCodexSessionTitle(session.id);
   if (!title || title === session.name) return { changed: false, session };
   const changed = stmts.updateSessionName.run(title, session.id, title).changes > 0;
@@ -578,19 +638,30 @@ function syncCodexSessionTitle(session) {
 function refreshCodexSessionTitles() {
   const titles = getCodexSessionTitles();
   if (!titles.size) return [];
-  const sessions = db.prepare("SELECT * FROM sessions WHERE provider = 'codex'").all();
   const changed = [];
-  for (const session of sessions) {
-    if (!titles.has(session.id)) continue;
-    const synced = syncCodexSessionTitle(session);
-    if (synced.changed) {
-      changed.push({
-        changed: true,
-        created: false,
-        session: synced.session,
-        agent: stmts.getAgent.get(`codex:${session.id}`),
-        events: [],
-      });
+  const entries = [...titles];
+  // Compare only IDs present in the native title index and materialize actual
+  // renames. Two bound values per title stay below legacy SQLite's 999 limit.
+  for (let offset = 0; offset < entries.length; offset += 250) {
+    const chunk = entries.slice(offset, offset + 250);
+    const sessions = db
+      .prepare(
+        `WITH desired(id, name) AS (VALUES ${chunk.map(() => "(?, ?)").join(",")})
+         SELECT s.id, s.name FROM desired d JOIN sessions s ON s.id = d.id
+         WHERE s.provider = 'codex' AND s.name IS NOT d.name`
+      )
+      .all(...chunk.flat());
+    for (const session of sessions) {
+      const synced = syncCodexSessionTitle(session);
+      if (synced.changed) {
+        changed.push({
+          changed: true,
+          created: false,
+          session: synced.session,
+          agent: stmts.getAgent.get(`codex:${session.id}`),
+          events: [],
+        });
+      }
     }
   }
   return changed;
@@ -604,8 +675,10 @@ function createCodexSession(meta, transcriptPath, options = {}) {
 
   const startedAt = meta?.timestamp || new Date().toISOString();
   const cwd = meta?.cwd || null;
+  const originSource = options.originSource || null;
   const metadata = JSON.stringify({
     provider: "codex",
+    ...(originSource ? { origin_host: originSource.key } : {}),
     transcript_path: transcriptPath,
     cli_version: meta?.cli_version || null,
     model_provider: meta?.model_provider || "openai",
@@ -618,7 +691,7 @@ function createCodexSession(meta, transcriptPath, options = {}) {
     confirmedHistorical ? "completed" : "active",
     cwd,
     meta?.model || meta?.model_name || "unknown",
-    "local",
+    originSource ? originSource.id : "local",
     startedAt,
     startedAt,
     metadata
@@ -657,6 +730,36 @@ function createCodexSession(meta, transcriptPath, options = {}) {
  * Only very recent rows become placeholders; older sessions remain owned by
  * normal rollout discovery, avoiding an unexpected history import at startup.
  */
+function readRecentCodexThreads(stateDb, minCreatedAt) {
+  const bounded = Number.isFinite(minCreatedAt);
+  const params = bounded ? [minCreatedAt] : [];
+  const query = (hint = "") =>
+    `SELECT id, rollout_path, created_at, cwd, model, model_provider, cli_version
+     FROM threads${hint}
+     WHERE archived = 0 ${bounded ? "AND created_at >= ?" : ""}
+     ORDER BY created_at DESC
+     LIMIT 50`;
+  if (bounded) {
+    try {
+      // Native state can contain years of wide rows. Some SQLite plans prefer
+      // the low-selectivity archived index and sort them instead of reading the
+      // recent creation-time range. Never add/alter an index in Codex's DB.
+      const index = stateDb
+        .pragma("index_list(threads)")
+        .find((row) => row.name === "idx_threads_created_at" && !row.partial);
+      if (index && stateDb.pragma("index_info(idx_threads_created_at)")[0]?.name === "created_at") {
+        return stateDb.prepare(query(" INDEXED BY idx_threads_created_at")).all(...params);
+      }
+    } catch (error) {
+      // INDEXED BY is mandatory. Older schemas, or an index disappearing
+      // between inspection and prepare, must retry the original portable read.
+      // A busy/corrupt/unreadable DB must not incur the same wait twice.
+      if (error.code && !["SQLITE_ERROR", "SQLITE_SCHEMA"].includes(error.code)) throw error;
+    }
+  }
+  return stateDb.prepare(query()).all(...params);
+}
+
 function syncCodexStateSessions(options = {}) {
   const maxAgeMs = options.maxAgeMs ?? LIVE_THREAD_MAX_AGE_MS;
   const statePath = getCodexStateDbPath();
@@ -666,15 +769,8 @@ function syncCodexStateSessions(options = {}) {
   try {
     const Database = require("better-sqlite3");
     stateDb = new Database(statePath, { readonly: true, fileMustExist: true });
-    const threads = stateDb
-      .prepare(
-        `SELECT id, rollout_path, created_at, cwd, model, model_provider, cli_version
-         FROM threads
-         WHERE archived = 0
-         ORDER BY created_at DESC
-         LIMIT 50`
-      )
-      .all();
+    const minCreatedAt = (Date.now() - maxAgeMs) / 1_000;
+    const threads = readRecentCodexThreads(stateDb, minCreatedAt);
     const now = Date.now();
     const changed = [];
     for (const thread of threads) {
@@ -832,11 +928,7 @@ function isFinishedCodexSession(session, agent) {
 
 function resumeCodexSessionAtPrompt(sessionId) {
   const session = stmts.getSession.get(sessionId);
-  if (
-    !session ||
-    session.provider !== "codex" ||
-    (session.source !== null && session.source !== "local")
-  ) {
+  if (!session || !isLocalHistoryOwner(session, "codex")) {
     return null;
   }
   const agentId = `codex:${sessionId}`;
@@ -867,47 +959,52 @@ function applyCodexTranscriptLifecycle(sessionId, record) {
 function applyTokenSnapshot(sessionId, model, speed, tokenInfo, previous) {
   const total = tokenInfo.total_token_usage;
   if (!total) return previous;
-  const current = {
-    input_tokens: asNumber(total.input_tokens),
-    cached_input_tokens: asNumber(total.cached_input_tokens),
-    cache_write_input_tokens: asNumber(total.cache_write_input_tokens),
-    output_tokens: asNumber(total.output_tokens),
-    reasoning_output_tokens: asNumber(total.reasoning_output_tokens),
-  };
-  const fields = Object.keys(current);
-  const hasRegression = fields.some((field) => current[field] < asNumber(previous[field]));
-  const delta = Object.fromEntries(
-    fields.map((field) => [
-      field,
-      hasRegression ? 0 : Math.max(0, current[field] - asNumber(previous[field])),
-    ])
-  );
-  const output = delta.output_tokens + delta.reasoning_output_tokens;
-  const freshInput = Math.max(
-    0,
-    delta.input_tokens - delta.cached_input_tokens - delta.cache_write_input_tokens
-  );
-  if (freshInput || delta.cached_input_tokens || delta.cache_write_input_tokens || output) {
-    const contextSize = delta.input_tokens > CONTEXT_SHORT_LIMIT ? "long" : "short";
+  const delta = codexTokenDelta(total, previous);
+  // Codex maps reasoning from output_tokens_details; it is already included
+  // in output_tokens, not an additional billable output category.
+  const output = delta.output;
+  if (delta.input || delta.cached || delta.write || output) {
     stmts.upsertCodexTokenDelta.run(
       sessionId,
       model || "unknown",
       speed,
-      contextSize,
-      freshInput,
+      delta.context,
+      delta.input,
       output,
-      delta.cached_input_tokens,
-      delta.cache_write_input_tokens
+      delta.cached,
+      delta.write
     );
   }
-  return current;
+  return delta.current;
+}
+
+/** Guard remote-import identity before either cursor can write session data. */
+// Thrown when a rollout's session is owned by another source or provider. The
+// live sweep treats it as a permanent skip, not a transient ingest failure.
+const CODEX_FOREIGN_SESSION = "CODEX_FOREIGN_SESSION";
+
+function foreignSessionError() {
+  const error = new Error("Codex import session belongs to another source or provider");
+  error.code = CODEX_FOREIGN_SESSION;
+  return error;
+}
+
+function assertCodexImportIdentity(id, options) {
+  if (!id) return;
+  if (!options.originSource && !isLocalHistoryOwner(stmts.getSession.get(id), "codex")) {
+    throw foreignSessionError();
+  }
+  if (options.expectedSessionId && id !== options.expectedSessionId) {
+    throw new Error("Codex import session identity mismatch");
+  }
+  if (options.isExcludedSession?.(id)) {
+    throw foreignSessionError();
+  }
 }
 
 /**
- * Incrementally persist Codex `response_item` tool invocations. These records
- * are richer than the low-volume terminal `event_msg` notifications and power
- * the Workflows tool-flow view. Their own cursor lets existing histories be
- * backfilled once without replaying token counters or lifecycle state.
+ * Incrementally persist response-item tools through their independent cursor,
+ * without replaying the primary token counters or lifecycle state.
  */
 function ingestCodexToolEvents(transcriptPath, options = {}) {
   if (!isCodexTranscript(transcriptPath, options)) return { changed: false, events: [] };
@@ -924,6 +1021,7 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
   const state = stmts.getCodexToolIngestState.get(transcriptPath);
   const offset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
   const sessionId = state?.session_id || sessionIdFromPath(transcriptPath);
+  assertCodexImportIdentity(sessionId, options);
   const session = sessionId && stmts.getSession.get(sessionId);
   if (!session) return { changed: false, events: [] };
   const length = stat.size - offset;
@@ -998,13 +1096,17 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
  * one call — including rollouts too large to decode as a single string.
  */
 function ingestCodexTranscript(transcriptPath, options = {}) {
+  // The secondary tool cursor must be checked before primary ingestion can
+  // change tokens, and when tool ingestion is called directly.
+  assertCodexImportIdentity(stmts.getCodexToolIngestState.get(transcriptPath)?.session_id, options);
   const result = ingestCodexTranscriptWindow(transcriptPath, options, null);
   let window = result;
   while (window.more && !window.failed) {
     window = ingestCodexTranscriptWindow(transcriptPath, options, window.carry);
     mergeIngestWindow(result, window);
   }
-  if (!result.failed) mergeIngestWindow(result, ingestCodexToolEvents(transcriptPath, options));
+  if (!result.failed && !result.skipped)
+    mergeIngestWindow(result, ingestCodexToolEvents(transcriptPath, options));
   delete result.more;
   delete result.carry;
   return result;
@@ -1043,6 +1145,8 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
     return { changed: false, events: [], failed: true };
   }
   const state = stmts.getCodexIngestState.get(transcriptPath);
+  // Guard cursor-owned rows before card repair or any cursor update too.
+  assertCodexImportIdentity(state?.session_id, options);
   const storedOffset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
   const offset = Number.isInteger(carry?.readOffset) ? carry.readOffset : storedOffset;
   const repairSession = state?.session_id ? stmts.getSession.get(state.session_id) : null;
@@ -1117,6 +1221,8 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
 
   let meta = records.find((record) => record.type === "session_meta")?.payload;
   const resolvedSessionId = state?.session_id || meta?.id || sessionIdFromPath(transcriptPath);
+  assertCodexImportIdentity(meta?.id, options);
+  assertCodexImportIdentity(resolvedSessionId, options);
   const knownSession = resolvedSessionId ? stmts.getSession.get(resolvedSessionId) : null;
   // Imported rollouts live in a dashboard-owned snapshot so uploads remain
   // readable after their temporary extraction directory is removed. When the
@@ -1134,6 +1240,10 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
     !stmts.getCodexIngestState.get(transcriptPath)
   ) {
     const previousState = stmts.getCodexIngestState.get(knownSession.transcript_path);
+    // A shorter copy cannot inherit the snapshot cursor: replaying it would lower
+    // cumulative baselines and charge already-imported usage again.
+    if (previousState && stat.size < previousState.byte_offset)
+      return { changed: false, events: [], skipped: true };
     const previousToolState = stmts.getCodexToolIngestState.get(knownSession.transcript_path);
     if (previousState) {
       stmts.upsertCodexIngestState.run(
@@ -1164,6 +1274,7 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
   const createOptions = {
     confirmedLive,
     endedAt: new Date(stat.mtimeMs).toISOString(),
+    originSource: options.originSource,
   };
   let session = knownSession || createCodexSession(meta, transcriptPath, createOptions);
   if (!session && meta?.id) session = createCodexSession(meta, transcriptPath, createOptions);
@@ -1199,14 +1310,20 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
   };
   const events = [];
   let latestLifecycleRecord = null;
+  // Most live appends contain only tool output or token snapshots. Historical
+  // prompt enumeration is needed for deduplication only when this window
+  // contains a prompt; card aggregation and legacy repair still run below.
+  const hasUserPrompt = records.some((record) => Boolean(codexUserMessage(record)));
   const seenPromptKeys = new Set(
-    db
-      .prepare(
-        `SELECT created_at, summary FROM events
+    hasUserPrompt
+      ? db
+          .prepare(
+            `SELECT created_at, summary FROM events
          WHERE session_id = ? AND event_type = 'codex_user_message'`
-      )
-      .all(session.id)
-      .map((row) => `${row.created_at}\u0000${row.summary}`)
+          )
+          .all(session.id)
+          .map((row) => `${row.created_at}\u0000${row.summary}`)
+      : []
   );
 
   // Whether prompts may still set the session name. Evaluated once per call
@@ -1639,12 +1756,7 @@ function ingestCodexHook(transcriptPath, hookType, hookData) {
     // remote-mirrored session, and attribute events to a `codex:<id>` agent
     // that was never created. Mirrors the guard in resumeCodexSessionAtPrompt.
     const candidate = stmts.getSession.get(meta.id);
-    const existing =
-      candidate &&
-      candidate.provider === "codex" &&
-      (candidate.source === null || candidate.source === "local")
-        ? candidate
-        : null;
+    const existing = candidate && isLocalHistoryOwner(candidate, "codex") ? candidate : null;
     if (candidate && !existing) return result;
     // Only SessionStart may CREATE a session; a later notification for an
     // unknown id would otherwise resurrect a session the user already deleted.
@@ -1678,8 +1790,10 @@ function ingestCodexHook(transcriptPath, hookType, hookData) {
 }
 
 module.exports = {
+  CODEX_FOREIGN_SESSION,
   CONTEXT_SHORT_LIMIT,
   findCodexTranscripts,
+  findCodexTranscriptsAsync,
   findCodexTranscriptForSession,
   ingestCodexToolEvents,
   ingestCodexTranscript,
@@ -1691,6 +1805,7 @@ module.exports = {
   resumeCodexSessionAtPrompt,
   refreshCodexSessionTitles,
   syncCodexStateSessions,
+  readRecentCodexThreads,
   isCodexTranscript,
   setReadWindowBytesForTests,
 };

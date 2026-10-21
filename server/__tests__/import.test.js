@@ -14,7 +14,16 @@ const os = require("os");
 const http = require("http");
 const zlib = require("zlib");
 
-const TEST_DB = path.join(os.tmpdir(), `dashboard-import-test-${Date.now()}-${process.pid}.db`);
+// Rescan exercises the configured home, so never inherit the developer's real
+// history or snapshot directory. All provider/default-path tests stay local to
+// this fixture, including the background import launched by POST /rescan.
+const TEST_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-import-home-"));
+process.env.CLAUDE_HOME = path.join(TEST_HOME, "claude");
+process.env.DASHBOARD_CODEX_HOME = path.join(TEST_HOME, "codex");
+process.env.DASHBOARD_CURSOR_HOME = path.join(TEST_HOME, "cursor");
+process.env.DASHBOARD_DATA_DIR = path.join(TEST_HOME, "data");
+fs.mkdirSync(path.join(process.env.CLAUDE_HOME, "projects"), { recursive: true });
+const TEST_DB = path.join(TEST_HOME, "test.db");
 process.env.DASHBOARD_DB_PATH = TEST_DB;
 
 const { createApp, startServer } = require("../index");
@@ -206,6 +215,7 @@ after(() => {
       /* ignore */
     }
   }
+  fs.rmSync(TEST_HOME, { recursive: true, force: true });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -347,7 +357,7 @@ describe("POST /api/import/scan-path happy path", () => {
       assert.equal(tokens[0].input_tokens, 70);
       assert.equal(tokens[0].cache_read_tokens, 20);
       assert.equal(tokens[0].cache_write_tokens, 10);
-      assert.equal(tokens[0].output_tokens, 20);
+      assert.equal(tokens[0].output_tokens, 15); // reasoning is a breakdown of output
       assert.equal(
         stmts.listEventsBySession
           .all(CODEX_SESSION)
