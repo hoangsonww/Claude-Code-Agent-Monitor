@@ -41,6 +41,7 @@ The workflow creates one branch, one coordinated commit, the exact open mileston
 - Run `npm run extensions:sync` to regenerate Claude/Codex plugin manifests and both marketplaces.
 - Keep independently shipped client/MCP/monitoring/VS Code package versions unchanged unless explicitly included.
 - Create or reuse the exact open GitHub milestone `v<version>` for the new root version. Query all milestones first. If the exact title already exists closed or more than once, stop and resolve that release state instead of creating a duplicate.
+- Only after the new-version milestone step completes, paginate every pull request merged into the default branch and assign its returned numeric milestone ID to each PR with no milestone, including older omissions from earlier releases. Preserve every existing milestone assignment, verify each write with a fresh read, and fail if a final paginated query finds any merged PR still unmilestoned.
 - Assign the current open pull request containing the bump to `v<version>`. Read its `closingIssuesReferences` and assign every linked closing issue to the same milestone. If no PR exists yet, leave this step explicitly incomplete until the PR is created.
 - Verify the PR and every linked issue report the expected milestone with fresh GitHub reads.
 - Run `npm run extensions:validate`, relevant tests/builds, and the CLI version check.
@@ -96,8 +97,9 @@ existing="$(
 - Empty `existing`: create with `gh api --method POST "repos/${repo}/milestones" -f title="${milestone}"`.
 - One open match: reuse it.
 - Closed or duplicate matches: stop. Do not create another release milestone.
-- Assign the PR with `gh pr edit "$pr" --milestone "$milestone"`.
-- Read linked issues with `gh pr view "$pr" --json closingIssuesReferences`, then assign each same-repository issue with `gh issue edit <number> --milestone "$milestone"`.
+- Only after the new-version milestone step completes, paginate every pull request merged into the default branch and assign its returned numeric milestone ID to every PR with no milestone, including older omissions. Preserve PRs that already have any milestone, verify every changed PR with a fresh read, then query all pages again and fail if any merged PR remains unmilestoned.
+- Assign the PR through `PATCH /repos/{owner}/{repo}/issues/{number}` with the numeric milestone returned by the completed milestone step.
+- Read linked issues with `gh pr view "$pr" --json closingIssuesReferences`, then assign each same-repository issue through the same numeric-milestone REST field.
 - If a closing issue belongs to another repository, stop and report it. Milestones are repository-scoped, so do not mutate another repository implicitly.
 - Verify with `gh pr view "$pr" --json milestone,closingIssuesReferences` and fresh `gh issue view <number> --json milestone` calls.
 

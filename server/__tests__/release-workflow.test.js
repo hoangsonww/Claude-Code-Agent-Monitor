@@ -1,6 +1,7 @@
 /**
  * @file Validates the executable GitHub Actions contract for coordinated
- * release bump pull requests and explicit branch CI dispatch.
+ * release bump pull requests, merged-PR milestone backfill, and explicit
+ * branch CI dispatch.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
@@ -98,6 +99,78 @@ describe("automated release bump workflow", () => {
     assert.match(scripts, /EXPECTED_LABELS_JSON/);
     assert.match(scripts, /assignees/);
     assert.match(scripts, /labels/);
+  });
+
+  it("reuses a valid one-commit release branch after the default branch advances", () => {
+    const config = workflow(".github/workflows/release-bump.yml");
+    const reuse = config.jobs.prepare.steps.find(
+      (step) => step.name === "Verify reusable release branch"
+    );
+
+    assert.ok(reuse);
+    assert.match(reuse.run, /RELEASE_BASE="\$\(git rev-parse "\$REMOTE\^"\)"/);
+    assert.match(reuse.run, /git merge-base --is-ancestor "\$RELEASE_BASE" "\$DEFAULT_HEAD"/);
+    assert.match(reuse.run, /git rev-list --count "\$RELEASE_BASE\.\.\$REMOTE"/);
+    assert.match(reuse.run, /git rev-list --count "\$DEFAULT_HEAD\.\.\$REMOTE"/);
+    assert.match(reuse.run, /git merge-tree --write-tree "\$DEFAULT_HEAD" "\$REMOTE"/);
+    assert.doesNotMatch(reuse.run, /git merge-base --is-ancestor "\$DEFAULT_HEAD" "\$REMOTE"/);
+    assert.doesNotMatch(reuse.run, /git rev-parse "\$REMOTE\^"\)" = "\$DEFAULT_HEAD"/);
+  });
+
+  it("backfills every unmilestoned merged PR only after milestone creation", () => {
+    const config = workflow(".github/workflows/release-bump.yml");
+    const steps = config.jobs.prepare.steps;
+    const backfill = steps.find(
+      (step) => step.name === "Backfill milestone on unmilestoned merged pull requests"
+    );
+    const milestoneIndex = steps.findIndex(
+      (step) => step.name === "Create or reuse release milestone"
+    );
+
+    assert.ok(backfill);
+    assert.equal(
+      steps.find((step) => step.name === "Resolve included pull request boundary"),
+      undefined
+    );
+    assert.ok(
+      steps.indexOf(backfill) >
+        steps.findIndex((step) => step.name === "Create or reuse release pull request")
+    );
+    assert.ok(steps.indexOf(backfill) > milestoneIndex);
+    assert.equal(backfill.env.DEFAULT_BRANCH, "${{ steps.state.outputs.default_branch }}");
+    assert.equal(backfill.env.MILESTONE_NUMBER, "${{ steps.milestone.outputs.number }}");
+    assert.match(backfill.run, /gh api --paginate --method GET "repos\/\$REPO\/pulls"/);
+    assert.match(backfill.run, /-f state=closed -f base="\$DEFAULT_BRANCH" -F per_page=100/);
+    assert.match(backfill.run, /select\(\.merged_at != null and \.milestone == null\) \| \.number/);
+    assert.match(backfill.run, /list_unmilestoned > "\$CANDIDATES"/);
+    assert.ok(
+      backfill.run.indexOf("CURRENT_MILESTONE=") <
+        backfill.run.indexOf('gh api --method PATCH "repos/$REPO/issues/$MERGED_PR"')
+    );
+    assert.match(
+      backfill.run,
+      /gh api --method PATCH "repos\/\$REPO\/issues\/\$MERGED_PR"[\s\S]*?-F milestone="\$MILESTONE_NUMBER"/
+    );
+    assert.match(backfill.run, /gh pr view "\$MERGED_PR"[\s\S]*?--json milestone/);
+    assert.match(backfill.run, /REMAINING_UNASSIGNED="\$\(list_unmilestoned\)"/);
+    assert.match(backfill.run, /Merged pull requests still have no milestone after backfill/);
+    assert.doesNotMatch(backfill.run, /git rev-list|commits\/\$SHA\/pulls/);
+
+    const bookkeeping = steps.find((step) => step.name === "Assign and verify release bookkeeping");
+    assert.ok(steps.indexOf(bookkeeping) > milestoneIndex);
+    assert.equal(bookkeeping.env.MILESTONE_NUMBER, "${{ steps.milestone.outputs.number }}");
+    assert.match(
+      bookkeeping.run,
+      /gh api --method PATCH "repos\/\$REPO\/issues\/\$PR_NUMBER"[\s\S]*?-F milestone="\$MILESTONE_NUMBER"/
+    );
+
+    const milestoneAssignmentSteps = steps.filter(
+      (step) =>
+        typeof step.run === "string" &&
+        /(?:-F milestone="\$MILESTONE_NUMBER"|--milestone)/.test(step.run)
+    );
+    assert.ok(milestoneAssignmentSteps.length > 0);
+    assert.ok(milestoneAssignmentSteps.every((step) => steps.indexOf(step) > milestoneIndex));
   });
 
   it("allows explicit CI dispatch without weakening default-branch release gating", () => {

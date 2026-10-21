@@ -1,6 +1,7 @@
 # Prepares complete CCAM root-version bump pull requests from one manual input.
 # File mutation lives in scripts/bump-release.js; this workflow owns only the
-# GitHub branch, commit, milestone, pull request, linked-issue, and CI state.
+# GitHub branch, commit, milestone, release PR, merged-PR backfill,
+# linked-issue, and CI state.
 #
 # Author: Son Nguyen <hoangson091104@gmail.com>
 name: 🔢 Prepare Release Bump
@@ -148,9 +149,11 @@ jobs:
           set -euo pipefail
           git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
           REMOTE="origin/$BRANCH"
-          git merge-base --is-ancestor "$DEFAULT_HEAD" "$REMOTE"
+          RELEASE_BASE="$(git rev-parse "$REMOTE^")"
+          git merge-base --is-ancestor "$RELEASE_BASE" "$DEFAULT_HEAD"
+          [ "$(git rev-list --count "$RELEASE_BASE..$REMOTE")" -eq 1 ]
           [ "$(git rev-list --count "$DEFAULT_HEAD..$REMOTE")" -eq 1 ]
-          [ "$(git rev-parse "$REMOTE^")" = "$DEFAULT_HEAD" ]
+          git merge-tree --write-tree "$DEFAULT_HEAD" "$REMOTE" >/dev/null
           VERSION="$(git show "$REMOTE:package.json" | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')"
           [ "$VERSION" = "$NEXT_VERSION" ]
           [ "$(git show -s --format=%s "$REMOTE")" = "chore(release): bump version to $NEXT_VERSION" ]
@@ -252,11 +255,61 @@ jobs:
           fi
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
+      - name: Backfill milestone on unmilestoned merged pull requests
+        if: ${{ !inputs.dry_run }}
+        id: merged_pull_requests
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          DEFAULT_BRANCH: ${{ steps.state.outputs.default_branch }}
+          MILESTONE_NUMBER: ${{ steps.milestone.outputs.number }}
+        run: |
+          set -euo pipefail
+          list_unmilestoned() {
+            gh api --paginate --method GET "repos/$REPO/pulls" \
+              -f state=closed -f base="$DEFAULT_BRANCH" -F per_page=100 \
+              -f sort=created -f direction=asc \
+              --jq '.[] | select(.merged_at != null and .milestone == null) | .number'
+          }
+
+          CANDIDATES="$RUNNER_TEMP/release-unmilestoned-pulls.txt"
+          list_unmilestoned > "$CANDIDATES"
+
+          ASSIGNED_PRS=()
+          while read -r MERGED_PR; do
+            [ -z "$MERGED_PR" ] && continue
+            CURRENT_MILESTONE="$(gh pr view "$MERGED_PR" --repo "$REPO" --json milestone --jq '.milestone.number // 0')"
+            [ "$CURRENT_MILESTONE" != 0 ] && continue
+            gh api --method PATCH "repos/$REPO/issues/$MERGED_PR" \
+              -F milestone="$MILESTONE_NUMBER" >/dev/null
+            ASSIGNED_PRS+=("$MERGED_PR")
+          done < "$CANDIDATES"
+          for MERGED_PR in "${ASSIGNED_PRS[@]}"; do
+            [ "$(gh pr view "$MERGED_PR" --repo "$REPO" --json milestone --jq '.milestone.number // 0')" = "$MILESTONE_NUMBER" ]
+          done
+
+          REMAINING_UNASSIGNED="$(list_unmilestoned)"
+          if [ -n "$REMAINING_UNASSIGNED" ]; then
+            echo "::error::Merged pull requests still have no milestone after backfill"
+            while read -r MERGED_PR; do
+              printf '#%s\n' "$MERGED_PR"
+            done <<< "$REMAINING_UNASSIGNED"
+            exit 1
+          fi
+
+          ASSIGNED_COUNT="${#ASSIGNED_PRS[@]}"
+          ASSIGNED_NUMBERS="$(IFS=,; echo "${ASSIGNED_PRS[*]}")"
+
+          {
+            echo "assigned_count=$ASSIGNED_COUNT"
+            echo "assigned_numbers=$ASSIGNED_NUMBERS"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Assign and verify release bookkeeping
         if: ${{ !inputs.dry_run }}
         env:
           REPO: ${{ steps.state.outputs.repo }}
           PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+          MILESTONE_NUMBER: ${{ steps.milestone.outputs.number }}
           MILESTONE: ${{ steps.plan.outputs.milestone }}
         run: |
           set -euo pipefail
@@ -293,8 +346,9 @@ jobs:
           )"
           EXPECTED_LABELS_JSON="$(jq -c .desired <<<"$LABEL_PLAN")"
 
-          gh pr edit "$PR_NUMBER" --repo "$REPO" \
-            --milestone "$MILESTONE" --add-assignee "$OWNER"
+          gh api --method PATCH "repos/$REPO/issues/$PR_NUMBER" \
+            -F milestone="$MILESTONE_NUMBER" >/dev/null
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-assignee "$OWNER"
           jq -r '.add[]' <<<"$LABEL_PLAN" | while read -r LABEL; do
             [ -z "$LABEL" ] || gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
           done
@@ -303,17 +357,18 @@ jobs:
           done
           jq -r '.data.repository.pullRequest.closingIssuesReferences.nodes[].number' <<<"$ISSUES" |
             while read -r ISSUE; do
-              [ -z "$ISSUE" ] || gh issue edit "$ISSUE" --repo "$REPO" --milestone "$MILESTONE"
+              [ -z "$ISSUE" ] || gh api --method PATCH "repos/$REPO/issues/$ISSUE" \
+                -F milestone="$MILESTONE_NUMBER" >/dev/null
             done
           PR_METADATA="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json assignees,labels,milestone)"
-          [ "$(jq -r .milestone.title <<<"$PR_METADATA")" = "$MILESTONE" ]
+          [ "$(jq -r .milestone.number <<<"$PR_METADATA")" = "$MILESTONE_NUMBER" ]
           jq -e --arg owner "$OWNER" 'any(.assignees[]; .login == $owner)' <<<"$PR_METADATA" >/dev/null
           jq -e --argjson expected "$EXPECTED_LABELS_JSON" \
             '[.labels[].name] as $actual | all($expected[]; . as $label | ($actual | index($label)) != null)' \
             <<<"$PR_METADATA" >/dev/null
           jq -r '.data.repository.pullRequest.closingIssuesReferences.nodes[].number' <<<"$ISSUES" |
             while read -r ISSUE; do
-              [ -z "$ISSUE" ] || [ "$(gh issue view "$ISSUE" --repo "$REPO" --json milestone --jq .milestone.title)" = "$MILESTONE" ]
+              [ -z "$ISSUE" ] || [ "$(gh issue view "$ISSUE" --repo "$REPO" --json milestone --jq '.milestone.number // 0')" = "$MILESTONE_NUMBER" ]
             done
 
       - name: Dispatch required checks for the release branch
@@ -340,6 +395,8 @@ jobs:
           NEXT_VERSION: ${{ steps.plan.outputs.next }}
           BRANCH: ${{ steps.plan.outputs.branch }}
           MILESTONE: ${{ steps.plan.outputs.milestone }}
+          MERGED_PR_COUNT: ${{ steps.merged_pull_requests.outputs.assigned_count }}
+          MERGED_PR_NUMBERS: ${{ steps.merged_pull_requests.outputs.assigned_numbers }}
         run: |
           URL="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json url --jq .url)"
           {
@@ -349,6 +406,11 @@ jobs:
             echo "- Branch: \`$BRANCH\`"
             echo "- Milestone: \`$MILESTONE\`"
             echo "- Pull request: $URL"
+            if [ "$MERGED_PR_COUNT" -eq 0 ]; then
+              echo "- Previously unmilestoned merged pull requests assigned: none"
+            else
+              echo "- Previously unmilestoned merged pull requests assigned: #${MERGED_PR_NUMBERS//,/, #}"
+            fi
             echo "- Required checks: CI, file headers, and CLA explicitly dispatched"
             echo "- Merge and tag: not performed"
           } >> "$GITHUB_STEP_SUMMARY"

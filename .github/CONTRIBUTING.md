@@ -140,7 +140,7 @@ The equivalent local preview is:
 node scripts/bump-release.js intermediate --dry-run --json
 ```
 
-A normal workflow run updates every guarded root-release surface, regenerates OpenAPI and extension artifacts, validates the complete diff, creates one `chore/release-v<version>` commit, creates or reuses the matching milestone, opens the PR, verifies linked-issue milestones, and dispatches required checks. The automation commit includes:
+A normal workflow run updates every guarded root-release surface, regenerates OpenAPI and extension artifacts, validates the complete diff, creates one `chore/release-v<version>` commit, creates or reuses the matching milestone, opens the PR, assigns that exact milestone to every merged default-branch PR that does not already have one, verifies release and linked-issue milestones, and dispatches required checks. Milestone assignments run only after the milestone step returns its numeric ID. Existing assignments are preserved, and the run fails if a final paginated check finds any merged default-branch PR still unmilestoned. The automation commit includes:
 
 ```text
 Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>

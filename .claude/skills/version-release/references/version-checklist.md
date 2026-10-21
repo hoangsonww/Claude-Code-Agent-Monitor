@@ -14,6 +14,7 @@
 - [ ] Claude and Codex plugin manifests/catalogs were regenerated.
 - [ ] Independently versioned subprojects were intentionally left unchanged or explicitly released.
 - [ ] The exact open GitHub milestone `v<version>` was reused or created without duplicating an existing/closed release milestone.
+- [ ] Only after the new-version milestone step completed, every unmilestoned PR merged into the default branch was assigned using its returned numeric milestone ID, including older omissions; existing assignments were preserved, changed PRs were verified, and a final paginated query found no remaining misses.
 - [ ] The current pull request containing the version bump is assigned to `v<version>`.
 - [ ] Every issue in the PR's `closingIssuesReferences` is assigned to the same `v<version>` milestone.
 - [ ] Fresh PR and issue reads verify all milestone assignments.
