@@ -15,6 +15,7 @@
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
+const { isLocalHistoryOwner } = require("../server/lib/session-origin");
 const {
   bucketKey,
   emptyBucket,
@@ -1192,9 +1193,11 @@ function reconcileSubagentParents(dbModule, sessionId, mainAgentId, parsedSubage
 /**
  * Import a parsed session into the database.
  */
-function importSession(dbModule, session) {
+function importSession(dbModule, session, importOptions = {}) {
   const { db, stmts } = dbModule;
   const existing = stmts.getSession.get(session.sessionId);
+  if (!importOptions.originSource && !isLocalHistoryOwner(existing, "claude"))
+    return { skipped: true };
   if (existing) {
     const meta = existing.metadata ? JSON.parse(existing.metadata) : {};
     if (!meta.imported) return { skipped: true };
@@ -1491,11 +1494,15 @@ function importSession(dbModule, session) {
       backfilled = true;
     }
 
-    // Reconcile token usage. The earlier importer dropped subagent tokens
-    // entirely, so any session with subagent JSONLs has under-counted totals.
-    // replaceTokenUsage's baseline-shift logic guarantees this can never
-    // reduce a session's totals — at worst it's a no-op.
-    if (
+    // Reconcile token usage on EVERY pass over an existing imported session.
+    // A growing parent transcript (re-imported from a remote mirror, or a live
+    // session re-scanned) changes its own token totals even when no subagent
+    // carries tokens, so gating this on subagent tokens left such sessions
+    // frozen at their first-import totals. The earlier importer also dropped
+    // subagent tokens entirely, so sessions with subagent JSONLs may be
+    // under-counted. replaceTokenUsage's baseline-shift logic guarantees this
+    // can never reduce a session's totals — at worst it's a no-op.
+    const hadSubagentTokens =
       session.parsedSubagents &&
       session.parsedSubagents.some(
         (s) =>
@@ -1503,15 +1510,16 @@ function importSession(dbModule, session) {
           Object.values(s.tokensByModel).some(
             (t) => (t.input || 0) + (t.output || 0) + (t.cacheRead || 0) + (t.cacheWrite || 0) > 0
           )
-      )
-    ) {
-      const written = writeSessionTokens(
-        dbModule,
-        session.sessionId,
-        combineSessionTokens(session)
       );
-      if (written > 0) backfilled = true;
-    }
+    const tokenRowsSql = "SELECT * FROM token_usage WHERE session_id = ?";
+    const tokensBefore = JSON.stringify(db.prepare(tokenRowsSql).all(session.sessionId));
+    const written = writeSessionTokens(dbModule, session.sessionId, combineSessionTokens(session));
+    const tokensChanged =
+      written > 0 &&
+      JSON.stringify(db.prepare(tokenRowsSql).all(session.sessionId)) !== tokensBefore;
+    // Report a backfill when the totals moved (or, as before, whenever subagent
+    // tokens were written) — an unchanged re-scan must not look like new work.
+    if (tokensChanged || (hadSubagentTokens && written > 0)) backfilled = true;
 
     return backfilled ? { skipped: false, backfilled: true } : { skipped: true };
   }
@@ -1524,7 +1532,13 @@ function importSession(dbModule, session) {
   const sessionStatus = isRecentlyActive ? "active" : "completed";
   const agentStatus = isRecentlyActive ? "waiting" : "completed";
 
+  // A remote-sync import names the source that owns the row and the stable host
+  // identity it came from. Both are written in the SAME transaction as the row
+  // itself, so a crash can never leave a mirrored session looking `local`; the
+  // origin key survives deleting the source without purge (see remote-sync).
+  const originSource = importOptions.originSource || null;
   const metadata = JSON.stringify({
+    ...(originSource ? { origin_host: originSource.key } : {}),
     version: session.version,
     slug: session.slug,
     git_branch: session.gitBranch,
@@ -1549,6 +1563,7 @@ function importSession(dbModule, session) {
     session.model,
     metadata
   );
+  if (originSource) stmts.setSessionSource.run(originSource.id, session.sessionId);
 
   db.prepare("UPDATE sessions SET started_at = ?, ended_at = ? WHERE id = ?").run(
     session.startedAt,
@@ -1826,12 +1841,26 @@ async function importAllSessions(dbModule) {
   let skipped = 0;
   let errors = 0;
 
+  // Ownership is decided inside the write transaction: parsing yields to
+  // remote-sync, so a row may change owner between parse and import. Foreign
+  // rows are skipped entirely; locally owned rows stay accepted even when
+  // importSession leaves them unchanged, so their transcript snapshot and
+  // workflow links are published exactly as before.
+  const isForeignSession = (sessionId) =>
+    !isLocalHistoryOwner(dbModule.stmts.getSession.get(sessionId), "claude");
   const importBatch = dbModule.db.transaction((sessions) => {
+    const accepted = [];
     for (const session of sessions) {
+      if (isForeignSession(session.sessionId)) {
+        skipped++;
+        continue;
+      }
       const result = importSession(dbModule, session);
+      accepted.push(session);
       if (result.skipped) skipped++;
       else imported++;
     }
+    return accepted;
   });
 
   for (const projDir of projectDirs) {
@@ -1855,10 +1884,12 @@ async function importAllSessions(dbModule) {
     }
 
     if (batch.length > 0) {
-      importBatch(batch);
+      const accepted = importBatch(batch);
       // Snapshot transcripts into the dashboard's data dir so they outlive
-      // Claude Code's cleanupPeriodDays pruning (default 30 days).
-      for (const session of batch) {
+      // Claude Code's cleanupPeriodDays pruning (default 30 days). Publish only
+      // rows this local history still owns.
+      for (const session of accepted) {
+        if (isForeignSession(session.sessionId)) continue;
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
       // Link Workflow-tool inner agents to their run. Workflow runs write a
@@ -1867,8 +1898,9 @@ async function importAllSessions(dbModule) {
       // every inner agent orphaned (workflow_run_id = NULL). Run it here, OUTSIDE
       // the sqlite transaction (the ingest is async), mirroring the server's
       // startup ingestAllWorkflows so a CLI rescan links them too. Idempotent and
-      // cheap for sessions with no workflow artifacts (early return).
-      await ingestWorkflowsForBatch(dbModule, batch);
+      // cheap for sessions with no workflow artifacts (early return). The
+      // exclusion predicate is re-evaluated after each await inside the ingest.
+      await ingestWorkflowsForBatch(dbModule, accepted, { isExcludedSession: isForeignSession });
     }
   }
 
@@ -1884,14 +1916,18 @@ async function importAllSessions(dbModule) {
  * import-history ⇆ workflow-ingest require cycle. Per-session failures are
  * non-fatal: a malformed journal must never abort the import.
  */
-async function ingestWorkflowsForBatch(dbModule, sessions) {
+async function ingestWorkflowsForBatch(dbModule, sessions, options = {}) {
   const { ingestWorkflowsForSession } = require("../server/lib/workflow-ingest");
   for (const session of sessions) {
     try {
-      await ingestWorkflowsForSession(dbModule, {
-        id: session.sessionId,
-        transcript_path: session._sourceJsonlPath,
-      });
+      await ingestWorkflowsForSession(
+        dbModule,
+        {
+          id: session.sessionId,
+          transcript_path: session._sourceJsonlPath,
+        },
+        options
+      );
     } catch {
       /* non-fatal — one bad workflow journal must not fail the whole import */
     }
@@ -1967,6 +2003,10 @@ async function syncDefaultProjects(dbModule, options = {}) {
       try {
         const sessionId = path.basename(file, ".jsonl");
         const existingRow = dbModule.stmts.getSession.get(sessionId);
+        if (!isLocalHistoryOwner(existingRow, "claude")) {
+          mtimeCache.set(sourcePath, mtime);
+          continue;
+        }
         // Cold-cache fast path (e.g. the immediate sweep on every restart, when
         // `mtimeCache` is empty): if the session already exists and the file has
         // NOT advanced past what we've already ingested, skip the full transcript
@@ -1989,6 +2029,11 @@ async function syncDefaultProjects(dbModule, options = {}) {
         // re-parse an unusable file every tick.
         mtimeCache.set(sourcePath, mtime);
         if (!session) continue;
+        // The parse above yielded the event loop, so remote-sync may have
+        // claimed this id meanwhile. Re-check ownership before any write or
+        // publication (snapshot, change report), not just token usage.
+        const currentRow = dbModule.stmts.getSession.get(session.sessionId);
+        if (!isLocalHistoryOwner(currentRow, "claude")) continue;
 
         const result = importSession(dbModule, session);
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
@@ -2540,7 +2585,17 @@ function findSessionWorkflowSubagents(sessionJsonlPath) {
  * @param {string} rootDir - any directory containing Claude Code JSONL files
  * @param {object} [options]
  * @param {(progress: {phase: string, processed: number, total: number, current?: string, counters?: object}) => void} [options.onProgress]
- * @returns {Promise<{imported: number, skipped: number, backfilled: number, errors: number, sessionsSeen: number, filesScanned: number}>}
+ * @param {{id: string, key: string}} [options.originSource] - remote source that
+ *   owns this tree: new rows are inserted with `source = id` and
+ *   `metadata.origin_host = key` atomically (one savepoint per session).
+ * @param {(sessionId: string) => boolean} [options.isExcludedSession] - true for a
+ *   session id owned by another source (remote-sync passes "its row belongs to a
+ *   different source, `local` included"). Such transcripts are skipped ENTIRELY —
+ *   no events, no tokens, no transcript snapshot, no attached or orphan subagent
+ *   files — so a mirrored copy can never write into a session this tree does
+ *   not own. Ownership is checked again inside the write transaction because
+ *   parsing yields to local ingestion; new remote rows are stamped atomically.
+ * @returns {Promise<{imported: number, skipped: number, backfilled: number, errors: number, sessionsSeen: number, filesScanned: number, excluded: number, excludedIds: string[], excludedSubagentFiles: number}>}
  */
 async function importFromDirectory(dbModule, rootDir, options = {}) {
   const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
@@ -2551,6 +2606,36 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
     errors: 0,
     sessionsSeen: 0,
     filesScanned: 0,
+    // Unique main-session ids left out (a duplicated id counts once); subagent
+    // files are counted apart; excludedIds is capped at 50 entries.
+    excluded: 0,
+    excludedIds: [],
+    excludedSubagentFiles: 0,
+  };
+  const excludedSeen = new Set();
+  const noteExcludedSession = (id) => {
+    if (excludedSeen.has(id)) return;
+    excludedSeen.add(id);
+    counters.excluded++;
+    if (counters.excludedIds.length < 50) counters.excludedIds.push(id);
+  };
+  const isExcluded = (id) => {
+    if (!id) return false;
+    if (!options.originSource && !isLocalHistoryOwner(dbModule.stmts.getSession.get(id), "claude"))
+      return true;
+    if (typeof options.isExcludedSession !== "function") return false;
+    return !!options.isExcludedSession(id);
+  };
+  // Orphan-subagent layouts name their parent session by path position; the
+  // same two candidates are used to attach them below.
+  const orphanParentCandidates = (file) => {
+    const parts = file.split(path.sep);
+    const idx = parts.lastIndexOf("subagents");
+    if (idx < 0) return [];
+    const out = [];
+    if (idx - 1 >= 0) out.push(parts[idx - 1]);
+    if (idx + 1 < parts.length) out.push(parts[idx + 1]);
+    return out;
   };
 
   if (!fs.existsSync(rootDir)) return counters;
@@ -2565,7 +2650,10 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
   const sessionFiles = [];
   const standaloneSubagentFiles = [];
   for (const f of jsonlFiles) {
-    if (classifyJsonl(f) === "subagent") standaloneSubagentFiles.push(f);
+    if (classifyJsonl(f) === "subagent") {
+      standaloneSubagentFiles.push(f);
+    } else if (isExcluded(path.basename(f, ".jsonl")))
+      noteExcludedSession(path.basename(f, ".jsonl"));
     else sessionFiles.push(f);
   }
 
@@ -2621,10 +2709,21 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
   }
 
   if (parsedSessions.length > 0) {
+    const acceptedSessions = [];
     const importBatch = dbModule.db.transaction((sessions) => {
       for (const session of sessions) {
         try {
-          const result = importSession(dbModule, session);
+          // Nested transaction = savepoint: a failure part-way through one
+          // session (e.g. while stamping its source) rolls that session back.
+          const result = dbModule.db.transaction(() => {
+            if (isExcluded(session.sessionId)) return { excluded: true };
+            return importSession(dbModule, session, { originSource: options.originSource });
+          })();
+          if (result.excluded) {
+            noteExcludedSession(session.sessionId);
+            continue;
+          }
+          acceptedSessions.push(session);
           if (result.skipped && !result.backfilled) counters.skipped++;
           else if (result.backfilled) counters.backfilled++;
           else counters.imported++;
@@ -2638,7 +2737,7 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
     // Snapshot each session's transcript into the dashboard's data dir so the
     // Conversation tab survives Claude Code's cleanupPeriodDays pruning. Done
     // outside the DB transaction since it's filesystem I/O.
-    for (const session of parsedSessions) {
+    for (const session of acceptedSessions) {
       if (session._sourceJsonlPath) {
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
       }
@@ -2650,7 +2749,8 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
     // DB transaction (async) and is idempotent.
     await ingestWorkflowsForBatch(
       dbModule,
-      parsedSessions.filter((s) => s._sourceJsonlPath)
+      acceptedSessions.filter((s) => s._sourceJsonlPath),
+      { isExcludedSession: isExcluded }
     );
   }
 
@@ -2666,15 +2766,15 @@ async function importFromDirectory(dbModule, rootDir, options = {}) {
       try {
         const subData = await parseSubagentFile(sf);
         if (!subData) continue;
-        const parts = sf.split(path.sep);
-        const idx = parts.lastIndexOf("subagents");
-        if (idx < 0) continue;
-        const candidates = [];
-        if (idx - 1 >= 0) candidates.push(parts[idx - 1]);
-        if (idx + 1 < parts.length) candidates.push(parts[idx + 1]);
+        const candidates = orphanParentCandidates(sf);
+        if (candidates.length === 0) continue;
         let sessionId = null;
         for (const c of candidates) {
           if (!c) continue;
+          if (isExcluded(c)) {
+            counters.excludedSubagentFiles++;
+            break;
+          }
           if (dbModule.stmts.getSession.get(c)) {
             sessionId = c;
             break;

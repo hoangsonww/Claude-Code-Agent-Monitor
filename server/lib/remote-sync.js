@@ -32,6 +32,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { createHash } = require("node:crypto");
 const { spawn, execFileSync } = require("child_process");
 
 const { getDataDir } = require("./claude-home");
@@ -937,6 +938,9 @@ function connectionSuccessMessage(source, remoteCmd, provider = "claude") {
   return `Connected. Remote ${name} history found.`;
 }
 
+// First tail window read by lastTranscriptActivityMs; doubled while no timestamped line fits.
+const TRANSCRIPT_TAIL_BYTES = 64 * 1024;
+
 /**
  * Best-effort "last activity" for a mirrored transcript. Prefer the newest
  * event timestamp inside the JSONL over filesystem mtime so a touched-but-stale
@@ -950,26 +954,57 @@ function lastTranscriptActivityMs(filePath) {
     return null;
   }
 
+  // Only the newest timestamp matters, and this runs for every staged file on
+  // every sync tick — normally read just the tail (TRANSCRIPT_TAIL_BYTES), not
+  // the whole (possibly hundreds of MiB) transcript. One record (a large tool
+  // result) can exceed the window; then the window doubles until a timestamped
+  // line is parsed or the read reaches byte 0. Mirror mtime stays the fallback
+  // when no timestamp can be parsed or the read fails (e.g. one record beyond
+  // V8's maximum string length).
   let contentMs = null;
+  let fd = null;
   try {
-    const text = fs.readFileSync(filePath, "utf8");
-    const lines = text.trim().split(/\n/).filter(Boolean);
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const row = JSON.parse(lines[i]);
-        const raw = row.timestamp || row.ts;
-        if (!raw) continue;
-        const ms = new Date(raw).getTime();
-        if (!Number.isNaN(ms)) {
-          contentMs = ms;
-          break;
-        }
-      } catch {
-        /* skip malformed tail line */
+    fd = fs.openSync(filePath, "r");
+    const size = fs.fstatSync(fd).size;
+    for (let window = TRANSCRIPT_TAIL_BYTES; contentMs == null; window *= 2) {
+      const start = Math.max(0, size - window);
+      const buf = Buffer.alloc(size - start);
+      let got = 0;
+      while (got < buf.length) {
+        const n = fs.readSync(fd, buf, got, buf.length - got, start + got);
+        if (n <= 0) break;
+        got += n;
       }
+      const lines = buf.toString("utf8", 0, got).split(/\n/);
+      // A tail that starts mid-file begins inside a line: drop that fragment.
+      if (start > 0) lines.shift();
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].trim()) continue;
+        try {
+          const row = JSON.parse(lines[i]);
+          const raw = row.timestamp || row.ts;
+          if (!raw) continue;
+          const ms = new Date(raw).getTime();
+          if (!Number.isNaN(ms)) {
+            contentMs = ms;
+            break;
+          }
+        } catch {
+          /* skip malformed tail line */
+        }
+      }
+      if (start === 0) break;
     }
   } catch {
     /* unreadable — fall back to mtime */
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   if (contentMs != null) return contentMs;
@@ -1205,6 +1240,49 @@ function isUnavailableHistoryError(err) {
   );
 }
 
+/**
+ * Versioned origin mark for the logical configured collector, not a physical
+ * machine identity or resolved SSH configuration. The JSON tuple preserves
+ * SSH user/host case and absent port (SSH config may select a non-default port),
+ * and binds both provider homes and the configured identity path without reading
+ * key material. Source ids remain authoritative while registered; only an exact
+ * v2 mark permits orphan re-adoption. Legacy host-only marks fail closed.
+ * Stored as `metadata.origin_host` on every row this source imports.
+ */
+function sourceOriginKey(source) {
+  const collector = JSON.stringify([
+    String(source.host || "").trim(),
+    source.ssh_port ?? null,
+    source.identity_file ?? null,
+    source.remote_home ?? null,
+    source.remote_codex_home ?? null,
+  ]);
+  return `collector-v2:${createHash("sha256").update(collector).digest("hex")}`;
+}
+
+function rowOriginKey(row) {
+  if (!row || !row.metadata) return null;
+  try {
+    const meta = JSON.parse(row.metadata);
+    return meta && typeof meta.origin_host === "string" ? meta.origin_host : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Does `row` belong to this source? Its `source` column says so, or — when the
+ * column fell back to `local` (source deleted without purge, or a crash left the
+ * stamp unwritten) — its recorded v2 origin names the same configured collector. A row pointing at
+ * ANOTHER registered source, and a row with no origin mark, is never ours.
+ */
+function isOwnedBySource(row, source, originKey) {
+  if (!row) return false;
+  const current = row.source || "local";
+  if (current === source.id) return true;
+  return current === "local" && rowOriginKey(row) === originKey;
+}
+
 function summarizeProviderCounters(counters, ids, mirror) {
   return {
     imported: counters.imported || 0,
@@ -1213,16 +1291,36 @@ function summarizeProviderCounters(counters, ids, mirror) {
     errors: counters.errors || 0,
     sessions_seen: counters.sessionsSeen || 0,
     sessions_tagged: ids.length,
+    // Unique main-session ids left out because another source owns them; subagent
+    // files counted apart; the id list is capped (first 50).
+    sessions_excluded: counters.excluded || 0,
+    subagent_files_excluded: counters.excludedSubagentFiles || 0,
+    excluded_ids: (counters.excludedIds || []).slice(0, 50),
     ...(mirror?.titleIndexWarning ? { title_index_warning: mirror.titleIndexWarning } : {}),
   };
 }
 
 async function ingestStagedProvider(dbModule, source, provider, dest, opts = {}) {
   const { stmts } = dbModule;
+  source = stmts.getRemoteSource.get(source.id) || source;
+  const originSource = { id: source.id, key: sourceOriginKey(source) };
   const preExisting = new Set();
+  // Ids whose row belongs to a DIFFERENT source (a NULL/empty source is `local`).
+  // The mirror is a copy of another machine's history, not the truth about a
+  // session this dashboard owns: those transcripts are excluded from the import
+  // entirely (events, tokens, snapshot) and never re-tagged to this source.
+  const isExcludedSession = (id) => {
+    const row = stmts.getSession.get(id);
+    return (
+      !!row &&
+      ((row.provider || "claude") !== provider || !isOwnedBySource(row, source, originSource.key))
+    );
+  };
   try {
     for (const id of stagedSessionIds(dest, provider)) {
-      if (stmts.getSession.get(id)) preExisting.add(id);
+      const row = stmts.getSession.get(id);
+      if (!row) continue;
+      if (!isExcludedSession(id)) preExisting.add(id);
     }
   } catch {
     /* staging dir may not exist yet */
@@ -1234,14 +1332,42 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
       : undefined;
   const counters =
     provider === "codex"
-      ? await importCodexFromDirectory(dest, { onProgress, retainLivePath: false })
-      : await importFromDirectory(dbModule, dest, { onProgress });
+      ? await importCodexFromDirectory(dest, {
+          onProgress,
+          retainLivePath: false,
+          isExcludedSession,
+          originSource,
+        })
+      : await importFromDirectory(dbModule, dest, { onProgress, isExcludedSession, originSource });
 
-  const ids = stagedSessionIds(dest, provider);
+  const ids = [];
   const tag = dbModule.db.transaction((sessionIds) => {
-    for (const id of sessionIds) stmts.setSessionSource.run(source.id, id);
+    for (const id of sessionIds) {
+      const row = stmts.getSession.get(id);
+      if (!row || isExcludedSession(id)) continue;
+      stmts.setSessionSource.run(source.id, id);
+      // Cached legacy rows may never re-enter the parser. Normalize only absent
+      // metadata, preserving object fields and leaving nonempty malformed or
+      // nonobject bytes untouched. CASE guards every JSON operation explicitly.
+      dbModule.db
+        .prepare(
+          `UPDATE sessions SET metadata = json_set(
+            CASE WHEN metadata IS NULL OR trim(metadata) = '' THEN '{}'
+              WHEN json_valid(metadata) THEN
+                CASE WHEN json_type(metadata) = 'object' THEN metadata END
+            END, '$.origin_host', ?)
+          WHERE id = ? AND CASE
+            WHEN metadata IS NULL OR trim(metadata) = '' THEN 1
+            WHEN json_valid(metadata) THEN CASE WHEN json_type(metadata) = 'object'
+              THEN COALESCE(json_extract(metadata, '$.origin_host'), '') != ?
+              ELSE 0 END
+            ELSE 0 END`
+        )
+        .run(originSource.key, id, originSource.key);
+      ids.push(id);
+    }
   });
-  tag(ids);
+  tag(stagedSessionIds(dest, provider));
 
   try {
     reconcileRemoteSessionStatus(dbModule, source, dest, opts.broadcast, provider);
@@ -1273,6 +1399,9 @@ function sumProviderResults(results) {
     errors: 0,
     sessions_seen: 0,
     sessions_tagged: 0,
+    sessions_excluded: 0,
+    subagent_files_excluded: 0,
+    excluded_ids: [],
     providers: {},
   };
   for (const provider of REMOTE_PROVIDERS) {
@@ -1289,8 +1418,14 @@ function sumProviderResults(results) {
         "errors",
         "sessions_seen",
         "sessions_tagged",
+        "sessions_excluded",
+        "subagent_files_excluded",
       ]) {
         totals[key] += result.counters[key] || 0;
+      }
+      for (const id of result.counters.excluded_ids || []) {
+        if (totals.excluded_ids.length < 50 && !totals.excluded_ids.includes(id))
+          totals.excluded_ids.push(id);
       }
     } else {
       Object.assign(totals.providers, {
