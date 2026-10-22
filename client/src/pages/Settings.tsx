@@ -1510,6 +1510,53 @@ export function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
+  /** The last system-info read failure ("" = no message); cleared by the next successful read. */
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const infoRequestRef = useRef<Promise<SystemInfo> | null>(null);
+  const infoGenerationRef = useRef(0);
+  const infoMountedRef = useRef(false);
+  /** Monotonic page-load generation: only the newest load may apply data, errors, or loading. */
+  const costLoadGeneration = useRef(0);
+  useEffect(() => {
+    infoMountedRef.current = true;
+    return () => {
+      infoMountedRef.current = false;
+      infoGenerationRef.current++;
+      infoRequestRef.current = null;
+    };
+  }, []);
+
+  /** Share expensive system-info reads; mutations wait for an older read before refreshing. */
+  const refreshInfo = useCallback(async (fresh = false): Promise<SystemInfo> => {
+    const generation = infoGenerationRef.current;
+    if (fresh && infoRequestRef.current) await infoRequestRef.current.catch(() => {});
+    if (!infoMountedRef.current || generation !== infoGenerationRef.current) {
+      throw new Error("Settings page is no longer active");
+    }
+    if (infoRequestRef.current) return infoRequestRef.current;
+    const request = api.settings
+      .info()
+      .then(
+        (result) => {
+          if (infoMountedRef.current && generation === infoGenerationRef.current) {
+            setSysInfo(result);
+            setInfoError(null);
+          }
+          return result;
+        },
+        (err: unknown) => {
+          // System info owns its failure: shown in its own section, never over the pricing table.
+          if (infoMountedRef.current && generation === infoGenerationRef.current)
+            setInfoError(err instanceof Error ? err.message : "");
+          throw err;
+        }
+      )
+      .finally(() => {
+        if (infoRequestRef.current === request) infoRequestRef.current = null;
+      });
+    infoRequestRef.current = request;
+    return request;
+  }, []);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<{
     key: string;
@@ -1643,31 +1690,49 @@ export function Settings() {
 
   /**
    * Load everything the page needs in parallel: Claude pricing, total cost, system info, and the
-   * Claude and Codex home directories.
+   * Claude and Codex home directories. System info settles on its own and reports its failure in
+   * its own section (see refreshInfo), so it never discards the other results or blocks them.
    */
-  const load = useCallback(async () => {
-    try {
-      const [pricingRes, costRes, infoRes, claudeHomeRes, codexHomeRes] = await Promise.all([
-        api.pricing.list(),
-        api.pricing.totalCost(),
-        api.settings.info(),
-        api.settings.claudeHome.get(),
-        api.settings.codexHome.get(),
-      ]);
-      setPricing(pricingRes.pricing);
-      setTotalCost(costRes.total_cost);
-      setSysInfo(infoRes);
-      setClaudeHomeState(claudeHomeRes.claude_home);
-      setClaudeHomeInput(claudeHomeRes.claude_home);
-      setCodexHomeState(codexHomeRes.codex_home);
-      setCodexHomeInput(codexHomeRes.codex_home);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("messages.failedLoad"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t, dataScope]);
+  const load = useCallback(
+    async (freshInfo = false) => {
+      // Every load (mount, scope change, refresh, remote sync) takes a newer generation; only the
+      // newest may apply data, an error, or the end of loading.
+      const generation = ++costLoadGeneration.current;
+      const isCurrent = () => infoMountedRef.current && generation === costLoadGeneration.current;
+      try {
+        const [pageRes] = await Promise.allSettled([
+          Promise.all([
+            api.pricing.list(),
+            api.pricing.totalCost(),
+            api.settings.claudeHome.get(),
+            api.settings.codexHome.get(),
+          ]),
+          refreshInfo(freshInfo),
+        ]);
+        if (!isCurrent()) return;
+        if (pageRes.status === "fulfilled") {
+          const [pricingRes, costRes, claudeHomeRes, codexHomeRes] = pageRes.value;
+          setPricing(pricingRes.pricing);
+          setTotalCost(costRes.total_cost);
+          setClaudeHomeState(claudeHomeRes.claude_home);
+          setClaudeHomeInput(claudeHomeRes.claude_home);
+          setCodexHomeState(codexHomeRes.codex_home);
+          setCodexHomeInput(codexHomeRes.codex_home);
+        }
+        if (pageRes.status === "rejected") {
+          const reason: unknown = pageRes.reason;
+          setError(reason instanceof Error ? reason.message : t("messages.failedLoad"));
+        } else {
+          setError(null);
+        }
+      } catch (err) {
+        if (isCurrent()) setError(err instanceof Error ? err.message : t("messages.failedLoad"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [t, dataScope, refreshInfo]
+  );
 
   usePaletteAction("page.refresh", () => {
     void load();
@@ -1678,34 +1743,45 @@ export function Settings() {
   }, [load]);
 
   useEffect(() => {
-    /** Refresh system info only, used by the periodic poll. */
-    const refreshInfo = () =>
-      api.settings
-        .info()
-        .then(setSysInfo)
-        .catch(() => {});
-    const interval = setInterval(refreshInfo, 10000);
+    // Health counts need a bounded cadence, not a full DB scan for each hook event.
+    const interval = setInterval(() => {
+      void refreshInfo().catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshInfo]);
 
   useEffect(() => {
-    return eventBus.subscribe((msg: WSMessage) => {
-      if (
-        msg.type === "session_created" ||
-        msg.type === "session_updated" ||
-        msg.type === "agent_created" ||
-        msg.type === "agent_updated" ||
-        msg.type === "new_event"
-      ) {
-        api.settings
-          .info()
-          .then(setSysInfo)
-          .catch(() => {});
-      }
+    // One completed sync emits several notifications. Share the full reload,
+    // and retain one follow-up if another sync completes while it is running.
+    let active = true;
+    let running = false;
+    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (!active || running || timer !== null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!active || !pending) return;
+        pending = false;
+        running = true;
+        void load(true).finally(() => {
+          running = false;
+          if (pending) schedule();
+        });
+      }, 0);
+    };
+    const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
       if (isRemoteDataRefreshMessage(msg)) {
-        load();
+        pending = true;
+        schedule();
       }
     });
+    return () => {
+      active = false;
+      pending = false;
+      if (timer !== null) clearTimeout(timer);
+      unsubscribe();
+    };
   }, [load]);
 
   // Keep the panel honest if preferences are changed anywhere else in the tab.
@@ -1823,7 +1899,7 @@ export function Settings() {
       });
       setEditingPattern(null);
       setAdding(false);
-      await load();
+      await load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
     } finally {
@@ -1839,7 +1915,7 @@ export function Settings() {
   const deleteRule = async (pattern: string) => {
     try {
       await api.pricing.delete(pattern);
-      await load();
+      await load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1859,7 +1935,7 @@ export function Settings() {
     try {
       const message = await fn();
       setActionResult({ key, message, isError: false });
-      await load();
+      await load(true);
     } catch (err) {
       setActionResult({
         key,
@@ -1963,8 +2039,7 @@ export function Settings() {
       setCodexHomeInput(res.codex_home);
       // Refresh hook paths/status immediately — they follow the active Codex
       // home, and the backend has simultaneously triggered a fresh rollout scan.
-      const info = await api.settings.info();
-      setSysInfo(info);
+      await refreshInfo(true);
     } catch (err) {
       setCodexHomeError(err instanceof Error ? err.message : t("codexHome.saveFailed"));
     } finally {
@@ -2228,7 +2303,12 @@ export function Settings() {
             <FileDown className="w-3.5 h-3.5" />
             {t("exportData")}
           </a>
-          <button onClick={load} className="btn-ghost">
+          <button
+            onClick={() => {
+              void load();
+            }}
+            className="btn-ghost"
+          >
             <RefreshCw className="w-4 h-4" /> {t("common:refresh")}
           </button>
         </div>
@@ -3213,12 +3293,9 @@ export function Settings() {
           {/* Transcript snapshot storage + retention (issue #358) */}
           <SnapshotStorage
             storage={sysInfo?.snapshots}
-            onChanged={() =>
-              api.settings
-                .info()
-                .then(setSysInfo)
-                .catch(() => {})
-            }
+            onChanged={() => {
+              void refreshInfo(true).catch(() => {});
+            }}
           />
 
           {/* Session Cleanup */}
@@ -3342,6 +3419,12 @@ export function Settings() {
         </h3>
         <p className="text-xs text-gray-500 mb-4">{t("about.description")}</p>
 
+        {infoError !== null && (
+          <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+            {infoError || t("messages.failedLoad")}
+          </div>
+        )}
+
         {sysInfo ? (
           <div className="card p-5">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -3414,10 +3497,7 @@ export function Settings() {
         status={sysInfo?.hooks}
         onClose={() => setHookModalOpen(false)}
         onInstalled={() => {
-          api.settings
-            .info()
-            .then(setSysInfo)
-            .catch(() => {});
+          void refreshInfo(true).catch(() => {});
         }}
       />
     </div>
