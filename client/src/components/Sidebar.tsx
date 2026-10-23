@@ -123,7 +123,7 @@ const STATS_STORAGE_KEY = "sidebar-connection-stats";
 /** How many recent events the connection status modal keeps and persists. */
 const RECENT_EVENTS_CAP = 8;
 /** UI languages offered by the language switcher. Must match `supportedLngs` in the i18n setup. */
-const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es"] as const;
+const SUPPORTED_LANGUAGES = ["en", "zh", "vi", "ko", "es", "fr", "de", "pt", "it"] as const;
 /** One supported UI language code. */
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
@@ -225,7 +225,17 @@ function loadStats(): PersistedStats {
  */
 function normalizeLanguage(language: string): SupportedLanguage {
   const base = language.toLowerCase().split("-")[0];
-  if (base === "zh" || base === "vi" || base === "en" || base === "ko" || base === "es") {
+  if (
+    base === "zh" ||
+    base === "vi" ||
+    base === "en" ||
+    base === "ko" ||
+    base === "es" ||
+    base === "fr" ||
+    base === "de" ||
+    base === "pt" ||
+    base === "it"
+  ) {
     return base;
   }
   return "en";

@@ -73,10 +73,10 @@ Un panel profesional para rastrear sesiones, herramientas, historial de conversa
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > [!TIP]
-> Consulta también [README-EN.md](./README-EN.md) (English), [README-CN.md](./README-CN.md) (中文), [README-VN.md](./README-VN.md) (Tiếng Việt) y [README-KO.md](./README-KO.md) (한국어). Este es el README en español.
+> Consulta también [README-EN.md](./README-EN.md) (English), [README-CN.md](./README-CN.md) (中文), [README-VN.md](./README-VN.md) (Tiếng Việt), [README-KO.md](./README-KO.md) (한국어), [README-FR.md](./README-FR.md) (Français), [README-DE.md](./README-DE.md) (Deutsch), [README-PT.md](./README-PT.md) (Português) y [README-IT.md](./README-IT.md) (Italiano). Este es el README en español.
 
 > [!NOTE]
-> ¿Necesitas ayuda orientada a tareas? La [Wiki de GitHub](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) es el manual práctico para el uso diario, las operaciones de equipo, la solución de problemas, la automatización con CLI/MCP y las recetas de despliegue. La [Wiki estática localizada](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) sigue siendo el recorrido del producto y la arquitectura en inglés, vietnamita, chino, coreano y español; los contratos técnicos exactos permanecen en [`docs/`](./docs/README.md).
+> ¿Necesitas ayuda orientada a tareas? La [Wiki de GitHub](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) es el manual práctico para el uso diario, las operaciones de equipo, la solución de problemas, la automatización con CLI/MCP y las recetas de despliegue. La [Wiki estática localizada](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) sigue siendo el recorrido del producto y la arquitectura en inglés, vietnamita, chino, coreano, español, francés, alemán, portugués e italiano; los contratos técnicos exactos permanecen en [`docs/`](./docs/README.md).
 
 ---
 
@@ -134,11 +134,11 @@ Además del panel de control de monitoreo en tiempo real, también incluye una i
 
 ### Internacionalización (i18n)
 
-La interfaz de usuario incluye selección de idioma para inglés (`en`), chino (`zh`), vietnamita (`vi`), coreano (`ko`) y español (`es`). El selector personalizado en forma de menú desplegable evita que la barra lateral se sature a medida que se agregan idiomas. Los recursos se cargan por espacio de nombres y la preferencia se conserva en el almacenamiento del navegador entre actualizaciones.
+La interfaz de usuario incluye selección de idioma para inglés (`en`), chino (`zh`), vietnamita (`vi`), coreano (`ko`), español (`es`), francés (`fr`), alemán (`de`), portugués (`pt`) e italiano (`it`). El selector personalizado en forma de menú desplegable evita que la barra lateral se sature a medida que se agregan idiomas. Los recursos se cargan por espacio de nombres y la preferencia se conserva en el almacenamiento del navegador entre actualizaciones.
 
 ```mermaid
 flowchart LR
-    A["El usuario selecciona un idioma<br/>en / zh / vi / ko / es"] --> B["Detector i18next<br/>localStorage -> navigator"]
+    A["El usuario selecciona un idioma<br/>en / zh / vi / ko / es<br/>fr / de / pt / it"] --> B["Detector i18next<br/>localStorage -> navigator"]
     B --> C["Idioma resuelto<br/>alternativa: en"]
     C --> D["Recursos por espacio de nombres<br/>common/nav/dashboard/..."]
     D --> E["Hooks React useTranslation"]
@@ -343,7 +343,7 @@ El panel cubre todo el ciclo de vida de los agentes locales. Los contratos opera
 | **Fuentes de datos remotas** | Las fuentes SSH replican de forma independiente los homes de Claude y Codex mediante `scp` o `tar` de WSL, etiquetan `sessions.source`, concilian el ciclo de vida y se mantienen saludables si cualquiera de los proveedores funciona. El polling predeterminado es de 15 segundos y el fallback obsoleto solo afecta al proveedor que falló. Las credenciales permanecen con el SSH del host. |
 | **Ingesta push remota** | `POST /api/hooks/ingest-batch` envía totales de sesión y eventos desde máquinas tras NAT, mientras que `POST /api/hooks/ingest-transcript` añade JSONL del agente principal y subagentes con offsets verificados para títulos, historial, tokens e importación de subagentes. Ambos permanecen deshabilitados hasta configurar `REMOTE_PUSH_TOKEN` o `REMOTE_PUSH_TOKEN_FILE`, y rechazan credenciales en query strings y sesiones locales. `ingest-transcript` autentica antes de ejecutar su analizador ampliado. |
 | **Diseño adaptable** | Los diseños móviles apilan cuadrículas, permiten desplazar tablas anchas y contraen la navegación. |
-| **Localización de la interfaz** | Inglés, chino, vietnamita, coreano y español cubren el texto de la interfaz, las etiquetas de accesibilidad, las explicaciones y tooltips de flujos, la orientación sobre precios de modelos, los homes de proveedores y el Historial de importaciones. |
+| **Localización de la interfaz** | Inglés, chino, vietnamita, coreano, español, francés, alemán, portugués e italiano cubren el texto de la interfaz, las etiquetas de accesibilidad, las explicaciones y tooltips de flujos, la orientación sobre precios de modelos, los homes de proveedores y el Historial de importaciones. |
 | **Datos de ejemplo** | Un script integrado aporta datos realistas para demostraciones y desarrollo. |
 | **Línea de estado** | Una franja CLI en color muestra el modelo, el contexto, la rama de Git, los tokens por dirección y el costo de la sesión en USD. |
 | **Formato de nombres de modelos** | Los identificadores de Claude, GPT y Gemini se convierten en nombres legibles eliminando sufijos de proveedor, fecha y latest, uniendo versiones numéricas y formateando etiquetas de contexto. Configuración conserva los patrones de precios sin procesar. |
@@ -1502,7 +1502,7 @@ La casilla **Pregunta** responde a preguntas de estado simples localmente a part
 
 ### Accesibilidad y degradación segura
 
-Tabby es operable con el teclado, utiliza `aria-live` para sus burbujas y respeta `prefers-reduced-motion`. Si el WebSocket está inactivo, se degrada de forma segura a un estado tranquilo de `desconectado` en lugar de producir un error. Puedes activar o desactivar Tabby en **Configuración** (localizado en inglés, chino, vietnamita y coreano), y la implementación reside en `client/src/components/Tabby/`.
+Tabby es operable con el teclado, utiliza `aria-live` para sus burbujas y respeta `prefers-reduced-motion`. Si el WebSocket está inactivo, se degrada de forma segura a un estado tranquilo de `desconectado` en lugar de producir un error. Puedes activar o desactivar Tabby en **Configuración** (localizado en inglés, chino, vietnamita, coreano, español, francés, alemán, portugués e italiano), y la implementación reside en `client/src/components/Tabby/`.
 
 ---
 
@@ -1540,7 +1540,7 @@ Si el navegador no soporta Web Audio en absoluto, cada llamada es una operación
 
 ### Configuración
 
-**Configuración → Sonido** tiene un interruptor maestro, un control de volumen y un interruptor individual para cada señal. Activar un interruptor reproduce esa señal de inmediato para que oigas exactamente lo que acabas de habilitar, y un botón **Escuchar sonido** reproduce el tono de finalización cuando quieras. Las preferencias persisten en `localStorage` bajo `agent-monitor-sound` y surten efecto al instante en toda la aplicación, sin recargar. El panel está localizado en inglés, chino, vietnamita, coreano y español.
+**Configuración → Sonido** tiene un interruptor maestro, un control de volumen y un interruptor individual para cada señal. Activar un interruptor reproduce esa señal de inmediato para que oigas exactamente lo que acabas de habilitar, y un botón **Escuchar sonido** reproduce el tono de finalización cuando quieras. Las preferencias persisten en `localStorage` bajo `agent-monitor-sound` y surten efecto al instante en toda la aplicación, sin recargar. El panel está localizado en inglés, chino, vietnamita, coreano, español, francés, alemán, portugués e italiano.
 
 Por defecto están activados el inicio de sesión, la finalización de sesión, el error de sesión, las notificaciones de Claude Code y el tic de interacción; la generación de subagentes y los cambios de conexión están desactivados (son los más ruidosos). La implementación vive en `client/src/lib/sound.ts` (motor + preferencias) y `client/src/hooks/useSoundCues.ts` (conexión al bus de eventos), montada una sola vez en `client/src/App.tsx`.
 

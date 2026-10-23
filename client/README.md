@@ -232,7 +232,7 @@ client/
 │   │   ├── useNotifications.ts  # Browser push notification triggers
 │   │   └── useSoundCues.ts      # Event-bus → synthesized audio cues
 │   │
-│   ├── i18n/               # Internationalization (en / zh / vi / ko / es)
+│   ├── i18n/               # Internationalization (en / zh / vi / ko / es / fr / de / pt / it)
 │   ├── App.tsx             # Root component + router setup
 │   ├── main.tsx            # Entry point
 │   └── index.css           # Tailwind + custom utilities
@@ -682,7 +682,7 @@ The catalog is built by `lib/paletteCommands.ts` as a pure function of one conte
 | Views | Page sub-tabs and list filters (`/?tab=`, `/kanban?view=`, `/analytics?tab=`, `/sessions?status=`) |
 | Settings | All 13 `SETTINGS_SECTIONS` anchors (`/settings#<id>`) |
 | Agent Config | All 12 `TABS` keys (`/cc-config?tab=<key>`) |
-| Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the five languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |
+| Actions | Sound (on/off, volume), Tabby (enable, mute), notifications, provider and per-machine data scope, the nine languages, sidebar, reload, history, scroll, copy link, updates, API reference, issues, releases |
 
 Ranking uses `lib/fuzzy.ts` — subsequence matching with positional scoring — and the matched characters are highlighted in each row. Session search is server-side on purpose: the dashboard routinely holds thousands of sessions, so no client-side index is kept, and reusing the same `?q=` filter the Sessions page uses means results automatically respect the active data scope. A failed or slow query degrades quietly — every other group is local and renders immediately, so the palette is never blocked by the network.
 

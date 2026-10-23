@@ -1,0 +1,31 @@
+{
+  "notFound": {
+    "code": "404",
+    "title": "Page introuvable",
+    "description": "La route demandée n'existe pas. Utilisez la navigation pour revenir à une page valide.",
+    "goDashboard": "Aller au tableau de bord",
+    "goBack": "Retour"
+  },
+  "notifications": {
+    "newSession": "Nouvelle session",
+    "sessionDefault": "Session ",
+    "sessionError": "Erreur de session",
+    "subagentSpawned": "Sous-agent lancé",
+    "finishedResponding": "L'agent a fini de répondre",
+    "readyForInput": "Prêt pour une saisie",
+    "sessionCompleted": "Session terminée",
+    "sessionClosed": "Session fermée",
+    "defaultTitle": "Tableau de bord des agents",
+    "defaultBody": "Notification"
+  },
+  "toolLegend": {
+    "read": "Lecture",
+    "write": "Écriture",
+    "edit": "Modification",
+    "bash": "Bash",
+    "grep": "Grep",
+    "glob": "Glob",
+    "agent": "Agent",
+    "other": "Autre"
+  }
+}

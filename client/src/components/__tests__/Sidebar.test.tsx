@@ -132,7 +132,7 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/activity");
   });
 
-  it("should expose all five languages through the custom dropdown", async () => {
+  it("should expose all nine languages through the custom dropdown", async () => {
     const user = userEvent.setup();
     renderSidebar(true);
 
@@ -143,6 +143,10 @@ describe("Sidebar", () => {
     expect(screen.getByRole("option", { name: "Vietnamese VI" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Korean 한국어" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Spanish ES" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "French FR" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "German DE" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Portuguese PT" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Italian IT" })).toBeInTheDocument();
   });
 
   it("should switch to Vietnamese when Vietnamese option is clicked", async () => {

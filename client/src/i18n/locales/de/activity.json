@@ -1,0 +1,10 @@
+{
+  "title": "Aktivitäts-Feed",
+  "subtitle": "Echtzeit-Stream aller Agent-Ereignisse",
+  "paused": "(pausiert – {{count}} gepuffert)",
+  "resume": "Fortsetzen",
+  "pause": "Pausieren",
+  "noActivity": "Noch keine Aktivität",
+  "noActivityDesc": "Ereignisse erscheinen hier in Echtzeit, während Agent-Sitzungen arbeiten.",
+  "viewSession": "Sitzung"
+}

@@ -1,0 +1,26 @@
+{
+  "title": "Painel",
+  "subtitle": "Visão geral em tempo real da atividade dos agentes",
+  "totalSessions": "Total de sessões",
+  "activeAgents": "Agentes ativos",
+  "activeSubagents": "Subagentes ativos",
+  "eventsToday": "Eventos hoje",
+  "totalEvents": "Total de eventos",
+  "totalCost": "Custo total",
+  "viewBoard": "Ver quadro",
+  "viewAll": "Ver tudo",
+  "activeAgentsSection": "Agentes ativos",
+  "recentActivity": "Atividade recente",
+  "noAgents": "Nenhum agente ativo",
+  "noAgentsDesc": "Os agentes aparecerão aqui quando uma sessão monitorada estiver em execução.",
+  "noActivity": "Nenhuma atividade ainda",
+  "noActivityDesc": "Os eventos das sessões monitoradas aparecerão aqui em tempo real.",
+  "failedConnect": "Falha ao conectar ao servidor",
+  "failedLoad": "Falha ao carregar os dados",
+  "activeTrend": " ativos",
+  "totalTrend": " em sessões ativas",
+  "tabs": {
+    "monitor": "Monitoramento",
+    "health": "Saúde"
+  }
+}

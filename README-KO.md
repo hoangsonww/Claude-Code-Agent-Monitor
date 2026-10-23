@@ -72,10 +72,10 @@ Claude Code, Cursor, Codex 에이전트 세션, 도구 사용, 대화 기록, �
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > [!TIP]
-> 참고: 영어 원문은 [README-EN.md](./README-EN.md), 중국어 버전은 [README-CN.md](./README-CN.md) (中文版本), 베트남어 버전은 [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), 스페인어 버전은 [README-ES.md](./README-ES.md) (Español)를 확인하세요. 이 문서는 한국어 버전입니다.
+> 참고: 영어 원문은 [README-EN.md](./README-EN.md), 중국어 버전은 [README-CN.md](./README-CN.md) (中文版本), 베트남어 버전은 [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), 스페인어 버전은 [README-ES.md](./README-ES.md) (Español), 프랑스어 버전은 [README-FR.md](./README-FR.md) (Français), 독일어 버전은 [README-DE.md](./README-DE.md) (Deutsch), 포르투갈어 버전은 [README-PT.md](./README-PT.md) (Português), 이탈리아어 버전은 [README-IT.md](./README-IT.md) (Italiano)를 확인하세요. 이 문서는 한국어 버전입니다.
 
 > [!NOTE]
-> 작업 중심의 도움이 필요하신가요? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki)는 일상적인 사용, 팀 운영, 문제 해결, CLI/MCP 자동화 및 배포 절차를 위한 실용 핸드북입니다. [현지화된 정적 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/)는 영어, 베트남어, 중국어, 한국어 및 스페인어 제품·아키텍처 둘러보기를 계속 제공하며, 정확한 기술 계약은 [`docs/`](./docs/README.md)에 유지됩니다.
+> 작업 중심의 도움이 필요하신가요? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki)는 일상적인 사용, 팀 운영, 문제 해결, CLI/MCP 자동화 및 배포 절차를 위한 실용 핸드북입니다. [현지화된 정적 Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/)는 영어, 베트남어, 중국어, 한국어, 스페인어, 프랑스어, 독일어, 포르투갈어 및 이탈리아어 제품·아키텍처 둘러보기를 계속 제공하며, 정확한 기술 계약은 [`docs/`](./docs/README.md)에 유지됩니다.
 
 ---
 
@@ -133,11 +133,11 @@ graph LR
 
 ### 국제화 (i18n)
 
-UI에는 영어(`en`), 중국어(`zh`), 베트남어(`vi`), 한국어(`ko`), 스페인어(`es`)를 위한 내장 로케일 전환 기능이 탑재되어 있습니다. 언어 선택기는 향후 언어가 추가되어도 사이드바가 혼잡해지지 않도록 맞춤 드롭다운으로 제공됩니다. 언어 리소스는 네임스페이스별로 로드되며, 새로고침 후에도 사용자 선호가 안정적으로 유지되도록 브라우저 스토리지를 통해 저장됩니다.
+UI에는 영어(`en`), 중국어(`zh`), 베트남어(`vi`), 한국어(`ko`), 스페인어(`es`), 프랑스어(`fr`), 독일어(`de`), 포르투갈어(`pt`), 이탈리아어(`it`)를 위한 내장 로케일 전환 기능이 탑재되어 있습니다. 언어 선택기는 향후 언어가 추가되어도 사이드바가 혼잡해지지 않도록 맞춤 드롭다운으로 제공됩니다. 언어 리소스는 네임스페이스별로 로드되며, 새로고침 후에도 사용자 선호가 안정적으로 유지되도록 브라우저 스토리지를 통해 저장됩니다.
 
 ```mermaid
 flowchart LR
-    A["User selects language<br/>en / zh / vi / ko / es"] --> B["i18next detector<br/>localStorage -> navigator"]
+    A["User selects language<br/>en / zh / vi / ko / es<br/>fr / de / pt / it"] --> B["i18next detector<br/>localStorage -> navigator"]
     B --> C["Resolved language<br/>fallback: en"]
     C --> D["Namespace resources<br/>common/nav/dashboard/..."]
     D --> E["React useTranslation hooks"]
@@ -343,7 +343,7 @@ flowchart LR
 | **Remote Data Sources** | SSH source는 `scp` 또는 WSL `tar`를 통해 Claude와 Codex home을 독립적으로 mirror하고, `sessions.source`를 tag하며, lifecycle을 조정하고, 두 provider 중 하나라도 작동하면 healthy 상태를 유지합니다. Polling 기본값은 15초이며 stale fallback은 실패한 provider에만 적용됩니다. 인증 정보는 host SSH에 남습니다. |
 | **Remote Push Ingestion** | `POST /api/hooks/ingest-batch`는 NAT 뒤의 머신에서 세션 합계와 이벤트를 보내고, `POST /api/hooks/ingest-transcript`는 제목, 기록, token, Subagent 가져오기에 필요한 offset 검증 기반 main Agent 및 Subagent JSONL을 추가합니다. 두 route 모두 `REMOTE_PUSH_TOKEN` 또는 `REMOTE_PUSH_TOKEN_FILE`이 설정될 때까지 비활성 상태이며 query-string credential과 로컬 소유 세션을 거부합니다. `ingest-transcript`는 해당 route의 더 큰 parser가 실행되기 전에 인증합니다. |
 | **Responsive Design** | 모바일 레이아웃은 grid를 쌓고, 넓은 table을 scroll하며, navigation을 접습니다. |
-| **UI Localization** | 영어, 중국어, 베트남어, 한국어, 스페인어는 UI copy, accessibility label, workflow 설명과 tooltip, model-pricing 안내, provider home, Import History를 다룹니다. |
+| **UI Localization** | 영어, 중국어, 베트남어, 한국어, 스페인어, 프랑스어, 독일어, 포르투갈어, 이탈리아어는 UI copy, accessibility label, workflow 설명과 tooltip, model-pricing 안내, provider home, Import History를 다룹니다. |
 | **Seed Data** | 내장 script가 실제적인 demo 및 development data를 제공합니다. |
 | **Statusline** | 컬러 CLI strip이 model, context, Git branch, 방향별 token, USD session cost를 표시합니다. |
 | **Model Name Formatting** | Claude, GPT, Gemini identifier에서 provider/date/latest suffix를 제거하고, numeric version을 연결하고, context tag를 형식화해 읽기 쉬운 이름을 만듭니다. Settings에는 raw pricing pattern이 유지됩니다. |
@@ -1511,7 +1511,7 @@ Tabby는 주목할 만한 이벤트(세션 시작/완료, 오류, 실행 완료)
 
 ### 접근성 및 안전한 성능 저하
 
-Tabby는 키보드로 조작할 수 있고, 말풍선에 `aria-live`를 사용하며, `prefers-reduced-motion`을 존중합니다. WebSocket이 끊기면 오류를 내는 대신 차분한 `disconnected` 상태로 안전하게 전환됩니다. **설정**에서 Tabby를 켜거나 끌 수 있으며(영어, 중국어, 베트남어, 한국어, 스페인어로 현지화됨), 구현은 `client/src/components/Tabby/`에 있습니다.
+Tabby는 키보드로 조작할 수 있고, 말풍선에 `aria-live`를 사용하며, `prefers-reduced-motion`을 존중합니다. WebSocket이 끊기면 오류를 내는 대신 차분한 `disconnected` 상태로 안전하게 전환됩니다. **설정**에서 Tabby를 켜거나 끌 수 있으며(영어, 중국어, 베트남어, 한국어, 스페인어, 프랑스어, 독일어, 포르투갈어, 이탈리아어로 현지화됨), 구현은 `client/src/components/Tabby/`에 있습니다.
 
 ---
 
@@ -1549,7 +1549,7 @@ Tabby는 키보드로 조작할 수 있고, 말풍선에 `aria-live`를 사용�
 
 ### 설정
 
-**설정 → 사운드**에는 마스터 토글, 볼륨 슬라이더, 그리고 각 큐의 개별 스위치가 있습니다. 스위치를 켜면 해당 큐가 즉시 재생되어 방금 무엇을 켰는지 정확히 들을 수 있고, **소리 미리 듣기** 버튼은 완료 차임을 원할 때 재생합니다. 설정은 `localStorage`의 `agent-monitor-sound` 키에 저장되며 앱 전체에 즉시 적용됩니다 — 새로고침이 필요 없습니다. 이 패널은 영어, 중국어, 베트남어, 한국어, 스페인어로 현지화되어 있습니다.
+**설정 → 사운드**에는 마스터 토글, 볼륨 슬라이더, 그리고 각 큐의 개별 스위치가 있습니다. 스위치를 켜면 해당 큐가 즉시 재생되어 방금 무엇을 켰는지 정확히 들을 수 있고, **소리 미리 듣기** 버튼은 완료 차임을 원할 때 재생합니다. 설정은 `localStorage`의 `agent-monitor-sound` 키에 저장되며 앱 전체에 즉시 적용됩니다 — 새로고침이 필요 없습니다. 이 패널은 영어, 중국어, 베트남어, 한국어, 스페인어, 프랑스어, 독일어, 포르투갈어, 이탈리아어로 현지화되어 있습니다.
 
 기본적으로 세션 시작, 세션 완료, 세션 오류, Claude Code 알림, 상호작용 틱이 켜져 있고, 서브에이전트 생성과 연결 변화는 꺼져 있습니다(가장 잦기 때문입니다). 구현은 `client/src/lib/sound.ts`(엔진 + 설정)와 `client/src/hooks/useSoundCues.ts`(이벤트 버스 연결)에 있으며, `client/src/App.tsx`에서 한 번 마운트됩니다.
 

@@ -73,10 +73,10 @@ A professional dashboard to track and visualize Claude Code, Cursor, and Codex a
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > [!TIP]
-> See also: [README-CN.md](./README-CN.md) (中文版本), [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), [README-KO.md](./README-KO.md) (한국어 버전), and [README-ES.md](./README-ES.md) (versión en español) for localized documentation with region-specific tips and best practices.
+> See also: [README-CN.md](./README-CN.md) (中文版本), [README-VN.md](./README-VN.md) (Phiên bản tiếng Việt), [README-KO.md](./README-KO.md) (한국어 버전), [README-ES.md](./README-ES.md) (versión en español), [README-FR.md](./README-FR.md) (version française), [README-DE.md](./README-DE.md) (deutsche Version), [README-PT.md](./README-PT.md) (versão em português), and [README-IT.md](./README-IT.md) (versione italiana) for localized documentation with region-specific tips and best practices.
 
 > [!NOTE]
-> Need task-first help? The [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) is the practical handbook for everyday use, team operations, troubleshooting, CLI/MCP automation, and deployment recipes. The [localized static Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) remains the English, Vietnamese, Chinese, Korean, and Spanish product and architecture tour; exact technical contracts stay in [`docs/`](./docs/README.md).
+> Need task-first help? The [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) is the practical handbook for everyday use, team operations, troubleshooting, CLI/MCP automation, and deployment recipes. The [localized static Wiki](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) remains the English, Vietnamese, Chinese, Korean, Spanish, French, German, Portuguese, and Italian product and architecture tour; exact technical contracts stay in [`docs/`](./docs/README.md).
 
 ---
 
@@ -134,11 +134,11 @@ In addition to the real-time monitoring dashboard, it also includes a local MCP 
 
 ### Internationalization (i18n)
 
-The UI ships with built-in locale switching for English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), and Spanish (`es`). A custom language dropdown prevents the selector from crowding the sidebar as more locales are added. Language resources are loaded by namespace and persisted through browser storage for stable user preference across refreshes.
+The UI ships with built-in locale switching for English (`en`), Chinese (`zh`), Vietnamese (`vi`), Korean (`ko`), Spanish (`es`), French (`fr`), German (`de`), Portuguese (`pt`), and Italian (`it`). A custom language dropdown prevents the selector from crowding the sidebar as more locales are added. Language resources are loaded by namespace and persisted through browser storage for stable user preference across refreshes.
 
 ```mermaid
 flowchart LR
-    A["User selects language<br/>en / zh / vi / ko / es"] --> B["i18next detector<br/>localStorage -> navigator"]
+    A["User selects language<br/>en / zh / vi / ko / es<br/>fr / de / pt / it"] --> B["i18next detector<br/>localStorage -> navigator"]
     B --> C["Resolved language<br/>fallback: en"]
     C --> D["Namespace resources<br/>common/nav/dashboard/..."]
     D --> E["React useTranslation hooks"]
@@ -344,7 +344,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Remote Data Sources** | SSH sources independently mirror Claude and Codex homes through `scp` or WSL `tar`, tag `sessions.source`, reconcile lifecycle, and remain healthy if either provider works. Polling defaults to 15 seconds; stale fallback affects only the failed provider. Credentials remain with host SSH. |
 | **Remote Push Ingestion** | `POST /api/hooks/ingest-batch` sends session totals and events from machines behind NAT, while `POST /api/hooks/ingest-transcript` adds offset-checked main and subagent JSONL for titles, history, tokens, and subagent import. Both stay disabled until `REMOTE_PUSH_TOKEN` or `REMOTE_PUSH_TOKEN_FILE` is configured, and reject query-string credentials and locally owned sessions; `ingest-transcript` authenticates before its larger parser runs. |
 | **Responsive Design** | Mobile layouts stack grids, scroll wide tables, and collapse navigation. |
-| **UI Localization** | English, Chinese, Vietnamese, Korean, and Spanish cover UI copy, accessibility labels, workflow explanations and tooltips, model-pricing guidance, provider homes, and Import History. |
+| **UI Localization** | English, Chinese, Vietnamese, Korean, Spanish, French, German, Portuguese, and Italian cover UI copy, accessibility labels, workflow explanations and tooltips, model-pricing guidance, provider homes, and Import History. |
 | **Seed Data** | A built-in script provides realistic demo and development data. |
 | **Statusline** | A color CLI strip shows model, context, Git branch, directional tokens, and USD session cost. |
 | **Model Name Formatting** | Claude, GPT, and Gemini identifiers become readable names by removing provider/date/latest suffixes, joining numeric versions, and formatting context tags; Settings keeps raw pricing patterns. |
@@ -1516,7 +1516,7 @@ The **Ask** box answers simple status questions locally from cached data — for
 
 ### Accessibility & safe degradation
 
-Tabby is keyboard-operable, uses `aria-live` for its bubbles, and honors `prefers-reduced-motion`. If the WebSocket is down it degrades safely to a calm `disconnected` state rather than erroring. You can toggle Tabby on or off in **Settings** (localized in English, Chinese, Vietnamese, Korean, and Spanish), and the implementation lives in `client/src/components/Tabby/`.
+Tabby is keyboard-operable, uses `aria-live` for its bubbles, and honors `prefers-reduced-motion`. If the WebSocket is down it degrades safely to a calm `disconnected` state rather than erroring. You can toggle Tabby on or off in **Settings** (localized in English, Chinese, Vietnamese, Korean, Spanish, French, German, Portuguese, and Italian), and the implementation lives in `client/src/components/Tabby/`.
 
 ---
 
@@ -1554,7 +1554,7 @@ If the browser has no Web Audio support at all, every call is a safe no-op — t
 
 ### Settings
 
-**Settings → Sound** has a master toggle, a volume slider, and an individual switch for each cue. Flipping a switch on plays that cue immediately so you can hear exactly what you just enabled, and a **Preview Sound** button plays the completion chime on demand. Preferences persist to `localStorage` under `agent-monitor-sound` and take effect instantly across the app — no reload. The panel is localized in English, Chinese, Vietnamese, Korean, and Spanish.
+**Settings → Sound** has a master toggle, a volume slider, and an individual switch for each cue. Flipping a switch on plays that cue immediately so you can hear exactly what you just enabled, and a **Preview Sound** button plays the completion chime on demand. Preferences persist to `localStorage` under `agent-monitor-sound` and take effect instantly across the app — no reload. The panel is localized in English, Chinese, Vietnamese, Korean, Spanish, French, German, Portuguese, and Italian.
 
 By default, session start, session complete, session error, Claude Code notifications, and the interaction tick are on; subagent spawns and connection changes are off (they are the chattiest). Implementation lives in `client/src/lib/sound.ts` (engine + preferences) and `client/src/hooks/useSoundCues.ts` (event-bus wiring), mounted once in `client/src/App.tsx`.
 

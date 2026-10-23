@@ -71,12 +71,12 @@ Bảng điều khiển chuyên nghiệp để theo dõi Claude Code, Cursor và 
 ![Auto Release](https://img.shields.io/badge/CI-auto--release_to_GitHub-22c55e?style=flat-square&logo=githubactions&logoColor=white)
 ![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
-**Hỗ trợ ngôn ngữ**: Tiếng Anh (`en`) · 中文 (`zh`) · Tiếng Việt (`vi`) · Tiếng Hàn (`ko`) · Tiếng Tây Ban Nha (`es`)
+**Hỗ trợ ngôn ngữ**: Tiếng Anh (`en`) · 中文 (`zh`) · Tiếng Việt (`vi`) · Tiếng Hàn (`ko`) · Tiếng Tây Ban Nha (`es`) · Tiếng Pháp (`fr`) · Tiếng Đức (`de`) · Tiếng Bồ Đào Nha (`pt`) · Tiếng Ý (`it`)
 
-Tài liệu đã bản địa hóa: [`README-EN.md`](./README-EN.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md)
+Tài liệu đã bản địa hóa: [`README-EN.md`](./README-EN.md) · [`README-CN.md`](./README-CN.md) · [`README-VN.md`](./README-VN.md) · [`README-KO.md`](./README-KO.md) · [`README-ES.md`](./README-ES.md) · [`README-FR.md`](./README-FR.md) · [`README-DE.md`](./README-DE.md) · [`README-PT.md`](./README-PT.md) · [`README-IT.md`](./README-IT.md)
 
 > [!NOTE]
-> Bạn cần hướng dẫn theo tác vụ? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) là sổ tay thực hành về sử dụng hằng ngày, vận hành theo nhóm, khắc phục sự cố, tự động hóa CLI/MCP và các quy trình triển khai. [Wiki tĩnh đã bản địa hóa](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) vẫn là phần giới thiệu sản phẩm và kiến trúc bằng tiếng Anh, Việt, Trung, Hàn và Tây Ban Nha; các hợp đồng kỹ thuật chính xác vẫn nằm trong [`docs/`](./docs/README.md).
+> Bạn cần hướng dẫn theo tác vụ? [GitHub Wiki](https://github.com/hoangsonww/Claude-Code-Agent-Monitor/wiki) là sổ tay thực hành về sử dụng hằng ngày, vận hành theo nhóm, khắc phục sự cố, tự động hóa CLI/MCP và các quy trình triển khai. [Wiki tĩnh đã bản địa hóa](https://hoangsonww.github.io/Claude-Code-Agent-Monitor/wiki/) vẫn là phần giới thiệu sản phẩm và kiến trúc bằng tiếng Anh, Việt, Trung, Hàn, Tây Ban Nha, Pháp, Đức, Bồ Đào Nha và Ý; các hợp đồng kỹ thuật chính xác vẫn nằm trong [`docs/`](./docs/README.md).
 
 ---
 
@@ -134,11 +134,11 @@ Ngoài bảng thông tin giám sát thời gian thực, nó còn bao gồm tri�
 
 ### Quốc tế hóa (i18n)
 
-Giao diện người dùng đi kèm với tính năng chuyển đổi ngôn ngữ tích hợp cho tiếng Anh (`en`), tiếng Trung (`zh`), tiếng Việt (`vi`), tiếng Hàn (`ko`) và tiếng Tây Ban Nha (`es`). Bộ chọn ngôn ngữ là một menu thả xuống tùy chỉnh để không chiếm chỗ khi thêm ngôn ngữ mới. Tài nguyên ngôn ngữ được tải theo không gian tên và được lưu giữ trong bộ nhớ của trình duyệt để mang lại ưu tiên người dùng ổn định trong các lần làm mới.
+Giao diện người dùng đi kèm với tính năng chuyển đổi ngôn ngữ tích hợp cho tiếng Anh (`en`), tiếng Trung (`zh`), tiếng Việt (`vi`), tiếng Hàn (`ko`), tiếng Tây Ban Nha (`es`), tiếng Pháp (`fr`), tiếng Đức (`de`), tiếng Bồ Đào Nha (`pt`) và tiếng Ý (`it`). Bộ chọn ngôn ngữ là một menu thả xuống tùy chỉnh để không chiếm chỗ khi thêm ngôn ngữ mới. Tài nguyên ngôn ngữ được tải theo không gian tên và được lưu giữ trong bộ nhớ của trình duyệt để mang lại ưu tiên người dùng ổn định trong các lần làm mới.
 
 ```mermaid
 flowchart LR
-    A["User selects language<br/>en / zh / vi / ko / es"] --> B["i18next detector<br/>localStorage -> navigator"]
+    A["User selects language<br/>en / zh / vi / ko / es<br/>fr / de / pt / it"] --> B["i18next detector<br/>localStorage -> navigator"]
     B --> C["Resolved language<br/>fallback: en"]
     C --> D["Namespace resources<br/>common/nav/dashboard/..."]
     D --> E["React useTranslation hooks"]
@@ -344,7 +344,7 @@ Dashboard bao quát toàn bộ vòng đời Agent cục bộ. Các hợp đồng
 | **Nguồn dữ liệu từ xa** | Nguồn SSH phản chiếu độc lập thư mục Claude và Codex qua `scp` hoặc `tar` của WSL, gắn `sessions.source`, đối chiếu vòng đời và vẫn khỏe nếu một trong hai nhà cung cấp hoạt động. Polling mặc định 15 giây; fallback cũ chỉ ảnh hưởng nhà cung cấp lỗi. Thông tin xác thực ở lại với SSH của máy chủ. |
 | **Tiếp nhận đẩy từ xa** | `POST /api/hooks/ingest-batch` gửi tổng phiên và sự kiện từ máy phía sau NAT, còn `POST /api/hooks/ingest-transcript` bổ sung JSONL của Agent chính và Subagent có kiểm tra offset để phục vụ tiêu đề, lịch sử, token và nhập Subagent. Cả hai đều tắt cho đến khi cấu hình `REMOTE_PUSH_TOKEN` hoặc `REMOTE_PUSH_TOKEN_FILE`, và từ chối thông tin xác thực trong query string cùng phiên sở hữu cục bộ; `ingest-transcript` xác thực trước khi parser lớn hơn của route này chạy. |
 | **Thiết kế thích ứng** | Bố cục di động xếp chồng lưới, cuộn bảng rộng và thu gọn điều hướng. |
-| **Bản địa hóa UI** | Tiếng Anh, Trung, Việt, Hàn và Tây Ban Nha bao quát nội dung UI, nhãn trợ năng, giải thích quy trình và tooltip, hướng dẫn định giá model, thư mục nhà cung cấp và Nhập lịch sử. |
+| **Bản địa hóa UI** | Tiếng Anh, Trung, Việt, Hàn, Tây Ban Nha, Pháp, Đức, Bồ Đào Nha và Ý bao quát nội dung UI, nhãn trợ năng, giải thích quy trình và tooltip, hướng dẫn định giá model, thư mục nhà cung cấp và Nhập lịch sử. |
 | **Dữ liệu mẫu** | Script tích hợp cung cấp dữ liệu demo và phát triển thực tế. |
 | **Statusline** | Dải CLI có màu hiển thị model, ngữ cảnh, nhánh Git, token theo chiều và chi phí phiên bằng USD. |
 | **Định dạng tên model** | Định danh Claude, GPT và Gemini trở thành tên dễ đọc bằng cách bỏ hậu tố nhà cung cấp/ngày/latest, nối phiên bản số và định dạng tag ngữ cảnh; Cài đặt giữ nguyên mẫu định giá thô. |
@@ -1497,7 +1497,7 @@ Mở bảng bằng cách bấm chú mèo hoặc nhấn **⌘B / Ctrl+B** (Esc đ
 
 ### Trợ năng và suy giảm an toàn
 
-Tabby dùng được bằng bàn phím, dùng `aria-live` cho bong bóng và tôn trọng `prefers-reduced-motion`. Nếu WebSocket bị ngắt, nó suy giảm an toàn về trạng thái `disconnected` bình tĩnh thay vì báo lỗi. Có thể bật hoặc tắt Tabby trong **Cài đặt**, với bản địa hóa tiếng Anh, Trung, Việt, Hàn và Tây Ban Nha. Phần triển khai nằm trong `client/src/components/Tabby/`.
+Tabby dùng được bằng bàn phím, dùng `aria-live` cho bong bóng và tôn trọng `prefers-reduced-motion`. Nếu WebSocket bị ngắt, nó suy giảm an toàn về trạng thái `disconnected` bình tĩnh thay vì báo lỗi. Có thể bật hoặc tắt Tabby trong **Cài đặt**, với bản địa hóa tiếng Anh, Trung, Việt, Hàn, Tây Ban Nha, Pháp, Đức, Bồ Đào Nha và Ý. Phần triển khai nằm trong `client/src/components/Tabby/`.
 
 ---
 
@@ -1535,7 +1535,7 @@ Nếu trình duyệt hoàn toàn không hỗ trợ Web Audio, mọi lệnh gọi
 
 ### Cài đặt
 
-**Settings → Sound** có công tắc tổng, thanh trượt âm lượng và một công tắc riêng cho từng tín hiệu. Bật một công tắc sẽ phát ngay tín hiệu đó để bạn nghe chính xác thứ vừa bật, và nút **Preview Sound** phát tiếng chuông hoàn tất bất cứ lúc nào. Tùy chọn được lưu vào `localStorage` dưới khóa `agent-monitor-sound` và có hiệu lực tức thì trên toàn ứng dụng — không cần tải lại. Bảng này được bản địa hóa sang tiếng Anh, Trung, Việt, Hàn và Tây Ban Nha.
+**Settings → Sound** có công tắc tổng, thanh trượt âm lượng và một công tắc riêng cho từng tín hiệu. Bật một công tắc sẽ phát ngay tín hiệu đó để bạn nghe chính xác thứ vừa bật, và nút **Preview Sound** phát tiếng chuông hoàn tất bất cứ lúc nào. Tùy chọn được lưu vào `localStorage` dưới khóa `agent-monitor-sound` và có hiệu lực tức thì trên toàn ứng dụng — không cần tải lại. Bảng này được bản địa hóa sang tiếng Anh, Trung, Việt, Hàn, Tây Ban Nha, Pháp, Đức, Bồ Đào Nha và Ý.
 
 Theo mặc định, phiên bắt đầu, phiên hoàn tất, phiên lỗi, thông báo của Claude Code và tiếng tích tương tác được bật; subagent được tạo và thay đổi kết nối được tắt (chúng là những mục ồn ào nhất). Mã nguồn nằm tại `client/src/lib/sound.ts` (engine + tùy chọn) và `client/src/hooks/useSoundCues.ts` (đấu nối event bus), được gắn một lần trong `client/src/App.tsx`.
 

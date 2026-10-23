@@ -1,0 +1,80 @@
+{
+  "title": "Avvisi",
+  "subtitle": "Avvisi basati su regole per sessioni, agenti, eventi e consumo di token",
+  "refresh": "Aggiorna",
+  "ackAll": "Conferma tutti ({{count}})",
+  "ruleTypes": {
+    "event_pattern": "Pattern di evento",
+    "inactivity": "Inattività",
+    "status_duration": "Agente bloccato",
+    "token_threshold": "Soglia di token"
+  },
+  "ruleTypeHints": {
+    "event_pattern": "Scatta quando un evento acquisito corrisponde al pattern. Imposta un conteggio superiore a 1 per richiedere N eventi corrispondenti in una finestra temporale (ad es. più di 5 errori in 2 minuti).",
+    "inactivity": "Scatta quando una sessione attiva non ha ricevuto eventi per il numero di minuti configurato.",
+    "status_duration": "Scatta quando un agente è rimasto nello stato selezionato, senza attività, per il numero di minuti configurato.",
+    "token_threshold": "Scatta quando il consumo totale di token di una sessione (input + output + cache) supera la soglia."
+  },
+  "ruleDesc": {
+    "eventPattern": "Corrisponde a {{pattern}}",
+    "eventPatternCount": "≥{{count}} × {{pattern}} entro {{window}} min",
+    "inactivity": "Nessuna attività di sessione da {{minutes}} min",
+    "statusDuration": "Agente bloccato in {{status}} da {{minutes}} min",
+    "tokenThreshold": "I token della sessione superano {{tokens}}"
+  },
+  "rules": {
+    "title": "Regole di avviso",
+    "add": "Aggiungi regola",
+    "cancel": "Annulla",
+    "create": "Crea regola",
+    "saving": "Salvataggio…",
+    "empty": "Nessuna regola di avviso finora. Aggiungine una per monitorare agenti bloccati, raffiche di errori, sessioni inattive o picchi di token.",
+    "enabled": "Attivata",
+    "disabled": "Disattivata",
+    "enable": "Attiva regola",
+    "disable": "Disattiva regola",
+    "delete": "Elimina regola",
+    "confirmDelete": "Eliminare la regola \"{{name}}\" e la sua cronologia degli avvisi?",
+    "cooldown": "Intervallo di {{seconds}} s",
+    "form": {
+      "name": "Nome della regola",
+      "namePlaceholder": "es. Raffica di errori",
+      "type": "Tipo di regola",
+      "eventType": "Tipo di evento (esatto)",
+      "toolName": "Nome dello strumento (esatto)",
+      "summaryContains": "Il riepilogo contiene",
+      "count": "Conteggio di attivazione",
+      "windowMinutes": "Finestra (minuti)",
+      "agentStatus": "Stato dell'agente",
+      "minutes": "Minuti",
+      "totalTokens": "Token totali",
+      "cooldown": "Intervallo (secondi)"
+    },
+    "deleteTitle": "Eliminare la regola di avviso?",
+    "help": {
+      "name": "Un'etichetta per questa regola. Compare nel feed degli avvisi ed è inclusa nei payload dei webhook (rule_name). Es. 'Errori Bash ripetuti'.",
+      "type": "Cosa osserva questa regola. event_pattern confronta il flusso di eventi in diretta; inactivity = una sessione attiva diventa silenziosa; status_duration = un agente resta bloccato in uno stato; token_threshold = il consumo di token di una sessione supera un limite.",
+      "eventType": "L'evento hook di Claude Code da intercettare. Lascia vuoto per accettare qualsiasi tipo di evento. Corrispondenza esatta (sensibile alle maiuscole).",
+      "toolName": "Lo strumento invocato dall'agente (negli eventi PreToolUse / PostToolUse). Lascia vuoto per accettare qualsiasi strumento. Corrispondenza esatta.",
+      "summaryContains": "Ricerca di sottostringa, non sensibile alle maiuscole, nel testo del riepilogo dell'evento. Utile per intercettare errori o frasi specifiche. Lascia vuoto per saltare.",
+      "count": "Quanti eventi corrispondenti devono verificarsi prima che l'avviso scatti. 1 = scatta alla prima corrispondenza. Sopra 1 rileva le raffiche (ad es. errori ripetuti).",
+      "window": "La finestra mobile di osservazione per il conteggio. Es. conteggio 5 + finestra 2 significa '5 eventi corrispondenti in un qualsiasi intervallo di 2 minuti'.",
+      "status": "Quale stato dell'agente osservare. 'working' intercetta gli agenti bloccati a metà attività; 'waiting' intercetta gli agenti fermi in attesa di input/permesso.",
+      "minutesInactivity": "Scatta quando una sessione attiva non ha avuto eventi per questo numero di minuti (una sessione bloccata o dimenticata).",
+      "minutesStatus": "Scatta quando un agente resta nello stato selezionato, senza attività, per questo numero di minuti (un agente bloccato).",
+      "totalTokens": "Scatta quando i token cumulativi di una sessione (input + output + lettura cache + scrittura cache) superano questo numero. Es. 1000000 = 1 M di token.",
+      "cooldown": "Secondi minimi tra avvisi ripetuti per la stessa regola + sessione + agente. Evita duplicati rumorosi. Predefinito 300 (5 min); 0 = nessun intervallo."
+    }
+  },
+  "feed": {
+    "title": "Feed degli avvisi",
+    "unackedCount": "{{count}} non confermati",
+    "unackedOnly": "Solo non confermati",
+    "ack": "Conferma",
+    "viewSession": "Vedi sessione",
+    "loadMore": "Carica altri ({{shown}} di {{total}})",
+    "emptyTitle": "Nessun avviso",
+    "emptyDescription": "Gli avvisi attivati dalle tue regole appariranno qui in tempo reale.",
+    "emptyUnacked": "È tutto confermato. I nuovi avvisi appariranno qui non appena scattano."
+  }
+}
