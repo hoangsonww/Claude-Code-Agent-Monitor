@@ -16,4 +16,4 @@ patches:
 
 images:
   - name: ccam-mcp
-    newTag: 2.4.4
+    newTag: 2.4.5
