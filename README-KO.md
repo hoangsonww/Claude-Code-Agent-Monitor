@@ -314,6 +314,7 @@ flowchart LR
 | **Dashboard** | 저장되는 **Monitor**와 **Health** 탭이 전체 합계, 활성 계층, 최근 활동, 가중 성공률/캐시/오류/힙 상태, 스토리지, 도구, 모델, Subagent 효과, 컴팩션 지표를 결합합니다. Health는 `/api/settings/info`와 `/api/workflows`에서 5초마다 새로 고칩니다. |
 | **Kanban Board** | Agent 열은 Working, Waiting, Completed, Error를, 세션 열은 Active와 Abandoned를 추가로 다룹니다. 카드는 10개씩 표시하고 활성 WebSocket 보기만 구독하며, 전체 제목을 보존하고 권한 입력, 턴 완료, 프롬프트 대기, 중단 같은 대기 사유를 설명합니다. |
 | **Sessions** | 보이는 페이지만 비용을 계산하는 검색, 필터, 서버 페이지네이션 히스토리와 메모리 내 임시 Codex 시작 행을 제공합니다. 검색은 300 ms 디바운스로 `id`, `name`, `cwd`를 대상으로 합니다. 이름은 명시적 제목, AI 제목, 첫 의미 있는 사용자 프롬프트 순으로 결정됩니다. |
+| **세션 그룹** | 목표별로 이름 있는 그룹을 만들고 세션 목록이나 상세 페이지에서 세션당 하나의 그룹을 지정합니다. 프로젝트 또는 그룹별로 행을 접어 세션 수, 마지막 활동, 비용, 대기 중인 수를 요약하고 두 Kanban 보드를 그룹별로 필터링합니다. 소속 정보는 원격 소스의 세션까지 대시보드 데이터베이스에 보관하며, 그룹을 삭제해도 세션의 소속만 해제됩니다. |
 | **Session Detail** | 실시간 통계, 활성 작업, 도구 사용량, Subagent, 토큰, 계층, 필터링된 이벤트 타임라인, `tool_use_id` 그룹화, 도구별 렌더러를 제공합니다. Conversation 보기는 대기 중인 턴, 시스템 알림, Markdown, 구문 강조 코드, 스타일이 적용된 도구를 렌더링하고, 대기 배너에는 사유와 경과 시간을 표시합니다. |
 | **Activity Feed** | 공유 필터, 서버 페이지네이션, 그룹화, 프로젝트/세션/Subagent 출처, 세션 링크, 일관된 Claude/Codex 상태 배지를 갖춘 일시 정지 가능한 실시간 이벤트를 제공합니다. |
 | **Analytics** | 모델 토큰, 도구 빈도, 일요일 기준 활동 히트맵, 세션 추세, 연결 상태, 레이아웃에 맞는 로딩 스켈레톤, 긴 범례의 페이지네이션을 다룹니다. |
@@ -529,6 +530,7 @@ sequenceDiagram
    - 지속적 프로젝트 동기화는 즉시 sweep, debounce `fs.watch`, 기본값 30초인 `DASHBOARD_SESSION_SYNC_MS` polling을 결합합니다. 하나의 mtime cache가 새 트랜스크립트나 커진 트랜스크립트만 다시 파싱하고 Hook과 같은 세션 frame을 broadcast합니다.
 4. **WebSocket**이 commit된 변경을 게시합니다.
 5. **UI**가 polling 없이 영향을 받는 보기를 새로 고칩니다.
+6. **세션 그룹**은 Hook과 별개입니다. 사용자가 대시보드에서 그룹을 만들고 세션을 지정합니다. 소속 정보는 `sessions.group_id`에 저장되고 WebSocket으로 Sessions 페이지와 Kanban 보드에 반영되며, 그룹 삭제는 세션 소속만 해제합니다.
 
 ### 에이전트 상태 머신
 

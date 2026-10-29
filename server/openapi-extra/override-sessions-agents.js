@@ -190,6 +190,14 @@ const paths = {
           example: ["/Users/son/code/project-a", "/Users/son/code/project-b"],
         },
         {
+          name: "group",
+          in: "query",
+          schema: { type: "string" },
+          description:
+            "Filter by a session group ID, or use `ungrouped` for sessions without a group.",
+          example: "ungrouped",
+        },
+        {
           name: "sort_by",
           in: "query",
           schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
@@ -374,7 +382,7 @@ const paths = {
       tags: ["Sessions"],
       summary: "Update session",
       description:
-        "Partially updates a session by `id`. Only `name`, `status`, `ended_at`, and `metadata` are accepted; any field omitted from the body is passed as null and the underlying UPDATE uses COALESCE, so a null leaves the existing column value unchanged (partial-update semantics) — you cannot clear a field to null through this endpoint. `metadata` is supplied as a JSON object but stored and returned as a JSON-encoded string. A successful update re-reads the row and broadcasts a `session_updated` websocket frame. Returns 404 with code `NOT_FOUND` when the session does not exist.",
+        "Partially updates a session by `id`. Accepts `name`, `status`, `ended_at`, `metadata`, and `group_id`. For the first four fields, omitted or null values leave the existing value unchanged. `group_id: null` explicitly unassigns the session; a group ID assigns it. `metadata` is supplied as a JSON object but stored and returned as a JSON-encoded string. A successful update re-reads the row and broadcasts `session_updated`; group changes also broadcast `session_groups_changed`. Invalid status or group ID input returns 400, and an unknown session or group returns 404.",
       operationId: "updateSession",
       parameters: [
         {
@@ -415,8 +423,16 @@ const paths = {
             },
           },
         },
+        400: {
+          description: "Invalid session status or group ID input",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ErrorResponse" },
+            },
+          },
+        },
         404: {
-          description: "Session not found",
+          description: "Session or group not found",
           content: {
             "application/json": {
               schema: { $ref: "#/components/schemas/ErrorResponse" },

@@ -1092,6 +1092,19 @@
                   </p>
                 </div>
                 <div class="feature-card">
+                  <div class="feature-icon ic-amber">🗂️</div>
+                  <h3>Session Groups</h3>
+                  <p>
+                    Keep related sessions together across projects and worktrees with user-defined,
+                    named groups. Select several rows in Sessions and move them into an existing group
+                    or create one; Session Detail can set the same membership. Choose Group by project
+                    or group to collapse histories into summaries showing session count, last activity,
+                    total cost, and waiting work, then expand a group to inspect its rows. Kanban's
+                    group filter narrows either board. Groups live only in the dashboard database,
+                    and deleting one leaves every session intact.
+                  </p>
+                </div>
+                <div class="feature-card">
                   <div class="feature-icon ic-violet">🔬</div>
                   <h3 id="feat-session-detail">Session Detail</h3>
                   <p>
@@ -3439,11 +3452,9 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               <span class="method method-get">GET</span>
               <span class="route-path">/api/sessions</span>
               <span class="route-desc"
-                >List sessions with agent counts and per-session cost. Params:
-                <code>status</code>, <code>q</code> (case-insensitive search across
-                <code>id</code>/<code>name</code>/<code>cwd</code>), <code>limit</code>
-                (default 50, max 10000), <code>offset</code>. Response includes
-                <code>total</code> for paginators.</span
+                >List sessions with agent counts and cost. Filter by <code>status</code>,
+                <code>q</code>, <code>cwd</code>, or <code>group</code> (ID or
+                <code>ungrouped</code>); <code>total</code> supports pagination.</span
               >
             </div>
             <div class="route-item">
@@ -3459,7 +3470,32 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             <div class="route-item">
               <span class="method method-patch">PATCH</span>
               <span class="route-path">/api/sessions/:id</span>
-              <span class="route-desc">Update session status / metadata</span>
+              <span class="route-desc">Update session status, metadata, or <code>group_id</code></span>
+            </div>
+            <div class="route-item">
+              <span class="method method-patch">PATCH</span>
+              <span class="route-path">/api/sessions/group</span>
+              <span class="route-desc">Assign selected <code>session_ids</code> to a <code>group_id</code>, or <code>null</code> to ungroup, atomically</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-get">GET</span>
+              <span class="route-path">/api/session-groups</span>
+              <span class="route-desc">List named dashboard-local session groups</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/session-groups</span>
+              <span class="route-desc">Create a group from a 1–100 character name</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-patch">PATCH</span>
+              <span class="route-path">/api/session-groups/:id</span>
+              <span class="route-desc">Rename a group; names are unique regardless of case</span>
+            </div>
+            <div class="route-item">
+              <span class="method method-delete">DELETE</span>
+              <span class="route-path">/api/session-groups/:id</span>
+              <span class="route-desc">Delete a group and unassign its sessions without deleting history</span>
             </div>
           </div>
 
@@ -7260,8 +7296,8 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=112" defer></script>
-    <script src="script.js?v=59" defer></script>
+    <script src="i18n-content.js?v=113" defer></script>
+    <script src="script.js?v=60" defer></script>
     <script>
       (function () {
         var carousel = document.getElementById("feature-carousel");

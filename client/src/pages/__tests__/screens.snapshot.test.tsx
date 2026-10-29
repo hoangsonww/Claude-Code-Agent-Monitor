@@ -56,7 +56,10 @@
  * - Dashboard
  * - Dashboard requests task progress for active agent cards
  * - Kanban board
+ * - Kanban loads all pages of a group and ignores stale filter responses
  * - Sessions
+ * - Sessions ignores stale group responses
+ * - Session detail locks group assignment while a request is pending
  * - Sessions requests and safely renders the transient Codex startup row
  * - Session detail
  * - Activity feed
@@ -289,8 +292,10 @@ vi.mock("../../lib/api", async (importOriginal) => {
     ...actual,
     api: {
       stats: { get: r(stats), facets: r({ cwds: [] }) },
+      sessionGroups: { list: r({ groups: [] }) },
       sessions: {
         list: r({ sessions: [], total: 0, limit: 50, offset: 0 }),
+        setGroup: r({ session }),
         facets: r({ cwds: [], sources: ["local"] }),
         get: r({ session, agents: [], events: [], workflows: [sampleWorkflowRun] }),
         stats: r({
@@ -516,6 +521,7 @@ import { Run } from "../Run";
 import { Settings } from "../Settings";
 import { NotFound } from "../NotFound";
 import { api } from "../../lib/api";
+import type { Session } from "../../lib/types";
 
 // jsdom lacks these browser APIs that chart / responsive components rely on.
 class ObserverStub {
@@ -586,6 +592,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.mocked(api.sessions.list).mockResolvedValue({ sessions: [], total: 0, limit: 50, offset: 0 });
+  vi.mocked(api.sessionGroups.list).mockResolvedValue({ groups: [] });
 });
 
 describe("screen snapshots", () => {
@@ -610,8 +618,129 @@ describe("screen snapshots", () => {
   it("Kanban board", async () => {
     await snapshot(<KanbanBoard />, "/kanban");
   });
+  it("Kanban includes sessions after the first grouped page", async () => {
+    const later = {
+      id: "later-group-session",
+      name: "Later group session",
+      status: "active",
+      cwd: "/work",
+      model: null,
+      started_at: "2026-06-10T12:00:00Z",
+      ended_at: null,
+      metadata: null,
+    } as Session;
+    vi.mocked(api.sessionGroups.list).mockResolvedValueOnce({
+      groups: [{ id: "goal", name: "Goal", created_at: "", updated_at: "" }],
+    });
+    vi.mocked(api.sessions.list).mockImplementation(async (params) => {
+      if (params?.group === "goal" && params.status === "active" && params.offset === 10000) {
+        return { sessions: [later], total: 10001, limit: 10000, offset: 10000 };
+      }
+      return {
+        sessions: [],
+        total: params?.group === "goal" && params.status === "active" ? 10001 : 0,
+        limit: 10000,
+        offset: 0,
+      };
+    });
+    render(
+      <MemoryRouter initialEntries={["/kanban?view=sessions"]}>
+        <KanbanBoard />
+      </MemoryRouter>
+    );
+    await settle();
+    fireEvent.change(screen.getByLabelText("Group"), { target: { value: "goal" } });
+    await settle();
+    expect(api.sessions.list).toHaveBeenCalledWith(
+      expect.objectContaining({ group: "goal", offset: 10000 })
+    );
+    expect(screen.getByText("Later group session")).toBeVisible();
+  });
+  it("Kanban ignores an older group response after the filter changes", async () => {
+    const sessionFor = (name: string): Session =>
+      ({
+        id: name,
+        name,
+        status: "active",
+        cwd: "/work",
+        model: null,
+        started_at: "2026-06-10T12:00:00Z",
+        ended_at: null,
+        metadata: null,
+      }) as Session;
+    let resolveOld!: (value: Awaited<ReturnType<typeof api.sessions.list>>) => void;
+    const oldResponse = new Promise<Awaited<ReturnType<typeof api.sessions.list>>>((resolve) => {
+      resolveOld = resolve;
+    });
+    vi.mocked(api.sessionGroups.list).mockResolvedValueOnce({
+      groups: [
+        { id: "old", name: "Old", created_at: "", updated_at: "" },
+        { id: "new", name: "New", created_at: "", updated_at: "" },
+      ],
+    });
+    vi.mocked(api.sessions.list).mockImplementation(async (params) => {
+      if (params?.group === "old") return oldResponse;
+      if (params?.group === "new" && params.status === "active") {
+        return { sessions: [sessionFor("New session")], total: 1, limit: 10000, offset: 0 };
+      }
+      return { sessions: [], total: 0, limit: 10000, offset: 0 };
+    });
+    render(
+      <MemoryRouter initialEntries={["/kanban?view=sessions"]}>
+        <KanbanBoard />
+      </MemoryRouter>
+    );
+    await settle();
+    fireEvent.change(screen.getByLabelText("Group"), { target: { value: "old" } });
+    await settle();
+    fireEvent.change(screen.getByLabelText("Group"), { target: { value: "new" } });
+    await settle();
+    expect(screen.getByTitle("New session")).toBeVisible();
+    resolveOld({ sessions: [sessionFor("Old session")], total: 1, limit: 10000, offset: 0 });
+    await settle();
+    expect(screen.getByTitle("New session")).toBeVisible();
+    expect(screen.queryByTitle("Old session")).not.toBeInTheDocument();
+  });
   it("Sessions", async () => {
     await snapshot(<Sessions />, "/sessions");
+  });
+  it("Sessions ignores an older response after selecting a group", async () => {
+    const rowFor = (name: string): Session =>
+      ({
+        id: name,
+        name,
+        status: "active",
+        cwd: "/work",
+        model: null,
+        started_at: "2026-06-10T12:00:00Z",
+        ended_at: null,
+        metadata: null,
+      }) as Session;
+    let resolveOld!: (value: Awaited<ReturnType<typeof api.sessions.list>>) => void;
+    const oldResponse = new Promise<Awaited<ReturnType<typeof api.sessions.list>>>((resolve) => {
+      resolveOld = resolve;
+    });
+    vi.mocked(api.sessionGroups.list).mockResolvedValueOnce({
+      groups: [{ id: "goal", name: "Goal", created_at: "", updated_at: "" }],
+    });
+    vi.mocked(api.sessions.list).mockImplementation(async (params) =>
+      params?.group === "goal"
+        ? { sessions: [rowFor("Grouped session")], total: 1, limit: 10, offset: 0 }
+        : oldResponse
+    );
+    render(
+      <MemoryRouter initialEntries={["/sessions"]}>
+        <Sessions />
+      </MemoryRouter>
+    );
+    await settle();
+    fireEvent.change(screen.getByLabelText("Group"), { target: { value: "goal" } });
+    await settle();
+    expect(screen.getByText("Grouped session")).toBeVisible();
+    resolveOld({ sessions: [rowFor("Old session")], total: 1, limit: 10, offset: 0 });
+    await settle();
+    expect(screen.getByText("Grouped session")).toBeVisible();
+    expect(screen.queryByText("Old session")).not.toBeInTheDocument();
   });
   it("Sessions requests and safely renders the transient Codex startup row", async () => {
     const transient = {
@@ -670,6 +799,32 @@ describe("screen snapshots", () => {
       </Routes>,
       "/sessions/sess-1"
     );
+  });
+  it("Session detail disables group changes while assignment is pending", async () => {
+    let resolveAssignment!: (value: Awaited<ReturnType<typeof api.sessions.setGroup>>) => void;
+    vi.mocked(api.sessions.setGroup).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAssignment = resolve;
+        })
+    );
+    vi.mocked(api.sessionGroups.list).mockResolvedValueOnce({
+      groups: [{ id: "goal", name: "Goal", created_at: "", updated_at: "" }],
+    });
+    render(
+      <MemoryRouter initialEntries={["/sessions/sess-1"]}>
+        <Routes>
+          <Route path="/sessions/:id" element={<SessionDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await settle();
+    const selector = screen.getByLabelText("Group");
+    fireEvent.change(selector, { target: { value: "goal" } });
+    expect(selector).toBeDisabled();
+    resolveAssignment({ session: { id: "sess-1", group_id: "goal" } as Session });
+    await settle();
+    expect(selector).toBeEnabled();
   });
   it("Activity feed", async () => {
     await snapshot(<ActivityFeed />, "/activity");

@@ -54,6 +54,7 @@ const {
 } = require("./lib/security");
 
 const sessionsRouter = require("./routes/sessions");
+const sessionGroupsRouter = require("./routes/session-groups");
 const agentsRouter = require("./routes/agents");
 const eventsRouter = require("./routes/events");
 const statsRouter = require("./routes/stats");
@@ -103,6 +104,7 @@ function createApp() {
   app.use("/api/hooks", hookGuard);
 
   app.use("/api/sessions", sessionsRouter);
+  app.use("/api/session-groups", sessionGroupsRouter);
   app.use("/api/agents", agentsRouter);
   app.use("/api/events", eventsRouter);
   app.use("/api/stats", statsRouter);

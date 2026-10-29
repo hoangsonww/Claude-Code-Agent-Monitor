@@ -6,6 +6,9 @@
     "agents": "Agent",
     "sessions": "会话"
   },
+  "groupFilter": "分组",
+  "allGroups": "所有分组",
+  "ungrouped": "未分组",
   "noAgents": "暂无追踪的 Agent",
   "noAgentsDesc": "启动已安装 hooks 的受监控 Agent 会话即可在此查看 Agent。",
   "agentCount_one": "已追踪 {{count}} 个 Agent",

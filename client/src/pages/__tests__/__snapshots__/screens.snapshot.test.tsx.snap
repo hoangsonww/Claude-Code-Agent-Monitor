@@ -5491,6 +5491,25 @@ exports[`screen snapshots > Kanban board 1`] = `
       <div
         class="flex items-center gap-2 flex-shrink-0"
       >
+        <label
+          class="flex items-center gap-2 text-xs text-gray-400"
+        >
+          Group
+          <select
+            class="input min-w-[125px]"
+          >
+            <option
+              value=""
+            >
+              All groups
+            </option>
+            <option
+              value="ungrouped"
+            >
+              Ungrouped
+            </option>
+          </select>
+        </label>
         <div
           aria-label="Agents / Sessions"
           class="inline-flex border border-border rounded-lg overflow-hidden bg-surface-2"
@@ -6176,6 +6195,25 @@ exports[`screen snapshots > Session detail 1`] = `
             Copy
           </button>
         </div>
+        <label
+          class="mt-3 flex items-center gap-2 text-xs text-gray-400"
+        >
+          Group
+          <select
+            class="input min-w-[170px]"
+          >
+            <option
+              value=""
+            >
+              Ungrouped
+            </option>
+            <option
+              value="create"
+            >
+              Create group
+            </option>
+          </select>
+        </label>
       </div>
       <button
         class="btn-ghost"
@@ -6912,7 +6950,7 @@ exports[`screen snapshots > Sessions 1`] = `
       </button>
     </div>
     <div
-      class="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full"
+      class="flex flex-wrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full"
     >
       <div
         class="relative flex-1 min-w-[260px] max-w-[340px]"
@@ -6990,6 +7028,49 @@ exports[`screen snapshots > Sessions 1`] = `
           </button>
         </div>
       </div>
+      <label
+        class="flex items-center gap-2 text-xs text-gray-400"
+      >
+        Group by
+        <select
+          class="input min-w-[110px]"
+        >
+          <option
+            value="none"
+          >
+            None
+          </option>
+          <option
+            value="project"
+          >
+            Project
+          </option>
+          <option
+            value="group"
+          >
+            Group
+          </option>
+        </select>
+      </label>
+      <label
+        class="flex items-center gap-2 text-xs text-gray-400"
+      >
+        Group
+        <select
+          class="input min-w-[125px]"
+        >
+          <option
+            value=""
+          >
+            All groups
+          </option>
+          <option
+            value="ungrouped"
+          >
+            Ungrouped
+          </option>
+        </select>
+      </label>
       <div
         class="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]"
       >

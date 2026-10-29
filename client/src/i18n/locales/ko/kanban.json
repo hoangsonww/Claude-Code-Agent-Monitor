@@ -6,6 +6,9 @@
     "agents": "Agent",
     "sessions": "세션"
   },
+  "groupFilter": "그룹",
+  "allGroups": "모든 그룹",
+  "ungrouped": "그룹 미지정",
   "noAgents": "아직 추적된 Agent가 없습니다",
   "noAgentsDesc": "hooks가 설치된 모니터링 Agent 세션을 시작하면 여기에 Agent가 표시됩니다.",
   "agentCount_one": "{{count}}개 Agent 추적 중",

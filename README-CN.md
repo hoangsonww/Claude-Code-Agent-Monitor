@@ -316,6 +316,7 @@ Dashboard 覆盖完整的本地 Agent 生命周期。详细运行契约仍见相
 | **Dashboard** | 持久化的 **Monitor** 和 **Health** 标签页汇总 Agent 总量、活跃层级、最近活动、加权的成功率/缓存/错误/堆内存健康度，以及存储、工具、模型、Subagent 效能和压缩指标。Health 每 5 秒从 `/api/settings/info` 和 `/api/workflows` 刷新。 |
 | **Kanban 看板** | Agent 列覆盖 Working、Waiting、Completed 和 Error，会话列另含 Active 和 Abandoned。卡片每次显示 10 张，仅订阅当前 WebSocket 视图，保留完整标题，并说明权限输入、回合完成、提示符空闲或中断等等待原因。 |
 | **会话** | 可搜索、可筛选、服务端分页的历史记录，费用仅按可见页计算，并包含临时的内存 Codex 启动行。搜索以 300 ms 防抖匹配 `id`、`name` 和 `cwd`。名称依次取显式标题、AI 标题和首条有意义的用户提示。 |
+| **会话分组** | 创建按目标命名的分组，在会话列表或详情页为每个会话指定至多一个分组。按项目或分组折叠行，摘要显示会话数量、最近活动、费用和等待中数量；两个 Kanban 看板都可按分组筛选。成员关系保存在仪表盘数据库中，可跨远程来源使用；删除分组只会取消会话的分组归属。 |
 | **会话详情** | 实时统计、当前工作、工具用量、Subagent、Token、层级、筛选后的事件时间线、`tool_use_id` 分组和工具专用渲染器。对话视图渲染排队回合、系统通知、Markdown、高亮代码和样式化工具；等待横幅显示原因和已等待时长。 |
 | **活动流** | 可暂停的实时事件流，带共享筛选器、服务端分页、分组、项目/会话/Subagent 来源、会话链接，以及一致的 Claude/Codex 状态徽标。 |
 | **分析** | 模型 Token、工具频率、从周日开始的活动热力图、会话趋势、连接状态、与布局匹配的加载骨架和分页长图例。 |
@@ -532,6 +533,8 @@ sequenceDiagram
    - 连续项目同步组合立即扫描、防抖 `fs.watch` 与 `DASHBOARD_SESSION_SYNC_MS` 轮询，默认 30 秒。单个 mtime 缓存只重新解析新增或增长的 Transcript，并广播与 Hook 相同的会话帧。
 4. **WebSocket** 发布已提交的变更。
 5. **UI** 无需轮询即可刷新受影响视图。
+6. **会话分组**独立于 Hook：用户在仪表盘中创建分组并分配会话。成员关系保存在 `sessions.group_id` 中，通过 WebSocket 更新会话页面和 Kanban 看板；删除分组只会取消会话的分组归属。
+
 ### Agent 状态机
 
 持久化状态:`working | waiting | completed | error`。`awaiting_input_since`

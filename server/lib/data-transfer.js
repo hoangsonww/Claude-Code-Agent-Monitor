@@ -55,6 +55,7 @@ function buildExportBundle(db, stmts) {
     format: EXPORT_FORMAT,
     version: EXPORT_VERSION,
     exported_at: new Date().toISOString(),
+    session_groups: db.prepare("SELECT * FROM session_groups ORDER BY name COLLATE NOCASE").all(),
     sessions: db.prepare("SELECT * FROM sessions ORDER BY started_at DESC").all(),
     agents: db.prepare("SELECT * FROM agents ORDER BY started_at DESC").all(),
     events: db.prepare("SELECT * FROM events ORDER BY created_at DESC").all(),
@@ -156,7 +157,7 @@ function assertBundle(bundle) {
  *
  * @param {import("better-sqlite3").Database} db
  * @param {object} bundle - parsed export JSON.
- * @returns {{sessions_imported:number, sessions_skipped:number, agents:number,
+ * @returns {{session_groups:number, sessions_imported:number, sessions_skipped:number, agents:number,
  *   events:number, token_usage:number, workflows:number, dashboard_runs:number,
  *   alert_rules:number, model_pricing:number, cursor_model_pricing:number,
  *   gpt_model_pricing:number,
@@ -166,6 +167,7 @@ function importExportBundle(db, bundle) {
   assertBundle(bundle);
 
   const counters = {
+    session_groups: 0,
     sessions_imported: 0,
     sessions_skipped: 0,
     agents: 0,
@@ -181,8 +183,11 @@ function importExportBundle(db, bundle) {
   };
 
   const sessionExists = db.prepare("SELECT 1 AS present FROM sessions WHERE id = ?");
+  const groupById = db.prepare("SELECT id FROM session_groups WHERE id = ?");
+  const groupByName = db.prepare("SELECT id FROM session_groups WHERE name = ? COLLATE NOCASE");
 
   const insert = {
+    session_groups: makeInserter(db, "session_groups"),
     sessions: makeInserter(db, "sessions"),
     agents: makeInserter(db, "agents"),
     events: makeInserter(db, "events", { omit: ["id"] }),
@@ -209,6 +214,18 @@ function importExportBundle(db, bundle) {
     // sibling that is inserted later in the same batch. Auto-resets at COMMIT.
     db.pragma("defer_foreign_keys = ON");
 
+    const importedGroupIds = new Map();
+    for (const group of Array.isArray(bundle.session_groups) ? bundle.session_groups : []) {
+      if (!group || !group.id) continue;
+      const existing = groupById.get(group.id) || groupByName.get(group.name);
+      if (existing) {
+        importedGroupIds.set(group.id, existing.id);
+      } else if (insert.session_groups(group).changes > 0) {
+        counters.session_groups++;
+        importedGroupIds.set(group.id, group.id);
+      }
+    }
+
     for (const s of sessions) {
       if (!s || !s.id) {
         counters.errors++;
@@ -218,7 +235,12 @@ function importExportBundle(db, bundle) {
         counters.sessions_skipped++;
         continue;
       }
-      insert.sessions(s);
+      // Match imported IDs to local IDs, including equal names from another
+      // machine. Unknown group IDs become null so partial restores keep sessions.
+      const groupId = s.group_id
+        ? importedGroupIds.get(s.group_id) || groupById.get(s.group_id)?.id || null
+        : null;
+      insert.sessions({ ...s, group_id: groupId });
       counters.sessions_imported++;
 
       // Agents first so events/token_usage that reference them satisfy FKs.

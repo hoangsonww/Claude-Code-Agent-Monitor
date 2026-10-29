@@ -85,7 +85,7 @@ Monitor Claude Code, Cursor, and Codex sessions in real time. Follow conversatio
 
 CCAM combines native hooks with provider-aware transcript discovery. It stays local by default and turns agent activity into a searchable, durable operational record.
 
-- **One live fleet:** Claude Code, Cursor, and Codex sessions appear in the same Dashboard, Sessions, Activity Feed, and Kanban views.
+- **One live fleet:** Claude Code, Cursor, and Codex sessions appear in the same Dashboard, Sessions, Activity Feed, and Kanban views; named session groups keep work on one goal together.
 - **Complete conversations:** Rendered Markdown, highlighted code, tool calls, command output, queued prompts, attachments, and provider-native titles.
 - **Agent orchestration:** Parent-child trees, background agents, dynamic workflow runs, tool-flow graphs, concurrency, delegation, and compaction analysis.
 - **Cost and usage:** Model-aware tokens, configurable pricing, introductory rates, subagent costs, trends, and budget-friendly CLI/MCP access.

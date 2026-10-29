@@ -315,6 +315,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Dashboard** | Persistent **Monitor** and **Health** tabs combine fleet totals, active hierarchies, recent activity, weighted success/cache/error/heap health, storage, tools, models, subagent effectiveness, and compaction metrics. Health refreshes every 5 seconds from `/api/settings/info` and `/api/workflows`. |
 | **Kanban Board** | Agent columns cover Working, Waiting, Completed, and Error; session columns add Active and Abandoned. Cards page 10 at a time, subscribe only to the active WebSocket view, preserve full titles, and explain waiting reasons such as permission input, turn completion, prompt idle, or interruption. |
 | **Sessions** | Searchable, filterable, server-paginated history with visible-page cost calculation and a temporary in-memory Codex startup row. Search covers `id`, `name`, and `cwd` with a 300 ms debounce. Names resolve from explicit title, AI title, then the first meaningful user prompt. |
+| **Session Groups** | Create named goal groups and assign one group per session from the Sessions list or detail page. Group by project or group to collapse rows into summaries with session count, last activity, cost, and waiting count; filter either Kanban board by group. Membership stays in the dashboard database, including across remote sources, and deleting a group only unassigns its sessions. |
 | **Session Detail** | Live stats, active work, tool usage, subagents, tokens, hierarchy, filtered event timelines, `tool_use_id` grouping, and tool-specific renderers. Conversation view renders queued turns, system notices, Markdown, highlighted code, and styled tools; waiting banners show the reason and elapsed time. |
 | **Activity Feed** | Pausable real-time events with shared filters, server pagination, grouping, project/session/subagent origin, session links, and consistent Claude/Codex status badges. |
 | **Analytics** | Model tokens, tool frequency, Sunday-aligned activity heatmaps, session trends, connection state, layout-matched loading skeletons, and paged long legends. |
@@ -527,6 +528,7 @@ sequenceDiagram
    - Continuous project sync combines an immediate sweep, debounced `fs.watch`, and `DASHBOARD_SESSION_SYNC_MS` polling, default 30 seconds. One mtime cache reparses only new or grown transcripts and broadcasts the same session frames as hooks.
 4. **WebSocket** publishes the committed change.
 5. **The UI** refreshes the affected views without polling.
+6. **Session groups** stay separate from hooks: users create groups and assign sessions in the dashboard. Membership is stored in `sessions.group_id` and pushed to the Sessions page and Kanban board through WebSocket; deleting a group only unassigns its sessions.
 
 ### Agent State Machine
 

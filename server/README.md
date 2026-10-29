@@ -196,16 +196,25 @@ server/
 
 ```mermaid
 erDiagram
+    session_groups |o--o{ sessions : "organizes (optional)"
     sessions ||--o{ agents : "has many"
     agents ||--o{ tool_executions : "has many"
     sessions ||--o{ notifications : "has many"
     
     sessions {
         integer id PK
+        text group_id FK
         text session_id UK
         text model
         text status
         real total_cost
+        text created_at
+        text updated_at
+    }
+
+    session_groups {
+        text id PK
+        text name UK
         text created_at
         text updated_at
     }
@@ -458,10 +467,15 @@ The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), 
 | Method  | Path                | Description                                      |
 | ------- | ------------------- | ------------------------------------------------ |
 | `GET`   | `/api/health`       | Server health check (`status`, `version`, `timestamp`) |
-| `GET`   | `/api/sessions`     | List sessions (`status`, repeatable `cwd`, `sort_by`, `sort_desc`, `include_transient`, `include_task_progress`, `limit`, `offset`) |
+| `GET`   | `/api/sessions`     | List sessions (`status`, repeatable `cwd`, optional `group`, `sort_by`, `sort_desc`, `include_transient`, `include_task_progress`, `limit`, `offset`) |
+| `GET`   | `/api/session-groups` | List dashboard-local groups |
+| `POST`  | `/api/session-groups` | Create a named group (unique, case-insensitive) |
+| `PATCH` | `/api/session-groups/:id` | Rename a group |
+| `DELETE` | `/api/session-groups/:id` | Delete a group and unassign its sessions |
+| `PATCH` | `/api/sessions/group` | Atomically assign or unassign 1–10000 selected sessions |
 | `GET`   | `/api/sessions/:id` | Session detail (includes `agents` + `events`)   |
 | `POST`  | `/api/sessions`     | Create session (idempotent by `id`)             |
-| `PATCH` | `/api/sessions/:id` | Update session                                   |
+| `PATCH` | `/api/sessions/:id` | Update session, including optional `group_id`  |
 | `GET`   | `/api/sessions/:id/transcripts` | List the session's transcript files (main + sub-agents) |
 | `GET`   | `/api/sessions/:id/transcript`  | Cursor-paginated message stream for one transcript |
 | `GET`   | `/api/agents`       | List agents (`status`, `session_id`, `include_transient`, pagination)|
@@ -494,6 +508,8 @@ The OpenAPI spec is generated from `server/openapi.js` (`createOpenApiSpec()`), 
 Codex durable-session liveness uses the exact open rollout on supported local hosts: `probeLiveCodexRollouts()` maps each live Codex PID to its `rollout-*.jsonl`. Cold ingestion creates inactive historical files as completed, and the watchdog can distinguish old and live sessions even when they share the same `cwd`; if exact probing is unavailable, the existing fail-safe cwd probe remains conservative. The pre-identity process overlay also collapses the Node launcher and direct native Codex child into one logical process before creating transient cards.
 
 Claude turn-duration ingestion assigns each `TurnDuration` a stable transcript identity (UUID or byte offset). A complete parse atomically reconciles rows and exact `turn_count` / `total_turn_duration_ms` metadata, repairing duplicates from older builds; a capped tail remains append-only so it cannot discard historical turns.
+
+**Session Groups.** `session_groups` stores case-insensitive unique local labels. `sessions.group_id` is nullable and indexed; existing databases add it idempotently with all rows ungrouped. A group may hold local and remote source sessions. Deletion sets memberships to null without deleting session history. Data export/import carries definitions before session rows and maps equal names from another machine to the local group ID. Group mutations broadcast `session_groups_changed` with `{ group_id }`.
 
 ### Hook Ingestion
 
@@ -991,6 +1007,12 @@ Server broadcasts JSON messages to all connected clients:
 {
   "type": "session.updated",
   "data": { ...session object }
+}
+
+// Group definition or membership changed
+{
+  "type": "session_groups_changed",
+  "data": { "group_id": "group-uuid-or-null" }
 }
 
 // Agent created

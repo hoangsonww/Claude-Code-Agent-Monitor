@@ -3,7 +3,7 @@
  * restore) in server/lib/data-transfer.js.
  *
  * Verifies the two product requirements:
- *   1. Export captures ALL user data (sessions, agents, events, token_usage,
+ *   1. Export captures ALL user data (session groups, sessions, agents, events, token_usage,
  *      workflows, dashboard_runs, alert_rules, and all provider pricing tables) with a
  *      format/version stamp.
  *   2. Re-importing that export reproduces the data accurately, is idempotent
@@ -113,6 +113,11 @@ describe("data-transfer export/import round-trip", () => {
 
     seedSession("S1", { events: 3 });
     seedSession("S2", { events: 2 });
+    db.prepare("INSERT INTO session_groups (id, name) VALUES (?, ?)").run(
+      "group-transfer",
+      "Billing"
+    );
+    db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run("group-transfer", "S1");
   });
 
   it("exports every table with a format/version stamp", () => {
@@ -120,6 +125,11 @@ describe("data-transfer export/import round-trip", () => {
     assert.equal(bundle.format, EXPORT_FORMAT);
     assert.equal(bundle.version, EXPORT_VERSION);
     assert.ok(bundle.exported_at);
+    assert.deepEqual(
+      bundle.session_groups.map((group) => group.name),
+      ["Billing"]
+    );
+    assert.equal(bundle.sessions.find((session) => session.id === "S1").group_id, "group-transfer");
     assert.equal(bundle.sessions.length, 2);
     assert.equal(bundle.agents.length, 4);
     assert.equal(bundle.events.length, 5);
@@ -137,11 +147,16 @@ describe("data-transfer export/import round-trip", () => {
 
     // Simulate a fresh machine: wipe everything the bundle carries.
     db.exec(
-      "DELETE FROM events; DELETE FROM token_usage; DELETE FROM workflows; DELETE FROM agents; DELETE FROM sessions; DELETE FROM dashboard_runs; DELETE FROM alert_rules; DELETE FROM model_pricing; DELETE FROM cursor_model_pricing; DELETE FROM gpt_model_pricing;"
+      "DELETE FROM events; DELETE FROM token_usage; DELETE FROM workflows; DELETE FROM agents; DELETE FROM sessions; DELETE FROM session_groups; DELETE FROM dashboard_runs; DELETE FROM alert_rules; DELETE FROM model_pricing; DELETE FROM cursor_model_pricing; DELETE FROM gpt_model_pricing;"
     );
 
     const c = importExportBundle(db, bundle);
+    assert.equal(c.session_groups, 1);
     assert.equal(c.sessions_imported, 2);
+    assert.equal(
+      db.prepare("SELECT group_id FROM sessions WHERE id = 'S1'").get().group_id,
+      "group-transfer"
+    );
     assert.equal(c.sessions_skipped, 0);
     assert.equal(c.agents, 4);
     assert.equal(c.events, 5);
@@ -204,6 +219,26 @@ describe("data-transfer export/import round-trip", () => {
     assert.equal(c.sessions_skipped, 2, "existing sessions are skipped");
     assert.equal(db.prepare("SELECT COUNT(*) c FROM sessions").get().c, 3);
     assert.equal(db.prepare("SELECT COUNT(*) c FROM events WHERE session_id='S3'").get().c, 4);
+  });
+
+  it("maps a remote group ID to an existing local group with the same name", () => {
+    seedSession("S4");
+    db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run("group-transfer", "S4");
+    const bundle = buildExportBundle(db, stmts);
+    db.exec(
+      "DELETE FROM events WHERE session_id='S4'; DELETE FROM token_usage WHERE session_id='S4'; DELETE FROM workflows WHERE session_id='S4'; DELETE FROM agents WHERE session_id='S4'; DELETE FROM sessions WHERE id='S4';"
+    );
+    bundle.session_groups[0].id = "remote-billing-id";
+    bundle.session_groups[0].name = "billing";
+    bundle.sessions.find((session) => session.id === "S4").group_id = "remote-billing-id";
+
+    const result = importExportBundle(db, bundle);
+    assert.equal(result.session_groups, 0);
+    assert.equal(result.sessions_imported, 1);
+    assert.equal(
+      db.prepare("SELECT group_id FROM sessions WHERE id = 'S4'").get().group_id,
+      "group-transfer"
+    );
   });
 
   it("rejects a non-export object", () => {

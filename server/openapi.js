@@ -347,6 +347,11 @@ function createOpenApiSpec() {
           required: ["id", "status", "started_at", "updated_at"],
           properties: {
             id: { type: "string" },
+            group_id: {
+              type: "string",
+              nullable: true,
+              description: "Optional local session group ID.",
+            },
             name: { type: "string", nullable: true },
             status: {
               type: "string",
@@ -788,6 +793,11 @@ function createOpenApiSpec() {
         SessionUpdateRequest: {
           type: "object",
           properties: {
+            group_id: {
+              type: "string",
+              nullable: true,
+              description: "Set a group ID or null to unassign.",
+            },
             name: { type: "string" },
             status: { type: "string", enum: ["active", "completed", "error", "abandoned"] },
             ended_at: { type: "string", format: "date-time" },
