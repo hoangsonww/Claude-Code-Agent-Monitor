@@ -192,7 +192,11 @@ const paths = {
         {
           name: "sort_by",
           in: "query",
-          schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
+          schema: {
+            type: "string",
+            enum: ["time", "duration", "price", "tokens"],
+            default: "time",
+          },
           description: "Session ordering dimension.",
           example: "time",
         },

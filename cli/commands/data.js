@@ -83,7 +83,9 @@ function sessionListOptions(cmd) {
     .option("--cwd <dir>", "only sessions in this working directory (repeatable)", csvArg)
     .option("--limit <n>", "rows to return", posIntArg, 20)
     .option("--offset <n>", "rows to skip (pagination)", intArg)
-    .addOption(new Option("--sort <field>", "sort order").choices(["time", "duration", "price"]))
+    .addOption(
+      new Option("--sort <field>", "sort order").choices(["time", "duration", "price", "tokens"])
+    )
     .option("--asc", "ascending instead of descending");
   return scopeOptions(cmd);
 }

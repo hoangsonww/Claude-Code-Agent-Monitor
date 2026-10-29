@@ -688,6 +688,9 @@ export interface Session {
    *  active pricing rules. Only present on responses that attach pricing.
    *  Absolute dollars (e.g. `0.42`), already summed across all buckets. */
   cost?: number;
+  /** Total tokens the session consumed (input + output + cache read + cache
+   *  write, summed across models). Only present on `/api/sessions` list rows. */
+  total_tokens?: number;
   /** ISO timestamp set when an agent CLI is blocked waiting for the user
    * (permission prompt or "waiting for your input" notice). Cleared when the
    * source reports that work has resumed. Null when the session is not waiting.

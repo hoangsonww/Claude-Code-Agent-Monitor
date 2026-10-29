@@ -13,6 +13,8 @@
   "sortDurationShortest": "소요 시간: 짧은 순",
   "sortPriceHighest": "비용: 높은 순",
   "sortPriceLowest": "비용: 낮은 순",
+  "sortTokensHighest": "토큰: 높은 순",
+  "sortTokensLowest": "토큰: 낮은 순",
   "sortDescending": "내림차순",
   "sortAscending": "오름차순",
   "filterAll": "전체",
@@ -32,6 +34,7 @@
   "tableDuration": "지속 시간",
   "tableAgents": "Agent",
   "tableCost": "비용",
+  "tableTokens": "토큰",
   "tableDirectory": "디렉터리",
   "defaultName": "세션 ",
   "taskProgress": {

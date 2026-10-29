@@ -13,6 +13,8 @@
   "sortDurationShortest": "持续时间：最短",
   "sortPriceHighest": "费用：最高",
   "sortPriceLowest": "费用：最低",
+  "sortTokensHighest": "令牌：最多",
+  "sortTokensLowest": "令牌：最少",
   "sortDescending": "降序",
   "sortAscending": "升序",
   "filterAll": "全部",
@@ -32,6 +34,7 @@
   "tableDuration": "持续时间",
   "tableAgents": "Agent数",
   "tableCost": "费用",
+  "tableTokens": "令牌",
   "tableDirectory": "目录",
   "defaultName": "会话 ",
   "taskProgress": {

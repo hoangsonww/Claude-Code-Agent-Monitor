@@ -384,6 +384,11 @@ function createOpenApiSpec() {
                 "Timestamp of the latest durable session event, falling back to lifecycle timestamps only for eventless historical rows. Unlike updated_at, metadata bookkeeping does not change this value.",
             },
             cost: { type: "number", nullable: true },
+            total_tokens: {
+              type: "integer",
+              description:
+                "Total tokens consumed (input + output + cache read + cache write across models). Present on list rows; 0 when the session has no token usage.",
+            },
             has_token_usage: {
               type: "boolean",
               nullable: true,
@@ -1778,7 +1783,11 @@ function createOpenApiSpec() {
               name: "sort_by",
               in: "query",
               required: false,
-              schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },
+              schema: {
+                type: "string",
+                enum: ["time", "duration", "price", "tokens"],
+                default: "time",
+              },
               description: "Session ordering dimension.",
             },
             {

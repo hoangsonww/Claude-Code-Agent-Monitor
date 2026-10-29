@@ -338,7 +338,7 @@ describe("Sessions API", () => {
       0
     );
 
-    for (const query of ["", "?sort_by=price"]) {
+    for (const query of ["", "?sort_by=price", "?sort_by=tokens"]) {
       const res = await fetch(`/api/sessions${query}`);
       assert.equal(res.status, 200);
       const withUsage = res.body.sessions.find((session) => session.id === "sess-1");
@@ -346,7 +346,25 @@ describe("Sessions API", () => {
       assert.equal(withUsage.repo_remote_url, "ssh://git@example.internal:2222/team/project.git");
       assert.equal(withUsage.has_token_usage, true);
       assert.equal(withoutUsage.has_token_usage, false);
+      assert.equal(withUsage.total_tokens, 110);
+      assert.equal(withoutUsage.total_tokens, 0);
     }
+  });
+
+  it("should sort sessions by total tokens", async () => {
+    const desc = await fetch("/api/sessions?sort_by=tokens");
+    assert.equal(desc.status, 200);
+    const totals = desc.body.sessions.map((s) => s.total_tokens);
+    assert.deepEqual(
+      totals,
+      [...totals].sort((a, b) => b - a)
+    );
+    const asc = await fetch("/api/sessions?sort_by=tokens&sort_desc=false");
+    const ascTotals = asc.body.sessions.map((s) => s.total_tokens);
+    assert.deepEqual(
+      ascTotals,
+      [...ascTotals].sort((a, b) => a - b)
+    );
   });
 
   it("should filter sessions by status", async () => {

@@ -13,6 +13,8 @@
   "sortDurationShortest": "Duration: shortest",
   "sortPriceHighest": "Cost: highest",
   "sortPriceLowest": "Cost: lowest",
+  "sortTokensHighest": "Tokens: highest",
+  "sortTokensLowest": "Tokens: lowest",
   "sortDescending": "Descending order",
   "sortAscending": "Ascending order",
   "filterAll": "All",
@@ -32,6 +34,7 @@
   "tableDuration": "Duration",
   "tableAgents": "Agents",
   "tableCost": "Cost",
+  "tableTokens": "Tokens",
   "tableDirectory": "Directory",
   "defaultName": "Session ",
   "taskProgress": {

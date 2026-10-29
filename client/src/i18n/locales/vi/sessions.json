@@ -13,6 +13,8 @@
   "sortDurationShortest": "Thời lượng: ngắn nhất",
   "sortPriceHighest": "Chi phí: cao nhất",
   "sortPriceLowest": "Chi phí: thấp nhất",
+  "sortTokensHighest": "Token: nhiều nhất",
+  "sortTokensLowest": "Token: ít nhất",
   "sortDescending": "Thứ tự giảm dần",
   "sortAscending": "Thứ tự tăng dần",
   "filterAll": "Tất cả",
@@ -32,6 +34,7 @@
   "tableDuration": "Thời lượng",
   "tableAgents": "Agent",
   "tableCost": "Chi phí",
+  "tableTokens": "Token",
   "tableDirectory": "Thư mục",
   "defaultName": "Phiên ",
   "taskProgress": {

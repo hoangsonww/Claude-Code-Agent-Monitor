@@ -86,7 +86,7 @@ export function registerSessionTools(context: ToolContext): void {
       status: SessionStatusSchema.optional(),
       query: z.string().max(1000).optional(),
       cwd: z.array(z.string().min(1).max(4096)).max(100).optional(),
-      sort_by: z.enum(["time", "duration", "price"]).optional(),
+      sort_by: z.enum(["time", "duration", "price", "tokens"]).optional(),
       sort_desc: z.boolean().optional(),
       sources: z.array(z.string().min(1).max(256)).min(1).max(100).optional(),
       providers: z

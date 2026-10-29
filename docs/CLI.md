@@ -199,7 +199,7 @@ When the server is down, **read-only commands fall back to reading `data/dashboa
 
 | Command | Description |
 | ------- | ----------- |
-| `ccam sessions [list] [--status s] [--q text] [--cwd dir] [--sort time\|duration\|price] [--asc] [--limit n] [--offset n]` | Session table: short ID, status, name, agents, duration, model, relative update |
+| `ccam sessions [list] [--status s] [--q text] [--cwd dir] [--sort time\|duration\|price\|tokens] [--asc] [--limit n] [--offset n]` | Session table: short ID, status, name, agents, duration, model, relative update |
 | `ccam sessions get <id> [--events n]` (alias `show`; also `ccam session <id>`) | Metadata card, cost, prompt preview, parent→child **agent tree** with per-agent cost, Workflow-tool runs, recent events |
 | `ccam sessions stats <id>` | Aggregates: events, errors, span, agent counts, tokens, and charts of tools, event types, subagent types |
 | `ccam sessions cost <id>` | Per-model cost for one session |
