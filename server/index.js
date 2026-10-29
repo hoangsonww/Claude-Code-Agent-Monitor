@@ -1472,7 +1472,7 @@ if (require.main === module) {
   // hooks must be installed on the host (`npm run install-hooks`).
   try {
     const { installHooks, isInsideContainer } = require("../scripts/install-hooks");
-    if (installHooks(true)) {
+    if (installHooks(true, { automatic: true })) {
       console.log("Claude Code hooks auto-configured.");
     } else if (isInsideContainer()) {
       console.log(

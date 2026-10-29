@@ -385,7 +385,9 @@ npm run setup
 npm run install-hooks
 ```
 
-使用方向键、Space 和 Enter 选择 **Claude Code**、**Codex (beta)** 或两者。Claude Hook 存储在 `~/.claude/settings.json`，Codex Hook 存储在 `~/.codex/hooks.json`。重新安装只替换 CCAM 条目并保留无关 Hook；同一操作也可在 **Settings → Hook Configuration** 中执行。
+使用方向键、Space 和 Enter 选择 **Claude Code**、**Codex (beta)** 或两者。默认情况下，Claude Hook 存储在 `~/.claude/settings.json`，Codex Hook 存储在 `~/.codex/hooks.json`。重新安装只替换 CCAM 条目并保留无关 Hook；同一操作也可在 **Settings → Hook Configuration** 中执行。
+
+Claude 主目录按 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 解析，因此 Hook、转录和发现文件会使用迁移后的目录。设置 `CLAUDE_CONFIG_DIR` 后，Agent 配置读取 `$CLAUDE_CONFIG_DIR/.claude.json`。如果该目录由云端同步，请在启动前将 `DASHBOARD_DATA_DIR` 指向每台机器独立的本地路径，避免同步 SQLite 数据库及其 WAL 文件。`CCAM_NO_AUTO_HOOKS=1` 跳过启动时自动安装；手动安装仍可使用。过期的便携版 Hook 路径会静默退出，桌面版设置会将主目录覆盖值保存在 Electron 的 `userData/.env` 中，重启后仍会保留。
 
 首次启动时，CCAM 只检查当前数据范围所选的 Provider，并提示安装缺少的 Hook。若就绪检查失败，则回退到手动设置，不会阻塞 Dashboard。
 

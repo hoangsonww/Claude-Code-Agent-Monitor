@@ -384,7 +384,9 @@ npm run setup
 npm run install-hooks
 ```
 
-화살표 키, Space, Enter로 **Claude Code**, **Codex (beta)** 또는 둘 다를 선택하세요. Claude Hook은 `~/.claude/settings.json`에, Codex Hook은 `~/.codex/hooks.json`에 저장됩니다. 다시 설치하면 CCAM 항목만 교체하고 관련 없는 Hook은 보존합니다. 같은 작업을 **Settings → Hook Configuration**에서도 실행할 수 있습니다.
+화살표 키, Space, Enter로 **Claude Code**, **Codex (beta)** 또는 둘 다를 선택하세요. 기본적으로 Claude Hook은 `~/.claude/settings.json`에, Codex Hook은 `~/.codex/hooks.json`에 저장됩니다. 다시 설치하면 CCAM 항목만 교체하고 관련 없는 Hook은 보존합니다. 같은 작업을 **Settings → Hook Configuration**에서도 실행할 수 있습니다.
+
+Claude 홈은 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 순서로 결정되므로 Hook, 대화 기록, 검색 파일이 이동된 디렉터리를 사용합니다. `CLAUDE_CONFIG_DIR`을 설정하면 Agent 설정은 `$CLAUDE_CONFIG_DIR/.claude.json`을 읽습니다. 해당 디렉터리를 클라우드로 동기화한다면 실행 전에 `DASHBOARD_DATA_DIR`을 각 컴퓨터의 별도 로컬 경로로 지정하여 SQLite 데이터베이스와 WAL 파일을 로컬에 보관하세요. `CCAM_NO_AUTO_HOOKS=1`은 시작 시 자동 설치만 건너뛰며 수동 설치는 가능합니다. 오래된 portable Hook 경로는 조용히 종료되고, 데스크톱 설정은 Claude 홈 재정의를 Electron `userData/.env`에 저장하여 재시작 후에도 유지합니다.
 
 처음 실행할 때 CCAM은 현재 데이터 범위에서 선택한 provider만 확인하고 누락된 Hook 설치를 제안합니다. 준비 상태 확인에 실패하면 대시보드를 차단하지 않고 수동 설정으로 전환합니다.
 

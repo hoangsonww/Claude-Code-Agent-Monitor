@@ -2,9 +2,8 @@
  * @file claude-home.js
  * @description Centralized Claude Code home directory path management.
  * Resolves the projects directory, transcript paths (main + per-subagent),
- * and settings file location. Supports a custom root via the CLAUDE_HOME
- * environment variable (e.g. ~/.codefuse/engine/cc/) so the dashboard can
- * track non-default Claude Code installations.
+ * and settings file location. CLAUDE_HOME overrides Claude Code's own
+ * CLAUDE_CONFIG_DIR; both can track non-default installations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 const path = require("path");
@@ -13,7 +12,18 @@ const fs = require("fs");
 const { resolveSnapshotFile, GZ_SUFFIX } = require("./snapshot-store");
 
 function getClaudeHome() {
-  return process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
+  const configured = process.env.CLAUDE_HOME || process.env.CLAUDE_CONFIG_DIR;
+  return configured
+    ? configured.replace(/^~(?=[\\/]|$)/, os.homedir())
+    : path.join(os.homedir(), ".claude");
+}
+
+/** Claude Code relocates its global state file only with CLAUDE_CONFIG_DIR. */
+function getClaudeJsonPath() {
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  return configDir
+    ? path.join(configDir.replace(/^~(?=[\\/]|$)/, os.homedir()), ".claude.json")
+    : path.join(os.homedir(), ".claude.json");
 }
 
 function getProjectsDir() {
@@ -25,8 +35,8 @@ function getProjectsDir() {
  * SQLite database, VAPID keys, and transcript snapshots. It resolves to the
  * SAME absolute path for every launch path (`npm start`, `npm run dev`, and the
  * macOS/Windows desktop app), so they all share ONE database instead of each
- * host keeping its own. Lives under the Claude home, next to the hook discovery
- * file (`~/.claude/.agent-dashboard.json`).
+ * host keeping its own. Lives under the resolved Claude home, next to the hook
+ * discovery file (`<Claude home>/.agent-dashboard.json`).
  *
  * An explicit `DASHBOARD_DATA_DIR` still wins — for tests, power users, or
  * anyone pinning a custom location. The earlier default was the repo-local
@@ -41,7 +51,7 @@ function getDataDir() {
 /**
  * Dashboard-owned directory where imported transcripts are snapshotted so the
  * Conversation tab survives Claude Code pruning the originals in
- * ~/.claude/projects. Lives next to the SQLite DB under the shared data dir.
+ * `<Claude home>/projects`. Lives next to the SQLite DB under the shared data dir.
  */
 function getTranscriptSnapshotDir() {
   return path.join(getDataDir(), "transcripts");
@@ -255,8 +265,8 @@ function setClaudeHome(newPath) {
   if (!stat.isDirectory()) {
     throw new Error(`Not a directory: ${resolved}`);
   }
-  process.env.CLAUDE_HOME = resolved;
   writeEnvFile("CLAUDE_HOME", resolved);
+  process.env.CLAUDE_HOME = resolved;
   return resolved;
 }
 
@@ -293,6 +303,7 @@ function writeEnvFile(key, value) {
 
 module.exports = {
   getClaudeHome,
+  getClaudeJsonPath,
   getProjectsDir,
   getDataDir,
   getTranscriptSnapshotDir,

@@ -323,7 +323,7 @@ const schemas = {
       source: {
         type: "string",
         description:
-          "Where the definition was found, e.g. `~/.claude.json (top-level)`, `~/.claude.json (projects[<root>])`, or `~/.claude/settings.json`.",
+          "Where the definition was found, e.g. `~/.claude.json (top-level)` or `$CLAUDE_CONFIG_DIR/.claude.json (top-level)` when relocated, or Claude home `settings.json`.",
         example: "~/.claude.json (top-level)",
       },
       kind: {
@@ -828,7 +828,8 @@ const schemas = {
           },
           claudeJson: {
             type: "string",
-            description: "Path to ~/.claude.json (resolved from $HOME, not CLAUDE_HOME).",
+            description:
+              "Path to $CLAUDE_CONFIG_DIR/.claude.json when set, otherwise ~/.claude.json. CLAUDE_HOME does not relocate this file.",
             example: "/Users/son/.claude.json",
           },
         },
@@ -1447,7 +1448,7 @@ const paths = {
       tags: ["CcConfig"],
       summary: "List MCP servers",
       description:
-        "Read-only. Discovers MCP servers from ~/.claude.json (top-level and projects[<root>]) and ~/.claude/settings.json, split into `user` and `projectScoped`. Header and env VALUES are never returned — only their key NAMES. Read-only by design (the CLI writes these files concurrently). Degrades to empty arrays on errors.",
+        "Read-only. Discovers MCP servers from $CLAUDE_CONFIG_DIR/.claude.json when set (otherwise ~/.claude.json), and resolved Claude home settings.json, split into `user` and `projectScoped`. Header and env VALUES are never returned — only their key NAMES. Read-only by design (the CLI writes these files concurrently). Degrades to empty arrays on errors.",
       operationId: "ccConfigGetMcp",
       parameters: [cwdParam],
       responses: {

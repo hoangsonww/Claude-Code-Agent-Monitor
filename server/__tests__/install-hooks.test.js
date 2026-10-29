@@ -12,6 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { execSync } = require("node:child_process");
 
 // Point the installer at a throwaway CLAUDE_HOME BEFORE requiring it — the
 // settings path is resolved at module load. (`node --test` isolates each test
@@ -49,6 +50,7 @@ function clearEnv() {
   delete process.env.CCAM_FORCE_CONTAINER;
   delete process.env.CCAM_FORCE_HOST;
   delete process.env.CCAM_ALLOW_CONTAINER_HOOKS;
+  delete process.env.CCAM_NO_AUTO_HOOKS;
 }
 
 function rmSettings() {
@@ -112,6 +114,26 @@ describe("install-hooks host-only guard (#193)", () => {
     const ok = installHooks(true);
     assert.equal(ok, true);
     assert.ok(fs.existsSync(SETTINGS));
+  });
+
+  it("skips only automatic installation when opted out", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    process.env.CCAM_NO_AUTO_HOOKS = "1";
+    assert.equal(installHooks(true, { automatic: true }), false);
+    assert.equal(fs.existsSync(SETTINGS), false);
+    assert.equal(installHooks(true), true);
+    assert.equal(fs.existsSync(SETTINGS), true);
+  });
+
+  it("returns silently when a synced hook points at a missing portable handler", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    installHooks(true);
+    const command = JSON.parse(fs.readFileSync(SETTINGS, "utf8")).hooks.SessionStart[0].hooks[0]
+      .command;
+    const missing = path.join(TMP_HOME, "removed", "hook-handler.js").replace(/\\/g, "/");
+    const staleCommand = command.replace(/[^" ]*\/scripts\/hook-handler\.js/, missing);
+    assert.notEqual(staleCommand, command);
+    assert.equal(execSync(staleCommand, { input: "{}", encoding: "utf8" }), "");
   });
 
   it("is idempotent — re-running updates in place with no duplicate entries", () => {

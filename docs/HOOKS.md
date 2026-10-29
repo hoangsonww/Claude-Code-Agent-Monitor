@@ -168,6 +168,15 @@ On a browser's first dashboard visit, select the provider data to display and th
 > **Hooks are a host-side step.** Claude Code runs on your host, so the hook
 > command must reference a `hook-handler.js` path that exists on the **host**.
 
+The Claude home resolves as `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`.
+Startup installation can be disabled with `CCAM_NO_AUTO_HOOKS=1`; an explicit
+`npm run install-hooks` or in-app installation still works. The installed
+command checks for its handler before loading it, so a stale path in a synced
+`settings.json` or a portable build exits successfully without disrupting
+Claude Code. For monitoring on each machine, install hooks from that machine's
+current dashboard build. Keep `DASHBOARD_DATA_DIR` on local storage when the
+Claude config directory is synced; SQLite and its WAL files must not be synced.
+
 ### Remote and cloud hook delivery
 
 Hook handlers use localhost discovery by default. To forward live Claude Code or

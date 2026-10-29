@@ -385,7 +385,9 @@ npm run setup
 npm run install-hooks
 ```
 
-Choose **Claude Code**, **Codex (beta)**, or both with the arrow keys, Space, and Enter. Claude hooks are stored in `~/.claude/settings.json` and Codex hooks in `~/.codex/hooks.json`. Reinstalling replaces only CCAM entries and preserves unrelated hooks; the same action is available under **Settings → Hook Configuration**.
+Choose **Claude Code**, **Codex (beta)**, or both with the arrow keys, Space, and Enter. By default, Claude hooks are stored in `~/.claude/settings.json` and Codex hooks in `~/.codex/hooks.json`. Reinstalling replaces only CCAM entries and preserves unrelated hooks; the same action is available under **Settings → Hook Configuration**.
+
+Claude home follows `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, so hooks, transcripts, and discovery use the relocated directory. With `CLAUDE_CONFIG_DIR`, Agent Config reads `$CLAUDE_CONFIG_DIR/.claude.json`. If that directory is cloud-synced, set `DASHBOARD_DATA_DIR` to a separate machine-local path before launch so SQLite and its WAL files stay local. `CCAM_NO_AUTO_HOOKS=1` skips startup installation; manual installation still works. Stale portable hook paths exit silently, and desktop Settings saves home overrides in Electron `userData/.env` across restarts.
 
 On first launch, CCAM checks only the providers selected for the current data scope and offers to install any missing hooks. A failed readiness check falls back to manual setup instead of blocking the dashboard.
 

@@ -266,10 +266,11 @@ interface ServerHandle {
 
 **Hook port discovery** — because the embedded server may bind a fallback port
 (4821+) when 4820 is taken, the Claude Code hook handler must not assume 4820.
-On startup the server writes its live port to `~/.claude/.agent-dashboard.json`
+On startup the server writes its live port to `<Claude home>/.agent-dashboard.json`
 (`server/lib/server-info.js`); `scripts/hook-handler.js` reads that file to
 target the running server. Without this, hook events would be POSTed to 4820 —
 nothing would receive them and the dashboard would stay empty.
+Claude home resolves as `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`.
 
 ---
 
@@ -371,9 +372,9 @@ flowchart LR
 
 1. Calls `startBackgroundServices()` — the update scheduler, the `cc-watcher`
    config watcher, and one-time orphaned-run reconciliation.
-2. Calls `installHooks()` — writes the Claude Code hook configuration to
-   `~/.claude/settings.json`, so a **DMG-only user gets events flowing**
-   without ever running `npm run install-hooks` from a checkout.
+2. Calls `installHooks()` unless `CCAM_NO_AUTO_HOOKS=1` — writes the Claude Code
+   hook configuration to the resolved Claude home `settings.json`, so a
+   **DMG-only user gets events flowing** without running an installer from a checkout.
 
 It runs only when the server is **owned** by the app — an adopted server has
 already done its own bootstrap.
@@ -740,20 +741,22 @@ unrelated server on `:4820`.
 | `CCAM_DESKTOP_BIND_PORT` | `server-host.ts` | Bind exactly this port — disables adoption and fallback. Used by the smoke test. |
 | `CCAM_DESKTOP_NO_ADOPT` | `server-host.ts` | `=1` → never adopt an existing `:4820` server; always start our own. |
 | `CCAM_DESKTOP_VERBOSE` | `logger.ts` | Mirror `info`/`warn` log lines to stdout (errors always go to stderr). |
-| `DASHBOARD_DATA_DIR` | `server-host.ts` → server | Set automatically to `app.getPath('userData')/data` so the SQLite database and VAPID keys live in the per-user Application Support directory, never inside the (possibly read-only) `.app` bundle. |
+| `DASHBOARD_ENV_PATH` | `server-host.ts` → server | Defaults to `app.getPath('userData')/.env` so Settings path changes persist across portable extractions and app updates; an explicit override wins. |
+| `DASHBOARD_DATA_DIR` | Server | Optional machine-local directory for SQLite, WAL files, snapshots, and VAPID keys. Set it when Claude home is synced; otherwise the default is `<Claude home>/agent-dashboard`. |
+| `CCAM_NO_AUTO_HOOKS` | `server-host.ts` | `=1` skips startup's automatic Claude hook installation; manual installation remains available. |
 | `CSC_IDENTITY_AUTO_DISCOVERY` | electron-builder | Set to `false` by the `package` script — forces ad-hoc signing. |
 | `CSC_LINK` / `CSC_KEY_PASSWORD` | electron-builder | Explicit Developer ID `.p12` for real signing. |
 | `APPLE_ID` / `APPLE_TEAM_ID` / `APPLE_APP_SPECIFIC_PASSWORD` | `notarize.js` | Enable Apple notarization when all three are set. |
 
 The embedded server also honors the dashboard's own env vars (`DASHBOARD_PORT`
-and `DASHBOARD_DATA_DIR` are set automatically by `server-host.ts`; everything
+and `DASHBOARD_ENV_PATH` are set automatically by `server-host.ts`; everything
 else in [`../SETUP.md`](../SETUP.md) applies).
 
-> **Writable state never lives in the `.app` bundle.** A packaged, code-signed,
-> or app-translocated bundle is read-only; a database written there would break
-> History Import and event persistence. `server-host.ts` points
-> `DASHBOARD_DATA_DIR` at `~/Library/Application Support/Claude Code Monitor/data/`,
-> which is also why your imported history survives an app reinstall or update.
+> **Keep synced configuration separate from live database files.** If
+> `CLAUDE_CONFIG_DIR` is cloud-synced, set `DASHBOARD_DATA_DIR` to a distinct
+> machine-local path before launching. The desktop Settings `.env` lives under
+> Electron `userData`, so an in-app Claude home override survives a portable
+> app restart. A hook whose old portable handler path is gone exits silently.
 
 ---
 

@@ -751,7 +751,7 @@ Webhook targets use HTTPS for hosted providers. The `generic` and `n8n` types al
 
 ### Claude Config Explorer (`/api/cc-config`)
 
-Reads — and carefully gated mutations for low-risk text-file artifacts — for every Claude Code configuration surface. File reads canonicalize both the requested path and allowed roots with `realpath`, so symlinks cannot escape `CLAUDE_HOME`, the project `.claude/` directory, or the project `CLAUDE.md`. Mutations always create timestamped backups under `<root>/cc-config-backups/<type>/` before writing.
+Reads — and carefully gated mutations for low-risk text-file artifacts — for every Claude Code configuration surface. Claude home resolves as `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`; the global state file follows `$CLAUDE_CONFIG_DIR/.claude.json` when set. File reads canonicalize both the requested path and allowed roots with `realpath`, so symlinks cannot escape the resolved Claude home, the project `.claude/` directory, or the project `CLAUDE.md`. Mutations always create timestamped backups under `<root>/cc-config-backups/<type>/` before writing.
 
 | Method   | Path                                  | Description |
 | -------- | ------------------------------------- | ----------- |
@@ -1647,9 +1647,13 @@ REMOTE_TRANSCRIPT_MAX_FILE_MB=256  # Per-file MiB cap for ingest-transcript; eac
 DASHBOARD_ALLOWED_HOSTS=           # Extra Host-header names to allow (comma-separated), e.g. for LAN access
 POD_IP=                            # Kubernetes downward-API pod IP; automatically accepted by the Host guard
 DASHBOARD_ENV_PATH=                # Writable dotenv path for persisted Settings overrides
+CLAUDE_HOME=                       # Optional dashboard override of Claude home
+CLAUDE_CONFIG_DIR=                 # Claude Code's relocated config directory; used when CLAUDE_HOME is unset
+CCAM_NO_AUTO_HOOKS=1               # Skip startup hook installation; explicit install remains available
 
 # Database
-DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
+DASHBOARD_DATA_DIR=                # Machine-local directory for DB, WAL, snapshots, VAPID keys; defaults to <Claude home>/agent-dashboard
+DASHBOARD_DB_PATH=                 # Optional SQLite file override
 
 # Background services
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)

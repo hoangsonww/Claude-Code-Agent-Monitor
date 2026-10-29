@@ -385,7 +385,9 @@ npm run setup
 npm run install-hooks
 ```
 
-Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Theo mặc định, hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+
+Thư mục Claude được xác định theo `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, nên hook, bản ghi hội thoại và tệp khám phá dùng thư mục đã di chuyển. Khi đặt `CLAUDE_CONFIG_DIR`, Cấu hình Agent đọc `$CLAUDE_CONFIG_DIR/.claude.json`. Nếu thư mục đó được đồng bộ qua đám mây, hãy đặt `DASHBOARD_DATA_DIR` thành đường dẫn cục bộ riêng cho từng máy trước khi chạy để giữ cơ sở dữ liệu SQLite và các tệp WAL trên máy. `CCAM_NO_AUTO_HOOKS=1` bỏ qua cài hook tự động lúc khởi động; cài thủ công vẫn hoạt động. Hook trỏ tới đường dẫn portable cũ sẽ thoát im lặng, và Cài đặt desktop lưu đường dẫn Claude ghi đè trong `userData/.env` của Electron qua các lần khởi động lại.
 
 Trong lần khởi chạy đầu tiên, CCAM chỉ kiểm tra những nhà cung cấp đã chọn cho phạm vi dữ liệu hiện tại và đề nghị cài hook còn thiếu. Nếu kiểm tra mức sẵn sàng thất bại, ứng dụng chuyển sang thiết lập thủ công thay vì chặn dashboard.
 

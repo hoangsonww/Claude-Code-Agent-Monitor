@@ -384,7 +384,9 @@ npm run setup
 npm run install-hooks
 ```
 
-Elige **Claude Code**, **Codex (beta)** o ambos con las teclas de flecha, Space y Enter. Los hooks de Claude se guardan en `~/.claude/settings.json` y los de Codex en `~/.codex/hooks.json`. Reinstalar sustituye solo las entradas de CCAM y conserva los hooks no relacionados. La misma acción está disponible en **Configuración → Configuración de hooks**.
+Elige **Claude Code**, **Codex (beta)** o ambos con las teclas de flecha, Space y Enter. De forma predeterminada, los hooks de Claude se guardan en `~/.claude/settings.json` y los de Codex en `~/.codex/hooks.json`. Reinstalar sustituye solo las entradas de CCAM y conserva los hooks no relacionados. La misma acción está disponible en **Configuración → Configuración de hooks**.
+
+La ruta de Claude se resuelve como `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, así que los hooks, las transcripciones y el archivo de descubrimiento usan el directorio trasladado. Con `CLAUDE_CONFIG_DIR`, Configuración del agente lee `$CLAUDE_CONFIG_DIR/.claude.json`. Si sincronizas ese directorio en la nube, define `DASHBOARD_DATA_DIR` como una ruta local distinta en cada equipo antes de iniciar para mantener la base de datos SQLite y sus archivos WAL fuera de la sincronización. `CCAM_NO_AUTO_HOOKS=1` omite la instalación automática al inicio; la instalación manual sigue disponible. Los hooks con rutas obsoletas del portable salen sin errores y la configuración de escritorio guarda la ruta de Claude en `userData/.env` de Electron entre reinicios.
 
 En el primer inicio, CCAM comprueba solo los proveedores seleccionados para el alcance de datos actual y ofrece instalar los hooks que falten. Si la comprobación de preparación falla, recurre a la configuración manual sin bloquear el panel.
 
