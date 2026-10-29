@@ -221,6 +221,26 @@ describe("data-transfer export/import round-trip", () => {
     assert.equal(db.prepare("SELECT COUNT(*) c FROM events WHERE session_id='S3'").get().c, 4);
   });
 
+  it("maps a remote group ID to an existing local group with the same name", () => {
+    seedSession("S4");
+    db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run("group-transfer", "S4");
+    const bundle = buildExportBundle(db, stmts);
+    db.exec(
+      "DELETE FROM events WHERE session_id='S4'; DELETE FROM token_usage WHERE session_id='S4'; DELETE FROM workflows WHERE session_id='S4'; DELETE FROM agents WHERE session_id='S4'; DELETE FROM sessions WHERE id='S4';"
+    );
+    bundle.session_groups[0].id = "remote-billing-id";
+    bundle.session_groups[0].name = "billing";
+    bundle.sessions.find((session) => session.id === "S4").group_id = "remote-billing-id";
+
+    const result = importExportBundle(db, bundle);
+    assert.equal(result.session_groups, 0);
+    assert.equal(result.sessions_imported, 1);
+    assert.equal(
+      db.prepare("SELECT group_id FROM sessions WHERE id = 'S4'").get().group_id,
+      "group-transfer"
+    );
+  });
+
   it("rejects a non-export object", () => {
     assert.throws(() => importExportBundle(db, { foo: "bar" }), /recognizable dashboard export/);
     assert.throws(() => importExportBundle(db, { format: "something-else" }), /Unrecognized/);

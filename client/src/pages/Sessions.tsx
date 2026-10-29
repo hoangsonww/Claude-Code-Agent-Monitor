@@ -176,6 +176,7 @@ export function Sessions() {
   // Set of session IDs that are currently being driven by an in-flight Run
   // handle on /run. Lets us badge those rows with a "Run" link.
   const [dashboardRunIds, setDashboardRunIds] = useState<Set<string>>(new Set());
+  const loadRequestRef = useRef(0);
 
   // Keyed off SESSION_FILTERS so the buttons, the `1`…`6` shortcuts, and the
   // `?status=` values can never fall out of order with one another.
@@ -239,6 +240,7 @@ export function Sessions() {
   // session count, so this stays cheap regardless of how many sessions
   // exist in the database.
   const load = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     try {
       // Waiting is a presentation state over active sessions, so preserve the
       // existing client-side filter without expanding the server status enum.
@@ -250,11 +252,13 @@ export function Sessions() {
           group: groupFilter || undefined,
           sort_by: sortBy,
           sort_desc: sortDesc,
-          include_transient: grouping === "none" && !groupFilter && page === 0,
+          include_transient:
+            grouping === "none" && (!groupFilter || groupFilter === "ungrouped") && page === 0,
           include_task_progress: grouping === "none",
           limit: 10000,
           offset: 0,
         });
+        if (requestId !== loadRequestRef.current) return;
         const waiting = res.sessions.filter(isSessionAwaitingInput);
         setTotal(waiting.length);
         setSessions(
@@ -278,7 +282,8 @@ export function Sessions() {
         offset: grouping === "none" ? page * PAGE_SIZE : 0,
         sort_by: sortBy,
         sort_desc: sortDesc,
-        include_transient: grouping === "none" && !groupFilter && page === 0,
+        include_transient:
+          grouping === "none" && (!groupFilter || groupFilter === "ungrouped") && page === 0,
         include_task_progress: grouping === "none",
       };
       if (filter) params.status = filter;
@@ -286,10 +291,11 @@ export function Sessions() {
       if (cwds.length > 0) params.cwd = cwds;
       if (groupFilter) params.group = groupFilter;
       const res = await api.sessions.list(params);
+      if (requestId !== loadRequestRef.current) return;
       setSessions(res.sessions);
       setTotal(res.total);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
     // `scope` is a dep so a data-scope change re-fetches; the api layer injects
     // the matching `sources` param.
@@ -310,7 +316,13 @@ export function Sessions() {
   });
 
   useEffect(() => {
-    load();
+    setLoading(true);
+    setSessions([]);
+    setTotal(0);
+    void load();
+    return () => {
+      loadRequestRef.current += 1;
+    };
   }, [load]);
 
   // Reset to page 0 whenever filters or sort changes.
@@ -412,14 +424,13 @@ export function Sessions() {
     grouping === "none"
       ? []
       : bucketSessions(sessions, grouping, groups, t("groups.ungrouped"), t("groups.noProject"));
-  const paged =
-    grouping === "none"
-      ? sessions
-      : buckets.find((bucket) => bucket.key === openBucket)?.sessions || [];
+  const openBucketData = buckets.find((bucket) => bucket.key === openBucket);
+  const paged = grouping === "none" ? sessions : openBucketData?.sessions || [];
   const filtered = sessions; // kept for empty-state checks below
   const displayedTotal =
     total + (filter === "waiting" ? 0 : sessions.filter(isTransientProcessSession).length);
 
+  /** Assign selected durable rows together, creating a group when requested. */
   const moveSelected = async (value: string) => {
     if (!value || selectedIds.size === 0) return;
     try {
@@ -438,6 +449,7 @@ export function Sessions() {
     }
   };
 
+  /** Rename the selected group while preserving its stable ID and memberships. */
   const renameGroup = async (group: SessionGroup) => {
     const name = window.prompt(t("groups.renamePrompt"), group.name)?.trim();
     if (!name || name === group.name) return;
@@ -449,6 +461,7 @@ export function Sessions() {
     }
   };
 
+  /** Confirm deletion; the server unassigns sessions and keeps their history. */
   const deleteGroup = async (group: SessionGroup) => {
     if (!window.confirm(t("groups.deleteConfirm"))) return;
     try {
@@ -699,12 +712,14 @@ export function Sessions() {
           icon={FolderOpen}
           title={t("noSessions")}
           description={
-            search || filter || cwds.length > 0 ? t("noSessionsDesc") : t("noSessionsHint")
+            search || filter || cwds.length > 0 || groupFilter
+              ? t("noSessionsDesc")
+              : t("noSessionsHint")
           }
         />
       ) : (
         <>
-          {(grouping === "none" || openBucket !== null) && (
+          {(grouping === "none" || openBucketData) && (
             <div className="card overflow-x-auto">
               <table className="w-full min-w-[800px]">
                 <thead>

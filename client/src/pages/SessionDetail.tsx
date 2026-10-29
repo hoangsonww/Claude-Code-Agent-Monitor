@@ -177,6 +177,8 @@ export function SessionDetail() {
   const [session, setSession] = useState<Session | null>(null);
   const [groups, setGroups] = useState<SessionGroup[]>([]);
   const [groupError, setGroupError] = useState(false);
+  const [groupSaving, setGroupSaving] = useState(false);
+  const groupSavingRef = useRef(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
@@ -641,8 +643,11 @@ export function SessionDetail() {
     };
   }, [load, refreshEventsWithPagination, loadGroups]);
 
+  /** Serialize group writes so a slower selection cannot overwrite a newer one. */
   const changeGroup = async (value: string) => {
-    if (!id) return;
+    if (!id || groupSavingRef.current) return;
+    groupSavingRef.current = true;
+    setGroupSaving(true);
     try {
       let groupId: string | null = value || null;
       if (value === "create") {
@@ -656,6 +661,9 @@ export function SessionDetail() {
       setGroupError(false);
     } catch {
       setGroupError(true);
+    } finally {
+      groupSavingRef.current = false;
+      setGroupSaving(false);
     }
   };
 
@@ -766,6 +774,7 @@ export function SessionDetail() {
             <select
               className="input min-w-[170px]"
               value={session.group_id || ""}
+              disabled={groupSaving}
               onChange={(event) => void changeGroup(event.target.value)}
             >
               <option value="">{t("groups.ungrouped")}</option>

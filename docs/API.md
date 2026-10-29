@@ -515,7 +515,7 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
 
 ### Session Groups
 
-Groups are dashboard-local labels for durable sessions. A session has at most one `group_id`; existing sessions start ungrouped, and remote sessions can be assigned to the same local groups. Groups are exported and imported with dashboard data. No hook or remote sync assigns groups automatically.
+Groups are dashboard-local labels for durable sessions. A session has at most one `group_id`; existing sessions start ungrouped, and remote sessions can be assigned to the same local groups. Groups are exported and imported with dashboard data. When an imported group has the same case-insensitive name as a local group but a different ID, imported session memberships map to the local group. No hook or remote sync assigns groups automatically.
 
 | Method | Path | Request | Response |
 |--------|------|---------|----------|
@@ -524,6 +524,8 @@ Groups are dashboard-local labels for durable sessions. A session has at most on
 | `PATCH` | `/api/session-groups/:id` | `{ "name": "New name" }` | `{ "group": {...} }` |
 | `DELETE` | `/api/session-groups/:id` | — | `{ "deleted": true }`; sessions remain and become ungrouped |
 | `PATCH` | `/api/sessions/group` | `{ "session_ids": ["id1", "id2"], "group_id": "group-id" }` | `{ "updated": 2 }` |
+
+With `include_transient=true`, the `ungrouped` session filter also includes local in-memory Codex startup rows on the first page; a named group never includes them.
 
 Group names are trimmed, 1–100 characters, and unique without regard to case. Bulk assignment accepts 1–10000 distinct durable session IDs, validates the entire selection and current source/provider scope before changing anything, and accepts `group_id: null` to unassign. `PATCH /api/sessions/:id` also accepts `group_id` or `null` for a single session. Unknown groups or sessions return `404`, invalid input returns `400`, and duplicate group names return `409`.
 

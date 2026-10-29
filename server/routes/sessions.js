@@ -102,6 +102,7 @@ const SESSION_PROMPT_PREVIEW_SQL = `COALESCE(
   )
 )`;
 
+/** Keep membership writes inside the selected source and provider scope. */
 function sessionIsInScope(session, req) {
   const sources = parseSources(req);
   const providers = parseProviders(req);
@@ -659,9 +660,15 @@ router.patch("/:id", (req, res) => {
   if (!sessionIsInScope(existing, req)) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
+  if (status && !["active", "completed", "error", "abandoned"].includes(status)) {
+    return res
+      .status(400)
+      .json({ error: { code: "INVALID_INPUT", message: "Invalid session status" } });
+  }
 
-  if (Object.hasOwn(body, "group_id")) {
-    const groupId = body.group_id;
+  const hasGroup = Object.hasOwn(body, "group_id");
+  const groupId = body.group_id;
+  if (hasGroup) {
     if (groupId !== null && (typeof groupId !== "string" || !groupId)) {
       return res
         .status(400)
@@ -670,20 +677,24 @@ router.patch("/:id", (req, res) => {
     if (groupId && !db.prepare("SELECT id FROM session_groups WHERE id = ?").get(groupId)) {
       return res.status(404).json({ error: { code: "NOT_FOUND", message: "Group not found" } });
     }
-    db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run(groupId, req.params.id);
-    broadcast("session_groups_changed", { group_id: groupId });
   }
-  if (name || status || ended_at || metadata) {
-    stmts.updateSession.run(
-      name || null,
-      status || null,
-      ended_at || null,
-      metadata ? JSON.stringify(metadata) : null,
-      req.params.id
-    );
-  }
+  db.transaction(() => {
+    if (hasGroup) {
+      db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run(groupId, req.params.id);
+    }
+    if (name || status || ended_at || metadata) {
+      stmts.updateSession.run(
+        name || null,
+        status || null,
+        ended_at || null,
+        metadata ? JSON.stringify(metadata) : null,
+        req.params.id
+      );
+    }
+  })();
 
   const session = stmts.getSession.get(req.params.id);
+  if (hasGroup) broadcast("session_groups_changed", { group_id: groupId });
   broadcast("session_updated", session);
   res.json({ session });
 });

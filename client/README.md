@@ -63,7 +63,7 @@ The client is a single-page application (SPA) built with modern web technologies
 
 ### Session Groups
 
-The Sessions page can group rows by project or by a user-created group, with collapsed summaries for count, last activity, cost, and waiting status. Select rows to move them to a group or create one; Session Detail can assign a single session. A group filter also narrows either Kanban board. Groups are local dashboard labels shared across sources, and deleting one only unassigns its sessions. `session_groups_changed` refreshes all three views.
+The Sessions page can group rows by project or by a user-created group, with collapsed summaries for count, last activity, cost, and waiting status. Select rows to move them to a group or create one; Session Detail can assign a single session. A group filter also narrows either Kanban board. Groups are local dashboard labels shared across sources, and deleting one only unassigns its sessions. `session_groups_changed` refreshes all three views. Group-filtered Kanban views page through all matching sessions; the Ungrouped filter also retains transient Codex startup cards.
 
 ### First-run hook setup
 

@@ -29,9 +29,15 @@ function request(method, route, body) {
       (res) => {
         let text = "";
         res.on("data", (chunk) => (text += chunk));
-        res.on("end", () =>
-          resolve({ status: res.statusCode, body: text ? JSON.parse(text) : null })
-        );
+        res.on("end", () => {
+          let parsed;
+          try {
+            parsed = text ? JSON.parse(text) : null;
+          } catch {
+            parsed = text;
+          }
+          resolve({ status: res.statusCode, body: parsed });
+        });
       }
     );
     req.on("error", reject);
@@ -72,6 +78,27 @@ test("group CRUD, bulk assignment, filtering, and safe deletion", async () => {
     (await request("POST", "/api/session-groups", { name: "billing rework" })).status,
     409
   );
+
+  const failedPatch = await request("PATCH", "/api/sessions/group-test-c", {
+    group_id: groupId,
+    status: "invalid-status",
+  });
+  assert.equal(failedPatch.status, 400);
+  assert.equal(stmts.getSession.get("group-test-c").group_id, null);
+
+  db.exec(`CREATE TEMP TRIGGER reject_group_test_status
+    BEFORE UPDATE OF status ON sessions WHEN NEW.id = 'group-test-c'
+    BEGIN SELECT RAISE(ABORT, 'test status failure'); END`);
+  try {
+    const rejected = await request("PATCH", "/api/sessions/group-test-c", {
+      group_id: groupId,
+      status: "completed",
+    });
+    assert.equal(rejected.status, 500);
+    assert.equal(stmts.getSession.get("group-test-c").group_id, null);
+  } finally {
+    db.exec("DROP TRIGGER reject_group_test_status");
+  }
 
   const assigned = await request("PATCH", "/api/sessions/group", {
     session_ids: ["group-test-a", "group-test-b"],

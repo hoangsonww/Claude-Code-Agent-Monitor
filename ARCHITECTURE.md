@@ -1096,7 +1096,7 @@ erDiagram
     }
 ```
 
-Session Groups are optional local labels on durable sessions (`sessions.group_id`); existing rows start ungrouped, and local and remote source sessions share the same group table. Sessions and Kanban can filter by group; Sessions can collapse by group or project and bulk move selections, while Session Detail edits one membership. Export/import includes group definitions before session rows.
+Session Groups are optional local labels on durable sessions (`sessions.group_id`); existing rows start ungrouped, and local and remote source sessions share the same group table. Sessions and Kanban can filter by group; Sessions can collapse by group or project and bulk move selections, while Session Detail edits one membership. Export/import includes group definitions before session rows. A named or Ungrouped Kanban filter pages through all matching sessions, and request generations prevent older filter responses from replacing the current board.
 
 ### Indexes
 

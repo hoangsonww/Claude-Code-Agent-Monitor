@@ -11,6 +11,7 @@ const { broadcast } = require("../websocket");
 
 const router = Router();
 
+/** Normalize and bound a user-visible group name before a unique-name write. */
 function validName(value) {
   if (typeof value !== "string") return null;
   const name = value.trim();

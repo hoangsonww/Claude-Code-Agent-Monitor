@@ -273,7 +273,7 @@ CREATE TABLE session_groups (
 );
 ```
 
-Deleting a group uses `ON DELETE SET NULL`: sessions, events, and transcript history remain intact. Existing databases add the nullable `sessions.group_id` column idempotently and leave all existing rows ungrouped.
+Deleting a group uses `ON DELETE SET NULL`: sessions, events, and transcript history remain intact. Existing databases add the nullable `sessions.group_id` column idempotently and leave all existing rows ungrouped. During data import, a source group whose ID differs but whose name matches a local group case-insensitively maps its sessions to that local group.
 
 ### agents
 

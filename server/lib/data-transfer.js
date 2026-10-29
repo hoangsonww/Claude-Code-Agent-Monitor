@@ -157,7 +157,7 @@ function assertBundle(bundle) {
  *
  * @param {import("better-sqlite3").Database} db
  * @param {object} bundle - parsed export JSON.
- * @returns {{sessions_imported:number, sessions_skipped:number, agents:number,
+ * @returns {{session_groups:number, sessions_imported:number, sessions_skipped:number, agents:number,
  *   events:number, token_usage:number, workflows:number, dashboard_runs:number,
  *   alert_rules:number, model_pricing:number, cursor_model_pricing:number,
  *   gpt_model_pricing:number,
@@ -183,6 +183,8 @@ function importExportBundle(db, bundle) {
   };
 
   const sessionExists = db.prepare("SELECT 1 AS present FROM sessions WHERE id = ?");
+  const groupById = db.prepare("SELECT id FROM session_groups WHERE id = ?");
+  const groupByName = db.prepare("SELECT id FROM session_groups WHERE name = ? COLLATE NOCASE");
 
   const insert = {
     session_groups: makeInserter(db, "session_groups"),
@@ -212,8 +214,16 @@ function importExportBundle(db, bundle) {
     // sibling that is inserted later in the same batch. Auto-resets at COMMIT.
     db.pragma("defer_foreign_keys = ON");
 
+    const importedGroupIds = new Map();
     for (const group of Array.isArray(bundle.session_groups) ? bundle.session_groups : []) {
-      if (group && group.id && insert.session_groups(group).changes > 0) counters.session_groups++;
+      if (!group || !group.id) continue;
+      const existing = groupById.get(group.id) || groupByName.get(group.name);
+      if (existing) {
+        importedGroupIds.set(group.id, existing.id);
+      } else if (insert.session_groups(group).changes > 0) {
+        counters.session_groups++;
+        importedGroupIds.set(group.id, group.id);
+      }
     }
 
     for (const s of sessions) {
@@ -225,11 +235,12 @@ function importExportBundle(db, bundle) {
         counters.sessions_skipped++;
         continue;
       }
-      // Older/partial exports may contain a group_id without the matching
-      // group definition. Keep the session instead of failing the whole restore.
-      const groupExists =
-        s.group_id && db.prepare("SELECT 1 FROM session_groups WHERE id = ?").get(s.group_id);
-      insert.sessions(groupExists || !s.group_id ? s : { ...s, group_id: null });
+      // Match imported IDs to local IDs, including equal names from another
+      // machine. Unknown group IDs become null so partial restores keep sessions.
+      const groupId = s.group_id
+        ? importedGroupIds.get(s.group_id) || groupById.get(s.group_id)?.id || null
+        : null;
+      insert.sessions({ ...s, group_id: groupId });
       counters.sessions_imported++;
 
       // Agents first so events/token_usage that reference them satisfy FKs.

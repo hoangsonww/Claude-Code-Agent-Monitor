@@ -122,6 +122,31 @@ const COLUMN_PAGE_SIZE = 10;
 const VIEW_STORAGE_KEY = "kanban-board-view";
 
 /**
+ * Read every page of a filtered group so sessions beyond the API's page cap
+ * can still contribute cards and agent membership. Unfiltered boards retain
+ * their existing first-page limit.
+ */
+async function loadBoardSessionRows(params: {
+  status?: string;
+  group?: string;
+  include_transient?: boolean;
+}): Promise<Session[]> {
+  const first = await api.sessions.list({ ...params, limit: 10000, offset: 0 });
+  if (!params.group || first.total <= 10000) return first.sessions;
+  const rows = [...first.sessions];
+  for (let offset = 10000; offset < first.total; offset += 10000) {
+    const page = await api.sessions.list({
+      ...params,
+      include_transient: false,
+      limit: 10000,
+      offset,
+    });
+    rows.push(...page.sessions);
+  }
+  return rows;
+}
+
+/**
  * Agent Board page (`/kanban`): a Kanban view of agents or sessions by status, chosen with a toggle
  * that is mirrored into the `view` URL parameter. Agents are fetched per status in parallel and
  * merged to one card per agent, keeping the freshest row, so an agent that changes status
@@ -144,6 +169,7 @@ export function KanbanBoard() {
   const [groupFilter, setGroupFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
+  const loadGenerationRef = useRef(0);
 
   const loadGroups = useCallback(async () => {
     const result = await api.sessionGroups.list();
@@ -167,69 +193,74 @@ export function KanbanBoard() {
    * duplicates to the freshest row, plus the sessions that main-agent cards need for model, working
    * directory, and cost.
    */
-  const loadAgents = useCallback(async () => {
-    // Fetch every persisted agent status. Bucketing happens below in
-    // `groupedAgents`.
-    //
-    // Also fetch sessions so AgentCard can surface model / cwd / cost on
-    // main-agent cards (they have no task and a generic name on their
-    // own - the session metadata is what makes the card useful).
-    const [agentResults, sessionsRes] = await Promise.all([
-      Promise.all(
-        AGENT_FETCH_STATUSES.map((status) =>
-          api.agents.list({ status, include_transient: status === "waiting" })
-        )
-      ),
-      api.sessions.list({
-        limit: 10000,
-        include_transient: !groupFilter,
-        group: groupFilter || undefined,
-      }),
-    ]);
-    // One request per status runs in parallel, so an agent whose status changes
-    // mid-flight returns in two of them. Merge to one card per agent id, keeping
-    // the freshest row so it lands in a single lane.
-    setAgents(mergeFreshestById(...agentResults.map((r) => r.agents)));
-    setSessions(sessionsRes.sessions);
-  }, [dataScope, groupFilter]);
+  const loadAgents = useCallback(
+    async (generation: number) => {
+      // Fetch every persisted agent status. Bucketing happens below in
+      // `groupedAgents`.
+      //
+      // Also fetch sessions so AgentCard can surface model / cwd / cost on
+      // main-agent cards (they have no task and a generic name on their
+      // own - the session metadata is what makes the card useful).
+      const [agentResults, sessionsRes] = await Promise.all([
+        Promise.all(
+          AGENT_FETCH_STATUSES.map((status) =>
+            api.agents.list({ status, include_transient: status === "waiting" })
+          )
+        ),
+        loadBoardSessionRows({
+          include_transient: !groupFilter || groupFilter === "ungrouped",
+          group: groupFilter || undefined,
+        }),
+      ]);
+      // One request per status runs in parallel, so an agent whose status changes
+      // mid-flight returns in two of them. Merge to one card per agent id, keeping
+      // the freshest row so it lands in a single lane.
+      if (generation !== loadGenerationRef.current) return;
+      setAgents(mergeFreshestById(...agentResults.map((r) => r.agents)));
+      setSessions(sessionsRes);
+    },
+    [dataScope, groupFilter]
+  );
 
   /**
-   * Load sessions for every board status in parallel, up to the server's 10,000-row cap per status,
-   * so each column has its full set; columns paginate on the client.
+   * Load sessions for every board status in parallel. Group-filtered requests
+   * continue past the server's 10,000-row page cap; columns paginate on the client.
    */
-  const loadSessions = useCallback(async () => {
-    // Each column needs the full set for its status - column-level
-    // pagination ("show more") is handled client-side at COLUMN_PAGE_SIZE.
-    // Wire-limit raised to the server's safety cap (10000); cost
-    // computation on the server scales with returned rows, so each
-    // column's request stays bounded by how many sessions actually have
-    // that status. The "waiting" column is derived client-side from the
-    // active set (see grouping below).
-    const persistedStatuses = SESSION_COLUMNS.filter((s) => s !== "waiting");
-    const results = await Promise.all(
-      persistedStatuses.map((status) =>
-        api.sessions.list({
-          status,
-          limit: 10000,
-          include_transient: status === "active" && !groupFilter,
-          group: groupFilter || undefined,
-        })
-      )
-    );
-    // Same parallel-status race as the agent lanes above.
-    setSessions(mergeFreshestById(...results.map((r) => r.sessions)));
-  }, [dataScope, groupFilter]);
+  const loadSessions = useCallback(
+    async (generation: number) => {
+      // Each column needs the full set for its status - column-level
+      // pagination ("show more") is handled client-side at COLUMN_PAGE_SIZE.
+      // Each request uses the server's 10,000-row page cap. A filtered group
+      // loads later pages so the board does not silently drop its sessions.
+      // The "waiting" column is derived client-side from the active set.
+      const persistedStatuses = SESSION_COLUMNS.filter((s) => s !== "waiting");
+      const results = await Promise.all(
+        persistedStatuses.map((status) =>
+          loadBoardSessionRows({
+            status,
+            include_transient: status === "active" && (!groupFilter || groupFilter === "ungrouped"),
+            group: groupFilter || undefined,
+          })
+        )
+      );
+      // Same parallel-status race as the agent lanes above.
+      if (generation !== loadGenerationRef.current) return;
+      setSessions(mergeFreshestById(...results));
+    },
+    [dataScope, groupFilter]
+  );
 
   /**
    * Load the data for the board currently shown. Errors are logged and leave the previous cards on
    * screen.
    */
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     try {
-      if (view === "agents") await loadAgents();
-      else await loadSessions();
+      if (view === "agents") await loadAgents(generation);
+      else await loadSessions(generation);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) setLoading(false);
     }
   }, [view, loadAgents, loadSessions]);
 
@@ -239,12 +270,17 @@ export function KanbanBoard() {
 
   useEffect(() => {
     setLoading(true);
-    load();
+    setAgents([]);
+    setSessions([]);
+    void load();
+    return () => {
+      loadGenerationRef.current += 1;
+    };
   }, [load]);
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    return eventBus.subscribe((msg: WSMessage) => {
+    const unsubscribe = eventBus.subscribe((msg: WSMessage) => {
       if (msg.type === "session_groups_changed") {
         void loadGroups().catch(() => undefined);
         if (debounceTimer) clearTimeout(debounceTimer);
@@ -264,16 +300,20 @@ export function KanbanBoard() {
           msg.type === "session_created"
         ) {
           if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(loadAgents, 300);
+          debounceTimer = setTimeout(load, 300);
         }
       } else {
         if (msg.type === "session_created" || msg.type === "session_updated") {
           if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(loadSessions, 300);
+          debounceTimer = setTimeout(load, 300);
         }
       }
     });
-  }, [view, loadAgents, loadSessions, loadGroups, load]);
+    return () => {
+      unsubscribe();
+      if (debounceTimer) clearTimeout(debounceTimer);
+    };
+  }, [view, loadGroups, load]);
 
   // Lookup map for AgentCard's session prop - memoized to avoid rebuilding on every render
   const sessionsById = useMemo(() => {

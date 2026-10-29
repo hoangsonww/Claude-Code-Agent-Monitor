@@ -509,7 +509,7 @@ Codex durable-session liveness uses the exact open rollout on supported local ho
 
 Claude turn-duration ingestion assigns each `TurnDuration` a stable transcript identity (UUID or byte offset). A complete parse atomically reconciles rows and exact `turn_count` / `total_turn_duration_ms` metadata, repairing duplicates from older builds; a capped tail remains append-only so it cannot discard historical turns.
 
-**Session Groups.** `session_groups` stores case-insensitive unique local labels. `sessions.group_id` is nullable and indexed; existing databases add it idempotently with all rows ungrouped. A group may hold local and remote source sessions. Deletion sets memberships to null without deleting session history. Data export/import carries definitions before session rows. Group mutations broadcast `session_groups_changed` with `{ group_id }`.
+**Session Groups.** `session_groups` stores case-insensitive unique local labels. `sessions.group_id` is nullable and indexed; existing databases add it idempotently with all rows ungrouped. A group may hold local and remote source sessions. Deletion sets memberships to null without deleting session history. Data export/import carries definitions before session rows and maps equal names from another machine to the local group ID. Group mutations broadcast `session_groups_changed` with `{ group_id }`.
 
 ### Hook Ingestion
 
