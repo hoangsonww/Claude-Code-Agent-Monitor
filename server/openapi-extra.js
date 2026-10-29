@@ -15,6 +15,7 @@ const codexConfig = require("./openapi-extra/codex-config");
 const run = require("./openapi-extra/run");
 const push = require("./openapi-extra/push");
 const misc = require("./openapi-extra/misc");
+const sessionGroups = require("./openapi-extra/session-groups");
 // Enriched overrides of already-documented endpoints — same operationId, tags,
 // and request/response `$ref` schemas as the base, with added examples and
 // richer descriptions. Listed last so they win the merge.
@@ -48,6 +49,7 @@ module.exports = combine(
   run,
   push,
   misc,
+  sessionGroups,
   overrideSessionsAgents,
   overrideCore,
   overridePricingAlerts,

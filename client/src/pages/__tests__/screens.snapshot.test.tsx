@@ -289,6 +289,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
     ...actual,
     api: {
       stats: { get: r(stats), facets: r({ cwds: [] }) },
+      sessionGroups: { list: r({ groups: [] }) },
       sessions: {
         list: r({ sessions: [], total: 0, limit: 50, offset: 0 }),
         facets: r({ cwds: [], sources: ["local"] }),

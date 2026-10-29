@@ -94,6 +94,27 @@ describe("legacy agents_new rebuild (pre-workflow, pre-awaiting-reason DB)", () 
     assert.doesNotThrow(() => require("../db"));
   });
 
+  it("adds session groups without changing legacy session membership", () => {
+    const { db } = require("../db");
+    const columns = db
+      .prepare("PRAGMA table_info(sessions)")
+      .all()
+      .map((column) => column.name);
+    assert.ok(columns.includes("group_id"));
+    assert.deepEqual(
+      db.prepare("SELECT id, group_id FROM sessions WHERE id = ?").get("s-legacy-1"),
+      {
+        id: "s-legacy-1",
+        group_id: null,
+      }
+    );
+    assert.ok(
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'session_groups'")
+        .get()
+    );
+  });
+
   it("adds workflow_run_id, workflow_phase and awaiting_reason to agents", () => {
     const { db } = require("../db");
     const cols = db.prepare("PRAGMA table_info(agents)").all();

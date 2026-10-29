@@ -76,6 +76,7 @@ graph TB
 
 ```mermaid
 erDiagram
+    session_groups |o--o{ sessions : "organizes (optional)"
     sessions ||--o{ agents : "has many"
     agents ||--o{ tool_executions : "has many"
     sessions ||--o{ notifications : "has many"
@@ -88,8 +89,16 @@ erDiagram
         text status "active | completed"
         real total_cost "Aggregated cost from all agents"
         text source "'local' or a remote_sources.id"
+        text group_id FK "Nullable session_groups.id"
         text created_at "ISO8601 timestamp"
         text updated_at "ISO8601 timestamp (bumped on every hook)"
+    }
+
+    session_groups {
+        text id PK "UUID"
+        text name UK "Case-insensitive unique name"
+        text created_at "ISO8601 timestamp"
+        text updated_at "ISO8601 timestamp"
     }
     
     agents {
@@ -195,7 +204,8 @@ CREATE TABLE sessions (
     awaiting_input_since TEXT,                                        -- NULL unless Waiting
     awaiting_reason TEXT,                                             -- notification|stop|session_start|interrupted, or NULL
     transcript_path TEXT,                                             -- absolute path to JSONL transcript
-    source TEXT NOT NULL DEFAULT 'local'                              -- data source: 'local' or a remote_sources.id
+    source TEXT NOT NULL DEFAULT 'local',                             -- data source: 'local' or a remote_sources.id
+    group_id TEXT REFERENCES session_groups(id) ON DELETE SET NULL   -- optional user-assigned local group
 );
 ```
 
@@ -204,6 +214,7 @@ CREATE TABLE sessions (
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
 | `id` | TEXT | NO | Session UUID (assigned by Claude Code) |
+| `group_id` | TEXT | YES | Optional dashboard-local group; deleting the group sets this to NULL and preserves the session. |
 | `name` | TEXT | YES | Human-readable label. Synced from the transcript title by `routes/hooks.js` (and the 15 s watchdog) on every event: the `custom-title` line (`/rename`, `claude -n`, picker `Ctrl+R`) always wins, otherwise the auto-generated `ai-title` fills a placeholder/auto name, otherwise the session's first user prompt (60-char label) fills it. Falls back to `Session <id8>` |
 | `status` | TEXT | NO | `active`, `completed`, `error`, or `abandoned` (CHECK-constrained). Besides the `SessionEnd` hook, the 15 s watchdog's **liveness reap** also lands `active` → `completed` when no running matching local `claude` or `codex` process has the session's `cwd` (a `SessionEnd` lost while the dashboard was down); gated by `DASHBOARD_LIVENESS_IDLE_SECONDS`, disabled via `DASHBOARD_LIVENESS_PROBE=0`. Sessions with a non-`local` `source` (Remote Data Sources) are always exempt from the local process reap and transcript watchdog. Each remote provider has independent health: sessions stay out of stale sweeps only while their own Claude or Codex mirror is healthy. If that provider reports `error`/`unavailable`, or remains `syncing` longer than `DASHBOARD_STALE_MINUTES`, an active session older than that same window falls back to the ordinary stale sweep (`abandoned`, agents completed) until a fresh mirror can reactivate it |
 | `cwd` | TEXT | YES | Working directory the CLI was launched from |
@@ -248,6 +259,21 @@ stateDiagram-v2
 ```
 
 ---
+
+### session_groups
+
+User-created dashboard-local labels shared across local and remote source sessions. A session belongs to zero or one group; no ingestion path assigns one automatically. Export/import carries group definitions before session rows.
+
+```sql
+CREATE TABLE session_groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+```
+
+Deleting a group uses `ON DELETE SET NULL`: sessions, events, and transcript history remain intact. Existing databases add the nullable `sessions.group_id` column idempotently and leave all existing rows ungrouped.
 
 ### agents
 
@@ -574,6 +600,7 @@ CREATE INDEX idx_sessions_session_id ON sessions(session_id);
 CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_updated_at ON sessions(updated_at DESC);
 CREATE INDEX idx_sessions_source ON sessions(source);   -- powers the `sources` query filter
+CREATE INDEX idx_sessions_group ON sessions(group_id); -- powers `GET /api/sessions?group=`
 
 -- Partial index covering only the rows the periodic compaction sweep reads:
 -- active sessions with a known transcript_path. Writes to other sessions skip

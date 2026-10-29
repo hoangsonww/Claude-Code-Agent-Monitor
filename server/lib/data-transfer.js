@@ -55,6 +55,7 @@ function buildExportBundle(db, stmts) {
     format: EXPORT_FORMAT,
     version: EXPORT_VERSION,
     exported_at: new Date().toISOString(),
+    session_groups: db.prepare("SELECT * FROM session_groups ORDER BY name COLLATE NOCASE").all(),
     sessions: db.prepare("SELECT * FROM sessions ORDER BY started_at DESC").all(),
     agents: db.prepare("SELECT * FROM agents ORDER BY started_at DESC").all(),
     events: db.prepare("SELECT * FROM events ORDER BY created_at DESC").all(),
@@ -166,6 +167,7 @@ function importExportBundle(db, bundle) {
   assertBundle(bundle);
 
   const counters = {
+    session_groups: 0,
     sessions_imported: 0,
     sessions_skipped: 0,
     agents: 0,
@@ -183,6 +185,7 @@ function importExportBundle(db, bundle) {
   const sessionExists = db.prepare("SELECT 1 AS present FROM sessions WHERE id = ?");
 
   const insert = {
+    session_groups: makeInserter(db, "session_groups"),
     sessions: makeInserter(db, "sessions"),
     agents: makeInserter(db, "agents"),
     events: makeInserter(db, "events", { omit: ["id"] }),
@@ -209,6 +212,10 @@ function importExportBundle(db, bundle) {
     // sibling that is inserted later in the same batch. Auto-resets at COMMIT.
     db.pragma("defer_foreign_keys = ON");
 
+    for (const group of Array.isArray(bundle.session_groups) ? bundle.session_groups : []) {
+      if (group && group.id && insert.session_groups(group).changes > 0) counters.session_groups++;
+    }
+
     for (const s of sessions) {
       if (!s || !s.id) {
         counters.errors++;
@@ -218,7 +225,11 @@ function importExportBundle(db, bundle) {
         counters.sessions_skipped++;
         continue;
       }
-      insert.sessions(s);
+      // Older/partial exports may contain a group_id without the matching
+      // group definition. Keep the session instead of failing the whole restore.
+      const groupExists =
+        s.group_id && db.prepare("SELECT 1 FROM session_groups WHERE id = ?").get(s.group_id);
+      insert.sessions(groupExists || !s.group_id ? s : { ...s, group_id: null });
       counters.sessions_imported++;
 
       // Agents first so events/token_usage that reference them satisfy FKs.

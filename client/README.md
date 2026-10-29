@@ -61,6 +61,10 @@ The client is a single-page application (SPA) built with modern web technologies
 - **WebSocket** - Real-time event streaming from server
 - **Lucide Icons** - Modern, consistent icon set
 
+### Session Groups
+
+The Sessions page can group rows by project or by a user-created group, with collapsed summaries for count, last activity, cost, and waiting status. Select rows to move them to a group or create one; Session Detail can assign a single session. A group filter also narrows either Kanban board. Groups are local dashboard labels shared across sources, and deleting one only unassigns its sessions. `session_groups_changed` refreshes all three views.
+
 ### First-run hook setup
 
 `SplashScreen.tsx` asks which provider data to display (Claude Code, Codex, or both) before dashboard routes render. The Claude Code choice explicitly includes Cursor monitoring out of the box; the server expands that scope to stored `claude` + `cursor` rows while only Claude hooks need installation. Codex-only needs Codex hooks, and Both needs both hook sets. A ready selection enters the dashboard immediately. A partial or missing setup opens the live-monitoring gate with only the missing selected providers, then calls `POST /api/settings/install-hooks` for that subset and shows command output in place. A status-check failure remains fail-soft by opening manual setup for the full selected scope. API paths are deliberately excluded, so Swagger, ReDoc, and the raw OpenAPI document remain unobstructed and retain the dashboard favicon.
@@ -457,6 +461,7 @@ Server broadcasts these event types over WebSocket:
 | `notification.received` | Notification object | Notification hook |
 | `remote_source.status` | `{ id, status, error?, providers?, last_sync_at? }` (`status`: `idle`/`syncing`/`ok`/`error`/`deleted`; each provider can also be `unavailable`) | Remote Data Source sync poller + `/api/remote-sources` routes |
 | `remote_data.updated` | `{ sourceId, source, label?, counters?, providers?, last_sync_at? }` | Emitted once per successful remote sync; provider-aware counters trigger stats/cost/session refetches. The server also broadcasts `session_created` / `session_updated` (and main-agent frames) for each mirrored session so Kanban/Sessions update immediately |
+| `session_groups_changed` | `{ group_id: string \| null }` | Group create, rename, delete, or membership change; refresh Sessions, Detail, and Kanban |
 
 ### EventBus Pattern
 

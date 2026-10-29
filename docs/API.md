@@ -11,6 +11,7 @@ Complete REST API and WebSocket documentation for Agent Dashboard.
 - [Base URL](#base-url)
 - [REST API](#rest-api)
   - [Sessions](#sessions)
+  - [Session Groups](#session-groups)
   - [Agents](#agents)
   - [Tools](#tools)
   - [Metrics](#metrics)
@@ -152,6 +153,7 @@ returns the same optional field.
 | `status` | string | - | Filter by persisted status: `active`, `completed`, `error`, `abandoned`. The UI **Waiting** state is derived from the `awaiting_input_since` column and is not a queryable enum — filter `status=active` and inspect `awaiting_input_since` (non-null = Waiting) |
 | `q` | string | - | Case-insensitive search across `id`, `name`, and `cwd` |
 | `cwd` | string (repeatable) | - | Exact working directory filter. Repeat it to include multiple projects, for example `cwd=/work/a&cwd=/work/b` |
+| `group` | string | - | A session group ID, or `ungrouped` for sessions without a group. Composes with status, search, project, source, and provider filters. |
 | `sort_by` | string | `time` | Ordering dimension: `time`, `duration`, or `price` |
 | `sort_desc` | boolean | `true` | Use descending order; set to `false` for ascending order |
 | `sources` | string | - | Comma-separated data-source ids to include (the built-in local history is `local`; remote SSH machines use their `remote_sources.id`). Omit for all sources. Also accepted on `/api/events`, `/api/agents`, `/api/stats`, `/api/analytics`, and `/api/pricing/cost`. See [Remote Data Sources](#remote-data-sources) |
@@ -174,6 +176,7 @@ curl "http://localhost:4820/api/sessions?limit=10&status=active&include_task_pro
   "sessions": [
     {
       "id": "sess_abc123",
+      "group_id": null,
       "name": "Implement task progress",
       "model": "claude-sonnet-4",
       "status": "active",
@@ -507,6 +510,24 @@ curl http://localhost:4820/api/sessions/sess_abc123/agents
 > **Note on real activity time** — agent list/detail reads include `last_activity`, derived from the latest durable event attributed to that agent. Use it for user-facing time labels instead of mutable `updated_at`, which can change during status or metadata maintenance without new CLI activity.
 
 > **Note on `status` vs Waiting** — agents are persisted with one of `idle | connected | working | completed | error`. The yellow **Waiting** badge surfaced in the dashboard is a UI overlay derived from `awaiting_input_since` being non-null on a non-terminal agent (typically `idle` after a `Stop`, or `connected` right after `SessionStart`). Filter `?status=idle` on `/api/agents` and inspect `awaiting_input_since` to enumerate currently-waiting main agents.
+
+---
+
+### Session Groups
+
+Groups are dashboard-local labels for durable sessions. A session has at most one `group_id`; existing sessions start ungrouped, and remote sessions can be assigned to the same local groups. Groups are exported and imported with dashboard data. No hook or remote sync assigns groups automatically.
+
+| Method | Path | Request | Response |
+|--------|------|---------|----------|
+| `GET` | `/api/session-groups` | — | `{ "groups": [{ "id", "name", "created_at", "updated_at" }] }` |
+| `POST` | `/api/session-groups` | `{ "name": "Migration" }` | `201 { "group": {...} }` |
+| `PATCH` | `/api/session-groups/:id` | `{ "name": "New name" }` | `{ "group": {...} }` |
+| `DELETE` | `/api/session-groups/:id` | — | `{ "deleted": true }`; sessions remain and become ungrouped |
+| `PATCH` | `/api/sessions/group` | `{ "session_ids": ["id1", "id2"], "group_id": "group-id" }` | `{ "updated": 2 }` |
+
+Group names are trimmed, 1–100 characters, and unique without regard to case. Bulk assignment accepts 1–10000 distinct durable session IDs, validates the entire selection and current source/provider scope before changing anything, and accepts `group_id: null` to unassign. `PATCH /api/sessions/:id` also accepts `group_id` or `null` for a single session. Unknown groups or sessions return `404`, invalid input returns `400`, and duplicate group names return `409`.
+
+Every group create, rename, delete, or assignment broadcasts `session_groups_changed` with `{ "group_id": "..." }` (null when unassigning) so Sessions, Session Detail, and Kanban refresh their views.
 
 ---
 

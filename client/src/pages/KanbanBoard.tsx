@@ -88,6 +88,7 @@ import type {
   EffectiveAgentStatus,
   EffectiveSessionStatus,
   Session,
+  SessionGroup,
   WSMessage,
 } from "../lib/types";
 
@@ -139,8 +140,18 @@ export function KanbanBoard() {
   });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [groups, setGroups] = useState<SessionGroup[]>([]);
+  const [groupFilter, setGroupFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, number>>({});
+
+  const loadGroups = useCallback(async () => {
+    const result = await api.sessionGroups.list();
+    setGroups(result.groups);
+  }, []);
+  useEffect(() => {
+    void loadGroups().catch(() => undefined);
+  }, [loadGroups]);
 
   /** Switch boards and reset each column's "show more" pagination. */
   const setView = useCallback(
@@ -169,14 +180,18 @@ export function KanbanBoard() {
           api.agents.list({ status, include_transient: status === "waiting" })
         )
       ),
-      api.sessions.list({ limit: 10000, include_transient: true }),
+      api.sessions.list({
+        limit: 10000,
+        include_transient: !groupFilter,
+        group: groupFilter || undefined,
+      }),
     ]);
     // One request per status runs in parallel, so an agent whose status changes
     // mid-flight returns in two of them. Merge to one card per agent id, keeping
     // the freshest row so it lands in a single lane.
     setAgents(mergeFreshestById(...agentResults.map((r) => r.agents)));
     setSessions(sessionsRes.sessions);
-  }, [dataScope]);
+  }, [dataScope, groupFilter]);
 
   /**
    * Load sessions for every board status in parallel, up to the server's 10,000-row cap per status,
@@ -196,13 +211,14 @@ export function KanbanBoard() {
         api.sessions.list({
           status,
           limit: 10000,
-          include_transient: status === "active",
+          include_transient: status === "active" && !groupFilter,
+          group: groupFilter || undefined,
         })
       )
     );
     // Same parallel-status race as the agent lanes above.
     setSessions(mergeFreshestById(...results.map((r) => r.sessions)));
-  }, [dataScope]);
+  }, [dataScope, groupFilter]);
 
   /**
    * Load the data for the board currently shown. Errors are logged and leave the previous cards on
@@ -229,6 +245,12 @@ export function KanbanBoard() {
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     return eventBus.subscribe((msg: WSMessage) => {
+      if (msg.type === "session_groups_changed") {
+        void loadGroups().catch(() => undefined);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(load, 300);
+        return;
+      }
       if (isRemoteDataRefreshMessage(msg)) {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(load, 300);
@@ -251,7 +273,7 @@ export function KanbanBoard() {
         }
       }
     });
-  }, [view, loadAgents, loadSessions]);
+  }, [view, loadAgents, loadSessions, loadGroups, load]);
 
   // Lookup map for AgentCard's session prop - memoized to avoid rebuilding on every render
   const sessionsById = useMemo(() => {
@@ -269,8 +291,15 @@ export function KanbanBoard() {
     (acc, status) => {
       acc[status] =
         status === "waiting"
-          ? agents.filter(isEffectivelyWaiting)
-          : agents.filter((a) => a.status === status && !isEffectivelyWaiting(a));
+          ? agents.filter(
+              (a) => isEffectivelyWaiting(a) && (!groupFilter || sessionsById.has(a.session_id))
+            )
+          : agents.filter(
+              (a) =>
+                a.status === status &&
+                !isEffectivelyWaiting(a) &&
+                (!groupFilter || sessionsById.has(a.session_id))
+            );
       return acc;
     },
     {} as Record<EffectiveAgentStatus, Agent[]>
@@ -287,10 +316,15 @@ export function KanbanBoard() {
     {} as Record<EffectiveSessionStatus, Session[]>
   );
 
-  const total = view === "agents" ? agents.length : sessions.length;
+  const total =
+    view === "agents"
+      ? groupFilter
+        ? agents.filter((agent) => sessionsById.has(agent.session_id)).length
+        : agents.length
+      : sessions.length;
   const subtitle =
     view === "agents"
-      ? t("agentCount", { count: agents.length })
+      ? t("agentCount", { count: total })
       : t("sessionCount", { count: sessions.length });
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
@@ -320,6 +354,25 @@ export function KanbanBoard() {
         </div>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        <label className="flex items-center gap-2 text-xs text-gray-400">
+          {t("groupFilter")}
+          <select
+            className="input min-w-[125px]"
+            value={groupFilter}
+            onChange={(event) => {
+              setGroupFilter(event.target.value);
+              setExpanded({});
+            }}
+          >
+            <option value="">{t("allGroups")}</option>
+            <option value="ungrouped">{t("ungrouped")}</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <ViewToggle view={view} onChange={setView} />
         <button onClick={load} className="btn-ghost flex-shrink-0">
           <RefreshCw className="w-4 h-4" /> {t("common:refresh")}

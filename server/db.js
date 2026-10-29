@@ -1,6 +1,6 @@
 /**
  * @file Database setup and access layer using SQLite for sessions, agents,
- * events, token usage, and Claude, Cursor, and Codex model pricing. Handles schema/migrations and
+ * events, user-defined session groups, token usage, and Claude, Cursor, and Codex model pricing. Handles schema/migrations and
  * exposes prepared statements, including card-ready task/prompt previews.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
@@ -160,6 +160,13 @@ try {
 }
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS session_groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+
   CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     name TEXT,
@@ -172,7 +179,8 @@ db.exec(`
     -- Two most recent distinct human prompts, newline-separated. This is a
     -- deliberately small card-only cache derived from the local transcript;
     -- it keeps list views informative without storing whole conversations.
-    card_prompt_preview TEXT
+    card_prompt_preview TEXT,
+    group_id TEXT REFERENCES session_groups(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS agents (
@@ -1215,6 +1223,15 @@ try {
 } catch {
   db.prepare("ALTER TABLE sessions ADD COLUMN repo_remote_url TEXT").run();
 }
+
+// Groups are dashboard-local organization metadata. The nullable FK leaves
+// existing sessions ungrouped and survives normal hook/import upserts.
+if (!db.pragma("table_info(sessions)").some((column) => column.name === "group_id")) {
+  db.prepare(
+    "ALTER TABLE sessions ADD COLUMN group_id TEXT REFERENCES session_groups(id) ON DELETE SET NULL"
+  ).run();
+}
+db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_group ON sessions(group_id)");
 
 // Dashboard run records predate provider-aware launching. Keep existing rows
 // as Claude Code runs and add the Codex-specific sandbox metadata without

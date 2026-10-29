@@ -1,7 +1,7 @@
 /**
  * @file Express router for session endpoints, allowing creation, retrieval, and
  * updating of sessions with pagination plus status, search, and multi-directory
- * filtering. It computes costs, derives optional owner-aware task progress,
+ * filtering, and dashboard-local group assignment. It computes costs, derives optional owner-aware task progress,
  * adds card-ready prompt context, reads Claude/Cursor/Codex conversations,
  * safely exposes transcript images, and broadcasts live changes.
  * @author Son Nguyen <hoangson091104@gmail.com>
@@ -264,6 +264,7 @@ router.get("/", (req, res) => {
   const sortDesc = req.query.sort_desc !== "false";
   const sources = parseSources(req);
   const providers = parseProviders(req);
+  const group = typeof req.query.group === "string" ? req.query.group : null;
 
   let where = [];
   let params = [];
@@ -280,6 +281,12 @@ router.get("/", (req, res) => {
   if (cwds.length > 0) {
     where.push(`s.cwd IN (${cwds.map(() => "?").join(",")})`);
     params.push(...cwds);
+  }
+  if (group === "ungrouped") {
+    where.push("s.group_id IS NULL");
+  } else if (group) {
+    where.push("s.group_id = ?");
+    params.push(group);
   }
   // Data-scope filter: restrict to sessions collected from a chosen set of
   // machines (local + any configured remote sources). Absent = all sources.
@@ -425,6 +432,7 @@ router.get("/", (req, res) => {
   const transient =
     includeTransient &&
     (!status || status === "active") &&
+    (!group || group === "ungrouped") &&
     includesLocal &&
     includesCodex &&
     offset === 0
@@ -474,6 +482,41 @@ router.get("/facets", (req, res) => {
   const sources = stmts.distinctSessionSources.all().map((r) => r.source);
   const providers = stmts.distinctSessionProviders.all().map((r) => r.provider);
   res.json({ cwds: rows.map((r) => r.cwd), sources, providers });
+});
+
+// Bulk membership changes are atomic: a stale or out-of-scope ID cannot leave
+// half a selection moved. Null explicitly removes membership.
+router.patch("/group", (req, res) => {
+  const ids = req.body?.session_ids;
+  const groupId = req.body?.group_id;
+  if (
+    !Array.isArray(ids) ||
+    ids.length === 0 ||
+    ids.length > 10000 ||
+    ids.some((id) => typeof id !== "string" || !id) ||
+    new Set(ids).size !== ids.length ||
+    !(groupId === null || (typeof groupId === "string" && groupId))
+  ) {
+    return res.status(400).json({
+      error: {
+        code: "INVALID_INPUT",
+        message: "Provide 1–10000 distinct session_ids and a group_id or null",
+      },
+    });
+  }
+  if (groupId && !db.prepare("SELECT id FROM session_groups WHERE id = ?").get(groupId)) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Group not found" } });
+  }
+  const sessions = ids.map((id) => stmts.getSession.get(id));
+  if (sessions.some((session) => !session || !sessionIsInScope(session, req))) {
+    return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+  }
+  const update = db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?");
+  db.transaction(() => {
+    for (const id of ids) update.run(groupId, id);
+  })();
+  broadcast("session_groups_changed", { group_id: groupId });
+  res.json({ updated: ids.length });
 });
 
 router.get("/:id", (req, res) => {
@@ -607,7 +650,8 @@ router.post("/", (req, res) => {
 });
 
 router.patch("/:id", (req, res) => {
-  const { name, status, ended_at, metadata } = req.body;
+  const body = req.body || {};
+  const { name, status, ended_at, metadata } = body;
   const existing = stmts.getSession.get(req.params.id);
   if (!existing) {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
@@ -616,13 +660,28 @@ router.patch("/:id", (req, res) => {
     return res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
   }
 
-  stmts.updateSession.run(
-    name || null,
-    status || null,
-    ended_at || null,
-    metadata ? JSON.stringify(metadata) : null,
-    req.params.id
-  );
+  if (Object.hasOwn(body, "group_id")) {
+    const groupId = body.group_id;
+    if (groupId !== null && (typeof groupId !== "string" || !groupId)) {
+      return res
+        .status(400)
+        .json({ error: { code: "INVALID_INPUT", message: "group_id must be a group ID or null" } });
+    }
+    if (groupId && !db.prepare("SELECT id FROM session_groups WHERE id = ?").get(groupId)) {
+      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Group not found" } });
+    }
+    db.prepare("UPDATE sessions SET group_id = ? WHERE id = ?").run(groupId, req.params.id);
+    broadcast("session_groups_changed", { group_id: groupId });
+  }
+  if (name || status || ended_at || metadata) {
+    stmts.updateSession.run(
+      name || null,
+      status || null,
+      ended_at || null,
+      metadata ? JSON.stringify(metadata) : null,
+      req.params.id
+    );
+  }
 
   const session = stmts.getSession.get(req.params.id);
   broadcast("session_updated", session);

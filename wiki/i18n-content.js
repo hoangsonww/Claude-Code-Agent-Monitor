@@ -6,6 +6,19 @@
  */
 window.__WIKI_CONTENT_I18N = {
   zh: {
+    "Keep related sessions together across projects and worktrees with user-defined, named groups. Select several rows in Sessions and move them into an existing group or create one; Session Detail can set the same membership. Choose Group by project or group to collapse histories into summaries showing session count, last activity, total cost, and waiting work, then expand a group to inspect its rows. Kanban's group filter narrows either board. Groups live only in the dashboard database, and deleting one leaves every session intact.":
+      "用命名分组整理跨项目和工作树的相关会话。在“会话”页选择多行，将其移入已有分组或创建新分组；也可在“会话详情”设置分组。按项目或分组排列时，可将历史折叠为显示会话数、最近活动、总费用及等待中工作的摘要，再展开查看各行。看板的分组筛选器适用于两种视图。分组只保存在仪表盘数据库中，删除分组不会删除会话。",
+    "List sessions with agent counts and cost. Filter by <code>status</code>, <code>q</code>, <code>cwd</code>, or <code>group</code> (ID or <code>ungrouped</code>); <code>total</code> supports pagination.":
+      "列出会话、代理数量和费用。可按 <code>status</code>、<code>q</code>、<code>cwd</code> 或 <code>group</code>（ID 或 <code>ungrouped</code>）筛选；<code>total</code> 支持分页。",
+    "Update session status, metadata, or <code>group_id</code>":
+      "更新会话状态、元数据或 <code>group_id</code>",
+    "Assign selected <code>session_ids</code> to a <code>group_id</code>, or <code>null</code> to ungroup, atomically":
+      "原子地将选中的 <code>session_ids</code> 分配给 <code>group_id</code>，或设为 <code>null</code> 以取消分组",
+    "List named dashboard-local session groups": "列出仅保存在本地仪表盘中的命名会话分组",
+    "Create a group from a 1–100 character name": "使用 1–100 个字符的名称创建分组",
+    "Rename a group; names are unique regardless of case": "重命名分组；名称不区分大小写且必须唯一",
+    "Delete a group and unassign its sessions without deleting history":
+      "删除分组并取消会话的分组关系，不删除历史",
     "Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.":
       "对原始文件已被 Claude Code 或 Cursor 删除（且闲置 24 小时）的对话记录快照进行后台无损压缩。每个 <code>.jsonl.gz</code> 都会先解压并比对（SHA-256 + 长度）后才删除未压缩副本；源目录缺失或不可读的提供方会被跳过。Codex 快照保持未压缩。<code>0</code> 表示关闭。",
     "Opt-in retention cap: every 6 h, delete the snapshots of finished sessions idle longer than this many days and stop snapshotting sources that old. Pruned sessions are tombstoned so a re-import does not regrow them. Preview with <code>ccam snapshots prune --days N</code> first, because a pruned snapshot may be the only remaining copy of a conversation.":
@@ -1515,6 +1528,21 @@ window.__WIKI_CONTENT_I18N = {
       "<strong>服务端分页</strong>的表格，列出每一个已记录的会话。每一页只获取对应的数据片段，因此无论会话数量多少，成本计算都保持有界。针对 <code>id</code>、<code>name</code> 和 <code>cwd</code> 的不区分大小写搜索在服务端运行，并带有 300 ms 防抖；状态过滤器可与搜索组合以精确缩小范围。可搜索的复选框项目选择器支持选择多个目录；完整长路径仍可查看，紧凑的触发器文字让筛选栏保持易读。排序使用相同的自定义下拉模式。每一行显示会话的真实名称（从 transcript 实时同步：<code>/rename</code> 或 <code>claude -n</code> 标题，否则使用自动标题，再否则使用首条用户 prompt，并回退到短 ID）、状态徽章、agent 数量、时长、模型和预估成本。点击任意行即可深入查看完整的会话详情视图，包含对话记录和 agent 层级。",
   },
   vi: {
+    "Keep related sessions together across projects and worktrees with user-defined, named groups. Select several rows in Sessions and move them into an existing group or create one; Session Detail can set the same membership. Choose Group by project or group to collapse histories into summaries showing session count, last activity, total cost, and waiting work, then expand a group to inspect its rows. Kanban's group filter narrows either board. Groups live only in the dashboard database, and deleting one leaves every session intact.":
+      "Gom các phiên liên quan ở nhiều dự án và cây làm việc vào những nhóm do bạn đặt tên. Chọn nhiều hàng trên trang Phiên để chuyển vào nhóm hiện có hoặc tạo nhóm mới; bạn cũng có thể đặt nhóm trong Chi tiết phiên. Khi nhóm theo dự án hoặc nhóm tùy chỉnh, hãy thu gọn lịch sử thành phần tóm tắt gồm số phiên, hoạt động gần nhất, tổng chi phí và công việc đang chờ, rồi mở rộng để xem từng hàng. Bộ lọc nhóm trên Kanban áp dụng cho cả hai chế độ xem. Nhóm chỉ được lưu trong cơ sở dữ liệu của bảng điều khiển; xóa nhóm không xóa phiên nào.",
+    "List sessions with agent counts and cost. Filter by <code>status</code>, <code>q</code>, <code>cwd</code>, or <code>group</code> (ID or <code>ungrouped</code>); <code>total</code> supports pagination.":
+      "Liệt kê phiên cùng số tác tử và chi phí. Lọc theo <code>status</code>, <code>q</code>, <code>cwd</code> hoặc <code>group</code> (ID hay <code>ungrouped</code>); <code>total</code> hỗ trợ phân trang.",
+    "Update session status, metadata, or <code>group_id</code>":
+      "Cập nhật trạng thái phiên, siêu dữ liệu hoặc <code>group_id</code>",
+    "Assign selected <code>session_ids</code> to a <code>group_id</code>, or <code>null</code> to ungroup, atomically":
+      "Gán các <code>session_ids</code> đã chọn vào <code>group_id</code>, hoặc dùng <code>null</code> để bỏ nhóm, trong một thao tác nguyên tử",
+    "List named dashboard-local session groups":
+      "Liệt kê các nhóm phiên có tên chỉ lưu trên bảng điều khiển",
+    "Create a group from a 1–100 character name": "Tạo nhóm với tên dài 1–100 ký tự",
+    "Rename a group; names are unique regardless of case":
+      "Đổi tên nhóm; tên phải duy nhất, không phân biệt chữ hoa chữ thường",
+    "Delete a group and unassign its sessions without deleting history":
+      "Xóa nhóm và bỏ gán các phiên mà không xóa lịch sử",
     "Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.":
       "Nén nền không mất dữ liệu các bản sao lưu bản ghi có bản gốc đã bị Claude Code hoặc Cursor xóa (và không hoạt động 24 giờ). Mỗi <code>.jsonl.gz</code> được giải nén và đối chiếu (SHA-256 + độ dài) trước khi xóa bản chưa nén, và nhà cung cấp có cây nguồn bị thiếu hoặc không đọc được sẽ bị bỏ qua. Bản sao lưu Codex giữ nguyên không nén. <code>0</code> để tắt.",
     "Opt-in retention cap: every 6 h, delete the snapshots of finished sessions idle longer than this many days and stop snapshotting sources that old. Pruned sessions are tombstoned so a re-import does not regrow them. Preview with <code>ccam snapshots prune --days N</code> first, because a pruned snapshot may be the only remaining copy of a conversation.":
@@ -3048,6 +3076,20 @@ window.__WIKI_CONTENT_I18N = {
       "Bảng <strong>phân trang phía máy chủ</strong> liệt kê mọi phiên đã ghi. Mỗi trang chỉ lấy phần dữ liệu của mình nên việc tính chi phí luôn có giới hạn, dù có bao nhiêu phiên. Tìm kiếm không phân biệt hoa thường trên <code>id</code>, <code>name</code> và <code>cwd</code> chạy ở phía máy chủ với độ trễ chống dội 300 ms; bộ lọc trạng thái kết hợp với tìm kiếm để thu hẹp chính xác. Bộ chọn dự án dạng hộp kiểm có thể tìm kiếm hỗ trợ chọn nhiều thư mục; đường dẫn dài vẫn có thể xem đầy đủ, còn văn bản gọn trên nút giữ thanh lọc dễ đọc. Sắp xếp dùng cùng mẫu menu tùy chỉnh. Mỗi hàng hiển thị tên thật của phiên (đồng bộ trực tiếp từ bản ghi: tiêu đề <code>/rename</code> hoặc <code>claude -n</code>, nếu không thì tiêu đề tự động, nếu vẫn không có thì prompt đầu tiên của người dùng, với dự phòng là ID ngắn), huy hiệu trạng thái, số lượng agent, thời lượng, mô hình và chi phí ước tính. Nhấp vào bất kỳ hàng nào để đi sâu vào chế độ xem chi tiết đầy đủ của phiên với bản ghi hội thoại và phân cấp agent.",
   },
   ko: {
+    "Keep related sessions together across projects and worktrees with user-defined, named groups. Select several rows in Sessions and move them into an existing group or create one; Session Detail can set the same membership. Choose Group by project or group to collapse histories into summaries showing session count, last activity, total cost, and waiting work, then expand a group to inspect its rows. Kanban's group filter narrows either board. Groups live only in the dashboard database, and deleting one leaves every session intact.":
+      "프로젝트와 작업 트리에 걸친 관련 세션을 사용자가 이름을 정한 그룹으로 묶습니다. 세션 페이지에서 여러 행을 선택해 기존 그룹으로 옮기거나 새 그룹을 만들 수 있고, 세션 상세에서도 소속 그룹을 설정할 수 있습니다. 프로젝트나 그룹별로 묶으면 기록을 접어 세션 수, 최근 활동, 총비용, 대기 중인 작업을 요약해서 보고, 펼쳐서 각 행을 확인할 수 있습니다. 칸반의 그룹 필터는 두 보드 모두에 적용됩니다. 그룹은 대시보드 데이터베이스에만 저장되며 그룹을 삭제해도 세션은 그대로 유지됩니다.",
+    "List sessions with agent counts and cost. Filter by <code>status</code>, <code>q</code>, <code>cwd</code>, or <code>group</code> (ID or <code>ungrouped</code>); <code>total</code> supports pagination.":
+      "에이전트 수와 비용을 포함한 세션 목록입니다. <code>status</code>, <code>q</code>, <code>cwd</code>, <code>group</code>(ID 또는 <code>ungrouped</code>)으로 필터링할 수 있으며 <code>total</code>은 페이지 구분에 사용됩니다.",
+    "Update session status, metadata, or <code>group_id</code>":
+      "세션 상태, 메타데이터 또는 <code>group_id</code> 업데이트",
+    "Assign selected <code>session_ids</code> to a <code>group_id</code>, or <code>null</code> to ungroup, atomically":
+      "선택한 <code>session_ids</code>를 <code>group_id</code>에 일괄 할당하거나 <code>null</code>로 그룹을 해제합니다. 작업은 원자적으로 처리됩니다",
+    "List named dashboard-local session groups": "대시보드에만 저장되는 이름 있는 세션 그룹 목록",
+    "Create a group from a 1–100 character name": "1~100자 이름으로 그룹 만들기",
+    "Rename a group; names are unique regardless of case":
+      "그룹 이름 변경. 이름은 대소문자 구분 없이 고유해야 합니다",
+    "Delete a group and unassign its sessions without deleting history":
+      "그룹을 삭제하고 세션 배정을 해제하되 기록은 유지합니다",
     "Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.":
       "Claude Code나 Cursor가 원본을 이미 삭제한(그리고 24시간 유휴 상태인) 트랜스크립트 스냅샷의 무손실 백그라운드 압축입니다. 각 <code>.jsonl.gz</code>는 압축을 다시 풀어 대조(SHA-256 + 길이)한 뒤에만 비압축 사본을 삭제하며, 소스 트리가 없거나 읽을 수 없는 제공자는 건너뜁니다. Codex 스냅샷은 압축하지 않습니다. <code>0</code>이면 끕니다.",
     "Opt-in retention cap: every 6 h, delete the snapshots of finished sessions idle longer than this many days and stop snapshotting sources that old. Pruned sessions are tombstoned so a re-import does not regrow them. Preview with <code>ccam snapshots prune --days N</code> first, because a pruned snapshot may be the only remaining copy of a conversation.":
@@ -4531,6 +4573,22 @@ window.__WIKI_CONTENT_I18N = {
       "<strong>서버 페이지네이션</strong> 테이블은 기록된 모든 세션을 보여줍니다. 각 페이지는 해당 구간만 가져오므로 세션 수와 관계없이 비용 계산 범위가 제한됩니다. <code>id</code>, <code>name</code>, <code>cwd</code>에 대한 대소문자 구분 없는 검색은 300 ms 디바운스와 함께 서버 측에서 실행되며 상태 필터와 조합할 수 있습니다. 검색 가능한 체크박스 프로젝트 선택기로 여러 디렉터리를 고를 수 있고, 긴 경로는 전체를 확인할 수 있으며 간결한 트리거 텍스트가 필터 바를 읽기 쉽게 유지합니다. 정렬도 같은 맞춤 드롭다운 패턴을 사용합니다. 각 행은 세션의 실제 이름(트랜스크립트에서 실시간으로 동기화됨: <code>/rename</code> 또는 <code>claude -n</code> 제목, 없으면 자동 생성된 제목, 그마저도 없으면 첫 사용자 프롬프트, 최종적으로 짧은 ID로 대체), 상태 배지, 에이전트 수, 지속 시간, 모델, 예상 비용을 표시합니다. 행을 클릭하면 대화 트랜스크립트와 에이전트 계층 구조가 포함된 전체 세션 상세 화면으로 이동합니다.",
   },
   es: {
+    "Keep related sessions together across projects and worktrees with user-defined, named groups. Select several rows in Sessions and move them into an existing group or create one; Session Detail can set the same membership. Choose Group by project or group to collapse histories into summaries showing session count, last activity, total cost, and waiting work, then expand a group to inspect its rows. Kanban's group filter narrows either board. Groups live only in the dashboard database, and deleting one leaves every session intact.":
+      "Reúne sesiones relacionadas de distintos proyectos y árboles de trabajo en grupos con nombres definidos por ti. Selecciona varias filas en Sesiones para moverlas a un grupo existente o crear uno; también puedes establecer el grupo en Detalle de sesión. Agrupa por proyecto o por grupo para plegar el historial en resúmenes con número de sesiones, última actividad, coste total y trabajo en espera; expande un grupo para revisar sus filas. El filtro de grupos de Kanban se aplica a ambos tableros. Los grupos solo se guardan en la base de datos del panel y borrarlos no elimina ninguna sesión.",
+    "List sessions with agent counts and cost. Filter by <code>status</code>, <code>q</code>, <code>cwd</code>, or <code>group</code> (ID or <code>ungrouped</code>); <code>total</code> supports pagination.":
+      "Lista sesiones con número de agentes y coste. Filtra por <code>status</code>, <code>q</code>, <code>cwd</code> o <code>group</code> (ID o <code>ungrouped</code>); <code>total</code> permite paginar.",
+    "Update session status, metadata, or <code>group_id</code>":
+      "Actualiza el estado, los metadatos o <code>group_id</code> de la sesión",
+    "Assign selected <code>session_ids</code> to a <code>group_id</code>, or <code>null</code> to ungroup, atomically":
+      "Asigna los <code>session_ids</code> seleccionados a un <code>group_id</code>, o usa <code>null</code> para quitarles el grupo, de forma atómica",
+    "List named dashboard-local session groups":
+      "Lista los grupos de sesiones con nombre que solo se guardan en el panel",
+    "Create a group from a 1–100 character name":
+      "Crea un grupo con un nombre de 1 a 100 caracteres",
+    "Rename a group; names are unique regardless of case":
+      "Cambia el nombre de un grupo; los nombres deben ser únicos sin distinguir mayúsculas",
+    "Delete a group and unassign its sessions without deleting history":
+      "Elimina un grupo y desasigna sus sesiones sin borrar el historial",
     "Lossless background compression of transcript snapshots whose original Claude Code or Cursor already deleted (and idle for 24 h). Each <code>.jsonl.gz</code> is decompressed and matched (SHA-256 + length) before the plain copy is removed, and a provider whose source tree is missing or unreadable is skipped. Codex snapshots stay plain. <code>0</code> turns it off.":
       "Compresión sin pérdida en segundo plano de las instantáneas de transcripciones cuyo original ya eliminó Claude Code o Cursor (e inactivas 24 h). Cada <code>.jsonl.gz</code> se descomprime y se compara (SHA-256 + longitud) antes de eliminar la copia sin comprimir, y se omite un proveedor cuyo árbol de origen falta o no se puede leer. Las instantáneas de Codex no se comprimen. <code>0</code> la desactiva.",
     "Opt-in retention cap: every 6 h, delete the snapshots of finished sessions idle longer than this many days and stop snapshotting sources that old. Pruned sessions are tombstoned so a re-import does not regrow them. Preview with <code>ccam snapshots prune --days N</code> first, because a pruned snapshot may be the only remaining copy of a conversation.":

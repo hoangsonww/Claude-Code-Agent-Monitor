@@ -394,6 +394,7 @@ import type {
   GptModelPricing,
   ModelPricing,
   Session,
+  SessionGroup,
   SessionDrillIn,
   SessionStats,
   Stats,
@@ -647,6 +648,8 @@ export const api = {
       q?: string;
       /** Working directories to include. */
       cwd?: string[];
+      /** One group ID, or `ungrouped` for sessions without a group. */
+      group?: string;
       /** Sort column: `time` (default), `duration`, or `price`. */
       sort_by?: string;
       /** Sort descending; sent even when explicitly false. */
@@ -672,6 +675,7 @@ export const api = {
       if (params?.cwd) {
         for (const cwd of params.cwd) qs.append("cwd", cwd);
       }
+      if (params?.group) qs.set("group", params.group);
       if (params?.sort_by) qs.set("sort_by", params.sort_by);
       // `!== undefined` (not truthiness) so an explicit `sort_desc: false` is preserved.
       if (params?.sort_desc !== undefined) qs.set("sort_desc", String(params.sort_desc));
@@ -709,6 +713,22 @@ export const api = {
         events: DashboardEvent[];
         workflows: WorkflowRun[];
       }>(`/sessions/${encodeURIComponent(id)}${qs.size ? `?${qs.toString()}` : ""}`);
+    },
+    /** Assign or clear one session's dashboard-local group. */
+    setGroup: (id: string, groupId: string | null) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<{ session: Session }>(
+        `/sessions/${encodeURIComponent(id)}${qs.size ? `?${qs}` : ""}`,
+        { method: "PATCH", body: JSON.stringify({ group_id: groupId }) }
+      );
+    },
+    /** Atomically assign or clear a selection of sessions. */
+    setGroups: (ids: string[], groupId: string | null) => {
+      const qs = applyScope(new URLSearchParams());
+      return request<{ updated: number }>(`/sessions/group${qs.size ? `?${qs}` : ""}`, {
+        method: "PATCH",
+        body: JSON.stringify({ session_ids: ids, group_id: groupId }),
+      });
     },
     /**
      * GET /api/sessions/:id/stats - per-session rollups for the detail page.
@@ -801,6 +821,21 @@ export const api = {
         `/sessions/${encodeURIComponent(id)}/transcript${q ? `?${q}` : ""}`
       );
     },
+  },
+  sessionGroups: {
+    list: () => request<{ groups: SessionGroup[] }>("/session-groups"),
+    create: (name: string) =>
+      request<{ group: SessionGroup }>("/session-groups", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    rename: (id: string, name: string) =>
+      request<{ group: SessionGroup }>(`/session-groups/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
+    remove: (id: string) =>
+      request<{ deleted: true }>(`/session-groups/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 
   // ──────────────────────────────── Agents API ────────────────────────────────

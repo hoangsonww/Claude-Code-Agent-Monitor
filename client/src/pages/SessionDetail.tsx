@@ -134,6 +134,7 @@ import {
 } from "../lib/format";
 import type {
   Session,
+  SessionGroup,
   Agent,
   DashboardEvent,
   CostResult,
@@ -174,6 +175,8 @@ export function SessionDetail() {
   const { t: wfT } = useTranslation("workflows");
   const [scope] = useDataScope();
   const [session, setSession] = useState<Session | null>(null);
+  const [groups, setGroups] = useState<SessionGroup[]>([]);
+  const [groupError, setGroupError] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowRun[]>([]);
   const [events, setEvents] = useState<DashboardEvent[]>([]);
@@ -182,6 +185,14 @@ export function SessionDetail() {
   const [filters, setFilters] = useState<EventFiltersValue>(EMPTY_FILTERS);
   const [cost, setCost] = useState<CostResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadGroups = useCallback(() => {
+    if (!api.sessionGroups?.list) return;
+    void api.sessionGroups
+      .list()
+      .then((result) => setGroups(result.groups))
+      .catch(() => setGroupError(true));
+  }, []);
+  useEffect(loadGroups, [loadGroups]);
   // True when this session is currently being driven by an in-flight Run
   // handle on /run. Drives the "Open in Run page" banner up top.
   const [isDashboardRun, setIsDashboardRun] = useState(false);
@@ -589,9 +600,11 @@ export function SessionDetail() {
       if (
         msg.type === "agent_created" ||
         msg.type === "agent_updated" ||
-        msg.type === "session_updated"
+        msg.type === "session_updated" ||
+        msg.type === "session_groups_changed"
       ) {
         load();
+        if (msg.type === "session_groups_changed") loadGroups();
       }
       if (msg.type === "new_event") {
         const event = msg.data as DashboardEvent;
@@ -626,7 +639,25 @@ export function SessionDetail() {
         eventsRefreshTimerRef.current = null;
       }
     };
-  }, [load, refreshEventsWithPagination]);
+  }, [load, refreshEventsWithPagination, loadGroups]);
+
+  const changeGroup = async (value: string) => {
+    if (!id) return;
+    try {
+      let groupId: string | null = value || null;
+      if (value === "create") {
+        const name = window.prompt(t("groups.namePrompt"))?.trim();
+        if (!name) return;
+        groupId = (await api.sessionGroups.create(name)).group.id;
+        loadGroups();
+      }
+      await api.sessions.setGroup(id, groupId);
+      setSession((current) => (current ? { ...current, group_id: groupId } : current));
+      setGroupError(false);
+    } catch {
+      setGroupError(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -729,6 +760,27 @@ export function SessionDetail() {
               </span>
               <CopyButton text={session.cwd} />
             </div>
+          )}
+          <label className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+            {t("groups.detailLabel")}
+            <select
+              className="input min-w-[170px]"
+              value={session.group_id || ""}
+              onChange={(event) => void changeGroup(event.target.value)}
+            >
+              <option value="">{t("groups.ungrouped")}</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+              <option value="create">{t("groups.createGroup")}</option>
+            </select>
+          </label>
+          {groupError && (
+            <p role="alert" className="mt-2 text-xs text-red-400">
+              {t("groups.actionFailed")}
+            </p>
           )}
         </div>
         <button onClick={load} className="btn-ghost">

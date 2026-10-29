@@ -6,6 +6,9 @@
     "agents": "Agents",
     "sessions": "Sessions"
   },
+  "groupFilter": "Group",
+  "allGroups": "All groups",
+  "ungrouped": "Ungrouped",
   "noAgents": "No agents tracked yet",
   "noAgentsDesc": "Start a monitored agent session with hooks installed to see agents appear here.",
   "agentCount_one": "{{count}} agent tracked",

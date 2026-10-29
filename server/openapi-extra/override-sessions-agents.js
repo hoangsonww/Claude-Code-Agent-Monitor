@@ -190,6 +190,14 @@ const paths = {
           example: ["/Users/son/code/project-a", "/Users/son/code/project-b"],
         },
         {
+          name: "group",
+          in: "query",
+          schema: { type: "string" },
+          description:
+            "Filter by a session group ID, or use `ungrouped` for sessions without a group.",
+          example: "ungrouped",
+        },
+        {
           name: "sort_by",
           in: "query",
           schema: { type: "string", enum: ["time", "duration", "price"], default: "time" },

@@ -6,6 +6,9 @@
     "agents": "Agent",
     "sessions": "Phiên"
   },
+  "groupFilter": "Nhóm",
+  "allGroups": "Tất cả nhóm",
+  "ungrouped": "Chưa có nhóm",
   "noAgents": "Chưa có Agent được theo dõi",
   "noAgentsDesc": "Bắt đầu một phiên Agent được theo dõi với hooks đã cài để thấy Agent xuất hiện tại đây.",
   "agentCount_one": "Đã theo dõi {{count}} Agent",

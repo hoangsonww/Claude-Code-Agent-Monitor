@@ -6,6 +6,9 @@
     "agents": "Agentes",
     "sessions": "Sesiones"
   },
+  "groupFilter": "Grupo",
+  "allGroups": "Todos los grupos",
+  "ungrouped": "Sin grupo",
   "noAgents": "Sin agentes rastreados aún",
   "noAgentsDesc": "Inicia una sesión de agente supervisada con los hooks instalados para ver los agentes aquí.",
   "agentCount_one": "{{count}} agente rastreado",

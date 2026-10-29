@@ -651,6 +651,8 @@ export interface Session {
    *  `/rename`, `claude -n`, or the picker) - the UI falls back to the id.
    *  Maps to `sessions.name`. Example: `"Fix desktop freeze on large history"`. */
   name: string | null;
+  /** Optional dashboard-local goal group; never written to source transcripts. */
+  group_id?: string | null;
   /** Persisted lifecycle state; see {@link SessionStatus}. Drives filtering and,
    *  via {@link SESSION_STATUS_CONFIG}, the colored status badge. Maps to
    *  `sessions.status`. One of "active" | "completed" | "error" | "abandoned". */
@@ -711,6 +713,14 @@ export interface Session {
   /** Full latest owner-attributed task state attached to Session Detail. Null
    * when no observable task/checklist/plan state exists. */
   todo_snapshot?: SessionTodoSnapshot | null;
+}
+
+/** User-defined, dashboard-local organization for one or more sessions. */
+export interface SessionGroup {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -1892,10 +1902,12 @@ export interface WSMessage {
    *  → CcConfigChangedPayload;
    *  alert_triggered/alert_updated → AlertEvent; workflow_upserted → WorkflowRun;
    *  remote_source.status → RemoteSourceStatusPayload;
-   *  remote_data.updated → RemoteDataUpdatedPayload. */
+   *  remote_data.updated → RemoteDataUpdatedPayload;
+   *  session_groups_changed → { group_id: string | null }. */
   type:
     | "session_created"
     | "session_updated"
+    | "session_groups_changed"
     | "agent_created"
     | "agent_updated"
     | "new_event"
@@ -1914,6 +1926,7 @@ export interface WSMessage {
   /** The message body, whose concrete shape is selected by `type` above. */
   data:
     | Session
+    | { group_id: string | null }
     | Agent
     | DashboardEvent
     | ImportProgressMessage

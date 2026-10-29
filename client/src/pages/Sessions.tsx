@@ -1,7 +1,7 @@
 /**
  * @file Sessions.tsx
  * @description Displays all recorded sessions with searchable multi-project,
- * status, text, and custom sort filters plus server-side pagination. Rows can
+ * status, text, group, and custom sort filters plus server-side pagination. Rows can
  * show an accessible task-progress donut beside status and the local transient
  * Codex startup row before its durable session id exists.
  * @author Son Nguyen <hoangson091104@gmail.com>
@@ -74,6 +74,7 @@ import {
   SortAsc,
   Play,
   Server,
+  Layers3,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { RemoteSource } from "../lib/api";
@@ -95,7 +96,9 @@ import {
   isSessionAwaitingInput,
   sessionAwaitingReason,
 } from "../lib/types";
-import type { Session, DashboardEvent } from "../lib/types";
+import type { Session, SessionGroup, DashboardEvent } from "../lib/types";
+import { bucketSessions } from "../lib/session-groups";
+import type { SessionGrouping } from "../lib/session-groups";
 
 /** Sessions per page. */
 const PAGE_SIZE = 10;
@@ -146,6 +149,12 @@ export function Sessions() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [groups, setGroups] = useState<SessionGroup[]>([]);
+  const [grouping, setGrouping] = useState<SessionGrouping>("none");
+  const [groupFilter, setGroupFilter] = useState("");
+  const [openBucket, setOpenBucket] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [groupError, setGroupError] = useState(false);
 
   // Seeded from `?cwd=` so the palette's project jump lands on a filtered list.
   // Only the initial value is read from the URL: the multi-select is the source
@@ -179,6 +188,20 @@ export function Sessions() {
     abandoned: t("filterAbandoned"),
   };
   const FILTER_OPTIONS = SESSION_FILTERS.map((value) => ({ value, label: FILTER_LABELS[value] }));
+
+  const loadGroups = useCallback(async () => {
+    try {
+      const result = await api.sessionGroups.list();
+      setGroups(result.groups);
+      setGroupError(false);
+    } catch {
+      setGroupError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
 
   // Debounce the search input → 300 ms after the user stops typing, the
   // committed value flips and triggers a fresh fetch.
@@ -224,22 +247,26 @@ export function Sessions() {
           status: "active",
           q: search || undefined,
           cwd: cwds.length > 0 ? cwds : undefined,
+          group: groupFilter || undefined,
           sort_by: sortBy,
           sort_desc: sortDesc,
-          include_transient: page === 0,
-          include_task_progress: true,
+          include_transient: grouping === "none" && !groupFilter && page === 0,
+          include_task_progress: grouping === "none",
           limit: 10000,
           offset: 0,
         });
         const waiting = res.sessions.filter(isSessionAwaitingInput);
         setTotal(waiting.length);
-        setSessions(waiting.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE));
+        setSessions(
+          grouping === "none" ? waiting.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) : waiting
+        );
         return;
       }
       const params: {
         status?: string;
         q?: string;
         cwd?: string[];
+        group?: string;
         sort_by?: SessionSort;
         sort_desc?: boolean;
         include_transient?: boolean;
@@ -247,16 +274,17 @@ export function Sessions() {
         limit: number;
         offset: number;
       } = {
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        limit: grouping === "none" ? PAGE_SIZE : 10000,
+        offset: grouping === "none" ? page * PAGE_SIZE : 0,
         sort_by: sortBy,
         sort_desc: sortDesc,
-        include_transient: page === 0,
-        include_task_progress: true,
+        include_transient: grouping === "none" && !groupFilter && page === 0,
+        include_task_progress: grouping === "none",
       };
       if (filter) params.status = filter;
       if (search) params.q = search;
       if (cwds.length > 0) params.cwd = cwds;
+      if (groupFilter) params.group = groupFilter;
       const res = await api.sessions.list(params);
       setSessions(res.sessions);
       setTotal(res.total);
@@ -265,7 +293,7 @@ export function Sessions() {
     }
     // `scope` is a dep so a data-scope change re-fetches; the api layer injects
     // the matching `sources` param.
-  }, [filter, search, cwds, sortBy, sortDesc, page, scope]);
+  }, [filter, search, cwds, groupFilter, grouping, sortBy, sortDesc, page, scope]);
 
   usePaletteAction("page.refresh", () => {
     void load();
@@ -278,6 +306,7 @@ export function Sessions() {
     setFilter("");
     setSearchInput("");
     setCwds([]);
+    setGroupFilter("");
   });
 
   useEffect(() => {
@@ -287,7 +316,9 @@ export function Sessions() {
   // Reset to page 0 whenever filters or sort changes.
   useEffect(() => {
     setPage(0);
-  }, [filter, search, cwds, sortBy, sortDesc]);
+    setSelectedIds(new Set());
+    setOpenBucket(null);
+  }, [filter, search, cwds, groupFilter, grouping, sortBy, sortDesc, scope]);
 
   useEffect(() => {
     // Trailing throttle: session_updated arrives on nearly every hook event
@@ -310,8 +341,13 @@ export function Sessions() {
       }, wait);
     };
     const unsubscribe = eventBus.subscribe((msg) => {
-      if (msg.type === "session_created" || msg.type === "session_updated") {
+      if (
+        msg.type === "session_created" ||
+        msg.type === "session_updated" ||
+        msg.type === "session_groups_changed"
+      ) {
         scheduleLoad();
+        if (msg.type === "session_groups_changed") void loadGroups();
       }
       if (msg.type === "new_event") {
         const ev = msg.data as DashboardEvent;
@@ -346,7 +382,7 @@ export function Sessions() {
     };
     // loadDashboardRuns is a stable useCallback declared below; referenced at
     // event time only (not in deps) to avoid a temporal-dead-zone at render.
-  }, [load, loadSourceLabels]);
+  }, [load, loadSourceLabels, loadGroups]);
 
   // Pull active Run handles so we can mark which sessions are being driven
   // from /run right now. Refresh on mount, on run_status WS messages, and
@@ -372,10 +408,68 @@ export function Sessions() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   // The server already paginates, so the rendered page IS the loaded list.
-  const paged = sessions;
+  const buckets =
+    grouping === "none"
+      ? []
+      : bucketSessions(sessions, grouping, groups, t("groups.ungrouped"), t("groups.noProject"));
+  const paged =
+    grouping === "none"
+      ? sessions
+      : buckets.find((bucket) => bucket.key === openBucket)?.sessions || [];
   const filtered = sessions; // kept for empty-state checks below
   const displayedTotal =
     total + (filter === "waiting" ? 0 : sessions.filter(isTransientProcessSession).length);
+
+  const moveSelected = async (value: string) => {
+    if (!value || selectedIds.size === 0) return;
+    try {
+      let groupId: string | null = value === "ungrouped" ? null : value;
+      if (value === "create") {
+        const name = window.prompt(t("groups.namePrompt"))?.trim();
+        if (!name) return;
+        groupId = (await api.sessionGroups.create(name)).group.id;
+      }
+      await api.sessions.setGroups([...selectedIds], groupId);
+      setSelectedIds(new Set());
+      await Promise.all([load(), loadGroups()]);
+      setGroupError(false);
+    } catch {
+      setGroupError(true);
+    }
+  };
+
+  const renameGroup = async (group: SessionGroup) => {
+    const name = window.prompt(t("groups.renamePrompt"), group.name)?.trim();
+    if (!name || name === group.name) return;
+    try {
+      await api.sessionGroups.rename(group.id, name);
+      await loadGroups();
+    } catch {
+      setGroupError(true);
+    }
+  };
+
+  const deleteGroup = async (group: SessionGroup) => {
+    if (!window.confirm(t("groups.deleteConfirm"))) return;
+    try {
+      await api.sessionGroups.remove(group.id);
+      setGroupFilter("");
+      await Promise.all([load(), loadGroups()]);
+    } catch {
+      setGroupError(true);
+    }
+  };
+  const managedGroup = groups.find((group) => group.id === groupFilter);
+  const selectableRows = paged.filter((session) => !isTransientProcessSession(session));
+  const allVisibleSelected =
+    selectableRows.length > 0 && selectableRows.every((session) => selectedIds.has(session.id));
+  const toggleSelection = (id: string) =>
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   const SORT_OPTIONS: Array<{ label: string; value: SessionSort }> = [
@@ -418,7 +512,7 @@ export function Sessions() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full">
+      <div className="flex flex-wrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full">
         {/* Search */}
         {/* The floor is sized so the field still fits its placeholder alongside
             the ⌘K chip. A viewport breakpoint cannot express this — the field's
@@ -453,6 +547,53 @@ export function Sessions() {
             clearLabel={t("clearDirectories")}
           />
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-gray-400">
+          {t("groups.groupBy")}
+          <select
+            className="input min-w-[110px]"
+            value={grouping}
+            onChange={(event) => setGrouping(event.target.value as SessionGrouping)}
+          >
+            <option value="none">{t("groups.none")}</option>
+            <option value="project">{t("groups.project")}</option>
+            <option value="group">{t("groups.group")}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-gray-400">
+          {t("groups.detailLabel")}
+          <select
+            className="input min-w-[125px]"
+            value={groupFilter}
+            onChange={(event) => setGroupFilter(event.target.value)}
+          >
+            <option value="">{t("groups.allGroups")}</option>
+            <option value="ungrouped">{t("groups.ungrouped")}</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {managedGroup && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => void renameGroup(managedGroup)}
+            >
+              {t("groups.renameGroup")}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => void deleteGroup(managedGroup)}
+            >
+              {t("groups.deleteGroup")}
+            </button>
+          </div>
+        )}
 
         {/* Sort Controls */}
         <div className="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]">
@@ -496,6 +637,63 @@ export function Sessions() {
         </div>
       </div>
 
+      {groupError && (
+        <p role="alert" className="text-sm text-red-400 mb-3">
+          {t("groups.actionFailed")}
+        </p>
+      )}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-2 p-3">
+          <span className="text-sm text-gray-300">
+            {t("groups.selectedCount", { count: selectedIds.size })}
+          </span>
+          <select
+            className="input"
+            value=""
+            aria-label={t("groups.moveToGroup")}
+            onChange={(event) => void moveSelected(event.target.value)}
+          >
+            <option value="">{t("groups.moveToGroup")}</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+            <option value="ungrouped">{t("groups.removeFromGroup")}</option>
+            <option value="create">{t("groups.createGroup")}</option>
+          </select>
+        </div>
+      )}
+      {grouping !== "none" && total > 10000 && (
+        <p className="mb-3 text-sm text-amber-300">{t("groups.loadLimit")}</p>
+      )}
+      {grouping !== "none" && (
+        <div className="mb-4 space-y-2">
+          {buckets.map((bucket) => (
+            <button
+              key={bucket.key}
+              type="button"
+              aria-expanded={openBucket === bucket.key}
+              onClick={() => setOpenBucket(openBucket === bucket.key ? null : bucket.key)}
+              className="w-full rounded-xl border border-border bg-surface-2/60 p-4 text-left hover:bg-surface-3 transition-colors"
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-gray-200">
+                <Layers3 className="h-4 w-4" />
+                {bucket.label}
+              </span>
+              <span className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                <span>{t("groups.sessionCount", { count: bucket.sessions.length })}</span>
+                <span>{t("groups.lastActive", { date: formatDateTime(bucket.lastActive) })}</span>
+                <span>{t("groups.totalCost", { cost: fmtCost(bucket.cost) })}</span>
+                {bucket.waiting > 0 && (
+                  <span>{t("groups.waitingCount", { count: bucket.waiting })}</span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {!loading && filtered.length === 0 ? (
         <EmptyState
           icon={FolderOpen}
@@ -506,133 +704,177 @@ export function Sessions() {
         />
       ) : (
         <>
-          <div className="card overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableSession")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableStatus")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableLastActive")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableDuration")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableAgents")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableCost")}
-                  </th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                    {t("tableDirectory")}
-                  </th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {loading && paged.length === 0
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <TableRowSkeleton
-                        key={`sk-${i}`}
-                        columns={8}
-                        widths={["w-40", "w-20", "w-28", "w-20", "w-10", "w-16", "w-44", "w-4"]}
+          {(grouping === "none" || openBucket !== null) && (
+            <div className="card overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="px-3 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label={t("groups.selectAll")}
+                        checked={allVisibleSelected}
+                        onChange={() =>
+                          setSelectedIds((current) => {
+                            const next = new Set(current);
+                            for (const session of selectableRows) {
+                              if (allVisibleSelected) next.delete(session.id);
+                              else next.add(session.id);
+                            }
+                            return next;
+                          })
+                        }
                       />
-                    ))
-                  : null}
-                {paged.map((session) => (
-                  <tr
-                    key={session.id}
-                    onClick={
-                      isTransientProcessSession(session)
-                        ? undefined
-                        : () => navigate(`/sessions/${session.id}`)
-                    }
-                    className={`hover:bg-surface-4 transition-colors group ${
-                      isTransientProcessSession(session) ? "cursor-default" : "cursor-pointer"
-                    }`}
-                  >
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-200">
-                            {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
-                          </p>
-                          <p className="text-[11px] text-gray-600 font-mono">
-                            {session.id.slice(0, 12)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {session.source && session.source !== "local" && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
-                              title={t("remoteSourceBadgeTitle", "Collected from a remote machine")}
-                            >
-                              <Server className="w-2.5 h-2.5" />
-                              {sourceLabels.get(session.source) || session.source}
-                            </span>
-                          )}
-                          {dashboardRunIds.has(session.id) && (
-                            <Link
-                              to={`/run?session=${encodeURIComponent(session.id)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 hover:text-emerald-200 px-1.5 py-0.5 rounded-full transition-colors"
-                              title={t("dashboardRunBadge", "Driven by Run page · click to open")}
-                            >
-                              <Play className="w-2.5 h-2.5" />
-                              {t("common:dashboardRun", "Run")}
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <SessionStatusBadge
-                          status={effectiveSessionStatus(session)}
-                          reason={sessionAwaitingReason(session)}
-                          provider={session.provider}
-                        />
-                        {session.todo_summary && (
-                          <TodoProgressIndicator progress={session.todo_summary} />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400">
-                      {formatDateTime(session.last_activity || session.started_at)}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400 font-mono">
-                      {session.ended_at
-                        ? formatDuration(session.started_at, session.ended_at)
-                        : t("common:running")}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400">
-                      {session.agent_count ?? "-"}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-gray-400 font-mono">
-                      {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
-                    </td>
-                    <td
-                      className="px-5 py-4 text-[11px] text-gray-500 font-mono"
-                      title={session.cwd || undefined}
-                    >
-                      {session.cwd ? truncate(session.cwd, 30) : "-"}
-                    </td>
-                    <td className="px-3 py-4">
-                      {!isTransientProcessSession(session) && (
-                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
-                      )}
-                    </td>
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableSession")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableStatus")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableLastActive")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableDuration")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableAgents")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableCost")}
+                    </th>
+                    <th className="px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      {t("tableDirectory")}
+                    </th>
+                    <th className="w-10"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {loading && paged.length === 0
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                        <TableRowSkeleton
+                          key={`sk-${i}`}
+                          columns={9}
+                          widths={[
+                            "w-4",
+                            "w-40",
+                            "w-20",
+                            "w-28",
+                            "w-20",
+                            "w-10",
+                            "w-16",
+                            "w-44",
+                            "w-4",
+                          ]}
+                        />
+                      ))
+                    : null}
+                  {paged.map((session) => (
+                    <tr
+                      key={session.id}
+                      onClick={
+                        isTransientProcessSession(session)
+                          ? undefined
+                          : () => navigate(`/sessions/${session.id}`)
+                      }
+                      className={`hover:bg-surface-4 transition-colors group ${
+                        isTransientProcessSession(session) ? "cursor-default" : "cursor-pointer"
+                      }`}
+                    >
+                      <td className="px-3 py-4" onClick={(event) => event.stopPropagation()}>
+                        {!isTransientProcessSession(session) && (
+                          <input
+                            type="checkbox"
+                            aria-label={t("groups.selectSession", {
+                              name: session.name || session.id,
+                            })}
+                            checked={selectedIds.has(session.id)}
+                            onChange={() => toggleSelection(session.id)}
+                          />
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-200">
+                              {session.name || `${t("defaultName")}${session.id.slice(0, 8)}`}
+                            </p>
+                            <p className="text-[11px] text-gray-600 font-mono">
+                              {session.id.slice(0, 12)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {session.source && session.source !== "local" && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-300 bg-sky-500/10 border border-sky-500/25 px-1.5 py-0.5 rounded-full"
+                                title={t(
+                                  "remoteSourceBadgeTitle",
+                                  "Collected from a remote machine"
+                                )}
+                              >
+                                <Server className="w-2.5 h-2.5" />
+                                {sourceLabels.get(session.source) || session.source}
+                              </span>
+                            )}
+                            {dashboardRunIds.has(session.id) && (
+                              <Link
+                                to={`/run?session=${encodeURIComponent(session.id)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 hover:text-emerald-200 px-1.5 py-0.5 rounded-full transition-colors"
+                                title={t("dashboardRunBadge", "Driven by Run page · click to open")}
+                              >
+                                <Play className="w-2.5 h-2.5" />
+                                {t("common:dashboardRun", "Run")}
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <SessionStatusBadge
+                            status={effectiveSessionStatus(session)}
+                            reason={sessionAwaitingReason(session)}
+                            provider={session.provider}
+                          />
+                          {session.todo_summary && (
+                            <TodoProgressIndicator progress={session.todo_summary} />
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400">
+                        {formatDateTime(session.last_activity || session.started_at)}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400 font-mono">
+                        {session.ended_at
+                          ? formatDuration(session.started_at, session.ended_at)
+                          : t("common:running")}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400">
+                        {session.agent_count ?? "-"}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-400 font-mono">
+                        {session.cost != null && session.cost > 0 ? fmtCost(session.cost) : "-"}
+                      </td>
+                      <td
+                        className="px-5 py-4 text-[11px] text-gray-500 font-mono"
+                        title={session.cwd || undefined}
+                      >
+                        {session.cwd ? truncate(session.cwd, 30) : "-"}
+                      </td>
+                      <td className="px-3 py-4">
+                        {!isTransientProcessSession(session) && (
+                          <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-colors" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {grouping === "none" && totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-1">
               <span className="text-xs text-gray-500">
                 {t("common:pagination.showing", {
