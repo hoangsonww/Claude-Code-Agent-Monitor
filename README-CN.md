@@ -387,7 +387,7 @@ npm run install-hooks
 
 使用方向键、Space 和 Enter 选择 **Claude Code**、**Codex (beta)** 或两者。默认情况下，Claude Hook 存储在 `~/.claude/settings.json`，Codex Hook 存储在 `~/.codex/hooks.json`。重新安装只替换 CCAM 条目并保留无关 Hook；同一操作也可在 **Settings → Hook Configuration** 中执行。
 
-Claude 主目录按 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 解析，因此 Hook、转录和发现文件会使用迁移后的目录。设置 `CLAUDE_CONFIG_DIR` 后，Agent 配置读取 `$CLAUDE_CONFIG_DIR/.claude.json`。如果该目录由云端同步，请在启动前将 `DASHBOARD_DATA_DIR` 指向每台机器独立的本地路径，避免同步 SQLite 数据库及其 WAL 文件。`CCAM_NO_AUTO_HOOKS=1` 跳过启动时自动安装；手动安装仍可使用。过期的便携版 Hook 路径会静默退出，桌面版设置会将主目录覆盖值保存在 Electron 的 `userData/.env` 中，重启后仍会保留。
+Claude 主目录按 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 解析，因此 Hook 和转录使用迁移后的目录。设置 `CLAUDE_CONFIG_DIR` 后，Agent 配置读取 `$CLAUDE_CONFIG_DIR/.claude.json`，而发现文件和新的仪表盘数据使用本机应用数据目录。现有 `~/.claude/agent-dashboard` 会被复用以保留历史、快照和密钥；`DASHBOARD_DATA_DIR` 可选择其他本地路径。`CCAM_NO_AUTO_HOOKS=1` 跳过启动时自动安装；手动安装仍可使用。过期的便携版 Hook 路径会静默退出，并显示为未安装。打包的桌面版设置将主目录覆盖值保存在 Electron 的 `userData/.env` 中；开发模式继续使用仓库 `.env`。
 
 首次启动时，CCAM 只检查当前数据范围所选的 Provider，并提示安装缺少的 Hook。若就绪检查失败，则回退到手动设置，不会阻塞 Dashboard。
 
@@ -521,7 +521,7 @@ sequenceDiagram
 ### Hook 生命周期
 
 1. **Claude Code** 发出会话、提示、工具、通知、Subagent、回合和退出 Hook。
-2. **`scripts/hook-handler.js`** 从 stdin 读取每个事件，并通过 `~/.claude/.agent-dashboard.json` 或 `CLAUDE_DASHBOARD_PORT` 发现实时 Dashboard。每个独立 SQLite 数据目录只发送一次；对于重复监听器选择最低端口，同时仍向使用不同数据库的 Dashboard 提供事件。投递采用故障安全设计，每个目标彼此隔离，处理器会在 5 秒内退出。
+2. **`scripts/hook-handler.js`** 从 stdin 读取每个事件，并通过本地 `.agent-dashboard.json` 注册表或 `CLAUDE_DASHBOARD_PORT` 发现实时 Dashboard。设置 `CLAUDE_CONFIG_DIR` 时，注册表位于本机应用数据目录；否则位于 Claude 主目录。每个独立 SQLite 数据目录只发送一次；对于重复监听器选择最低端口，同时仍向使用不同数据库的 Dashboard 提供事件。投递采用故障安全设计，每个目标彼此隔离，处理器会在 5 秒内退出。
 3. **服务器** 在一个 SQLite 事务中提交事件及相关状态：
    - 首次接触会创建会话和主 Agent。`SessionStart` 从 **Waiting** 开始；`UserPromptSubmit` 或 `PreToolUse` 将其移至 **Working**；`PostToolUse` 让它保持工作中。
    - `Stop` 将主 Agent 恢复为 **Waiting**，后台 Agent 继续运行。`stop_reason=error` 将 Agent 和会话标记为 **Error**。权限通知同样会等待输入；只有新的提示或工具启动可从错误中恢复。

@@ -121,18 +121,38 @@ function isOurEntry(entry) {
   return false;
 }
 
+/** Only a reachable handler makes a dashboard hook operational. */
+function hasUsableHandler(entry) {
+  const commands = [
+    entry.command,
+    ...(Array.isArray(entry.hooks) ? entry.hooks.map((h) => h.command) : []),
+  ];
+  return commands.some((command) => {
+    if (typeof command !== "string" || !command.includes("hook-handler.js")) return false;
+    const quoted = command.match(/"([^"]*hook-handler\.js)"/);
+    const unquoted = command.match(/(?:^|\s)([^\s"']*hook-handler\.js)(?=\s|$)/);
+    const handler = quoted?.[1] || unquoted?.[1];
+    return Boolean(handler && fs.existsSync(handler));
+  });
+}
+
 function getClaudeHookStatus() {
   const settingsPath = getSettingsPath();
   try {
     if (!fs.existsSync(settingsPath)) return { installed: false, path: settingsPath, hooks: {} };
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     const hooks = Object.fromEntries(
-      HOOK_TYPES.map((type) => [type, (settings.hooks?.[type] || []).some(isOurEntry)])
+      HOOK_TYPES.map((type) => [
+        type,
+        (settings.hooks?.[type] || []).some(
+          (entry) => isOurEntry(entry) && hasUsableHandler(entry)
+        ),
+      ])
     );
     const hookLists = Object.values(settings.hooks || {}).filter(Array.isArray);
     return {
       installed: Object.values(hooks).every(Boolean),
-      has_dashboard_hooks: Object.values(hooks).some(Boolean),
+      has_dashboard_hooks: hookLists.some((entries) => entries.some(isOurEntry)),
       has_existing_hooks: hookLists.some((entries) => entries.length > 0),
       path: settingsPath,
       hooks,

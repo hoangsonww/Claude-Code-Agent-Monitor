@@ -112,9 +112,10 @@ function migrateLegacyDatabase(targetPath) {
 }
 
 // Resolution order: explicit DASHBOARD_DB_PATH wins; otherwise the file lives in
-// the shared data dir — DASHBOARD_DATA_DIR if set, else the canonical user-global
-// `~/.claude/agent-dashboard/` (see getDataDir). Resolving every launch path to
-// the same file is what lets the web app and the native apps share ONE database.
+// the shared data dir — DASHBOARD_DATA_DIR if set, else the existing local
+// ~/.claude/agent-dashboard or, for relocated Claude config, machine-local app
+// data (see getDataDir). Resolving every launch path to the same file lets the
+// web app and native apps share one database on a machine.
 const DB_PATH = process.env.DASHBOARD_DB_PATH || path.join(getDataDir(), "dashboard.db");
 const DB_DIR = path.dirname(DB_PATH);
 

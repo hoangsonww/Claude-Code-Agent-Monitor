@@ -387,7 +387,7 @@ npm run install-hooks
 
 Choose **Claude Code**, **Codex (beta)**, or both with the arrow keys, Space, and Enter. By default, Claude hooks are stored in `~/.claude/settings.json` and Codex hooks in `~/.codex/hooks.json`. Reinstalling replaces only CCAM entries and preserves unrelated hooks; the same action is available under **Settings → Hook Configuration**.
 
-Claude home follows `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, so hooks, transcripts, and discovery use the relocated directory. With `CLAUDE_CONFIG_DIR`, Agent Config reads `$CLAUDE_CONFIG_DIR/.claude.json`. If that directory is cloud-synced, set `DASHBOARD_DATA_DIR` to a separate machine-local path before launch so SQLite and its WAL files stay local. `CCAM_NO_AUTO_HOOKS=1` skips startup installation; manual installation still works. Stale portable hook paths exit silently, and desktop Settings saves home overrides in Electron `userData/.env` across restarts.
+Claude home follows `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, so hooks and transcripts use the relocated directory. With `CLAUDE_CONFIG_DIR`, Agent Config reads `$CLAUDE_CONFIG_DIR/.claude.json`, while discovery and new dashboard data use machine-local app data. An existing `~/.claude/agent-dashboard` is reused to keep history, snapshots, and keys; `DASHBOARD_DATA_DIR` can select another local path. `CCAM_NO_AUTO_HOOKS=1` skips startup installation; manual installation still works. Stale portable hook paths exit silently and show as uninstalled. Packaged desktop Settings saves home overrides in Electron `userData/.env` across restarts; development keeps the repository `.env`.
 
 On first launch, CCAM checks only the providers selected for the current data scope and offers to install any missing hooks. A failed readiness check falls back to manual setup instead of blocking the dashboard.
 
@@ -516,7 +516,7 @@ sequenceDiagram
 ### Hook Lifecycle
 
 1. **Claude Code** emits session, prompt, tool, notification, subagent, turn, and exit hooks.
-2. **`scripts/hook-handler.js`** reads each event from stdin and discovers live dashboards through `~/.claude/.agent-dashboard.json` or `CLAUDE_DASHBOARD_PORT`. It sends once per unique SQLite data directory, choosing the lowest port for duplicate listeners while still feeding dashboards with separate databases. Delivery is fail-safe: each target is isolated and the handler exits within 5 seconds.
+2. **`scripts/hook-handler.js`** reads each event from stdin and discovers live dashboards through the local `.agent-dashboard.json` registry or `CLAUDE_DASHBOARD_PORT`. With `CLAUDE_CONFIG_DIR`, the registry lives in machine-local app data; otherwise it lives under Claude home. It sends once per unique SQLite data directory, choosing the lowest port for duplicate listeners while still feeding dashboards with separate databases. Delivery is fail-safe: each target is isolated and the handler exits within 5 seconds.
 3. **The server** commits the event and related state in one SQLite transaction:
    - First contact creates the session and main agent. `SessionStart` begins in **Waiting**; `UserPromptSubmit` or `PreToolUse` moves it to **Working**; `PostToolUse` keeps it working.
    - `Stop` returns the main agent to **Waiting** while background agents continue. `stop_reason=error` marks the agent and session **Error**. Permission notifications also wait for input; only a new prompt or tool start recovers an error.

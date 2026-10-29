@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { execSync } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 
 // Point the installer at a throwaway CLAUDE_HOME BEFORE requiring it — the
 // settings path is resolved at module load. (`node --test` isolates each test
@@ -131,9 +131,22 @@ describe("install-hooks host-only guard (#193)", () => {
     const command = JSON.parse(fs.readFileSync(SETTINGS, "utf8")).hooks.SessionStart[0].hooks[0]
       .command;
     const missing = path.join(TMP_HOME, "removed", "hook-handler.js").replace(/\\/g, "/");
-    const staleCommand = command.replace(/[^" ]*\/scripts\/hook-handler\.js/, missing);
-    assert.notEqual(staleCommand, command);
-    assert.equal(execSync(staleCommand, { input: "{}", encoding: "utf8" }), "");
+    const match = command.match(/-e "([^"]+)" "([^"]+)" (\w+)$/);
+    assert.ok(match, "installed hook must pass its handler as an argument");
+    assert.equal(
+      execFileSync(process.execPath, ["-e", match[1], missing, match[3]], {
+        input: "{}",
+        encoding: "utf8",
+      }),
+      ""
+    );
+    const settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
+    settings.hooks.SessionStart[0].hooks[0].command = command.replace(match[2], missing);
+    fs.writeFileSync(SETTINGS, JSON.stringify(settings));
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, false);
+    assert.equal(getClaudeHookStatus().has_dashboard_hooks, true);
+    installHooks(true);
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, true);
   });
 
   it("is idempotent — re-running updates in place with no duplicate entries", () => {

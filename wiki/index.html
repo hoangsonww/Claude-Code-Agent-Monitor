@@ -5153,11 +5153,11 @@ ccam-export all --output backup.json</code></pre>
               <h3>Runs Alongside the Web Dashboard</h3>
               <p>
                 Launch the desktop app and <code>npm run dev</code> at the same time and both
-                stay real-time. Each server appends its <code>{port, pid, startedAt}</code>
-                entry to <code>~/.claude/.agent-dashboard.json</code> on startup; the Claude
-                Code hook handler reads that list and fan-outs every event to every live entry
-                in parallel. Stale entries self-evict via a PID liveness check on read, so a
-                crashed server can't misroute events to a dead port.
+                stay real-time. Each server records its <code>{port, pid, startedAt}</code>
+                in a local <code>.agent-dashboard.json</code> registry. With
+                <code>CLAUDE_CONFIG_DIR</code>, that registry stays in machine-local app data
+                rather than the synced config folder. The hook handler sends events to each
+                live server, and stale entries are removed using local PID checks.
               </p>
             </div>
             <div class="feature-card">
@@ -5196,13 +5196,13 @@ ccam-export all --output backup.json</code></pre>
             <div class="callout-body">
               <strong>Your data survives reinstalls and updates</strong>
               <p>
-                Desktop Settings keeps path overrides in Electron
-                <code>userData/.env</code>, so portable relaunches retain them. By default,
-                SQLite, WAL files, snapshots, and VAPID keys live under
-                <code>Claude home/agent-dashboard</code>. If <code>CLAUDE_CONFIG_DIR</code>
-                points to a cloud-synced folder, set <code>DASHBOARD_DATA_DIR</code> to a
-                distinct machine-local path before launch; do not sync a live SQLite database.
-                Data outside the app bundle survives app updates and reinstalls.
+                Packaged desktop Settings keeps path overrides in Electron
+                <code>userData/.env</code> across portable relaunches; development uses the
+                repository <code>.env</code>. With <code>CLAUDE_CONFIG_DIR</code>, new SQLite
+                data, WAL files, snapshots, and VAPID keys default to machine-local app data.
+                An existing <code>~/.claude/agent-dashboard</code> is reused to preserve data.
+                Set <code>DASHBOARD_DATA_DIR</code> to choose another local path; do not sync
+                a live SQLite database.
               </p>
             </div>
           </div>
@@ -7256,7 +7256,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=113" defer></script>
+    <script src="i18n-content.js?v=114" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

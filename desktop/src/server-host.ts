@@ -553,7 +553,7 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
 
   // Settings must survive portable extraction and signed/read-only app bundles.
   // Preserve an operator-supplied location for containers or custom installs.
-  if (!process.env.DASHBOARD_ENV_PATH) {
+  if (!process.env.DASHBOARD_ENV_PATH && app.isPackaged) {
     process.env.DASHBOARD_ENV_PATH = path.join(app.getPath("userData"), ".env");
   }
 

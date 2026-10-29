@@ -1592,7 +1592,7 @@ test("POST /api/hooks/event ingests hook payload", async () => {
 
 ## Terminal Access (`ccam` CLI)
 
-Everything this server exposes over JSON REST is reachable from the `ccam` CLI (`bin/ccam.js` → `cli/`, a Commander.js command tree linked by `npm run setup`). High-level commands cover monitoring (including a live `overview` and the `/ws` feed via `ccam stream`), sessions/agents/events with detail and writes, transcripts, workflows/cost, Run Agent, alerts/rules/webhooks, Claude, Cursor, and GPT pricing, provider-aware imports, remote sources, Claude/Codex config, hooks, backup restore, and administration. `ccam api <METHOD> /api/path` provides future-proof low-level coverage with `--yes` on writes and exact confirmation tokens for destructive actions. Multipart history upload is available through `ccam import upload`. It resolves the live server through the same `~/.claude/.agent-dashboard.json` registry as the hook handler and supports `DASHBOARD_API_TOKEN` / `CCAM_API_TOKEN` when the API is protected. Every command accepts `--json` for machine-readable output. See [docs/CLI.md](../docs/CLI.md).
+Everything this server exposes over JSON REST is reachable from the `ccam` CLI (`bin/ccam.js` → `cli/`, a Commander.js command tree linked by `npm run setup`). High-level commands cover monitoring (including a live `overview` and the `/ws` feed via `ccam stream`), sessions/agents/events with detail and writes, transcripts, workflows/cost, Run Agent, alerts/rules/webhooks, Claude, Cursor, and GPT pricing, provider-aware imports, remote sources, Claude/Codex config, hooks, backup restore, and administration. `ccam api <METHOD> /api/path` provides future-proof low-level coverage with `--yes` on writes and exact confirmation tokens for destructive actions. Multipart history upload is available through `ccam import upload`. It resolves the live server through the same local `.agent-dashboard.json` registry as the hook handler and supports `DASHBOARD_API_TOKEN` / `CCAM_API_TOKEN` when the API is protected. Every command accepts `--json` for machine-readable output. See [docs/CLI.md](../docs/CLI.md).
 
 ## Deployment
 
@@ -1652,7 +1652,7 @@ CLAUDE_CONFIG_DIR=                 # Claude Code's relocated config directory; u
 CCAM_NO_AUTO_HOOKS=1               # Skip startup hook installation; explicit install remains available
 
 # Database
-DASHBOARD_DATA_DIR=                # Machine-local directory for DB, WAL, snapshots, VAPID keys; defaults to <Claude home>/agent-dashboard
+DASHBOARD_DATA_DIR=                # Optional data directory; with CLAUDE_CONFIG_DIR, new data defaults to machine-local app data
 DASHBOARD_DB_PATH=                 # Optional SQLite file override
 
 # Background services

@@ -64,9 +64,9 @@ graph TB
 ```
 
 **Database Location:**
-- **Canonical (default):** `~/.claude/agent-dashboard/dashboard.db` — shared by `npm start`, `npm run dev`, Docker (bind mount), and the desktop app when it uses the same data dir
+- **Canonical (default):** `~/.claude/agent-dashboard/dashboard.db` without `CLAUDE_CONFIG_DIR`. With a relocated config, new dashboard data uses machine-local app data: `%LOCALAPPDATA%/Claude Code Monitor/data` on Windows, `~/Library/Application Support/Claude Code Monitor/data` on macOS, or `$XDG_DATA_HOME/claude-code-monitor/data` (fallback `~/.local/share/claude-code-monitor/data`) on Linux. An existing `~/.claude/agent-dashboard` is reused to keep its history, snapshots, VAPID keys, and import marker together.
 - **Override:** set `DASHBOARD_DATA_DIR` (directory) or `DASHBOARD_DB_PATH` (file path) for tests or custom deployments
-- **Synced Claude config:** when `CLAUDE_CONFIG_DIR` or `CLAUDE_HOME` points to a cloud-synced folder, set `DASHBOARD_DATA_DIR` to a distinct machine-local directory before launching. The default follows Claude home; syncing a live SQLite database and its WAL files is unsafe.
+- **Synced Claude config:** `CLAUDE_CONFIG_DIR` never places new dashboard data in that synced folder. If only `CLAUDE_HOME` points to a synced folder, set `DASHBOARD_DATA_DIR` to a machine-local directory before launching. Do not sync a live SQLite database or its WAL files.
 - **Legacy:** repo-local `./data/dashboard.db` is migrated into the canonical location on first launch (see `server/db.js`)
 
 ---
