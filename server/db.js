@@ -2117,11 +2117,6 @@ const stmts = {
   ),
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
-  // Accepts tz modifier (e.g. '-420 minutes') to compute local midnight in UTC.
-  // Pattern: shift now→local, truncate to day start, shift back→UTC.
-  countEventsToday: db.prepare(
-    "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
-  ),
 
   stats: db.prepare(`
     SELECT

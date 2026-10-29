@@ -588,7 +588,11 @@ export const api = {
      *   active counts, events-today, etc.) shown in the dashboard header.
      */
     get: () => {
-      const qs = new URLSearchParams({ tz_offset: String(new Date().getTimezoneOffset()) });
+      const now = new Date();
+      const qs = new URLSearchParams({
+        tz_offset: String(now.getTimezoneOffset()),
+        day_start: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
+      });
       applyScope(qs);
       return request<Stats>(`/stats?${qs.toString()}`);
     },
