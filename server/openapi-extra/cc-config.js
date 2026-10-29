@@ -369,18 +369,18 @@ const schemas = {
   CcConfigMcpResponse: {
     type: "object",
     description:
-      "MCP servers split by where they apply: globally to the user, or scoped to the resolved project (cwd) in ~/.claude.json projects[<root>].",
+      "MCP servers split by where they apply: globally to the user, or scoped to the resolved project (cwd) in Claude's global .claude.json state file.",
     required: ["user", "projectScoped"],
     properties: {
       user: {
         type: "array",
         description:
-          "User/global MCP servers (top-level ~/.claude.json plus ~/.claude/settings.json).",
+          "User/global MCP servers (top-level global .claude.json plus resolved Claude home settings.json).",
         items: { $ref: "#/components/schemas/CcConfigMcpServer" },
       },
       projectScoped: {
         type: "array",
-        description: "MCP servers scoped to the current project root in ~/.claude.json.",
+        description: "MCP servers scoped to the current project root in global .claude.json.",
         items: { $ref: "#/components/schemas/CcConfigMcpServer" },
       },
     },

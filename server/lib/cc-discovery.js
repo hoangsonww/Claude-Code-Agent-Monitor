@@ -394,7 +394,7 @@ function readMcpServers(opts = {}) {
     process.env.CLAUDE_HOME || process.env.CLAUDE_CONFIG_DIR
       ? "<Claude home>/settings.json"
       : "~/.claude/settings.json";
-  // ~/.claude.json is the primary CLI state file; mcpServers can live at the
+  // Claude's global .claude.json is the primary CLI state file; MCP servers can live at the
   // top level (legacy) or inside projects[<cwd>].mcpServers (per-project).
   const claudeJson = readJson(getClaudeJsonPath());
   if (claudeJson.ok && claudeJson.data) {
