@@ -2484,6 +2484,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 # Upgrade CCAM, restart it, and let startup maintenance finish.
 node scripts/cost-snapshot.js snapshot --out after.tsv
 node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change</code></pre>
+          <p>
+            An interrupted remote sync is shown as an error after restart; its preceding import
+            receipt remains available. Startup recovery runs only when per-process liveness markers
+            under the shared SQLite data directory prove this is the sole live dashboard, even when
+            processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or
+            concurrent ownership defers recovery. A busy database is retried independently, so
+            recovery cannot disable the remote poller.
+          </p>
         </section>
 
         <section id="cli">
@@ -7277,7 +7285,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=114" defer></script>
+    <script src="i18n-content.js?v=115" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

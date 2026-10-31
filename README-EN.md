@@ -800,7 +800,7 @@ node scripts/cost-snapshot.js snapshot --out after.tsv
 node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
 ```
 
-An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when the live-server registry proves this process exclusively owns the data directory; shared or ambiguous ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
+An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different `CLAUDE_HOME` values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
 
 ## Agent Extensions
 
