@@ -1531,6 +1531,55 @@ function recoverInterruptedSyncs(dbModule) {
   return changes;
 }
 
+/**
+ * Retry startup recovery independently from poller creation. Recovery is
+ * conservative: it only runs after the caller proves exclusive ownership of
+ * the shared data directory, and transient database failures never escape.
+ */
+function startInterruptedSyncRecovery(dbModule, options = {}) {
+  const canRecover = options.canRecover || (() => true);
+  const recover = options.recover || recoverInterruptedSyncs;
+  const schedule = options.schedule || setTimeout;
+  const clearSchedule = options.clearSchedule || clearTimeout;
+  const warn = options.warn || ((message) => console.warn(message));
+  const retryMs = Number.isFinite(options.retryMs) && options.retryMs > 0 ? options.retryMs : 5_000;
+  let stopped = false;
+  let timer = null;
+
+  const retry = () => {
+    if (stopped) return;
+    timer = schedule(attempt, retryMs);
+    if (timer?.unref) timer.unref();
+  };
+  const attempt = () => {
+    if (stopped) return;
+    timer = null;
+    let exclusive = false;
+    try {
+      exclusive = canRecover();
+    } catch {
+      exclusive = false;
+    }
+    if (!exclusive) {
+      retry();
+      return;
+    }
+    try {
+      recover(dbModule);
+    } catch (error) {
+      warn(`interrupted remote sync recovery failed: ${error?.message || error}`);
+      retry();
+    }
+  };
+
+  attempt();
+  return () => {
+    stopped = true;
+    if (timer !== null) clearSchedule(timer);
+    timer = null;
+  };
+}
+
 function sumProviderResults(results) {
   const totals = {
     imported: 0,
@@ -1740,6 +1789,7 @@ async function syncAllEnabled(dbModule, opts = {}) {
 
 module.exports = {
   recoverInterruptedSyncs,
+  startInterruptedSyncRecovery,
   validateSourceInput,
   ValidationError,
   testConnection,

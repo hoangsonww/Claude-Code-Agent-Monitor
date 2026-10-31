@@ -780,7 +780,18 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
-重启后，中断的远程同步显示为错误，之前的导入记录仍然保留。 远程重试会在再次检查时保留最近的错误提示；同步成功后清除。
+### 升级前的成本快照
+
+在可能重新统计用量的升级前，先创建只读基线；升级并重启 CCAM，等待启动维护完成后，再用新路径创建第二份快照并比较。请妥善保管 TSV 文件：其中包含会话标识和归属元数据。如果已有本地会话的 Token、成本、来源或提供方发生变化，或该会话消失，检查命令会以状态码 1 退出；远程会话和新增会话会单独报告。
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# 升级并重启 CCAM，然后等待启动维护完成。
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+重启后，中断的远程同步显示为错误，之前的导入记录仍然保留。只有当存活服务器注册表证明当前进程独占数据目录时，启动恢复才会执行；共享或归属不明确时会延后恢复。数据库忙时会独立重试，因此恢复失败不会禁用远程轮询器。远程重试会在再次检查时保留最近的错误提示；同步成功后清除。
 
 ## Agent 扩展
 

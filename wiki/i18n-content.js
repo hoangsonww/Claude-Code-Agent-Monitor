@@ -7863,3 +7863,35 @@ Object.assign(window.__WIKI_CONTENT_I18N.es, {
   "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
     "Los reintentos remotos muestran el último error mientras vuelven a comprobar. Una sincronización exitosa lo borra; un fallo conserva el historial ya importado.",
 });
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.":
+    "在可能重新统计用量的升级前，先创建只读基线；升级并重启 CCAM，等待启动维护完成后，再用新路径创建第二份快照并比较。请妥善保管 TSV 文件，因为其中包含会话标识和归属元数据。如果已有本地会话的 Token、成本、来源或提供方发生变化，或该会话消失，检查命令会以状态码 1 退出；远程会话和新增会话会单独报告。",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.zh, {
+  "Cost snapshots before an upgrade": "升级前的成本快照",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.":
+    "Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu Token, chi phí, nguồn hoặc provider của một phiên cục bộ hiện có thay đổi, hoặc nếu phiên đó biến mất; phiên từ xa và phiên mới được báo cáo riêng.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.vi, {
+  "Cost snapshots before an upgrade": "Ảnh chụp chi phí trước khi nâng cấp",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.":
+    "사용량을 다시 집계할 수 있는 업그레이드 전에 읽기 전용 기준 스냅숏을 만들고, CCAM을 업그레이드해 재시작한 뒤 시작 유지 관리가 끝나면 새 경로에 두 번째 스냅숏을 만들어 비교합니다. TSV 파일에는 세션 ID와 소유권 메타데이터가 포함되므로 비공개로 보관하세요. 기존 로컬 세션의 Token, 비용, source 또는 provider가 바뀌거나 세션이 사라지면 가드가 종료 코드 1을 반환하며, 원격 세션과 새 세션은 별도로 보고합니다.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.ko, {
+  "Cost snapshots before an upgrade": "업그레이드 전 비용 스냅숏",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.":
+    "Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV porque contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian los Token, el coste, la fuente o el proveedor de una sesión local existente, o si la sesión desaparece; las sesiones remotas y nuevas se informan por separado.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
+  "Cost snapshots before an upgrade": "Instantáneas de costes antes de una actualización",
+});

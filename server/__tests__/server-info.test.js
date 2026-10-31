@@ -111,6 +111,33 @@ describe("server-info hook ingest deduplication", () => {
     assert.equal(mod.normalizeDataDir(entry.dataDir), mod.normalizeDataDir(DATA_DIR_A));
   });
 
+  it("proves exclusive data ownership only from an unambiguous live registry", () => {
+    const mod = freshModule(DATA_DIR_A);
+    const ours = {
+      port: 4820,
+      pid: process.pid,
+      startedAt: "2026-01-01T00:00:00.000Z",
+      dataDir: DATA_DIR_A,
+    };
+    const peer = {
+      port: 4821,
+      pid: process.ppid,
+      startedAt: "2026-01-02T00:00:00.000Z",
+      dataDir: DATA_DIR_A,
+    };
+
+    writeDiscovery([ours]);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+    writeDiscovery([ours, peer]);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+    writeDiscovery([ours, { ...peer, dataDir: DATA_DIR_B }]);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), true);
+    writeDiscovery([ours, { ...peer, dataDir: undefined }]);
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+    fs.writeFileSync(mod.getServerInfoPath(), "not json");
+    assert.equal(mod.hasExclusiveDataDirOwnership(), false);
+  });
+
   it("honors CLAUDE_DASHBOARD_PORT for hook ingest", () => {
     const mod = freshModule(DATA_DIR_A);
     process.env.CLAUDE_DASHBOARD_PORT = "7777";

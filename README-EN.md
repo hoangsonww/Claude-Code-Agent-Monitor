@@ -789,7 +789,18 @@ If `ccam` is not on `PATH`, run `npm link` once from the repository root. See [d
 
 ---
 
-An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
+### Cost snapshots before an upgrade
+
+Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, then capture a second snapshot to a new path and compare them. Keep the TSV files private: they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when the live-server registry proves this process exclusively owns the data directory; shared or ambiguous ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
 
 ## Agent Extensions
 

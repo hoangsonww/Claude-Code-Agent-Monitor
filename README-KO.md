@@ -785,7 +785,18 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 
 ---
 
-중단된 원격 동기화는 재시작 후 오류로 표시되고 이전 가져오기 결과는 보존됩니다. 원격 재시도 중에는 마지막 오류가 계속 표시되며, 동기화가 성공하면 지워집니다.
+### 업그레이드 전 비용 스냅숏
+
+사용량을 다시 집계할 수 있는 업그레이드 전에 읽기 전용 기준 스냅숏을 만들고, CCAM을 업그레이드해 재시작한 뒤 시작 유지 관리가 끝나면 새 경로에 두 번째 스냅숏을 만들어 비교합니다. TSV 파일에는 세션 ID와 소유권 메타데이터가 포함되므로 비공개로 보관하세요. 기존 로컬 세션의 Token, 비용, source 또는 provider가 바뀌거나 세션이 사라지면 가드가 종료 코드 1을 반환하며, 원격 세션과 새 세션은 별도로 보고합니다.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# CCAM을 업그레이드하고 재시작한 다음 시작 유지 관리가 끝날 때까지 기다립니다.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+중단된 원격 동기화는 재시작 후 오류로 표시되고 이전 가져오기 결과는 보존됩니다. 시작 복구는 라이브 서버 레지스트리가 현재 프로세스의 데이터 디렉터리 독점 소유를 입증할 때만 실행되며, 공유되거나 모호한 소유권이면 복구를 연기합니다. 데이터베이스가 사용 중이면 독립적으로 재시도하므로 복구 실패가 원격 폴러를 비활성화하지 않습니다. 원격 재시도 중에는 마지막 오류가 계속 표시되며, 동기화가 성공하면 지워집니다.
 
 ## 에이전트 확장
 
