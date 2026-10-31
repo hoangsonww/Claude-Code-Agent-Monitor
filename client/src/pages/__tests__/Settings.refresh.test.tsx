@@ -349,6 +349,25 @@ describe("Settings page load guard", () => {
     setScope(initialScope);
   });
 
+  it("renders primary page data while system info remains pending", async () => {
+    const pending = deferred();
+    info.mockReturnValueOnce(pending.promise);
+    vi.mocked(api.pricing.list).mockResolvedValueOnce({
+      pricing: [pricingRule("ready-model")],
+    } as never);
+
+    const view = await mount();
+    const page = within(view.container);
+    expect(page.getAllByText("ready-model").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/claude").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/codex").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      pending.resolve(fixture());
+    });
+    view.unmount();
+  });
+
   it("does not let an older scope's late pricing replace the newest scope", async () => {
     const stale = deferredValue<PricingList>();
     const view = await raceScopes(stale);
