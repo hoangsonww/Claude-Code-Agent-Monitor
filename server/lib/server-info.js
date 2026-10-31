@@ -270,6 +270,32 @@ function peersSharingDataDir() {
 }
 
 /**
+ * Whether the live discovery registry proves this process is the only owner of
+ * its data directory. Missing, unreadable, or legacy peer metadata is treated
+ * as ambiguous so startup repair never rewrites another process's live state.
+ *
+ * @returns {boolean}
+ */
+function hasExclusiveDataDirOwnership() {
+  try {
+    const mine = normalizeDataDir(getDataDir());
+    if (!mine) return false;
+    const live = readInfoFile().filter((s) => isPidAlive(s.pid));
+    const ours = live.some(
+      (s) => s.pid === process.pid && s.dataDir && normalizeDataDir(s.dataDir) === mine
+    );
+    if (!ours) return false;
+    return live.every((s) => {
+      if (s.pid === process.pid) return true;
+      if (!s.dataDir) return false;
+      return normalizeDataDir(s.dataDir) !== mine;
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Single-port helper kept for callers that have always asked the file for
  * "the" port (e.g. legacy code paths and tests). Returns the first live
  * server's port, or the default if none are alive.
@@ -289,6 +315,7 @@ module.exports = {
   resolveAllDashboardPorts,
   resolveHookIngestPorts,
   peersSharingDataDir,
+  hasExclusiveDataDirOwnership,
   // Exported for tests.
   normalizeDataDir,
   ingestGroupKey,

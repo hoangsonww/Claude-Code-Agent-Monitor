@@ -29,7 +29,7 @@ Hook behavior is documented in [`docs/HOOKS.md`](../docs/HOOKS.md). Any change h
 | ------------------- | ---------------------------- | ------- |
 | `import-history.js` | `npm run import-history`     | Imports existing Claude Code sessions from `~/.claude/` JSONL files. Flags: `--dry-run`, `--project <name>`. Also used for auto-import on server startup. |
 |                     | `npm run reconcile-tokens`   | Same script with `--reconcile-tokens` (add `--all`, `--reset-baselines` as needed) to re-derive token totals. |
-| `cost-snapshot.js`  | —                            | `snapshot --out f.tsv` writes a per-session source/token/cost TSV from the database opened read-only; `compare before.tsv after.tsv` splits local vs remote changes. `--fail-on-local-change` exits 1 when local tokens/cost change, a local session is removed, or ownership (source or provider) changes for a local session; an incomplete or non-numeric row is refused. Take one before an upgrade that recounts tokens at startup. |
+| `cost-snapshot.js`  | —                            | `node scripts/cost-snapshot.js snapshot --out f.tsv` writes a per-session source/token/cost TSV from the database opened read-only; `node scripts/cost-snapshot.js compare before.tsv after.tsv` splits local vs remote changes. `--fail-on-local-change` exits 1 when local tokens/cost change, a local session is removed, or ownership (source or provider) changes for a local session; an incomplete or non-numeric row is refused. Take one before an upgrade that recounts tokens at startup. |
 | `seed.js`           | `npm run seed`               | Additive, idempotent fixtures for development. `--full` adds random demo sessions; `--reset` refreshes only fixture rows. Never deletes user data. |
 | `clear-data.js`     | `npm run clear-data`         | **Destructive.** Dry run by default (prints counts). `--yes` wipes sessions/agents/events/token usage; `--backup` snapshots the DB to `data/backups/` first; `--demo-only --yes` removes only seed fixtures. |
 
@@ -38,6 +38,9 @@ npm run import-history -- --dry-run
 npm run seed
 npm run clear-data                    # dry run
 npm run clear-data -- --yes --backup  # irrevocable, with backup
+node scripts/cost-snapshot.js snapshot --out before.tsv
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
 ```
 
 ## Code generation and agent extensions
