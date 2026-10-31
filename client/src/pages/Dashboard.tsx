@@ -1037,10 +1037,17 @@ export function Dashboard() {
     promise: Promise<void>;
     refresh: boolean;
   } | null>(null);
+  const costRequest = useRef<{
+    generation: number;
+    promise: Promise<void>;
+    refresh: boolean;
+  } | null>(null);
   const [allSubagents, setAllSubagents] = useState<Agent[]>([]);
   const [sessionsById, setSessionsById] = useState<Map<string, Session>>(new Map());
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [costError, setCostError] = useState<string | null>(null);
+  const error = activityError ?? costError;
 
   // Dynamic item counts based on available container height
   const agentsContainerRef = useRef<HTMLDivElement>(null);
@@ -1076,12 +1083,45 @@ export function Dashboard() {
   // source-machine and provider params into the calls below).
   const [scope] = useDataScope();
 
+  const loadCost = useCallback(
+    function requestCost(force = false): Promise<void> {
+      const generation = loadGeneration.current;
+      if (costRequest.current?.generation === generation) {
+        if (force) costRequest.current.refresh = true;
+        return costRequest.current.promise;
+      }
+      const promise = api.pricing
+        .totalCost()
+        .then((costRes) => {
+          if (loadGeneration.current !== generation) return;
+          setTotalCost(costRes.total_cost);
+          setUnpriced(costRes.unpriced_models || []);
+          setCostError(null);
+        })
+        .catch((err: unknown) => {
+          if (loadGeneration.current === generation)
+            setCostError(err instanceof Error ? err.message : t("failedLoad"));
+        });
+      const entry = { generation, promise, refresh: false };
+      costRequest.current = entry;
+      const finish = () => {
+        if (costRequest.current?.promise !== promise) return;
+        costRequest.current = null;
+        if (entry.refresh && loadGeneration.current === generation) void requestCost();
+      };
+      void promise.then(finish, finish);
+      return promise;
+    },
+    [t, scope]
+  );
+
   /**
-   * Load everything the Monitor tab shows in parallel: stats, working agents, waiting agents
-   * (including transient rows), recent events, costs, and sessions.
+   * Load the Monitor tab's activity data independently from its exact cost aggregate. A slow cost
+   * query must not delay activity errors, polling, or the agent/session/event cards.
    */
   const load = useCallback(
     (force = false) => {
+      void loadCost(force);
       const generation = loadGeneration.current;
       if (loadRequest.current?.generation === generation) {
         if (force) loadRequest.current.refresh = true;
@@ -1094,13 +1134,6 @@ export function Dashboard() {
             api.agents.list({ status: "working", limit: 20 }),
             api.agents.list({ status: "waiting", limit: 20, include_transient: true }),
             api.events.list({ limit: 30 }),
-            api.pricing.totalCost().then((costRes) => {
-              if (loadGeneration.current === generation) {
-                setTotalCost(costRes.total_cost);
-                setUnpriced(costRes.unpriced_models || []);
-              }
-              return costRes;
-            }),
             api.sessions.list({
               status: "active",
               limit: 100,
@@ -1108,10 +1141,7 @@ export function Dashboard() {
               include_task_progress: true,
             }),
           ] as const;
-          // Keep one flight until every request settles, while cost can publish
-          // independently of a slow or failed activity/count reader.
-          await Promise.allSettled(requests);
-          const [statsRes, workingRes, waitingRes, eventsRes, , sessionsRes] =
+          const [statsRes, workingRes, waitingRes, eventsRes, sessionsRes] =
             await Promise.all(requests);
           if (loadGeneration.current !== generation) return;
           setStats(statsRes);
@@ -1121,7 +1151,7 @@ export function Dashboard() {
           setActiveAgents(active);
           setRecentEvents(eventsRes.events);
           setSessionsById(new Map(sessionsRes.sessions.map((s) => [s.id, s])));
-          setError(null);
+          setActivityError(null);
 
           // Fetch all subagents for each active main agent's session
           const activeSessionIds = [
@@ -1136,7 +1166,7 @@ export function Dashboard() {
           if (loadGeneration.current === generation) setAllSubagents(subs);
         } catch (err) {
           if (loadGeneration.current === generation)
-            setError(err instanceof Error ? err.message : t("failedLoad"));
+            setActivityError(err instanceof Error ? err.message : t("failedLoad"));
         }
       })();
       const entry = { generation, promise, refresh: false };
@@ -1149,7 +1179,7 @@ export function Dashboard() {
       void promise.then(finish, finish);
       return promise;
     },
-    [t, scope]
+    [loadCost, t, scope]
   );
 
   usePaletteAction("page.refresh", () => {
@@ -1165,7 +1195,8 @@ export function Dashboard() {
     setRecentEvents([]);
     setAllSubagents([]);
     setSessionsById(new Map());
-    setError(null);
+    setActivityError(null);
+    setCostError(null);
     load();
     const interval = setInterval(load, 10000);
     return () => {

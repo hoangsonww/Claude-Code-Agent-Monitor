@@ -3,6 +3,55 @@
  * @description Unit tests for the tool registry functions, which are responsible for registering tools in the MCP server. The tests cover the behavior of the createCollectorRegistrar and createDualRegistrar functions, ensuring that they correctly collect tool entries and integrate with the MCP server's registration mechanism. The tests use Node's built-in test runner and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/tool-registry.test.ts`
+ *
+ * Scope
+ * Unit tests for the tool registry functions, which are responsible for registering tools in the MCP
+ * server. The tests cover the behavior of the createCollectorRegistrar and createDualRegistrar
+ * functions, ensuring that they correctly collect tool entries and integrate with the MCP server's
+ * registration mechanism. The tests use Node's built-in test runner and assert module for
+ * assertions.
+ *
+ * Subjects and collaborators
+ * - `../src/core/tool-registry.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `createCollectorRegistrar`
+ * - `createDualRegistrar`
+ *
+ * Protected behavior
+ * - collects tool entries into the provided array
+ * - collects multiple tools in order
+ * - handler is invocable and returns expected result
+ * - validates direct REPL invocations with the declared Zod schema
+ * - pushes to collector array
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

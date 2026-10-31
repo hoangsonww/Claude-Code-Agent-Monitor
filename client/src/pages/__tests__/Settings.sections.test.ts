@@ -14,6 +14,56 @@
  * Vitest but breaks `tsc -b` in the production build.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/pages/__tests__/Settings.sections.test.ts`
+ *
+ * Scope
+ * Guards the coupling between the Settings page's in-page table of contents and the sections it
+ * links to. `SETTINGS_SECTIONS` drives both the TOC buttons and the `IntersectionObserver`
+ * scroll-spy, and each entry is matched to the page body only by a bare `id` string. Adding a
+ * section but forgetting its TOC entry hides it from navigation; adding a TOC entry but forgetting
+ * the section produces a dead scroll target and a scroll-spy that silently observes nothing. Neither
+ * shows up in a render snapshot, so this asserts the two lists agree, in order. Reads the page
+ * source through Vite's `?raw` import rather than `node:fs`: the client tsconfig is DOM-only, so a
+ * Node builtin here typechecks locally under Vitest but breaks `tsc -b` in the production build.
+ *
+ * Subjects and collaborators
+ * - `../Settings.tsx?raw` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `Settings in-page navigation`
+ *
+ * Protected behavior
+ * - links every table-of-contents entry to a section that exists
+ * - lists every rendered section in the table of contents
+ * - keeps the two lists in the same order, so the TOC matches the page
+ * - gives every section the scroll-margin the sticky TOC needs
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 // Vite's `?raw` suffix hands back the file's text. Preferred over node:fs here

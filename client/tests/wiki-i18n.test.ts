@@ -3,6 +3,53 @@
  * @description Node-side live-DOM coverage tests for the static wiki's body, labels, metadata, attributes, markup, and cache versions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/tests/wiki-i18n.test.ts`
+ *
+ * Scope
+ * Node-side live-DOM coverage tests for the static wiki's body, labels, metadata, attributes,
+ * markup, and cache versions.
+ *
+ * Subjects and collaborators
+ * - The suite exercises behavior exposed directly by its package or test environment.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `wiki i18n resources`
+ *
+ * Protected behavior
+ * - localizes live prose and scannable labels in every supported wiki locale
+ * - localizes wiki metadata and every live image or assistive attribute
+ * - preserves the complete inline-tag set in every wiki body translation
+ * - keeps fixed-size wiki blocks inside their group's length budget
+ * - never scopes content styling on a class-free selector
+ * - indents wiki prose lists despite the runtime reveal class
+ * - keeps wiki asset versions synchronized with the service-worker precache
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import fs from "node:fs";
 import path from "node:path";

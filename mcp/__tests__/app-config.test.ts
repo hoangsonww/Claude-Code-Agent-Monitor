@@ -3,6 +3,82 @@
  * @description Unit tests for the app configuration loader, which reads environment variables and constructs a configuration object for the MCP server. The tests cover default values, parsing of different transport modes, HTTP port and host parsing with validation, boolean parsing for mutation/destructive flags, timeout and retry parsing with clamping, log level parsing with fallback, dashboard URL validation to ensure it targets a local host and uses http/https, and custom server name/version parsing. The tests use Node's built-in test runner and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/app-config.test.ts`
+ *
+ * Scope
+ * Unit tests for the app configuration loader, which reads environment variables and constructs a
+ * configuration object for the MCP server. The tests cover default values, parsing of different
+ * transport modes, HTTP port and host parsing with validation, boolean parsing for
+ * mutation/destructive flags, timeout and retry parsing with clamping, log level parsing with
+ * fallback, dashboard URL validation to ensure it targets a local host and uses http/https, and
+ * custom server name/version parsing. The tests use Node's built-in test runner and assert module
+ * for assertions.
+ *
+ * Subjects and collaborators
+ * - `../src/config/app-config.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `loadConfig`
+ *
+ * Protected behavior
+ * - returns sane defaults when no env vars set
+ * - parses MCP_TRANSPORT=http
+ * - parses MCP_TRANSPORT=repl
+ * - parses MCP_TRANSPORT=stdio
+ * - defaults unknown transport to stdio
+ * - is case-insensitive for transport
+ * - parses MCP_HTTP_PORT
+ * - clamps MCP_HTTP_PORT to valid range
+ * - falls back to default on invalid MCP_HTTP_PORT
+ * - defaults the HTTP session timeout to 30 minutes
+ * - parses and clamps MCP_HTTP_SESSION_TIMEOUT_MS
+ * - treats MCP_HTTP_SESSION_TIMEOUT_MS=0 as an explicit opt-out
+ * - parses MCP_HTTP_HOST
+ * - parses allowMutations='${truthy}' as true
+ * - parses allowMutations='${falsy}' as false
+ * - parses allowDestructive
+ * - parses timeout with clamping
+ * - parses retry count
+ * - parses valid log level
+ * - defaults invalid log level to info
+ * - rejects non-local dashboard hosts
+ * - rejects non-http protocols
+ * - rejects invalid URLs
+ * - accepts localhost
+ * - accepts host.docker.internal
+ * - accepts the isolated Compose dashboard service with a bearer token
+ * - loads an optional dashboard bearer token
+ * - loads the dashboard bearer token from a mounted secret file
+ * - loads the MCP HTTP bearer token from a mounted secret file
+ * - requires HTTPS for bearer tokens sent through container-host aliases
+ * - parses custom server name and version
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

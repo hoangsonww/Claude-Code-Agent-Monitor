@@ -3,6 +3,61 @@
  * @description Unit tests for i18n translation resources to ensure correct translations and locale handling in the agent dashboard application.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/i18n/__tests__/i18n.test.ts`
+ *
+ * Scope
+ * Unit tests for i18n translation resources to ensure correct translations and locale handling in
+ * the agent dashboard application.
+ *
+ * Subjects and collaborators
+ * - The suite exercises behavior exposed directly by its package or test environment.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `i18n resources`
+ *
+ * Protected behavior
+ * - keeps every locale's keys, value types, and interpolation tokens aligned with English
+ * - should provide Vietnamese translations for navigation keys
+ * - keeps Agent terminology untranslated in zh, vi, and ko; Spanish UI nouns remain `agente` and
+ *   `subagente`, while the `Agent` tool name stays untranslated
+ * - should provide Spanish translations for navigation keys
+ * - should provide Spanish translations across every feature namespace
+ * - should support non-explicit Spanish locale tags
+ * - should support non-explicit Vietnamese locale tags
+ * - should provide Korean translations for navigation keys
+ * - should support non-explicit Korean locale tags
+ * - pluralizes the subagent count labels in English
+ * - pluralizes the Kanban and Sessions header counts
+ * - pluralizes task-progress counts in English and Spanish
+ * - ships every first-run hook setup control in each supported locale
+ * - ships the global provider and session-home settings in every supported locale
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 import i18n from "i18next";

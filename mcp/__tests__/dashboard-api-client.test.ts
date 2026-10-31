@@ -4,6 +4,55 @@
  * bearer-token propagation and DELETE request bodies used by config tools.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/dashboard-api-client.test.ts`
+ *
+ * Scope
+ * Contract tests for MCP dashboard HTTP requests, including bearer-token propagation and DELETE
+ * request bodies used by config tools.
+ *
+ * Subjects and collaborators
+ * - `../src/config/app-config.js` — local module imported by this suite.
+ * - `../src/clients/dashboard-api-client.js` — local module imported by this suite.
+ * - `../src/core/logger.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ * - Network boundaries are replaced with deterministic responses; no test depends on an external
+ *   service.
+ *
+ * Suite groups
+ * - `DashboardApiClient`
+ *
+ * Protected behavior
+ * - sends the configured dashboard bearer token
+ * - sends JSON bodies with DELETE requests
+ * - rejects multipart uploads above the cumulative size cap before fetch
+ * - rejects oversized binary responses from Content-Length
+ * - rejects automatic redirects so bearer headers never cross routes
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
