@@ -793,7 +793,7 @@ node scripts/cost-snapshot.js snapshot --out after.tsv
 node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
 ```
 
-Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khôi phục lúc khởi động chỉ chạy khi registry máy chủ đang hoạt động chứng minh tiến trình này sở hữu độc quyền thư mục dữ liệu; quyền sở hữu dùng chung hoặc không rõ ràng sẽ trì hoãn việc khôi phục. Cơ sở dữ liệu bận được thử lại độc lập, nên lỗi khôi phục không thể vô hiệu hóa bộ thăm dò nguồn từ xa. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
+Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khôi phục lúc khởi động chỉ chạy khi các marker liveness theo tiến trình trong thư mục dữ liệu SQLite dùng chung chứng minh tiến trình này là dashboard duy nhất còn chạy, kể cả khi các tiến trình dùng các giá trị `CLAUDE_HOME` khác nhau; marker bị thiếu, hỏng hoặc có quyền sở hữu đồng thời sẽ trì hoãn việc khôi phục. Cơ sở dữ liệu bận được thử lại độc lập, nên lỗi khôi phục không thể vô hiệu hóa bộ thăm dò nguồn từ xa. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
 
 ## Tiện ích mở rộng Agent
 
