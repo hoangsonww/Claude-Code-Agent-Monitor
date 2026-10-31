@@ -5,6 +5,60 @@
  * no redundant ID badge, and hover titles for single-line truncated fields.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/__tests__/SessionCard.test.tsx`
+ *
+ * Scope
+ * Regression tests for the compact Kanban session card, including preserving provider-native session
+ * titles, two-turn human task context, no redundant ID badge, and hover titles for single-line
+ * truncated fields.
+ *
+ * Subjects and collaborators
+ * - `../SessionCard` — local module imported by this suite.
+ * - `../../lib/types` — local module imported by this suite.
+ * - `../../lib/format` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ *
+ * Suite groups
+ * - `SessionCard`
+ *
+ * Protected behavior
+ * - keeps a named Codex session title clean without a duplicate provider ID badge
+ * - shows a renamed Codex session's latest prompt below its native title
+ * - shows the same bounded two-turn history for a Claude session
+ * - does not navigate before a transient Codex process has a durable session id
+ * - clamps long titles to three lines and can render status as a dot
+ * - keeps the full working directory and model available on hover
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";

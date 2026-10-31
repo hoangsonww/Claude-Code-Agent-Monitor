@@ -114,10 +114,10 @@ sequenceDiagram
 > gate — it is a local-only write — so hooks keep working without a token even when
 > one is configured for the rest of the API (GHSA-gr74-4xfh-6jw9).
 >
-> The one route in that namespace this does **not** describe is
-> [`POST /api/hooks/ingest-batch`](#remote-push-ingestion-postapihooksingest-batch),
-> which is meant to be reachable from the public internet and carries its own
-> mandatory token instead of being exempt.
+> The remote-push routes in that namespace this does **not** describe are
+> [`POST /api/hooks/ingest-batch`](#remote-push-ingestion) and
+> `POST /api/hooks/ingest-transcript`. They are meant to be reachable from the
+> public internet and carry their own mandatory token instead of being exempt.
 
 ### Hook System Characteristics
 
@@ -191,15 +191,15 @@ ingestion is enabled explicitly by mounting
 `deployments/nginx/snippets/hooks-proxy.conf` and terminating TLS before Nginx.
 Use a hook token separate from the browser/dashboard token.
 
-### Remote push ingestion (`POST /api/hooks/ingest-batch`)
+### Remote push ingestion
 
 Hook forwarding above still requires the dashboard to be *reachable* from the
 machine running Claude Code or Codex. Remote push covers the opposite case: a
 roaming laptop behind NAT or a CGNAT'd home connection that the dashboard can
 never reach to pull from, and which therefore pushes its own session data.
 
-This is the only route in the server intended to be reachable from the public
-internet, and it is **disabled until you configure it**:
+These are the only routes in the server intended to be reachable from the
+public internet, and they are **disabled until you configure them**:
 
 ```bash
 REMOTE_PUSH_TOKEN=change-me-to-a-long-random-string
@@ -214,7 +214,7 @@ as `Authorization: Bearer <token>` or `X-Dashboard-Token: <token>` — `?token=`
 rejected, because a query-string credential on a public route ends up in access
 and proxy logs.
 
-One batch carries token buckets (each entry the bucket's **full current total**,
+`POST /api/hooks/ingest-batch` carries token buckets (each entry the bucket's **full current total**,
 like a transcript re-parse, not a delta), tool events, and turn durations,
 persisted as `RemoteToolEvent` and `RemoteTurn` events. Items dedup on
 `(session_id, event_type, uuid)` against committed rows and within the batch, so
@@ -223,6 +223,20 @@ a `session_id` already owned by a local or SSH-pulled session is refused per ite
 (`SESSION_LOCALLY_OWNED`) so a push can never hijack it. Like every other hook
 path, partial failures stay non-fatal — the response is `200` with per-item
 `errors[]`.
+
+`POST /api/hooks/ingest-transcript` is the Claude-only companion for main and
+subagent JSONL. The session must first be registered as `remote_push` through
+`ingest-batch`. Chunks are canonical base64, capped at 4 MiB, and accepted only
+when `offset` equals the stored file size. Each file defaults to a 256 MiB cap,
+configurable through `REMOTE_TRANSCRIPT_MAX_FILE_MB`. Canonical path checks and
+no-follow file opening prevent a pre-existing symlink from redirecting writes
+outside the Claude projects root. The remote token is verified before the
+route's 8 MiB JSON parser reads the request body.
+
+On the final chunk of a pass, `sync: true` re-derives transcript metadata and
+imports subagents. It creates no `RemoteSync` event, does not reactivate a
+terminal session, and restores the original `sessions.updated_at` so inactivity
+alerts continue to measure real hook activity.
 
 Collectors may optionally supply `repo_remote_url`: inside `data` for
 `POST /api/hooks/event`, or at the top level for `POST /api/hooks/ingest-batch`.

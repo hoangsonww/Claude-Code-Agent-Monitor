@@ -8,6 +8,87 @@
  * trigger, and dismissal behavior.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/__tests__/CommandPalette.test.tsx`
+ *
+ * Scope
+ * Tests for the global Cmd/Ctrl+K launcher: hotkey open/close on both platforms' modifiers, page
+ * filtering, keyboard navigation and selection, debounced server-side session search (including
+ * graceful degradation when the query fails and the guarantee that a slow response never leaves a
+ * previous query's sessions on screen), the programmatic open event used by the sidebar trigger, and
+ * dismissal behavior.
+ *
+ * Subjects and collaborators
+ * - `../CommandPalette` — local module imported by this suite.
+ * - `../PaletteActionProvider` — local module imported by this suite.
+ * - `../../lib/paletteDiscovery` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ * - Fake timers control debounce, timeout, or interval boundaries; restore real timers during teardown.
+ * - Browser storage is test-local state and must be reset so persisted preferences cannot leak between
+ *   cases.
+ * - Mock boundary: `../../lib/api`.
+ *
+ * Suite groups
+ * - `CommandPalette`
+ *
+ * Protected behavior
+ * - stays hidden until the shortcut is pressed
+ * - opens with Ctrl+K as well as Cmd+K
+ * - ignores the shortcut when Alt is held, so native combos keep working
+ * - toggles closed when the shortcut is pressed again
+ * - retires the discovery hints the first time it opens
+ * - opens from the programmatic event the sidebar trigger dispatches
+ * - lists every page when the query is empty
+ * - offers the current page's own actions before anything is typed
+ * - filters pages by their translated label
+ * - navigates to the highlighted page on Enter
+ * - moves the active option with the arrow keys and wraps around
+ * - closes on Escape without navigating
+ * - does not query the server for a one-character term
+ * - debounces the session query and shows the results
+ * - navigates to a session result on selection
+ * - drops the previous query's sessions as soon as the term changes
+ * - drops session results when the term falls back below the search floor
+ * - stays usable when the session search fails
+ * - reaches a Settings section, an Agent Config tab, and a sub-view
+ * - matches on a subsequence, not just a substring
+ * - remembers the last command run and offers it first on reopen
+ * - does not remember session picks, whose ids stop resolving
+ * - jumps to the first and last row with Home and End
+ * - moves between groups with Tab
+ * - wraps Shift+Tab to the first row of the last group, not its last row
+ * - reports no matches for a term nothing satisfies
+ * - clears the previous query when reopened
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";

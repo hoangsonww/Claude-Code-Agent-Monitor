@@ -122,8 +122,8 @@ function getHookToken() {
 }
 
 /**
- * Optional, INDEPENDENT token for the remote-push ingest-batch route
- * (server/routes/hooks.js POST /api/hooks/ingest-batch). Deliberately a
+ * Optional, INDEPENDENT token for the public remote-push batch and transcript
+ * routes under server/routes/hooks.js. Deliberately a
  * separate secret from DASHBOARD_HOOK_TOKEN: that token's job is hardening
  * the LOOPBACK-only local hook, and someone who sets it for that reason alone
  * should not thereby also open an internet-writable session endpoint they
@@ -153,7 +153,7 @@ function extractToken(req) {
 
 /**
  * Header-only variant of extractToken (no `?token=` query-string fallback):
- * for the remote-push ingest-batch route (server/routes/hooks.js), which is
+ * for the remote-push batch and transcript routes (server/routes/hooks.js), which are
  * reachable from the public internet. A query-string credential ends up in
  * server access logs, any intermediate proxy's logs, and (for a browser
  * client) history/Referer headers -- acceptable for the dashboard/WebSocket
@@ -172,6 +172,27 @@ function extractHookToken(req) {
   const hookHeader = req.headers["x-ccam-hook-token"];
   if (typeof hookHeader === "string" && hookHeader) return hookHeader;
   return extractToken(req);
+}
+
+/**
+ * Authenticate public remote-push routes before any large request body is read.
+ * The route handlers repeat this check so their contract remains safe if they
+ * are ever mounted without the server-level middleware.
+ */
+function remotePushGuard(req, res, next) {
+  const expected = getRemotePushToken();
+  if (!expected) {
+    return res.status(503).json({
+      error: {
+        code: "REMOTE_PUSH_NOT_CONFIGURED",
+        message: "remote push ingestion is not enabled",
+      },
+    });
+  }
+  if (tokensMatch(extractHeaderOnlyToken(req), expected)) return next();
+  return res.status(401).json({
+    error: { code: "EUNAUTHORIZED", message: "missing or invalid remote-push token" },
+  });
 }
 
 // API subpaths exempt from the token gate even when a token is set:
@@ -244,6 +265,7 @@ module.exports = {
   getRemotePushToken,
   tokenGuard,
   hookGuard,
+  remotePushGuard,
   isWebSocketAuthorized,
   // exported for tests
   tokensMatch,

@@ -6,6 +6,58 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/agentOriginLabel.test.ts`
+ *
+ * Scope
+ * Behavioral regression suite for `agentOriginLabel.test.ts`.
+ *
+ * Subjects and collaborators
+ * - `../event-grouping` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `agentOriginLabel - parent chain walk`
+ * - `projectFromCwd - session-cwd fallback for the dir prefix`
+ *
+ * Protected behavior
+ * - returns 'main' for the main agent itself
+ * - renders 'main › coder' for a direct child of main
+ * - renders 'main › coder › explorer' for a 2-deep subagent
+ * - falls back to single-segment when the map is undefined (legacy callers)
+ * - uses subagent name when subagent_type is null
+ * - breaks cleanly on a parent-chain cycle
+ * - returns null for null agentId regardless of map shape
+ * - falls back to 'main' for IDs ending in -main when no info is available
+ * - returns the last path segment of a POSIX cwd
+ * - ignores a trailing slash
+ * - handles Windows backslash paths
+ * - returns null for null, undefined, or empty cwd
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 import { agentOriginLabel, projectFromCwd, type AgentInfo } from "../event-grouping";

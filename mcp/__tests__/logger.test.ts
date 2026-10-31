@@ -3,6 +3,53 @@
  * @description Unit tests for the Logger class, which is responsible for logging messages in JSON format to stderr with different log levels (debug, info, warn, error). The tests cover writing logs to stderr, respecting minimum log levels, omitting meta when empty, and ensuring that each log line is valid JSON. The tests use Node's built-in test runner and assert module for assertions and mocking.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/logger.test.ts`
+ *
+ * Scope
+ * Unit tests for the Logger class, which is responsible for logging messages in JSON format to
+ * stderr with different log levels (debug, info, warn, error). The tests cover writing logs to
+ * stderr, respecting minimum log levels, omitting meta when empty, and ensuring that each log line
+ * is valid JSON. The tests use Node's built-in test runner and assert module for assertions and
+ * mocking.
+ *
+ * Subjects and collaborators
+ * - `../src/core/logger.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `Logger`
+ *
+ * Protected behavior
+ * - writes to stderr
+ * - respects minimum log level
+ * - omits meta when empty
+ * - outputs valid JSON on each line
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

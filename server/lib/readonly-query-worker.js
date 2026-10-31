@@ -52,7 +52,7 @@ function readQuery(db, query) {
       : statement.all(...(query.params || []));
   }
   if (query.op !== "stats") throw new Error("Unsupported database read");
-  const { sources, providers, toLocal, toUTC } = query;
+  const { sources, providers, todayStart } = query;
   const isScoped = !!sources || !!providers;
   // One read transaction keeps overview, status distributions and today's
   // count on the same snapshot even while the HTTP thread accepts new hooks.
@@ -66,12 +66,8 @@ function readQuery(db, query) {
     ? scoped.sessionStatusCounts(db, sources, providers)
     : db.prepare("SELECT status, COUNT(*) as count FROM sessions GROUP BY status").all();
   const today = isScoped
-    ? scoped.countEventsToday(db, sources, providers, toLocal, toUTC)
-    : db
-        .prepare(
-          "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
-        )
-        .get(toLocal, toUTC);
+    ? scoped.countEventsToday(db, sources, providers, todayStart)
+    : db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?").get(todayStart);
   return {
     ...overview,
     events_today: today?.count ?? 0,
