@@ -791,7 +791,7 @@ node scripts/cost-snapshot.js snapshot --out after.tsv
 node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
 ```
 
-Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. La recuperación de arranque solo se ejecuta cuando el registro de servidores activos demuestra que este proceso posee en exclusiva el directorio de datos; una propiedad compartida o ambigua aplaza la recuperación. Si la base de datos está ocupada, se reintenta de forma independiente, por lo que un fallo de recuperación no puede desactivar el sondeo remoto. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
+Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. La recuperación de arranque solo se ejecuta cuando los marcadores de actividad por proceso, guardados en el directorio de datos SQLite compartido, demuestran que este es el único panel activo, incluso si los procesos usan valores de `CLAUDE_HOME` distintos; los marcadores ausentes o dañados y la propiedad concurrente aplazan la recuperación. Si la base de datos está ocupada, se reintenta de forma independiente, por lo que un fallo de recuperación no puede desactivar el sondeo remoto. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
 
 ## Extensión de agentes
 

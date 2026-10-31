@@ -2484,6 +2484,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
 # Upgrade CCAM, restart it, and let startup maintenance finish.
 node scripts/cost-snapshot.js snapshot --out after.tsv
 node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change</code></pre>
+          <p>
+            An interrupted remote sync is shown as an error after restart; its preceding import
+            receipt remains available. Startup recovery runs only when per-process liveness markers
+            under the shared SQLite data directory prove this is the sole live dashboard, even when
+            processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or
+            concurrent ownership defers recovery. A busy database is retried independently, so
+            recovery cannot disable the remote poller.
+          </p>
         </section>
 
         <section id="cli">
