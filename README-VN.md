@@ -779,6 +779,19 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 
 ---
 
+### Ảnh chụp chi phí trước khi nâng cấp
+
+Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu đầu vào, đầu ra, lượt đọc cache, lượt ghi cache, lượt ghi cache một giờ, tìm kiếm web, tải nội dung web, thực thi mã hoặc chi phí của một phiên cục bộ hiện có thay đổi; nếu quyền sở hữu chuyển giữa cục bộ và một nguồn hoặc nhà cung cấp khác; hoặc nếu một phiên cục bộ biến mất. Phiên từ xa và phiên mới được báo cáo riêng.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Nâng cấp và khởi động lại CCAM, rồi chờ bảo trì lúc khởi động hoàn tất.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khôi phục lúc khởi động chỉ chạy khi các marker liveness theo tiến trình trong thư mục dữ liệu SQLite dùng chung chứng minh tiến trình này là dashboard duy nhất còn chạy, kể cả khi các tiến trình dùng các giá trị `CLAUDE_HOME` khác nhau; marker bị thiếu, hỏng hoặc có quyền sở hữu đồng thời sẽ trì hoãn việc khôi phục. Cơ sở dữ liệu bận được thử lại độc lập, nên lỗi khôi phục không thể vô hiệu hóa bộ thăm dò nguồn từ xa. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
+
 ## Tiện ích mở rộng Agent
 
 Kho lưu trữ này bao gồm lớp mở rộng toàn diện cho cả Claude Code và Codex:

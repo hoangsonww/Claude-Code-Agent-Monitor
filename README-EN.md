@@ -789,6 +789,19 @@ If `ccam` is not on `PATH`, run `npm link` once from the repository root. See [d
 
 ---
 
+### Cost snapshots before an upgrade
+
+Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, then capture a second snapshot to a new path and compare them. Keep the TSV files private: they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different `CLAUDE_HOME` values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
+
 ## Agent Extensions
 
 This repository includes a comprehensive extension layer for both Claude Code and Codex:
