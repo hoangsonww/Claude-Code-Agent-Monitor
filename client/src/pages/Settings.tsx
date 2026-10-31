@@ -1462,6 +1462,8 @@ export function Settings() {
   const [error, setError] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [unpriced, setUnpriced] = useState<import("../lib/types").UnpricedModel[]>([]);
+  /** The exact-cost reader owns this failure so pricing and home settings stay available. */
+  const [costError, setCostError] = useState<string | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   /** The last system-info read failure ("" = no message); cleared by the next successful read. */
   const [infoError, setInfoError] = useState<string | null>(null);
@@ -1641,9 +1643,9 @@ export function Settings() {
   }, []);
 
   /**
-   * Load everything the page needs in parallel: Claude pricing, total cost, system info, and the
-   * Claude and Codex home directories. System info settles on its own and reports its failure in
-   * its own section (see refreshInfo), so it never discards the other results or blocks them.
+   * Load Claude pricing and the provider homes as the primary page lane. Exact cost and system
+   * info settle independently and report failures in their own sections, so neither expensive
+   * reader can discard or block the primary settings data.
    */
   const load = useCallback(
     async (freshInfo = false) => {
@@ -1652,19 +1654,24 @@ export function Settings() {
       const generation = ++costLoadGeneration.current;
       const isCurrent = () => infoMountedRef.current && generation === costLoadGeneration.current;
       try {
-        // System info owns its result and error state. Do not let that slower background read
-        // hold the pricing/home page skeleton open or delay a primary request failure.
+        // The expensive readers own their result and error state. Do not let either one hold the
+        // pricing/home skeleton open or turn its local failure into a primary page failure.
         void refreshInfo(freshInfo).catch(() => {});
-        const [pricingRes, , claudeHomeRes, codexHomeRes] = await Promise.all([
+        setCostError(null);
+        void api.pricing.totalCost().then(
+          (costRes) => {
+            if (!isCurrent()) return;
+            setTotalCost(costRes.total_cost);
+            setUnpriced(costRes.unpriced_models || []);
+            setCostError(null);
+          },
+          (err: unknown) => {
+            if (isCurrent())
+              setCostError(err instanceof Error ? err.message : t("messages.failedLoad"));
+          }
+        );
+        const [pricingRes, claudeHomeRes, codexHomeRes] = await Promise.all([
           api.pricing.list(),
-          // The exact total can take longer than the other reads; show it as soon as it lands.
-          api.pricing.totalCost().then((costRes) => {
-            if (isCurrent()) {
-              setTotalCost(costRes.total_cost);
-              setUnpriced(costRes.unpriced_models || []);
-            }
-            return costRes;
-          }),
           api.settings.claudeHome.get(),
           api.settings.codexHome.get(),
         ]);
@@ -1691,6 +1698,7 @@ export function Settings() {
   useEffect(() => {
     setTotalCost(null);
     setUnpriced([]);
+    setCostError(null);
     load();
   }, [load]);
 
@@ -2346,6 +2354,11 @@ export function Settings() {
             <p>{t("basedOnUsage")}</p>
           </div>
         </div>
+        {costError && (
+          <p role="alert" className="mt-3 text-xs text-red-400">
+            {costError}
+          </p>
+        )}
       </div>
 
       <CostCoverage scope={dataScope} unpriced={unpriced} />
