@@ -32,6 +32,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { createHash } = require("node:crypto");
 const { spawn, execFileSync } = require("child_process");
 
 const { getDataDir } = require("./claude-home");
@@ -647,7 +648,7 @@ async function runSsh(source, remoteCmd, timeoutMs) {
 
 async function runScpCopy(source, remoteSpec, dest, timeoutMs, { legacy = false, recursive } = {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const args = recursive ? ["-r"] : [];
+  const args = recursive ? ["-r", "-p"] : ["-p"];
   if (legacy) args.push("-O");
   args.push(...(await scpOptionArgs(source)), remoteSpec, dest);
   return runCommand(resolveSshBinary("scp"), args, {
@@ -900,7 +901,89 @@ function mirrorViaWslTar(source, wslHome, dest, timeoutMs, provider = "claude") 
  * its remote home is `wsl:…` or the default home is missing on Windows but
  * present in WSL, streams a tar archive from `wsl.exe` instead.
  */
-async function mirrorRemoteTree(source, dest, timeoutMs, provider = "claude") {
+async function mirrorRemoteTree(source, dest, timeoutMs, provider = "claude", opts = {}) {
+  // Keep the last complete tree readable while a new SCP/tar generation is in flight.
+  // A failed transfer is never eligible for ingestion. This does not resume SCP bytes.
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  recoverPublishedTree(dest);
+  const incoming = fs.mkdtempSync(`${dest}.incoming-${process.pid}-`);
+  try {
+    const result = await transferRemoteTree(source, incoming, timeoutMs, provider);
+    if (opts.beforePublish) opts.beforePublish();
+    publishMirroredTree(incoming, dest);
+    return result;
+  } finally {
+    removeMirrorTree(incoming);
+  }
+}
+
+/** Recover a crash between the two portable directory renames used for publication. */
+function recoverPublishedTree(dest) {
+  // Reclaim crashed attempts only when their owning process is demonstrably gone.
+  // Signal 0 probes existence; it does not signal/terminate the other process.
+  const prefix = `${path.basename(dest)}.incoming-`;
+  let cleaned = 0;
+  for (const name of fs.readdirSync(path.dirname(dest))) {
+    if (!name.startsWith(prefix)) continue;
+    const match = /^(\d+)-[A-Za-z0-9]{6}$/.exec(name.slice(prefix.length));
+    if (!match) continue;
+    const owner = Number(match[1]);
+    if (!Number.isSafeInteger(owner) || owner <= 0 || owner > 2147483647) continue;
+    try {
+      process.kill(owner, 0);
+    } catch (err) {
+      if (err.code !== "ESRCH") continue;
+      removeMirrorTree(path.join(path.dirname(dest), name));
+      if (++cleaned >= 32) break;
+    }
+  }
+  const previous = `${dest}.previous`;
+  if (!fs.existsSync(previous)) return;
+  if (!fs.existsSync(dest)) fs.renameSync(previous, dest);
+  else removeMirrorTree(previous);
+}
+
+/** Replace a complete generation, restoring its predecessor if publication fails. */
+function publishMirroredTree(incoming, dest) {
+  const previous = `${dest}.previous`;
+  if (fs.existsSync(dest)) fs.renameSync(dest, previous);
+  try {
+    fs.renameSync(incoming, dest);
+  } catch (err) {
+    if (!fs.existsSync(dest) && fs.existsSync(previous)) fs.renameSync(previous, dest);
+    throw err;
+  }
+  // Cleanup failure must not turn a successfully published generation into an import failure.
+  try {
+    removeMirrorTree(previous);
+  } catch {
+    /* Recover/clean the retained predecessor on the next attempt. */
+  }
+}
+
+/** SCP/tar may preserve read-only modes; relax only a disposable local mirror on cleanup failure. */
+function removeMirrorTree(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  } catch (error) {
+    if (!fs.existsSync(dir)) return;
+    if (!["EACCES", "EPERM", "ENOTEMPTY"].includes(error.code)) throw error;
+  }
+  const makeWritable = (entry) => {
+    const stat = fs.lstatSync(entry);
+    if (stat.isSymbolicLink()) return;
+    fs.chmodSync(entry, stat.mode | (stat.isDirectory() ? 0o700 : 0o600));
+    if (stat.isDirectory()) {
+      for (const name of fs.readdirSync(entry)) makeWritable(path.join(entry, name));
+    }
+  };
+  makeWritable(dir);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+/** Transfer into an unpublished, disposable directory using the existing OpenSSH paths. */
+async function transferRemoteTree(source, dest, timeoutMs, provider) {
   const home = normalizedRemoteHome(source, provider);
   if (isWslRemoteHome(home)) {
     return mirrorViaWslTar(source, home.slice(4), dest, timeoutMs, provider);
@@ -937,6 +1020,9 @@ function connectionSuccessMessage(source, remoteCmd, provider = "claude") {
   return `Connected. Remote ${name} history found.`;
 }
 
+// First tail window read by lastTranscriptActivityMs; doubled while no timestamped line fits.
+const TRANSCRIPT_TAIL_BYTES = 64 * 1024;
+
 /**
  * Best-effort "last activity" for a mirrored transcript. Prefer the newest
  * event timestamp inside the JSONL over filesystem mtime so a touched-but-stale
@@ -950,26 +1036,57 @@ function lastTranscriptActivityMs(filePath) {
     return null;
   }
 
+  // Only the newest timestamp matters, and this runs for every staged file on
+  // every sync tick — normally read just the tail (TRANSCRIPT_TAIL_BYTES), not
+  // the whole (possibly hundreds of MiB) transcript. One record (a large tool
+  // result) can exceed the window; then the window doubles until a timestamped
+  // line is parsed or the read reaches byte 0. Mirror mtime stays the fallback
+  // when no timestamp can be parsed or the read fails (e.g. one record beyond
+  // V8's maximum string length).
   let contentMs = null;
+  let fd = null;
   try {
-    const text = fs.readFileSync(filePath, "utf8");
-    const lines = text.trim().split(/\n/).filter(Boolean);
-    for (let i = lines.length - 1; i >= 0; i--) {
-      try {
-        const row = JSON.parse(lines[i]);
-        const raw = row.timestamp || row.ts;
-        if (!raw) continue;
-        const ms = new Date(raw).getTime();
-        if (!Number.isNaN(ms)) {
-          contentMs = ms;
-          break;
-        }
-      } catch {
-        /* skip malformed tail line */
+    fd = fs.openSync(filePath, "r");
+    const size = fs.fstatSync(fd).size;
+    for (let window = TRANSCRIPT_TAIL_BYTES; contentMs == null; window *= 2) {
+      const start = Math.max(0, size - window);
+      const buf = Buffer.alloc(size - start);
+      let got = 0;
+      while (got < buf.length) {
+        const n = fs.readSync(fd, buf, got, buf.length - got, start + got);
+        if (n <= 0) break;
+        got += n;
       }
+      const lines = buf.toString("utf8", 0, got).split(/\n/);
+      // A tail that starts mid-file begins inside a line: drop that fragment.
+      if (start > 0) lines.shift();
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].trim()) continue;
+        try {
+          const row = JSON.parse(lines[i]);
+          const raw = row.timestamp || row.ts;
+          if (!raw) continue;
+          const ms = new Date(raw).getTime();
+          if (!Number.isNaN(ms)) {
+            contentMs = ms;
+            break;
+          }
+        } catch {
+          /* skip malformed tail line */
+        }
+      }
+      if (start === 0) break;
     }
   } catch {
     /* unreadable — fall back to mtime */
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   if (contentMs != null) return contentMs;
@@ -1205,6 +1322,49 @@ function isUnavailableHistoryError(err) {
   );
 }
 
+/**
+ * Versioned origin mark for the logical configured collector, not a physical
+ * machine identity or resolved SSH configuration. The JSON tuple preserves
+ * SSH user/host case and absent port (SSH config may select a non-default port),
+ * and binds both provider homes and the configured identity path without reading
+ * key material. Source ids remain authoritative while registered; only an exact
+ * v2 mark permits orphan re-adoption. Legacy host-only marks fail closed.
+ * Stored as `metadata.origin_host` on every row this source imports.
+ */
+function sourceOriginKey(source) {
+  const collector = JSON.stringify([
+    String(source.host || "").trim(),
+    source.ssh_port ?? null,
+    source.identity_file ?? null,
+    source.remote_home ?? null,
+    source.remote_codex_home ?? null,
+  ]);
+  return `collector-v2:${createHash("sha256").update(collector).digest("hex")}`;
+}
+
+function rowOriginKey(row) {
+  if (!row || !row.metadata) return null;
+  try {
+    const meta = JSON.parse(row.metadata);
+    return meta && typeof meta.origin_host === "string" ? meta.origin_host : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Does `row` belong to this source? Its `source` column says so, or — when the
+ * column fell back to `local` (source deleted without purge, or a crash left the
+ * stamp unwritten) — its recorded v2 origin names the same configured collector. A row pointing at
+ * ANOTHER registered source, and a row with no origin mark, is never ours.
+ */
+function isOwnedBySource(row, source, originKey) {
+  if (!row) return false;
+  const current = row.source || "local";
+  if (current === source.id) return true;
+  return current === "local" && rowOriginKey(row) === originKey;
+}
+
 function summarizeProviderCounters(counters, ids, mirror) {
   return {
     imported: counters.imported || 0,
@@ -1213,16 +1373,44 @@ function summarizeProviderCounters(counters, ids, mirror) {
     errors: counters.errors || 0,
     sessions_seen: counters.sessionsSeen || 0,
     sessions_tagged: ids.length,
+    // Unique main-session ids left out because another source owns them; subagent
+    // files counted apart; the id list is capped (first 50).
+    sessions_excluded: counters.excluded || 0,
+    subagent_files_excluded: counters.excludedSubagentFiles || 0,
+    excluded_ids: (counters.excludedIds || []).slice(0, 50),
     ...(mirror?.titleIndexWarning ? { title_index_warning: mirror.titleIndexWarning } : {}),
   };
 }
 
 async function ingestStagedProvider(dbModule, source, provider, dest, opts = {}) {
   const { stmts } = dbModule;
+  // A network transfer passes its registration snapshot. Direct staging imports
+  // retain their existing helper contract and resolve the registered source when present.
+  if (opts.expectedSource) assertSourceConfiguration(dbModule, opts.expectedSource);
+  source = opts.expectedSource || stmts.getRemoteSource.get(source.id) || source;
+  const originSource = { id: source.id, key: sourceOriginKey(source) };
   const preExisting = new Set();
+  // Ids whose row belongs to a DIFFERENT source (a NULL/empty source is `local`).
+  // The mirror is a copy of another machine's history, not the truth about a
+  // session this dashboard owns: those transcripts are excluded from the import
+  // entirely (events, tokens, snapshot) and never re-tagged to this source.
+  const isExcludedSession = (id) => {
+    if (
+      opts.expectedSource &&
+      !sourceConfigurationMatches(source, stmts.getRemoteSource.get(source.id))
+    )
+      return true;
+    const row = stmts.getSession.get(id);
+    return (
+      !!row &&
+      ((row.provider || "claude") !== provider || !isOwnedBySource(row, source, originSource.key))
+    );
+  };
   try {
     for (const id of stagedSessionIds(dest, provider)) {
-      if (stmts.getSession.get(id)) preExisting.add(id);
+      const row = stmts.getSession.get(id);
+      if (!row) continue;
+      if (!isExcludedSession(id)) preExisting.add(id);
     }
   } catch {
     /* staging dir may not exist yet */
@@ -1234,14 +1422,43 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
       : undefined;
   const counters =
     provider === "codex"
-      ? await importCodexFromDirectory(dest, { onProgress, retainLivePath: false })
-      : await importFromDirectory(dbModule, dest, { onProgress });
+      ? await importCodexFromDirectory(dest, {
+          onProgress,
+          retainLivePath: false,
+          isExcludedSession,
+          originSource,
+        })
+      : await importFromDirectory(dbModule, dest, { onProgress, isExcludedSession, originSource });
 
-  const ids = stagedSessionIds(dest, provider);
+  const ids = [];
   const tag = dbModule.db.transaction((sessionIds) => {
-    for (const id of sessionIds) stmts.setSessionSource.run(source.id, id);
+    for (const id of sessionIds) {
+      const row = stmts.getSession.get(id);
+      if (!row || isExcludedSession(id)) continue;
+      stmts.setSessionSource.run(source.id, id);
+      // Cached legacy rows may never re-enter the parser. Normalize only absent
+      // metadata, preserving object fields and leaving nonempty malformed or
+      // nonobject bytes untouched. CASE guards every JSON operation explicitly.
+      dbModule.db
+        .prepare(
+          `UPDATE sessions SET metadata = json_set(
+            CASE WHEN metadata IS NULL OR trim(metadata) = '' THEN '{}'
+              WHEN json_valid(metadata) THEN
+                CASE WHEN json_type(metadata) = 'object' THEN metadata END
+            END, '$.origin_host', ?)
+          WHERE id = ? AND CASE
+            WHEN metadata IS NULL OR trim(metadata) = '' THEN 1
+            WHEN json_valid(metadata) THEN CASE WHEN json_type(metadata) = 'object'
+              THEN COALESCE(json_extract(metadata, '$.origin_host'), '') != ?
+              ELSE 0 END
+            ELSE 0 END`
+        )
+        .run(originSource.key, id, originSource.key);
+      ids.push(id);
+    }
   });
-  tag(ids);
+  tag(stagedSessionIds(dest, provider));
+  if (opts.expectedSource) assertSourceConfiguration(dbModule, source);
 
   try {
     reconcileRemoteSessionStatus(dbModule, source, dest, opts.broadcast, provider);
@@ -1260,9 +1477,107 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
 
 /** Mirror a provider's remote tree, then ingest the resulting isolated stage. */
 async function importMirroredProvider(dbModule, source, provider, opts = {}) {
+  assertSourceConfiguration(dbModule, source);
   const dest = stagingDir(source.id, provider);
-  const mirror = await mirrorRemoteTree(source, dest, SYNC_TIMEOUT_MS, provider);
-  return ingestStagedProvider(dbModule, source, provider, dest, { ...opts, mirror });
+  const mirror = await mirrorRemoteTree(source, dest, SYNC_TIMEOUT_MS, provider, {
+    beforePublish: () => assertSourceConfiguration(dbModule, source),
+  });
+  return ingestStagedProvider(dbModule, source, provider, dest, {
+    ...opts,
+    mirror,
+    expectedSource: source,
+  });
+}
+
+/** A transfer belongs to its original registration settings, never to a later PATCH. */
+function sourceConfigurationMatches(source, current) {
+  if (!current) return false;
+  return [
+    "id",
+    "host",
+    "ssh_port",
+    "identity_file",
+    "remote_home",
+    "remote_codex_home",
+    "enabled",
+  ].every((key) => (source[key] ?? null) === (current[key] ?? null));
+}
+
+function assertSourceConfiguration(dbModule, source) {
+  if (!sourceConfigurationMatches(source, dbModule.stmts.getRemoteSource.get(source.id))) {
+    const error = new Error(
+      "Remote source configuration changed during sync; retry with its current settings."
+    );
+    error.code = "SOURCE_CHANGED";
+    throw error;
+  }
+}
+
+/** Recover abandoned in-process sync flags without altering the last import receipt. */
+function recoverInterruptedSyncs(dbModule) {
+  const rows = dbModule.db
+    .prepare(
+      "SELECT id FROM remote_sources WHERE status = 'syncing' OR claude_status = 'syncing' OR codex_status = 'syncing'"
+    )
+    .all();
+  const update = dbModule.db.prepare(`UPDATE remote_sources SET
+    status = 'error',
+    claude_status = CASE WHEN claude_status = 'syncing' THEN 'error' ELSE claude_status END,
+    codex_status = CASE WHEN codex_status = 'syncing' THEN 'error' ELSE codex_status END,
+    last_error = COALESCE(last_error, 'Sync interrupted when the monitor stopped; previously imported history is preserved.'),
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`);
+  let changes = 0;
+  for (const row of rows) if (!inFlight.has(row.id)) changes += update.run(row.id).changes;
+  return changes;
+}
+
+/**
+ * Retry startup recovery independently from poller creation. Recovery is
+ * conservative: it only runs after the caller proves exclusive ownership of
+ * the shared data directory, and transient database failures never escape.
+ */
+function startInterruptedSyncRecovery(dbModule, options = {}) {
+  const canRecover = options.canRecover || (() => true);
+  const recover = options.recover || recoverInterruptedSyncs;
+  const schedule = options.schedule || setTimeout;
+  const clearSchedule = options.clearSchedule || clearTimeout;
+  const warn = options.warn || ((message) => console.warn(message));
+  const retryMs = Number.isFinite(options.retryMs) && options.retryMs > 0 ? options.retryMs : 5_000;
+  let stopped = false;
+  let timer = null;
+
+  const retry = () => {
+    if (stopped) return;
+    timer = schedule(attempt, retryMs);
+    if (timer?.unref) timer.unref();
+  };
+  const attempt = () => {
+    if (stopped) return;
+    timer = null;
+    let exclusive = false;
+    try {
+      exclusive = canRecover();
+    } catch {
+      exclusive = false;
+    }
+    if (!exclusive) {
+      retry();
+      return;
+    }
+    try {
+      recover(dbModule);
+    } catch (error) {
+      warn(`interrupted remote sync recovery failed: ${error?.message || error}`);
+      retry();
+    }
+  };
+
+  attempt();
+  return () => {
+    stopped = true;
+    if (timer !== null) clearSchedule(timer);
+    timer = null;
+  };
 }
 
 function sumProviderResults(results) {
@@ -1273,6 +1588,9 @@ function sumProviderResults(results) {
     errors: 0,
     sessions_seen: 0,
     sessions_tagged: 0,
+    sessions_excluded: 0,
+    subagent_files_excluded: 0,
+    excluded_ids: [],
     providers: {},
   };
   for (const provider of REMOTE_PROVIDERS) {
@@ -1289,8 +1607,14 @@ function sumProviderResults(results) {
         "errors",
         "sessions_seen",
         "sessions_tagged",
+        "sessions_excluded",
+        "subagent_files_excluded",
       ]) {
         totals[key] += result.counters[key] || 0;
+      }
+      for (const id of result.counters.excluded_ids || []) {
+        if (totals.excluded_ids.length < 50 && !totals.excluded_ids.includes(id))
+          totals.excluded_ids.push(id);
       }
     } else {
       Object.assign(totals.providers, {
@@ -1314,17 +1638,22 @@ async function syncSource(dbModule, source, opts = {}) {
   inFlight.add(source.id);
 
   const emitStatus = (status, error, providerStates = null, extra = {}) => {
+    const current = stmts.getRemoteSource.get(source.id);
+    if (!sourceConfigurationMatches(source, current)) return;
+    // A retry is not a successful connection: keep the last failure visible
+    // until a completed attempt supplies a new result.
+    const reportedError = status === "syncing" ? current.last_error || null : error || null;
     try {
       if (providerStates) {
         stmts.setRemoteSourceProviderStatus.run(
           status,
-          error || null,
+          reportedError,
           providerStates.claude || null,
           providerStates.codex || null,
           source.id
         );
       } else {
-        stmts.setRemoteSourceStatus.run(status, error || null, source.id);
+        stmts.setRemoteSourceStatus.run(status, reportedError, source.id);
       }
     } catch {
       /* Remote state reporting must never block a future sync retry. */
@@ -1333,7 +1662,7 @@ async function syncSource(dbModule, source, opts = {}) {
       broadcast("remote_source.status", {
         id: source.id,
         status,
-        error: error || null,
+        error: reportedError,
         ...(providerStates ? { providers: providerStates } : {}),
         ...extra,
       });
@@ -1353,11 +1682,15 @@ async function syncSource(dbModule, source, opts = {}) {
         });
         providerStates[provider] = "ok";
       } catch (err) {
+        if (err?.code === "SOURCE_CHANGED") throw err;
         const error = (err?.message || String(err)).slice(0, 500);
         const status = isUnavailableHistoryError(err) ? "unavailable" : "error";
         results[provider] = { provider, status, error, ids: [], preExisting: new Set() };
         providerStates[provider] = status;
       }
+      // Report the completed half immediately instead of leaving both providers
+      // 'syncing' until the other provider's possibly slow transfer finishes.
+      emitStatus("syncing", null, providerStates);
     }
 
     const successful = REMOTE_PROVIDERS.filter((provider) => results[provider]?.status === "ok");
@@ -1370,6 +1703,7 @@ async function syncSource(dbModule, source, opts = {}) {
     }
 
     const now = new Date().toISOString();
+    assertSourceConfiguration(dbModule, source);
     try {
       stmts.setRemoteSourceSyncResult.run(
         "ok",
@@ -1454,6 +1788,8 @@ async function syncAllEnabled(dbModule, opts = {}) {
 }
 
 module.exports = {
+  recoverInterruptedSyncs,
+  startInterruptedSyncRecovery,
   validateSourceInput,
   ValidationError,
   testConnection,
@@ -1473,6 +1809,9 @@ module.exports = {
   mirrorViaWslTar,
   mirrorViaScp,
   mirrorRemoteTree,
+  recoverPublishedTree,
+  publishMirroredTree,
+  sourceConfigurationMatches,
   stagingDir,
   remoteProjectsPath,
   stagedSessionIds,
