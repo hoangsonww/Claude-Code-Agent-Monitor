@@ -1855,6 +1855,12 @@ const stmts = {
   touchSession: db.prepare(
     "UPDATE sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  // Metadata-only transcript synchronization may update names, models, and card previews, but it
+  // is not proof that the remote session is alive. Restore the activity clock after those writes
+  // so inactivity alerts continue to measure real hook activity.
+  restoreSessionUpdatedAt: db.prepare(
+    "UPDATE sessions SET updated_at = ? WHERE id = ? AND updated_at IS NOT ?"
+  ),
   // A healthy remote provider is excluded: its mirror reconciliation owns
   // state, and import cadence is not remote activity. Claude and Codex may be
   // independently present on one SSH source, so use the matching provider
@@ -1928,11 +1934,6 @@ const stmts = {
   ),
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
-  // Accepts tz modifier (e.g. '-420 minutes') to compute local midnight in UTC.
-  // Pattern: shift now→local, truncate to day start, shift back→UTC.
-  countEventsToday: db.prepare(
-    "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
-  ),
 
   stats: db.prepare(`
     SELECT

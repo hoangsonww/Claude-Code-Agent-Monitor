@@ -8,6 +8,89 @@
  * stable across machines and CI.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/pages/__tests__/screens.snapshot.test.tsx`
+ *
+ * Scope
+ * Render snapshot tests for every routed screen. Each page is rendered inside a MemoryRouter with
+ * the API layer mocked to a deterministic loaded-empty state (empty collections + zeroed scalars) so
+ * snapshots capture real structure / layout / i18n without noisy chart DOM or live data. The system
+ * clock and timezone are pinned so any relative/absolute timestamps are stable across machines and
+ * CI.
+ *
+ * Subjects and collaborators
+ * - `../Dashboard` — local module imported by this suite.
+ * - `../KanbanBoard` — local module imported by this suite.
+ * - `../Sessions` — local module imported by this suite.
+ * - `../SessionDetail` — local module imported by this suite.
+ * - `../ActivityFeed` — local module imported by this suite.
+ * - `../Analytics` — local module imported by this suite.
+ * - `../Workflows` — local module imported by this suite.
+ * - `../CcConfig` — local module imported by this suite.
+ * - `../Run` — local module imported by this suite.
+ * - `../Settings` — local module imported by this suite.
+ * - `../NotFound` — local module imported by this suite.
+ * - `../../lib/api` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ * - Only `Date` is faked: the clock is pinned for stable timestamps, while timeout timers remain real
+ *   so `settle()` can flush queued renders.
+ * - Realtime inputs are simulated locally so connection timing and event ordering stay reproducible.
+ * - Snapshots protect deliberate presentation structure and must be reviewed as UI contracts, not
+ *   refreshed blindly.
+ * - Mock boundary: `../../lib/api`.
+ * - Mock boundary: `../../lib/eventBus`.
+ * - Mock boundary: `../../lib/push`.
+ *
+ * Suite groups
+ * - `screen snapshots`
+ *
+ * Protected behavior
+ * - Dashboard
+ * - Dashboard requests task progress for active agent cards
+ * - Kanban board
+ * - Sessions
+ * - Sessions requests and safely renders the transient Codex startup row
+ * - Session detail
+ * - Activity feed
+ * - Analytics
+ * - Workflows
+ * - Claude Config
+ * - Run
+ * - Settings
+ * - scrolls to the section a deep link names
+ * - ignores a malformed hash instead of throwing
+ * - aligns GPT pricing controls with Claude and keeps rate caveats in the tooltip
+ * - Not found
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 // Pin timezone before anything reads it, so date formatting is machine-stable
 // (referenced via globalThis so the browser-targeted tsconfig doesn't need node types).

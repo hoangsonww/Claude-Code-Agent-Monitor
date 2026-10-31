@@ -6,6 +6,68 @@
  * be tunable without rewriting the suite.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/fuzzy.test.ts`
+ *
+ * Scope
+ * Tests the palette's ranking function. The behavior that matters is ordering, not raw scores, so
+ * every assertion compares two candidates against the same query rather than pinning a number — the
+ * weights are meant to be tunable without rewriting the suite.
+ *
+ * Subjects and collaborators
+ * - `../fuzzy` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `fuzzyMatch`
+ * - `fuzzyMatchFields`
+ * - `highlightSegments`
+ *
+ * Protected behavior
+ * - matches an empty query against anything
+ * - matches a subsequence, not only a substring
+ * - returns null when a character is missing
+ * - returns null when the query is longer than the text
+ * - reports the positions that matched, for highlighting
+ * - ranks a prefix above a mid-word hit
+ * - ranks a word-start hit above an interior one
+ * - ranks a contiguous run above a scattered one
+ * - breaks ties toward the shorter, more specific label
+ * - reports offsets into the original text, not the normalized one
+ * - collapses a multi-character folding onto the single source character
+ * - is case-insensitive and diacritic-insensitive
+ * - falls back to secondary fields when the label does not match
+ * - always ranks a label hit above a keyword hit
+ * - returns null when nothing matches
+ * - returns one unmatched run when nothing matched
+ * - splits the text into matched and unmatched runs
+ * - handles matches that are not contiguous
+ * - reassembles to the original text
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, expect, it } from "vitest";
 import { foldText, fuzzyMatch, fuzzyMatchFields, highlightSegments } from "../fuzzy";
