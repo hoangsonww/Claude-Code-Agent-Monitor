@@ -307,6 +307,8 @@ sequenceDiagram
 
 ## State Management
 
+Settings system-info reads share one in-flight request across initial/manual loads, the 10-second poll, and completed remote imports. Individual hook WebSocket events do not trigger full database counts. Hook installation, Codex-home changes, and snapshot-storage changes wait for an older read before requesting fresh info. Responses from an unmounted page are ignored.
+
 The client uses **local component state** and **React hooks** for state management. No global state library (Redux, Zustand) is used to keep the architecture simple. The one small exception is the **data-scope store** (`lib/dataScope.ts`): a lightweight app-wide store holding the current source set (`local` plus any configured [Remote Data Sources](../server/README.md#remote-data-sources)) and product set (`claude`, which includes Claude Code + Cursor, `codex`, or both). Pages append the resulting `?sources=` and `?providers=` parameters to their API requests, so the Settings selector immediately narrows the whole app to the chosen machines and/or agents. Remote sources are managed from the Settings page via the `RemoteSources` component (`components/RemoteSources.tsx`), which configures independent `~/.claude` and `~/.codex` homes, renders provider-specific connection/sync results, drives the `/api/remote-sources` CRUD/test/sync endpoints, and reflects live `remote_source.status` WebSocket updates. A source can be Claude-only, Codex-only, or both; a healthy provider's data keeps refreshing even if its sibling provider is unavailable. Local Cursor discovery uses its Claude-compatible filesystem path and is included by the `claude` product scope. When a sync finishes, stats pages refetch via `lib/remoteDataEvents.ts` (`remote_data.updated`, `remote_source.status` with `ok`, or remote `import.progress` complete).
 
 The Remote Data Sources form names its independent optional overrides **Remote Claude home** and **Remote Codex home**, with `~/.claude` / `~/.codex` defaults and `wsl:~/.claude` / `wsl:~/.codex` placeholders for CLI installs inside WSL.
@@ -1367,3 +1369,5 @@ The client is a production-ready React application with:
 - 🎨 **Maintainable** - Clear architecture, type-safe, well-documented
 
 For server documentation, see [server/README.md](../server/README.md).
+
+Settings coalesces bursts of remote completion notifications into a shared full reload. If another completion arrives during that reload, it performs one follow-up; changing scope or leaving the page cancels queued work. System-info polling continues independently.
