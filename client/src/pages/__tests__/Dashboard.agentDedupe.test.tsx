@@ -7,6 +7,60 @@
  * must hold one card per agent id, showing the freshest status.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/pages/__tests__/Dashboard.agentDedupe.test.tsx`
+ *
+ * Scope
+ * Regression test: the Dashboard fetches the working and waiting agent lanes in two parallel
+ * requests and concatenated the results, so an agent that flipped status between the responses —
+ * routine for Codex, which toggles working/waiting every turn — rendered twice, once per status. The
+ * merged list must hold one card per agent id, showing the freshest status.
+ *
+ * Subjects and collaborators
+ * - `../Dashboard` — local module imported by this suite.
+ * - `../../lib/types` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ * - Network boundaries are replaced with deterministic responses; no test depends on an external
+ *   service.
+ * - Realtime inputs are simulated locally so connection timing and event ordering stay reproducible.
+ * - Mock boundary: `../../lib/api`.
+ * - Mock boundary: `../../lib/eventBus`.
+ *
+ * Suite groups
+ * - `Dashboard - active agent lanes`
+ *
+ * Protected behavior
+ * - renders one card for an agent caught in both the working and waiting lanes
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";

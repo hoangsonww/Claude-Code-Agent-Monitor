@@ -3,6 +3,81 @@
  * @description Unit tests for the formatter module, which provides functions to format various UI components such as boxes, dividers, tables, badges, tool results, key-value pairs, section headers, and progress bars. The tests cover rendering of these components with different inputs and verify that the output contains the expected text and formatting. The tests use Node's built-in test runner and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/formatter.test.ts`
+ *
+ * Scope
+ * Unit tests for the formatter module, which provides functions to format various UI components such
+ * as boxes, dividers, tables, badges, tool results, key-value pairs, section headers, and progress
+ * bars. The tests cover rendering of these components with different inputs and verify that the
+ * output contains the expected text and formatting. The tests use Node's built-in test runner and
+ * assert module for assertions.
+ *
+ * Subjects and collaborators
+ * - `../src/ui/colors.js` — local module imported by this suite.
+ * - `../src/ui/formatter.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `formatter`
+ * - `box()`
+ * - `divider()`
+ * - `table()`
+ * - `badge()`
+ * - `formatToolResult()`
+ * - `formatToolError()`
+ * - `keyValue()`
+ * - `sectionHeader()`
+ * - `progressBar()`
+ *
+ * Protected behavior
+ * - renders a box with title and content
+ * - handles multi-line content
+ * - respects custom width
+ * - renders a horizontal line
+ * - renders header and rows
+ * - handles empty rows
+ * - auto-sizes columns when width not specified
+ * - applies column color functions
+ * - renders known statuses
+ * - renders unknown status with muted style
+ * - formats successful result with name and duration
+ * - handles null data
+ * - handles string data
+ * - truncates very long JSON output
+ * - formats error with name, message, and duration
+ * - renders label-value pairs
+ * - renders section title with diamond icon
+ * - renders 0%
+ * - renders 100%
+ * - renders 50%
+ * - clamps over 100%
+ * - clamps negative to 0%
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

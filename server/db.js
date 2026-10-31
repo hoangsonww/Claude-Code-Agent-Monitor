@@ -1884,6 +1884,12 @@ const stmts = {
   touchSession: db.prepare(
     "UPDATE sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  // Metadata-only transcript synchronization may update names, models, and card previews, but it
+  // is not proof that the remote session is alive. Restore the activity clock after those writes
+  // so inactivity alerts continue to measure real hook activity.
+  restoreSessionUpdatedAt: db.prepare(
+    "UPDATE sessions SET updated_at = ? WHERE id = ? AND updated_at IS NOT ?"
+  ),
   // A healthy remote provider is excluded: its mirror reconciliation owns
   // state, and import cadence is not remote activity. Claude and Codex may be
   // independently present on one SSH source, so use the matching provider
@@ -1957,11 +1963,6 @@ const stmts = {
   ),
   countEvents: db.prepare("SELECT COUNT(*) as count FROM events"),
   countEventsSince: db.prepare("SELECT COUNT(*) as count FROM events WHERE created_at >= ?"),
-  // Accepts tz modifier (e.g. '-420 minutes') to compute local midnight in UTC.
-  // Pattern: shift now→local, truncate to day start, shift back→UTC.
-  countEventsToday: db.prepare(
-    "SELECT COUNT(*) as count FROM events WHERE created_at >= datetime('now', ?, 'start of day', ?)"
-  ),
 
   stats: db.prepare(require("./lib/scoped-stats").GLOBAL_STATS_SQL),
   agentStatusCounts: db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status"),
@@ -2511,15 +2512,15 @@ function readEventPageQuery(page, count) {
   );
 }
 
-function readDashboardStats(sources, providers, toLocal, toUTC) {
+function readDashboardStats(sources, providers, todayStart) {
   if (!queryReader) {
     const scoped = require("./lib/scoped-stats");
     const isScoped = !!sources || !!providers;
     return Promise.resolve({
       ...(isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get()),
       events_today: (isScoped
-        ? scoped.countEventsToday(db, sources, providers, toLocal, toUTC)
-        : stmts.countEventsToday.get(toLocal, toUTC)
+        ? scoped.countEventsToday(db, sources, providers, todayStart)
+        : stmts.countEventsSince.get(todayStart)
       ).count,
       agents_by_status: Object.fromEntries(
         (isScoped
@@ -2535,10 +2536,7 @@ function readDashboardStats(sources, providers, toLocal, toUTC) {
       ),
     });
   }
-  return queryReader.read(
-    { op: "stats", sources, providers, toLocal, toUTC },
-    databaseGeneration(db)
-  );
+  return queryReader.read({ op: "stats", sources, providers, todayStart }, databaseGeneration(db));
 }
 
 module.exports = {

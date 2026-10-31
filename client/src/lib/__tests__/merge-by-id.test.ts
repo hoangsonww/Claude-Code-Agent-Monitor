@@ -4,6 +4,50 @@
  * requests were in flight.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/merge-by-id.test.ts`
+ *
+ * Scope
+ * Behavioral regression suite for `merge-by-id.test.ts`.
+ *
+ * Subjects and collaborators
+ * - `../merge-by-id` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `mergeFreshestById`
+ *
+ * Protected behavior
+ * - keeps one entry per id and prefers the freshest updated_at
+ * - preserves first-appearance order of distinct ids
+ * - falls back to last_activity, then started_at, when updated_at is absent
+ * - keeps the earlier copy when neither carries a usable timestamp
+ * - ignores empty groups and malformed rows
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 import { mergeFreshestById } from "../merge-by-id";
