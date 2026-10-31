@@ -1428,7 +1428,7 @@ Live user actions and the transcript-tail check clear the error; unrelated backg
 
 1. **Drop realtime clients first** — `closeWebSocket()` (`server/websocket.js`) terminates every WebSocket client so their underlying TCP sockets release. Open WS sockets otherwise keep the HTTP server alive.
 2. **`httpServer.close()`** — stop accepting new connections and begin draining in-flight requests.
-3. **`httpServer.closeAllConnections()`** — forcibly drop lingering keep-alive sockets so `close()` actually completes promptly instead of hanging.
+3. **Release lingering sockets** — call `httpServer.closeIdleConnections()` when available, falling back to `closeAllConnections()` on older runtimes, so keep-alive sockets do not hold shutdown open.
 4. **Close SQLite last** — inside the `close()` callback, *after* the HTTP server has drained, then `process.exit(0)`.
 
 Ordering matters: closing the DB before the HTTP server drained made in-flight requests throw `The database connection is not open` (e.g. `routes/agents.js`); leaving WS/keep-alive sockets open stalled shutdown until the 5 s force-exit backstop (the "waiting for graceful termination" hang). A second signal forces an immediate exit.
@@ -1437,7 +1437,7 @@ Ordering matters: closing the DB before the HTTP server drained made in-flight r
 
 ## Performance
 
-Codex card turn totals read only task-start and human-prompt events; unrelated tool events do not contribute. Native thread discovery pushes its existing age cutoff into the read-only query before sorting/materializing rows, retains the 50-row limit and JavaScript validation, and never modifies Codex's database. Title refresh reads identity/name only and returns full session rows for actual changes. The watchdog's Claude-format transcript parser selects Claude/Cursor (including legacy NULL-provider rows); Codex process-liveness handling remains separate and unchanged.
+Codex card turn totals read only task-start and human-prompt events; unrelated tool events do not contribute. Native thread discovery pushes its existing age cutoff into the read-only query before sorting/materializing rows, retains the 50-row limit and JavaScript validation, and never modifies Codex's database. Title refresh reads identity/name only and returns full session rows for actual changes. The watchdog's Claude-format transcript parser selects Claude/Cursor (including legacy NULL-provider rows). Codex process liveness remains separate from transcript parsing: asynchronous probes collect exact open-rollout evidence, fall back conservatively to cwd evidence when exact probing is unavailable, and revalidate session and transcript state before applying a delayed absence decision.
 
 The deferred startup subagent cost repair fills missing metadata on existing native local Claude subagents only. It rechecks session ownership, provider, retained remote origin, and the target inside its write transaction after transcript parsing, preserves other metadata, and yields between files. It creates no agents, events, or session token rows; normal imports retain their full event repair. This avoids replaying historical tool events solely to fill per-agent costs, but does not bound the processing time of a single transcript.
 

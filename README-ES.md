@@ -785,7 +785,7 @@ El coste es una estimación basada en las tarifas API configuradas, no en cargos
 
 ### Instantáneas de costes antes de una actualización
 
-Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV: contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian los Token, el coste, la fuente o el proveedor de una sesión local existente, o si la sesión desaparece; las sesiones remotas y nuevas se informan por separado.
+Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV: contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian los tokens, el coste, la fuente o el proveedor de una sesión local existente, o si la sesión desaparece; las sesiones remotas y nuevas se informan por separado.
 
 ```bash
 node scripts/cost-snapshot.js snapshot --out before.tsv
