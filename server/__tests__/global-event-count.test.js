@@ -10,8 +10,15 @@ const fs = require("node:fs"),
   os = require("node:os"),
   path = require("node:path");
 const { once } = require("node:events");
-const Native = require("better-sqlite3"),
-  Compat = require("../compat-sqlite");
+let Native = null;
+try {
+  const Candidate = require("better-sqlite3");
+  new Candidate(":memory:").close();
+  Native = Candidate;
+} catch {
+  // The native package is optional; the compatibility-driver matrix still runs without it.
+}
+const Compat = require("../compat-sqlite");
 const {
   ensureGlobalEventCount,
   trustedGlobalEventCount,
@@ -45,6 +52,10 @@ for (const [driver, Constructor] of [
   ["native", Native],
   ["compat", Compat],
 ]) {
+  if (!Constructor) {
+    it(`${driver}: optional driver is unavailable`, { skip: "driver not installed" }, () => {});
+    continue;
+  }
   for (const recursive of [0, 1])
     it(`${driver}: insert counts ignore preceding and nested changes, while tainted or missing singleton skips bucket writes (recursion=${recursive})`, (t) => {
       const { db } = fixture(t, Constructor);
@@ -273,7 +284,7 @@ for (const [driver, Constructor] of [
   });
   it(`${driver}: atomic backfill, rollback, cascade, bulk writes and external writers keep exact totals`, async (t) => {
     const { db, file } = fixture(t, Constructor),
-      reader = new Native(file);
+      reader = new Constructor(file);
     reader.exec("BEGIN");
     assert.equal(actual(reader), 3);
     assert.equal(ensureGlobalEventCount(db), true);
@@ -304,7 +315,7 @@ for (const [driver, Constructor] of [
     assert.equal(read(db), actual(db));
     db.exec("DELETE FROM sessions WHERE id='remote'");
     assert.equal(read(db), 201);
-    const writer = new Native(file);
+    const writer = new Constructor(file);
     writer.exec("INSERT INTO events(session_id) VALUES(NULL);DELETE FROM events WHERE id=3");
     writer.close();
     assert.equal(read(db), actual(db));
