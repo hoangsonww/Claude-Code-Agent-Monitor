@@ -742,6 +742,7 @@ Si `ccam` no está en `PATH`, ejecuta `npm link` una vez desde la raíz del repo
 | `npm run import-history`| Importar sesiones heredadas desde `~/.claude/` (también se ejecuta al iniciar la sesión) |
 | `npm run reconcile-tokens`| Actualizar los totales de tokens de las sesiones importadas (nunca reduce un total existente) |
 | `npm run repair-tokens` | Volver a derivar los totales de tokens **ajenos a workflow** de todas las sesiones de **Claude** cuya transcripción siga en disco (localizada en `~/.claude/projects/` o mediante el `transcript_path` guardado de la sesión) y poner a cero las líneas base de compactación; las filas de workflow y de Codex se conservan. Reparación única para bases de datos afectadas por la suma de usage por registro anterior a v2.0.9 o por usage omitido de subagentes planos del mismo modelo. Detén el dashboard primero |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Vista previa de la reparación de salida Codex: el razonamiento ya está incluido en la salida. Detenga el dashboard antes de aplicar `--apply --journal new-backup.json`. No se sobrescriben archivos existentes y se conserva el historial ambiguo. Lee transcripciones normales, gzip y Zstd en streaming. |
 | `DASHBOARD_TOKEN_REPAIR` | Activada de forma predeterminada (`1`). Reparación automática única de los totales históricos de Token afectados por inflación por registro o por subagentes planos omitidos del mismo modelo. Las correcciones en vivo no pueden volver a procesar cada sesión completada y `replaceTokenUsage` no puede reducir una marca máxima anterior. Se ejecuta una vez por base de datos (con marcador, diferida fuera del arranque, omitida si otro dashboard comparte el directorio de datos) y guarda primero las filas antiguas en `token_usage_pre_repair_v2`. Ponlo a `0` para omitirla y reparar a mano con `npm run repair-tokens` |
 | `npm run clear-data` | Eliminar todas las sesiones, agentes, eventos y uso de tokens |
 | `npm run mcp:install` | Instalar dependencias para el paquete MCP local (`mcp/`) |
@@ -779,6 +780,21 @@ Si `ccam` no está en `PATH`, ejecuta `npm link` una vez desde la raíz del repo
 | `npm run docker:full:down` | Desmontar la pila Docker completa |
 
 ---
+
+El coste es una estimación basada en las tarifas API configuradas, no en cargos de suscripción. Dashboard y Settings muestran dólares y céntimos, el ámbito de máquinas/productos y avisos de uso sin tarifa aplicable. Las tarifas Standard/Fast Short/Long de GPT-6.1 Sol siguen la tabla publicada de OpenAI sin sustituir una regla personalizada existente que coincida.
+
+### Instantáneas de costes antes de una actualización
+
+Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV: contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian la entrada, la salida, la lectura de caché, la escritura de caché, la escritura de caché de una hora, la búsqueda web, la obtención web, la ejecución de código o el coste de una sesión local existente; si la propiedad cambia entre local y otra fuente o proveedor; o si desaparece una sesión local. Las sesiones remotas y nuevas se informan por separado.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Actualiza y reinicia CCAM; espera a que termine el mantenimiento de arranque.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. La recuperación de arranque solo se ejecuta cuando los marcadores de actividad por proceso, guardados en el directorio de datos SQLite compartido, demuestran que este es el único panel activo, incluso si los procesos usan valores de `CLAUDE_HOME` distintos; los marcadores ausentes o dañados y la propiedad concurrente aplazan la recuperación. Si la base de datos está ocupada, se reintenta de forma independiente, por lo que un fallo de recuperación no puede desactivar el sondeo remoto. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
 
 ## Extensión de agentes
 

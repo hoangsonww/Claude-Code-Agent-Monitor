@@ -7843,3 +7843,90 @@ Object.assign(window.__WIKI_CONTENT_I18N.es, {
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Intervalo de seguridad para chats/transcripciones de Cursor (ms). El observador incorpora de inmediato el inicio del CLI y los cambios de prompt; <code>0</code> solo desactiva el descubrimiento periódico.",
 });
+
+// Guarded Codex historical output repair.
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "预览 Codex 输出用量修复，不更改数据。应用 <code>--apply --journal new-backup.json</code> 前先停止仪表板。不会覆盖已有文件；有歧义的历史记录保持不变。以流方式读取普通、gzip 和 Zstd 前缀。",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "Xem trước việc sửa lượng đầu ra Codex mà không đổi dữ liệu. Dừng dashboard trước khi áp dụng <code>--apply --journal new-backup.json</code>. Không ghi đè tệp có sẵn; giữ nguyên lịch sử mơ hồ. Đọc phần đầu bản ghi thường, gzip và Zstd theo luồng.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "데이터를 변경하지 않고 Codex 출력 사용량 복구를 미리 확인합니다. <code>--apply --journal new-backup.json</code> 적용 전에 대시보드를 중지하세요. 기존 파일을 덮어쓰지 않고 모호한 기록은 보존합니다. 일반, gzip 및 Zstd 기록의 접두부를 스트리밍으로 읽습니다.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.":
+    "Vista previa de la reparación de salida Codex sin modificar datos. Detenga el dashboard antes de aplicar <code>--apply --journal new-backup.json</code>. No se sobrescriben archivos existentes y se conserva el historial ambiguo. Lee prefijos normales, gzip y Zstd en streaming.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "远程重试会在再次检查时显示上次错误。同步成功后清除；失败时保留先前导入的历史。",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Khi kiểm tra lại nguồn từ xa, lỗi gần nhất vẫn hiển thị. Đồng bộ thành công sẽ xóa lỗi; nếu thất bại, lịch sử đã nhập vẫn được giữ nguyên.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "원격 재시도 중에는 마지막 오류가 계속 표시됩니다. 동기화 성공 시 오류를 지우며, 실패해도 이전에 가져온 기록은 보존됩니다.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.":
+    "Los reintentos remotos muestran el último error mientras vuelven a comprobar. Una sincronización exitosa lo borra; un fallo conserva el historial ya importado.",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.":
+    "在可能重新统计用量的升级前，先创建只读基线；升级并重启 CCAM，等待启动维护完成后，再用新路径创建第二份快照并比较。请妥善保管 TSV 文件，因为其中包含会话标识和归属元数据。如果已有本地会话的输入、输出、缓存读取、缓存写入、一小时缓存写入、Web 搜索、Web 获取、代码执行或成本发生变化；归属在本地与其他来源或提供方之间变更；或本地会话消失，检查命令会以状态码 1 退出。远程会话和新增会话会单独报告。",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.zh, {
+  "Cost snapshots before an upgrade": "升级前的成本快照",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.":
+    "Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu đầu vào, đầu ra, lượt đọc cache, lượt ghi cache, lượt ghi cache một giờ, tìm kiếm web, tải nội dung web, thực thi mã hoặc chi phí của một phiên cục bộ hiện có thay đổi; nếu quyền sở hữu chuyển giữa cục bộ và một nguồn hoặc nhà cung cấp khác; hoặc nếu một phiên cục bộ biến mất. Phiên từ xa và phiên mới được báo cáo riêng.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.vi, {
+  "Cost snapshots before an upgrade": "Ảnh chụp chi phí trước khi nâng cấp",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.":
+    "사용량을 다시 집계할 수 있는 업그레이드 전에 읽기 전용 기준 스냅숏을 만들고, CCAM을 업그레이드해 재시작한 뒤 시작 유지 관리가 끝나면 새 경로에 두 번째 스냅숏을 만들어 비교합니다. TSV 파일에는 세션 ID와 소유권 메타데이터가 포함되므로 비공개로 보관하세요. 기존 로컬 세션의 입력, 출력, 캐시 읽기, 캐시 쓰기, 1시간 캐시 쓰기, 웹 검색, 웹 가져오기, 코드 실행 또는 비용이 바뀌거나, 소유권이 로컬과 다른 source 또는 provider 사이에서 바뀌거나, 로컬 세션이 사라지면 가드가 종료 코드 1을 반환합니다. 원격 세션과 새 세션은 별도로 보고합니다.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.ko, {
+  "Cost snapshots before an upgrade": "업그레이드 전 비용 스냅숏",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, let startup maintenance finish, then capture a second snapshot to a new path and compare them. Keep the TSV files private because they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.":
+    "Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV porque contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian la entrada, la salida, la lectura de caché, la escritura de caché, la escritura de caché de una hora, la búsqueda web, la obtención web, la ejecución de código o el coste de una sesión local existente; si la propiedad cambia entre local y otra fuente o proveedor; o si desaparece una sesión local. Las sesiones remotas y nuevas se informan por separado.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
+  "Cost snapshots before an upgrade": "Instantáneas de costes antes de una actualización",
+});
+
+Object.assign(window.__WIKI_CONTENT_I18N.zh, {
+  "An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller.":
+    "重启后，中断的远程同步会显示为错误，之前的导入记录仍然保留。只有当共享 SQLite 数据目录中的逐进程存活标记证明当前进程是唯一运行中的 Dashboard 时，启动恢复才会执行；即使进程使用不同的 <code>CLAUDE_HOME</code> 值，这些标记也彼此可见。标记缺失、损坏或存在并发归属时会延后恢复。数据库忙时会独立重试，因此恢复不会禁用远程轮询器。",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.vi, {
+  "An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller.":
+    "Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi và kết quả nhập trước đó vẫn được giữ. Khôi phục lúc khởi động chỉ chạy khi các marker liveness theo tiến trình trong thư mục dữ liệu SQLite dùng chung chứng minh đây là dashboard duy nhất còn chạy, kể cả khi các tiến trình dùng giá trị <code>CLAUDE_HOME</code> khác nhau; marker bị thiếu, hỏng hoặc có quyền sở hữu đồng thời sẽ trì hoãn việc khôi phục. Cơ sở dữ liệu bận được thử lại độc lập, nên khôi phục không thể vô hiệu hóa bộ thăm dò nguồn từ xa.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.ko, {
+  "An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller.":
+    "중단된 원격 동기화는 재시작 후 오류로 표시되고 이전 가져오기 결과는 보존됩니다. 시작 복구는 공유 SQLite 데이터 디렉터리 아래의 프로세스별 생존 마커가 현재 프로세스만 실행 중인 Dashboard임을 입증할 때만 실행됩니다. 프로세스가 서로 다른 <code>CLAUDE_HOME</code> 값을 사용해도 같은 마커를 확인하며, 마커가 없거나 손상되었거나 동시 소유자가 있으면 복구를 연기합니다. 데이터베이스가 사용 중이면 독립적으로 재시도하므로 복구가 원격 폴러를 비활성화하지 않습니다.",
+});
+Object.assign(window.__WIKI_CONTENT_I18N.es, {
+  "An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller.":
+    "Una sincronización interrumpida aparece como error tras reiniciar y conserva el resultado de la importación anterior. La recuperación de arranque solo se ejecuta cuando los marcadores de actividad por proceso del directorio de datos SQLite compartido demuestran que este es el único panel activo, incluso si los procesos usan valores de <code>CLAUDE_HOME</code> distintos; los marcadores ausentes o dañados y la propiedad concurrente aplazan la recuperación. Si la base de datos está ocupada, se reintenta de forma independiente, por lo que la recuperación no puede desactivar el sondeo remoto.",
+});

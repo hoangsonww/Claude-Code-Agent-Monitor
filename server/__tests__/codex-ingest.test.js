@@ -27,6 +27,90 @@ const {
   syncCodexStateSessions,
 } = require("../lib/codex-ingest");
 
+it("tool/token appends avoid full prompt history while later prompts still deduplicate and refresh cards", (t) => {
+  const id = "019faabb-1234-7123-8123-123456789abc";
+  const file = path.join(process.env.DASHBOARD_CODEX_HOME, "sessions", `rollout-${id}.jsonl`);
+  t.after(() => {
+    db.prepare("DELETE FROM sessions WHERE id=?").run(id);
+    db.prepare("DELETE FROM codex_ingest_state WHERE transcript_path=?").run(file);
+    db.prepare("DELETE FROM codex_tool_ingest_state WHERE transcript_path=?").run(file);
+    fs.rmSync(file, { force: true });
+  });
+  const add = (type, payload) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, JSON.stringify(record(type, payload)) + "\n");
+  };
+  add("session_meta", { id, cwd: TMP, timestamp: "2026-08-01T12:00:00.000Z" });
+  add("turn_context", { model: "gpt-5.6" });
+  add("event_msg", { type: "user_message", message: "First task" });
+  add("event_msg", { type: "task_started" });
+  ingestCodexTranscript(file);
+  const before = stmts.getSession.get(id);
+  assert.equal(before.card_prompt_preview, "First task");
+  assert.equal(JSON.parse(before.metadata).turn_count, 1);
+
+  add("response_item", {
+    type: "function_call",
+    name: "exec_command",
+    call_id: "lazy-tool",
+    arguments: "{}",
+  });
+  add("event_msg", {
+    type: "token_count",
+    info: {
+      total_token_usage: {
+        input_tokens: 20,
+        cached_input_tokens: 0,
+        cache_write_input_tokens: 0,
+        output_tokens: 5,
+        reasoning_output_tokens: 2,
+      },
+    },
+  });
+  add("event_msg", { type: "task_complete" });
+  const prepare = db.prepare;
+  db.prepare = function (sql) {
+    if (/SELECT\s+created_at,\s*summary\s+FROM events/i.test(sql))
+      throw new Error("Historical prompt read on tool/token-only append");
+    return prepare.call(this, sql);
+  };
+  try {
+    const result = ingestCodexTranscript(file);
+    assert.equal(result.changed, true);
+    assert.ok(result.events.some((event) => event.event_type === "codex_tool_call"));
+    const tokens = stmts.getTokensBySession.all(id);
+    assert.equal(tokens[0].input_tokens, 20);
+    assert.equal(tokens[0].output_tokens, 5);
+    assert.equal(stmts.getSession.get(id).card_prompt_preview, before.card_prompt_preview);
+    assert.equal(JSON.parse(stmts.getSession.get(id).metadata).turn_count, 1);
+    assert.equal(stmts.getAgent.get(`codex:${id}`).status, "waiting");
+    assert.equal(ingestCodexTranscript(file).changed, false);
+  } finally {
+    db.prepare = prepare;
+  }
+
+  add("event_msg", { type: "user_message", message: "Next task" });
+  add("response_item", {
+    type: "message",
+    role: "user",
+    content: [{ type: "input_text", text: "Next task" }],
+  });
+  add("event_msg", { type: "task_started" });
+  ingestCodexTranscript(file);
+  assert.equal(
+    db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM events WHERE session_id=? AND event_type='codex_user_message'"
+      )
+      .get(id).n,
+    2
+  );
+  assert.equal(stmts.getSession.get(id).card_prompt_preview, "First task\nNext task");
+  assert.equal(JSON.parse(stmts.getSession.get(id).metadata).turn_count, 2);
+  assert.equal(stmts.getAgent.get(`codex:${id}`).task, "Next task");
+  assert.equal(stmts.getTokensBySession.all(id)[0].output_tokens, 5);
+});
+
 const SESSION_ID = "019a4ba6-a2b6-75f0-b186-bddd23ae4f2f";
 const ROLLOUT = path.join(
   process.env.DASHBOARD_CODEX_HOME,
@@ -187,7 +271,7 @@ describe("Codex rollout ingestor", () => {
     assert.equal(long.input_tokens, 180_000); // total less cached and cache-write tokens
     assert.equal(long.cache_read_tokens, 100_000);
     assert.equal(long.cache_write_tokens, 20_000);
-    assert.equal(long.output_tokens, 1_250); // output + reasoning output
+    assert.equal(long.output_tokens, 1_000); // reasoning is already included in output
 
     assert.equal(ingestCodexTranscript(ROLLOUT).changed, false, "unchanged bytes must be free");
     assert.equal(
@@ -572,7 +656,7 @@ describe("Codex rollout ingestor", () => {
     const rowsAfterFirst = stmts.getTokensBySession.all(sessionId);
     assert.equal(rowsAfterFirst.length, 1);
     assert.equal(rowsAfterFirst[0].input_tokens, 180_000);
-    assert.equal(rowsAfterFirst[0].output_tokens, 1_250);
+    assert.equal(rowsAfterFirst[0].output_tokens, 1_000);
 
     // A rewritten or resumed rollout can re-open with lower cumulative counters.
     // The regressed snapshot itself must contribute nothing…

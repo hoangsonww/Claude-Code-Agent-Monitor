@@ -747,6 +747,7 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 | `npm run import-history`| `~/.claude/`에서 레거시 세션을 가져옵니다 (시작 시에도 실행됨) |
 | `npm run reconcile-tokens`| 가져온 세션의 토큰 합계를 새로 계산합니다 (기존 합계를 낮추지는 않습니다) |
 | `npm run repair-tokens` | 트랜스크립트가 디스크에 남아 있는 모든 **Claude** 세션(`~/.claude/projects/` 또는 세션에 저장된 `transcript_path` 로 탐색)의 **workflow 가 아닌** 토큰 합계를 다시 도출하고 컨텍스트 압축 baseline 을 0으로 만듭니다. workflow 및 Codex 행은 그대로 유지됩니다. v2.0.9 이전의 레코드 단위 usage 합산 또는 누락된 동일 모델의 평면 서브에이전트 usage 영향을 받은 데이터베이스를 위한 일회성 복구입니다. 먼저 대시보드를 중지하세요 |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Codex 출력 사용량 복구를 미리 확인합니다. 추론 토큰은 이미 출력에 포함됩니다. `--apply --journal new-backup.json` 적용 전에 대시보드를 중지하세요. 기존 파일을 덮어쓰지 않고 모호한 기록은 보존합니다. 일반, gzip 및 Zstd 기록을 스트리밍으로 읽습니다. |
 | `DASHBOARD_TOKEN_REPAIR` | 기본적으로 활성화됩니다(`1`). 레코드 단위 부풀림 또는 누락된 동일 모델의 평면 서브에이전트로 영향을 받은 과거 Token 합계를 일회성으로 자동 복구합니다. 실시간 수정은 완료된 모든 세션을 다시 처리할 수 없고 `replaceTokenUsage` 는 기존 high-water mark 를 낮출 수 없습니다. 데이터베이스당 한 번만 실행되며(마커 기반, 부팅 경로에서 지연, 다른 대시보드가 같은 데이터 디렉터리를 공유하면 건너뜀), 먼저 기존 행을 `token_usage_pre_repair_v2` 로 스냅숏합니다. `0` 으로 설정하면 건너뛰고 `npm run repair-tokens` 로 직접 복구합니다 |
 | `npm run clear-data`    | 모든 세션, 에이전트, 이벤트, 토큰 사용량을 삭제합니다            |
 | `npm run mcp:install`   | 로컬 MCP 패키지(`mcp/`)의 의존성을 설치합니다       |
@@ -784,6 +785,21 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 | `npm run deploy:validate` | Docker, Compose, Nginx, Helm, Kustomize, Terraform, single-writer invariant 검토. 결과는 참고용이며(종료 코드 0), `CCAM_DEPLOY_VALIDATE_STRICT=1`을 설정하면 강제 게이트가 됩니다 |
 
 ---
+
+비용은 설정된 API 요금을 기준으로 한 예상치이며 구독 요금이 아닙니다. Dashboard와 Settings는 센트까지 표시하고 선택한 머신/제품 범위 및 적용 요금이 없는 사용량을 알립니다. GPT-6.1 Sol의 Standard/Fast Short/Long 기본 요금은 OpenAI 공개 요금을 따르며 기존에 일치하는 사용자 규칙을 덮어쓰지 않습니다.
+
+### 업그레이드 전 비용 스냅숏
+
+사용량을 다시 집계할 수 있는 업그레이드 전에 읽기 전용 기준 스냅숏을 만들고, CCAM을 업그레이드해 재시작한 뒤 시작 유지 관리가 끝나면 새 경로에 두 번째 스냅숏을 만들어 비교합니다. TSV 파일에는 세션 ID와 소유권 메타데이터가 포함되므로 비공개로 보관하세요. 기존 로컬 세션의 입력, 출력, 캐시 읽기, 캐시 쓰기, 1시간 캐시 쓰기, 웹 검색, 웹 가져오기, 코드 실행 또는 비용이 바뀌거나, 소유권이 로컬과 다른 source 또는 provider 사이에서 바뀌거나, 로컬 세션이 사라지면 가드가 종료 코드 1을 반환합니다. 원격 세션과 새 세션은 별도로 보고합니다.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# CCAM을 업그레이드하고 재시작한 다음 시작 유지 관리가 끝날 때까지 기다립니다.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+중단된 원격 동기화는 재시작 후 오류로 표시되고 이전 가져오기 결과는 보존됩니다. 시작 복구는 공유 SQLite 데이터 디렉터리 아래의 프로세스별 생존 마커가 현재 프로세스만 실행 중인 Dashboard임을 입증할 때만 실행됩니다. 프로세스가 서로 다른 `CLAUDE_HOME` 값을 사용해도 같은 마커를 확인하며, 마커가 없거나 손상되었거나 동시 소유자가 있으면 복구를 연기합니다. 데이터베이스가 사용 중이면 독립적으로 재시도하므로 복구 실패가 원격 폴러를 비활성화하지 않습니다. 원격 재시도 중에는 마지막 오류가 계속 표시되며, 동기화가 성공하면 지워집니다.
 
 ## 에이전트 확장
 

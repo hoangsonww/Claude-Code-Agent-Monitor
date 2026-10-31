@@ -1818,6 +1818,7 @@
               </tbody>
             </table>
           </div>
+
         </section>
 
         <!-- ─── Quick Start ───────────────────────────────────────────────── -->
@@ -2318,6 +2319,11 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                   <td>Re-derive non-workflow token totals for Claude sessions whose transcripts are still on disk and reset the compaction baselines, preserving workflow and Codex rows. One-time repair for databases inflated by the old per-record usage sum; stop the dashboard before running it</td>
                 </tr>
                 <tr>
+                  <td><code>repair-codex-output</code></td>
+                  <td><code>node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json</code></td>
+                  <td>Preview Codex output repair without changing data. Stop the dashboard before applying with <code>--apply --journal new-backup.json</code>. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd prefixes are streamed.</td>
+                </tr>
+                <tr>
                   <td><code>clear-data</code></td>
                   <td><code>npm run clear-data</code></td>
                   <td>Delete all data from the database (keeps schema)</td>
@@ -2468,6 +2474,31 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               </tbody>
             </table>
           </div>
+
+          <h3>Cost snapshots before an upgrade</h3>
+          <p>
+            Before an upgrade that may recount usage, capture a read-only baseline, upgrade and
+            restart CCAM, let startup maintenance finish, then capture a second snapshot to a new
+            path and compare them. Keep the TSV files private because they contain session
+            identifiers and ownership metadata. The guard exits with status 1 if an existing local
+            session's input, output, cache-read, cache-write, one-hour cache-write, web-search,
+            web-fetch, code-execution, or cost changes; if ownership changes between local and
+            another source or provider; or if a local session disappears. Remote and newly added
+            sessions are reported separately.
+          </p>
+          <div class="code-header"><span class="code-lang">bash</span></div>
+          <pre><code>node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change</code></pre>
+          <p>
+            An interrupted remote sync is shown as an error after restart; its preceding import
+            receipt remains available. Startup recovery runs only when per-process liveness markers
+            under the shared SQLite data directory prove this is the sole live dashboard, even when
+            processes use different <code>CLAUDE_HOME</code> values; missing, malformed, or
+            concurrent ownership defers recovery. A busy database is retried independently, so
+            recovery cannot disable the remote poller.
+          </p>
         </section>
 
         <section id="cli">
@@ -4179,6 +4210,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
         <section id="remote-sources">
           <div class="section-label">◈ Integrations</div>
           <h2>Remote Data Sources</h2>
+          <p>Remote retries keep the last error visible while checking again. A successful sync clears it; a failure preserves previously imported history.</p>
 
           <div class="screenshot-gallery gallery-single">
             <div class="screenshot-card">
@@ -7260,7 +7292,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=112" defer></script>
+    <script src="i18n-content.js?v=116" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

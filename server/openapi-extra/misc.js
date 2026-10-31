@@ -486,6 +486,23 @@ const schemas = {
         description: "Number of imported sessions stamped with this source's id.",
         example: 50,
       },
+      sessions_excluded: {
+        type: "integer",
+        description: "Unique session ids excluded because another source or provider owns them.",
+        example: 2,
+      },
+      subagent_files_excluded: {
+        type: "integer",
+        description:
+          "Subagent files excluded because their parent session belongs to another source or provider.",
+        example: 3,
+      },
+      excluded_ids: {
+        type: "array",
+        maxItems: 50,
+        items: { type: "string" },
+        description: "Up to 50 excluded native session ids; sessions_excluded is the full count.",
+      },
       providers: {
         type: "object",
         description: "Provider-specific import counters and availability state.",

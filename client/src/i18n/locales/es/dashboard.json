@@ -6,7 +6,7 @@
   "activeSubagents": "Subagentes Activos",
   "eventsToday": "Eventos Hoy",
   "totalEvents": "Total de Eventos",
-  "totalCost": "Costo Total",
+  "totalCost": "Coste estimado de API",
   "viewBoard": "Ver Tablero",
   "viewAll": "Ver Todo",
   "activeAgentsSection": "Agentes Activos",
@@ -22,5 +22,9 @@
   "tabs": {
     "monitor": "Monitor",
     "health": "Estado"
-  }
+  },
+  "costEstimate": "Estimación equivalente de API, no cargos de suscripción.",
+  "costScope": "Fuentes: {{sources}} · Productos: {{providers}}",
+  "costIncomplete": "Estimación incompleta: parte del uso no tiene una tarifa aplicable ({{models}}).",
+  "reviewRates": "Revisar precios"
 }

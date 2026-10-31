@@ -776,8 +776,9 @@ export function RemoteSources() {
                         })}
                       </div>
                     )}
-                    {s.status === "error" && s.last_error && (
-                      <div className="text-[11px] text-red-300 mt-1 break-words">
+                    {(s.status === "error" || s.status === "syncing") && s.last_error && (
+                      <div role="status" className="text-[11px] text-red-300 mt-1 break-words">
+                        {s.status === "syncing" && <>{t("remoteSources.retryLastError")} </>}
                         {s.last_error}
                       </div>
                     )}
