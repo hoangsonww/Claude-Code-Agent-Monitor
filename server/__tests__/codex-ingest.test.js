@@ -187,7 +187,7 @@ describe("Codex rollout ingestor", () => {
     assert.equal(long.input_tokens, 180_000); // total less cached and cache-write tokens
     assert.equal(long.cache_read_tokens, 100_000);
     assert.equal(long.cache_write_tokens, 20_000);
-    assert.equal(long.output_tokens, 1_250); // output + reasoning output
+    assert.equal(long.output_tokens, 1_000); // reasoning is already included in output
 
     assert.equal(ingestCodexTranscript(ROLLOUT).changed, false, "unchanged bytes must be free");
     assert.equal(
@@ -572,7 +572,7 @@ describe("Codex rollout ingestor", () => {
     const rowsAfterFirst = stmts.getTokensBySession.all(sessionId);
     assert.equal(rowsAfterFirst.length, 1);
     assert.equal(rowsAfterFirst[0].input_tokens, 180_000);
-    assert.equal(rowsAfterFirst[0].output_tokens, 1_250);
+    assert.equal(rowsAfterFirst[0].output_tokens, 1_000);
 
     // A rewritten or resumed rollout can re-open with lower cumulative counters.
     // The regressed snapshot itself must contribute nothing…

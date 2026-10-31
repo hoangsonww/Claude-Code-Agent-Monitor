@@ -748,6 +748,7 @@ If `ccam` is not on `PATH`, run `npm link` once from the repository root. See [d
 | `npm run import-history`| Import legacy sessions from `~/.claude/` (also runs on startup) |
 | `npm run reconcile-tokens`| Refresh token totals for imported sessions (never lowers a total) |
 | `npm run repair-tokens` | Re-derive **non-workflow** token totals for every **Claude** session with a transcript on disk (found under `~/.claude/projects/` or via the session's stored `transcript_path`) and zero the compaction baselines; workflow and Codex rows are preserved. One-time repair for databases affected by the pre-v2.0.9 per-record usage sum or by omitted same-model flat subagent usage. Stop the dashboard first |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Preview Codex output repair: reasoning is already included in output. Stop the dashboard before applying with `--apply --journal new-backup.json`. Existing files are never overwritten; ambiguous histories are preserved. Plain, gzip and Zstd transcripts are read as streams. |
 | `DASHBOARD_TOKEN_REPAIR` | Enabled by default (`1`). One-time automatic repair of historical token totals affected by per-record inflation or omitted same-model flat subagents. Live fixes cannot revisit every completed session, and `replaceTokenUsage` cannot lower an old high-water mark. Runs once per database (marker-gated, deferred off the boot path, skipped while another dashboard shares the data directory) and snapshots the old rows to `token_usage_pre_repair_v2` first. Set to `0` to skip it and repair manually with `npm run repair-tokens` |
 | `npm run clear-data`    | Delete all sessions, agents, events, and token usage            |
 | `npm run mcp:install`   | Install dependencies for local MCP package (`mcp/`)       |
@@ -788,6 +789,21 @@ If `ccam` is not on `PATH`, run `npm link` once from the repository root. See [d
 | `npm run deploy:validate` | Review Docker, Compose, Nginx, Helm, Kustomize, Terraform, dependency audits, and the one-writer invariant. Findings are advisory (exit 0); `CCAM_DEPLOY_VALIDATE_STRICT=1` turns them into a hard gate |
 
 ---
+
+Cost estimates use configured API rates, not subscription charges. Dashboard and Settings show dollars and cents, the selected machine/product scope, and warnings for usage without applicable rates. GPT-6.1 Sol Standard/Fast Short/Long defaults follow the published OpenAI table without shadowing an existing matching custom rule.
+
+### Cost snapshots before an upgrade
+
+Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, then capture a second snapshot to a new path and compare them. Keep the TSV files private: they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+An interrupted remote sync is shown as an error after restart; its preceding import receipt remains available. Startup recovery runs only when per-process liveness markers under the shared SQLite data directory prove this is the sole live dashboard, even when processes use different `CLAUDE_HOME` values; missing, malformed, or concurrent ownership defers recovery. A busy database is retried independently, so recovery cannot disable the remote poller. Remote retries keep the most recent error visible while checking again; a successful sync clears it.
 
 ## Agent Extensions
 

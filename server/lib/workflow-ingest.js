@@ -36,6 +36,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { isLocalHistoryOwner } = require("./session-origin");
 
 // Lazy-required to avoid a require cycle (import-history → db → … ) and to keep
 // startup cheap; mirrors how server/index.js lazy-requires import helpers.
@@ -278,6 +279,7 @@ function parseWorkflowJournal(journalPath) {
  * inner agent. Returns the upserted workflow row, or null on failure.
  */
 async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
+  if (opts.isExcludedSession?.(sessionId)) return null;
   const { stmts } = dbModule;
   const mainAgentId = `${sessionId}-main`;
   const ih = importHistory();
@@ -339,6 +341,7 @@ async function ingestWorkflowJournal(dbModule, sessionId, journal, opts = {}) {
         }
       }
     }
+    if (opts.isExcludedSession?.(sessionId)) return null;
     try {
       if (parsed) {
         ih.importSubagentFromJsonl(dbModule, sessionId, mainAgentId, parsed);
@@ -412,7 +415,8 @@ function bucketTotal(tokensByModel) {
  * prompt. The fast poll re-runs this as the files grow, so tokens/tools/agents
  * update live. Returns { row, tokens } or null.
  */
-async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, scriptPath) {
+async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, scriptPath, opts = {}) {
+  if (opts.isExcludedSession?.(sessionId)) return null;
   const { stmts } = dbModule;
   const mainAgentId = `${sessionId}-main`;
   const ih = importHistory();
@@ -466,6 +470,7 @@ async function ingestLiveWorkflow(dbModule, sessionId, sessionDir, runId, script
     } catch {
       parsed = null;
     }
+    if (opts.isExcludedSession?.(sessionId)) return null;
     const done = doneResults.has(agentId);
     const state = done ? "done" : "running";
     const aTok = parsed ? bucketTotal(parsed.tokensByModel) : 0;
@@ -641,9 +646,10 @@ function detectRunningWorkflows(dbModule, sessionId, paths, handledRunIds) {
  * @param {{id: string, transcript_path?: string, cwd?: string}} session
  * @returns {Promise<object[]>} the workflow rows that were inserted/updated
  */
-async function ingestWorkflowsForSession(dbModule, session) {
+async function ingestWorkflowsForSession(dbModule, session, opts = {}) {
   const sessionId = session && session.id;
   if (!sessionId) return [];
+  if (opts.isExcludedSession?.(sessionId)) return [];
   const transcriptPath = resolveTranscriptPath(session);
   if (!transcriptPath) return [];
 
@@ -669,6 +675,7 @@ async function ingestWorkflowsForSession(dbModule, session) {
       if (!journal) continue;
       journalRunIds.add(journal.runId);
       const res = await ingestWorkflowJournal(dbModule, sessionId, journal, {
+        isExcludedSession: opts.isExcludedSession,
         sessionDir: paths.sessionDir,
         scriptPath: scriptByRun.get(journal.runId) || null,
       });
@@ -677,6 +684,7 @@ async function ingestWorkflowsForSession(dbModule, session) {
     } catch {
       /* skip malformed journal */
     }
+    if (opts.isExcludedSession?.(sessionId)) return changed;
   }
 
   // Live runs (no terminal journal yet): build real-time progress + tokens from
@@ -690,7 +698,8 @@ async function ingestWorkflowsForSession(dbModule, session) {
         sessionId,
         paths.sessionDir,
         lr.runId,
-        scriptByRun.get(lr.runId) || null
+        scriptByRun.get(lr.runId) || null,
+        opts
       );
       if (res && res.row) {
         changed.push(res.row);
@@ -700,6 +709,7 @@ async function ingestWorkflowsForSession(dbModule, session) {
     } catch {
       /* non-fatal — partial live run */
     }
+    if (opts.isExcludedSession?.(sessionId)) return changed;
   }
 
   try {
@@ -724,9 +734,12 @@ async function ingestWorkflowsForSession(dbModule, session) {
 }
 
 /**
- * One-time backfill: ingest workflow artifacts for every recorded session.
- * Used by the legacy auto-import on first boot so historical completed
- * workflows surface. Idempotent and fail-safe per session.
+ * One-time backfill: ingest workflow artifacts for every session local Claude
+ * history owns. Used by the legacy auto-import on first boot so historical
+ * completed workflows surface. Rows another source owns are left alone: remote
+ * sync ingests their workflows itself, and a stored path that is missing would
+ * otherwise fall back to a same-id local transcript. Idempotent and fail-safe
+ * per session.
  *
  * @returns {Promise<{sessions: number, workflows: number}>}
  */
@@ -734,19 +747,25 @@ async function ingestAllWorkflows(dbModule) {
   const { db } = dbModule;
   let rows = [];
   try {
-    rows = db.prepare("SELECT id, cwd, transcript_path FROM sessions").all();
+    rows = db
+      .prepare("SELECT id, cwd, transcript_path, source, provider, metadata FROM sessions")
+      .all();
   } catch {
     return { sessions: 0, workflows: 0 };
   }
   let sessions = 0;
   let workflows = 0;
+  // The same predicate importAllSessions passes, re-read after each await inside the ingest.
+  const isExcludedSession = (id) =>
+    !isLocalHistoryOwner(dbModule.stmts.getSession.get(id), "claude");
   for (const row of rows) {
+    if (!isLocalHistoryOwner(row, "claude")) continue;
     try {
-      const changed = await ingestWorkflowsForSession(dbModule, {
-        id: row.id,
-        cwd: row.cwd,
-        transcript_path: row.transcript_path,
-      });
+      const changed = await ingestWorkflowsForSession(
+        dbModule,
+        { id: row.id, cwd: row.cwd, transcript_path: row.transcript_path },
+        { isExcludedSession }
+      );
       if (changed.length > 0) {
         sessions++;
         workflows += changed.length;
