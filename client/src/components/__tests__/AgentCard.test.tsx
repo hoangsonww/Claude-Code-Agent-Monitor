@@ -4,6 +4,91 @@
  * Claude Code/Cursor/Codex titles, subtitles, and transcript-derived context.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/__tests__/AgentCard.test.tsx`
+ *
+ * Scope
+ * Unit tests for the AgentCard component, including consistent Claude Code/Cursor/Codex titles,
+ * subtitles, and transcript-derived context.
+ *
+ * Subjects and collaborators
+ * - `../AgentCard` — local module imported by this suite.
+ * - `../../lib/types` — local module imported by this suite.
+ * - `../../lib/format` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ *
+ * Suite groups
+ * - `AgentCard`
+ *
+ * Protected behavior
+ * - should render agent name
+ * - should render status badge
+ * - renders session task progress immediately before the status badge
+ * - keeps task-progress interaction from triggering the card click
+ * - should render subagent_type when present
+ * - should show the subagent's own model from metadata, not the session model (issue #185)
+ * - main agent subtitle shows project + subagent count, with the model only once (#185)
+ * - keeps the full subtitle and a subagent's session name available on hover
+ * - shows a subagent's OWN cost, not the session total (avoids misleading spend)
+ * - shows the session total on a main-agent card
+ * - shows no cost on a subagent card with no recorded usage
+ * - titles a hook-style placeholder with the native session title, tool in the subtitle
+ * - uses the native Claude Code title for an import-style placeholder
+ * - falls back to an untitled label while a native Claude title is unavailable
+ * - uses a native Codex title instead of a bare Codex agent name
+ * - falls back to an untitled label while a native Codex title is unavailable
+ * - uses the session prompt fallback to make an imported renamed Codex card informative
+ * - uses the same compact two-turn session context for a Claude main agent
+ * - should not render a subtitle for a subagent with no type or project
+ * - should render task when present
+ * - should not render task when null
+ * - should render current_tool when present
+ * - should not render current_tool when null
+ * - should apply active border for working agents
+ * - should apply yellow border for waiting agents even without awaiting_input_since
+ * - should not apply active border for completed agents
+ * - should call onClick when clicked
+ * - does not navigate before a transient Codex process has a durable session id
+ * - gives Cursor main cards a native title and an always-visible subtitle
+ * - renders waiting badge and yellow accent when awaiting_input_since is set
+ * - keeps the card badge compact: reason is tooltip-only, no inline chip
+ * - degrades to a plain Waiting badge on an unknown awaiting_reason
+ * - ignores awaiting_input_since once the agent has completed
+ * - should show duration for completed agents with ended_at
+ * - clamps very long titles to three lines and keeps the full title on hover
+ * - leads every provider's main-card subtitle with the tool name
+ * - drops the duplicate session name from a main card's footer but keeps it for subagents
+ * - renders status as a dot with a tooltip label when statusDisplay is dot
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";

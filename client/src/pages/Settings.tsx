@@ -1652,37 +1652,29 @@ export function Settings() {
       const generation = ++costLoadGeneration.current;
       const isCurrent = () => infoMountedRef.current && generation === costLoadGeneration.current;
       try {
-        const [pageRes] = await Promise.allSettled([
-          Promise.all([
-            api.pricing.list(),
-            // The exact total can take longer than the other reads; show it as soon as it lands.
-            api.pricing.totalCost().then((costRes) => {
-              if (isCurrent()) {
-                setTotalCost(costRes.total_cost);
-                setUnpriced(costRes.unpriced_models || []);
-              }
-              return costRes;
-            }),
-            api.settings.claudeHome.get(),
-            api.settings.codexHome.get(),
-          ]),
-          refreshInfo(freshInfo),
+        // System info owns its result and error state. Do not let that slower background read
+        // hold the pricing/home page skeleton open or delay a primary request failure.
+        void refreshInfo(freshInfo).catch(() => {});
+        const [pricingRes, , claudeHomeRes, codexHomeRes] = await Promise.all([
+          api.pricing.list(),
+          // The exact total can take longer than the other reads; show it as soon as it lands.
+          api.pricing.totalCost().then((costRes) => {
+            if (isCurrent()) {
+              setTotalCost(costRes.total_cost);
+              setUnpriced(costRes.unpriced_models || []);
+            }
+            return costRes;
+          }),
+          api.settings.claudeHome.get(),
+          api.settings.codexHome.get(),
         ]);
         if (!isCurrent()) return;
-        if (pageRes.status === "fulfilled") {
-          const [pricingRes, , claudeHomeRes, codexHomeRes] = pageRes.value;
-          setPricing(pricingRes.pricing);
-          setClaudeHomeState(claudeHomeRes.claude_home);
-          setClaudeHomeInput(claudeHomeRes.claude_home);
-          setCodexHomeState(codexHomeRes.codex_home);
-          setCodexHomeInput(codexHomeRes.codex_home);
-        }
-        if (pageRes.status === "rejected") {
-          const reason: unknown = pageRes.reason;
-          setError(reason instanceof Error ? reason.message : t("messages.failedLoad"));
-        } else {
-          setError(null);
-        }
+        setPricing(pricingRes.pricing);
+        setClaudeHomeState(claudeHomeRes.claude_home);
+        setClaudeHomeInput(claudeHomeRes.claude_home);
+        setCodexHomeState(codexHomeRes.codex_home);
+        setCodexHomeInput(codexHomeRes.codex_home);
+        setError(null);
       } catch (err) {
         if (isCurrent()) setError(err instanceof Error ? err.message : t("messages.failedLoad"));
       } finally {

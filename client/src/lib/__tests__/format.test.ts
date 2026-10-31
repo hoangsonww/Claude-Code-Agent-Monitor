@@ -3,6 +3,89 @@
  * @description Unit tests for the format utility functions to ensure correct formatting of durations, time ago, truncation, and locale-aware date/time in the agent dashboard application.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/format.test.ts`
+ *
+ * Scope
+ * Unit tests for the format utility functions to ensure correct formatting of durations, time ago,
+ * truncation, and locale-aware date/time in the agent dashboard application.
+ *
+ * Subjects and collaborators
+ * - `../format` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - Fake timers control debounce, timeout, or interval boundaries; restore real timers during teardown.
+ *
+ * Suite groups
+ * - `formatMs`
+ * - `formatDuration`
+ * - `timeAgo`
+ * - `locale-aware date formatting`
+ * - `truncate`
+ * - `fmt`
+ * - `fmtCost`
+ * - `formatModelName`
+ *
+ * Protected behavior
+ * - should return 0s for negative values
+ * - should return 0s for zero
+ * - should format seconds only
+ * - should format minutes and seconds
+ * - should format hours and minutes
+ * - should truncate sub-second precision
+ * - should compute duration between two ISO strings
+ * - should handle zero duration
+ * - should handle long durations
+ * - should return "just now" for recent times
+ * - should return minutes ago
+ * - should return hours ago
+ * - should return days ago
+ * - should map selected language to the expected locale
+ * - should format date-time using the active locale
+ * - should format time using the active locale
+ * - should return string unchanged when shorter than max
+ * - should return string unchanged when exactly max length
+ * - should truncate and add ellipsis when longer than max
+ * - should handle max of 1
+ * - should handle empty string
+ * - should return raw number below 1000
+ * - should format thousands with K suffix
+ * - should format millions with M suffix
+ * - should format billions with B suffix
+ * - should format small costs with dollar sign
+ * - returns null for falsy input
+ * - formats Claude model names with version dots
+ * - strips date suffixes
+ * - strips -latest suffix
+ * - handles context-window [1m] tag
+ * - formats GPT model names with hyphenated brand-version
+ * - formats Gemini model names
+ * - strips provider prefix
+ * - title-cases unknown models
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import i18n from "i18next";

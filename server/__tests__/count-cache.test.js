@@ -180,64 +180,42 @@ it("older reordered completions cannot replace or clear a newer generation cache
   assert.equal((await readCountQuery(sql)).count, 99);
   assert.equal(reads, 2);
 });
-it("stats scope, timezone calendar day and returned nested figures stay independent", async () => {
+it("stats scope, day boundary and returned nested figures stay independent", async () => {
   reset();
-  const now = Date.now;
-  let clock = Date.UTC(2026, 9, 11, 6, 59, 59);
-  Date.now = () => clock;
-  try {
-    const a = await readDashboardStats(null, null, "-420 minutes", "420 minutes");
-    a.agents_by_status.working = -1;
-    assert.equal(
-      (await readDashboardStats(null, null, "-420 minutes", "420 minutes")).agents_by_status
-        .working,
-      1
-    );
-    assert.equal(reads, 1);
-    await readDashboardStats(["local"], null, "-420 minutes", "420 minutes");
-    assert.equal(reads, 2);
-    clock += 2000;
-    await readDashboardStats(null, null, "-420 minutes", "420 minutes");
-    assert.equal(reads, 3);
-    await readDashboardStats(null, null, "invalid", "420 minutes");
-    await readDashboardStats(null, null, "invalid", "420 minutes");
-    assert.equal(reads, 5);
-  } finally {
-    Date.now = now;
-  }
+  const firstDay = "2026-10-10T07:00:00.000Z";
+  const nextDay = "2026-10-11T07:00:00.000Z";
+  const a = await readDashboardStats(null, null, firstDay);
+  a.agents_by_status.working = -1;
+  assert.equal((await readDashboardStats(null, null, firstDay)).agents_by_status.working, 1);
+  assert.equal(reads, 1);
+  await readDashboardStats(["local"], null, firstDay);
+  assert.equal(reads, 2);
+  await readDashboardStats(null, null, nextDay);
+  assert.equal(reads, 3);
+  await readDashboardStats(null, null, "invalid");
+  await readDashboardStats(null, null, "invalid");
+  assert.equal(reads, 5);
 });
-it("a stats read crossing local midnight is not retained", async () => {
+it("a stats read from the previous local day is not reused for the next day", async () => {
   reset();
-  const now = Date.now;
-  let clock = Date.UTC(2026, 9, 11, 6, 59, 59);
-  Date.now = () => clock;
-  try {
-    let resolve;
-    implementation = () => new Promise((r) => (resolve = r));
-    const p = readDashboardStats(null, null, "-420 minutes", "420 minutes");
-    clock += 2000;
-    resolve({ events_today: 0 });
-    await p;
-    clock -= 2000;
-    implementation = () => Promise.resolve({ events_today: 1 });
-    assert.equal(
-      (await readDashboardStats(null, null, "-420 minutes", "420 minutes")).events_today,
-      1
-    );
-    assert.equal(reads, 2);
-  } finally {
-    Date.now = now;
-  }
+  let resolve;
+  implementation = () => new Promise((r) => (resolve = r));
+  const p = readDashboardStats(null, null, "2026-10-10T07:00:00.000Z");
+  resolve({ events_today: 0 });
+  await p;
+  implementation = () => Promise.resolve({ events_today: 1 });
+  assert.equal((await readDashboardStats(null, null, "2026-10-11T07:00:00.000Z")).events_today, 1);
+  assert.equal(reads, 2);
 });
 it("keeps at most 32 compact keys and bypasses oversized keys and values", async () => {
   reset();
   for (let i = 0; i < 33; i++)
-    await readDashboardStats(["src_" + i], null, "0 minutes", "0 minutes");
-  await readDashboardStats(["src_0"], null, "0 minutes", "0 minutes");
+    await readDashboardStats(["src_" + i], null, "2026-10-10T00:00:00.000Z");
+  await readDashboardStats(["src_0"], null, "2026-10-10T00:00:00.000Z");
   assert.equal(reads, 34);
   const huge = ["x".repeat(5000)];
-  await readDashboardStats(huge, null, "0 minutes", "0 minutes");
-  await readDashboardStats(huge, null, "0 minutes", "0 minutes");
+  await readDashboardStats(huge, null, "2026-10-10T00:00:00.000Z");
+  await readDashboardStats(huge, null, "2026-10-10T00:00:00.000Z");
   assert.equal(reads, 36);
   insert();
   reads = 0;

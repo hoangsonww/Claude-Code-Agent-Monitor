@@ -222,8 +222,7 @@ for (const [driver, Constructor] of [
       op: "stats",
       sources: ["local"],
       providers: ["codex"],
-      toLocal: "-420 minutes",
-      toUTC: "420 minutes",
+      todayStart: "1970-01-01T00:00:00.000Z",
     };
     const started = once(reader, "started"),
       pending = reader.read(query);
@@ -582,7 +581,7 @@ for (const [driver, Constructor] of [
     t.after(() => reader.close());
     for (const query of [
       { op: "get", sql: "SELECT COUNT(*) as count FROM events" },
-      { op: "stats", toLocal: "-420 minutes", toUTC: "420 minutes" },
+      { op: "stats", todayStart: "1970-01-01T00:00:00.000Z" },
     ]) {
       const before = actual(db),
         started = once(reader, "started"),
@@ -596,8 +595,7 @@ for (const [driver, Constructor] of [
       op: "stats",
       sources: ["local"],
       providers: ["codex"],
-      toLocal: "-420 minutes",
-      toUTC: "420 minutes",
+      todayStart: "1970-01-01T00:00:00.000Z",
     });
     assert.equal(
       scoped.total_events,

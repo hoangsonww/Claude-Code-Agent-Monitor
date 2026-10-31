@@ -1,6 +1,6 @@
 {
   "name": "agent-dashboard",
-  "version": "2.3.0",
+  "version": "2.4.5",
   "bin": {
     "ccam": "bin/ccam.js"
   },
@@ -103,6 +103,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "openapi:yaml": "node scripts/generate-openapi-yaml.js",
+    "release:bump": "node scripts/bump-release.js",
     "link-cli": "npm link || node -e \"console.warn('ccam CLI not linked globally (no permission?). Link manually with: npm link')\"",
     "monitoring:install": "npm install --prefix monitoring",
     "monitoring:setup": "npm run monitoring:install",

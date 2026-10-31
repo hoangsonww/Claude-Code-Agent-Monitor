@@ -3,6 +3,58 @@
  * @description Unit tests for Tabby's intent matcher — natural-language queries mapped to dashboard navigation and status intents.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/Tabby/__tests__/intents.test.ts`
+ *
+ * Scope
+ * Unit tests for Tabby's intent matcher — natural-language queries mapped to dashboard navigation
+ * and status intents.
+ *
+ * Subjects and collaborators
+ * - `../intents` — local module imported by this suite.
+ * - `../brain` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `matchIntent`
+ *
+ * Protected behavior
+ * - reports live sessions
+ * - singularizes correctly
+ * - says all quiet when nothing live
+ * - reports errors and prioritizes error intent over live
+ * - clean when no errors
+ * - gives a combined status summary
+ * - reports sessions waiting on the user
+ * - reflects offline in summary
+ * - explains itself on help
+ * - empty query nudges the user
+ * - hands unknown questions to Claude, preserving original casing
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 import { matchIntent } from "../intents";

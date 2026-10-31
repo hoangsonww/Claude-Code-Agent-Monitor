@@ -226,7 +226,8 @@ const paths = {
         "`events_today` is computed in the caller's local day. Pass `tz_offset` as the " +
         "minutes value from JavaScript's `Date.prototype.getTimezoneOffset()` (for example " +
         "`420` for US Pacific Daylight Time, `300` for US Eastern Daylight Time, `0` for " +
-        "UTC). When omitted or non-numeric, the server falls back to UTC (offset 0).",
+        "UTC). When omitted or non-numeric, the server falls back to UTC (offset 0). " +
+        "Pass `day_start` as well to stay exact on daylight saving transition days.",
       parameters: [
         {
           in: "query",
@@ -238,6 +239,16 @@ const paths = {
             "0 (UTC) when omitted or non-numeric.",
           schema: { type: "integer" },
           example: 420,
+        },
+        {
+          in: "query",
+          name: "day_start",
+          description:
+            "The caller's local midnight as an ISO 8601 UTC instant (e.g. " +
+            "`new Date(y, m, d).toISOString()`). When present and parseable it is used as " +
+            "the `events_today` cutoff and `tz_offset` is ignored for that count.",
+          schema: { type: "string", format: "date-time" },
+          example: "2026-03-08T08:00:00.000Z",
         },
         {
           $ref: "#/components/parameters/SourcesQuery",

@@ -411,7 +411,7 @@ for (const [driver, Constructor] of [
           [["local"], ["claude"]],
         ]) {
           const stats = await reader.read(
-            { op: "stats", sources, providers, toLocal: "0 minutes", toUTC: "0 minutes" },
+            { op: "stats", sources, providers, todayStart: "1970-01-01T00:00:00.000Z" },
             databaseGeneration(db)
           );
           const expected =

@@ -3,6 +3,68 @@
  * @description Unit tests for the Sidebar component, which is responsible for rendering the application's sidebar navigation. The tests cover rendering of the brand name, subtitle, navigation links, WebSocket connection status, and version number. The tests use React Testing Library and Vitest for assertions and mocking.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/__tests__/Sidebar.test.tsx`
+ *
+ * Scope
+ * Unit tests for the Sidebar component, which is responsible for rendering the application's sidebar
+ * navigation. The tests cover rendering of the brand name, subtitle, navigation links, WebSocket
+ * connection status, and version number. The tests use React Testing Library and Vitest for
+ * assertions and mocking.
+ *
+ * Subjects and collaborators
+ * - `../Sidebar` — local module imported by this suite.
+ * - `../../i18n` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `userEvent` models complete browser interactions; await it so state updates settle before
+ *   assertions.
+ * - `MemoryRouter` provides deterministic navigation without coupling the suite to browser history.
+ * - Realtime inputs are simulated locally so connection timing and event ordering stay reproducible.
+ *
+ * Suite groups
+ * - `Sidebar`
+ *
+ * Protected behavior
+ * - should render the brand name
+ * - should render the subtitle
+ * - should render all navigation links
+ * - should show "Live" when WebSocket is connected
+ * - should show "Disconnected" when WebSocket is not connected
+ * - should show version number
+ * - should have correct navigation hrefs
+ * - should expose all five languages through the custom dropdown
+ * - should switch to Vietnamese when Vietnamese option is clicked
+ * - should switch to Korean when Korean option is clicked
+ * - should use an icon-only trigger and an unconstrained floating menu when collapsed
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { beforeEach, describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";

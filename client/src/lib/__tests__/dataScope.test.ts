@@ -7,6 +7,60 @@
  * module so the singleton starts clean.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/dataScope.test.ts`
+ *
+ * Scope
+ * Unit tests for the global data-scope store (which source machines and product providers the
+ * dashboard shows). Covers persistence, the localStorage → query-param mapping consumed by the API
+ * layer, subscriber notification, and malformed / empty input handling. Each case re-imports the
+ * module so the singleton starts clean.
+ *
+ * Subjects and collaborators
+ * - The suite exercises behavior exposed directly by its package or test environment.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - Browser storage is test-local state and must be reset so persisted preferences cannot leak between
+ *   cases.
+ *
+ * Suite groups
+ * - `dataScope store`
+ *
+ * Protected behavior
+ * - defaults to scope 'all' (no filter) when nothing is stored
+ * - activeSourcesParam maps each mode correctly
+ * - maps Claude, Codex, and both to the correct global providers filter
+ * - 'selected' with an empty selection degrades to local-only (never empty app)
+ * - persists to localStorage and reloads on next module init
+ * - notifies subscribers on change and stops after unsubscribe
+ * - getScope returns a stable reference between changes (for useSyncExternalStore)
+ * - setScope copies the selected array (no external mutation leaks in)
+ * - tolerates malformed stored JSON and falls back to the default
+ * - sanitizes an unknown mode / non-array selected from storage
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
