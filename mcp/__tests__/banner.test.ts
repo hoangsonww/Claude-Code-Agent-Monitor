@@ -3,6 +3,61 @@
  * @description Unit tests for the banner module, which includes functions for printing the ASCII art banner, server information, ready message, and shutdown message to the console. The tests verify that the banner is printed correctly, that server information includes all expected fields, and that the ready and shutdown messages are displayed as intended. The tests use Node's built-in test framework and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/banner.test.ts`
+ *
+ * Scope
+ * Unit tests for the banner module, which includes functions for printing the ASCII art banner,
+ * server information, ready message, and shutdown message to the console. The tests verify that the
+ * banner is printed correctly, that server information includes all expected fields, and that the
+ * ready and shutdown messages are displayed as intended. The tests use Node's built-in test
+ * framework and assert module for assertions.
+ *
+ * Subjects and collaborators
+ * - `../src/ui/colors.js` — local module imported by this suite.
+ * - `../src/ui/banner.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `banner`
+ * - `printBanner()`
+ * - `printServerInfo()`
+ * - `printReady()`
+ * - `printShutdown()`
+ *
+ * Protected behavior
+ * - outputs ASCII art banner
+ * - outputs multiple lines
+ * - displays all provided info fields
+ * - omits port when not provided
+ * - shows dashboard prerequisite hint
+ * - outputs ready message with transport
+ * - outputs shutdown message
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

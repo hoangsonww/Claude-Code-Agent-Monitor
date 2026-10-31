@@ -279,13 +279,15 @@ export function getServerSnapshot(): ServerSnapshot | null {
 function fetchSnapshotOverHttp(port: number, timeoutMs = 2500): Promise<ServerSnapshot | null> {
   // Server expects tz_offset in minutes (Date#getTimezoneOffset) to compute
   // "events today" against the user's local midnight.
-  const tzOffset = new Date().getTimezoneOffset();
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   return new Promise((resolve) => {
     const req = http.get(
       {
         host: "127.0.0.1",
         port,
-        path: `/api/stats?tz_offset=${tzOffset}`,
+        path: `/api/stats?tz_offset=${tzOffset}&day_start=${encodeURIComponent(dayStart)}`,
         timeout: timeoutMs,
       },
       (res) => {

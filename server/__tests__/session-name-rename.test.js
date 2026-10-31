@@ -208,6 +208,22 @@ describe("hook ingestor — sessions.name sync from transcript", () => {
     });
     assert.equal(stmts.getSession.get(sid).name, "renamed-explicitly");
   });
+
+  it("keeps a custom-title that equals the cwd folder name over the first prompt", async () => {
+    const cwd = "/tmp/cam-name-folder/myrepo";
+    const sid = "12121212-3434-5656-7878-909090909090";
+    const tpath = writeTranscript(cwd, sid, [
+      { type: "user", message: { role: "user", content: "Fix the build errors please" } },
+      { type: "custom-title", customTitle: "myrepo", sessionId: sid },
+    ]);
+    for (let i = 0; i < 2; i++) {
+      await req("POST", "/api/hooks/event", {
+        hook_type: "Stop",
+        data: { session_id: sid, cwd, transcript_path: tpath },
+      });
+      assert.equal(stmts.getSession.get(sid).name, "myrepo");
+    }
+  });
 });
 
 describe("GET /:id/transcript — rename markers", () => {

@@ -3,6 +3,63 @@
  * @description Unit tests for the stdio orphan watcher. Covers the re-parenting predicate (including the regression where a server legitimately launched under an init-like parent, e.g. tini as PID 1 in a container, must not be mistaken for an orphan), the stdin end/close detection paths, single-fire semantics, the hard exit deadline that fires when shutdown hangs, and the stop() escape hatch used by the signal handlers.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/orphan-watch.test.ts`
+ *
+ * Scope
+ * Unit tests for the stdio orphan watcher. Covers the re-parenting predicate (including the
+ * regression where a server legitimately launched under an init-like parent, e.g. tini as PID 1 in a
+ * container, must not be mistaken for an orphan), the stdin end/close detection paths, single-fire
+ * semantics, the hard exit deadline that fires when shutdown hangs, and the stop() escape hatch used
+ * by the signal handlers.
+ *
+ * Subjects and collaborators
+ * - `../src/core/orphan-watch.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `isOrphaned`
+ * - `watchForOrphanedHost`
+ *
+ * Protected behavior
+ * - reports an orphan when the parent pid changed
+ * - does not report an orphan while the startup parent is intact
+ * - does not treat a server born under PID 1 as an orphan
+ * - reports an orphan reparented to a subreaper rather than PID 1
+ * - shuts down and exits when stdin ends
+ * - shuts down when stdin closes
+ * - shuts down when the process is reparented, even with stdin open
+ * - stays up indefinitely for a server whose parent is PID 1 from birth
+ * - fires only once across repeated signals
+ * - exits on the hard deadline when shutdown never settles
+ * - exits after a rejecting shutdown and reports the error
+ * - routes a synchronously throwing shutdown into onShutdownError and still exits
+ * - stop() detaches every listener and the poll without shutting down
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";

@@ -8,6 +8,69 @@
  * tests assert on the oscillators the engine schedules.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/sound.test.ts`
+ *
+ * Scope
+ * Unit tests for the synthesized audio-cue engine: preference defaults and persistence, the
+ * autoplay-policy gate that keeps cues silent until the first user gesture, per-cue and burst rate
+ * limiting, and the `force` escape hatch used by the Settings preview controls. jsdom has no Web
+ * Audio implementation, so a minimal `AudioContext` stub stands in and lets the tests assert on the
+ * oscillators the engine schedules.
+ *
+ * Subjects and collaborators
+ * - The suite exercises behavior exposed directly by its package or test environment.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - Fake timers control debounce, timeout, or interval boundaries; restore real timers during teardown.
+ * - Browser storage is test-local state and must be reset so persisted preferences cannot leak between
+ *   cases.
+ *
+ * Suite groups
+ * - `sound preferences`
+ * - `playCue`
+ * - `installSoundUnlock`
+ *
+ * Protected behavior
+ * - defaults to enabled so cues work out of the box
+ * - merges a partial saved object over the defaults
+ * - falls back to defaults on corrupt storage
+ * - persists updates and clamps the volume into 0-1
+ * - notifies subscribers on change and stops after unsubscribe
+ * - stays silent until a user gesture unlocks audio
+ * - schedules every partial of a cue once unlocked
+ * - respects the master switch and a zero volume
+ * - respects the per-cue preference flag
+ * - throttles repeats of the same cue
+ * - caps a burst of distinct cues
+ * - keeps the interaction tick out of the shared burst budget
+ * - force bypasses the per-cue flag, the throttle, and the gesture gate
+ * - no-ops without breaking when Web Audio is unavailable
+ * - unlocks on the first gesture and cleans up its listeners
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 

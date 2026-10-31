@@ -1,0 +1,416 @@
+# Prepares complete CCAM root-version bump pull requests from one manual input.
+# File mutation lives in scripts/bump-release.js; this workflow owns only the
+# GitHub branch, commit, milestone, release PR, merged-PR backfill,
+# linked-issue, and CI state.
+#
+# Author: Son Nguyen <hoangson091104@gmail.com>
+name: 🔢 Prepare Release Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version component: major=X+1.0.0, intermediate=X.Y+1.0, minor=X.Y.Z+1"
+        type: choice
+        required: true
+        options:
+          - major
+          - intermediate
+          - minor
+      dry_run:
+        description: "Calculate and validate the plan without GitHub writes"
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-bump-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare version bump pull request
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BUMP: ${{ inputs.bump }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Authorize repository owner
+        env:
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          if [ "$ACTOR" != "$OWNER" ] || [ "$TRIGGERING_ACTOR" != "$OWNER" ]; then
+            echo "::error::Only the repository owner may run or rerun release automation"
+            exit 1
+          fi
+
+      - name: Check out the current default branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve release plan
+        id: plan
+        run: |
+          set -euo pipefail
+          PLAN="$(node scripts/bump-release.js "$BUMP" --dry-run --json)"
+          {
+            echo "json=$PLAN"
+            echo "current=$(jq -r .currentVersion <<<"$PLAN")"
+            echo "next=$(jq -r .nextVersion <<<"$PLAN")"
+            echo "branch=$(jq -r .branch <<<"$PLAN")"
+            echo "milestone=$(jq -r .milestone <<<"$PLAN")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write dry-run summary
+        if: ${{ inputs.dry_run }}
+        env:
+          PLAN_JSON: ${{ steps.plan.outputs.json }}
+        run: |
+          {
+            echo "## Release bump dry run"
+            echo
+            echo "- Bump: \`$(jq -r .bump <<<"$PLAN_JSON")\`"
+            echo "- Current: \`$(jq -r .currentVersion <<<"$PLAN_JSON")\`"
+            echo "- Next: \`$(jq -r .nextVersion <<<"$PLAN_JSON")\`"
+            echo "- Branch: \`$(jq -r .branch <<<"$PLAN_JSON")\`"
+            echo "- Milestone: \`$(jq -r .milestone <<<"$PLAN_JSON")\`"
+            echo "- GitHub writes: none"
+            echo
+            echo "### Planned files"
+            jq -r '.files[] | "- `\(.)`"' <<<"$PLAN_JSON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Inspect existing release state
+        if: ${{ !inputs.dry_run }}
+        id: state
+        env:
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          REPO="$GITHUB_REPOSITORY"
+          DEFAULT_HEAD="$(git rev-parse HEAD)"
+          OPEN_PRS="$(gh pr list --repo "$REPO" --state open --head "$BRANCH" --limit 100 --json number,headRefOid,url)"
+          CLOSED_PRS="$(gh pr list --repo "$REPO" --state closed --head "$BRANCH" --limit 100 --json number,url)"
+          OPEN_COUNT="$(jq length <<<"$OPEN_PRS")"
+          CLOSED_COUNT="$(jq length <<<"$CLOSED_PRS")"
+          if [ "$OPEN_COUNT" -gt 1 ]; then
+            echo "::error::Multiple open pull requests use $BRANCH"
+            exit 1
+          fi
+          if [ "$CLOSED_COUNT" -gt 0 ]; then
+            echo "::error::A closed pull request already used $BRANCH; refusing branch reuse"
+            exit 1
+          fi
+          BRANCH_EXISTS=false
+          if gh api "repos/$REPO/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            BRANCH_EXISTS=true
+          fi
+          PR_NUMBER="$(jq -r '.[0].number // empty' <<<"$OPEN_PRS")"
+          if [ -n "$PR_NUMBER" ] && [ "$BRANCH_EXISTS" != true ]; then
+            echo "::error::Open pull request $PR_NUMBER has no matching branch"
+            exit 1
+          fi
+          {
+            echo "repo=$REPO"
+            echo "default_branch=$DEFAULT_BRANCH"
+            echo "default_head=$DEFAULT_HEAD"
+            echo "branch_exists=$BRANCH_EXISTS"
+            echo "pr_number=$PR_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify reusable release branch
+        if: ${{ !inputs.dry_run && steps.state.outputs.branch_exists == 'true' }}
+        env:
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          NEXT_VERSION: ${{ steps.plan.outputs.next }}
+          DEFAULT_HEAD: ${{ steps.state.outputs.default_head }}
+        run: |
+          set -euo pipefail
+          git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+          REMOTE="origin/$BRANCH"
+          RELEASE_BASE="$(git rev-parse "$REMOTE^")"
+          git merge-base --is-ancestor "$RELEASE_BASE" "$DEFAULT_HEAD"
+          [ "$(git rev-list --count "$RELEASE_BASE..$REMOTE")" -eq 1 ]
+          [ "$(git rev-list --count "$DEFAULT_HEAD..$REMOTE")" -eq 1 ]
+          git merge-tree --write-tree "$DEFAULT_HEAD" "$REMOTE" >/dev/null
+          VERSION="$(git show "$REMOTE:package.json" | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')"
+          [ "$VERSION" = "$NEXT_VERSION" ]
+          [ "$(git show -s --format=%s "$REMOTE")" = "chore(release): bump version to $NEXT_VERSION" ]
+          git show -s --format=%B "$REMOTE" | grep -Fx \
+            'Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>'
+
+      - name: Apply, validate, commit, and push the bump
+        if: ${{ !inputs.dry_run && steps.state.outputs.branch_exists != 'true' }}
+        env:
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          CURRENT_VERSION: ${{ steps.plan.outputs.current }}
+          NEXT_VERSION: ${{ steps.plan.outputs.next }}
+        run: |
+          set -euo pipefail
+          git checkout -b "$BRANCH"
+          npm run release:bump -- "$BUMP"
+          npm run deploy:validate
+          npm run verify
+          if git diff --quiet; then
+            echo "::error::Release bump produced no tracked changes"
+            exit 1
+          fi
+          if git status --porcelain | grep -q '^??'; then
+            echo "::error::Release bump produced untracked files"
+            git status --short
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --name-only -z | xargs -0 git add --
+          git diff --cached --check
+          git -c core.hooksPath=/dev/null commit \
+            -m "chore(release): bump version to $NEXT_VERSION" \
+            -m "Automated root release bump from $CURRENT_VERSION to $NEXT_VERSION. Release coordinator: @hoangsonww." \
+            -m "Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>"
+          git log -1 --format=%B | grep -Fx \
+            'Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>'
+          git push origin "HEAD:$BRANCH"
+
+      - name: Create or reuse release milestone
+        if: ${{ !inputs.dry_run }}
+        id: milestone
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          MILESTONE: ${{ steps.plan.outputs.milestone }}
+        run: |
+          set -euo pipefail
+          MATCHES="$(gh api "repos/$REPO/milestones?state=all&per_page=100" \
+            --jq ".[] | select(.title == \"$MILESTONE\") | [.number, .state] | @tsv")"
+          COUNT="$(grep -cve '^$' <<<"$MATCHES" || true)"
+          if [ "$COUNT" -eq 0 ]; then
+            NUMBER="$(gh api --method POST "repos/$REPO/milestones" -f title="$MILESTONE" --jq .number)"
+          elif [ "$COUNT" -eq 1 ] && [ "$(cut -f2 <<<"$MATCHES")" = open ]; then
+            NUMBER="$(cut -f1 <<<"$MATCHES")"
+          else
+            echo "::error::Expected zero or one open milestone named $MILESTONE"
+            printf '%s\n' "$MATCHES"
+            exit 1
+          fi
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Create or reuse release pull request
+        if: ${{ !inputs.dry_run }}
+        id: pull_request
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          DEFAULT_BRANCH: ${{ steps.state.outputs.default_branch }}
+          EXISTING_PR: ${{ steps.state.outputs.pr_number }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          CURRENT_VERSION: ${{ steps.plan.outputs.current }}
+          NEXT_VERSION: ${{ steps.plan.outputs.next }}
+        run: |
+          set -euo pipefail
+          if [ -n "$EXISTING_PR" ]; then
+            PR_NUMBER="$EXISTING_PR"
+          else
+            BODY="$RUNNER_TEMP/release-pr.md"
+            {
+              echo "## Summary"
+              echo
+              echo "Automated CCAM root release bump from \`$CURRENT_VERSION\` to \`$NEXT_VERSION\` using the \`$BUMP\` component."
+              echo
+              echo "- Synchronizes packages, OpenAPI, deployment metadata, desktop metadata, public metadata, and generated plugin catalogs."
+              echo "- Preserves the independent client, MCP, monitoring, and VS Code extension package versions."
+              echo "- Release coordinator: @hoangsonww"
+              echo "- Existing master CI creates the tag and GitHub Release only after this PR is reviewed and merged."
+              echo
+              echo "## Validation"
+              echo
+              echo "- Release version consistency"
+              echo "- Extension validation"
+              echo "- CLI version check"
+              echo "- Deployment validation"
+              echo "- Full repository verification"
+            } > "$BODY"
+            gh pr create --repo "$REPO" --base "$DEFAULT_BRANCH" --head "$BRANCH" \
+              --title "chore(release): bump version to $NEXT_VERSION" --body-file "$BODY"
+            PR_NUMBER="$(gh pr view "$BRANCH" --repo "$REPO" --json number --jq .number)"
+          fi
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Backfill milestone on unmilestoned merged pull requests
+        if: ${{ !inputs.dry_run }}
+        id: merged_pull_requests
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          DEFAULT_BRANCH: ${{ steps.state.outputs.default_branch }}
+          MILESTONE_NUMBER: ${{ steps.milestone.outputs.number }}
+        run: |
+          set -euo pipefail
+          list_unmilestoned() {
+            gh api --paginate --method GET "repos/$REPO/pulls" \
+              -f state=closed -f base="$DEFAULT_BRANCH" -F per_page=100 \
+              -f sort=created -f direction=asc \
+              --jq '.[] | select(.merged_at != null and .milestone == null) | .number'
+          }
+
+          CANDIDATES="$RUNNER_TEMP/release-unmilestoned-pulls.txt"
+          list_unmilestoned > "$CANDIDATES"
+
+          ASSIGNED_PRS=()
+          while read -r MERGED_PR; do
+            [ -z "$MERGED_PR" ] && continue
+            CURRENT_MILESTONE="$(gh pr view "$MERGED_PR" --repo "$REPO" --json milestone --jq '.milestone.number // 0')"
+            [ "$CURRENT_MILESTONE" != 0 ] && continue
+            gh api --method PATCH "repos/$REPO/issues/$MERGED_PR" \
+              -F milestone="$MILESTONE_NUMBER" >/dev/null
+            ASSIGNED_PRS+=("$MERGED_PR")
+          done < "$CANDIDATES"
+          for MERGED_PR in "${ASSIGNED_PRS[@]}"; do
+            [ "$(gh pr view "$MERGED_PR" --repo "$REPO" --json milestone --jq '.milestone.number // 0')" = "$MILESTONE_NUMBER" ]
+          done
+
+          REMAINING_UNASSIGNED="$(list_unmilestoned)"
+          if [ -n "$REMAINING_UNASSIGNED" ]; then
+            echo "::error::Merged pull requests still have no milestone after backfill"
+            while read -r MERGED_PR; do
+              printf '#%s\n' "$MERGED_PR"
+            done <<< "$REMAINING_UNASSIGNED"
+            exit 1
+          fi
+
+          ASSIGNED_COUNT="${#ASSIGNED_PRS[@]}"
+          ASSIGNED_NUMBERS="$(IFS=,; echo "${ASSIGNED_PRS[*]}")"
+
+          {
+            echo "assigned_count=$ASSIGNED_COUNT"
+            echo "assigned_numbers=$ASSIGNED_NUMBERS"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Assign and verify release bookkeeping
+        if: ${{ !inputs.dry_run }}
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+          MILESTONE_NUMBER: ${{ steps.milestone.outputs.number }}
+          MILESTONE: ${{ steps.plan.outputs.milestone }}
+        run: |
+          set -euo pipefail
+          OWNER="${REPO%%/*}"
+          NAME="${REPO#*/}"
+          QUERY='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){closingIssuesReferences(first:100){nodes{number repository{nameWithOwner}}}}}}'
+          ISSUES="$(gh api graphql -f query="$QUERY" -F owner="$OWNER" -F name="$NAME" -F number="$PR_NUMBER")"
+          CROSS_REPO="$(jq -r --arg repo "$REPO" '.data.repository.pullRequest.closingIssuesReferences.nodes[] | select(.repository.nameWithOwner != $repo) | "\(.repository.nameWithOwner)#\(.number)"' <<<"$ISSUES")"
+          if [ -n "$CROSS_REPO" ]; then
+            echo "::error::Release PR closes cross-repository issues, which cannot share this milestone"
+            printf '%s\n' "$CROSS_REPO"
+            exit 1
+          fi
+          PR_JSON="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title,body,headRefName,files,labels)"
+          LABEL_PLAN="$(
+            PR_JSON="$PR_JSON" node <<'NODE'
+          const rules = require("./.github/scripts/label-rules.js");
+          const pr = JSON.parse(process.env.PR_JSON);
+          const files = pr.files.map((file) => ({
+            filename: file.path,
+            additions: file.additions,
+            deletions: file.deletions,
+          }));
+          const desired = rules.computeLabels({
+            kind: "pull_request",
+            title: pr.title,
+            body: pr.body || "",
+            branch: pr.headRefName,
+            files,
+          });
+          const current = pr.labels.map((label) => label.name);
+          process.stdout.write(JSON.stringify({ desired, ...rules.reconcile(current, desired) }));
+          NODE
+          )"
+          EXPECTED_LABELS_JSON="$(jq -c .desired <<<"$LABEL_PLAN")"
+
+          gh api --method PATCH "repos/$REPO/issues/$PR_NUMBER" \
+            -F milestone="$MILESTONE_NUMBER" >/dev/null
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-assignee "$OWNER"
+          jq -r '.add[]' <<<"$LABEL_PLAN" | while read -r LABEL; do
+            [ -z "$LABEL" ] || gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
+          done
+          jq -r '.remove[]' <<<"$LABEL_PLAN" | while read -r LABEL; do
+            [ -z "$LABEL" ] || gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL"
+          done
+          jq -r '.data.repository.pullRequest.closingIssuesReferences.nodes[].number' <<<"$ISSUES" |
+            while read -r ISSUE; do
+              [ -z "$ISSUE" ] || gh api --method PATCH "repos/$REPO/issues/$ISSUE" \
+                -F milestone="$MILESTONE_NUMBER" >/dev/null
+            done
+          PR_METADATA="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json assignees,labels,milestone)"
+          [ "$(jq -r .milestone.number <<<"$PR_METADATA")" = "$MILESTONE_NUMBER" ]
+          jq -e --arg owner "$OWNER" 'any(.assignees[]; .login == $owner)' <<<"$PR_METADATA" >/dev/null
+          jq -e --argjson expected "$EXPECTED_LABELS_JSON" \
+            '[.labels[].name] as $actual | all($expected[]; . as $label | ($actual | index($label)) != null)' \
+            <<<"$PR_METADATA" >/dev/null
+          jq -r '.data.repository.pullRequest.closingIssuesReferences.nodes[].number' <<<"$ISSUES" |
+            while read -r ISSUE; do
+              [ -z "$ISSUE" ] || [ "$(gh issue view "$ISSUE" --repo "$REPO" --json milestone --jq '.milestone.number // 0')" = "$MILESTONE_NUMBER" ]
+            done
+
+      - name: Dispatch required checks for the release branch
+        if: ${{ !inputs.dry_run }}
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          DEFAULT_HEAD: ${{ steps.state.outputs.default_head }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+        run: |
+          set -euo pipefail
+          HEAD_SHA="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid --jq .headRefOid)"
+          gh workflow run ci.yml --ref "$BRANCH" --repo "$REPO"
+          gh workflow run file-headers.yml --ref "$BRANCH" --repo "$REPO" \
+            -f base_sha="$DEFAULT_HEAD" -f head_sha="$HEAD_SHA"
+          gh workflow run cla.yml --ref "$BRANCH" --repo "$REPO" \
+            -f pull_request_number="$PR_NUMBER"
+
+      - name: Write completion summary
+        if: ${{ !inputs.dry_run }}
+        env:
+          REPO: ${{ steps.state.outputs.repo }}
+          PR_NUMBER: ${{ steps.pull_request.outputs.number }}
+          NEXT_VERSION: ${{ steps.plan.outputs.next }}
+          BRANCH: ${{ steps.plan.outputs.branch }}
+          MILESTONE: ${{ steps.plan.outputs.milestone }}
+          MERGED_PR_COUNT: ${{ steps.merged_pull_requests.outputs.assigned_count }}
+          MERGED_PR_NUMBERS: ${{ steps.merged_pull_requests.outputs.assigned_numbers }}
+        run: |
+          URL="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json url --jq .url)"
+          {
+            echo "## Release bump prepared"
+            echo
+            echo "- Version: \`$NEXT_VERSION\`"
+            echo "- Branch: \`$BRANCH\`"
+            echo "- Milestone: \`$MILESTONE\`"
+            echo "- Pull request: $URL"
+            if [ "$MERGED_PR_COUNT" -eq 0 ]; then
+              echo "- Previously unmilestoned merged pull requests assigned: none"
+            else
+              echo "- Previously unmilestoned merged pull requests assigned: #${MERGED_PR_NUMBERS//,/, #}"
+            fi
+            echo "- Required checks: CI, file headers, and CLA explicitly dispatched"
+            echo "- Merge and tag: not performed"
+          } >> "$GITHUB_STEP_SUMMARY"

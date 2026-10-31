@@ -3,6 +3,70 @@
  * @description Unit tests for the colors module, which provides functions for styling console output with ANSI escape codes. The tests cover the stripAnsi function for removing ANSI codes from strings, the existence and functionality of various style functions (e.g., bold, red, bgBlue), and the composable styles like success, error, warn, info, muted, highlight, label, and accent. The tests also verify that the fg256 and bg256 functions return functions that correctly wrap text with the specified 256-color codes. The tests use Node's built-in test framework and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/colors.test.ts`
+ *
+ * Scope
+ * Unit tests for the colors module, which provides functions for styling console output with ANSI
+ * escape codes. The tests cover the stripAnsi function for removing ANSI codes from strings, the
+ * existence and functionality of various style functions (e.g., bold, red, bgBlue), and the
+ * composable styles like success, error, warn, info, muted, highlight, label, and accent. The tests
+ * also verify that the fg256 and bg256 functions return functions that correctly wrap text with the
+ * specified 256-color codes. The tests use Node's built-in test framework and assert module for
+ * assertions.
+ *
+ * Subjects and collaborators
+ * - `../src/ui/colors.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ *
+ * Suite groups
+ * - `colors`
+ * - `stripAnsi`
+ * - `style functions exist and are callable`
+ * - `composable styles`
+ * - `fg256 and bg256`
+ *
+ * Protected behavior
+ * - removes ANSI escape codes
+ * - returns plain text unchanged
+ * - handles empty string
+ * - handles multiple escape sequences
+ * - ${name}() returns a string
+ * - success() wraps text
+ * - error() wraps text
+ * - warn() wraps text
+ * - info() wraps text
+ * - muted() wraps text
+ * - highlight() wraps text
+ * - label() wraps text
+ * - accent() wraps text
+ * - fg256 returns a function that wraps text
+ * - bg256 returns a function that wraps text
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

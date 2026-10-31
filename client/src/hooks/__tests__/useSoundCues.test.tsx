@@ -7,6 +7,66 @@
  * the assertions are about routing, not synthesis.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/hooks/__tests__/useSoundCues.test.tsx`
+ *
+ * Scope
+ * Tests the event-bus → audio-cue mapping performed by `useSoundCues`: which WebSocket message types
+ * produce which cue, the delegated interaction tick (including its disabled-control guard), and that
+ * unmounting tears every subscription down. The `lib/sound` module is mocked so the assertions are
+ * about routing, not synthesis.
+ *
+ * Subjects and collaborators
+ * - `../../lib/eventBus` — local module imported by this suite.
+ * - `../useSoundCues` — local module imported by this suite.
+ * - `../../lib/sound` — local module imported by this suite.
+ * - `../../lib/types` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `renderHook` isolates hook state while preserving React effect and cleanup semantics.
+ * - Realtime inputs are simulated locally so connection timing and event ordering stay reproducible.
+ * - Mock boundary: `../../lib/sound`.
+ *
+ * Suite groups
+ * - `useSoundCues`
+ *
+ * Protected behavior
+ * - maps session and event messages to their cues
+ * - ignores messages that are not cue-worthy
+ * - plays connection cues on socket transitions
+ * - ticks on interactive controls but not on plain content
+ * - unlocks audio before the first tick, since the handler captures
+ * - plays the error cue on the transition into error, not on every update
+ * - stays silent for disabled controls
+ * - unsubscribes everything on unmount
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";

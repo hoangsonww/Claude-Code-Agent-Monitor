@@ -126,7 +126,7 @@
             "applicationCategory": "DeveloperApplication",
             "applicationSubCategory": "Monitoring and observability",
             "operatingSystem": "macOS, Windows, Linux",
-            "softwareVersion": "2.3.0",
+            "softwareVersion": "2.4.5",
             "license": "https://opensource.org/licenses/MIT",
             "isAccessibleForFree": true,
             "image": "https://hoangsonww.github.io/Claude-Code-Agent-Monitor/og-image.png",
@@ -1236,7 +1236,7 @@
                   <div class="feature-icon ic-blue">📤</div>
                   <h3>Remote Push Ingestion</h3>
                   <p>
-                    Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>POST /api/hooks/ingest-batch</code> takes one batch of token buckets (each a full current total, not a delta), tool events, and turn durations. It is the only route meant to face the public internet, so it stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> rather than leak a credential into a proxy log, caps a batch at 1000 items, and refuses a session a local or SSH-pulled run already owns.
+                    Some machines SSH can never reach — a roaming laptop behind NAT, a CGNAT'd home line. Those push instead: <code>ingest-batch</code> sends full token buckets, tool events, and turn durations, while <code>ingest-transcript</code> appends offset-checked main and subagent JSONL for titles, history, and import. Both public routes stay disabled until <code>REMOTE_PUSH_TOKEN</code> or <code>REMOTE_PUSH_TOKEN_FILE</code> is configured, reject <code>?token=</code>, and refuse sessions owned by local or SSH-pulled runs; <code>ingest-transcript</code> authenticates before its larger body parser. Batches cap at 1000 items; transcripts cap at 4 MiB per chunk and 256 MiB per file by default.
                   </p>
                 </div>
                 <div class="feature-card">
@@ -2099,7 +2099,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>REMOTE_PUSH_TOKEN</code> / <code>_FILE</code></td>
                   <td><code>(unset)</code></td>
-                  <td>Separate token gating <code>POST /api/hooks/ingest-batch</code>, the public-internet remote-push route. Unset, that route answers <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect</td>
+                  <td>Separate token gating the public-internet <code>POST /api/hooks/ingest-batch</code> and <code>/api/hooks/ingest-transcript</code> remote-push routes. Unset, both answer <code>503 REMOTE_PUSH_NOT_CONFIGURED</code>. Deliberately independent of <code>DASHBOARD_HOOK_TOKEN</code>, so hardening the loopback routes never opens an internet-writable endpoint as a side effect</td>
+                </tr>
+                <tr>
+                  <td><code>REMOTE_TRANSCRIPT_MAX_FILE_MB</code></td>
+                  <td><code>256</code></td>
+                  <td>Maximum stored size in MiB for each file accepted by <code>ingest-transcript</code>; each request chunk is capped separately at 4 MiB</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_ENV_PATH</code></td>
@@ -3535,7 +3540,14 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               <span class="method method-post">POST</span>
               <span class="route-path">/api/hooks/ingest-batch</span>
               <span class="route-desc"
-                >Remote push: the third session-data ingestion path, for a roaming or NAT'd machine the dashboard can never reach to pull FROM. One batch carries token buckets (each entry a bucket's full current total, not a delta), tool events, and turn durations, stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The only route meant to be reachable from the public internet, so it is disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code> so the credential never reaches a proxy log, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code> so a resend is safe, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session</span
+                >Remote push metadata for a roaming or NAT'd machine the dashboard cannot pull from. Each batch carries full token buckets, tool events, and turn durations stored as <code>RemoteToolEvent</code> / <code>RemoteTurn</code>. The public route stays disabled until <code>REMOTE_PUSH_TOKEN</code> is set, rejects <code>?token=</code>, caps a batch at 1000 items, dedups on <code>(session_id, event_type, uuid)</code>, and refuses a <code>session_id</code> already owned by a local or SSH-pulled session</span
+              >
+            </div>
+            <div class="route-item">
+              <span class="method method-post">POST</span>
+              <span class="route-path">/api/hooks/ingest-transcript</span>
+              <span class="route-desc"
+                >Append a registered remote-push Claude session's main or subagent JSONL in offset-checked chunks. Authentication runs before the 8 MiB parser; canonical path checks and no-follow opening block symlink escapes; chunks cap at 4 MiB and files at <code>REMOTE_TRANSCRIPT_MAX_FILE_MB</code> (default 256). On the final chunk, <code>sync: true</code> refreshes transcript-derived metadata and subagents without creating a feed event or moving the inactivity clock</span
               >
             </div>
           </div>
@@ -7249,7 +7261,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=111" defer></script>
+    <script src="i18n-content.js?v=113" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

@@ -3,6 +3,63 @@
  * @description End-to-end regression tests for Streamable HTTP session tracking. These start a real listener because the defect they guard against was in the wiring rather than in any pure helper: the session id handed to the client in the `mcp-session-id` response header must be the key the server tracks the transport under, so every follow-up request routes back to the same session instead of falling through to "Bad Request: No valid session or initialization". Also covers session release on DELETE, rejection of unknown session ids, and the legacy SSE endpoint continuing to hand out its own session.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `mcp/__tests__/http-session.test.ts`
+ *
+ * Scope
+ * End-to-end regression tests for Streamable HTTP session tracking. These start a real listener
+ * because the defect they guard against was in the wiring rather than in any pure helper: the
+ * session id handed to the client in the `mcp-session-id` response header must be the key the server
+ * tracks the transport under, so every follow-up request routes back to the same session instead of
+ * falling through to "Bad Request: No valid session or initialization". Also covers session release
+ * on DELETE, rejection of unknown session ids, and the legacy SSE endpoint continuing to hand out
+ * its own session.
+ *
+ * Subjects and collaborators
+ * - `../src/config/app-config.js` — local module imported by this suite.
+ * - `../src/core/logger.js` — local module imported by this suite.
+ * - `../src/clients/dashboard-api-client.js` — local module imported by this suite.
+ * - `../src/server.js` — local module imported by this suite.
+ * - `../src/transports/http-server.js` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Node's built-in test runner supplies suite lifecycle and isolation; `node:assert/strict` keeps
+ *   equality and failure semantics explicit. Every case must be order-independent.
+ * - Network boundaries are replaced with deterministic responses; no test depends on an external
+ *   service.
+ *
+ * Suite groups
+ * - `Streamable HTTP session tracking`
+ *
+ * Protected behavior
+ * - tracks the session under the id it returns to the client
+ * - counts exactly one active session per handshake and releases it on DELETE
+ * - rejects an unknown session id
+ * - reaps a session abandoned without DELETE
+ * - leaves an active session alone
+ * - still serves the legacy SSE endpoint its own session
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep MCP assertions aligned with tool schemas and JSON-RPC error semantics; transport failures must
+ *   stay diagnosable.
+ *
+ * Verification
+ * - Run `npm run test:mcp`, `npm run mcp:typecheck`, and `npm run mcp:build` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import assert from "node:assert/strict";
 import net from "node:net";

@@ -14,6 +14,22 @@ Apply Semantic Versioning across CCAM:
 Choose the highest applicable category. If the boundary is ambiguous, prefer the higher bump or ask before release. Do not classify from diff size or commit count alone.
 An explicit user-requested version takes precedence over automatic classification. Record the override, synchronize that exact version, and do not silently substitute a different patch, minor, or major number.
 
+## Automated release preparation
+
+Use the manual **Prepare Release Bump** workflow for routine releases. Its repository-specific input names are intentionally different from standard SemVer labels:
+
+- `major` increments the first component: `X.Y.Z` to `X+1.0.0`.
+- `intermediate` increments the standard SemVer minor component: `X.Y.Z` to `X.Y+1.0`.
+- `minor` increments the standard SemVer patch component: `X.Y.Z` to `X.Y.Z+1`.
+
+Preview the exact plan locally without writes:
+
+```bash
+node scripts/bump-release.js intermediate --dry-run --json
+```
+
+The workflow creates one branch, one coordinated commit, the exact open milestone, and one pull request. Every automation-created commit ends with `Co-authored-by: hoangsonww <124531104+hoangsonww@users.noreply.github.com>`. It requires the repository setting **Allow GitHub Actions to create and approve pull requests**, checks that prerequisite before remote writes, and keeps default workflow permissions read-only. It explicitly dispatches CI, file-header, and CLA checks because repository-token PR creation does not emit secondary workflow events. It never merges, force-pushes, tags, or publishes. Existing default-branch CI publishes only after a maintainer merges the PR.
+
 ## Workflow
 
 - Explain the chosen bump from the current root version.
@@ -25,6 +41,7 @@ An explicit user-requested version takes precedence over automatic classificatio
 - Run `npm run extensions:sync` to regenerate Claude/Codex plugin manifests and both marketplaces.
 - Keep independently shipped client/MCP/monitoring/VS Code package versions unchanged unless explicitly included.
 - Create or reuse the exact open GitHub milestone `v<version>` for the new root version. Query all milestones first. If the exact title already exists closed or more than once, stop and resolve that release state instead of creating a duplicate.
+- Only after the new-version milestone step completes, paginate every pull request merged into the default branch and assign its returned numeric milestone ID to each PR with no milestone, including older omissions from earlier releases. Preserve every existing milestone assignment, verify each write with a fresh read, and fail if a final paginated query finds any merged PR still unmilestoned.
 - Assign the current open pull request containing the bump to `v<version>`. Read its `closingIssuesReferences` and assign every linked closing issue to the same milestone. If no PR exists yet, leave this step explicitly incomplete until the PR is created.
 - Verify the PR and every linked issue report the expected milestone with fresh GitHub reads.
 - Run `npm run extensions:validate`, relevant tests/builds, and the CLI version check.
@@ -59,6 +76,8 @@ Do not bump: `sw.js` / `client/public/sw.js` cache generations (not release-tied
 
 Never blanket find-and-replace the version across the repo: it pulls in the independent subprojects and rewrites historical references.
 
+Do not hand-edit version surfaces when the automated workflow is available. Use `npm run release:bump -- <component>` only for a controlled local fallback.
+
 ## GitHub milestone workflow
 
 Run `gh auth status` first. Stop if the active account is not the intended identity for the repository.
@@ -78,8 +97,9 @@ existing="$(
 - Empty `existing`: create with `gh api --method POST "repos/${repo}/milestones" -f title="${milestone}"`.
 - One open match: reuse it.
 - Closed or duplicate matches: stop. Do not create another release milestone.
-- Assign the PR with `gh pr edit "$pr" --milestone "$milestone"`.
-- Read linked issues with `gh pr view "$pr" --json closingIssuesReferences`, then assign each same-repository issue with `gh issue edit <number> --milestone "$milestone"`.
+- Only after the new-version milestone step completes, paginate every pull request merged into the default branch and assign its returned numeric milestone ID to every PR with no milestone, including older omissions. Preserve PRs that already have any milestone, verify every changed PR with a fresh read, then query all pages again and fail if any merged PR remains unmilestoned.
+- Assign the PR through `PATCH /repos/{owner}/{repo}/issues/{number}` with the numeric milestone returned by the completed milestone step.
+- Read linked issues with `gh pr view "$pr" --json closingIssuesReferences`, then assign each same-repository issue through the same numeric-milestone REST field.
 - If a closing issue belongs to another repository, stop and report it. Milestones are repository-scoped, so do not mutate another repository implicitly.
 - Verify with `gh pr view "$pr" --json milestone,closingIssuesReferences` and fresh `gh issue view <number> --json milestone` calls.
 

@@ -70,7 +70,7 @@ Authentication is **off by default** (the loopback bind is the trust boundary). 
 - `x-dashboard-token: <token>` header
 - `?token=<token>` query parameter
 
-These paths stay exempt even when a token is configured: `/api/health`, `/api/openapi.json`, `/api/docs`, and `/api/hooks` (local Claude Code and Codex hook ingestion, plus the optional `DASHBOARD_HOOK_TOKEN` when set). Requests that fail the check get `401` with error code `EUNAUTHORIZED`. The one exception inside that namespace is [`POST /api/hooks/ingest-batch`](#remote-push-ingestion), which carries its own mandatory `REMOTE_PUSH_TOKEN` and is disabled until it is configured.
+These paths stay exempt even when a token is configured: `/api/health`, `/api/openapi.json`, `/api/docs`, and `/api/hooks` (local Claude Code and Codex hook ingestion, plus the optional `DASHBOARD_HOOK_TOKEN` when set). Requests that fail the check get `401` with error code `EUNAUTHORIZED`. The remote-push exceptions inside that namespace are [`POST /api/hooks/ingest-batch`](#remote-push-ingestion) and `POST /api/hooks/ingest-transcript`. Both carry their own mandatory `REMOTE_PUSH_TOKEN` and stay disabled until it is configured.
 
 `GET /api/settings/info` includes `server.version` (the running dashboard release). Pair with `ccam version` or the Settings About panel to confirm client and server builds match after deploy.
 
@@ -1207,15 +1207,16 @@ curl "http://localhost:4820/api/sessions?sources=local,4d1f0e2a-7b9c-4c33-8a21-9
 
 ### Remote Push Ingestion
 
-`POST /api/hooks/ingest-batch` is the third session-data ingestion path, alongside
-local hooks and the SSH pull of [Remote Data Sources](#remote-data-sources). It
-exists for the machine the dashboard can never reach to pull **from** — a roaming
-laptop behind NAT, a CGNAT'd home connection — which pushes its own session data
+`POST /api/hooks/ingest-batch` and `POST /api/hooks/ingest-transcript` form the
+third session-data ingestion path, alongside local hooks and the SSH pull of
+[Remote Data Sources](#remote-data-sources). They exist for a machine the
+dashboard can never reach to pull **from** — a roaming laptop behind NAT or a
+CGNAT'd home connection — which pushes session metadata and transcript JSONL
 instead.
 
-Unlike every other route in the API this one is meant to be reachable from the
-public internet (behind a reverse proxy such as Traefik) rather than loopback, so
-it is **disabled by default** and gated by its own token:
+Unlike the local hook routes, these endpoints are meant to be reachable from the
+public internet behind a reverse proxy such as Traefik. They are **disabled by
+default** and gated by their own token:
 
 ```
 REMOTE_PUSH_TOKEN=              # or REMOTE_PUSH_TOKEN_FILE=/path/to/token
@@ -1232,9 +1233,12 @@ thereby also open an internet-writable endpoint as a side effect.
 | `tokens + tool_events + turns` over 1000 | `413` `BATCH_TOO_LARGE` |
 
 Send the token as `Authorization: Bearer <token>` or `X-Dashboard-Token: <token>`.
-`?token=` is deliberately **rejected** here (unlike the dashboard/WebSocket token):
-a query-string credential on a public-internet route ends up in access and proxy
-logs.
+`?token=` is deliberately **rejected** here, unlike the dashboard/WebSocket token,
+because a query-string credential on a public-internet route ends up in access
+and proxy logs. `ingest-transcript` verifies this header before reading its larger
+8 MiB JSON body, so unauthenticated requests never reach that parser.
+
+#### Batch metadata (`POST /api/hooks/ingest-batch`)
 
 **Request Body:**
 
@@ -1303,6 +1307,45 @@ WebSocket broadcasts for a batch are flushed **after** the transaction commits,
 never during it, so a client never sees an event that a rolled-back batch never
 persisted.
 
+#### Transcript files (`POST /api/hooks/ingest-transcript`)
+
+This companion endpoint appends Claude main or subagent JSONL in offset-checked
+chunks. The session must first exist as `source = 'remote_push'`, normally through
+`ingest-batch`. An unregistered session returns `409 SESSION_NOT_REGISTERED`, and
+a locally or SSH-owned session returns `409 SESSION_LOCALLY_OWNED`.
+
+```json
+{
+  "provider": "claude",
+  "session_id": "abc-123",
+  "rel_path": "-home-user-project/abc-123.jsonl",
+  "offset": 0,
+  "content_b64": "eyJ0eXBlIjoidXNlciJ9Cg==",
+  "sync": true,
+  "cwd": "/home/user/project",
+  "session_name": "[laptop] project"
+}
+```
+
+`rel_path` accepts Claude's main transcript layout
+`<project>/<session_id>.jsonl`, flat subagents under
+`<project>/<session_id>/subagents/`, and workflow subagents under
+`.../subagents/workflows/<run_id>/`. Existing path components are resolved
+canonically against the projects root, dangling or escaping symlinks are
+rejected, the final file is opened without following symlinks where supported,
+and the containment check runs again immediately before append.
+
+`offset` must equal the current stored byte size. A mismatch returns
+`409 OFFSET_MISMATCH` with that size so the client can resume without duplicating
+data. `content_b64` must be canonical base64 and decode to at most 4 MiB. Each
+stored file defaults to a 256 MiB ceiling, configurable with
+`REMOTE_TRANSCRIPT_MAX_FILE_MB`; exceeding either limit returns `413`.
+
+Set `sync: true` on the last chunk of a pass to re-derive tokens, titles, prompt
+previews, compactions, turn timings, API errors, and subagents once. This
+metadata-only pass creates no `RemoteSync` feed event and restores the session's
+original `updated_at`, so it does not reset inactivity alerts or reactivate a
+terminal session.
 
 ---
 
