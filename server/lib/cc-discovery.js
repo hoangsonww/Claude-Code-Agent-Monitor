@@ -6,7 +6,8 @@
  * scripts). Powers the Claude Config Explorer page. All operations are pure
  * file reads — never writes.
  *
- * Path containment: every read resolves under getClaudeHome(),
+ * Claude's global state file follows CLAUDE_CONFIG_DIR when set. Path
+ * containment: every read resolves under getClaudeHome(),
  * getProjectClaudeDir(), or getProjectRoot() (for CLAUDE.md). Reads outside
  * those roots return null. Settings are redacted of secret-like keys before
  * returning.
@@ -14,8 +15,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const os = require("node:os");
-const { getClaudeHome } = require("./claude-home");
+const { getClaudeHome, getClaudeJsonPath } = require("./claude-home");
 
 const MAX_FILE_BYTES = 256 * 1024; // skip reads above this; truncate body in details
 const REDACT_KEY_RE = /token|secret|password|api[_-]?key|auth/i;
@@ -26,12 +26,6 @@ function getProjectRoot(cwd) {
 
 function getProjectClaudeDir(cwd) {
   return path.join(getProjectRoot(cwd), ".claude");
-}
-
-function getClaudeJsonPath() {
-  // ~/.claude.json sits beside ~/.claude/, NOT inside it. Resolve from $HOME
-  // so a CLAUDE_HOME override doesn't accidentally relocate it.
-  return path.join(os.homedir(), ".claude.json");
 }
 
 /**
@@ -393,7 +387,14 @@ function readPlugins() {
 
 function readMcpServers(opts = {}) {
   const out = { user: [], projectScoped: [] };
-  // ~/.claude.json is the primary CLI state file; mcpServers can live at the
+  const claudeJsonLabel = process.env.CLAUDE_CONFIG_DIR
+    ? "$CLAUDE_CONFIG_DIR/.claude.json"
+    : "~/.claude.json";
+  const settingsLabel =
+    process.env.CLAUDE_HOME || process.env.CLAUDE_CONFIG_DIR
+      ? "<Claude home>/settings.json"
+      : "~/.claude/settings.json";
+  // Claude's global .claude.json is the primary CLI state file; MCP servers can live at the
   // top level (legacy) or inside projects[<cwd>].mcpServers (per-project).
   const claudeJson = readJson(getClaudeJsonPath());
   if (claudeJson.ok && claudeJson.data) {
@@ -402,7 +403,7 @@ function readMcpServers(opts = {}) {
       for (const [name, def] of Object.entries(top)) {
         out.user.push({
           name,
-          source: "~/.claude.json (top-level)",
+          source: `${claudeJsonLabel} (top-level)`,
           ...summarizeMcpDef(def),
         });
       }
@@ -415,7 +416,7 @@ function readMcpServers(opts = {}) {
         for (const [name, def] of Object.entries(projectEntry.mcpServers)) {
           out.projectScoped.push({
             name,
-            source: `~/.claude.json (projects[${projectRoot}])`,
+            source: `${claudeJsonLabel} (projects[${projectRoot}])`,
             ...summarizeMcpDef(def),
           });
         }
@@ -428,7 +429,7 @@ function readMcpServers(opts = {}) {
     for (const [name, def] of Object.entries(userSettings.data.mcpServers)) {
       out.user.push({
         name,
-        source: "~/.claude/settings.json",
+        source: settingsLabel,
         ...summarizeMcpDef(def),
       });
     }

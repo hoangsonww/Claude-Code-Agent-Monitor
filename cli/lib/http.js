@@ -6,7 +6,7 @@
  * URL resolution order: --server / CCAM_URL (a full base URL, e.g. a dashboard
  * behind a reverse proxy), then an explicit CLAUDE_DASHBOARD_PORT /
  * DASHBOARD_PORT (matching the hook handler's contract), then the live-server
- * discovery file ~/.claude/.agent-dashboard.json (PID-liveness-checked on
+ * discovery file .agent-dashboard.json (PID-liveness-checked on
  * read), then the default http://127.0.0.1:4820.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */

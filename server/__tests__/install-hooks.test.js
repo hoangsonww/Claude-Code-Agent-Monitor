@@ -12,6 +12,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const { execFileSync } = require("node:child_process");
 
 // Point the installer at a throwaway CLAUDE_HOME BEFORE requiring it — the
 // settings path is resolved at module load. (`node --test` isolates each test
@@ -49,6 +50,7 @@ function clearEnv() {
   delete process.env.CCAM_FORCE_CONTAINER;
   delete process.env.CCAM_FORCE_HOST;
   delete process.env.CCAM_ALLOW_CONTAINER_HOOKS;
+  delete process.env.CCAM_NO_AUTO_HOOKS;
 }
 
 function rmSettings() {
@@ -112,6 +114,39 @@ describe("install-hooks host-only guard (#193)", () => {
     const ok = installHooks(true);
     assert.equal(ok, true);
     assert.ok(fs.existsSync(SETTINGS));
+  });
+
+  it("skips only automatic installation when opted out", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    process.env.CCAM_NO_AUTO_HOOKS = "1";
+    assert.equal(installHooks(true, { automatic: true }), false);
+    assert.equal(fs.existsSync(SETTINGS), false);
+    assert.equal(installHooks(true), true);
+    assert.equal(fs.existsSync(SETTINGS), true);
+  });
+
+  it("returns silently when a synced hook points at a missing portable handler", () => {
+    process.env.CCAM_FORCE_HOST = "1";
+    installHooks(true);
+    const command = JSON.parse(fs.readFileSync(SETTINGS, "utf8")).hooks.SessionStart[0].hooks[0]
+      .command;
+    const missing = path.join(TMP_HOME, "removed", "hook-handler.js").replace(/\\/g, "/");
+    const match = command.match(/-e "([^"]+)" "([^"]+)" (\w+)$/);
+    assert.ok(match, "installed hook must pass its handler as an argument");
+    assert.equal(
+      execFileSync(process.execPath, ["-e", match[1], missing, match[3]], {
+        input: "{}",
+        encoding: "utf8",
+      }),
+      ""
+    );
+    const settings = JSON.parse(fs.readFileSync(SETTINGS, "utf8"));
+    settings.hooks.SessionStart[0].hooks[0].command = command.replace(match[2], missing);
+    fs.writeFileSync(SETTINGS, JSON.stringify(settings));
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, false);
+    assert.equal(getClaudeHookStatus().has_dashboard_hooks, true);
+    installHooks(true);
+    assert.equal(getClaudeHookStatus().hooks.SessionStart, true);
   });
 
   it("is idempotent — re-running updates in place with no duplicate entries", () => {

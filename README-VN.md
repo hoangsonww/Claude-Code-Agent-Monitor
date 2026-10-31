@@ -385,7 +385,9 @@ npm run setup
 npm run install-hooks
 ```
 
-Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+Chọn **Claude Code**, **Codex (beta)** hoặc cả hai bằng phím mũi tên, Space và Enter. Theo mặc định, hook Claude được lưu trong `~/.claude/settings.json`, còn hook Codex trong `~/.codex/hooks.json`. Cài lại chỉ thay thế các mục CCAM và giữ nguyên hook không liên quan; hành động tương tự có tại **Settings → Hook Configuration**.
+
+Thư mục Claude được xác định theo `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`, nên hook và bản ghi hội thoại dùng thư mục đã di chuyển. Khi đặt `CLAUDE_CONFIG_DIR`, Cấu hình Agent đọc `$CLAUDE_CONFIG_DIR/.claude.json`. Tệp khám phá dùng thư mục ứng dụng cục bộ khi thư mục Claude được di chuyển. Với dữ liệu dashboard, thư mục cục bộ hiện có được ưu tiên; nếu không, thư mục `<CLAUDE_HOME>/agent-dashboard` hoặc `~/.claude/agent-dashboard` hiện có được tái sử dụng theo thứ tự đó, còn dữ liệu mới dùng thư mục ứng dụng cục bộ. `DASHBOARD_DATA_DIR` có thể chọn đường dẫn cục bộ khác. `CCAM_NO_AUTO_HOOKS=1` bỏ qua cài hook tự động lúc khởi động; cài thủ công vẫn hoạt động. Hook có đường dẫn portable cũ thoát im lặng và được báo là chưa cài. Desktop đã đóng gói lưu đường dẫn Claude ghi đè trong `userData/.env` của Electron khi tự khởi động máy chủ; nếu dùng máy chủ có sẵn, nó dùng tệp môi trường của máy chủ đó. Chế độ phát triển tiếp tục dùng `.env` trong kho mã.
 
 Trong lần khởi chạy đầu tiên, CCAM chỉ kiểm tra những nhà cung cấp đã chọn cho phạm vi dữ liệu hiện tại và đề nghị cài hook còn thiếu. Nếu kiểm tra mức sẵn sàng thất bại, ứng dụng chuyển sang thiết lập thủ công thay vì chặn dashboard.
 
@@ -514,7 +516,7 @@ sequenceDiagram
 ### Vòng đời hook
 
 1. **Claude Code** phát hook cho phiên, lời nhắc, công cụ, thông báo, Subagent, lượt và thoát.
-2. **`scripts/hook-handler.js`** đọc từng sự kiện từ stdin và phát hiện dashboard đang chạy qua `~/.claude/.agent-dashboard.json` hoặc `CLAUDE_DASHBOARD_PORT`. Trình xử lý gửi một lần cho mỗi thư mục dữ liệu SQLite duy nhất, chọn cổng thấp nhất cho listener trùng lặp nhưng vẫn cấp dữ liệu cho dashboard dùng cơ sở dữ liệu riêng. Mỗi đích được cô lập để gửi an toàn khi lỗi, và trình xử lý thoát trong 5 giây.
+2. **`scripts/hook-handler.js`** đọc từng sự kiện từ stdin và phát hiện dashboard đang chạy qua tệp đăng ký `.agent-dashboard.json` cục bộ hoặc `CLAUDE_DASHBOARD_PORT`. Khi `CLAUDE_HOME` hoặc `CLAUDE_CONFIG_DIR` di chuyển thư mục Claude, tệp đăng ký nằm trong thư mục ứng dụng cục bộ; với thư mục mặc định, nó nằm dưới `~/.claude`. Trình xử lý gửi một lần cho mỗi thư mục dữ liệu SQLite duy nhất, chọn cổng thấp nhất cho listener trùng lặp nhưng vẫn cấp dữ liệu cho dashboard dùng cơ sở dữ liệu riêng. Mỗi đích được cô lập để gửi an toàn khi lỗi, và trình xử lý thoát trong 5 giây.
 3. **Máy chủ** commit sự kiện và trạng thái liên quan trong một giao dịch SQLite:
    - Lần liên hệ đầu tạo phiên và Agent chính. `SessionStart` bắt đầu ở trạng thái **Đang chờ**; `UserPromptSubmit` hoặc `PreToolUse` chuyển sang **Đang làm việc**; `PostToolUse` giữ trạng thái làm việc.
    - `Stop` đưa Agent chính về **Đang chờ** trong khi Agent nền tiếp tục. `stop_reason=error` đánh dấu Agent và phiên là **Lỗi**. Thông báo quyền cũng chờ input; chỉ lời nhắc mới hoặc lúc bắt đầu công cụ mới khôi phục lỗi.

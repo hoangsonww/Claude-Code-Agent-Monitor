@@ -2,9 +2,8 @@
  * @file claude-home.js
  * @description Centralized Claude Code home directory path management.
  * Resolves the projects directory, transcript paths (main + per-subagent),
- * and settings file location. Supports a custom root via the CLAUDE_HOME
- * environment variable (e.g. ~/.codefuse/engine/cc/) so the dashboard can
- * track non-default Claude Code installations.
+ * and settings file location. CLAUDE_HOME overrides Claude Code's own
+ * CLAUDE_CONFIG_DIR; dashboard state stays local when that directory is synced.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 const path = require("path");
@@ -13,7 +12,37 @@ const fs = require("fs");
 const { resolveSnapshotFile, GZ_SUFFIX } = require("./snapshot-store");
 
 function getClaudeHome() {
-  return process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude");
+  const configured = process.env.CLAUDE_HOME || process.env.CLAUDE_CONFIG_DIR;
+  return configured
+    ? configured.replace(/^~(?=[\\/]|$)/, os.homedir())
+    : path.join(os.homedir(), ".claude");
+}
+
+/** Claude Code relocates its global state file only with CLAUDE_CONFIG_DIR. */
+function getClaudeJsonPath() {
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  return configDir
+    ? path.join(configDir.replace(/^~(?=[\\/]|$)/, os.homedir()), ".claude.json")
+    : path.join(os.homedir(), ".claude.json");
+}
+
+/** Per-machine state shared by the desktop and standalone launch paths. */
+function getMachineStateDir() {
+  if (process.platform === "win32") {
+    const local = process.env.LOCALAPPDATA;
+    return path.join(
+      local && path.isAbsolute(local) ? local : path.join(os.homedir(), "AppData", "Local"),
+      "Claude Code Monitor"
+    );
+  }
+  if (process.platform === "darwin") {
+    return path.join(os.homedir(), "Library", "Application Support", "Claude Code Monitor");
+  }
+  const xdg = process.env.XDG_DATA_HOME;
+  return path.join(
+    xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), ".local", "share"),
+    "claude-code-monitor"
+  );
 }
 
 function getProjectsDir() {
@@ -21,12 +50,12 @@ function getProjectsDir() {
 }
 
 /**
- * Canonical, user-global directory for the dashboard's writable state — the
- * SQLite database, VAPID keys, and transcript snapshots. It resolves to the
- * SAME absolute path for every launch path (`npm start`, `npm run dev`, and the
- * macOS/Windows desktop app), so they all share ONE database instead of each
- * host keeping its own. Lives under the Claude home, next to the hook discovery
- * file (`~/.claude/.agent-dashboard.json`).
+ * Shared dashboard state for the standalone and desktop launch paths. When
+ * CLAUDE_CONFIG_DIR relocates Claude's configuration, new dashboard data uses
+ * machine-local app data, never the synced config directory. An existing
+ * data directory under an explicit CLAUDE_HOME, or under
+ * ~/.claude, is reused so upgrades retain the complete DB, snapshots, VAPID
+ * keys, and import marker without a partial migration.
  *
  * An explicit `DASHBOARD_DATA_DIR` still wins — for tests, power users, or
  * anyone pinning a custom location. The earlier default was the repo-local
@@ -35,13 +64,21 @@ function getProjectsDir() {
  * migration that carries pre-existing databases into this location.
  */
 function getDataDir() {
-  return process.env.DASHBOARD_DATA_DIR || path.join(getClaudeHome(), "agent-dashboard");
+  if (process.env.DASHBOARD_DATA_DIR) return process.env.DASHBOARD_DATA_DIR;
+  if (!process.env.CLAUDE_CONFIG_DIR) return path.join(getClaudeHome(), "agent-dashboard");
+
+  const local = path.join(getMachineStateDir(), "data");
+  const custom = process.env.CLAUDE_HOME ? path.join(getClaudeHome(), "agent-dashboard") : null;
+  const legacy = path.join(os.homedir(), ".claude", "agent-dashboard");
+  if (fs.existsSync(local)) return local;
+  if (custom && fs.existsSync(custom)) return custom;
+  return fs.existsSync(legacy) ? legacy : local;
 }
 
 /**
  * Dashboard-owned directory where imported transcripts are snapshotted so the
  * Conversation tab survives Claude Code pruning the originals in
- * ~/.claude/projects. Lives next to the SQLite DB under the shared data dir.
+ * `<Claude home>/projects`. Lives next to the SQLite DB under the shared data dir.
  */
 function getTranscriptSnapshotDir() {
   return path.join(getDataDir(), "transcripts");
@@ -255,8 +292,8 @@ function setClaudeHome(newPath) {
   if (!stat.isDirectory()) {
     throw new Error(`Not a directory: ${resolved}`);
   }
-  process.env.CLAUDE_HOME = resolved;
   writeEnvFile("CLAUDE_HOME", resolved);
+  process.env.CLAUDE_HOME = resolved;
   return resolved;
 }
 
@@ -293,6 +330,8 @@ function writeEnvFile(key, value) {
 
 module.exports = {
   getClaudeHome,
+  getClaudeJsonPath,
+  getMachineStateDir,
   getProjectsDir,
   getDataDir,
   getTranscriptSnapshotDir,

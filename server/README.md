@@ -751,7 +751,7 @@ Webhook targets use HTTPS for hosted providers. The `generic` and `n8n` types al
 
 ### Claude Config Explorer (`/api/cc-config`)
 
-Reads — and carefully gated mutations for low-risk text-file artifacts — for every Claude Code configuration surface. File reads canonicalize both the requested path and allowed roots with `realpath`, so symlinks cannot escape `CLAUDE_HOME`, the project `.claude/` directory, or the project `CLAUDE.md`. Mutations always create timestamped backups under `<root>/cc-config-backups/<type>/` before writing.
+Reads — and carefully gated mutations for low-risk text-file artifacts — for every Claude Code configuration surface. Claude home resolves as `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`; the global state file follows `$CLAUDE_CONFIG_DIR/.claude.json` when set. File reads canonicalize both the requested path and allowed roots with `realpath`, so symlinks cannot escape the resolved Claude home, the project `.claude/` directory, or the project `CLAUDE.md`. Mutations always create timestamped backups under `<root>/cc-config-backups/<type>/` before writing.
 
 | Method   | Path                                  | Description |
 | -------- | ------------------------------------- | ----------- |
@@ -1592,7 +1592,7 @@ test("POST /api/hooks/event ingests hook payload", async () => {
 
 ## Terminal Access (`ccam` CLI)
 
-Everything this server exposes over JSON REST is reachable from the `ccam` CLI (`bin/ccam.js` → `cli/`, a Commander.js command tree linked by `npm run setup`). High-level commands cover monitoring (including a live `overview` and the `/ws` feed via `ccam stream`), sessions/agents/events with detail and writes, transcripts, workflows/cost, Run Agent, alerts/rules/webhooks, Claude, Cursor, and GPT pricing, provider-aware imports, remote sources, Claude/Codex config, hooks, backup restore, and administration. `ccam api <METHOD> /api/path` provides future-proof low-level coverage with `--yes` on writes and exact confirmation tokens for destructive actions. Multipart history upload is available through `ccam import upload`. It resolves the live server through the same `~/.claude/.agent-dashboard.json` registry as the hook handler and supports `DASHBOARD_API_TOKEN` / `CCAM_API_TOKEN` when the API is protected. Every command accepts `--json` for machine-readable output. See [docs/CLI.md](../docs/CLI.md).
+Everything this server exposes over JSON REST is reachable from the `ccam` CLI (`bin/ccam.js` → `cli/`, a Commander.js command tree linked by `npm run setup`). High-level commands cover monitoring (including a live `overview` and the `/ws` feed via `ccam stream`), sessions/agents/events with detail and writes, transcripts, workflows/cost, Run Agent, alerts/rules/webhooks, Claude, Cursor, and GPT pricing, provider-aware imports, remote sources, Claude/Codex config, hooks, backup restore, and administration. `ccam api <METHOD> /api/path` provides future-proof low-level coverage with `--yes` on writes and exact confirmation tokens for destructive actions. Multipart history upload is available through `ccam import upload`. It resolves the live server through the same local `.agent-dashboard.json` registry as the hook handler and supports `DASHBOARD_API_TOKEN` / `CCAM_API_TOKEN` when the API is protected. Every command accepts `--json` for machine-readable output. See [docs/CLI.md](../docs/CLI.md).
 
 ## Deployment
 
@@ -1647,9 +1647,13 @@ REMOTE_TRANSCRIPT_MAX_FILE_MB=256  # Per-file MiB cap for ingest-transcript; eac
 DASHBOARD_ALLOWED_HOSTS=           # Extra Host-header names to allow (comma-separated), e.g. for LAN access
 POD_IP=                            # Kubernetes downward-API pod IP; automatically accepted by the Host guard
 DASHBOARD_ENV_PATH=                # Writable dotenv path for persisted Settings overrides
+CLAUDE_HOME=                       # Optional dashboard override of Claude home
+CLAUDE_CONFIG_DIR=                 # Claude Code's relocated config directory; used when CLAUDE_HOME is unset
+CCAM_NO_AUTO_HOOKS=1               # Skip startup hook installation; explicit install remains available
 
 # Database
-DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
+DASHBOARD_DATA_DIR=                # Optional data directory; with CLAUDE_CONFIG_DIR, existing local/custom/legacy data wins before new machine-local data
+DASHBOARD_DB_PATH=                 # Optional SQLite file override
 
 # Background services
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)

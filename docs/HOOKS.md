@@ -168,6 +168,20 @@ On a browser's first dashboard visit, select the provider data to display and th
 > **Hooks are a host-side step.** Claude Code runs on your host, so the hook
 > command must reference a `hook-handler.js` path that exists on the **host**.
 
+The Claude home resolves from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then
+`~/.claude`. When either variable relocates Claude home, server discovery uses
+machine-local app data so synced settings cannot mix ports and PIDs from different machines.
+Startup installation can be disabled with `CCAM_NO_AUTO_HOOKS=1`; an explicit
+`npm run install-hooks` or in-app installation still works. The installed
+command checks for its handler before loading it, so a stale path in a synced
+`settings.json` or a portable build exits successfully without disrupting
+Claude Code. Hook status reports a missing handler as not installed so setup
+can repair the entry. For monitoring on each machine, install hooks from that
+machine's current dashboard build. New dashboard data defaults to machine-local
+app data with `CLAUDE_CONFIG_DIR`; an existing custom Claude home data directory
+or `~/.claude/agent-dashboard` is reused if machine-local data does not yet
+exist. SQLite and its WAL files must not be synced.
+
 ### Remote and cloud hook delivery
 
 Hook handlers use localhost discovery by default. To forward live Claude Code or
@@ -594,7 +608,7 @@ fail silently with exit code 0.
 > 1. If `CLAUDE_DASHBOARD_PORT` is set in the environment, the handler treats
 >    it as an explicit operator override and POSTs to that single port —
 >    no discovery, no fan-out (useful for tests and container setups).
-> 2. Otherwise it reads `~/.claude/.agent-dashboard.json`, a JSON document
+> 2. Otherwise it reads the local `.agent-dashboard.json` registry, a JSON document
 >    that lists every dashboard server currently running on the machine.
 >    Each server appends its `{port, pid, startedAt, dataDir}` entry on
 >    startup and removes it on a clean shutdown. The handler **prunes any

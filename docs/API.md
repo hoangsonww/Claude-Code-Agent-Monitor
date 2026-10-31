@@ -1426,7 +1426,7 @@ rows. Malformed JSON returns `400 INVALID_JSON`, an invalid bundle returns
 
 ### Agent Config
 
-The `/api/cc-config/*` namespace powers the Claude Config Explorer page. All read endpoints are pure file reads under `CLAUDE_HOME` and the project's `.claude/` dir; requested files and allowed roots are canonicalized with `realpath`, so a symlink cannot escape those roots. Mutations are limited to low-risk text-file artifacts (skills, subagents, slash commands, output styles, memory) and always create a timestamped backup before writing. Plugins, MCP servers, hooks-in-settings, and live `settings.json` files stay read-only because they are written concurrently by the running Claude Code CLI.
+The `/api/cc-config/*` namespace powers the Claude Config Explorer page. Claude home resolves as `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude`; the separate global state file is `$CLAUDE_CONFIG_DIR/.claude.json` when that variable is set, otherwise `~/.claude.json`. All read endpoints are pure file reads under the resolved Claude home and the project's `.claude/` dir; requested files and allowed roots are canonicalized with `realpath`, so a symlink cannot escape those roots. Mutations are limited to low-risk text-file artifacts (skills, subagents, slash commands, output styles, memory) and always create a timestamped backup before writing. Plugins, MCP servers, hooks-in-settings, and live `settings.json` files stay read-only because they are written concurrently by the running Claude Code CLI.
 
 ```http
 GET /api/cc-config/overview

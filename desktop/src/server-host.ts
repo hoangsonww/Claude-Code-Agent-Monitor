@@ -5,7 +5,8 @@
  * and serves the built React client (`client/dist`) as static assets in
  * production. We import that module directly — no child process, no IPC, no
  * port marshalling — and start it on a free port. The whole thing keeps the
- * desktop shell to "Electron is a window onto the same code."
+ * desktop shell to "Electron is a window onto the same code." Settings
+ * persistence uses Electron userData so portable restarts retain overrides.
  *
  * If another process is already listening on the preferred port and that
  * process answers `/api/health` with `{ status: "ok" }`, we adopt it instead
@@ -225,10 +226,9 @@ function bootstrapOwnedServer(appRoot: string, serverModule: ServerModule): void
   // without having to run `npm run install-hooks` from a checkout.
   try {
     const hooks = require(path.join(appRoot, "scripts", "install-hooks.js")) as {
-      installHooks: (silent?: boolean) => boolean;
+      installHooks: (silent?: boolean, options?: { automatic?: boolean }) => boolean;
     };
-    hooks.installHooks(true);
-    log.info("Claude Code hooks ensured");
+    if (hooks.installHooks(true, { automatic: true })) log.info("Claude Code hooks ensured");
   } catch (err) {
     log.warn("hook auto-install failed", err);
   }
@@ -551,12 +551,17 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
   process.env.NODE_ENV = "production";
   process.env.DASHBOARD_PORT = String(port);
 
-  // The server now defaults its writable state (SQLite DB, VAPID keys,
-  // transcript snapshots) to the shared user-global `~/.claude/agent-dashboard/`
-  // — outside the read-only `.app`/installed bundle AND identical to what
-  // `npm start`/`npm run dev` use, so the desktop app and the web app share ONE
-  // database. We therefore no longer override DASHBOARD_DATA_DIR to this app's
-  // private `userData/data`.
+  // Settings must survive portable extraction and signed/read-only app bundles.
+  // Preserve an operator-supplied location for containers or custom installs.
+  if (!process.env.DASHBOARD_ENV_PATH && app.isPackaged) {
+    process.env.DASHBOARD_ENV_PATH = path.join(app.getPath("userData"), ".env");
+  }
+
+  // The server resolves writable state (SQLite DB, VAPID keys, snapshots)
+  // through getDataDir(), shared with npm start/dev and outside read-only app
+  // bundles. A relocated Claude config uses machine-local app data for new
+  // state and reuses existing data directories. Leave DASHBOARD_DATA_DIR unset
+  // so the server applies that same precedence.
   //
   // Earlier desktop builds DID write there, so point the server's one-time
   // migration at that old per-user DB: on first launch with no shared DB yet,

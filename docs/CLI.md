@@ -64,7 +64,7 @@ flowchart LR
     BIN --> PROG["cli/index.js\nCommander command tree"]
     PROG -->|"--server / CCAM_URL"| URL["explicit base URL"]
     PROG -->|"else env"| ENV["CLAUDE_DASHBOARD_PORT /\nDASHBOARD_PORT"]
-    PROG -->|"else discovery"| REG["~/.claude/.agent-dashboard.json\n(PID-liveness-checked)"]
+    PROG -->|"else discovery"| REG["local .agent-dashboard.json\n(PID-liveness-checked)"]
     PROG -->|"else fallback"| DEF["http://127.0.0.1:4820"]
     URL --> API["Dashboard REST API + /ws"]
     ENV --> API
@@ -93,7 +93,7 @@ If linking needed elevated permissions in your environment, setup still succeeds
 | -------- | ------ | ----- |
 | 1 | `--server <url>` / `CCAM_URL` | A full base URL (e.g. a dashboard behind a reverse proxy) |
 | 2 | `CLAUDE_DASHBOARD_PORT` / `DASHBOARD_PORT` env vars | Explicit port override, same contract as the hook handler |
-| 3 | `~/.claude/.agent-dashboard.json` | Written by every running dashboard; stale entries are skipped via a PID liveness check |
+| 3 | Local `.agent-dashboard.json` | Under `~/.claude` for the default home, or machine-local app data for a relocated home; stale entries are skipped via a PID liveness check |
 | 4 | `http://127.0.0.1:4820` | Default port fallback |
 
 `ccam where` prints the resolved target, repo root, and server-log path.

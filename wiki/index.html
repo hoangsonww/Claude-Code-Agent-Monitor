@@ -2480,7 +2480,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             help at every level, inherited global options, and validated flags. It is linked
             automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>),
             targets <code>--server</code> / <code>CCAM_URL</code> or discovers the running server
-            through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook
+            through the same local <code>.agent-dashboard.json</code> registry the hook
             handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> /
             <code>DASHBOARD_PORT</code>), and renders a full terminal UI — box-drawn tables,
             status icons, bar charts, sparklines, and agent trees — that degrades to plain text
@@ -5153,11 +5153,11 @@ ccam-export all --output backup.json</code></pre>
               <h3>Runs Alongside the Web Dashboard</h3>
               <p>
                 Launch the desktop app and <code>npm run dev</code> at the same time and both
-                stay real-time. Each server appends its <code>{port, pid, startedAt}</code>
-                entry to <code>~/.claude/.agent-dashboard.json</code> on startup; the Claude
-                Code hook handler reads that list and fan-outs every event to every live entry
-                in parallel. Stale entries self-evict via a PID liveness check on read, so a
-                crashed server can't misroute events to a dead port.
+                stay real-time. Each server records its <code>{port, pid, startedAt}</code>
+                in a local <code>.agent-dashboard.json</code> registry. When either
+                <code>CLAUDE_HOME</code> or <code>CLAUDE_CONFIG_DIR</code> relocates the Claude
+                home, that registry stays in machine-local app data. The hook handler sends events to each
+                live server, and stale entries are removed using local PID checks.
               </p>
             </div>
             <div class="feature-card">
@@ -5173,11 +5173,12 @@ ccam-export all --output backup.json</code></pre>
               <div class="feature-icon ic-pink">🪝</div>
               <h3>First-Boot Bootstrap</h3>
               <p>
-                On its first owned-server boot the app auto-installs the Claude Code hooks
-                into <code>~/.claude/settings.json</code> and starts the background services
-                (update scheduler, config watcher, orphaned-run reconciliation) — so an
-                install-only user (DMG or EXE) gets events flowing without ever running
-                <code>npm run install-hooks</code> from a checkout.
+                On its first owned-server boot the app installs Claude Code hooks in the
+                resolved Claude home (<code>CLAUDE_HOME</code>, then
+                <code>CLAUDE_CONFIG_DIR</code>, then <code>~/.claude</code>) and starts
+                background services. Set <code>CCAM_NO_AUTO_HOOKS=1</code> to skip startup
+                installation; manual installation remains available. A stale portable hook
+                path exits silently.
               </p>
             </div>
           </div>
@@ -5195,18 +5196,14 @@ ccam-export all --output backup.json</code></pre>
             <div class="callout-body">
               <strong>Your data survives reinstalls and updates</strong>
               <p>
-                The SQLite database and VAPID keys live in a per-user app-data directory
-                <em>outside</em> the application bundle / install dir —
-                <code>~/Library/Application Support/Claude Code Monitor/data/</code> on macOS,
-                <code>%APPDATA%\Claude Code Monitor\data\</code> on Windows.
-                <code>server-host.ts</code> points <code>DASHBOARD_DATA_DIR</code> at that
-                per-user directory on boot. Because a packaged, code-signed, or
-                app-translocated bundle is read-only, older builds that stored the database
-                inside the bundle broke History Import; with the data directory now in app-data,
-                your imported history and events persist across app reinstalls and updates (the
-                Windows NSIS uninstaller keeps this data by default). After upgrading from a
-                pre-fix build, re-run <strong>Import History → Rescan</strong> once to bridge the
-                one-time gap.
+                Packaged desktop Settings keeps path overrides in Electron
+                <code>userData/.env</code> when it owns the server; an adopted server uses its own
+                environment file. Development uses the repository <code>.env</code>. With
+                <code>CLAUDE_CONFIG_DIR</code>, an existing machine-local data directory wins;
+                otherwise an existing <code>&lt;CLAUDE_HOME&gt;/agent-dashboard</code> or
+                <code>~/.claude/agent-dashboard</code> is reused before new data defaults to
+                machine-local app data. Set <code>DASHBOARD_DATA_DIR</code> to choose another
+                local path; do not sync a live SQLite database.
               </p>
             </div>
           </div>
@@ -7260,7 +7257,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=112" defer></script>
+    <script src="i18n-content.js?v=115" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {
