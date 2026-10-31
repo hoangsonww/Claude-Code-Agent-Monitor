@@ -355,3 +355,40 @@ it("a session filter never widens a repair plan", async () => {
     d.close();
   }
 });
+
+it("retries interrupted-sync recovery until ownership is exclusive and the write succeeds", () => {
+  const { startInterruptedSyncRecovery } = require("../lib/remote-sync");
+  const scheduled = [];
+  const warnings = [];
+  let exclusive = false;
+  let recoveries = 0;
+  const stop = startInterruptedSyncRecovery(
+    {},
+    {
+      canRecover: () => exclusive,
+      recover: () => {
+        recoveries++;
+        if (recoveries === 1) throw new Error("database is locked");
+      },
+      schedule: (fn, delay) => {
+        scheduled.push({ fn, delay });
+        return { unref() {} };
+      },
+      clearSchedule() {},
+      warn: (message) => warnings.push(message),
+      retryMs: 250,
+    }
+  );
+
+  assert.equal(recoveries, 0);
+  const ownershipRetry = scheduled.shift();
+  assert.equal(ownershipRetry.delay, 250);
+  exclusive = true;
+  assert.doesNotThrow(() => ownershipRetry.fn());
+  assert.equal(recoveries, 1);
+  assert.match(warnings[0], /database is locked/);
+  assert.doesNotThrow(() => scheduled.shift()?.fn());
+  assert.equal(recoveries, 2);
+  assert.equal(scheduled.length, 0);
+  stop();
+});

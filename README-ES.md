@@ -781,7 +781,20 @@ Si `ccam` no está en `PATH`, ejecuta `npm link` una vez desde la raíz del repo
 
 ---
 
-El coste es una estimación basada en las tarifas API configuradas, no en cargos de suscripción. Dashboard y Settings muestran dólares y céntimos, el ámbito de máquinas/productos y avisos de uso sin tarifa aplicable. Las tarifas Standard/Fast Short/Long de GPT-6.1 Sol siguen la tabla publicada de OpenAI sin sustituir una regla personalizada existente que coincida. Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
+El coste es una estimación basada en las tarifas API configuradas, no en cargos de suscripción. Dashboard y Settings muestran dólares y céntimos, el ámbito de máquinas/productos y avisos de uso sin tarifa aplicable. Las tarifas Standard/Fast Short/Long de GPT-6.1 Sol siguen la tabla publicada de OpenAI sin sustituir una regla personalizada existente que coincida.
+
+### Instantáneas de costes antes de una actualización
+
+Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV: contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian los Token, el coste, la fuente o el proveedor de una sesión local existente, o si la sesión desaparece; las sesiones remotas y nuevas se informan por separado.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Actualiza y reinicia CCAM; espera a que termine el mantenimiento de arranque.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Una sincronización interrumpida aparece como error tras reiniciar, conservando el resultado de la importación anterior. La recuperación de arranque solo se ejecuta cuando el registro de servidores activos demuestra que este proceso posee en exclusiva el directorio de datos; una propiedad compartida o ambigua aplaza la recuperación. Si la base de datos está ocupada, se reintenta de forma independiente, por lo que un fallo de recuperación no puede desactivar el sondeo remoto. Durante los reintentos remotos se mantiene visible el último error; una sincronización exitosa lo borra.
 
 ## Extensión de agentes
 
