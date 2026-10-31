@@ -7,6 +7,7 @@
  */
 
 const { Router } = require("express");
+const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const dbModule = require("../db");
 const { stmts, db } = dbModule;
@@ -26,6 +27,14 @@ const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
+const { getProjectsDir } = require("../lib/claude-home");
+const {
+  TranscriptPathError,
+  decodeBase64Strict,
+  isValidSessionId,
+  resolveTranscriptPath,
+  appendChunk,
+} = require("../lib/remote-transcript");
 
 const router = Router();
 
@@ -349,6 +358,17 @@ function getMainAgent(sessionId) {
  * Such names are safe to overwrite with a transcript-derived ai-title; a real
  * user-chosen name is not.
  */
+const REMOTE_LABEL_RE = /^(\[[^\]\n]{1,40}\]) /;
+/**
+ * Push-owned sessions are named "[machine] <title>" by the collector. Split that label off so title
+ * syncing can treat the remainder as the name while keeping the label on every write.
+ */
+function splitRemoteLabel(session) {
+  const name = (session && session.name) || "";
+  const m = session && session.source === REMOTE_PUSH_SOURCE ? REMOTE_LABEL_RE.exec(name) : null;
+  return m ? { label: `${m[1]} `, bare: name.slice(m[0].length) } : { label: "", bare: name };
+}
+
 function isAutoSessionName(name, sessionId, cwd) {
   if (!name || !name.trim()) return true;
   if (name === `Session ${sessionId.slice(0, 8)}`) return true;
@@ -405,11 +425,14 @@ function syncSessionName(session, result) {
   if (!session || !result) return;
   const custom = result.customTitle && result.customTitle.trim();
   const ai = result.aiTitle && result.aiTitle.trim();
-  const desired = custom || ai || null;
-  if (!desired) return;
+  const title = custom || ai || null;
+  if (!title) return;
+  // Push-owned sessions carry a collector label ("[remote] ..."); judge and replace only the part
+  // after it, and keep the label on whatever name we write.
+  const { label, bare } = splitRemoteLabel(session);
+  const desired = label + title;
   const replaceable =
-    isAutoSessionName(session.name, session.id, session.cwd) ||
-    session.name === firstUserLabel(result);
+    isAutoSessionName(bare, session.id, session.cwd) || bare === firstUserLabel(result);
   if (!custom && !replaceable) return;
   const upd = stmts.updateSessionName.run(desired, session.id, desired);
   if (upd.changes > 0) {
@@ -432,9 +455,17 @@ function applyFirstUserDescriptor(sessionId, result) {
   const label = firstUserLabel(result);
   if (!label) return;
 
+  // A transcript title already had its turn in syncSessionName. It can look
+  // like a placeholder (a /rename to the project folder's name matches the
+  // cwd-basename fallback), so never let the descriptor take the name back.
+  const hasTitle = Boolean(
+    (result.customTitle && result.customTitle.trim()) || (result.aiTitle && result.aiTitle.trim())
+  );
   const session = stmts.getSession.get(sessionId);
-  if (session && isAutoSessionName(session.name, session.id, session.cwd)) {
-    const upd = stmts.updateSessionName.run(label, session.id, label);
+  const split = splitRemoteLabel(session);
+  if (session && !hasTitle && isAutoSessionName(split.bare, session.id, session.cwd)) {
+    const desiredName0 = split.label + label;
+    const upd = stmts.updateSessionName.run(desiredName0, session.id, desiredName0);
     if (upd.changes > 0) {
       const refreshed = stmts.getSession.get(session.id);
       if (refreshed) broadcast("session_updated", refreshed);
@@ -532,7 +563,8 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   //   might be a Stop. For error sessions, Stop should NOT reactivate.
   // - SessionEnd never reactivates.
   const isUserAction = hookType === "UserPromptSubmit" || hookType === "PreToolUse";
-  const isNonTerminalEvent = hookType !== "SessionEnd";
+  // RemoteSync (POST /ingest-transcript) only refreshes derived data; it never changes liveness.
+  const isNonTerminalEvent = hookType !== "SessionEnd" && hookType !== "RemoteSync";
   const isStopLike = hookType === "Stop" || hookType === "SubagentStop";
   const isImportedOrAbandoned = session.status === "completed" || session.status === "abandoned";
   const needsReactivation =
@@ -1110,7 +1142,12 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
       // genuinely current error (tail) is left in place.
       {
         const curSession = stmts.getSession.get(sessionId);
-        if (curSession && curSession.status === "error" && !isErrorAtTail(result)) {
+        if (
+          hookType !== "RemoteSync" &&
+          curSession &&
+          curSession.status === "error" &&
+          !isErrorAtTail(result)
+        ) {
           stmts.reactivateSession.run(sessionId);
           broadcast("session_updated", stmts.getSession.get(sessionId));
           const curMain = mainAgentId ? stmts.getAgent.get(mainAgentId) : null;
@@ -1286,7 +1323,27 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
     transcriptCache.invalidate(data.transcript_path);
   }
 
-  // Bump session updated_at on every event
+  // A transcript-sync pass exists for the derived data written above (tokens, compactions, turn
+  // timings, titles); recording it as an event would add a feed row per push. Derived metadata
+  // writers normally bump updated_at, so restore the pre-sync value to keep inactivity semantics.
+  if (hookType === "RemoteSync") {
+    const restored = stmts.restoreSessionUpdatedAt.run(
+      session.updated_at,
+      sessionId,
+      session.updated_at
+    );
+    if (restored.changes > 0) broadcast("session_updated", stmts.getSession.get(sessionId));
+    return {
+      session_id: sessionId,
+      agent_id: agentId,
+      event_type: eventType,
+      tool_name: null,
+      summary: null,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  // Bump session updated_at on every real hook event.
   stmts.touchSession.run(sessionId);
 
   stmts.insertEvent.run(
@@ -2500,6 +2557,161 @@ router.post("/ingest-batch", (req, res) => {
 const watchdogTimer = setInterval(watchdogCheck, WATCHDOG_INTERVAL_MS);
 // Don't keep the process alive just for the watchdog
 if (watchdogTimer.unref) watchdogTimer.unref();
+
+// ── POST /api/hooks/ingest-transcript ────────────────────────────────────────────────────────
+// Remote machines push their Claude Code transcripts (main + subagent JSONL) here, append-only.
+// Files land in this server's Claude projects dir in Claude Code's own layout (see
+// lib/remote-transcript.js), so tokens, compactions, API errors, turn timings, titles, the
+// transcript viewer and the subagent import all work on them exactly as for local sessions.
+// Auth is REMOTE_PUSH_TOKEN, identical to /ingest-batch.
+const REMOTE_TRANSCRIPT_MAX_FILE_BYTES = (() => {
+  const mb = parseInt(process.env.REMOTE_TRANSCRIPT_MAX_FILE_MB, 10);
+  return (Number.isFinite(mb) && mb > 0 ? mb : 256) * 1024 * 1024;
+})();
+
+/** Re-derive everything CCAM derives from a session's transcript files, then import subagents. */
+function syncRemoteTranscript(sessionId, mainAbs, meta) {
+  if (!fs.existsSync(mainAbs)) return;
+  const session = stmts.getSession.get(sessionId);
+  if (!session || session.source !== REMOTE_PUSH_SOURCE) return;
+  // A forwarded hook may have stored the origin machine's absolute path first. Once the validated
+  // upload exists locally, every transcript reader and background scanner must use this copy.
+  stmts.replaceSessionTranscriptPath.run(mainAbs, sessionId);
+  processEvent(
+    "RemoteSync",
+    {
+      session_id: sessionId,
+      transcript_path: mainAbs,
+      cwd: meta.cwd,
+      session_name: meta.sessionName,
+    },
+    { remotePush: true }
+  );
+
+  // Same sequence as the SubagentStop branch of POST /event: tell the subagent scan which models
+  // the live combined-transcript writer already owns so it does not double-write those buckets.
+  let parentModels = [];
+  try {
+    const mainResult = transcriptCache.extract(mainAbs);
+    const live = combineLiveSessionTokens(mainAbs, mainResult?.tokensByModel || null);
+    if (live)
+      parentModels = Object.values(live)
+        .map((b) => b.model)
+        .filter(Boolean);
+    if (mainResult?.latestModel) parentModels.push(mainResult.latestModel);
+  } catch {
+    /* the scan falls back to the stored session.model */
+  }
+  scanAndImportSubagents(dbModule, sessionId, mainAbs, { parentModels })
+    .then(({ created, reparented }) => {
+      if (created > 0 || reparented > 0) {
+        broadcast("new_event", {
+          session_id: sessionId,
+          agent_id: null,
+          event_type: "SubagentJsonlImported",
+          tool_name: null,
+          summary: `Imported ${created} subagent record(s), re-parented ${reparented}`,
+          created_at: new Date().toISOString(),
+        });
+      }
+    })
+    .catch(() => {
+      /* partial JSONL during a live run is expected */
+    });
+}
+
+router.post("/ingest-transcript", (req, res) => {
+  const expectedToken = getRemotePushToken();
+  if (!expectedToken) {
+    return res.status(503).json({
+      error: {
+        code: "REMOTE_PUSH_NOT_CONFIGURED",
+        message: "remote push ingestion is not enabled",
+      },
+    });
+  }
+  if (!tokensMatch(extractHeaderOnlyToken(req), expectedToken)) {
+    return res.status(401).json({
+      error: { code: "EUNAUTHORIZED", message: "missing or invalid remote-push token" },
+    });
+  }
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+  const invalid = (message) => res.status(400).json({ error: { code: "INVALID_INPUT", message } });
+
+  if (body.provider !== undefined && body.provider !== "claude")
+    return invalid("provider must be claude");
+  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  if (!isValidSessionId(sessionId)) return invalid("session_id is required");
+  if (typeof body.content_b64 !== "string") return invalid("content_b64 is required");
+
+  let resolved;
+  try {
+    resolved = resolveTranscriptPath(getProjectsDir(), sessionId, body.rel_path);
+  } catch (err) {
+    if (err instanceof TranscriptPathError) return invalid(err.message);
+    throw err;
+  }
+
+  // Same ownership rule as /ingest-batch: never write into a locally-managed session.
+  const existing = stmts.getSession.get(sessionId);
+  if (existing && existing.source !== REMOTE_PUSH_SOURCE) {
+    return res.status(409).json({
+      error: {
+        code: "SESSION_LOCALLY_OWNED",
+        message: `session ${sessionId} is not remote-push owned`,
+      },
+    });
+  }
+  // The session row must exist first (created by /ingest-batch as remote_push). Otherwise the
+  // server's own projects-dir sweep could find the file before any row exists and import it as a
+  // locally-owned session, which would lock this collector out of the session.
+  if (!existing) {
+    return res.status(409).json({
+      error: {
+        code: "SESSION_NOT_REGISTERED",
+        message: `register session ${sessionId} with /ingest-batch before uploading its transcript`,
+      },
+    });
+  }
+
+  const chunk = decodeBase64Strict(body.content_b64);
+  if (!chunk) return invalid("content_b64 is not valid base64");
+
+  let result;
+  try {
+    result = appendChunk(resolved.abs, body.offset, chunk, {
+      maxFileBytes: REMOTE_TRANSCRIPT_MAX_FILE_BYTES,
+      projectsDir: getProjectsDir(),
+    });
+  } catch (err) {
+    if (err instanceof TranscriptPathError) return invalid(err.message);
+    throw err;
+  }
+  if (!result.ok) {
+    return res
+      .status(result.status)
+      .json({ error: { code: result.code, message: result.code }, size: result.size });
+  }
+  res.json({ ok: true, size: result.size });
+
+  // Chunks are written with sync:false; the client sets sync:true once per session per pass, so a
+  // large backfill is parsed once instead of once per chunk.
+  if (body.sync === true) {
+    setImmediate(() => {
+      try {
+        syncRemoteTranscript(sessionId, resolved.mainAbs, {
+          cwd: typeof body.cwd === "string" && body.cwd ? body.cwd : undefined,
+          sessionName:
+            typeof body.session_name === "string" && body.session_name
+              ? body.session_name
+              : undefined,
+        });
+      } catch (err) {
+        console.error("[ingest-transcript] sync failed for", sessionId, err && err.message);
+      }
+    });
+  }
+});
 
 router.transcriptCache = transcriptCache;
 router.watchdogCheck = watchdogCheck;

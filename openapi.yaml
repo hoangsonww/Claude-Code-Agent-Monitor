@@ -3,7 +3,7 @@
 openapi: 3.0.3
 info:
   title: Agent Dashboard for Claude Code, Cursor, and Codex API
-  version: 2.3.0
+  version: 2.4.5
   description: HTTP API for real-time Claude Code, Cursor, and Codex session monitoring, agent lifecycle tracking, analytics, provider-specific pricing, hooks ingestion, and workflow intelligence.
   contact:
     name: Son Nguyen
@@ -587,7 +587,7 @@ components:
         version:
           type: string
           description: Dashboard release version from package.json
-          example: 2.3.0
+          example: 2.4.5
         timestamp:
           type: string
           format: date-time
@@ -6044,7 +6044,7 @@ paths:
 
         The overview counters are spread at the top level of the response object. Two additional maps, `agents_by_status` and `sessions_by_status`, break the counts down by lifecycle status (e.g. agents: working/waiting/completed/error; sessions: active/completed/error/abandoned). **Statuses with a zero count are omitted from these maps**, so callers must not assume every status key is present.
 
-        `events_today` is computed in the caller's local day. Pass `tz_offset` as the minutes value from JavaScript's `Date.prototype.getTimezoneOffset()` (for example `420` for US Pacific Daylight Time, `300` for US Eastern Daylight Time, `0` for UTC). When omitted or non-numeric, the server falls back to UTC (offset 0).
+        `events_today` is computed in the caller's local day. Pass `tz_offset` as the minutes value from JavaScript's `Date.prototype.getTimezoneOffset()` (for example `420` for US Pacific Daylight Time, `300` for US Eastern Daylight Time, `0` for UTC). When omitted or non-numeric, the server falls back to UTC (offset 0). Pass `day_start` as well to stay exact on daylight saving transition days.
       parameters:
         - in: query
           name: tz_offset
@@ -6052,6 +6052,13 @@ paths:
           schema:
             type: integer
           example: 420
+        - in: query
+          name: day_start
+          description: The caller's local midnight as an ISO 8601 UTC instant (e.g. `new Date(y, m, d).toISOString()`). When present and parseable it is used as the `events_today` cutoff and `tz_offset` is ignored for that count.
+          schema:
+            type: string
+            format: date-time
+          example: '2026-03-08T08:00:00.000Z'
         - $ref: '#/components/parameters/SourcesQuery'
           example: local,4d1f0e2a-7b9c-4c33-8a21-9e0f7b6d4c11
       responses:
@@ -6295,6 +6302,60 @@ paths:
                     type: boolean
                   reason:
                     type: string
+  /api/hooks/ingest-transcript:
+    post:
+      tags:
+        - Hooks
+      summary: Upload a Claude Code transcript file from a roaming/NAT'd machine
+      description: 'Companion to /api/hooks/ingest-batch. Appends raw JSONL (main transcript or subagent file) to the server''s Claude projects directory in Claude Code''s own layout, so tokens, compactions, titles, the transcript viewer and the subagent import work as for local sessions. Uploads are offset-based: a chunk is accepted only when `offset` equals the stored file size (otherwise 409 OFFSET_MISMATCH with the current `size`), so retries are idempotent. The session must already be registered via /api/hooks/ingest-batch (409 SESSION_NOT_REGISTERED) and must be remote-push owned (409 SESSION_LOCALLY_OWNED). Same REMOTE_PUSH_TOKEN auth as ingest-batch; disabled (503) until it is set.'
+      operationId: ingestRemotePushTranscript
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - rel_path
+                - offset
+                - content_b64
+              properties:
+                provider:
+                  type: string
+                  enum:
+                    - claude
+                session_id:
+                  type: string
+                rel_path:
+                  type: string
+                  description: 'Posix path under the projects dir: <project>/<session_id>.jsonl, or <project>/<session_id>/subagents/[workflows/<runId>/]<file>.jsonl.'
+                offset:
+                  type: integer
+                  description: Byte offset this chunk starts at; must equal the stored size.
+                content_b64:
+                  type: string
+                  description: Strict base64 of at most 4 MiB of raw bytes.
+                sync:
+                  type: boolean
+                  description: Set on the last chunk of a pass to re-derive tokens, titles and subagents once.
+                cwd:
+                  type: string
+                session_name:
+                  type: string
+      responses:
+        '200':
+          description: Chunk appended; body is { ok, size }.
+        '400':
+          description: Invalid input (session_id, rel_path, offset or base64).
+        '401':
+          description: Missing or invalid remote-push token.
+        '409':
+          description: OFFSET_MISMATCH, SESSION_NOT_REGISTERED or SESSION_LOCALLY_OWNED.
+        '413':
+          description: CHUNK_TOO_LARGE or FILE_TOO_LARGE (REMOTE_TRANSCRIPT_MAX_FILE_MB, default 256).
+        '503':
+          description: REMOTE_PUSH_TOKEN is not configured.
   /api/hooks/ingest-batch:
     post:
       tags:

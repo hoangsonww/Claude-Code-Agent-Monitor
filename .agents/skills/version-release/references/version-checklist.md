@@ -1,5 +1,7 @@
 # Version Checklist
 
+- [ ] The automation input uses the repository mapping: `major` for first, `intermediate` for middle, and `minor` for last.
+- [ ] Dry-run output was reviewed before a write run.
 - [ ] State why the change is patch, minor, or major.
 - [ ] Any explicit user-specified version was preserved and recorded as an override.
 - [ ] Root and desktop package/lockfile versions agree.
@@ -10,6 +12,7 @@
 - [ ] Claude/Codex plugin metadata and marketplaces were regenerated.
 - [ ] Independently shipped subprojects were intentionally left unchanged or explicitly released.
 - [ ] The exact open GitHub milestone `v<version>` was reused or created without duplicating an existing/closed release milestone.
+- [ ] Only after the new-version milestone step completed, every unmilestoned PR merged into the default branch was assigned using its returned numeric milestone ID, including older omissions; existing assignments were preserved, changed PRs were verified, and a final paginated query found no remaining misses.
 - [ ] The current pull request containing the version bump is assigned to `v<version>`.
 - [ ] Every issue in the PR's `closingIssuesReferences` is assigned to the same `v<version>` milestone.
 - [ ] Fresh PR and issue reads verify all milestone assignments.
@@ -17,3 +20,6 @@
 - [ ] A sweep for the previous version returns only lockfile history and deliberate historical references.
 - [ ] Extension validation, relevant tests/builds, and CLI version check passed.
 - [ ] No tag or release was created without explicit approval.
+- [ ] Every automation-created commit carries the exact `hoangsonww` coordinator trailer.
+- [ ] CI, file-header, and CLA checks were explicitly dispatched for a token-created PR.
+- [ ] The workflow stopped at an open PR without merging or force-pushing.

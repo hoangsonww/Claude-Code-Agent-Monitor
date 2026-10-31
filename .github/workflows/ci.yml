@@ -37,6 +37,7 @@ on:
       - "signatures/**"
   pull_request:
     branches: ["**"]
+  workflow_dispatch: {}
 
 env:
   NODE_VERSION: "24"

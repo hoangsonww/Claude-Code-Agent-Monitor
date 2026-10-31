@@ -15,6 +15,71 @@
  * `tsc -b` in the production build.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/lib/__tests__/paletteCommands.test.ts`
+ *
+ * Scope
+ * Guards the palette catalog's coverage claim: "every page, every Settings section, every Agent
+ * Config tab". The catalog mirrors three lists that live elsewhere — the route table in `App.tsx`,
+ * `SETTINGS_SECTIONS` in `Settings.tsx`, and `TABS` in `CcConfig.tsx` — and nothing at runtime
+ * notices when a mirror drifts: an added Settings section simply stays unreachable from the
+ * launcher, and a renamed anchor becomes a link that scrolls nowhere. Both failures are silent, so
+ * they are asserted here against the real sources. Sources are read through Vite's `?raw` import
+ * rather than `node:fs`: the client tsconfig is DOM-only, so a Node builtin typechecks under Vitest
+ * but breaks `tsc -b` in the production build.
+ *
+ * Subjects and collaborators
+ * - `../../App.tsx?raw` — local module imported by this suite.
+ * - `../../pages/Settings.tsx?raw` — local module imported by this suite.
+ * - `../../pages/CcConfig.tsx?raw` — local module imported by this suite.
+ * - `../paletteCommands` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `palette catalog coverage`
+ *
+ * Protected behavior
+ * - offers every route the app registers
+ * - offers every Settings section, in the page's own order
+ * - offers every Agent Config tab
+ * - gives every command a unique id and a known group
+ * - navigates rather than mutating for destinations
+ * - maps the all-sessions filter to a bare route, not an empty parameter
+ * - flips a preference to its opposite rather than to a fixed value
+ * - marks the active language and provider scope
+ * - offers a page action only while that page has registered it
+ * - routes a page action to the registry rather than doing the work itself
+ * - gives every declared page action a label key and an icon
+ * - turns each known project directory into a filtered session jump
+ * - scopes to a single machine and says so
+ * - marks the machine that is already scoped
+ * - steps the volume within range rather than past it
+ * - contains no destructive operation
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, expect, it, vi } from "vitest";
 import appSource from "../../App.tsx?raw";

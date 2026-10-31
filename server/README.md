@@ -502,6 +502,7 @@ Claude turn-duration ingestion assigns each `TurnDuration` a stable transcript i
 | `POST` | `/api/hooks/event` | Ingest one Claude Code hook event envelope     |
 | `POST` | `/api/hooks/codex` | Acknowledge a Codex lifecycle notification and asynchronously ingest its rollout (or, for a rollout-less run, the payload itself) |
 | `POST` | `/api/hooks/ingest-batch` | Third session-data ingestion path (see [Remote Data Sources](#remote-data-sources) for the other two): a roaming/NAT'd machine the dashboard can never reach to pull FROM pushes a batch of its own session data instead |
+| `POST` | `/api/hooks/ingest-transcript` | Append a registered remote-push Claude session's main or subagent transcript JSONL in offset-checked chunks |
 
 Request body shape:
 
@@ -517,12 +518,12 @@ Request body shape:
 
 #### `POST /api/hooks/ingest-batch`
 
-Unlike every other route in this file, this one is meant to be reachable from
-the public internet (via Traefik) rather than loopback, and is disabled by
-default. It is gated by its **own** token — deliberately **not**
+Unlike the local hook routes in this file, the two remote-push endpoints are
+meant to be reachable from the public internet via Traefik rather than loopback,
+and are disabled by default. They are gated by their **own** token — deliberately **not**
 `DASHBOARD_HOOK_TOKEN` (that one protects the loopback-only routes above; an
 operator who sets it to harden those must not thereby also open this
-internet-writable endpoint as a side effect):
+internet-writable surface as a side effect):
 
 ```
 REMOTE_PUSH_TOKEN=              # or REMOTE_PUSH_TOKEN_FILE=/path/to/token
@@ -615,6 +616,41 @@ Response (`200`, even when individual items were skipped/rejected — see
 
 ```json
 { "ok": true, "written": 2, "skipped": 1, "errors": [{ "item": "tokens[0]", "code": "INVALID_NUMERIC", "message": "..." }] }
+```
+
+#### `POST /api/hooks/ingest-transcript`
+
+This Claude-only companion fills the transcript gap left by `ingest-batch`.
+The session must already exist with `source = 'remote_push'`. It accepts main
+files at `<project>/<session_id>.jsonl`, flat subagent files, and workflow
+subagent files in Claude's native projects layout.
+
+Each request carries canonical base64 plus a byte `offset`. The append succeeds
+only when that offset equals the stored size, so a retry returns
+`409 OFFSET_MISMATCH` with the resume size instead of duplicating bytes. Raw
+chunks are capped at 4 MiB. Each file defaults to 256 MiB and can be adjusted
+with `REMOTE_TRANSCRIPT_MAX_FILE_MB`.
+
+The server validates `REMOTE_PUSH_TOKEN` before its route-specific 8 MiB JSON
+parser reads the body. Path resolution canonicalizes existing ancestors against
+the Claude projects root, rejects dangling or escaping symlinks, rechecks before
+append, and opens the final file without following a symlink where supported.
+The route returns `400 INVALID_INPUT` for an unsafe path.
+
+Set `sync: true` on the last chunk of a pass to update tokens, titles, prompt
+previews, compactions, turn timing, API errors, and imported subagents. This
+metadata-only `RemoteSync` writes no feed event, never reactivates the session,
+and restores the original `sessions.updated_at`, preserving inactivity alerts.
+
+```json
+{
+  "provider": "claude",
+  "session_id": "abc-123",
+  "rel_path": "-home-user-project/abc-123.jsonl",
+  "offset": 0,
+  "content_b64": "eyJ0eXBlIjoidXNlciJ9Cg==",
+  "sync": true
+}
 ```
 
 ### Pricing
@@ -1605,8 +1641,9 @@ DASHBOARD_TOKEN=                   # Optional bearer token; when set, /api/* and
 DASHBOARD_TOKEN_FILE=              # File-backed dashboard token for Docker/Kubernetes secrets
 DASHBOARD_HOOK_TOKEN=              # Independent token for the local hook routes (/api/hooks/event, /api/hooks/codex) when exposed beyond loopback
 DASHBOARD_HOOK_TOKEN_FILE=         # File-backed hook token
-REMOTE_PUSH_TOKEN=                 # Separate token gating POST /api/hooks/ingest-batch (public-internet remote-push route). Unset = route disabled (503). Deliberately independent of DASHBOARD_HOOK_TOKEN above
+REMOTE_PUSH_TOKEN=                 # Separate token gating POST /api/hooks/ingest-batch and /api/hooks/ingest-transcript. Unset = routes disabled (503). Deliberately independent of DASHBOARD_HOOK_TOKEN above
 REMOTE_PUSH_TOKEN_FILE=            # File-backed remote-push token
+REMOTE_TRANSCRIPT_MAX_FILE_MB=256  # Per-file MiB cap for ingest-transcript; each request chunk is capped at 4 MiB
 DASHBOARD_ALLOWED_HOSTS=           # Extra Host-header names to allow (comma-separated), e.g. for LAN access
 POD_IP=                            # Kubernetes downward-API pod IP; automatically accepted by the Host guard
 DASHBOARD_ENV_PATH=                # Writable dotenv path for persisted Settings overrides

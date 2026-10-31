@@ -342,7 +342,7 @@ Dashboard bao quát toàn bộ vòng đời Agent cục bộ. Các hợp đồng
 | **Phát hiện phiên có sẵn** | Nhập khi khởi động đánh dấu transcript mới sửa gần đây là đang hoạt động, còn sự kiện Stop về sau kích hoạt lại phiên đã nhập ở trạng thái hoàn tất hoặc bị bỏ dở trước khi cập nhật. |
 | **Đồng bộ dự án liên tục** | Một lần quét ngay khi khởi động, watcher hệ thống tệp có debounce và poll `DASHBOARD_SESSION_SYNC_MS`, mặc định 30 giây, dùng chung cache mtime và lần quét hợp nhất. Chỉ tệp mới hoặc đã tiến lên được phân tích lại, với phạm vi watcher an toàn trên Linux và broadcast phiên trực tiếp. |
 | **Nguồn dữ liệu từ xa** | Nguồn SSH phản chiếu độc lập thư mục Claude và Codex qua `scp` hoặc `tar` của WSL, gắn `sessions.source`, đối chiếu vòng đời và vẫn khỏe nếu một trong hai nhà cung cấp hoạt động. Polling mặc định 15 giây; fallback cũ chỉ ảnh hưởng nhà cung cấp lỗi. Thông tin xác thực ở lại với SSH của máy chủ. |
-| **Tiếp nhận đẩy từ xa** | `POST /api/hooks/ingest-batch` hỗ trợ máy phía sau NAT. Tính năng tắt cho đến khi có `REMOTE_PUSH_TOKEN`, từ chối token trong query string và phiên sở hữu cục bộ, giới hạn batch ở 1000, khử trùng lặp `(session_id, event_type, uuid)`, trả lỗi từng mục và chỉ broadcast sau commit. |
+| **Tiếp nhận đẩy từ xa** | `POST /api/hooks/ingest-batch` gửi tổng phiên và sự kiện từ máy phía sau NAT, còn `POST /api/hooks/ingest-transcript` bổ sung JSONL của Agent chính và Subagent có kiểm tra offset để phục vụ tiêu đề, lịch sử, token và nhập Subagent. Cả hai đều tắt cho đến khi cấu hình `REMOTE_PUSH_TOKEN` hoặc `REMOTE_PUSH_TOKEN_FILE`, và từ chối thông tin xác thực trong query string cùng phiên sở hữu cục bộ; `ingest-transcript` xác thực trước khi parser lớn hơn của route này chạy. |
 | **Thiết kế thích ứng** | Bố cục di động xếp chồng lưới, cuộn bảng rộng và thu gọn điều hướng. |
 | **Bản địa hóa UI** | Tiếng Anh, Trung, Việt, Hàn và Tây Ban Nha bao quát nội dung UI, nhãn trợ năng, giải thích quy trình và tooltip, hướng dẫn định giá model, thư mục nhà cung cấp và Nhập lịch sử. |
 | **Dữ liệu mẫu** | Script tích hợp cung cấp dữ liệu demo và phát triển thực tế. |
@@ -642,7 +642,8 @@ flowchart LR
 | `DASHBOARD_TOKEN` | chưa đặt | Bảo vệ `/api/*` và WebSocket qua header Bearer, `x-dashboard-token` hoặc `?token=`. Loopback là ranh giới tin cậy mặc định. |
 | `DASHBOARD_TOKEN_FILE` | chưa đặt | Token dashboard dựa trên tệp cho secret Docker/Kubernetes; `DASHBOARD_TOKEN` được ưu tiên. |
 | `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | chưa đặt | Bảo vệ độc lập cho `/api/hooks/event` và `/api/hooks/codex` ngoài loopback. |
-| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | chưa đặt | Cổng riêng cho `POST /api/hooks/ingest-batch` công khai. Route mặc định bị tắt và không kế thừa hook token cục bộ. |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | chưa đặt | Cổng riêng cho `POST /api/hooks/ingest-batch` và `/api/hooks/ingest-transcript` công khai. Cả hai route mặc định bị tắt và không kế thừa hook token cục bộ. |
+| `REMOTE_TRANSCRIPT_MAX_FILE_MB` | `256` | Kích thước lưu trữ tối đa theo MiB cho mỗi tệp mà `ingest-transcript` chấp nhận; mỗi chunk trong một request được giới hạn riêng ở 4 MiB. |
 | `DASHBOARD_ALLOWED_HOSTS` | loopback | Các giá trị `Host` HTTP và WebSocket bổ sung, phân cách bằng dấu phẩy, cho cơ chế bảo vệ DNS rebinding. |
 | `DASHBOARD_ENV_PATH` | `.env` của kho mã | Tệp dotenv có thể ghi dùng để lưu override thư mục nhà cung cấp; container mặc định dùng `/app/config/.env`. |
 | `CCAM_DASHBOARD_URL` | phát hiện localhost | Đích hook từ xa. URL không phải loopback bắt buộc dùng HTTPS và hook token. |
@@ -1074,6 +1075,7 @@ Tài liệu API hiện đã **đầy đủ**: mọi route phụ trợ đều đ�
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | Nhận và xử lý sự kiện hook Claude Code |
 | `POST` | `/api/hooks/ingest-batch` | Đẩy một batch dữ liệu phiên từ máy roaming/sau NAT (mặc định tắt; xem `REMOTE_PUSH_TOKEN` bên dưới và `server/README.md` để biết cấu trúc payload đầy đủ) |
+| `POST` | `/api/hooks/ingest-transcript` | Tải transcript JSONL của máy từ xa lên theo từng chunk có offset (cùng cổng `REMOTE_PUSH_TOKEN`; phiên phải được đăng ký trước qua `ingest-batch`) |
 
 **Tải trọng sự kiện móc:**
 

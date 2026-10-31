@@ -3,6 +3,61 @@
  * including accessible tooltip triggers and subagent ownership rendering.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/__tests__/TodoProgress.test.tsx`
+ *
+ * Scope
+ * Behavioral regression suite for `TodoProgress.test.tsx`.
+ *
+ * Subjects and collaborators
+ * - `../../lib/types` — local module imported by this suite.
+ * - `../TodoProgressIndicator` — local module imported by this suite.
+ * - `../TodoProgressPanel` — local module imported by this suite.
+ * - `../todoProgress` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ * - React Testing Library drives the rendered UI through accessible roles, labels, and user-visible
+ *   text.
+ * - `userEvent` models complete browser interactions; await it so state updates settle before
+ *   assertions.
+ *
+ * Suite groups
+ * - `TodoProgressIndicator`
+ * - `taskSourceLabel`
+ * - `TodoProgressPanel`
+ *
+ * Protected behavior
+ * - opens the detailed tooltip on hover and keyboard focus
+ * - renders nothing for an empty task summary
+ * - uses the caller's localized fallback when source metadata is absent
+ * - renders progress, source confidence, tasks, and owner breakdown
+ * - pages long task lists ten rows at a time
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Query the UI by role or accessible name first; test IDs are reserved for structure with no semantic
+ *   selector.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

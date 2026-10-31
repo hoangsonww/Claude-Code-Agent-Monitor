@@ -19,7 +19,7 @@
 - Keep docs updated when behavior, commands, file locations, or workflows change — apply the `update-project-docs` skill automatically at the end of every change-set that alters behavior, config, interfaces, events, schema, CLI commands, or features (do not wait to be asked).
 - Apply the `i18n-parity` skill whenever a change touches localized content — new/changed UI copy or i18n keys, `README-EN.md`, a localized full guide, `wiki/index.html`, or docs the guides and wiki mirror — and work through its new-language checklist whenever adding a language. `README.md` is an English-only landing page; `README-EN.md` is the full-guide source of truth. Every supported language ships full-guide changes in the same PR. Verify with `bash .claude/skills/i18n-parity/scripts/i18n-audit.sh`.
 - Apply the `push-to-forked-pr` skill whenever updating a PR whose head branch lives on a fork — `origin` here is the upstream, so a plain `git push origin` updates the wrong branch and leaves the PR untouched.
-- Apply the `version-release` skill for every release bump: patch for backward-compatible fixes/small improvements, minor for larger backward-compatible capabilities, and major for breaking/fundamental changes; synchronize root, desktop, OpenAPI, snapshots, and generated plugin metadata, create or reuse the matching `v<version>` GitHub milestone, and assign the release PR plus linked closing issues to it.
+- Apply the `version-release` skill for every release bump: patch for backward-compatible fixes/small improvements, minor for larger backward-compatible capabilities, and major for breaking/fundamental changes; synchronize root, desktop, OpenAPI, snapshots, and generated plugin metadata, create or reuse the matching `v<version>` GitHub milestone, and assign the release PR plus linked closing issues to it. The automated workflow input names are `major` for the first component, `intermediate` for the middle component, and `minor` for the last component.
 - Every applicable source file you create or update (`.js/.ts/.tsx/.cjs/.mjs/.py/.sh/.css`) must start with the copyright/authorship header — file overview + the exact line `@author Son Nguyen <hoangson091104@gmail.com>`. Formats and audit script: `.claude/skills/file-headers/` (verify with `bash .claude/skills/file-headers/scripts/check-headers.sh`). This binds every coding agent (Claude Code, Codex, or others).
 
 ## Commands you should know
@@ -27,6 +27,8 @@
 - Dev: `npm run dev`
 - Prod build/start: `npm run build` then `npm start`
 - Full local gate (headers + format + client typecheck + server + client tests): `npm run verify`
+- Release preview: `node scripts/bump-release.js intermediate --dry-run --json`
+- Local release fallback: `npm run release:bump -- <major|intermediate|minor>`
 - Server tests: `npm run test:server`
 - Client tests: `npm run test:client`
 - MCP install/build/start: `npm run mcp:install`, `npm run mcp:build`, `npm run mcp:start`

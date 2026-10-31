@@ -341,7 +341,7 @@ flowchart LR
 | **Pre-Existing Session Detection** | 시작 가져오기는 최근 수정된 트랜스크립트를 active로 표시하고, 이후 Stop 이벤트는 가져온 completed 또는 abandoned 세션을 업데이트하기 전에 다시 활성화합니다. |
 | **Continuous Project Sync** | 즉시 시작 sweep, debounce filesystem watcher, 기본 30초인 `DASHBOARD_SESSION_SYNC_MS` poll이 mtime cache와 coalesced scan을 공유합니다. 새로 생겼거나 진행된 파일만 다시 파싱하며, Linux에 안전한 watcher 범위와 실시간 session broadcast를 사용합니다. |
 | **Remote Data Sources** | SSH source는 `scp` 또는 WSL `tar`를 통해 Claude와 Codex home을 독립적으로 mirror하고, `sessions.source`를 tag하며, lifecycle을 조정하고, 두 provider 중 하나라도 작동하면 healthy 상태를 유지합니다. Polling 기본값은 15초이며 stale fallback은 실패한 provider에만 적용됩니다. 인증 정보는 host SSH에 남습니다. |
-| **Remote Push Ingestion** | `POST /api/hooks/ingest-batch`는 NAT 뒤의 machine을 지원합니다. `REMOTE_PUSH_TOKEN`이 설정될 때까지 비활성 상태를 유지하고, query-string token과 locally owned session을 거부하며, batch를 1000개로 제한하고, `(session_id, event_type, uuid)`를 중복 제거하며, 항목별 partial error를 반환하고, commit 후에만 broadcast합니다. |
+| **Remote Push Ingestion** | `POST /api/hooks/ingest-batch`는 NAT 뒤의 머신에서 세션 합계와 이벤트를 보내고, `POST /api/hooks/ingest-transcript`는 제목, 기록, token, Subagent 가져오기에 필요한 offset 검증 기반 main Agent 및 Subagent JSONL을 추가합니다. 두 route 모두 `REMOTE_PUSH_TOKEN` 또는 `REMOTE_PUSH_TOKEN_FILE`이 설정될 때까지 비활성 상태이며 query-string credential과 로컬 소유 세션을 거부합니다. `ingest-transcript`는 해당 route의 더 큰 parser가 실행되기 전에 인증합니다. |
 | **Responsive Design** | 모바일 레이아웃은 grid를 쌓고, 넓은 table을 scroll하며, navigation을 접습니다. |
 | **UI Localization** | 영어, 중국어, 베트남어, 한국어, 스페인어는 UI copy, accessibility label, workflow 설명과 tooltip, model-pricing 안내, provider home, Import History를 다룹니다. |
 | **Seed Data** | 내장 script가 실제적인 demo 및 development data를 제공합니다. |
@@ -644,7 +644,8 @@ flowchart LR
 | `DASHBOARD_TOKEN` | 미설정 | Bearer header, `x-dashboard-token` 또는 `?token=`을 통해 `/api/*`와 WebSocket을 보호합니다. Loopback이 기본 trust boundary입니다. |
 | `DASHBOARD_TOKEN_FILE` | 미설정 | Docker/Kubernetes secret용 file-backed dashboard token입니다. `DASHBOARD_TOKEN`이 우선합니다. |
 | `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | 미설정 | Loopback 경계를 넘어 `/api/hooks/event`와 `/api/hooks/codex`를 독립적으로 보호합니다. |
-| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | 미설정 | Public `POST /api/hooks/ingest-batch`의 별도 gate입니다. Route는 기본적으로 비활성이고 local Hook token을 상속하지 않습니다. |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | 미설정 | Public `POST /api/hooks/ingest-batch`와 `/api/hooks/ingest-transcript`의 별도 gate입니다. 두 route는 기본적으로 비활성이고 local Hook token을 상속하지 않습니다. |
+| `REMOTE_TRANSCRIPT_MAX_FILE_MB` | `256` | `ingest-transcript`가 허용하는 파일별 최대 저장 크기(MiB)입니다. 요청별 chunk는 별도로 4 MiB로 제한됩니다. |
 | `DASHBOARD_ALLOWED_HOSTS` | loopback | DNS-rebinding guard가 허용하는 추가 HTTP 및 WebSocket `Host` 값을 쉼표로 구분합니다. |
 | `DASHBOARD_ENV_PATH` | 저장소 `.env` | Provider-home override를 저장하는 writable dotenv file입니다. Container 기본값은 `/app/config/.env`입니다. |
 | `CCAM_DASHBOARD_URL` | localhost 검색 | Remote Hook 목적지입니다. Non-loopback URL에는 HTTPS와 Hook token이 필요합니다. |
@@ -1089,6 +1090,7 @@ npm run openapi:yaml
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | Claude Code Hook 이벤트를 수신하고 처리합니다 |
 | `POST` | `/api/hooks/ingest-batch` | 로밍 중이거나 NAT 뒤에 있는 머신에서 세션 데이터 배치를 푸시합니다(기본 비활성. 아래의 `REMOTE_PUSH_TOKEN`과 전체 페이로드 구조는 `server/README.md` 참고) |
+| `POST` | `/api/hooks/ingest-transcript` | 원격 머신의 transcript JSONL을 offset 기반 chunk로 업로드합니다(동일한 `REMOTE_PUSH_TOKEN` gate; 세션은 먼저 `ingest-batch`로 등록되어야 함) |
 
 **Hook 이벤트 페이로드:**
 

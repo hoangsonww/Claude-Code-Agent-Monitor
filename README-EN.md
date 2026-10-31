@@ -342,7 +342,7 @@ The dashboard covers the complete local agent lifecycle. Detailed operational co
 | **Pre-Existing Session Detection** | Startup import marks recently modified transcripts active, and later Stop events reactivate imported completed or abandoned sessions before updating them. |
 | **Continuous Project Sync** | An immediate startup sweep, debounced filesystem watcher, and `DASHBOARD_SESSION_SYNC_MS` poll, default 30 seconds, share an mtime cache and coalesced scan. Only new or advanced files reparse, with Linux-safe watcher scope and live session broadcasts. |
 | **Remote Data Sources** | SSH sources independently mirror Claude and Codex homes through `scp` or WSL `tar`, tag `sessions.source`, reconcile lifecycle, and remain healthy if either provider works. Polling defaults to 15 seconds; stale fallback affects only the failed provider. Credentials remain with host SSH. |
-| **Remote Push Ingestion** | `POST /api/hooks/ingest-batch` supports machines behind NAT. It stays disabled until `REMOTE_PUSH_TOKEN`, rejects query-string tokens and locally owned sessions, caps batches at 1000, deduplicates `(session_id, event_type, uuid)`, returns per-item partial errors, and broadcasts only after commit. |
+| **Remote Push Ingestion** | `POST /api/hooks/ingest-batch` sends session totals and events from machines behind NAT, while `POST /api/hooks/ingest-transcript` adds offset-checked main and subagent JSONL for titles, history, tokens, and subagent import. Both stay disabled until `REMOTE_PUSH_TOKEN` or `REMOTE_PUSH_TOKEN_FILE` is configured, and reject query-string credentials and locally owned sessions; `ingest-transcript` authenticates before its larger parser runs. |
 | **Responsive Design** | Mobile layouts stack grids, scroll wide tables, and collapse navigation. |
 | **UI Localization** | English, Chinese, Vietnamese, Korean, and Spanish cover UI copy, accessibility labels, workflow explanations and tooltips, model-pricing guidance, provider homes, and Import History. |
 | **Seed Data** | A built-in script provides realistic demo and development data. |
@@ -642,7 +642,8 @@ flowchart LR
 | `DASHBOARD_TOKEN` | unset | Protects `/api/*` and WebSocket via Bearer header, `x-dashboard-token`, or `?token=`. Loopback is the default trust boundary. |
 | `DASHBOARD_TOKEN_FILE` | unset | File-backed dashboard token for Docker/Kubernetes secrets; `DASHBOARD_TOKEN` wins. |
 | `DASHBOARD_HOOK_TOKEN` / `DASHBOARD_HOOK_TOKEN_FILE` | unset | Independent protection for `/api/hooks/event` and `/api/hooks/codex` beyond loopback. |
-| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | unset | Separate gate for public `POST /api/hooks/ingest-batch`. The route stays disabled by default and never inherits the local hook token. |
+| `REMOTE_PUSH_TOKEN` / `REMOTE_PUSH_TOKEN_FILE` | unset | Separate gate for public `POST /api/hooks/ingest-batch` and `/api/hooks/ingest-transcript`. Both stay disabled by default and never inherit the local hook token. |
+| `REMOTE_TRANSCRIPT_MAX_FILE_MB` | `256` | Maximum stored size in MiB for each file accepted by `ingest-transcript`; each request chunk is capped separately at 4 MiB. |
 | `DASHBOARD_ALLOWED_HOSTS` | loopback | Extra comma-separated HTTP and WebSocket `Host` values for the DNS-rebinding guard. |
 | `DASHBOARD_ENV_PATH` | repo `.env` | Writable dotenv file used to persist provider-home overrides; containers default to `/app/config/.env`. |
 | `CCAM_DASHBOARD_URL` | localhost discovery | Remote hook destination. Non-loopback URLs require HTTPS and a hook token. |
@@ -1093,6 +1094,7 @@ npm run openapi:yaml
 | ------ | ------------------ | -------------------------------------------- |
 | `POST` | `/api/hooks/event` | Receive and process a Claude Code hook event |
 | `POST` | `/api/hooks/ingest-batch` | Push a batch of session data from a roaming/NAT'd machine (disabled by default; see `REMOTE_PUSH_TOKEN` below and `server/README.md` for the full payload shape) |
+| `POST` | `/api/hooks/ingest-transcript` | Upload a remote machine's transcript JSONL in offset-based chunks (same `REMOTE_PUSH_TOKEN` gate; session must first be registered via `ingest-batch`) |
 
 **Hook event payload:**
 

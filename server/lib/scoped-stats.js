@@ -65,15 +65,15 @@ function sessionStatusCounts(db, sources, providers) {
     .all(...scope.params);
 }
 
-function countEventsToday(db, sources, providers, toLocal, toUTC) {
+function countEventsToday(db, sources, providers, todayStart) {
   const scope = sessionSubquery(sources, providers);
   return db
     .prepare(
       `SELECT COUNT(*) as count FROM events
-       WHERE created_at >= datetime('now', ?, 'start of day', ?)
+       WHERE created_at >= ?
          AND session_id IN (${scope.sql})`
     )
-    .get(toLocal, toUTC, ...scope.params);
+    .get(todayStart, ...scope.params);
 }
 
 function tokenTotals(db, sources, providers) {

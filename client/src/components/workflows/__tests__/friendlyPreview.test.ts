@@ -3,6 +3,56 @@
  * JSON result preview into a human-readable excerpt for the Workflow Runs panel.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/* =============================================================================
+ * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
+ * =============================================================================
+ * Path: `client/src/components/workflows/__tests__/friendlyPreview.test.ts`
+ *
+ * Scope
+ * Behavioral regression suite for `friendlyPreview.test.ts`.
+ *
+ * Subjects and collaborators
+ * - `../WorkflowRunsPanel` — local module imported by this suite.
+ *
+ * Harness and isolation
+ * - Vitest supplies suite lifecycle, spies, mocks, and assertions; every case must be
+ *   order-independent.
+ *
+ * Suite groups
+ * - `friendlyPreview`
+ * - `fullPreview`
+ *
+ * Protected behavior
+ * - returns empty for nullish/empty input
+ * - prefers a known content field (pitch) over earlier short fields
+ * - extracts the first claim from a findings array
+ * - handles a TRUNCATED json blob (no closing quote/brace) via the keyed field
+ * - falls back to the first substantial quoted string when no known key matches
+ * - de-JSONs a blob with no good string, stripping structural punctuation
+ * - passes plain prose through unchanged
+ * - pretty-prints valid JSON
+ * - returns truncated/invalid JSON verbatim
+ * - returns empty for nullish input
+ *
+ * Maintenance rules
+ * - Keep assertions at observable boundaries: rendered output, public return values, emitted events, or
+ *   wire payloads.
+ * - When behavior changes intentionally, update the matching case title and this map in the same
+ *   review.
+ * - Prefer one reason for failure per case; shared setup may remove noise but must not hide the state
+ *   under test.
+ * - Reset spies, fake timers, storage, and singleton subscriptions so reruns and shuffled execution
+ *   remain stable.
+ * - Add regression coverage beside the narrowest existing group that expresses the affected user or API
+ *   contract.
+ * - Keep client fixtures aligned with `lib/types.ts` and server response shapes so mocks do not mask
+ *   contract drift.
+ *
+ * Verification
+ * - Run `npm run test:client` and `npm run typecheck:client` after changing this area.
+ * - The repository-wide `npm run verify` gate also checks headers, formatting, server tests, and client
+ *   tests.
+ * ============================================================================= */
 
 import { describe, it, expect } from "vitest";
 import { friendlyPreview, fullPreview } from "../WorkflowRunsPanel";
