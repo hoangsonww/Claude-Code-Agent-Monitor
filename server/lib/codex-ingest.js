@@ -8,6 +8,7 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+const { isLocalHistoryOwner } = require("./session-origin");
 const fs = require("fs");
 const path = require("path");
 const { constants: bufferConstants } = require("buffer");
@@ -564,6 +565,8 @@ function backfillCodexCardContext(transcriptPath, session, consumedBytes) {
 /** Keep dashboard cards aligned with the title chosen in Codex's `/rename` UI. */
 function syncCodexSessionTitle(session) {
   if (!session?.id) return { changed: false, session };
+  if (!isLocalHistoryOwner(stmts.getSession.get(session.id), "codex"))
+    return { changed: false, session };
   const title = getCodexSessionTitle(session.id);
   if (!title || title === session.name) return { changed: false, session };
   const changed = stmts.updateSessionName.run(title, session.id, title).changes > 0;
@@ -604,8 +607,10 @@ function createCodexSession(meta, transcriptPath, options = {}) {
 
   const startedAt = meta?.timestamp || new Date().toISOString();
   const cwd = meta?.cwd || null;
+  const originSource = options.originSource || null;
   const metadata = JSON.stringify({
     provider: "codex",
+    ...(originSource ? { origin_host: originSource.key } : {}),
     transcript_path: transcriptPath,
     cli_version: meta?.cli_version || null,
     model_provider: meta?.model_provider || "openai",
@@ -618,7 +623,7 @@ function createCodexSession(meta, transcriptPath, options = {}) {
     confirmedHistorical ? "completed" : "active",
     cwd,
     meta?.model || meta?.model_name || "unknown",
-    "local",
+    originSource ? originSource.id : "local",
     startedAt,
     startedAt,
     metadata
@@ -832,11 +837,7 @@ function isFinishedCodexSession(session, agent) {
 
 function resumeCodexSessionAtPrompt(sessionId) {
   const session = stmts.getSession.get(sessionId);
-  if (
-    !session ||
-    session.provider !== "codex" ||
-    (session.source !== null && session.source !== "local")
-  ) {
+  if (!session || !isLocalHistoryOwner(session, "codex")) {
     return null;
   }
   const agentId = `codex:${sessionId}`;
@@ -903,11 +904,23 @@ function applyTokenSnapshot(sessionId, model, speed, tokenInfo, previous) {
   return current;
 }
 
+/** Guard remote-import identity before either cursor can write session data. */
+function assertCodexImportIdentity(id, options) {
+  if (!id) return;
+  if (!options.originSource && !isLocalHistoryOwner(stmts.getSession.get(id), "codex")) {
+    throw new Error("Codex import session belongs to another source or provider");
+  }
+  if (options.expectedSessionId && id !== options.expectedSessionId) {
+    throw new Error("Codex import session identity mismatch");
+  }
+  if (options.isExcludedSession?.(id)) {
+    throw new Error("Codex import session belongs to another source or provider");
+  }
+}
+
 /**
- * Incrementally persist Codex `response_item` tool invocations. These records
- * are richer than the low-volume terminal `event_msg` notifications and power
- * the Workflows tool-flow view. Their own cursor lets existing histories be
- * backfilled once without replaying token counters or lifecycle state.
+ * Incrementally persist response-item tools through their independent cursor,
+ * without replaying the primary token counters or lifecycle state.
  */
 function ingestCodexToolEvents(transcriptPath, options = {}) {
   if (!isCodexTranscript(transcriptPath, options)) return { changed: false, events: [] };
@@ -924,6 +937,7 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
   const state = stmts.getCodexToolIngestState.get(transcriptPath);
   const offset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
   const sessionId = state?.session_id || sessionIdFromPath(transcriptPath);
+  assertCodexImportIdentity(sessionId, options);
   const session = sessionId && stmts.getSession.get(sessionId);
   if (!session) return { changed: false, events: [] };
   const length = stat.size - offset;
@@ -998,13 +1012,17 @@ function ingestCodexToolEvents(transcriptPath, options = {}) {
  * one call — including rollouts too large to decode as a single string.
  */
 function ingestCodexTranscript(transcriptPath, options = {}) {
+  // The secondary tool cursor must be checked before primary ingestion can
+  // change tokens, and when tool ingestion is called directly.
+  assertCodexImportIdentity(stmts.getCodexToolIngestState.get(transcriptPath)?.session_id, options);
   const result = ingestCodexTranscriptWindow(transcriptPath, options, null);
   let window = result;
   while (window.more && !window.failed) {
     window = ingestCodexTranscriptWindow(transcriptPath, options, window.carry);
     mergeIngestWindow(result, window);
   }
-  if (!result.failed) mergeIngestWindow(result, ingestCodexToolEvents(transcriptPath, options));
+  if (!result.failed && !result.skipped)
+    mergeIngestWindow(result, ingestCodexToolEvents(transcriptPath, options));
   delete result.more;
   delete result.carry;
   return result;
@@ -1043,6 +1061,8 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
     return { changed: false, events: [], failed: true };
   }
   const state = stmts.getCodexIngestState.get(transcriptPath);
+  // Guard cursor-owned rows before card repair or any cursor update too.
+  assertCodexImportIdentity(state?.session_id, options);
   const storedOffset = !state || stat.size < state.byte_offset ? 0 : state.byte_offset;
   const offset = Number.isInteger(carry?.readOffset) ? carry.readOffset : storedOffset;
   const repairSession = state?.session_id ? stmts.getSession.get(state.session_id) : null;
@@ -1117,6 +1137,8 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
 
   let meta = records.find((record) => record.type === "session_meta")?.payload;
   const resolvedSessionId = state?.session_id || meta?.id || sessionIdFromPath(transcriptPath);
+  assertCodexImportIdentity(meta?.id, options);
+  assertCodexImportIdentity(resolvedSessionId, options);
   const knownSession = resolvedSessionId ? stmts.getSession.get(resolvedSessionId) : null;
   // Imported rollouts live in a dashboard-owned snapshot so uploads remain
   // readable after their temporary extraction directory is removed. When the
@@ -1134,6 +1156,10 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
     !stmts.getCodexIngestState.get(transcriptPath)
   ) {
     const previousState = stmts.getCodexIngestState.get(knownSession.transcript_path);
+    // A shorter copy cannot inherit the snapshot cursor: replaying it would lower
+    // cumulative baselines and charge already-imported usage again.
+    if (previousState && stat.size < previousState.byte_offset)
+      return { changed: false, events: [], skipped: true };
     const previousToolState = stmts.getCodexToolIngestState.get(knownSession.transcript_path);
     if (previousState) {
       stmts.upsertCodexIngestState.run(
@@ -1164,6 +1190,7 @@ function ingestCodexTranscriptWindow(transcriptPath, options, carry) {
   const createOptions = {
     confirmedLive,
     endedAt: new Date(stat.mtimeMs).toISOString(),
+    originSource: options.originSource,
   };
   let session = knownSession || createCodexSession(meta, transcriptPath, createOptions);
   if (!session && meta?.id) session = createCodexSession(meta, transcriptPath, createOptions);
@@ -1639,12 +1666,7 @@ function ingestCodexHook(transcriptPath, hookType, hookData) {
     // remote-mirrored session, and attribute events to a `codex:<id>` agent
     // that was never created. Mirrors the guard in resumeCodexSessionAtPrompt.
     const candidate = stmts.getSession.get(meta.id);
-    const existing =
-      candidate &&
-      candidate.provider === "codex" &&
-      (candidate.source === null || candidate.source === "local")
-        ? candidate
-        : null;
+    const existing = candidate && isLocalHistoryOwner(candidate, "codex") ? candidate : null;
     if (candidate && !existing) return result;
     // Only SessionStart may CREATE a session; a later notification for an
     // unknown id would otherwise resurrect a session the user already deleted.
