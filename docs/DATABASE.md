@@ -67,6 +67,7 @@ graph TB
 - **Canonical (default):** `~/.claude/agent-dashboard/dashboard.db` — shared by `npm start`, `npm run dev`, Docker (bind mount), and the desktop app when it uses the same data dir
 - **Override:** set `DASHBOARD_DATA_DIR` (directory) or `DASHBOARD_DB_PATH` (file path) for tests or custom deployments
 - **Legacy:** repo-local `./data/dashboard.db` is migrated into the canonical location on first launch (see `server/db.js`)
+- **Live ownership:** `<database-directory>/.agent-dashboard-owners/<pid>.json` — one liveness marker per server process, shared independently of `CLAUDE_HOME` and keyed to `DASHBOARD_DB_PATH` when set; startup repair proceeds only when these markers prove a sole live owner
 
 ---
 
@@ -513,6 +514,18 @@ Durable append cursor for every Codex `rollout-*.jsonl`. It stores the byte offs
 Independent durable byte cursor for each Codex rollout's `response_item` records. It is transactionally advanced only after every newly discovered invocation is stored as a `codex_tool_call` event with a normalized display category and its raw tool name. This gives the Workflows tool flow and session drill-in an exact, once-only record of Codex commands, edits, reads, searches, MCP calls, and delegation tools while the separate `codex_ingest_state` cursor remains responsible for messages, lifecycle state, and cumulative token deltas. Existing rollout history is safely backfilled without replaying token accounting or changing historical session freshness.
 
 ---
+
+### monitor_event_count and monitor_session_event_counts
+
+Internal derived tables, atomically rebuilt from `events` at startup. Imports never copy them. The global singleton has `singleton = 1`, nonnegative `total`, `trusted` (0/1), and the SQLite `schema_version` captured after all five event triggers are installed.
+
+`monitor_session_event_counts` is a `WITHOUT ROWID` table with non-NULL `session_id` as its primary key and nonnegative `total`. It includes orphan IDs; NULL-ID events are represented only by the global total. Scoped statistics sum session buckets through current owning-session predicates, preserving NULL/orphan exclusions and source/provider changes. Event-list totals with only parsed session/source/provider filters reuse the original WHERE and bindings against buckets. Session-only requests include orphan IDs. Type, tool, agent, text and date predicates keep their original COUNT; invalid derived state selects that same fallback within the worker snapshot. Eligibility is decided from parsed filters, not a regex over arbitrary SQL. Event-page rows, probe fallback and total execute in one worker read transaction, so a concurrent commit cannot mix an older page with a newer count. In-memory databases use the same connection in a transaction.
+
+INSERT/DELETE maintain both tables; UPDATE of `session_id` transfers the bucket. PK conflicts (including rowid aliases) conservatively taint while preserving SQLite REPLACE/IGNORE semantics. Missing/underflow old buckets taint before any partial deletion/transfer update. Tainted maintenance is skipped. All triggers work with `trusted_schema=OFF`.
+
+Read-only callers require canonical definitions for both tables/all triggers, a valid global singleton/trust flag, an unchanged persisted schema version, and no extra UNIQUE indexes on events. Missing/altered objects and any ordinary DDL, even identical trigger restoration, select legacy COUNT. Workers never migrate. Startup repairs incomplete state atomically; extra UNIQUE indexes disable the shortcut. A failed repair disables only its own triggers when restored state is invalid; cleanup failure is reported. The deferred token-repair snapshot preserves an already admitted counter version inside its specific event-preserving transaction, never blessing invalid history.
+
+Direct derived-row edits or deliberate manual schema-cookie resets are outside automatic detection. `ensureGlobalEventCount(db, { rebuild: true })` rebuilds both derived tables without changing original event/token rows. Backfill duration depends on storage and corpus size.
 
 ### remote_sources
 

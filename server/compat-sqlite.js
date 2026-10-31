@@ -11,11 +11,35 @@
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
+const fs = require("fs");
 const { DatabaseSync } = require("node:sqlite");
 
 class Database {
-  constructor(filePath) {
-    this._db = new DatabaseSync(filePath);
+  constructor(filePath, options = {}) {
+    // Honor the better-sqlite3 open options callers rely on; without options
+    // the connection opens exactly as before. Like better-sqlite3, the name is
+    // trimmed, and an in-memory (":memory:") or temporary ("") database has no
+    // file to require.
+    const name = typeof filePath === "string" ? filePath.trim() : filePath;
+    const anonymous = name === "" || name === ":memory:";
+    if (options.fileMustExist && !anonymous && !fs.existsSync(name)) {
+      const error = new Error(`unable to open database file: ${name}`);
+      error.code = "SQLITE_CANTOPEN";
+      throw error;
+    }
+    this._db = options.readonly
+      ? new DatabaseSync(name, { readOnly: true })
+      : new DatabaseSync(name);
+    // query_only refuses writes on this connection even if a runtime ignored
+    // the readOnly open flag, so read-only never degrades to read-write.
+    if (options.readonly) this._db.exec("PRAGMA query_only = ON");
+    this._savepointSequence = 0;
+  }
+
+  // Unknown state stays unknown so transaction-sensitive readers fail closed.
+  get inTransaction() {
+    const state = this._db.isTransaction;
+    return typeof state === "boolean" ? state : undefined;
   }
 
   exec(sql) {
@@ -42,13 +66,29 @@ class Database {
   transaction(fn) {
     const db = this._db;
     const wrapper = (...args) => {
-      db.exec("BEGIN");
+      const nested = this.inTransaction;
+      if (nested === undefined) throw new Error("SQLite transaction state is unavailable");
+      const savepoint = `ccam_compat_${++this._savepointSequence}`;
+      db.exec(nested ? `SAVEPOINT ${savepoint}` : "BEGIN");
       try {
         const result = fn(...args);
-        db.exec("COMMIT");
+        db.exec(nested ? `RELEASE ${savepoint}` : "COMMIT");
         return result;
       } catch (err) {
-        db.exec("ROLLBACK");
+        // A failing ROLLBACK (busy or broken connection) must not replace the
+        // error that caused it; the caller needs the original cause.
+        try {
+          if (db.isTransaction) {
+            if (nested) {
+              db.exec(`ROLLBACK TO ${savepoint}`);
+              db.exec(`RELEASE ${savepoint}`);
+            } else {
+              db.exec("ROLLBACK");
+            }
+          }
+        } catch (rollbackErr) {
+          console.warn("[compat-sqlite] rollback failed:", rollbackErr?.message || rollbackErr);
+        }
         throw err;
       }
     };

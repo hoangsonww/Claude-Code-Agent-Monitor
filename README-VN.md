@@ -741,6 +741,7 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 | `npm run import-history`| Nhập các phiên kế thừa từ `~/.claude/` (cũng chạy khi khởi động) |
 | `npm run reconcile-tokens`| Làm mới tổng token cho các phiên đã nhập (không bao giờ hạ thấp một tổng đã có) |
 | `npm run repair-tokens` | Tính lại tổng token **không thuộc workflow** cho mọi phiên **Claude** còn transcript trên đĩa (tìm trong `~/.claude/projects/` hoặc theo `transcript_path` đã lưu của phiên) và đưa các baseline nén ngữ cảnh về 0; các hàng workflow và Codex được giữ nguyên. Bản sửa một lần cho cơ sở dữ liệu bị ảnh hưởng bởi cách cộng usage theo từng bản ghi trước v2.0.9 hoặc bị thiếu usage của subagent phẳng cùng model. Hãy dừng dashboard trước |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Xem trước việc sửa lượng đầu ra Codex: token suy luận đã nằm trong đầu ra. Dừng dashboard trước khi áp dụng `--apply --journal new-backup.json`. Không ghi đè tệp có sẵn; giữ nguyên lịch sử mơ hồ. Đọc bản ghi thường, gzip và Zstd theo luồng. |
 | `DASHBOARD_TOKEN_REPAIR` | Được bật theo mặc định (`1`). Tự động sửa một lần các tổng Token lịch sử bị ảnh hưởng bởi việc cộng phồng theo từng bản ghi hoặc bỏ sót subagent phẳng cùng model. Bản sửa trực tiếp không thể xử lý lại mọi phiên đã hoàn tất, và `replaceTokenUsage` không thể hạ mốc cao cũ. Chạy một lần cho mỗi cơ sở dữ liệu (có marker, hoãn khỏi đường khởi động, bỏ qua khi có dashboard khác dùng chung thư mục dữ liệu) và sao lưu các hàng cũ sang `token_usage_pre_repair_v2` trước. Đặt `0` để bỏ qua và tự chạy `npm run repair-tokens` |
 | `npm run clear-data`    | Xóa tất cả các phiên, tác nhân, sự kiện và việc sử dụng mã thông báo            |
 | `npm run mcp:install`   | Cài đặt các phần phụ thuộc cho gói MCP cục bộ (`mcp/`)       |
@@ -778,6 +779,21 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 | `npm run deploy:validate` | Rà soát Docker, Compose, Nginx, Helm, Kustomize, Terraform và one-writer invariant. Kết quả chỉ mang tính tham khảo (thoát 0); đặt `CCAM_DEPLOY_VALIDATE_STRICT=1` để biến thành cổng chặn |
 
 ---
+
+Ước tính chi phí dùng giá API đã cấu hình, không phải phí thuê bao. Dashboard và Settings hiển thị số tiền đến cent, phạm vi máy/sản phẩm đã chọn và cảnh báo cho mức sử dụng chưa có giá phù hợp. Giá mặc định Standard/Fast Short/Long của GPT-6.1 Sol theo bảng OpenAI công bố và không thay thế quy tắc tùy chỉnh đã khớp.
+
+### Ảnh chụp chi phí trước khi nâng cấp
+
+Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu đầu vào, đầu ra, lượt đọc cache, lượt ghi cache, lượt ghi cache một giờ, tìm kiếm web, tải nội dung web, thực thi mã hoặc chi phí của một phiên cục bộ hiện có thay đổi; nếu quyền sở hữu chuyển giữa cục bộ và một nguồn hoặc nhà cung cấp khác; hoặc nếu một phiên cục bộ biến mất. Phiên từ xa và phiên mới được báo cáo riêng.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Nâng cấp và khởi động lại CCAM, rồi chờ bảo trì lúc khởi động hoàn tất.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Sau khi khởi động lại, đồng bộ bị gián đoạn hiển thị lỗi; kết quả nhập trước đó vẫn được giữ. Khôi phục lúc khởi động chỉ chạy khi các marker liveness theo tiến trình trong thư mục dữ liệu SQLite dùng chung chứng minh tiến trình này là dashboard duy nhất còn chạy, kể cả khi các tiến trình dùng các giá trị `CLAUDE_HOME` khác nhau; marker bị thiếu, hỏng hoặc có quyền sở hữu đồng thời sẽ trì hoãn việc khôi phục. Cơ sở dữ liệu bận được thử lại độc lập, nên lỗi khôi phục không thể vô hiệu hóa bộ thăm dò nguồn từ xa. Khi thử lại nguồn từ xa, lỗi gần nhất vẫn hiển thị trong lúc kiểm tra; đồng bộ thành công sẽ xóa lỗi.
 
 ## Tiện ích mở rộng Agent
 

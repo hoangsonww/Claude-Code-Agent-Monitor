@@ -742,6 +742,7 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 | `npm run import-history` | 从 `~/.claude/` 导入历史会话（启动时也会运行） |
 | `npm run reconcile-tokens` | 刷新已导入会话的 Token 总计（不会降低已有的总计） |
 | `npm run repair-tokens` | 为每个 Transcript 仍在磁盘上的 **Claude** 会话（在 `~/.claude/projects/` 中查找，或按会话已保存的 `transcript_path`）重新推导**非 workflow** 的 Token 总计，并将上下文压缩基线清零；workflow 与 Codex 行保持不变。这是针对 v2.0.9 之前按记录累加用量而虚高，或遗漏同模型扁平子 Agent 用量的数据库的一次性修复。请先停止 Dashboard |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | 预览 Codex 输出用量修复：推理用量已包含在输出中。应用 `--apply --journal new-backup.json` 前先停止仪表板。不会覆盖已有文件；有歧义的历史记录保持不变。以流方式读取普通、gzip 和 Zstd 记录。 |
 | `DASHBOARD_TOKEN_REPAIR` | 默认启用（`1`）。一次性自动修复受按记录虚高或遗漏同模型扁平子 Agent 影响的历史 Token 总计。实时修复无法重新处理所有已完成会话，而 `replaceTokenUsage` 也无法降低旧的高水位标记。每个数据库只运行一次（有标记文件、延后于启动路径、当另一个 Dashboard 共用数据目录时跳过），并会先将旧行快照到 `token_usage_pre_repair_v2`。设为 `0` 可跳过，改用 `npm run repair-tokens` 手动修复 |
 | `npm run clear-data` | 删除所有会话、Agent、事件和 Token 用量 |
 | `npm run mcp:install` | 安装本地 MCP 包（`mcp/`）的依赖 |
@@ -779,6 +780,21 @@ ccam help [command…] | commands [--json] | completion bash|zsh|fish | version
 | `npm run deploy:validate` | 审查 Docker、Compose、Nginx、Helm、Kustomize、Terraform 与单 writer 约束。结果仅供参考（退出码 0）；设置 `CCAM_DEPLOY_VALIDATE_STRICT=1` 可将其变为硬性门禁 |
 
 ---
+
+费用估算采用已配置的 API 费率，并非订阅扣费。Dashboard 和 Settings 显示精确到美分的金额、所选机器和产品范围，以及没有适用费率的用量警告。GPT-6.1 Sol 的 Standard/Fast Short/Long 默认值依据 OpenAI 公布的费率，且不会覆盖已有的匹配自定义规则。
+
+### 升级前的成本快照
+
+在可能重新统计用量的升级前，先创建只读基线；升级并重启 CCAM，等待启动维护完成后，再用新路径创建第二份快照并比较。请妥善保管 TSV 文件：其中包含会话标识和归属元数据。如果已有本地会话的输入、输出、缓存读取、缓存写入、一小时缓存写入、Web 搜索、Web 获取、代码执行或成本发生变化；归属在本地与其他来源或提供方之间变更；或本地会话消失，检查命令会以状态码 1 退出。远程会话和新增会话会单独报告。
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# 升级并重启 CCAM，然后等待启动维护完成。
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+重启后，中断的远程同步显示为错误，之前的导入记录仍然保留。只有当共享 SQLite 数据目录中的逐进程存活标记证明当前进程是唯一运行中的 Dashboard 时，启动恢复才会执行；即使进程使用不同的 `CLAUDE_HOME`，这些标记也彼此可见。标记缺失、损坏或存在并发归属时会延后恢复。数据库忙时会独立重试，因此恢复失败不会禁用远程轮询器。远程重试会在再次检查时保留最近的错误提示；同步成功后清除。
 
 ## Agent 扩展
 
