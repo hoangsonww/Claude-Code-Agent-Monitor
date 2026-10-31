@@ -784,7 +784,7 @@ Nếu `ccam` không có trên `PATH`, hãy chạy `npm link` một lần từ th
 
 ### Ảnh chụp chi phí trước khi nâng cấp
 
-Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu Token, chi phí, nguồn hoặc provider của một phiên cục bộ hiện có thay đổi, hoặc nếu phiên đó biến mất; phiên từ xa và phiên mới được báo cáo riêng.
+Trước một bản nâng cấp có thể tính lại mức sử dụng, hãy tạo đường cơ sở chỉ đọc; nâng cấp và khởi động lại CCAM, chờ bảo trì lúc khởi động hoàn tất, rồi tạo ảnh chụp thứ hai ở một đường dẫn mới và so sánh. Hãy giữ kín các tệp TSV vì chúng chứa mã phiên và siêu dữ liệu sở hữu. Lệnh kiểm tra thoát với mã 1 nếu đầu vào, đầu ra, lượt đọc cache, lượt ghi cache, lượt ghi cache một giờ, tìm kiếm web, tải nội dung web, thực thi mã hoặc chi phí của một phiên cục bộ hiện có thay đổi; nếu quyền sở hữu chuyển giữa cục bộ và một nguồn hoặc nhà cung cấp khác; hoặc nếu một phiên cục bộ biến mất. Phiên từ xa và phiên mới được báo cáo riêng.
 
 ```bash
 node scripts/cost-snapshot.js snapshot --out before.tsv
