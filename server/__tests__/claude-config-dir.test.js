@@ -77,7 +77,14 @@ describe("CLAUDE_CONFIG_DIR path resolution (#393)", () => {
     assert.equal(fs.existsSync(path.join(root, ".claude")), false);
     writeServerInfo(4837);
     assert.ok(fs.existsSync(getServerInfoPath()));
-    assert.deepEqual(resolveHookIngestPorts(), [4837]);
+    const oldDashboardPort = process.env.CLAUDE_DASHBOARD_PORT;
+    delete process.env.CLAUDE_DASHBOARD_PORT;
+    try {
+      assert.deepEqual(resolveHookIngestPorts(), [4837]);
+    } finally {
+      if (oldDashboardPort === undefined) delete process.env.CLAUDE_DASHBOARD_PORT;
+      else process.env.CLAUDE_DASHBOARD_PORT = oldDashboardPort;
+    }
     removeServerInfo();
     assert.equal(getClaudeJsonPath(), path.join(configDir, ".claude.json"));
     assert.equal(readOverview({ cwd: root }).roots.claudeJson, getClaudeJsonPath());
@@ -97,6 +104,32 @@ describe("CLAUDE_CONFIG_DIR path resolution (#393)", () => {
     process.env.CLAUDE_CONFIG_DIR = configDir;
     assert.equal(getClaudeHome(), overrideDir);
     assert.equal(getClaudeJsonPath(), path.join(configDir, ".claude.json"));
+  });
+
+  it("uses the same machine-local discovery file for either relocated-home variable", () => {
+    process.env.CLAUDE_HOME = configDir;
+    delete process.env.CLAUDE_CONFIG_DIR;
+    const fromHome = getServerInfoPath();
+    delete process.env.CLAUDE_HOME;
+    process.env.CLAUDE_CONFIG_DIR = configDir;
+    assert.equal(getServerInfoPath(), fromHome);
+    assert.equal(fromHome, path.join(getMachineStateDir(), ".agent-dashboard.json"));
+  });
+
+  it("reuses data under an existing custom CLAUDE_HOME after config relocation", () => {
+    process.env.CLAUDE_HOME = overrideDir;
+    process.env.CLAUDE_CONFIG_DIR = configDir;
+    delete process.env.DASHBOARD_DATA_DIR;
+    const custom = path.join(overrideDir, "agent-dashboard");
+    fs.mkdirSync(path.join(custom, "transcripts"), { recursive: true });
+    fs.writeFileSync(path.join(custom, "vapid-keys.json"), "custom keys");
+    assert.equal(getDataDir(), custom);
+    assert.equal(
+      fs.readFileSync(path.join(getDataDir(), "vapid-keys.json"), "utf8"),
+      "custom keys"
+    );
+    assert.ok(fs.existsSync(path.join(getDataDir(), "transcripts")));
+    fs.rmSync(custom, { recursive: true, force: true });
   });
 
   it("reuses a previous local data directory with its snapshots and keys", () => {

@@ -53,8 +53,9 @@ function getProjectsDir() {
  * Shared dashboard state for the standalone and desktop launch paths. When
  * CLAUDE_CONFIG_DIR relocates Claude's configuration, new dashboard data uses
  * machine-local app data, never the synced config directory. An existing
- * ~/.claude/agent-dashboard is reused so upgrades retain the complete DB,
- * snapshots, VAPID keys, and import marker without a partial migration.
+ * data directory under an explicit CLAUDE_HOME, or under
+ * ~/.claude, is reused so upgrades retain the complete DB, snapshots, VAPID
+ * keys, and import marker without a partial migration.
  *
  * An explicit `DASHBOARD_DATA_DIR` still wins — for tests, power users, or
  * anyone pinning a custom location. The earlier default was the repo-local
@@ -67,8 +68,10 @@ function getDataDir() {
   if (!process.env.CLAUDE_CONFIG_DIR) return path.join(getClaudeHome(), "agent-dashboard");
 
   const local = path.join(getMachineStateDir(), "data");
+  const custom = process.env.CLAUDE_HOME ? path.join(getClaudeHome(), "agent-dashboard") : null;
   const legacy = path.join(os.homedir(), ".claude", "agent-dashboard");
   if (fs.existsSync(local)) return local;
+  if (custom && fs.existsSync(custom)) return custom;
   return fs.existsSync(legacy) ? legacy : local;
 }
 

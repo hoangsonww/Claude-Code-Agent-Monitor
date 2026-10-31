@@ -9,8 +9,8 @@
  * data directory. Servers sharing the same `dataDir` receive hooks through a
  * single lowest-port ingest target so events are never duplicated.
  *
- * The on-disk file is a JSON document under the Claude Code home directory,
- * or under machine-local app data when CLAUDE_CONFIG_DIR is set.
+ * The on-disk file is a JSON document under the default Claude Code home,
+ * or under machine-local app data for a relocated Claude home.
  * Every server writes its own entry on startup, prunes any stale entries it
  * finds, and the hook handler reads the file and fans out one POST per live
  * entry. Stale entries (process gone) are dropped on every read.
@@ -30,6 +30,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 const { getClaudeHome, getDataDir, getMachineStateDir } = require("./claude-home");
 
@@ -38,8 +39,10 @@ const DEFAULT_PORT = 4820;
 
 /** Absolute path of the discovery file. */
 function getServerInfoPath() {
+  const claudeHome = path.resolve(getClaudeHome());
+  const defaultHome = path.join(os.homedir(), ".claude");
   return path.join(
-    process.env.CLAUDE_CONFIG_DIR ? getMachineStateDir() : getClaudeHome(),
+    claudeHome === defaultHome ? defaultHome : getMachineStateDir(),
     ".agent-dashboard.json"
   );
 }

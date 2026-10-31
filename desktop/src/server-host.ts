@@ -557,12 +557,11 @@ export async function startEmbeddedServer(): Promise<ServerHandle> {
     process.env.DASHBOARD_ENV_PATH = path.join(app.getPath("userData"), ".env");
   }
 
-  // The server now defaults its writable state (SQLite DB, VAPID keys,
-  // transcript snapshots) to shared `<Claude home>/agent-dashboard/`
-  // — outside the read-only `.app`/installed bundle AND identical to what
-  // `npm start`/`npm run dev` use, so the desktop app and the web app share ONE
-  // database. We therefore no longer override DASHBOARD_DATA_DIR to this app's
-  // private `userData/data`.
+  // The server resolves writable state (SQLite DB, VAPID keys, snapshots)
+  // through getDataDir(), shared with npm start/dev and outside read-only app
+  // bundles. A relocated Claude config uses machine-local app data for new
+  // state and reuses existing data directories. Leave DASHBOARD_DATA_DIR unset
+  // so the server applies that same precedence.
   //
   // Earlier desktop builds DID write there, so point the server's one-time
   // migration at that old per-user DB: on first launch with no shared DB yet,

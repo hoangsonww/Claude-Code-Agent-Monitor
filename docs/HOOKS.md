@@ -169,8 +169,8 @@ On a browser's first dashboard visit, select the provider data to display and th
 > command must reference a `hook-handler.js` path that exists on the **host**.
 
 The Claude home resolves from `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then
-`~/.claude`. When `CLAUDE_CONFIG_DIR` is set, server discovery uses machine-local
-app data so synced settings cannot mix ports and PIDs from different machines.
+`~/.claude`. When either variable relocates Claude home, server discovery uses
+machine-local app data so synced settings cannot mix ports and PIDs from different machines.
 Startup installation can be disabled with `CCAM_NO_AUTO_HOOKS=1`; an explicit
 `npm run install-hooks` or in-app installation still works. The installed
 command checks for its handler before loading it, so a stale path in a synced
@@ -178,8 +178,9 @@ command checks for its handler before loading it, so a stale path in a synced
 Claude Code. Hook status reports a missing handler as not installed so setup
 can repair the entry. For monitoring on each machine, install hooks from that
 machine's current dashboard build. New dashboard data defaults to machine-local
-app data with `CLAUDE_CONFIG_DIR`; an existing `~/.claude/agent-dashboard` is
-reused. SQLite and its WAL files must not be synced.
+app data with `CLAUDE_CONFIG_DIR`; an existing custom Claude home data directory
+or `~/.claude/agent-dashboard` is reused if machine-local data does not yet
+exist. SQLite and its WAL files must not be synced.
 
 ### Remote and cloud hook delivery
 

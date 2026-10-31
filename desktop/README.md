@@ -268,8 +268,9 @@ interface ServerHandle {
 (4821+) when 4820 is taken, the Claude Code hook handler must not assume 4820.
 On startup the server writes its live port to a local `.agent-dashboard.json`
 registry (`server/lib/server-info.js`); `scripts/hook-handler.js` reads that file
-to target the running server. With `CLAUDE_CONFIG_DIR`, the registry lives in
-machine-local app data so synced settings cannot mix ports from other machines.
+to target the running server. A relocated Claude home selected by either
+`CLAUDE_HOME` or `CLAUDE_CONFIG_DIR` uses machine-local app data for the registry,
+so synced settings cannot mix ports from other machines.
 Without the registry, hooks fall back to port 4820. Claude home resolves from
 `CLAUDE_HOME`, then `CLAUDE_CONFIG_DIR`, then `~/.claude`.
 
@@ -743,7 +744,7 @@ unrelated server on `:4820`.
 | `CCAM_DESKTOP_NO_ADOPT` | `server-host.ts` | `=1` → never adopt an existing `:4820` server; always start our own. |
 | `CCAM_DESKTOP_VERBOSE` | `logger.ts` | Mirror `info`/`warn` log lines to stdout (errors always go to stderr). |
 | `DASHBOARD_ENV_PATH` | `server-host.ts` → server | Packaged builds default to `app.getPath('userData')/.env` so Settings path changes persist across portable extractions and app updates; development keeps the repository `.env`, and an explicit override wins. |
-| `DASHBOARD_DATA_DIR` | Server | Optional data-directory override. With `CLAUDE_CONFIG_DIR`, new data defaults to machine-local app data; an existing `~/.claude/agent-dashboard` is reused. |
+| `DASHBOARD_DATA_DIR` | Server | Optional data-directory override. With `CLAUDE_CONFIG_DIR`, the machine-local data directory wins if present; otherwise an existing `<CLAUDE_HOME>/agent-dashboard` or `~/.claude/agent-dashboard` is reused, in that order. New data defaults to machine-local app data. |
 | `CCAM_NO_AUTO_HOOKS` | `server-host.ts` | `=1` skips startup's automatic Claude hook installation; manual installation remains available. |
 | `CSC_IDENTITY_AUTO_DISCOVERY` | electron-builder | Set to `false` by the `package` script — forces ad-hoc signing. |
 | `CSC_LINK` / `CSC_KEY_PASSWORD` | electron-builder | Explicit Developer ID `.p12` for real signing. |
@@ -755,9 +756,13 @@ overridden; everything else in [`../SETUP.md`](../SETUP.md) applies).
 
 > **Keep synced configuration separate from live database files.** With
 > `CLAUDE_CONFIG_DIR`, new dashboard data defaults to machine-local app data;
-> existing local dashboard data is reused. Set `DASHBOARD_DATA_DIR` to choose
+> an existing custom Claude home or default-home data directory is reused if the
+> machine-local directory does not exist. Set `DASHBOARD_DATA_DIR` to choose
 > another local path. Packaged desktop Settings stores its `.env` under Electron
-> `userData`, so an in-app Claude home override survives a portable restart.
+> `userData` when the app starts its own server, so an in-app Claude home
+> override survives a portable restart. If the app adopts an existing server,
+> Settings writes to that server's environment file instead; that override may
+> not carry over when the desktop later starts its own server.
 > A hook whose old portable handler path is gone exits silently and is reported
 > as needing installation.
 
@@ -785,7 +790,7 @@ Reach it from the tray menu → **Show Logs**.
 | Hooks not firing | The app installs hooks on first owned-server boot unless `CCAM_NO_AUTO_HOOKS=1`; start a **new** Claude Code session afterwards. Verify entries in the resolved Claude home `settings.json`. Stale portable handler paths show as uninstalled. |
 | "Run Claude" says `claude` isn't on your PATH | `shell-path.ts` recovers the login-shell PATH at startup. If `claude` is a shell _alias_ or _function_ (not a real binary), it cannot be spawned — install the `claude` CLI as an executable. Check `desktop.log` for the `user PATH resolved` line. |
 | `desktop:dev` / `desktop:test` fail with `ERR_DLOPEN_FAILED` | A prior DMG build left `better-sqlite3` built for the other CPU arch. `prebuild.js` auto-heals this on the next build; if needed, run `npm run desktop:install`. |
-| Imported history disappeared after reinstall | With `CLAUDE_CONFIG_DIR`, new data uses machine-local app data and an existing `~/.claude/agent-dashboard` is reused. Check `DASHBOARD_DATA_DIR` if set, then run **Import History → Rescan** if needed. |
+| Imported history disappeared after reinstall | Check `DASHBOARD_DATA_DIR` first. With `CLAUDE_CONFIG_DIR`, an existing machine-local data directory takes precedence over `<CLAUDE_HOME>/agent-dashboard` and `~/.claude/agent-dashboard`; check those older directories for the previous database and snapshots. Run **Import History → Rescan** if needed. |
 
 ---
 
@@ -803,7 +808,7 @@ By design, changes outside `desktop/` are kept to a minimum:
   desktop dashboard started empty; moving it into `startBackgroundServices()`
   fixes that.) The server also publishes its live port on startup.
 - **`server/lib/server-info.js`** — multi-server discovery file in machine-local
-  app data with `CLAUDE_CONFIG_DIR`, or in Claude home otherwise. Every running dashboard appends its
+  app data for a relocated Claude home, or in `~/.claude` for the default home. Every running dashboard appends its
   `{port, pid, startedAt}` entry on startup, removes it on clean shutdown,
   and stale entries are pruned by a `process.kill(pid, 0)` liveness check on
   read. Exposes `writeServerInfo`, `removeServerInfo`,

@@ -2480,7 +2480,7 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
             help at every level, inherited global options, and validated flags. It is linked
             automatically by <code>npm run setup</code> (via a fail-soft <code>npm link</code>),
             targets <code>--server</code> / <code>CCAM_URL</code> or discovers the running server
-            through the same <code>~/.claude/.agent-dashboard.json</code> registry the hook
+            through the same local <code>.agent-dashboard.json</code> registry the hook
             handler uses (override with <code>CLAUDE_DASHBOARD_PORT</code> /
             <code>DASHBOARD_PORT</code>), and renders a full terminal UI — box-drawn tables,
             status icons, bar charts, sparklines, and agent trees — that degrades to plain text
@@ -5154,9 +5154,9 @@ ccam-export all --output backup.json</code></pre>
               <p>
                 Launch the desktop app and <code>npm run dev</code> at the same time and both
                 stay real-time. Each server records its <code>{port, pid, startedAt}</code>
-                in a local <code>.agent-dashboard.json</code> registry. With
-                <code>CLAUDE_CONFIG_DIR</code>, that registry stays in machine-local app data
-                rather than the synced config folder. The hook handler sends events to each
+                in a local <code>.agent-dashboard.json</code> registry. When either
+                <code>CLAUDE_HOME</code> or <code>CLAUDE_CONFIG_DIR</code> relocates the Claude
+                home, that registry stays in machine-local app data. The hook handler sends events to each
                 live server, and stale entries are removed using local PID checks.
               </p>
             </div>
@@ -5197,12 +5197,13 @@ ccam-export all --output backup.json</code></pre>
               <strong>Your data survives reinstalls and updates</strong>
               <p>
                 Packaged desktop Settings keeps path overrides in Electron
-                <code>userData/.env</code> across portable relaunches; development uses the
-                repository <code>.env</code>. With <code>CLAUDE_CONFIG_DIR</code>, new SQLite
-                data, WAL files, snapshots, and VAPID keys default to machine-local app data.
-                An existing <code>~/.claude/agent-dashboard</code> is reused to preserve data.
-                Set <code>DASHBOARD_DATA_DIR</code> to choose another local path; do not sync
-                a live SQLite database.
+                <code>userData/.env</code> when it owns the server; an adopted server uses its own
+                environment file. Development uses the repository <code>.env</code>. With
+                <code>CLAUDE_CONFIG_DIR</code>, an existing machine-local data directory wins;
+                otherwise an existing <code>&lt;CLAUDE_HOME&gt;/agent-dashboard</code> or
+                <code>~/.claude/agent-dashboard</code> is reused before new data defaults to
+                machine-local app data. Set <code>DASHBOARD_DATA_DIR</code> to choose another
+                local path; do not sync a live SQLite database.
               </p>
             </div>
           </div>
@@ -7256,7 +7257,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=114" defer></script>
+    <script src="i18n-content.js?v=115" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

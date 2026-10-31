@@ -1652,7 +1652,7 @@ CLAUDE_CONFIG_DIR=                 # Claude Code's relocated config directory; u
 CCAM_NO_AUTO_HOOKS=1               # Skip startup hook installation; explicit install remains available
 
 # Database
-DASHBOARD_DATA_DIR=                # Optional data directory; with CLAUDE_CONFIG_DIR, new data defaults to machine-local app data
+DASHBOARD_DATA_DIR=                # Optional data directory; with CLAUDE_CONFIG_DIR, existing local/custom/legacy data wins before new machine-local data
 DASHBOARD_DB_PATH=                 # Optional SQLite file override
 
 # Background services

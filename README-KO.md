@@ -386,7 +386,7 @@ npm run install-hooks
 
 화살표 키, Space, Enter로 **Claude Code**, **Codex (beta)** 또는 둘 다를 선택하세요. 기본적으로 Claude Hook은 `~/.claude/settings.json`에, Codex Hook은 `~/.codex/hooks.json`에 저장됩니다. 다시 설치하면 CCAM 항목만 교체하고 관련 없는 Hook은 보존합니다. 같은 작업을 **Settings → Hook Configuration**에서도 실행할 수 있습니다.
 
-Claude 홈은 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 순서로 결정되므로 Hook과 대화 기록이 이동된 디렉터리를 사용합니다. `CLAUDE_CONFIG_DIR`을 설정하면 Agent 설정은 `$CLAUDE_CONFIG_DIR/.claude.json`을 읽고, 검색 파일과 새 대시보드 데이터는 컴퓨터의 로컬 앱 데이터에 저장됩니다. 기존 `~/.claude/agent-dashboard`는 기록, 스냅샷, 키를 유지하기 위해 재사용하며 `DASHBOARD_DATA_DIR`로 다른 로컬 경로를 선택할 수 있습니다. `CCAM_NO_AUTO_HOOKS=1`은 시작 시 자동 설치만 건너뛰며 수동 설치는 가능합니다. 오래된 portable Hook 경로는 조용히 종료되고 미설치로 표시됩니다. 패키지 데스크톱 설정은 Claude 홈 재정의를 Electron `userData/.env`에 저장하며, 개발 모드는 저장소의 `.env`를 계속 사용합니다.
+Claude 홈은 `CLAUDE_HOME || CLAUDE_CONFIG_DIR || ~/.claude` 순서로 결정되므로 Hook과 대화 기록이 이동된 디렉터리를 사용합니다. `CLAUDE_CONFIG_DIR`을 설정하면 Agent 설정은 `$CLAUDE_CONFIG_DIR/.claude.json`을 읽습니다. Claude 홈을 이동한 경우 검색 파일은 컴퓨터의 로컬 앱 데이터에 저장됩니다. 대시보드 데이터는 기존 로컬 디렉터리가 우선하며, 없으면 기존 `<CLAUDE_HOME>/agent-dashboard` 또는 `~/.claude/agent-dashboard`를 순서대로 재사용합니다. 새 데이터는 로컬 앱 데이터에 저장되고 `DASHBOARD_DATA_DIR`로 다른 로컬 경로를 선택할 수 있습니다. `CCAM_NO_AUTO_HOOKS=1`은 시작 시 자동 설치만 건너뛰며 수동 설치는 가능합니다. 오래된 portable Hook 경로는 조용히 종료되고 미설치로 표시됩니다. 패키지 데스크톱이 자체 서버를 시작하면 Claude 홈 재정의를 Electron `userData/.env`에 저장하고, 기존 서버를 사용하면 해당 서버의 환경 파일을 사용합니다. 개발 모드는 저장소의 `.env`를 계속 사용합니다.
 
 처음 실행할 때 CCAM은 현재 데이터 범위에서 선택한 provider만 확인하고 누락된 Hook 설치를 제안합니다. 준비 상태 확인에 실패하면 대시보드를 차단하지 않고 수동 설정으로 전환합니다.
 
@@ -518,7 +518,7 @@ sequenceDiagram
 ### Hook 라이프사이클
 
 1. **Claude Code**가 세션, 프롬프트, 도구, 알림, Subagent, 턴, 종료 Hook을 발생시킵니다.
-2. **`scripts/hook-handler.js`**가 stdin에서 각 이벤트를 읽고 로컬 `.agent-dashboard.json` 등록 파일 또는 `CLAUDE_DASHBOARD_PORT`를 통해 실행 중인 대시보드를 찾습니다. `CLAUDE_CONFIG_DIR`이 설정되면 등록 파일은 컴퓨터의 로컬 앱 데이터에, 그렇지 않으면 Claude 홈에 위치합니다. 고유한 SQLite 데이터 디렉터리마다 한 번 전송하고, 중복 listener에서는 가장 낮은 port를 선택하면서 별도 database를 사용하는 대시보드에는 계속 전달합니다. 각 target은 격리되며 handler는 5초 이내에 종료되어 안전하게 실패합니다.
+2. **`scripts/hook-handler.js`**가 stdin에서 각 이벤트를 읽고 로컬 `.agent-dashboard.json` 등록 파일 또는 `CLAUDE_DASHBOARD_PORT`를 통해 실행 중인 대시보드를 찾습니다. `CLAUDE_HOME` 또는 `CLAUDE_CONFIG_DIR`로 Claude 홈을 이동하면 등록 파일은 컴퓨터의 로컬 앱 데이터에, 기본 홈을 사용하면 `~/.claude`에 위치합니다. 고유한 SQLite 데이터 디렉터리마다 한 번 전송하고, 중복 listener에서는 가장 낮은 port를 선택하면서 별도 database를 사용하는 대시보드에는 계속 전달합니다. 각 target은 격리되며 handler는 5초 이내에 종료되어 안전하게 실패합니다.
 3. **서버**가 이벤트와 관련 상태를 하나의 SQLite transaction으로 commit합니다.
    - 첫 접촉에서 세션과 main Agent를 만듭니다. `SessionStart`는 **Waiting**으로 시작하고, `UserPromptSubmit` 또는 `PreToolUse`가 **Working**으로 전환하며, `PostToolUse`는 working 상태를 유지합니다.
    - `Stop`은 background Agent를 계속 실행하면서 main Agent를 **Waiting**으로 되돌립니다. `stop_reason=error`는 Agent와 세션을 **Error**로 표시합니다. 권한 알림도 입력을 기다리며, 새 프롬프트나 도구 시작만 오류를 복구합니다.

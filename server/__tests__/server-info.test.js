@@ -15,6 +15,10 @@ const TMP = path.join(os.tmpdir(), STAMP);
 const CLAUDE_HOME = path.join(TMP, "home");
 const DATA_DIR_A = path.join(TMP, "data-a");
 const DATA_DIR_B = path.join(TMP, "data-b");
+const originalDashboardPort = process.env.CLAUDE_DASHBOARD_PORT;
+const originalLocalAppData = process.env.LOCALAPPDATA;
+const originalXdgDataHome = process.env.XDG_DATA_HOME;
+const originalHomedir = os.homedir;
 
 function freshModule(dataDir) {
   delete require.cache[require.resolve("../lib/server-info")];
@@ -24,9 +28,8 @@ function freshModule(dataDir) {
   return require("../lib/server-info");
 }
 
-function writeDiscovery(servers) {
-  const infoPath = path.join(CLAUDE_HOME, ".agent-dashboard.json");
-  fs.mkdirSync(CLAUDE_HOME, { recursive: true });
+function writeDiscovery(infoPath, servers) {
+  fs.mkdirSync(path.dirname(infoPath), { recursive: true });
   const recent = servers.reduce((a, b) =>
     Date.parse(b.startedAt) > Date.parse(a.startedAt) ? b : a
   );
@@ -42,13 +45,23 @@ function writeDiscovery(servers) {
 
 describe("server-info hook ingest deduplication", () => {
   beforeEach(() => {
+    delete process.env.CLAUDE_DASHBOARD_PORT;
     fs.rmSync(TMP, { recursive: true, force: true });
+    os.homedir = () => TMP;
+    process.env.LOCALAPPDATA = path.join(TMP, "local-app-data");
+    process.env.XDG_DATA_HOME = path.join(TMP, "xdg-data");
     fs.mkdirSync(DATA_DIR_A, { recursive: true });
     fs.mkdirSync(DATA_DIR_B, { recursive: true });
   });
 
   afterEach(() => {
-    delete process.env.CLAUDE_DASHBOARD_PORT;
+    if (originalDashboardPort === undefined) delete process.env.CLAUDE_DASHBOARD_PORT;
+    else process.env.CLAUDE_DASHBOARD_PORT = originalDashboardPort;
+    if (originalLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+    else process.env.LOCALAPPDATA = originalLocalAppData;
+    if (originalXdgDataHome === undefined) delete process.env.XDG_DATA_HOME;
+    else process.env.XDG_DATA_HOME = originalXdgDataHome;
+    os.homedir = originalHomedir;
     fs.rmSync(TMP, { recursive: true, force: true });
     delete require.cache[require.resolve("../lib/server-info")];
     delete require.cache[require.resolve("../lib/claude-home")];
@@ -56,7 +69,7 @@ describe("server-info hook ingest deduplication", () => {
 
   it("dedupes hook targets when two live servers share one dataDir", () => {
     const mod = freshModule(DATA_DIR_A);
-    writeDiscovery([
+    writeDiscovery(mod.getServerInfoPath(), [
       {
         port: 4820,
         pid: process.pid,
@@ -76,7 +89,7 @@ describe("server-info hook ingest deduplication", () => {
 
   it("fans out when live servers use different data directories", () => {
     const mod = freshModule(DATA_DIR_A);
-    writeDiscovery([
+    writeDiscovery(mod.getServerInfoPath(), [
       {
         port: 4820,
         pid: process.pid,
@@ -95,7 +108,7 @@ describe("server-info hook ingest deduplication", () => {
 
   it("treats legacy entries without dataDir as unique per port", () => {
     const mod = freshModule(DATA_DIR_A);
-    writeDiscovery([
+    writeDiscovery(mod.getServerInfoPath(), [
       { port: 4820, pid: process.pid, startedAt: "2026-01-01T00:00:00.000Z" },
       { port: 4821, pid: process.pid, startedAt: "2026-01-02T00:00:00.000Z" },
     ]);
@@ -114,7 +127,7 @@ describe("server-info hook ingest deduplication", () => {
   it("honors CLAUDE_DASHBOARD_PORT for hook ingest", () => {
     const mod = freshModule(DATA_DIR_A);
     process.env.CLAUDE_DASHBOARD_PORT = "7777";
-    writeDiscovery([
+    writeDiscovery(mod.getServerInfoPath(), [
       {
         port: 4820,
         pid: process.pid,
