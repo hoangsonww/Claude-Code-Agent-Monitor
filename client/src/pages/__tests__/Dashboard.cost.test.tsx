@@ -123,8 +123,11 @@ it("pending polls coalesce and A→B→A cannot publish an older cost", async ()
   expect(screen.queryByText("$9.00")).not.toBeInTheDocument();
 });
 it("an unmounted pending load cannot issue subagent follow-up requests", async () => {
-  const pending = deferred();
-  vi.mocked(api.pricing.totalCost).mockReturnValue(pending.promise);
+  let resolveEvents!: (value: Awaited<ReturnType<typeof api.events.list>>) => void;
+  const pending = new Promise<Awaited<ReturnType<typeof api.events.list>>>((resolve) => {
+    resolveEvents = resolve;
+  });
+  vi.mocked(api.events.list).mockReturnValue(pending);
   vi.mocked(api.agents.list).mockResolvedValue({
     agents: [
       { id: "a", session_id: "s", type: "main", status: "working", name: "fixture" },
@@ -133,7 +136,7 @@ it("an unmounted pending load cannot issue subagent follow-up requests", async (
   const view = await mount();
   view.unmount();
   await act(async () => {
-    pending.resolve(cost(12));
+    resolveEvents({ events: [], limit: 30, offset: 0, total: 0 });
   });
   expect(api.agents.list).toHaveBeenCalledTimes(2);
 });
@@ -168,10 +171,31 @@ it("publishes fresh cost while the activity reader is pending and preserves it o
   await act(async () => {
     await vi.advanceTimersByTimeAsync(10000);
   });
-  expect(api.pricing.totalCost).toHaveBeenCalledTimes(1);
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(2);
   await act(async () => {
     reject(new Error("Activity reader timed out"));
   });
   expect(screen.getByText("$1,000.12")).toBeInTheDocument();
   expect(screen.getByText("Activity reader timed out")).toBeInTheDocument();
+});
+
+it("reports an activity failure and retries activity while the cost read is pending", async () => {
+  const pendingCost = deferred();
+  vi.mocked(api.pricing.totalCost).mockReturnValue(pendingCost.promise);
+  vi.mocked(api.events.list)
+    .mockRejectedValueOnce(new Error("Activity reader timed out"))
+    .mockResolvedValue({ events: [], limit: 30, offset: 0, total: 0 });
+
+  await mount();
+  expect(screen.getByText("Activity reader timed out")).toBeInTheDocument();
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000);
+  });
+  expect(api.events.list).toHaveBeenCalledTimes(2);
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    pendingCost.resolve(cost(1000.12));
+  });
 });
