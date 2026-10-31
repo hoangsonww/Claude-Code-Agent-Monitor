@@ -794,7 +794,7 @@ Cost estimates use configured API rates, not subscription charges. Dashboard and
 
 ### Cost snapshots before an upgrade
 
-Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, then capture a second snapshot to a new path and compare them. Keep the TSV files private: they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's tokens, cost, source, or provider changes, or if that session disappears; remote and newly added sessions are reported separately.
+Before an upgrade that may recount usage, capture a read-only baseline, upgrade and restart CCAM, then capture a second snapshot to a new path and compare them. Keep the TSV files private: they contain session identifiers and ownership metadata. The guard exits with status 1 if an existing local session's input, output, cache-read, cache-write, one-hour cache-write, web-search, web-fetch, code-execution, or cost changes; if ownership changes between local and another source or provider; or if a local session disappears. Remote and newly added sessions are reported separately.
 
 ```bash
 node scripts/cost-snapshot.js snapshot --out before.tsv
