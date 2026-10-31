@@ -162,7 +162,7 @@ describe("Settings system-info refresh", () => {
     before.forEach(({ fn, calls }) => expect(fn).toHaveBeenCalledTimes(calls + 1));
   });
 
-  it("queues one full follow-up while remote cost reading is slow", async () => {
+  it("does not serialize remote refreshes behind a slow cost read", async () => {
     await mount();
     let resolveCost!: (value: { total_cost: number }) => void;
     const pendingCost = new Promise<{ total_cost: number }>((resolve) => {
@@ -174,10 +174,9 @@ describe("Settings system-info refresh", () => {
       remoteCompletion();
       await vi.advanceTimersByTimeAsync(0);
       remoteCompletion();
-      remoteCompletion();
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(api.pricing.totalCost).toHaveBeenCalledTimes(before + 1);
+    expect(api.pricing.totalCost).toHaveBeenCalledTimes(before + 2);
     await act(async () => {
       resolveCost({ total_cost: 123 });
       await vi.advanceTimersByTimeAsync(0);
@@ -382,6 +381,40 @@ describe("Settings page load guard", () => {
   afterEach(() => {
     vi.mocked(api.pricing.list).mockImplementation((async () => ({ pricing: [] })) as never);
     setScope(initialScope);
+  });
+
+  it("renders pricing and home paths while exact cost remains pending", async () => {
+    const pending = deferredValue<{ total_cost: number }>();
+    vi.mocked(api.pricing.totalCost).mockReturnValueOnce(pending.promise as never);
+    vi.mocked(api.pricing.list).mockResolvedValueOnce({
+      pricing: [pricingRule("ready-without-cost")],
+    } as never);
+
+    const view = await mount();
+    const page = within(view.container);
+    expect(page.getAllByText("ready-without-cost").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/claude").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/codex").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      pending.resolve({ total_cost: 42 });
+    });
+    view.unmount();
+  });
+
+  it("keeps pricing and home paths when exact cost fails", async () => {
+    vi.mocked(api.pricing.totalCost).mockRejectedValueOnce(new Error("cost reader unavailable"));
+    vi.mocked(api.pricing.list).mockResolvedValueOnce({
+      pricing: [pricingRule("ready-after-cost-error")],
+    } as never);
+
+    const view = await mount();
+    const page = within(view.container);
+    expect(page.getAllByText("ready-after-cost-error").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/claude").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/codex").length).toBeGreaterThan(0);
+    expect(page.getByText("cost reader unavailable")).toBeInTheDocument();
+    view.unmount();
   });
 
   it("renders primary page data while system info remains pending", async () => {

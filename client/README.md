@@ -1376,4 +1376,4 @@ Remote retries preserve `last_error` and the status-message `error` field while 
 
 Dashboard cost publishes independently of pending or failed activity/count reads, with the same scope-generation guard. The shared load remains pending until all its requests settle, so polls do not create duplicate flights during a reader delay.
 
-Settings coalesces bursts of remote completion notifications into a shared full reload. If another completion arrives during that reload, it performs one follow-up; changing scope or leaving the page cancels queued work. System-info polling continues independently.
+Settings coalesces bursts of remote completion notifications into a shared full reload. If another completion arrives during that reload, it performs one follow-up; changing scope or leaving the page cancels queued work. Exact-cost and system-info reads publish and report errors in their own sections, so a slow or failed reader cannot block pricing rules or provider-home settings.
