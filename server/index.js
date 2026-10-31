@@ -17,7 +17,12 @@ const swaggerUi = require("swagger-ui-express");
 const { initWebSocket } = require("./websocket");
 const { createOpenApiSpec } = require("./openapi");
 const { redocBundlePath, renderRedocHtml } = require("./lib/redoc");
-const { writeServerInfo, removeServerInfo, peersSharingDataDir } = require("./lib/server-info");
+const {
+  writeServerInfo,
+  removeServerInfo,
+  peersSharingDataDir,
+  hasExclusiveDataDirOwnership,
+} = require("./lib/server-info");
 const { getDataDir } = require("./lib/claude-home");
 const {
   resolveHost,
@@ -699,14 +704,14 @@ function startCursorSessionSync(broadcast, options = {}) {
  * shutdown; overlapping ticks queue one follow-up sweep (same as local sync).
  */
 function startRemoteSourceSync(broadcast) {
-  require("./lib/remote-sync").recoverInterruptedSyncs(require("./db"));
+  const dbModule = require("./db");
+  const { startInterruptedSyncRecovery, syncAllEnabled } = require("./lib/remote-sync");
+  startInterruptedSyncRecovery(dbModule, { canRecover: hasExclusiveDataDirOwnership });
   const POLL_MS = process.env.DASHBOARD_REMOTE_SYNC_MS
     ? Number(process.env.DASHBOARD_REMOTE_SYNC_MS)
     : 15_000;
   if (!Number.isFinite(POLL_MS) || POLL_MS <= 0) return;
 
-  const dbModule = require("./db");
-  const { syncAllEnabled } = require("./lib/remote-sync");
   let running = false;
   let queued = false;
 

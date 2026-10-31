@@ -1818,6 +1818,7 @@
               </tbody>
             </table>
           </div>
+
         </section>
 
         <!-- ─── Quick Start ───────────────────────────────────────────────── -->
@@ -2468,6 +2469,21 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
               </tbody>
             </table>
           </div>
+
+          <h3>Cost snapshots before an upgrade</h3>
+          <p>
+            Before an upgrade that may recount usage, capture a read-only baseline, upgrade and
+            restart CCAM, let startup maintenance finish, then capture a second snapshot to a new
+            path and compare them. Keep the TSV files private because they contain session
+            identifiers and ownership metadata. The guard exits with status 1 if an existing local
+            session's tokens, cost, source, or provider changes, or if that session disappears;
+            remote and newly added sessions are reported separately.
+          </p>
+          <div class="code-header"><span class="code-lang">bash</span></div>
+          <pre><code>node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change</code></pre>
         </section>
 
         <section id="cli">
@@ -7261,7 +7277,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=113" defer></script>
+    <script src="i18n-content.js?v=114" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {
