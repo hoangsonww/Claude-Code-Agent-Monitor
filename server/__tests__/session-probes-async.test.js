@@ -26,24 +26,22 @@ function fixture({
   const exec = () => {
     throw new Error("unpromisified call");
   };
+  const processRows =
+    "42 501 /bin/claude\n43 501 /bin/codex\n" +
+    (foreign ? "44 777 /bin/claude\n45 777 /bin/codex\n" : "");
+  const commandOutput = (command, args) => {
+    if (command === "ps") return processRows;
+    if (missingPid) return "p99\nn/tmp/unrelated\n";
+    if (missingCwd && args.includes("cwd")) return "p42\nfcwd\n";
+    if (missingRollout && !args.includes("cwd")) return "p43\nf9\n";
+    return args.includes("cwd") ? "p42\nfcwd\nn/tmp/provider\n" : "p43\nn/tmp/rollout-live.jsonl\n";
+  };
   exec[promisify.custom] = async (command, args, options) => {
     calls.push({ command, args, options });
     await new Promise((resolve) => setTimeout(resolve, 20));
-    if (command === "ps")
-      return {
-        stdout:
-          "42 501 /bin/claude\n43 501 /bin/codex\n" +
-          (foreign ? "44 777 /bin/claude\n45 777 /bin/codex\n" : ""),
-      };
+    if (command === "ps") return { stdout: commandOutput(command, args) };
     if (failure) throw Object.assign(new Error("census failed"), failure);
-    if (missingPid) return { stdout: "p99\nn/tmp/unrelated\n" };
-    if (missingCwd && args.includes("cwd")) return { stdout: "p42\nfcwd\n" };
-    if (missingRollout && !args.includes("cwd")) return { stdout: "p43\nf9\n" };
-    return {
-      stdout: args.includes("cwd")
-        ? "p42\nfcwd\nn/tmp/provider\n"
-        : "p43\nn/tmp/rollout-live.jsonl\n",
-    };
+    return { stdout: commandOutput(command, args) };
   };
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../lib/session-liveness.js"), "utf8"), {
@@ -52,8 +50,9 @@ function fixture({
       name === "node:child_process"
         ? {
             execFile: exec,
-            execFileSync: () => {
-              throw new Error("sync command called");
+            execFileSync: (command, args, options) => {
+              calls.push({ command, args, options, sync: true });
+              return commandOutput(command, args);
             },
           }
         : name === "../../scripts/install-hooks"
@@ -142,6 +141,16 @@ it("another user's agent processes do not make the census incomplete", async () 
   assert.equal((await probe.probeLiveCodexRolloutsAsync()).available, true);
   for (const call of calls.filter((c) => c.command === "lsof"))
     assert.doesNotMatch(call.args.join(" "), /44|45/);
+});
+it("the synchronous Codex census excludes another user's processes", () => {
+  const { probe, calls } = fixture({ uid: 501, foreign: true });
+  const rollouts = probe.probeLiveCodexRollouts();
+  assert.equal(rollouts.available, true);
+  assert.deepEqual([...rollouts.paths], ["/tmp/rollout-live.jsonl"]);
+  const psCall = calls.find((call) => call.command === "ps");
+  assert.deepEqual(Array.from(psCall.args), ["-Ao", "pid=,uid=,args="]);
+  const lsofCall = calls.find((call) => call.command === "lsof");
+  assert.doesNotMatch(lsofCall.args.join(" "), /45/);
 });
 it("unsupported hosts and the escape hatch never run OS commands", async () => {
   for (const options of [{ platform: "win32" }, { disabled: true }]) {
