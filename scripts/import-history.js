@@ -2070,6 +2070,11 @@ async function syncDefaultProjects(dbModule, options = {}) {
         if (!isLocalHistoryOwner(currentRow, "claude")) continue;
 
         const result = importSession(dbModule, session);
+        // A trigger or another database client can claim the row while the
+        // synchronous import is writing it. Re-check before publishing local
+        // ownership through the durable snapshot or WebSocket change report.
+        const importedRow = dbModule.stmts.getSession.get(session.sessionId);
+        if (!isLocalHistoryOwner(importedRow, "claude")) continue;
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
         // A brand-new session is always a real change. An existing one only
         // counts when importSession actually wrote new events (not skipped).

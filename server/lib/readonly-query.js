@@ -160,7 +160,12 @@ class ReadonlyQuery extends EventEmitter {
         return;
       }
       this.active = null;
-      this.settle(entry, message.error ? new Error(message.error) : null, message.result);
+      let error = null;
+      if (message.error) {
+        error = new Error(message.error);
+        if (Number.isInteger(message.status)) error.status = message.status;
+      }
+      this.settle(entry, error, message.result);
       if (this.pending.size === 0) worker.unref();
       this.dispatch();
     });
