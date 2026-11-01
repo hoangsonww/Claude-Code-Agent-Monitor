@@ -629,6 +629,7 @@ function GptPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -638,6 +639,8 @@ function GptPricingTable({
   resetLoading: boolean;
   /** Resets the GPT pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<GptModelPricing[]>([]);
@@ -717,6 +720,7 @@ function GptPricingTable({
         ),
       } as Omit<GptModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -734,6 +738,7 @@ function GptPricingTable({
     try {
       await api.pricing.deleteGpt(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -984,6 +989,7 @@ function CursorPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -993,6 +999,8 @@ function CursorPricingTable({
   resetLoading: boolean;
   /** Resets the Cursor pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<CursorModelPricing[]>([]);
@@ -1054,6 +1062,7 @@ function CursorPricingTable({
         ),
       } as Omit<CursorModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -1071,6 +1080,7 @@ function CursorPricingTable({
     try {
       await api.pricing.deleteCursor(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -2626,6 +2636,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-cursor"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-cursor"
               ? handleResetPricing("reset-pricing-cursor", "cursor")
@@ -2641,6 +2652,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-gpt"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-gpt"
               ? handleResetPricing("reset-pricing-gpt", "codex")
