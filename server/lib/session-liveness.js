@@ -68,7 +68,7 @@ function probeLiveCwds(binary = "claude") {
 
   let psOut;
   try {
-    psOut = execFileSync("ps", ["-Ao", "pid=,args="], {
+    psOut = execFileSync("ps", PS_ARGS, {
       encoding: "utf8",
       timeout: 5_000,
       maxBuffer: 16 * 1024 * 1024,
@@ -77,11 +77,9 @@ function probeLiveCwds(binary = "claude") {
     return UNAVAILABLE();
   }
 
-  const pids = [];
-  for (const line of psOut.split("\n")) {
-    const m = line.match(/^\s*(\d+)\s+(.*)$/);
-    if (m && isAgentCommand(m[2], binary)) pids.push(m[1]);
-  }
+  const pids = ownProcessRows(psOut)
+    .filter((row) => isAgentCommand(row.args, binary))
+    .map((row) => row.pid);
   const cwds = new Set();
   if (pids.length === 0) return { available: true, cwds };
 
@@ -133,7 +131,7 @@ function probeLiveCodexRollouts() {
 
   let psOut;
   try {
-    psOut = execFileSync("ps", ["-Ao", "pid=,args="], {
+    psOut = execFileSync("ps", PS_ARGS, {
       encoding: "utf8",
       timeout: 5_000,
       maxBuffer: 16 * 1024 * 1024,
@@ -141,11 +139,9 @@ function probeLiveCodexRollouts() {
   } catch {
     return { available: false, paths: new Set() };
   }
-  const pids = [];
-  for (const line of psOut.split("\n")) {
-    const match = line.match(/^\s*(\d+)\s+(.*)$/);
-    if (match && isCodexCommand(match[2])) pids.push(match[1]);
-  }
+  const pids = ownProcessRows(psOut)
+    .filter((row) => isCodexCommand(row.args))
+    .map((row) => row.pid);
   const paths = new Set();
   if (pids.length === 0) return { available: true, paths };
 

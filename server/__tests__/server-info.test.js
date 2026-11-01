@@ -178,6 +178,27 @@ describe("server-info hook ingest deduplication", () => {
     assert.equal(second.hasExclusiveDataDirOwnership(), false);
   });
 
+  it(
+    "uses one ownership directory for symlink and target database paths",
+    { skip: process.platform === "win32" ? "file symlink creation is privilege-dependent" : false },
+    () => {
+      const targetDir = path.join(TMP, "real-db");
+      const databasePath = path.join(targetDir, "dashboard.db");
+      const linkedPath = path.join(TMP, "linked-dashboard.db");
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(databasePath, "");
+      fs.symlinkSync(databasePath, linkedPath, "file");
+
+      process.env.DASHBOARD_DB_PATH = databasePath;
+      const direct = freshModule(DATA_DIR_A);
+      const directOwner = direct.getDataDirOwnerPath();
+
+      process.env.DASHBOARD_DB_PATH = linkedPath;
+      const linked = freshModule(DATA_DIR_B, OTHER_CLAUDE_HOME);
+      assert.equal(linked.getDataDirOwnerPath(), directOwner);
+    }
+  );
+
   it("keeps its marker through graceful drain and prunes dead owners", () => {
     const mod = freshModule(DATA_DIR_A);
     mod.writeServerInfo(4820);

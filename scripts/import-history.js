@@ -1989,6 +1989,21 @@ async function syncDefaultProjects(dbModule, options = {}) {
   const changed = [];
   if (!fs.existsSync(PROJECTS_DIR)) return { changed };
 
+  // Parsing yields before writes begin. Re-check ownership inside the same
+  // transaction as every imported event/agent/token write, and abort the whole
+  // import if a trigger changes ownership while those writes are running.
+  // External SQLite writers cannot interleave with this transaction; the
+  // post-commit check below still catches a claim that lands immediately after.
+  const ownershipChanged = Symbol("history ownership changed during import");
+  const importLocallyOwnedSession = dbModule.db.transaction((session) => {
+    const before = dbModule.stmts.getSession.get(session.sessionId);
+    if (!isLocalHistoryOwner(before, "claude")) throw ownershipChanged;
+    const result = importSession(dbModule, session);
+    const after = dbModule.stmts.getSession.get(session.sessionId);
+    if (!isLocalHistoryOwner(after, "claude")) throw ownershipChanged;
+    return result;
+  });
+
   let projectDirs;
   try {
     projectDirs = fs
@@ -2037,10 +2052,7 @@ async function syncDefaultProjects(dbModule, options = {}) {
       try {
         const sessionId = path.basename(file, ".jsonl");
         const existingRow = dbModule.stmts.getSession.get(sessionId);
-        if (!isLocalHistoryOwner(existingRow, "claude")) {
-          mtimeCache.set(sourcePath, mtime);
-          continue;
-        }
+        if (!isLocalHistoryOwner(existingRow, "claude")) continue;
         // Cold-cache fast path (e.g. the immediate sweep on every restart, when
         // `mtimeCache` is empty): if the session already exists and the file has
         // NOT advanced past what we've already ingested, skip the full transcript
@@ -2059,20 +2071,22 @@ async function syncDefaultProjects(dbModule, options = {}) {
         }
         const existed = !!existingRow;
         const session = await parseSessionForImport(projPath, sourcePath);
-        // Record the mtime even when the file yields no session, so we don't
-        // re-parse an unusable file every tick.
-        mtimeCache.set(sourcePath, mtime);
-        if (!session) continue;
+        if (!session) {
+          // An unusable local file cannot change ownership; cache it so a bad
+          // transcript does not get reparsed on every sweep.
+          mtimeCache.set(sourcePath, mtime);
+          continue;
+        }
         // The parse above yielded the event loop, so remote-sync may have
         // claimed this id meanwhile. Re-check ownership before any write or
         // publication (snapshot, change report), not just token usage.
         const currentRow = dbModule.stmts.getSession.get(session.sessionId);
         if (!isLocalHistoryOwner(currentRow, "claude")) continue;
 
-        const result = importSession(dbModule, session);
-        // A trigger or another database client can claim the row while the
-        // synchronous import is writing it. Re-check before publishing local
-        // ownership through the durable snapshot or WebSocket change report.
+        const result = importLocallyOwnedSession(session);
+        // Another database client can claim the row immediately after the
+        // transaction commits. Re-check before publishing local ownership
+        // through the durable snapshot, cache, or WebSocket change report.
         const importedRow = dbModule.stmts.getSession.get(session.sessionId);
         if (!isLocalHistoryOwner(importedRow, "claude")) continue;
         snapshotTranscript(session._sourceJsonlPath, session.sessionId);
@@ -2081,6 +2095,10 @@ async function syncDefaultProjects(dbModule, options = {}) {
         if (!existed || !result.skipped) {
           changed.push({ sessionId: session.sessionId, isNew: !existed });
         }
+        // Cache only after the ownership-accepted path completed. A foreign
+        // row may later be purged, at which point this unchanged native file
+        // must remain eligible for import.
+        mtimeCache.set(sourcePath, mtime);
         // Cooperative yield after a heavy re-parse (this file fell through the
         // fast path, so its full transcript + subagents were just parsed and
         // imported synchronously). A cold sweep can re-parse many multi-MB
@@ -2090,7 +2108,10 @@ async function syncDefaultProjects(dbModule, options = {}) {
         // files never pay this cost.
         await new Promise((resolve) => setImmediate(resolve));
       } catch {
-        /* non-fatal — leave mtime recorded so we don't spin on a bad file */
+        // Ownership races and per-file failures are non-fatal. Do not cache
+        // either: a later sweep must be able to retry once ownership or I/O
+        // conditions change.
+        /* retry on the next sweep */
       }
     }
   }

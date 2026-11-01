@@ -1988,6 +1988,9 @@ export function Settings() {
       const res = await api.settings.claudeHome.set(claudeHomeInput);
       setClaudeHomeState(res.claude_home);
       setClaudeHomeInput(res.claude_home);
+      // Hook status follows the active Claude home. Keep refresh failures in
+      // the system-info panel so a successful home save remains successful.
+      void refreshInfo(true).catch(() => {});
     } catch (err) {
       setClaudeHomeError(err instanceof Error ? err.message : t("claudeHome.saveFailed"));
     } finally {
