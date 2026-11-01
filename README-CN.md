@@ -793,6 +793,8 @@ node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-chang
 
 重启后，中断的远程同步显示为错误，之前的导入记录仍然保留。只有当共享 SQLite 数据目录中的逐进程存活标记证明当前进程是唯一运行中的 Dashboard 时，启动恢复才会执行；即使进程使用不同的 `CLAUDE_HOME`，这些标记也彼此可见。标记缺失、损坏或存在并发归属时会延后恢复。数据库忙时会独立重试，因此恢复失败不会禁用远程轮询器。远程重试会在再次检查时保留最近的错误提示；同步成功后清除。
 
+---
+
 ## Agent 扩展
 
 本仓库包含 Claude Code 和 Codex 的完整扩展层：
