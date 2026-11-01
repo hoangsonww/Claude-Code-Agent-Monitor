@@ -956,3 +956,34 @@ it("the periodic sweep re-checks ownership after its awaited parse", async () =>
   assert.deepEqual(tokenRows(sid), []);
   assert.equal(stmts.getSession.get(sid).source, source.id);
 });
+
+it("the periodic sweep re-checks ownership after its synchronous import", async () => {
+  const sid = uid("sweep-import-race");
+  writeSession(projectsDir(), sid, 2);
+  const source = newSource();
+  const triggerName = `claim_source_${process.pid}_${seq}`;
+  const quote = (value) => `'${String(value).replaceAll("'", "''")}'`;
+  db.exec(`
+    CREATE TRIGGER "${triggerName}"
+    AFTER INSERT ON events
+    WHEN NEW.session_id = ${quote(sid)}
+    BEGIN
+      UPDATE sessions SET source = ${quote(source.id)} WHERE id = NEW.session_id;
+    END
+  `);
+
+  let result;
+  try {
+    result = await syncDefaultProjects(dbModule, { mtimeCache: new Map() });
+  } finally {
+    db.exec(`DROP TRIGGER IF EXISTS "${triggerName}"`);
+  }
+
+  assert.equal(stmts.getSession.get(sid).source, source.id, "the import-time claim fired");
+  assert.equal(
+    result.changed.some((entry) => entry.sessionId === sid),
+    false,
+    "a remotely claimed row is not published as a local change"
+  );
+  assert.equal(fs.existsSync(claudeSnap(sid)), false, "no local snapshot of remote history");
+});

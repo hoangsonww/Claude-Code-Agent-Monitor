@@ -1381,8 +1381,11 @@ common "nothing changed" tick is just a handful of `stat` calls), funnels them
 through the same `parseSessionFile` + `importSession` pipeline as every other
 path, and broadcasts `session_created` for newly imported sessions /
 `session_updated` for grown ones — the same events hooks emit, so the UI
-refreshes live. All timers and watchers are `unref`'d and best-effort; nothing
-here blocks shutdown or can take down the server.
+refreshes live. Ownership is checked after asynchronous parsing and again after
+the synchronous import, before the sweep snapshots the transcript or publishes
+either frame, so a row claimed by another source cannot be announced as local.
+All timers and watchers are `unref`'d and best-effort; nothing here blocks
+shutdown or can take down the server.
 
 ### Upload request sequence
 

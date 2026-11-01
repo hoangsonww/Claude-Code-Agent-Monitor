@@ -80,6 +80,8 @@ parentPort.on("message", ({ id, query }) => {
   let db;
   let result;
   let error;
+  let status;
+  let started = false;
   try {
     db = new Database(workerData.dbPath, { readonly: true, fileMustExist: true });
     db.pragma("query_only = ON");
@@ -89,10 +91,12 @@ parentPort.on("message", ({ id, query }) => {
     // cannot change this read's generation halfway through its aggregates.
     db.prepare("SELECT name FROM sqlite_master LIMIT 1").get();
     parentPort.postMessage({ id, started: true });
+    started = true;
     result = readQuery(db, query);
     db.exec("COMMIT");
   } catch (caught) {
     error = caught.message || String(caught);
+    if (!started) status = 503;
   } finally {
     if (db) {
       try {
@@ -102,5 +106,5 @@ parentPort.on("message", ({ id, query }) => {
       }
     }
   }
-  parentPort.postMessage({ id, result, error });
+  parentPort.postMessage({ id, result, error, status });
 });

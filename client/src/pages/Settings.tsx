@@ -2031,7 +2031,9 @@ export function Settings() {
       setCodexHomeInput(res.codex_home);
       // Refresh hook paths/status immediately — they follow the active Codex
       // home, and the backend has simultaneously triggered a fresh rollout scan.
-      await refreshInfo(true);
+      // System info owns its own failure state; a refresh failure must not make
+      // an already-successful home save look unsuccessful.
+      void refreshInfo(true).catch(() => {});
     } catch (err) {
       setCodexHomeError(err instanceof Error ? err.message : t("codexHome.saveFailed"));
     } finally {
