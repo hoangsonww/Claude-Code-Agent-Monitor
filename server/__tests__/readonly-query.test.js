@@ -417,7 +417,10 @@ for (const [driver, Constructor] of [
       const missing = path.join(root, `missing-${driver}.db`);
       const reader = new ReadonlyQuery(missing, { driver });
       try {
-        await assert.rejects(reader.read(query), /open|unable|exist/i);
+        await assert.rejects(
+          reader.read(query),
+          (error) => error.status === 503 && /open|unable|exist/i.test(error.message)
+        );
         assert.equal(fs.existsSync(missing), false);
       } finally {
         await reader.close();
@@ -428,7 +431,7 @@ for (const [driver, Constructor] of [
         await assert.rejects(valid.read({ op: "get", sql: "DELETE FROM events" }), /SELECT/);
         await assert.rejects(
           valid.read({ op: "get", sql: "SELECT * FROM missing_table" }),
-          /no such table/
+          (error) => /no such table/.test(error.message) && error.status === undefined
         );
         assert.equal((await valid.read(query)).count, 3);
         const readonly = new Constructor(file, { readonly: true, fileMustExist: true });

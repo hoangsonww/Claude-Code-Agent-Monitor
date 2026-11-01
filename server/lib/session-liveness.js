@@ -150,9 +150,11 @@ function probeLiveCodexRollouts() {
   if (pids.length === 0) return { available: true, paths };
 
   const remember = (candidate) => {
-    if (typeof candidate !== "string") return;
-    if (!candidate.endsWith(".jsonl") || !path.basename(candidate).startsWith("rollout-")) return;
+    if (typeof candidate !== "string") return false;
+    if (!candidate.endsWith(".jsonl") || !path.basename(candidate).startsWith("rollout-"))
+      return false;
     paths.add(path.resolve(candidate));
+    return true;
   };
 
   if (process.platform === "linux") {
@@ -185,9 +187,17 @@ function probeLiveCodexRollouts() {
     lsofOut = err && typeof err.stdout === "string" && err.stdout ? err.stdout : null;
     if (lsofOut === null) return { available: false, paths: new Set() };
   }
+  const resolvedPids = new Set();
+  let currentPid = null;
   for (const line of lsofOut.split("\n")) {
-    if (line.startsWith("n")) remember(line.slice(1));
+    if (/^p\d+$/.test(line)) currentPid = line.slice(1);
+    if (line.startsWith("n") && remember(line.slice(1)) && currentPid) resolvedPids.add(currentPid);
   }
+  // A live Codex process with no usable rollout path is incomplete evidence,
+  // not proof that its session ended. Only a process that exited during the
+  // census may be absent from the resolved rollout set.
+  const unresolved = pids.filter((pid) => !resolvedPids.has(pid));
+  if (unresolved.some((pid) => !processGone(pid))) return { available: false, paths: new Set() };
   return { available: true, paths };
 }
 
@@ -332,9 +342,11 @@ async function probeLiveCodexRolloutsAsyncImpl() {
   if (pids.length === 0) return { available: true, paths };
 
   const remember = (candidate) => {
-    if (typeof candidate !== "string") return;
-    if (!candidate.endsWith(".jsonl") || !path.basename(candidate).startsWith("rollout-")) return;
+    if (typeof candidate !== "string") return false;
+    if (!candidate.endsWith(".jsonl") || !path.basename(candidate).startsWith("rollout-"))
+      return false;
     paths.add(path.resolve(candidate));
+    return true;
   };
 
   if (process.platform === "linux") {
@@ -372,9 +384,14 @@ async function probeLiveCodexRolloutsAsyncImpl() {
   const missing = pids.filter((pid) => !observedPids.has(pid));
   if (missing.some((pid) => !processGone(pid)) || (census.failed && missing.length === 0))
     return { available: false, paths: new Set() };
+  const resolvedPids = new Set();
+  let currentPid = null;
   for (const line of lsofOut.split("\n")) {
-    if (line.startsWith("n")) remember(line.slice(1));
+    if (/^p\d+$/.test(line)) currentPid = line.slice(1);
+    if (line.startsWith("n") && remember(line.slice(1)) && currentPid) resolvedPids.add(currentPid);
   }
+  const unresolved = pids.filter((pid) => !resolvedPids.has(pid));
+  if (unresolved.some((pid) => !processGone(pid))) return { available: false, paths: new Set() };
   return { available: true, paths };
 }
 

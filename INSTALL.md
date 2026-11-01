@@ -137,6 +137,19 @@ per-model token totals and estimated cost look correct. Full walkthrough
 with per-OS archive commands in
 [SETUP.md → Importing existing Claude Code history](./SETUP.md#importing-existing-claude-code-history).
 
+### Safeguard usage and cost before an upgrade
+
+Before an upgrade that may recount usage, capture a read-only snapshot, upgrade and restart CCAM, let startup maintenance finish, then compare a second snapshot:
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Write each snapshot to a new path and keep the TSV files private because they contain session identifiers and ownership metadata. The guard fails when a local session's compared usage or cost changes, ownership moves to or from local, or a local session disappears; remote and newly added sessions are reported separately.
+
 <p align="center">
   <img src="images/import.png" alt="Import History UI" width="100%">
 </p>

@@ -109,6 +109,8 @@ parentPort.on("message", ({ id, query }) => {
   let db;
   let result;
   let error;
+  let status;
+  let started = false;
   try {
     db = new Database(workerData.dbPath, { readonly: true, fileMustExist: true });
     db.pragma("query_only = ON");
@@ -121,11 +123,13 @@ parentPort.on("message", ({ id, query }) => {
     timing.openMs = performance.now() - receivedClock;
     const readClock = performance.now();
     parentPort.postMessage({ id, started: true, timing: { ...timing } });
+    started = true;
     result = readQuery(db, query);
     timing.readMs = performance.now() - readClock;
     db.exec("COMMIT");
   } catch (caught) {
     error = caught.message || String(caught);
+    if (!started) status = 503;
   } finally {
     const closeClock = performance.now();
     if (db) {
@@ -138,5 +142,5 @@ parentPort.on("message", ({ id, query }) => {
     timing.closeMs = performance.now() - closeClock;
     timing.completedAt = Date.now();
   }
-  parentPort.postMessage({ id, result, error, timing });
+  parentPort.postMessage({ id, result, error, status, timing });
 });
