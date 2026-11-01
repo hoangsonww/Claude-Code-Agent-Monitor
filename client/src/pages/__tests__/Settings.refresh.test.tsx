@@ -21,6 +21,10 @@ vi.mock("../../lib/api", () => ({
       list: vi.fn(async () => ({ pricing: [] })),
       listCursor: vi.fn(async () => ({ pricing: [] })),
       listGpt: vi.fn(async () => ({ pricing: [] })),
+      upsertCursor: vi.fn(async (pricing: unknown) => ({ pricing })),
+      upsertGpt: vi.fn(async (pricing: unknown) => ({ pricing })),
+      deleteCursor: vi.fn(async () => ({ ok: true })),
+      deleteGpt: vi.fn(async () => ({ ok: true })),
       totalCost: vi.fn(async () => ({ total_cost: 0 })),
     },
     settings: {
@@ -353,6 +357,56 @@ it("does not discard a successful cost result when system-info reading fails", a
   await mount();
   expect(screen.getByText("$1,234.56")).toBeInTheDocument();
   expect(screen.getByText("System info reader is busy")).toBeInTheDocument();
+});
+
+it("refreshes exact cost after Cursor save and GPT delete", async () => {
+  const cursorRule = {
+    model_pattern: "cursor-priced",
+    display_name: "Cursor Priced",
+    input_per_mtok: 1,
+    cache_write_per_mtok: 1,
+    cache_read_per_mtok: 1,
+    output_per_mtok: 1,
+    updated_at: "2026-10-31T00:00:00.000Z",
+  };
+  const gptRule = {
+    model_pattern: "gpt-priced",
+    display_name: "GPT Priced",
+    updated_at: "2026-10-31T00:00:00.000Z",
+  };
+  vi.mocked(api.pricing.listCursor).mockResolvedValue({ pricing: [cursorRule] } as never);
+  vi.mocked(api.pricing.listGpt).mockResolvedValue({ pricing: [gptRule] } as never);
+  vi.mocked(api.pricing.totalCost)
+    .mockReset()
+    .mockResolvedValue({ total_cost: 1 } as never);
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => true)
+  );
+
+  const view = await mount();
+  const initialCostReads = vi.mocked(api.pricing.totalCost).mock.calls.length;
+  const cursorSection = within(view.container.querySelector("#cursor-pricing") as HTMLElement);
+  fireEvent.click(
+    within(cursorSection.getByText("cursor-priced").closest("tr")!).getAllByRole("button")[0]!
+  );
+  const cursorEditRow = cursorSection.getByDisplayValue("cursor-priced").closest("tr")!;
+  await act(async () => {
+    fireEvent.click(within(cursorEditRow).getAllByRole("button")[0]!);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(api.pricing.upsertCursor).toHaveBeenCalled();
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(initialCostReads + 1);
+
+  const gptSection = within(view.container.querySelector("#gpt-pricing") as HTMLElement);
+  const gptRow = gptSection.getByText("gpt-priced").closest("tr")!;
+  await act(async () => {
+    fireEvent.click(within(gptRow).getAllByRole("button")[1]!);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(api.pricing.deleteGpt).toHaveBeenCalledWith("gpt-priced");
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(initialCostReads + 2);
+  view.unmount();
 });
 
 interface Deferred<T> {
