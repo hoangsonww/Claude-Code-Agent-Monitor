@@ -26,7 +26,10 @@ vi.mock("../../lib/api", () => ({
     settings: {
       info,
       claudeHome: { get: vi.fn(async () => ({ claude_home: "/test/claude" })) },
-      codexHome: { get: vi.fn(async () => ({ codex_home: "/test/codex" })) },
+      codexHome: {
+        get: vi.fn(async () => ({ codex_home: "/test/codex" })),
+        set: vi.fn(async (codexHome: string) => ({ ok: true, codex_home: codexHome })),
+      },
       exportData: vi.fn(() => "/api/settings/export"),
       cleanup: vi.fn(async () => ({
         abandoned: 0,
@@ -101,6 +104,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   info.mockReset().mockResolvedValue(fixture());
   setScope({ mode: "local", selected: [], provider: "both" });
+  vi.mocked(api.settings.codexHome.set)
+    .mockReset()
+    .mockImplementation(async (codexHome: string) => ({ ok: true, codex_home: codexHome }));
   Element.prototype.scrollIntoView = vi.fn();
   const Observer = class {
     observe() {}
@@ -316,6 +322,28 @@ describe("Settings system-info refresh", () => {
       pending.resolve(fixture());
     });
     expect(info).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not report a post-save info refresh failure as a Codex home save failure", async () => {
+    const view = await mount();
+    info.mockRejectedValueOnce(new Error("refresh after save failed"));
+    const input = within(view.container).getByDisplayValue("/test/codex");
+    const codexSection = within(input.closest(".border-t") as HTMLElement);
+
+    fireEvent.change(input, { target: { value: "/test/codex-next" } });
+    await act(async () => {
+      fireEvent.click(codexSection.getByRole("button", { name: "Save" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(codexSection.getByText("/test/codex-next")).toBeInTheDocument();
+    expect(codexSection.queryByText("refresh after save failed")).toBeNull();
+    expect(
+      within(view.container.querySelector("#about") as HTMLElement).getByText(
+        "refresh after save failed"
+      )
+    ).toBeInTheDocument();
+    view.unmount();
   });
 });
 

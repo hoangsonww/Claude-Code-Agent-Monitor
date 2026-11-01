@@ -95,6 +95,33 @@ it("preserves FIFO fairness and copies accepted query objects", async () => {
     await close(reader, workers);
   }
 });
+it("preserves reader-unavailable status without relabeling ordinary query failures", async () => {
+  const { reader, workers } = fixture();
+  try {
+    const unavailable = reader.read(query);
+    workers[0].emit("message", {
+      id: workers[0].sent[0].id,
+      error: "reader could not open the database",
+      status: 503,
+    });
+    await assert.rejects(
+      unavailable,
+      (error) => error.status === 503 && /could not open/.test(error.message)
+    );
+
+    const invalid = reader.read({ op: "get", sql: "SELECT missing_column" }, "next");
+    workers[0].emit("message", {
+      id: workers[0].sent[1].id,
+      error: "no such column: missing_column",
+    });
+    await assert.rejects(
+      invalid,
+      (error) => error.status === undefined && /no such column/.test(error.message)
+    );
+  } finally {
+    await close(reader, workers);
+  }
+});
 it("queued expiration retains the first deadline and never aborts active work", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { reader, workers } = fixture({ timeoutMs: 1000 });

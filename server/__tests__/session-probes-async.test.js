@@ -17,6 +17,7 @@ function fixture({
   disabled = false,
   missingPid = false,
   missingCwd = false,
+  missingRollout = false,
   gone = [],
   uid = null,
   foreign = false,
@@ -37,6 +38,7 @@ function fixture({
     if (failure) throw Object.assign(new Error("census failed"), failure);
     if (missingPid) return { stdout: "p99\nn/tmp/unrelated\n" };
     if (missingCwd && args.includes("cwd")) return { stdout: "p42\nfcwd\n" };
+    if (missingRollout && !args.includes("cwd")) return { stdout: "p43\nf9\n" };
     return {
       stdout: args.includes("cwd")
         ? "p42\nfcwd\nn/tmp/provider\n"
@@ -101,6 +103,10 @@ it("a successful but incomplete lsof census is unavailable", async () => {
 it("PID headers without a resolved CWD cannot prove process absence", async () => {
   const { probe } = fixture({ missingCwd: true });
   assert.equal((await probe.probeLiveCwdsAsync()).available, false);
+});
+it("PID headers without a usable rollout cannot prove Codex process absence", async () => {
+  const { probe } = fixture({ missingRollout: true });
+  assert.equal((await probe.probeLiveCodexRolloutsAsync()).available, false);
 });
 for (const failure of [
   { code: 1, stdout: "p42\nn/tmp/partial\n" },
