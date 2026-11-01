@@ -979,11 +979,46 @@ it("the periodic sweep re-checks ownership after its synchronous import", async 
     db.exec(`DROP TRIGGER IF EXISTS "${triggerName}"`);
   }
 
-  assert.equal(stmts.getSession.get(sid).source, source.id, "the import-time claim fired");
+  assert.equal(
+    stmts.getSession.get(sid),
+    undefined,
+    "the ownership claim and partial local import roll back together"
+  );
   assert.equal(
     result.changed.some((entry) => entry.sessionId === sid),
     false,
     "a remotely claimed row is not published as a local change"
   );
   assert.equal(fs.existsSync(claudeSnap(sid)), false, "no local snapshot of remote history");
+  assert.equal(state(sid).events, 0, "event writes roll back");
+  assert.equal(state(sid).agents, 0, "agent writes roll back");
+  assert.deepEqual(tokenRows(sid), [], "token writes roll back");
+});
+
+it("does not cache a foreign transcript that can become locally importable", async () => {
+  const sid = uid("sweep-foreign-cache");
+  writeSession(projectsDir(), sid, 2);
+  const file = path.resolve(projectsDir(), "-tmp-proj", `${sid}.jsonl`);
+  const source = newSource();
+  stmts.insertSession.run(sid, "remote", "completed", "/tmp/proj", MODEL, null);
+  stmts.setSessionSource.run(source.id, sid);
+  const mtimeCache = new Map();
+
+  const skipped = await syncDefaultProjects(dbModule, { mtimeCache });
+  assert.equal(
+    skipped.changed.some((entry) => entry.sessionId === sid),
+    false,
+    "the foreign transcript is not published"
+  );
+  assert.equal(mtimeCache.has(file), false, "foreign ownership is rechecked on every sweep");
+
+  db.prepare("DELETE FROM sessions WHERE id = ?").run(sid);
+  const imported = await syncDefaultProjects(dbModule, { mtimeCache });
+  assert.equal(
+    imported.changed.some((entry) => entry.sessionId === sid),
+    true,
+    "the unchanged transcript imports after its foreign owner is purged"
+  );
+  assert.equal(stmts.getSession.get(sid)?.source, "local");
+  assert.equal(mtimeCache.has(file), true);
 });
