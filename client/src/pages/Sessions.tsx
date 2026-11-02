@@ -417,15 +417,17 @@ export function Sessions() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 mb-6 bg-surface-2/40 p-2 rounded-xl border border-border w-full">
+      {/* Filters. Stay on one line from the xl breakpoint up; below that, wrap.
+          `lg:flex-nowrap` kicked in while the sidebar still left the row
+          narrower than these controls, so the sort box was pinned to 180px
+          and its direction icon painted through the border. */}
+      <div className="mb-6 flex w-full min-w-0 flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-2/40 p-2 xl:flex-nowrap">
         {/* Search */}
-        {/* The floor is sized so the field still fits its placeholder alongside
-            the ⌘K chip. A viewport breakpoint cannot express this — the field's
-            width comes from the space the toolbar has left, not the window — so
-            the constraint lives on the field itself, and the row wraps rather
-            than truncating "Search sessions…" to "Search ses". */}
-        <div className="relative flex-1 min-w-[260px] max-w-[340px]">
+        {/* The floor is 260px so the field still fits its placeholder alongside
+            the ⌘K chip, but never wider than the toolbar itself — a fixed
+            260px floor spilled out of a narrow content column. The row wraps
+            rather than truncating "Search sessions…" to "Search ses". */}
+        <div className="relative max-w-[340px] min-w-[min(260px,100%)] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             ref={searchRef}
@@ -454,17 +456,24 @@ export function Sessions() {
           />
         </div>
 
-        {/* Sort Controls */}
-        <div className="flex items-center gap-1.5 bg-surface-1 px-1.5 py-1 rounded-lg border border-border h-[38px] flex-1 min-w-[180px]">
-          <div className="flex-1">
+        {/* Sort Controls — the label and the direction icon have to stay
+            inside this border. `flex-1 min-w-[180px]` replaced the default
+            content minimum with 180px, which is narrower than "Last active:
+            newest" plus the icon, so the icon painted through the rounded
+            edge and onto the status pills. Size to the label and refuse to
+            shrink; `max-w-full` lets a long translation ellipsize instead of
+            escaping a narrow toolbar. The status strip already scrolls when
+            the row is tight. */}
+        <div className="flex h-[38px] w-max max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-1.5">
+          <div className="min-w-0">
             <Select<SessionSort> value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
           </div>
-          <div className="w-px h-4 bg-border mx-1" />
+          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
           <button
             type="button"
             onClick={() => setSortDesc(!sortDesc)}
             aria-pressed={sortDesc}
-            className="p-1.5 rounded hover:bg-surface-3 text-gray-400 hover:text-gray-200 transition-colors shrink-0"
+            className="shrink-0 rounded p-1.5 text-gray-400 transition-colors hover:bg-surface-3 hover:text-gray-200"
             title={sortDesc ? t("sortDescending") : t("sortAscending")}
             aria-label={sortDesc ? t("sortDescending") : t("sortAscending")}
           >

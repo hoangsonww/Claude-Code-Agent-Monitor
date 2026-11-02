@@ -2,7 +2,7 @@
   "title": "Impostazioni",
   "subtitle": "Gestisci prezzi, notifiche, dati e hook",
   "exportData": "Esporta dati",
-  "acrossSessions": "Su tutte le sessioni tracciate",
+  "acrossSessions": "Nell'ambito dei dati selezionato",
   "basedOnUsage": "Basato sul consumo di token per modello",
   "tabby": {
     "title": "Compagno Tabby",
@@ -631,7 +631,8 @@
     "purgeData": "Elimina anche le sessioni importate da questa fonte (irreversibile)",
     "deleteAndPurge": "Rimuovi + elimina i dati",
     "removeKeep": "Rimuovi (mantieni i dati)",
-    "remoteSourceBadgeTitle": "Raccolto da una macchina remota"
+    "remoteSourceBadgeTitle": "Raccolto da una macchina remota",
+    "retryLastError": "Nuovo tentativo. Ultimo errore:"
   },
   "cursorPathsNote": "Cursor è incluso nell'ambito Claude Code della dashboard. La cronologia locale viene rilevata e acquisita automaticamente da ~/.cursor; le cartelle Cursor remote non vengono sincronizzate dalle importazioni SSH dedicate a Claude."
 }

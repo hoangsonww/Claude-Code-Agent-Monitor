@@ -748,6 +748,7 @@ Si `ccam` n'est pas dans le `PATH`, lancez `npm link` une fois depuis la racine 
 | `npm run import-history` | Importe les anciennes sessions depuis `~/.claude/` (s'exécute aussi au démarrage) |
 | `npm run reconcile-tokens` | Rafraîchit les totaux de tokens des sessions importées (ne baisse jamais un total) |
 | `npm run repair-tokens` | Recalcule les totaux de tokens **hors workflows** de chaque session **Claude** dont la transcription est sur disque (sous `~/.claude/projects/` ou via le `transcript_path` stocké de la session) et remet à zéro les bases de compaction ; les lignes de workflows et de Codex sont préservées. Réparation unique pour les bases touchées par la somme d'usage par enregistrement d'avant v2.0.9 ou par l'omission de l'usage des sous-agents à plat du même modèle. Arrêtez d'abord le tableau de bord |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Prévisualise la réparation de la sortie Codex : le raisonnement est déjà inclus dans la sortie. Arrêtez le tableau de bord avant d'appliquer avec `--apply --journal new-backup.json`. Aucun fichier existant n'est écrasé ; les historiques ambigus sont conservés. Les transcriptions brutes, gzip et Zstd sont lues en flux. |
 | `DASHBOARD_TOKEN_REPAIR` | Activé par défaut (`1`). Réparation automatique unique des totaux de tokens historiques touchés par l'inflation par enregistrement ou par l'omission des sous-agents à plat du même modèle. Les correctifs en direct ne peuvent pas revisiter chaque session terminée, et `replaceTokenUsage` ne peut pas abaisser un ancien maximum. S'exécute une fois par base (protégé par un marqueur, différé hors du chemin de démarrage, ignoré quand un autre tableau de bord partage le répertoire de données) et sauvegarde d'abord les anciennes lignes dans `token_usage_pre_repair_v2`. Mettre à `0` pour l'ignorer et réparer à la main avec `npm run repair-tokens` |
 | `npm run clear-data` | Supprime toutes les sessions, agents, événements et usages de tokens |
 | `npm run mcp:install` | Installe les dépendances du paquet MCP local (`mcp/`) |
@@ -786,6 +787,23 @@ Si `ccam` n'est pas dans le `PATH`, lancez `npm link` une fois depuis la racine 
 | `npm run docker:full:up` | Tableau de bord + MCP authentifié + Nginx sans root + Prometheus + Grafana |
 | `npm run docker:full:down` | Démonte toute la pile Docker |
 | `npm run deploy:validate` | Passe en revue Docker, Compose, Nginx, Helm, Kustomize, Terraform, les audits de dépendances et l'invariant d'écrivain unique. Les constats sont indicatifs (code de sortie 0) ; `CCAM_DEPLOY_VALIDATE_STRICT=1` en fait un contrôle bloquant |
+
+---
+
+Les estimations de coût reposent sur les tarifs d'API configurés, pas sur les frais d'abonnement. Le tableau de bord et les Paramètres affichent des dollars et des cents, le périmètre de machines et de produits sélectionné, et des avertissements pour l'usage sans tarif applicable. Les tarifs par défaut Standard/Fast Short/Long de GPT-6.1 Sol suivent la grille publiée par OpenAI, sans masquer une règle personnalisée existante qui correspond.
+
+### Instantanés de coût avant une mise à niveau
+
+Avant une mise à niveau susceptible de recompter l'usage, capturez une référence en lecture seule, mettez à niveau et redémarrez CCAM, laissez la maintenance de démarrage se terminer, puis capturez un second instantané vers un nouveau chemin et comparez-les. Gardez les fichiers TSV privés : ils contiennent des identifiants de session et des métadonnées de propriété. Le garde-fou se termine avec le code 1 si l'entrée, la sortie, la lecture de cache, l'écriture de cache, l'écriture de cache d'une heure, la recherche web, la récupération web, l'exécution de code ou le coût d'une session locale existante change ; si la propriété bascule entre le local et une autre source ou un autre fournisseur ; ou si une session locale disparaît. Les sessions distantes et les sessions nouvellement ajoutées sont signalées à part.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Mettez à niveau CCAM, redémarrez-le et laissez la maintenance de démarrage se terminer.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Une synchronisation distante interrompue apparaît comme une erreur après le redémarrage ; le reçu de l'import précédent reste disponible. La récupération au démarrage ne s'exécute que lorsque les marqueurs de vie par processus, placés dans le répertoire de données SQLite partagé, prouvent qu'il s'agit du seul tableau de bord actif, même lorsque les processus utilisent des valeurs de `CLAUDE_HOME` différentes ; un marqueur absent ou mal formé, ou une propriété concurrente, reporte la récupération. Une base de données occupée est retentée indépendamment, si bien que la récupération ne peut pas désactiver l'interrogation des sources distantes. Pendant les nouvelles tentatives, l'erreur la plus récente reste visible ; une synchronisation réussie l'efface.
 
 ---
 

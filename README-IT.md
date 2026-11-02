@@ -748,6 +748,7 @@ Se `ccam` non è nel `PATH`, esegui una volta `npm link` dalla radice del reposi
 | `npm run import-history` | Importa le sessioni precedenti da `~/.claude/` (viene eseguito anche all'avvio) |
 | `npm run reconcile-tokens` | Aggiorna i totali dei token delle sessioni importate (non abbassa mai un totale) |
 | `npm run repair-tokens` | Ricalcola i totali dei token **esclusi i flussi** di ogni sessione **Claude** con trascrizione su disco (in `~/.claude/projects/` o tramite il `transcript_path` salvato della sessione) e azzera le basi di compattazione; le righe dei flussi e di Codex vengono preservate. Riparazione una tantum per i database colpiti dalla somma per record precedente alla v2.0.9 o dall'omissione dell'uso dei subagenti piatti dello stesso modello. Ferma prima la dashboard |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Anteprima della riparazione dell'output di Codex: il ragionamento è già incluso nell'output. Ferma la dashboard prima di applicare con `--apply --journal new-backup.json`. I file esistenti non vengono mai sovrascritti; le cronologie ambigue vengono preservate. Le trascrizioni semplici, gzip e Zstd vengono lette in streaming. |
 | `DASHBOARD_TOKEN_REPAIR` | Attivo per impostazione predefinita (`1`). Riparazione automatica una tantum dei totali storici dei token colpiti dal gonfiamento per record o dall'omissione dei subagenti piatti dello stesso modello. Le correzioni in diretta non possono rivedere ogni sessione completata, e `replaceTokenUsage` non può abbassare un vecchio valore massimo. Viene eseguita una volta per database (controllata da un marcatore, rinviata fuori dal percorso di avvio, saltata mentre un'altra dashboard condivide la directory dei dati) e salva prima le vecchie righe in `token_usage_pre_repair_v2`. Impostare a `0` per saltarla e riparare manualmente con `npm run repair-tokens` |
 | `npm run clear-data` | Elimina tutte le sessioni, gli agenti, gli eventi e i consumi di token |
 | `npm run mcp:install` | Installa le dipendenze del pacchetto MCP locale (`mcp/`) |
@@ -786,6 +787,23 @@ Se `ccam` non è nel `PATH`, esegui una volta `npm link` dalla radice del reposi
 | `npm run docker:full:up` | Dashboard + MCP autenticato + Nginx senza root + Prometheus + Grafana |
 | `npm run docker:full:down` | Smonta l'intero stack Docker |
 | `npm run deploy:validate` | Esamina Docker, Compose, Nginx, Helm, Kustomize, Terraform, gli audit delle dipendenze e l'invariante di scrittore unico. I risultati sono solo indicativi (codice di uscita 0); `CCAM_DEPLOY_VALIDATE_STRICT=1` li trasforma in un blocco obbligatorio |
+
+---
+
+Le stime dei costi usano le tariffe API configurate, non gli addebiti dell'abbonamento. La Dashboard e le Impostazioni mostrano dollari e centesimi, l'ambito di macchine e prodotti selezionato e avvisi per l'uso senza tariffa applicabile. Le tariffe predefinite Standard/Fast Short/Long di GPT-6.1 Sol seguono la tabella pubblicata da OpenAI senza oscurare una regola personalizzata esistente corrispondente.
+
+### Snapshot dei costi prima di un aggiornamento
+
+Prima di un aggiornamento che potrebbe ricalcolare l'utilizzo, acquisisci una baseline in sola lettura, aggiorna e riavvia CCAM, lascia terminare la manutenzione di avvio, poi acquisisci un secondo snapshot in un nuovo percorso e confrontali. Mantieni privati i file TSV: contengono identificatori di sessione e metadati di proprietà. Il controllo termina con stato 1 se cambiano input, output, lettura della cache, scrittura della cache, scrittura della cache di un'ora, ricerca web, recupero web, esecuzione di codice o costo di una sessione locale esistente; se la proprietà passa tra locale e un'altra fonte o un altro provider; o se una sessione locale scompare. Le sessioni remote e quelle appena aggiunte vengono segnalate separatamente.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Aggiorna CCAM, riavvialo e lascia terminare la manutenzione di avvio.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Una sincronizzazione remota interrotta viene mostrata come errore dopo il riavvio; la ricevuta dell'importazione precedente resta disponibile. Il ripristino all'avvio viene eseguito solo quando i marcatori di attività per processo nella directory dati SQLite condivisa dimostrano che questa è l'unica dashboard attiva, anche quando i processi usano valori di `CLAUDE_HOME` diversi; marcatori mancanti, malformati o una proprietà concorrente rinviano il ripristino. Un database occupato viene ritentato in modo indipendente, quindi il ripristino non può disattivare il poller remoto. Durante i nuovi tentativi remoti l'errore più recente resta visibile; una sincronizzazione riuscita lo cancella.
 
 ---
 

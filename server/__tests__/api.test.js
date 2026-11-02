@@ -668,6 +668,78 @@ describe("Stats API", () => {
     assert.ok(res.body.total_sessions >= 2);
     assert.ok(res.body.total_agents >= 2);
   });
+
+  describe("events_today local-day boundary", () => {
+    const sessionId = "sess-events-today-boundary";
+
+    function boundaryFor(offsetMin) {
+      return db
+        .prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?, 'start of day', ?) AS boundary")
+        .get(`${-offsetMin} minutes`, `${offsetMin} minutes`).boundary;
+    }
+
+    function shift(iso, seconds) {
+      return new Date(Date.parse(iso) + seconds * 1000).toISOString();
+    }
+
+    function insertAt(createdAt) {
+      stmts.insertEventAt.run(sessionId, null, "Notification", null, "boundary", null, createdAt);
+    }
+
+    async function eventsToday(query) {
+      const res = await fetch(`/api/stats?${query}`);
+      assert.equal(res.status, 200);
+      return res.body.events_today;
+    }
+
+    before(() => {
+      if (!stmts.getSession.get(sessionId)) {
+        stmts.insertSession.run(sessionId, "Boundary Session", "active", null, null, null);
+      }
+    });
+
+    for (const [label, extra] of [
+      ["unscoped", ""],
+      ["scoped", "&providers=claude"],
+    ]) {
+      for (const offsetMin of [420, -540]) {
+        it(`ignores events before local midnight and counts later ones (${label}, tz_offset=${offsetMin})`, async () => {
+          const query = `tz_offset=${offsetMin}${extra}`;
+          const boundary = boundaryFor(offsetMin);
+          const baseline = await eventsToday(query);
+
+          insertAt(shift(boundary, -1));
+          assert.equal(await eventsToday(query), baseline);
+
+          insertAt(shift(boundary, 1));
+          assert.equal(await eventsToday(query), baseline + 1);
+        });
+      }
+
+      it(`falls back to UTC for an out-of-range tz_offset (${label})`, async () => {
+        assert.equal(
+          await eventsToday(`tz_offset=999999999999${extra}`),
+          await eventsToday(`tz_offset=0${extra}`)
+        );
+      });
+
+      for (const [transition, dayStart, offsetMin] of [
+        ["spring forward", "2026-03-08T08:00:00.000Z", 420],
+        ["fall back", "2026-11-01T07:00:00.000Z", 480],
+      ]) {
+        it(`uses day_start on a ${transition} day in Los Angeles (${label})`, async () => {
+          const query = `tz_offset=${offsetMin}&day_start=${encodeURIComponent(dayStart)}${extra}`;
+          const baseline = await eventsToday(query);
+
+          insertAt(shift(dayStart, -1));
+          assert.equal(await eventsToday(query), baseline);
+
+          insertAt(shift(dayStart, 1));
+          assert.equal(await eventsToday(query), baseline + 1);
+        });
+      }
+    }
+  });
 });
 
 // ============================================================

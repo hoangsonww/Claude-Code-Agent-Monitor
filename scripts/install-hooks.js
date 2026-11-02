@@ -12,7 +12,6 @@ const path = require("path");
 const readline = require("readline");
 
 const { getSettingsPath } = require("../server/lib/claude-home");
-const SETTINGS_PATH = getSettingsPath();
 const HOOK_HANDLER = path.resolve(__dirname, "hook-handler.js").replace(/\\/g, "/");
 
 function envFlag(name) {
@@ -59,13 +58,14 @@ function isInsideContainer() {
 
 /** Multi-line message explaining why a container install is refused. */
 function containerRefusalMessage() {
+  const settingsPath = getSettingsPath();
   return [
     "✖ Refusing to install Claude Code hooks from inside a container.",
     "",
     `  The hook command would embed this handler path:`,
     `      ${HOOK_HANDLER}`,
     `  written into:`,
-    `      ${SETTINGS_PATH}`,
+    `      ${settingsPath}`,
     "",
     "  Claude Code runs on the HOST. When ~/.claude is bind-mounted, a",
     "  container-internal handler path does not exist on the host, so every host",
@@ -119,9 +119,10 @@ function isOurEntry(entry) {
 }
 
 function getClaudeHookStatus() {
+  const settingsPath = getSettingsPath();
   try {
-    if (!fs.existsSync(SETTINGS_PATH)) return { installed: false, path: SETTINGS_PATH, hooks: {} };
-    const settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
+    if (!fs.existsSync(settingsPath)) return { installed: false, path: settingsPath, hooks: {} };
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     const hooks = Object.fromEntries(
       HOOK_TYPES.map((type) => [type, (settings.hooks?.[type] || []).some(isOurEntry)])
     );
@@ -130,11 +131,11 @@ function getClaudeHookStatus() {
       installed: Object.values(hooks).every(Boolean),
       has_dashboard_hooks: Object.values(hooks).some(Boolean),
       has_existing_hooks: hookLists.some((entries) => entries.length > 0),
-      path: SETTINGS_PATH,
+      path: settingsPath,
       hooks,
     };
   } catch (err) {
-    return { installed: false, path: SETTINGS_PATH, hooks: {}, error: err.message };
+    return { installed: false, path: settingsPath, hooks: {}, error: err.message };
   }
 }
 
@@ -147,13 +148,14 @@ function installHooks(silent = false) {
     return false;
   }
 
+  const settingsPath = getSettingsPath();
   let settings = {};
-  if (fs.existsSync(SETTINGS_PATH)) {
+  if (fs.existsSync(settingsPath)) {
     try {
-      const raw = fs.readFileSync(SETTINGS_PATH, "utf8");
+      const raw = fs.readFileSync(settingsPath, "utf8");
       settings = JSON.parse(raw);
     } catch (err) {
-      if (!silent) console.error(`Failed to parse ${SETTINGS_PATH}:`, err.message);
+      if (!silent) console.error(`Failed to parse ${settingsPath}:`, err.message);
       return false;
     }
   }
@@ -178,13 +180,13 @@ function installHooks(silent = false) {
     }
   }
 
-  const dir = path.dirname(SETTINGS_PATH);
+  const dir = path.dirname(settingsPath);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2) + "\n", "utf8");
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
 
   if (!silent) {
     console.log(`Hook handler: ${HOOK_HANDLER}`);
-    console.log(`Settings file: ${SETTINGS_PATH}`);
+    console.log(`Settings file: ${settingsPath}`);
     console.log(`Installed: ${installed} new, updated: ${updated} existing`);
     console.log("Claude Code hooks configured. Start a new Claude Code session to begin tracking.");
   }

@@ -748,6 +748,7 @@ Se `ccam` não estiver no `PATH`, rode `npm link` uma vez na raiz do repositóri
 | `npm run import-history` | Importa sessões antigas de `~/.claude/` (também roda na inicialização) |
 | `npm run reconcile-tokens` | Atualiza os totais de tokens das sessões importadas (nunca reduz um total) |
 | `npm run repair-tokens` | Recalcula os totais de tokens **fora de fluxos** de cada sessão do **Claude** com transcrição em disco (em `~/.claude/projects/` ou pelo `transcript_path` armazenado da sessão) e zera as bases de compactação; as linhas de fluxos e do Codex são preservadas. Reparo único para bancos afetados pela soma de uso por registro anterior à v2.0.9 ou pela omissão do uso de subagentes planos do mesmo modelo. Pare o painel antes |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Pré-visualiza o reparo da saída do Codex: o raciocínio já está incluído na saída. Pare o painel antes de aplicar com `--apply --journal new-backup.json`. Arquivos existentes nunca são sobrescritos; históricos ambíguos são preservados. Transcripts simples, gzip e Zstd são lidos em streaming. |
 | `DASHBOARD_TOKEN_REPAIR` | Ativado por padrão (`1`). Reparo automático único dos totais históricos de tokens afetados pela inflação por registro ou pela omissão de subagentes planos do mesmo modelo. Correções ao vivo não conseguem revisitar cada sessão concluída, e `replaceTokenUsage` não consegue reduzir um valor máximo antigo. Roda uma vez por banco (controlado por marcador, adiado para fora do caminho de inicialização, ignorado enquanto outro painel compartilha o diretório de dados) e salva antes as linhas antigas em `token_usage_pre_repair_v2`. Defina como `0` para ignorá-lo e reparar manualmente com `npm run repair-tokens` |
 | `npm run clear-data` | Exclui todas as sessões, agentes, eventos e usos de tokens |
 | `npm run mcp:install` | Instala as dependências do pacote MCP local (`mcp/`) |
@@ -786,6 +787,23 @@ Se `ccam` não estiver no `PATH`, rode `npm link` uma vez na raiz do repositóri
 | `npm run docker:full:up` | Painel + MCP autenticado + Nginx sem root + Prometheus + Grafana |
 | `npm run docker:full:down` | Desmonta toda a pilha do Docker |
 | `npm run deploy:validate` | Revisa Docker, Compose, Nginx, Helm, Kustomize, Terraform, auditorias de dependências e a invariante de escritor único. Os achados são apenas indicativos (código de saída 0); `CCAM_DEPLOY_VALIDATE_STRICT=1` os transforma em uma trava obrigatória |
+
+---
+
+As estimativas de custo usam as tarifas de API configuradas, não cobranças de assinatura. O Painel e as Configurações mostram dólares e centavos, o escopo de máquinas e produtos selecionado e avisos para uso sem tarifa aplicável. Os padrões Standard/Fast Short/Long do GPT-6.1 Sol seguem a tabela publicada pela OpenAI sem sobrepor uma regra personalizada existente correspondente.
+
+### Instantâneos de custo antes de uma atualização
+
+Antes de uma atualização que possa recontar o uso, capture uma linha de base somente leitura, atualize e reinicie o CCAM, deixe a manutenção de inicialização terminar e, em seguida, capture um segundo instantâneo em um novo caminho e compare os dois. Mantenha os arquivos TSV privados: eles contêm identificadores de sessão e metadados de propriedade. A verificação termina com status 1 se a entrada, a saída, a leitura de cache, a gravação de cache, a gravação de cache de uma hora, a busca na web, a obtenção web, a execução de código ou o custo de uma sessão local existente mudar; se a propriedade mudar entre local e outra fonte ou provedor; ou se uma sessão local desaparecer. Sessões remotas e recém-adicionadas são relatadas separadamente.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Atualize o CCAM, reinicie-o e deixe a manutenção de inicialização terminar.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Uma sincronização remota interrompida aparece como erro após reiniciar; o comprovante da importação anterior continua disponível. A recuperação na inicialização só é executada quando os marcadores de atividade por processo, no diretório de dados SQLite compartilhado, comprovam que este é o único painel em execução, mesmo quando os processos usam valores diferentes de `CLAUDE_HOME`; marcadores ausentes ou malformados, ou propriedade concorrente, adiam a recuperação. Um banco de dados ocupado é tentado novamente de forma independente, então a recuperação não pode desativar o poller remoto. Durante as novas tentativas remotas, o erro mais recente continua visível; uma sincronização bem-sucedida o apaga.
 
 ---
 

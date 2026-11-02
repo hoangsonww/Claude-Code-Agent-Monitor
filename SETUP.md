@@ -162,6 +162,19 @@ ccam mcp stdio                 # stable launcher used by bundled plugins
 
 For full host config and tool catalog, see [mcp/README.md](./mcp/README.md).
 
+### Safeguard usage and cost before an upgrade
+
+Before an upgrade that may recount usage, capture a read-only snapshot, upgrade and restart CCAM, let startup maintenance finish, then compare a second snapshot:
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade CCAM, restart it, and let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Write each snapshot to a new path and keep the TSV files private because they contain session identifiers and ownership metadata. The guard fails when a local session's compared usage or cost changes, ownership moves to or from local, or a local session disappears; remote and newly added sessions are reported separately.
+
 ### Agent extension setup (Claude Code + Codex)
 
 This repository ships extension files for both agent ecosystems:
@@ -461,6 +474,7 @@ Scope, precisely:
 | `import-history` | `npm run import-history` | Import legacy sessions from `~/.claude/` (also runs on startup) |
 | `reconcile-tokens` | `npm run reconcile-tokens` | Refresh token totals for imported sessions (never lowers a total) |
 | `repair-tokens` | `npm run repair-tokens` | Re-derive non-workflow token totals for every Claude session with a transcript on disk and zero the compaction baselines, preserving workflow and Codex rows (one-time fix for pre-v2.0.9 inflation; stop the dashboard first) |
+| `repair-codex-output` | `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out new-plan.json` | Preview correction of double-counted Codex reasoning output. Stop the monitor before `--apply --journal new-backup.json`; explicit database and new, durable journal required. Ambiguous histories remain untouched. |
 | `mcp:install` | `npm run mcp:install` | Install MCP package dependencies |
 | `mcp:build` | `npm run mcp:build` | Build MCP server into `mcp/build/` |
 | `mcp:start` | `npm run mcp:start` | Start MCP server (stdio, for MCP hosts) |

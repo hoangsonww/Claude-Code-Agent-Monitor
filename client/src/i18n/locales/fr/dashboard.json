@@ -6,7 +6,7 @@
   "activeSubagents": "Sous-agents actifs",
   "eventsToday": "Événements aujourd'hui",
   "totalEvents": "Événements au total",
-  "totalCost": "Coût total",
+  "totalCost": "Coût estimé de l'API",
   "viewBoard": "Voir le tableau",
   "viewAll": "Tout voir",
   "activeAgentsSection": "Agents actifs",
@@ -22,5 +22,9 @@
   "tabs": {
     "monitor": "Surveillance",
     "health": "Santé"
-  }
+  },
+  "costEstimate": "Estimation équivalente au tarif de l'API, pas des frais d'abonnement.",
+  "costScope": "Sources : {{sources}} · Produits : {{providers}}",
+  "costIncomplete": "Estimation incomplète : une partie de l'usage n'a pas de tarif applicable ({{models}}).",
+  "reviewRates": "Vérifier la tarification"
 }

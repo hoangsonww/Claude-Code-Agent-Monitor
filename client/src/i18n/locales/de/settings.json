@@ -2,7 +2,7 @@
   "title": "Einstellungen",
   "subtitle": "Preise, Benachrichtigungen, Daten und Hooks verwalten",
   "exportData": "Daten exportieren",
-  "acrossSessions": "Über alle erfassten Sitzungen",
+  "acrossSessions": "Im ausgewählten Datenbereich",
   "basedOnUsage": "Basierend auf dem Token-Verbrauch pro Modell",
   "tabby": {
     "title": "Tabby-Begleiter",
@@ -631,7 +631,8 @@
     "purgeData": "Auch die aus dieser Quelle importierten Sitzungen löschen (nicht rückgängig zu machen)",
     "deleteAndPurge": "Entfernen + Daten löschen",
     "removeKeep": "Entfernen (Daten behalten)",
-    "remoteSourceBadgeTitle": "Von einem entfernten Rechner gesammelt"
+    "remoteSourceBadgeTitle": "Von einem entfernten Rechner gesammelt",
+    "retryLastError": "Erneuter Versuch. Letzter Fehler:"
   },
   "cursorPathsNote": "Cursor ist im Claude-Code-Bereich des Dashboards enthalten. Der lokale Verlauf wird automatisch aus ~/.cursor erkannt und erfasst; entfernte Cursor-Ordner werden von reinen Claude-SSH-Importen nicht synchronisiert."
 }

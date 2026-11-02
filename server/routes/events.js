@@ -3,14 +3,16 @@
  * multi-dimensional filtering (event type, tool name, agent, session, text
  * search, date range) plus pagination. Also exposes a `/facets` endpoint that
  * returns the distinct event_type and tool_name values currently in the DB,
- * so the UI can populate filter dropdowns without hardcoding them.
+ * so the UI can populate filter dropdowns without hardcoding them. Page reads
+ * select ordered IDs before fetching payloads; page and count share one snapshot
+ * in the bounded read-only worker.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
 
 const { Router } = require("express");
-const { db } = require("../db");
-const { parseSources, sessionIdInSourcesClause } = require("../lib/source-filter");
-const { parseProviders, sessionIdInProvidersClause } = require("../lib/provider-filter");
+const { db, readEventPageQuery } = require("../db");
+const { parseSources, sourceColumnClause } = require("../lib/source-filter");
+const { parseProviders, providerColumnClause } = require("../lib/provider-filter");
 
 const router = Router();
 
@@ -71,17 +73,14 @@ function buildWhere(filters) {
     params.push(filters.to);
   }
 
-  // Data-scope: restrict to events whose session was collected from a chosen
-  // set of machines. `events` carries only session_id, so filter via subquery.
-  const scope = sessionIdInSourcesClause(filters.sources, "session_id");
-  if (scope.clause) {
-    clauses.push(scope.clause);
-    params.push(...scope.params);
-  }
-  const providerScope = sessionIdInProvidersClause(filters.providers, "session_id");
-  if (providerScope.clause) {
-    clauses.push(providerScope.clause);
-    params.push(...providerScope.params);
+  // Resolve the intersection once at session granularity, rather than checking
+  // independent source/provider memberships for every historical event.
+  const scope = sourceColumnClause(filters.sources, "source");
+  const providerScope = providerColumnClause(filters.providers, "provider");
+  const sessionClauses = [scope.clause, providerScope.clause].filter(Boolean);
+  if (sessionClauses.length > 0) {
+    clauses.push(`session_id IN (SELECT id FROM sessions WHERE ${sessionClauses.join(" AND ")})`);
+    params.push(...scope.params, ...providerScope.params);
   }
 
   return {
@@ -91,31 +90,75 @@ function buildWhere(filters) {
 }
 
 // GET /api/events?event_type=a,b&tool_name=Bash&q=curl&from=...&to=...&limit=50&offset=0
-router.get("/", (req, res) => {
-  const limit = clampInt(req.query.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
-  const offset = clampInt(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+router.get("/", async (req, res, next) => {
+  try {
+    const limit = clampInt(req.query.limit, DEFAULT_LIMIT, 1, MAX_LIMIT);
+    const offset = clampInt(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
 
-  const filters = {
-    event_type: parseCsv(req.query.event_type),
-    tool_name: parseCsv(req.query.tool_name),
-    agent_id: parseCsv(req.query.agent_id),
-    session_id: parseCsv(req.query.session_id),
-    q: typeof req.query.q === "string" && req.query.q.trim() !== "" ? req.query.q.trim() : null,
-    from: parseDate(req.query.from),
-    to: parseDate(req.query.to),
-    sources: parseSources(req),
-    providers: parseProviders(req),
-  };
+    const filters = {
+      event_type: parseCsv(req.query.event_type),
+      tool_name: parseCsv(req.query.tool_name),
+      agent_id: parseCsv(req.query.agent_id),
+      session_id: parseCsv(req.query.session_id),
+      q: typeof req.query.q === "string" && req.query.q.trim() !== "" ? req.query.q.trim() : null,
+      from: parseDate(req.query.from),
+      to: parseDate(req.query.to),
+      sources: parseSources(req),
+      providers: parseProviders(req),
+    };
 
-  const { sql: whereSql, params: whereParams } = buildWhere(filters);
+    const { sql: whereSql, params: whereParams } = buildWhere(filters);
 
-  const listSql = `SELECT * FROM events ${whereSql} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`;
-  const countSql = `SELECT COUNT(*) as count FROM events ${whereSql}`;
+    // Keep full payloads out of the scope-filtered sort. The inner LIMIT also
+    // prevents flattening, so only the requested page is fetched by primary key.
+    const listSql = `SELECT e.* FROM events e
+      JOIN (SELECT id FROM events ${whereSql}
+            ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?) page ON page.id = e.id
+      ORDER BY e.created_at DESC, e.id DESC`;
+    const countSql = `SELECT COUNT(*) as count FROM events ${whereSql}`;
 
-  const events = db.prepare(listSql).all(...whereParams, limit, offset);
-  const { count: total } = db.prepare(countSql).get(...whereParams);
+    // Scope-first plans can sort millions of matching historical IDs to serve
+    // the first page. Try a bounded newest global prefix first. LIMIT prevents
+    // flattening: predicates examine only these candidates by primary key.
+    // A full result proves the page complete; otherwise the reader falls back
+    // to listSql on the same snapshot, preserving sparse/old scope semantics.
+    const probe =
+      whereSql && limit + offset <= 500
+        ? {
+            sql: `SELECT e.* FROM events e JOIN (
+              SELECT candidate.id FROM (
+                SELECT id FROM events ORDER BY created_at DESC, id DESC LIMIT ?
+              ) recent CROSS JOIN events candidate ON candidate.id = recent.id
+              ${whereSql}
+              ORDER BY candidate.created_at DESC, candidate.id DESC LIMIT ? OFFSET ?
+            ) page ON page.id = e.id ORDER BY e.created_at DESC, e.id DESC`,
+            params: [Math.max(128, 4 * (limit + offset)), ...whereParams, limit, offset],
+            limit,
+          }
+        : null;
+    // Only session predicates can be answered from session buckets. Decide
+    // from parsed filters, never from a regex over the completed SQL. Reuse
+    // the exact WHERE and bindings, including orphan session-only requests.
+    const scopeOnly =
+      whereSql &&
+      !filters.event_type &&
+      !filters.tool_name &&
+      !filters.agent_id &&
+      !filters.q &&
+      !filters.from &&
+      !filters.to;
+    const counterSql = scopeOnly
+      ? `SELECT COALESCE(SUM(total),0) AS count FROM monitor_session_event_counts ${whereSql}`
+      : null;
+    const { events, total } = await readEventPageQuery(
+      { sql: listSql, params: [...whereParams, limit, offset], ...(probe ? { probe } : {}) },
+      { sql: countSql, params: whereParams, ...(counterSql ? { counterSql } : {}) }
+    );
 
-  res.json({ events, limit, offset, total });
+    res.json({ events, limit, offset, total });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/events/facets — distinct event_type / tool_name values in the DB.

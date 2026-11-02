@@ -748,6 +748,7 @@ Ist `ccam` nicht in Ihrem `PATH`, führen Sie einmal `npm link` im Stammverzeich
 | `npm run import-history` | Importiert ältere Sitzungen aus `~/.claude/` (läuft auch beim Start) |
 | `npm run reconcile-tokens` | Aktualisiert die Token-Summen importierter Sitzungen (senkt nie eine Summe) |
 | `npm run repair-tokens` | Leitet die Token-Summen **ohne Workflows** für jede **Claude**-Sitzung mit Transkript auf der Festplatte neu ab (unter `~/.claude/projects/` oder über den gespeicherten `transcript_path` der Sitzung) und setzt die Compaction-Basiswerte auf null; Workflow- und Codex-Zeilen bleiben erhalten. Einmalige Reparatur für Datenbanken, die von der Summierung pro Datensatz vor v2.0.9 oder von ausgelassener Nutzung flacher Subagents desselben Modells betroffen sind. Stoppen Sie zuerst das Dashboard |
+| `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out plan.json` | Vorschau der Codex-Ausgabereparatur: Reasoning ist in der Ausgabe bereits enthalten. Stoppen Sie das Dashboard, bevor Sie mit `--apply --journal new-backup.json` anwenden. Vorhandene Dateien werden nie überschrieben; mehrdeutige Verläufe bleiben erhalten. Einfache, gzip- und Zstd-Transkripte werden als Stream gelesen. |
 | `DASHBOARD_TOKEN_REPAIR` | Standardmäßig aktiviert (`1`). Einmalige automatische Reparatur historischer Token-Summen, die von Aufblähung pro Datensatz oder ausgelassenen flachen Subagents desselben Modells betroffen sind. Live-Korrekturen können nicht jede abgeschlossene Sitzung erneut aufsuchen, und `replaceTokenUsage` kann einen alten Höchststand nicht senken. Läuft einmal pro Datenbank (per Marker gesteuert, aus dem Startpfad verschoben, übersprungen, solange ein anderes Dashboard das Datenverzeichnis teilt) und sichert die alten Zeilen zuerst in `token_usage_pre_repair_v2`. Auf `0` setzen, um sie zu überspringen und manuell mit `npm run repair-tokens` zu reparieren |
 | `npm run clear-data` | Löscht alle Sitzungen, Agents, Ereignisse und Token-Nutzungen |
 | `npm run mcp:install` | Installiert die Abhängigkeiten des lokalen MCP-Pakets (`mcp/`) |
@@ -786,6 +787,23 @@ Ist `ccam` nicht in Ihrem `PATH`, führen Sie einmal `npm link` im Stammverzeich
 | `npm run docker:full:up` | Dashboard + authentifiziertes MCP + rootloses Nginx + Prometheus + Grafana |
 | `npm run docker:full:down` | Baut den gesamten Docker-Stack ab |
 | `npm run deploy:validate` | Prüft Docker, Compose, Nginx, Helm, Kustomize, Terraform, Abhängigkeitsaudits und die Ein-Schreiber-Invariante. Befunde sind nur Hinweise (Exit-Code 0); `CCAM_DEPLOY_VALIDATE_STRICT=1` macht daraus eine harte Schranke |
+
+---
+
+Kostenschätzungen beruhen auf den konfigurierten API-Tarifen, nicht auf Abonnementgebühren. Dashboard und Einstellungen zeigen Dollar und Cent, den ausgewählten Maschinen- und Produktbereich sowie Warnungen für Nutzung ohne anwendbaren Tarif. Die Standardtarife Standard/Fast Short/Long für GPT-6.1 Sol folgen der veröffentlichten OpenAI-Tabelle, ohne eine vorhandene passende benutzerdefinierte Regel zu überdecken.
+
+### Kosten-Snapshots vor einem Upgrade
+
+Vor einem Upgrade, das die Nutzung neu zählen kann, erfassen Sie eine schreibgeschützte Ausgangsbasis, aktualisieren und starten CCAM neu, lassen die Startwartung abschließen, erfassen dann einen zweiten Snapshot unter einem neuen Pfad und vergleichen beide. Halten Sie die TSV-Dateien privat: Sie enthalten Sitzungskennungen und Besitz-Metadaten. Die Prüfung endet mit Status 1, wenn sich bei einer vorhandenen lokalen Sitzung Eingabe, Ausgabe, Cache-Lesen, Cache-Schreiben, einstündiges Cache-Schreiben, Websuche, Web-Abruf, Codeausführung oder Kosten ändern; wenn der Besitz zwischen lokal und einer anderen Quelle oder einem anderen Anbieter wechselt; oder wenn eine lokale Sitzung verschwindet. Entfernte und neu hinzugekommene Sitzungen werden separat gemeldet.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# CCAM aktualisieren, neu starten und die Startwartung abschließen lassen.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Eine unterbrochene Remote-Synchronisierung wird nach einem Neustart als Fehler angezeigt; der Beleg des vorherigen Imports bleibt verfügbar. Die Wiederherstellung beim Start läuft nur, wenn prozessbezogene Lebenszeichen-Marker im gemeinsamen SQLite-Datenverzeichnis belegen, dass dies das einzige laufende Dashboard ist, auch wenn Prozesse unterschiedliche `CLAUDE_HOME`-Werte verwenden; fehlende, fehlerhafte oder gleichzeitige Besitzansprüche verschieben die Wiederherstellung. Eine belegte Datenbank wird unabhängig erneut versucht, sodass die Wiederherstellung den Remote-Poller nicht deaktivieren kann. Bei erneuten Remote-Versuchen bleibt der letzte Fehler sichtbar; eine erfolgreiche Synchronisierung löscht ihn.
 
 ---
 

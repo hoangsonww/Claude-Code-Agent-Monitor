@@ -135,6 +135,17 @@ Open [http://localhost:5173](http://localhost:5173). `npm run setup` installs th
 
 For production, run `npm run build && npm start` and open [http://localhost:4820](http://localhost:4820).
 
+Before an upgrade that may recount usage, capture and compare read-only cost snapshots:
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Upgrade and restart CCAM, then let startup maintenance finish.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+Keep these TSV files private because they contain session identifiers and ownership metadata. The guard fails when an existing local session's usage or cost changes, ownership moves to or from local, or a local session disappears; remote and newly added sessions are reported separately. See the [complete upgrade safeguard](./README-EN.md#cost-snapshots-before-an-upgrade) for the exact compared fields.
+
 ## Choose how to run CCAM
 
 | Option | Best for | Guide |

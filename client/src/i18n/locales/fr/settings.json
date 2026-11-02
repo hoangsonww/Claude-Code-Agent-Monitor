@@ -2,7 +2,7 @@
   "title": "Paramètres",
   "subtitle": "Gérez la tarification, les notifications, les données et les hooks",
   "exportData": "Exporter les données",
-  "acrossSessions": "Sur toutes les sessions suivies",
+  "acrossSessions": "Dans le périmètre de données sélectionné",
   "basedOnUsage": "Basé sur la consommation de tokens par modèle",
   "tabby": {
     "title": "Compagnon Tabby",
@@ -631,7 +631,8 @@
     "purgeData": "Supprimer aussi les sessions importées depuis cette source (irréversible)",
     "deleteAndPurge": "Retirer + supprimer les données",
     "removeKeep": "Retirer (garder les données)",
-    "remoteSourceBadgeTitle": "Collecté depuis une machine distante"
+    "remoteSourceBadgeTitle": "Collecté depuis une machine distante",
+    "retryLastError": "Nouvelle tentative. Dernière erreur :"
   },
   "cursorPathsNote": "Cursor est inclus dans le périmètre Claude Code du tableau de bord. L'historique local est découvert et capturé automatiquement depuis ~/.cursor ; les dossiers Cursor distants ne sont pas synchronisés par les imports SSH propres à Claude."
 }
