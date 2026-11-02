@@ -197,9 +197,9 @@ export function Select<T extends string>({ value, onChange, options, disabled }:
         aria-controls={menuId}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onKey}
-        className="w-full flex items-center justify-between gap-2 bg-surface-2 border border-border rounded-md px-3 py-1.5 text-[11px] text-gray-100 focus:outline-none focus:border-accent/50 hover:bg-surface-3 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-surface-2 px-3 py-1.5 text-[11px] text-gray-100 transition-colors hover:bg-surface-3 focus:outline-none focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <span className="truncate">{current?.label ?? "-"}</span>
+        <span className="min-w-0 truncate">{current?.label ?? "-"}</span>
         <ChevronDown className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
       </button>
       {open && (
