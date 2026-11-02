@@ -391,7 +391,7 @@ npm run install-hooks
 
 设置完成后，Provider 发现会持续运行：
 
-- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。Cursor 无需 Hook；选择 Claude Code 后也会监视 `~/.cursor/chats` 和 `~/.cursor/projects/*/agent-transcripts`，在 Cursor 清理前保存对话快照，并遵循 `DASHBOARD_CURSOR_HOME`。
+- **Claude Code 和 Cursor：** Claude Hook 提供实时事件。Cursor 的生命周期无需 Hook；仪表板会在 `~/.cursor/hooks.json` 安装 `stop` Hook，以便为每个已结束回合的 token 计数计价（agent 记录本身不含用量）。选择 Claude Code 后也会监视 `~/.cursor/chats` 和 `~/.cursor/projects/*/agent-transcripts`，在 Cursor 清理前保存对话快照，并遵循 `DASHBOARD_CURSOR_HOME`。
 - **Codex：** Hook 与 `~/.codex/sessions` rollout 增量监听共同保持生命周期、提示、标题、工具、Token、成本、压缩、对话和 WebSocket 状态最新。坏文件会独立重试；精确的 rollout/进程匹配可防止幽灵活跃卡片；原生 `/rename` 标题和基于游标分页的对话历史会实时更新。
 - **Both：** 卡片保留最近两条不同的人类提示，渲染持久化图片附件，并对重复的 Codex 响应去重。仅 Codex 的范围会隐藏只适用于 Claude 的 Dynamic Workflow 日志。
 ### 3. 启动

@@ -301,6 +301,22 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 
+  -- One row per Cursor turn (generation_id). stop repeats the same
+  -- cumulative counts, so the row is replaced rather than added. Session
+  -- token_usage is the sum across turns.
+  CREATE TABLE IF NOT EXISTS cursor_turn_usage (
+    session_id TEXT NOT NULL,
+    generation_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    speed TEXT NOT NULL DEFAULT 'standard',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (session_id, generation_id)
+  );
+
   -- Durable cursor state for append-only Codex rollout JSONL files. Keeping the
   -- last cumulative counters makes duplicate hook/watcher notifications free.
   CREATE TABLE IF NOT EXISTS codex_ingest_state (
@@ -792,6 +808,11 @@ const cursorRate = (pattern, name, input, cacheWrite, cacheRead, output) => [
   output,
 ];
 const DEFAULT_CURSOR_PRICING = [
+  // https://cursor.com/docs/models/grok-4-7 — same on-demand card as Grok 4.6.
+  // Fast is the more-specific pattern; long-context (>256k) is not applied to
+  // turn totals because those sums can cross 256k without any one request doing so.
+  cursorRate("grok-4.7-fast%", "Cursor Grok 4.7 (Fast)", 4, 0, 1, 12),
+  cursorRate("grok-4.7%", "Cursor Grok 4.7", 2, 0, 0.5, 6),
   cursorRate("grok-4.6-fast%", "Cursor Grok 4.6 (Fast)", 4, 0, 1, 12),
   cursorRate("grok-4.6%", "Cursor Grok 4.6", 2, 0, 0.5, 6),
   cursorRate("grok-4.5-fast%", "Cursor Grok 4.5 (Fast)", 4, 0, 1, 18),
@@ -1747,6 +1768,9 @@ const stmts = {
   updateSession: db.prepare(
     "UPDATE sessions SET name = COALESCE(?, name), status = COALESCE(?, status), ended_at = COALESCE(?, ended_at), metadata = COALESCE(?, metadata), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
+  setSessionProvider: db.prepare(
+    "UPDATE sessions SET provider = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+  ),
   reactivateSession: db.prepare(
     "UPDATE sessions SET status = 'active', ended_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
   ),
@@ -2055,6 +2079,30 @@ const stmts = {
       web_search_requests = excluded.web_search_requests,
       web_fetch_requests = excluded.web_fetch_requests,
       code_execution_requests = excluded.code_execution_requests
+  `),
+  upsertCursorTurnUsage: db.prepare(`
+    INSERT INTO cursor_turn_usage (
+      session_id, generation_id, model, speed,
+      input_tokens, output_tokens, cache_read_tokens, cache_write_tokens
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id, generation_id) DO UPDATE SET
+      model = excluded.model,
+      speed = excluded.speed,
+      input_tokens = excluded.input_tokens,
+      output_tokens = excluded.output_tokens,
+      cache_read_tokens = excluded.cache_read_tokens,
+      cache_write_tokens = excluded.cache_write_tokens,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  `),
+  sumCursorTurnUsage: db.prepare(`
+    SELECT model, speed,
+      SUM(input_tokens) AS input_tokens,
+      SUM(output_tokens) AS output_tokens,
+      SUM(cache_read_tokens) AS cache_read_tokens,
+      SUM(cache_write_tokens) AS cache_write_tokens
+    FROM cursor_turn_usage
+    WHERE session_id = ?
+    GROUP BY model, speed
   `),
 
   // Repair variant of replaceTokenUsage: writes the given totals as the full

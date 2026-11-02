@@ -43,6 +43,7 @@ const {
   isSafeCursorId,
   readCursorChatMetadata,
 } = require("../lib/cursor-home");
+const { cursorVisibleTexts, readCursorStoreMessages } = require("../lib/cursor-store-transcript");
 
 const router = Router();
 const MAX_TASK_PROGRESS_ROWS = 100;
@@ -1237,29 +1238,43 @@ function parseCursorMessage(entry, line, isSubagentFile) {
   if (!Array.isArray(rawContent)) return null;
   const content = [];
   let embeddedTimestamp = null;
+  const visible = cursorVisibleTexts(rawContent);
+  for (const text of visible) {
+    const timestampMatch = rawContent
+      .map((block) => (block?.type === "text" ? block.text : ""))
+      .join("\n")
+      .match(/<timestamp>([\s\S]*?)<\/timestamp>/i);
+    if (timestampMatch && !embeddedTimestamp) {
+      const normalized = timestampMatch[1].replace(
+        /\(UTC([+-]\d{1,2})\)/i,
+        (_match, offset) =>
+          `GMT${Number(offset) >= 0 ? "+" : "-"}${String(Math.abs(Number(offset))).padStart(2, "0")}00`
+      );
+      const parsed = new Date(normalized);
+      if (!Number.isNaN(parsed.getTime())) embeddedTimestamp = parsed.toISOString();
+    }
+    if (text) content.push({ type: "text", text: truncate(text, 10240) });
+  }
   for (const block of rawContent) {
-    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
-      let text = block.text;
-      const timestampMatch = text.match(/<timestamp>([\s\S]*?)<\/timestamp>/i);
-      if (timestampMatch) {
-        const normalized = timestampMatch[1].replace(
-          /\(UTC([+-]\d{1,2})\)/i,
-          (_match, offset) =>
-            `GMT${Number(offset) >= 0 ? "+" : "-"}${String(Math.abs(Number(offset))).padStart(2, "0")}00`
-        );
-        const parsed = new Date(normalized);
-        if (!Number.isNaN(parsed.getTime())) embeddedTimestamp = parsed.toISOString();
-        text = text.replace(timestampMatch[0], "").trim();
-      }
-      const userQuery = text.match(/<user_query>([\s\S]*?)<\/user_query>/i);
-      if (userQuery) text = userQuery[1].trim();
-      if (text) content.push({ type: "text", text: truncate(text, 10240) });
-    } else if (entry.role === "assistant" && block?.type === "tool_use") {
+    if (entry.role === "assistant" && block?.type === "tool_use") {
       content.push({
         type: "tool_use",
         name: block.name || "unknown",
         id: block.id || null,
         input: truncateObj(block.input || {}, 10240),
+      });
+    } else if (block?.type === "tool_result") {
+      const output =
+        typeof block.content === "string"
+          ? block.content
+          : typeof block.output === "string"
+            ? block.output
+            : "";
+      content.push({
+        type: "tool_result",
+        id: block.tool_use_id || block.id || null,
+        output: truncate(output, 10240),
+        is_error: block.is_error === true,
       });
     }
   }
@@ -1346,7 +1361,10 @@ async function readCursorConversation(
   }
 
   const messages = [];
-  if (jsonlPath) {
+  const stored = !isSubagentFile ? readCursorStoreMessages(sessionId) : null;
+  if (stored?.length) {
+    messages.push(...stored);
+  } else if (jsonlPath) {
     let rawLine = 0;
     const rl = createTranscriptLineReader(jsonlPath);
     for await (const line of rl) {
@@ -1365,33 +1383,58 @@ async function readCursorConversation(
     }
   }
 
-  const { meta, prompts } = readCursorChatMetadata(sessionId);
-  const claimedPromptIndexes = new Set();
-  for (const message of messages) {
-    if (message.sender !== "user") continue;
-    const text = cursorMessageText(message);
-    const promptIndex = prompts.findIndex(
-      (prompt, index) =>
-        !claimedPromptIndexes.has(index) && prompt.replace(/\s+/g, " ").trim() === text
-    );
-    if (promptIndex < 0) continue;
-    claimedPromptIndexes.add(promptIndex);
-    message.id = `cursor-prompt:${promptIndex}`;
-  }
-
-  prompts.forEach((prompt, index) => {
-    if (claimedPromptIndexes.has(index)) return;
-    messages.push({
-      id: `cursor-prompt:${index}`,
-      type: "user",
-      sender: "user",
-      timestamp:
-        index === prompts.length - 1 && Number.isFinite(Number(meta?.updatedAtMs))
-          ? new Date(Number(meta.updatedAtMs)).toISOString()
-          : null,
-      content: [{ type: "text", text: truncate(prompt, 10240) }],
+  if (!stored?.length) {
+    const { meta, prompts } = readCursorChatMetadata(sessionId);
+    const userTexts = messages
+      .filter((message) => message.sender === "user")
+      .map((message) => cursorMessageText(message));
+    const claimedPromptIndexes = new Set();
+    const promptTail = (prompt) =>
+      prompt
+        .replace(/\[Pasted text #\d+ \+\d+ lines\]/gi, " ")
+        .replace(/\[Image #\d+\]/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    const represented = (prompt) => {
+      const norm = prompt.replace(/\s+/g, " ").trim();
+      const tail = promptTail(prompt);
+      return userTexts.some((text) => {
+        const normalized = text.replace(/\s+/g, " ").trim();
+        if (!normalized || !norm) return false;
+        if (normalized === norm || normalized.includes(norm)) return true;
+        if (normalized.length >= 12 && norm.includes(normalized)) return true;
+        return tail.length >= 12 && normalized.includes(tail);
+      });
+    };
+    for (const message of messages) {
+      if (message.sender !== "user") continue;
+      const text = cursorMessageText(message);
+      const promptIndex = prompts.findIndex(
+        (prompt, index) =>
+          !claimedPromptIndexes.has(index) && prompt.replace(/\s+/g, " ").trim() === text
+      );
+      if (promptIndex < 0) continue;
+      claimedPromptIndexes.add(promptIndex);
+      message.id = `cursor-prompt:${promptIndex}`;
+    }
+    prompts.forEach((prompt, index) => {
+      if (!claimedPromptIndexes.has(index) && represented(prompt)) claimedPromptIndexes.add(index);
     });
-  });
+
+    prompts.forEach((prompt, index) => {
+      if (claimedPromptIndexes.has(index)) return;
+      messages.push({
+        id: `cursor-prompt:${index}`,
+        type: "user",
+        sender: "user",
+        timestamp:
+          index === prompts.length - 1 && Number.isFinite(Number(meta?.updatedAtMs))
+            ? new Date(Number(meta.updatedAtMs)).toISOString()
+            : null,
+        content: [{ type: "text", text: truncate(prompt, 10240) }],
+      });
+    });
+  }
 
   messages.forEach((message, index) => {
     message.line = index + 1;

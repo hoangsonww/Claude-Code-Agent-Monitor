@@ -391,7 +391,7 @@ Trong lần khởi chạy đầu tiên, CCAM chỉ kiểm tra những nhà cung 
 
 Quá trình phát hiện nhà cung cấp tiếp tục sau khi thiết lập:
 
-- **Claude Code và Cursor:** Hook Claude cung cấp sự kiện trực tiếp. Cursor không cần hook; chọn Claude Code cũng theo dõi `~/.cursor/chats` và `~/.cursor/projects/*/agent-transcripts`, chụp snapshot hội thoại trước khi Cursor dọn dẹp và tôn trọng `DASHBOARD_CURSOR_HOME`.
+- **Claude Code và Cursor:** Hook Claude cung cấp sự kiện trực tiếp. Vòng đời Cursor không cần hook; bảng điều khiển cài hook `stop` vào `~/.cursor/hooks.json` để tính giá token của mỗi lượt đã kết thúc (bản ghi agent không có usage). Chọn Claude Code cũng theo dõi `~/.cursor/chats` và `~/.cursor/projects/*/agent-transcripts`, chụp snapshot hội thoại trước khi Cursor dọn dẹp và tôn trọng `DASHBOARD_CURSOR_HOME`.
 - **Codex:** Hook và việc theo dõi rollout `~/.codex/sessions` theo kiểu tăng dần giữ cho vòng đời, lời nhắc, tiêu đề, công cụ, token, chi phí, compaction, hội thoại và trạng thái WebSocket luôn mới. Tệp lỗi được thử lại riêng; đối chiếu chính xác rollout/tiến trình ngăn thẻ đang hoạt động ảo; tiêu đề `/rename` gốc và lịch sử hội thoại phân trang bằng cursor luôn được cập nhật.
 - **Cả hai:** Thẻ giữ hai lời nhắc người dùng khác nhau gần nhất, kết xuất tệp ảnh đính kèm đã lưu và khử trùng lặp phản hồi Codex lặp lại. Phạm vi chỉ Codex ẩn journal Dynamic Workflow chỉ dành cho Claude.
 

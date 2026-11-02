@@ -1583,6 +1583,17 @@ if (require.main === module) {
           "POST to http://localhost:4820 (this container's published port)."
       );
     }
+    // Tests point DASHBOARD_DB_PATH at a throwaway file and must not rewrite
+    // the developer's real ~/.cursor/hooks.json. A suite that also sets
+    // DASHBOARD_CURSOR_HOME installs into that temporary home instead.
+    if (
+      !isInsideContainer() &&
+      (!process.env.DASHBOARD_DB_PATH || process.env.DASHBOARD_CURSOR_HOME)
+    ) {
+      const { installCursorHooks } = require("../scripts/install-cursor-hooks");
+      const cursorHooks = installCursorHooks({ silent: true });
+      if (cursorHooks.ok) console.log("Cursor stop hook auto-configured.");
+    }
   } catch {
     // Non-fatal — user can run npm run install-hooks manually
   }

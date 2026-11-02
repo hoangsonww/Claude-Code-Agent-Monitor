@@ -390,7 +390,7 @@ En el primer inicio, CCAM comprueba solo los proveedores seleccionados para el a
 
 La detección de proveedores continúa después de la configuración:
 
-- **Claude Code y Cursor:** los hooks de Claude suministran eventos en vivo. Cursor no necesita hooks. Seleccionar Claude Code también observa `~/.cursor/chats` y `~/.cursor/projects/*/agent-transcripts`, guarda snapshots de las conversaciones antes de que Cursor las limpie y respeta `DASHBOARD_CURSOR_HOME`.
+- **Claude Code y Cursor:** los hooks de Claude suministran eventos en vivo. El ciclo de vida de Cursor no necesita hooks; el panel instala un hook `stop` en `~/.cursor/hooks.json` para valorar los tokens de cada turno terminado (las transcripciones del agente no incluyen el uso). Seleccionar Claude Code también observa `~/.cursor/chats` y `~/.cursor/projects/*/agent-transcripts`, guarda snapshots de las conversaciones antes de que Cursor las limpie y respeta `DASHBOARD_CURSOR_HOME`.
 - **Codex:** los hooks y la observación incremental de rollouts en `~/.codex/sessions` mantienen actualizados el ciclo de vida, los prompts, títulos, herramientas, tokens, costos, compactaciones, conversaciones y el estado de WebSocket. Los archivos dañados se reintentan de forma aislada. La coincidencia exacta de rollout y proceso evita tarjetas activas fantasma. Los títulos nativos de `/rename` y el historial de conversación paginado por cursor permanecen en vivo.
 - **Ambos:** las tarjetas conservan los dos prompts humanos distintos más recientes, muestran adjuntos de imagen persistentes y eliminan respuestas repetidas de Codex. El alcance exclusivo de Codex oculta los diarios de Dynamic Workflow exclusivos de Claude.
 

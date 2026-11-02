@@ -391,7 +391,7 @@ On first launch, CCAM checks only the providers selected for the current data sc
 
 Provider discovery continues after setup:
 
-- **Claude Code and Cursor:** Claude hooks feed live events. Cursor needs no hooks; selecting Claude Code also watches `~/.cursor/chats` and `~/.cursor/projects/*/agent-transcripts`, snapshots conversations before Cursor cleanup, and honors `DASHBOARD_CURSOR_HOME`.
+- **Claude Code and Cursor:** Claude hooks feed live events. Cursor lifecycle needs no hooks; the dashboard installs a `stop` hook in `~/.cursor/hooks.json` so each finished turn's token counts can be priced (agent transcripts do not include usage). Selecting Claude Code also watches `~/.cursor/chats` and `~/.cursor/projects/*/agent-transcripts`, snapshots conversations before Cursor cleanup, and honors `DASHBOARD_CURSOR_HOME`.
 - **Codex:** hooks and incremental `~/.codex/sessions` rollout watching keep lifecycle, prompts, titles, tools, tokens, costs, compactions, conversations, and WebSocket state current. Bad files retry in isolation; exact rollout/process matching prevents phantom active cards; native `/rename` titles and cursor-paged conversation history stay live.
 - **Both:** cards retain the latest two distinct human prompts, render persisted image attachments, and deduplicate repeated Codex responses. Codex-only scope hides Claude-only Dynamic Workflow journals.
 

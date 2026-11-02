@@ -27,6 +27,7 @@ const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
+const { applyCursorTurnUsage, normalizeCursorHook } = require("../lib/cursor-turn-usage");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
   TranscriptPathError,
@@ -275,7 +276,7 @@ function ensureSession(sessionId, data, origin = null) {
       data.model || null,
       null
     );
-    if (cursorSession) setSessionProviderStmt.run("cursor", sessionId);
+    if (cursorSession) stmts.setSessionProvider.run("cursor", sessionId);
     // A hook that proved REMOTE_PUSH_TOKEN (see POST /event) comes from
     // another machine: birth the row as remote-push owned so the same
     // collector's POST /ingest-batch can enrich it with tokens/tool events.
@@ -284,7 +285,7 @@ function ensureSession(sessionId, data, origin = null) {
     if (origin && origin.remotePush) {
       stmts.setSessionSource.run(REMOTE_PUSH_SOURCE, sessionId);
       if (REMOTE_PROVIDERS.includes(data.provider) && data.provider !== "claude") {
-        setSessionProviderStmt.run(data.provider, sessionId);
+        stmts.setSessionProvider.run(data.provider, sessionId);
       }
     }
     session = stmts.getSession.get(sessionId);
@@ -332,7 +333,7 @@ function ensureSession(sessionId, data, origin = null) {
   // durable transcript path, not from the event names. Repair pre-v2.2.2 rows
   // on their very next hook as well as classifying newly created rows.
   if (cursorSession && session.provider !== "cursor") {
-    setSessionProviderStmt.run("cursor", sessionId);
+    stmts.setSessionProvider.run("cursor", sessionId);
     session = stmts.getSession.get(sessionId);
   }
   // The local hook is authenticated before it reaches this route. Persist the
@@ -536,6 +537,10 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
   if (!sessionId) return null;
 
   const session = ensureSession(sessionId, data, origin);
+  if (!session) return null;
+  if (applyCursorTurnUsage(stmts, sessionId, data) && session.provider !== "cursor") {
+    stmts.setSessionProvider.run("cursor", sessionId);
+  }
 
   // Remote household hooks (aideck-hook.js on other machines) cannot rely on
   // the transcript being readable on THIS host (the JSONL lives on the remote
@@ -1451,7 +1456,28 @@ router.post("/event", (req, res) => {
   const expectedRemoteToken = getRemotePushToken();
   const remotePush =
     !!expectedRemoteToken && tokensMatch(extractHeaderOnlyToken(req), expectedRemoteToken);
-  const result = processEvent(hook_type, data, remotePush ? { remotePush: true } : null);
+  const normalized = normalizeCursorHook(hook_type, data);
+  // afterAgentResponse carries the same turn totals as stop, but it fires
+  // while the agent is still working. Record the usage without a timeline row.
+  if (
+    normalized.hookType === "afterAgentResponse" &&
+    normalized.data.session_id &&
+    stmts.getSession.get(normalized.data.session_id)
+  ) {
+    try {
+      applyCursorTurnUsage(stmts, normalized.data.session_id, normalized.data);
+      const session = stmts.getSession.get(normalized.data.session_id);
+      if (session) broadcast("session_updated", session);
+    } catch {
+      // Usage is optional on the payload; the next stop hook can still record it.
+    }
+    return res.json({ ok: true });
+  }
+  const result = processEvent(
+    normalized.hookType,
+    normalized.data,
+    remotePush ? { remotePush: true } : null
+  );
   if (!result) {
     return res.status(400).json({
       error: { code: "MISSING_SESSION", message: "session_id is required in data" },
@@ -2095,7 +2121,6 @@ function livenessReap({
 // carries no `src_` prefix, so it can never collide with a real configured
 // SSH source id, now or in the future (the id format is fixed at creation).
 const REMOTE_PUSH_SOURCE = "remote_push";
-const setSessionProviderStmt = db.prepare("UPDATE sessions SET provider = ? WHERE id = ?");
 
 // Bump only on a real wire-format break. A mismatch is a whole-request 409 —
 // per-item soft-fail doesn't make sense when the client and server disagree

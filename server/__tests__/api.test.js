@@ -825,6 +825,16 @@ describe("Settings, Cursor, and GPT pricing API", () => {
       ],
       [2, 0, 0.5, 6]
     );
+    const grok47 = seeded.body.pricing.find((rule) => rule.model_pattern === "grok-4.7%");
+    assert.deepEqual(
+      [
+        grok47.input_per_mtok,
+        grok47.cache_write_per_mtok,
+        grok47.cache_read_per_mtok,
+        grok47.output_per_mtok,
+      ],
+      [2, 0, 0.5, 6]
+    );
 
     const pattern = "cursor-test-model%";
     const created = await put("/api/pricing/cursor", {

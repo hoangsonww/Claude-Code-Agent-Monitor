@@ -469,7 +469,26 @@ CREATE TABLE cursor_model_pricing (
 );
 ```
 
-Defaults mirror Cursor's published four-column USD-per-million-token card for Cursor Grok 4.6/4.5, Composer 2.5, and the supported Anthropic, Google, Z.ai, OpenAI, Moonshot, and Meta models. Fast Cursor models have more-specific patterns; `speed = 'fast'` also tries the corresponding `-fast` pattern. Rows are editable through Settings and `/api/pricing/cursor`, and are included in export/restore bundles beginning with bundle version 3.
+Defaults mirror Cursor's published four-column USD-per-million-token card for Cursor Grok 4.7/4.6/4.5, Composer 2.5, and the supported Anthropic, Google, Z.ai, OpenAI, Moonshot, and Meta models. Fast Cursor models have more-specific patterns; `speed = 'fast'` also tries the corresponding `-fast` pattern. Rows are editable through Settings and `/api/pricing/cursor`, and are included in export/restore bundles beginning with bundle version 3.
+
+### cursor_turn_usage
+
+One Cursor `stop` snapshot per `generation_id`. Retries of the same turn replace the row. `token_usage` for that session is the sum of these rows, after cache tokens have been removed from the inclusive `input_tokens` figure.
+
+```sql
+CREATE TABLE cursor_turn_usage (
+    session_id TEXT NOT NULL,
+    generation_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    speed TEXT NOT NULL DEFAULT 'standard',
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (session_id, generation_id)
+);
+```
 
 ---
 

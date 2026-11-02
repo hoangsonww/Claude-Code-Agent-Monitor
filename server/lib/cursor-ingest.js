@@ -21,6 +21,7 @@ const {
 const { writeSnapshot } = require("./snapshot-store");
 const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
+const { snapshotCursorStore } = require("./cursor-store-transcript");
 
 const RECENT_SESSION_MS = 10 * 60 * 1000;
 // How often the orphan-agent heal below may rescan (it always runs on the
@@ -679,6 +680,7 @@ function enrichCursorSession(dbModule, transcriptPath, options = {}) {
   );
   changed = subagents > 0 || changed;
   snapshotCursorTranscript(transcriptPath, sessionId);
+  snapshotCursorStore(sessionId);
 
   return {
     changed,

@@ -390,7 +390,7 @@ npm run install-hooks
 
 설정 후에도 provider 검색은 계속됩니다.
 
-- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. Cursor는 Hook이 필요 없습니다. Claude Code를 선택하면 `~/.cursor/chats`와 `~/.cursor/projects/*/agent-transcripts`도 감시하고, Cursor 정리 전에 대화를 스냅샷으로 저장하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
+- **Claude Code and Cursor:** Claude Hook이 실시간 이벤트를 전달합니다. Cursor 수명 주기에는 Hook이 필요 없습니다. 대시보드는 `~/.cursor/hooks.json`에 `stop` Hook을 설치해 끝난 턴의 토큰 수를 요금으로 계산합니다(에이전트 기록에는 사용량이 없습니다). Claude Code를 선택하면 `~/.cursor/chats`와 `~/.cursor/projects/*/agent-transcripts`도 감시하고, Cursor 정리 전에 대화를 스냅샷으로 저장하며, `DASHBOARD_CURSOR_HOME`을 따릅니다.
 - **Codex:** Hook과 증분 `~/.codex/sessions` rollout 감시가 라이프사이클, 프롬프트, 제목, 도구, 토큰, 비용, 컴팩션, 대화, WebSocket 상태를 최신으로 유지합니다. 잘못된 파일은 독립적으로 다시 시도하고, 정확한 rollout/process 매칭으로 유령 활성 카드를 방지하며, native `/rename` 제목과 cursor 페이지네이션 대화 히스토리를 실시간으로 유지합니다.
 - **Both:** 카드는 서로 다른 최근 사용자 프롬프트 2개를 유지하고, 저장된 이미지 첨부 파일을 렌더링하며, 반복된 Codex 응답을 중복 제거합니다. Codex-only 범위에서는 Claude-only Dynamic Workflow journal을 숨깁니다.
 
