@@ -67,6 +67,7 @@ graph TB
 - **Canonical (default):** `~/.claude/agent-dashboard/dashboard.db` — shared by `npm start`, `npm run dev`, Docker (bind mount), and the desktop app when it uses the same data dir
 - **Override:** set `DASHBOARD_DATA_DIR` (directory) or `DASHBOARD_DB_PATH` (file path) for tests or custom deployments
 - **Legacy:** repo-local `./data/dashboard.db` is migrated into the canonical location on first launch (see `server/db.js`)
+- **Live ownership:** `<database-directory>/.agent-dashboard-owners/<pid>.json` — one liveness marker per server process, shared independently of `CLAUDE_HOME` and keyed to `DASHBOARD_DB_PATH` when set; startup repair proceeds only when these markers prove a sole live owner
 
 ---
 
