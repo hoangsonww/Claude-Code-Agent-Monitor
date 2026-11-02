@@ -21,7 +21,7 @@ const {
 const { writeSnapshot } = require("./snapshot-store");
 const { getSnapshotPolicy } = require("./snapshot-retention");
 const { createCursorTitleLookup } = require("./cursor-state-db");
-const { snapshotCursorStore } = require("./cursor-store-transcript");
+const { snapshotCursorStore, cursorStoreSnapshotPending } = require("./cursor-store-transcript");
 
 const RECENT_SESSION_MS = 10 * 60 * 1000;
 // How often the orphan-agent heal below may rescan (it always runs on the
@@ -754,6 +754,9 @@ async function syncCursorSessionsWithTitles(dbModule, options, cursorTitle) {
       !recencyExpired &&
       !workingIdleExpired
     ) {
+      // A failed store backup must be retried even when the chat fingerprint
+      // is unchanged. The attempt budget lives with the snapshot itself.
+      if (cursorStoreSnapshotPending(sessionId)) snapshotCursorStore(sessionId);
       counters.skipped++;
       continue;
     }

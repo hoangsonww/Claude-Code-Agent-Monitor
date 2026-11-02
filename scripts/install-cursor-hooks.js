@@ -49,6 +49,56 @@ function getCursorHookStatus() {
   }
 }
 
+/**
+ * Replace hooks.json without exposing a partial write. A symlink stays a
+ * symlink: the bytes land on its target. An existing file keeps its mode;
+ * a new file is owner-read/write so the process umask cannot widen it.
+ * @param {string} filePath
+ * @param {string} body
+ */
+function writeHooksFile(filePath, body) {
+  let destination = filePath;
+  let mode = 0o600;
+  try {
+    const linkStat = fs.lstatSync(filePath);
+    if (linkStat.isSymbolicLink()) destination = fs.realpathSync(filePath);
+    const targetStat = linkStat.isSymbolicLink() ? fs.statSync(destination) : linkStat;
+    mode = targetStat.mode & 0o777;
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  if (destination !== filePath) fs.mkdirSync(path.dirname(destination), { recursive: true });
+  const tmpPath = path.join(path.dirname(destination), `.hooks.json.${process.pid}.tmp`);
+  let fd;
+  try {
+    fd = fs.openSync(tmpPath, "w", mode);
+    fs.writeFileSync(fd, body);
+    try {
+      fs.fchmodSync(fd, mode);
+    } catch {
+      // Some platforms cannot chmod this file. The bytes are already complete.
+    }
+    fs.closeSync(fd);
+    fd = undefined;
+    fs.renameSync(tmpPath, destination);
+  } catch (error) {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // The descriptor is already closed.
+      }
+    }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // The temp file may not exist if the write itself failed.
+    }
+    throw error;
+  }
+}
+
 function installCursorHooks({ silent = false } = {}) {
   const filePath = hooksPath();
   let config = {};
@@ -78,17 +128,9 @@ function installCursorHooks({ silent = false } = {}) {
     }
   }
 
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmpPath = path.join(path.dirname(filePath), `.hooks.json.${process.pid}.tmp`);
   try {
-    fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`);
-    fs.renameSync(tmpPath, filePath);
+    writeHooksFile(filePath, `${JSON.stringify(config, null, 2)}\n`);
   } catch (error) {
-    try {
-      fs.unlinkSync(tmpPath);
-    } catch {
-      // The temp file may not exist if the write itself failed.
-    }
     const message = `Failed to write ${filePath}: ${error.message}`;
     if (!silent) console.error(message);
     return { ok: false, output: [message], status: getCursorHookStatus() };

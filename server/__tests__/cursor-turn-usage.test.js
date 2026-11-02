@@ -202,4 +202,41 @@ describe("Cursor turn usage", () => {
       1
     );
   });
+
+  it("keeps the existing hooks.json mode", () => {
+    const filePath = path.join(process.env.DASHBOARD_CURSOR_HOME, "hooks.json");
+    fs.chmodSync(filePath, 0o640);
+    assert.equal(installCursorHooks({ silent: true }).ok, true);
+    assert.equal(fs.statSync(filePath).mode & 0o777, 0o640);
+  });
+
+  it("creates a missing hooks.json as owner-read/write", () => {
+    const filePath = path.join(process.env.DASHBOARD_CURSOR_HOME, "hooks.json");
+    fs.rmSync(filePath, { force: true });
+    assert.equal(installCursorHooks({ silent: true }).ok, true);
+    assert.equal(fs.statSync(filePath).mode & 0o777, 0o600);
+  });
+
+  it("updates the target of a hooks.json symlink and leaves the link in place", (t) => {
+    const home = process.env.DASHBOARD_CURSOR_HOME;
+    const filePath = path.join(home, "hooks.json");
+    const real = path.join(home, "real-hooks.json");
+    fs.copyFileSync(filePath, real);
+    fs.chmodSync(real, 0o640);
+    fs.rmSync(filePath, { force: true });
+    try {
+      fs.symlinkSync(real, filePath);
+    } catch (error) {
+      if (error.code === "EPERM" || error.code === "ENOTSUP") {
+        t.skip("symlinks are not available");
+        return;
+      }
+      throw error;
+    }
+    assert.equal(installCursorHooks({ silent: true }).ok, true);
+    assert.equal(fs.lstatSync(filePath).isSymbolicLink(), true);
+    assert.equal(fs.statSync(real).mode & 0o777, 0o640);
+    const config = JSON.parse(fs.readFileSync(real, "utf8"));
+    assert.equal(Array.isArray(config.hooks.stop), true);
+  });
 });

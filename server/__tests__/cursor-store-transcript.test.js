@@ -12,7 +12,12 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const Database = require("better-sqlite3");
-const { cursorVisibleTexts, readCursorStoreFile } = require("../lib/cursor-store-transcript");
+const {
+  cursorVisibleTexts,
+  readCursorStoreFile,
+  snapshotCursorStore,
+  cursorStoreSnapshotPending,
+} = require("../lib/cursor-store-transcript");
 
 function hash(id) {
   return Buffer.from(id.padEnd(32, "0").slice(0, 32));
@@ -97,5 +102,34 @@ describe("Cursor store transcript", () => {
     assert.equal(messages[2].sender, "tool");
     assert.equal(messages[2].content[0].id, "call-1");
     assert.equal(messages[2].content[0].output, "file body");
+  });
+
+  it("retries a failed store snapshot until the attempt limit", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "cursor-snap-retry-"));
+    const previousHome = process.env.DASHBOARD_CURSOR_HOME;
+    const previousData = process.env.DASHBOARD_DATA_DIR;
+    process.env.DASHBOARD_CURSOR_HOME = home;
+    process.env.DASHBOARD_DATA_DIR = home;
+    const sessionId = "snapretry1";
+    const chat = path.join(home, "chats", "workspace", sessionId);
+    fs.mkdirSync(chat, { recursive: true });
+    fs.writeFileSync(path.join(chat, "store.db"), "");
+    // A file where the snapshot directory should be makes mkdirSync throw.
+    fs.writeFileSync(path.join(home, "cursor-transcripts"), "occupied");
+    try {
+      assert.equal(snapshotCursorStore(sessionId), false);
+      assert.equal(cursorStoreSnapshotPending(sessionId), true);
+      snapshotCursorStore(sessionId);
+      snapshotCursorStore(sessionId);
+      snapshotCursorStore(sessionId);
+      assert.equal(snapshotCursorStore(sessionId), false);
+      assert.equal(cursorStoreSnapshotPending(sessionId), false);
+    } finally {
+      if (previousHome === undefined) delete process.env.DASHBOARD_CURSOR_HOME;
+      else process.env.DASHBOARD_CURSOR_HOME = previousHome;
+      if (previousData === undefined) delete process.env.DASHBOARD_DATA_DIR;
+      else process.env.DASHBOARD_DATA_DIR = previousData;
+      fs.rmSync(home, { recursive: true, force: true });
+    }
   });
 });

@@ -7820,34 +7820,34 @@ Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
 });
 
 Object.assign(window.__WIKI_CONTENT_I18N.zh, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
-    "可选的 Cursor 主目录，包含 <code>projects/agent-transcripts</code> 与 <code>chats</code> 元数据。本地历史会被回填并创建快照。除非 <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>，启动时还会安装 Cursor 用量 Hook。",
-  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
-    "设为 <code>1</code> 时不改写 <code>~/.cursor/hooks.json</code>。自定义 <code>DASHBOARD_DB_PATH</code> 仍会安装 Cursor 用量 Hook。",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Host startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Containers need those hooks installed on the host.":
+    "可选的 Cursor 主目录，包含 <code>projects/agent-transcripts</code> 与 <code>chats</code> 元数据。本地历史会被回填并创建快照。宿主机启动时会安装 Cursor 用量 Hook，除非 <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>。容器部署需要在宿主机上安装这些 Hook。",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. This opt-out wins even when <code>DASHBOARD_DB_PATH</code> is custom.":
+    "设为 <code>1</code> 时不改写 <code>~/.cursor/hooks.json</code>。即使 <code>DASHBOARD_DB_PATH</code> 是自定义路径，该开关仍然优先。",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Cursor Chat/Transcript 安全兜底间隔（毫秒）。文件系统监听仍会立即采集 CLI 启动与 Prompt 变化；<code>0</code> 只禁用周期发现。",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.vi, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
-    "Thư mục Cursor tùy chọn chứa <code>projects/agent-transcripts</code> và metadata <code>chats</code>. Lịch sử cục bộ được backfill và snapshot. Khởi động cài hook tính giá của Cursor trừ khi <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.",
-  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
-    "Đặt <code>1</code> để giữ nguyên <code>~/.cursor/hooks.json</code>. <code>DASHBOARD_DB_PATH</code> tùy chỉnh vẫn cài hook tính giá của Cursor.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Host startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Containers need those hooks installed on the host.":
+    "Thư mục Cursor tùy chọn chứa <code>projects/agent-transcripts</code> và metadata <code>chats</code>. Lịch sử cục bộ được backfill và snapshot. Khi khởi động trên máy chủ, bảng điều khiển cài hook thu thập mức sử dụng của Cursor, trừ khi <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Bản chạy trong container phải cài các hook đó trên máy chủ.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. This opt-out wins even when <code>DASHBOARD_DB_PATH</code> is custom.":
+    "Đặt <code>1</code> để giữ nguyên <code>~/.cursor/hooks.json</code>. Tùy chọn này vẫn có hiệu lực khi <code>DASHBOARD_DB_PATH</code> được tùy chỉnh. Hook chỉ thu thập mức sử dụng.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Khoảng an toàn cho chat/transcript Cursor (ms). Theo dõi hệ thống tệp vẫn ingest ngay lúc CLI khởi động và khi prompt thay đổi; <code>0</code> chỉ tắt phát hiện định kỳ.",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.ko, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
-    "<code>projects/agent-transcripts</code>와 <code>chats</code> 메타데이터를 포함하는 선택적 Cursor 홈입니다. 로컬 기록을 백필하고 스냅샷합니다. <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>이 아니면 시작 시 Cursor 사용량 Hook을 설치합니다.",
-  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
-    "<code>1</code>이면 <code>~/.cursor/hooks.json</code>을 그대로 둡니다. 사용자 지정 <code>DASHBOARD_DB_PATH</code>여도 Cursor 사용량 Hook은 설치됩니다.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Host startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Containers need those hooks installed on the host.":
+    "<code>projects/agent-transcripts</code>와 <code>chats</code> 메타데이터를 포함하는 선택적 Cursor 홈입니다. 로컬 기록을 백필하고 스냅샷합니다. 호스트에서 시작할 때 <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>이 아니면 Cursor 사용량 Hook을 설치합니다. 컨테이너 배포는 호스트에서 해당 Hook을 설치해야 합니다.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. This opt-out wins even when <code>DASHBOARD_DB_PATH</code> is custom.":
+    "<code>1</code>이면 <code>~/.cursor/hooks.json</code>을 그대로 둡니다. <code>DASHBOARD_DB_PATH</code>가 사용자 지정이어도 이 설정이 우선합니다.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Cursor Chat/Transcript 안전망 간격(ms)입니다. 파일시스템 감시는 CLI 시작과 Prompt 변경을 즉시 수집하며 <code>0</code>은 주기 검색만 비활성화합니다.",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.es, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
-    "Directorio opcional de Cursor con <code>projects/agent-transcripts</code> y metadatos de <code>chats</code>. El historial local se completa y se conserva. El arranque instala los hooks de uso de Cursor salvo <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.",
-  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
-    "<code>1</code> deja <code>~/.cursor/hooks.json</code> sin cambios. Un <code>DASHBOARD_DB_PATH</code> personalizado sigue instalando los hooks de uso de Cursor.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Host startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Containers need those hooks installed on the host.":
+    "Directorio opcional de Cursor con <code>projects/agent-transcripts</code> y metadatos de <code>chats</code>. El historial local se completa y se conserva. El arranque en el host instala los hooks de uso de Cursor salvo <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Un despliegue en contenedor debe instalar esos hooks en el host.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. This opt-out wins even when <code>DASHBOARD_DB_PATH</code> is custom.":
+    "<code>1</code> deja <code>~/.cursor/hooks.json</code> sin cambios. Esta opción prevalece aunque <code>DASHBOARD_DB_PATH</code> sea personalizado.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Intervalo de seguridad para chats/transcripciones de Cursor (ms). El observador incorpora de inmediato el inicio del CLI y los cambios de prompt; <code>0</code> solo desactiva el descubrimiento periódico.",
 });

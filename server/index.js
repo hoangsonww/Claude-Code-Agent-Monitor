@@ -406,6 +406,30 @@ function repairInflatedTokenTotals() {
 }
 
 /**
+ * Install Cursor usage hooks for both the standalone process and the desktop
+ * shell. The desktop app never enters the `require.main === module` block.
+ */
+function ensureCursorUsageHooks() {
+  try {
+    const { isInsideContainer } = require("../scripts/install-hooks");
+    // node:test sets NODE_TEST_CONTEXT. DASHBOARD_SKIP_CURSOR_HOOKS=1 opts out
+    // even when DASHBOARD_DB_PATH is custom. Containers must install on the host.
+    if (
+      isInsideContainer() ||
+      process.env.NODE_TEST_CONTEXT ||
+      process.env.DASHBOARD_SKIP_CURSOR_HOOKS === "1"
+    ) {
+      return;
+    }
+    const { installCursorHooks } = require("../scripts/install-cursor-hooks");
+    const cursorHooks = installCursorHooks({ silent: true });
+    if (cursorHooks.ok) console.log("Cursor stop hook auto-configured.");
+  } catch {
+    // Non-fatal — the user can run the Cursor hook installer manually.
+  }
+}
+
+/**
  * Start the background services the dashboard relies on once the HTTP server
  * is listening: a one-time legacy-session import, the upstream update
  * scheduler, the Claude Code config watcher, and a one-time reconciliation of
@@ -571,6 +595,9 @@ function startBackgroundServices() {
   } catch (err) {
     console.warn("dashboard-runs reconciliation failed:", err.message);
   }
+  // Shared with the desktop shell, which require()s this module and therefore
+  // never enters the standalone startup block below.
+  ensureCursorUsageHooks();
 }
 
 /**
@@ -1582,18 +1609,6 @@ if (require.main === module) {
           "Run `npm run install-hooks` on the host so hooks point at a host path and " +
           "POST to http://localhost:4820 (this container's published port)."
       );
-    }
-    // node:test sets NODE_TEST_CONTEXT, and DASHBOARD_SKIP_CURSOR_HOOKS=1
-    // opts out. A custom DASHBOARD_DB_PATH is a normal install and still
-    // receives the Cursor hooks.
-    if (
-      !isInsideContainer() &&
-      !process.env.NODE_TEST_CONTEXT &&
-      process.env.DASHBOARD_SKIP_CURSOR_HOOKS !== "1"
-    ) {
-      const { installCursorHooks } = require("../scripts/install-cursor-hooks");
-      const cursorHooks = installCursorHooks({ silent: true });
-      if (cursorHooks.ok) console.log("Cursor stop hook auto-configured.");
     }
   } catch {
     // Non-fatal — user can run npm run install-hooks manually

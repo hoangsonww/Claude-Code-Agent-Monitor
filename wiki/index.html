@@ -2149,12 +2149,12 @@ npm run mcp:start:repl         # interactive CLI with tab completion</code></pre
                 <tr>
                   <td><code>DASHBOARD_CURSOR_HOME</code></td>
                   <td><code>~/.cursor</code></td>
-                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.</td>
+                  <td>Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Host startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>. Containers need those hooks installed on the host.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_SKIP_CURSOR_HOOKS</code></td>
                   <td>unset</td>
-                  <td>Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.</td>
+                  <td>Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. This opt-out wins even when <code>DASHBOARD_DB_PATH</code> is custom.</td>
                 </tr>
                 <tr>
                   <td><code>DASHBOARD_CURSOR_SYNC_MS</code></td>
@@ -7297,7 +7297,7 @@ npm run install-hooks</code></pre>
     <!-- Body-content translations — must load before script.js so the
          i18n engine sees window.__WIKI_CONTENT_I18N. Both are deferred, so they
          run in document order. -->
-    <script src="i18n-content.js?v=117" defer></script>
+    <script src="i18n-content.js?v=118" defer></script>
     <script src="script.js?v=59" defer></script>
     <script>
       (function () {

@@ -624,7 +624,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | Umbral de inactividad de la transcripción o del último hook para las comprobaciones de actividad del watchdog. Las comprobaciones iniciales ignoran este umbral para limpiar de inmediato las sesiones ya muertas. |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | Polling de seguridad para archivos nuevos o modificados en `~/.claude/projects`. `fs.watch` sigue siendo inmediato. `0` solo desactiva el polling. |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Raíz del estado de Cursor para chats, transcripciones, backfill y snapshots persistentes. |
-| `DASHBOARD_SKIP_CURSOR_HOOKS` | sin definir | `1` deja `~/.cursor/hooks.json` sin cambios. Un `DASHBOARD_DB_PATH` personalizado sigue instalando los hooks de uso de Cursor. |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | sin definir | `1` deja `~/.cursor/hooks.json` sin cambios. Esta opción prevalece aunque `DASHBOARD_DB_PATH` sea personalizado. |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | Polling de seguridad de Cursor con fingerprint. Los watchers siguen activos cuando `0` desactiva el polling. |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` or `~/.codex` | Raíz del estado de Codex. Configuración conserva una sobreescritura, reactiva el watcher y explora de inmediato. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Polling de seguridad para rollouts de Codex. Los hooks y watchers siguen activos cuando se configura en `0`. |

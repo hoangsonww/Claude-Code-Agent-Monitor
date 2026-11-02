@@ -194,6 +194,25 @@ function readCursorStoreMessages(sessionId) {
 }
 
 const lastStoreSnapshot = new Map();
+const STORE_SNAPSHOT_RETRY_LIMIT = 5;
+const snapshotFailures = new Map();
+
+/** True while a failed store backup still has attempts left. */
+function cursorStoreSnapshotPending(sessionId) {
+  const entry = snapshotFailures.get(sessionId);
+  return !!entry && entry.count > 0 && entry.count < STORE_SNAPSHOT_RETRY_LIMIT;
+}
+
+function noteStoreSnapshotFailure(sessionId, stamp) {
+  lastStoreSnapshot.delete(sessionId);
+  const previous = snapshotFailures.get(sessionId);
+  const count = previous && previous.stamp === stamp ? previous.count + 1 : 1;
+  snapshotFailures.set(sessionId, { stamp, count });
+}
+
+function noteStoreSnapshotSuccess(sessionId) {
+  snapshotFailures.delete(sessionId);
+}
 
 /** Consistent backup of the live store so Conversation survives Cursor cleanup. */
 function snapshotCursorStore(sessionId) {
@@ -202,6 +221,13 @@ function snapshotCursorStore(sessionId) {
   const liveDir = findCursorChatDir(sessionId);
   const source = liveDir && path.join(liveDir, "store.db");
   if (!source || !fs.existsSync(source)) return false;
+  let stamp = "";
+  try {
+    const stat = fs.statSync(source);
+    stamp = `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return false;
+  }
   let db;
   try {
     const destDir = path.join(getCursorSnapshotDir(), sessionId);
@@ -218,18 +244,24 @@ function snapshotCursorStore(sessionId) {
         // Already closed.
       }
     };
-    const retryLater = () => lastStoreSnapshot.delete(sessionId);
     if (backup && typeof backup.then === "function") {
-      backup.then(close, () => {
-        retryLater();
-        close();
-      });
+      backup.then(
+        () => {
+          noteStoreSnapshotSuccess(sessionId);
+          close();
+        },
+        () => {
+          noteStoreSnapshotFailure(sessionId, stamp);
+          close();
+        }
+      );
     } else {
+      noteStoreSnapshotSuccess(sessionId);
       close();
     }
     return true;
   } catch {
-    lastStoreSnapshot.delete(sessionId);
+    noteStoreSnapshotFailure(sessionId, stamp);
     try {
       db?.close();
     } catch {
@@ -244,4 +276,5 @@ module.exports = {
   readCursorStoreFile,
   readCursorStoreMessages,
   snapshotCursorStore,
+  cursorStoreSnapshotPending,
 };

@@ -391,7 +391,7 @@ Trong lần khởi chạy đầu tiên, CCAM chỉ kiểm tra những nhà cung 
 
 Quá trình phát hiện nhà cung cấp tiếp tục sau khi thiết lập:
 
-- **Claude Code và Cursor:** Hook Claude cung cấp sự kiện trực tiếp. Vòng đời Cursor không cần hook; bảng điều khiển cài hook `stop` vào `~/.cursor/hooks.json` để tính giá token của mỗi lượt đã kết thúc (bản ghi agent không có usage). Chọn Claude Code cũng theo dõi `~/.cursor/chats` và `~/.cursor/projects/*/agent-transcripts`, chụp snapshot hội thoại trước khi Cursor dọn dẹp và tôn trọng `DASHBOARD_CURSOR_HOME`.
+- **Claude Code và Cursor:** Hook Claude cung cấp sự kiện trực tiếp. Vòng đời Cursor không cần hook; bảng điều khiển cài hook `stop` vào `~/.cursor/hooks.json` để thu thập số token của mỗi lượt đã kết thúc (bản ghi agent không có usage). Chọn Claude Code cũng theo dõi `~/.cursor/chats` và `~/.cursor/projects/*/agent-transcripts`, chụp snapshot hội thoại trước khi Cursor dọn dẹp và tôn trọng `DASHBOARD_CURSOR_HOME`.
 - **Codex:** Hook và việc theo dõi rollout `~/.codex/sessions` theo kiểu tăng dần giữ cho vòng đời, lời nhắc, tiêu đề, công cụ, token, chi phí, compaction, hội thoại và trạng thái WebSocket luôn mới. Tệp lỗi được thử lại riêng; đối chiếu chính xác rollout/tiến trình ngăn thẻ đang hoạt động ảo; tiêu đề `/rename` gốc và lịch sử hội thoại phân trang bằng cursor luôn được cập nhật.
 - **Cả hai:** Thẻ giữ hai lời nhắc người dùng khác nhau gần nhất, kết xuất tệp ảnh đính kèm đã lưu và khử trùng lặp phản hồi Codex lặp lại. Phạm vi chỉ Codex ẩn journal Dynamic Workflow chỉ dành cho Claude.
 
@@ -625,7 +625,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | Ngưỡng transcript hoặc hook cuối không hoạt động cho kiểm tra liveness của watchdog. Kiểm tra lúc khởi động bỏ qua ngưỡng để dọn ngay phiên đã chết. |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | Poll an toàn cho tệp mới hoặc đã đổi trong `~/.claude/projects`. `fs.watch` vẫn tức thì; `0` chỉ tắt polling. |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Thư mục gốc trạng thái Cursor cho chat, transcript, backfill và snapshot bền vững. |
-| `DASHBOARD_SKIP_CURSOR_HOOKS` | không đặt | Đặt `1` để giữ nguyên `~/.cursor/hooks.json`. `DASHBOARD_DB_PATH` tùy chỉnh vẫn cài hook tính giá của Cursor. |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | không đặt | Đặt `1` để giữ nguyên `~/.cursor/hooks.json`. Tùy chọn này vẫn có hiệu lực khi `DASHBOARD_DB_PATH` được tùy chỉnh. Hook chỉ thu thập mức sử dụng. |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | Poll an toàn Cursor có fingerprint. Watcher vẫn hoạt động khi `0` tắt polling. |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` hoặc `~/.codex` | Thư mục gốc trạng thái Codex. Cài đặt lưu override, bật lại watcher và quét ngay. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Poll an toàn rollout Codex. Hook và watcher vẫn hoạt động khi đặt `0`. |

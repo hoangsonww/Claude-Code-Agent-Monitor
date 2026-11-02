@@ -205,7 +205,9 @@ let backgroundServicesStarted = false;
 /**
  * Start the background services of a server this app owns, once. Also installs the Claude Code
  * hooks, so a user who only installed the desktop app gets events flowing without running the
- * installer from a checkout. Failures are logged and do not stop the window from opening.
+ * installer from a checkout. Cursor usage hooks are installed inside
+ * `startBackgroundServices`, which this function starts. Failures are logged and do not stop
+ * the window from opening.
  *
  * @param appRoot - Root of the bundled app.
  * @param serverModule - The loaded server module.

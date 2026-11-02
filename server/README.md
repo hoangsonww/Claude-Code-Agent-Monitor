@@ -1673,7 +1673,7 @@ DASHBOARD_DB_PATH=./data/dashboard.db  # SQLite database path
 # Background services
 DASHBOARD_SESSION_SYNC_MS=30000    # Continuous project-sync poll interval (ms); 0 disables the poll (watcher stays)
 DASHBOARD_CURSOR_HOME=             # Optional Cursor home; defaults to ~/.cursor for native history and chat metadata
-DASHBOARD_SKIP_CURSOR_HOOKS=       # 1 leaves ~/.cursor/hooks.json unchanged; a custom DASHBOARD_DB_PATH still installs usage hooks
+DASHBOARD_SKIP_CURSOR_HOOKS=       # 1 leaves ~/.cursor/hooks.json unchanged, even when DASHBOARD_DB_PATH is custom
 DASHBOARD_CURSOR_STATE_DB=         # Optional Cursor IDE state.vscdb (read-only, chat titles); defaults to the per-platform User/globalStorage path
 DASHBOARD_CURSOR_SYNC_MS=5000      # Cursor chat/transcript safety-net poll (ms); 0 keeps watchers but disables polling
 DASHBOARD_CODEX_HOME=              # Optional Codex home; Settings saves this dashboard-only override and immediately re-arms live watching
