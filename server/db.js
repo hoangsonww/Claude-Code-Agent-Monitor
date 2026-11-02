@@ -555,10 +555,12 @@ db.exec(`
 // Before response-item ingestion existed, Codex terminal event messages were
 // the only available approximation of a tool invocation. Those rows remain
 // useful activity events, but response items now provide the exact call, so
-// clear the old analytical tool marker once to avoid double-counting history.
+// clear remaining old analytical tool markers to avoid double-counting history.
+// Do not rewrite already-cleared events (and their indexes/triggers) on restart.
 db.prepare(
   `UPDATE events SET tool_name = NULL
-   WHERE event_type IN ('codex_exec_command_end', 'codex_mcp_tool_call_end', 'codex_web_search_end')`
+   WHERE tool_name IS NOT NULL
+     AND event_type IN ('codex_exec_command_end', 'codex_mcp_tool_call_end', 'codex_web_search_end')`
 ).run();
 
 // Migrate: link agent rows to a workflow run. Workflow inner-agents are already
@@ -1712,6 +1714,16 @@ const TASK_EVENTS_SQL = `SELECT id, session_id, agent_id, event_type, tool_name,
     'Stop', 'SubagentStop', 'SessionEnd', 'Interrupted'
   ) ORDER BY created_at ASC, id ASC`;
 
+// Publish the derived counter only after all event-table migrations. Failed
+// initialization leaves the exact legacy COUNT available to every reader.
+try {
+  const started = Date.now();
+  if (require("./lib/global-event-count").ensureGlobalEventCount(db))
+    console.error(`[db] Global event count initialized in ${Date.now() - started}ms`);
+} catch (error) {
+  console.warn("[db] Global event counter unavailable; using COUNT:", error.message);
+}
+
 const stmts = {
   getSession: db.prepare("SELECT * FROM sessions WHERE id = ?"),
   listSessions: db.prepare(
@@ -2554,10 +2566,13 @@ function compactRead(query, cacheKey, stillCurrent = () => true) {
     return result;
   });
 }
-function readCountQuery(sql, params = []) {
+function readCountQuery(sql, params = [], counterSql = null) {
   sql = sql.trim();
-  if (!queryReader) return Promise.resolve(db.prepare(sql).get(...params));
-  const query = { op: "get", sql, params };
+  if (!queryReader) {
+    const resolved = require("./lib/global-event-count").resolveEventCountSql(db, sql, counterSql);
+    return Promise.resolve(db.prepare(resolved).get(...params));
+  }
+  const query = { op: "get", sql, params, ...(counterSql ? { counterSql } : {}) };
   const normalized = sql.replace(/\s+/g, " ").toLowerCase();
   const cacheKey =
     STATIC_COUNT_SQL.has(normalized) && params.length === 0 ? JSON.stringify(query) : null;
@@ -2587,7 +2602,12 @@ function readEventPageSync(page, count) {
       if (rows.length === page.probe.limit) events = rows;
     }
     if (!events) events = db.prepare(page.sql).all(...(page.params || []));
-    const { count: total } = db.prepare(count.sql).get(...(count.params || []));
+    const resolved = require("./lib/global-event-count").resolveEventCountSql(
+      db,
+      count.sql,
+      count.counterSql ?? null
+    );
+    const { count: total } = db.prepare(resolved).get(...(count.params || []));
     return { events, total };
   })();
 }
@@ -2636,7 +2656,9 @@ function readDashboardStats(sources, providers, todayStart) {
     const scoped = require("./lib/scoped-stats");
     const isScoped = !!sources || !!providers;
     return Promise.resolve({
-      ...(isScoped ? scoped.statsOverview(db, sources, providers) : stmts.stats.get()),
+      ...(isScoped
+        ? scoped.statsOverview(db, sources, providers)
+        : db.prepare(scoped.globalStatsSql(db)).get()),
       events_today: (isScoped
         ? scoped.countEventsToday(db, sources, providers, todayStart)
         : stmts.countEventsSince.get(todayStart)

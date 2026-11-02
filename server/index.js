@@ -368,9 +368,20 @@ function repairInflatedTokenTotals() {
 
     const timer = setTimeout(async () => {
       try {
-        dbModule.db.exec(
-          "CREATE TABLE IF NOT EXISTS token_usage_pre_repair_v2 AS SELECT * FROM token_usage"
-        );
+        // This specific DDL copies token rows and never changes events or
+        // their triggers. Admit a trusted counter BEFORE it inside the same
+        // write transaction, so external DDL cannot be silently blessed.
+        dbModule.db.transaction(() => {
+          const { trustedGlobalEventCount } = require("./lib/global-event-count");
+          const trustedBeforeSnapshot = trustedGlobalEventCount(dbModule.db) !== null;
+          dbModule.db.exec(
+            "CREATE TABLE IF NOT EXISTS token_usage_pre_repair_v2 AS SELECT * FROM token_usage"
+          );
+          if (trustedBeforeSnapshot)
+            dbModule.db
+              .prepare("UPDATE monitor_event_count SET schema_version = ? WHERE singleton = 1")
+              .run(dbModule.db.pragma("schema_version", { simple: true }));
+        })();
         const { reconcileTokens } = require("../scripts/import-history");
         const result = await reconcileTokens(dbModule, { all: true, resetBaselines: true });
         if (result.sessionsTouched > 0) {

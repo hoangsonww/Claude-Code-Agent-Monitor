@@ -136,9 +136,23 @@ router.get("/", async (req, res, next) => {
             limit,
           }
         : null;
+    // Only session predicates can be answered from session buckets. Decide
+    // from parsed filters, never from a regex over the completed SQL. Reuse
+    // the exact WHERE and bindings, including orphan session-only requests.
+    const scopeOnly =
+      whereSql &&
+      !filters.event_type &&
+      !filters.tool_name &&
+      !filters.agent_id &&
+      !filters.q &&
+      !filters.from &&
+      !filters.to;
+    const counterSql = scopeOnly
+      ? `SELECT COALESCE(SUM(total),0) AS count FROM monitor_session_event_counts ${whereSql}`
+      : null;
     const { events, total } = await readEventPageQuery(
       { sql: listSql, params: [...whereParams, limit, offset], ...(probe ? { probe } : {}) },
-      { sql: countSql, params: whereParams }
+      { sql: countSql, params: whereParams, ...(counterSql ? { counterSql } : {}) }
     );
 
     res.json({ events, limit, offset, total });

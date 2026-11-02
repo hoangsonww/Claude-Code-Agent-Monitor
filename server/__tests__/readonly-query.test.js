@@ -189,10 +189,11 @@ for (const [driver, Constructor] of [
   ["compat", Compat],
 ]) {
   it(
-    `${driver}: event page, sparse probe fallback and raw count retain one snapshot during writes`,
+    `${driver}: event page, sparse probe fallback and trusted count retain one snapshot during writes`,
     { skip: !Constructor, timeout: 30000 },
     async () => {
       const { file, db } = fixture(Constructor);
+      require("../lib/global-event-count").ensureGlobalEventCount(db);
       const reader = new ReadonlyQuery(file, { driver });
       try {
         const started = once(reader, "started");
@@ -217,8 +218,8 @@ for (const [driver, Constructor] of [
           old.events.map((r) => r.id),
           [3, 2]
         );
-        assert.equal(old.total, 3, "raw total must use the page/probe snapshot");
-        assert.equal(db.prepare("SELECT COUNT(*) AS count FROM events").get().count, 4);
+        assert.equal(old.total, 3, "counter metadata must use the page/probe snapshot");
+        assert.equal(db.prepare("SELECT total FROM monitor_event_count").get().total, 4);
         const fresh = await reader.read({
           op: "eventPage",
           page: { sql: "SELECT * FROM events ORDER BY id DESC LIMIT 2" },
@@ -238,12 +239,36 @@ for (const [driver, Constructor] of [
           count: {
             sql: "SELECT COUNT(*) AS count FROM events WHERE session_id=?",
             params: ["box"],
+            counterSql:
+              "SELECT total AS count FROM monitor_session_event_counts WHERE session_id=?",
           },
         };
         assert.equal((await reader.read(scopedPage)).total, 2);
+        assert.equal(
+          (
+            await reader.read({
+              ...scopedPage,
+              count: {
+                ...scopedPage.count,
+                sql: "SELECT COUNT(*) AS count FROM missing_raw_count",
+              },
+            })
+          ).total,
+          2,
+          "trusted scoped metadata must resolve inside the combined operation"
+        );
+        db.exec(
+          "UPDATE monitor_event_count SET trusted=0;UPDATE monitor_session_event_counts SET total=999"
+        );
+        assert.equal(
+          (await reader.read(scopedPage)).total,
+          2,
+          "untrusted bucket must fall back to raw count"
+        );
         for (const invalid of [
           { ...scopedPage, page: { sql: "DELETE FROM events" } },
           { ...scopedPage, count: { sql: "DELETE FROM events" } },
+          { ...scopedPage, count: { ...scopedPage.count, counterSql: "DELETE FROM events" } },
         ])
           await assert.rejects(reader.read(invalid), /Only SELECT/);
         assert.equal(

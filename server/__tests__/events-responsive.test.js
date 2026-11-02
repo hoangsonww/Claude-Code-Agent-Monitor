@@ -102,6 +102,70 @@ it("event page and total retain one snapshot across a concurrent commit", async 
   assert.equal(fresh.total, 2);
 });
 
+it("session-bucket count eligibility excludes every event predicate and preserves orphan semantics", async (t) => {
+  t.after(() => {
+    db.exec(
+      "DELETE FROM events WHERE session_id='eligibility-orphan' OR (session_id IS NULL AND event_type='null-event');DELETE FROM sessions WHERE id='eligibility';"
+    );
+  });
+  db.exec("INSERT INTO sessions(id,provider,source) VALUES('eligibility','claude','local')");
+  db.prepare(
+    "INSERT INTO events(session_id,event_type,tool_name,summary,created_at) VALUES(?,?,?,?,?)"
+  ).run("eligibility", "eligible_event", "eligible_tool", "needle", "2026-10-09T10:00:00.000Z");
+  db.pragma("foreign_keys = OFF");
+  db.exec("INSERT INTO events(session_id,event_type) VALUES('eligibility-orphan','orphan-event')");
+  db.pragma("foreign_keys = ON");
+
+  const originalRead = ReadonlyQuery.prototype.read,
+    calls = [];
+  ReadonlyQuery.prototype.read = function (query, ...args) {
+    if (query.op === "eventPage") calls.push(query.count);
+    return originalRead.call(this, query, ...args);
+  };
+  t.after(() => {
+    ReadonlyQuery.prototype.read = originalRead;
+  });
+  const server = await startServer(createApp(), 0);
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}/api/events?limit=5&`;
+  for (const query of [
+    "session_id=eligibility",
+    "session_id=eligibility-orphan",
+    "session_id=eligibility,eligibility-orphan",
+    "sources=local",
+    "providers=claude",
+    "sources=local&providers=claude",
+  ]) {
+    const before = calls.length,
+      response = await fetch(base + query);
+    assert.equal(response.status, 200);
+    const value = await response.json();
+    assert.ok(calls.length > before);
+    assert.match(calls.at(-1).counterSql, /SUM\(total\)/);
+    if (query === "session_id=eligibility-orphan") assert.equal(value.total, 1);
+    if (query === "session_id=eligibility,eligibility-orphan") assert.equal(value.total, 2);
+    if (query === "sources=local&providers=claude") assert.equal(value.total, 1);
+  }
+  for (const predicate of [
+    "event_type=eligible_event",
+    "tool_name=eligible_tool",
+    "agent_id=missing",
+    "q=needle",
+    "from=2026-10-09T00%3A00%3A00Z",
+    "to=2026-10-09T11%3A00%3A00Z",
+  ]) {
+    const response = await fetch(base + "session_id=eligibility&" + predicate);
+    assert.equal(response.status, 200);
+    const value = await response.json();
+    assert.equal(
+      calls.at(-1).counterSql,
+      undefined,
+      `predicate ${predicate} must keep the original COUNT`
+    );
+    assert.equal(value.total, predicate === "agent_id=missing" ? 0 : 1);
+  }
+});
+
 it("event pages retain every filter, full payloads, tied ordering and offsets", async () => {
   db.exec(`INSERT INTO sessions(id,name,provider,source) VALUES
     ('local','local','claude','local'),('box','box','codex','src_box');`);

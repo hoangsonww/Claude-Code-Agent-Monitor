@@ -37,6 +37,15 @@ const GLOBAL_STATS_SQL = `SELECT
   (SELECT COUNT(*) FROM agents) as total_agents,
   (SELECT COUNT(*) FROM events) as total_events`;
 
+function globalStatsSql(db) {
+  return require("./global-event-count").trustedGlobalEventCount(db) === null
+    ? GLOBAL_STATS_SQL
+    : GLOBAL_STATS_SQL.replace(
+        "(SELECT COUNT(*) FROM events)",
+        "(SELECT total FROM monitor_event_count WHERE singleton = 1)"
+      );
+}
+
 function statsOverview(db, sources, providers) {
   const scope = sessionScope(sources, providers);
   const sessions = `SELECT id FROM sessions ${scope.where}`;
@@ -44,6 +53,10 @@ function statsOverview(db, sources, providers) {
   const activeWhere = active.where
     ? `${active.where} AND status = 'active'`
     : "WHERE status = 'active'";
+  const eventCount =
+    require("./global-event-count").trustedGlobalEventCount(db) !== null
+      ? `SELECT COALESCE(SUM(total),0) FROM monitor_session_event_counts WHERE session_id IN (${sessions})`
+      : `SELECT COUNT(*) FROM events WHERE session_id IN (${sessions})`;
   return db
     .prepare(
       `SELECT
@@ -51,7 +64,7 @@ function statsOverview(db, sources, providers) {
         (SELECT COUNT(*) FROM sessions ${activeWhere}) as active_sessions,
         (SELECT COUNT(*) FROM agents WHERE status IN ('working','waiting') AND session_id IN (${sessions})) as active_agents,
         (SELECT COUNT(*) FROM agents WHERE session_id IN (${sessions})) as total_agents,
-        (SELECT COUNT(*) FROM events WHERE session_id IN (${sessions})) as total_events`
+        (${eventCount}) as total_events`
     )
     .get(...scope.params, ...active.params, ...scope.params, ...scope.params, ...scope.params);
 }
@@ -190,6 +203,7 @@ function scopedTokenUsageWithDate(db, sources, providers) {
 
 module.exports = {
   GLOBAL_STATS_SQL,
+  globalStatsSql,
   statsOverview,
   agentStatusCounts,
   sessionStatusCounts,

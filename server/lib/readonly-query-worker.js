@@ -72,7 +72,15 @@ function readQuery(db, query) {
   if (query.op === "get" || query.op === "all") {
     if (typeof query.sql !== "string" || !/^\s*SELECT\b/i.test(query.sql))
       throw new Error("Only SELECT reads are supported");
-    const statement = db.prepare(query.sql);
+    const sql =
+      query.op === "get"
+        ? require("./global-event-count").resolveEventCountSql(
+            db,
+            query.sql,
+            query.counterSql ?? null
+          )
+        : query.sql;
+    const statement = db.prepare(sql);
     return query.op === "get"
       ? statement.get(...(query.params || []))
       : statement.all(...(query.params || []));
@@ -84,7 +92,7 @@ function readQuery(db, query) {
   // count on the same snapshot even while the HTTP thread accepts new hooks.
   const overview = isScoped
     ? scoped.statsOverview(db, sources, providers)
-    : db.prepare(scoped.GLOBAL_STATS_SQL).get();
+    : db.prepare(scoped.globalStatsSql(db)).get();
   const agents = isScoped
     ? scoped.agentStatusCounts(db, sources, providers)
     : db.prepare("SELECT status, COUNT(*) as count FROM agents GROUP BY status").all();
