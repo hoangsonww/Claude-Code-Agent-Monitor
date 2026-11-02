@@ -20,7 +20,7 @@ const {
 const fixture = `/**
  * @file Widget.tsx
  * @description Renders a scoped session widget and documents its data boundary.
- * @author Son Nguyen <hoangson091104@gmail.com>
+ * ${AUTHOR}
  */
 
 import { useMemo, useState } from "react";
@@ -169,4 +169,47 @@ test("compareSignificantTokens rejects executable TypeScript and JSX changes", (
   assert.equal(identifierChange.after.text, "result");
   assert.equal(jsxChange.before.text, "one");
   assert.equal(jsxChange.after.text, "two");
+});
+
+test("maintainer CLI arguments default to check and require explicit writes", () => {
+  const { parseArguments, isEligiblePath } = require("../maintain-typescript-docs.ts");
+
+  assert.deepEqual(parseArguments([]), { help: false, mode: "check", paths: [] });
+  assert.deepEqual(parseArguments(["--write", "client\\src\\App.tsx"]), {
+    help: false,
+    mode: "write",
+    paths: ["client/src/App.tsx"],
+  });
+  assert.deepEqual(parseArguments(["--help"]), { help: true, mode: "check", paths: [] });
+  assert.throws(() => parseArguments(["--check", "--write"]), /mutually exclusive/i);
+  assert.throws(() => parseArguments(["--wat"]), /unknown option/i);
+  assert.throws(() => parseArguments(["../outside.ts"]), /outside/i);
+
+  assert.equal(isEligiblePath("client/src/App.tsx"), true);
+  assert.equal(isEligiblePath("mcp/src/index.ts"), true);
+  assert.equal(isEligiblePath("client/src/generated.d.ts"), false);
+  assert.equal(isEligiblePath("client/node_modules/pkg/index.ts"), false);
+  assert.equal(isEligiblePath("client/dist/index.ts"), false);
+  assert.equal(isEligiblePath("client/src/__snapshots__/view.ts"), false);
+  assert.equal(isEligiblePath("docs/example.ts"), false);
+});
+
+test("comment-only verifier parses base refs and NUL-delimited Git status", () => {
+  const { parseArguments, parseNameStatusZ } = require("../verify-typescript-comment-only.ts");
+
+  assert.deepEqual(parseArguments([]), { baseRef: "origin/master", help: false });
+  assert.deepEqual(parseArguments(["HEAD~2"]), { baseRef: "HEAD~2", help: false });
+  assert.deepEqual(parseArguments(["--help"]), { baseRef: "origin/master", help: true });
+  assert.throws(() => parseArguments(["main", "other"]), /one base/i);
+  assert.throws(() => parseArguments(["--wat"]), /unknown option/i);
+
+  assert.deepEqual(
+    parseNameStatusZ("M\0client/src/App.tsx\0A\0scripts/new.ts\0R100\0old.ts\0new.ts\0"),
+    [
+      { path: "client/src/App.tsx", previousPath: null, status: "M" },
+      { path: "scripts/new.ts", previousPath: null, status: "A" },
+      { path: "new.ts", previousPath: "old.ts", status: "R100" },
+    ]
+  );
+  assert.throws(() => parseNameStatusZ("M\0missing-path"), /malformed/i);
 });
