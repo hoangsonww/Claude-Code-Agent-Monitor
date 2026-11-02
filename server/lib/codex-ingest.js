@@ -23,7 +23,7 @@ const { getDataDir } = require("./claude-home");
 const { updatePlanArgumentIndexes } = require("./codex-plan-call");
 
 const MAX_EVENT_SUMMARY = 500;
-const CONTEXT_SHORT_LIMIT = 272000;
+const { codexTokenDelta, CONTEXT_SHORT_LIMIT } = require("./codex-token-accounting");
 const EVENT_TYPES = new Set([
   "user_message",
   "task_started",
@@ -903,40 +903,23 @@ function applyCodexTranscriptLifecycle(sessionId, record) {
 function applyTokenSnapshot(sessionId, model, speed, tokenInfo, previous) {
   const total = tokenInfo.total_token_usage;
   if (!total) return previous;
-  const current = {
-    input_tokens: asNumber(total.input_tokens),
-    cached_input_tokens: asNumber(total.cached_input_tokens),
-    cache_write_input_tokens: asNumber(total.cache_write_input_tokens),
-    output_tokens: asNumber(total.output_tokens),
-    reasoning_output_tokens: asNumber(total.reasoning_output_tokens),
-  };
-  const fields = Object.keys(current);
-  const hasRegression = fields.some((field) => current[field] < asNumber(previous[field]));
-  const delta = Object.fromEntries(
-    fields.map((field) => [
-      field,
-      hasRegression ? 0 : Math.max(0, current[field] - asNumber(previous[field])),
-    ])
-  );
-  const output = delta.output_tokens + delta.reasoning_output_tokens;
-  const freshInput = Math.max(
-    0,
-    delta.input_tokens - delta.cached_input_tokens - delta.cache_write_input_tokens
-  );
-  if (freshInput || delta.cached_input_tokens || delta.cache_write_input_tokens || output) {
-    const contextSize = delta.input_tokens > CONTEXT_SHORT_LIMIT ? "long" : "short";
+  const delta = codexTokenDelta(total, previous);
+  // Codex maps reasoning from output_tokens_details; it is already included
+  // in output_tokens, not an additional billable output category.
+  const output = delta.output;
+  if (delta.input || delta.cached || delta.write || output) {
     stmts.upsertCodexTokenDelta.run(
       sessionId,
       model || "unknown",
       speed,
-      contextSize,
-      freshInput,
+      delta.context,
+      delta.input,
       output,
-      delta.cached_input_tokens,
-      delta.cache_write_input_tokens
+      delta.cached,
+      delta.write
     );
   }
-  return current;
+  return delta.current;
 }
 
 /** Guard remote-import identity before either cursor can write session data. */

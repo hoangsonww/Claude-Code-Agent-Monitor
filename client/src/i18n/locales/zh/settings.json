@@ -2,7 +2,7 @@
   "title": "设置",
   "subtitle": "管理定价、通知、数据和钩子",
   "exportData": "导出数据",
-  "acrossSessions": "跨所有追踪的会话",
+  "acrossSessions": "在所选数据范围内",
   "basedOnUsage": "基于每模型 Token 使用量",
   "tabby": {
     "title": "Tabby 伙伴",

@@ -357,7 +357,7 @@ describe("POST /api/import/scan-path happy path", () => {
       assert.equal(tokens[0].input_tokens, 70);
       assert.equal(tokens[0].cache_read_tokens, 20);
       assert.equal(tokens[0].cache_write_tokens, 10);
-      assert.equal(tokens[0].output_tokens, 20);
+      assert.equal(tokens[0].output_tokens, 15); // reasoning is a breakdown of output
       assert.equal(
         stmts.listEventsBySession
           .all(CODEX_SESSION)

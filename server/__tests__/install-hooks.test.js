@@ -13,10 +13,10 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-// Point the installer at a throwaway CLAUDE_HOME BEFORE requiring it — the
-// settings path is resolved at module load. (`node --test` isolates each test
-// file in its own process, so this does not leak into other suites.)
+// Point the installer at a throwaway CLAUDE_HOME. (`node --test` isolates each
+// test file in its own process, so this does not leak into other suites.)
 const TMP_HOME = fs.mkdtempSync(path.join(os.tmpdir(), "ccam-hooks-"));
+const ALT_HOME = path.join(TMP_HOME, "alternate-home");
 process.env.CLAUDE_HOME = TMP_HOME;
 const SETTINGS = path.join(TMP_HOME, "settings.json");
 const CODEX_HOME = path.join(TMP_HOME, "codex");
@@ -69,6 +69,7 @@ function rmCodexHooks() {
 
 describe("install-hooks host-only guard (#193)", () => {
   beforeEach(() => {
+    process.env.CLAUDE_HOME = TMP_HOME;
     clearEnv();
     rmSettings();
     rmCodexHooks();
@@ -151,6 +152,18 @@ describe("install-hooks host-only guard (#193)", () => {
     assert.equal(codexStatus.installed, false);
     assert.equal(codexStatus.has_dashboard_hooks, false);
     assert.equal(codexStatus.has_existing_hooks, true);
+  });
+
+  it("follows a CLAUDE_HOME change without reloading the installer module", () => {
+    process.env.CLAUDE_HOME = ALT_HOME;
+    process.env.CCAM_FORCE_HOST = "1";
+    const alternateSettings = path.join(ALT_HOME, "settings.json");
+
+    assert.equal(getClaudeHookStatus().path, alternateSettings);
+    assert.equal(installHooks(true), true);
+    assert.equal(fs.existsSync(alternateSettings), true);
+    assert.equal(getClaudeHookStatus().installed, true);
+    assert.equal(fs.existsSync(SETTINGS), false);
   });
 
   it("isInsideContainer honors the force flags", () => {

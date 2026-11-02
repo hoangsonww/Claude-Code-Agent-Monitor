@@ -84,7 +84,16 @@ function getOwnershipDataDir() {
   const dbPath = process.env.DASHBOARD_DB_PATH;
   if (dbPath) {
     if (dbPath === ":memory:") return "";
-    return normalizeDataDir(path.dirname(path.resolve(dbPath)));
+    const resolvedPath = path.resolve(dbPath);
+    try {
+      // Resolve the file itself, not only its parent: two processes may open
+      // one database through a file symlink whose parent directories differ.
+      return path.dirname(fs.realpathSync(resolvedPath));
+    } catch {
+      // The database may not exist on first startup. Canonicalize the parent
+      // as far as possible and let the normal DB initialization create it.
+      return normalizeDataDir(path.dirname(resolvedPath));
+    }
   }
   return normalizeDataDir(getDataDir());
 }

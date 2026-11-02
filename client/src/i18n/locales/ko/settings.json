@@ -2,7 +2,7 @@
   "title": "설정",
   "subtitle": "가격 정책, 알림, 데이터, hooks를 관리합니다",
   "exportData": "데이터 내보내기",
-  "acrossSessions": "추적된 모든 세션 기준",
+  "acrossSessions": "선택한 데이터 범위 내",
   "basedOnUsage": "모델별 토큰 사용량 기준",
   "tabby": {
     "title": "Tabby 도우미",

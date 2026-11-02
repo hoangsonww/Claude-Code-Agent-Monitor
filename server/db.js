@@ -723,6 +723,8 @@ const DEFAULT_GPT_PRICING = [
   // gpt-5 patterns so Codex rollout records are priced rather than reported
   // as unpriced usage.
   gptRate("gpt-6-astra%", "GPT-6 Astra", [10, 1, 12.5, 50], [20, 2, 25, 100], [20, 2, 25, 75]),
+  // Rates checked 2026-10-10: https://developers.openai.com/api/docs/pricing
+  gptRate("gpt-6.1-sol%", "GPT-6.1 Sol", [2, 0.1, 2.5, 10], [4, 0.2, 5, 20], [4, 0.2, 5, 15]),
   gptRate("gpt-6-sol%", "GPT-6 Sol", [2, 0.2, 2.5, 10], [4, 0.4, 5, 20], [4, 0.4, 5, 15]),
   gptRate(
     "gpt-6-luna%",
@@ -856,6 +858,7 @@ seedCursorPricing();
 // values avoid applying a guessed multiplier to unsupported model/tier pairs.
 const GPT_FAST_LONG_RATES = {
   "gpt-6-astra%": [40, 4, 50, 150],
+  "gpt-6.1-sol%": [8, 0.4, 10, 30],
   "gpt-6-sol%": [8, 0.8, 10, 30],
   "gpt-6-luna%": [0.4, 0.04, 0.5, 1.5],
   "gpt-5.6-sol%": [16, 1.6, 20, 60],
@@ -894,6 +897,21 @@ function seedGptPricing(dbHandle = db) {
     const setLong = dbHandle.prepare(`UPDATE gpt_model_pricing SET
       ${GPT_FAST_LONG_FIELDS.map((field) => `${field} = ?`).join(", ")} WHERE model_pattern = ?`);
     for (const row of rows) {
+      // A previously configured broad rule is a user pricing choice, too.
+      // Do not shadow it when introducing this newly published model default.
+      if (
+        row[0] === "gpt-6.1-sol%" &&
+        dbHandle
+          .prepare("SELECT model_pattern FROM gpt_model_pricing")
+          .all()
+          .some((rule) => {
+            const expression = String(rule.model_pattern)
+              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+              .replace(/%/g, ".*");
+            return new RegExp(`^${expression}$`, "i").test("gpt-6.1-sol");
+          })
+      )
+        continue;
       if (insert.run(...row).changes) {
         setLong.run(...(GPT_FAST_LONG_RATES[row[0]] || [0, 0, 0, 0]), row[0]);
       }

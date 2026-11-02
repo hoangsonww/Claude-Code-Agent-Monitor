@@ -21,11 +21,18 @@ vi.mock("../../lib/api", () => ({
       list: vi.fn(async () => ({ pricing: [] })),
       listCursor: vi.fn(async () => ({ pricing: [] })),
       listGpt: vi.fn(async () => ({ pricing: [] })),
+      upsertCursor: vi.fn(async (pricing: unknown) => ({ pricing })),
+      upsertGpt: vi.fn(async (pricing: unknown) => ({ pricing })),
+      deleteCursor: vi.fn(async () => ({ ok: true })),
+      deleteGpt: vi.fn(async () => ({ ok: true })),
       totalCost: vi.fn(async () => ({ total_cost: 0 })),
     },
     settings: {
       info,
-      claudeHome: { get: vi.fn(async () => ({ claude_home: "/test/claude" })) },
+      claudeHome: {
+        get: vi.fn(async () => ({ claude_home: "/test/claude" })),
+        set: vi.fn(async (claudeHome: string) => ({ ok: true, claude_home: claudeHome })),
+      },
       codexHome: {
         get: vi.fn(async () => ({ codex_home: "/test/codex" })),
         set: vi.fn(async (codexHome: string) => ({ ok: true, codex_home: codexHome })),
@@ -103,9 +110,13 @@ function remoteCompletion() {
 beforeEach(() => {
   vi.useFakeTimers();
   info.mockReset().mockResolvedValue(fixture());
+  setScope({ mode: "local", selected: [], provider: "both" });
   vi.mocked(api.settings.codexHome.set)
     .mockReset()
     .mockImplementation(async (codexHome: string) => ({ ok: true, codex_home: codexHome }));
+  vi.mocked(api.settings.claudeHome.set)
+    .mockReset()
+    .mockImplementation(async (claudeHome: string) => ({ ok: true, claude_home: claudeHome }));
   Element.prototype.scrollIntoView = vi.fn();
   const Observer = class {
     observe() {}
@@ -117,6 +128,32 @@ beforeEach(() => {
   };
   vi.stubGlobal("ResizeObserver", Observer);
   vi.stubGlobal("IntersectionObserver", Observer);
+});
+
+it("an old scope cannot overwrite the latest exact cost", async () => {
+  let oldResolve!: (value: { total_cost: number }) => void;
+  let newResolve!: (value: { total_cost: number }) => void;
+  const oldCost = new Promise((resolve) => {
+    oldResolve = resolve;
+  });
+  const newCost = new Promise((resolve) => {
+    newResolve = resolve;
+  });
+  vi.mocked(api.pricing.totalCost)
+    .mockReturnValueOnce(oldCost as never)
+    .mockReturnValueOnce(newCost as never);
+  await mount();
+  await act(async () => {
+    setScope({ mode: "all", selected: [], provider: "both" });
+  });
+  await act(async () => {
+    newResolve({ total_cost: 1018.59 });
+  });
+  expect(screen.getByText("$1,018.59")).toBeInTheDocument();
+  await act(async () => {
+    oldResolve({ total_cost: 1000 });
+  });
+  expect(screen.getByText("$1,018.59")).toBeInTheDocument();
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -141,7 +178,7 @@ describe("Settings system-info refresh", () => {
     before.forEach(({ fn, calls }) => expect(fn).toHaveBeenCalledTimes(calls + 1));
   });
 
-  it("queues one full follow-up while remote cost reading is slow", async () => {
+  it("does not serialize remote refreshes behind a slow cost read", async () => {
     await mount();
     let resolveCost!: (value: { total_cost: number }) => void;
     const pendingCost = new Promise<{ total_cost: number }>((resolve) => {
@@ -153,10 +190,9 @@ describe("Settings system-info refresh", () => {
       remoteCompletion();
       await vi.advanceTimersByTimeAsync(0);
       remoteCompletion();
-      remoteCompletion();
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(api.pricing.totalCost).toHaveBeenCalledTimes(before + 1);
+    expect(api.pricing.totalCost).toHaveBeenCalledTimes(before + 2);
     await act(async () => {
       resolveCost({ total_cost: 123 });
       await vi.advanceTimersByTimeAsync(0);
@@ -319,6 +355,84 @@ describe("Settings system-info refresh", () => {
     ).toBeInTheDocument();
     view.unmount();
   });
+
+  it("refreshes hook status after a Claude home save", async () => {
+    const view = await mount();
+    const initialInfoReads = info.mock.calls.length;
+    const input = within(view.container).getByDisplayValue("/test/claude");
+    const claudeControls = within(input.parentElement as HTMLElement);
+
+    fireEvent.change(input, { target: { value: "/test/claude-next" } });
+    await act(async () => {
+      fireEvent.click(claudeControls.getByRole("button", { name: "Save" }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(api.settings.claudeHome.set).toHaveBeenCalledWith("/test/claude-next");
+    expect(info).toHaveBeenCalledTimes(initialInfoReads + 1);
+    expect(
+      within(input.closest("section") as HTMLElement).getByText("/test/claude-next")
+    ).toBeInTheDocument();
+    view.unmount();
+  });
+});
+
+it("does not discard a successful cost result when system-info reading fails", async () => {
+  info.mockRejectedValueOnce(new Error("System info reader is busy"));
+  vi.mocked(api.pricing.totalCost).mockResolvedValue({ total_cost: 1234.56 } as never);
+  await mount();
+  expect(screen.getByText("$1,234.56")).toBeInTheDocument();
+  expect(screen.getByText("System info reader is busy")).toBeInTheDocument();
+});
+
+it("refreshes exact cost after Cursor save and GPT delete", async () => {
+  const cursorRule = {
+    model_pattern: "cursor-priced",
+    display_name: "Cursor Priced",
+    input_per_mtok: 1,
+    cache_write_per_mtok: 1,
+    cache_read_per_mtok: 1,
+    output_per_mtok: 1,
+    updated_at: "2026-10-31T00:00:00.000Z",
+  };
+  const gptRule = {
+    model_pattern: "gpt-priced",
+    display_name: "GPT Priced",
+    updated_at: "2026-10-31T00:00:00.000Z",
+  };
+  vi.mocked(api.pricing.listCursor).mockResolvedValue({ pricing: [cursorRule] } as never);
+  vi.mocked(api.pricing.listGpt).mockResolvedValue({ pricing: [gptRule] } as never);
+  vi.mocked(api.pricing.totalCost)
+    .mockReset()
+    .mockResolvedValue({ total_cost: 1 } as never);
+  vi.stubGlobal(
+    "confirm",
+    vi.fn(() => true)
+  );
+
+  const view = await mount();
+  const initialCostReads = vi.mocked(api.pricing.totalCost).mock.calls.length;
+  const cursorSection = within(view.container.querySelector("#cursor-pricing") as HTMLElement);
+  fireEvent.click(
+    within(cursorSection.getByText("cursor-priced").closest("tr")!).getAllByRole("button")[0]!
+  );
+  const cursorEditRow = cursorSection.getByDisplayValue("cursor-priced").closest("tr")!;
+  await act(async () => {
+    fireEvent.click(within(cursorEditRow).getAllByRole("button")[0]!);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(api.pricing.upsertCursor).toHaveBeenCalled();
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(initialCostReads + 1);
+
+  const gptSection = within(view.container.querySelector("#gpt-pricing") as HTMLElement);
+  const gptRow = gptSection.getByText("gpt-priced").closest("tr")!;
+  await act(async () => {
+    fireEvent.click(within(gptRow).getAllByRole("button")[1]!);
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(api.pricing.deleteGpt).toHaveBeenCalledWith("gpt-priced");
+  expect(api.pricing.totalCost).toHaveBeenCalledTimes(initialCostReads + 2);
+  view.unmount();
 });
 
 interface Deferred<T> {
@@ -375,6 +489,40 @@ describe("Settings page load guard", () => {
   afterEach(() => {
     vi.mocked(api.pricing.list).mockImplementation((async () => ({ pricing: [] })) as never);
     setScope(initialScope);
+  });
+
+  it("renders pricing and home paths while exact cost remains pending", async () => {
+    const pending = deferredValue<{ total_cost: number }>();
+    vi.mocked(api.pricing.totalCost).mockReturnValueOnce(pending.promise as never);
+    vi.mocked(api.pricing.list).mockResolvedValueOnce({
+      pricing: [pricingRule("ready-without-cost")],
+    } as never);
+
+    const view = await mount();
+    const page = within(view.container);
+    expect(page.getAllByText("ready-without-cost").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/claude").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/codex").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      pending.resolve({ total_cost: 42 });
+    });
+    view.unmount();
+  });
+
+  it("keeps pricing and home paths when exact cost fails", async () => {
+    vi.mocked(api.pricing.totalCost).mockRejectedValueOnce(new Error("cost reader unavailable"));
+    vi.mocked(api.pricing.list).mockResolvedValueOnce({
+      pricing: [pricingRule("ready-after-cost-error")],
+    } as never);
+
+    const view = await mount();
+    const page = within(view.container);
+    expect(page.getAllByText("ready-after-cost-error").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/claude").length).toBeGreaterThan(0);
+    expect(page.getAllByText("/test/codex").length).toBeGreaterThan(0);
+    expect(page.getByText("cost reader unavailable")).toBeInTheDocument();
+    view.unmount();
   });
 
   it("renders primary page data while system info remains pending", async () => {

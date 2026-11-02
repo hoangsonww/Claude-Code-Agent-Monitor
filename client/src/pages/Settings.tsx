@@ -126,7 +126,8 @@ import {
   subscribeToSoundPrefs,
   type SoundPrefs,
 } from "../lib/sound";
-import { fmt, fmtCost, getCurrentLocale } from "../lib/format";
+import { fmt, fmtCostFull, getCurrentLocale } from "../lib/format";
+import { CostCoverage } from "../components/CostCoverage";
 import { subscribeToPush, unsubscribeFromPush } from "../lib/push";
 import { Tip } from "../components/Tip";
 import { ImportHistory } from "../components/ImportHistory";
@@ -421,55 +422,6 @@ function formatUsdRate(rate: number): string {
   }).format(rate);
 }
 
-/**
- * Animate a number toward `end` with an ease-out curve over `durationMs`, starting from the
- * currently displayed value, using requestAnimationFrame. Used for the stat counters so a refresh
- * glides to the new value instead of jumping. Resets to 0 when `end` is null.
- *
- * @param end - Target value, or null to reset.
- * @param durationMs - Animation length; defaults to 1 second.
- * @returns The value to render for the current frame.
- */
-function useCountUp(end: number | null, durationMs = 1000) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    if (end === null) {
-      setCount(0);
-      return;
-    }
-
-    let startTimestamp: number | null = null;
-    let animationFrameId: number;
-    const startValue = count;
-
-    /**
-     * One animation frame: move toward the target along an ease-out-quart curve and schedule the
-     * next frame until done.
-     *
-     * @param timestamp - Frame time from `requestAnimationFrame`.
-     */
-    const step = (timestamp: number) => {
-      if (!startTimestamp) startTimestamp = timestamp;
-      const progress = Math.min((timestamp - startTimestamp) / durationMs, 1);
-      // easeOutQuart
-      const easeProgress = 1 - Math.pow(1 - progress, 4);
-      setCount(startValue + (end - startValue) * easeProgress);
-
-      if (progress < 1) {
-        animationFrameId = window.requestAnimationFrame(step);
-      } else {
-        setCount(end);
-      }
-    };
-
-    animationFrameId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(animationFrameId);
-  }, [end, durationMs]);
-
-  return count;
-}
-
 // ─── Toggle component ───
 
 /**
@@ -677,6 +629,7 @@ function GptPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -686,6 +639,8 @@ function GptPricingTable({
   resetLoading: boolean;
   /** Resets the GPT pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<GptModelPricing[]>([]);
@@ -765,6 +720,7 @@ function GptPricingTable({
         ),
       } as Omit<GptModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -782,6 +738,7 @@ function GptPricingTable({
     try {
       await api.pricing.deleteGpt(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1032,6 +989,7 @@ function CursorPricingTable({
   resetConfirming,
   resetLoading,
   onReset,
+  onChanged,
 }: {
   /** Increments when pricing is reset elsewhere, which makes the table reload. */
   resetRevision: number;
@@ -1041,6 +999,8 @@ function CursorPricingTable({
   resetLoading: boolean;
   /** Resets the Cursor pricing table to its defaults (two clicks). */
   onReset: () => void;
+  /** Refreshes parent-owned cost totals after a successful rule mutation. */
+  onChanged: () => void;
 }) {
   const { t } = useTranslation("settings");
   const [rules, setRules] = useState<CursorModelPricing[]>([]);
@@ -1102,6 +1062,7 @@ function CursorPricingTable({
         ),
       } as Omit<CursorModelPricing, "updated_at">);
       await reload();
+      onChanged();
       cancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedSave"));
@@ -1119,6 +1080,7 @@ function CursorPricingTable({
     try {
       await api.pricing.deleteCursor(pattern);
       await reload();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("messages.failedDelete"));
     }
@@ -1509,6 +1471,9 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCost, setTotalCost] = useState<number | null>(null);
+  const [unpriced, setUnpriced] = useState<import("../lib/types").UnpricedModel[]>([]);
+  /** The exact-cost reader owns this failure so pricing and home settings stay available. */
+  const [costError, setCostError] = useState<string | null>(null);
   const [sysInfo, setSysInfo] = useState<SystemInfo | null>(null);
   /** The last system-info read failure ("" = no message); cleared by the next successful read. */
   const [infoError, setInfoError] = useState<string | null>(null);
@@ -1599,7 +1564,6 @@ export function Settings() {
 
   const wsConnected = useSyncExternalStore(eventBus.onConnection, () => eventBus.connected);
   const [dataScope, setDataScope] = useDataScope();
-  const animatedTotalCost = useCountUp(totalCost);
 
   // Deep links (`/settings#alerts`) are how the command palette reaches an
   // individual section. React Router does not scroll to a hash on its own, and
@@ -1689,9 +1653,9 @@ export function Settings() {
   }, []);
 
   /**
-   * Load everything the page needs in parallel: Claude pricing, total cost, system info, and the
-   * Claude and Codex home directories. System info settles on its own and reports its failure in
-   * its own section (see refreshInfo), so it never discards the other results or blocks them.
+   * Load Claude pricing and the provider homes as the primary page lane. Exact cost and system
+   * info settle independently and report failures in their own sections, so neither expensive
+   * reader can discard or block the primary settings data.
    */
   const load = useCallback(
     async (freshInfo = false) => {
@@ -1700,18 +1664,29 @@ export function Settings() {
       const generation = ++costLoadGeneration.current;
       const isCurrent = () => infoMountedRef.current && generation === costLoadGeneration.current;
       try {
-        // System info owns its result and error state. Do not let that slower background read
-        // hold the pricing/home page skeleton open or delay a primary request failure.
+        // The expensive readers own their result and error state. Do not let either one hold the
+        // pricing/home skeleton open or turn its local failure into a primary page failure.
         void refreshInfo(freshInfo).catch(() => {});
-        const [pricingRes, costRes, claudeHomeRes, codexHomeRes] = await Promise.all([
+        setCostError(null);
+        void api.pricing.totalCost().then(
+          (costRes) => {
+            if (!isCurrent()) return;
+            setTotalCost(costRes.total_cost);
+            setUnpriced(costRes.unpriced_models || []);
+            setCostError(null);
+          },
+          (err: unknown) => {
+            if (isCurrent())
+              setCostError(err instanceof Error ? err.message : t("messages.failedLoad"));
+          }
+        );
+        const [pricingRes, claudeHomeRes, codexHomeRes] = await Promise.all([
           api.pricing.list(),
-          api.pricing.totalCost(),
           api.settings.claudeHome.get(),
           api.settings.codexHome.get(),
         ]);
         if (!isCurrent()) return;
         setPricing(pricingRes.pricing);
-        setTotalCost(costRes.total_cost);
         setClaudeHomeState(claudeHomeRes.claude_home);
         setClaudeHomeInput(claudeHomeRes.claude_home);
         setCodexHomeState(codexHomeRes.codex_home);
@@ -1731,6 +1706,9 @@ export function Settings() {
   });
 
   useEffect(() => {
+    setTotalCost(null);
+    setUnpriced([]);
+    setCostError(null);
     load();
   }, [load]);
 
@@ -2010,6 +1988,9 @@ export function Settings() {
       const res = await api.settings.claudeHome.set(claudeHomeInput);
       setClaudeHomeState(res.claude_home);
       setClaudeHomeInput(res.claude_home);
+      // Hook status follows the active Claude home. Keep refresh failures in
+      // the system-info panel so a successful home save remains successful.
+      void refreshInfo(true).catch(() => {});
     } catch (err) {
       setClaudeHomeError(err instanceof Error ? err.message : t("claudeHome.saveFailed"));
     } finally {
@@ -2378,7 +2359,7 @@ export function Settings() {
                       : undefined
                   }
                 >
-                  {totalCost !== null ? fmtCost(animatedTotalCost) : "$-.--"}
+                  {totalCost !== null ? fmtCostFull(totalCost) : "$-.--"}
                 </Tip>
               </p>
             </div>
@@ -2388,8 +2369,14 @@ export function Settings() {
             <p>{t("basedOnUsage")}</p>
           </div>
         </div>
+        {costError && (
+          <p role="alert" className="mt-3 text-xs text-red-400">
+            {costError}
+          </p>
+        )}
       </div>
 
+      <CostCoverage scope={dataScope} unpriced={unpriced} />
       {/* ─── PRODUCT DATA DISPLAY ─── */}
       <section id="data-display" className="scroll-mt-24">
         <div className="mb-4">
@@ -2652,6 +2639,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-cursor"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-cursor"
               ? handleResetPricing("reset-pricing-cursor", "cursor")
@@ -2667,6 +2655,7 @@ export function Settings() {
           resetRevision={pricingResetRevision}
           resetConfirming={confirmAction === "reset-pricing-gpt"}
           resetLoading={actionLoading !== null}
+          onChanged={() => void load()}
           onReset={() =>
             confirmAction === "reset-pricing-gpt"
               ? handleResetPricing("reset-pricing-gpt", "codex")

@@ -2,7 +2,7 @@
   "title": "Settings",
   "subtitle": "Manage pricing, notifications, data, and hooks",
   "exportData": "Export Data",
-  "acrossSessions": "Across all tracked sessions",
+  "acrossSessions": "Within the selected data scope",
   "basedOnUsage": "Based on per-model token usage",
   "tabby": {
     "title": "Tabby companion",

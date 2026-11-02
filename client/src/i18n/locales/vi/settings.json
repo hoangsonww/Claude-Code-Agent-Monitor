@@ -2,7 +2,7 @@
   "title": "Cài đặt",
   "subtitle": "Quản lý định giá, thông báo, dữ liệu và hooks",
   "exportData": "Xuất dữ liệu",
-  "acrossSessions": "Trên toàn bộ phiên đang được theo dõi",
+  "acrossSessions": "Trong phạm vi dữ liệu đã chọn",
   "basedOnUsage": "Dựa trên mức dùng token theo mô hình",
   "tabby": {
     "title": "Bạn đồng hành Tabby",

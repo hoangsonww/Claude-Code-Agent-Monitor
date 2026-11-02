@@ -1083,6 +1083,8 @@ The `/api/remote-sources/*` namespace configures **remote SSH machines** the das
 
 `ssh_port`, `identity_file`, `remote_home`, `remote_codex_home`, `claude_status`, `codex_status`, `last_error`, `last_sync_at`, and `last_sync_counts` are nullable. `remote_home` and `remote_codex_home` are the optional **Remote Claude home** and **Remote Codex home** overrides; send `null` on `PATCH` to return either provider to its default remote home. `status` is one of `idle`, `syncing`, `ok`, `error`; provider statuses additionally use `unavailable` when that CLI's history directory is absent.
 
+During `syncing`, `last_error` (and the WebSocket `error` field) retains the most recent failure, so automatic retries do not hide the diagnostic. A completed failure replaces it; a successful sync clears it. Last successful import counts and timestamp remain unchanged on failure.
+
 #### List Remote Sources
 
 ```http

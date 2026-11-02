@@ -55,7 +55,6 @@ const APP_VERSION = (() => {
 
 const { getSettingsPath, getClaudeHome, setClaudeHome } = require("../lib/claude-home");
 const { getCodexHome, setCodexHome } = require("../lib/codex-home");
-const CLAUDE_SETTINGS_PATH = getSettingsPath();
 
 function getDbSize() {
   try {
@@ -95,7 +94,7 @@ function getHookStatus() {
     // Backward-compatible Claude fields; `providers` is the canonical product
     // status used by the chooser UI.
     installed: claude.installed || codex.installed,
-    path: claude.path || CLAUDE_SETTINGS_PATH,
+    path: claude.path || getSettingsPath(),
     hooks: claude.hooks,
     providers: { claude, codex },
   };

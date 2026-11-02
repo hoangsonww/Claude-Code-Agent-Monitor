@@ -5205,7 +5205,7 @@ exports[`screen snapshots > Dashboard 1`] = `
             <span
               class="text-xs font-medium text-gray-500 uppercase tracking-wider truncate"
             >
-              Total Cost
+              API Cost Estimate
             </span>
             <svg
               class="lucide lucide-dollar-sign w-5 h-5 flex-shrink-0 text-emerald-400"
@@ -5244,6 +5244,22 @@ exports[`screen snapshots > Dashboard 1`] = `
             </span>
           </div>
         </div>
+      </div>
+      <div
+        class="text-xs text-gray-400 mb-4 space-y-1"
+      >
+        <p>
+          API-equivalent estimate, not subscription charges.
+        </p>
+        <p>
+          <a
+            class="text-accent hover:underline"
+            data-discover="true"
+            href="/settings#remote-sources"
+          >
+            Sources: All sources · Products: Claude Code
+          </a>
+        </p>
       </div>
       <div
         class="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 min-w-0 flex-1 min-h-0"
@@ -7775,13 +7791,29 @@ exports[`screen snapshots > Settings 1`] = `
           class="text-right text-xs text-gray-500"
         >
           <p>
-            Across all tracked sessions
+            Within the selected data scope
           </p>
           <p>
             Based on per-model token usage
           </p>
         </div>
       </div>
+    </div>
+    <div
+      class="text-xs text-gray-400 mb-4 space-y-1"
+    >
+      <p>
+        API-equivalent estimate, not subscription charges.
+      </p>
+      <p>
+        <a
+          class="text-accent hover:underline"
+          data-discover="true"
+          href="/settings#remote-sources"
+        >
+          Sources: All sources · Products: Claude Code
+        </a>
+      </p>
     </div>
     <section
       class="scroll-mt-24"

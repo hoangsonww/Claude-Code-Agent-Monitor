@@ -85,6 +85,12 @@ npm run test:server
 - Executables keep their `#!/usr/bin/env node` shebang above the header.
 - Destructive scripts default to a dry run and require an explicit flag to write.
 
+### Codex output repair
+
+Stop the dashboard before upgrading ingestion and applying historical repair. Preview with `node scripts/repair-codex-output.js --db /path/to/dashboard.db --out /private/backup/plan.json`; apply with `--apply --journal /private/backup/new-before-after.json` instead of `--out`. Files must be new: neither plans nor journals overwrite existing files. Keep these private journals out of Git. Only output totals whose complete legacy buckets match retained evidence are changed. Plain, gzip and Zstd prefixes are streamed; foreign identities, changed files/cursors/ownership and unverifiable histories are skipped. The journal file and directory are flushed before updates; repair refuses unsupported durability. Re-running the preview identifies already-correct rows.
+
+Use `--session <id>` to recheck one live transcript whose fingerprint changed during a full pass. It applies the same journal and identity/cursor/token/file fences and never widens the repair scope.
+
 Cost snapshots close their owned scratch database before removing the temporary directory. An embedding caller retains its existing database connection and environment; failed pricing initialization also releases owned handles.
 
 The comparison includes one-hour cache writes and web search, web fetch and code execution usage, including baselines, even if a model has no price and its estimated cost stays zero. Partial snapshots with the earlier eight-column header are rejected, as is a snapshot that lists one session twice; regenerate both snapshots with the same script. Newly added sessions are reported separately and do not fail the existing-session local-change guard.
