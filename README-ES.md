@@ -780,6 +780,19 @@ Si `ccam` no está en `PATH`, ejecuta `npm link` una vez desde la raíz del repo
 
 ---
 
+### Instantáneas de costes antes de una actualización
+
+Antes de una actualización que pueda volver a contabilizar el uso, captura una referencia de solo lectura; actualiza y reinicia CCAM, espera a que termine el mantenimiento de arranque y captura una segunda instantánea en una ruta nueva para compararlas. Mantén privados los archivos TSV: contienen identificadores de sesión y metadatos de propiedad. La comprobación termina con estado 1 si cambian la entrada, la salida, la lectura de caché, la escritura de caché, la escritura de caché de una hora, la búsqueda web, la obtención web, la ejecución de código o el coste de una sesión local existente; si la propiedad cambia entre local y otra fuente o proveedor; o si desaparece una sesión local. Las sesiones remotas y nuevas se informan por separado.
+
+```bash
+node scripts/cost-snapshot.js snapshot --out before.tsv
+# Actualiza y reinicia CCAM; espera a que termine el mantenimiento de arranque.
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
+```
+
+---
+
 ## Extensión de agentes
 
 Este repositorio incluye una capa de extensión integral tanto para Claude Code como para Codex:
