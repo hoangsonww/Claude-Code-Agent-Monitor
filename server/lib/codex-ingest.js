@@ -905,16 +905,26 @@ function applyTokenSnapshot(sessionId, model, speed, tokenInfo, previous) {
 }
 
 /** Guard remote-import identity before either cursor can write session data. */
+// Thrown when a rollout's session is owned by another source or provider. The
+// live sweep treats it as a permanent skip, not a transient ingest failure.
+const CODEX_FOREIGN_SESSION = "CODEX_FOREIGN_SESSION";
+
+function foreignSessionError() {
+  const error = new Error("Codex import session belongs to another source or provider");
+  error.code = CODEX_FOREIGN_SESSION;
+  return error;
+}
+
 function assertCodexImportIdentity(id, options) {
   if (!id) return;
   if (!options.originSource && !isLocalHistoryOwner(stmts.getSession.get(id), "codex")) {
-    throw new Error("Codex import session belongs to another source or provider");
+    throw foreignSessionError();
   }
   if (options.expectedSessionId && id !== options.expectedSessionId) {
     throw new Error("Codex import session identity mismatch");
   }
   if (options.isExcludedSession?.(id)) {
-    throw new Error("Codex import session belongs to another source or provider");
+    throw foreignSessionError();
   }
 }
 
@@ -1700,6 +1710,7 @@ function ingestCodexHook(transcriptPath, hookType, hookData) {
 }
 
 module.exports = {
+  CODEX_FOREIGN_SESSION,
   CONTEXT_SHORT_LIMIT,
   findCodexTranscripts,
   findCodexTranscriptForSession,

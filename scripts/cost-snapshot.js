@@ -244,6 +244,10 @@ function readSnapshot(file) {
       codeExecution,
       cost,
     ] = fields;
+    // A second row for the same session would silently replace the first, so a
+    // local change could hide behind the duplicate.
+    if (map.has(id))
+      throw new Error(`${file}: row ${index + 2} duplicates session_id; regenerate the snapshot`);
     map.set(id, {
       provider,
       source,

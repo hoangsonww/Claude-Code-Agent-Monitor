@@ -648,7 +648,7 @@ async function runSsh(source, remoteCmd, timeoutMs) {
 
 async function runScpCopy(source, remoteSpec, dest, timeoutMs, { legacy = false, recursive } = {}) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  const args = recursive ? ["-r"] : [];
+  const args = recursive ? ["-r", "-p"] : ["-p"];
   if (legacy) args.push("-O");
   args.push(...(await scpOptionArgs(source)), remoteSpec, dest);
   return runCommand(resolveSshBinary("scp"), args, {
@@ -901,7 +901,89 @@ function mirrorViaWslTar(source, wslHome, dest, timeoutMs, provider = "claude") 
  * its remote home is `wsl:…` or the default home is missing on Windows but
  * present in WSL, streams a tar archive from `wsl.exe` instead.
  */
-async function mirrorRemoteTree(source, dest, timeoutMs, provider = "claude") {
+async function mirrorRemoteTree(source, dest, timeoutMs, provider = "claude", opts = {}) {
+  // Keep the last complete tree readable while a new SCP/tar generation is in flight.
+  // A failed transfer is never eligible for ingestion. This does not resume SCP bytes.
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  recoverPublishedTree(dest);
+  const incoming = fs.mkdtempSync(`${dest}.incoming-${process.pid}-`);
+  try {
+    const result = await transferRemoteTree(source, incoming, timeoutMs, provider);
+    if (opts.beforePublish) opts.beforePublish();
+    publishMirroredTree(incoming, dest);
+    return result;
+  } finally {
+    removeMirrorTree(incoming);
+  }
+}
+
+/** Recover a crash between the two portable directory renames used for publication. */
+function recoverPublishedTree(dest) {
+  // Reclaim crashed attempts only when their owning process is demonstrably gone.
+  // Signal 0 probes existence; it does not signal/terminate the other process.
+  const prefix = `${path.basename(dest)}.incoming-`;
+  let cleaned = 0;
+  for (const name of fs.readdirSync(path.dirname(dest))) {
+    if (!name.startsWith(prefix)) continue;
+    const match = /^(\d+)-[A-Za-z0-9]{6}$/.exec(name.slice(prefix.length));
+    if (!match) continue;
+    const owner = Number(match[1]);
+    if (!Number.isSafeInteger(owner) || owner <= 0 || owner > 2147483647) continue;
+    try {
+      process.kill(owner, 0);
+    } catch (err) {
+      if (err.code !== "ESRCH") continue;
+      removeMirrorTree(path.join(path.dirname(dest), name));
+      if (++cleaned >= 32) break;
+    }
+  }
+  const previous = `${dest}.previous`;
+  if (!fs.existsSync(previous)) return;
+  if (!fs.existsSync(dest)) fs.renameSync(previous, dest);
+  else removeMirrorTree(previous);
+}
+
+/** Replace a complete generation, restoring its predecessor if publication fails. */
+function publishMirroredTree(incoming, dest) {
+  const previous = `${dest}.previous`;
+  if (fs.existsSync(dest)) fs.renameSync(dest, previous);
+  try {
+    fs.renameSync(incoming, dest);
+  } catch (err) {
+    if (!fs.existsSync(dest) && fs.existsSync(previous)) fs.renameSync(previous, dest);
+    throw err;
+  }
+  // Cleanup failure must not turn a successfully published generation into an import failure.
+  try {
+    removeMirrorTree(previous);
+  } catch {
+    /* Recover/clean the retained predecessor on the next attempt. */
+  }
+}
+
+/** SCP/tar may preserve read-only modes; relax only a disposable local mirror on cleanup failure. */
+function removeMirrorTree(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  } catch (error) {
+    if (!fs.existsSync(dir)) return;
+    if (!["EACCES", "EPERM", "ENOTEMPTY"].includes(error.code)) throw error;
+  }
+  const makeWritable = (entry) => {
+    const stat = fs.lstatSync(entry);
+    if (stat.isSymbolicLink()) return;
+    fs.chmodSync(entry, stat.mode | (stat.isDirectory() ? 0o700 : 0o600));
+    if (stat.isDirectory()) {
+      for (const name of fs.readdirSync(entry)) makeWritable(path.join(entry, name));
+    }
+  };
+  makeWritable(dir);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+/** Transfer into an unpublished, disposable directory using the existing OpenSSH paths. */
+async function transferRemoteTree(source, dest, timeoutMs, provider) {
   const home = normalizedRemoteHome(source, provider);
   if (isWslRemoteHome(home)) {
     return mirrorViaWslTar(source, home.slice(4), dest, timeoutMs, provider);
@@ -1302,7 +1384,10 @@ function summarizeProviderCounters(counters, ids, mirror) {
 
 async function ingestStagedProvider(dbModule, source, provider, dest, opts = {}) {
   const { stmts } = dbModule;
-  source = stmts.getRemoteSource.get(source.id) || source;
+  // A network transfer passes its registration snapshot. Direct staging imports
+  // retain their existing helper contract and resolve the registered source when present.
+  if (opts.expectedSource) assertSourceConfiguration(dbModule, opts.expectedSource);
+  source = opts.expectedSource || stmts.getRemoteSource.get(source.id) || source;
   const originSource = { id: source.id, key: sourceOriginKey(source) };
   const preExisting = new Set();
   // Ids whose row belongs to a DIFFERENT source (a NULL/empty source is `local`).
@@ -1310,6 +1395,11 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
   // session this dashboard owns: those transcripts are excluded from the import
   // entirely (events, tokens, snapshot) and never re-tagged to this source.
   const isExcludedSession = (id) => {
+    if (
+      opts.expectedSource &&
+      !sourceConfigurationMatches(source, stmts.getRemoteSource.get(source.id))
+    )
+      return true;
     const row = stmts.getSession.get(id);
     return (
       !!row &&
@@ -1368,6 +1458,7 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
     }
   });
   tag(stagedSessionIds(dest, provider));
+  if (opts.expectedSource) assertSourceConfiguration(dbModule, source);
 
   try {
     reconcileRemoteSessionStatus(dbModule, source, dest, opts.broadcast, provider);
@@ -1386,9 +1477,107 @@ async function ingestStagedProvider(dbModule, source, provider, dest, opts = {})
 
 /** Mirror a provider's remote tree, then ingest the resulting isolated stage. */
 async function importMirroredProvider(dbModule, source, provider, opts = {}) {
+  assertSourceConfiguration(dbModule, source);
   const dest = stagingDir(source.id, provider);
-  const mirror = await mirrorRemoteTree(source, dest, SYNC_TIMEOUT_MS, provider);
-  return ingestStagedProvider(dbModule, source, provider, dest, { ...opts, mirror });
+  const mirror = await mirrorRemoteTree(source, dest, SYNC_TIMEOUT_MS, provider, {
+    beforePublish: () => assertSourceConfiguration(dbModule, source),
+  });
+  return ingestStagedProvider(dbModule, source, provider, dest, {
+    ...opts,
+    mirror,
+    expectedSource: source,
+  });
+}
+
+/** A transfer belongs to its original registration settings, never to a later PATCH. */
+function sourceConfigurationMatches(source, current) {
+  if (!current) return false;
+  return [
+    "id",
+    "host",
+    "ssh_port",
+    "identity_file",
+    "remote_home",
+    "remote_codex_home",
+    "enabled",
+  ].every((key) => (source[key] ?? null) === (current[key] ?? null));
+}
+
+function assertSourceConfiguration(dbModule, source) {
+  if (!sourceConfigurationMatches(source, dbModule.stmts.getRemoteSource.get(source.id))) {
+    const error = new Error(
+      "Remote source configuration changed during sync; retry with its current settings."
+    );
+    error.code = "SOURCE_CHANGED";
+    throw error;
+  }
+}
+
+/** Recover abandoned in-process sync flags without altering the last import receipt. */
+function recoverInterruptedSyncs(dbModule) {
+  const rows = dbModule.db
+    .prepare(
+      "SELECT id FROM remote_sources WHERE status = 'syncing' OR claude_status = 'syncing' OR codex_status = 'syncing'"
+    )
+    .all();
+  const update = dbModule.db.prepare(`UPDATE remote_sources SET
+    status = 'error',
+    claude_status = CASE WHEN claude_status = 'syncing' THEN 'error' ELSE claude_status END,
+    codex_status = CASE WHEN codex_status = 'syncing' THEN 'error' ELSE codex_status END,
+    last_error = COALESCE(last_error, 'Sync interrupted when the monitor stopped; previously imported history is preserved.'),
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`);
+  let changes = 0;
+  for (const row of rows) if (!inFlight.has(row.id)) changes += update.run(row.id).changes;
+  return changes;
+}
+
+/**
+ * Retry startup recovery independently from poller creation. Recovery is
+ * conservative: it only runs after the caller proves exclusive ownership of
+ * the shared data directory, and transient database failures never escape.
+ */
+function startInterruptedSyncRecovery(dbModule, options = {}) {
+  const canRecover = options.canRecover || (() => true);
+  const recover = options.recover || recoverInterruptedSyncs;
+  const schedule = options.schedule || setTimeout;
+  const clearSchedule = options.clearSchedule || clearTimeout;
+  const warn = options.warn || ((message) => console.warn(message));
+  const retryMs = Number.isFinite(options.retryMs) && options.retryMs > 0 ? options.retryMs : 5_000;
+  let stopped = false;
+  let timer = null;
+
+  const retry = () => {
+    if (stopped) return;
+    timer = schedule(attempt, retryMs);
+    if (timer?.unref) timer.unref();
+  };
+  const attempt = () => {
+    if (stopped) return;
+    timer = null;
+    let exclusive = false;
+    try {
+      exclusive = canRecover();
+    } catch {
+      exclusive = false;
+    }
+    if (!exclusive) {
+      retry();
+      return;
+    }
+    try {
+      recover(dbModule);
+    } catch (error) {
+      warn(`interrupted remote sync recovery failed: ${error?.message || error}`);
+      retry();
+    }
+  };
+
+  attempt();
+  return () => {
+    stopped = true;
+    if (timer !== null) clearSchedule(timer);
+    timer = null;
+  };
 }
 
 function sumProviderResults(results) {
@@ -1449,17 +1638,22 @@ async function syncSource(dbModule, source, opts = {}) {
   inFlight.add(source.id);
 
   const emitStatus = (status, error, providerStates = null, extra = {}) => {
+    const current = stmts.getRemoteSource.get(source.id);
+    if (!sourceConfigurationMatches(source, current)) return;
+    // A retry is not a successful connection: keep the last failure visible
+    // until a completed attempt supplies a new result.
+    const reportedError = status === "syncing" ? current.last_error || null : error || null;
     try {
       if (providerStates) {
         stmts.setRemoteSourceProviderStatus.run(
           status,
-          error || null,
+          reportedError,
           providerStates.claude || null,
           providerStates.codex || null,
           source.id
         );
       } else {
-        stmts.setRemoteSourceStatus.run(status, error || null, source.id);
+        stmts.setRemoteSourceStatus.run(status, reportedError, source.id);
       }
     } catch {
       /* Remote state reporting must never block a future sync retry. */
@@ -1468,7 +1662,7 @@ async function syncSource(dbModule, source, opts = {}) {
       broadcast("remote_source.status", {
         id: source.id,
         status,
-        error: error || null,
+        error: reportedError,
         ...(providerStates ? { providers: providerStates } : {}),
         ...extra,
       });
@@ -1488,11 +1682,15 @@ async function syncSource(dbModule, source, opts = {}) {
         });
         providerStates[provider] = "ok";
       } catch (err) {
+        if (err?.code === "SOURCE_CHANGED") throw err;
         const error = (err?.message || String(err)).slice(0, 500);
         const status = isUnavailableHistoryError(err) ? "unavailable" : "error";
         results[provider] = { provider, status, error, ids: [], preExisting: new Set() };
         providerStates[provider] = status;
       }
+      // Report the completed half immediately instead of leaving both providers
+      // 'syncing' until the other provider's possibly slow transfer finishes.
+      emitStatus("syncing", null, providerStates);
     }
 
     const successful = REMOTE_PROVIDERS.filter((provider) => results[provider]?.status === "ok");
@@ -1505,6 +1703,7 @@ async function syncSource(dbModule, source, opts = {}) {
     }
 
     const now = new Date().toISOString();
+    assertSourceConfiguration(dbModule, source);
     try {
       stmts.setRemoteSourceSyncResult.run(
         "ok",
@@ -1589,6 +1788,8 @@ async function syncAllEnabled(dbModule, opts = {}) {
 }
 
 module.exports = {
+  recoverInterruptedSyncs,
+  startInterruptedSyncRecovery,
   validateSourceInput,
   ValidationError,
   testConnection,
@@ -1608,6 +1809,9 @@ module.exports = {
   mirrorViaWslTar,
   mirrorViaScp,
   mirrorRemoteTree,
+  recoverPublishedTree,
+  publishMirroredTree,
+  sourceConfigurationMatches,
   stagingDir,
   remoteProjectsPath,
   stagedSessionIds,

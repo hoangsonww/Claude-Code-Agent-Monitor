@@ -156,7 +156,21 @@ router.patch("/:id", (req, res) => {
     v.enabled === undefined ? null : v.enabled,
     req.params.id
   );
-  const row = stmts.getRemoteSource.get(req.params.id);
+  let row = stmts.getRemoteSource.get(req.params.id);
+  const connectionChanged = [
+    "host",
+    "ssh_port",
+    "identity_file",
+    "remote_home",
+    "remote_codex_home",
+    "enabled",
+  ].some((key) => (existing[key] ?? null) !== (row[key] ?? null));
+  if (connectionChanged && existing.status === "syncing") {
+    // The old transfer cannot publish status for these registration settings.
+    // Keep its last successful receipt, but stop reporting it as still active.
+    stmts.setRemoteSourceProviderStatus.run("idle", null, null, null, row.id);
+    row = stmts.getRemoteSource.get(row.id);
+  }
   broadcast("remote_source.status", { id: row.id, status: row.status });
   res.json({ source: serialize(row) });
   if (v.enabled === 1 && !existing.enabled) {

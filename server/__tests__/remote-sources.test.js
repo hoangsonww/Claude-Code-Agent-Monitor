@@ -979,3 +979,46 @@ describe("POST /api/remote-sources/sync-all", () => {
     assert.ok(Array.isArray(res.body.results));
   });
 });
+
+for (const update of [{ host: "replacement-box" }, { enabled: false }]) {
+  it(`PATCH clears an obsolete syncing state for ${Object.keys(update)[0]}`, async () => {
+    const created = await post("/api/remote-sources", {
+      label: "Interrupted",
+      host: "test-box",
+      enabled: false,
+    });
+    const id = created.body.source.id;
+    try {
+      db.prepare(
+        "UPDATE remote_sources SET enabled=1,status='syncing',last_error='old error',claude_status='syncing',codex_status='syncing',last_sync_at='2026-09-01',last_sync_counts='{}' WHERE id=?"
+      ).run(id);
+      const response = await patch(`/api/remote-sources/${id}`, update);
+      assert.equal(response.status, 200);
+      const row = stmts.getRemoteSource.get(id);
+      assert.equal(row.status, "idle");
+      assert.equal(row.last_error, null);
+      assert.notEqual(row.claude_status, "syncing");
+      assert.notEqual(row.codex_status, "syncing");
+      assert.equal(row.last_sync_at, "2026-09-01");
+      assert.equal(row.last_sync_counts, "{}");
+    } finally {
+      await del(`/api/remote-sources/${id}`);
+    }
+  });
+}
+
+it("a label-only PATCH preserves a valid in-flight sync", async () => {
+  const created = await post("/api/remote-sources", {
+    label: "Before",
+    host: "test-box",
+    enabled: false,
+  });
+  const id = created.body.source.id;
+  try {
+    stmts.setRemoteSourceStatus.run("syncing", null, id);
+    await patch(`/api/remote-sources/${id}`, { label: "After" });
+    assert.equal(stmts.getRemoteSource.get(id).status, "syncing");
+  } finally {
+    await del(`/api/remote-sources/${id}`);
+  }
+});

@@ -480,6 +480,36 @@ describe("remote staging never writes into another source's session (Codex)", ()
 
 // Additional ownership regression tests: isolated synthetic data.
 describe("ownership at the moment of mutation", () => {
+  for (const change of ["patch", "delete"]) {
+    it(`stops Claude writes when the transfer registration changes by ${change} during parsing`, async () => {
+      const src = stmts.getRemoteSource.get(newSource().id);
+      const sid = uid("configuration-race");
+      const stage = mkStage();
+      writeSession(stage, sid, 4);
+      let changed = false;
+      await assert.rejects(
+        remoteSync.ingestStagedProvider(dbModule, src, "claude", stage, {
+          expectedSource: src,
+          onProgress: (progress) => {
+            if (changed || progress.phase !== "parse" || progress.processed !== 1) return;
+            changed = true;
+            if (change === "delete") stmts.deleteRemoteSource.run(src.id);
+            else
+              db.prepare("UPDATE remote_sources SET host = ?, status = 'idle' WHERE id = ?").run(
+                "replacement.invalid",
+                src.id
+              );
+          },
+        }),
+        (error) => error.code === "SOURCE_CHANGED"
+      );
+      assert.equal(changed, true);
+      assert.equal(stmts.getSession.get(sid), undefined);
+      assert.equal(fs.existsSync(claudeSnap(sid)), false);
+      if (change === "patch") assert.equal(stmts.getRemoteSource.get(src.id).status, "idle");
+    });
+  }
+
   it("does not overwrite a local row created while remote Claude is parsing", async () => {
     const sid = uid("race-local");
     const src = newSource();

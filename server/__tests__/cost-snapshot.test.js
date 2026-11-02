@@ -335,6 +335,15 @@ describe("cost snapshot", () => {
     );
   });
 
+  it("refuses a snapshot that lists one session twice", () => {
+    const file = path.join(TMP_ROOT, "duplicate-session.tsv");
+    const row = (cost) => ["dup", "claude", "", 1, 1, 0, 0, 0, 0, 0, 0, cost].join("\t");
+    const head =
+      "session_id\tprovider\tsource\tinput\toutput\tcache_read\tcache_write\tcache_write_1h\tweb_search\tweb_fetch\tcode_execution\tcost_usd";
+    fs.writeFileSync(file, `${head}\n${row(1)}\n${row(2)}\n`);
+    assert.throws(() => snap.readSnapshot(file), /row 3 duplicates session_id/);
+  });
+
   it("captures rates, ownership and usage from one committed WAL snapshot", () => {
     const id = uid("atomic");
     const source = uid("source");

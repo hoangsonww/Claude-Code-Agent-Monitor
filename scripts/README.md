@@ -38,6 +38,9 @@ npm run import-history -- --dry-run
 npm run seed
 npm run clear-data                    # dry run
 npm run clear-data -- --yes --backup  # irrevocable, with backup
+node scripts/cost-snapshot.js snapshot --out before.tsv
+node scripts/cost-snapshot.js snapshot --out after.tsv
+node scripts/cost-snapshot.js compare before.tsv after.tsv --fail-on-local-change
 ```
 
 ## Code generation and agent extensions
@@ -84,7 +87,7 @@ npm run test:server
 
 Cost snapshots close their owned scratch database before removing the temporary directory. An embedding caller retains its existing database connection and environment; failed pricing initialization also releases owned handles.
 
-The comparison includes one-hour cache writes and web search, web fetch and code execution usage, including baselines, even if a model has no price and its estimated cost stays zero. Partial snapshots with the earlier eight-column header are rejected; regenerate both snapshots with the same script. Newly added sessions are reported separately and do not fail the existing-session local-change guard.
+The comparison includes one-hour cache writes and web search, web fetch and code execution usage, including baselines, even if a model has no price and its estimated cost stays zero. Partial snapshots with the earlier eight-column header are rejected, as is a snapshot that lists one session twice; regenerate both snapshots with the same script. Newly added sessions are reported separately and do not fail the existing-session local-change guard.
 
 Rate cards, session ownership and usage are captured in one read transaction. The transaction ends before pricing calculations and TSV output, so those steps do not keep the WAL snapshot open.
 

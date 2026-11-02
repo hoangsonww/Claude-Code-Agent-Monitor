@@ -1367,3 +1367,7 @@ The client is a production-ready React application with:
 - 🎨 **Maintainable** - Clear architecture, type-safe, well-documented
 
 For server documentation, see [server/README.md](../server/README.md).
+
+Interrupted remote sync flags become errors on restart without erasing the preceding import receipt.
+
+Remote retries preserve `last_error` and the status-message `error` field while checking. Settings labels it as the last error during retry; a successful sync clears the diagnostic. Previously imported rows and the last successful receipt remain available when transport fails.
