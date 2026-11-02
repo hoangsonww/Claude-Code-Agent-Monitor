@@ -627,6 +627,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | 看门狗存活检查的 Transcript 或最后 Hook 空闲门槛。启动探测忽略此门槛，使已经结束的会话立即清除。 |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | 新增或变化的 `~/.claude/projects` 文件的安全轮询间隔。`fs.watch` 仍会立即响应；`0` 只禁用轮询。 |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Cursor Chat、Transcript、回填和持久快照的状态根目录。 |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | 未设置 | 设为 `1` 时不改写 `~/.cursor/hooks.json`。自定义 `DASHBOARD_DB_PATH` 仍会安装 Cursor 用量 Hook。 |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | 基于指纹的 Cursor 安全轮询。设为 `0` 时监听器仍保持活动。 |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 或 `~/.codex` | Codex 状态根目录。Settings 会持久化覆盖值、重新启用监听并立即扫描。 |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Codex rollout 安全轮询。设为 `0` 时 Hook 和监听器仍保持活动。 |

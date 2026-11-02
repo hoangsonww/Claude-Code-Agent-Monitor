@@ -27,7 +27,11 @@ const { getRemotePushToken, extractHeaderOnlyToken, tokensMatch } = require("../
 const { REMOTE_PROVIDERS, assertProvider } = require("../lib/remote-sync");
 const { normalizeSpeed, normalizeGeo, normalizeTier } = require("../lib/token-usage");
 const { isCursorTranscriptPath } = require("../lib/cursor-home");
-const { applyCursorTurnUsage, normalizeCursorHook } = require("../lib/cursor-turn-usage");
+const {
+  applyCursorTurnUsage,
+  isCursorTurnPayload,
+  normalizeCursorHook,
+} = require("../lib/cursor-turn-usage");
 const { getProjectsDir } = require("../lib/claude-home");
 const {
   TranscriptPathError,
@@ -538,8 +542,11 @@ const processEvent = db.transaction((hookType, data, origin = null) => {
 
   const session = ensureSession(sessionId, data, origin);
   if (!session) return null;
-  if (applyCursorTurnUsage(stmts, sessionId, data) && session.provider !== "cursor") {
-    stmts.setSessionProvider.run("cursor", sessionId);
+  if (isCursorTurnPayload(hookType, data)) {
+    const applied = applyCursorTurnUsage(stmts, sessionId, data);
+    if (applied && session.provider !== "cursor" && session.provider !== "codex") {
+      stmts.setSessionProvider.run("cursor", sessionId);
+    }
   }
 
   // Remote household hooks (aideck-hook.js on other machines) cannot rely on
@@ -1459,17 +1466,20 @@ router.post("/event", (req, res) => {
   const normalized = normalizeCursorHook(hook_type, data);
   // afterAgentResponse carries the same turn totals as stop, but it fires
   // while the agent is still working. Record the usage without a timeline row.
-  if (
-    normalized.hookType === "afterAgentResponse" &&
-    normalized.data.session_id &&
-    stmts.getSession.get(normalized.data.session_id)
-  ) {
-    try {
-      applyCursorTurnUsage(stmts, normalized.data.session_id, normalized.data);
-      const session = stmts.getSession.get(normalized.data.session_id);
-      if (session) broadcast("session_updated", session);
-    } catch {
-      // Usage is optional on the payload; the next stop hook can still record it.
+  if (normalized.hookType === "afterAgentResponse") {
+    const sessionId = normalized.data.session_id;
+    const session = sessionId ? stmts.getSession.get(sessionId) : null;
+    if (session) {
+      try {
+        const applied = applyCursorTurnUsage(stmts, sessionId, normalized.data);
+        if (applied && session.provider !== "cursor" && session.provider !== "codex") {
+          stmts.setSessionProvider.run("cursor", sessionId);
+        }
+        const refreshed = stmts.getSession.get(sessionId);
+        if (refreshed) broadcast("session_updated", refreshed);
+      } catch {
+        // Usage is optional on the payload; the next stop hook can still record it.
+      }
     }
     return res.json({ ok: true });
   }

@@ -18,8 +18,10 @@ function hooksPath() {
   return path.join(getCursorHome(), "hooks.json");
 }
 
-function isOurCommand(entry) {
-  return typeof entry?.command === "string" && entry.command.includes("hook-handler.js");
+function isOurCommand(entry, hookType) {
+  if (typeof entry?.command !== "string") return false;
+  const command = entry.command.trim();
+  return command.includes(HOOK_HANDLER) && command.endsWith(hookType);
 }
 
 const CURSOR_HOOKS = [
@@ -33,9 +35,9 @@ function getCursorHookStatus() {
     if (!fs.existsSync(filePath)) return { installed: false, path: filePath, hooks: {} };
     const config = JSON.parse(fs.readFileSync(filePath, "utf8"));
     const hooks = {};
-    for (const [name] of CURSOR_HOOKS) {
+    for (const [name, hookType] of CURSOR_HOOKS) {
       const list = Array.isArray(config.hooks?.[name]) ? config.hooks[name] : [];
-      hooks[name] = list.some(isOurCommand);
+      hooks[name] = list.some((entry) => isOurCommand(entry, hookType));
     }
     return {
       installed: Object.values(hooks).every(Boolean),
@@ -67,7 +69,7 @@ function installCursorHooks({ silent = false } = {}) {
   for (const [name, hookType] of CURSOR_HOOKS) {
     if (!Array.isArray(config.hooks[name])) config.hooks[name] = [];
     const command = `node "${HOOK_HANDLER}" ${hookType}`;
-    const index = config.hooks[name].findIndex(isOurCommand);
+    const index = config.hooks[name].findIndex((entry) => isOurCommand(entry, hookType));
     if (index >= 0) {
       config.hooks[name][index] = { ...config.hooks[name][index], command };
       replaced += 1;
@@ -77,7 +79,20 @@ function installCursorHooks({ silent = false } = {}) {
   }
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(config, null, 2)}\n`);
+  const tmpPath = path.join(path.dirname(filePath), `.hooks.json.${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`);
+    fs.renameSync(tmpPath, filePath);
+  } catch (error) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      // The temp file may not exist if the write itself failed.
+    }
+    const message = `Failed to write ${filePath}: ${error.message}`;
+    if (!silent) console.error(message);
+    return { ok: false, output: [message], status: getCursorHookStatus() };
+  }
   const status = getCursorHookStatus();
   return {
     ok: status.installed,

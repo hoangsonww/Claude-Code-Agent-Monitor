@@ -75,8 +75,23 @@ function normalizeCursorTurnUsage(data) {
 }
 
 /**
+ * Cursor's stop and afterAgentResponse payloads carry conversation_id,
+ * cursor_version, or model_params. A Claude hook that merely includes token
+ * fields does not.
+ * @param {string} hookType
+ * @param {Record<string, unknown>} data
+ */
+function isCursorTurnPayload(hookType, data) {
+  if (!data || typeof data !== "object") return false;
+  if (hookType === "afterAgentResponse") return true;
+  if (hookType !== "Stop" && hookType !== "stop") return false;
+  return Boolean(data.conversation_id || data.cursor_version || Array.isArray(data.model_params));
+}
+
+/**
  * Accept Cursor's `conversation_id` as the dashboard session id, and map
  * `status: "error"` onto the Claude Stop field the session state machine reads.
+ * Cursor account email is removed from usage hooks before the payload is stored.
  * @param {string} hookType
  * @param {Record<string, unknown>} data
  */
@@ -90,6 +105,11 @@ function normalizeCursorHook(hookType, data) {
   if (type === "Stop" && !next.stop_reason && next.status === "error") {
     next.stop_reason = "error";
   }
+  // Cursor account email rides on the hook envelope. Nothing in the dashboard
+  // reads it, so drop it before the Cursor usage hooks persist the payload.
+  if (isCursorTurnPayload(type, next) || isCursorTurnPayload(hookType, next)) {
+    delete next.user_email;
+  }
   return { hookType: type, data: next };
 }
 
@@ -102,6 +122,7 @@ function normalizeCursorHook(hookType, data) {
 function applyCursorTurnUsage(stmts, sessionId, data) {
   const snap = normalizeCursorTurnUsage(data);
   if (!snap || !sessionId) return false;
+  const previous = stmts.getCursorTurn.get(sessionId, snap.generationId);
   stmts.upsertCursorTurnUsage.run(
     sessionId,
     snap.generationId,
@@ -113,8 +134,15 @@ function applyCursorTurnUsage(stmts, sessionId, data) {
     snap.cacheWrite
   );
   const buckets = stmts.sumCursorTurnUsage.all(sessionId);
+  const live = new Set(buckets.map((bucket) => `${bucket.model}\0${bucket.speed}`));
+  if (previous && !live.has(`${previous.model}\0${previous.speed}`)) {
+    stmts.deleteTokenUsageBucket.run(sessionId, previous.model, previous.speed);
+  }
+  // resetTokenUsage writes the grouped sum as the full total and clears
+  // compaction baselines. replaceTokenUsage would fold a smaller correction
+  // back into the baseline and keep the old total on screen.
   for (const bucket of buckets) {
-    stmts.replaceTokenUsage.run(
+    stmts.resetTokenUsage.run(
       sessionId,
       bucket.model,
       bucket.speed,
@@ -136,5 +164,6 @@ function applyCursorTurnUsage(stmts, sessionId, data) {
 module.exports = {
   normalizeCursorTurnUsage,
   normalizeCursorHook,
+  isCursorTurnPayload,
   applyCursorTurnUsage,
 };

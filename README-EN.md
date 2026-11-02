@@ -625,6 +625,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | Transcript or last-hook idle gate for watchdog liveness checks. Startup probes ignore the gate so already-dead sessions clear immediately. |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | Safety poll for new or changed `~/.claude/projects` files. `fs.watch` remains immediate; `0` disables only polling. |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Cursor state root for chats, transcripts, backfill, and durable snapshots. |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | unset | Set `1` to leave `~/.cursor/hooks.json` unchanged. A custom `DASHBOARD_DB_PATH` still installs the Cursor usage hooks. |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | Fingerprinted Cursor safety poll. Watchers stay active when `0` disables polling. |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` or `~/.codex` | Codex state root. Settings persists an override, rearms watching, and scans immediately. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Codex rollout safety poll. Hooks and watchers remain active when set to `0`. |

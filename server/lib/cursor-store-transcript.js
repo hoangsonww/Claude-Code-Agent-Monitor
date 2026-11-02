@@ -202,12 +202,12 @@ function snapshotCursorStore(sessionId) {
   const liveDir = findCursorChatDir(sessionId);
   const source = liveDir && path.join(liveDir, "store.db");
   if (!source || !fs.existsSync(source)) return false;
-  lastStoreSnapshot.set(sessionId, now);
-  const destDir = path.join(getCursorSnapshotDir(), sessionId);
-  fs.mkdirSync(destDir, { recursive: true });
-  const dest = path.join(destDir, "store.db");
   let db;
   try {
+    const destDir = path.join(getCursorSnapshotDir(), sessionId);
+    fs.mkdirSync(destDir, { recursive: true });
+    const dest = path.join(destDir, "store.db");
+    lastStoreSnapshot.set(sessionId, now);
     const Database = require("better-sqlite3");
     db = new Database(source, { readonly: true, fileMustExist: true, timeout: 250 });
     const backup = db.backup(dest);
@@ -218,13 +218,18 @@ function snapshotCursorStore(sessionId) {
         // Already closed.
       }
     };
+    const retryLater = () => lastStoreSnapshot.delete(sessionId);
     if (backup && typeof backup.then === "function") {
-      backup.then(close, close);
+      backup.then(close, () => {
+        retryLater();
+        close();
+      });
     } else {
       close();
     }
     return true;
   } catch {
+    lastStoreSnapshot.delete(sessionId);
     try {
       db?.close();
     } catch {

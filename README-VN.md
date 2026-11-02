@@ -625,6 +625,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | Ngưỡng transcript hoặc hook cuối không hoạt động cho kiểm tra liveness của watchdog. Kiểm tra lúc khởi động bỏ qua ngưỡng để dọn ngay phiên đã chết. |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | Poll an toàn cho tệp mới hoặc đã đổi trong `~/.claude/projects`. `fs.watch` vẫn tức thì; `0` chỉ tắt polling. |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Thư mục gốc trạng thái Cursor cho chat, transcript, backfill và snapshot bền vững. |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | không đặt | Đặt `1` để giữ nguyên `~/.cursor/hooks.json`. `DASHBOARD_DB_PATH` tùy chỉnh vẫn cài hook tính giá của Cursor. |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | Poll an toàn Cursor có fingerprint. Watcher vẫn hoạt động khi `0` tắt polling. |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` hoặc `~/.codex` | Thư mục gốc trạng thái Codex. Cài đặt lưu override, bật lại watcher và quét ngay. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Poll an toàn rollout Codex. Hook và watcher vẫn hoạt động khi đặt `0`. |

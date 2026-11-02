@@ -2104,6 +2104,17 @@ const stmts = {
     WHERE session_id = ?
     GROUP BY model, speed
   `),
+  getCursorTurn: db.prepare(
+    "SELECT model, speed FROM cursor_turn_usage WHERE session_id = ? AND generation_id = ?"
+  ),
+  // Removes one Cursor bucket after that generation moves to a different model
+  // or speed. Scoped to the default pricing dimensions Cursor writes, so a
+  // Claude transcript bucket on another model stays put.
+  deleteTokenUsageBucket: db.prepare(`
+    DELETE FROM token_usage
+    WHERE session_id = ? AND model = ? AND speed = ?
+      AND inference_geo = 'global' AND service_tier = 'standard' AND context_size = 'short'
+  `),
 
   // Repair variant of replaceTokenUsage: writes the given totals as the full
   // truth and ZEROES the compaction baselines instead of folding a decrease

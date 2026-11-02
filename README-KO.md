@@ -627,6 +627,7 @@ flowchart LR
 | `DASHBOARD_LIVENESS_IDLE_SECONDS` | `60` | Watchdog liveness 확인을 위한 트랜스크립트 또는 마지막 Hook idle gate입니다. 시작 probe는 이 gate를 무시하므로 이미 종료된 세션을 즉시 정리합니다. |
 | `DASHBOARD_SESSION_SYNC_MS` | `30000` | 새로 생기거나 변경된 `~/.claude/projects` 파일을 위한 안전 poll입니다. `fs.watch`는 계속 즉시 작동하며 `0`은 polling만 끕니다. |
 | `DASHBOARD_CURSOR_HOME` | `~/.cursor` | Chat, transcript, backfill, durable snapshot을 위한 Cursor 상태 root입니다. |
+| `DASHBOARD_SKIP_CURSOR_HOOKS` | 미설정 | `1`이면 `~/.cursor/hooks.json`을 그대로 둡니다. 사용자 지정 `DASHBOARD_DB_PATH`여도 Cursor 사용량 Hook은 설치됩니다. |
 | `DASHBOARD_CURSOR_SYNC_MS` | `5000` | Fingerprint 기반 Cursor 안전 poll입니다. `0`으로 polling을 꺼도 watcher는 계속 작동합니다. |
 | `DASHBOARD_CODEX_HOME` | `CODEX_HOME` 또는 `~/.codex` | Codex 상태 root입니다. Settings에 override를 저장하면 watching을 다시 설정하고 즉시 스캔합니다. |
 | `DASHBOARD_CODEX_SYNC_MS` | `4000` | Codex rollout 안전 poll입니다. `0`으로 설정해도 Hook과 watcher는 계속 작동합니다. |

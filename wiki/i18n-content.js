@@ -7820,26 +7820,34 @@ Object.assign(window.__WIKI_CONTENT_I18N.plain.es, {
 });
 
 Object.assign(window.__WIKI_CONTENT_I18N.zh, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted without separate hook installation.":
-    "可选的 Cursor 主目录，包含 <code>projects/agent-transcripts</code> 与 <code>chats</code> 元数据。无需单独安装 Hook 即可回填本地历史并创建快照。",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
+    "可选的 Cursor 主目录，包含 <code>projects/agent-transcripts</code> 与 <code>chats</code> 元数据。本地历史会被回填并创建快照。除非 <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>，启动时还会安装 Cursor 用量 Hook。",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
+    "设为 <code>1</code> 时不改写 <code>~/.cursor/hooks.json</code>。自定义 <code>DASHBOARD_DB_PATH</code> 仍会安装 Cursor 用量 Hook。",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Cursor Chat/Transcript 安全兜底间隔（毫秒）。文件系统监听仍会立即采集 CLI 启动与 Prompt 变化；<code>0</code> 只禁用周期发现。",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.vi, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted without separate hook installation.":
-    "Thư mục Cursor tùy chọn chứa <code>projects/agent-transcripts</code> và metadata <code>chats</code>. Lịch sử cục bộ được backfill và snapshot mà không cần cài Hook riêng.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
+    "Thư mục Cursor tùy chọn chứa <code>projects/agent-transcripts</code> và metadata <code>chats</code>. Lịch sử cục bộ được backfill và snapshot. Khởi động cài hook tính giá của Cursor trừ khi <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
+    "Đặt <code>1</code> để giữ nguyên <code>~/.cursor/hooks.json</code>. <code>DASHBOARD_DB_PATH</code> tùy chỉnh vẫn cài hook tính giá của Cursor.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Khoảng an toàn cho chat/transcript Cursor (ms). Theo dõi hệ thống tệp vẫn ingest ngay lúc CLI khởi động và khi prompt thay đổi; <code>0</code> chỉ tắt phát hiện định kỳ.",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.ko, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted without separate hook installation.":
-    "<code>projects/agent-transcripts</code>와 <code>chats</code> 메타데이터를 포함하는 선택적 Cursor 홈입니다. 별도 Hook 설치 없이 로컬 기록을 백필하고 스냅샷합니다.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
+    "<code>projects/agent-transcripts</code>와 <code>chats</code> 메타데이터를 포함하는 선택적 Cursor 홈입니다. 로컬 기록을 백필하고 스냅샷합니다. <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>이 아니면 시작 시 Cursor 사용량 Hook을 설치합니다.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
+    "<code>1</code>이면 <code>~/.cursor/hooks.json</code>을 그대로 둡니다. 사용자 지정 <code>DASHBOARD_DB_PATH</code>여도 Cursor 사용량 Hook은 설치됩니다.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Cursor Chat/Transcript 안전망 간격(ms)입니다. 파일시스템 감시는 CLI 시작과 Prompt 변경을 즉시 수집하며 <code>0</code>은 주기 검색만 비활성화합니다.",
 });
 Object.assign(window.__WIKI_CONTENT_I18N.es, {
-  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted without separate hook installation.":
-    "Directorio opcional de Cursor con <code>projects/agent-transcripts</code> y metadatos de <code>chats</code>. El historial local se completa y conserva sin instalar Hooks por separado.",
+  "Optional Cursor home containing <code>projects/agent-transcripts</code> and <code>chats</code> metadata. Local history is backfilled and snapshotted. Startup installs Cursor usage hooks unless <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.":
+    "Directorio opcional de Cursor con <code>projects/agent-transcripts</code> y metadatos de <code>chats</code>. El historial local se completa y se conserva. El arranque instala los hooks de uso de Cursor salvo <code>DASHBOARD_SKIP_CURSOR_HOOKS=1</code>.",
+  "Set <code>1</code> to leave <code>~/.cursor/hooks.json</code> unchanged. A custom <code>DASHBOARD_DB_PATH</code> still installs the Cursor usage hooks.":
+    "<code>1</code> deja <code>~/.cursor/hooks.json</code> sin cambios. Un <code>DASHBOARD_DB_PATH</code> personalizado sigue instalando los hooks de uso de Cursor.",
   "Cursor chat/transcript safety-net interval (ms). Filesystem watching still imports CLI startup and prompt changes immediately; <code>0</code> disables only periodic discovery.":
     "Intervalo de seguridad para chats/transcripciones de Cursor (ms). El observador incorpora de inmediato el inicio del CLI y los cambios de prompt; <code>0</code> solo desactiva el descubrimiento periódico.",
 });

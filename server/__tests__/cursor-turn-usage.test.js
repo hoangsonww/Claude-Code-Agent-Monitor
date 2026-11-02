@@ -21,6 +21,7 @@ process.env.DASHBOARD_LIVENESS_PROBE = "0";
 const {
   normalizeCursorTurnUsage,
   normalizeCursorHook,
+  isCursorTurnPayload,
   applyCursorTurnUsage,
 } = require("../lib/cursor-turn-usage");
 const { db, stmts } = require("../db");
@@ -70,10 +71,27 @@ describe("Cursor turn usage", () => {
       conversation_id: "abc",
       status: "error",
       input_tokens: 10,
+      user_email: "person@example.com",
     });
     assert.equal(normalized.hookType, "Stop");
     assert.equal(normalized.data.session_id, "abc");
     assert.equal(normalized.data.stop_reason, "error");
+    assert.equal("user_email" in normalized.data, false);
+  });
+
+  it("keeps user_email on hooks that are not Cursor usage payloads", () => {
+    const claude = normalizeCursorHook("PreToolUse", {
+      session_id: "claude-session",
+      user_email: "person@example.com",
+      input_tokens: 10,
+      output_tokens: 10,
+    });
+    assert.equal(claude.data.user_email, "person@example.com");
+    assert.equal(isCursorTurnPayload("PreToolUse", claude.data), false);
+    assert.equal(
+      isCursorTurnPayload("Stop", { conversation_id: "cursor-session", input_tokens: 10 }),
+      true
+    );
   });
 
   it("prices the sum of turns once, even when stop repeats a generation", () => {
@@ -103,12 +121,62 @@ describe("Cursor turn usage", () => {
     assert.equal(priced.breakdown[0].matched_rule, "grok-4.7%");
   });
 
+  it("lowers a corrected generation and drops only the abandoned Cursor bucket", () => {
+    const sessionId = "cursor-turn-correction";
+    stmts.insertSession.run(sessionId, "Cursor", "active", "/tmp", "grok-4.6", null);
+    stmts.resetTokenUsage.run(
+      sessionId,
+      "claude-sonnet",
+      "standard",
+      "global",
+      "standard",
+      50,
+      50,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    );
+    assert.equal(
+      applyCursorTurnUsage(stmts, sessionId, {
+        generation_id: "a",
+        model_id: "grok-4.6",
+        input_tokens: 1_000_000,
+        output_tokens: 0,
+      }),
+      true
+    );
+    assert.equal(
+      applyCursorTurnUsage(stmts, sessionId, {
+        generation_id: "a",
+        model_id: "grok-4.7",
+        input_tokens: 100_000,
+        output_tokens: 0,
+      }),
+      true
+    );
+    const rows = stmts.getTokensBySession.all(sessionId);
+    assert.equal(
+      rows.find((row) => row.model === "grok-4.6"),
+      undefined
+    );
+    assert.equal(rows.find((row) => row.model === "grok-4.7").input_tokens, 100_000);
+    assert.equal(rows.find((row) => row.model === "claude-sonnet").input_tokens, 50);
+  });
+
   it("installs only the dashboard stop command and keeps other Cursor hooks", () => {
     const filePath = path.join(process.env.DASHBOARD_CURSOR_HOME, "hooks.json");
     fs.mkdirSync(process.env.DASHBOARD_CURSOR_HOME, { recursive: true });
     fs.writeFileSync(
       filePath,
-      JSON.stringify({ version: 1, hooks: { stop: [{ command: "keep-me" }] } })
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          stop: [{ command: "keep-me" }, { command: 'node "/tmp/other/hook-handler.js" Stop' }],
+        },
+      })
     );
     const first = installCursorHooks({ silent: true });
     const second = installCursorHooks({ silent: true });
@@ -118,8 +186,14 @@ describe("Cursor turn usage", () => {
     const config = JSON.parse(fs.readFileSync(filePath, "utf8"));
     assert.equal(config.hooks.stop.filter((entry) => entry.command === "keep-me").length, 1);
     assert.equal(
-      config.hooks.stop.filter((entry) => String(entry.command).includes("hook-handler.js")).length,
+      config.hooks.stop.filter(
+        (entry) => entry.command === 'node "/tmp/other/hook-handler.js" Stop'
+      ).length,
       1
+    );
+    assert.equal(
+      config.hooks.stop.filter((entry) => String(entry.command).includes("hook-handler.js")).length,
+      2
     );
     assert.equal(
       config.hooks.afterAgentResponse.filter((entry) =>

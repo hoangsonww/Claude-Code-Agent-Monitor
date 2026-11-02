@@ -1583,12 +1583,13 @@ if (require.main === module) {
           "POST to http://localhost:4820 (this container's published port)."
       );
     }
-    // Tests point DASHBOARD_DB_PATH at a throwaway file and must not rewrite
-    // the developer's real ~/.cursor/hooks.json. A suite that also sets
-    // DASHBOARD_CURSOR_HOME installs into that temporary home instead.
+    // node:test sets NODE_TEST_CONTEXT, and DASHBOARD_SKIP_CURSOR_HOOKS=1
+    // opts out. A custom DASHBOARD_DB_PATH is a normal install and still
+    // receives the Cursor hooks.
     if (
       !isInsideContainer() &&
-      (!process.env.DASHBOARD_DB_PATH || process.env.DASHBOARD_CURSOR_HOME)
+      !process.env.NODE_TEST_CONTEXT &&
+      process.env.DASHBOARD_SKIP_CURSOR_HOOKS !== "1"
     ) {
       const { installCursorHooks } = require("../scripts/install-cursor-hooks");
       const cursorHooks = installCursorHooks({ silent: true });
