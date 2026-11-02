@@ -12,6 +12,293 @@
  * concurrent-write races with the live CLI.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/pages/CcConfig.tsx
+ * **Area:** client page
+ * **Responsibility:**
+ * Agent configuration explorer. Switches between the complete Claude Code configuration workspace
+ * and a backup-backed editable Codex explorer. The Claude workspace surfaces every plugin, skill,
+ * subagent, slash command, MCP server, hook, settings file, memory file, marketplace, keybinding,
+ * and statusline script Claude Code knows about. Read access for all surfaces; create / edit /
+ * delete for the low-risk text-file surfaces (skills, agents, commands, output styles, CLAUDE.md
+ * memory, and per-project file-based memory files). Plugins, MCP, hooks-in-settings, and
+ * settings.json files stay read-only - those have concurrent-write races with the live CLI.
+ *
+ * ## Architectural boundary
+ * - Route-level orchestration belongs here: load scoped data, subscribe to live updates, and
+ *   compose reusable components.
+ * - Server authority remains on the API side; the page may explain or confirm actions but must not
+ *   invent authorization rules.
+ * - The global data-source scope must flow through shared API helpers so local, all-source, and
+ *   selected-source views agree.
+ *
+ * ## Local dependency edges
+ * - `../components/CodexConfigExplorer` — repository-local contract consumed by this module; review
+ *   its exports before changing assumptions here.
+ * - `../components/PaletteActionProvider` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../components/PaletteHint` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../hooks/usePageShortcuts` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-i18next` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `CcConfig` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `BackupRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BackupsModal` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcConfig` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CommandSnippet` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CONFIG_OPTION_GROUPS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConfirmDeleteModal` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConfirmDeleteModalProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ConfirmDeleteState` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CopyButton` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CurrentConfigPanel` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `deriveActivePath` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `EditorModal` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EditorModalProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `EditorState` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Empty` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `EMPTY_STATE` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ExplainerBanner` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ExplainerBannerProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Field` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FileViewer` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `formatBytes` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Header` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `HeaderProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `HooksPanel` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `isMutable` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `KeybindingsPanel` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MarketplacesPanel` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `McpCard` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `McpPanel` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MdItemCard` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MdItemCardProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MdItemList` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MdItemListProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MemoryAutoActions` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MemoryAutoItemProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `memoryDescription` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MemoryFactRow` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MemoryIndexCard` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `MemoryPanel` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `MemoryPanelProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MemoryProjectGroup` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `MemoryProjectGroupProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `normalizeMemoryTarget` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `OverviewPanel` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PageState` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PluginCard` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PluginsPanel` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ProviderToggle` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `renderMemoryIndex` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RootRow` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ScopeBadge` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ScopeToggle` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SettingsBlock` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SettingsKeyValueList` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SettingsPanel` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SettingsValue` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `shellEscape` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SkeletonRows` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `StatuslineBlock` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SummaryStat` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SummaryStatProps` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `TAB_KEYS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabDef` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabKey` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabPanel` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabPanelProps` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `Tabs` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TABS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabsProps` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `tabToArtifactType` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Toast` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ToastNotice` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Tone` (type) — top-level declaration that helps orient code review and focused test selection.
+ * - `TONES` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useMemo` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `usePaletteAction` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useSyncExternalStore` — lifecycle/state dependency detected in this module; preserve
+ *   dependency freshness and cleanup semantics.
+ * - `useTranslation` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useUrlTab` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ *
+ * ## Translation namespaces
+ * - `ccConfig` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ * - `common` — visible copy resolves through this namespace; key and interpolation parity applies
+ *   to every supported locale.
+ *
+ * ## Area invariants
+ * - Represent loading, empty, partial, error, and refreshed states deliberately; a blank panel is
+ *   not an error strategy.
+ * - Cancel or ignore stale asynchronous work when parameters, source scope, or component lifetime
+ *   changes.
+ * - Merge WebSocket deltas without duplicating entities already returned by the REST snapshot.
+ * - Keep query parameters and route state shareable when the surrounding router already exposes
+ *   that state in URLs.
+ * - Use translation keys for visible copy and preserve interpolation tokens across every supported
+ *   locale.
+ * - Keep expensive derivations memoized only when profiling or dependency stability justifies the
+ *   extra contract.
+ * - Preserve keyboard focus and useful headings when switching tabs, filters, drawers, or modal
+ *   states.
+ * - Do not make destructive requests without the confirmation and server-side gate required by the
+ *   underlying API.
+ * - Use canonical formatting helpers for timestamps, durations, token counts, costs, and provider
+ *   labels.
+ * - Keep page-level polling and event subscriptions bounded; cleanup must run on unmount and scope
+ *   changes.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/pages/CcConfig.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

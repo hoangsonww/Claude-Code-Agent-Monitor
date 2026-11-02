@@ -3,6 +3,162 @@
  * @description A collection of utility functions for formatting console output in the MCP application. This includes functions for creating boxed sections, tables, status badges, formatted tool results, and key-value lists. The formatting is designed to be visually appealing and informative when printed to the terminal, using colors and styles to enhance readability. These utilities are used across various tools and components in the MCP application to maintain a consistent look and feel in the console output.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/ui/formatter.ts
+ * **Area:** MCP server
+ * **Responsibility:**
+ * A collection of utility functions for formatting console output in the MCP application. This
+ * includes functions for creating boxed sections, tables, status badges, formatted tool results,
+ * and key-value lists. The formatting is designed to be visually appealing and informative when
+ * printed to the terminal, using colors and styles to enhance readability. These utilities are used
+ * across various tools and components in the MCP application to maintain a consistent look and feel
+ * in the console output.
+ *
+ * ## Architectural boundary
+ * - Composes MCP configuration, API access, logging, registry, lifecycle, and transport-independent
+ *   server behavior.
+ * - Domain modules own individual tools; this layer owns consistent registration and process-level
+ *   coordination.
+ * - Host disappearance and signals must converge on bounded, idempotent cleanup.
+ *
+ * ## Local dependency edges
+ * - `./colors.js` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Public surface
+ * - `badge` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `box` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `Column` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `divider` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `formatToolError` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `formatToolResult` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `keyValue` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `progressBar` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `sectionHeader` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SPINNER_FRAMES` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `table` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `alignText` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `badge` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `box` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_BL` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_BR` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_H` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_ML` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_MR` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_TL` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_TR` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BOX_V` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Column` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `divider` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `formatToolError` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `formatToolResult` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `keyValue` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `pad` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `progressBar` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `sectionHeader` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SPINNER_FRAMES` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `STATUS_COLORS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `syntaxHighlight` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `table` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Keep server metadata and advertised capabilities synchronized with the actual registered
+ *   implementation.
+ * - Do not let one tool-registration failure leave a partially initialized server accepting
+ *   requests.
+ * - Preserve transport neutrality for tool behavior and result formatting.
+ * - Route logs away from protocol stdout and redact secret-bearing fields.
+ * - Make startup failures explicit and nonzero while allowing graceful close to finish in-flight
+ *   cleanup.
+ * - Keep orphan detection bounded and compare against the correct startup parent semantics.
+ * - Avoid module-evaluation side effects that complicate tests or create resources before
+ *   configuration validates.
+ * - Keep tool collection deterministic so schemas and help output do not reorder between runs.
+ * - Treat unhandled rejection and exception paths as process health failures without double-running
+ *   shutdown.
+ * - Test server construction independently from real network transports where the SDK permits it.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/ui/formatter.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

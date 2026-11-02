@@ -13,6 +13,154 @@
  *   deep-link to /run?prompt=…&autostart=1 - no new LLM backend.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/Tabby/Tabby.tsx
+ * **Area:** client Tabby component
+ * **Responsibility:**
+ * Floating cat companion shell. Mounts once (next to UpdateNotifier in Layout) so it persists
+ * across routes and shares the single WebSocket. Owns the open/closed panel state, the ⌘B / Esc
+ * shortcuts, reduced-motion detection, and route navigation. Reactive personality + status/Ask come
+ * from useTabbyBrain; the avatar is draggable (AssistiveTouch-style) via useTabbyPosition, a
+ * compact hover greeting, and the bubble/panel render in a self-clamping flyout so they never spill
+ * off any screen edge regardless of where the cat is docked. The "do the job" path reuses the
+ * existing Run page: unmatched Ask queries deep-link to /run?prompt=…&autostart=1 - no new LLM
+ * backend.
+ *
+ * ## Architectural boundary
+ * - Provides the optional Tabby companion layer without becoming a dependency of core monitoring
+ *   workflows.
+ * - Intent recognition, state transitions, positioning, and rendering remain separable so
+ *   decoration cannot block data views.
+ * - Reduced-motion, hidden, and disabled states are first-class outcomes rather than exceptional
+ *   branches.
+ *
+ * ## Local dependency edges
+ * - `./CatAvatar` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./intents` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./prefs` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./SpeechBubble` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./tabby.css` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./TabbyPanel` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./useTabbyBrain` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `./useTabbyPosition` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `Tabby` (function) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `Anchor` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FLYOUT_GAP` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Tabby` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabbyFlyout` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `usePrefersReducedMotion` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `VIEWPORT_MARGIN` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## React and framework hooks
+ * - `useCallback` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useEffect` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useLayoutEffect` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useNavigate` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `usePrefersReducedMotion` — lifecycle/state dependency detected in this module; preserve
+ *   dependency freshness and cleanup semantics.
+ * - `useRef` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useState` — lifecycle/state dependency detected in this module; preserve dependency freshness
+ *   and cleanup semantics.
+ * - `useTabbyBrain` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useTabbyPosition` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Area invariants
+ * - Keep companion reactions deterministic for a given event/state input when tests assert a
+ *   specific response.
+ * - Bound timers, animation frames, listeners, and persisted position state; clean them up on
+ *   unmount.
+ * - Respect reduced-motion preferences and never require animation to communicate dashboard status.
+ * - Keep the companion out of keyboard focus order unless an element performs an actual interactive
+ *   action.
+ * - Constrain dragging and restored coordinates to the current viewport after resizes or display
+ *   changes.
+ * - Avoid coupling core API requests or monitoring state transitions to companion visibility.
+ * - Keep quips and intent vocabulary aligned with the localization decision already established by
+ *   the module.
+ * - Do not let decorative overlays cover destructive confirmations, navigation, or primary session
+ *   controls.
+ * - Prefer explicit state-machine transitions over intersecting booleans that allow impossible
+ *   poses.
+ * - Test cleanup with fake timers where time drives behavior, then restore timer globals after each
+ *   case.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/Tabby/Tabby.tsx` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

@@ -4,6 +4,121 @@
  * Claude Code and Codex processes, including model and file discovery.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/tools/domains/run-tools.ts
+ * **Area:** MCP tool
+ * **Responsibility:**
+ * MCP tools for inspecting and controlling dashboard-launched Claude Code and Codex processes,
+ * including model and file discovery.
+ *
+ * ## Architectural boundary
+ * - Exposes one dashboard capability through a schema-validated MCP tool while delegating data
+ *   access to the API client.
+ * - Tool descriptions and schemas are part of the model-facing API and must remain precise enough
+ *   for safe selection.
+ * - Mutation and destructive permissions are enforced centrally and cannot be bypassed by a domain
+ *   handler.
+ *
+ * ## Local dependency edges
+ * - `../../core/tool-registry.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../../policy/tool-guards.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../../types/tool-context.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `zod` — external package boundary; keep usage within the installed version and the repository's
+ *   existing adapter patterns.
+ *
+ * ## Public surface
+ * - `registerRunTools` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `ProviderSchema` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `registerRunTools` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Literal API paths
+ * - `/api/run` — route literal present in this source; keep request/response expectations aligned
+ *   with the server and API docs.
+ * - `/api/run/binary` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ * - `/api/run/cwds` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ * - `/api/run/files` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ * - `/api/run/history` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ * - `/api/run/models` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ *
+ * ## Area invariants
+ * - Validate every argument with the declared schema before constructing requests or selecting
+ *   resource identifiers.
+ * - Keep read, mutation, and destructive operations correctly classified for policy guards.
+ * - Return structured tool results through shared helpers so errors and JSON payloads remain
+ *   transport-neutral.
+ * - Do not leak dashboard tokens, webhook secrets, SSH material, raw environment values, or
+ *   unredacted configuration.
+ * - Preserve pagination and explicit limits for potentially large session, event, transcript, or
+ *   metrics responses.
+ * - Use exact API route and field names from the typed client rather than duplicating ad hoc HTTP
+ *   calls.
+ * - Keep tool names stable; hosts and prompts may persist them outside this repository.
+ * - Explain confirmation requirements in both schema descriptions and policy errors for destructive
+ *   actions.
+ * - Keep handlers independent of stdio, HTTP, and REPL transport details.
+ * - Test successful, validation, permission-denied, API-error, and redaction paths for each
+ *   risk-bearing tool.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/tools/domains/run-tools.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

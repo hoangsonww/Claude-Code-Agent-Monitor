@@ -7,6 +7,155 @@
  *   (`useTabbyBrain`) wires this to the event bus and to real timers.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/components/Tabby/brain.ts
+ * **Area:** client Tabby component
+ * **Responsibility:**
+ * Pure, framework-free core of the Tabby companion. Reduces the dashboard's live WebSocket stream
+ * into a small mood model and derives the current cat mood from that model plus the wall clock.
+ * Kept side-effect free so it can be unit-tested without React, timers, or the DOM. The React hook
+ * (`useTabbyBrain`) wires this to the event bus and to real timers.
+ *
+ * ## Architectural boundary
+ * - Provides the optional Tabby companion layer without becoming a dependency of core monitoring
+ *   workflows.
+ * - Intent recognition, state transitions, positioning, and rendering remain separable so
+ *   decoration cannot block data views.
+ * - Reduced-motion, hidden, and disabled states are first-class outcomes rather than exceptional
+ *   branches.
+ *
+ * ## Local dependency edges
+ * - `../../lib/types` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Public surface
+ * - `clearErrors` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `deriveMood` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `FAILURE_EVENT_TYPES` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `HAPPY_MS` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `initialTabbyState` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `Mood` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `reduceTabby` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `seedSessions` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SLEEP_MS` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `statusOf` (function) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `STUCK_MS` (variable) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `TabbyPulse` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `TabbyState` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `TabbyStatus` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `WORRIED_MS` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `clearErrors` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `deriveMood` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `FAILURE_EVENT_TYPES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `HAPPY_MS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `initialTabbyState` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `Mood` (type) — top-level declaration that helps orient code review and focused test selection.
+ * - `reduceTabby` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `seedSessions` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SLEEP_MS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `statusOf` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `STUCK_MS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabbyPulse` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabbyState` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TabbyStatus` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `WORRIED_MS` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Keep companion reactions deterministic for a given event/state input when tests assert a
+ *   specific response.
+ * - Bound timers, animation frames, listeners, and persisted position state; clean them up on
+ *   unmount.
+ * - Respect reduced-motion preferences and never require animation to communicate dashboard status.
+ * - Keep the companion out of keyboard focus order unless an element performs an actual interactive
+ *   action.
+ * - Constrain dragging and restored coordinates to the current viewport after resizes or display
+ *   changes.
+ * - Avoid coupling core API requests or monitoring state transitions to companion visibility.
+ * - Keep quips and intent vocabulary aligned with the localization decision already established by
+ *   the module.
+ * - Do not let decorative overlays cover destructive confirmations, navigation, or primary session
+ *   controls.
+ * - Prefer explicit state-machine transitions over intersecting booleans that allow impossible
+ *   poses.
+ * - Test cleanup with fake timers where time drives behavior, then restore timer globals after each
+ *   case.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/components/Tabby/brain.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

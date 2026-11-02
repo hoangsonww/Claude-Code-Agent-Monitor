@@ -3,6 +3,133 @@
  * @description Core functions for registering tools in the MCP server. This module defines the ToolRegistrar type, which is a function that can be used to register a tool with a name, description, input schema, and handler function. It also provides factory functions to create different types of registrars: one that registers tools directly with the MCP server and collects entries for REPL mode, and another that only collects entries without registering with the MCP server (for pure REPL mode). The registrars handle error logging and result formatting to ensure consistent behavior across different tool implementations.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/src/core/tool-registry.ts
+ * **Area:** MCP server
+ * **Responsibility:**
+ * Core functions for registering tools in the MCP server. This module defines the ToolRegistrar
+ * type, which is a function that can be used to register a tool with a name, description, input
+ * schema, and handler function. It also provides factory functions to create different types of
+ * registrars: one that registers tools directly with the MCP server and collects entries for REPL
+ * mode, and another that only collects entries without registering with the MCP server (for pure
+ * REPL mode). The registrars handle error logging and result formatting to ensure consistent
+ * behavior across different tool implementations.
+ *
+ * ## Architectural boundary
+ * - Composes MCP configuration, API access, logging, registry, lifecycle, and transport-independent
+ *   server behavior.
+ * - Domain modules own individual tools; this layer owns consistent registration and process-level
+ *   coordination.
+ * - Host disappearance and signals must converge on bounded, idempotent cleanup.
+ *
+ * ## Local dependency edges
+ * - `./logger.js` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./tool-result.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `@modelcontextprotocol/sdk/server/mcp.js` — external package boundary; keep usage within the
+ *   installed version and the repository's existing adapter patterns.
+ * - `zod` — external package boundary; keep usage within the installed version and the repository's
+ *   existing adapter patterns.
+ *
+ * ## Public surface
+ * - `createCollectorRegistrar` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `createDualRegistrar` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `createToolRegistrar` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `registrarFor` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolEntry` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ToolHandler` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `ToolRegistrar` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `createCollectorRegistrar` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `createDualRegistrar` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `createToolRegistrar` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `GenericInput` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `registrarFor` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ToolEntry` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ToolHandler` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ToolRegistrar` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Keep server metadata and advertised capabilities synchronized with the actual registered
+ *   implementation.
+ * - Do not let one tool-registration failure leave a partially initialized server accepting
+ *   requests.
+ * - Preserve transport neutrality for tool behavior and result formatting.
+ * - Route logs away from protocol stdout and redact secret-bearing fields.
+ * - Make startup failures explicit and nonzero while allowing graceful close to finish in-flight
+ *   cleanup.
+ * - Keep orphan detection bounded and compare against the correct startup parent semantics.
+ * - Avoid module-evaluation side effects that complicate tests or create resources before
+ *   configuration validates.
+ * - Keep tool collection deterministic so schemas and help output do not reorder between runs.
+ * - Treat unhandled rejection and exception paths as process health failures without double-running
+ *   shutdown.
+ * - Test server construction independently from real network transports where the SDK permits it.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/src/core/tool-registry.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

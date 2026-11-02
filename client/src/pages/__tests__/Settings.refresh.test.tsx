@@ -4,6 +4,200 @@
  * WebSocket messages, including recovery and responses from an unmounted page.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/pages/__tests__/Settings.refresh.test.tsx
+ * **Area:** client test
+ * **Responsibility:**
+ * Exercises Settings against slow system-info requests and bursts of real WebSocket messages,
+ * including recovery and responses from an unmounted page.
+ *
+ * ## Architectural boundary
+ * - Protects an observable client contract using Vitest and, for UI, Testing Library semantics.
+ * - The test should fail for a meaningful production regression, not for harmless implementation
+ *   rearrangement.
+ * - Mocks isolate unavailable boundaries; they should not replace the behavior that the test claims
+ *   to prove.
+ *
+ * ## Local dependency edges
+ * - `../../lib/api` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `../../lib/dataScope` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../../lib/eventBus` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../Settings` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `@testing-library/react` — external package boundary; keep usage within the installed version
+ *   and the repository's existing adapter patterns.
+ * - `react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `react-router` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `vitest` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Top-level implementation landmarks
+ * - `burst` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `deferred` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `Deferred` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `deferredValue` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `fixture` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `mount` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PricingList` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `pricingRule` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `raceScopes` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `remoteCompletion` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## React and framework hooks
+ * - `useFakeTimers` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ * - `useRealTimers` — lifecycle/state dependency detected in this module; preserve dependency
+ *   freshness and cleanup semantics.
+ *
+ * ## Literal API paths
+ * - `/api/settings/export` — route literal present in this source; keep request/response
+ *   expectations aligned with the server and API docs.
+ *
+ * ## Named test contracts
+ * - `an old scope cannot overwrite the latest exact cost` — executable behavior named by this
+ *   suite; preserve the observable contract or update the test with rationale.
+ * - `cancels a scheduled full remote refresh when the page unmounts` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `clears the system-info failure once a background read succeeds` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `coalesces remote completions into one fresh read after a slow initial request` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `does not discard a successful cost result when system-info reading fails` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `does not let an old response overwrite the next page instance` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `does not let an older scope's late pricing replace the newest scope` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `does not report a post-save info refresh failure as a Codex home save failure` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `does not serialize remote refreshes behind a slow cost read` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `does not show an older scope's late failure` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `drops a queued remote refresh when unmounted before the pending read settles` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `gets fresh info after a storage change even if an older request is pending` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `ignores the first effect generation's response in StrictMode` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `keeps a sustained hook stream on the periodic refresh cadence` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `keeps pricing and home paths when exact cost fails` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `keeps pricing and home paths when system info fails and shows the failure` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `loads each endpoint once for the three notifications of one remote sync` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `refreshes after cleanup rather than reusing the pre-mutation counts` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `refreshes exact cost after Cursor save and GPT delete` — executable behavior named by this
+ *   suite; preserve the observable contract or update the test with rationale.
+ * - `refreshes hook status after a Claude home save` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `renders pricing and home paths while exact cost remains pending` — executable behavior named
+ *   by this suite; preserve the observable contract or update the test with rationale.
+ * - `renders primary page data while system info remains pending` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `retains the last valid system info when a later full refresh fails` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `retries after a failed request instead of retaining its rejected promise` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `Settings page load guard` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `Settings system-info failure` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `Settings system-info refresh` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ *
+ * ## Area invariants
+ * - Name the user-visible or contract-level behavior in each test title so failures explain the
+ *   regression.
+ * - Query rendered UI by role, accessible name, or meaningful text before reaching for
+ *   implementation selectors.
+ * - Reset mocks, timers, globals, storage, and DOM state so execution order cannot change outcomes.
+ * - Await asynchronous rendering and user interactions instead of relying on arbitrary sleeps.
+ * - Keep fixtures minimal but structurally realistic, including provider and source fields used by
+ *   production branches.
+ * - Assert important negative behavior when duplicate events, stale responses, or absent data are
+ *   the known risk.
+ * - Avoid snapshots for volatile values unless serializers normalize them and review remains
+ *   readable.
+ * - Exercise keyboard and accessibility behavior for controls whose semantics matter beyond visual
+ *   output.
+ * - Do not assert internal hook state when the same contract can be observed through rendered
+ *   output or callbacks.
+ * - When fixing a regression, prove the test fails on the broken implementation before accepting
+ *   the fix.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/pages/__tests__/Settings.refresh.test.tsx`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";

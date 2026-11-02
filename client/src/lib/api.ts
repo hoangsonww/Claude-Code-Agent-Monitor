@@ -61,6 +61,409 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/lib/api.ts
+ * **Area:** client library
+ * **Responsibility:**
+ * Defines a set of functions for interacting with the backend API of the agent dashboard
+ * application. It includes methods for fetching statistics, managing sessions and agents,
+ * retrieving analytics data, handling settings, and managing model pricing. The module abstracts
+ * away the details of making HTTP requests and provides a clean interface for the rest of the
+ * application to use when communicating with the server. ## What this module is `api.ts` is the
+ * single, centralized REST client for the React dashboard. Every page/hook that needs data from the
+ * Express backend (`server/`) goes through the {@link api} object exported here rather than calling
+ * `fetch` directly. Keeping all HTTP access in one place gives the app a single choke point for
+ * authentication, base-path handling, JSON (de)serialization, and error normalization, and it keeps
+ * the network surface visible and greppable in one file. ## Layering / where this sits The
+ * end-to-end data flow of the product is: Claude Code hooks -> Express API (`server/`) -> SQLite ->
+ * WebSocket broadcast -> React UI. This file covers exactly one hop of that flow: the
+ * request/response REST calls the browser makes to the Express API. It is deliberately *not*
+ * responsible for real-time updates. Live pushes (new events, status transitions, run output,
+ * import progress, etc.) arrive out-of-band over the WebSocket connection and are handled by the
+ * `eventBus` / `useWebSocket` layer. A typical page therefore does an initial REST `list` /`get`
+ * through this module to hydrate, then listens on the socket for incremental changes. The two
+ * mechanisms are complementary; neither replaces the other. ## Conventions shared by (almost) every
+ * call - **Base path.** All paths passed to {@link request} are relative to {@link BASE} ("/api").
+ * The Vite dev server proxies "/api" to the Express port in development, and in production the same
+ * origin serves both the built client and the API, so a relative base works in both modes. -
+ * **Auth.** When the operator has locked the server down with a `DASHBOARD_TOKEN` , the token is
+ * attached to every request as the `x-dashboard-token` header. In the default zero-config loopback
+ * setup there is no token and the header is omitted. See {@link dashboardToken}. - **JSON in/out.**
+ * Requests default to `Content-Type: application/json` ; bodies are hand-serialized with
+ * `JSON.stringify` at each call site (so the caller controls the exact shape) and responses are
+ * parsed with `res.json()` and returned as the method's generic `T` . - **Errors.** Non-2xx
+ * responses are converted into a thrown `Error` by {@link request}; the message is the server's
+ * structured `error.message` when present, otherwise `HTTP <status>` . Callers get a rejected
+ * promise they can surface in a toast / error boundary; they never see the raw `Response` . -
+ * **Pagination.** List endpoints accept `limit` /`offset` and echo them back alongside a `total` .
+ * Transcript reading is the exception: it paginates by JSONL line number (`after`/`before`) because
+ * the underlying file grows live and numeric offsets would drift (see {@link
+ * api.sessions.transcript}). - **Timezone bucketing.** Endpoints that group data by day (`stats`,
+ * `analytics` , `pricing.cost` ) send the browser's `getTimezoneOffset()` as `tz_offset` so "today"
+ * and per-day rollups line up with the *viewer's* local midnight instead of the server's clock/UTC.
+ * - **Query-string building.** Optional filters are assembled with `URLSearchParams` and only
+ * appended when at least one value is present, so a filter-less call hits a clean, cache-friendly
+ * URL. ## Two deliberate escapes from {@link request} A couple of operations cannot use the shared
+ * JSON wrapper and open-code their own `fetch` : 1. {@link api.import.upload} sends
+ * `multipart/form-data` (a `FormData` body), which must *not* carry the JSON `Content-Type` header,
+ * so it calls `fetch` directly. 2. {@link api.settings.exportData} returns a *URL string* rather
+ * than performing a fetch, because the DB export is consumed as an `<a href download>` navigation,
+ * not an XHR. ## Shape of the exports The bulk of the module is the {@link api} object: a nested,
+ * resource-grouped map of endpoint functions whose grouping mirrors the `server/routes/*.js` file
+ * layout (sessions, agents, events, analytics, settings, workflows, pricing, import, cc-config,
+ * run, alerts, webhooks). The remainder of the file is the set of exported TypeScript `interface`
+ * /`type` declarations describing the request bodies and response payloads that are *specific to
+ * this client* (many response DTOs are imported from `./types` ; the ones declared here are the
+ * client-only ones, e.g. the CC-config explorer shapes, the Run-page process handles, and the
+ * import-result shape).
+ *
+ * ## Architectural boundary
+ * - Provides shared typed behavior or wire contracts consumed by multiple client screens and
+ *   components.
+ * - Keep functions deterministic and side effects explicit; central helpers amplify both correct
+ *   behavior and regressions.
+ * - Types mirroring server payloads must stay aligned with serializers, OpenAPI descriptions, and
+ *   WebSocket messages.
+ *
+ * ## Local dependency edges
+ * - `./dataScope` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ * - `./types` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Public surface
+ * - `api` (variable) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `CcArtifactType` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcBackup` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `CcDeleteArgs` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcFileResponse` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcHookEntry` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcHookScripts` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcHookSource` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcKeybindingGroup` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcKeybindings` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcMarketplace` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcMarketplacesResponse` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CcMcpResponse` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcMcpServer` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcMdItem` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `CcMemoryItem` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcMutationResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcOverview` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcPlugin` (interface) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `CcPluginContributions` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CcPluginsResponse` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcScope` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `CcSettingsSource` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcStatusline` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CcStatuslineScript` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CcWriteArgs` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CodexApprovalPolicy` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CodexConfigCreateProfileArgs` (interface) — exported contract; search downstream imports and
+ *   tests before changing its name, shape, or timing.
+ * - `CodexConfigDeleteArgs` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexConfigDeleteResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexConfigEditableFile` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexConfigFile` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `CodexConfigOverview` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexConfigWriteArgs` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexConfigWriteResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CodexSandbox` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `CwdSuggestion` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `DashboardRunHistoryItem` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `dashboardToken` (function) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `EffortChoice` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `EffortLevel` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `ImportBackupResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `ImportResult` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `ModelChoice` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `PermissionMode` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteProvider` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteProviderStatus` (type) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteProviderSyncDetails` (interface) — exported contract; search downstream imports and
+ *   tests before changing its name, shape, or timing.
+ * - `RemoteSource` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteSourceInput` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RemoteSourceSyncResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `RemoteSourceTestResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `RUN_EFFORT_CHOICES` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunHandle` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunListResponse` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunMode` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `RunModelsResponse` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunProvider` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `RunStartArgs` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `RunStatus` (type) — exported contract; search downstream imports and tests before changing its
+ *   name, shape, or timing.
+ * - `SnapshotPruneCandidate` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SnapshotPruneResult` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SnapshotRootSummary` (interface) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `SnapshotStorage` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `api` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `applyScope` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BASE` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcArtifactType` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcBackup` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcDeleteArgs` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcFileResponse` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcHookEntry` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcHookScripts` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcHookSource` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcKeybindingGroup` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcKeybindings` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcMarketplace` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcMarketplacesResponse` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcMcpResponse` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcMcpServer` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcMdItem` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcMemoryItem` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcMutationResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcOverview` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcPlugin` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcPluginContributions` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcPluginsResponse` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcScope` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CcSettingsSource` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcStatusline` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CcStatuslineScript` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CcWriteArgs` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexApprovalPolicy` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexConfigCreateProfileArgs` (interface) — top-level declaration that helps orient code
+ *   review and focused test selection.
+ * - `CodexConfigDeleteArgs` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexConfigDeleteResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexConfigEditableFile` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexConfigFile` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `CodexConfigOverview` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexConfigWriteArgs` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexConfigWriteResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CodexSandbox` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `CwdSuggestion` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `DashboardRunHistoryItem` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `dashboardToken` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `EffortChoice` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `EffortLevel` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ImportBackupResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `ImportResult` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `ModelChoice` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PermissionMode` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RemoteProvider` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RemoteProviderStatus` (type) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RemoteProviderSyncDetails` (interface) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `RemoteSource` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RemoteSourceInput` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RemoteSourceSyncResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RemoteSourceTestResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `request` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `requestBackupsHelper` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RUN_EFFORT_CHOICES` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RunHandle` (interface) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunListResponse` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RunMode` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunModelsResponse` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `RunProvider` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `RunStartArgs` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `RunStatus` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SnapshotPruneCandidate` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SnapshotPruneResult` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SnapshotRootSummary` (interface) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SnapshotStorage` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Area invariants
+ * - Preserve null, undefined, zero, and empty distinctions when they carry different server or
+ *   presentation meaning.
+ * - Do not mutate caller-owned collections in formatters, mergers, grouping helpers, or selectors.
+ * - Keep stable sorting and tie-breakers explicit so live updates do not reorder equal records
+ *   unpredictably.
+ * - Use exhaustive checks for discriminated unions when new providers, messages, or statuses can be
+ *   added.
+ * - Keep URL construction encoded and route through shared auth/source-scope behavior.
+ * - Return errors with enough context for the UI to explain the failed action without leaking
+ *   secrets.
+ * - Avoid browser globals at module evaluation time unless the module is deliberately browser-only
+ *   and tested as such.
+ * - Keep formatting locale-aware where the chosen UI language, not the browser default, owns the
+ *   output.
+ * - Document non-obvious thresholds, unit conversions, and compatibility fallbacks beside their
+ *   definitions.
+ * - Add table-driven tests for boundary values because library helpers often serve many visually
+ *   unrelated screens.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/lib/api.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================

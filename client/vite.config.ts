@@ -3,6 +3,100 @@
  * @description Vite build and dev-server configuration for the dashboard client — React plugin, an API/WebSocket proxy that honours DASHBOARD_PORT, and build-time injection of the project version as `__APP_VERSION__`.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/vite.config.ts
+ * **Area:** client build or application entry
+ * **Responsibility:**
+ * Vite build and dev-server configuration for the dashboard client — React plugin, an API/WebSocket
+ * proxy that honours DASHBOARD_PORT, and build-time injection of the project version as
+ * `__APP_VERSION__` .
+ *
+ * ## Architectural boundary
+ * - Owns a focused TypeScript responsibility within the repository and should remain loadable only
+ *   by its intended consumers.
+ * - Public exports are compatibility surfaces; internal declarations may change only while their
+ *   observable behavior remains stable.
+ * - Cross-package dependencies should point through established contracts rather than reaching into
+ *   build output or private state.
+ *
+ * ## Package dependency edges
+ * - `@vitejs/plugin-react` — external package boundary; keep usage within the installed version and
+ *   the repository's existing adapter patterns.
+ * - `node:fs` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `node:path` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ * - `vite` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `default` (default export) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `APP_VERSION` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `DASHBOARD_PORT` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `resolveAppVersion` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## Area invariants
+ * - Keep types narrower than the untrusted values they validate and avoid assertions that merely
+ *   silence the compiler.
+ * - Preserve deterministic output, ordering, and error behavior for identical inputs.
+ * - Do not create module-evaluation side effects unless startup ownership is the module's explicit
+ *   purpose.
+ * - Use explicit units for time, bytes, tokens, money, and percentages.
+ * - Keep nullable and optional fields distinct where absence carries meaning.
+ * - Avoid hidden mutation of arguments and imported singleton state.
+ * - Keep asynchronous work cancellable or safely ignorable after its consumer is gone.
+ * - Return actionable errors without leaking secrets or unrelated implementation details.
+ * - Document compatibility fallbacks beside the branch that implements them.
+ * - Add focused tests for new boundary and failure cases.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/vite.config.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

@@ -4,6 +4,156 @@
  * compares significant TypeScript tokens for comment-only verification.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** scripts/lib/typescript-source-docs.ts
+ * **Area:** maintenance script
+ * **Responsibility:**
+ * Parses first-party TypeScript modules into stable documentation facts, renders generated
+ * maintainer references, safely upserts those comments, and compares significant TypeScript tokens
+ * for comment-only verification.
+ *
+ * ## Architectural boundary
+ * - Provides an explicit maintainer operation and is never imported into application runtime paths.
+ * - Safe inspection is the default; writes, deletions, publication, or other mutations require
+ *   unmistakable flags.
+ * - Output and exit status form the script's automation contract even when humans usually run it
+ *   interactively.
+ *
+ * ## Top-level implementation landmarks
+ * - `analyzeSource` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `appendSection` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `AREA_GUIDES` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AreaGuide` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `AUTHOR` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `BEGIN_MARKER` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `classifyArea` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `compareSignificantTokens` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `compilerCache` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `countOccurrences` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `declarationKind` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `declarationNames` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `END_MARKER` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `extractHeaderTag` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `FALLBACK_GUIDE` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `findGeneratedReference` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `insertReferenceAfterHeader` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `isExported` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `loadTypeScriptCompiler` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `NamedFact` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `path` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `renderMaintainerReference` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `REPO_ROOT` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `SHARED_REVIEW` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `significantTokens` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `sortedNamed` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `sortedUnique` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SourceFacts` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TokenDifference` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `TokenRecord` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `upsertMaintainerReference` (function) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `wrappedCommentLines` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ *
+ * ## Literal API paths
+ * - `/api/` — route literal present in this source; keep request/response expectations aligned with
+ *   the server and API docs.
+ *
+ * ## Area invariants
+ * - Resolve the repository root from the script location instead of assuming the caller's current
+ *   directory.
+ * - Accept normalized repository-relative paths and reject traversal outside the checkout.
+ * - Keep output deterministic so CI logs and repeated maintenance runs are reviewable.
+ * - Use nonzero exits for invalid input, stale generated state, partial failure, and unmet safety
+ *   checks.
+ * - Print actionable remediation without dumping secrets, full environment objects, or unrelated
+ *   file content.
+ * - Do not mutate by default; require an explicit write/apply/confirm option appropriate to the
+ *   risk.
+ * - Write atomically or use content-preserving replacement when interruption could damage a source
+ *   file.
+ * - Support paths containing spaces and platform separators; avoid shell-dependent parsing
+ *   assumptions.
+ * - Keep repeated execution idempotent and report changed versus unchanged work accurately.
+ * - Test argument parsing and pure transformations before relying on end-to-end filesystem smoke
+ *   tests.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `node --test scripts/__tests__/typescript-source-docs.test.ts` and resolve failures before
+ *   widening the verification scope.
+ * - Run `bash .claude/skills/file-headers/scripts/check-headers.sh` and resolve failures before
+ *   widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check scripts/lib/typescript-source-docs.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
 
 const path = require("node:path");
 const { createRequire } = require("node:module");
@@ -52,7 +202,6 @@ type AreaGuide = {
 
 let compilerCache: any;
 
-/** Load the compiler from an existing workspace dependency without adding one at the root. */
 function loadTypeScriptCompiler(): any {
   if (compilerCache) return compilerCache;
 
@@ -854,9 +1003,49 @@ function countOccurrences(source: string, needle: string): number {
   return count;
 }
 
+/** Locate one complete generated block comment while ignoring marker text in strings/code. */
+function findGeneratedReference(source: string): { start: number; end: number } | null {
+  const ts = loadTypeScriptCompiler();
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    false,
+    ts.LanguageVariant.Standard,
+    source
+  );
+  const matches: Array<{ start: number; end: number }> = [];
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
+    if (
+      kind !== ts.SyntaxKind.MultiLineCommentTrivia &&
+      kind !== ts.SyntaxKind.SingleLineCommentTrivia
+    ) {
+      continue;
+    }
+    const comment = scanner.getTokenText();
+    const begins = countOccurrences(comment, BEGIN_MARKER);
+    const ends = countOccurrences(comment, END_MARKER);
+    if (begins === 0 && ends === 0) continue;
+    if (begins !== 1 || ends !== 1 || comment.indexOf(BEGIN_MARKER) > comment.indexOf(END_MARKER)) {
+      throw new Error("Source contains malformed generated reference markers.");
+    }
+    matches.push({ start: scanner.getTokenPos(), end: scanner.getTextPos() });
+  }
+  if (matches.length > 1) throw new Error("Source contains duplicate generated references.");
+  return matches[0] ?? null;
+}
+
+/** Normalize a generated reference to immediately follow the required file header. */
+function insertReferenceAfterHeader(source: string, header: string, block: string): string {
+  const remainder = source
+    .slice(header.length)
+    .replace(/^(?:[ \t]*\r?\n)+/, "")
+    .replace(/^\s+$/, "");
+  return remainder ? `${header}\n${block.trim()}\n\n${remainder}` : `${header}\n${block.trim()}\n`;
+}
+
 /** Insert or replace exactly one generated reference without touching executable text. */
 function upsertMaintainerReference(source: string, block: string): string {
-  if (countOccurrences(source, AUTHOR) !== 1) {
+  const header = source.match(/^\uFEFF?\s*\/\*\*[\s\S]*?\*\//)?.[0];
+  if (!header || countOccurrences(header, AUTHOR) !== 1) {
     throw new Error(
       "Source must contain exactly one author line before a reference can be maintained."
     );
@@ -865,32 +1054,18 @@ function upsertMaintainerReference(source: string, block: string): string {
     throw new Error("Generated reference block must contain exactly one begin and end marker.");
   }
 
-  const beginCount = countOccurrences(source, BEGIN_MARKER);
-  const endCount = countOccurrences(source, END_MARKER);
-  if (beginCount !== endCount || beginCount > 1) {
-    throw new Error("Source contains malformed or duplicate generated reference markers.");
-  }
-
   const normalizedBlock = block.trim();
-  if (beginCount === 1) {
-    const begin = source.indexOf(BEGIN_MARKER);
-    const blockStart = source.lastIndexOf("/*", begin);
-    const markerEnd = source.indexOf(END_MARKER, begin) + END_MARKER.length;
-    const blockEndMarker = source.indexOf("*/", markerEnd);
-    if (blockStart < 0 || blockEndMarker < 0) {
-      throw new Error("Source contains generated markers outside a complete block comment.");
-    }
-    const suffix = source.slice(blockEndMarker + 2).replace(/^\s*\n/, "\n");
-    return `${source.slice(0, blockStart)}${normalizedBlock}${suffix}`;
+  const existing = findGeneratedReference(source);
+  if (existing) {
+    const before = source.slice(0, existing.start).replace(/[ \t]+$/, "");
+    const after = source.slice(existing.end).replace(/^(?:[ \t]*\r?\n)+/, "\n");
+    const withoutReference = before + after;
+    const cleanHeader = withoutReference.match(/^\uFEFF?\s*\/\*\*[\s\S]*?\*\//)?.[0];
+    if (!cleanHeader) throw new Error("Source lost its required file header during replacement.");
+    return insertReferenceAfterHeader(withoutReference, cleanHeader, normalizedBlock);
   }
 
-  const header = source.match(/^\uFEFF?\s*\/\*\*[\s\S]*?\*\//)?.[0];
-  if (!header || !header.includes(AUTHOR)) {
-    throw new Error("A compliant file-header comment containing the author line is required.");
-  }
-  const headerEnd = header.length;
-  const suffix = source.slice(headerEnd).replace(/^\s*\n/, "\n");
-  return `${source.slice(0, headerEnd)}\n${normalizedBlock}${suffix}`;
+  return insertReferenceAfterHeader(source, header, normalizedBlock);
 }
 
 /** Scan significant tokens, deliberately excluding whitespace and all comments. */

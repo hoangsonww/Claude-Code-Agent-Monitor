@@ -4,6 +4,112 @@
  * comments/trivia while reporting intentional additions separately.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** scripts/verify-typescript-comment-only.ts
+ * **Area:** maintenance script
+ * **Responsibility:**
+ * Compares changed TypeScript modules with a Git base revision using the real TypeScript scanner,
+ * proving whether existing-file edits changed only comments/trivia while reporting intentional
+ * additions separately.
+ *
+ * ## Architectural boundary
+ * - Provides an explicit maintainer operation and is never imported into application runtime paths.
+ * - Safe inspection is the default; writes, deletions, publication, or other mutations require
+ *   unmistakable flags.
+ * - Output and exit status form the script's automation contract even when humans usually run it
+ *   interactively.
+ *
+ * ## Top-level implementation landmarks
+ * - `Arguments` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `ChangedEntry` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `describeToken` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `fs` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `git` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `HELP` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `main` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `parseArguments` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `parseNameStatusZ` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `path` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `readFromRevision` (function) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `run` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Area invariants
+ * - Resolve the repository root from the script location instead of assuming the caller's current
+ *   directory.
+ * - Accept normalized repository-relative paths and reject traversal outside the checkout.
+ * - Keep output deterministic so CI logs and repeated maintenance runs are reviewable.
+ * - Use nonzero exits for invalid input, stale generated state, partial failure, and unmet safety
+ *   checks.
+ * - Print actionable remediation without dumping secrets, full environment objects, or unrelated
+ *   file content.
+ * - Do not mutate by default; require an explicit write/apply/confirm option appropriate to the
+ *   risk.
+ * - Write atomically or use content-preserving replacement when interruption could damage a source
+ *   file.
+ * - Support paths containing spaces and platform separators; avoid shell-dependent parsing
+ *   assumptions.
+ * - Keep repeated execution idempotent and report changed versus unchanged work accurately.
+ * - Test argument parsing and pure transformations before relying on end-to-end filesystem smoke
+ *   tests.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `node --test scripts/__tests__/typescript-source-docs.test.ts` and resolve failures before
+ *   widening the verification scope.
+ * - Run `bash .claude/skills/file-headers/scripts/check-headers.sh` and resolve failures before
+ *   widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check scripts/verify-typescript-comment-only.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
 
 const fs = require("node:fs");
 const path = require("node:path");

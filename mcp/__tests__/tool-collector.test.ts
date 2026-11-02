@@ -3,6 +3,136 @@
  * @description Unit tests for the tool-collector module, which is responsible for collecting and registering all tools available in the application. The tests cover the presence of expected tools, their properties, uniqueness of tool names, adherence to naming conventions, inclusion of tools from all domains, and proper handling of mutation and destructive tools based on configuration. The tests use Node's built-in test runner and assert module for assertions.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** mcp/__tests__/tool-collector.test.ts
+ * **Area:** MCP test
+ * **Responsibility:**
+ * Unit tests for the tool-collector module, which is responsible for collecting and registering all
+ * tools available in the application. The tests cover the presence of expected tools, their
+ * properties, uniqueness of tool names, adherence to naming conventions, inclusion of tools from
+ * all domains, and proper handling of mutation and destructive tools based on configuration. The
+ * tests use Node's built-in test runner and assert module for assertions.
+ *
+ * ## Architectural boundary
+ * - Protects MCP schema, policy, API-client, formatting, lifecycle, or transport behavior using
+ *   Node's test runner.
+ * - Tests should exercise public contracts with realistic SDK and HTTP boundaries while keeping
+ *   external state local.
+ * - Fixtures must not contain usable credentials or depend on the operator's real dashboard
+ *   configuration.
+ *
+ * ## Local dependency edges
+ * - `../src/clients/dashboard-api-client.js` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ * - `../src/config/app-config.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../src/core/logger.js` — repository-local contract consumed by this module; review its exports
+ *   before changing assumptions here.
+ * - `../src/transports/repl.js` — repository-local contract consumed by this module; review its
+ *   exports before changing assumptions here.
+ * - `../src/transports/tool-collector.js` — repository-local contract consumed by this module;
+ *   review its exports before changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `node:assert/strict` — external package boundary; keep usage within the installed version and
+ *   the repository's existing adapter patterns.
+ * - `node:test` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Top-level implementation landmarks
+ * - `fakeConfig` (function) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Named test contracts
+ * - `classifies every collected tool into a known REPL domain` — executable behavior named by this
+ *   suite; preserve the observable contract or update the test with rationale.
+ * - `cleanup tool requires at least one parameter` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `collectAllTools` — executable behavior named by this suite; preserve the observable contract
+ *   or update the test with rationale.
+ * - `destructive tool throws on wrong token` — executable behavior named by this suite; preserve
+ *   the observable contract or update the test with rationale.
+ * - `destructive tool throws when destructive disabled` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `every tool has name, description, and handler` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `includes tools from all domains` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `mutation tools throw when mutations disabled` — executable behavior named by this suite;
+ *   preserve the observable contract or update the test with rationale.
+ * - `registers all expected tools` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ * - `snapshot prune accepts a byte count or a size string for max_bytes` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `snapshot prune requires criteria and gates applying as destructive` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `tool names are unique` — executable behavior named by this suite; preserve the observable
+ *   contract or update the test with rationale.
+ * - `tool names follow naming convention` — executable behavior named by this suite; preserve the
+ *   observable contract or update the test with rationale.
+ *
+ * ## Area invariants
+ * - Name the exact protocol or policy contract in each test so a failure identifies the broken
+ *   boundary.
+ * - Use ephemeral ports, temporary directories, and isolated environment values for concurrent-safe
+ *   execution.
+ * - Restore process globals, environment variables, clocks, fetch stubs, and listeners after every
+ *   case.
+ * - Assert structured results and error shapes rather than only checking that a call throws.
+ * - Cover redaction and permission denial for every secret-bearing or state-changing path.
+ * - Avoid snapshotting unstable SDK internals when a focused schema or result assertion is clearer.
+ * - Test cleanup and idempotence because abandoned transports and timers can keep the process
+ *   alive.
+ * - Keep test doubles behaviorally faithful to the API client methods used by the subject.
+ * - Exercise malformed and boundary inputs at schema and direct-function layers where each owns
+ *   distinct validation.
+ * - Prove regression tests fail against the broken behavior before accepting a fix.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run test:mcp` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:typecheck` and resolve failures before widening the verification scope.
+ * - Run `npm run mcp:build` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check mcp/__tests__/tool-collector.test.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * TEST_CONTRACT_GUIDE — executable-specification map (documentation only)
  * =============================================================================

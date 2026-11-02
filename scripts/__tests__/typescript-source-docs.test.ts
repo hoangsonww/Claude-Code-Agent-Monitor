@@ -3,6 +3,123 @@
  * and significant-token comparator used by the opt-in documentation scripts.
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** scripts/__tests__/typescript-source-docs.test.ts
+ * **Area:** maintenance script test
+ * **Responsibility:**
+ * Tests the TypeScript maintainer-reference parser, renderer, updater, and significant-token
+ * comparator used by the opt-in documentation scripts.
+ *
+ * ## Architectural boundary
+ * - Protects repository-maintenance tooling with deterministic fixtures and no dependence on
+ *   operator data.
+ * - Pure parsing, rendering, selection, and comparison contracts are preferred over broad
+ *   subprocess snapshots.
+ * - A failing case should identify the unsafe or stale behavior that a maintainer would otherwise
+ *   encounter.
+ *
+ * ## Top-level implementation landmarks
+ * - `assert` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `fixture` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `test` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ *
+ * ## Literal API paths
+ * - `/api/health` — route literal present in this source; keep request/response expectations
+ *   aligned with the server and API docs.
+ * - `/api/sessions/facets` — route literal present in this source; keep request/response
+ *   expectations aligned with the server and API docs.
+ *
+ * ## Named test contracts
+ * - `analyzeSource extracts module facts from the TypeScript AST` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `comment-only verifier parses base refs and NUL-delimited Git status` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `compareSignificantTokens accepts comments and whitespace only` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `compareSignificantTokens rejects executable TypeScript and JSX changes` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `maintainer CLI arguments default to check and require explicit writes` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `renderMaintainerReference escapes block-comment terminators` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ * - `renderMaintainerReference renders module-specific sections deterministically` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `upsertMaintainerReference allows the author literal outside the file header` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `upsertMaintainerReference ignores marker literals in executable code` — executable behavior
+ *   named by this suite; preserve the observable contract or update the test with rationale.
+ * - `upsertMaintainerReference inserts after the compliant file header` — executable behavior named
+ *   by this suite; preserve the observable contract or update the test with rationale.
+ * - `upsertMaintainerReference rejects missing authorship and malformed markers` — executable
+ *   behavior named by this suite; preserve the observable contract or update the test with
+ *   rationale.
+ * - `upsertMaintainerReference replaces one existing marked block` — executable behavior named by
+ *   this suite; preserve the observable contract or update the test with rationale.
+ *
+ * ## Area invariants
+ * - Use temporary directories for integration fixtures and clean them even when an assertion fails.
+ * - Assert exit semantics and diagnostics separately from transformed content.
+ * - Exercise paths containing spaces, Windows separators, empty selections, and malformed
+ *   arguments.
+ * - Prove mutation modes are explicit while check/dry-run modes leave bytes unchanged.
+ * - Keep fixtures small enough that expected generated text remains reviewable.
+ * - Test idempotence by applying the same operation twice and comparing exact bytes.
+ * - Test hostile comment text and paths so generated source cannot escape its documentation block.
+ * - Use real TypeScript scanning for semantic-equivalence claims rather than regular-expression
+ *   stripping.
+ * - Avoid network dependencies; repository facts should be injected or read from local Git state.
+ * - Run the test once in the broken state before implementing each behavior.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `node --test scripts/__tests__/typescript-source-docs.test.ts` and resolve failures before
+ *   widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check scripts/__tests__/typescript-source-docs.test.ts`
+ *   .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -141,6 +258,33 @@ test("upsertMaintainerReference rejects missing authorship and malformed markers
     () => upsertMaintainerReference(fixture.replace(AUTHOR, `${AUTHOR}\n * ${AUTHOR}`), block),
     /exactly one author/i
   );
+});
+
+test("upsertMaintainerReference allows the author literal outside the file header", () => {
+  const block = renderMaintainerReference(
+    analyzeSource("client/src/components/Widget.tsx", fixture)
+  );
+  const source = `${fixture}\nconst requiredAuthor = ${JSON.stringify(AUTHOR)};\n`;
+
+  assert.match(upsertMaintainerReference(source, block), new RegExp(BEGIN_MARKER));
+});
+
+test("upsertMaintainerReference ignores marker literals in executable code", () => {
+  const block = renderMaintainerReference(analyzeSource("scripts/example.ts", fixture));
+  const source = `/**
+ * @file Keeps marker constants available to the generator itself.
+ * ${AUTHOR}
+ */
+const BEGIN = ${JSON.stringify(BEGIN_MARKER)};
+const END = ${JSON.stringify(END_MARKER)};
+export const markers = [BEGIN, END];
+`;
+
+  const updated = upsertMaintainerReference(source, block);
+
+  assert.equal(compareSignificantTokens("scripts/example.ts", source, updated), null);
+  assert.match(updated, /const BEGIN =/);
+  assert.match(updated, /export const markers/);
 });
 
 test("compareSignificantTokens accepts comments and whitespace only", () => {

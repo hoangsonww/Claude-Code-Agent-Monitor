@@ -26,6 +26,158 @@
  *
  * @author Son Nguyen <hoangson091104@gmail.com>
  */
+/*
+ * GENERATED_MAINTAINER_REFERENCE:BEGIN
+ *
+ * AUTO-GENERATED MAINTAINER REFERENCE — DO NOT EDIT THIS BLOCK BY HAND.
+ * It is derived from the current TypeScript AST and repository-area contracts.
+ * Regenerate after structural edits so imports, exports, landmarks, and checks stay current.
+ *
+ * **Module:** client/src/lib/paletteCommands.ts
+ * **Area:** client library
+ * **Responsibility:**
+ * The command-palette catalog: every destination and every action the launcher can reach, built as
+ * plain data from one context object. ## Why the catalog lives outside the component The palette's
+ * job is to be exhaustive — every page, every Settings section, every Agent Config tab, every list
+ * filter, every preference toggle. Keeping that inventory in the component would bury ~150 lines of
+ * rendering under ~250 lines of data, and would make it impossible to assert the inventory in a
+ * test without mounting React. Here it is a pure function: give it a context, get the full command
+ * list, and `paletteCommands.test.ts` can check coverage directly against the app's route table. ##
+ * Labels come from the pages' own namespaces A Settings section is titled by `settings:*` and an
+ * Agent Config tab by `ccConfig:tabs.*` . The catalog reuses those keys rather than restating them
+ * under `nav:palette.*` , so a page renaming a section renames it in the palette too, in all five
+ * locales, with no second edit. ## What is deliberately absent Destructive operations. Purging the
+ * database or deleting a session is one keystroke away from a typo in a launcher, and those flows
+ * exist behind confirmation modals on purpose — the palette navigates to them instead of performing
+ * them.
+ *
+ * ## Architectural boundary
+ * - Provides shared typed behavior or wire contracts consumed by multiple client screens and
+ *   components.
+ * - Keep functions deterministic and side effects explicit; central helpers amplify both correct
+ *   behavior and regressions.
+ * - Types mirroring server payloads must stay aligned with serializers, OpenAPI descriptions, and
+ *   WebSocket messages.
+ *
+ * ## Local dependency edges
+ * - `./dataScope` — repository-local contract consumed by this module; review its exports before
+ *   changing assumptions here.
+ *
+ * ## Package dependency edges
+ * - `lucide-react` — external package boundary; keep usage within the installed version and the
+ *   repository's existing adapter patterns.
+ *
+ * ## Public surface
+ * - `buildPaletteCommands` (function) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CC_CONFIG_TAB_COMMANDS` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `COMMAND_GROUP_ORDER` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `CommandGroup` (type) — exported contract; search downstream imports and tests before changing
+ *   its name, shape, or timing.
+ * - `PAGE_ACTION_COMMANDS` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ * - `PAGE_COMMANDS` (variable) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `PaletteCommand` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `PaletteContext` (interface) — exported contract; search downstream imports and tests before
+ *   changing its name, shape, or timing.
+ * - `SETTINGS_SECTION_COMMANDS` (variable) — exported contract; search downstream imports and tests
+ *   before changing its name, shape, or timing.
+ *
+ * ## Top-level implementation landmarks
+ * - `buildPaletteCommands` (function) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CC_CONFIG_TAB_COMMANDS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `COMMAND_GROUP_ORDER` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `CommandGroup` (type) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `LANGUAGES` (variable) — top-level declaration that helps orient code review and focused test
+ *   selection.
+ * - `PAGE_ACTION_COMMANDS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `PAGE_COMMANDS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PaletteCommand` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PaletteContext` (interface) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `PROVIDER_SCOPES` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ * - `SESSION_FILTER_COMMANDS` (variable) — top-level declaration that helps orient code review and
+ *   focused test selection.
+ * - `SETTINGS_SECTION_COMMANDS` (variable) — top-level declaration that helps orient code review
+ *   and focused test selection.
+ * - `VIEW_COMMANDS` (variable) — top-level declaration that helps orient code review and focused
+ *   test selection.
+ *
+ * ## Literal API paths
+ * - `/api/docs` — route literal present in this source; keep request/response expectations aligned
+ *   with the server and API docs.
+ *
+ * ## Area invariants
+ * - Preserve null, undefined, zero, and empty distinctions when they carry different server or
+ *   presentation meaning.
+ * - Do not mutate caller-owned collections in formatters, mergers, grouping helpers, or selectors.
+ * - Keep stable sorting and tie-breakers explicit so live updates do not reorder equal records
+ *   unpredictably.
+ * - Use exhaustive checks for discriminated unions when new providers, messages, or statuses can be
+ *   added.
+ * - Keep URL construction encoded and route through shared auth/source-scope behavior.
+ * - Return errors with enough context for the UI to explain the failed action without leaking
+ *   secrets.
+ * - Avoid browser globals at module evaluation time unless the module is deliberately browser-only
+ *   and tested as such.
+ * - Keep formatting locale-aware where the chosen UI language, not the browser default, owns the
+ *   output.
+ * - Document non-obvious thresholds, unit conversions, and compatibility fallbacks beside their
+ *   definitions.
+ * - Add table-driven tests for boundary values because library helpers often serve many visually
+ *   unrelated screens.
+ *
+ * ## Change-review checklist
+ * - Read the file header and this generated index before changing code; both describe the intended
+ *   ownership boundary.
+ * - Trace every local import listed here to distinguish data contracts from presentation helpers
+ *   and avoid circular dependencies.
+ * - Search every exported symbol before changing its signature; callers may live in tests, route
+ *   components, desktop code, or MCP wiring.
+ * - Keep observable behavior stable unless the task explicitly requests a behavior change and
+ *   includes regression coverage.
+ * - Prefer the repository's existing helpers and types over parallel abstractions that encode the
+ *   same contract twice.
+ * - Keep failure behavior explicit: recoverable local failures should degrade visibly without
+ *   hiding actionable diagnostics.
+ * - Preserve deterministic ordering for lists, maps, serialized values, snapshots, and generated
+ *   output where this module participates.
+ * - Treat identifiers, API paths, event names, translation keys, and persisted field names as
+ *   compatibility surfaces.
+ * - Update the truthful file overview when the module's responsibility changes; never let the
+ *   header become historical fiction.
+ * - Run the narrowest relevant test first, then the area gate, then the full repository
+ *   verification before merging.
+ *
+ * ## Focused validation
+ * - Run `npm run typecheck:client` and resolve failures before widening the verification scope.
+ * - Run `npm run test:client` and resolve failures before widening the verification scope.
+ * - Run `npm run verify` and resolve failures before widening the verification scope.
+ *
+ * ## Reference maintenance
+ * - Regenerate all tracked references with `node scripts/maintain-typescript-docs.ts --write` .
+ * - Check this module without writing via
+ *   `node scripts/maintain-typescript-docs.ts --check client/src/lib/paletteCommands.ts` .
+ * - Prove existing-file edits are comments/trivia only with
+ *   `node scripts/verify-typescript-comment-only.ts origin/master` .
+ * - Review the regenerated diff: generated structure is evidence, not a substitute for
+ *   understanding runtime behavior.
+ *
+ * GENERATED_MAINTAINER_REFERENCE:END
+ */
+
 /* =============================================================================
  * MODULE_GUIDE — extended in-file reference (comments only; safe to read, never executed)
  * =============================================================================
